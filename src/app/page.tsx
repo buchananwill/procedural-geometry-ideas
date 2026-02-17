@@ -1,66 +1,76 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client";
+
+import dynamic from "next/dynamic";
+import { AppShell, Group, Title, Button, Text, Stack, Paper } from "@mantine/core";
+import { usePolygonStore } from "@/stores/usePolygonStore";
+
+const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
+  ssr: false,
+});
 
 export default function Home() {
+  const vertexCount = usePolygonStore((s) => s.vertices.length);
+  const resetPolygon = usePolygonStore((s) => s.resetPolygon);
+  const selectedVertex = usePolygonStore((s) => s.selectedVertex);
+  const removeVertex = usePolygonStore((s) => s.removeVertex);
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <AppShell header={{ height: 60 }} padding="md">
+      <AppShell.Header>
+        <Group h="100%" px="md">
+          <Title order={3}>Procedural Geometry</Title>
+        </Group>
+      </AppShell.Header>
+
+      <AppShell.Main>
+        <Group align="flex-start" gap="md">
+          <PolygonCanvas />
+
+          <Stack w={240} gap="sm">
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Title order={5}>Controls</Title>
+                <Text size="sm" c="dimmed">
+                  Vertices: {vertexCount}
+                </Text>
+                <Button onClick={resetPolygon} variant="light" fullWidth>
+                  Reset Polygon
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (selectedVertex !== null) removeVertex(selectedVertex);
+                  }}
+                  variant="light"
+                  color="red"
+                  fullWidth
+                  disabled={selectedVertex === null || vertexCount <= 3}
+                >
+                  Delete Selected
+                </Button>
+              </Stack>
+            </Paper>
+
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Title order={5}>Instructions</Title>
+                <Text size="sm" c="dimmed">
+                  Drag vertices to reshape the polygon. Click on an edge to add
+                  a new vertex. Select a vertex and use Delete to remove it.
+                </Text>
+              </Stack>
+            </Paper>
+
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Title order={5}>Algorithms</Title>
+                <Text size="sm" c="dimmed">
+                  Subdivision algorithms will be added here.
+                </Text>
+              </Stack>
+            </Paper>
+          </Stack>
+        </Group>
+      </AppShell.Main>
+    </AppShell>
   );
 }
