@@ -4,6 +4,9 @@ export function addVectors(a: Vector2, b: Vector2): Vector2 {
     return {x: (a.x + b.x), y: (a.y + b.y)};
 }
 
+/**
+ * Subtract b from a
+ * */
 export function subtractVectors(a: Vector2, b: Vector2): Vector2 {
     return {x: (a.x - b.x), y: (a.y - b.y)};
 }

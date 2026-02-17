@@ -29,3 +29,13 @@ export interface StraightSkeletonGraph {
     interiorEdges: InteriorEdge[];
 }
 
+export interface RayProjection {
+    basisVector: Vector2;
+    sourceVector: Vector2;
+}
+
+export interface HeapInteriorEdge {
+    sourceNode: number
+    basisVector: Vector2;
+    length: number;
+}
