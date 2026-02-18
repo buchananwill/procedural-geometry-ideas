@@ -37,8 +37,10 @@ export interface RayProjection {
 }
 
 export interface HeapInteriorEdge {
-    sourceNode: number
+    sourceNode: number;
+    id: number;
     basisVector: Vector2;
+    intersectingEdges: number[];
     length: number;
 }
 
@@ -51,6 +53,7 @@ Solving context:
 
 export interface StraightSkeletonSolverContext {
     graph: StraightSkeletonGraph;
-    acceptedExteriorEdges: boolean[];
+    acceptedEdges: boolean[];
     heap: Heap<HeapInteriorEdge>;
 }
+

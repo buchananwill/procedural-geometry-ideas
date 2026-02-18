@@ -1,12 +1,16 @@
 import {
-    HeapInteriorEdge,
-    RayProjection, StraightSkeletonGraph,
+    HeapInteriorEdge, PolygonNode,
+    RayProjection,
+    StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
+    addVectors,
+    fp_compare,
     initStraightSkeletonGraph,
-    makeBisectedBasis, scaleVector,
+    makeBisectedBasis,
+    scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
 import Heap from "heap-js";
@@ -40,7 +44,7 @@ const heapInteriorEdgeComparator = (e1: HeapInteriorEdge, e2: HeapInteriorEdge) 
 function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     return {
         graph: initStraightSkeletonGraph(nodes),
-        acceptedExteriorEdges: [],
+        acceptedEdges: nodes.map(() => false),
         heap: new Heap<HeapInteriorEdge>(heapInteriorEdgeComparator)
     };
 }
@@ -70,6 +74,20 @@ function makeRayProjection(edge: HeapInteriorEdge, graph: StraightSkeletonGraph)
     }
 }
 
+export function updateInteriorEdgeIntersection(edge: HeapInteriorEdge, otherEdgeIndex: number, length: number) {
+    const comparison = fp_compare(length, edge.length);
+
+    if (comparison < 0) {
+        edge.intersectingEdges = [otherEdgeIndex]
+        edge.length = length;
+        return;
+    }
+
+    if (comparison === 0) {
+        edge.intersectingEdges.push(otherEdgeIndex);
+    }
+}
+
 // Function to make heap interior edges
 export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const context = makeStraightSkeletonSolverContext(nodes);
@@ -82,11 +100,19 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     // create interior edges from exterior node bisections
     for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        initialInteriorEdges.push(addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex))
+        const edgeIndex = addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex);
+        initialInteriorEdges.push(edgeIndex);
+        graph.nodes[clockwiseExteriorEdgeIndex].outEdges.push(edgeIndex);
     }
 
     const initialHeapEdges: HeapInteriorEdge[] = initialInteriorEdges.map((i) => {
-        return {sourceNode: i, length: Number.MAX_VALUE, basisVector: graph.edges[i].basisVector}
+        return {
+            sourceNode: i,
+            id: i + initialInteriorEdges.length,
+            length: Number.MAX_VALUE,
+            basisVector: graph.edges[i].basisVector,
+            intersectingEdges: []
+        }
     })
 
     // calculate intersection lengths and push into heap
@@ -99,12 +125,105 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 makeRayProjection(otherInteriorEdge, graph)
             );
 
-            firstInteriorEdge.length = Math.min(firstInteriorEdge.length, firstDistance);
-            otherInteriorEdge.length = Math.min(otherInteriorEdge.length, otherDistance);
+            updateInteriorEdgeIntersection(firstInteriorEdge, otherInteriorEdge.id, firstDistance)
+            updateInteriorEdgeIntersection(otherInteriorEdge, firstInteriorEdge.id, otherDistance)
         }
 
         context.heap.push(firstInteriorEdge);
     }
 
     return context;
+}
+
+export function finalizeTargetNodePosition(edge: HeapInteriorEdge, graph: StraightSkeletonGraph) {
+    const vector = scaleVector(edge.basisVector, edge.length)
+    const start = graph.nodes[edge.sourceNode].position;
+    return addVectors(start, vector)
+}
+
+export function acceptEdge(edge: number, context: StraightSkeletonSolverContext) {
+
+    while (edge >= context.acceptedEdges.length) {
+        context.acceptedEdges.push(false);
+    }
+
+    context.acceptedEdges[edge] = true;
+}
+
+export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {
+
+
+    // invalid id case
+    if (edge >= graph.edges.length) {
+        return false;
+    }
+    const isExterior = edge < graph.numExteriorNodes;
+    const edgeData = graph.edges[edge];
+
+    // not yet in the accepted array at all
+    if (edge >= acceptedEdges.length) {
+        return false;
+    }
+
+    // has already been accepted (loop is definition of acceptable exterior edge)
+    if (isExterior && acceptedEdges[edge]) {
+        return true;
+    }
+
+    // for interior edges check their parents
+    if (!isExterior) {
+        const interiorEdge = graph.interiorEdges[interiorEdgeIndex(edgeData, graph)];
+        const clockwiseParent = interiorEdge.clockwiseExteriorEdgeIndex;
+        const widdershinsParent = interiorEdge.widdershinsExteriorEdgeIndex;
+
+        return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
+    }
+
+    // hard case/base case: find interior loop from exterior edge
+    const targetNode: PolygonNode = graph.nodes[edgeData.target];
+    const visitedEdges = new Set<number>();
+    const candidateEdges: number[] = [...targetNode.outEdges];
+
+    const addCandidates = (edges: number[]) => {
+        edges.forEach(innerEdge => {
+            if (visitedEdges.has(innerEdge)) {
+                return;
+            }
+            if (innerEdge >= acceptedEdges.length) {
+                return;
+            }
+            if (!acceptedEdges[innerEdge]) {
+                return;
+            }
+            candidateEdges.push(innerEdge);
+        })
+    }
+
+    while (candidateEdges.length > 0) {
+        const nextEdge = candidateEdges.pop()
+        visitedEdges.add(nextEdge)
+        if (nextEdge === e) {
+            return true;
+        }
+
+        if (nextEdge < graph.numExteriorNodes) {
+            continue;
+        }
+
+        if (!acceptedEdges[nextEdge]) {
+            continue;
+        }
+
+        const nextEdgeData = graph.edges[nextEdge];
+
+        const nextSource = graph.nodes[nextEdgeData.sourceNode];
+        const nextTarget = graph.nodes[nextEdgeData.targetNode];
+
+        addCandidates(nextSource.outEdges);
+        addCandidates(nextTarget.outEdges);
+        addCandidates(nextSource.inEdges);
+        addCandidates(nextTarget.inEdges);
+    }
+
+    return false;
 }

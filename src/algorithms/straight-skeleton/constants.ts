@@ -1,0 +1,1 @@
+export const FLOATING_POINT_EPSILON = 0.00000001;

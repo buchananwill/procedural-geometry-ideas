@@ -1,4 +1,17 @@
 import {InteriorEdge, PolygonEdge, StraightSkeletonGraph, Vector2} from "@/algorithms/straight-skeleton/types";
+import {FLOATING_POINT_EPSILON} from "@/algorithms/straight-skeleton/constants";
+
+export function areEqual(a: number, b: number): boolean {
+    return Math.abs(a - b) < FLOATING_POINT_EPSILON;
+}
+
+export function fp_compare(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): number {
+    const diff = a - b;
+    if (Math.abs(diff) < epsilon) {
+        return 0;
+    }
+    return diff < 0 ? - 1 : 1;
+}
 
 export function addVectors(a: Vector2, b: Vector2): Vector2 {
     return {x: (a.x + b.x), y: (a.y + b.y)};
@@ -36,10 +49,18 @@ export function makeBisectedBasis(a: Vector2, b: Vector2): Vector2 {
     return normalize(added);
 }
 
+export function addNode(position: Vector2, g: StraightSkeletonGraph){
+    const nodeIndex = g.nodes.length;
+
+    g.nodes.push({id: nodeIndex, outEdges: [], inEdges: [], position});
+
+    return nodeIndex;
+}
+
 /**
  * return value will be negative for exterior edges.
  * */
-export function InteriorEdgeIndex(e: PolygonEdge, g: StraightSkeletonGraph): number {
+export function interiorEdgeIndex(e: PolygonEdge, g: StraightSkeletonGraph): number {
     return e.id - g.numExteriorNodes;
 }
 
