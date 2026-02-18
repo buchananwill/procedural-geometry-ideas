@@ -1,3 +1,5 @@
+import Heap from "heap-js";
+
 export interface Vector2 {
     x: number;
     y: number;
@@ -18,8 +20,8 @@ export interface PolygonEdge {
 }
 
 export interface InteriorEdge {
-    clockwiseExteriorEdge: number;
-    widdershinsExteriorEdge: number;
+    clockwiseExteriorEdgeIndex: number;
+    widdershinsExteriorEdgeIndex: number;
 }
 
 export interface StraightSkeletonGraph {
@@ -38,4 +40,17 @@ export interface HeapInteriorEdge {
     sourceNode: number
     basisVector: Vector2;
     length: number;
+}
+
+/*
+Solving context:
+1. SSGraph
+2. A heap with custom comparator
+3. List of bools for accepted exterior edges
+* */
+
+export interface StraightSkeletonSolverContext {
+    graph: StraightSkeletonGraph;
+    acceptedExteriorEdges: boolean[];
+    heap: Heap<HeapInteriorEdge>;
 }

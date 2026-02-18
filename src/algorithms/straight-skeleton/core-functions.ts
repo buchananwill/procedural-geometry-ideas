@@ -43,7 +43,7 @@ export function InteriorEdgeIndex(e: PolygonEdge, g: StraightSkeletonGraph): num
     return e.id - g.numExteriorNodes;
 }
 
-export function InitStraightSkeletonGraph(nodes: Vector2[]): StraightSkeletonGraph {
+export function initStraightSkeletonGraph(nodes: Vector2[]): StraightSkeletonGraph {
 
     // init object with nodes
     const graph: StraightSkeletonGraph = {

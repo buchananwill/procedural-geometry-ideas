@@ -1,8 +1,21 @@
-import {RayProjection} from "@/algorithms/straight-skeleton/types";
-import {subtractVectors} from "@/algorithms/straight-skeleton/core-functions";
+import {
+    HeapInteriorEdge,
+    RayProjection, StraightSkeletonGraph,
+    StraightSkeletonSolverContext,
+    Vector2
+} from "@/algorithms/straight-skeleton/types";
+import {
+    initStraightSkeletonGraph,
+    makeBisectedBasis, scaleVector,
+    subtractVectors
+} from "@/algorithms/straight-skeleton/core-functions";
+import Heap from "heap-js";
 
 export type IntersectionUnits = [number, number];
 
+/**
+ * Returns a tuple holding the unit distance along each ray until it intersects the other.
+ * */
 export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionUnits {
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
 
@@ -20,4 +33,55 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     return [ray1Units, ray2Units];
 }
 
+const heapInteriorEdgeComparator = (e1: HeapInteriorEdge, e2: HeapInteriorEdge)=> {
+    return e1.length - e2.length;
+}
+
+function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+    return {
+        graph: initStraightSkeletonGraph(nodes),
+        acceptedExteriorEdges: [],
+        heap: new Heap<HeapInteriorEdge>(heapInteriorEdgeComparator)
+    };
+}
+
+/**
+ * returns index of just-added edge
+ * */
+function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number): number {
+    const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
+    const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
+    const id = graph.edges.length;
+
+    graph.interiorEdges.push({clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex})
+    graph.edges.push({
+        id,
+        source: clockwiseExteriorEdgeIndex,
+        basisVector: makeBisectedBasis(clockwiseEdge.basisVector, scaleVector(widdershinsEdge.basisVector, -1))
+    })
+
+    return id;
+}
+
 // Function to make heap interior edges
+export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+    const context = makeStraightSkeletonSolverContext(nodes);
+    const graph = context.graph;
+
+    const initialInteriorEdges: number[] = [];
+
+    const exteriorEdges = [...context.graph.edges];
+
+    // create interior edges from exterior node bisections
+    for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
+        const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
+        initialInteriorEdges.push(addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex))
+    }
+
+    // push initial edges into heap
+    for (let initialInteriorEdge = 0; initialInteriorEdge < initialInteriorEdges.length; initialInteriorEdge++) {
+
+    }
+
+    return context;
+}
