@@ -33,7 +33,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     return [ray1Units, ray2Units];
 }
 
-const heapInteriorEdgeComparator = (e1: HeapInteriorEdge, e2: HeapInteriorEdge)=> {
+const heapInteriorEdgeComparator = (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
     return e1.length - e2.length;
 }
 
@@ -63,6 +63,13 @@ function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeInd
     return id;
 }
 
+function makeRayProjection(edge: HeapInteriorEdge, graph: StraightSkeletonGraph): RayProjection {
+    return {
+        basisVector: edge.basisVector,
+        sourceVector: graph.nodes[edge.sourceNode].position
+    }
+}
+
 // Function to make heap interior edges
 export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const context = makeStraightSkeletonSolverContext(nodes);
@@ -78,9 +85,25 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         initialInteriorEdges.push(addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex))
     }
 
-    // push initial edges into heap
-    for (let initialInteriorEdge = 0; initialInteriorEdge < initialInteriorEdges.length; initialInteriorEdge++) {
+    const initialHeapEdges: HeapInteriorEdge[] = initialInteriorEdges.map((i) => {
+        return {sourceNode: i, length: Number.MAX_VALUE, basisVector: graph.edges[i].basisVector}
+    })
 
+    // calculate intersection lengths and push into heap
+    for (let initialInteriorEdge1 = 0; initialInteriorEdge1 < initialInteriorEdges.length; initialInteriorEdge1++) {
+        const firstInteriorEdge = initialHeapEdges[initialInteriorEdge1];
+        for (let initialInteriorEdge2 = initialInteriorEdge1 + 1; initialInteriorEdge2 < initialInteriorEdges.length; initialInteriorEdge2++) {
+            const otherInteriorEdge = initialHeapEdges[initialInteriorEdge2];
+            const [firstDistance, otherDistance] = unitsToIntersection(
+                makeRayProjection(firstInteriorEdge, graph),
+                makeRayProjection(otherInteriorEdge, graph)
+            );
+
+            firstInteriorEdge.length = Math.min(firstInteriorEdge.length, firstDistance);
+            otherInteriorEdge.length = Math.min(otherInteriorEdge.length, otherDistance);
+        }
+
+        context.heap.push(firstInteriorEdge);
     }
 
     return context;

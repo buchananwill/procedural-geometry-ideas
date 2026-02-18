@@ -67,20 +67,5 @@ export function initStraightSkeletonGraph(nodes: Vector2[]): StraightSkeletonGra
         graph.nodes[targetIndex].inEdges.push(sourceIndex);
     }
 
-    // Add directly bisecting interior edges
-    for (let sourceIndex = 0; sourceIndex < nodes.length; sourceIndex++) {
-        const source = graph.nodes[sourceIndex];
-        const inEdge = source.inEdges[0];
-        const outEdge = source.outEdges[0];
-        graph.edges.push({
-            id: sourceIndex + nodes.length,
-            source: sourceIndex,
-            basisVector: makeBisectedBasis(
-                scaleVector(graph.edges[inEdge].basisVector, -1),
-                graph.edges[outEdge].basisVector
-                )
-        })
-    }
-
     return graph;
 }
