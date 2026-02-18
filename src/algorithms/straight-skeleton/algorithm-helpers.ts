@@ -6,9 +6,9 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
-    addVectors,
+    addVectors, assertIsNumber,
     fp_compare,
-    initStraightSkeletonGraph,
+    initStraightSkeletonGraph, interiorEdgeIndex,
     makeBisectedBasis,
     scaleVector,
     subtractVectors
@@ -179,8 +179,11 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
     }
 
+    const targetIndex = edgeData.target;
+    assertIsNumber(targetIndex);
+
     // hard case/base case: find interior loop from exterior edge
-    const targetNode: PolygonNode = graph.nodes[edgeData.target];
+    const targetNode: PolygonNode = graph.nodes[targetIndex];
     const visitedEdges = new Set<number>();
     const candidateEdges: number[] = [...targetNode.outEdges];
 
@@ -201,8 +204,9 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     while (candidateEdges.length > 0) {
         const nextEdge = candidateEdges.pop()
+        assertIsNumber(nextEdge)
         visitedEdges.add(nextEdge)
-        if (nextEdge === e) {
+        if (nextEdge === edge) {
             return true;
         }
 
@@ -215,14 +219,18 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         }
 
         const nextEdgeData = graph.edges[nextEdge];
+        const nextTargetIndex = nextEdgeData.target;
 
-        const nextSource = graph.nodes[nextEdgeData.sourceNode];
-        const nextTarget = graph.nodes[nextEdgeData.targetNode];
-
+        const nextSource = graph.nodes[nextEdgeData.source];
         addCandidates(nextSource.outEdges);
-        addCandidates(nextTarget.outEdges);
         addCandidates(nextSource.inEdges);
-        addCandidates(nextTarget.inEdges);
+
+        if (nextTargetIndex) {
+            const nextTarget = graph.nodes[nextTargetIndex];
+
+            addCandidates(nextTarget.outEdges);
+            addCandidates(nextTarget.inEdges);
+        }
     }
 
     return false;

@@ -5,6 +5,12 @@ export function areEqual(a: number, b: number): boolean {
     return Math.abs(a - b) < FLOATING_POINT_EPSILON;
 }
 
+export function assertIsNumber(x: unknown): asserts x is number {
+    if (typeof x !== "number") {
+        throw new Error("Expected a number");
+    }
+}
+
 export function fp_compare(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): number {
     const diff = a - b;
     if (Math.abs(diff) < epsilon) {

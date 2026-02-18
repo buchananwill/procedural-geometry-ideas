@@ -20,6 +20,10 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
     const context = initStraightSkeletonSolverContext(nodes);
     const {graph, acceptedEdges, heap} = context;
 
+    const pushHeapInteriorEdge = (clockwiseParent: number, widdershinsParent: number) => {
+        // fill in later
+    };
+
     let nextEdge: HeapInteriorEdge | undefined = heap.pop();
     while (!graphIsComplete(context) && nextEdge) {
         if (acceptedEdges.length <= nextEdge.id || !acceptedEdges[nextEdge.id]) {
@@ -49,11 +53,34 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                 return context.acceptedEdges[e];
 
             }
+
+            const activeClockwiseParents: number[] = [];
+            const activeWiddershinsParents: number[] = []
+
             acceptedInteriorEdges.forEach(e => {
                 const interiorEdge = graph.interiorEdges[e];
-                testAndAccept(interiorEdge.widdershinsExteriorEdgeIndex);
-                const clockwiseIsAccepted = testAndAccept(interiorEdge.clockwiseExteriorEdgeIndex);
+                if (!testAndAccept(interiorEdge.widdershinsExteriorEdgeIndex)) {
+                    activeWiddershinsParents.push(interiorEdge.widdershinsExteriorEdgeIndex);
+                }
+                if (!testAndAccept(interiorEdge.clockwiseExteriorEdgeIndex)) {
+                    activeClockwiseParents.push(interiorEdge.clockwiseExteriorEdgeIndex);
+                }
             })
+
+            if (activeClockwiseParents.length !== activeWiddershinsParents.length) {
+                throw new Error("Expected both arrays to be equal length")
+            }
+            if (activeClockwiseParents.length === 1) {
+                pushHeapInteriorEdge(activeClockwiseParents[0], activeWiddershinsParents[0]);
+            }
+
+            if (activeClockwiseParents.length > 1) {
+                activeClockwiseParents.sort()
+                activeWiddershinsParents.sort()
+
+                // need to make alternating pairs of clockwise/widdershins parents indices
+                // so find the first widdershins parent that is greater than
+            }
 
 
             // get all adjoining exterior edges that are not accepted
