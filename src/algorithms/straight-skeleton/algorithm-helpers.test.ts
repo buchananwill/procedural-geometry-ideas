@@ -388,7 +388,7 @@ describe('hasInteriorLoop', () => {
     });
 
     // topology is not a normal valid graph: we create a loop 0-1-3-0, to directly test the loop-finding
-    it('[BUG F] if(nextTargetIndex) skips node 0 as BFS target — expected true, code returns false', () => {
+    it('if(nextTargetIndex) skips node 0 as BFS target — expected true, code now fixed', () => {
         // Edge 3 — manually wire it as a back to node 0 from node 1
         g.edges[3].source = 1
         g.edges[3].target = 0;
@@ -401,6 +401,6 @@ describe('hasInteriorLoop', () => {
         console.log(ctx);
 
         const result = hasInteriorLoop(0, ctx);
-        expect(result).toBe(true);  // BUG F: code returns false
+        expect(result).toBe(true);
     });
 });

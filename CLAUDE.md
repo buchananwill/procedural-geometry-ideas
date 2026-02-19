@@ -9,6 +9,8 @@ pnpm dev      # Start development server at http://localhost:3000
 pnpm build    # Production build
 pnpm lint     # Run ESLint
 pnpm start    # Start production server
+pnpm jest     # Run all tests
+pnpm jest:watch  # Run tests in watch mode
 ```
 
 ### pnpm in Git Bash (Windows)
@@ -22,15 +24,21 @@ found" error.
 ```bash
 node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs <args>
 # e.g.
-node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs add <package>
-node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs install
+node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs jest
+node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs jest -- --testPathPattern=algorithm-helpers
 ```
 
 Root cause: `pnpm` → `~/AppData/Roaming/npm/node` (shim) → `node_modules/node/bin/node` (blank file). The real Node.js
 is at `/c/Program Files/nodejs/node` (v22.12.0) but isn't used by the shim.
 
-There are currently no automated tests configured. Verification is done by running the dev server and interacting with
-the UI.
+### Testing
+
+Jest tests live alongside source files as `*.test.ts`. Test configuration is in `jest.config.cjs` (uses Next.js Jest
+integration with jsdom environment and the `@/*` path alias). To run a single test file:
+
+```bash
+node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs jest -- --testPathPattern=core-functions
+```
 
 ## Architecture
 
@@ -38,6 +46,8 @@ This is a Next.js + TypeScript web app for visualizing **computational geometry 
 *straight skeleton** algorithm.
 
 **Path alias:** `@/*` maps to `./src/*`
+
+**Key UI dependencies:** Mantine v8 (component library + PostCSS), Konva/react-konva (canvas), Zustand + Immer (state).
 
 ### Key Layers
 
@@ -63,9 +73,9 @@ traced by polygon vertices as edges shrink inward at equal speed.
 | `core-functions.ts` | Vector math (add, subtract, scale, normalize), angle bisector construction, graph node/edge
 primitives |
 | `algorithm-helpers.ts` | Ray-ray intersection (`unitsToIntersection`), bisection edge creation (`addBisectionEdge`),
-interior loop detection (`hasInteriorLoop`), node finalization |
-| `algorithm.ts` | Entry point: `initStraightSkeletonSolverContext` (builds initial graph + heap) and
-`computeStraightSkeleton` (main event loop) |
+solver context initialization (`initStraightSkeletonSolverContext`), interior loop detection (`hasInteriorLoop`), node
+finalization |
+| `algorithm.ts` | Public entry point: `computeStraightSkeleton` (main event loop) |
 
 **Algorithm flow:**
 
@@ -78,4 +88,5 @@ interior loop detection (`hasInteriorLoop`), node finalization |
 
 **Data model:** The graph separates *exterior edges* (original polygon edges, never move) from *interior edges* (
 bisector rays that evolve during computation). `acceptedEdges` is a boolean array indexed by exterior edge ID tracking
-which edges are finalized.
+which edges are finalized. Interior edge IDs start at `graph.numExteriorNodes`; `interiorEdgeIndex(edge, graph)`
+converts an edge ID to an `interiorEdges[]` array index.
