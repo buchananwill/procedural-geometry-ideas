@@ -7,7 +7,7 @@ import {
 import {
     acceptEdge, addBisectionEdge,
     finalizeTargetNodePosition, hasInteriorLoop,
-    initStraightSkeletonSolverContext, makeRayProjection, unitsToIntersection, updateInteriorEdgeIntersection
+    initStraightSkeletonSolverContext, makeRayProjection, unitsToIntersection, updateInteriorEdgeIntersections
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {addNode} from "@/algorithms/straight-skeleton/core-functions";
 
@@ -47,8 +47,8 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                 makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
             );
 
-            updateInteriorEdgeIntersection(interiorEdgeData, otherInteriorEdgeData.id, firstDistance)
-            const reducedOtherEdgeLength = updateInteriorEdgeIntersection(otherInteriorEdgeData, interiorEdgeData.id, otherDistance)
+            updateInteriorEdgeIntersections(interiorEdgeData, otherInteriorEdgeData.id, firstDistance)
+            const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherInteriorEdgeData, interiorEdgeData.id, otherDistance)
             if (reducedOtherEdgeLength) {
                 context.heap.push({id: otherInteriorEdgeData.id})
             }

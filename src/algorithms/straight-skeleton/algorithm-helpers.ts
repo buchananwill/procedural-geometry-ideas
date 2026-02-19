@@ -19,6 +19,7 @@ export type IntersectionUnits = [number, number];
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
+ * If the two rays are parallel, return value is [+inf, +inf]
  * */
 export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionUnits {
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
@@ -26,20 +27,39 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);
     const xRel = relativeRay2Source.x;
     const yRel = relativeRay2Source.y;
+
+    if (fp_compare(xRel, 0) === 0 && fp_compare(yRel, 0) === 0) {
+        return [0,0];
+    }
+
     const x1 = ray1.basisVector.x;
     const x2 = ray2.basisVector.x;
     const y1 = ray1.basisVector.y;
     const y2 = ray2.basisVector.y;
 
-    const ray1Units = (xRel * y2 - yRel * x2) / (x1 * y2 - x2 * y1);
-    const ray2Units = (ray1Units * y1 - yRel) / y2;
+    const crossProduct = (x1 * y2 - x2 * y1);
 
-    return [ray1Units, ray2Units];
+    if (fp_compare(crossProduct, 0) === 0) {
+        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
+    }
+
+    const ray1Units = (xRel * y2 - yRel * x2) / crossProduct;
+
+    if (y2 !== 0) {
+        const ray2Units = (ray1Units * y1 - yRel) / y2;
+
+        return [ray1Units, ray2Units];
+    }
+
+    const ray2units = (ray1Units * x1 - xRel) / x2;
+
+    return [ray1Units, ray2units];
+
 }
 
 function makeHeapInteriorEdgeComparator(graph: StraightSkeletonGraph) {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
-        return graph.interiorEdges[e1.id].length - graph.interiorEdges[e2.id].length;
+        return graph.interiorEdges[e1.id - graph.numExteriorNodes].length - graph.interiorEdges[e2.id - graph.numExteriorNodes].length;
     }
 }
 
@@ -86,7 +106,11 @@ export function makeRayProjection(edge: PolygonEdge, graph: StraightSkeletonGrap
     }
 }
 
-export function updateInteriorEdgeIntersection(edge: InteriorEdge, otherEdgeIndex: number, length: number): boolean {
+/**
+ * return value indicates whether strictly the length was modified. Adding additional intersections returns false.
+ * The return value is to indicate that the edge must be pushed anew into the heap
+ * */
+export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeIndex: number, length: number): boolean {
     const comparison = fp_compare(length, edge.length);
 
     if (comparison < 0) {
@@ -116,7 +140,6 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
         const edgeIndex = addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex);
         initialInteriorEdges.push(edgeIndex);
-        graph.nodes[clockwiseExteriorEdgeIndex].outEdges.push(edgeIndex);
     }
 
     // calculate intersection lengths and push into heap
@@ -129,8 +152,8 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 makeRayProjection(graph.edges[otherInteriorEdge.id], graph)
             );
 
-            updateInteriorEdgeIntersection(firstInteriorEdge, otherInteriorEdge.id, firstDistance)
-            updateInteriorEdgeIntersection(otherInteriorEdge, firstInteriorEdge.id, otherDistance)
+            updateInteriorEdgeIntersections(firstInteriorEdge, otherInteriorEdge.id, firstDistance)
+            updateInteriorEdgeIntersections(otherInteriorEdge, firstInteriorEdge.id, otherDistance)
         }
 
         context.heap.push({id: firstInteriorEdge.id});
@@ -161,6 +184,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     // invalid id case
     if (edge >= graph.edges.length) {
+        console.log("edge id invalid")
         return false;
     }
     const isExterior = edge < graph.numExteriorNodes;
@@ -168,11 +192,13 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     // not yet in the accepted array at all
     if (edge >= acceptedEdges.length) {
+        console.log("edge id not yet valid for accepted edges.")
         return false;
     }
 
     // has already been accepted (loop is definition of acceptable exterior edge)
     if (isExterior && acceptedEdges[edge]) {
+        console.log("edge already accepted therefore has loop")
         return true;
     }
 
@@ -181,7 +207,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         const interiorEdge = graph.interiorEdges[interiorEdgeIndex(edgeData, graph)];
         const clockwiseParent = interiorEdge.clockwiseExteriorEdgeIndex;
         const widdershinsParent = interiorEdge.widdershinsExteriorEdgeIndex;
-
+        console.log(`clockwise is accepted: ${acceptedEdges[clockwiseParent]}, widdershins is accepted: ${acceptedEdges[widdershinsParent]}`)
         return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
     }
 
@@ -193,28 +219,33 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
     const visitedEdges = new Set<number>();
     const candidateEdges: number[] = [...targetNode.outEdges];
 
-    const addCandidates = (edges: number[]) => {
-        edges.forEach(innerEdge => {
-            if (visitedEdges.has(innerEdge)) {
-                return;
+    const testAndAddCandidates = (edges: number[]): boolean => {
+        for (const candidateEdge of edges) {
+            if (candidateEdge === edge){
+                console.log("Search returned to starting edge.")
+                return true;
             }
-            if (innerEdge >= acceptedEdges.length) {
-                return;
+            if (visitedEdges.has(candidateEdge)) {
+                console.log(`has visited edge ${candidateEdge}`);
+                continue;
             }
-            if (!acceptedEdges[innerEdge]) {
-                return;
+            if (candidateEdge >= acceptedEdges.length) {
+                console.log(`edge not valid accepted index ${candidateEdge}`);
+                continue;
             }
-            candidateEdges.push(innerEdge);
-        })
+            if (!acceptedEdges[candidateEdge]) {
+                console.log(`edge not accepted ${candidateEdge}`);
+                continue;
+            }
+            candidateEdges.push(candidateEdge);
+        }
+            return false;
     }
 
     while (candidateEdges.length > 0) {
         const nextEdge = candidateEdges.pop()
         assertIsNumber(nextEdge)
         visitedEdges.add(nextEdge)
-        if (nextEdge === edge) {
-            return true;
-        }
 
         if (nextEdge < graph.numExteriorNodes) {
             continue;
@@ -228,16 +259,27 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         const nextTargetIndex = nextEdgeData.target;
 
         const nextSource = graph.nodes[nextEdgeData.source];
-        addCandidates(nextSource.outEdges);
-        addCandidates(nextSource.inEdges);
+        if (testAndAddCandidates(nextSource.outEdges))
+        {
+            return true;
+        }
+        if (testAndAddCandidates(nextSource.inEdges))
+        {
+            return true;
+        }
 
-        if (nextTargetIndex) {
+        if (nextTargetIndex !== undefined) {
             const nextTarget = graph.nodes[nextTargetIndex];
 
-            addCandidates(nextTarget.outEdges);
-            addCandidates(nextTarget.inEdges);
+            if (testAndAddCandidates(nextTarget.outEdges)) {
+                return true;
+            }
+            if (testAndAddCandidates(nextTarget.inEdges)) {
+                return true;
+            }
         }
     }
 
+    console.log("search terminated without returning to starting edge.")
     return false;
 }
