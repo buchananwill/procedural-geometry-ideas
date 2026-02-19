@@ -78,18 +78,29 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                 activeClockwiseParents.sort()
                 activeWiddershinsParents.sort()
 
-                // need to make alternating pairs of clockwise/widdershins parents indices
-                // so find the first widdershins parent that is greater than
+                let widdershinsParentIndex = 0;
+                for (let clockwiseParentIndex = 0; clockwiseParentIndex < activeClockwiseParents.length; clockwiseParentIndex++) {
+                    const clockwiseParentEdge = activeClockwiseParents[clockwiseParentIndex];
+
+                    // need to make alternating pairs of clockwise/widdershins parents indices
+                    // so find the first widdershins parent that is greater than the first clockwise parent
+                    if (clockwiseParentIndex === 0 && activeWiddershinsParents[widdershinsParentIndex] < clockwiseParentEdge) {
+                        widdershinsParentIndex += 1;
+
+                        if (activeWiddershinsParents[widdershinsParentIndex] < clockwiseParentEdge) {
+                            throw new Error("Two consecutive initial widdershins parents are less than the first clockwise parent");
+                        }
+                    }
+
+                    const widdershinsParentEdge = activeWiddershinsParents[widdershinsParentIndex];
+
+                    pushHeapInteriorEdge(clockwiseParentEdge, widdershinsParentEdge)
+
+                    widdershinsParentIndex++;
+                    widdershinsParentIndex = widdershinsParentIndex % activeWiddershinsParents.length;
+                }
+
             }
-
-
-            // get all adjoining exterior edges that are not accepted
-            // there will be either two or four
-            // for each newly accepted interior edge:
-            // if its clockwise parent is not-accepted, find the next newly-accepted interior edge whose anti-clockwise parent edge is not-accepted, make a new interior edge with those exterior edges as parents
-            // if its anticlockwise parent is not-accepted, do nothing: we wait until we find an un-accepted clockwise parent, and it will be consumed then.
-
-
         }
 
         nextEdge = heap.pop();
