@@ -1,18 +1,30 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { AppShell, Group, Title, Button, Text, Stack, Paper } from "@mantine/core";
 import { usePolygonStore } from "@/stores/usePolygonStore";
+import { computeStraightSkeleton } from "@/algorithms/straight-skeleton/algorithm";
+import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
   ssr: false,
 });
 
 export default function Home() {
-  const vertexCount = usePolygonStore((s) => s.vertices.length);
+  const vertices = usePolygonStore((s) => s.vertices);
+  const vertexCount = vertices.length;
   const resetPolygon = usePolygonStore((s) => s.resetPolygon);
   const selectedVertex = usePolygonStore((s) => s.selectedVertex);
   const removeVertex = usePolygonStore((s) => s.removeVertex);
+
+  const [showSkeleton, setShowSkeleton] = useState(false);
+
+  const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
+    if (!showSkeleton) return null;
+    try { return computeStraightSkeleton(vertices); }
+    catch { return null; }
+  }, [showSkeleton, vertices]);
 
   return (
     <AppShell header={{ height: 60 }} padding="md">
@@ -24,7 +36,7 @@ export default function Home() {
 
       <AppShell.Main>
         <Group align="flex-start" gap="md">
-          <PolygonCanvas />
+          <PolygonCanvas skeleton={skeleton} />
 
           <Stack w={240} gap="sm">
             <Paper p="md" withBorder>
@@ -63,9 +75,14 @@ export default function Home() {
             <Paper p="md" withBorder>
               <Stack gap="xs">
                 <Title order={5}>Algorithms</Title>
-                <Text size="sm" c="dimmed">
-                  Subdivision algorithms will be added here.
-                </Text>
+                <Button
+                  color="orange"
+                  variant={showSkeleton ? "filled" : "light"}
+                  fullWidth
+                  onClick={() => setShowSkeleton((s) => !s)}
+                >
+                  {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
+                </Button>
               </Stack>
             </Paper>
           </Stack>

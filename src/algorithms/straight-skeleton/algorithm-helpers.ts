@@ -19,7 +19,7 @@ export type IntersectionUnits = [number, number];
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
- * If the two rays are parallel, return value is [+inf, +inf]
+ * If the two rays are parallel, return value is [+inf, +inf] unless both sources lie on same line
  * */
 export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionUnits {
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
@@ -37,9 +37,47 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     const y1 = ray1.basisVector.y;
     const y2 = ray2.basisVector.y;
 
+    // Invalid input: one or both vectors is not basis
+    if ((x1 === 0 && y1 === 0) || (x2 === 0 && y2 === 0)) {
+        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
+    }
+
     const crossProduct = (x1 * y2 - x2 * y1);
 
     if (fp_compare(crossProduct, 0) === 0) {
+        const pointLiesAlongRay = (ray: RayProjection, point: Vector2): [boolean, number] => {
+            const relative = subtractVectors(point, ray.sourceVector);
+            if (ray.basisVector.x === 0){
+                const delta = point.y / ray.basisVector.y;
+                return [fp_compare(relative.x ,0) === 0 && delta > 0, delta];
+            }
+
+            if (ray.basisVector.y === 0){
+                const delta = point.x / ray.basisVector.x;
+                return [fp_compare(relative.y ,0) === 0 && delta > 0, delta];
+            }
+
+            const delta_x = relative.x / ray.basisVector.x;
+            const delta_y = relative.y / ray.basisVector.y;
+            return [fp_compare(delta_x, delta_y) === 0 && delta_x > 0, delta_x];
+        }
+
+        const [isAlongRay1, length1] = pointLiesAlongRay(ray1, ray2.sourceVector);
+        const [isAlongRay2, length2] = pointLiesAlongRay(ray2, ray1.sourceVector);
+
+        if (isAlongRay1 && isAlongRay2){
+            return [length1, length2];
+        }
+
+        if (isAlongRay1){
+            return [length1, -length2];
+        }
+
+        if (isAlongRay2){
+            return [-length1, length2];
+        }
+
+
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
     }
 

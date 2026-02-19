@@ -78,15 +78,19 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             const testedExteriorEdges = new Set<number>();
 
             const testAndAccept = (e: number) => {
+                // console.log(`testing edge index: ${e}`)
                 if (testedExteriorEdges.has(e)) {
+                    // console.log(`previously tested for this edge: ${e}`)
                     return context.acceptedEdges[e];
                 }
 
                 testedExteriorEdges.add(e);
 
                 if (hasInteriorLoop(e, context)) {
+                    // console.log(`edge ${e} has interior loop`)
                     context.acceptedEdges[e] = true;
                 }
+
 
                 return context.acceptedEdges[e];
 
@@ -94,6 +98,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
 
             const activeClockwiseParents: number[] = [];
             const activeWiddershinsParents: number[] = []
+            console.log(`accepted interior edges: ${acceptedInteriorEdges}`)
 
             acceptedInteriorEdges.forEach(e => {
                 const interiorEdge = graph.interiorEdges[e - graph.numExteriorNodes];
@@ -106,7 +111,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             })
 
             if (activeClockwiseParents.length !== activeWiddershinsParents.length) {
-                throw new Error("Expected both arrays to be equal length")
+                throw new Error(`Expected both arrays to be equal length: clockwise = ${activeClockwiseParents.length}; widdershins = ${activeWiddershinsParents.length}`);
             }
             if (activeClockwiseParents.length === 1) {
                 pushHeapInteriorEdge(activeClockwiseParents[0], activeWiddershinsParents[0], nodeIndex);

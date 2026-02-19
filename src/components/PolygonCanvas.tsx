@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Stage, Layer, Line, Circle } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
+import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -36,7 +37,11 @@ function distanceToSegment(
   };
 }
 
-export default function PolygonCanvas() {
+interface PolygonCanvasProps {
+  skeleton: StraightSkeletonGraph | null;
+}
+
+export default function PolygonCanvas({ skeleton }: PolygonCanvasProps) {
   const vertices = usePolygonStore((s) => s.vertices);
   const moveVertex = usePolygonStore((s) => s.moveVertex);
   const addVertex = usePolygonStore((s) => s.addVertex);
@@ -45,6 +50,17 @@ export default function PolygonCanvas() {
   const stageRef = useRef<ReturnType<typeof Stage> | null>(null);
 
   const flatPoints = vertices.flatMap((v) => [v.x, v.y]);
+
+  const skeletonLines = useMemo(() => {
+    if (!skeleton) return [];
+    return skeleton.interiorEdges.flatMap(({ id }) => {
+      const edge = skeleton.edges[id];
+      if (edge.target === undefined) return [];
+      const src = skeleton.nodes[edge.source];
+      const tgt = skeleton.nodes[edge.target];
+      return [{ key: id, points: [src.position.x, src.position.y, tgt.position.x, tgt.position.y] }];
+    });
+  }, [skeleton]);
 
   const handleDragMove = useCallback(
     (index: number, e: KonvaEventObject<DragEvent>) => {
@@ -98,6 +114,9 @@ export default function PolygonCanvas() {
       style={{ background: "#1a1b1e", borderRadius: 8, cursor: "crosshair" }}
     >
       <Layer>
+        {skeletonLines.map(({ key, points }) => (
+          <Line key={key} points={points} stroke="#fab005" strokeWidth={1.5} listening={false} />
+        ))}
         <Line
           points={flatPoints}
           closed
