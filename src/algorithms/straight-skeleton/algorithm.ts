@@ -5,9 +5,9 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
-    acceptEdge,
+    acceptEdge, addBisectionEdge,
     finalizeTargetNodePosition, hasInteriorLoop,
-    initStraightSkeletonSolverContext
+    initStraightSkeletonSolverContext, makeRayProjection, unitsToIntersection, updateInteriorEdgeIntersection
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {addNode} from "@/algorithms/straight-skeleton/core-functions";
 
@@ -20,8 +20,42 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
     const context = initStraightSkeletonSolverContext(nodes);
     const {graph, acceptedEdges, heap} = context;
 
-    const pushHeapInteriorEdge = (clockwiseParent: number, widdershinsParent: number) => {
-        // fill in later
+    const pushHeapInteriorEdge = (clockwiseParent: number, widdershinsParent: number, source: number) => {
+
+        const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source);
+
+        const heapInteriorEdge: HeapInteriorEdge = {
+            id: edgeIndex,
+        }
+
+        acceptedEdges.push(false);
+        const interiorEdgeData = graph.interiorEdges[edgeIndex - graph.numExteriorNodes];
+
+        for (let otherInteriorEdge = 0; otherInteriorEdge < graph.interiorEdges.length; otherInteriorEdge++) {
+            const otherInteriorEdgeData = graph.interiorEdges[otherInteriorEdge];
+
+            if (otherInteriorEdgeData.id === edgeIndex) {
+                continue;
+            }
+
+            if (acceptedEdges[otherInteriorEdgeData.id]) {
+                continue;
+            }
+
+            const [firstDistance, otherDistance] = unitsToIntersection(
+                makeRayProjection(graph.edges[edgeIndex], graph),
+                makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
+            );
+
+            updateInteriorEdgeIntersection(interiorEdgeData, otherInteriorEdgeData.id, firstDistance)
+            const reducedOtherEdgeLength = updateInteriorEdgeIntersection(otherInteriorEdgeData, interiorEdgeData.id, otherDistance)
+            if (reducedOtherEdgeLength) {
+                context.heap.push({id: otherInteriorEdgeData.id})
+            }
+        }
+
+        context.heap.push(heapInteriorEdge);
+
     };
 
     let nextEdge: HeapInteriorEdge | undefined = heap.pop();
@@ -31,9 +65,10 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             const nodeIndex = addNode(newNodePosition, graph)
             const newNode = graph.nodes[nodeIndex];
             newNode.inEdges.push(nextEdge.id)
-            newNode.inEdges.push(...nextEdge.intersectingEdges)
+            const interiorEdgeData = graph.interiorEdges[nextEdge.id];
+            newNode.inEdges.push(...interiorEdgeData.intersectingEdges)
 
-            const acceptedInteriorEdges: number[] = [nextEdge.id, ...nextEdge.intersectingEdges]
+            const acceptedInteriorEdges: number[] = [nextEdge.id, ...interiorEdgeData.intersectingEdges]
             acceptedInteriorEdges.forEach(e => acceptEdge(e, context))
 
             // accept exterior edges if they are now part of a closed loop.
@@ -71,7 +106,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                 throw new Error("Expected both arrays to be equal length")
             }
             if (activeClockwiseParents.length === 1) {
-                pushHeapInteriorEdge(activeClockwiseParents[0], activeWiddershinsParents[0]);
+                pushHeapInteriorEdge(activeClockwiseParents[0], activeWiddershinsParents[0], nodeIndex);
             }
 
             if (activeClockwiseParents.length > 1) {
@@ -94,7 +129,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
 
                     const widdershinsParentEdge = activeWiddershinsParents[widdershinsParentIndex];
 
-                    pushHeapInteriorEdge(clockwiseParentEdge, widdershinsParentEdge)
+                    pushHeapInteriorEdge(clockwiseParentEdge, widdershinsParentEdge, nodeIndex)
 
                     widdershinsParentIndex++;
                     widdershinsParentIndex = widdershinsParentIndex % activeWiddershinsParents.length;

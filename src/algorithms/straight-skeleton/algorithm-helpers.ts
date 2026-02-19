@@ -1,5 +1,5 @@
 import {
-    HeapInteriorEdge, PolygonNode,
+    HeapInteriorEdge, InteriorEdge, PolygonEdge, PolygonNode,
     RayProjection,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
@@ -37,55 +37,69 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     return [ray1Units, ray2Units];
 }
 
-const heapInteriorEdgeComparator = (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
-    return e1.length - e2.length;
+function makeHeapInteriorEdgeComparator(graph: StraightSkeletonGraph) {
+    return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
+        return graph.interiorEdges[e1.id].length - graph.interiorEdges[e2.id].length;
+    }
 }
 
+
 function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+    const graph = initStraightSkeletonGraph(nodes);
     return {
-        graph: initStraightSkeletonGraph(nodes),
+        graph,
         acceptedEdges: nodes.map(() => false),
-        heap: new Heap<HeapInteriorEdge>(heapInteriorEdgeComparator)
+        heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator(graph)),
     };
 }
 
 /**
  * returns index of just-added edge
  * */
-function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number): number {
+export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number): number {
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
     const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
     const id = graph.edges.length;
 
-    graph.interiorEdges.push({clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex})
+    graph.interiorEdges.push({
+        id,
+        clockwiseExteriorEdgeIndex,
+        widdershinsExteriorEdgeIndex,
+        intersectingEdges: [],
+        length: Number.MAX_VALUE
+    })
     graph.edges.push({
         id,
-        source: clockwiseExteriorEdgeIndex,
+        source,
         basisVector: makeBisectedBasis(clockwiseEdge.basisVector, scaleVector(widdershinsEdge.basisVector, -1))
     })
+
+    graph.nodes[source].outEdges.push(id);
 
     return id;
 }
 
-function makeRayProjection(edge: HeapInteriorEdge, graph: StraightSkeletonGraph): RayProjection {
+export function makeRayProjection(edge: PolygonEdge, graph: StraightSkeletonGraph): RayProjection {
     return {
         basisVector: edge.basisVector,
-        sourceVector: graph.nodes[edge.sourceNode].position
+        sourceVector: graph.nodes[edge.source].position
     }
 }
 
-export function updateInteriorEdgeIntersection(edge: HeapInteriorEdge, otherEdgeIndex: number, length: number) {
+export function updateInteriorEdgeIntersection(edge: InteriorEdge, otherEdgeIndex: number, length: number): boolean {
     const comparison = fp_compare(length, edge.length);
 
     if (comparison < 0) {
         edge.intersectingEdges = [otherEdgeIndex]
         edge.length = length;
-        return;
+        return true;
     }
 
     if (comparison === 0) {
         edge.intersectingEdges.push(otherEdgeIndex);
     }
+
+    return false;
 }
 
 // Function to make heap interior edges
@@ -100,44 +114,36 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     // create interior edges from exterior node bisections
     for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        const edgeIndex = addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex);
+        const edgeIndex = addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex);
         initialInteriorEdges.push(edgeIndex);
         graph.nodes[clockwiseExteriorEdgeIndex].outEdges.push(edgeIndex);
     }
 
-    const initialHeapEdges: HeapInteriorEdge[] = initialInteriorEdges.map((i) => {
-        return {
-            sourceNode: i,
-            id: i + initialInteriorEdges.length,
-            length: Number.MAX_VALUE,
-            basisVector: graph.edges[i].basisVector,
-            intersectingEdges: []
-        }
-    })
-
     // calculate intersection lengths and push into heap
     for (let initialInteriorEdge1 = 0; initialInteriorEdge1 < initialInteriorEdges.length; initialInteriorEdge1++) {
-        const firstInteriorEdge = initialHeapEdges[initialInteriorEdge1];
+        const firstInteriorEdge = graph.interiorEdges[initialInteriorEdge1];
         for (let initialInteriorEdge2 = initialInteriorEdge1 + 1; initialInteriorEdge2 < initialInteriorEdges.length; initialInteriorEdge2++) {
-            const otherInteriorEdge = initialHeapEdges[initialInteriorEdge2];
+            const otherInteriorEdge = graph.interiorEdges[initialInteriorEdge2];
             const [firstDistance, otherDistance] = unitsToIntersection(
-                makeRayProjection(firstInteriorEdge, graph),
-                makeRayProjection(otherInteriorEdge, graph)
+                makeRayProjection(graph.edges[firstInteriorEdge.id], graph),
+                makeRayProjection(graph.edges[otherInteriorEdge.id], graph)
             );
 
             updateInteriorEdgeIntersection(firstInteriorEdge, otherInteriorEdge.id, firstDistance)
             updateInteriorEdgeIntersection(otherInteriorEdge, firstInteriorEdge.id, otherDistance)
         }
 
-        context.heap.push(firstInteriorEdge);
+        context.heap.push({id: firstInteriorEdge.id});
     }
 
     return context;
 }
 
 export function finalizeTargetNodePosition(edge: HeapInteriorEdge, graph: StraightSkeletonGraph) {
-    const vector = scaleVector(edge.basisVector, edge.length)
-    const start = graph.nodes[edge.sourceNode].position;
+    const edgeData = graph.edges[edge.id];
+    const interiorEdgeData = graph.interiorEdges[edge.id - graph.numExteriorNodes];
+    const vector = scaleVector(edgeData.basisVector, interiorEdgeData.length)
+    const start = graph.nodes[edgeData.source].position;
     return addVectors(start, vector)
 }
 

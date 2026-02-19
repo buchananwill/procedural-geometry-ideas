@@ -20,8 +20,11 @@ export interface PolygonEdge {
 }
 
 export interface InteriorEdge {
+    id: number;
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
+    intersectingEdges: number[];
+    length: number;
 }
 
 export interface StraightSkeletonGraph {
@@ -37,11 +40,7 @@ export interface RayProjection {
 }
 
 export interface HeapInteriorEdge {
-    sourceNode: number;
     id: number;
-    basisVector: Vector2;
-    intersectingEdges: number[];
-    length: number;
 }
 
 /*
