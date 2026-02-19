@@ -8,9 +8,9 @@ the edge. This maps well to operations like fixing the basis vector, while chang
 
 ## Proposed Features
 
+- [ ]  Button to toggle straight skeleton on/off
+    - [ ]  While on, skeleton updates immediately after UI edits to the polygon
 - [ ]  Lock or edit directly any of:
     - [ ]  vertex position
     - [ ]  edge length
     - [ ]  Edge basis vector
-- [ ]  Button to toggle straight skeleton on/off
-    - [ ]  While on, skeleton updates immediately after UI edits to the polygon

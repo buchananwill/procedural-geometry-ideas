@@ -184,7 +184,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     // invalid id case
     if (edge >= graph.edges.length) {
-        console.log("edge id invalid")
+        // console.log("edge id invalid")
         return false;
     }
     const isExterior = edge < graph.numExteriorNodes;
@@ -192,13 +192,13 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     // not yet in the accepted array at all
     if (edge >= acceptedEdges.length) {
-        console.log("edge id not yet valid for accepted edges.")
+        // console.log("edge id not yet valid for accepted edges.")
         return false;
     }
 
     // has already been accepted (loop is definition of acceptable exterior edge)
     if (isExterior && acceptedEdges[edge]) {
-        console.log("edge already accepted therefore has loop")
+        // console.log("edge already accepted therefore has loop")
         return true;
     }
 
@@ -207,7 +207,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         const interiorEdge = graph.interiorEdges[interiorEdgeIndex(edgeData, graph)];
         const clockwiseParent = interiorEdge.clockwiseExteriorEdgeIndex;
         const widdershinsParent = interiorEdge.widdershinsExteriorEdgeIndex;
-        console.log(`clockwise is accepted: ${acceptedEdges[clockwiseParent]}, widdershins is accepted: ${acceptedEdges[widdershinsParent]}`)
+        // console.log(`clockwise is accepted: ${acceptedEdges[clockwiseParent]}, widdershins is accepted: ${acceptedEdges[widdershinsParent]}`)
         return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
     }
 
@@ -222,19 +222,19 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
     const testAndAddCandidates = (edges: number[]): boolean => {
         for (const candidateEdge of edges) {
             if (candidateEdge === edge){
-                console.log("Search returned to starting edge.")
+                // console.log("Search returned to starting edge.")
                 return true;
             }
             if (visitedEdges.has(candidateEdge)) {
-                console.log(`has visited edge ${candidateEdge}`);
+                // console.log(`has visited edge ${candidateEdge}`);
                 continue;
             }
             if (candidateEdge >= acceptedEdges.length) {
-                console.log(`edge not valid accepted index ${candidateEdge}`);
+                // console.log(`edge not valid accepted index ${candidateEdge}`);
                 continue;
             }
             if (!acceptedEdges[candidateEdge]) {
-                console.log(`edge not accepted ${candidateEdge}`);
+                // console.log(`edge not accepted ${candidateEdge}`);
                 continue;
             }
             candidateEdges.push(candidateEdge);
@@ -280,6 +280,6 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         }
     }
 
-    console.log("search terminated without returning to starting edge.")
+    // console.log("search terminated without returning to starting edge.")
     return false;
 }

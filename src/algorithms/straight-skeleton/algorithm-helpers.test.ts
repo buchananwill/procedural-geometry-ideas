@@ -398,7 +398,6 @@ describe('hasInteriorLoop', () => {
         const acceptedEdges = [false, false, false, true];
 
         const ctx = makeTestContext(g, acceptedEdges);
-        console.log(ctx);
 
         const result = hasInteriorLoop(0, ctx);
         expect(result).toBe(true);

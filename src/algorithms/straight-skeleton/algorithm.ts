@@ -65,11 +65,14 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             const nodeIndex = addNode(newNodePosition, graph)
             const newNode = graph.nodes[nodeIndex];
             newNode.inEdges.push(nextEdge.id)
-            const interiorEdgeData = graph.interiorEdges[nextEdge.id];
+            const interiorEdgeData = graph.interiorEdges[nextEdge.id - graph.numExteriorNodes];
             newNode.inEdges.push(...interiorEdgeData.intersectingEdges)
 
             const acceptedInteriorEdges: number[] = [nextEdge.id, ...interiorEdgeData.intersectingEdges]
-            acceptedInteriorEdges.forEach(e => acceptEdge(e, context))
+            acceptedInteriorEdges.forEach(e => {
+                acceptEdge(e, context);
+                graph.edges[e].target = nodeIndex;
+            })
 
             // accept exterior edges if they are now part of a closed loop.
             const testedExteriorEdges = new Set<number>();
@@ -93,7 +96,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             const activeWiddershinsParents: number[] = []
 
             acceptedInteriorEdges.forEach(e => {
-                const interiorEdge = graph.interiorEdges[e];
+                const interiorEdge = graph.interiorEdges[e - graph.numExteriorNodes];
                 if (!testAndAccept(interiorEdge.widdershinsExteriorEdgeIndex)) {
                     activeWiddershinsParents.push(interiorEdge.widdershinsExteriorEdgeIndex);
                 }
