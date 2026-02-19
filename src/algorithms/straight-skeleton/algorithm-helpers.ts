@@ -297,6 +297,8 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         const nextTargetIndex = nextEdgeData.target;
 
         const nextSource = graph.nodes[nextEdgeData.source];
+        // We need to skip this test for the source of the very first edge, otherwise we short circuit and get a false positive
+        if (nextEdgeData.source.id !== targetIndex) {
         if (testAndAddCandidates(nextSource.outEdges))
         {
             return true;
@@ -305,7 +307,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
         {
             return true;
         }
-
+}
         if (nextTargetIndex !== undefined) {
             const nextTarget = graph.nodes[nextTargetIndex];
 
