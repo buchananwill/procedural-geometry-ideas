@@ -31,7 +31,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     const y1 = ray1.basisVector.y;
     const y2 = ray2.basisVector.y;
 
-    const ray1Units = (xRel + yRel * x2) / (x1 * y2 - x2 * y1);
+    const ray1Units = (xRel * y2 - yRel * x2) / (x1 * y2 - x2 * y1);
     const ray2Units = (ray1Units * y1 - yRel) / y2;
 
     return [ray1Units, ray2Units];
