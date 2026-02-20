@@ -377,15 +377,17 @@ export function buildExteriorParentLists(context: StraightSkeletonSolverContext,
     const testedExteriorEdges = new Set<number>();
     const {graph} = context
 
-    const testFirstTimeSeen = (e: number) => {
+    const testFirstTimeSeen = (e: number, parents: number[]) => {
 
         if (testedExteriorEdges.has(e)) {
-            return context.acceptedEdges[e];
+            return;
         }
 
         testedExteriorEdges.add(e);
 
-        return tryToAcceptExteriorEdge(context, e)
+        if (!tryToAcceptExteriorEdge(context, e)) {
+            parents.push(e);
+        }
     }
 
     const activeClockwiseParents: number[] = [];
@@ -394,12 +396,9 @@ export function buildExteriorParentLists(context: StraightSkeletonSolverContext,
 
     acceptedInteriorEdges.forEach(e => {
         const interiorEdge = graph.interiorEdges[e - graph.numExteriorNodes];
-        if (!testFirstTimeSeen(interiorEdge.widdershinsExteriorEdgeIndex)) {
-            activeWiddershinsParents.push(interiorEdge.widdershinsExteriorEdgeIndex);
-        }
-        if (!testFirstTimeSeen(interiorEdge.clockwiseExteriorEdgeIndex)) {
-            activeClockwiseParents.push(interiorEdge.clockwiseExteriorEdgeIndex);
-        }
+
+        testFirstTimeSeen(interiorEdge.widdershinsExteriorEdgeIndex, activeWiddershinsParents)
+        testFirstTimeSeen(interiorEdge.clockwiseExteriorEdgeIndex, activeClockwiseParents)
     })
 
     return [activeClockwiseParents, activeWiddershinsParents]
