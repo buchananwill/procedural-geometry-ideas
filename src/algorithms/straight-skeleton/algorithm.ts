@@ -6,10 +6,10 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {
     acceptEdge,
-    addTargetNodeAtInteriorEdgeIntersect, buildExteriorParentLists,
+    addTargetNodeAtInteriorEdgeIntersect,
+    buildExteriorParentLists,
     initStraightSkeletonSolverContext,
-    pushHeapInteriorEdge, pushHeapInteriorEdgesFromParentPairs,
-    tryToAcceptExteriorEdge
+    pushHeapInteriorEdgesFromParentPairs
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
 
