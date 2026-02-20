@@ -186,26 +186,48 @@ export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clo
 
     const interiorEdgeData = graph.interiorEdges[edgeIndex - graph.numExteriorNodes];
 
-    for (let otherInteriorEdge = 0; otherInteriorEdge < graph.interiorEdges.length; otherInteriorEdge++) {
-        const otherInteriorEdgeData = graph.interiorEdges[otherInteriorEdge];
+    // Phase 1: compute all pairings without committing any updates.
+    // An early update to another edge's length would corrupt the validity check
+    // for later pairings (e.g. a degenerate zero-distance result could lock the
+    // other edge's length at 0 before a geometrically correct pairing is tested).
+    const candidates: Array<{ otherId: number; dNew: number; dOther: number }> = [];
+    for (let i = 0; i < graph.interiorEdges.length; i++) {
+        const otherInteriorEdgeData = graph.interiorEdges[i];
+        if (otherInteriorEdgeData.id === edgeIndex) continue;
+        if (acceptedEdges[otherInteriorEdgeData.id]) continue;
 
-        if (otherInteriorEdgeData.id === edgeIndex) {
-            continue;
-        }
-
-        if (acceptedEdges[otherInteriorEdgeData.id]) {
-            continue;
-        }
-
-        const [firstDistance, otherDistance] = unitsToIntersection(
+        const [dNew, dOther] = unitsToIntersection(
             makeRayProjection(graph.edges[edgeIndex], graph),
             makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
         );
+        candidates.push({otherId: otherInteriorEdgeData.id, dNew, dOther});
+    }
 
-        updateInteriorEdgeIntersections(interiorEdgeData, otherInteriorEdgeData.id, firstDistance)
-        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherInteriorEdgeData, interiorEdgeData.id, otherDistance)
+    // Phase 2: find the smallest forward distance along the new edge (dNew > 0)
+    // for which the corresponding distance along the other edge (dOther) equals
+    // or reduces that edge's currently recorded intersection length.
+    let bestDNew = Number.POSITIVE_INFINITY;
+    for (const c of candidates) {
+        if (fp_compare(c.dNew, 0) <= 0) continue; // intersection must be forward
+        const otherInteriorEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
+        if (fp_compare(c.dOther, otherInteriorEdgeData.length) <= 0) {
+            if (fp_compare(c.dNew, bestDNew) < 0) {
+                bestDNew = c.dNew;
+            }
+        }
+    }
+
+    // Phase 3: commit updates only for candidates at bestDNew that also satisfy
+    // the condition on the other edge's distance.
+    for (const c of candidates) {
+        if (fp_compare(c.dNew, bestDNew) !== 0) continue;
+        const otherInteriorEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
+        if (fp_compare(c.dOther, otherInteriorEdgeData.length) > 0) continue;
+
+        updateInteriorEdgeIntersections(interiorEdgeData, c.otherId, c.dNew);
+        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherInteriorEdgeData, edgeIndex, c.dOther);
         if (reducedOtherEdgeLength) {
-            context.heap.push({id: otherInteriorEdgeData.id})
+            context.heap.push({id: c.otherId});
         }
     }
 
