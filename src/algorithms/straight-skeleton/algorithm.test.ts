@@ -1,7 +1,13 @@
 import {computeStraightSkeleton} from './algorithm';
-import type {StraightSkeletonGraph, Vector2} from './types';
+import type {StraightSkeletonGraph, StraightSkeletonSolverContext, Vector2} from './types';
 import {initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
-import {initStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/algorithm-helpers";
+import {
+    acceptEdge,
+    addTargetNodeAtInteriorEdgeIntersect,
+    buildExteriorParentLists,
+    initStraightSkeletonSolverContext,
+    pushHeapInteriorEdgesFromParentPairs,
+} from "@/algorithms/straight-skeleton/algorithm-helpers";
 
 // ---------------------------------------------------------------------------
 // Test constants
@@ -215,6 +221,236 @@ describe('computeStraightSkeleton — degenerate inputs', () => {
 
     it('two vertices: does not throw', () => {
         expect(() => computeStraightSkeleton([{x: 0, y: 0}, {x: 1, y: 0}])).not.toThrow();
+    });
+});
+
+// ---------------------------------------------------------------------------
+// 9. Pentagon — step-by-step algorithm tracing
+// ---------------------------------------------------------------------------
+
+/**
+ * Performs exactly one main-loop iteration of the straight skeleton solver.
+ * Mirrors the body of the while-loop in computeStraightSkeleton, skipping
+ * duplicate (already-accepted) heap entries exactly as the real loop does.
+ *
+ * Returns:
+ *   poppedEdgeId         — the id of the edge actually processed (not skipped)
+ *   acceptedInteriorEdges — interior edge ids accepted in this iteration
+ *   newInteriorEdgeIds   — ids of any interior edges pushed during this iteration
+ */
+function performOneStep(context: StraightSkeletonSolverContext): {
+    poppedEdgeId: number;
+    acceptedInteriorEdges: number[];
+    newInteriorEdgeIds: number[];
+} {
+    const {graph, acceptedEdges, heap} = context;
+
+    // Pop, discarding stale duplicate entries (already accepted)
+    let nextEdge = heap.pop();
+    while (nextEdge !== undefined && acceptedEdges[nextEdge.id]) {
+        nextEdge = heap.pop();
+    }
+    if (nextEdge === undefined) throw new Error('Heap exhausted');
+
+    const interiorEdgeData = graph.interiorEdges[nextEdge.id - graph.numExteriorNodes];
+    const prevInteriorEdgeCount = graph.interiorEdges.length;
+
+    const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData);
+    const acceptedInteriorEdges = [...graph.nodes[nodeIndex].inEdges];
+    acceptedInteriorEdges.forEach(e => acceptEdge(e, context));
+
+    const [cw, ws] = buildExteriorParentLists(context, acceptedInteriorEdges);
+    pushHeapInteriorEdgesFromParentPairs(context, cw, ws, nodeIndex);
+
+    const newInteriorEdgeIds = graph.interiorEdges
+        .slice(prevInteriorEdgeCount)
+        .map(e => e.id);
+
+    return {poppedEdgeId: nextEdge.id, acceptedInteriorEdges, newInteriorEdgeIds};
+}
+
+describe('Pentagon — step-by-step algorithm tracing', () => {
+
+    // -----------------------------------------------------------------------
+    // Stage 0: Initialization
+    // -----------------------------------------------------------------------
+
+    describe('stage 0 — after initStraightSkeletonSolverContext', () => {
+        let context: StraightSkeletonSolverContext;
+
+        beforeEach(() => {
+            context = initStraightSkeletonSolverContext(PENTAGON);
+        });
+
+        it('creates exactly 5 interior edges (ids 5-9)', () => {
+            expect(context.graph.interiorEdges.map(e => e.id)).toEqual([5, 6, 7, 8, 9]);
+        });
+
+        it('interior edge 5 bisects CW=0 and WS=4', () => {
+            const e = context.graph.interiorEdges[0];
+            expect(e.id).toBe(5);
+            expect(e.clockwiseExteriorEdgeIndex).toBe(0);
+            expect(e.widdershinsExteriorEdgeIndex).toBe(4);
+        });
+
+        it('interior edge 6 bisects CW=1 and WS=0', () => {
+            const e = context.graph.interiorEdges[1];
+            expect(e.id).toBe(6);
+            expect(e.clockwiseExteriorEdgeIndex).toBe(1);
+            expect(e.widdershinsExteriorEdgeIndex).toBe(0);
+        });
+
+        it('interior edge 7 bisects CW=2 and WS=1', () => {
+            const e = context.graph.interiorEdges[2];
+            expect(e.id).toBe(7);
+            expect(e.clockwiseExteriorEdgeIndex).toBe(2);
+            expect(e.widdershinsExteriorEdgeIndex).toBe(1);
+        });
+
+        it('interior edge 8 bisects CW=3 and WS=2', () => {
+            const e = context.graph.interiorEdges[3];
+            expect(e.id).toBe(8);
+            expect(e.clockwiseExteriorEdgeIndex).toBe(3);
+            expect(e.widdershinsExteriorEdgeIndex).toBe(2);
+        });
+
+        it('interior edge 9 bisects CW=4 and WS=3', () => {
+            const e = context.graph.interiorEdges[4];
+            expect(e.id).toBe(9);
+            expect(e.clockwiseExteriorEdgeIndex).toBe(4);
+            expect(e.widdershinsExteriorEdgeIndex).toBe(3);
+        });
+
+        it('no exterior edges are accepted yet', () => {
+            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
+                expect(context.acceptedEdges[i]).toBe(false);
+            }
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Stage 1: First heap.pop()
+    // -----------------------------------------------------------------------
+
+    describe('stage 1 — after first heap.pop()', () => {
+        let context: StraightSkeletonSolverContext;
+        let step1: ReturnType<typeof performOneStep>;
+
+        beforeEach(() => {
+            context = initStraightSkeletonSolverContext(PENTAGON);
+            step1 = performOneStep(context);
+        });
+
+        // Result 1: interior edges 5, 6, 9 accepted
+        it('accepts interior edges 5, 6, and 9', () => {
+            expect([...step1.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([5, 6, 9]);
+        });
+
+        it('marks interior edge 5 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[5]).toBe(true);
+        });
+
+        it('marks interior edge 6 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[6]).toBe(true);
+        });
+
+        it('marks interior edge 9 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[9]).toBe(true);
+        });
+
+        // Result 2: exterior edges 0 and 4 accepted
+        it('accepts exterior edge 0', () => {
+            expect(context.acceptedEdges[0]).toBe(true);
+        });
+
+        it('accepts exterior edge 4', () => {
+            expect(context.acceptedEdges[4]).toBe(true);
+        });
+
+        it('does not yet accept exterior edges 1, 2, or 3', () => {
+            expect(context.acceptedEdges[1]).toBe(false);
+            expect(context.acceptedEdges[2]).toBe(false);
+            expect(context.acceptedEdges[3]).toBe(false);
+        });
+
+        // Result 3: edge 10 is pushed
+        it('pushes exactly one new interior edge with id 10', () => {
+            expect(step1.newInteriorEdgeIds).toEqual([10]);
+        });
+
+        it('graph now has 6 interior edges total', () => {
+            expect(context.graph.interiorEdges).toHaveLength(6);
+        });
+
+        it('interior edges 7 and 8 are not yet accepted', () => {
+            expect(context.acceptedEdges[7]).toBe(false);
+            expect(context.acceptedEdges[8]).toBe(false);
+        });
+    });
+
+    // -----------------------------------------------------------------------
+    // Stage 2: Second heap.pop()
+    // -----------------------------------------------------------------------
+
+    describe('stage 2 — after second heap.pop()', () => {
+        let context: StraightSkeletonSolverContext;
+        let step2: ReturnType<typeof performOneStep>;
+
+        beforeEach(() => {
+            context = initStraightSkeletonSolverContext(PENTAGON);
+            performOneStep(context); // stage 1
+            step2 = performOneStep(context); // stage 2
+        });
+
+        // Result 4: interior edges 7, 10, 8 accepted
+        it('accepts interior edges 7, 8, and 10', () => {
+            expect([...step2.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([7, 8, 10]);
+        });
+
+        it('marks interior edge 7 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[7]).toBe(true);
+        });
+
+        it('marks interior edge 8 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[8]).toBe(true);
+        });
+
+        it('marks interior edge 10 as accepted in acceptedEdges', () => {
+            expect(context.acceptedEdges[10]).toBe(true);
+        });
+
+        // Result 5: exterior edges 1, 2, 3 accepted
+        it('accepts exterior edge 1', () => {
+            expect(context.acceptedEdges[1]).toBe(true);
+        });
+
+        it('accepts exterior edge 2', () => {
+            expect(context.acceptedEdges[2]).toBe(true);
+        });
+
+        it('accepts exterior edge 3', () => {
+            expect(context.acceptedEdges[3]).toBe(true);
+        });
+
+        // Result 6: no new interior edges pushed
+        it('pushes no new interior edges', () => {
+            expect(step2.newInteriorEdgeIds).toHaveLength(0);
+        });
+
+        it('graph still has 6 interior edges total', () => {
+            expect(context.graph.interiorEdges).toHaveLength(6);
+        });
+
+        // Result 7: all exterior edges accepted
+        it('all 5 exterior edges are now accepted', () => {
+            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
+                expect(context.acceptedEdges[i]).toBe(true);
+            }
+        });
+
+        it('all entries in acceptedEdges are true (graphIsComplete equivalent)', () => {
+            expect(context.acceptedEdges.every(flag => flag)).toBe(true);
+        });
     });
 });
 
