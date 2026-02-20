@@ -9,14 +9,16 @@ import {
     finalizeTargetNodePosition, hasInteriorLoop,
     initStraightSkeletonSolverContext, makeRayProjection, unitsToIntersection, updateInteriorEdgeIntersections
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {addNode} from "@/algorithms/straight-skeleton/core-functions";
+import {addNode, initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
 
 function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
 }
 
 export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph {
-
+    if (nodes.length < 3) {
+        return initStraightSkeletonGraph(nodes);
+    }
     const context = initStraightSkeletonSolverContext(nodes);
     const {graph, acceptedEdges, heap} = context;
 

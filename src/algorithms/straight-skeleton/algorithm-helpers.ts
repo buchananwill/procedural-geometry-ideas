@@ -29,7 +29,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     const yRel = relativeRay2Source.y;
 
     if (fp_compare(xRel, 0) === 0 && fp_compare(yRel, 0) === 0) {
-        return [0,0];
+        return [0, 0];
     }
 
     const x1 = ray1.basisVector.x;
@@ -47,14 +47,14 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     if (fp_compare(crossProduct, 0) === 0) {
         const pointLiesAlongRay = (ray: RayProjection, point: Vector2): [boolean, number] => {
             const relative = subtractVectors(point, ray.sourceVector);
-            if (ray.basisVector.x === 0){
+            if (ray.basisVector.x === 0) {
                 const delta = point.y / ray.basisVector.y;
-                return [fp_compare(relative.x ,0) === 0 && delta > 0, delta];
+                return [fp_compare(relative.x, 0) === 0 && delta > 0, delta];
             }
 
-            if (ray.basisVector.y === 0){
+            if (ray.basisVector.y === 0) {
                 const delta = point.x / ray.basisVector.x;
-                return [fp_compare(relative.y ,0) === 0 && delta > 0, delta];
+                return [fp_compare(relative.y, 0) === 0 && delta > 0, delta];
             }
 
             const delta_x = relative.x / ray.basisVector.x;
@@ -65,15 +65,15 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         const [isAlongRay1, length1] = pointLiesAlongRay(ray1, ray2.sourceVector);
         const [isAlongRay2, length2] = pointLiesAlongRay(ray2, ray1.sourceVector);
 
-        if (isAlongRay1 && isAlongRay2){
-            return [length1, length2];
+        if (isAlongRay1 && isAlongRay2) {
+            return [length1/2, length2/2];
         }
 
-        if (isAlongRay1){
+        if (isAlongRay1) {
             return [length1, -length2];
         }
 
-        if (isAlongRay2){
+        if (isAlongRay2) {
             return [-length1, length2];
         }
 
@@ -259,7 +259,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     const testAndAddCandidates = (edges: number[]): boolean => {
         for (const candidateEdge of edges) {
-            if (candidateEdge === edge){
+            if (candidateEdge === edge) {
                 // console.log("Search returned to starting edge.")
                 return true;
             }
@@ -277,7 +277,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
             }
             candidateEdges.push(candidateEdge);
         }
-            return false;
+        return false;
     }
 
     while (candidateEdges.length > 0) {
@@ -298,16 +298,14 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
         const nextSource = graph.nodes[nextEdgeData.source];
         // We need to skip this test for the source of the very first edge, otherwise we short circuit and get a false positive
-        if (nextEdgeData.source.id !== targetIndex) {
-        if (testAndAddCandidates(nextSource.outEdges))
-        {
-            return true;
+        if (nextEdgeData.source !== targetIndex) {
+            if (testAndAddCandidates(nextSource.outEdges)) {
+                return true;
+            }
+            if (testAndAddCandidates(nextSource.inEdges)) {
+                return true;
+            }
         }
-        if (testAndAddCandidates(nextSource.inEdges))
-        {
-            return true;
-        }
-}
         if (nextTargetIndex !== undefined) {
             const nextTarget = graph.nodes[nextTargetIndex];
 
