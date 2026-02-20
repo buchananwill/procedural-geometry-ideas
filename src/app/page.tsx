@@ -19,6 +19,15 @@ export default function Home() {
   const removeVertex = usePolygonStore((s) => s.removeVertex);
 
   const [showSkeleton, setShowSkeleton] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function copyVerticesToClipboard() {
+    const json = JSON.stringify(vertices.map(({ x, y }) => ({ x, y })), null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
 
   const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
     if (!showSkeleton) return null;
@@ -47,6 +56,14 @@ export default function Home() {
                 </Text>
                 <Button onClick={resetPolygon} variant="light" fullWidth>
                   Reset Polygon
+                </Button>
+                <Button
+                  onClick={copyVerticesToClipboard}
+                  variant="light"
+                  color="teal"
+                  fullWidth
+                >
+                  {copied ? "Copied!" : "Copy Vertices"}
                 </Button>
                 <Button
                   onClick={() => {

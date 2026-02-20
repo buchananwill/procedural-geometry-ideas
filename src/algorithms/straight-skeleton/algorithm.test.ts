@@ -17,6 +17,40 @@ const TRIANGLE: Vector2[] = [{x: 0, y: 0}, {x: 4, y: 0}, {x: 2, y: 4}];
 const SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 2, y: 0}, {x: 2, y: 2}, {x: 0, y: 2}];
 const RECTANGLE: Vector2[] = [{x: 0, y: 0}, {x: 4, y: 0}, {x: 4, y: 2}, {x: 0, y: 2}];
 const PENTAGON: Vector2[] = [{x: 3, y: 9}, {x: 6, y: 6}, {x: 6, y: 0}, {x: 0, y: 0}, {x: 0, y: 6}];
+const KIDNEY_BEAN_OCTAGON = [
+    {
+        x: 396,
+        y: 214
+    },
+    {
+        x: 522.5056829452515,
+        y: 150.50568294525146
+    },
+    {
+        x: 598.5056829452515,
+        y: 227.50568294525146
+    },
+    {
+        x: 577,
+        y: 372
+    },
+    {
+        x: 500,
+        y: 450
+    },
+    {
+        x: 300,
+        y: 450
+    },
+    {
+        x: 250,
+        y: 250
+    },
+    {
+        x: 316.9999990463257,
+        y: 219.00000095367432
+    }
+]
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -465,13 +499,13 @@ describe('Pentagon house', () => {
     });
 
     it('should have 5 interior edges after context init', () => {
-       const context = initStraightSkeletonSolverContext(PENTAGON);
-       g = context.graph;
-       expect(g.interiorEdges.length).toBe(5);
+        const context = initStraightSkeletonSolverContext(PENTAGON);
+        g = context.graph;
+        expect(g.interiorEdges.length).toBe(5);
     });
 
     it('should have 7 nodes', () => {
-            g = computeStraightSkeleton(PENTAGON);
+        g = computeStraightSkeleton(PENTAGON);
         expect(g.nodes.length).toBe(7);
     });
 })
