@@ -6,6 +6,7 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
+    addNode,
     addVectors, assertIsNumber,
     fp_compare,
     initStraightSkeletonGraph, interiorEdgeIndex,
@@ -66,7 +67,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         const [isAlongRay2, length2] = pointLiesAlongRay(ray2, ray1.sourceVector);
 
         if (isAlongRay1 && isAlongRay2) {
-            return [length1/2, length2/2];
+            return [length1 / 2, length2 / 2];
         }
 
         if (isAlongRay1) {
@@ -168,54 +169,76 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
     return false;
 }
 
+export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
+    const {acceptedEdges, heap, graph} = context;
+
+    const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source);
+
+    const heapInteriorEdge: HeapInteriorEdge = {
+        id: edgeIndex,
+    }
+
+    while (acceptedEdges.length <= edgeIndex) {
+        acceptedEdges.push(false);
+    }
+
+    acceptedEdges[edgeIndex] = false;
+
+    const interiorEdgeData = graph.interiorEdges[edgeIndex - graph.numExteriorNodes];
+
+    for (let otherInteriorEdge = 0; otherInteriorEdge < graph.interiorEdges.length; otherInteriorEdge++) {
+        const otherInteriorEdgeData = graph.interiorEdges[otherInteriorEdge];
+
+        if (otherInteriorEdgeData.id === edgeIndex) {
+            continue;
+        }
+
+        if (acceptedEdges[otherInteriorEdgeData.id]) {
+            continue;
+        }
+
+        const [firstDistance, otherDistance] = unitsToIntersection(
+            makeRayProjection(graph.edges[edgeIndex], graph),
+            makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
+        );
+
+        updateInteriorEdgeIntersections(interiorEdgeData, otherInteriorEdgeData.id, firstDistance)
+        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherInteriorEdgeData, interiorEdgeData.id, otherDistance)
+        if (reducedOtherEdgeLength) {
+            context.heap.push({id: otherInteriorEdgeData.id})
+        }
+    }
+
+    heap.push(heapInteriorEdge);
+}
+
+
 // Function to make heap interior edges
 export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const context = makeStraightSkeletonSolverContext(nodes);
-    const graph = context.graph;
-
-    const initialInteriorEdges: number[] = [];
 
     const exteriorEdges = [...context.graph.edges];
 
     // create interior edges from exterior node bisections
     for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        const edgeIndex = addBisectionEdge(graph, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex);
-        initialInteriorEdges.push(edgeIndex);
-    }
-
-    // calculate intersection lengths and push into heap
-    for (let initialInteriorEdge1 = 0; initialInteriorEdge1 < initialInteriorEdges.length; initialInteriorEdge1++) {
-        const firstInteriorEdge = graph.interiorEdges[initialInteriorEdge1];
-        for (let initialInteriorEdge2 = initialInteriorEdge1 + 1; initialInteriorEdge2 < initialInteriorEdges.length; initialInteriorEdge2++) {
-            const otherInteriorEdge = graph.interiorEdges[initialInteriorEdge2];
-            const [firstDistance, otherDistance] = unitsToIntersection(
-                makeRayProjection(graph.edges[firstInteriorEdge.id], graph),
-                makeRayProjection(graph.edges[otherInteriorEdge.id], graph)
-            );
-
-            updateInteriorEdgeIntersections(firstInteriorEdge, otherInteriorEdge.id, firstDistance)
-            updateInteriorEdgeIntersections(otherInteriorEdge, firstInteriorEdge.id, otherDistance)
-        }
-
-        context.heap.push({id: firstInteriorEdge.id});
+        pushHeapInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex);
     }
 
     return context;
 }
 
-export function finalizeTargetNodePosition(edge: HeapInteriorEdge, graph: StraightSkeletonGraph) {
-    const edgeData = graph.edges[edge.id];
-    const interiorEdgeData = graph.interiorEdges[edge.id - graph.numExteriorNodes];
+export function finalizeTargetNodePosition(interiorEdgeId: number, graph: StraightSkeletonGraph) {
+    const edgeData = graph.edges[interiorEdgeId];
+    const interiorEdgeData = graph.interiorEdges[interiorEdgeId - graph.numExteriorNodes];
     const vector = scaleVector(edgeData.basisVector, interiorEdgeData.length)
     const start = graph.nodes[edgeData.source].position;
     return addVectors(start, vector)
 }
 
 export function acceptEdge(edge: number, context: StraightSkeletonSolverContext) {
-
-    while (edge >= context.acceptedEdges.length) {
-        context.acceptedEdges.push(false);
+    if (edge >= context.acceptedEdges.length) {
+        throw new Error(`Cannot accept edge ${edge} for array length ${context.acceptedEdges.length}`);
     }
 
     context.acceptedEdges[edge] = true;
@@ -324,4 +347,97 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 
     // console.log("search terminated without returning to starting edge.")
     return false;
+}
+
+export function addTargetNodeAtInteriorEdgeIntersect(context: StraightSkeletonSolverContext, interiorEdgeData: InteriorEdge): number {
+    const {graph} = context;
+    const newNodePosition = finalizeTargetNodePosition(interiorEdgeData.id, graph);
+    const nodeIndex = addNode(newNodePosition, graph)
+    const newNode = graph.nodes[nodeIndex];
+    const inEdges = [interiorEdgeData.id, ...interiorEdgeData.intersectingEdges]
+    newNode.inEdges = inEdges
+
+    inEdges.forEach(edge => {
+        graph.edges[edge].target = nodeIndex
+    })
+
+
+    return nodeIndex;
+}
+
+export function tryToAcceptExteriorEdge(context: StraightSkeletonSolverContext, exteriorEdge: number) {
+    if (hasInteriorLoop(exteriorEdge, context)) {
+        context.acceptedEdges[exteriorEdge] = true;
+    }
+
+    return context.acceptedEdges[exteriorEdge];
+}
+
+export function buildExteriorParentLists(context: StraightSkeletonSolverContext, acceptedInteriorEdges: number[]): [number[], number[]] {
+    const testedExteriorEdges = new Set<number>();
+    const {graph} = context
+
+    const testFirstTimeSeen = (e: number) => {
+
+        if (testedExteriorEdges.has(e)) {
+            return context.acceptedEdges[e];
+        }
+
+        testedExteriorEdges.add(e);
+
+        return tryToAcceptExteriorEdge(context, e)
+    }
+
+    const activeClockwiseParents: number[] = [];
+    const activeWiddershinsParents: number[] = []
+    console.log(`accepted interior edges: ${acceptedInteriorEdges}`)
+
+    acceptedInteriorEdges.forEach(e => {
+        const interiorEdge = graph.interiorEdges[e - graph.numExteriorNodes];
+        if (!testFirstTimeSeen(interiorEdge.widdershinsExteriorEdgeIndex)) {
+            activeWiddershinsParents.push(interiorEdge.widdershinsExteriorEdgeIndex);
+        }
+        if (!testFirstTimeSeen(interiorEdge.clockwiseExteriorEdgeIndex)) {
+            activeClockwiseParents.push(interiorEdge.clockwiseExteriorEdgeIndex);
+        }
+    })
+
+    return [activeClockwiseParents, activeWiddershinsParents]
+}
+
+export function pushHeapInteriorEdgesFromParentPairs(context: StraightSkeletonSolverContext, activeClockwiseParents: number[], activeWiddershinsParents: number[], nodeIndex: number) {
+    if (activeClockwiseParents.length !== activeWiddershinsParents.length) {
+        throw new Error(`Expected both arrays to be equal length: clockwise = ${activeClockwiseParents.length}; widdershins = ${activeWiddershinsParents.length}`);
+    }
+    if (activeClockwiseParents.length === 1) {
+        pushHeapInteriorEdge(context, activeClockwiseParents[0], activeWiddershinsParents[0], nodeIndex);
+    }
+
+    if (activeClockwiseParents.length > 1) {
+        activeClockwiseParents.sort()
+        activeWiddershinsParents.sort()
+
+        let widdershinsParentIndex = 0;
+        for (let clockwiseParentIndex = 0; clockwiseParentIndex < activeClockwiseParents.length; clockwiseParentIndex++) {
+            const clockwiseParentEdge = activeClockwiseParents[clockwiseParentIndex];
+
+            // need to make alternating pairs of clockwise/widdershins parents indices
+            // so find the first widdershins parent that is greater than the first clockwise parent
+            if (clockwiseParentIndex === 0 && activeWiddershinsParents[widdershinsParentIndex] < clockwiseParentEdge) {
+                widdershinsParentIndex += 1;
+
+                if (activeWiddershinsParents[widdershinsParentIndex] < clockwiseParentEdge) {
+                    throw new Error("Two consecutive initial widdershins parents are less than the first clockwise parent");
+                }
+            }
+
+            const widdershinsParentEdge = activeWiddershinsParents[widdershinsParentIndex];
+
+            pushHeapInteriorEdge(context, clockwiseParentEdge, widdershinsParentEdge, nodeIndex)
+
+            widdershinsParentIndex++;
+            widdershinsParentIndex = widdershinsParentIndex % activeWiddershinsParents.length;
+        }
+
+    }
 }

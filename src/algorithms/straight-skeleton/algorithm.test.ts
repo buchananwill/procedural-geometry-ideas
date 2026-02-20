@@ -1,13 +1,16 @@
-import { computeStraightSkeleton } from './algorithm';
-import type { StraightSkeletonGraph, Vector2 } from './types';
+import {computeStraightSkeleton} from './algorithm';
+import type {StraightSkeletonGraph, Vector2} from './types';
+import {initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
+import {initStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/algorithm-helpers";
 
 // ---------------------------------------------------------------------------
 // Test constants
 // ---------------------------------------------------------------------------
 
-const TRIANGLE: Vector2[]  = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 2, y: 4 }];
-const SQUARE: Vector2[]    = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }];
-const RECTANGLE: Vector2[] = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 2 }, { x: 0, y: 2 }];
+const TRIANGLE: Vector2[] = [{x: 0, y: 0}, {x: 4, y: 0}, {x: 2, y: 4}];
+const SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 2, y: 0}, {x: 2, y: 2}, {x: 0, y: 2}];
+const RECTANGLE: Vector2[] = [{x: 0, y: 0}, {x: 4, y: 0}, {x: 4, y: 2}, {x: 0, y: 2}];
+const PENTAGON: Vector2[] = [{x: 3, y: 9}, {x: 6, y: 6}, {x: 6, y: 0}, {x: 0, y: 0}, {x: 0, y: 6}];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -207,10 +210,32 @@ describe('computeStraightSkeleton — degenerate inputs', () => {
     });
 
     it('single vertex: does not throw', () => {
-        expect(() => computeStraightSkeleton([{ x: 0, y: 0 }])).not.toThrow();
+        expect(() => computeStraightSkeleton([{x: 0, y: 0}])).not.toThrow();
     });
 
     it('two vertices: does not throw', () => {
-        expect(() => computeStraightSkeleton([{ x: 0, y: 0 }, { x: 1, y: 0 }])).not.toThrow();
+        expect(() => computeStraightSkeleton([{x: 0, y: 0}, {x: 1, y: 0}])).not.toThrow();
     });
 });
+
+// Pentagon house
+
+describe('Pentagon house', () => {
+    let g: StraightSkeletonGraph;
+
+    it('should have 5 exterior edges after init', () => {
+        g = initStraightSkeletonGraph(PENTAGON);
+        expect(g.edges.length).toBe(5);
+    });
+
+    it('should have 5 interior edges after context init', () => {
+       const context = initStraightSkeletonSolverContext(PENTAGON);
+       g = context.graph;
+       expect(g.interiorEdges.length).toBe(5);
+    });
+
+    it('should have 7 nodes', () => {
+            g = computeStraightSkeleton(PENTAGON);
+        expect(g.nodes.length).toBe(7);
+    });
+})
