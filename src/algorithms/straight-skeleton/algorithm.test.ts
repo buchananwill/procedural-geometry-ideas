@@ -314,14 +314,14 @@ function performOneStep(context: StraightSkeletonSolverContext): {
 } {
     const {graph, acceptedEdges, heap} = context;
 
-    // Pop, discarding stale duplicate entries (already accepted)
+    // Stale check: discard if ANY participating edge is accepted
     let nextEdge = heap.pop();
-    while (nextEdge !== undefined && acceptedEdges[nextEdge.id]) {
+    while (nextEdge !== undefined && nextEdge.participatingEdges.some(eid => eid < acceptedEdges.length && acceptedEdges[eid])) {
         nextEdge = heap.pop();
     }
     if (nextEdge === undefined) throw new Error('Heap exhausted');
 
-    const interiorEdgeData = graph.interiorEdges[nextEdge.id - graph.numExteriorNodes];
+    const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
     const prevInteriorEdgeCount = graph.interiorEdges.length;
 
     const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData);
@@ -335,7 +335,7 @@ function performOneStep(context: StraightSkeletonSolverContext): {
         .slice(prevInteriorEdgeCount)
         .map(e => e.id);
 
-    return {poppedEdgeId: nextEdge.id, acceptedInteriorEdges, newInteriorEdgeIds};
+    return {poppedEdgeId: nextEdge.ownerId, acceptedInteriorEdges, newInteriorEdgeIds};
 }
 
 describe('Pentagon — step-by-step algorithm tracing', () => {

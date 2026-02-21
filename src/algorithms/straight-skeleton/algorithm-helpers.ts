@@ -101,9 +101,9 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
 
 }
 
-function makeHeapInteriorEdgeComparator(graph: StraightSkeletonGraph) {
+function makeHeapInteriorEdgeComparator() {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
-        return graph.interiorEdges[e1.id - graph.numExteriorNodes].length - graph.interiorEdges[e2.id - graph.numExteriorNodes].length;
+        return e1.eventDistance - e2.eventDistance;
     }
 }
 
@@ -113,7 +113,7 @@ function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSo
     return {
         graph,
         acceptedEdges: nodes.map(() => false),
-        heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator(graph)),
+        heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
     };
 }
 
@@ -256,27 +256,38 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
     const edgeData = graph.interiorEdges[evaluation.edgeIndex - graph.numExteriorNodes];
     const displaced: number[] = [];
 
-    // Directly set the evaluated edge's state from the evaluation
+    // Note 2: no valid intersection — set state but don't push
+    if (!isFinite(evaluation.shortestLength) || evaluation.intersectors.length === 0) {
+        edgeData.length = evaluation.shortestLength;
+        edgeData.intersectingEdges = [];
+        return displaced;
+    }
+
+    // Set evaluated edge's state
     edgeData.length = evaluation.shortestLength;
     edgeData.intersectingEdges = evaluation.intersectors.map(info => info.edgeId);
 
-    // For each intersector, update the other edge's intersection data
+    // Update intersectors, collect displaced
     for (const info of evaluation.intersectors) {
         const otherEdgeData = graph.interiorEdges[info.edgeId - graph.numExteriorNodes];
         const oldIntersectingEdges = [...otherEdgeData.intersectingEdges];
-        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherEdgeData, evaluation.edgeIndex, info.distanceAlongOther);
-
-        if (reducedOtherEdgeLength) {
-            heap.push({id: info.edgeId});
-            // Collect displaced edges (the old intersecting edges that were overwritten)
-            for (const d of oldIntersectingEdges) {
-                displaced.push(d);
-            }
+        const reduced = updateInteriorEdgeIntersections(otherEdgeData, evaluation.edgeIndex, info.distanceAlongOther);
+        if (reduced) {
+            for (const d of oldIntersectingEdges) displaced.push(d);
         }
     }
 
-    // Push the evaluated edge to heap
-    heap.push({id: evaluation.edgeIndex});
+    // Note 1: single push, eventDistance = min distance among all participants
+    let eventDistance = evaluation.shortestLength;
+    for (const info of evaluation.intersectors) {
+        if (info.distanceAlongOther < eventDistance) eventDistance = info.distanceAlongOther;
+    }
+
+    heap.push({
+        ownerId: evaluation.edgeIndex,
+        participatingEdges: [evaluation.edgeIndex, ...evaluation.intersectors.map(i => i.edgeId)],
+        eventDistance,
+    });
 
     return displaced;
 }

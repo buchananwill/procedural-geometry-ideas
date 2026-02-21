@@ -28,21 +28,18 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
     while (!graphIsComplete(context)) {
         nextEdge = heap.pop();
 
-        { // Invariant handling;
+        { // Invariant handling
             if (nextEdge === undefined) {
                 throw new Error(`Graph not complete but no edges left in heap`);
             }
-            if (acceptedEdges.length <= nextEdge.id) {
-                throw new Error(`Edge in heap has invalid id: ${nextEdge.id}. Max id: ${acceptedEdges.length - 1}`);
-            }
 
-            // Duplicate entry handling
-            if (acceptedEdges[nextEdge.id]) {
+            // Note 3: discard if ANY participating edge is already accepted
+            if (nextEdge.participatingEdges.some(eid => eid < acceptedEdges.length && acceptedEdges[eid])) {
                 continue;
             }
         }
 
-        const interiorEdgeData = graph.interiorEdges[nextEdge.id - graph.numExteriorNodes];
+        const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
 
         const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData)
 

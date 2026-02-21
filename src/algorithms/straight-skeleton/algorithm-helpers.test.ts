@@ -274,7 +274,7 @@ describe('finalizeTargetNodePosition', () => {
     // clockwise edge 0 basis (1,0); widdershins edge 2 basis normalize(-2,-4) negated → normalize(2,4)
     // bisector = normalize( (1,0) + normalize(2,4) ) — a unit vector pointing upper-right from (0,0)
     let g: StraightSkeletonGraph;
-    const heapEdge: HeapInteriorEdge = { id: 3 };
+    const heapEdgeId = 3;
 
     beforeEach(() => {
         g = initStraightSkeletonGraph(TRIANGLE);
@@ -283,20 +283,20 @@ describe('finalizeTargetNodePosition', () => {
     });
 
     it('returns an object with numeric x and y', () => {
-        const result = finalizeTargetNodePosition(heapEdge.id, g);
+        const result = finalizeTargetNodePosition(heapEdgeId, g);
         expect(typeof result.x).toBe('number');
         expect(typeof result.y).toBe('number');
     });
 
     it('result is exactly 3 units from the source node (node 0)', () => {
-        const result = finalizeTargetNodePosition(heapEdge.id, g);
+        const result = finalizeTargetNodePosition(heapEdgeId, g);
         const source = g.nodes[0].position;
         const dist = magnitude({ x: result.x - source.x, y: result.y - source.y });
         expect(dist).toBeCloseTo(3);
     });
 
     it('direction from source to result matches the edge basisVector', () => {
-        const result = finalizeTargetNodePosition(heapEdge.id, g);
+        const result = finalizeTargetNodePosition(heapEdgeId, g);
         const source = g.nodes[0].position;
         const diff   = { x: result.x - source.x, y: result.y - source.y };
         const dirMag = magnitude(diff);
