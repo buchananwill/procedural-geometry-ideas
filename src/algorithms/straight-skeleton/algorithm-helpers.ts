@@ -126,10 +126,14 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         intersectingEdges: [],
         length: Number.MAX_VALUE
     })
+
+    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
+    const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, scaleVector(widdershinsEdge.basisVector, -1));
+
     graph.edges.push({
         id,
         source,
-        basisVector: makeBisectedBasis(clockwiseEdge.basisVector, scaleVector(widdershinsEdge.basisVector, -1))
+        basisVector: crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis
     })
 
     graph.nodes[source].outEdges.push(id);
