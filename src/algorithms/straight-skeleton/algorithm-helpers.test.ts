@@ -281,20 +281,20 @@ describe('finalizeTargetNodePosition', () => {
     });
 
     it('returns an object with numeric x and y', () => {
-        const result = finalizeTargetNodePosition(heapEdge, g);
+        const result = finalizeTargetNodePosition(heapEdge.id, g);
         expect(typeof result.x).toBe('number');
         expect(typeof result.y).toBe('number');
     });
 
     it('result is exactly 3 units from the source node (node 0)', () => {
-        const result = finalizeTargetNodePosition(heapEdge, g);
+        const result = finalizeTargetNodePosition(heapEdge.id, g);
         const source = g.nodes[0].position;
         const dist = magnitude({ x: result.x - source.x, y: result.y - source.y });
         expect(dist).toBeCloseTo(3);
     });
 
     it('direction from source to result matches the edge basisVector', () => {
-        const result = finalizeTargetNodePosition(heapEdge, g);
+        const result = finalizeTargetNodePosition(heapEdge.id, g);
         const source = g.nodes[0].position;
         const diff   = { x: result.x - source.x, y: result.y - source.y };
         const dirMag = magnitude(diff);
@@ -325,14 +325,9 @@ describe('acceptEdge', () => {
         expect(ctx.acceptedEdges[0]).toBe(false);
     });
 
-    it('extends the array and sets to true when index is beyond current length', () => {
-        acceptEdge(5, ctx);
-        expect(ctx.acceptedEdges[5]).toBe(true);
-    });
+    it('throws an error when index is beyond current length', () => {
 
-    it('acceptedEdges has length 6 after accepting index 5', () => {
-        acceptEdge(5, ctx);
-        expect(ctx.acceptedEdges.length).toBe(6);
+        expect(() => acceptEdge(5, ctx)).toThrow();
     });
 });
 

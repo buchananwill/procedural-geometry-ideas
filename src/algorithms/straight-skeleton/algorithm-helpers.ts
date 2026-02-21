@@ -1,5 +1,8 @@
 import {
-    HeapInteriorEdge, InteriorEdge, PolygonEdge, PolygonNode,
+    HeapInteriorEdge,
+    InteriorEdge,
+    PolygonEdge,
+    PolygonNode,
     RayProjection,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
@@ -128,8 +131,10 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         length: Number.MAX_VALUE
     })
 
-    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
-    const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, scaleVector(widdershinsEdge.basisVector, -1));
+    const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
+
+    const crossProduct = clockwiseEdge.basisVector.x * fromNodeWiddershins.y - clockwiseEdge.basisVector.y * fromNodeWiddershins.x;
+    const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
     graph.edges.push({
         id,
