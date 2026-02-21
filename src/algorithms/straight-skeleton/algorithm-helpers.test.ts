@@ -7,6 +7,8 @@ import {
     finalizeTargetNodePosition,
     acceptEdge,
     hasInteriorLoop,
+    createBisectionInteriorEdge,
+    evaluateEdgeIntersections,
 } from './algorithm-helpers';
 import { initStraightSkeletonGraph } from './core-functions';
 import type {
@@ -396,5 +398,88 @@ describe('hasInteriorLoop', () => {
 
         const result = hasInteriorLoop(0, ctx);
         expect(result).toBe(true);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// createBisectionInteriorEdge
+// ---------------------------------------------------------------------------
+
+describe('createBisectionInteriorEdge', () => {
+    let ctx: StraightSkeletonSolverContext;
+    let edgeIndex: number;
+
+    beforeEach(() => {
+        ctx = makeTestContext(initStraightSkeletonGraph(SQUARE), [false, false, false, false]);
+        edgeIndex = createBisectionInteriorEdge(ctx, 1, 0, 1);
+    });
+
+    it('returns the correct edge index (4 for a 4-edge polygon)', () => {
+        expect(edgeIndex).toBe(4);
+    });
+
+    it('extends acceptedEdges to cover the new edge', () => {
+        expect(ctx.acceptedEdges.length).toBeGreaterThan(edgeIndex);
+        expect(ctx.acceptedEdges[edgeIndex]).toBe(false);
+    });
+
+    it('new interior edge starts with length MAX_VALUE', () => {
+        const interiorEdge = ctx.graph.interiorEdges[edgeIndex - ctx.graph.numExteriorNodes];
+        expect(interiorEdge.length).toBe(Number.MAX_VALUE);
+    });
+
+    it('new interior edge has empty intersectingEdges', () => {
+        const interiorEdge = ctx.graph.interiorEdges[edgeIndex - ctx.graph.numExteriorNodes];
+        expect(interiorEdge.intersectingEdges).toEqual([]);
+    });
+
+    it('graph.interiorEdges grows by 1', () => {
+        expect(ctx.graph.interiorEdges).toHaveLength(1);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// evaluateEdgeIntersections
+// ---------------------------------------------------------------------------
+
+describe('evaluateEdgeIntersections', () => {
+    it('returns correct evaluation for SQUARE without mutating state', () => {
+        const ctx = initStraightSkeletonSolverContext(SQUARE);
+
+        // Pick edge 4 (first interior edge, bisector at node 0)
+        const edgeIndex = ctx.graph.interiorEdges[0].id;
+
+        // Snapshot state before evaluation
+        const lengthsBefore = ctx.graph.interiorEdges.map(e => e.length);
+        const intersectingBefore = ctx.graph.interiorEdges.map(e => [...e.intersectingEdges]);
+
+        const evaluation = evaluateEdgeIntersections(ctx, edgeIndex);
+
+        // Evaluation should not have mutated any edge state
+        for (let i = 0; i < ctx.graph.interiorEdges.length; i++) {
+            expect(ctx.graph.interiorEdges[i].length).toBe(lengthsBefore[i]);
+            expect(ctx.graph.interiorEdges[i].intersectingEdges).toEqual(intersectingBefore[i]);
+        }
+
+        // Evaluation results should be valid
+        expect(evaluation.edgeIndex).toBe(edgeIndex);
+        expect(evaluation.shortestLength).toBeLessThan(Number.MAX_VALUE);
+        expect(evaluation.intersectors.length).toBeGreaterThan(0);
+    });
+
+    it('skips accepted edges as candidates', () => {
+        const ctx = initStraightSkeletonSolverContext(SQUARE);
+        const edgeIndex = ctx.graph.interiorEdges[0].id;
+
+        // Accept all other interior edges
+        for (let i = 1; i < ctx.graph.interiorEdges.length; i++) {
+            ctx.acceptedEdges[ctx.graph.interiorEdges[i].id] = true;
+        }
+
+        const evaluation = evaluateEdgeIntersections(ctx, edgeIndex);
+
+        // No active edges to intersect with → shortestLength stays +INF
+        expect(evaluation.shortestLength).toBe(Number.POSITIVE_INFINITY);
+        expect(evaluation.intersectors).toHaveLength(0);
     });
 });

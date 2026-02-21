@@ -1,5 +1,7 @@
 import {
+    EdgeIntersectionEvaluation,
     HeapInteriorEdge,
+    IntersectorInfo,
     InteriorEdge,
     PolygonEdge,
     PolygonNode,
@@ -174,27 +176,30 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
     return false;
 }
 
-export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
-    const {acceptedEdges, heap, graph} = context;
-
+/**
+ * Creates a new bisection interior edge and extends acceptedEdges to cover it.
+ * Returns the edge index. Does NOT evaluate intersections or push to heap.
+ */
+export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number): number {
+    const {acceptedEdges, graph} = context;
     const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source);
-
-    const heapInteriorEdge: HeapInteriorEdge = {
-        id: edgeIndex,
-    }
 
     while (acceptedEdges.length <= edgeIndex) {
         acceptedEdges.push(false);
     }
-
     acceptedEdges[edgeIndex] = false;
 
-    const interiorEdgeData = graph.interiorEdges[edgeIndex - graph.numExteriorNodes];
+    return edgeIndex;
+}
 
-    // Phase 1: compute all pairings without committing any updates.
-    // An early update to another edge's length would corrupt the validity check
-    // for later pairings (e.g. a degenerate zero-distance result could lock the
-    // other edge's length at 0 before a geometrically correct pairing is tested).
+/**
+ * Evaluates intersections for any active (non-accepted) interior edge against all other
+ * active interior edges. Returns an EdgeIntersectionEvaluation WITHOUT committing changes.
+ */
+export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext, edgeIndex: number): EdgeIntersectionEvaluation {
+    const {acceptedEdges, graph} = context;
+
+    // Phase 1: compute all pairings without committing
     const candidates: { otherId: number; distanceNew: number; distanceOther: number }[] = [];
     for (let i = 0; i < graph.interiorEdges.length; i++) {
         const otherInteriorEdgeData = graph.interiorEdges[i];
@@ -205,15 +210,14 @@ export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clo
             makeRayProjection(graph.edges[edgeIndex], graph),
             makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
         );
-        candidates.push({otherId: otherInteriorEdgeData.id, distanceNew: distanceNew, distanceOther: distanceOther});
+        candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther});
     }
 
-    // Phase 2: find the smallest forward distance along the new edge (distanceNew > 0)
-    // for which the corresponding distance along the other edge (dOther) equals
-    // or reduces that edge's currently recorded intersection length.
+    // Phase 2: find smallest forward distance along self where the other edge's
+    // distance is within its current recorded length
     let bestDistanceNew = Number.POSITIVE_INFINITY;
     for (const edgeCandidate of candidates) {
-        if (fp_compare(edgeCandidate.distanceNew, 0) <= 0) continue; // intersection must be forward
+        if (fp_compare(edgeCandidate.distanceNew, 0) <= 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[edgeCandidate.otherId - graph.numExteriorNodes];
         if (fp_compare(edgeCandidate.distanceOther, otherInteriorEdgeData.length) <= 0) {
             if (fp_compare(edgeCandidate.distanceNew, bestDistanceNew) < 0) {
@@ -222,21 +226,83 @@ export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clo
         }
     }
 
-    // Phase 3: commit updates only for candidates at bestDistanceNew that also satisfy
-    // the condition on the other edge's distance.
+    // Phase 3: collect intersectors at bestDistanceNew
+    const intersectors: IntersectorInfo[] = [];
     for (const c of candidates) {
         if (fp_compare(c.distanceNew, bestDistanceNew) !== 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
         if (fp_compare(c.distanceOther, otherInteriorEdgeData.length) > 0) continue;
+        intersectors.push({
+            edgeId: c.otherId,
+            distanceAlongSelf: c.distanceNew,
+            distanceAlongOther: c.distanceOther,
+        });
+    }
 
-        updateInteriorEdgeIntersections(interiorEdgeData, c.otherId, c.distanceNew);
-        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherInteriorEdgeData, edgeIndex, c.distanceOther);
+    return {
+        edgeIndex,
+        shortestLength: bestDistanceNew,
+        intersectors,
+    };
+}
+
+/**
+ * Commits a single evaluation. Directly sets the evaluated edge's length and
+ * intersectingEdges, then uses updateInteriorEdgeIntersections for each intersector.
+ * Returns displaced edge IDs (edges whose intersectingEdges were overwritten).
+ */
+function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: EdgeIntersectionEvaluation): number[] {
+    const {graph, heap} = context;
+    const edgeData = graph.interiorEdges[evaluation.edgeIndex - graph.numExteriorNodes];
+    const displaced: number[] = [];
+
+    // Directly set the evaluated edge's state from the evaluation
+    edgeData.length = evaluation.shortestLength;
+    edgeData.intersectingEdges = evaluation.intersectors.map(info => info.edgeId);
+
+    // For each intersector, update the other edge's intersection data
+    for (const info of evaluation.intersectors) {
+        const otherEdgeData = graph.interiorEdges[info.edgeId - graph.numExteriorNodes];
+        const oldIntersectingEdges = [...otherEdgeData.intersectingEdges];
+        const reducedOtherEdgeLength = updateInteriorEdgeIntersections(otherEdgeData, evaluation.edgeIndex, info.distanceAlongOther);
+
         if (reducedOtherEdgeLength) {
-            context.heap.push({id: c.otherId});
+            heap.push({id: info.edgeId});
+            // Collect displaced edges (the old intersecting edges that were overwritten)
+            for (const d of oldIntersectingEdges) {
+                displaced.push(d);
+            }
         }
     }
 
-    heap.push(heapInteriorEdge);
+    // Push the evaluated edge to heap
+    heap.push({id: evaluation.edgeIndex});
+
+    return displaced;
+}
+
+export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
+    const edgeIndex = createBisectionInteriorEdge(context, clockwiseParent, widdershinsParent, source);
+
+    // FIFO queue of edges that need (re-)evaluation
+    const dirtyQueue: number[] = [edgeIndex];
+    const processed = new Set<number>();
+
+    while (dirtyQueue.length > 0) {
+        const currentEdge = dirtyQueue.shift()!;
+        if (processed.has(currentEdge)) continue;
+        if (context.acceptedEdges[currentEdge]) continue;
+        processed.add(currentEdge);
+
+        const evaluation = evaluateEdgeIntersections(context, currentEdge);
+        const displaced = applyEvaluation(context, evaluation);
+
+        for (const d of displaced) {
+            if (!processed.has(d) && !context.acceptedEdges[d]) {
+                dirtyQueue.push(d);
+            }
+        }
+    }
 }
 
 

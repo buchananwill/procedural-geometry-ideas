@@ -620,16 +620,12 @@ describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
     });
 
     // -----------------------------------------------------------------------
-    // End-to-end: algorithm throws with a specific message
-    //
-    // The double-accept of edge 12 at step 6 causes buildExteriorParentLists to
-    // produce an asymmetric parent list (1 CW parent, 2 WS parents), which is
-    // caught by the length-equality guard in pushHeapInteriorEdgesFromParentPairs.
+    // End-to-end: algorithm completes without throwing
     // -----------------------------------------------------------------------
 
-    it('throws "Expected both arrays to be equal length"', () => {
+    it('completes without throwing', () => {
         expect(() => computeStraightSkeleton(IMPOSSIBLE_OCTAGON))
-            .toThrow('Expected both arrays to be equal length');
+            .not.toThrow();
     });
 
     // -----------------------------------------------------------------------
@@ -674,48 +670,54 @@ describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
     });
 
     // -----------------------------------------------------------------------
-    // Diagnostic: the double-accept bug
-    //
-    // Tracing all steps until heap exhaustion reveals that at step 6, edge 12
-    // (already accepted at step 5) appears again in a new node's inEdges.
-    // This means the heap contains a stale intersection record between edge 8
-    // and edge 12 that was computed before edge 12 was accepted, and the
-    // algorithm never invalidates those cached pairings when an edge is retired.
+    // After fix: no double-accepts, all exterior edges accepted
     // -----------------------------------------------------------------------
 
-    it('no interior edge is accepted more than once (fails: documents double-accept bug)', () => {
+    it('no interior edge is accepted more than once', () => {
         const context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
         const acceptedSoFar = new Set<number>();
         const doubleAccepted: number[] = [];
 
-        try {
-            for (let i = 0; i < 20; i++) {
-                const step = performOneStep(context);
-                for (const e of step.acceptedInteriorEdges) {
-                    if (acceptedSoFar.has(e)) doubleAccepted.push(e);
-                    acceptedSoFar.add(e);
-                }
+        for (let i = 0; i < 20; i++) {
+            if (context.acceptedEdges.every(f => f)) break;
+            const step = performOneStep(context);
+            for (const e of step.acceptedInteriorEdges) {
+                if (acceptedSoFar.has(e)) doubleAccepted.push(e);
+                acceptedSoFar.add(e);
             }
-        } catch {
-            // expected: heap exhausts after the algorithm stalls
         }
 
         expect(doubleAccepted).toHaveLength(0);
     });
 
-    it('not all exterior edges are accepted when the heap exhausts', () => {
+    it('all exterior edges are accepted after algorithm completes', () => {
         const context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
 
-        try {
-            for (let i = 0; i < 20; i++) performOneStep(context);
-        } catch {
-            // expected: heap exhausted
+        for (let i = 0; i < 20; i++) {
+            if (context.acceptedEdges.every(f => f)) break;
+            performOneStep(context);
         }
 
         const allExteriorAccepted = context.acceptedEdges
             .slice(0, context.graph.numExteriorNodes)
             .every(f => f);
-        expect(allExteriorAccepted).toBe(false);
+        expect(allExteriorAccepted).toBe(true);
+    });
+
+    it('all interior nodes lie inside the bounding box', () => {
+        const g = computeStraightSkeleton(IMPOSSIBLE_OCTAGON);
+        const bb = boundingBox(IMPOSSIBLE_OCTAGON);
+        for (const n of interiorNodes(g)) {
+            expect(n.position.x).toBeGreaterThan(bb.minX);
+            expect(n.position.x).toBeLessThan(bb.maxX);
+            expect(n.position.y).toBeGreaterThan(bb.minY);
+            expect(n.position.y).toBeLessThan(bb.maxY);
+        }
+    });
+
+    it('total edge count equals numExteriorNodes + interiorEdges.length', () => {
+        const g = computeStraightSkeleton(IMPOSSIBLE_OCTAGON);
+        expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 });
 

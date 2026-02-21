@@ -43,6 +43,18 @@ export interface HeapInteriorEdge {
     id: number;
 }
 
+export interface IntersectorInfo {
+    edgeId: number;
+    distanceAlongSelf: number;
+    distanceAlongOther: number;
+}
+
+export interface EdgeIntersectionEvaluation {
+    edgeIndex: number;
+    shortestLength: number;
+    intersectors: IntersectorInfo[];
+}
+
 /*
 Solving context:
 1. SSGraph
