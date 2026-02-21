@@ -46,8 +46,8 @@ function makeInteriorEdge(len: number): InteriorEdge {
     };
 }
 
-const TRIANGLE: Vector2[] = [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 2, y: 4 }];
-const SQUARE: Vector2[]   = [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }, { x: 0, y: 2 }];
+const TRIANGLE: Vector2[] = [{ x: 0, y: 0 }, { x: 2, y: 4 }, { x: 4, y: 0 }];
+const SQUARE: Vector2[]   = [{ x: 0, y: 0 }, { x: 0, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 0 }];
 
 // ---------------------------------------------------------------------------
 // unitsToIntersection
@@ -171,23 +171,23 @@ describe('makeRayProjection', () => {
         g = initStraightSkeletonGraph(TRIANGLE);
     });
 
-    // TRIANGLE edge 0: source=node0 (0,0), direction toward (4,0) → basis (1,0)
-    it('edge 0: basisVector is (1,0) and sourceVector is (0,0)', () => {
+    // TRIANGLE edge 0: source=node0 (0,0), direction toward (2,4) → basis normalize(2,4)
+    it('edge 0: basisVector is normalize(2,4) and sourceVector is (0,0)', () => {
         const proj = makeRayProjection(g.edges[0], g);
-        expect(proj.basisVector.x).toBeCloseTo(1);
-        expect(proj.basisVector.y).toBeCloseTo(0);
+        expect(proj.basisVector.x).toBeCloseTo(2 / Math.sqrt(20));
+        expect(proj.basisVector.y).toBeCloseTo(4 / Math.sqrt(20));
         expect(proj.sourceVector).toEqual({ x: 0, y: 0 });
     });
 
-    // TRIANGLE edge 1: source=node1 (4,0), direction toward (2,4) → basis normalize(-2,4)
+    // TRIANGLE edge 1: source=node1 (2,4), direction toward (4,0) → basis normalize(2,-4)
     it('edge 1: basisVector has unit length', () => {
         const proj = makeRayProjection(g.edges[1], g);
         expect(magnitude(proj.basisVector)).toBeCloseTo(1);
     });
 
-    it('edge 1: sourceVector matches node 1 position (4,0)', () => {
+    it('edge 1: sourceVector matches node 1 position (2,4)', () => {
         const proj = makeRayProjection(g.edges[1], g);
-        expect(proj.sourceVector).toEqual({ x: 4, y: 0 });
+        expect(proj.sourceVector).toEqual({ x: 2, y: 4 });
     });
 });
 

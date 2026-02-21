@@ -17,11 +17,11 @@ interface PolygonState {
 }
 
 const DEFAULT_VERTICES: Vertex[] = [
-  { x: 400, y: 100 },
-  { x: 550, y: 250 },
-  { x: 500, y: 450 },
-  { x: 300, y: 450 },
   { x: 250, y: 250 },
+  { x: 300, y: 450 },
+  { x: 500, y: 450 },
+  { x: 550, y: 250 },
+  { x: 400, y: 100 },
 ];
 
 export const usePolygonStore = create<PolygonState>()(

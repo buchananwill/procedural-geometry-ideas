@@ -135,7 +135,7 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
 
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
 
-    const crossProduct = clockwiseEdge.basisVector.x * fromNodeWiddershins.y - clockwiseEdge.basisVector.y * fromNodeWiddershins.x;
+    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
     const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
     graph.edges.push({
