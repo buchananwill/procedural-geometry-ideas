@@ -6,7 +6,7 @@ attribute of the polygon. The proposed levers are drawn from the representation 
 implemented in this project. Edges comprise a source and a target, with the basis vector explicitly stored as a field of
 the edge. This maps well to operations like fixing the basis vector, while changing the length.
 
-## Proposed Features
+## Proposed Core Skeleton Features
 
 - [x]  Button to toggle straight skeleton on/off
     - [x]  While on, skeleton updates immediately after UI edits to the polygon
@@ -18,3 +18,14 @@ the edge. This maps well to operations like fixing the basis vector, while chang
 - [ ] copy button to serialize polygon and skeleton
 - [ ] paste button to deserialize exterior polygon nodes from clipboard
 - [ ] dropdown selection of interesting/classic polygon shapes
+- [ ] animate creation of straight skeleton
+    - [ ] draw-on interior edges, extending from source to target
+    - [ ] step through each heap.pop() that results in accepting edges, capturing a snapshot of the delta to update the rendered drawing
+    - [ ] keep the entire timeline once completed, so the user can scrub to a particular wavefront frame
+
+## Related Features
+- [ ] page for each of the geometry ops used to build the straight skeleton, showing visually what the purpose/derivation is, and the maths code
+    - [ ] making a basis vector
+    - [ ] bisecting two basis vectors using addition
+    - [ ] cross-product to check for reflex angles
+    - [ ] finding the intersection of two rays
