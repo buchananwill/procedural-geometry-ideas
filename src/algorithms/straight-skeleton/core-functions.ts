@@ -5,6 +5,10 @@ export function areEqual(a: number, b: number): boolean {
     return Math.abs(a - b) < FLOATING_POINT_EPSILON;
 }
 
+export function positionsAreClose(a: Vector2, b: Vector2): boolean {
+    return fp_compare(a.x, b.x) === 0 && fp_compare(a.y, b.y) === 0;
+}
+
 export function assertIsNumber(x: unknown): asserts x is number {
     if (typeof x !== "number") {
         throw new Error("Expected a number");

@@ -42,7 +42,7 @@ export interface RayProjection {
 export interface HeapInteriorEdge {
     ownerId: number;               // evaluated edge (its intersectingEdges has full participant list)
     participatingEdges: number[];  // [ownerId, ...intersectors] — for stale-event checking
-    eventDistance: number;         // frozen min distance among all participants — for heap ordering
+    eventDistance: number;         // frozen max distance among all participants — for heap ordering
 }
 
 export interface IntersectorInfo {

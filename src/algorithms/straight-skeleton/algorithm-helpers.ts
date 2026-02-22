@@ -16,6 +16,7 @@ import {
     fp_compare,
     initStraightSkeletonGraph, interiorEdgeIndex,
     makeBisectedBasis,
+    positionsAreClose,
     scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
@@ -280,7 +281,7 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
     // Note 1: single push, eventDistance = min distance among all participants
     let eventDistance = evaluation.shortestLength;
     for (const info of evaluation.intersectors) {
-        if (info.distanceAlongOther < eventDistance) eventDistance = info.distanceAlongOther;
+        if (info.distanceAlongOther > eventDistance) eventDistance = info.distanceAlongOther;
     }
 
     heap.push({
@@ -292,9 +293,10 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
     return displaced;
 }
 
-export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
-    const edgeIndex = createBisectionInteriorEdge(context, clockwiseParent, widdershinsParent, source);
-
+/**
+ * Re-evaluates a single edge and propagates to displaced edges via a dirty queue.
+ */
+export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex: number) {
     // FIFO queue of edges that need (re-)evaluation
     const dirtyQueue: number[] = [edgeIndex];
     const processed = new Set<number>();
@@ -314,6 +316,11 @@ export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clo
             }
         }
     }
+}
+
+export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
+    const edgeIndex = createBisectionInteriorEdge(context, clockwiseParent, widdershinsParent, source);
+    reEvaluateEdge(context, edgeIndex);
 }
 
 
@@ -456,15 +463,35 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
 export function addTargetNodeAtInteriorEdgeIntersect(context: StraightSkeletonSolverContext, interiorEdgeData: InteriorEdge): number {
     const {graph} = context;
     const newNodePosition = finalizeTargetNodePosition(interiorEdgeData.id, graph);
-    const nodeIndex = addNode(newNodePosition, graph)
-    const newNode = graph.nodes[nodeIndex];
-    const inEdges = [interiorEdgeData.id, ...interiorEdgeData.intersectingEdges]
-    newNode.inEdges = inEdges
+
+    // Check for existing interior node at the same position (node reuse)
+    let nodeIndex = -1;
+    for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
+        if (positionsAreClose(graph.nodes[i].position, newNodePosition)) {
+            nodeIndex = i;
+            break;
+        }
+    }
+
+    const inEdges = [interiorEdgeData.id, ...interiorEdgeData.intersectingEdges];
+
+    if (nodeIndex >= 0) {
+        // Reuse existing node — append new inEdges
+        const existingNode = graph.nodes[nodeIndex];
+        for (const edge of inEdges) {
+            if (!existingNode.inEdges.includes(edge)) {
+                existingNode.inEdges.push(edge);
+            }
+        }
+    } else {
+        // Create new node
+        nodeIndex = addNode(newNodePosition, graph);
+        graph.nodes[nodeIndex].inEdges = inEdges;
+    }
 
     inEdges.forEach(edge => {
-        graph.edges[edge].target = nodeIndex
-    })
-
+        graph.edges[edge].target = nodeIndex;
+    });
 
     return nodeIndex;
 }
