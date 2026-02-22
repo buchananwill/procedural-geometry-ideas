@@ -119,6 +119,18 @@ function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSo
     };
 }
 
+export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
+) {
+    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
+        - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
+    return crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+}
+
+export function ensureDirectionNotReversed(basis: Vector2, approximateDirection: Vector2) {
+    const dot = basis.x * approximateDirection.x + basis.y * approximateDirection.y;
+    return dot < 0 ? scaleVector(basis, -1) : basis;
+}
+
 /**
  * returns index of just-added edge
  * */
@@ -142,17 +154,12 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     let finalBasis: Vector2;
 
     if (approximateDirection) {
-        // Caller-provided direction: use dot-product to decide flip
-        const dot = bisectedBasis.x * approximateDirection.x + bisectedBasis.y * approximateDirection.y;
-        finalBasis = dot < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+        finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
     } else {
-        // Initial bisector at polygon vertex: use cross product (original logic)
-        const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
-                           - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
-        finalBasis = crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+        finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
     }
 
-    graph.edges.push({ id, source, basisVector: finalBasis })
+    graph.edges.push({id, source, basisVector: finalBasis})
 
     graph.nodes[source].outEdges.push(id);
 
