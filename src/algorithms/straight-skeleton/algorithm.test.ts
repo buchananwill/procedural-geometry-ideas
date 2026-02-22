@@ -355,6 +355,13 @@ function performOneStep(context: StraightSkeletonSolverContext): {
     // Mirror the revised stale-event logic from algorithm.ts
     let nextEdge = heap.pop();
     while (nextEdge !== undefined) {
+        // Generation check: skip if this event is from an outdated evaluation
+        const ownerInteriorData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
+        if (nextEdge.generation !== ownerInteriorData.heapGeneration) {
+            nextEdge = heap.pop();
+            continue;
+        }
+
         const ownerAccepted = nextEdge.ownerId < acceptedEdges.length && acceptedEdges[nextEdge.ownerId];
 
         // Fully stale: owner itself is accepted — discard

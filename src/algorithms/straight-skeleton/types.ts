@@ -25,6 +25,7 @@ export interface InteriorEdge {
     widdershinsExteriorEdgeIndex: number;
     intersectingEdges: number[];
     length: number;
+    heapGeneration: number;
 }
 
 export interface StraightSkeletonGraph {
@@ -43,6 +44,7 @@ export interface HeapInteriorEdge {
     ownerId: number;               // evaluated edge (its intersectingEdges has full participant list)
     participatingEdges: number[];  // [ownerId, ...intersectors] — for stale-event checking
     eventDistance: number;         // frozen max distance among all participants — for heap ordering
+    generation: number;            // must match InteriorEdge.heapGeneration to be valid
 }
 
 export interface IntersectorInfo {
@@ -55,6 +57,7 @@ export interface EdgeIntersectionEvaluation {
     edgeIndex: number;
     shortestLength: number;
     intersectors: IntersectorInfo[];
+    candidates: { otherId: number; distanceNew: number; distanceOther: number }[];
 }
 
 /*

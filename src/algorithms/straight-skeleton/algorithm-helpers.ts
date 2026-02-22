@@ -131,7 +131,8 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         clockwiseExteriorEdgeIndex,
         widdershinsExteriorEdgeIndex,
         intersectingEdges: [],
-        length: Number.MAX_VALUE
+        length: Number.MAX_VALUE,
+        heapGeneration: 0
     })
 
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
@@ -244,6 +245,7 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
         edgeIndex,
         shortestLength: bestDistanceNew,
         intersectors,
+        candidates,
     };
 }
 
@@ -284,10 +286,13 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
         if (info.distanceAlongOther > eventDistance) eventDistance = info.distanceAlongOther;
     }
 
+    edgeData.heapGeneration++;
+
     heap.push({
         ownerId: evaluation.edgeIndex,
         participatingEdges: [evaluation.edgeIndex, ...evaluation.intersectors.map(i => i.edgeId)],
         eventDistance,
+        generation: edgeData.heapGeneration,
     });
 
     return displaced;
@@ -297,6 +302,7 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
  * Re-evaluates a single edge and propagates to displaced edges via a dirty queue.
  */
 export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex: number) {
+    const {graph} = context;
     // FIFO queue of edges that need (re-)evaluation
     const dirtyQueue: number[] = [edgeIndex];
     const processed = new Set<number>();
@@ -309,6 +315,20 @@ export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex
 
         const evaluation = evaluateEdgeIntersections(context, currentEdge);
         const displaced = applyEvaluation(context, evaluation);
+
+        // Secondary propagation: edges that intersect currentEdge at a shorter
+        // distance than their current length, even if they're not currentEdge's
+        // closest intersectors
+        for (const c of evaluation.candidates) {
+            if (fp_compare(c.distanceOther, 0) <= 0) continue;
+            if (fp_compare(c.distanceNew, 0) <= 0) continue;
+            const otherEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
+            if (fp_compare(c.distanceOther, otherEdgeData.length) < 0) {
+                if (!processed.has(c.otherId) && !context.acceptedEdges[c.otherId]) {
+                    dirtyQueue.push(c.otherId);
+                }
+            }
+        }
 
         for (const d of displaced) {
             if (!processed.has(d) && !context.acceptedEdges[d]) {

@@ -34,6 +34,12 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             throw new Error(`Graph not complete but no edges left in heap`);
         }
 
+        // Generation check: skip if this event is from an outdated evaluation
+        const ownerInteriorData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
+        if (nextEdge.generation !== ownerInteriorData.heapGeneration) {
+            continue;
+        }
+
         const ownerAccepted = nextEdge.ownerId < acceptedEdges.length && acceptedEdges[nextEdge.ownerId];
 
         // Fully stale: owner itself is accepted — discard
