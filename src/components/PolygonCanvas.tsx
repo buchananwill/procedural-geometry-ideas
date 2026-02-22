@@ -5,6 +5,7 @@ import { Stage, Layer, Line, Circle } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
+import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 
 const CANVAS_WIDTH = 800;
 const CANVAS_HEIGHT = 600;
@@ -39,9 +40,10 @@ function distanceToSegment(
 
 interface PolygonCanvasProps {
   skeleton: StraightSkeletonGraph | null;
+  primaryEdges?: PrimaryInteriorEdge[];
 }
 
-export default function PolygonCanvas({ skeleton }: PolygonCanvasProps) {
+export default function PolygonCanvas({ skeleton, primaryEdges }: PolygonCanvasProps) {
   const vertices = usePolygonStore((s) => s.vertices);
   const moveVertex = usePolygonStore((s) => s.moveVertex);
   const addVertex = usePolygonStore((s) => s.addVertex);
@@ -114,6 +116,16 @@ export default function PolygonCanvas({ skeleton }: PolygonCanvasProps) {
       style={{ background: "#1a1b1e", borderRadius: 8, cursor: "crosshair" }}
     >
       <Layer>
+        {primaryEdges?.map((edge) => (
+          <Line
+            key={`primary-${edge.vertexIndex}`}
+            points={[edge.source.x, edge.source.y, edge.target.x, edge.target.y]}
+            stroke="#be4bdb"
+            strokeWidth={1.5}
+            dash={[6, 4]}
+            listening={false}
+          />
+        ))}
         {skeletonLines.map(({ key, points }) => (
           <Line key={key} points={points} stroke="#fab005" strokeWidth={1.5} listening={false} />
         ))}

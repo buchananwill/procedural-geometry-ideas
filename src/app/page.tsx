@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { AppShell, Group, Title, Button, Text, Stack, Paper } from "@mantine/core";
 import { usePolygonStore } from "@/stores/usePolygonStore";
-import { computeStraightSkeleton } from "@/algorithms/straight-skeleton/algorithm";
+import { computeStraightSkeleton, computePrimaryInteriorEdges } from "@/algorithms/straight-skeleton/algorithm";
+import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
@@ -21,6 +22,7 @@ export default function Home() {
   const setVertices = usePolygonStore((s) => s.setVertices);
 
   const [showSkeleton, setShowSkeleton] = useState(false);
+  const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
 
@@ -62,6 +64,11 @@ export default function Home() {
     catch { return null; }
   }, [showSkeleton, vertices]);
 
+  const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
+    if (!showPrimaryEdges) return [];
+    return computePrimaryInteriorEdges(vertices);
+  }, [showPrimaryEdges, vertices]);
+
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
@@ -72,7 +79,7 @@ export default function Home() {
 
       <AppShell.Main>
         <Group align="flex-start" gap="md">
-          <PolygonCanvas skeleton={skeleton} />
+          <PolygonCanvas skeleton={skeleton} primaryEdges={primaryEdges} />
 
           <Stack w={240} gap="sm">
             <Paper p="md" withBorder>
@@ -134,6 +141,14 @@ export default function Home() {
                   onClick={() => setShowSkeleton((s) => !s)}
                 >
                   {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
+                </Button>
+                <Button
+                  color="grape"
+                  variant={showPrimaryEdges ? "filled" : "light"}
+                  fullWidth
+                  onClick={() => setShowPrimaryEdges((s) => !s)}
+                >
+                  {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
                 </Button>
               </Stack>
             </Paper>

@@ -1,19 +1,27 @@
 import {
     HeapInteriorEdge,
+    RayProjection,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
-    acceptEdge,
     acceptEdgeAndPropagate,
     addTargetNodeAtInteriorEdgeIntersect,
     finalizeTargetNodePosition,
     initStraightSkeletonSolverContext,
     processCollisionNode,
-    reEvaluateEdge
+    reEvaluateEdge,
+    unitsToIntersection,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {initStraightSkeletonGraph, positionsAreClose} from "@/algorithms/straight-skeleton/core-functions";
+import {
+    addVectors,
+    initStraightSkeletonGraph,
+    makeBasis,
+    makeBisectedBasis,
+    positionsAreClose,
+    scaleVector,
+} from "@/algorithms/straight-skeleton/core-functions";
 
 function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
@@ -109,4 +117,72 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
     }
 
     return context.graph;
+}
+
+export interface PrimaryInteriorEdge {
+    source: Vector2;
+    target: Vector2;
+    vertexIndex: number;
+}
+
+/**
+ * Computes the initial interior angle bisectors at each polygon vertex,
+ * extended until they hit the nearest non-adjacent exterior edge.
+ */
+export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInteriorEdge[] {
+    if (vertices.length < 3) return [];
+
+    const n = vertices.length;
+    const result: PrimaryInteriorEdge[] = [];
+
+    for (let i = 0; i < n; i++) {
+        const source = vertices[i];
+
+        // CW edge: from vertex i to vertex i+1
+        const cwBasis = makeBasis(vertices[i], vertices[(i + 1) % n]);
+        // WS edge: from vertex i-1 to vertex i
+        const wsBasis = makeBasis(vertices[(i - 1 + n) % n], vertices[i]);
+
+        // Bisect: CW basis and reversed WS basis
+        const fromNodeWS = scaleVector(wsBasis, -1);
+        const bisected = makeBisectedBasis(cwBasis, fromNodeWS);
+
+        // Determine correct direction via cross product (same as addBisectionEdge initial logic)
+        const cross = cwBasis.x * wsBasis.y - cwBasis.y * wsBasis.x;
+        const basis = cross < 0 ? scaleVector(bisected, -1) : bisected;
+
+        const ray: RayProjection = { sourceVector: source, basisVector: basis };
+
+        // Find nearest intersection with any non-adjacent exterior edge
+        let bestDist = Number.POSITIVE_INFINITY;
+
+        for (let j = 0; j < n; j++) {
+            // Skip the two edges adjacent to this vertex
+            if (j === i || j === (i - 1 + n) % n) continue;
+
+            const edgeStart = vertices[j];
+            const edgeEnd = vertices[(j + 1) % n];
+            const edgeBasis = makeBasis(edgeStart, edgeEnd);
+            const edgeLength = Math.sqrt(
+                (edgeEnd.x - edgeStart.x) ** 2 + (edgeEnd.y - edgeStart.y) ** 2
+            );
+            const edgeRay: RayProjection = { sourceVector: edgeStart, basisVector: edgeBasis };
+
+            const [distAlongBisector, distAlongEdge] = unitsToIntersection(ray, edgeRay);
+
+            // Must be forward along bisector, and within the edge segment
+            if (distAlongBisector > 0 && distAlongEdge >= 0 && distAlongEdge <= edgeLength) {
+                if (distAlongBisector < bestDist) {
+                    bestDist = distAlongBisector;
+                }
+            }
+        }
+
+        if (isFinite(bestDist)) {
+            const target = addVectors(source, scaleVector(basis, bestDist));
+            result.push({ source, target, vertexIndex: i });
+        }
+    }
+
+    return result;
 }
