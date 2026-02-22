@@ -18,14 +18,41 @@ export default function Home() {
   const selectedVertex = usePolygonStore((s) => s.selectedVertex);
   const removeVertex = usePolygonStore((s) => s.removeVertex);
 
+  const setVertices = usePolygonStore((s) => s.setVertices);
+
   const [showSkeleton, setShowSkeleton] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
 
   function copyVerticesToClipboard() {
     const json = JSON.stringify(vertices.map(({ x, y }) => ({ x, y })), null, 2);
     navigator.clipboard.writeText(json).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  function pasteVerticesFromClipboard() {
+    navigator.clipboard.readText().then((text) => {
+      try {
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed) || parsed.length < 3) throw new Error();
+        const verts = parsed.map((v: unknown) => {
+          if (typeof v !== "object" || v === null) throw new Error();
+          const obj = v as Record<string, unknown>;
+          if (typeof obj.x !== "number" || typeof obj.y !== "number") throw new Error();
+          if (!isFinite(obj.x) || !isFinite(obj.y)) throw new Error();
+          return { x: obj.x, y: obj.y };
+        });
+        setVertices(verts);
+        setPasted("ok");
+      } catch {
+        setPasted("fail");
+      }
+      setTimeout(() => setPasted(null), 1500);
+    }).catch(() => {
+      setPasted("fail");
+      setTimeout(() => setPasted(null), 1500);
     });
   }
 
@@ -64,6 +91,14 @@ export default function Home() {
                   fullWidth
                 >
                   {copied ? "Copied!" : "Copy Vertices"}
+                </Button>
+                <Button
+                  onClick={pasteVerticesFromClipboard}
+                  variant="light"
+                  color="teal"
+                  fullWidth
+                >
+                  {pasted === "ok" ? "Pasted!" : pasted === "fail" ? "Invalid Data" : "Paste Vertices"}
                 </Button>
                 <Button
                   onClick={() => {

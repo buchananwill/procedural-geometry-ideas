@@ -13,6 +13,7 @@ interface PolygonState {
   addVertex: (index: number, vertex: Vertex) => void;
   removeVertex: (index: number) => void;
   setSelectedVertex: (index: number | null) => void;
+  setVertices: (vertices: Vertex[]) => void;
   resetPolygon: () => void;
 }
 
@@ -50,6 +51,12 @@ export const usePolygonStore = create<PolygonState>()(
     setSelectedVertex: (index) =>
       set((state) => {
         state.selectedVertex = index;
+      }),
+
+    setVertices: (vertices) =>
+      set((state) => {
+        state.vertices = vertices.map((v) => ({ x: v.x, y: v.y }));
+        state.selectedVertex = null;
       }),
 
     resetPolygon: () =>
