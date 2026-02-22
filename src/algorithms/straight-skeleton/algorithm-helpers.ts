@@ -6,6 +6,7 @@ import {
     PolygonEdge,
     PolygonNode,
     RayProjection,
+    StepResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
@@ -181,6 +182,10 @@ export function makeRayProjection(edge: PolygonEdge, graph: StraightSkeletonGrap
  * The return value is to indicate that the edge must be pushed anew into the heap
  * */
 export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeIndex: number, length: number): boolean {
+    if (fp_compare(length, 0) <= 0) {
+        return false;
+    }
+
     const comparison = fp_compare(length, edge.length);
 
     if (comparison < 0) {
@@ -400,6 +405,20 @@ export function acceptEdge(edge: number, context: StraightSkeletonSolverContext)
     context.acceptedEdges[edge] = true;
 }
 
+export function acceptEdgeAndPropagate(edge: number, context: StraightSkeletonSolverContext) {
+    acceptEdge(edge, context);
+
+    if (edge >= context.graph.numExteriorNodes) {
+        const {graph} = context;
+        for (const ie of graph.interiorEdges) {
+            if (context.acceptedEdges[ie.id]) continue;
+            if (ie.intersectingEdges.includes(edge)) {
+                reEvaluateEdge(context, ie.id);
+            }
+        }
+    }
+}
+
 export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {
 
 
@@ -615,4 +634,103 @@ export function pushHeapInteriorEdgesFromParentPairs(context: StraightSkeletonSo
         }
 
     }
+}
+
+/**
+ * Performs a single step of the straight skeleton algorithm.
+ * Pops the next valid event from the heap, processes it, and returns
+ * diagnostic info about what happened.
+ *
+ * Returns `poppedEdgeId: -1` when the graph completes during stale-event
+ * handling without producing a fresh collision event.
+ *
+ * Throws if the heap is exhausted before the graph is complete.
+ */
+export function performOneStep(context: StraightSkeletonSolverContext): StepResult {
+    const {graph, acceptedEdges, heap} = context;
+
+    let nextEdge = heap.pop();
+    while (nextEdge !== undefined) {
+        const ownerInteriorData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
+        if (nextEdge.generation !== ownerInteriorData.heapGeneration) {
+            nextEdge = heap.pop();
+            continue;
+        }
+
+        const ownerAccepted = nextEdge.ownerId < acceptedEdges.length && acceptedEdges[nextEdge.ownerId];
+
+        if (ownerAccepted) {
+            nextEdge = heap.pop();
+            continue;
+        }
+
+        const hasStaleParticipants = nextEdge.participatingEdges.some(
+            eid => eid !== nextEdge!.ownerId && eid < acceptedEdges.length && acceptedEdges[eid]
+        );
+
+        if (hasStaleParticipants) {
+            const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
+            const targetPos = finalizeTargetNodePosition(interiorEdgeData.id, graph);
+
+            let existingNodeIndex = -1;
+            for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
+                if (positionsAreClose(graph.nodes[i].position, targetPos)) {
+                    existingNodeIndex = i;
+                    break;
+                }
+            }
+
+            if (existingNodeIndex >= 0) {
+                const ownerEdgeId = nextEdge.ownerId;
+                if (!graph.nodes[existingNodeIndex].inEdges.includes(ownerEdgeId)) {
+                    graph.nodes[existingNodeIndex].inEdges.push(ownerEdgeId);
+                }
+                graph.edges[ownerEdgeId].target = existingNodeIndex;
+                acceptEdgeAndPropagate(ownerEdgeId, context);
+
+                const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
+                    e => e >= graph.numExteriorNodes
+                );
+                const [cw, ws] = buildExteriorParentLists(context, allNodeEdges);
+                pushHeapInteriorEdgesFromParentPairs(context, cw, ws, existingNodeIndex);
+            } else {
+                reEvaluateEdge(context, nextEdge.ownerId);
+            }
+            nextEdge = heap.pop();
+            if (context.acceptedEdges.every(f => f)) {
+                return {poppedEdgeId: -1, acceptedInteriorEdges: [], newInteriorEdgeIds: []};
+            }
+            continue;
+        }
+
+        break;
+    }
+    if (nextEdge === undefined) {
+        if (context.acceptedEdges.every(f => f)) {
+            return {poppedEdgeId: -1, acceptedInteriorEdges: [], newInteriorEdgeIds: []};
+        }
+        throw new Error('Heap exhausted');
+    }
+
+    const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
+    const prevInteriorEdgeCount = graph.interiorEdges.length;
+
+    const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData);
+
+    const acceptedInteriorEdges = graph.nodes[nodeIndex].inEdges.filter(
+        e => !acceptedEdges[e]
+    );
+    acceptedInteriorEdges.forEach(e => acceptEdgeAndPropagate(e, context));
+
+    const allInteriorEdgesAtNode = graph.nodes[nodeIndex].inEdges.filter(
+        e => e >= graph.numExteriorNodes
+    );
+    const [cw, ws] = buildExteriorParentLists(context, allInteriorEdgesAtNode);
+    pushHeapInteriorEdgesFromParentPairs(context, cw, ws, nodeIndex);
+
+    const newInteriorEdgeIds = graph.interiorEdges
+        .slice(prevInteriorEdgeCount)
+        .map(e => e.id);
+
+    return {poppedEdgeId: nextEdge.ownerId, acceptedInteriorEdges, newInteriorEdgeIds};
 }

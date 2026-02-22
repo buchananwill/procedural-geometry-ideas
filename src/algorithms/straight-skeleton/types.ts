@@ -61,6 +61,12 @@ export interface EdgeIntersectionEvaluation {
     candidates: { otherId: number; distanceNew: number; distanceOther: number; priorityOverride?: number }[];
 }
 
+export interface StepResult {
+    poppedEdgeId: number;
+    acceptedInteriorEdges: number[];
+    newInteriorEdgeIds: number[];
+}
+
 /*
 Solving context:
 1. SSGraph

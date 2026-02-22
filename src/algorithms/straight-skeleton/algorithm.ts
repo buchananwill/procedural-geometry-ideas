@@ -6,6 +6,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {
     acceptEdge,
+    acceptEdgeAndPropagate,
     addTargetNodeAtInteriorEdgeIntersect,
     buildExteriorParentLists,
     finalizeTargetNodePosition,
@@ -73,7 +74,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                     graph.nodes[existingNodeIndex].inEdges.push(ownerEdgeId);
                 }
                 graph.edges[ownerEdgeId].target = existingNodeIndex;
-                acceptEdge(ownerEdgeId, context);
+                acceptEdgeAndPropagate(ownerEdgeId, context);
 
                 // Build parents using ALL interior edges at the node for balanced parent lists
                 const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
@@ -98,7 +99,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
         );
         newlyAcceptedEdges.forEach(
             e => {
-                acceptEdge(e, context);
+                acceptEdgeAndPropagate(e, context);
             }
         );
 

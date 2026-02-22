@@ -2,15 +2,9 @@ import {computeStraightSkeleton} from './algorithm';
 import type {StraightSkeletonGraph, StraightSkeletonSolverContext, Vector2} from './types';
 import {initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
 import {
-    acceptEdge,
-    addTargetNodeAtInteriorEdgeIntersect,
-    buildExteriorParentLists,
-    finalizeTargetNodePosition,
     initStraightSkeletonSolverContext,
-    pushHeapInteriorEdgesFromParentPairs,
-    reEvaluateEdge,
+    performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {positionsAreClose} from "@/algorithms/straight-skeleton/core-functions";
 
 // ---------------------------------------------------------------------------
 // Test constants - NODES MUST BE ORDERED CLOCKWISE
@@ -300,108 +294,6 @@ describe('computeStraightSkeleton — degenerate inputs', () => {
 // ---------------------------------------------------------------------------
 // 9. Pentagon — step-by-step algorithm tracing
 // ---------------------------------------------------------------------------
-
-/**
- * Performs exactly one main-loop iteration of the straight skeleton solver.
- * Mirrors the body of the while-loop in computeStraightSkeleton, skipping
- * duplicate (already-accepted) heap entries exactly as the real loop does.
- *
- * Returns:
- *   poppedEdgeId         — the id of the edge actually processed (not skipped)
- *   acceptedInteriorEdges — interior edge ids accepted in this iteration
- *   newInteriorEdgeIds   — ids of any interior edges pushed during this iteration
- */
-function performOneStep(context: StraightSkeletonSolverContext): {
-    poppedEdgeId: number;
-    acceptedInteriorEdges: number[];
-    newInteriorEdgeIds: number[];
-} {
-    const {graph, acceptedEdges, heap} = context;
-
-    // Mirror the revised stale-event logic from algorithm.ts
-    let nextEdge = heap.pop();
-    while (nextEdge !== undefined) {
-        // Generation check: skip if this event is from an outdated evaluation
-        const ownerInteriorData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-        if (nextEdge.generation !== ownerInteriorData.heapGeneration) {
-            nextEdge = heap.pop();
-            continue;
-        }
-
-        const ownerAccepted = nextEdge.ownerId < acceptedEdges.length && acceptedEdges[nextEdge.ownerId];
-
-        // Fully stale: owner itself is accepted — discard
-        if (ownerAccepted) {
-            nextEdge = heap.pop();
-            continue;
-        }
-
-        // Partially stale: owner is NOT accepted but some participants are
-        const hasStaleParticipants = nextEdge.participatingEdges.some(
-            eid => eid !== nextEdge!.ownerId && eid < acceptedEdges.length && acceptedEdges[eid]
-        );
-
-        if (hasStaleParticipants) {
-            const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-            const targetPos = finalizeTargetNodePosition(interiorEdgeData.id, graph);
-
-            let existingNodeIndex = -1;
-            for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-                if (positionsAreClose(graph.nodes[i].position, targetPos)) {
-                    existingNodeIndex = i;
-                    break;
-                }
-            }
-
-            if (existingNodeIndex >= 0) {
-                const ownerEdgeId = nextEdge.ownerId;
-                if (!graph.nodes[existingNodeIndex].inEdges.includes(ownerEdgeId)) {
-                    graph.nodes[existingNodeIndex].inEdges.push(ownerEdgeId);
-                }
-                graph.edges[ownerEdgeId].target = existingNodeIndex;
-                acceptEdge(ownerEdgeId, context);
-
-                const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
-                    e => e >= graph.numExteriorNodes
-                );
-                const [cw, ws] = buildExteriorParentLists(context, allNodeEdges);
-                pushHeapInteriorEdgesFromParentPairs(context, cw, ws, existingNodeIndex);
-            } else {
-                reEvaluateEdge(context, nextEdge.ownerId);
-            }
-            nextEdge = heap.pop();
-            continue;
-        }
-
-        // Not stale — process this event
-        break;
-    }
-    if (nextEdge === undefined) throw new Error('Heap exhausted');
-
-    const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-    const prevInteriorEdgeCount = graph.interiorEdges.length;
-
-    const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData);
-
-    // Accept only edges that aren't already accepted
-    const acceptedInteriorEdges = graph.nodes[nodeIndex].inEdges.filter(
-        e => !acceptedEdges[e]
-    );
-    acceptedInteriorEdges.forEach(e => acceptEdge(e, context));
-
-    // Use ALL interior edges at the node for balanced parent lists
-    const allInteriorEdgesAtNode = graph.nodes[nodeIndex].inEdges.filter(
-        e => e >= graph.numExteriorNodes
-    );
-    const [cw, ws] = buildExteriorParentLists(context, allInteriorEdgesAtNode);
-    pushHeapInteriorEdgesFromParentPairs(context, cw, ws, nodeIndex);
-
-    const newInteriorEdgeIds = graph.interiorEdges
-        .slice(prevInteriorEdgeCount)
-        .map(e => e.id);
-
-    return {poppedEdgeId: nextEdge.ownerId, acceptedInteriorEdges, newInteriorEdgeIds};
-}
 
 describe('Pentagon — step-by-step algorithm tracing', () => {
 
