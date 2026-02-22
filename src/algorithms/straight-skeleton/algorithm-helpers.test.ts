@@ -86,6 +86,16 @@ describe('unitsToIntersection', () => {
         expect(t2).toBeCloseTo(3);   // BUG A: code gives -1
     });
 
+    // Case — co-linear opposing rays: midpoint with full-span priority override
+    it('co-linear opposing rays: returns [D/2, D/2, D] midpoint with full-span priority', () => {
+        const ray1 = { basisVector: { x: 1, y: 0 }, sourceVector: { x: 0, y: 0 } };
+        const ray2 = { basisVector: { x: -1, y: 0 }, sourceVector: { x: 10, y: 0 } };
+        const result = unitsToIntersection(ray1, ray2);
+        expect(result[0]).toBeCloseTo(5);   // D/2 along ray1
+        expect(result[1]).toBeCloseTo(5);   // D/2 along ray2
+        expect(result[2]).toBeCloseTo(10);  // full span priority
+    });
+
     // Case 4 — [BUG B] division by y2 on line 35: when ray2 is horizontal (y2=0), result is -Infinity / NaN
     // ray1: source (0,0) direction (0,1); ray2: source (5,3) direction (-1,0) — y2=0
     // Intersection at (0,3): t1=3, t2=5

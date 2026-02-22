@@ -51,13 +51,14 @@ export interface IntersectorInfo {
     edgeId: number;
     distanceAlongSelf: number;
     distanceAlongOther: number;
+    priorityOverride?: number;
 }
 
 export interface EdgeIntersectionEvaluation {
     edgeIndex: number;
     shortestLength: number;
     intersectors: IntersectorInfo[];
-    candidates: { otherId: number; distanceNew: number; distanceOther: number }[];
+    candidates: { otherId: number; distanceNew: number; distanceOther: number; priorityOverride?: number }[];
 }
 
 /*

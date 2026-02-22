@@ -22,7 +22,7 @@ import {
 } from "@/algorithms/straight-skeleton/core-functions";
 import Heap from "heap-js";
 
-export type IntersectionUnits = [number, number];
+export type IntersectionUnits = [number, number] | [number, number, number];
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
@@ -55,12 +55,12 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         const pointLiesAlongRay = (ray: RayProjection, point: Vector2): [boolean, number] => {
             const relative = subtractVectors(point, ray.sourceVector);
             if (ray.basisVector.x === 0) {
-                const delta = point.y / ray.basisVector.y;
+                const delta = relative.y / ray.basisVector.y;
                 return [fp_compare(relative.x, 0) === 0 && delta > 0, delta];
             }
 
             if (ray.basisVector.y === 0) {
-                const delta = point.x / ray.basisVector.x;
+                const delta = relative.x / ray.basisVector.x;
                 return [fp_compare(relative.y, 0) === 0 && delta > 0, delta];
             }
 
@@ -73,7 +73,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         const [isAlongRay2, length2] = pointLiesAlongRay(ray2, ray1.sourceVector);
 
         if (isAlongRay1 && isAlongRay2) {
-            return [length1 / 2, length2 / 2];
+            return [length1 / 2, length2 / 2, Math.max(length1, length2)];
         }
 
         if (isAlongRay1) {
@@ -204,17 +204,20 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
     const {acceptedEdges, graph} = context;
 
     // Phase 1: compute all pairings without committing
-    const candidates: { otherId: number; distanceNew: number; distanceOther: number }[] = [];
+    const candidates: { otherId: number; distanceNew: number; distanceOther: number; priorityOverride?: number }[] = [];
     for (let i = 0; i < graph.interiorEdges.length; i++) {
         const otherInteriorEdgeData = graph.interiorEdges[i];
         if (otherInteriorEdgeData.id === edgeIndex) continue;
         if (acceptedEdges[otherInteriorEdgeData.id]) continue;
 
-        const [distanceNew, distanceOther] = unitsToIntersection(
+        const result = unitsToIntersection(
             makeRayProjection(graph.edges[edgeIndex], graph),
             makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
         );
-        candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther});
+        const distanceNew = result[0];
+        const distanceOther = result[1];
+        const priorityOverride = result[2];
+        candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther, priorityOverride});
     }
 
     // Phase 2: find smallest forward distance along self where the other edge's
@@ -223,7 +226,7 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
     for (const edgeCandidate of candidates) {
         if (fp_compare(edgeCandidate.distanceNew, 0) <= 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[edgeCandidate.otherId - graph.numExteriorNodes];
-        if (fp_compare(edgeCandidate.distanceOther, otherInteriorEdgeData.length) <= 0) {
+        if (edgeCandidate.priorityOverride !== undefined || fp_compare(edgeCandidate.distanceOther, otherInteriorEdgeData.length) <= 0) {
             if (fp_compare(edgeCandidate.distanceNew, bestDistanceNew) < 0) {
                 bestDistanceNew = edgeCandidate.distanceNew;
             }
@@ -235,11 +238,12 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
     for (const c of candidates) {
         if (fp_compare(c.distanceNew, bestDistanceNew) !== 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
-        if (fp_compare(c.distanceOther, otherInteriorEdgeData.length) > 0) continue;
+        if (c.priorityOverride === undefined && fp_compare(c.distanceOther, otherInteriorEdgeData.length) > 0) continue;
         intersectors.push({
             edgeId: c.otherId,
             distanceAlongSelf: c.distanceNew,
             distanceAlongOther: c.distanceOther,
+            priorityOverride: c.priorityOverride,
         });
     }
 
@@ -282,10 +286,11 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
         }
     }
 
-    // Note 1: single push, eventDistance = min distance among all participants
+    // Note 1: single push, eventDistance = max distance among all participants
     let eventDistance = evaluation.shortestLength;
     for (const info of evaluation.intersectors) {
-        if (info.distanceAlongOther > eventDistance) eventDistance = info.distanceAlongOther;
+        const effectiveDistance = info.priorityOverride ?? info.distanceAlongOther;
+        if (effectiveDistance > eventDistance) eventDistance = effectiveDistance;
     }
 
     edgeData.heapGeneration++;
