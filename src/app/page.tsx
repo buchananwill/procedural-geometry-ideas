@@ -1,16 +1,31 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { AppShell, Group, Title, Button, Text, Stack, Paper } from "@mantine/core";
+import { AppShell, Group, Title, Button, Text, Stack, Paper, Switch } from "@mantine/core";
 import { usePolygonStore } from "@/stores/usePolygonStore";
-import { computeStraightSkeleton, computePrimaryInteriorEdges } from "@/algorithms/straight-skeleton/algorithm";
+import {
+  computeStraightSkeleton,
+  computePrimaryInteriorEdges,
+  computePrimaryEdgeIntersections,
+} from "@/algorithms/straight-skeleton/algorithm";
 import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
+import type { Vector2 } from "@/algorithms/straight-skeleton/types";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
   ssr: false,
 });
+
+export interface DebugDisplayOptions {
+  showExteriorEdgeLengths: boolean;
+  showInteriorEdgeLengths: boolean;
+  showSelectedNodeEdgeLengths: boolean;
+  showSkeletonNodes: boolean;
+  showPrimaryIntersectionNodes: boolean;
+  showNodeIndices: boolean;
+  showEdgeIndices: boolean;
+}
 
 export default function Home() {
   const vertices = usePolygonStore((s) => s.vertices);
@@ -25,6 +40,40 @@ export default function Home() {
   const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
+
+  // Zoom & pan state
+  const [stageScale, setStageScale] = useState(1);
+  const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
+
+  // Debug toggles
+  const [debug, setDebug] = useState<DebugDisplayOptions>({
+    showExteriorEdgeLengths: false,
+    showInteriorEdgeLengths: false,
+    showSelectedNodeEdgeLengths: false,
+    showSkeletonNodes: false,
+    showPrimaryIntersectionNodes: false,
+    showNodeIndices: false,
+    showEdgeIndices: false,
+  });
+
+  // Node selection
+  const [selectedDebugNodes, setSelectedDebugNodes] = useState<Set<number>>(new Set());
+
+  function toggleDebug(key: keyof DebugDisplayOptions) {
+    setDebug((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  const toggleDebugNode = useCallback((nodeId: number) => {
+    setSelectedDebugNodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  }, []);
 
   function copyVerticesToClipboard() {
     const json = JSON.stringify(vertices.map(({ x, y }) => ({ x, y })), null, 2);
@@ -69,6 +118,21 @@ export default function Home() {
     return computePrimaryInteriorEdges(vertices);
   }, [showPrimaryEdges, vertices]);
 
+  const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
+    if (!debug.showPrimaryIntersectionNodes || primaryEdges.length === 0) return [];
+    return computePrimaryEdgeIntersections(primaryEdges);
+  }, [debug.showPrimaryIntersectionNodes, primaryEdges]);
+
+  // Clear selected debug nodes when skeleton identity changes
+  useEffect(() => {
+    setSelectedDebugNodes(new Set());
+  }, [skeleton]);
+
+  function resetView() {
+    setStageScale(1);
+    setStagePosition({ x: 0, y: 0 });
+  }
+
   return (
     <AppShell header={{ height: 60 }} padding="md">
       <AppShell.Header>
@@ -79,7 +143,18 @@ export default function Home() {
 
       <AppShell.Main>
         <Group align="flex-start" gap="md">
-          <PolygonCanvas skeleton={skeleton} primaryEdges={primaryEdges} />
+          <PolygonCanvas
+            skeleton={skeleton}
+            primaryEdges={primaryEdges}
+            primaryEdgeIntersections={primaryEdgeIntersections}
+            stageScale={stageScale}
+            stagePosition={stagePosition}
+            onScaleChange={setStageScale}
+            onPositionChange={setStagePosition}
+            debug={debug}
+            selectedDebugNodes={selectedDebugNodes}
+            onToggleDebugNode={toggleDebugNode}
+          />
 
           <Stack w={240} gap="sm">
             <Paper p="md" withBorder>
@@ -90,6 +165,9 @@ export default function Home() {
                 </Text>
                 <Button onClick={resetPolygon} variant="light" fullWidth>
                   Reset Polygon
+                </Button>
+                <Button onClick={resetView} variant="light" color="cyan" fullWidth>
+                  Reset View
                 </Button>
                 <Button
                   onClick={copyVerticesToClipboard}
@@ -128,6 +206,9 @@ export default function Home() {
                   Drag vertices to reshape the polygon. Click on an edge to add
                   a new vertex. Select a vertex and use Delete to remove it.
                 </Text>
+                <Text size="sm" c="dimmed">
+                  Scroll to zoom. Middle-click or Alt+drag to pan.
+                </Text>
               </Stack>
             </Paper>
 
@@ -150,6 +231,60 @@ export default function Home() {
                 >
                   {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
                 </Button>
+              </Stack>
+            </Paper>
+
+            <Paper p="md" withBorder>
+              <Stack gap="xs">
+                <Title order={5}>Debug</Title>
+
+                <Text size="xs" c="dimmed" fw={600}>Edge Lengths</Text>
+                <Switch
+                  size="xs"
+                  label="Exterior edge lengths"
+                  checked={debug.showExteriorEdgeLengths}
+                  onChange={() => toggleDebug("showExteriorEdgeLengths")}
+                />
+                <Switch
+                  size="xs"
+                  label="Interior edge lengths"
+                  checked={debug.showInteriorEdgeLengths}
+                  onChange={() => toggleDebug("showInteriorEdgeLengths")}
+                />
+                <Switch
+                  size="xs"
+                  label="Selected node edges"
+                  checked={debug.showSelectedNodeEdgeLengths}
+                  onChange={() => toggleDebug("showSelectedNodeEdgeLengths")}
+                />
+
+                <Text size="xs" c="dimmed" fw={600} mt={4}>Nodes</Text>
+                <Switch
+                  size="xs"
+                  label="Skeleton nodes"
+                  checked={debug.showSkeletonNodes}
+                  onChange={() => toggleDebug("showSkeletonNodes")}
+                />
+                <Switch
+                  size="xs"
+                  label="Primary intersections"
+                  checked={debug.showPrimaryIntersectionNodes}
+                  onChange={() => toggleDebug("showPrimaryIntersectionNodes")}
+                />
+
+                <Text size="xs" c="dimmed" fw={600} mt={4}>Indices</Text>
+                <Switch
+                  size="xs"
+                  label="Node indices"
+                  checked={debug.showNodeIndices}
+                  onChange={() => toggleDebug("showNodeIndices")}
+                />
+                <Switch
+                  size="xs"
+                  label="Edge indices"
+                  checked={debug.showEdgeIndices}
+                  onChange={() => toggleDebug("showEdgeIndices")}
+                />
               </Stack>
             </Paper>
           </Stack>

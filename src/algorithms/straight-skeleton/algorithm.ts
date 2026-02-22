@@ -186,3 +186,45 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
 
     return result;
 }
+
+/**
+ * Computes pairwise intersection points between primary interior edges (bisectors).
+ * O(n^2) segment-segment intersection using unitsToIntersection.
+ */
+export function computePrimaryEdgeIntersections(primaryEdges: PrimaryInteriorEdge[]): Vector2[] {
+    const points: Vector2[] = [];
+
+    for (let i = 0; i < primaryEdges.length; i++) {
+        for (let j = i + 1; j < primaryEdges.length; j++) {
+            const a = primaryEdges[i];
+            const b = primaryEdges[j];
+
+            const aBasis: Vector2 = {
+                x: a.target.x - a.source.x,
+                y: a.target.y - a.source.y,
+            };
+            const aLen = Math.sqrt(aBasis.x * aBasis.x + aBasis.y * aBasis.y);
+            if (aLen === 0) continue;
+
+            const bBasis: Vector2 = {
+                x: b.target.x - b.source.x,
+                y: b.target.y - b.source.y,
+            };
+            const bLen = Math.sqrt(bBasis.x * bBasis.x + bBasis.y * bBasis.y);
+            if (bLen === 0) continue;
+
+            const rayA: RayProjection = { sourceVector: a.source, basisVector: aBasis };
+            const rayB: RayProjection = { sourceVector: b.source, basisVector: bBasis };
+
+            const [tA, tB] = unitsToIntersection(rayA, rayB);
+
+            // Both parameters must be in [0, 1] since we used unnormalized basis vectors
+            // whose length equals the full segment length
+            if (tA > 0 && tA < 1 && tB > 0 && tB < 1) {
+                points.push(addVectors(a.source, scaleVector(aBasis, tA)));
+            }
+        }
+    }
+
+    return points;
+}
