@@ -8,10 +8,9 @@ import {
     acceptEdge,
     acceptEdgeAndPropagate,
     addTargetNodeAtInteriorEdgeIntersect,
-    buildExteriorParentLists,
     finalizeTargetNodePosition,
     initStraightSkeletonSolverContext,
-    pushHeapInteriorEdgesFromParentPairs,
+    processCollisionNode,
     reEvaluateEdge
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {initStraightSkeletonGraph, positionsAreClose} from "@/algorithms/straight-skeleton/core-functions";
@@ -76,12 +75,11 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
                 graph.edges[ownerEdgeId].target = existingNodeIndex;
                 acceptEdgeAndPropagate(ownerEdgeId, context);
 
-                // Build parents using ALL interior edges at the node for balanced parent lists
+                // Process collision using ALL interior edges at the node
                 const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
                     e => e >= graph.numExteriorNodes
                 );
-                const [cw, ws] = buildExteriorParentLists(context, allNodeEdges);
-                pushHeapInteriorEdgesFromParentPairs(context, cw, ws, existingNodeIndex);
+                processCollisionNode(context, allNodeEdges, existingNodeIndex);
             } else {
                 // Re-evaluate the owner edge with dirty-queue propagation
                 reEvaluateEdge(context, nextEdge.ownerId);
@@ -103,13 +101,11 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             }
         );
 
-        // Use ALL interior edges at the node for balanced parent lists
+        // Process collision using ALL interior edges at the node
         const allInteriorEdgesAtNode = graph.nodes[nodeIndex].inEdges.filter(
             e => e >= graph.numExteriorNodes
         );
-        const [activeClockwiseParents, activeWiddershinsParents] = buildExteriorParentLists(context, allInteriorEdgesAtNode);
-
-        pushHeapInteriorEdgesFromParentPairs(context, activeClockwiseParents, activeWiddershinsParents, nodeIndex);
+        processCollisionNode(context, allInteriorEdgesAtNode, nodeIndex);
     }
 
     return context.graph;

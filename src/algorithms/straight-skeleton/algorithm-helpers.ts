@@ -122,7 +122,7 @@ function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSo
 /**
  * returns index of just-added edge
  * */
-export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number): number {
+export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
     const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
     const id = graph.edges.length;
@@ -139,22 +139,11 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
     const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
-    // Determine correct direction for the bisector.
-    // For secondary bisectors at collision nodes, use the "momentum" of the
-    // colliding interior edges rather than the cross-product heuristic.
-    const sourceNode = graph.nodes[source];
-    const incomingInteriorEdges = sourceNode.inEdges.filter(e => e >= graph.numExteriorNodes);
-
     let finalBasis: Vector2;
 
-    if (incomingInteriorEdges.length >= 2) {
-        // Secondary bisector: bisect the colliding interior edges' basis vectors
-        // to get the expected continuation direction.
-        const momentumBasis = makeBisectedBasis(
-            graph.edges[incomingInteriorEdges[0]].basisVector,
-            graph.edges[incomingInteriorEdges[1]].basisVector
-        );
-        const dot = bisectedBasis.x * momentumBasis.x + bisectedBasis.y * momentumBasis.y;
+    if (approximateDirection) {
+        // Caller-provided direction: use dot-product to decide flip
+        const dot = bisectedBasis.x * approximateDirection.x + bisectedBasis.y * approximateDirection.y;
         finalBasis = dot < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
     } else {
         // Initial bisector at polygon vertex: use cross product (original logic)
@@ -207,9 +196,9 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
  * Creates a new bisection interior edge and extends acceptedEdges to cover it.
  * Returns the edge index. Does NOT evaluate intersections or push to heap.
  */
-export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number): number {
+export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number, approximateDirection?: Vector2): number {
     const {acceptedEdges, graph} = context;
-    const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source);
+    const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source, approximateDirection);
 
     while (acceptedEdges.length <= edgeIndex) {
         acceptedEdges.push(false);
@@ -368,11 +357,100 @@ export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex
     }
 }
 
-export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number) {
-    const edgeIndex = createBisectionInteriorEdge(context, clockwiseParent, widdershinsParent, source);
+export function pushHeapInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number, approximateDirection?: Vector2) {
+    const edgeIndex = createBisectionInteriorEdge(context, clockwiseParent, widdershinsParent, source, approximateDirection);
     reEvaluateEdge(context, edgeIndex);
 }
 
+/**
+ * Processes a collision node by iterating pairs of colliding interior edges
+ * and walking the exterior edge ring between them to find correct parent pairings.
+ *
+ * Replaces the old buildExteriorParentLists + pushHeapInteriorEdgesFromParentPairs flow.
+ */
+export function processCollisionNode(context: StraightSkeletonSolverContext, collidingInteriorEdges: number[], nodeIndex: number) {
+    const {graph} = context;
+    const numExterior = graph.numExteriorNodes;
+
+    if (collidingInteriorEdges.length === 0) return;
+
+    // Get interior edge data for each colliding edge
+    const edgesWithData = collidingInteriorEdges.map(edgeId => {
+        const ie = graph.interiorEdges[edgeId - numExterior];
+        // Compute a circular midpoint of the narrow arc (WS→CW going forward).
+        // This places each edge at its "notch" in the exterior ring.
+        const cw = ie.clockwiseExteriorEdgeIndex;
+        const ws = ie.widdershinsExteriorEdgeIndex;
+        const arcLength = (cw - ws + numExterior) % numExterior;
+        const midpoint = (ws + arcLength / 2) % numExterior;
+        return {
+            edgeId,
+            cwParent: cw,
+            wsParent: ws,
+            ringPosition: midpoint,
+        };
+    });
+
+    // Sort by ring position to establish circular ordering
+    edgesWithData.sort((a, b) => a.ringPosition - b.ringPosition);
+
+    const N = edgesWithData.length;
+
+    // Track created parent pairs to avoid duplicates
+    const createdPairs = new Set<string>();
+
+    // Iterate adjacent pairs (wrapping around)
+    for (let i = 0; i < N; i++) {
+        const edgeA = edgesWithData[i];
+        const edgeB = edgesWithData[(i + 1) % N];
+
+        // The arc goes from edgeA's CW parent to edgeB's WS parent.
+        // Walk the exterior ring from edgeA.cwParent to edgeB.wsParent (inclusive).
+        const arcStart = edgeA.cwParent;
+        const arcEnd = edgeB.wsParent;
+
+        let firstUnaccepted = -1;
+        let lastUnaccepted = -1;
+
+        let current = arcStart;
+        // Walk the arc, trying to accept each exterior edge
+        for (let step = 0; step <= numExterior; step++) {
+            tryToAcceptExteriorEdge(context, current);
+
+            if (!context.acceptedEdges[current]) {
+                if (firstUnaccepted === -1) {
+                    firstUnaccepted = current;
+                }
+                lastUnaccepted = current;
+            }
+
+            if (current === arcEnd) break;
+            current = (current + 1) % numExterior;
+        }
+
+        // If no unaccepted edges in arc, region is fully closed — skip
+        if (firstUnaccepted === -1) continue;
+
+        // firstUnaccepted = new CW parent, lastUnaccepted = new WS parent
+        const newCwParent = firstUnaccepted;
+        const newWsParent = lastUnaccepted;
+
+        // Deduplicate: skip if we already created this exact parent pair
+        const pairKey = `${newCwParent},${newWsParent}`;
+        if (createdPairs.has(pairKey)) continue;
+        createdPairs.add(pairKey);
+
+        // Compute approximate direction by bisecting the colliding pair's bases.
+        // The colliding edges point toward the collision node; their bisection
+        // gives the continuation direction for the new bisector.
+        const approxDirection = makeBisectedBasis(
+            graph.edges[edgeA.edgeId].basisVector,
+            graph.edges[edgeB.edgeId].basisVector
+        );
+
+        pushHeapInteriorEdge(context, newCwParent, newWsParent, nodeIndex, approxDirection);
+    }
+}
 
 // Function to make heap interior edges
 export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
@@ -691,8 +769,7 @@ export function performOneStep(context: StraightSkeletonSolverContext): StepResu
                 const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
                     e => e >= graph.numExteriorNodes
                 );
-                const [cw, ws] = buildExteriorParentLists(context, allNodeEdges);
-                pushHeapInteriorEdgesFromParentPairs(context, cw, ws, existingNodeIndex);
+                processCollisionNode(context, allNodeEdges, existingNodeIndex);
             } else {
                 reEvaluateEdge(context, nextEdge.ownerId);
             }
@@ -725,8 +802,7 @@ export function performOneStep(context: StraightSkeletonSolverContext): StepResu
     const allInteriorEdgesAtNode = graph.nodes[nodeIndex].inEdges.filter(
         e => e >= graph.numExteriorNodes
     );
-    const [cw, ws] = buildExteriorParentLists(context, allInteriorEdgesAtNode);
-    pushHeapInteriorEdgesFromParentPairs(context, cw, ws, nodeIndex);
+    processCollisionNode(context, allInteriorEdgesAtNode, nodeIndex);
 
     const newInteriorEdgeIds = graph.interiorEdges
         .slice(prevInteriorEdgeCount)
