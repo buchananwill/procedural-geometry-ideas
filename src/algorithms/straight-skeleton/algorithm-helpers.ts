@@ -136,15 +136,33 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     })
 
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
-
-    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
     const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
-    graph.edges.push({
-        id,
-        source,
-        basisVector: crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis
-    })
+    // Determine correct direction for the bisector.
+    // For secondary bisectors at collision nodes, use the "momentum" of the
+    // colliding interior edges rather than the cross-product heuristic.
+    const sourceNode = graph.nodes[source];
+    const incomingInteriorEdges = sourceNode.inEdges.filter(e => e >= graph.numExteriorNodes);
+
+    let finalBasis: Vector2;
+
+    if (incomingInteriorEdges.length >= 2) {
+        // Secondary bisector: bisect the colliding interior edges' basis vectors
+        // to get the expected continuation direction.
+        const momentumBasis = makeBisectedBasis(
+            graph.edges[incomingInteriorEdges[0]].basisVector,
+            graph.edges[incomingInteriorEdges[1]].basisVector
+        );
+        const dot = bisectedBasis.x * momentumBasis.x + bisectedBasis.y * momentumBasis.y;
+        finalBasis = dot < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+    } else {
+        // Initial bisector at polygon vertex: use cross product (original logic)
+        const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
+                           - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
+        finalBasis = crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+    }
+
+    graph.edges.push({ id, source, basisVector: finalBasis })
 
     graph.nodes[source].outEdges.push(id);
 
