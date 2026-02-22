@@ -172,7 +172,9 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
     }
 
     if (comparison === 0) {
-        edge.intersectingEdges.push(otherEdgeIndex);
+        if (!edge.intersectingEdges.includes(otherEdgeIndex)) {
+            edge.intersectingEdges.push(otherEdgeIndex);
+        }
     }
 
     return false;

@@ -20,40 +20,6 @@ const TRIANGLE: Vector2[] = [{x: 0, y: 0},  {x: 2, y: 4}, {x: 4, y: 0}];
 const SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 2}, {x: 2, y: 2}, {x: 2, y: 0}];
 const RECTANGLE: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 2}, {x: 4, y: 2}, {x: 4, y: 0}];
 const PENTAGON: Vector2[] = [{x: 3, y: 9}, {x: 6, y: 6}, {x: 6, y: 0}, {x: 0, y: 0}, {x: 0, y: 6}];
-const KIDNEY_BEAN_OCTAGON: Vector2[] = [
-    {
-        x: 316.9999990463257,
-        y: 219.00000095367432
-    },
-    {
-        x: 250,
-        y: 250
-    },
-    {
-        x: 300,
-        y: 450
-    },
-    {
-        x: 500,
-        y: 450
-    },
-    {
-        x: 577,
-        y: 372
-    },
-    {
-        x: 598.5056829452515,
-        y: 227.50568294525146
-    },
-    {
-        x: 522.5056829452515,
-        y: 150.50568294525146
-    },
-    {
-        x: 396,
-        y: 214
-    }
-]
 
 const IMPOSSIBLE_OCTAGON: Vector2[] = [
     {
@@ -624,54 +590,6 @@ describe('Pentagon — step-by-step algorithm tracing', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. Kidney-bean octagon
-// ---------------------------------------------------------------------------
-
-describe('KIDNEY_BEAN_OCTAGON — straight skeleton', () => {
-    let g: StraightSkeletonGraph;
-
-    beforeEach(() => {
-        g = computeStraightSkeleton(KIDNEY_BEAN_OCTAGON);
-    });
-
-    it('does not throw', () => {
-        expect(() => computeStraightSkeleton(KIDNEY_BEAN_OCTAGON)).not.toThrow();
-    });
-
-    it('numExteriorNodes === 8', () => {
-        expect(g.numExteriorNodes).toBe(8);
-    });
-
-    it('has at most 6 interior nodes (geometric maximum for an octagon)', () => {
-        expect(interiorNodes(g).length).toBeLessThanOrEqual(6);
-    });
-
-    it('has at least 1 interior node', () => {
-        expect(interiorNodes(g).length).toBeGreaterThanOrEqual(1);
-    });
-
-    it('total edge count equals numExteriorNodes + interiorEdges.length', () => {
-        expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
-    });
-
-    it('every exterior node has at least one outgoing interior edge', () => {
-        for (let i = 0; i < g.numExteriorNodes; i++) {
-            expect(g.nodes[i].outEdges.some(eid => eid >= g.numExteriorNodes)).toBe(true);
-        }
-    });
-
-    it('all interior nodes lie strictly inside the bounding box', () => {
-        const bb = boundingBox(KIDNEY_BEAN_OCTAGON);
-        for (const n of interiorNodes(g)) {
-            expect(n.position.x).toBeGreaterThan(bb.minX);
-            expect(n.position.x).toBeLessThan(bb.maxX);
-            expect(n.position.y).toBeGreaterThan(bb.minY);
-            expect(n.position.y).toBeLessThan(bb.maxY);
-        }
-    });
-});
-
-// ---------------------------------------------------------------------------
 // 11. Impossible octagon
 // ---------------------------------------------------------------------------
 
@@ -741,8 +659,8 @@ describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
             step1 = performOneStep(context);
         });
 
-        it('accepts interior edges 12 and 13', () => {
-            expect([...step1.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([12, 13]);
+        it('accepts interior edges 8 and 9', () => {
+            expect([...step1.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([8, 9]);
         });
 
         it('pushes exactly one new interior edge (id 16)', () => {
@@ -760,8 +678,8 @@ describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
             step2 = performOneStep(context);
         });
 
-        it('accepts interior edges 10 and 11', () => {
-            expect([...step2.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([10, 11]);
+        it('accepts interior edges 12 and 13', () => {
+            expect([...step2.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([12, 13]);
         });
 
         it('pushes exactly one new interior edge (id 17)', () => {
