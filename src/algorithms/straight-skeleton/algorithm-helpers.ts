@@ -110,13 +110,21 @@ function makeHeapInteriorEdgeComparator() {
 }
 
 
-function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initStraightSkeletonGraph(nodes);
     return {
         graph,
         acceptedEdges: nodes.map(() => false),
         heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
     };
+}
+
+export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, currentBisection: Vector2) {
+    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
+        - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
+    if (crossProduct < 0) {
+        scaleVector(currentBisection, -1)
+    }
 }
 
 /**
@@ -137,22 +145,20 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     })
 
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
-    const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
-
-    let finalBasis: Vector2;
+    let bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
     if (approximateDirection) {
         // Caller-provided direction: use dot-product to decide flip
         const dot = bisectedBasis.x * approximateDirection.x + bisectedBasis.y * approximateDirection.y;
-        finalBasis = dot < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+        if (dot < 0) {
+            bisectedBasis = dot < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+        }
     } else {
         // Initial bisector at polygon vertex: use cross product (original logic)
-        const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
-                           - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
-        finalBasis = crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+        ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
     }
 
-    graph.edges.push({ id, source, basisVector: finalBasis })
+    graph.edges.push({id, source, basisVector: bisectedBasis})
 
     graph.nodes[source].outEdges.push(id);
 
@@ -196,7 +202,13 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
  * Creates a new bisection interior edge and extends acceptedEdges to cover it.
  * Returns the edge index. Does NOT evaluate intersections or push to heap.
  */
-export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number, approximateDirection?: Vector2): number {
+export function createBisectionInteriorEdge(
+    context: StraightSkeletonSolverContext,
+    clockwiseParent: number,
+    widdershinsParent: number,
+    source: number,
+    approximateDirection?: Vector2
+): number {
     const {acceptedEdges, graph} = context;
     const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source, approximateDirection);
 

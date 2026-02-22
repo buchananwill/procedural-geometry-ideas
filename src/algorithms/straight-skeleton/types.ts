@@ -80,3 +80,10 @@ export interface StraightSkeletonSolverContext {
     heap: Heap<HeapInteriorEdge>;
 }
 
+/** V2 heap event: a collision between 2+ interior edges. */
+export interface CollisionEvent {
+    participatingEdges: number[];   // interior edge IDs that meet
+    distances: number[];            // distance along each participating edge (same order)
+    eventDistance: number;           // max distance among participants (heap priority key)
+}
+

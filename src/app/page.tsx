@@ -5,10 +5,10 @@ import dynamic from "next/dynamic";
 import { AppShell, Group, Title, Button, Text, Stack, Paper, Switch } from "@mantine/core";
 import { usePolygonStore } from "@/stores/usePolygonStore";
 import {
-  computeStraightSkeleton,
   computePrimaryInteriorEdges,
   computePrimaryEdgeIntersections,
 } from "@/algorithms/straight-skeleton/algorithm";
+import { computeStraightSkeletonV2 } from "@/algorithms/straight-skeleton/algorithm-v2";
 import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 import type { Vector2 } from "@/algorithms/straight-skeleton/types";
@@ -109,7 +109,7 @@ export default function Home() {
 
   const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
     if (!showSkeleton) return null;
-    try { return computeStraightSkeleton(vertices); }
+    try { return computeStraightSkeletonV2(vertices); }
     catch { return null; }
   }, [showSkeleton, vertices]);
 
