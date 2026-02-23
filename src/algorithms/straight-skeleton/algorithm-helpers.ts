@@ -33,10 +33,53 @@ function makeHeapInteriorEdgeComparator() {
 
 function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
+    const acceptedEdges =nodes.map(() => false);
     return {
         graph,
-        acceptedEdges: nodes.map(() => false),
+        acceptedEdges: acceptedEdges,
         heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
+        getEdgeWithId(id: number): PolygonEdge {
+            return graph.edges[id];
+        },
+        getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge {
+            return graph.edges[interiorEdge.id]
+        },
+        getInteriorWithId(id: number): InteriorEdge {
+            return graph.interiorEdges[id - graph.numExteriorNodes];
+        },
+        projectRay(edge: PolygonEdge): RayProjection {
+            return {
+                sourceVector: graph.nodes[edge.source].position,
+                basisVector: edge.basisVector
+            };
+        },
+        projectRayInterior(edge: InteriorEdge): RayProjection {
+            const polygonEdge = graph.edges[edge.id];
+            return {
+                sourceVector: graph.nodes[polygonEdge.source].position,
+                basisVector: polygonEdge.basisVector
+            }
+        },
+        clockwiseParent(edge: InteriorEdge): PolygonEdge {
+            return graph.edges[edge.clockwiseExteriorEdgeIndex]
+        },
+        widdershinsParent(edge: InteriorEdge): PolygonEdge {
+            return graph.edges[edge.widdershinsExteriorEdgeIndex];
+        },
+        isAccepted(edge: InteriorEdge): boolean {
+            return acceptedEdges[edge.id];
+        },
+        findOrAddNode(position: Vector2): PolygonNode {
+            const node = graph.nodes.find(n => {vectorsAreEqual(n.position, position)})
+            if (node !== undefined){
+                return node;
+            }
+            const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: [] });
+            return graph.nodes[index - 1];
+        },
+        findSource(edgeId: number): PolygonNode {
+            return graph.nodes[graph.edges[edgeId].source]
+        }
     };
 }
 

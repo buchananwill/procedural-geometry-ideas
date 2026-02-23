@@ -19,6 +19,8 @@ export interface PolygonEdge {
     basisVector: Vector2;
 }
 
+export type InteriorEdgeRank = 'primary' | 'secondary';
+
 export interface InteriorEdge {
     id: number;
     clockwiseExteriorEdgeIndex: number;
@@ -26,6 +28,7 @@ export interface InteriorEdge {
     intersectingEdges?: number[];
     length?: number;
     heapGeneration?: number;
+    rank?: InteriorEdgeRank
 }
 
 export interface StraightSkeletonGraph {
@@ -74,7 +77,20 @@ Solving context:
 3. List of bools for accepted exterior edges
 * */
 
-export interface    StraightSkeletonSolverContext {
+export interface GraphHelpers {
+    getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge;
+    getEdgeWithId(id: number): PolygonEdge;
+    getInteriorWithId(id: number): InteriorEdge;
+    projectRay(edge: PolygonEdge): RayProjection;
+    projectRayInterior(edge: InteriorEdge): RayProjection;
+    clockwiseParent(edge: InteriorEdge): PolygonEdge;
+    widdershinsParent(edge: InteriorEdge): PolygonEdge;
+    isAccepted(edge: InteriorEdge): boolean;
+    findOrAddNode(position: Vector2): PolygonNode;
+    findSource(edgeId: number): PolygonNode;
+}
+
+export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
     heap: Heap<HeapInteriorEdge>;
@@ -85,7 +101,8 @@ export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'divergin
 export type IntersectionResult = [number, number, IntersectionType]
 
 export interface CollisionEvent {
-    edgeA: number;
-    edgeB: number;
+    offsetDistance: number;
+    collidingEdges: [number, number];
+    position: Vector2;
     intersectionData: IntersectionResult
 }
