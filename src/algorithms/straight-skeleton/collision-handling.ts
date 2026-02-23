@@ -10,9 +10,11 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
     const interiorEdge = context.getInteriorWithId(instigator);
 
     const newNode = context.findOrAddNode(event.position);
+    newNode.inEdges.push(instigator)
 
     if (event.eventType === 'interiorPair') {
         const otherInterior = context.getInteriorWithId(target);
+        newNode.inEdges.push(target);
 
         const parentSharing = checkSharedParents(instigator, target, context);
         if (parentSharing.includes(true)) {

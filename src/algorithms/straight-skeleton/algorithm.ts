@@ -23,7 +23,7 @@ import {
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 
-function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
+export function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
 }
 
