@@ -58,9 +58,17 @@ export function makeBasis(from: Vector2, to: Vector2): Vector2 {
     return normalize(relativeVector)[0];
 }
 
-export function makeBisectedBasis(a: Vector2, b: Vector2): Vector2 {
-    const added = addVectors(a, b);
-    return normalize(added)[0];
+/**
+ * Assumes vectors are ordered so that iBasis is the clockwise-most exterior edge, in the case of a polygon perimeter
+ * */
+export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
+    const added = addVectors(iBasis, jBasis);
+    const [bisection, size] = normalize(added);
+    if (areEqual(size, 0)) {
+        // noinspection JSSuspiciousNameCombination Matrix rotation
+        return {x: iBasis.y, y: iBasis.x * -1}
+    }
+    return bisection;
 }
 
 export function crossProduct(a: Vector2, b: Vector2): number {

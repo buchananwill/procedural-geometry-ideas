@@ -8,11 +8,9 @@ import {
     normalize,
     makeBasis,
     makeBisectedBasis,
-    addNode,
-    interiorEdgeIndex,
-    initBoundingPolygon,
 } from './core-functions';
 import type { Vector2, StraightSkeletonGraph, PolygonEdge } from './types';
+import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -167,25 +165,30 @@ describe('scaleVector', () => {
 
 describe('normalize', () => {
     it('leaves a unit vector unchanged', () => {
-        const result = normalize({ x: 1, y: 0 });
-        expect(result.x).toBeCloseTo(1);
-        expect(result.y).toBeCloseTo(0);
+        const [vec, size] = normalize({ x: 1, y: 0 });
+        expect(vec.x).toBeCloseTo(1);
+        expect(vec.y).toBeCloseTo(0);
+        expect(size).toBeCloseTo(1);
     });
 
     it('normalizes an axis-aligned non-unit vector', () => {
-        const result = normalize({ x: 0, y: 5 });
-        expect(result.x).toBeCloseTo(0);
-        expect(result.y).toBeCloseTo(1);
+        const [vec, size] = normalize({ x: 0, y: 5 });
+        expect(vec.x).toBeCloseTo(0);
+        expect(vec.y).toBeCloseTo(1);
+        expect(size).toBeCloseTo(5);
     });
 
     it('normalizes a diagonal vector (3-4-5 triangle)', () => {
-        const result = normalize({ x: 3, y: 4 });
-        expect(result.x).toBeCloseTo(0.6);
-        expect(result.y).toBeCloseTo(0.8);
+        const [vec, size] = normalize({ x: 3, y: 4 });
+        expect(vec.x).toBeCloseTo(0.6);
+        expect(vec.y).toBeCloseTo(0.8);
+        expect(size).toBeCloseTo(5);
     });
 
-    it('returns {x:1, y:0} for the zero vector (documented fallback)', () => {
-        expect(normalize({ x: 0, y: 0 })).toEqual({ x: 1, y: 0 });
+    it('returns {x:0, y:0} and size 0 for the zero vector', () => {
+        const [vec, size] = normalize({ x: 0, y: 0 });
+        expect(vec).toEqual({ x: 0, y: 0 });
+        expect(size).toBe(0);
     });
 });
 
@@ -236,10 +239,10 @@ describe('makeBisectedBasis', () => {
         expect(result.y).toBeCloseTo(Math.SQRT1_2);
     });
 
-    it('falls back to {x:1,y:0} for opposite vectors (zero sum)', () => {
+    it('returns rotated iBasis for opposite vectors (zero sum)', () => {
         // addVectors gives {0,0}, normalize falls back to {1,0}
         const result = makeBisectedBasis({ x: 1, y: 0 }, { x: -1, y: 0 });
-        expect(result).toEqual({ x: 1, y: 0 });
+        expect(result).toEqual({ x: 0, y: -1 });
     });
 
     it('result always has unit length', () => {

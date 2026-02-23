@@ -9,7 +9,7 @@ import {
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
- * If the two rays are parallel, return value is [+inf, +inf, type] unless both sources lie on same line
+ * If the two rays are parallel, return value is [+inf, +inf, type] unless both sources lie on same line.
  * Type gives category of result.
  * */
 export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionResult {

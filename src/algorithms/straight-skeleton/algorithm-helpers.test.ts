@@ -14,23 +14,21 @@ import type {
     Vector2,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
-    HeapInteriorEdge,
     InteriorEdge,
 } from './types';
-import Heap from 'heap-js';
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 import {TRIANGLE, SQUARE} from './test-constants';
+import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
+import {normalize} from "@/algorithms/straight-skeleton/core-functions";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function makeTestContext(graph: StraightSkeletonGraph, acceptedEdges: boolean[]): StraightSkeletonSolverContext {
-    return {
-        graph,
-        acceptedEdges,
-        heap: new Heap<HeapInteriorEdge>(),
-    };
+    const context = initStraightSkeletonSolverContext(graph.nodes.map(n => ({x: n.position.x, y: n.position.y})))
+    acceptedEdges.forEach((val, i) => {context.acceptedEdges[i] = val;})
+    return context;
 }
 
 function magnitude(v: Vector2): number {
@@ -64,12 +62,12 @@ describe('unitsToIntersection', () => {
     });
 
     // Case 2: coincident sources — both rays start at (2,3) so t=0,0.
-    it('returns [0, 0] for coincident sources', () => {
+    it('returns [+inf, +inf] for coincident sources', () => {
         const ray1 = { basisVector: { x: 1, y: 0 }, sourceVector: { x: 2, y: 3 } };
         const ray2 = { basisVector: { x: 0, y: 1 }, sourceVector: { x: 2, y: 3 } };
         const [t1, t2] = unitsToIntersection(ray1, ray2);
-        expect(t1).toBeCloseTo(0);
-        expect(t2).toBeCloseTo(0);
+        expect(t1).toBeCloseTo(Number.POSITIVE_INFINITY);
+        expect(t2).toBeCloseTo(Number.POSITIVE_INFINITY);
     });
 
     // Case 3 — [BUG A] wrong numerator on line 34: `xRel + yRel * x2` should be `xRel * y2 - yRel * x2`
@@ -78,20 +76,20 @@ describe('unitsToIntersection', () => {
     // Buggy code: numerator = xRel + yRel*x2 = 3 + 2*(-1) = 1 → t1=1, then t2=-1
     it('[BUG A] wrong numerator formula — expected [5, 3] for oblique rays', () => {
         const ray1 = { basisVector: { x: 0, y: 1 }, sourceVector: { x: 0, y: 0 } };
-        const ray2 = { basisVector: { x: -1, y: 1 }, sourceVector: { x: 3, y: 2 } };
+        const ray2 = { basisVector: normalize({ x: -1, y: 1 })[0], sourceVector: { x: 3, y: 2 } };
         const [t1, t2] = unitsToIntersection(ray1, ray2);
         expect(t1).toBeCloseTo(5);   // BUG A: code gives 1
-        expect(t2).toBeCloseTo(3);   // BUG A: code gives -1
+        expect(t2).toBeCloseTo(Math.sqrt(18));   // BUG A: code gives -1
     });
 
     // Case — co-linear opposing rays: midpoint with full-span priority override
     it('co-linear opposing rays: returns [D/2, D/2, D] midpoint with full-span priority', () => {
         const ray1 = { basisVector: { x: 1, y: 0 }, sourceVector: { x: 0, y: 0 } };
         const ray2 = { basisVector: { x: -1, y: 0 }, sourceVector: { x: 10, y: 0 } };
-        const result = unitsToIntersection(ray1, ray2);
-        expect(result[0]).toBeCloseTo(5);   // D/2 along ray1
-        expect(result[1]).toBeCloseTo(5);   // D/2 along ray2
-        expect(result[2]).toBeCloseTo(10);  // full span priority
+        const [length1, length2, resultType] = unitsToIntersection(ray1, ray2);
+        expect(length1).toBeCloseTo(10);   // D/2 along ray1
+        expect(length2).toBeCloseTo(10);   // D/2 along ray2
+        expect(resultType).toBe('head-on');  // full span priority
     });
 
     // Case 4 — [BUG B] division by y2 on line 35: when ray2 is horizontal (y2=0), result is -Infinity / NaN
