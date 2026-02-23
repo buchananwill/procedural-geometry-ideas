@@ -1,17 +1,16 @@
-import {IntersectionResult, RayProjection, Vector2} from "@/algorithms/straight-skeleton/types";
-import {IntersectionUnits} from "@/algorithms/straight-skeleton/algorithm-helpers";
+import {IntersectionResult, RayProjection} from "@/algorithms/straight-skeleton/types";
 import {
     areEqual,
     crossProduct,
     dotProduct,
-    fp_compare,
     normalize, scaleVector,
     subtractVectors, vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
- * If the two rays are parallel, return value is [+inf, +inf] unless both sources lie on same line
+ * If the two rays are parallel, return value is [+inf, +inf, type] unless both sources lie on same line
+ * Type gives category of result.
  * */
 export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionResult {
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
