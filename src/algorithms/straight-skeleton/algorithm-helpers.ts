@@ -21,7 +21,7 @@ import {
 } from "@/algorithms/straight-skeleton/core-functions";
 import Heap from "heap-js";
 import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
-import {unitsToIntersection} from "@/algorithms/straight-skeleton/composite-functions";
+import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 
 
 function makeHeapInteriorEdgeComparator() {

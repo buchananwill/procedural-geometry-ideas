@@ -23,9 +23,9 @@ export interface InteriorEdge {
     id: number;
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
-    intersectingEdges: number[];
-    length: number;
-    heapGeneration: number;
+    intersectingEdges?: number[];
+    length?: number;
+    heapGeneration?: number;
 }
 
 export interface StraightSkeletonGraph {
@@ -74,7 +74,7 @@ Solving context:
 3. List of bools for accepted exterior edges
 * */
 
-export interface StraightSkeletonSolverContext {
+export interface    StraightSkeletonSolverContext {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
     heap: Heap<HeapInteriorEdge>;
@@ -83,3 +83,9 @@ export interface StraightSkeletonSolverContext {
 export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'diverging' | 'identical-source' | 'co-linear-from-1' | 'co-linear-from-2'
 
 export type IntersectionResult = [number, number, IntersectionType]
+
+export interface CollisionEvent {
+    edgeA: number;
+    edgeB: number;
+    intersectionData: IntersectionResult
+}

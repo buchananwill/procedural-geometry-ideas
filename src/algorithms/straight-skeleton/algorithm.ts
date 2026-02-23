@@ -21,7 +21,7 @@ import {
     scaleVector,
 } from "@/algorithms/straight-skeleton/core-functions";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
-import {unitsToIntersection} from "@/algorithms/straight-skeleton/composite-functions";
+import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 
 function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)

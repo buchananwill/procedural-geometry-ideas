@@ -1,4 +1,4 @@
-import { unitsToIntersection } from './composite-functions';
+import { unitsToIntersection } from './intersection-edges';
 import type { RayProjection } from './types';
 
 // ---------------------------------------------------------------------------

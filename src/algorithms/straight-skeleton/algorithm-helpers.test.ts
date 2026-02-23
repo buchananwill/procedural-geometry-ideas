@@ -1,5 +1,5 @@
 import {
-    unitsToIntersection,
+
     addBisectionEdge,
     makeRayProjection,
     updateInteriorEdgeIntersections,
@@ -10,7 +10,6 @@ import {
     createBisectionInteriorEdge,
     evaluateEdgeIntersections,
 } from './algorithm-helpers';
-import { initBoundingPolygon } from './core-functions';
 import type {
     Vector2,
     StraightSkeletonGraph,
@@ -19,6 +18,7 @@ import type {
     InteriorEdge,
 } from './types';
 import Heap from 'heap-js';
+import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 
 // ---------------------------------------------------------------------------
 // Helpers
