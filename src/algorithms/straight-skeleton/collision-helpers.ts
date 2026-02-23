@@ -80,7 +80,8 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         collidingEdges: [iEdge.id, eEdge.id],
         intersectionData,
         offsetDistance: sourceOffset + finalCollisionOffset,
-        position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior))
+        position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
+        eventType: "interiorAgainstExterior"
     }
 }
 
@@ -111,7 +112,8 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
         offsetDistance,
         collidingEdges: [edgeA.id, edgeB.id],
         position: addVectors(scaleVector(ray1.basisVector, alongRay1), ray1.sourceVector),
-        intersectionData
+        intersectionData,
+        eventType: "interiorPair"
     }
 }
 
@@ -136,20 +138,22 @@ export function createCollisionEvents(context: StraightSkeletonSolverContext): C
 
     const {graph} = context;
 
-    for (const interiorEdge1 of graph.interiorEdges) {
-        if (context.isAccepted(interiorEdge1)) {
+    for (const interiorEdge of graph.interiorEdges) {
+        if (context.isAccepted(interiorEdge)) {
             continue;
         }
 
-        for (const interiorEdge2 of graph.interiorEdges) {
-            if (interiorEdge1.id === interiorEdge2.id || context.isAccepted(interiorEdge2)) {
+        for (const edge of graph.edges) {
+            if (interiorEdge.id === edge.id || context.acceptedEdges[edge.id]) {
                 continue;
             }
-            const event = collideInteriorEdges(interiorEdge1, interiorEdge2, context)
+            const event = collideEdges(interiorEdge.id, edge.id, context)
             if (event !== null) {
                 events.push(event);
             }
+
         }
+
     }
 
     events.sort((e1, e2) => {

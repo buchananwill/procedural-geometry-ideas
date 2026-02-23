@@ -100,9 +100,12 @@ export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'divergin
 
 export type IntersectionResult = [number, number, IntersectionType]
 
+export type CollisionType = 'interiorPair' | 'interiorAgainstExterior'
+
 export interface CollisionEvent {
     offsetDistance: number;
     collidingEdges: [number, number];
     position: Vector2;
     intersectionData: IntersectionResult
+    eventType: CollisionType
 }
