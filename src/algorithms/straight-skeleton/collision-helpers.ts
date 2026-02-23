@@ -36,7 +36,7 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
 export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
     // no need to test against accepted edges
-    if (context.acceptedEdges[eEdge.id]){
+    if (context.acceptedEdges[eEdge.id]) {
         return null;
     }
 
@@ -44,7 +44,7 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const wsParent = context.widdershinsParent(iEdge);
 
     // Cannot collide with own parent
-    if (cwParent.id === eEdge.id || wsParent.id === eEdge.id){
+    if (cwParent.id === eEdge.id || wsParent.id === eEdge.id) {
         return null;
     }
 
@@ -55,20 +55,26 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const [alongRay1, _alongRay2, resultType] = intersectionData;
 
     // Only meaningful result for collisions with exterior edges
-    if (resultType !== 'converging'){
+    if (resultType !== 'converging') {
         return null;
     }
 
     // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
-    const widdershinsParentRay: RayProjection = {sourceVector: context.findSource(iEdge.id).position, basisVector: wsParent.basisVector}
-    const exteriorCollisionRay: RayProjection = {sourceVector: context.graph.nodes[eEdge.target!].position, basisVector: scaleVector(eEdge.basisVector, -1)}
+    const widdershinsParentRay: RayProjection = {
+        sourceVector: context.findSource(iEdge.id).position,
+        basisVector: wsParent.basisVector
+    }
+    const exteriorCollisionRay: RayProjection = {
+        sourceVector: context.graph.nodes[eEdge.target!].position,
+        basisVector: scaleVector(eEdge.basisVector, -1)
+    }
     const [alongParent] = unitsToIntersection(widdershinsParentRay, exteriorCollisionRay);
     const triangleOtherVertex = addVectors(widdershinsParentRay.sourceVector, scaleVector(widdershinsParentRay.basisVector, alongParent))
     const triangleOtherBisector = makeBisectedBasis(eEdge.basisVector, scaleVector(wsParent.basisVector, -1))
     const otherRay: RayProjection = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
 
     const [alongOriginalInterior, _other, resultTypeFinal] = unitsToIntersection(ray1, otherRay)
-    if (resultTypeFinal !== 'converging'){
+    if (resultTypeFinal !== 'converging') {
         // We must be dealing with a non-reflex angle, so don't need to continue;
         return null;
     }
@@ -122,19 +128,79 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
     const rankA = context.edgeRank(edgeIdA);
     const rankB = context.edgeRank(edgeIdB);
 
-    if (rankA === 'exterior'){
+    if (rankA === 'exterior') {
         return null
     }
     const interiorEdge = context.getInteriorWithId(edgeIdA);
 
-    if (rankB !== 'exterior'){
+    if (rankB !== 'exterior') {
         return collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
     }
 
     return collideInteriorAndExteriorEdge(interiorEdge, context.getEdgeWithId(edgeIdB), context)
 }
 
+export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext):[boolean, boolean, boolean, boolean] {
+    const edge1Data = context.getInteriorWithId(edge1);
+    const edge2Data = context.getInteriorWithId(edge2);
+
+    const e1CwParent = context.clockwiseParent(edge1Data)
+    const e1WsParent = context.widdershinsParent(edge1Data);
+
+    const e2CwParent = context.clockwiseParent(edge2Data);
+    const e2WsParent = context.widdershinsParent(edge2Data);
+
+    return [
+        e1CwParent.id === e2WsParent.id,
+        e1WsParent.id === e2CwParent.id,
+        e1WsParent.id === e2CwParent.id,
+        e1CwParent.id === e2WsParent.id,
+    ]
+}
+
+function makeCollisionEventComparator(context: StraightSkeletonSolverContext) {
+
+    function collisionEventComparator(e1: CollisionEvent, e2: CollisionEvent) {
+        const diff = e1.offsetDistance - e2.offsetDistance;
+
+        if (!areEqual(diff, 0)) {
+            return diff;
+        }
+
+        if (e1.eventType !== e2.eventType) {
+            return e1.eventType === 'interiorAgainstExterior' ? 1 : -1
+        }
+
+        if (e1.eventType === 'interiorAgainstExterior') {
+            return -1;
+        }
+
+        const shareParent = (edge1: number, edge2: number)=> {
+            return checkSharedParents(edge1, edge2, context).includes(true);
+        }
+
+        const [e1a, e1b] = e1.collidingEdges
+
+        if (shareParent(e1a, e1b)) {
+            return -1;
+        }
+
+        const [e2a, e2b] = e2.collidingEdges;
+
+        if (shareParent(e2a, e2b)) {
+            return 1;
+        }
+
+        return -1
+    };
+
+    return collisionEventComparator
+}
+
+
 export function createCollisionEvents(context: StraightSkeletonSolverContext): CollisionEvent[] {
+    const comparator = makeCollisionEventComparator(context);
+
     const events: CollisionEvent[] = [];
 
     const {graph} = context;
@@ -157,9 +223,7 @@ export function createCollisionEvents(context: StraightSkeletonSolverContext): C
 
     }
 
-    events.sort((e1, e2) => {
-        return e1.offsetDistance - e2.offsetDistance
-    })
+    events.sort(comparator)
 
     return events;
 }

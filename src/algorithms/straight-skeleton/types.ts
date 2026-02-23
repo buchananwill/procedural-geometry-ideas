@@ -109,3 +109,10 @@ export interface CollisionEvent {
     intersectionData: IntersectionResult
     eventType: CollisionType
 }
+
+export interface BisectionParams {
+    clockwiseExteriorEdgeIndex: number;
+    widdershinsExteriorEdgeIndex: number;
+    source: number;
+    approximateDirection?: Vector2
+}

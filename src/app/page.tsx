@@ -16,6 +16,9 @@ import type { Vector2 } from "@/algorithms/straight-skeleton/types";
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
   ssr: false,
 });
+const RandomPolygonPanel = dynamic(() => import("@/components/RandomPolygonPanel"), {
+  ssr: false,
+});
 
 export interface DebugDisplayOptions {
   showExteriorEdgeLengths: boolean;
@@ -233,6 +236,8 @@ export default function Home() {
                 </Button>
               </Stack>
             </Paper>
+
+            <RandomPolygonPanel />
 
             <Paper p="md" withBorder>
               <Stack gap="xs">
