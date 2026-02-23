@@ -19,6 +19,7 @@ import type {
 } from './types';
 import Heap from 'heap-js';
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
+import {TRIANGLE, SQUARE} from './test-constants';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -45,9 +46,6 @@ function makeInteriorEdge(len: number): InteriorEdge {
         length: len,
     };
 }
-
-const TRIANGLE: Vector2[] = [{ x: 0, y: 0 }, { x: 2, y: 4 }, { x: 4, y: 0 }];
-const SQUARE: Vector2[]   = [{ x: 0, y: 0 }, { x: 0, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 0 }];
 
 // ---------------------------------------------------------------------------
 // unitsToIntersection

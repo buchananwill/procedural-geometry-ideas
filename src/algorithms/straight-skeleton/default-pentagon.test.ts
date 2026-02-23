@@ -4,41 +4,7 @@ import {
     initStraightSkeletonSolverContext,
     performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-
-// ---------------------------------------------------------------------------
-// The default pentagon shown on page load (from usePolygonStore.ts)
-// ---------------------------------------------------------------------------
-
-const DEFAULT_PENTAGON: Vector2[] = [
-    {x: 250, y: 250},
-    {x: 300, y: 450},
-    {x: 500, y: 450},
-    {x: 550, y: 250},
-    {x: 400, y: 100},
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface DiagnosticStepResult {
-    stepIndex: number;
-    poppedEdgeId?: number;
-    acceptedInteriorEdges?: number[];
-    newInteriorEdgeIds?: number[];
-    acceptedExteriorEdges?: number[];
-    newNodePosition?: Vector2;
-    graphIsComplete?: boolean;
-    error?: string;
-}
-
-function getAcceptedExteriorEdges(context: StraightSkeletonSolverContext): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-        if (context.acceptedEdges[i]) result.push(i);
-    }
-    return result;
-}
+import {DEFAULT_PENTAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
 
 // ---------------------------------------------------------------------------
 // Stage 0 — Initialization diagnostics

@@ -3,37 +3,7 @@ import {
     initStraightSkeletonSolverContext,
     performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-
-const AWKWARD_HEPTAGON: Vector2[] = [
-    {
-        "x": 250,
-        "y": 250
-    },
-    {
-        "x": 300,
-        "y": 450
-    },
-    {
-        "x": 500,
-        "y": 450
-    },
-    {
-        "x": 562.2692018374426,
-        "y": 407.2957030936534
-    },
-    {
-        "x": 740,
-        "y": 201
-    },
-    {
-        "x": 616.8069677084923,
-        "y": 263.66030511340506
-    },
-    {
-        "x": 519,
-        "y": 201
-    }
-]
+import {AWKWARD_HEPTAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
 
 /*
 PREDICTIONS:
@@ -41,29 +11,6 @@ PREDICTIONS:
 2. Edge 14 has parents [6,2].
 3. Edge 15 has parents [3,5].
 * */
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface DiagnosticStepResult {
-    stepIndex: number;
-    poppedEdgeId?: number;
-    acceptedInteriorEdges?: number[];
-    newInteriorEdgeIds?: number[];
-    acceptedExteriorEdges?: number[];
-    newNodePosition?: Vector2;
-    graphIsComplete?: boolean;
-    error?: string;
-}
-
-function getAcceptedExteriorEdges(context: StraightSkeletonSolverContext): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-        if (context.acceptedEdges[i]) result.push(i);
-    }
-    return result;
-}
 
 // ---------------------------------------------------------------------------
 // Initialization diagnostics

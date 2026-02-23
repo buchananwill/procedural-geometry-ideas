@@ -4,42 +4,7 @@ import {
     initStraightSkeletonSolverContext,
     performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-
-// ---------------------------------------------------------------------------
-// The awkward hexagon
-// ---------------------------------------------------------------------------
-
-const AWKWARD_HEXAGON: Vector2[] = [
-    {x: 250, y: 250},
-    {x: 300, y: 450},
-    {x: 500, y: 450},
-    {x: 740, y: 201},
-    {x: 572.8069677084923, y: 148.66030511340506},
-    {x: 400, y: 100},
-];
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface DiagnosticStepResult {
-    stepIndex: number;
-    poppedEdgeId?: number;
-    acceptedInteriorEdges?: number[];
-    newInteriorEdgeIds?: number[];
-    acceptedExteriorEdges?: number[];
-    newNodePosition?: Vector2;
-    graphIsComplete?: boolean;
-    error?: string;
-}
-
-function getAcceptedExteriorEdges(context: StraightSkeletonSolverContext): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-        if (context.acceptedEdges[i]) result.push(i);
-    }
-    return result;
-}
+import {AWKWARD_HEXAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
 
 // ---------------------------------------------------------------------------
 // Initialization diagnostics
