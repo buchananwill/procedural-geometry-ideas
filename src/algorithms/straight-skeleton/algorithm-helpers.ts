@@ -12,16 +12,15 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
-    addNode,
-    addVectors, assertIsNumber,
+    addVectors, assertIsNumber, crossProduct,
     fp_compare,
-    initStraightSkeletonGraph, interiorEdgeIndex,
-    makeBisectedBasis,
-    positionsAreClose,
+    makeBisectedBasis, normalize,
+    vectorsAreEqual,
     scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
 import Heap from "heap-js";
+import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 
 export type IntersectionUnits = [number, number] | [number, number, number];
 
@@ -33,6 +32,8 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
 
     const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);
+    const basisTowardsRay2Source = normalize(relativeRay2Source);
+
     const xRel = relativeRay2Source.x;
     const yRel = relativeRay2Source.y;
 
@@ -50,9 +51,9 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
     }
 
-    const crossProduct = (x1 * y2 - x2 * y1);
+    const crossProductBasisVectors = crossProduct(ray1.basisVector, ray2.basisVector);
 
-    if (fp_compare(crossProduct, 0) === 0) {
+    if (fp_compare(crossProductBasisVectors, 0) === 0) {
         const pointLiesAlongRay = (ray: RayProjection, point: Vector2): [boolean, number] => {
             const relative = subtractVectors(point, ray.sourceVector);
             if (ray.basisVector.x === 0) {
@@ -89,7 +90,7 @@ export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): I
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
     }
 
-    const ray1Units = (xRel * y2 - yRel * x2) / crossProduct;
+    const ray1Units = crossProduct(relativeRay2Source, ray2.basisVector) / crossProductBasisVectors;
 
     if (y2 !== 0) {
         const ray2Units = (ray1Units * y1 - yRel) / y2;
@@ -111,7 +112,7 @@ function makeHeapInteriorEdgeComparator() {
 
 
 function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
-    const graph = initStraightSkeletonGraph(nodes);
+    const graph = initBoundingPolygon(nodes);
     return {
         graph,
         acceptedEdges: nodes.map(() => false),
@@ -616,7 +617,7 @@ export function addTargetNodeAtInteriorEdgeIntersect(context: StraightSkeletonSo
     // Check for existing interior node at the same position (node reuse)
     let nodeIndex = -1;
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        if (positionsAreClose(graph.nodes[i].position, newNodePosition)) {
+        if (vectorsAreEqual(graph.nodes[i].position, newNodePosition)) {
             nodeIndex = i;
             break;
         }
@@ -759,7 +760,7 @@ export function performOneStep(context: StraightSkeletonSolverContext): StepResu
 
             let existingNodeIndex = -1;
             for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-                if (positionsAreClose(graph.nodes[i].position, targetPos)) {
+                if (vectorsAreEqual(graph.nodes[i].position, targetPos)) {
                     existingNodeIndex = i;
                     break;
                 }

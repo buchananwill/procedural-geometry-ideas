@@ -10,7 +10,7 @@ import {
     makeBisectedBasis,
     addNode,
     interiorEdgeIndex,
-    initStraightSkeletonGraph,
+    initBoundingPolygon,
 } from './core-functions';
 import type { Vector2, StraightSkeletonGraph, PolygonEdge } from './types';
 
@@ -323,7 +323,7 @@ describe('initStraightSkeletonGraph', () => {
     let g: StraightSkeletonGraph;
 
     beforeEach(() => {
-        g = initStraightSkeletonGraph(triangle);
+        g = initBoundingPolygon(triangle);
     });
 
     it('creates the correct number of nodes', () => {

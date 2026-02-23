@@ -1,6 +1,6 @@
 import {computeStraightSkeleton} from './algorithm';
 import type {StraightSkeletonGraph, StraightSkeletonSolverContext, Vector2} from './types';
-import {initStraightSkeletonGraph} from "@/algorithms/straight-skeleton/core-functions";
+import {initBoundingPolygon} from "@/algorithms/straight-skeleton/core-functions";
 import {
     initStraightSkeletonSolverContext,
     performOneStep,
@@ -637,7 +637,7 @@ describe('Pentagon house', () => {
     let g: StraightSkeletonGraph;
 
     it('should have 5 exterior edges after init', () => {
-        g = initStraightSkeletonGraph(PENTAGON);
+        g = initBoundingPolygon(PENTAGON);
         expect(g.edges.length).toBe(5);
     });
 

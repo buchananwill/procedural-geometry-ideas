@@ -10,7 +10,7 @@ import {
     createBisectionInteriorEdge,
     evaluateEdgeIntersections,
 } from './algorithm-helpers';
-import { initStraightSkeletonGraph } from './core-functions';
+import { initBoundingPolygon } from './core-functions';
 import type {
     Vector2,
     StraightSkeletonGraph,
@@ -122,7 +122,7 @@ describe('addBisectionEdge', () => {
     let id: number;
 
     beforeEach(() => {
-        g = initStraightSkeletonGraph(SQUARE);
+        g = initBoundingPolygon(SQUARE);
         id = addBisectionEdge(g, 1, 0, 1);
     });
 
@@ -178,7 +178,7 @@ describe('makeRayProjection', () => {
     let g: StraightSkeletonGraph;
 
     beforeEach(() => {
-        g = initStraightSkeletonGraph(TRIANGLE);
+        g = initBoundingPolygon(TRIANGLE);
     });
 
     // TRIANGLE edge 0: source=node0 (0,0), direction toward (2,4) → basis normalize(2,4)
@@ -287,7 +287,7 @@ describe('finalizeTargetNodePosition', () => {
     const heapEdgeId = 3;
 
     beforeEach(() => {
-        g = initStraightSkeletonGraph(TRIANGLE);
+        g = initBoundingPolygon(TRIANGLE);
         addBisectionEdge(g, 0, 2, 0);   // → edge id 3, interiorEdges[0]
         g.interiorEdges[0].length = 3;  // manually set length for deterministic result
     });
@@ -324,7 +324,7 @@ describe('acceptEdge', () => {
     let ctx: StraightSkeletonSolverContext;
 
     beforeEach(() => {
-        ctx = makeTestContext(initStraightSkeletonGraph(TRIANGLE), [false, false, false]);
+        ctx = makeTestContext(initBoundingPolygon(TRIANGLE), [false, false, false]);
     });
 
     it('sets acceptedEdges[1] to true', () => {
@@ -352,7 +352,7 @@ describe('hasInteriorLoop', () => {
     let g: StraightSkeletonGraph;
 
     beforeEach(() => {
-        g = initStraightSkeletonGraph(TRIANGLE);
+        g = initBoundingPolygon(TRIANGLE);
         addBisectionEdge(g, 0, 2, 0);  // → interior edge id=3, cw=0, widdershins=2
     });
 
@@ -420,7 +420,7 @@ describe('createBisectionInteriorEdge', () => {
     let edgeIndex: number;
 
     beforeEach(() => {
-        ctx = makeTestContext(initStraightSkeletonGraph(SQUARE), [false, false, false, false]);
+        ctx = makeTestContext(initBoundingPolygon(SQUARE), [false, false, false, false]);
         edgeIndex = createBisectionInteriorEdge(ctx, 1, 0, 1);
     });
 

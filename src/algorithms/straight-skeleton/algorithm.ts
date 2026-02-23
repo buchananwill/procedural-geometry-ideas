@@ -16,12 +16,12 @@ import {
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {
     addVectors,
-    initStraightSkeletonGraph,
     makeBasis,
     makeBisectedBasis,
-    positionsAreClose,
+    vectorsAreEqual,
     scaleVector,
 } from "@/algorithms/straight-skeleton/core-functions";
+import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 
 function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
@@ -29,7 +29,7 @@ function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
 
 export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph {
     if (nodes.length < 3) {
-        return initStraightSkeletonGraph(nodes);
+        return initBoundingPolygon(nodes);
     }
     const context = initStraightSkeletonSolverContext(nodes);
     const {graph, acceptedEdges, heap} = context;
@@ -68,7 +68,7 @@ export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph
             // Check if an existing interior node is at that position
             let existingNodeIndex = -1;
             for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-                if (positionsAreClose(graph.nodes[i].position, targetPos)) {
+                if (vectorsAreEqual(graph.nodes[i].position, targetPos)) {
                     existingNodeIndex = i;
                     break;
                 }

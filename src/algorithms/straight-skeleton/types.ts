@@ -80,3 +80,6 @@ export interface StraightSkeletonSolverContext {
     heap: Heap<HeapInteriorEdge>;
 }
 
+export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'diverging' | 'identical-source' | 'co-linear-from-1' | 'co-linear-from-2'
+
+export type IntersectionResult = [number, number, IntersectionType]

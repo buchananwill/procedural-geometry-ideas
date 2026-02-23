@@ -1,12 +1,12 @@
-import {InteriorEdge, PolygonEdge, StraightSkeletonGraph, Vector2} from "@/algorithms/straight-skeleton/types";
+import {Vector2} from "@/algorithms/straight-skeleton/types";
 import {FLOATING_POINT_EPSILON} from "@/algorithms/straight-skeleton/constants";
 
-export function areEqual(a: number, b: number): boolean {
-    return Math.abs(a - b) < FLOATING_POINT_EPSILON;
+export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
+    return Math.abs(a - b) < epsilon;
 }
 
-export function positionsAreClose(a: Vector2, b: Vector2): boolean {
-    return fp_compare(a.x, b.x) === 0 && fp_compare(a.y, b.y) === 0;
+export function vectorsAreEqual(a: Vector2, b: Vector2, epsilon?: number): boolean {
+    return areEqual(a.x, b.x, epsilon) && areEqual(a.y, b.y, epsilon);
 }
 
 export function assertIsNumber(x: unknown): asserts x is number {
@@ -38,65 +38,36 @@ export function scaleVector(v: Vector2, scalar: number): Vector2 {
     return {x: v.x * scalar, y: v.y * scalar};
 }
 
+export function sizeOfVector(v: Vector2): number {
+    return Math.sqrt(v.x * v.x + v.y * v.y);
+}
+
 /**
  * If argument v has size 0, returns [1,0]
  * */
-export function normalize(v: Vector2): Vector2 {
-    const size = Math.sqrt(v.x * v.x + v.y * v.y);
+export function normalize(v: Vector2): [Vector2, number] {
+    const size = sizeOfVector(v)
     if (size === 0) {
-        return {x: 1, y: 0};
+        return [{x: 0, y: 0}, size];
     }
-    return {x: v.x / size, y: v.y / size};
+    return [{x: v.x / size, y: v.y / size}, size];
 }
 
 export function makeBasis(from: Vector2, to: Vector2): Vector2 {
     const relativeVector = subtractVectors(to, from);
-    return normalize(relativeVector);
+    return normalize(relativeVector)[0];
 }
 
 export function makeBisectedBasis(a: Vector2, b: Vector2): Vector2 {
     const added = addVectors(a, b);
-    return normalize(added);
+    return normalize(added)[0];
 }
 
-export function addNode(position: Vector2, g: StraightSkeletonGraph){
-    const nodeIndex = g.nodes.length;
-
-    g.nodes.push({id: nodeIndex, outEdges: [], inEdges: [], position});
-
-    return nodeIndex;
+export function crossProduct(a: Vector2, b: Vector2): number {
+    return a.x * b.y - b.x * a.y
 }
 
-/**
- * return value will be negative for exterior edges.
- * */
-export function interiorEdgeIndex(e: PolygonEdge, g: StraightSkeletonGraph): number {
-    return e.id - g.numExteriorNodes;
+export function dotProduct(a: Vector2, b: Vector2): number {
+    return a.x * b.x + a.y * b.y
 }
 
-export function initStraightSkeletonGraph(nodes: Vector2[]): StraightSkeletonGraph {
-
-    // init object with nodes
-    const graph: StraightSkeletonGraph = {
-        nodes: nodes.map((v, i) => ({id: i, inEdges: [], outEdges: [], position: v})),
-        edges: [],
-        numExteriorNodes: nodes.length,
-        interiorEdges: []
-    };
-
-    // Add exterior edges
-    for (let sourceIndex = 0; sourceIndex < nodes.length; sourceIndex++) {
-        const targetIndex = (sourceIndex + 1) % nodes.length;
-        graph.edges.push({
-            id: sourceIndex,
-            source: sourceIndex,
-            target: targetIndex,
-            basisVector: makeBasis(graph.nodes[sourceIndex].position, graph.nodes[targetIndex].position)
-        });
-
-        graph.nodes[sourceIndex].outEdges.push(sourceIndex);
-        graph.nodes[targetIndex].inEdges.push(sourceIndex);
-    }
-
-    return graph;
-}
