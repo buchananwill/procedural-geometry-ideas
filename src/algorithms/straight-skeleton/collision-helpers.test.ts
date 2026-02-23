@@ -2,6 +2,8 @@ import {
     collisionDistanceFromBasisUnits,
     sourceOffsetDistance,
     collideInteriorEdges,
+    collideInteriorAndExteriorEdge,
+    collideEdges,
     createCollisionEvents,
 } from './collision-helpers';
 import {
@@ -320,13 +322,15 @@ describe('collideEdges', () => {
                 const cp = crossProduct(ray1.basisVector, parent.basisVector);
 
                 if (Math.abs(cp) < 1e-8) {
-                    // Found an edge where basis is parallel to parent — deltaOffset branch
+                    // Found an edge where basis is parallel to parent — deltaOffset = 0
+                    // offsetDistance = sourceOffset + deltaOffset, where deltaOffset = 0
+                    // So offsetDistance should equal sourceOffset exactly
                     for (const e2 of edges) {
                         if (e1.id === e2.id || context.isAccepted(e2)) continue;
                         const event = collideInteriorEdges(e1, e2, context);
                         if (event !== null) {
-                            // sourceOffset = 0 (rank undefined), deltaOffset = 0
-                            expect(event.offsetDistance).toBeCloseTo(0);
+                            const expectedSourceOffset = sourceOffsetDistance(e1, context);
+                            expect(event.offsetDistance).toBeCloseTo(expectedSourceOffset);
                             foundZeroCrossProduct = true;
                             break;
                         }
@@ -389,6 +393,195 @@ describe('collideEdges', () => {
                 console.warn('head-on intersection not found in RECTANGLE');
             }
         });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// collideInteriorAndExteriorEdge
+// ---------------------------------------------------------------------------
+
+describe('collideInteriorAndExteriorEdge', () => {
+    describe('returns null for early-exit conditions', () => {
+        it('returns null when exterior edge is accepted', () => {
+            const context = initStraightSkeletonSolverContext(SQUARE);
+            const iEdge = context.graph.interiorEdges[0];
+            // Find a non-parent exterior edge
+            const nonParentExteriorId = (iEdge.clockwiseExteriorEdgeIndex + 2) % SQUARE.length;
+            const eEdge = context.graph.edges[nonParentExteriorId];
+            context.acceptedEdges[eEdge.id] = true;
+
+            expect(collideInteriorAndExteriorEdge(iEdge, eEdge, context)).toBeNull();
+        });
+
+        it('returns null when exterior edge is own clockwise parent', () => {
+            const context = initStraightSkeletonSolverContext(SQUARE);
+            const iEdge = context.graph.interiorEdges[0];
+            const cwParent = context.clockwiseParent(iEdge);
+
+            expect(collideInteriorAndExteriorEdge(iEdge, cwParent, context)).toBeNull();
+        });
+
+        it('returns null when exterior edge is own widdershins parent', () => {
+            const context = initStraightSkeletonSolverContext(SQUARE);
+            const iEdge = context.graph.interiorEdges[0];
+            const wsParent = context.widdershinsParent(iEdge);
+
+            expect(collideInteriorAndExteriorEdge(iEdge, wsParent, context)).toBeNull();
+        });
+
+        it('returns null when intersection type is not converging', () => {
+            // Search across polygons for a non-converging interior/exterior pair
+            const polygons = [TRIANGLE, SQUARE, RECTANGLE, PENTAGON, AWKWARD_HEXAGON];
+            let foundNonConverging = false;
+
+            for (const polygon of polygons) {
+                const context = initStraightSkeletonSolverContext(polygon);
+                const interiorEdges = context.graph.interiorEdges;
+
+                for (const iEdge of interiorEdges) {
+                    const cwId = iEdge.clockwiseExteriorEdgeIndex;
+                    const wsId = iEdge.widdershinsExteriorEdgeIndex;
+
+                    for (let eIdx = 0; eIdx < polygon.length; eIdx++) {
+                        if (eIdx === cwId || eIdx === wsId) continue;
+                        const eEdge = context.graph.edges[eIdx];
+                        const ray1 = context.projectRayInterior(iEdge);
+                        const ray2 = context.projectRay(eEdge);
+                        const [,, resultType] = unitsToIntersection(ray1, ray2);
+
+                        if (resultType !== 'converging') {
+                            expect(collideInteriorAndExteriorEdge(iEdge, eEdge, context)).toBeNull();
+                            foundNonConverging = true;
+                            break;
+                        }
+                    }
+                    if (foundNonConverging) break;
+                }
+                if (foundNonConverging) break;
+            }
+            expect(foundNonConverging).toBe(true);
+        });
+    });
+
+    describe('returns valid CollisionEvent for converging pair', () => {
+        it('returns event with eventType interiorAgainstExterior', () => {
+            // Search for a converging interior/exterior pair
+            const polygons = [PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, RECTANGLE];
+            let foundConverging = false;
+
+            for (const polygon of polygons) {
+                const context = initStraightSkeletonSolverContext(polygon);
+                const interiorEdges = context.graph.interiorEdges;
+
+                for (const iEdge of interiorEdges) {
+                    const cwId = iEdge.clockwiseExteriorEdgeIndex;
+                    const wsId = iEdge.widdershinsExteriorEdgeIndex;
+
+                    for (let eIdx = 0; eIdx < polygon.length; eIdx++) {
+                        if (eIdx === cwId || eIdx === wsId) continue;
+                        const eEdge = context.graph.edges[eIdx];
+                        const event = collideInteriorAndExteriorEdge(iEdge, eEdge, context);
+
+                        if (event !== null) {
+                            expect(event.eventType).toBe('interiorAgainstExterior');
+                            expect(event.collidingEdges).toEqual([iEdge.id, eEdge.id]);
+                            expect(Number.isFinite(event.offsetDistance)).toBe(true);
+                            expect(Number.isFinite(event.position.x)).toBe(true);
+                            expect(Number.isFinite(event.position.y)).toBe(true);
+                            foundConverging = true;
+                            break;
+                        }
+                    }
+                    if (foundConverging) break;
+                }
+                if (foundConverging) break;
+            }
+            expect(foundConverging).toBe(true);
+        });
+
+        it('computes finite offsetDistance for secondary edges after a step', () => {
+            const context = initStraightSkeletonSolverContext(RECTANGLE);
+            performOneStep(context);
+
+            // Find secondary interior edges (source is an interior node)
+            const secondaryEdges = context.graph.interiorEdges.filter(
+                ie => !context.isAccepted(ie) && context.edgeRank(ie.id) === 'secondary'
+            );
+
+            if (secondaryEdges.length > 0) {
+                const iEdge = secondaryEdges[0];
+                const cwId = iEdge.clockwiseExteriorEdgeIndex;
+                const wsId = iEdge.widdershinsExteriorEdgeIndex;
+
+                for (let eIdx = 0; eIdx < RECTANGLE.length; eIdx++) {
+                    if (eIdx === cwId || eIdx === wsId || context.acceptedEdges[eIdx]) continue;
+                    const eEdge = context.graph.edges[eIdx];
+                    const event = collideInteriorAndExteriorEdge(iEdge, eEdge, context);
+                    if (event !== null) {
+                        expect(Number.isFinite(event.offsetDistance)).toBe(true);
+                        break;
+                    }
+                }
+            }
+        });
+    });
+});
+
+// ---------------------------------------------------------------------------
+// collideEdges (dispatcher)
+// ---------------------------------------------------------------------------
+
+describe('collideEdges dispatcher', () => {
+    it('returns null when first edge is exterior', () => {
+        const context = initStraightSkeletonSolverContext(SQUARE);
+        const interiorId = context.graph.interiorEdges[0].id;
+        // Edge 0 is exterior
+        expect(collideEdges(0, interiorId, context)).toBeNull();
+    });
+
+    it('delegates to collideInteriorEdges for two interior edges', () => {
+        const context = initStraightSkeletonSolverContext(TRIANGLE);
+        const e1 = context.graph.interiorEdges[0];
+        const e2 = context.graph.interiorEdges[1];
+
+        const dispatchResult = collideEdges(e1.id, e2.id, context);
+        const directResult = collideInteriorEdges(e1, e2, context);
+
+        // Both should return the same result
+        if (dispatchResult === null) {
+            expect(directResult).toBeNull();
+        } else {
+            expect(directResult).not.toBeNull();
+            expect(dispatchResult.eventType).toBe('interiorPair');
+            expect(dispatchResult.offsetDistance).toBeCloseTo(directResult!.offsetDistance);
+            expect(dispatchResult.collidingEdges).toEqual(directResult!.collidingEdges);
+        }
+    });
+
+    it('delegates to collideInteriorAndExteriorEdge for interior + exterior', () => {
+        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const iEdge = context.graph.interiorEdges[0];
+        // Find a non-parent exterior edge
+        const cwId = iEdge.clockwiseExteriorEdgeIndex;
+        const wsId = iEdge.widdershinsExteriorEdgeIndex;
+        let exteriorId = -1;
+        for (let i = 0; i < PENTAGON.length; i++) {
+            if (i !== cwId && i !== wsId) {
+                exteriorId = i;
+                break;
+            }
+        }
+
+        const dispatchResult = collideEdges(iEdge.id, exteriorId, context);
+        const directResult = collideInteriorAndExteriorEdge(iEdge, context.graph.edges[exteriorId], context);
+
+        if (dispatchResult === null) {
+            expect(directResult).toBeNull();
+        } else {
+            expect(directResult).not.toBeNull();
+            expect(dispatchResult.eventType).toBe('interiorAgainstExterior');
+            expect(dispatchResult.offsetDistance).toBeCloseTo(directResult!.offsetDistance);
+        }
     });
 });
 
@@ -458,6 +651,30 @@ describe('createCollisionEvents', () => {
         expect(events.length).toBeLessThan(N * (N - 1));
         expect(events.length).toBeGreaterThan(0);
     });
+
+    it('includes interiorPair events', () => {
+        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const events = createCollisionEvents(context);
+        const interiorPairs = events.filter(e => e.eventType === 'interiorPair');
+        expect(interiorPairs.length).toBeGreaterThan(0);
+    });
+
+    it('includes interiorAgainstExterior events for polygons with non-adjacent edge crossings', () => {
+        // Larger polygons should produce interior-vs-exterior collision events
+        const polygons = [PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON];
+        let foundExteriorCollision = false;
+
+        for (const polygon of polygons) {
+            const context = initStraightSkeletonSolverContext(polygon);
+            const events = createCollisionEvents(context);
+            const extEvents = events.filter(e => e.eventType === 'interiorAgainstExterior');
+            if (extEvents.length > 0) {
+                foundExteriorCollision = true;
+                break;
+            }
+        }
+        expect(foundExteriorCollision).toBe(true);
+    });
 });
 
 // ---------------------------------------------------------------------------
@@ -471,12 +688,13 @@ describe('geometric scenarios from test polygons', () => {
         for (let i = 0; i < events.length - 1; i++) {
             expect(events[i].offsetDistance).toBeLessThanOrEqual(events[i + 1].offsetDistance);
         }
-        // All values are finite and non-NaN
+        // All values are finite and non-NaN, with valid eventType
         for (const event of events) {
             expect(Number.isFinite(event.offsetDistance)).toBe(true);
             expect(Number.isNaN(event.offsetDistance)).toBe(false);
             expect(Number.isFinite(event.position.x)).toBe(true);
             expect(Number.isFinite(event.position.y)).toBe(true);
+            expect(['interiorPair', 'interiorAgainstExterior']).toContain(event.eventType);
         }
     }
 

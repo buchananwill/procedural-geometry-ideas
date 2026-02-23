@@ -457,7 +457,11 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     // create interior edges from exterior node bisections
     for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        pushHeapInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex);
+        createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex)
+    }
+
+    for (const interiorEdge of context.graph.interiorEdges) {
+        reEvaluateEdge(context, interiorEdge.id)
     }
 
     return context;

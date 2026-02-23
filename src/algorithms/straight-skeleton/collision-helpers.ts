@@ -59,7 +59,7 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         return null;
     }
 
-    // make rays from vertex source with widdershins parent basis, and intersected exterior edge reverse basis from target.
+    // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
     const widdershinsParentRay: RayProjection = {sourceVector: context.findSource(iEdge.id).position, basisVector: wsParent.basisVector}
     const exteriorCollisionRay: RayProjection = {sourceVector: context.graph.nodes[eEdge.target!].position, basisVector: scaleVector(eEdge.basisVector, -1)}
     const [alongParent] = unitsToIntersection(widdershinsParentRay, exteriorCollisionRay);
@@ -69,7 +69,8 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
     const [alongOriginalInterior, _other, resultTypeFinal] = unitsToIntersection(ray1, otherRay)
     if (resultTypeFinal !== 'converging'){
-        throw new Error("Expected converging result from constructing triangle incenter")
+        // We must be dealing with a non-reflex angle, so don't need to continue;
+        return null;
     }
 
     const finalCollisionOffset = collisionDistanceFromBasisUnits(ray1.basisVector, alongOriginalInterior, cwParent.basisVector)
@@ -104,8 +105,8 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     }
 
     const sourceOffset = sourceOffsetDistance(edgeA, context);
-    const dotWithParent = crossProduct(ray1.basisVector, context.clockwiseParent(edgeA).basisVector);
-    const deltaOffset = areEqual((dotWithParent), 0) ? 0 : collisionDistanceFromBasisUnits(ray1.basisVector, alongRay1, context.clockwiseParent(edgeA).basisVector);
+    const crossWithParent = crossProduct(ray1.basisVector, context.clockwiseParent(edgeA).basisVector);
+    const deltaOffset = areEqual((crossWithParent), 0) ? 0 : collisionDistanceFromBasisUnits(ray1.basisVector, alongRay1, context.clockwiseParent(edgeA).basisVector);
     const offsetDistance = sourceOffset + deltaOffset;
 
     return {
