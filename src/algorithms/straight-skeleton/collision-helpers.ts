@@ -7,7 +7,7 @@ import {
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
 import {
     addVectors, areEqual,
-    crossProduct, dotProduct,
+    crossProduct,
     normalize,
     scaleVector,
     subtractVectors
@@ -19,11 +19,9 @@ export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: 
 }
 
 export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext) {
-    if (edge.rank === 'primary') {
-        return 0;
-    }
+    const edgeRank = context.edgeRank(edge.id);
 
-    if (edge.rank === 'secondary') {
+    if (edgeRank === 'secondary') {
         const edgeSourceNode = context.findSource(edge.id);
         const clockwiseParent = context.clockwiseParent(edge);
         const parentSourceNode = context.findSource(clockwiseParent.id);

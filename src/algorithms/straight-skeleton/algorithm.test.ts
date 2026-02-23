@@ -1,6 +1,6 @@
 import {computeStraightSkeleton} from './algorithm';
 import type {StraightSkeletonGraph, StraightSkeletonSolverContext, Vector2} from './types';
-import {initBoundingPolygon} from "@/algorithms/straight-skeleton/core-functions";
+import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {
     initStraightSkeletonSolverContext,
     performOneStep,

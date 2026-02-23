@@ -9,7 +9,7 @@ import {
     StepResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
-    Vector2
+    Vector2, EdgeRank
 } from "@/algorithms/straight-skeleton/types";
 import {
     addVectors, assertIsNumber,
@@ -33,7 +33,7 @@ function makeHeapInteriorEdgeComparator() {
 
 function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
-    const acceptedEdges =nodes.map(() => false);
+    const acceptedEdges = nodes.map(() => false);
     return {
         graph,
         acceptedEdges: acceptedEdges,
@@ -70,15 +70,28 @@ function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSo
             return acceptedEdges[edge.id];
         },
         findOrAddNode(position: Vector2): PolygonNode {
-            const node = graph.nodes.find(n => {vectorsAreEqual(n.position, position)})
-            if (node !== undefined){
+            const node = graph.nodes.find(n => {
+                vectorsAreEqual(n.position, position)
+            })
+            if (node !== undefined) {
                 return node;
             }
-            const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: [] });
+            const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: []});
             return graph.nodes[index - 1];
         },
         findSource(edgeId: number): PolygonNode {
             return graph.nodes[graph.edges[edgeId].source]
+        },
+        edgeRank(edgeId: number): EdgeRank {
+            if (edgeId < graph.numExteriorNodes) {
+                return 'exterior';
+            }
+            const edge = graph.edges[edgeId];
+            if (edge.source < graph.numExteriorNodes) {
+                return 'primary';
+            }
+
+            return 'secondary'
         }
     };
 }
@@ -204,8 +217,13 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
             candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther});
         }
 
-        if (resultType === 'head-on'){
-            candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther, priorityOverride: distanceNew})
+        if (resultType === 'head-on') {
+            candidates.push({
+                otherId: otherInteriorEdgeData.id,
+                distanceNew,
+                distanceOther,
+                priorityOverride: distanceNew
+            })
         }
 
     }

@@ -19,7 +19,7 @@ export interface PolygonEdge {
     basisVector: Vector2;
 }
 
-export type InteriorEdgeRank = 'primary' | 'secondary';
+export type EdgeRank = 'exterior' | 'primary' | 'secondary';
 
 export interface InteriorEdge {
     id: number;
@@ -28,7 +28,6 @@ export interface InteriorEdge {
     intersectingEdges?: number[];
     length?: number;
     heapGeneration?: number;
-    rank?: InteriorEdgeRank
 }
 
 export interface StraightSkeletonGraph {
@@ -88,6 +87,7 @@ export interface GraphHelpers {
     isAccepted(edge: InteriorEdge): boolean;
     findOrAddNode(position: Vector2): PolygonNode;
     findSource(edgeId: number): PolygonNode;
+    edgeRank(edgeId: number): EdgeRank;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
