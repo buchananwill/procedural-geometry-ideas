@@ -12,97 +12,17 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
-    addVectors, assertIsNumber, crossProduct,
+    addVectors, assertIsNumber,
     fp_compare,
-    makeBisectedBasis, normalize,
+    makeBisectedBasis,
     vectorsAreEqual,
     scaleVector,
-    subtractVectors
+
 } from "@/algorithms/straight-skeleton/core-functions";
 import Heap from "heap-js";
 import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
+import {unitsToIntersection} from "@/algorithms/straight-skeleton/composite-functions";
 
-export type IntersectionUnits = [number, number] | [number, number, number];
-
-/**
- * Returns a tuple holding the unit distance along each ray until it intersects the other.
- * If the two rays are parallel, return value is [+inf, +inf] unless both sources lie on same line
- * */
-export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionUnits {
-    // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
-
-    const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);
-    const basisTowardsRay2Source = normalize(relativeRay2Source);
-
-    const xRel = relativeRay2Source.x;
-    const yRel = relativeRay2Source.y;
-
-    if (fp_compare(xRel, 0) === 0 && fp_compare(yRel, 0) === 0) {
-        return [0, 0];
-    }
-
-    const x1 = ray1.basisVector.x;
-    const x2 = ray2.basisVector.x;
-    const y1 = ray1.basisVector.y;
-    const y2 = ray2.basisVector.y;
-
-    // Invalid input: one or both vectors is not basis
-    if ((x1 === 0 && y1 === 0) || (x2 === 0 && y2 === 0)) {
-        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
-    }
-
-    const crossProductBasisVectors = crossProduct(ray1.basisVector, ray2.basisVector);
-
-    if (fp_compare(crossProductBasisVectors, 0) === 0) {
-        const pointLiesAlongRay = (ray: RayProjection, point: Vector2): [boolean, number] => {
-            const relative = subtractVectors(point, ray.sourceVector);
-            if (ray.basisVector.x === 0) {
-                const delta = relative.y / ray.basisVector.y;
-                return [fp_compare(relative.x, 0) === 0 && delta > 0, delta];
-            }
-
-            if (ray.basisVector.y === 0) {
-                const delta = relative.x / ray.basisVector.x;
-                return [fp_compare(relative.y, 0) === 0 && delta > 0, delta];
-            }
-
-            const delta_x = relative.x / ray.basisVector.x;
-            const delta_y = relative.y / ray.basisVector.y;
-            return [fp_compare(delta_x, delta_y) === 0 && delta_x > 0, delta_x];
-        }
-
-        const [isAlongRay1, length1] = pointLiesAlongRay(ray1, ray2.sourceVector);
-        const [isAlongRay2, length2] = pointLiesAlongRay(ray2, ray1.sourceVector);
-
-        if (isAlongRay1 && isAlongRay2) {
-            return [length1 / 2, length2 / 2, Math.max(length1, length2)];
-        }
-
-        if (isAlongRay1) {
-            return [length1, -length2];
-        }
-
-        if (isAlongRay2) {
-            return [-length1, length2];
-        }
-
-
-        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY]
-    }
-
-    const ray1Units = crossProduct(relativeRay2Source, ray2.basisVector) / crossProductBasisVectors;
-
-    if (y2 !== 0) {
-        const ray2Units = (ray1Units * y1 - yRel) / y2;
-
-        return [ray1Units, ray2Units];
-    }
-
-    const ray2units = (ray1Units * x1 - xRel) / x2;
-
-    return [ray1Units, ray2units];
-
-}
 
 function makeHeapInteriorEdgeComparator() {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
@@ -236,8 +156,15 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
         );
         const distanceNew = result[0];
         const distanceOther = result[1];
-        const priorityOverride = result[2];
-        candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther, priorityOverride});
+        const resultType = result[2];
+        if (resultType === 'converging') {
+            candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther});
+        }
+
+        if (resultType === 'head-on'){
+            candidates.push({otherId: otherInteriorEdgeData.id, distanceNew, distanceOther, priorityOverride: distanceNew})
+        }
+
     }
 
     // Phase 2: find smallest forward distance along self where the other edge's
