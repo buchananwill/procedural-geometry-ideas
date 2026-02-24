@@ -69,5 +69,12 @@ describe('RunAlgorithmV5 — triangles', () => {
             expect(node.position.x).toBeCloseTo(expected.x, 4);
             expect(node.position.y).toBeCloseTo(expected.y, 4);
         });
+
+        it('all exterior edges are accepted', () => {
+            const context = RunAlgorithmV5(vertices);
+            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
+                expect(context.acceptedEdges[i]).toBe(true);
+            }
+        });
     });
 });
