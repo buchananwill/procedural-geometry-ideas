@@ -8,6 +8,7 @@ import {areEqual, dotProduct} from "@/algorithms/straight-skeleton/core-function
 import {collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
+import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
@@ -65,22 +66,6 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     return {
         childSteps: []
     }
-}
-
-export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
-    if (input.interiorEdges.length < 3) {
-        throw new Error("Greater than 3 edges required for generic step handling.")
-    }
-
-    const result: AlgorithmStepOutput = {
-        childSteps: []
-    };
-
-    // Generate all currently valid collision events
-    // Resolve those that meet the same offset threshold
-    // Collapse/partition into child
-
-    return result;
 }
 
 

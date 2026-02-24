@@ -216,9 +216,9 @@ describe('collideEdges', () => {
             let foundCoLinearFrom2 = false;
 
             for (const e1 of edges) {
-                if (context.isAccepted(e1)) continue;
+                if (context.isAcceptedInterior(e1)) continue;
                 for (const e2 of edges) {
-                    if (e1.id === e2.id || context.isAccepted(e2)) continue;
+                    if (e1.id === e2.id || context.isAcceptedInterior(e2)) continue;
                     const ray1 = context.projectRayInterior(e1);
                     const ray2 = context.projectRayInterior(e2);
                     const [,, resultType] = unitsToIntersection(ray1, ray2);
@@ -239,9 +239,9 @@ describe('collideEdges', () => {
                 const edges2 = ctx2.graph.interiorEdges;
 
                 for (const e1 of edges2) {
-                    if (ctx2.isAccepted(e1)) continue;
+                    if (ctx2.isAcceptedInterior(e1)) continue;
                     for (const e2 of edges2) {
-                        if (e1.id === e2.id || ctx2.isAccepted(e2)) continue;
+                        if (e1.id === e2.id || ctx2.isAcceptedInterior(e2)) continue;
                         const ray1 = ctx2.projectRayInterior(e1);
                         const ray2 = ctx2.projectRayInterior(e2);
                         const [,, resultType] = unitsToIntersection(ray1, ray2);
@@ -345,7 +345,7 @@ describe('collideEdges', () => {
             let foundZeroCrossProduct = false;
 
             for (const e1 of edges) {
-                if (context.isAccepted(e1)) continue;
+                if (context.isAcceptedInterior(e1)) continue;
                 const ray1 = context.projectRayInterior(e1);
                 const parent = context.clockwiseParent(e1);
                 const cp = crossProduct(ray1.basisVector, parent.basisVector);
@@ -355,7 +355,7 @@ describe('collideEdges', () => {
                     // offsetDistance = sourceOffset + deltaOffset, where deltaOffset = 0
                     // So offsetDistance should equal sourceOffset exactly
                     for (const e2 of edges) {
-                        if (e1.id === e2.id || context.isAccepted(e2)) continue;
+                        if (e1.id === e2.id || context.isAcceptedInterior(e2)) continue;
                         const event = collideInteriorEdges(e1, e2, context);
                         if (event !== null) {
                             const expectedSourceOffset = sourceOffsetDistance(e1, context);
@@ -375,7 +375,7 @@ describe('collideEdges', () => {
                 const edges2 = ctx2.graph.interiorEdges;
 
                 for (const e1 of edges2) {
-                    if (ctx2.isAccepted(e1)) continue;
+                    if (ctx2.isAcceptedInterior(e1)) continue;
                     const ray1 = ctx2.projectRayInterior(e1);
                     const parent = ctx2.clockwiseParent(e1);
                     const cp = crossProduct(ray1.basisVector, parent.basisVector);
@@ -534,7 +534,7 @@ describe('collideInteriorAndExteriorEdge', () => {
 
             // Find secondary interior edges (source is an interior node)
             const secondaryEdges = context.graph.interiorEdges.filter(
-                ie => !context.isAccepted(ie) && context.edgeRank(ie.id) === 'secondary'
+                ie => !context.isAcceptedInterior(ie) && context.edgeRank(ie.id) === 'secondary'
             );
 
             if (secondaryEdges.length > 0) {

@@ -85,7 +85,10 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         },
         accept,
         acceptAll,
-        isAccepted(edge: InteriorEdge): boolean {
+        isAccepted(edgeId: number): boolean {
+            return edgeId < acceptedEdges.length && acceptedEdges[edgeId];
+        },
+        isAcceptedInterior(edge: InteriorEdge): boolean {
             return acceptedEdges[edge.id];
         },
         findOrAddNode(position: Vector2): PolygonNode {

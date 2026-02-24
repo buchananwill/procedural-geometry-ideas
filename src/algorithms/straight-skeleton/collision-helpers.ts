@@ -140,6 +140,9 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const rankA = context.edgeRank(edgeIdA);
     const rankB = context.edgeRank(edgeIdB);
+    if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)){
+        return null;
+    }
 
     if (rankA === 'exterior') {
         return null
@@ -220,7 +223,7 @@ export function createCollisionEvents(context: StraightSkeletonSolverContext): C
     const {graph} = context;
 
     for (const interiorEdge of graph.interiorEdges) {
-        if (context.isAccepted(interiorEdge)) {
+        if (context.isAcceptedInterior(interiorEdge)) {
             continue;
         }
 

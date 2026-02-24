@@ -8,7 +8,7 @@ import {
     StepResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
-    Vector2
+    Vector2, BisectionParams
 } from "@/algorithms/straight-skeleton/types";
 import {
     addVectors, assertIsNumber,
@@ -117,6 +117,10 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
     acceptedEdges[edgeIndex] = false;
 
     return edgeIndex;
+}
+
+export function bisectWithParams(context: StraightSkeletonSolverContext, params: BisectionParams){
+    return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source, params.approximateDirection);
 }
 
 /**

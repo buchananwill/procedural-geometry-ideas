@@ -31,9 +31,9 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
 
             const collapsedEdge = clockwiseCollider.widdershinsExteriorEdgeIndex;
 
-            context.acceptedEdges[collapsedEdge] = true;
-            context.acceptedEdges[widdershinsCollider.id] = true;
-            context.acceptedEdges[clockwiseCollider.id] = true;
+            context.accept(collapsedEdge);
+            context.accept(widdershinsCollider.id);
+            context.accept(clockwiseCollider.id);
 
             return [{
                 clockwiseExteriorEdgeIndex: clockwiseCollider.clockwiseExteriorEdgeIndex,
@@ -48,8 +48,8 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
         const approximateDir1 = makeBisectedBasis(edgeData1.basisVector, edgeData2.basisVector);
         const approximateDir2 = scaleVector(approximateDir1, -1);
 
-        context.acceptedEdges[instigator] = true;
-        context.acceptedEdges[target] = true;
+        context.accept(instigator);
+        context.accept(target);
 
         return [
             {
@@ -81,7 +81,7 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
                 approximateDirection: scaleVector(targetExterior.basisVector, -1)
             },
             {
-             clockwiseExteriorEdgeIndex: target,
+                clockwiseExteriorEdgeIndex: target,
                 widdershinsExteriorEdgeIndex: instigatorInterior.widdershinsExteriorEdgeIndex,
                 source: newNode.id,
                 approximateDirection: targetExterior.basisVector

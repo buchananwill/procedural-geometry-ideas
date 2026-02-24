@@ -88,7 +88,8 @@ export interface GraphHelpers {
     widdershinsParent(edge: InteriorEdge): PolygonEdge;
     accept(edgeId: number): void;
     acceptAll(edgeIds: number[]): void;
-    isAccepted(edge: InteriorEdge): boolean;
+    isAccepted(edgeId: number): boolean;
+    isAcceptedInterior(edge: InteriorEdge): boolean;
     findOrAddNode(position: Vector2): PolygonNode;
     findSource(edgeId: number): PolygonNode;
     edgeRank(edgeId: number): EdgeRank;
