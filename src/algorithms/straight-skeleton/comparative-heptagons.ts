@@ -522,7 +522,7 @@ export const REMAINING_DATA_AT_FAILURE = {
     ]
 }
 
-const WRONG_COLLISION_AT_NODE_10 = [
+export const WRONG_COLLISION_AT_NODE_10 = [
     {
         "x": 234.29069052660338,
         "y": 260.92821528584113
