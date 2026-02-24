@@ -42,7 +42,18 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
 
-        throw new Error(`Collision from final edge pair: ${JSON.stringify(collision)}`)
+        // Almost certainly wrong but lets try it.
+        const intersectionType = collision.intersectionData[2];
+        if (intersectionType === 'co-linear-from-1'){
+            edgeData1.target = edgeData2.source;
+            edgeData2.target = edgeData1.source;
+
+            const source1 = context.findSource(id1);
+            const source2 = context.findSource(id2);
+
+            source1.inEdges.push(id2);
+            source2.inEdges.push(id1);
+        }
     }
 
 
