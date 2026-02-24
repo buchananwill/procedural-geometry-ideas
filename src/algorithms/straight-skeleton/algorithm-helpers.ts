@@ -378,10 +378,7 @@ export function processCollisionNode(context: StraightSkeletonSolverContext, col
     }
 }
 
-// Function to make heap interior edges
-export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
-    const context = makeStraightSkeletonSolverContext(nodes);
-
+export function initInteriorEdges(context: StraightSkeletonSolverContext){
     const exteriorEdges = [...context.graph.edges];
 
     // create interior edges from exterior node bisections
@@ -389,6 +386,14 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
         createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex)
     }
+
+}
+
+// Function to make heap interior edges
+export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+    const context = makeStraightSkeletonSolverContext(nodes);
+
+    initInteriorEdges(context);
 
     for (const interiorEdge of context.graph.interiorEdges) {
         reEvaluateEdge(context, interiorEdge.id)

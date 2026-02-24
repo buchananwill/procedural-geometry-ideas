@@ -7,6 +7,7 @@ import {
 import {areEqual, dotProduct} from "@/algorithms/straight-skeleton/core-functions";
 import {collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
+import {initInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-helpers";
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
@@ -120,6 +121,9 @@ export function RunAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
         throw new Error("Must have at least three nodes to perform algorithm");
     }
     const context = makeStraightSkeletonSolverContext(nodes);
+
+    initInteriorEdges(context);
+
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     while (inputs.length > 0) {
         inputs = StepAlgorithm(context, inputs).childSteps

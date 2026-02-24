@@ -41,18 +41,28 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         edges.forEach(accept)
     }
 
+    function getEdgeWithId(id: number): PolygonEdge {
+        return graph.edges[id];
+    }
+
+    function getInteriorWithId(id: number): InteriorEdge {
+        return graph.interiorEdges[id - graph.numExteriorNodes];
+    }
+
     return {
         graph,
         acceptedEdges: acceptedEdges,
         heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
-        getEdgeWithId(id: number): PolygonEdge {
-            return graph.edges[id];
+        getEdgeWithId,
+        getEdges(idList: number[]): PolygonEdge[] {
+            return idList.map(getEdgeWithId)
         },
         getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge {
             return graph.edges[interiorEdge.id]
         },
-        getInteriorWithId(id: number): InteriorEdge {
-            return graph.interiorEdges[id - graph.numExteriorNodes];
+        getInteriorWithId,
+        getInteriorEdges(idList: number[]): InteriorEdge[] {
+            return idList.map(getInteriorWithId);
         },
         projectRay(edge: PolygonEdge): RayProjection {
             return {
