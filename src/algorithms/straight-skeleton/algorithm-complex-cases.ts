@@ -11,11 +11,11 @@ import {
     tryToAcceptExteriorEdge
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 
-function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent){
+function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     const [length1a, length1b] = ev1.intersectionData;
     const [length2a, length2b] = ev2.intersectionData;
 
-    return Math.max(length1a, length1b) - Math.max(length2a, length2b);
+    return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
 }
 
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
@@ -37,26 +37,70 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     // Generate all currently valid collision events
     const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
         return edgesToCheck.map(e2 => collideEdges(e1, e2, context))
-            .filter(event => event !== null)
+            .filter(event => {
+                console.log(`filtering events: ${JSON.stringify(event)}`);
+                return event !== null;
+            })
+            .filter(event => event?.intersectionData[2] !== 'diverging')
             .toSorted(sameInstigatorComparator)
     })
-        .filter(list => list.length > 0)
-        .toSorted((list1, list2) => list1[0]?.offsetDistance - list2[0]?.offsetDistance)
+        .filter(list => list.length > 0);
 
-    if (collisionLists.length === 0) {
-        throw new Error("Unable to generate any collisions from incomplete graph context");
+    const collisionEventSlices: CollisionEvent[][] = [];
+
+    let bestOffset = Number.POSITIVE_INFINITY;
+    let slicesRemaining = true;
+    while (slicesRemaining) {
+        slicesRemaining = false;
+        let sliceInputs: [number, number][] = [];
+        const nextSlice: CollisionEvent[] = [];
+
+
+        for (let i = 0; i < collisionLists.length; i++) {
+            const collisionList = collisionLists[i];
+            if (collisionList.length === 0) {
+                continue;
+            }
+
+            slicesRemaining = true;
+            if (collisionList[0].offsetDistance < bestOffset) {
+                bestOffset = collisionList[0].offsetDistance;
+                sliceInputs = []
+            }
+
+            let slicePointer = 0;
+
+            while (slicePointer < collisionList.length && areEqual(collisionList[slicePointer].offsetDistance, bestOffset)) {
+                slicePointer++;
+            }
+
+            sliceInputs.push([i, slicePointer])
+        }
+
+        sliceInputs.forEach(([list, count]) => {
+            const collisionList = collisionLists[list];
+            nextSlice.push(...collisionList.slice(0, count))
+            collisionLists[list] = collisionList.slice(count)
+        })
+
+        collisionEventSlices.push(nextSlice);
+        bestOffset = Number.POSITIVE_INFINITY;
     }
 
-    // Filter those that meet the same offset threshold
-    const collisionsToHandle: CollisionEvent[] = [];
-    const threshold = collisionLists[0][0].offsetDistance
-    for (const collisionList of collisionLists) {
-        const collisionEvent = collisionList[0];
-        if (areEqual(collisionEvent.offsetDistance, threshold)) {
-            collisionsToHandle.push(collisionEvent)
-        } else {
+    let collisionsToHandle: CollisionEvent[] | null = null;
+
+    for (const collisionEventSlice of collisionEventSlices) {
+        const validEvents = collisionEventSlice.filter(e => e.eventType !== 'phantomDivergentOffset')
+        if (validEvents.length > 0){
+            collisionsToHandle = validEvents;
             break;
         }
+    }
+
+
+
+    if (collisionsToHandle === null || collisionLists.length === 0) {
+        throw new Error("Unable to generate any collisions from incomplete graph context");
     }
 
     // Handle collisions

@@ -1,5 +1,5 @@
 import {
-    CollisionEvent,
+    CollisionEvent, CollisionType,
     InteriorEdge,
     PolygonEdge,
     RayProjection,
@@ -77,9 +77,11 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const triangleOtherBisector = makeBisectedBasis(eEdge.basisVector, scaleVector(wsParent.basisVector, -1))
     const otherRay: RayProjection = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
 
-    const [alongOriginalInterior, _other, resultTypeFinal] = unitsToIntersection(ray1, otherRay)
+    const intermediateIntersection = unitsToIntersection(ray1, otherRay)
+    const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
     if (resultTypeFinal !== 'converging') {
         // We must be dealing with a non-reflex angle, so don't need to continue;
+        console.log(`non converging interior-exterior intersection: ${JSON.stringify(intermediateIntersection)}`)
         return null;
     }
 
@@ -123,9 +125,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
 
-    if (!areEqual(offsetDistance, offsetTarget)){
-        return null;
-    }
+    const eventType: CollisionType = areEqual(offsetDistance, offsetTarget) ? 'interiorPair' : 'phantomDivergentOffset';
 
 
     return {
@@ -133,7 +133,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
         collidingEdges: [edgeA.id, edgeB.id],
         position: addVectors(scaleVector(ray1.basisVector, alongRay1), ray1.sourceVector),
         intersectionData,
-        eventType: "interiorPair"
+        eventType
     }
 }
 

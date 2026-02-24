@@ -105,7 +105,7 @@ export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'divergin
 
 export type IntersectionResult = [number, number, IntersectionType]
 
-export type CollisionType = 'interiorPair' | 'interiorAgainstExterior'
+export type CollisionType = 'interiorPair' | 'interiorAgainstExterior' | 'phantomDivergentOffset'
 
 export interface CollisionEvent {
     offsetDistance: number;
