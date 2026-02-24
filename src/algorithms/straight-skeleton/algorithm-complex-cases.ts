@@ -5,7 +5,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {collideEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {areEqual} from "@/algorithms/straight-skeleton/core-functions";
-import {handleCollisionEvent} from "@/algorithms/straight-skeleton/collision-handling";
+import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {
     bisectWithParams,
     tryToAcceptExteriorEdge

@@ -4,7 +4,7 @@ import {
     hasInteriorLoop,
 } from './algorithm-helpers';
 import {createCollisionEvents, checkSharedParents} from './collision-helpers';
-import {handleCollisionEvent} from './collision-handling';
+import handleCollisionEvent from './collision-handling';
 import {graphIsComplete} from './algorithm';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE,

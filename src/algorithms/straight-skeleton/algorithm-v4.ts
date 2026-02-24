@@ -6,7 +6,7 @@ import {
 import {graphIsComplete} from "@/algorithms/straight-skeleton/algorithm";
 import {createCollisionEvents} from "@/algorithms/straight-skeleton/collision-helpers";
 import {areEqual} from "@/algorithms/straight-skeleton/core-functions";
-import {handleCollisionEvent} from "@/algorithms/straight-skeleton/collision-handling";
+import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 
 export function computeStraightSkeletonV4(nodes: Vector2[]) {

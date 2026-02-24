@@ -3,7 +3,7 @@ import {checkSharedParents} from "@/algorithms/straight-skeleton/collision-helpe
 import {makeBisectedBasis, scaleVector} from "@/algorithms/straight-skeleton/core-functions";
 
 
-export function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
+function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
 
     const [instigator, target] = event.collidingEdges;
 
@@ -25,23 +25,27 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
         targetEdgeData.target = newNode.id;
 
         const parentSharing = checkSharedParents(instigator, target, context);
-        if (parentSharing.includes(true)) {
-            const widdershinsCollider = parentSharing[0] ? interiorEdge : otherInterior;
-            const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
 
-            const collapsedEdge = clockwiseCollider.widdershinsExteriorEdgeIndex;
+        const widdershinsCollider = parentSharing[0] ? interiorEdge : otherInterior;
+        const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
 
-            context.accept(collapsedEdge);
-            context.accept(widdershinsCollider.id);
-            context.accept(clockwiseCollider.id);
+        const collapsedEdge = clockwiseCollider.widdershinsExteriorEdgeIndex;
 
-            return [{
-                clockwiseExteriorEdgeIndex: clockwiseCollider.clockwiseExteriorEdgeIndex,
-                source: newNode.id,
-                widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex
-            }]
-        }
+        context.accept(collapsedEdge);
+        context.accept(widdershinsCollider.id);
+        context.accept(clockwiseCollider.id);
 
+        return [{
+            clockwiseExteriorEdgeIndex: clockwiseCollider.clockwiseExteriorEdgeIndex,
+            source: newNode.id,
+            widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex
+        }]
+
+
+    }
+
+    if (event.eventType === 'interiorNonAdjacent') {
+        const otherInterior = context.getInteriorWithId(target);
         const edgeData1 = context.getEdgeWithId(instigator)
         const edgeData2 = context.getEdgeWithId(target);
 
@@ -92,3 +96,5 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
 
     return []
 }
+
+export default handleCollisionEvent

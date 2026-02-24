@@ -105,12 +105,13 @@ export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'divergin
 
 export type IntersectionResult = [number, number, IntersectionType]
 
-export type CollisionType = 'interiorPair' | 'interiorAgainstExterior' | 'phantomDivergentOffset'
+export type CollisionType = 'interiorPair' | 'interiorNonAdjacent' | 'interiorAgainstExterior' | 'phantomDivergentOffset'
 
 export const CollisionTypePriority: Record<CollisionType, number> = {
     interiorPair: 0,
-    interiorAgainstExterior: 1,
-    phantomDivergentOffset: 2
+    interiorNonAdjacent: 1,
+    interiorAgainstExterior: 2,
+    phantomDivergentOffset: 3
 }
 
 export interface CollisionEvent {

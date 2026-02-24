@@ -125,7 +125,14 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
 
-    const eventType: CollisionType = areEqual(offsetDistance, offsetTarget) ? 'interiorPair' : 'phantomDivergentOffset';
+    const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
+
+    const eventType: CollisionType = !areEqual(offsetDistance, offsetTarget)
+        ? 'phantomDivergentOffset'
+        : anyShared
+            ? 'interiorPair'
+            : 'interiorNonAdjacent'
+    ;
 
 
     return {
@@ -140,7 +147,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const rankA = context.edgeRank(edgeIdA);
     const rankB = context.edgeRank(edgeIdB);
-    if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)){
+    if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)) {
         return null;
     }
 

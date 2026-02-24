@@ -5,7 +5,7 @@ import type {AlgorithmStepInput, StraightSkeletonSolverContext, Vector2} from '.
 import {NOT_SOLVABLE, WRONG_COLLISION_AT_NODE_10} from './comparative-heptagons';
 import {collideEdges, sourceOffsetDistance} from './collision-helpers';
 import {areEqual} from './core-functions';
-import {handleCollisionEvent} from './collision-handling';
+import handleCollisionEvent from './collision-handling';
 import type {CollisionEvent, BisectionParams} from './types';
 
 // ---------------------------------------------------------------------------
