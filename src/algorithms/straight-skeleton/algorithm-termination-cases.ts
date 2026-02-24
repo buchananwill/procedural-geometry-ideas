@@ -12,7 +12,7 @@ import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-comp
 import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string{
-    return `["polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}]`
+    return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
 }
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {

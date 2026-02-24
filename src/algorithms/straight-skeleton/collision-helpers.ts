@@ -81,7 +81,7 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
     if (resultTypeFinal !== 'converging') {
         // We must be dealing with a non-reflex angle, so don't need to continue;
-        console.log(`non converging interior-exterior intersection: ${JSON.stringify(intermediateIntersection)}`)
+        // console.log(`non converging interior-exterior intersection: ${JSON.stringify(intermediateIntersection)}`)
         return null;
     }
 

@@ -38,7 +38,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
         return edgesToCheck.map(e2 => collideEdges(e1, e2, context))
             .filter(event => {
-                console.log(`filtering events: ${JSON.stringify(event)}`);
+                // console.log(`filtering events: ${JSON.stringify(event)}`);
                 return event !== null;
             })
             .filter(event => event?.intersectionData[2] !== 'diverging')
