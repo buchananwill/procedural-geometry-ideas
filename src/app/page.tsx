@@ -117,7 +117,7 @@ export default function Home() {
         try {
             const context = runAlgorithmV5(vertices);
             return context.graph
-            // return computeStraightSkeletonV4(vertices);
+            // return computeStraightSkeleton(vertices);
         } catch (e) {
             console.log(e)
             return null;

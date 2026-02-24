@@ -12,7 +12,7 @@ import {
     areEqual,
     crossProduct,
     makeBisectedBasis,
-    normalize, projectToPerpendicular,
+    normalize, projectFromPerpendicular, projectToPerpendicular,
     scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
@@ -63,6 +63,11 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         return null;
     }
 
+    const offsetFromSource = projectToPerpendicular(ray2.basisVector, cwParent.basisVector, alongRay1)
+    const sourceOffset = sourceOffsetDistance(iEdge, context)
+    const totalOffset = offsetFromSource + sourceOffset;
+
+
     // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
     const widdershinsParentRay: RayProjection = {
         sourceVector: context.findSource(iEdge.id).position,
@@ -86,6 +91,35 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     }
 
     const finalCollisionOffset = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
+
+    // Validate that the collision point is within the shrunk wavefront of the exterior edge.
+    // Advance the exterior edge's source and target vertices along their primary bisectors
+    // to the collision offset, then check ray1 intersects within the resulting wavefront segment.
+    // Only check each side if the primary bisector there hasn't been accepted (collapsed).
+    const {graph} = context;
+    const numExt = graph.numExteriorNodes;
+    const sourceBisectorId = graph.nodes[eEdge.source].outEdges.find(id => id >= numExt)!;
+    const targetBisectorId = graph.nodes[eEdge.target!].outEdges.find(id => id >= numExt)!;
+
+    // Check each side using the primary bisectors at the exterior edge's vertices.
+    // The primary bisector direction defines how the wavefront boundary shrinks regardless
+    // of whether the bisector has been accepted (collapsed).
+    const sourceBisectorBasis = context.getEdgeWithId(sourceBisectorId).basisVector;
+    const tSource = projectFromPerpendicular(sourceBisectorBasis, eEdge.basisVector, finalCollisionOffset);
+    const advancedSource = addVectors(graph.nodes[eEdge.source].position, scaleVector(sourceBisectorBasis, tSource));
+    const [, alongWfSource] = unitsToIntersection(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
+
+    const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
+    const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, finalCollisionOffset);
+    const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
+    const [, alongWfTarget] = unitsToIntersection(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(eEdge.basisVector, -1)});
+
+    console.log(`  WF check e${iEdge.id} vs e${eEdge.id}: offset=${finalCollisionOffset.toFixed(4)} srcBisector=e${sourceBisectorId} tgtBisector=e${targetBisectorId} tSrc=${tSource.toFixed(4)} tTgt=${tTarget.toFixed(4)} alongWfSrc=${alongWfSource.toFixed(4)} alongWfTgt=${alongWfTarget.toFixed(4)}`);
+
+    if (alongWfSource < 0 || alongWfTarget < 0) {
+        console.log(`    -> FILTERED OUT (outside wavefront)`);
+        return null;
+    }
 
     return {
         collidingEdges: [iEdge.id, eEdge.id],

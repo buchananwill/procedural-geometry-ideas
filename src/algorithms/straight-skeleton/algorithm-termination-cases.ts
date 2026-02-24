@@ -54,6 +54,9 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             source1.inEdges.push(id2);
             source2.inEdges.push(id1);
         }
+        else {
+            console.log(`${stringifyFinalData(context, input)}`)
+        }
     }
 
 
