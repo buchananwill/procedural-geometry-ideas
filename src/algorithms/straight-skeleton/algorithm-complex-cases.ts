@@ -14,6 +14,12 @@ import {
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     const [length1a, length1b] = ev1.intersectionData;
     const [length2a, length2b] = ev2.intersectionData;
+    const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
+    const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
+
+    if (ev1Phantom !== ev2Phantom) {
+        return ev1.offsetDistance - ev2.offsetDistance;
+    }
 
     return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
 }
