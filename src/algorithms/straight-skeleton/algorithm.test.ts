@@ -9,9 +9,8 @@ import {
     TRIANGLE,
     SQUARE,
     RECTANGLE,
-    PENTAGON,
+    PENTAGON_HOUSE,
     IMPOSSIBLE_OCTAGON,
-    BROKEN_POLYGON,
 } from './test-constants';
 
 // ---------------------------------------------------------------------------
@@ -234,7 +233,7 @@ describe('Pentagon — step-by-step algorithm tracing', () => {
         let context: StraightSkeletonSolverContext;
 
         beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON);
+            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         });
 
         it('creates exactly 5 interior edges (ids 5-9)', () => {
@@ -293,7 +292,7 @@ describe('Pentagon — step-by-step algorithm tracing', () => {
         let step1: ReturnType<typeof performOneStep>;
 
         beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON);
+            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
             step1 = performOneStep(context);
         });
 
@@ -353,7 +352,7 @@ describe('Pentagon — step-by-step algorithm tracing', () => {
         let step2: ReturnType<typeof performOneStep>;
 
         beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON);
+            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
             performOneStep(context); // stage 1
             step2 = performOneStep(context); // stage 2
         });
@@ -566,18 +565,18 @@ describe('Pentagon house', () => {
     let g: StraightSkeletonGraph;
 
     it('should have 5 exterior edges after init', () => {
-        g = initBoundingPolygon(PENTAGON);
+        g = initBoundingPolygon(PENTAGON_HOUSE);
         expect(g.edges.length).toBe(5);
     });
 
     it('should have 5 interior edges after context init', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         g = context.graph;
         expect(g.interiorEdges.length).toBe(5);
     });
 
     it('should have 7 nodes', () => {
-        g = computeStraightSkeleton(PENTAGON);
+        g = computeStraightSkeleton(PENTAGON_HOUSE);
         expect(g.nodes.length).toBe(7);
     });
 })

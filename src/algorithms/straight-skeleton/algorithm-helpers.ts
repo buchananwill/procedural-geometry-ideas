@@ -1,6 +1,5 @@
 import {
     EdgeIntersectionEvaluation,
-    HeapInteriorEdge,
     IntersectorInfo,
     InteriorEdge,
     PolygonEdge,
@@ -9,92 +8,20 @@ import {
     StepResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
-    Vector2, EdgeRank
+    Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {
     addVectors, assertIsNumber,
     fp_compare,
     makeBisectedBasis,
     vectorsAreEqual,
-    scaleVector,
+    scaleVector
 
 } from "@/algorithms/straight-skeleton/core-functions";
-import Heap from "heap-js";
-import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
+import {addNode, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
+import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 
-
-function makeHeapInteriorEdgeComparator() {
-    return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
-        return e1.eventDistance - e2.eventDistance;
-    }
-}
-
-
-function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
-    const graph = initBoundingPolygon(nodes);
-    const acceptedEdges = nodes.map(() => false);
-    return {
-        graph,
-        acceptedEdges: acceptedEdges,
-        heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
-        getEdgeWithId(id: number): PolygonEdge {
-            return graph.edges[id];
-        },
-        getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge {
-            return graph.edges[interiorEdge.id]
-        },
-        getInteriorWithId(id: number): InteriorEdge {
-            return graph.interiorEdges[id - graph.numExteriorNodes];
-        },
-        projectRay(edge: PolygonEdge): RayProjection {
-            return {
-                sourceVector: graph.nodes[edge.source].position,
-                basisVector: edge.basisVector
-            };
-        },
-        projectRayInterior(edge: InteriorEdge): RayProjection {
-            const polygonEdge = graph.edges[edge.id];
-            return {
-                sourceVector: graph.nodes[polygonEdge.source].position,
-                basisVector: polygonEdge.basisVector
-            }
-        },
-        clockwiseParent(edge: InteriorEdge): PolygonEdge {
-            return graph.edges[edge.clockwiseExteriorEdgeIndex]
-        },
-        widdershinsParent(edge: InteriorEdge): PolygonEdge {
-            return graph.edges[edge.widdershinsExteriorEdgeIndex];
-        },
-        isAccepted(edge: InteriorEdge): boolean {
-            return acceptedEdges[edge.id];
-        },
-        findOrAddNode(position: Vector2): PolygonNode {
-            const node = graph.nodes.find(n => {
-                vectorsAreEqual(n.position, position)
-            })
-            if (node !== undefined) {
-                return node;
-            }
-            const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: []});
-            return graph.nodes[index - 1];
-        },
-        findSource(edgeId: number): PolygonNode {
-            return graph.nodes[graph.edges[edgeId].source]
-        },
-        edgeRank(edgeId: number): EdgeRank {
-            if (edgeId < graph.numExteriorNodes) {
-                return 'exterior';
-            }
-            const edge = graph.edges[edgeId];
-            if (edge.source < graph.numExteriorNodes) {
-                return 'primary';
-            }
-
-            return 'secondary'
-        }
-    };
-}
 
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
 ) {
@@ -324,6 +251,7 @@ export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex
 
     while (dirtyQueue.length > 0) {
         const currentEdge = dirtyQueue.shift()!;
+        const currentEdgeData = context.getInteriorWithId(currentEdge);
         if (processed.has(currentEdge)) continue;
         if (context.acceptedEdges[currentEdge]) continue;
         processed.add(currentEdge);
@@ -337,7 +265,9 @@ export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex
         for (const c of evaluation.candidates) {
             if (fp_compare(c.distanceOther, 0) <= 0) continue;
             if (fp_compare(c.distanceNew, 0) <= 0) continue;
-            const otherEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
+            const otherEdgeData =  context.getInteriorWithId(c.otherId);
+
+
             if (fp_compare(c.distanceOther, otherEdgeData.length) < 0) {
                 if (!processed.has(c.otherId) && !context.acceptedEdges[c.otherId]) {
                     dirtyQueue.push(c.otherId);

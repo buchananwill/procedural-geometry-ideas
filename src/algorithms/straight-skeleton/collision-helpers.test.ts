@@ -8,15 +8,17 @@ import {
 } from './collision-helpers';
 import {
     initStraightSkeletonSolverContext,
+    createBisectionInteriorEdge,
     performOneStep,
 } from './algorithm-helpers';
+import {makeStraightSkeletonSolverContext} from './solver-context';
 import type {
     StraightSkeletonSolverContext,
 } from './types';
-import {crossProduct} from './core-functions';
+import {crossProduct, subtractVectors, normalize} from './core-functions';
 import {unitsToIntersection} from './intersection-edges';
 import {
-    TRIANGLE, SQUARE, RECTANGLE, PENTAGON,
+    TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
 } from './test-constants';
@@ -62,29 +64,98 @@ describe('sourceOffsetDistance', () => {
         expect(sourceOffsetDistance(edge, context)).toBe(0);
     });
 
-    it('computes offset distance for a secondary-rank edge with different source positions', () => {
-        // Use RECTANGLE — after one step there's an interior node at a different position
-        // from the parent exterior edge's source.
-        const context = initStraightSkeletonSolverContext(RECTANGLE);
-        performOneStep(context);
+    it('returns the perpendicular distance from the secondary edge source to the clockwise parent edge', () => {
+        // Use SYMMETRICAL_OCTAGON to build a context with primary edges only (no algorithm stepping).
+        // Then manually add an interior node and a secondary edge, and verify by geometry.
+        //
+        // SYMMETRICAL_OCTAGON vertices (clockwise):
+        //   0:(0,3) 1:(0,6) 2:(3,9) 3:(6,9) 4:(9,6) 5:(9,3) 6:(6,0) 7:(3,0)
+        //
+        // Exterior edge 1 goes from (0,6)→(3,9), basis = normalize((3,3)) = (√2/2, √2/2).
+        // We place a secondary edge source at (4.5, 4.5) — the octagon centre.
+        //
+        // The perpendicular distance from (4.5,4.5) to the line of edge 1 is:
+        //   displacement = (4.5,4.5) - (0,6) = (4.5, -1.5)
+        //   normal to edge 1 = (√2/2, -√2/2) (right-hand perpendicular of basis)
+        //   perp distance = dot((4.5,-1.5), (√2/2,-√2/2)) = √2/2*(4.5+1.5) = 3√2 ≈ 4.2426
+        //
+        // sourceOffsetDistance computes this as:
+        //   normalize(displacement) · cross with cwParent.basisVector, scaled by |displacement|
+        //   = |displacement| * cross(normalize(displacement), cwParentBasis)
+        //   which equals the signed perpendicular distance from source to the parent line.
 
-        // Find a secondary (newly created) interior edge whose source is an interior node
-        const newEdges = context.graph.interiorEdges.filter(
-            ie => ie.id >= RECTANGLE.length + RECTANGLE.length // beyond initial interior edges
-        );
+        const context = makeStraightSkeletonSolverContext(SYMMETRICAL_OCTAGON);
 
-        if (newEdges.length > 0) {
-            const edge = newEdges[0];
-            const result = sourceOffsetDistance(edge, context);
-            // Should be a finite number (may be 0 if sources happen to coincide)
-            expect(Number.isFinite(result)).toBe(true);
-        } else {
-            // Fallback: use an initial edge, manually set rank to secondary
-            // Source and parent source will be the same node, so offset = 0
-            const edge = context.graph.interiorEdges[0];
-            const result = sourceOffsetDistance(edge, context);
-            expect(result).toBeCloseTo(0);
+        // Create primary interior edges (one per vertex)
+        const exteriorEdges = [...context.graph.edges];
+        for (let cw = 0; cw < exteriorEdges.length; cw++) {
+            const ws = (cw - 1 + exteriorEdges.length) % exteriorEdges.length;
+            createBisectionInteriorEdge(context, cw, ws, cw);
         }
+
+        // Add an interior node at the octagon centre (4.5, 4.5)
+        const centreNode = context.findOrAddNode({x: 4.5, y: 4.5});
+
+        // Create a secondary edge from centreNode with cwParent=1 (edge from (0,6)→(3,9)),
+        // wsParent=5 (edge from (9,3)→(6,0))
+        const secEdgeId = createBisectionInteriorEdge(context, 1, 5, centreNode.id);
+        const secEdge = context.getInteriorWithId(secEdgeId);
+
+        // Confirm it's classified as secondary (source is an interior node, not an exterior vertex)
+        expect(context.edgeRank(secEdgeId)).toBe('secondary');
+
+        const result = sourceOffsetDistance(secEdge, context);
+
+        // Independent geometric verification:
+        // Edge 1 source = (0,6), basis = (√2/2, √2/2)
+        // Secondary source = (4.5, 4.5)
+        // displacement = (4.5, -1.5), |displacement| = √(4.5²+1.5²) = √(22.5) = 3√(2.5)
+        // cross(normalize(disp), basis) = cross((4.5,-1.5)/|d|, (√2/2,√2/2))
+        //   = (4.5*√2/2 - (-1.5)*√2/2) / |d| = √2/2 * 6 / |d|  = 3√2 / |d|
+        // result = |d| * 3√2/|d| = 3√2
+        const expected = 3 * Math.sqrt(2);
+
+        expect(result).toBeCloseTo(expected, 8);
+    });
+
+    it('returns a different perpendicular distance for a different source position', () => {
+        // Same setup as above but with source at (3.621320343559643, 4.5) — the point
+        // where primary bisectors from vertices 0 and 1 would intersect.
+        //
+        // cwParent = edge 1: source (0,6), basis (√2/2, √2/2)
+        // displacement = (3.6213, -1.5)
+        // perp distance = dot((3.6213,-1.5), normal) where normal = (√2/2, -√2/2)
+        //               = √2/2 * (3.6213 + 1.5) = √2/2 * 5.1213 ≈ 3.6213
+
+        const context = makeStraightSkeletonSolverContext(SYMMETRICAL_OCTAGON);
+        const exteriorEdges = [...context.graph.edges];
+        for (let cw = 0; cw < exteriorEdges.length; cw++) {
+            const ws = (cw - 1 + exteriorEdges.length) % exteriorEdges.length;
+            createBisectionInteriorEdge(context, cw, ws, cw);
+        }
+
+        const sourcePos = {x: 3 * (1 + Math.sqrt(2)) / 2, y: 4.5};
+        const node = context.findOrAddNode(sourcePos);
+        const secEdgeId = createBisectionInteriorEdge(context, 1, 7, node.id);
+        const secEdge = context.getInteriorWithId(secEdgeId);
+
+        expect(context.edgeRank(secEdgeId)).toBe('secondary');
+
+        const result = sourceOffsetDistance(secEdge, context);
+
+        // Independent verification using the raw formula:
+        //   displacement = sourcePos - cwParentSource = (sourcePos.x - 0, 4.5 - 6) = (sourcePos.x, -1.5)
+        //   [basis, size] = normalize(displacement)
+        //   cross(basis, cwParentBasis) * size
+        const cwParentSource = context.graph.nodes[context.graph.edges[1].source].position;
+        const displacement = subtractVectors(sourcePos, cwParentSource);
+        const [basis, size] = normalize(displacement);
+        const cwParentBasis = context.graph.edges[1].basisVector;
+        const expected = crossProduct(basis, cwParentBasis) * size;
+
+        expect(result).toBeCloseTo(expected, 8);
+        // And as a sanity check, this should be 3*(1+√2)/2
+        expect(result).toBeCloseTo(3 * (1 + Math.sqrt(2)) / 2, 8);
     });
 
 });
@@ -97,7 +168,7 @@ describe('collideEdges', () => {
     describe('returns null for non-collision results', () => {
         it('returns null for diverging rays', () => {
             // Try multiple polygons to find a diverging pair
-            const polygons = [RECTANGLE, PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON];
+            const polygons = [RECTANGLE, PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON];
             let foundDiverging = false;
 
             for (const polygon of polygons) {
@@ -205,7 +276,7 @@ describe('collideEdges', () => {
             // If co-linear-from-2 isn't found in RECTANGLE post-step, try other polygons
             if (!foundCoLinearFrom2) {
                 // Try PENTAGON which has more complex geometry
-                const ctx2 = initStraightSkeletonSolverContext(PENTAGON);
+                const ctx2 = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
                 performOneStep(ctx2);
                 const edges2 = ctx2.graph.interiorEdges;
 
@@ -431,7 +502,7 @@ describe('collideInteriorAndExteriorEdge', () => {
 
         it('returns null when intersection type is not converging', () => {
             // Search across polygons for a non-converging interior/exterior pair
-            const polygons = [TRIANGLE, SQUARE, RECTANGLE, PENTAGON, AWKWARD_HEXAGON];
+            const polygons = [TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, AWKWARD_HEXAGON];
             let foundNonConverging = false;
 
             for (const polygon of polygons) {
@@ -466,7 +537,7 @@ describe('collideInteriorAndExteriorEdge', () => {
     describe('returns valid CollisionEvent for converging pair', () => {
         it('returns event with eventType interiorAgainstExterior', () => {
             // Search for a converging interior/exterior pair
-            const polygons = [PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, RECTANGLE];
+            const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, RECTANGLE];
             let foundConverging = false;
 
             for (const polygon of polygons) {
@@ -559,13 +630,13 @@ describe('collideEdges dispatcher', () => {
     });
 
     it('delegates to collideInteriorAndExteriorEdge for interior + exterior', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         const iEdge = context.graph.interiorEdges[0];
         // Find a non-parent exterior edge
         const cwId = iEdge.clockwiseExteriorEdgeIndex;
         const wsId = iEdge.widdershinsExteriorEdgeIndex;
         let exteriorId = -1;
-        for (let i = 0; i < PENTAGON.length; i++) {
+        for (let i = 0; i < PENTAGON_HOUSE.length; i++) {
             if (i !== cwId && i !== wsId) {
                 exteriorId = i;
                 break;
@@ -605,7 +676,7 @@ describe('createCollisionEvents', () => {
     });
 
     it('no event has collidingEdges[0] === collidingEdges[1]', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         const events = createCollisionEvents(context);
         for (const event of events) {
             expect(event.collidingEdges[0]).not.toBe(event.collidingEdges[1]);
@@ -653,7 +724,7 @@ describe('createCollisionEvents', () => {
     });
 
     it('includes interiorPair events', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         const events = createCollisionEvents(context);
         const interiorPairs = events.filter(e => e.eventType === 'interiorPair');
         expect(interiorPairs.length).toBeGreaterThan(0);
@@ -661,7 +732,7 @@ describe('createCollisionEvents', () => {
 
     it('includes interiorAgainstExterior events for polygons with non-adjacent edge crossings', () => {
         // Larger polygons should produce interior-vs-exterior collision events
-        const polygons = [PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON];
+        const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON];
         let foundExteriorCollision = false;
 
         for (const polygon of polygons) {
@@ -731,7 +802,7 @@ describe('geometric scenarios from test polygons', () => {
     });
 
     it('PENTAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON);
+        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
         const events = createCollisionEvents(context);
         expect(events.length).toBeGreaterThan(0);
         assertValidEvents(events);

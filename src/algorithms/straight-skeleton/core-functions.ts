@@ -1,4 +1,4 @@
-import {Vector2} from "@/algorithms/straight-skeleton/types";
+import {RayProjection, Vector2} from "@/algorithms/straight-skeleton/types";
 import {FLOATING_POINT_EPSILON} from "@/algorithms/straight-skeleton/constants";
 
 export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
@@ -79,3 +79,16 @@ export function dotProduct(a: Vector2, b: Vector2): number {
     return a.x * b.x + a.y * b.y
 }
 
+/**
+ * iBasis is clockwise from jBasis to give positive projection
+ * */
+export function projectToPerpendicular(iBasis: Vector2, jBasis: Vector2, length: number): number {
+    return crossProduct(iBasis, jBasis) * length
+}
+
+/**
+ * iBasis is clockwise from jBasis to give positive projection
+ * */
+export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpendicular: number): number {
+    return perpendicular / crossProduct(iBasis, jBasis)
+}

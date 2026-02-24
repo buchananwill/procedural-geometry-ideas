@@ -1,8 +1,8 @@
 import {Vector2} from "@/algorithms/straight-skeleton/types";
 import {
-    addBisectionEdge,
+    createBisectionInteriorEdge,
     hasInteriorLoop,
-    initStraightSkeletonSolverContext
+    makeStraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {graphIsComplete} from "@/algorithms/straight-skeleton/algorithm";
 import {createCollisionEvents} from "@/algorithms/straight-skeleton/collision-helpers";
@@ -12,7 +12,17 @@ import {handleCollisionEvent} from "@/algorithms/straight-skeleton/collision-han
 export function computeStraightSkeletonV4(nodes: Vector2[]) {
 
     // init context
-    const solverContext = initStraightSkeletonSolverContext(nodes);
+
+    const solverContext = makeStraightSkeletonSolverContext(nodes);
+
+    const exteriorEdges = [...solverContext.graph.edges];
+
+    // create interior edges from exterior node bisections
+    for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
+        const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
+        createBisectionInteriorEdge(solverContext, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex)
+    }
+
 
     // LOOP:
     while (!graphIsComplete(solverContext)) {
@@ -38,8 +48,8 @@ export function computeStraightSkeletonV4(nodes: Vector2[]) {
         })
             // - convert to new bisections
             .map(params => {
-                return addBisectionEdge(
-                    solverContext.graph,
+                return createBisectionInteriorEdge(
+                    solverContext,
                     params.clockwiseExteriorEdgeIndex,
                     params.widdershinsExteriorEdgeIndex,
                     params.source,

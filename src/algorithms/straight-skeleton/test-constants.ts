@@ -10,7 +10,18 @@ export const SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 2}, {x: 2, y: 2}, {x: 
 
 export const RECTANGLE: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 2}, {x: 4, y: 2}, {x: 4, y: 0}];
 
-export const PENTAGON: Vector2[] = [{x: 3, y: 9}, {x: 6, y: 6}, {x: 6, y: 0}, {x: 0, y: 0}, {x: 0, y: 6}];
+export const PENTAGON_HOUSE: Vector2[] = [{x: 3, y: 9}, {x: 6, y: 6}, {x: 6, y: 0}, {x: 0, y: 0}, {x: 0, y: 6}];
+
+export const SYMMETRICAL_OCTAGON: Vector2[] = [
+    {x: 0, y: 3},
+    {x: 0, y: 6},
+    {x: 3, y: 9},
+    {x: 6, y: 9},
+    {x: 9, y: 6},
+    {x: 9, y: 3},
+    {x: 6, y: 0},
+    {x: 3, y: 0}
+]
 
 export const DEFAULT_PENTAGON: Vector2[] = [
     {x: 250, y: 250},

@@ -7,14 +7,22 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
 
     const [instigator, target] = event.collidingEdges;
 
+    if (context.acceptedEdges[instigator] || context.acceptedEdges[target]) {
+        return []
+    }
+
     const interiorEdge = context.getInteriorWithId(instigator);
 
     const newNode = context.findOrAddNode(event.position);
     newNode.inEdges.push(instigator)
+    const instigatorData = context.getEdgeWithId(instigator);
+    instigatorData.target = newNode.id;
 
     if (event.eventType === 'interiorPair') {
         const otherInterior = context.getInteriorWithId(target);
         newNode.inEdges.push(target);
+        const targetEdgeData = context.getEdgeWithId(target);
+        targetEdgeData.target = newNode.id;
 
         const parentSharing = checkSharedParents(instigator, target, context);
         if (parentSharing.includes(true)) {
@@ -28,7 +36,7 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
             context.acceptedEdges[clockwiseCollider.id] = true;
 
             return [{
-                clockwiseExteriorEdgeIndex: clockwiseCollider.widdershinsExteriorEdgeIndex,
+                clockwiseExteriorEdgeIndex: clockwiseCollider.clockwiseExteriorEdgeIndex,
                 source: newNode.id,
                 widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex
             }]
@@ -39,6 +47,9 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
 
         const approximateDir1 = makeBisectedBasis(edgeData1.basisVector, edgeData2.basisVector);
         const approximateDir2 = scaleVector(approximateDir1, -1);
+
+        context.acceptedEdges[instigator] = true;
+        context.acceptedEdges[target] = true;
 
         return [
             {
@@ -59,6 +70,8 @@ export function handleCollisionEvent(event: CollisionEvent, context: StraightSke
     if (event.eventType === 'interiorAgainstExterior') {
         const instigatorInterior = context.getInteriorWithId(instigator);
         const targetExterior = context.getEdgeWithId(target);
+
+        context.acceptedEdges[instigator] = true;
 
         return [
             {
