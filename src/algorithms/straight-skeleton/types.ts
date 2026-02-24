@@ -79,11 +79,15 @@ Solving context:
 export interface GraphHelpers {
     getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge;
     getEdgeWithId(id: number): PolygonEdge;
+    getEdges(idList: number[]): PolygonEdge[];
     getInteriorWithId(id: number): InteriorEdge;
+    getInteriorEdges(idList: number[]): InteriorEdge[]
     projectRay(edge: PolygonEdge): RayProjection;
     projectRayInterior(edge: InteriorEdge): RayProjection;
     clockwiseParent(edge: InteriorEdge): PolygonEdge;
     widdershinsParent(edge: InteriorEdge): PolygonEdge;
+    accept(edgeId: number): void;
+    acceptAll(edgeIds: number[]): void;
     isAccepted(edge: InteriorEdge): boolean;
     findOrAddNode(position: Vector2): PolygonNode;
     findSource(edgeId: number): PolygonNode;
@@ -115,4 +119,20 @@ export interface BisectionParams {
     widdershinsExteriorEdgeIndex: number;
     source: number;
     approximateDirection?: Vector2
+}
+
+/*
+* State journey:
+*   - Overall algorithm is a tree
+*   - Each child state comprises the list of interior edges to form a new state
+*   - Edge collapse events result in one child with fewer edges in total
+*   - Edge split events result in partitioning the edges into dis-continuous regions
+* */
+
+export interface AlgorithmStepInput {
+    interiorEdges: number[]
+}
+
+export interface AlgorithmStepOutput {
+    childSteps: AlgorithmStepInput[]
 }

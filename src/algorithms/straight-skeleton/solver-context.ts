@@ -31,7 +31,15 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         }
 
         return 'secondary'
-    };
+    }
+
+    function accept(edgeId: number) {
+        acceptedEdges[edgeId] = true;
+    }
+
+    function acceptAll(edges: number[]) {
+        edges.forEach(accept)
+    }
 
     return {
         graph,
@@ -65,6 +73,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         widdershinsParent(edge: InteriorEdge): PolygonEdge {
             return graph.edges[edge.widdershinsExteriorEdgeIndex];
         },
+        accept,
+        acceptAll,
         isAccepted(edge: InteriorEdge): boolean {
             return acceptedEdges[edge.id];
         },

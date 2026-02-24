@@ -1,5 +1,4 @@
 import {
-    makeStraightSkeletonSolverContext,
     createBisectionInteriorEdge,
     addBisectionEdge,
     hasInteriorLoop,
@@ -9,10 +8,11 @@ import {handleCollisionEvent} from './collision-handling';
 import {graphIsComplete} from './algorithm';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE,
-    DEFAULT_PENTAGON, AWKWARD_HEXAGON,
+    DEFAULT_PENTAGON,
     getAcceptedExteriorEdges
 } from './test-constants';
 import type {StraightSkeletonSolverContext, Vector2, CollisionEvent} from './types';
+import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 
 // ---------------------------------------------------------------------------
 // Shared v4-style init helper

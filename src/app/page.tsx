@@ -114,7 +114,7 @@ export default function Home() {
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (!showSkeleton) return null;
         try {
-            return computeStraightSkeleton(vertices);
+            return computeStraightSkeletonV4(vertices);
         } catch (e) {
             console.log(e)
             return null;

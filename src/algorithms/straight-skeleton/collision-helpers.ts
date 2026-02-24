@@ -12,7 +12,7 @@ import {
     areEqual,
     crossProduct,
     makeBisectedBasis,
-    normalize,
+    normalize, projectToPerpendicular,
     scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
@@ -29,9 +29,9 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
         const edgeSourceNode = context.findSource(edge.id);
         const clockwiseParent = context.clockwiseParent(edge);
         const parentSourceNode = context.findSource(clockwiseParent.id);
-        const vectorToEdgeSource = subtractVectors(edgeSourceNode.position, parentSourceNode.position);
-        const [basis, size] = normalize(vectorToEdgeSource);
-        return collisionDistanceFromBasisUnits(basis, size, clockwiseParent.basisVector);
+        const parentSourceToEdgeSource = subtractVectors(edgeSourceNode.position, parentSourceNode.position);
+        const [basis, size] = normalize(parentSourceToEdgeSource);
+        return projectToPerpendicular(basis, clockwiseParent.basisVector, size);
     }
 
     return 0;
@@ -83,14 +83,12 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         return null;
     }
 
-    const finalCollisionOffset = collisionDistanceFromBasisUnits(ray1.basisVector, alongOriginalInterior, cwParent.basisVector)
-
-    const sourceOffset = sourceOffsetDistance(iEdge, context);
+    const finalCollisionOffset = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
 
     return {
         collidingEdges: [iEdge.id, eEdge.id],
         intersectionData,
-        offsetDistance: sourceOffset + finalCollisionOffset,
+        offsetDistance: finalCollisionOffset,
         position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
         eventType: "interiorAgainstExterior"
     }

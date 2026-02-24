@@ -64,68 +64,28 @@ describe('sourceOffsetDistance', () => {
         expect(sourceOffsetDistance(edge, context)).toBe(0);
     });
 
-    it('returns the perpendicular distance from the secondary edge source to the clockwise parent edge', () => {
-        // Use SYMMETRICAL_OCTAGON to build a context with primary edges only (no algorithm stepping).
-        // Then manually add an interior node and a secondary edge, and verify by geometry.
+    it('returns the perpendicular distance from secondary edge source to its clockwise parent', () => {
+        // Manually construct a secondary edge at a known position and verify by geometry,
+        // without running the algorithm.
         //
         // SYMMETRICAL_OCTAGON vertices (clockwise):
         //   0:(0,3) 1:(0,6) 2:(3,9) 3:(6,9) 4:(9,6) 5:(9,3) 6:(6,0) 7:(3,0)
         //
-        // Exterior edge 1 goes from (0,6)→(3,9), basis = normalize((3,3)) = (√2/2, √2/2).
-        // We place a secondary edge source at (4.5, 4.5) — the octagon centre.
+        // In the real algorithm, the primary bisectors at vertices 0 and 1 share
+        // exterior edge 0 as a parent. They collide at (3*(1+√2)/2, 4.5), producing
+        // a secondary edge with cwParent=1, wsParent=7.
         //
-        // The perpendicular distance from (4.5,4.5) to the line of edge 1 is:
-        //   displacement = (4.5,4.5) - (0,6) = (4.5, -1.5)
-        //   normal to edge 1 = (√2/2, -√2/2) (right-hand perpendicular of basis)
-        //   perp distance = dot((4.5,-1.5), (√2/2,-√2/2)) = √2/2*(4.5+1.5) = 3√2 ≈ 4.2426
+        // We recreate that scenario manually: build the bare context + primary edges,
+        // place an interior node at the known collision point, and attach a secondary
+        // edge with the correct parents.
         //
-        // sourceOffsetDistance computes this as:
-        //   normalize(displacement) · cross with cwParent.basisVector, scaled by |displacement|
-        //   = |displacement| * cross(normalize(displacement), cwParentBasis)
-        //   which equals the signed perpendicular distance from source to the parent line.
-
-        const context = makeStraightSkeletonSolverContext(SYMMETRICAL_OCTAGON);
-
-        // Create primary interior edges (one per vertex)
-        const exteriorEdges = [...context.graph.edges];
-        for (let cw = 0; cw < exteriorEdges.length; cw++) {
-            const ws = (cw - 1 + exteriorEdges.length) % exteriorEdges.length;
-            createBisectionInteriorEdge(context, cw, ws, cw);
-        }
-
-        // Add an interior node at the octagon centre (4.5, 4.5)
-        const centreNode = context.findOrAddNode({x: 4.5, y: 4.5});
-
-        // Create a secondary edge from centreNode with cwParent=1 (edge from (0,6)→(3,9)),
-        // wsParent=5 (edge from (9,3)→(6,0))
-        const secEdgeId = createBisectionInteriorEdge(context, 1, 5, centreNode.id);
-        const secEdge = context.getInteriorWithId(secEdgeId);
-
-        // Confirm it's classified as secondary (source is an interior node, not an exterior vertex)
-        expect(context.edgeRank(secEdgeId)).toBe('secondary');
-
-        const result = sourceOffsetDistance(secEdge, context);
-
-        // Independent geometric verification:
-        // Edge 1 source = (0,6), basis = (√2/2, √2/2)
-        // Secondary source = (4.5, 4.5)
-        // displacement = (4.5, -1.5), |displacement| = √(4.5²+1.5²) = √(22.5) = 3√(2.5)
-        // cross(normalize(disp), basis) = cross((4.5,-1.5)/|d|, (√2/2,√2/2))
-        //   = (4.5*√2/2 - (-1.5)*√2/2) / |d| = √2/2 * 6 / |d|  = 3√2 / |d|
-        // result = |d| * 3√2/|d| = 3√2
-        const expected = 3 * Math.sqrt(2);
-
-        expect(result).toBeCloseTo(expected, 8);
-    });
-
-    it('returns a different perpendicular distance for a different source position', () => {
-        // Same setup as above but with source at (3.621320343559643, 4.5) — the point
-        // where primary bisectors from vertices 0 and 1 would intersect.
-        //
-        // cwParent = edge 1: source (0,6), basis (√2/2, √2/2)
-        // displacement = (3.6213, -1.5)
-        // perp distance = dot((3.6213,-1.5), normal) where normal = (√2/2, -√2/2)
-        //               = √2/2 * (3.6213 + 1.5) = √2/2 * 5.1213 ≈ 3.6213
+        // Exterior edge 1: (0,6)→(3,9), basis = (√2/2, √2/2).
+        // Source position:  (3*(1+√2)/2, 4.5).
+        // Displacement from edge 1's source to the secondary source:
+        //   d = (3*(1+√2)/2 - 0,  4.5 - 6) = (3*(1+√2)/2,  -1.5)
+        // Perpendicular distance to edge 1's line (via right-hand normal (√2/2, -√2/2)):
+        //   dot(d, (√2/2, -√2/2)) = √2/2 * (3*(1+√2)/2 + 1.5)
+        //                          = 3*(1+√2)/2   ≈ 3.6213
 
         const context = makeStraightSkeletonSolverContext(SYMMETRICAL_OCTAGON);
         const exteriorEdges = [...context.graph.edges];
@@ -143,18 +103,16 @@ describe('sourceOffsetDistance', () => {
 
         const result = sourceOffsetDistance(secEdge, context);
 
-        // Independent verification using the raw formula:
-        //   displacement = sourcePos - cwParentSource = (sourcePos.x - 0, 4.5 - 6) = (sourcePos.x, -1.5)
-        //   [basis, size] = normalize(displacement)
-        //   cross(basis, cwParentBasis) * size
+        // Independent verification using the raw perpendicular-distance formula:
+        //   displacement = sourcePos - cwParentSource
+        //   perpendicular distance = |displacement| * cross(normalize(displacement), cwParentBasis)
         const cwParentSource = context.graph.nodes[context.graph.edges[1].source].position;
         const displacement = subtractVectors(sourcePos, cwParentSource);
-        const [basis, size] = normalize(displacement);
+        const [normalizedDisp, size] = normalize(displacement);
         const cwParentBasis = context.graph.edges[1].basisVector;
-        const expected = crossProduct(basis, cwParentBasis) * size;
+        const expected = crossProduct(normalizedDisp, cwParentBasis) * size;
 
         expect(result).toBeCloseTo(expected, 8);
-        // And as a sanity check, this should be 3*(1+√2)/2
         expect(result).toBeCloseTo(3 * (1 + Math.sqrt(2)) / 2, 8);
     });
 

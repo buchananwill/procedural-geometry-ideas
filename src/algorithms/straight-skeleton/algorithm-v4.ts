@@ -1,13 +1,13 @@
 import {Vector2} from "@/algorithms/straight-skeleton/types";
 import {
     createBisectionInteriorEdge,
-    hasInteriorLoop,
-    makeStraightSkeletonSolverContext
+    hasInteriorLoop
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {graphIsComplete} from "@/algorithms/straight-skeleton/algorithm";
 import {createCollisionEvents} from "@/algorithms/straight-skeleton/collision-helpers";
 import {areEqual} from "@/algorithms/straight-skeleton/core-functions";
 import {handleCollisionEvent} from "@/algorithms/straight-skeleton/collision-handling";
+import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 
 export function computeStraightSkeletonV4(nodes: Vector2[]) {
 
