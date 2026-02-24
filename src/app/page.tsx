@@ -13,6 +13,7 @@ import type {PrimaryInteriorEdge} from "@/algorithms/straight-skeleton/algorithm
 import type {StraightSkeletonGraph} from "@/algorithms/straight-skeleton/types";
 import type {Vector2} from "@/algorithms/straight-skeleton/types";
 import {computeStraightSkeletonV4} from "@/algorithms/straight-skeleton/algorithm-v4";
+import {runAlgorithmV5} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
     ssr: false,
@@ -114,7 +115,9 @@ export default function Home() {
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (!showSkeleton) return null;
         try {
-            return computeStraightSkeletonV4(vertices);
+            const context = runAlgorithmV5(vertices);
+            return context.graph
+            // return computeStraightSkeletonV4(vertices);
         } catch (e) {
             console.log(e)
             return null;

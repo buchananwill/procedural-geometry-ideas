@@ -11,6 +11,13 @@ import {
     tryToAcceptExteriorEdge
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 
+function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent){
+    const [length1a, length1b] = ev1.intersectionData;
+    const [length2a, length2b] = ev2.intersectionData;
+
+    return Math.max(length1a, length1b) - Math.max(length2a, length2b);
+}
+
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
@@ -31,7 +38,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
         return edgesToCheck.map(e2 => collideEdges(e1, e2, context))
             .filter(event => event !== null)
-            .toSorted((ev1, ev2) => ev1?.offsetDistance - ev2?.offsetDistance)
+            .toSorted(sameInstigatorComparator)
     })
         .filter(list => list.length > 0)
         .toSorted((list1, list2) => list1[0]?.offsetDistance - list2[0]?.offsetDistance)

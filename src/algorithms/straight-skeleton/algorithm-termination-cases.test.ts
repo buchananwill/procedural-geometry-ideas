@@ -1,4 +1,4 @@
-import {RunAlgorithmV5} from './algorithm-termination-cases';
+import {runAlgorithmV5} from './algorithm-termination-cases';
 import type {StraightSkeletonGraph, Vector2} from './types';
 import {TRIANGLE} from './test-constants';
 
@@ -54,16 +54,16 @@ const TRIANGLES: { name: string; vertices: Vector2[] }[] = [
 describe('RunAlgorithmV5 — triangles', () => {
     describe.each(TRIANGLES)('$name', ({vertices}) => {
         it('does not throw', () => {
-            expect(() => RunAlgorithmV5(vertices)).not.toThrow();
+            expect(() => runAlgorithmV5(vertices)).not.toThrow();
         });
 
         it('produces exactly 1 interior node', () => {
-            const context = RunAlgorithmV5(vertices);
+            const context = runAlgorithmV5(vertices);
             expect(interiorNodes(context.graph)).toHaveLength(1);
         });
 
         it('interior node is at the incenter', () => {
-            const context = RunAlgorithmV5(vertices);
+            const context = runAlgorithmV5(vertices);
             const [node] = interiorNodes(context.graph);
             const expected = incenter(vertices[0], vertices[1], vertices[2]);
             expect(node.position.x).toBeCloseTo(expected.x, 4);
@@ -71,7 +71,7 @@ describe('RunAlgorithmV5 — triangles', () => {
         });
 
         it('all exterior edges are accepted', () => {
-            const context = RunAlgorithmV5(vertices);
+            const context = runAlgorithmV5(vertices);
             for (let i = 0; i < context.graph.numExteriorNodes; i++) {
                 expect(context.acceptedEdges[i]).toBe(true);
             }

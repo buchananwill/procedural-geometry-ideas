@@ -1,6 +1,6 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput,
+    AlgorithmStepOutput, CollisionEvent,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
@@ -9,6 +9,11 @@ import {collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-hel
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
+import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
+
+function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string{
+    return `["polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}]`
+}
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
@@ -21,18 +26,25 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
 
 
     const dotEdges = dotProduct(edgeData1.basisVector, edgeData2.basisVector);
-    if (!areEqual(dotEdges, -1)) {
-        throw new Error("Expecting a head on collision for final interior edge pair")
+    // Head on Collision
+    if (areEqual(dotEdges, -1)) {
+        edgeData1.target = edgeData2.source;
+        edgeData2.target = edgeData1.source;
+
+        const source1 = context.findSource(id1);
+        const source2 = context.findSource(id2);
+
+        source1.inEdges.push(id2);
+        source2.inEdges.push(id1);
+    } else {
+        const collision = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
+        if (collision === null) {
+            throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
+        }
+
+        throw new Error(`Collision from final edge pair: ${JSON.stringify(collision)}`)
     }
 
-    edgeData1.target = edgeData2.source;
-    edgeData2.target = edgeData1.source;
-
-    const source1 = context.findSource(id1);
-    const source2 = context.findSource(id2);
-
-    source1.inEdges.push(id2);
-    source2.inEdges.push(id1);
 
     context.acceptAll(input.interiorEdges);
 
@@ -43,16 +55,21 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
 
 export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 3) {
-        throw new Error("Invalid call: expecting two interior edges");
+        throw new Error("Invalid call: expecting three interior edges");
     }
 
     const edgeData = context.getEdges(input.interiorEdges);
-    const [interior1, interior2] = context.getInteriorEdges(input.interiorEdges);
 
-    const event = collideInteriorEdges(interior1, interior2, context);
+    let event: CollisionEvent | null = null;
+    for (const [index1, index2] of TRIANGLE_INTERSECT_PAIRINGS) {
+        const edge1 = context.getInteriorWithId(input.interiorEdges[index1]);
+        const edge2 = context.getInteriorWithId(input.interiorEdges[index2]);
+        event = collideInteriorEdges(edge1, edge2, context);
+    }
+
 
     if (event === null) {
-        throw new Error("Failed to collide interior edges in triangle");
+        throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
     }
 
     const newNode = context.findOrAddNode(event.position)
@@ -101,7 +118,7 @@ export function StepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 }
 
-export function RunAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
+export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
     }
