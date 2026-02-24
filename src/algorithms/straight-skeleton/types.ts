@@ -107,6 +107,12 @@ export type IntersectionResult = [number, number, IntersectionType]
 
 export type CollisionType = 'interiorPair' | 'interiorAgainstExterior' | 'phantomDivergentOffset'
 
+export const CollisionTypePriority: Record<CollisionType, number> = {
+    interiorPair: 0,
+    interiorAgainstExterior: 1,
+    phantomDivergentOffset: 2
+}
+
 export interface CollisionEvent {
     offsetDistance: number;
     collidingEdges: [number, number];

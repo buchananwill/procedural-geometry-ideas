@@ -1,6 +1,6 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput, BisectionParams, CollisionEvent,
+    AlgorithmStepOutput, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
 import {collideEdges} from "@/algorithms/straight-skeleton/collision-helpers";
@@ -112,7 +112,11 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     // Handle collisions
     const collapseEvents: BisectionParams[] = [];
     let partitionEvents: BisectionParams[] = [];
-    collisionsToHandle.map(event => handleCollisionEvent(event, context))
+    collisionsToHandle
+        .toSorted((e1, e2) => {
+            return CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType]
+        })
+        .map(event => handleCollisionEvent(event, context))
         .forEach(bisectionList => {
             if (bisectionList.length > 1) {
                 partitionEvents.push(...bisectionList)
