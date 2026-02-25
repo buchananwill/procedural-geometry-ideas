@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import {
-  Paper, Stack, Title, Button, Text, Slider, NumberInput,
+  Paper, Stack, Title, Button, UnstyledButton, Text, Slider, NumberInput,
   Group, Collapse,
 } from "@mantine/core";
 import { useRandomPolygonStore } from "@/stores/useRandomPolygonStore";
@@ -29,16 +29,12 @@ export default function RandomPolygonPanel() {
   return (
     <Paper p="md" withBorder>
       <Stack gap="xs">
-        <Group justify="space-between">
-          <Title order={5}>Random Polygon</Title>
-          <Button
-            variant="subtle"
-            size="compact-xs"
-            onClick={() => setOpened((o) => !o)}
-          >
-            {opened ? "\u25B2" : "\u25BC"}
-          </Button>
-        </Group>
+        <UnstyledButton w="100%" onClick={() => setOpened((o) => !o)}>
+          <Group justify="space-between">
+            <Title order={5}>Random Polygon</Title>
+            <Text size="xs" c="blue">{opened ? "\u25B2" : "\u25BC"}</Text>
+          </Group>
+        </UnstyledButton>
 
         <Collapse in={opened}>
           <Stack gap="xs">

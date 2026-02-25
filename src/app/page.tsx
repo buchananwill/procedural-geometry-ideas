@@ -2,7 +2,7 @@
 
 import {useState, useMemo, useEffect, useCallback} from "react";
 import dynamic from "next/dynamic";
-import {AppShell, Group, Title, Button, Text, Stack, Paper, Switch, Select} from "@mantine/core";
+import {AppShell, Group, Title, Button, UnstyledButton, Text, Stack, Paper, Switch, Select, Collapse, ScrollArea} from "@mantine/core";
 import {usePolygonStore} from "@/stores/usePolygonStore";
 import {
     computeStraightSkeleton,
@@ -46,6 +46,12 @@ export default function Home() {
     const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
     const [copied, setCopied] = useState(false);
     const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
+
+    // Collapse state for control cards
+    const [controlsOpen, setControlsOpen] = useState(false);
+    const [instructionsOpen, setInstructionsOpen] = useState(false);
+    const [algorithmsOpen, setAlgorithmsOpen] = useState(false);
+    const [debugOpen, setDebugOpen] = useState(false);
 
     // Zoom & pan state
     const [stageScale, setStageScale] = useState(1);
@@ -155,7 +161,8 @@ export default function Home() {
             </AppShell.Header>
 
             <AppShell.Main>
-                <Group align="flex-start" gap="md">
+                <Group align="stretch" gap="md" wrap="nowrap" style={{height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))"}}>
+
                     <PolygonCanvas
                         skeleton={skeleton}
                         primaryEdges={primaryEdges}
@@ -169,94 +176,122 @@ export default function Home() {
                         onToggleDebugNode={toggleDebugNode}
                     />
 
+                    <ScrollArea style={{height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))", width: 240, flexShrink: 0}}>
                     <Stack w={240} gap="sm">
                         <Paper p="md" withBorder>
                             <Stack gap="xs">
-                                <Title order={5}>Controls</Title>
-                                <Text size="sm" c="dimmed">
-                                    Vertices: {vertexCount}
-                                </Text>
-                                <Button onClick={resetPolygon} variant="light" fullWidth>
-                                    Reset Polygon
-                                </Button>
-                                <Button onClick={resetView} variant="light" color="cyan" fullWidth>
-                                    Reset View
-                                </Button>
-                                <Button
-                                    onClick={copyVerticesToClipboard}
-                                    variant="light"
-                                    color="teal"
-                                    fullWidth
-                                >
-                                    {copied ? "Copied!" : "Copy Vertices"}
-                                </Button>
-                                <Button
-                                    onClick={pasteVerticesFromClipboard}
-                                    variant="light"
-                                    color="teal"
-                                    fullWidth
-                                >
-                                    {pasted === "ok" ? "Pasted!" : pasted === "fail" ? "Invalid Data" : "Paste Vertices"}
-                                </Button>
-                                <Button
-                                    onClick={() => {
-                                        if (selectedVertex !== null) removeVertex(selectedVertex);
-                                    }}
-                                    variant="light"
-                                    color="red"
-                                    fullWidth
-                                    disabled={selectedVertex === null || vertexCount <= 3}
-                                >
-                                    Delete Selected
-                                </Button>
+                                <UnstyledButton w="100%" onClick={() => setControlsOpen(o => !o)}>
+                                    <Group justify="space-between">
+                                        <Title order={5}>Controls</Title>
+                                        <Text size="xs" c="blue">{controlsOpen ? "\u25B2" : "\u25BC"}</Text>
+                                    </Group>
+                                </UnstyledButton>
+                                <Collapse in={controlsOpen}>
+                                    <Stack gap="xs">
+                                        <Text size="sm" c="dimmed">
+                                            Vertices: {vertexCount}
+                                        </Text>
+                                        <Button onClick={resetPolygon} variant="light" fullWidth>
+                                            Reset Polygon
+                                        </Button>
+                                        <Button onClick={resetView} variant="light" color="cyan" fullWidth>
+                                            Reset View
+                                        </Button>
+                                        <Button
+                                            onClick={copyVerticesToClipboard}
+                                            variant="light"
+                                            color="teal"
+                                            fullWidth
+                                        >
+                                            {copied ? "Copied!" : "Copy Vertices"}
+                                        </Button>
+                                        <Button
+                                            onClick={pasteVerticesFromClipboard}
+                                            variant="light"
+                                            color="teal"
+                                            fullWidth
+                                        >
+                                            {pasted === "ok" ? "Pasted!" : pasted === "fail" ? "Invalid Data" : "Paste Vertices"}
+                                        </Button>
+                                        <Button
+                                            onClick={() => {
+                                                if (selectedVertex !== null) removeVertex(selectedVertex);
+                                            }}
+                                            variant="light"
+                                            color="red"
+                                            fullWidth
+                                            disabled={selectedVertex === null || vertexCount <= 3}
+                                        >
+                                            Delete Selected
+                                        </Button>
+                                    </Stack>
+                                </Collapse>
                             </Stack>
                         </Paper>
 
                         <Paper p="md" withBorder>
                             <Stack gap="xs">
-                                <Title order={5}>Instructions</Title>
-                                <Text size="sm" c="dimmed">
-                                    Drag vertices to reshape the polygon. Click on an edge to add
-                                    a new vertex. Select a vertex and use Delete to remove it.
-                                </Text>
-                                <Text size="sm" c="dimmed">
-                                    Scroll to zoom. Middle-click or Alt+drag to pan.
-                                </Text>
+                                <UnstyledButton w="100%" onClick={() => setInstructionsOpen(o => !o)}>
+                                    <Group justify="space-between">
+                                        <Title order={5}>Instructions</Title>
+                                        <Text size="xs" c="blue">{instructionsOpen ? "\u25B2" : "\u25BC"}</Text>
+                                    </Group>
+                                </UnstyledButton>
+                                <Collapse in={instructionsOpen}>
+                                    <Stack gap="xs">
+                                        <Text size="sm" c="dimmed">
+                                            Drag vertices to reshape the polygon. Click on an edge to add
+                                            a new vertex. Select a vertex and use Delete to remove it.
+                                        </Text>
+                                        <Text size="sm" c="dimmed">
+                                            Scroll to zoom. Middle-click or Alt+drag to pan.
+                                        </Text>
+                                    </Stack>
+                                </Collapse>
                             </Stack>
                         </Paper>
 
                         <Paper p="md" withBorder>
                             <Stack gap="xs">
-                                <Title order={5}>Algorithms</Title>
-                                <Select
-                                    size="xs"
-                                    label="Skeleton version"
-                                    data={[
-                                        {value: "v1", label: "V1 — Heap-based"},
-                                        {value: "v5", label: "V5 — Step-based (latest)"},
-                                    ]}
-                                    value={algorithmVersion}
-                                    onChange={(val) => {
-                                        if (val === "v1" || val === "v5") setAlgorithmVersion(val);
-                                    }}
-                                    allowDeselect={false}
-                                />
-                                <Button
-                                    color="orange"
-                                    variant={showSkeleton ? "filled" : "light"}
-                                    fullWidth
-                                    onClick={() => setShowSkeleton((s) => !s)}
-                                >
-                                    {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
-                                </Button>
-                                <Button
-                                    color="grape"
-                                    variant={showPrimaryEdges ? "filled" : "light"}
-                                    fullWidth
-                                    onClick={() => setShowPrimaryEdges((s) => !s)}
-                                >
-                                    {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
-                                </Button>
+                                <UnstyledButton w="100%" onClick={() => setAlgorithmsOpen(o => !o)}>
+                                    <Group justify="space-between">
+                                        <Title order={5}>Algorithms</Title>
+                                        <Text size="xs" c="blue">{algorithmsOpen ? "\u25B2" : "\u25BC"}</Text>
+                                    </Group>
+                                </UnstyledButton>
+                                <Collapse in={algorithmsOpen}>
+                                    <Stack gap="xs">
+                                        <Select
+                                            size="xs"
+                                            label="Skeleton version"
+                                            data={[
+                                                {value: "v1", label: "V1 — Heap-based"},
+                                                {value: "v5", label: "V5 — Step-based (latest)"},
+                                            ]}
+                                            value={algorithmVersion}
+                                            onChange={(val) => {
+                                                if (val === "v1" || val === "v5") setAlgorithmVersion(val);
+                                            }}
+                                            allowDeselect={false}
+                                        />
+                                        <Button
+                                            color="orange"
+                                            variant={showSkeleton ? "filled" : "light"}
+                                            fullWidth
+                                            onClick={() => setShowSkeleton((s) => !s)}
+                                        >
+                                            {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
+                                        </Button>
+                                        <Button
+                                            color="grape"
+                                            variant={showPrimaryEdges ? "filled" : "light"}
+                                            fullWidth
+                                            onClick={() => setShowPrimaryEdges((s) => !s)}
+                                        >
+                                            {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
+                                        </Button>
+                                    </Stack>
+                                </Collapse>
                             </Stack>
                         </Paper>
 
@@ -264,7 +299,14 @@ export default function Home() {
 
                         <Paper p="md" withBorder>
                             <Stack gap="xs">
-                                <Title order={5}>Debug</Title>
+                                <UnstyledButton w="100%" onClick={() => setDebugOpen(o => !o)}>
+                                    <Group justify="space-between">
+                                        <Title order={5}>Debug</Title>
+                                        <Text size="xs" c="blue">{debugOpen ? "\u25B2" : "\u25BC"}</Text>
+                                    </Group>
+                                </UnstyledButton>
+                                <Collapse in={debugOpen}>
+                                    <Stack gap="xs">
 
                                 <Text size="xs" c="dimmed" fw={600}>Edge Lengths</Text>
                                 <Switch
@@ -313,9 +355,12 @@ export default function Home() {
                                     checked={debug.showEdgeIndices}
                                     onChange={() => toggleDebug("showEdgeIndices")}
                                 />
+                                    </Stack>
+                                </Collapse>
                             </Stack>
                         </Paper>
                     </Stack>
+                    </ScrollArea>
                 </Group>
             </AppShell.Main>
         </AppShell>

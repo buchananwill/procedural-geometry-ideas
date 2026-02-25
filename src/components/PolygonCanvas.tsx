@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Line, Circle, Text } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
@@ -9,8 +9,6 @@ import type { Vector2 } from "@/algorithms/straight-skeleton/types";
 import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 import type { DebugDisplayOptions } from "@/app/page";
 
-const CANVAS_WIDTH = 800;
-const CANVAS_HEIGHT = 600;
 const VERTEX_RADIUS = 8;
 const EDGE_HIT_DISTANCE = 15;
 
@@ -81,6 +79,19 @@ export default function PolygonCanvas({
   const selectedVertex = usePolygonStore((s) => s.selectedVertex);
   const setSelectedVertex = usePolygonStore((s) => s.setSelectedVertex);
   const stageRef = useRef<ReturnType<typeof Stage> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState({ width: 800, height: 600 });
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0) setSize({ width, height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Pan tracking refs
   const isPanning = useRef(false);
@@ -281,10 +292,11 @@ export default function PolygonCanvas({
   }, [skeleton, debug.showSkeletonNodes, debug.showNodeIndices]);
 
   return (
+    <div ref={containerRef} style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
     <Stage
       ref={stageRef as React.RefObject<never>}
-      width={CANVAS_WIDTH}
-      height={CANVAS_HEIGHT}
+      width={size.width}
+      height={size.height}
       scaleX={stageScale}
       scaleY={stageScale}
       x={stagePosition.x}
@@ -518,5 +530,6 @@ export default function PolygonCanvas({
         ))}
       </Layer>
     </Stage>
+    </div>
   );
 }
