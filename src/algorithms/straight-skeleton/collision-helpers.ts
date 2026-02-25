@@ -111,7 +111,6 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
     let eventType: CollisionType ="interiorAgainstExterior";
     if (alongWfSource < 0 || alongWfTarget < 0) {
-        console.log(`  WF FILTERED: e${iEdge.id} vs e${eEdge.id} offset=${finalCollisionOffset.toFixed(4)} srcBisector=e${sourceBisectorId} tgtBisector=e${targetBisectorId} alongWfSrc=${alongWfSource.toFixed(4)} alongWfTgt=${alongWfTarget.toFixed(4)}`);
         eventType = 'phantomDivergentOffset';
     }
 

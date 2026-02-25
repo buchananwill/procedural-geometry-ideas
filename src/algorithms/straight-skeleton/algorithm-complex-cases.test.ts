@@ -160,13 +160,12 @@ describe('RunAlgorithmV5 — pentagons', () => {
         });
     });
 
-    // DEFAULT_PENTAGON: completes without throwing but does not accept all exterior edges yet
     describe('DEFAULT_PENTAGON', () => {
         it('does not throw', () => {
             expect(() => runAlgorithmV5(DEFAULT_PENTAGON)).not.toThrow();
         });
 
-        it.failing('all exterior edges are accepted', () => {
+        it('all exterior edges are accepted', () => {
             const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
             for (let i = 0; i < ctx.graph.numExteriorNodes; i++) {
                 expect(ctx.acceptedEdges[i]).toBe(true);
@@ -197,10 +196,8 @@ describe('RunAlgorithmV5 — pentagons', () => {
 // ---------------------------------------------------------------------------
 
 describe('RunAlgorithmV5 — hexagons and heptagons', () => {
-    // AWKWARD_HEXAGON: throws "Failed to collide interior edges in triangle" —
-    // the triangle termination case receives edges that don't converge
     describe('AWKWARD_HEXAGON', () => {
-        it.failing('does not throw', () => {
+        it('does not throw', () => {
             expect(() => runAlgorithmV5(AWKWARD_HEXAGON)).not.toThrow();
         });
     });
@@ -271,16 +268,14 @@ describe('RunAlgorithmV5 — octagons', () => {
         });
     });
 
-    // IMPOSSIBLE_OCTAGON and BROKEN_POLYGON: throw "Failed to collide interior edges in triangle" —
-    // the triangle termination case receives edges that don't converge
     describe('IMPOSSIBLE_OCTAGON', () => {
-        it.failing('does not throw', () => {
+        it('does not throw', () => {
             expect(() => runAlgorithmV5(IMPOSSIBLE_OCTAGON)).not.toThrow();
         });
     });
 
     describe('BROKEN_POLYGON', () => {
-        it.failing('does not throw', () => {
+        it('does not throw', () => {
             expect(() => runAlgorithmV5(BROKEN_POLYGON)).not.toThrow();
         });
     });

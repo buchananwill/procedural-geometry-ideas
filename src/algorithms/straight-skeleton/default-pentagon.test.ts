@@ -1,10 +1,9 @@
-import {computeStraightSkeleton} from './algorithm';
-import type {StraightSkeletonSolverContext, Vector2} from './types';
+import type {StraightSkeletonSolverContext} from './types';
 import {
     initStraightSkeletonSolverContext,
-    performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {DEFAULT_PENTAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
+import {DEFAULT_PENTAGON} from './test-constants';
+import {runAlgorithmV5} from './algorithm-termination-cases';
 
 // ---------------------------------------------------------------------------
 // Stage 0 — Initialization diagnostics
@@ -60,56 +59,39 @@ describe('Default pentagon — initialization diagnostics', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Step-by-step diagnostic loop
+// End-to-end V5 algorithm test
 // ---------------------------------------------------------------------------
 
-describe('Default pentagon — step-by-step diagnostic loop', () => {
-    it('traces all steps until completion or failure', () => {
-        const context = initStraightSkeletonSolverContext(DEFAULT_PENTAGON);
-        const steps: DiagnosticStepResult[] = [];
-
-        for (let i = 0; i < 10; i++) {
-            if (context.acceptedEdges.every(f => f)) break;
-            try {
-                const step = performOneStep(context);
-
-                // Find the position of the most recently created interior node
-                const interiorNodes = context.graph.nodes.slice(context.graph.numExteriorNodes);
-                const lastNode = interiorNodes[interiorNodes.length - 1];
-
-                steps.push({
-                    stepIndex: i,
-                    poppedEdgeId: step.poppedEdgeId,
-                    acceptedInteriorEdges: step.acceptedInteriorEdges,
-                    newInteriorEdgeIds: step.newInteriorEdgeIds,
-                    acceptedExteriorEdges: getAcceptedExteriorEdges(context),
-                    newNodePosition: lastNode?.position,
-                    graphIsComplete: context.acceptedEdges.every(f => f),
-                });
-            } catch (e) {
-                steps.push({stepIndex: i, error: (e as Error).message});
-                break;
-            }
-        }
-
-        // Log all steps for diagnosis
-        console.log('=== DEFAULT PENTAGON STEP TRACE ===');
-        console.log(JSON.stringify(steps, null, 2));
-
-        // This is the goal — all exterior edges accepted
-        const allAccepted = context.acceptedEdges
-            .slice(0, context.graph.numExteriorNodes)
-            .every(f => f);
-        expect(allAccepted).toBe(true);
+describe('Default pentagon — V5 algorithm', () => {
+    it('completes without throwing', () => {
+        expect(() => runAlgorithmV5(DEFAULT_PENTAGON)).not.toThrow();
     });
-});
 
-// ---------------------------------------------------------------------------
-// End-to-end smoke test
-// ---------------------------------------------------------------------------
+    it('all exterior edges are accepted', () => {
+        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
+        for (let i = 0; i < ctx.graph.numExteriorNodes; i++) {
+            expect(ctx.acceptedEdges[i]).toBe(true);
+        }
+    });
 
-describe('Default pentagon — end-to-end', () => {
-    it('computeStraightSkeleton completes without throwing', () => {
-        expect(() => computeStraightSkeleton(DEFAULT_PENTAGON)).not.toThrow();
+    it('interior nodes lie inside bounding box', () => {
+        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
+        const xs = DEFAULT_PENTAGON.map(p => p.x);
+        const ys = DEFAULT_PENTAGON.map(p => p.y);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+
+        for (const node of ctx.graph.nodes.slice(ctx.graph.numExteriorNodes)) {
+            expect(node.position.x).toBeGreaterThan(minX);
+            expect(node.position.x).toBeLessThan(maxX);
+            expect(node.position.y).toBeGreaterThan(minY);
+            expect(node.position.y).toBeLessThan(maxY);
+        }
+    });
+
+    it('total edges = numExteriorNodes + interiorEdges.length', () => {
+        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
+        const g = ctx.graph;
+        expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 });

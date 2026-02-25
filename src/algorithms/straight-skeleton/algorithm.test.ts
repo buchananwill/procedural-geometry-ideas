@@ -1,10 +1,7 @@
 import {computeStraightSkeleton} from './algorithm';
-import type {StraightSkeletonGraph, StraightSkeletonSolverContext, Vector2} from './types';
+import {runAlgorithmV5} from './algorithm-termination-cases';
+import type {StraightSkeletonGraph, Vector2} from './types';
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
-import {
-    initStraightSkeletonSolverContext,
-    performOneStep,
-} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {
     TRIANGLE,
     SQUARE,
@@ -32,22 +29,22 @@ function boundingBox(verts: Vector2[]) {
 // 1. Return type and termination
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — return type and termination', () => {
-    it('returns a graph for a triangle without throwing', () => {
-        expect(() => computeStraightSkeleton(TRIANGLE)).not.toThrow();
-        const g = computeStraightSkeleton(TRIANGLE);
-        expect(g).toBeDefined();
-        expect(typeof g.numExteriorNodes).toBe('number');
+describe('runAlgorithmV5 — return type and termination', () => {
+    it('returns a context for a triangle without throwing', () => {
+        expect(() => runAlgorithmV5(TRIANGLE)).not.toThrow();
+        const ctx = runAlgorithmV5(TRIANGLE);
+        expect(ctx).toBeDefined();
+        expect(typeof ctx.graph.numExteriorNodes).toBe('number');
     });
 
-    it('returns a graph for a square without throwing', () => {
-        expect(() => computeStraightSkeleton(SQUARE)).not.toThrow();
-        expect(computeStraightSkeleton(SQUARE)).toBeDefined();
+    it('returns a context for a square without throwing', () => {
+        expect(() => runAlgorithmV5(SQUARE)).not.toThrow();
+        expect(runAlgorithmV5(SQUARE)).toBeDefined();
     });
 
-    it('returns a graph for a rectangle without throwing', () => {
-        expect(() => computeStraightSkeleton(RECTANGLE)).not.toThrow();
-        expect(computeStraightSkeleton(RECTANGLE)).toBeDefined();
+    it('returns a context for a rectangle without throwing', () => {
+        expect(() => runAlgorithmV5(RECTANGLE)).not.toThrow();
+        expect(runAlgorithmV5(RECTANGLE)).toBeDefined();
     });
 });
 
@@ -55,17 +52,17 @@ describe('computeStraightSkeleton — return type and termination', () => {
 // 2. Exterior node count
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — exterior node count', () => {
+describe('runAlgorithmV5 — exterior node count', () => {
     it('triangle: numExteriorNodes === 3', () => {
-        expect(computeStraightSkeleton(TRIANGLE).numExteriorNodes).toBe(3);
+        expect(runAlgorithmV5(TRIANGLE).graph.numExteriorNodes).toBe(3);
     });
 
     it('square: numExteriorNodes === 4', () => {
-        expect(computeStraightSkeleton(SQUARE).numExteriorNodes).toBe(4);
+        expect(runAlgorithmV5(SQUARE).graph.numExteriorNodes).toBe(4);
     });
 
     it('rectangle: numExteriorNodes === 4', () => {
-        expect(computeStraightSkeleton(RECTANGLE).numExteriorNodes).toBe(4);
+        expect(runAlgorithmV5(RECTANGLE).graph.numExteriorNodes).toBe(4);
     });
 });
 
@@ -73,17 +70,17 @@ describe('computeStraightSkeleton — exterior node count', () => {
 // 3. Interior node count
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — interior node count', () => {
+describe('runAlgorithmV5 — interior node count', () => {
     it('triangle: 1 interior node', () => {
-        expect(interiorNodes(computeStraightSkeleton(TRIANGLE))).toHaveLength(1);
+        expect(interiorNodes(runAlgorithmV5(TRIANGLE).graph)).toHaveLength(1);
     });
 
     it('square: 1 interior node', () => {
-        expect(interiorNodes(computeStraightSkeleton(SQUARE))).toHaveLength(1);
+        expect(interiorNodes(runAlgorithmV5(SQUARE).graph)).toHaveLength(1);
     });
 
     it('rectangle: 2 interior nodes', () => {
-        expect(interiorNodes(computeStraightSkeleton(RECTANGLE))).toHaveLength(2);
+        expect(interiorNodes(runAlgorithmV5(RECTANGLE).graph)).toHaveLength(2);
     });
 });
 
@@ -91,31 +88,31 @@ describe('computeStraightSkeleton — interior node count', () => {
 // 4. Interior edge count
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — interior edge count', () => {
+describe('runAlgorithmV5 — interior edge count', () => {
     it('triangle: 3 interior edges', () => {
-        expect(computeStraightSkeleton(TRIANGLE).interiorEdges).toHaveLength(3);
+        expect(runAlgorithmV5(TRIANGLE).graph.interiorEdges).toHaveLength(3);
     });
 
     it('square: 4 interior edges', () => {
-        expect(computeStraightSkeleton(SQUARE).interiorEdges).toHaveLength(4);
+        expect(runAlgorithmV5(SQUARE).graph.interiorEdges).toHaveLength(4);
     });
 
-    it('rectangle: 5 interior edges (4 initial + 1 ridge)', () => {
-        expect(computeStraightSkeleton(RECTANGLE).interiorEdges).toHaveLength(5);
+    it('rectangle: 6 interior edges (4 initial + 2 ridges)', () => {
+        expect(runAlgorithmV5(RECTANGLE).graph.interiorEdges).toHaveLength(6);
     });
 
     it('triangle: total edges = numExteriorNodes + interiorEdges.length', () => {
-        const g = computeStraightSkeleton(TRIANGLE);
+        const g = runAlgorithmV5(TRIANGLE).graph;
         expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 
     it('square: total edges = numExteriorNodes + interiorEdges.length', () => {
-        const g = computeStraightSkeleton(SQUARE);
+        const g = runAlgorithmV5(SQUARE).graph;
         expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 
     it('rectangle: total edges = numExteriorNodes + interiorEdges.length', () => {
-        const g = computeStraightSkeleton(RECTANGLE);
+        const g = runAlgorithmV5(RECTANGLE).graph;
         expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 });
@@ -124,23 +121,23 @@ describe('computeStraightSkeleton — interior edge count', () => {
 // 5. Interior node positions
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — interior node positions', () => {
+describe('runAlgorithmV5 — interior node positions', () => {
     it('triangle: single interior node at incenter (2, √5−1)', () => {
-        const g = computeStraightSkeleton(TRIANGLE);
+        const g = runAlgorithmV5(TRIANGLE).graph;
         const [node] = interiorNodes(g);
         expect(node.position.x).toBeCloseTo(2, 4);
         expect(node.position.y).toBeCloseTo(Math.sqrt(5) - 1, 4);
     });
 
     it('square: single interior node at center (1, 1)', () => {
-        const g = computeStraightSkeleton(SQUARE);
+        const g = runAlgorithmV5(SQUARE).graph;
         const [node] = interiorNodes(g);
         expect(node.position.x).toBeCloseTo(1, 4);
         expect(node.position.y).toBeCloseTo(1, 4);
     });
 
     it('rectangle: two interior nodes at (1, 1) and (3, 1) sorted by x', () => {
-        const g = computeStraightSkeleton(RECTANGLE);
+        const g = runAlgorithmV5(RECTANGLE).graph;
         const nodes = interiorNodes(g).sort((a, b) => a.position.x - b.position.x);
         expect(nodes[0].position.x).toBeCloseTo(1, 4);
         expect(nodes[0].position.y).toBeCloseTo(1, 4);
@@ -153,7 +150,7 @@ describe('computeStraightSkeleton — interior node positions', () => {
 // 6. All exterior nodes have at least one outgoing interior edge
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — exterior nodes have interior out-edges', () => {
+describe('runAlgorithmV5 — exterior nodes have interior out-edges', () => {
     function allExteriorNodesHaveInteriorOutEdge(g: StraightSkeletonGraph): boolean {
         for (let i = 0; i < g.numExteriorNodes; i++) {
             const hasInterior = g.nodes[i].outEdges.some(eid => eid >= g.numExteriorNodes);
@@ -163,15 +160,15 @@ describe('computeStraightSkeleton — exterior nodes have interior out-edges', (
     }
 
     it('triangle: every exterior node has an outgoing interior edge', () => {
-        expect(allExteriorNodesHaveInteriorOutEdge(computeStraightSkeleton(TRIANGLE))).toBe(true);
+        expect(allExteriorNodesHaveInteriorOutEdge(runAlgorithmV5(TRIANGLE).graph)).toBe(true);
     });
 
     it('square: every exterior node has an outgoing interior edge', () => {
-        expect(allExteriorNodesHaveInteriorOutEdge(computeStraightSkeleton(SQUARE))).toBe(true);
+        expect(allExteriorNodesHaveInteriorOutEdge(runAlgorithmV5(SQUARE).graph)).toBe(true);
     });
 
     it('rectangle: every exterior node has an outgoing interior edge', () => {
-        expect(allExteriorNodesHaveInteriorOutEdge(computeStraightSkeleton(RECTANGLE))).toBe(true);
+        expect(allExteriorNodesHaveInteriorOutEdge(runAlgorithmV5(RECTANGLE).graph)).toBe(true);
     });
 });
 
@@ -179,7 +176,7 @@ describe('computeStraightSkeleton — exterior nodes have interior out-edges', (
 // 7. Interior nodes lie strictly inside the polygon bounding box
 // ---------------------------------------------------------------------------
 
-describe('computeStraightSkeleton — interior nodes inside bounding box', () => {
+describe('runAlgorithmV5 — interior nodes inside bounding box', () => {
     function allInteriorNodesInsideBBox(g: StraightSkeletonGraph, verts: Vector2[]): boolean {
         const bb = boundingBox(verts);
         return interiorNodes(g).every(n =>
@@ -189,15 +186,15 @@ describe('computeStraightSkeleton — interior nodes inside bounding box', () =>
     }
 
     it('triangle: interior nodes inside bounding box', () => {
-        expect(allInteriorNodesInsideBBox(computeStraightSkeleton(TRIANGLE), TRIANGLE)).toBe(true);
+        expect(allInteriorNodesInsideBBox(runAlgorithmV5(TRIANGLE).graph, TRIANGLE)).toBe(true);
     });
 
     it('square: interior nodes inside bounding box', () => {
-        expect(allInteriorNodesInsideBBox(computeStraightSkeleton(SQUARE), SQUARE)).toBe(true);
+        expect(allInteriorNodesInsideBBox(runAlgorithmV5(SQUARE).graph, SQUARE)).toBe(true);
     });
 
     it('rectangle: interior nodes inside bounding box', () => {
-        expect(allInteriorNodesInsideBBox(computeStraightSkeleton(RECTANGLE), RECTANGLE)).toBe(true);
+        expect(allInteriorNodesInsideBBox(runAlgorithmV5(RECTANGLE).graph, RECTANGLE)).toBe(true);
     });
 });
 
@@ -220,332 +217,26 @@ describe('computeStraightSkeleton — degenerate inputs', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 9. Pentagon — step-by-step algorithm tracing
+// 9. IMPOSSIBLE_OCTAGON
 // ---------------------------------------------------------------------------
 
-describe('Pentagon — step-by-step algorithm tracing', () => {
-
-    // -----------------------------------------------------------------------
-    // Stage 0: Initialization
-    // -----------------------------------------------------------------------
-
-    describe('stage 0 — after initStraightSkeletonSolverContext', () => {
-        let context: StraightSkeletonSolverContext;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
-        });
-
-        it('creates exactly 5 interior edges (ids 5-9)', () => {
-            expect(context.graph.interiorEdges.map(e => e.id)).toEqual([5, 6, 7, 8, 9]);
-        });
-
-        it('interior edge 5 bisects CW=0 and WS=4', () => {
-            const e = context.graph.interiorEdges[0];
-            expect(e.id).toBe(5);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(0);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(4);
-        });
-
-        it('interior edge 6 bisects CW=1 and WS=0', () => {
-            const e = context.graph.interiorEdges[1];
-            expect(e.id).toBe(6);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(1);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(0);
-        });
-
-        it('interior edge 7 bisects CW=2 and WS=1', () => {
-            const e = context.graph.interiorEdges[2];
-            expect(e.id).toBe(7);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(2);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(1);
-        });
-
-        it('interior edge 8 bisects CW=3 and WS=2', () => {
-            const e = context.graph.interiorEdges[3];
-            expect(e.id).toBe(8);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(3);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(2);
-        });
-
-        it('interior edge 9 bisects CW=4 and WS=3', () => {
-            const e = context.graph.interiorEdges[4];
-            expect(e.id).toBe(9);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(4);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(3);
-        });
-
-        it('no exterior edges are accepted yet', () => {
-            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-                expect(context.acceptedEdges[i]).toBe(false);
-            }
-        });
-
+describe('IMPOSSIBLE_OCTAGON — V5', () => {
+    it('does not throw', () => {
+        expect(() => runAlgorithmV5(IMPOSSIBLE_OCTAGON)).not.toThrow();
     });
 
-    // -----------------------------------------------------------------------
-    // Stage 1: First heap.pop()
-    // -----------------------------------------------------------------------
-
-    describe('stage 1 — after first heap.pop()', () => {
-        let context: StraightSkeletonSolverContext;
-        let step1: ReturnType<typeof performOneStep>;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
-            step1 = performOneStep(context);
-        });
-
-        // Result 1: interior edges 5, 6, 9 accepted
-        it('accepts interior edges 5, 6, and 9', () => {
-            expect([...step1.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([5, 6, 9]);
-        });
-
-        it('marks interior edge 5 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[5]).toBe(true);
-        });
-
-        it('marks interior edge 6 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[6]).toBe(true);
-        });
-
-        it('marks interior edge 9 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[9]).toBe(true);
-        });
-
-        // Result 2: exterior edges 0 and 4 accepted
-        it('accepts exterior edge 0', () => {
-            expect(context.acceptedEdges[0]).toBe(true);
-        });
-
-        it('accepts exterior edge 4', () => {
-            expect(context.acceptedEdges[4]).toBe(true);
-        });
-
-        it('does not yet accept exterior edges 1, 2, or 3', () => {
-            expect(context.acceptedEdges[1]).toBe(false);
-            expect(context.acceptedEdges[2]).toBe(false);
-            expect(context.acceptedEdges[3]).toBe(false);
-        });
-
-        // Result 3: edge 10 is pushed
-        it('pushes exactly one new interior edge with id 10', () => {
-            expect(step1.newInteriorEdgeIds).toEqual([10]);
-        });
-
-        it('graph now has 6 interior edges total', () => {
-            expect(context.graph.interiorEdges).toHaveLength(6);
-        });
-
-        it('interior edges 7 and 8 are not yet accepted', () => {
-            expect(context.acceptedEdges[7]).toBe(false);
-            expect(context.acceptedEdges[8]).toBe(false);
-        });
-    });
-
-    // -----------------------------------------------------------------------
-    // Stage 2: Second heap.pop()
-    // -----------------------------------------------------------------------
-
-    describe('stage 2 — after second heap.pop()', () => {
-        let context: StraightSkeletonSolverContext;
-        let step2: ReturnType<typeof performOneStep>;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
-            performOneStep(context); // stage 1
-            step2 = performOneStep(context); // stage 2
-        });
-
-        // Result 4: interior edges 7, 10, 8 accepted
-        it('accepts interior edges 7, 8, and 10', () => {
-            expect([...step2.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([7, 8, 10]);
-        });
-
-        it('marks interior edge 7 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[7]).toBe(true);
-        });
-
-        it('marks interior edge 8 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[8]).toBe(true);
-        });
-
-        it('marks interior edge 10 as accepted in acceptedEdges', () => {
-            expect(context.acceptedEdges[10]).toBe(true);
-        });
-
-        // Result 5: exterior edges 1, 2, 3 accepted
-        it('accepts exterior edge 1', () => {
-            expect(context.acceptedEdges[1]).toBe(true);
-        });
-
-        it('accepts exterior edge 2', () => {
-            expect(context.acceptedEdges[2]).toBe(true);
-        });
-
-        it('accepts exterior edge 3', () => {
-            expect(context.acceptedEdges[3]).toBe(true);
-        });
-
-        // Result 6: no new interior edges pushed
-        it('pushes no new interior edges', () => {
-            expect(step2.newInteriorEdgeIds).toHaveLength(0);
-        });
-
-        it('graph still has 6 interior edges total', () => {
-            expect(context.graph.interiorEdges).toHaveLength(6);
-        });
-
-        // Result 7: all exterior edges accepted
-        it('all 5 exterior edges are now accepted', () => {
-            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-                expect(context.acceptedEdges[i]).toBe(true);
-            }
-        });
-
-        it('all entries in acceptedEdges are true (graphIsComplete equivalent)', () => {
-            expect(context.acceptedEdges.every(flag => flag)).toBe(true);
-        });
-    });
-});
-
-// ---------------------------------------------------------------------------
-// 11. Impossible octagon
-// ---------------------------------------------------------------------------
-
-describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
-
-    // -----------------------------------------------------------------------
-    // Stage 0: initialization
-    // -----------------------------------------------------------------------
-
-    describe('stage 0 — after initStraightSkeletonSolverContext', () => {
-        let context: StraightSkeletonSolverContext;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-        });
-
-        it('numExteriorNodes === 8', () => {
-            expect(context.graph.numExteriorNodes).toBe(8);
-        });
-
-        it('creates exactly 8 interior edges (ids 8–15)', () => {
-            expect(context.graph.interiorEdges.map(e => e.id)).toEqual([8, 9, 10, 11, 12, 13, 14, 15]);
-        });
-
-        it('no exterior edges are accepted at init', () => {
-            for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-                expect(context.acceptedEdges[i]).toBe(false);
-            }
-        });
-
-        it.each([
-            [8,  0, 7],
-            [9,  1, 0],
-            [10, 2, 1],
-            [11, 3, 2],
-            [12, 4, 3],
-            [13, 5, 4],
-            [14, 6, 5],
-            [15, 7, 6],
-        ])('interior edge %i bisects CW=%i and WS=%i', (id, cw, ws) => {
-            const e = context.graph.interiorEdges[id - 8];
-            expect(e.id).toBe(id);
-            expect(e.clockwiseExteriorEdgeIndex).toBe(cw);
-            expect(e.widdershinsExteriorEdgeIndex).toBe(ws);
-        });
-    });
-
-    // -----------------------------------------------------------------------
-    // End-to-end: algorithm completes without throwing
-    // -----------------------------------------------------------------------
-
-    it('completes without throwing', () => {
-        expect(() => computeStraightSkeleton(IMPOSSIBLE_OCTAGON))
-            .not.toThrow();
-    });
-
-    // -----------------------------------------------------------------------
-    // Step-by-step tracing
-    // -----------------------------------------------------------------------
-
-    describe('stage 1 — after first heap.pop()', () => {
-        let context: StraightSkeletonSolverContext;
-        let step1: ReturnType<typeof performOneStep>;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-            step1 = performOneStep(context);
-        });
-
-        it('accepts interior edges 8 and 9', () => {
-            expect([...step1.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([8, 9]);
-        });
-
-        it('pushes exactly one new interior edge (id 16)', () => {
-            expect(step1.newInteriorEdgeIds).toEqual([16]);
-        });
-    });
-
-    describe('stage 2 — after second heap.pop()', () => {
-        let context: StraightSkeletonSolverContext;
-        let step2: ReturnType<typeof performOneStep>;
-
-        beforeEach(() => {
-            context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-            performOneStep(context);
-            step2 = performOneStep(context);
-        });
-
-        it('accepts interior edges 12 and 13', () => {
-            expect([...step2.acceptedInteriorEdges].sort((a, b) => a - b)).toEqual([12, 13]);
-        });
-
-        it('pushes exactly one new interior edge (id 17)', () => {
-            expect(step2.newInteriorEdgeIds).toEqual([17]);
-        });
-    });
-
-    // -----------------------------------------------------------------------
-    // After fix: no double-accepts, all exterior edges accepted
-    // -----------------------------------------------------------------------
-
-    it('no interior edge is accepted more than once', () => {
-        const context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-        const acceptedSoFar = new Set<number>();
-        const doubleAccepted: number[] = [];
-
-        for (let i = 0; i < 20; i++) {
-            if (context.acceptedEdges.every(f => f)) break;
-            const step = performOneStep(context);
-            for (const e of step.acceptedInteriorEdges) {
-                if (acceptedSoFar.has(e)) doubleAccepted.push(e);
-                acceptedSoFar.add(e);
-            }
-        }
-
-        expect(doubleAccepted).toHaveLength(0);
-    });
-
-    it('all exterior edges are accepted after algorithm completes', () => {
-        const context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-
-        for (let i = 0; i < 20; i++) {
-            if (context.acceptedEdges.every(f => f)) break;
-            performOneStep(context);
-        }
-
-        const allExteriorAccepted = context.acceptedEdges
-            .slice(0, context.graph.numExteriorNodes)
+    it('all exterior edges are accepted', () => {
+        const ctx = runAlgorithmV5(IMPOSSIBLE_OCTAGON);
+        const allExteriorAccepted = ctx.acceptedEdges
+            .slice(0, ctx.graph.numExteriorNodes)
             .every(f => f);
         expect(allExteriorAccepted).toBe(true);
     });
 
     it('all interior nodes lie inside the bounding box', () => {
-        const g = computeStraightSkeleton(IMPOSSIBLE_OCTAGON);
+        const ctx = runAlgorithmV5(IMPOSSIBLE_OCTAGON);
         const bb = boundingBox(IMPOSSIBLE_OCTAGON);
-        for (const n of interiorNodes(g)) {
+        for (const n of interiorNodes(ctx.graph)) {
             expect(n.position.x).toBeGreaterThan(bb.minX);
             expect(n.position.x).toBeLessThan(bb.maxX);
             expect(n.position.y).toBeGreaterThan(bb.minY);
@@ -554,29 +245,28 @@ describe('IMPOSSIBLE_OCTAGON — straight skeleton', () => {
     });
 
     it('total edge count equals numExteriorNodes + interiorEdges.length', () => {
-        const g = computeStraightSkeleton(IMPOSSIBLE_OCTAGON);
+        const ctx = runAlgorithmV5(IMPOSSIBLE_OCTAGON);
+        const g = ctx.graph;
         expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 });
 
+// ---------------------------------------------------------------------------
 // Pentagon house
+// ---------------------------------------------------------------------------
 
-describe('Pentagon house', () => {
-    let g: StraightSkeletonGraph;
-
+describe('Pentagon house — V5', () => {
     it('should have 5 exterior edges after init', () => {
-        g = initBoundingPolygon(PENTAGON_HOUSE);
+        const g = initBoundingPolygon(PENTAGON_HOUSE);
         expect(g.edges.length).toBe(5);
     });
 
-    it('should have 5 interior edges after context init', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
-        g = context.graph;
-        expect(g.interiorEdges.length).toBe(5);
+    it('does not throw', () => {
+        expect(() => runAlgorithmV5(PENTAGON_HOUSE)).not.toThrow();
     });
 
     it('should have 7 nodes', () => {
-        g = computeStraightSkeleton(PENTAGON_HOUSE);
-        expect(g.nodes.length).toBe(7);
+        const ctx = runAlgorithmV5(PENTAGON_HOUSE);
+        expect(ctx.graph.nodes.length).toBe(7);
     });
 })
