@@ -728,19 +728,30 @@ describe('geometric scenarios from test polygons', () => {
         }
     }
 
-    it('TRIANGLE produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(TRIANGLE);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
+    const GEOMETRIC_POLYGONS = [
+        {name: 'TRIANGLE', vertices: TRIANGLE},
+        {name: 'SQUARE', vertices: SQUARE},
+        {name: 'RECTANGLE', vertices: RECTANGLE},
+        {name: 'PENTAGON_HOUSE', vertices: PENTAGON_HOUSE},
+        {name: 'DEFAULT_PENTAGON', vertices: DEFAULT_PENTAGON},
+        {name: 'AWKWARD_HEXAGON', vertices: AWKWARD_HEXAGON},
+        {name: 'AWKWARD_HEPTAGON', vertices: AWKWARD_HEPTAGON},
+        {name: 'IMPOSSIBLE_OCTAGON', vertices: IMPOSSIBLE_OCTAGON},
+        {name: 'BROKEN_POLYGON', vertices: BROKEN_POLYGON},
+    ];
+
+    describe.each(GEOMETRIC_POLYGONS)('$name', ({vertices}) => {
+        it('produces valid collision events', () => {
+            const context = initStraightSkeletonSolverContext(vertices);
+            const events = createCollisionEvents(context);
+            expect(events.length).toBeGreaterThan(0);
+            assertValidEvents(events);
+        });
     });
 
-    it('SQUARE produces valid collision events inside bounding box', () => {
+    it('SQUARE events lie inside bounding box', () => {
         const context = initStraightSkeletonSolverContext(SQUARE);
         const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-
         for (const event of events) {
             expect(event.position.x).toBeGreaterThanOrEqual(-0.01);
             expect(event.position.x).toBeLessThanOrEqual(2.01);
@@ -752,53 +763,7 @@ describe('geometric scenarios from test polygons', () => {
     it('RECTANGLE produces events with varying offsetDistances', () => {
         const context = initStraightSkeletonSolverContext(RECTANGLE);
         const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-
-        // RECTANGLE is asymmetric, so expect at least 1 distinct distance
         const uniqueDistances = new Set(events.map(e => Math.round(e.offsetDistance * 1000)));
         expect(uniqueDistances.size).toBeGreaterThanOrEqual(1);
-    });
-
-    it('PENTAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(PENTAGON_HOUSE);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-    });
-
-    it('DEFAULT_PENTAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(DEFAULT_PENTAGON);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-    });
-
-    it('AWKWARD_HEXAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(AWKWARD_HEXAGON);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-    });
-
-    it('AWKWARD_HEPTAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(AWKWARD_HEPTAGON);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-    });
-
-    it('IMPOSSIBLE_OCTAGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(IMPOSSIBLE_OCTAGON);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
-    });
-
-    it('BROKEN_POLYGON produces valid collision events', () => {
-        const context = initStraightSkeletonSolverContext(BROKEN_POLYGON);
-        const events = createCollisionEvents(context);
-        expect(events.length).toBeGreaterThan(0);
-        assertValidEvents(events);
     });
 });

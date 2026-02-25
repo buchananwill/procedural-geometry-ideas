@@ -137,3 +137,81 @@ export const MOORHEN_PASSES = [
         "y": 329.54084645230455
     }
 ]
+
+/**
+ * This polygon is **robustly broken**!
+ * While bisector 7 (the interior edge with node 7 as source) is colliding with e1 near to n2, the skeleton algorithm
+ * fails, even for large perturbations of n0, n1, n4, n5.
+ *
+ * If n6, n8, n2 or n3 are adjusted so that bisector 7 (e15) strikes either e2, or further away from n2 along e1, then the algorithm
+ * succeeds. See constant below for success example.
+ * */
+export const BISECTOR_SEVEN_FAILURE = [
+    {
+        "x": 250,
+        "y": 250
+    },
+    {
+        "x": 300,
+        "y": 450
+    },
+    {
+        "x": 500,
+        "y": 450
+    },
+    {
+        "x": 537.7868459349927,
+        "y": 389.0072879736522
+    },
+    {
+        "x": 563.5349625429404,
+        "y": 323.89572222311347
+    },
+    {
+        "x": 546.1435543836416,
+        "y": 249.6495408920134
+    },
+    {
+        "x": 483.2132231254724,
+        "y": 280.36182894979646
+    },
+    {
+        "x": 455.1750427158221,
+        "y": 327.2846666246924
+    }
+]
+
+export const BISECTOR_SEVEN_SUCCESS = [
+    {
+        "x": 250,
+        "y": 250
+    },
+    {
+        "x": 300,
+        "y": 450
+    },
+    {
+        "x": 500,
+        "y": 450
+    },
+    {
+        "x": 537.7868459349927,
+        "y": 389.0072879736522
+    },
+    {
+        "x": 563.5349625429404,
+        "y": 323.89572222311347
+    },
+    {
+        "x": 546.1435543836416,
+        "y": 249.6495408920134
+    },
+    {
+        "x": 490.22494242794227,
+        "y": 278.6095334098634
+    },
+    {
+        "x": 455.1750427158221,
+        "y": 327.2846666246924
+    }
+]

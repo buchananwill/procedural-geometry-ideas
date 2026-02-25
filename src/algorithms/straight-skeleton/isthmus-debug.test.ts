@@ -1,5 +1,5 @@
-import {makeStraightSkeletonSolverContext} from './solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge, ensureBisectionIsInterior, ensureDirectionNotReversed} from './algorithm-helpers';
+import {initContext, stepWithCapture} from './test-cases/test-helpers';
+import {tryToAcceptExteriorEdge} from './algorithm-helpers';
 import {StepAlgorithm} from './algorithm-termination-cases';
 import {collideEdges, collideInteriorEdges} from './collision-helpers';
 import {unitsToIntersection} from './intersection-edges';
@@ -8,56 +8,8 @@ import {
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_7,
 } from './test-cases/isthmus-failure';
-import type {AlgorithmStepInput, StraightSkeletonSolverContext, Vector2} from './types';
+import type {AlgorithmStepInput, Vector2} from './types';
 import {crossProduct, dotProduct, makeBisectedBasis, scaleVector, addVectors, subtractVectors, normalize} from './core-functions';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function initContext(vertices: Vector2[]): StraightSkeletonSolverContext {
-    const context = makeStraightSkeletonSolverContext(vertices);
-    initInteriorEdges(context);
-    return context;
-}
-
-interface StepSnapshot {
-    step: number;
-    inputCount: number;
-    inputs: { edges: number[] }[];
-    acceptedEdges: boolean[];
-    nodeCount: number;
-}
-
-function stepWithCapture(vertices: Vector2[]): {
-    snapshots: StepSnapshot[];
-    error: string | null;
-} {
-    const context = initContext(vertices);
-    const exteriorEdges = context.graph.edges.slice(0, context.graph.numExteriorNodes);
-    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
-    const snapshots: StepSnapshot[] = [];
-    let step = 0;
-    let error: string | null = null;
-
-    while (inputs.length > 0) {
-        try {
-            inputs = StepAlgorithm(context, inputs).childSteps;
-            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
-            snapshots.push({
-                step: step++,
-                inputCount: inputs.length,
-                inputs: inputs.map(i => ({edges: [...i.interiorEdges]})),
-                acceptedEdges: [...context.acceptedEdges],
-                nodeCount: context.graph.nodes.length,
-            });
-        } catch (e) {
-            error = e instanceof Error ? e.message : String(e);
-            break;
-        }
-    }
-    return {snapshots, error};
-}
 
 // ---------------------------------------------------------------------------
 // Tests

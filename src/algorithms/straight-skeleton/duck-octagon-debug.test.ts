@@ -1,74 +1,11 @@
-import {makeStraightSkeletonSolverContext} from './solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from './algorithm-helpers';
-import {StepAlgorithm} from './algorithm-termination-cases';
+import {initContext, stepWithCapture} from './test-cases/test-helpers';
 import {collideEdges} from './collision-helpers';
 import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from './test-cases/duck-octagon';
 import {checkSharedParents} from './collision-helpers';
 import handleCollisionEvent from './collision-handling';
-import type {AlgorithmStepInput, StraightSkeletonSolverContext} from './types';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-interface StepSnapshot {
-    step: number;
-    inputCount: number;
-    inputs: { edges: number[] }[];
-    acceptedEdges: boolean[];
-    nodeCount: number;
-    edgeCount: number;
-    interiorEdgeCount: number;
-}
-
-function initContext(vertices: { x: number; y: number }[]): StraightSkeletonSolverContext {
-    const context = makeStraightSkeletonSolverContext(vertices);
-    initInteriorEdges(context);
-    return context;
-}
-
-/**
- * Run the V5 algorithm step-by-step, capturing a snapshot after each iteration.
- * If the algorithm throws, we catch the error and return what we have so far.
- */
-function stepWithCapture(vertices: { x: number; y: number }[]): {
-    snapshots: StepSnapshot[];
-    error: string | null;
-    context: StraightSkeletonSolverContext;
-    lastInputs: AlgorithmStepInput[];
-} {
-    const context = initContext(vertices);
-    const exteriorEdges = context.graph.edges.slice(0, context.graph.numExteriorNodes);
-
-    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
-    const snapshots: StepSnapshot[] = [];
-    let step = 0;
-    let error: string | null = null;
-    let lastInputs = inputs;
-
-    while (inputs.length > 0) {
-        try {
-            lastInputs = inputs;
-            inputs = StepAlgorithm(context, inputs).childSteps;
-            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
-
-            snapshots.push({
-                step: step++,
-                inputCount: inputs.length,
-                inputs: inputs.map(i => ({edges: [...i.interiorEdges]})),
-                acceptedEdges: [...context.acceptedEdges],
-                nodeCount: context.graph.nodes.length,
-                edgeCount: context.graph.edges.length,
-                interiorEdgeCount: context.graph.interiorEdges.length,
-            });
-        } catch (e) {
-            error = e instanceof Error ? e.message : String(e);
-            break;
-        }
-    }
-
-    return {snapshots, error, context, lastInputs};
-}
+import {StepAlgorithm} from './algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from './algorithm-helpers';
+import type {AlgorithmStepInput} from './types';
 
 // ---------------------------------------------------------------------------
 // Tests

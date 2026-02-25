@@ -3,10 +3,11 @@ import {
     initStraightSkeletonSolverContext,
 } from "@/algorithms/straight-skeleton/algorithm-v1-helpers";
 import {DEFAULT_PENTAGON} from './test-cases/test-constants';
-import {runAlgorithmV5} from './algorithm-termination-cases';
 
 // ---------------------------------------------------------------------------
-// Stage 0 — Initialization diagnostics
+// Stage 0 — Initialization diagnostics (V1 pipeline)
+// Generic V5 invariants (no-throw, all-accepted, bbox, edge-count) are
+// covered by regression.test.ts for every polygon including DEFAULT_PENTAGON.
 // ---------------------------------------------------------------------------
 
 describe('Default pentagon — initialization diagnostics', () => {
@@ -55,43 +56,5 @@ describe('Default pentagon — initialization diagnostics', () => {
         for (let i = 0; i < context.graph.numExteriorNodes; i++) {
             expect(context.acceptedEdges[i]).toBe(false);
         }
-    });
-});
-
-// ---------------------------------------------------------------------------
-// End-to-end V5 algorithm test
-// ---------------------------------------------------------------------------
-
-describe('Default pentagon — V5 algorithm', () => {
-    it('completes without throwing', () => {
-        expect(() => runAlgorithmV5(DEFAULT_PENTAGON)).not.toThrow();
-    });
-
-    it('all exterior edges are accepted', () => {
-        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
-        for (let i = 0; i < ctx.graph.numExteriorNodes; i++) {
-            expect(ctx.acceptedEdges[i]).toBe(true);
-        }
-    });
-
-    it('interior nodes lie inside bounding box', () => {
-        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
-        const xs = DEFAULT_PENTAGON.map(p => p.x);
-        const ys = DEFAULT_PENTAGON.map(p => p.y);
-        const minX = Math.min(...xs), maxX = Math.max(...xs);
-        const minY = Math.min(...ys), maxY = Math.max(...ys);
-
-        for (const node of ctx.graph.nodes.slice(ctx.graph.numExteriorNodes)) {
-            expect(node.position.x).toBeGreaterThan(minX);
-            expect(node.position.x).toBeLessThan(maxX);
-            expect(node.position.y).toBeGreaterThan(minY);
-            expect(node.position.y).toBeLessThan(maxY);
-        }
-    });
-
-    it('total edges = numExteriorNodes + interiorEdges.length', () => {
-        const ctx = runAlgorithmV5(DEFAULT_PENTAGON);
-        const g = ctx.graph;
-        expect(g.edges.length).toBe(g.numExteriorNodes + g.interiorEdges.length);
     });
 });
