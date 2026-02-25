@@ -30,8 +30,8 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
             const interiorEdge = context.getInteriorWithId(ev1Id1);
             const ev1IsShortestForId1 = areEqual(interiorEdge.length, length1a);
             const ev2IsShortestForId1 = areEqual(interiorEdge.length, length2a);
-            const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length1b)
-            const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
+            const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev1Id2).length, length1b)
+            const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
 
             if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)){
                 return -1;
