@@ -1,4 +1,4 @@
-const LONG_OCTAGON = [
+export const LONG_OCTAGON = [
     {
         "x": 427.8265828836829,
         "y": 237.437811624889
@@ -33,7 +33,7 @@ const LONG_OCTAGON = [
     }
 ]
 
-const FAILING_LONG_OCTAGON = [
+export const FAILING_LONG_OCTAGON = [
     {
         "x": 427.8265828836829,
         "y": 237.437811624889
@@ -68,7 +68,7 @@ const FAILING_LONG_OCTAGON = [
     }
 ]
 
-const FAILING_GENTLE_REFLEX_PENTAGON = [
+export const FAILING_GENTLE_REFLEX_PENTAGON = [
     {
         "x": 370.21036814425236,
         "y": 293.7128611433645

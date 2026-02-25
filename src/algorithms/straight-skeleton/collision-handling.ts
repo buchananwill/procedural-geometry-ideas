@@ -30,6 +30,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
 
         const collapsedEdge = clockwiseCollider.widdershinsExteriorEdgeIndex;
+        const approximateDirection = makeBisectedBasis(instigatorData.basisVector, targetEdgeData.basisVector)
 
         context.accept(collapsedEdge);
         context.accept(widdershinsCollider.id);
@@ -38,7 +39,8 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         return [{
             clockwiseExteriorEdgeIndex: clockwiseCollider.clockwiseExteriorEdgeIndex,
             source: newNode.id,
-            widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex
+            widdershinsExteriorEdgeIndex: widdershinsCollider.widdershinsExteriorEdgeIndex,
+            approximateDirection
         }]
 
 
