@@ -63,11 +63,6 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         return null;
     }
 
-    const offsetFromSource = projectToPerpendicular(ray2.basisVector, cwParent.basisVector, alongRay1)
-    const sourceOffset = sourceOffsetDistance(iEdge, context)
-    const totalOffset = offsetFromSource + sourceOffset;
-
-
     // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
     const widdershinsParentRay: RayProjection = {
         sourceVector: context.findSource(iEdge.id).position,
@@ -114,11 +109,10 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
     const [, alongWfTarget] = unitsToIntersection(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(eEdge.basisVector, -1)});
 
-    console.log(`  WF check e${iEdge.id} vs e${eEdge.id}: offset=${finalCollisionOffset.toFixed(4)} srcBisector=e${sourceBisectorId} tgtBisector=e${targetBisectorId} tSrc=${tSource.toFixed(4)} tTgt=${tTarget.toFixed(4)} alongWfSrc=${alongWfSource.toFixed(4)} alongWfTgt=${alongWfTarget.toFixed(4)}`);
-
+    let eventType: CollisionType ="interiorAgainstExterior";
     if (alongWfSource < 0 || alongWfTarget < 0) {
-        console.log(`    -> FILTERED OUT (outside wavefront)`);
-        return null;
+        console.log(`  WF FILTERED: e${iEdge.id} vs e${eEdge.id} offset=${finalCollisionOffset.toFixed(4)} srcBisector=e${sourceBisectorId} tgtBisector=e${targetBisectorId} alongWfSrc=${alongWfSource.toFixed(4)} alongWfTgt=${alongWfTarget.toFixed(4)}`);
+        eventType = 'phantomDivergentOffset';
     }
 
     return {
@@ -126,7 +120,7 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         intersectionData,
         offsetDistance: finalCollisionOffset,
         position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
-        eventType: "interiorAgainstExterior"
+        eventType
     }
 }
 
