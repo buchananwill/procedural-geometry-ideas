@@ -16,9 +16,15 @@ function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     const [length2a, length2b] = ev2.intersectionData;
     const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
     const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
+    const isAdjacentEv1 = ev1.eventType === 'interiorPair';
+    const isAdjacentEv2 = ev2.eventType === 'interiorPair';
 
     if (ev1Phantom !== ev2Phantom) {
         return ev1.offsetDistance - ev2.offsetDistance;
+    }
+
+    if (isAdjacentEv1 !== isAdjacentEv2){
+        return isAdjacentEv1 ? -1 : 1;
     }
 
     if (ev1.eventType === 'interiorPair'){
