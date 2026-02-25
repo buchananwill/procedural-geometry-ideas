@@ -2,7 +2,7 @@
 
 import {useState, useMemo, useEffect, useCallback} from "react";
 import dynamic from "next/dynamic";
-import {AppShell, Group, Title, Button, Text, Stack, Paper, Switch} from "@mantine/core";
+import {AppShell, Group, Title, Button, Text, Stack, Paper, Switch, Select} from "@mantine/core";
 import {usePolygonStore} from "@/stores/usePolygonStore";
 import {
     computeStraightSkeleton,
@@ -42,6 +42,7 @@ export default function Home() {
     const setVertices = usePolygonStore((s) => s.setVertices);
 
     const [showSkeleton, setShowSkeleton] = useState(false);
+    const [algorithmVersion, setAlgorithmVersion] = useState<"v1" | "v5">("v5");
     const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
     const [copied, setCopied] = useState(false);
     const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
@@ -115,14 +116,15 @@ export default function Home() {
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (!showSkeleton) return null;
         try {
-            const context = runAlgorithmV5(vertices);
-            return context.graph
-            // return computeStraightSkeleton(vertices);
+            if (algorithmVersion === "v1") {
+                return computeStraightSkeleton(vertices);
+            }
+            return runAlgorithmV5(vertices).graph;
         } catch (e) {
             console.log(e)
             return null;
         }
-    }, [showSkeleton, vertices]);
+    }, [showSkeleton, vertices, algorithmVersion]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -226,6 +228,19 @@ export default function Home() {
                         <Paper p="md" withBorder>
                             <Stack gap="xs">
                                 <Title order={5}>Algorithms</Title>
+                                <Select
+                                    size="xs"
+                                    label="Skeleton version"
+                                    data={[
+                                        {value: "v1", label: "V1 — Heap-based"},
+                                        {value: "v5", label: "V5 — Step-based (latest)"},
+                                    ]}
+                                    value={algorithmVersion}
+                                    onChange={(val) => {
+                                        if (val === "v1" || val === "v5") setAlgorithmVersion(val);
+                                    }}
+                                    allowDeselect={false}
+                                />
                                 <Button
                                     color="orange"
                                     variant={showSkeleton ? "filled" : "light"}
