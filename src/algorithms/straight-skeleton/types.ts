@@ -26,7 +26,7 @@ export interface InteriorEdge {
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
     intersectingEdges?: number[];
-    length?: number;
+    length: number;
     heapGeneration?: number;
 }
 
@@ -94,6 +94,8 @@ export interface GraphHelpers {
     findSource(edgeId: number): PolygonNode;
     edgeRank(edgeId: number): EdgeRank;
     isPrimaryNonReflex(edgeId: number): boolean;
+    updateMinLength(edgeId: number, length: number): void;
+    resetMinLength(edgeId: number): void;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {

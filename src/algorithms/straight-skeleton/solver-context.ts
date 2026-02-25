@@ -70,6 +70,15 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
     }
 
+    function updateMinLength(edgeId:number, length: number): void {
+        if (edgeRank(edgeId) === 'exterior'){
+            return;
+        }
+
+        const edgeData = getInteriorWithId(edgeId);
+        edgeData.length = Math.min(length, edgeData.length);
+    }
+
     return {
         graph,
         acceptedEdges: acceptedEdges,
@@ -122,6 +131,14 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             return graph.nodes[graph.edges[edgeId].source]
         },
         edgeRank,
-        isPrimaryNonReflex
+        isPrimaryNonReflex,
+        updateMinLength,
+        resetMinLength(edgeId: number) {
+            const rank = edgeRank(edgeId);
+            if (rank === 'exterior'){
+                return
+            }
+            getInteriorWithId(edgeId).length = Number.POSITIVE_INFINITY;
+        }
     };
 }

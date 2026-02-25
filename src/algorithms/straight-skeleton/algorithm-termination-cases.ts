@@ -125,6 +125,8 @@ export function HandleAlgorithmStepInput(context: StraightSkeletonSolverContext,
 }
 
 export function StepAlgorithm(context: StraightSkeletonSolverContext, inputs: AlgorithmStepInput[]): AlgorithmStepOutput {
+    context.graph.interiorEdges.forEach(e => context.resetMinLength(e.id))
+
     return {
         childSteps: inputs
             .flatMap(inputList => HandleAlgorithmStepInput(context, inputList).childSteps)

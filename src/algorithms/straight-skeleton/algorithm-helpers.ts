@@ -29,6 +29,8 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
  * returns index of just-added edge
  * */
 export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
+
+
     const spanSize = (clockwiseExteriorEdgeIndex - widdershinsExteriorEdgeIndex + graph.numExteriorNodes) % graph.numExteriorNodes;
     const parentsInverted = spanSize > graph.numExteriorNodes / 2;
     if (parentsInverted){
@@ -54,7 +56,9 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
 
     let finalBasis: Vector2;
 
-    if (approximateDirection && parentsInverted) {
+    if (approximateDirection
+        // && parentsInverted
+    ) {
         finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
     } else
     {

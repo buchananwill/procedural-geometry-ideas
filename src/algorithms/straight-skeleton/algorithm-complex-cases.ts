@@ -11,28 +11,51 @@ import {
     tryToAcceptExteriorEdge
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 
-function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
-    const [length1a, length1b] = ev1.intersectionData;
-    const [length2a, length2b] = ev2.intersectionData;
-    const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
-    const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
-    const isAdjacentEv1 = ev1.eventType === 'interiorPair';
-    const isAdjacentEv2 = ev2.eventType === 'interiorPair';
+function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
+    function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
 
-    if (ev1Phantom !== ev2Phantom) {
+        const [length1a, length1b] = ev1.intersectionData;
+        const [length2a, length2b] = ev2.intersectionData;
+        const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
+        const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
+
+        const [ev1Id1, ev1Id2] = ev1.collidingEdges;
+        const [ev2Id1, ev2Id2] = ev1.collidingEdges;
+        if (ev2Id1 !== ev1Id1) {
+            throw new Error("Different instigators! Invalid comparison.")
+        }
+
+        if (context.edgeRank(ev1Id2) !== 'exterior' && context.edgeRank(ev2Id2) !== 'exterior') {
+
+            const interiorEdge = context.getInteriorWithId(ev1Id1);
+            const ev1IsShortestForId1 = areEqual(interiorEdge.length, length1a);
+            const ev2IsShortestForId1 = areEqual(interiorEdge.length, length2a);
+            const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length1b)
+            const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
+
+            if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)){
+                return -1;
+            }
+
+            if ((!ev1IsShortestForId1 || !ev1IsShortestForId2) && (ev2IsShortestForId1 && ev2IsShortestForId2)){
+                return 1;
+            }
+        }
+
+
+        if (ev1Phantom !== ev2Phantom) {
+            return ev1.offsetDistance - ev2.offsetDistance;
+        }
+
+        if (ev1.eventType === 'interiorPair') {
+            return length1a - length2a;
+        }
+
         return ev1.offsetDistance - ev2.offsetDistance;
+
     }
 
-    // if (isAdjacentEv1 !== isAdjacentEv2){
-    //     return isAdjacentEv1 ? -1 : 1;
-    // }
-
-    if (ev1.eventType === 'interiorPair'){
-        return length1a - length2a;
-    }
-
-        return ev1.offsetDistance - ev2.offsetDistance;
-    // return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
+    return sameInstigatorComparator;
 }
 
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
@@ -44,6 +67,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
         childSteps: []
     };
 
+    const sameInstigatorComparator = makeSameInstigatorComparator(context)
 
     const exteriorParents = input.interiorEdges
         .map(context.getInteriorWithId)

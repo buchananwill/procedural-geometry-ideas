@@ -87,6 +87,10 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
     const finalCollisionOffset = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
 
+    if (finalCollisionOffset <= 0) {
+        return null;
+    }
+
     // Validate that the collision point is within the shrunk wavefront of the exterior edge.
     // Advance the exterior edge's source and target vertices along their primary bisectors
     // to the collision offset, then check ray1 intersects within the resulting wavefront segment.
@@ -107,14 +111,17 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
     const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, finalCollisionOffset);
     const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
-    const [, alongWfTarget] = unitsToIntersection(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(eEdge.basisVector, -1)});
+    const [, alongWfTarget] = unitsToIntersection(ray1, {
+        sourceVector: advancedTarget,
+        basisVector: scaleVector(eEdge.basisVector, -1)
+    });
 
-    let eventType: CollisionType ="interiorAgainstExterior";
+    let eventType: CollisionType = "interiorAgainstExterior";
     if (alongWfSource < 0 || alongWfTarget < 0) {
         eventType = 'phantomDivergentOffset';
     }
 
-    if (eventType === 'phantomDivergentOffset'){
+    if (eventType === 'phantomDivergentOffset') {
         return null;
     }
 
@@ -177,20 +184,31 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const rankA = context.edgeRank(edgeIdA);
     const rankB = context.edgeRank(edgeIdB);
+
+    let event: CollisionEvent | null = null;
     if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)) {
-        return null;
+        return event;
     }
 
     if (rankA === 'exterior') {
-        return null
+        return event
     }
     const interiorEdge = context.getInteriorWithId(edgeIdA);
 
     if (rankB === 'exterior') {
-        return collideInteriorAndExteriorEdge(interiorEdge, context.getEdgeWithId(edgeIdB), context)
+        event = collideInteriorAndExteriorEdge(interiorEdge, context.getEdgeWithId(edgeIdB), context)
+    } else {
+        event = collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
     }
 
-    return collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
+    if (event !== null && event.eventType != 'phantomDivergentOffset')
+    {
+        context.updateMinLength(edgeIdA, event.intersectionData[0])
+        context.updateMinLength(edgeIdB, event.intersectionData[1])
+    }
+
+    return event;
+
 }
 
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {
