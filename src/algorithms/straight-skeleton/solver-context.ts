@@ -8,7 +8,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import Heap from "heap-js";
-import {vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {crossProduct, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
 
 function makeHeapInteriorEdgeComparator() {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
@@ -49,6 +49,27 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return graph.interiorEdges[id - graph.numExteriorNodes];
     }
 
+    function clockwiseParent(edge: InteriorEdge): PolygonEdge {
+        return graph.edges[edge.clockwiseExteriorEdgeIndex]
+    }
+
+    function widdershinsParent(edge: InteriorEdge): PolygonEdge {
+        return graph.edges[edge.widdershinsExteriorEdgeIndex];
+    }
+
+    function isPrimaryNonReflex(id: number): boolean {
+        if (edgeRank(id) !== 'primary'){
+            return false;
+        }
+
+        const interiorData = getInteriorWithId(id);
+        const cwParent = clockwiseParent(interiorData);
+        const wsParent = widdershinsParent(interiorData);
+
+        return crossProduct(cwParent.basisVector, wsParent.basisVector) > 0;
+
+    }
+
     return {
         graph,
         acceptedEdges: acceptedEdges,
@@ -77,12 +98,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 basisVector: polygonEdge.basisVector
             }
         },
-        clockwiseParent(edge: InteriorEdge): PolygonEdge {
-            return graph.edges[edge.clockwiseExteriorEdgeIndex]
-        },
-        widdershinsParent(edge: InteriorEdge): PolygonEdge {
-            return graph.edges[edge.widdershinsExteriorEdgeIndex];
-        },
+        clockwiseParent,
+        widdershinsParent,
         accept,
         acceptAll,
         isAccepted(edgeId: number): boolean {
@@ -104,6 +121,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         findSource(edgeId: number): PolygonNode {
             return graph.nodes[graph.edges[edgeId].source]
         },
-        edgeRank
+        edgeRank,
+        isPrimaryNonReflex
     };
 }

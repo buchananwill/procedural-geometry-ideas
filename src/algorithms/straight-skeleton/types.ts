@@ -93,6 +93,7 @@ export interface GraphHelpers {
     findOrAddNode(position: Vector2): PolygonNode;
     findSource(edgeId: number): PolygonNode;
     edgeRank(edgeId: number): EdgeRank;
+    isPrimaryNonReflex(edgeId: number): boolean;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {

@@ -38,15 +38,21 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
         .map(context.getInteriorWithId)
         .map(iEdge => iEdge.clockwiseExteriorEdgeIndex);
 
-    const edgesToCheck = [...input.interiorEdges, ...exteriorParents]
 
     // Generate all currently valid collision events
     const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
-        return edgesToCheck.map(e2 => collideEdges(e1, e2, context))
-            .filter(event => {
-                // console.log(`filtering events: ${JSON.stringify(event)}`);
-                return event !== null;
-            })
+        const list: (CollisionEvent | null)[] = [];
+        const checkExteriorCollisions = !context.isPrimaryNonReflex(e1);
+        list.push(...input.interiorEdges.map(e2 => collideEdges(e1, e2, context)));
+
+        if (checkExteriorCollisions) {
+            list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
+        }
+
+        return list.filter(event => {
+            // console.log(`filtering events: ${JSON.stringify(event)}`);
+            return event !== null;
+        })
             .filter(event => event?.intersectionData[2] !== 'diverging')
             .toSorted(sameInstigatorComparator)
     })
@@ -97,12 +103,11 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
 
     for (const collisionEventSlice of collisionEventSlices) {
         const validEvents = collisionEventSlice.filter(e => e.eventType !== 'phantomDivergentOffset')
-        if (validEvents.length > 0){
+        if (validEvents.length > 0) {
             collisionsToHandle = validEvents;
             break;
         }
     }
-
 
 
     if (collisionsToHandle === null || collisionLists.length === 0) {
