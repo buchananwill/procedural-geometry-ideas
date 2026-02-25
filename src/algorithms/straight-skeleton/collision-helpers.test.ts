@@ -21,7 +21,7 @@ import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
-} from './test-constants';
+} from './test-cases/test-constants';
 
 
 // ---------------------------------------------------------------------------

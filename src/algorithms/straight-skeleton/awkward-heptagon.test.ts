@@ -3,7 +3,7 @@ import {
     initStraightSkeletonSolverContext,
     performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {AWKWARD_HEPTAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
+import {AWKWARD_HEPTAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-cases/test-constants';
 
 /*
 PREDICTIONS:

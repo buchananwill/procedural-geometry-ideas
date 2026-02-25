@@ -40,7 +40,7 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
  * */
 export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
     const spanSize = (clockwiseExteriorEdgeIndex - widdershinsExteriorEdgeIndex + graph.numExteriorNodes) % graph.numExteriorNodes;
-    const parentsInverted =spanSize > graph.numExteriorNodes / 2;
+    const parentsInverted = false; //spanSize > graph.numExteriorNodes / 2;
     if (parentsInverted){
         console.log(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`)
     }
@@ -128,7 +128,7 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
 }
 
 export function bisectWithParams(context: StraightSkeletonSolverContext, params: BisectionParams){
-    return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source, params.approximateDirection);
+    return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source, params.approximateDirection ?? undefined);
 }
 
 /**

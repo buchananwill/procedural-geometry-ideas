@@ -17,7 +17,7 @@ import type {
     InteriorEdge,
 } from './types';
 import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
-import {TRIANGLE, SQUARE} from './test-constants';
+import {TRIANGLE, SQUARE} from './test-cases/test-constants';
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {normalize} from "@/algorithms/straight-skeleton/core-functions";
 

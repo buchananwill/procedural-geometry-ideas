@@ -12,7 +12,7 @@ import {checkSharedParents, collideEdges, sourceOffsetDistance} from './collisio
 import {areEqual, crossProduct, dotProduct, makeBisectedBasis, scaleVector} from './core-functions';
 import handleCollisionEvent from './collision-handling';
 import {CollisionTypePriority} from './types';
-import {SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER} from './mid-case-failure';
+import {SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER} from './test-cases/mid-case-failure';
 
 // ---------------------------------------------------------------------------
 // Helpers

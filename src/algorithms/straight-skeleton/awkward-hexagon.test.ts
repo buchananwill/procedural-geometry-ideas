@@ -4,7 +4,7 @@ import {
     initStraightSkeletonSolverContext,
     performOneStep,
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {AWKWARD_HEXAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-constants';
+import {AWKWARD_HEXAGON, DiagnosticStepResult, getAcceptedExteriorEdges} from './test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Initialization diagnostics

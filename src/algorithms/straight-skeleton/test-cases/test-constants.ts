@@ -1,4 +1,4 @@
-import type {StraightSkeletonSolverContext, Vector2} from './types';
+import type {StraightSkeletonSolverContext, Vector2} from '../types';
 
 // ---------------------------------------------------------------------------
 // Test polygon constants — NODES MUST BE ORDERED CLOCKWISE

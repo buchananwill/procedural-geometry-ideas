@@ -2,7 +2,7 @@ import {HandleAlgorithmStepInput} from './algorithm-termination-cases';
 import {makeStraightSkeletonSolverContext} from './solver-context';
 import {initInteriorEdges, initStraightSkeletonSolverContext, performOneStep, tryToAcceptExteriorEdge} from './algorithm-helpers';
 import type {AlgorithmStepInput, StraightSkeletonSolverContext, Vector2, CollisionEvent} from './types';
-import {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON, WACKY_OCTAGON_WRONG_OUTCOME} from './more-edge-cases';
+import {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON, WACKY_OCTAGON_WRONG_OUTCOME} from './test-cases/more-edge-cases';
 import {collideEdges, sourceOffsetDistance} from './collision-helpers';
 import {areEqual} from './core-functions';
 import {graphIsComplete} from './algorithm';

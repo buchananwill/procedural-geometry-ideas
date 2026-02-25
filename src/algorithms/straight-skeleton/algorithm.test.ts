@@ -8,7 +8,7 @@ import {
     RECTANGLE,
     PENTAGON_HOUSE,
     IMPOSSIBLE_OCTAGON,
-} from './test-constants';
+} from './test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Helpers

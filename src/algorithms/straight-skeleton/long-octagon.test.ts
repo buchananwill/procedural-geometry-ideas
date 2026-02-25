@@ -2,7 +2,7 @@ import {HandleAlgorithmStepInput} from './algorithm-termination-cases';
 import {makeStraightSkeletonSolverContext} from './solver-context';
 import {initInteriorEdges, tryToAcceptExteriorEdge} from './algorithm-helpers';
 import type {AlgorithmStepInput, StraightSkeletonSolverContext, Vector2, CollisionEvent} from './types';
-import {LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON} from './long-octagon';
+import {LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON} from './test-cases/long-octagon';
 import {collideEdges, collideInteriorEdges, sourceOffsetDistance} from './collision-helpers';
 import {areEqual} from './core-functions';
 import {unitsToIntersection} from './intersection-edges';

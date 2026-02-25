@@ -10,7 +10,7 @@ import {
     SYMMETRICAL_OCTAGON,
     IMPOSSIBLE_OCTAGON,
     BROKEN_POLYGON,
-} from './test-constants';
+} from './test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Helpers
