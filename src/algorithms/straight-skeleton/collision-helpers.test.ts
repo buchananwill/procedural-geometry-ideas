@@ -7,10 +7,12 @@ import {
     createCollisionEvents,
 } from './collision-helpers';
 import {
-    initStraightSkeletonSolverContext,
     createBisectionInteriorEdge,
-    performOneStep,
 } from './algorithm-helpers';
+import {
+    initStraightSkeletonSolverContext,
+    performOneStep,
+} from './algorithm-v1-helpers';
 import {makeStraightSkeletonSolverContext} from './solver-context';
 import type {
     StraightSkeletonSolverContext,

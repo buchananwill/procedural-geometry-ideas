@@ -1,7 +1,7 @@
 import type {StraightSkeletonSolverContext} from './types';
 import {
     initStraightSkeletonSolverContext,
-} from "@/algorithms/straight-skeleton/algorithm-helpers";
+} from "@/algorithms/straight-skeleton/algorithm-v1-helpers";
 import {DEFAULT_PENTAGON} from './test-cases/test-constants';
 import {runAlgorithmV5} from './algorithm-termination-cases';
 

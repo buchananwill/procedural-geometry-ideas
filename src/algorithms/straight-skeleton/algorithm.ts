@@ -12,7 +12,7 @@ import {
     initStraightSkeletonSolverContext,
     processCollisionNode,
     reEvaluateEdge
-} from "@/algorithms/straight-skeleton/algorithm-helpers";
+} from "@/algorithms/straight-skeleton/algorithm-v1-helpers";
 import {
     addVectors,
     makeBasis,
