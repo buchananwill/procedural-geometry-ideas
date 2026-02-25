@@ -32,6 +32,12 @@ export function makeRayProjection(edge: PolygonEdge, graph: StraightSkeletonGrap
     }
 }
 
+function anyUndefined(args: unknown[]){
+    if (args.some(arg => arg === undefined)){
+        throw new Error('Undefined argument.')
+    }
+}
+
 /**
  * return value indicates whether strictly the length was modified. Adding additional intersections returns false.
  * The return value is to indicate that the edge must be pushed anew into the heap
@@ -41,7 +47,9 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
         return false;
     }
 
-    const comparison = fp_compare(length, edge.length);
+    anyUndefined([edge.length, edge.intersectingEdges])
+
+    const comparison = fp_compare(length, edge.length!);
 
     if (comparison < 0) {
         edge.intersectingEdges = [otherEdgeIndex]
@@ -50,8 +58,8 @@ export function updateInteriorEdgeIntersections(edge: InteriorEdge, otherEdgeInd
     }
 
     if (comparison === 0) {
-        if (!edge.intersectingEdges.includes(otherEdgeIndex)) {
-            edge.intersectingEdges.push(otherEdgeIndex);
+        if (!edge.intersectingEdges!.includes(otherEdgeIndex)) {
+            edge.intersectingEdges!.push(otherEdgeIndex);
         }
     }
 
@@ -100,7 +108,7 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
     for (const edgeCandidate of candidates) {
         if (fp_compare(edgeCandidate.distanceNew, 0) <= 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[edgeCandidate.otherId - graph.numExteriorNodes];
-        if (edgeCandidate.priorityOverride !== undefined || fp_compare(edgeCandidate.distanceOther, otherInteriorEdgeData.length) <= 0) {
+        if (edgeCandidate.priorityOverride !== undefined || fp_compare(edgeCandidate.distanceOther, otherInteriorEdgeData.length!) <= 0) {
             if (fp_compare(edgeCandidate.distanceNew, bestDistanceNew) < 0) {
                 bestDistanceNew = edgeCandidate.distanceNew;
             }
@@ -112,7 +120,7 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
     for (const c of candidates) {
         if (fp_compare(c.distanceNew, bestDistanceNew) !== 0) continue;
         const otherInteriorEdgeData = graph.interiorEdges[c.otherId - graph.numExteriorNodes];
-        if (c.priorityOverride === undefined && fp_compare(c.distanceOther, otherInteriorEdgeData.length) > 0) continue;
+        if (c.priorityOverride === undefined && fp_compare(c.distanceOther, otherInteriorEdgeData.length!) > 0) continue;
         intersectors.push({
             edgeId: c.otherId,
             distanceAlongSelf: c.distanceNew,
@@ -153,7 +161,7 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
     // Update intersectors, collect displaced
     for (const info of evaluation.intersectors) {
         const otherEdgeData = graph.interiorEdges[info.edgeId - graph.numExteriorNodes];
-        const oldIntersectingEdges = [...otherEdgeData.intersectingEdges];
+        const oldIntersectingEdges = [...otherEdgeData.intersectingEdges!];
         const reduced = updateInteriorEdgeIntersections(otherEdgeData, evaluation.edgeIndex, info.distanceAlongOther);
         if (reduced) {
             for (const d of oldIntersectingEdges) displaced.push(d);
@@ -167,13 +175,13 @@ function applyEvaluation(context: StraightSkeletonSolverContext, evaluation: Edg
         if (effectiveDistance > eventDistance) eventDistance = effectiveDistance;
     }
 
-    edgeData.heapGeneration++;
+    edgeData.heapGeneration!++;
 
     heap.push({
         ownerId: evaluation.edgeIndex,
         participatingEdges: [evaluation.edgeIndex, ...evaluation.intersectors.map(i => i.edgeId)],
         eventDistance,
-        generation: edgeData.heapGeneration,
+        generation: edgeData.heapGeneration!,
     });
 
     return displaced;
@@ -207,7 +215,7 @@ export function reEvaluateEdge(context: StraightSkeletonSolverContext, edgeIndex
             const otherEdgeData =  context.getInteriorWithId(c.otherId);
 
 
-            if (fp_compare(c.distanceOther, otherEdgeData.length) < 0) {
+            if (fp_compare(c.distanceOther, otherEdgeData.length!) < 0) {
                 if (!processed.has(c.otherId) && !context.acceptedEdges[c.otherId]) {
                     dirtyQueue.push(c.otherId);
                 }
@@ -331,7 +339,7 @@ export function initStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 export function finalizeTargetNodePosition(interiorEdgeId: number, graph: StraightSkeletonGraph) {
     const edgeData = graph.edges[interiorEdgeId];
     const interiorEdgeData = graph.interiorEdges[interiorEdgeId - graph.numExteriorNodes];
-    const vector = scaleVector(edgeData.basisVector, interiorEdgeData.length)
+    const vector = scaleVector(edgeData.basisVector, interiorEdgeData.length!)
     const start = graph.nodes[edgeData.source].position;
     return addVectors(start, vector)
 }
@@ -351,7 +359,7 @@ export function acceptEdgeAndPropagate(edge: number, context: StraightSkeletonSo
         const {graph} = context;
         for (const ie of graph.interiorEdges) {
             if (context.acceptedEdges[ie.id]) continue;
-            if (ie.intersectingEdges.includes(edge)) {
+            if (ie.intersectingEdges!.includes(edge)) {
                 reEvaluateEdge(context, ie.id);
             }
         }
@@ -371,7 +379,7 @@ export function addTargetNodeAtInteriorEdgeIntersect(context: StraightSkeletonSo
         }
     }
 
-    const inEdges = [interiorEdgeData.id, ...interiorEdgeData.intersectingEdges];
+    const inEdges = [interiorEdgeData.id, ...interiorEdgeData.intersectingEdges!];
 
     if (nodeIndex >= 0) {
         // Reuse existing node — append new inEdges

@@ -42,7 +42,7 @@ describe('Default pentagon — initialization diagnostics', () => {
 
     it('each interior edge intersects at least one other edge', () => {
         for (const edge of context.graph.interiorEdges) {
-            expect(edge.intersectingEdges.length).toBeGreaterThanOrEqual(1);
+            expect(edge.intersectingEdges!.length).toBeGreaterThanOrEqual(1);
         }
     });
 
