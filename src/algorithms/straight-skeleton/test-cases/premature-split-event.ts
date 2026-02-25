@@ -1,4 +1,4 @@
-const INPUT_OCTAGON = [
+export const INPUT_OCTAGON = [
     {
         "x": 433.2906905266034,
         "y": 257.92821528584113
@@ -33,7 +33,7 @@ const INPUT_OCTAGON = [
     }
 ]
 
-const PREMATURE_SPLIT_OUTCOME_V5_ALGORITHM = {
+export const PREMATURE_SPLIT_OUTCOME_V5_ALGORITHM = {
     "nodes": [
         {
             "id": 0,

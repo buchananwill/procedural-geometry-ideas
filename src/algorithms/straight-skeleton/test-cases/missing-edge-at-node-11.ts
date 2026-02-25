@@ -1,4 +1,4 @@
-const MissingEdgeAtNode11 =  [
+export const MissingEdgeAtNode11 =  [
     {
         "x": 433.2906905266034,
         "y": 257.92821528584113
@@ -33,7 +33,7 @@ const MissingEdgeAtNode11 =  [
     }
 ]
 
-const INCORRECT_OUTCOME = {
+export const INCORRECT_OUTCOME = {
     "nodes": [
         {
             "id": 0,
