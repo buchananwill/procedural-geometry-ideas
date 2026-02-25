@@ -20,8 +20,12 @@ function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1Phantom !== ev2Phantom) {
         return ev1.offsetDistance - ev2.offsetDistance;
     }
-        return ev1.offsetDistance - ev2.offsetDistance;
 
+    if (ev1.eventType === 'interiorPair'){
+        return length1a - length2a;
+    }
+
+        return ev1.offsetDistance - ev2.offsetDistance;
     // return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
 }
 
