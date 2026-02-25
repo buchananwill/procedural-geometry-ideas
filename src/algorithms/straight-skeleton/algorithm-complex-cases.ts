@@ -20,8 +20,9 @@ function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1Phantom !== ev2Phantom) {
         return ev1.offsetDistance - ev2.offsetDistance;
     }
+        return ev1.offsetDistance - ev2.offsetDistance;
 
-    return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
+    // return areEqual(length1a, length2a) ? ev1.offsetDistance - ev2.offsetDistance : length1a - length2a;
 }
 
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {

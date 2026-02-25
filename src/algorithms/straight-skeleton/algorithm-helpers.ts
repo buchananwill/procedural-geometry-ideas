@@ -64,9 +64,9 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
 
     let finalBasis: Vector2;
 
-    // if (approximateDirection) {
-    //     finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
-    // } else
+    if (approximateDirection) {
+        finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
+    } else
     {
         finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
     }

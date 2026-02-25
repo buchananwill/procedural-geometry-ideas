@@ -114,6 +114,10 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         eventType = 'phantomDivergentOffset';
     }
 
+    if (eventType === 'phantomDivergentOffset'){
+        return null;
+    }
+
     return {
         collidingEdges: [iEdge.id, eEdge.id],
         intersectionData,
@@ -160,7 +164,6 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
             ? 'interiorPair'
             : 'interiorNonAdjacent'
     ;
-
 
     return {
         offsetDistance: Math.max(offsetTarget, offsetDistance),
