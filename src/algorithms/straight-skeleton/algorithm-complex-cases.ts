@@ -177,7 +177,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     }))
 
     allOutgoingInteriorEdges.push(
-        ...collapseEvents.filter(params => !(context.isAccepted(params.widdershinsExteriorEdgeIndex) || context.isAccepted(params.clockwiseExteriorEdgeIndex)))
+        ...collapseEvents.filter(params => !(context.isAccepted(params.widdershinsExteriorEdgeIndex) && context.isAccepted(params.clockwiseExteriorEdgeIndex)))
             .map(params => bisectWithParams(context, params))
     )
 
