@@ -83,6 +83,7 @@ export interface GraphHelpers {
     getInteriorWithId(id: number): InteriorEdge;
     getInteriorEdges(idList: number[]): InteriorEdge[]
     projectRay(edge: PolygonEdge): RayProjection;
+    projectRayReversed(edge: PolygonEdge): RayProjection;
     projectRayInterior(edge: InteriorEdge): RayProjection;
     clockwiseParent(edge: InteriorEdge): PolygonEdge;
     widdershinsParent(edge: InteriorEdge): PolygonEdge;

@@ -8,7 +8,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import Heap from "heap-js";
-import {crossProduct, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {crossProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
 
 function makeHeapInteriorEdgeComparator() {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
@@ -98,6 +98,12 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             return {
                 sourceVector: graph.nodes[edge.source].position,
                 basisVector: edge.basisVector
+            };
+        },
+        projectRayReversed(edge: PolygonEdge): RayProjection {
+            return {
+                sourceVector: graph.nodes[edge.source].position,
+                basisVector: scaleVector(edge.basisVector, -1)
             };
         },
         projectRayInterior(edge: InteriorEdge): RayProjection {

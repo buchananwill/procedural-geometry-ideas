@@ -90,5 +90,6 @@ export function projectToPerpendicular(iBasis: Vector2, jBasis: Vector2, length:
  * iBasis is clockwise from jBasis to give positive projection
  * */
 export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpendicular: number): number {
-    return perpendicular / crossProduct(iBasis, jBasis)
+    const cross = crossProduct(iBasis, jBasis);
+    return areEqual(cross, 0) ? 0 : perpendicular / cross;
 }

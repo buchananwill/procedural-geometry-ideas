@@ -6,7 +6,7 @@ import {
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "@/algorithms/straight-skeleton/types";
 import {
-    assertIsNumber,
+    assertIsNumber, crossProduct,
     makeBisectedBasis,
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
@@ -56,14 +56,30 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
 
     let finalBasis: Vector2;
 
-    if (approximateDirection
-        // && parentsInverted
-    ) {
-        finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
-    } else
-    {
-        finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+    // After computing bisectedBasis = makeBisectedBasis(cwEdge.basis, -wsEdge.basis)
+    const cwRate = crossProduct(bisectedBasis, clockwiseEdge.basisVector);
+    const wsRate = crossProduct(bisectedBasis, widdershinsEdge.basisVector);
+
+// Both rates must have the same sign (equidistant bisector, same side)
+// and must be positive (moving into interior, increasing offset)
+    if (cwRate < 0 || wsRate < 0) {
+        if (cwRate < 0 !== wsRate < 0){
+            throw new Error("Cross product signs did not match");
+        }
+        finalBasis = scaleVector(bisectedBasis, -1);
+    } else {
+        finalBasis = bisectedBasis;
     }
+
+
+    // if (approximateDirection
+    //     // && parentsInverted
+    // ) {
+    //     finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
+    // } else
+    // {
+    //     finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+    // }
 
     graph.edges.push({id, source, basisVector: finalBasis})
 

@@ -54,14 +54,21 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
     const ray1 = context.projectRayInterior(iEdge);
     const ray2 = context.projectRay(eEdge);
+    const ray2r = context.projectRayReversed(eEdge)
 
-    const intersectionData = unitsToIntersection(ray1, ray2);
-    const [alongRay1, _alongRay2, resultType] = intersectionData;
+    const intersectionDataFor = unitsToIntersection(ray1, ray2);
+    const intersectionDataRev = unitsToIntersection(ray1, ray2r);
+
+    const collisionF = intersectionDataFor[2] === 'converging';
+    const collisionR = intersectionDataRev[2] === 'converging';
 
     // Only meaningful result for collisions with exterior edges
-    if (resultType !== 'converging') {
+    if (!collisionF && !collisionR) {
         return null;
     }
+
+    const intersectionData = collisionF ? intersectionDataFor : intersectionDataRev;
+    const [alongRay1, _alongRay2, resultType] = intersectionData;
 
     // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
     const widdershinsParentRay: RayProjection = {
