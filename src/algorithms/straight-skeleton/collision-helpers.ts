@@ -1,6 +1,5 @@
 import {
     CollisionEvent, CollisionType,
-    IntersectionResult,
     InteriorEdge,
     PolygonEdge,
     RayProjection,
@@ -11,7 +10,7 @@ import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-e
 import {
     addVectors,
     areEqual,
-    crossProduct, dotProduct,
+    crossProduct,
     makeBisectedBasis,
     normalize, projectFromPerpendicular, projectToPerpendicular,
     scaleVector,
@@ -59,33 +58,12 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const intersectionData = unitsToIntersection(ray1, ray2);
     const [alongRay1, _alongRay2, resultType] = intersectionData;
 
-    const offsetAtCollision = makeOffsetDistance(iEdge, context, ray1, alongRay1);
-
-    // --- Direct hit path: bisector ray converges with the exterior edge line ---
-    if (resultType === 'converging') {
-        return validateDirectHitCollision(iEdge, eEdge, context, ray1, intersectionData, offsetAtCollision, wsParent);
+    // Only meaningful result for collisions with exterior edges
+    if (resultType !== 'converging') {
+        return null;
     }
 
-    // --- Fallback path: check via endpoint bisectors of the exterior edge ---
-    return checkEndpointBisectorFallback(iEdge, eEdge, context, ray1, cwParent);
-}
-
-/**
- * Direct hit path: the bisector ray converges with the exterior edge line.
- * Performs triangle validation, offset sign check, and wavefront boundary check.
- */
-function validateDirectHitCollision(
-    iEdge: InteriorEdge,
-    eEdge: PolygonEdge,
-    context: StraightSkeletonSolverContext,
-    ray1: RayProjection,
-    intersectionData: IntersectionResult,
-    offsetAtCollision: number,
-    wsParent: PolygonEdge,
-): CollisionEvent | null {
-
-    // Triangle validation: make rays from vertex source with widdershins parent basis,
-    // and intersected exterior edge with its reverse basis from its target.
+    // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
     const widdershinsParentRay: RayProjection = {
         sourceVector: context.findSource(iEdge.id).position,
         basisVector: wsParent.basisVector
@@ -102,194 +80,64 @@ function validateDirectHitCollision(
     const intermediateIntersection = unitsToIntersection(ray1, otherRay)
     const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
     if (resultTypeFinal !== 'converging') {
-        // Non-reflex angle — no valid collision
+        // We must be dealing with a non-reflex angle, so don't need to continue;
+        // console.log(`non converging interior-exterior intersection: ${JSON.stringify(intermediateIntersection)}`)
         return null;
     }
 
-    const collisionOffsetIfValid = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
-    if (collisionOffsetIfValid <= 0) {
+    const finalCollisionOffset = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
+
+    if (finalCollisionOffset <= 0) {
         return null;
     }
 
-    // Wavefront boundary deep check
-    if (!isWithinWavefrontBoundary(eEdge, context, ray1, offsetAtCollision)) {
-        return null;
-    }
-
-    return {
-        collidingEdges: [iEdge.id, eEdge.id],
-        intersectionData,
-        offsetDistance: collisionOffsetIfValid,
-        position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
-        eventType: "interiorAgainstExterior"
-    }
-}
-
-/**
- * Fallback path: the bisector ray doesn't converge with the exterior edge line directly,
- * but may still collide because the topology brings them together as the polygon shrinks.
- *
- * Tests the bisector against the primary bisectors at each endpoint of the exterior edge.
- * If either converges, computes the split point where the perpendicular distance from the
- * bisector to its own parent edges equals the perpendicular distance to the exterior edge.
- */
-function checkEndpointBisectorFallback(
-    iEdge: InteriorEdge,
-    eEdge: PolygonEdge,
-    context: StraightSkeletonSolverContext,
-    ray1: RayProjection,
-    cwParent: PolygonEdge,
-): CollisionEvent | null {
-    const {graph} = context;
-    const numExt = graph.numExteriorNodes;
-
-    // Get the primary bisectors at the exterior edge's source and target vertices
-    const sourceBisectorId = graph.nodes[eEdge.source].outEdges.find(id => id >= numExt);
-    const targetBisectorId = graph.nodes[eEdge.target!].outEdges.find(id => id >= numExt);
-    if (sourceBisectorId === undefined || targetBisectorId === undefined) {
-        return null;
-    }
-
-    // Test the interior bisector ray against each endpoint bisector
-    const srcBisectorRay = context.projectRayInterior(context.getInteriorWithId(sourceBisectorId));
-    const tgtBisectorRay = context.projectRayInterior(context.getInteriorWithId(targetBisectorId));
-
-    const srcResult = unitsToIntersection(ray1, srcBisectorRay);
-    const tgtResult = unitsToIntersection(ray1, tgtBisectorRay);
-
-    const srcConverges = srcResult[2] === 'converging';
-    const tgtConverges = tgtResult[2] === 'converging';
-
-    // If the bisector doesn't converge with either endpoint bisector, no indirect collision
-    if (!srcConverges && !tgtConverges) {
-        return null;
-    }
-
-    // Compute the equal-perpendicular-distance split point
-    const splitResult = findEqualDistanceSplitPoint(iEdge, eEdge, context, ray1, cwParent);
-    if (splitResult === null) {
-        return null;
-    }
-
-    const {t, offset, position} = splitResult;
-
-    // The endpoint bisector convergence must occur before the split point along ray1.
-    // This confirms the bisector actually enters the exterior edge's wavefront territory
-    // before reaching the split. If the convergence is further along ray1 than the split,
-    // the split is geometrically invalid.
-    const earliestEndpointHit = Math.min(
-        srcConverges ? srcResult[0] : Infinity,
-        tgtConverges ? tgtResult[0] : Infinity
-    );
-    if (earliestEndpointHit > t) {
-        return null;
-    }
-
-    // Wavefront boundary deep check using the computed offset
-    if (!isWithinWavefrontBoundary(eEdge, context, ray1, offset)) {
-        return null;
-    }
-
-    // Construct synthetic intersection data for downstream consumers
-    const relToEdgeSource = subtractVectors(position, graph.nodes[eEdge.source].position);
-    const alongExterior = dotProduct(relToEdgeSource, eEdge.basisVector);
-    const syntheticIntersectionData: IntersectionResult = [t, alongExterior, 'converging'];
-
-    return {
-        collidingEdges: [iEdge.id, eEdge.id],
-        intersectionData: syntheticIntersectionData,
-        offsetDistance: offset,
-        position,
-        eventType: "interiorAgainstExterior"
-    }
-}
-
-/**
- * Finds the point along the bisector ray where the perpendicular distance to its own
- * parent edges equals the perpendicular distance to the target exterior edge.
- *
- * Returns the parameter t along ray1, the offset distance, and the position, or null
- * if no valid split point exists (parallel rates, behind origin, or non-positive offset).
- */
-function findEqualDistanceSplitPoint(
-    iEdge: InteriorEdge,
-    eEdge: PolygonEdge,
-    context: StraightSkeletonSolverContext,
-    ray1: RayProjection,
-    cwParent: PolygonEdge,
-): {t: number, offset: number, position: Vector2} | null {
-    const {graph} = context;
-
-    // offset(t) = sourceOffset + offsetRate * t
-    // This is the perpendicular distance from a point on the bisector to its parent edges
-    const srcOffset = sourceOffsetDistance(iEdge, context);
-    const offsetRate = crossProduct(ray1.basisVector, cwParent.basisVector);
-
-    // d_ext(t) = d_ext_0 + d_ext_rate * t
-    // This is the perpendicular distance from a point on the bisector to the exterior edge line
-    const relSource = subtractVectors(ray1.sourceVector, graph.nodes[eEdge.source].position);
-    const d_ext_0 = crossProduct(relSource, eEdge.basisVector);
-    const d_ext_rate = crossProduct(ray1.basisVector, eEdge.basisVector);
-
-    // Solve: sourceOffset + offsetRate * t = d_ext_0 + d_ext_rate * t
-    const rateDiff = offsetRate - d_ext_rate;
-    if (areEqual(rateDiff, 0)) {
-        return null; // Rates are parallel — distances never cross
-    }
-
-    const t = (d_ext_0 - srcOffset) / rateDiff;
-    if (t <= 0) {
-        return null; // Behind the bisector origin
-    }
-
-    const offset = srcOffset + offsetRate * t;
-    if (offset <= 0) {
-        return null; // Non-positive offset means the collision is in the wrong direction
-    }
-
-    const position = addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, t));
-    return {t, offset, position};
-}
-
-/**
- * Validates that a collision point is within the shrunk wavefront of the exterior edge.
- * Advances the exterior edge's source and target vertices along their primary bisectors
- * to the collision offset, then checks that ray1 intersects within the resulting segment.
- */
-function isWithinWavefrontBoundary(
-    eEdge: PolygonEdge,
-    context: StraightSkeletonSolverContext,
-    ray1: RayProjection,
-    offsetAtCollision: number,
-): boolean {
+    // Validate that the collision point is within the shrunk wavefront of the exterior edge.
+    // Advance the exterior edge's source and target vertices along their primary bisectors
+    // to the collision offset, then check ray1 intersects within the resulting wavefront segment.
+    // Only check each side if the primary bisector there hasn't been accepted (collapsed).
     const {graph} = context;
     const numExt = graph.numExteriorNodes;
     const sourceBisectorId = graph.nodes[eEdge.source].outEdges.find(id => id >= numExt)!;
     const targetBisectorId = graph.nodes[eEdge.target!].outEdges.find(id => id >= numExt)!;
 
+    // Check each side using the primary bisectors at the exterior edge's vertices.
+    // The primary bisector direction defines how the wavefront boundary shrinks regardless
+    // of whether the bisector has been accepted (collapsed).
     const sourceBisectorBasis = context.getEdgeWithId(sourceBisectorId).basisVector;
-    const tSource = projectFromPerpendicular(sourceBisectorBasis, eEdge.basisVector, offsetAtCollision);
+    const tSource = projectFromPerpendicular(sourceBisectorBasis, eEdge.basisVector, finalCollisionOffset);
     const advancedSource = addVectors(graph.nodes[eEdge.source].position, scaleVector(sourceBisectorBasis, tSource));
     const [, alongWfSource] = unitsToIntersection(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
 
     const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
-    const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, offsetAtCollision);
+    const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, finalCollisionOffset);
     const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
     const [, alongWfTarget] = unitsToIntersection(ray1, {
         sourceVector: advancedTarget,
         basisVector: scaleVector(eEdge.basisVector, -1)
     });
 
-    return alongWfSource >= 0 && alongWfTarget >= 0;
+    let eventType: CollisionType = "interiorAgainstExterior";
+    if (alongWfSource < 0 || alongWfTarget < 0) {
+        eventType = 'phantomDivergentOffset';
+    }
+
+    if (eventType === 'phantomDivergentOffset') {
+        return null;
+    }
+
+    return {
+        collidingEdges: [iEdge.id, eEdge.id],
+        intersectionData,
+        offsetDistance: finalCollisionOffset,
+        position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
+        eventType
+    }
 }
 
 function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
     const sourceOffset = sourceOffsetDistance(edge, context);
-    const clockwiseParent = context.clockwiseParent(edge);
-    const crossWithParent = crossProduct(ray.basisVector, clockwiseParent.basisVector);
-    // const dotWithParent = dotProduct(ray.basisVector, clockwiseParent.basisVector);
-    const deltaOffset = areEqual((crossWithParent), 0) ? 0 : projectToPerpendicular(ray.basisVector, clockwiseParent.basisVector, alongRay);
-
+    const crossWithParent = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
+    const deltaOffset = areEqual((crossWithParent), 0) ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
     return sourceOffset + deltaOffset;
 
 }
