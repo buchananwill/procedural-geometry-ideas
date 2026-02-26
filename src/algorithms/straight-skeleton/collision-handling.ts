@@ -77,7 +77,17 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const instigatorInterior = context.getInteriorWithId(instigator);
         const targetExterior = context.getEdgeWithId(target);
 
+        if (event.collidingEdges.length > 2) {
+            event.collidingEdges.slice(2).forEach(e => {
+                if (context.edgeRank(e) !== 'exterior') {
+                    context.acceptedEdges[e] = true;
+                }
+
+            })
+        }
+
         context.acceptedEdges[instigator] = true;
+
 
         return [
             {

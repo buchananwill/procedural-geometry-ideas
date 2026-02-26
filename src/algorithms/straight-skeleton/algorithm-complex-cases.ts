@@ -153,7 +153,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
 
 
     if (collisionsToHandle === null || collisionLists.length === 0) {
-        throw new Error("Unable to generate any collisions from incomplete graph context");
+        throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
     }
 
     // Handle collisions

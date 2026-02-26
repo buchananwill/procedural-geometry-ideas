@@ -26,6 +26,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             return 'exterior';
         }
         const edge = graph.edges[edgeId];
+
         if (edge.source < graph.numExteriorNodes) {
             return 'primary';
         }

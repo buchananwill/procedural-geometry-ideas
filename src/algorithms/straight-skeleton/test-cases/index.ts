@@ -14,6 +14,10 @@ import {
 export {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
 import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
 
+// double-reflex-spaceship.ts
+export {FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+import {FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+
 // isthmus-failure.ts
 export {
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
@@ -73,6 +77,10 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Duck Octagon (passes)', vertices: DUCK_OCTAGON_PASSES},
     {name: 'Moorhen (fails)', vertices: MOORHEN_FAILS},
     {name: 'Moorhen (passes)', vertices: MOORHEN_PASSES},
+
+    // Double reflex spaceship variants (double-reflex-spaceship.ts)
+    {name: 'Double Reflex Spaceship (fails)', vertices: FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP},
+    {name: 'Double Reflex Spaceship (passes)', vertices: SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP},
 
     // Isthmus variants (isthmus-failure.ts)
     {name: 'Convergence Towards Isthmus (succeeds)', vertices: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS},

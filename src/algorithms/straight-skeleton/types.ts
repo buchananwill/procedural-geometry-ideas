@@ -78,28 +78,51 @@ Solving context:
 
 export interface GraphHelpers {
     getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge;
+
     getEdgeWithId(id: number): PolygonEdge;
+
     getEdges(idList: number[]): PolygonEdge[];
+
     getInteriorWithId(id: number): InteriorEdge;
+
     getInteriorEdges(idList: number[]): InteriorEdge[]
+
     projectRay(edge: PolygonEdge): RayProjection;
+
     projectRayReversed(edge: PolygonEdge): RayProjection;
+
     projectRayInterior(edge: InteriorEdge): RayProjection;
+
     clockwiseParent(edge: InteriorEdge): PolygonEdge;
+
     widdershinsParent(edge: InteriorEdge): PolygonEdge;
+
     accept(edgeId: number): void;
+
     acceptAll(edgeIds: number[]): void;
+
     isAccepted(edgeId: number): boolean;
+
     isAcceptedInterior(edge: InteriorEdge): boolean;
+
     findOrAddNode(position: Vector2): PolygonNode;
+
     findSource(edgeId: number): PolygonNode;
+
     edgeRank(edgeId: number): EdgeRank;
+
     isPrimaryNonReflex(edgeId: number): boolean;
+
     updateMinLength(edgeId: number, length: number): void;
+
     resetMinLength(edgeId: number): void;
+
     isReflexEdge(edgeA: InteriorEdge): boolean;
+
     clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
+
     widdershinsBisector(edgeId: number): PolygonEdge;
+
     clockwiseBisector(edgeId: number): PolygonEdge;
 }
 
@@ -110,11 +133,22 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
 
 }
 
-export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'diverging' | 'identical-source' | 'co-linear-from-1' | 'co-linear-from-2'
+export type IntersectionType =
+    'converging'
+    | 'head-on'
+    | 'parallel'
+    | 'diverging'
+    | 'identical-source'
+    | 'co-linear-from-1'
+    | 'co-linear-from-2'
 
 export type IntersectionResult = [number, number, IntersectionType]
 
-export type CollisionType = 'interiorPair' | 'interiorNonAdjacent' | 'interiorAgainstExterior' | 'phantomDivergentOffset'
+export type CollisionType =
+    'interiorPair'
+    | 'interiorNonAdjacent'
+    | 'interiorAgainstExterior'
+    | 'phantomDivergentOffset'
 
 export const CollisionTypePriority: Record<CollisionType, number> = {
     interiorPair: 0,
@@ -125,7 +159,7 @@ export const CollisionTypePriority: Record<CollisionType, number> = {
 
 export interface CollisionEvent {
     offsetDistance: number;
-    collidingEdges: [number, number];
+    collidingEdges: number[]; // first two are instigator and main result, i.e. exterior edge if split, otherwise intersection. Other indices if present are bisector rays to also accept in this event.
     position: Vector2;
     intersectionData: IntersectionResult
     eventType: CollisionType

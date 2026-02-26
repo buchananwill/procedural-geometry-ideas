@@ -51,7 +51,6 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     }
 
     if (context.isReflexEdge(iEdge)) {
-        console.log(`Interior and exterior collision: ${JSON.stringify([iEdge, eEdge])}`)
         return generateSplitEventFromTheEdgeItself(iEdge.id, eEdge.id, context);
     }
     return null;
