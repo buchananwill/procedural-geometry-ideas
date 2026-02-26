@@ -64,6 +64,29 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
     return sameInstigatorComparator;
 }
 
+export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][]{
+    const sameInstigatorComparator = makeSameInstigatorComparator(context)
+
+    return interiorEdges.map(e1 => {
+     const list: (CollisionEvent | null)[] = [];
+     const edgeData = context.getInteriorWithId(e1)
+     const checkExteriorCollisions = context.isReflexEdge(edgeData);
+     list.push(...interiorEdges.map(e2 => collideEdges(e1, e2, context)));
+
+     if (checkExteriorCollisions) {
+         list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
+     }
+
+     return list.filter(event => {
+         // console.log(`filtering events: ${JSON.stringify(event)}`);
+         return event !== null;
+     })
+         // .filter(event => event?.intersectionData[2] !== 'diverging')
+         .toSorted(sameInstigatorComparator)
+ })
+     .filter(list => list.length > 0);
+}
+
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
@@ -73,32 +96,16 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
         childSteps: []
     };
 
-    const sameInstigatorComparator = makeSameInstigatorComparator(context)
+
 
     const exteriorParents = input.interiorEdges
         .map(context.getInteriorWithId)
         .map(iEdge => iEdge.clockwiseExteriorEdgeIndex);
+    exteriorParents.push(context.widdershinsParent(context.getInteriorWithId(input.interiorEdges[0])).id)
 
 
     // Generate all currently valid collision events
-    const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
-        const list: (CollisionEvent | null)[] = [];
-        const edgeData = context.getInteriorWithId(e1)
-        const checkExteriorCollisions = context.isReflexEdge(edgeData);
-        list.push(...input.interiorEdges.map(e2 => collideEdges(e1, e2, context)));
-
-        if (checkExteriorCollisions) {
-            list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
-        }
-
-        return list.filter(event => {
-            // console.log(`filtering events: ${JSON.stringify(event)}`);
-            return event !== null;
-        })
-            // .filter(event => event?.intersectionData[2] !== 'diverging')
-            .toSorted(sameInstigatorComparator)
-    })
-        .filter(list => list.length > 0);
+    const collisionLists: CollisionEvent[][] = createCollisions(input.interiorEdges, exteriorParents, context)
 
     const collisionEventSlices: CollisionEvent[][] = [];
 

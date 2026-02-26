@@ -1,4 +1,5 @@
 import {
+    AlgorithmStepInput,
     CollisionEvent,
     CollisionType,
     InteriorEdge,
@@ -23,6 +24,7 @@ import {
     generateSplitEventViaClockwiseBisector,
     generateSplitEventViaWiddershinBisector
 } from "@/algorithms/straight-skeleton/generate-split-event";
+import {createCollisions} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 
 export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: number, clockwiseParentBasis: Vector2) {
     return units * crossProduct(collidingChild, clockwiseParentBasis);
@@ -103,11 +105,21 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
         const isReflex = context.isReflexEdge(edgeA)
         if (isReflex) {
             const isWiddershins = crossProduct(ray1.basisVector, ray2.basisVector) > 0;
-            if (isWiddershins) {
-                return generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
-            } else {
-                return generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
+            const widdershinsEvent = generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
+            const clockwiseEvent = generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
+            if ( clockwiseEvent === null && widdershinsEvent !== null){
+                return widdershinsEvent;
             }
+
+            if (widdershinsEvent === null && clockwiseEvent !== null){
+                return clockwiseEvent;
+            }
+
+            if (widdershinsEvent !== null && clockwiseEvent !== null){
+                return widdershinsEvent.offsetDistance < clockwiseEvent.offsetDistance ? widdershinsEvent : clockwiseEvent;
+            }
+
+            return null
         }
 
     }
@@ -212,34 +224,7 @@ function makeCollisionEventComparator(context: StraightSkeletonSolverContext) {
 export function createCollisionEvents(context: StraightSkeletonSolverContext): CollisionEvent[] {
     const comparator = makeCollisionEventComparator(context);
 
-    const events: CollisionEvent[][] = [];
-
-    const {graph} = context;
-
-    for (const interiorEdge of graph.interiorEdges) {
-        if (context.isAcceptedInterior(interiorEdge)) {
-            continue;
-        }
-
-        const nextEvents: CollisionEvent[] = []
-        events.push(nextEvents);
-
-        for (const edge of graph.edges) {
-            if (interiorEdge.id === edge.id || context.acceptedEdges[edge.id]) {
-                continue;
-            }
-            const event = collideEdges(interiorEdge.id, edge.id, context)
-            if (event !== null) {
-                nextEvents.push(event);
-            }
-
-        }
-
-        nextEvents.sort((e1, e2) => {
-            return e1.offsetDistance - e2.offsetDistance; //Math.max(e1.intersectionData[0], e1.intersectionData[1]) - Math.max(e2.intersectionData[0], e2.intersectionData[1]);
-        })
-
-    }
+    const events: CollisionEvent[][] = createCollisions(context.graph.interiorEdges.map(e => e.id), context.graph.edges.filter(e => e.id < context.graph.numExteriorNodes).map(e => e.id), context)
 
     return events
         .filter(elist => elist.length > 0)

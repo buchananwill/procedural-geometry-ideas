@@ -24,6 +24,7 @@ import {
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
 } from './test-cases/test-constants';
+import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from "@/algorithms/straight-skeleton/test-cases";
 
 
 // ---------------------------------------------------------------------------
@@ -497,7 +498,7 @@ describe('collideInteriorAndExteriorEdge', () => {
     describe('returns valid CollisionEvent for converging pair', () => {
         it('returns event with eventType interiorAgainstExterior', () => {
             // Search for a converging interior/exterior pair
-            const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, RECTANGLE];
+            const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, RECTANGLE, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP];
             let foundConverging = false;
 
             for (const polygon of polygons) {
@@ -691,7 +692,7 @@ describe('createCollisionEvents', () => {
 
     it('includes interiorAgainstExterior events for polygons with non-adjacent edge crossings', () => {
         // Larger polygons should produce interior-vs-exterior collision events
-        const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON];
+        const polygons = [PENTAGON_HOUSE, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP];
         let foundExteriorCollision = false;
 
         for (const polygon of polygons) {

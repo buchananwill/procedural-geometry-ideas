@@ -3,20 +3,35 @@ import {Vector2} from "@/algorithms/straight-skeleton/types";
 // test-constants.ts
 export {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
-    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
+    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON
 } from '@/algorithms/straight-skeleton/test-cases/test-constants';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
-    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
+    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON
 } from '@/algorithms/straight-skeleton/test-cases/test-constants';
 
 // duck-octagon.ts
-export {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
-import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
+export {
+    DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES
+} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
+import {
+    DUCK_OCTAGON_FAILS,
+    DUCK_OCTAGON_PASSES,
+    MOORHEN_FAILS,
+    MOORHEN_PASSES
+} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
 
 // double-reflex-spaceship.ts
-export {FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
-import {FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP, SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+export {
+    FAILURE_CASE_DOUBLE_SPACESHIP_V2,
+    PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
+    SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP
+} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+import {
+    FAILURE_CASE_DOUBLE_SPACESHIP_V2,
+    PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
+    SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP
+} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
 
 // isthmus-failure.ts
 export {
@@ -31,12 +46,25 @@ import {
 } from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
 
 // long-octagon.ts
-export {LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
-import {LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
+export {
+    LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON
+} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
+import {
+    LONG_OCTAGON,
+    FAILING_LONG_OCTAGON,
+    FAILING_GENTLE_REFLEX_PENTAGON
+} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
 
 // mid-case-failure.ts
-export {SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
-import {SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
+export {
+    SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER
+} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
+import {
+    SUCCESS_OUTER,
+    FAILURE_START_CASE,
+    FAILURE_END_CASE,
+    SUCCESS_INNER
+} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
 
 // missing-edge-at-node-11.ts
 export {MissingEdgeAtNode11} from '@/algorithms/straight-skeleton/test-cases/missing-edge-at-node-11';
@@ -47,12 +75,21 @@ export {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from '@/algorithms/straigh
 import {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/more-edge-cases';
 
 // comparative-heptagons.ts
-export {NOT_SOLVABLE, WRONG_COLLISION_AT_NODE_10} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
-import {NOT_SOLVABLE, WRONG_COLLISION_AT_NODE_10} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
+export {
+    NOT_SOLVABLE, WRONG_COLLISION_AT_NODE_10
+} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
+import {
+    NOT_SOLVABLE,
+    WRONG_COLLISION_AT_NODE_10
+} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
 
 // premature-split-event.ts
-export {INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
-import {INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
+export {
+    INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON
+} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
+import {
+    INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON
+} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
 
 export interface NamedTestPolygon {
     name: string;
@@ -71,6 +108,8 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Awkward Heptagon', vertices: AWKWARD_HEPTAGON},
     {name: 'Impossible Octagon', vertices: IMPOSSIBLE_OCTAGON},
     {name: 'Broken Polygon', vertices: BROKEN_POLYGON},
+    {name: 'Crazy Polygon', vertices: CRAZY_POLYGON},
+
 
     // Duck octagon variants (duck-octagon.ts)
     {name: 'Duck Octagon (fails)', vertices: DUCK_OCTAGON_FAILS},
@@ -79,7 +118,11 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Moorhen (passes)', vertices: MOORHEN_PASSES},
 
     // Double reflex spaceship variants (double-reflex-spaceship.ts)
-    {name: 'Double Reflex Spaceship (fails)', vertices: FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP},
+    {name: 'V2 Double Reflex Spaceship (fails)', vertices: FAILURE_CASE_DOUBLE_SPACESHIP_V2},
+    {
+        name: 'Previously failed Double Reflex Spaceship (passes)',
+        vertices: PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP
+    },
     {name: 'Double Reflex Spaceship (passes)', vertices: SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP},
 
     // Isthmus variants (isthmus-failure.ts)

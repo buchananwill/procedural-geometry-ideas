@@ -74,7 +74,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     return {
         position,
         intersectionData,
-        collidingEdges: [instigatorData.id, edgeToSplit.id, bisectorOfSplittingEdge.id],
+        collidingEdges: [instigatorData.id, edgeToSplit.id],
         offsetDistance,
         eventType: 'interiorAgainstExterior'
     }
