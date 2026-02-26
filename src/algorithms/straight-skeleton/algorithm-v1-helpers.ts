@@ -17,7 +17,7 @@ import {
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {addNode} from "@/algorithms/straight-skeleton/graph-helpers";
-import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
+import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {
     createBisectionInteriorEdge,
@@ -80,7 +80,7 @@ export function evaluateEdgeIntersections(context: StraightSkeletonSolverContext
         if (otherInteriorEdgeData.id === edgeIndex) continue;
         if (acceptedEdges[otherInteriorEdgeData.id]) continue;
 
-        const result = unitsToIntersection(
+        const result = intersectRays(
             makeRayProjection(graph.edges[edgeIndex], graph),
             makeRayProjection(graph.edges[otherInteriorEdgeData.id], graph)
         );

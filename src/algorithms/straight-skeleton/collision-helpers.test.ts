@@ -18,7 +18,7 @@ import type {
     StraightSkeletonSolverContext,
 } from './types';
 import {crossProduct, subtractVectors, normalize} from './core-functions';
-import {unitsToIntersection} from './intersection-edges';
+import {intersectRays} from './intersection-edges';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
@@ -140,7 +140,7 @@ describe('collideEdges', () => {
                         if (e1.id === e2.id) continue;
                         const ray1 = context.projectRayInterior(e1);
                         const ray2 = context.projectRayInterior(e2);
-                        const [,, resultType] = unitsToIntersection(ray1, ray2);
+                        const [,, resultType] = intersectRays(ray1, ray2);
                         if (resultType === 'diverging') {
                             expect(collideInteriorEdges(e1, e2, context)).toBeNull();
                             foundDiverging = true;
@@ -164,7 +164,7 @@ describe('collideEdges', () => {
                     if (e1.id === e2.id) continue;
                     const ray1 = context.projectRayInterior(e1);
                     const ray2 = context.projectRayInterior(e2);
-                    const [,, resultType] = unitsToIntersection(ray1, ray2);
+                    const [,, resultType] = intersectRays(ray1, ray2);
                     if (resultType === 'parallel') {
                         expect(collideInteriorEdges(e1, e2, context)).toBeNull();
                         foundParallel = true;
@@ -186,7 +186,7 @@ describe('collideEdges', () => {
                     if (e1.id === e2.id) continue;
                     const ray1 = context.projectRayInterior(e1);
                     const ray2 = context.projectRayInterior(e2);
-                    const [,, resultType] = unitsToIntersection(ray1, ray2);
+                    const [,, resultType] = intersectRays(ray1, ray2);
                     if (resultType === 'identical-source') {
                         expect(collideInteriorEdges(e1, e2, context)).toBeNull();
                         foundIdenticalSource = true;
@@ -223,7 +223,7 @@ describe('collideEdges', () => {
                     if (e1.id === e2.id || context.isAcceptedInterior(e2)) continue;
                     const ray1 = context.projectRayInterior(e1);
                     const ray2 = context.projectRayInterior(e2);
-                    const [,, resultType] = unitsToIntersection(ray1, ray2);
+                    const [,, resultType] = intersectRays(ray1, ray2);
                     if (resultType === 'co-linear-from-2') {
                         expect(collideInteriorEdges(e1, e2, context)).toBeNull();
                         foundCoLinearFrom2 = true;
@@ -246,7 +246,7 @@ describe('collideEdges', () => {
                         if (e1.id === e2.id || ctx2.isAcceptedInterior(e2)) continue;
                         const ray1 = ctx2.projectRayInterior(e1);
                         const ray2 = ctx2.projectRayInterior(e2);
-                        const [,, resultType] = unitsToIntersection(ray1, ray2);
+                        const [,, resultType] = intersectRays(ray1, ray2);
                         if (resultType === 'co-linear-from-2') {
                             expect(collideInteriorEdges(e1, e2, ctx2)).toBeNull();
                             foundCoLinearFrom2 = true;
@@ -305,7 +305,7 @@ describe('collideEdges', () => {
 
             const ray1 = context.projectRayInterior(edges[0]);
             const ray2 = context.projectRayInterior(edges[1]);
-            const expected = unitsToIntersection(ray1, ray2);
+            const expected = intersectRays(ray1, ray2);
 
             expect(event!.intersectionData).toEqual(expected);
         });
@@ -408,7 +408,7 @@ describe('collideEdges', () => {
                     if (e1.id === e2.id) continue;
                     const ray1 = context.projectRayInterior(e1);
                     const ray2 = context.projectRayInterior(e2);
-                    const [,, resultType] = unitsToIntersection(ray1, ray2);
+                    const [,, resultType] = intersectRays(ray1, ray2);
                     if (resultType === 'head-on') {
                         const event = collideInteriorEdges(e1, e2, context);
                         expect(event).not.toBeNull();
@@ -478,7 +478,7 @@ describe('collideInteriorAndExteriorEdge', () => {
                         const eEdge = context.graph.edges[eIdx];
                         const ray1 = context.projectRayInterior(iEdge);
                         const ray2 = context.projectRay(eEdge);
-                        const [,, resultType] = unitsToIntersection(ray1, ray2);
+                        const [,, resultType] = intersectRays(ray1, ray2);
 
                         if (resultType !== 'converging') {
                             expect(collideInteriorAndExteriorEdge(iEdge, eEdge, context)).toBeNull();

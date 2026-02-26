@@ -12,7 +12,7 @@ import {
  * If the two rays are parallel, return value is [+inf, +inf, type] unless both sources lie on same line.
  * Type gives category of result.
  * */
-export function unitsToIntersection(ray1: RayProjection, ray2: RayProjection): IntersectionResult {
+export function intersectRays(ray1: RayProjection, ray2: RayProjection): IntersectionResult {
     // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
 
     const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);

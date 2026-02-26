@@ -1,4 +1,4 @@
-import { unitsToIntersection } from './intersection-edges';
+import { intersectRays } from './intersection-edges';
 import type { RayProjection } from './types';
 
 // ---------------------------------------------------------------------------
@@ -22,7 +22,7 @@ describe('unitsToIntersection', () => {
         it('returns identical-source when both rays share the same origin', () => {
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(0, 0, 0, 1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('identical-source');
             expect(u1).toBe(Number.POSITIVE_INFINITY);
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -31,7 +31,7 @@ describe('unitsToIntersection', () => {
         it('returns identical-source even when basis vectors are identical', () => {
             const r1 = ray(3, 4, 1, 0);
             const r2 = ray(3, 4, 1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('identical-source');
             expect(u1).toBe(Number.POSITIVE_INFINITY);
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -45,7 +45,7 @@ describe('unitsToIntersection', () => {
             // Two rightward rays, one above the other
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(0, 5, 1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('parallel');
             expect(u1).toBe(Number.POSITIVE_INFINITY);
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -54,7 +54,7 @@ describe('unitsToIntersection', () => {
         it('returns parallel for opposite-direction rays that are offset perpendicularly', () => {
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(0, 3, -1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('parallel');
             expect(u1).toBe(Number.POSITIVE_INFINITY);
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -68,7 +68,7 @@ describe('unitsToIntersection', () => {
             // ray1 → (1,0) from origin; ray2 at (5,0) going same way
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(5, 0, 1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-1');
             expect(u1).toBeCloseTo(5);
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -77,7 +77,7 @@ describe('unitsToIntersection', () => {
         it('works for diagonal co-linear rays', () => {
             const r1 = ray(0, 0, SQRT2_OVER_2, SQRT2_OVER_2);
             const r2 = ray(3, 3, SQRT2_OVER_2, SQRT2_OVER_2);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-1');
             expect(u1).toBeCloseTo(Math.sqrt(18)); // distance from (0,0) to (3,3)
             expect(u2).toBe(Number.POSITIVE_INFINITY);
@@ -91,7 +91,7 @@ describe('unitsToIntersection', () => {
             // ray2 → (1,0) from origin; ray1 at (5,0) going same way
             const r1 = ray(5, 0, 1, 0);
             const r2 = ray(0, 0, 1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-2');
             expect(u1).toBe(Number.POSITIVE_INFINITY);
             expect(u2).toBeCloseTo(5);
@@ -104,7 +104,7 @@ describe('unitsToIntersection', () => {
         it('returns head-on for opposite rays on the same line approaching each other', () => {
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(10, 0, -1, 0);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('head-on');
             expect(u1).toBeCloseTo(10);
             expect(u2).toBeCloseTo(10);
@@ -113,7 +113,7 @@ describe('unitsToIntersection', () => {
         it('returns head-on for vertical opposite rays', () => {
             const r1 = ray(0, 0, 0, 1);
             const r2 = ray(0, 6, 0, -1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('head-on');
             expect(u1).toBeCloseTo(6);
             expect(u2).toBeCloseTo(6);
@@ -122,7 +122,7 @@ describe('unitsToIntersection', () => {
         it('returns head-on for diagonal head on collisions', () => {
             const r1 = ray(0, 0, 0.6, 0.8);
             const r2 = ray(3, 4, -0.6, -0.8);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('head-on');
             expect(u1).toBeCloseTo(5);
             expect(u2).toBeCloseTo(5);
@@ -136,7 +136,7 @@ describe('unitsToIntersection', () => {
             // ray1 from origin going right+up at 45°; ray2 from (10,0) going left+up at 45°
             const r1 = ray(0, 0, SQRT2_OVER_2, SQRT2_OVER_2);
             const r2 = ray(10, 0, -SQRT2_OVER_2, SQRT2_OVER_2);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('converging');
             expect(u1).toBeCloseTo(u2);
             // Intersection at (5, 5), distance from either source = sqrt(50)
@@ -147,7 +147,7 @@ describe('unitsToIntersection', () => {
             // ray1 from (0,0) going right; ray2 from (5,-3) going up
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(5, -3, 0, 1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('converging');
             expect(u1).toBeCloseTo(5);
             expect(u2).toBeCloseTo(3);
@@ -156,7 +156,7 @@ describe('unitsToIntersection', () => {
         it('returns positive units for both rays', () => {
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(3, -4, 0, 1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('converging');
             expect(u1).toBeGreaterThan(0);
             expect(u2).toBeGreaterThan(0);
@@ -170,7 +170,7 @@ describe('unitsToIntersection', () => {
             // Two rays pointing away from each other; their lines cross behind them
             const r1 = ray(0, 0, -1, 0);
             const r2 = ray(5, -3, 0, -1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('diverging');
             // Both units should be negative (intersection is behind)
             expect(u1).toBeLessThanOrEqual(0);
@@ -187,7 +187,7 @@ describe('unitsToIntersection', () => {
             // x: 5+t = 3 → t=-2; y: 0 = -2+s → s=2
             const r1 = ray(5, 0, 1, 0);
             const r2 = ray(3, -2, 0, 1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('diverging');
             expect(u1).toBeCloseTo(-2);
             expect(u2).toBeCloseTo(2);
@@ -198,7 +198,7 @@ describe('unitsToIntersection', () => {
             // intersection: x=3 → t=3; y=0 → 5+s=0 → s=-5
             const r1 = ray(0, 0, 1, 0);
             const r2 = ray(3, 5, 0, 1);
-            const [u1, u2, type] = unitsToIntersection(r1, r2);
+            const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('diverging');
             expect(u1).toBeCloseTo(3);
             expect(u2).toBeCloseTo(-5);

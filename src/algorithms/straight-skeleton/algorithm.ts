@@ -21,7 +21,7 @@ import {
     scaleVector,
 } from "@/algorithms/straight-skeleton/core-functions";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
-import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
+import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 
 export function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
@@ -168,7 +168,7 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
             );
             const edgeRay: RayProjection = { sourceVector: edgeStart, basisVector: edgeBasis };
 
-            const [distAlongBisector, distAlongEdge] = unitsToIntersection(ray, edgeRay);
+            const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay);
 
             // Must be forward along bisector, and within the edge segment
             if (distAlongBisector > 0 && distAlongEdge >= 0 && distAlongEdge <= edgeLength) {
@@ -216,7 +216,7 @@ export function computePrimaryEdgeIntersections(primaryEdges: PrimaryInteriorEdg
             const rayA: RayProjection = { sourceVector: a.source, basisVector: aBasis };
             const rayB: RayProjection = { sourceVector: b.source, basisVector: bBasis };
 
-            const [tA, tB] = unitsToIntersection(rayA, rayB);
+            const [tA, tB] = intersectRays(rayA, rayB);
 
             // Both parameters must be in [0, 1] since we used unnormalized basis vectors
             // whose length equals the full segment length

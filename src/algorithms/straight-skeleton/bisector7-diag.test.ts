@@ -4,7 +4,7 @@ import {StepAlgorithm} from './algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from './algorithm-helpers';
 import {BISECTOR_SEVEN_FAILURE} from './test-cases/duck-octagon';
 import {crossProduct, scaleVector, addVectors, projectToPerpendicular, projectFromPerpendicular} from './core-functions';
-import {unitsToIntersection} from './intersection-edges';
+import {intersectRays} from './intersection-edges';
 import {makeBisectedBasis} from './core-functions';
 import type {AlgorithmStepInput} from './types';
 
@@ -151,7 +151,7 @@ describe('Bisector 7 — CRAZY polygon analysis', () => {
         console.log(`    ray1(e18): src=(${ray1.sourceVector.x.toFixed(4)}, ${ray1.sourceVector.y.toFixed(4)}) basis=(${ray1.basisVector.x.toFixed(6)}, ${ray1.basisVector.y.toFixed(6)})`);
         console.log(`    ray2(ext1): src=(${ray2.sourceVector.x.toFixed(4)}, ${ray2.sourceVector.y.toFixed(4)}) basis=(${ray2.basisVector.x.toFixed(6)}, ${ray2.basisVector.y.toFixed(6)})`);
 
-        const intersectionData = unitsToIntersection(ray1, ray2);
+        const intersectionData = intersectRays(ray1, ray2);
         console.log(`    result: [${intersectionData[0].toFixed(6)}, ${intersectionData[1].toFixed(6)}, '${intersectionData[2]}']`);
 
         if (intersectionData[2] !== 'converging') {
@@ -172,7 +172,7 @@ describe('Bisector 7 — CRAZY polygon analysis', () => {
         console.log(`    wsParentRay: src=(${widdershinsParentRay.sourceVector.x.toFixed(4)}, ${widdershinsParentRay.sourceVector.y.toFixed(4)}) basis=(${widdershinsParentRay.basisVector.x.toFixed(6)}, ${widdershinsParentRay.basisVector.y.toFixed(6)})`);
         console.log(`    extCollRay: src=(${exteriorCollisionRay.sourceVector.x.toFixed(4)}, ${exteriorCollisionRay.sourceVector.y.toFixed(4)}) basis=(${exteriorCollisionRay.basisVector.x.toFixed(6)}, ${exteriorCollisionRay.basisVector.y.toFixed(6)})`);
 
-        const [alongParent] = unitsToIntersection(widdershinsParentRay, exteriorCollisionRay);
+        const [alongParent] = intersectRays(widdershinsParentRay, exteriorCollisionRay);
         const triangleOtherVertex = addVectors(widdershinsParentRay.sourceVector, scaleVector(widdershinsParentRay.basisVector, alongParent));
         console.log(`    alongParent=${alongParent.toFixed(6)} → triangleVertex=(${triangleOtherVertex.x.toFixed(4)}, ${triangleOtherVertex.y.toFixed(4)})`);
 
@@ -182,7 +182,7 @@ describe('Bisector 7 — CRAZY polygon analysis', () => {
         // Step 3: Intermediate intersection
         console.log(`\n  [Step 3] Intermediate intersection`);
         const otherRay = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
-        const intermediateIntersection = unitsToIntersection(ray1, otherRay);
+        const intermediateIntersection = intersectRays(ray1, otherRay);
         console.log(`    result: [${intermediateIntersection[0].toFixed(6)}, ${intermediateIntersection[1].toFixed(6)}, '${intermediateIntersection[2]}']`);
 
         if (intermediateIntersection[2] !== 'converging') {
@@ -221,7 +221,7 @@ describe('Bisector 7 — CRAZY polygon analysis', () => {
         const crossSource = crossProduct(sourceBisectorBasis, ext1.basisVector);
         const tSource = crossSource !== 0 ? finalCollisionOffset / crossSource : 0;
         const advancedSource = addVectors(graph.nodes[ext1.source].position, scaleVector(sourceBisectorBasis, tSource));
-        const [, alongWfSource] = unitsToIntersection(ray1, {sourceVector: advancedSource, basisVector: ext1.basisVector});
+        const [, alongWfSource] = intersectRays(ray1, {sourceVector: advancedSource, basisVector: ext1.basisVector});
         console.log(`    SOURCE: cross(bisector, ext1)=${crossSource.toFixed(6)} tSource=${tSource.toFixed(6)}`);
         console.log(`      advancedSource=(${advancedSource.x.toFixed(4)}, ${advancedSource.y.toFixed(4)})`);
         console.log(`      alongWfSource=${alongWfSource.toFixed(6)} → ${alongWfSource >= 0 ? 'PASS' : 'FAIL'}`);
@@ -230,7 +230,7 @@ describe('Bisector 7 — CRAZY polygon analysis', () => {
         const crossTarget = crossProduct(targetBisectorBasis, ext1.basisVector);
         const tTarget = crossTarget !== 0 ? finalCollisionOffset / crossTarget : 0;
         const advancedTarget = addVectors(graph.nodes[ext1.target!].position, scaleVector(targetBisectorBasis, tTarget));
-        const [, alongWfTarget] = unitsToIntersection(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(ext1.basisVector, -1)});
+        const [, alongWfTarget] = intersectRays(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(ext1.basisVector, -1)});
         console.log(`    TARGET: cross(bisector, ext1)=${crossTarget.toFixed(6)} tTarget=${tTarget.toFixed(6)}`);
         console.log(`      advancedTarget=(${advancedTarget.x.toFixed(4)}, ${advancedTarget.y.toFixed(4)})`);
         console.log(`      alongWfTarget=${alongWfTarget.toFixed(6)} → ${alongWfTarget >= 0 ? 'PASS' : 'FAIL'}`);

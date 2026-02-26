@@ -6,7 +6,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
-import {unitsToIntersection} from "@/algorithms/straight-skeleton/intersection-edges";
+import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {
     addVectors,
     areEqual,
@@ -56,8 +56,8 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const ray2 = context.projectRay(eEdge);
     const ray2r = context.projectRayReversed(eEdge)
 
-    const intersectionDataFor = unitsToIntersection(ray1, ray2);
-    const intersectionDataRev = unitsToIntersection(ray1, ray2r);
+    const intersectionDataFor = intersectRays(ray1, ray2);
+    const intersectionDataRev = intersectRays(ray1, ray2r);
 
     const collisionF = intersectionDataFor[2] === 'converging';
     const collisionR = intersectionDataRev[2] === 'converging';
@@ -79,12 +79,12 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
         sourceVector: context.graph.nodes[eEdge.target!].position,
         basisVector: scaleVector(eEdge.basisVector, -1)
     }
-    const [alongParent] = unitsToIntersection(widdershinsParentRay, exteriorCollisionRay);
+    const [alongParent] = intersectRays(widdershinsParentRay, exteriorCollisionRay);
     const triangleOtherVertex = addVectors(widdershinsParentRay.sourceVector, scaleVector(widdershinsParentRay.basisVector, alongParent))
     const triangleOtherBisector = makeBisectedBasis(eEdge.basisVector, scaleVector(wsParent.basisVector, -1))
     const otherRay: RayProjection = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
 
-    const intermediateIntersection = unitsToIntersection(ray1, otherRay)
+    const intermediateIntersection = intersectRays(ray1, otherRay)
     const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
     if (resultTypeFinal !== 'converging') {
         // We must be dealing with a non-reflex angle, so don't need to continue;
@@ -113,12 +113,12 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     const sourceBisectorBasis = context.getEdgeWithId(sourceBisectorId).basisVector;
     const tSource = projectFromPerpendicular(sourceBisectorBasis, eEdge.basisVector, finalCollisionOffset);
     const advancedSource = addVectors(graph.nodes[eEdge.source].position, scaleVector(sourceBisectorBasis, tSource));
-    const [, alongWfSource] = unitsToIntersection(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
+    const [, alongWfSource] = intersectRays(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
 
     const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
     const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, finalCollisionOffset);
     const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
-    const [, alongWfTarget] = unitsToIntersection(ray1, {
+    const [, alongWfTarget] = intersectRays(ray1, {
         sourceVector: advancedTarget,
         basisVector: scaleVector(eEdge.basisVector, -1)
     });
@@ -141,7 +141,7 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     }
 }
 
-function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
+export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
     const sourceOffset = sourceOffsetDistance(edge, context);
     const crossWithParent = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
     const deltaOffset = areEqual((crossWithParent), 0) ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
@@ -155,7 +155,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const ray1 = context.projectRayInterior(edgeA);
     const ray2 = context.projectRayInterior(edgeB);
 
-    const intersectionData = unitsToIntersection(ray1, ray2);
+    const intersectionData = intersectRays(ray1, ray2);
     const [alongRay1, _alongRay2, resultType] = intersectionData;
 
     if (NO_COLLISION_RESULTS.includes(resultType)) {
