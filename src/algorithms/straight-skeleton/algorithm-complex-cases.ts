@@ -15,7 +15,6 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
     function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
 
 
-
         const [length1a, length1b] = ev1.intersectionData;
         const [length2a, length2b] = ev2.intersectionData;
         const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
@@ -39,11 +38,11 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
             const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev1Id2).length, length1b)
             const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
 
-            if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)){
+            if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)) {
                 return -1;
             }
 
-            if ((!ev1IsShortestForId1 || !ev1IsShortestForId2) && (ev2IsShortestForId1 && ev2IsShortestForId2)){
+            if ((!ev1IsShortestForId1 || !ev1IsShortestForId2) && (ev2IsShortestForId1 && ev2IsShortestForId2)) {
                 return 1;
             }
         }
@@ -64,27 +63,27 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
     return sameInstigatorComparator;
 }
 
-export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][]{
+export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
     const sameInstigatorComparator = makeSameInstigatorComparator(context)
 
     return interiorEdges.map(e1 => {
-     const list: (CollisionEvent | null)[] = [];
-     const edgeData = context.getInteriorWithId(e1)
-     const checkExteriorCollisions = context.isReflexEdge(edgeData);
-     list.push(...interiorEdges.map(e2 => collideEdges(e1, e2, context)));
+        const list: (CollisionEvent | null)[] = [];
+        const edgeData = context.getInteriorWithId(e1)
+        const checkExteriorCollisions = context.isReflexEdge(edgeData);
+        list.push(...interiorEdges.map(e2 => collideEdges(e1, e2, context)));
 
-     if (checkExteriorCollisions) {
-         list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
-     }
+        if (checkExteriorCollisions) {
+            list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
+        }
 
-     return list.filter(event => {
-         // console.log(`filtering events: ${JSON.stringify(event)}`);
-         return event !== null;
-     })
-         // .filter(event => event?.intersectionData[2] !== 'diverging')
-         .toSorted(sameInstigatorComparator)
- })
-     .filter(list => list.length > 0);
+        return list.filter(event => {
+            // console.log(`filtering events: ${JSON.stringify(event)}`);
+            return event !== null;
+        })
+            // .filter(event => event?.intersectionData[2] !== 'diverging')
+            .toSorted(sameInstigatorComparator)
+    })
+        .filter(list => list.length > 0);
 }
 
 export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
@@ -95,7 +94,6 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     const result: AlgorithmStepOutput = {
         childSteps: []
     };
-
 
 
     const exteriorParents = input.interiorEdges
@@ -226,9 +224,12 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
 
     const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
 
-    allOutgoingInteriorEdges.push(...finalPartitionEvents.map(params => {
-        return bisectWithParams(context, params)
-    }))
+    allOutgoingInteriorEdges.push(...finalPartitionEvents
+        .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
+            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+        .map(params => {
+            return bisectWithParams(context, params)
+        }))
 
     allOutgoingInteriorEdges.push(
         ...collapseEvents.filter(params => !(context.isAccepted(params.widdershinsExteriorEdgeIndex) && context.isAccepted(params.clockwiseExteriorEdgeIndex)))
