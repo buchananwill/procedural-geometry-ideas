@@ -42,8 +42,8 @@ node ~/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.cjs jest -- --testPathPatt
 
 ## Architecture
 
-This is a Next.js + TypeScript web app for visualizing **computational geometry algorithms**, currently focused on the *
-*straight skeleton** algorithm.
+This is a Next.js + TypeScript web app for visualizing **computational geometry algorithms**, currently focused on the
+**straight skeleton** algorithm.
 
 **Path alias:** `@/*` maps to `./src/*`
 
@@ -51,42 +51,64 @@ This is a Next.js + TypeScript web app for visualizing **computational geometry 
 
 ### Key Layers
 
-- **`src/app/`** — Next.js App Router pages. `page.tsx` is the main UI with a polygon editor and placeholder panels for
-  algorithm controls/output.
-- **`src/components/PolygonCanvas.tsx`** — Interactive Konva.js canvas. Handles draggable vertices, click-on-edge to
-  insert vertices, and visual selection feedback.
-- **`src/stores/usePolygonStore.ts`** — Zustand + Immer store. Single source of truth for polygon vertex data (add,
-  move, remove, reset).
-- **`src/algorithms/straight-skeleton/`** — Core algorithm implementation (no React dependencies).
+- **`src/app/`** — Next.js App Router pages. `page.tsx` is the main UI with a polygon editor and algorithm panels.
+- **`src/components/`** — `PolygonCanvas.tsx` (interactive Konva.js canvas with draggable vertices, click-on-edge
+  insertion) and `RandomPolygonPanel.tsx` (UI for the random polygon generator).
+- **`src/stores/`** — Zustand + Immer stores. `usePolygonStore.ts` (polygon vertex CRUD) and
+  `useRandomPolygonStore.ts` (random polygon generator parameters).
+- **`src/algorithms/straight-skeleton/`** — Core straight skeleton implementation (no React dependencies).
+- **`src/algorithms/random-polygon/`** — Random polygon generator (`generator.ts`, `geometry-helpers.ts`).
+- **`src/notes/`** — Markdown design notes documenting algorithm decisions and debugging sessions (e.g.
+  `collision-handling.md`, `event-priority-rules.md`).
 
 ### Straight Skeleton Algorithm (`src/algorithms/straight-skeleton/`)
 
 The algorithm computes a [straight skeleton](https://en.wikipedia.org/wiki/Straight_skeleton) — the locus of points
 traced by polygon vertices as edges shrink inward at equal speed.
 
-**Files:**
-| File | Role |
-|---|---|
-| `types.ts` | All TypeScript interfaces: `Vector2`, `PolygonNode`, `PolygonEdge`, `InteriorEdge`,
-`StraightSkeletonGraph`, `HeapInteriorEdge`, `StraightSkeletonSolverContext` |
-| `constants.ts` | Epsilon tolerance for floating-point comparisons |
-| `core-functions.ts` | Vector math (add, subtract, scale, normalize), angle bisector construction, graph node/edge
-primitives |
-| `algorithm-helpers.ts` | Ray-ray intersection (`unitsToIntersection`), bisection edge creation (`addBisectionEdge`),
-solver context initialization (`initStraightSkeletonSolverContext`), interior loop detection (`hasInteriorLoop`), node
-finalization |
-| `algorithm.ts` | Public entry point: `computeStraightSkeleton` (main event loop) |
+**Algorithm versions:** The current algorithm is **V5** (`runAlgorithmV5` in `algorithm-termination-cases.ts`). V1
+(`algorithm.ts` + `algorithm-v1-helpers.ts`) is legacy and due for removal. V4 (`algorithm-v4.ts`) is an abandoned
+approach. New work should target V5.
 
-**Algorithm flow:**
+**Core infrastructure (shared by all versions):**
 
-1. **Init** — Build graph from polygon vertices; compute angle bisectors (interior edges) at each vertex; find their
-   intersections; push all into a min-heap ordered by ray length.
-2. **Loop** — Pop the shortest edge from the heap. Create a new node at the intersection. If a closed loop is detected (
-   `hasInteriorLoop`), accept those exterior edges as finalized. Compute new bisector edges from the merged node and
-   push them onto the heap.
-3. **Termination** — All exterior edges are accepted.
+| File                      | Role                                                                                                                                                                             |
+|---------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `types.ts`                | All TypeScript interfaces (`Vector2`, `PolygonNode`, `PolygonEdge`, `InteriorEdge`, `CollisionEvent`, `AlgorithmStepInput`/`Output`, `StraightSkeletonSolverContext`, etc.)      |
+| `constants.ts`            | Epsilon tolerance for floating-point comparisons                                                                                                                                 |
+| `core-functions.ts`       | Vector math (add, subtract, scale, normalize, cross/dot product), angle bisector construction, `fp_compare`/`areEqual`                                                           |
+| `solver-context.ts`       | `makeStraightSkeletonSolverContext` — builds the solver context with graph, accepted-edges tracking, edge lookup methods (`getInteriorWithId`, `getEdgeWithId`, `findOrAddNode`) |
+| `graph-helpers.ts`        | Graph construction (`initBoundingPolygon`), node creation                                                                                                                        |
+| `algorithm-helpers.ts`    | Bisection edge creation (`createBisectionInteriorEdge`, `bisectWithParams`), `initInteriorEdges`, exterior edge acceptance (`tryToAcceptExteriorEdge`), interior loop detection  |
+| `collision-helpers.ts`    | Collision event generation (`collideEdges`, `collideInteriorEdges`), shared-parent checks                                                                                        |
+| `collision-handling.ts`   | `handleCollisionEvent` — processes a collision by finalizing nodes and returning proposed bisection parameters                                                                   |
+| `intersection-edges.ts`   | Ray-ray intersection (`intersectRays`)                                                                                                                                           |
+| `generate-split-event.ts` | Split event generation for reflex vertices                                                                                                                                       |
+
+**V5 algorithm files:**
+
+| File                             | Role                                                                                                                                    |
+|----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| `algorithm-termination-cases.ts` | **V5 entry point** (`runAlgorithmV5`), `StepAlgorithm`, base cases for 2-edge pairs and 3-edge triangles                                |
+| `algorithm-complex-cases.ts`     | `handleInteriorEdges` — generic handler for >3 interior edges: generates collisions, handles events, partitions into child sub-polygons |
+
+**V5 algorithm flow:**
+
+1. **Init** — Build solver context via `makeStraightSkeletonSolverContext`; create bisection interior edges at each
+   vertex (`initInteriorEdges`). Start with a single `AlgorithmStepInput` containing all interior edge IDs.
+2. **Step** (`StepAlgorithm`) — For each input, dispatch by edge count:
+    - **2 edges** → `handleInteriorEdgePair` (head-on or co-linear collapse, base case)
+    - **3 edges** → `handleInteriorEdgeTriangle` (find intersection point, base case)
+    - **>3 edges** → `handleInteriorEdges` (generate all collision events, process the nearest offset layer, handle
+      collapse vs. partition events, and emit child `AlgorithmStepInput`s for resulting sub-polygons)
+3. **After each step** — Try to accept exterior edges (`tryToAcceptExteriorEdge`).
+4. **Termination** — No more child steps are produced; all exterior edges are accepted.
 
 **Data model:** The graph separates *exterior edges* (original polygon edges, never move) from *interior edges* (
 bisector rays that evolve during computation). `acceptedEdges` is a boolean array indexed by exterior edge ID tracking
-which edges are finalized. Interior edge IDs start at `graph.numExteriorNodes`; `interiorEdgeIndex(edge, graph)`
-converts an edge ID to an `interiorEdges[]` array index.
+which edges are finalized. Interior edge IDs start at `graph.numExteriorNodes`; the solver context provides lookup
+methods for converting between IDs and edge data.
+
+**Test organization:** `test-cases/` contains named polygon fixtures (exported from `test-cases/index.ts`) used across
+multiple test files. Test files include regression tests, fuzz tests (`fuzz-ellipse.test.ts`), and debug-specific tests
+for tricky polygon configurations.
