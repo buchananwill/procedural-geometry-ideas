@@ -460,8 +460,10 @@ describe('collideInteriorAndExteriorEdge', () => {
             expect(collideInteriorAndExteriorEdge(iEdge, wsParent, context)).toBeNull();
         });
 
-        it('returns null when intersection type is not converging', () => {
-            // Search across polygons for a non-converging interior/exterior pair
+        it('returns null or valid fallback event when raw intersection type is not converging', () => {
+            // Non-converging raw intersections may now produce valid collision events
+            // via the endpoint bisector fallback path, so we check that the result is
+            // either null or a properly-formed CollisionEvent.
             const polygons = [TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, AWKWARD_HEXAGON];
             let foundNonConverging = false;
 
@@ -481,7 +483,13 @@ describe('collideInteriorAndExteriorEdge', () => {
                         const [,, resultType] = unitsToIntersection(ray1, ray2);
 
                         if (resultType !== 'converging') {
-                            expect(collideInteriorAndExteriorEdge(iEdge, eEdge, context)).toBeNull();
+                            const result = collideInteriorAndExteriorEdge(iEdge, eEdge, context);
+                            if (result !== null) {
+                                // Fallback path produced a valid event — verify its shape
+                                expect(result.eventType).toBe('interiorAgainstExterior');
+                                expect(result.offsetDistance).toBeGreaterThan(0);
+                                expect(result.position).toBeDefined();
+                            }
                             foundNonConverging = true;
                             break;
                         }
