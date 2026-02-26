@@ -12,8 +12,8 @@ import {
     addVectors,
     areEqual,
     crossProduct,
-    makeBisectedBasis,
-    normalize, projectFromPerpendicular, projectToPerpendicular,
+    normalize,
+    projectToPerpendicular,
     scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
@@ -44,14 +44,14 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
 }
 
 export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
-    console.log("Interior and exterior collision")
 
     // no need to test against accepted edges
     if (context.acceptedEdges[eEdge.id]) {
         return null;
     }
 
-    if (context.isReflexEdge(iEdge)){
+    if (context.isReflexEdge(iEdge)) {
+        console.log(`Interior and exterior collision: ${JSON.stringify([iEdge, eEdge])}`)
         return generateSplitEventFromTheEdgeItself(iEdge.id, eEdge.id, context);
     }
     return null;
@@ -99,7 +99,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
             : 'interiorNonAdjacent'
     ;
 
-    if (eventType === 'phantomDivergentOffset'){
+    if (eventType === 'phantomDivergentOffset') {
         // If the edgeA is a reflex edge, we're looking to generate a split event.
         const isReflex = context.isReflexEdge(edgeA)
         if (isReflex) {

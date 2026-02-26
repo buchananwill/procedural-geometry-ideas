@@ -5,13 +5,13 @@ import {
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
 import {
-    addVectors,
+    addVectors, crossProduct,
     makeBisectedBasis,
     projectFromPerpendicular,
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
-import {makeOffsetDistance } from "@/algorithms/straight-skeleton/collision-helpers";
+import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
 
 /**
  * Code paths to add:
@@ -21,16 +21,25 @@ import {makeOffsetDistance } from "@/algorithms/straight-skeleton/collision-help
  * 3. Finding an edge split via the clockwise bisector DONE
  * 4. Finding an edge split via the edge itself
  * */
-export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, bisectorOfSplittingEdge: PolygonEdge, ray2ForTempNode: RayProjection, context: StraightSkeletonSolverContext): CollisionEvent | null{
+export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, bisectorOfSplittingEdge: PolygonEdge, ray2ForTempNode: RayProjection, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
     // ray1 is always reversed from the instigator's clockwise parent
     const instigatorClockwiseParent = context.clockwiseParent(instigatorData);
+
+    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
+    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, context.widdershinsParent(instigatorData))
+    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
+        return null;
+    }
+
+
     const ray1ForTempNode = context.projectRayReversed(instigatorClockwiseParent)
 
     // ray2 is supplied by the caller, to find the temporary intersection with the splitting edge
     const [ray1Length, _, intersectionResult] = intersectRays(ray1ForTempNode, ray2ForTempNode)
-    if (intersectionResult !== 'converging'){
-        throw new Error("Exterior edges for finding temp node did not yield a converging result.")
+    if (intersectionResult !== 'converging') {
+        return null;
+        // throw new Error(`Exterior edges for finding temp node did not yield a converging result. ${JSON.stringify([context, instigatorData, edgeToSplit, ray2ForTempNode])}`)
     }
     const tempNodePosition = addVectors(ray1ForTempNode.sourceVector, scaleVector(ray1ForTempNode.basisVector, ray1Length));
     const bisectorBSource = context.findSource(bisectorOfSplittingEdge.id)
@@ -47,10 +56,13 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     const offsetDistance = makeOffsetDistance(instigatorData, context, incenterRay1, incenterLengthRay1);
     const projectionAlongBisectorB = projectFromPerpendicular(bisectorOfSplittingEdge.basisVector, edgeToSplit.basisVector, offsetDistance);
     const vertexLocationAtGivenOffset = addVectors(bisectorBSource.position, scaleVector(bisectorOfSplittingEdge.basisVector, projectionAlongBisectorB));
-    const rayToCheckCollisionIsReal: RayProjection = {sourceVector: vertexLocationAtGivenOffset, basisVector: edgeToSplit.basisVector};
+    const rayToCheckCollisionIsReal: RayProjection = {
+        sourceVector: vertexLocationAtGivenOffset,
+        basisVector: edgeToSplit.basisVector
+    };
 
     const validationResult = intersectRays(incenterRay1, rayToCheckCollisionIsReal)
-    if (validationResult[2] !== 'converging'){
+    if (validationResult[2] !== 'converging') {
         // TODO: add debug logging
         return null;
     }
@@ -69,7 +81,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
 export function generateSplitEventViaWiddershinBisector(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
     // function assumes we've located split via the widdershins bisector
-    if (context.edgeRank(instigatorId) === 'exterior' || context.edgeRank(targetId) === 'exterior'){
+    if (context.edgeRank(instigatorId) === 'exterior' || context.edgeRank(targetId) === 'exterior') {
         return null;
     }
 
@@ -79,14 +91,17 @@ export function generateSplitEventViaWiddershinBisector(instigatorId: number, ta
 
     const edgeToSplit = context.clockwiseParent(context.getInteriorWithId(targetId))
     const targetNodeOfSplittingEdge = context.graph.nodes[edgeToSplit.target!];
-    const ray2ForTempNode: RayProjection = {sourceVector: targetNodeOfSplittingEdge.position, basisVector: scaleVector(edgeToSplit.basisVector, -1)}
+    const ray2ForTempNode: RayProjection = {
+        sourceVector: targetNodeOfSplittingEdge.position,
+        basisVector: scaleVector(edgeToSplit.basisVector, -1)
+    }
 
-    return generateSplitEvent(instigatorData, edgeToSplit, bisectorB, ray2ForTempNode,context)
+    return generateSplitEvent(instigatorData, edgeToSplit, bisectorB, ray2ForTempNode, context)
 }
 
 export function generateSplitEventViaClockwiseBisector(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     // function assumes we've located split via the widdershins bisector
-    if (context.edgeRank(instigatorId) === 'exterior' || context.edgeRank(targetId) === 'exterior'){
+    if (context.edgeRank(instigatorId) === 'exterior' || context.edgeRank(targetId) === 'exterior') {
         return null;
     }
 
@@ -96,13 +111,16 @@ export function generateSplitEventViaClockwiseBisector(instigatorId: number, tar
 
     const edgeToSplit = context.widdershinsParent(context.getInteriorWithId(targetId))
     const sourceNodeOfSplittingEdge = context.findSource(edgeToSplit.id);
-    const ray2ForTempNode: RayProjection = {sourceVector: sourceNodeOfSplittingEdge.position, basisVector: edgeToSplit.basisVector}
+    const ray2ForTempNode: RayProjection = {
+        sourceVector: sourceNodeOfSplittingEdge.position,
+        basisVector: edgeToSplit.basisVector
+    }
 
-    return generateSplitEvent(instigatorData, edgeToSplit, bisectorB, ray2ForTempNode,context)
+    return generateSplitEvent(instigatorData, edgeToSplit, bisectorB, ray2ForTempNode, context)
 }
 
 // TODO: Diagrammatic Analysis of this scenario to prove robustness. I think the only catch is we need to also check the projection of the opposite bisector, at the found offset, before we sign off on the collision.
-export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null{
+export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
 
@@ -110,18 +128,54 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const instigatorRay = context.projectRayInterior(instigatorData);
 
     const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay);
-    if (initialIntersectionTest[2] !== 'converging'){
+    if (initialIntersectionTest[2] !== 'converging') {
         // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
         return null;
     }
 
-    const clockwiseResult = generateSplitEventViaClockwiseBisector(instigatorId, targetId, context);
+    // Try simple split
+
+    {
+        const [rayLength1] = initialIntersectionTest;
+        const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
+        const instigatorOwnParentCross = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector)
+        const instigatorTargetCross = crossProduct(scaleVector(instigatorRay.basisVector, -1), edgeToSplit.basisVector)
+        const divisor = instigatorOwnParentCross + instigatorTargetCross;
+        if (divisor > 0) {
+            const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
+            const offsetDistance = distanceToSplitAlongInstigator * instigatorOwnParentCross;
+            if (offsetDistance > 0) {
+                return {
+                    intersectionData: initialIntersectionTest,
+                    offsetDistance,
+                    collidingEdges: [instigatorId, targetId],
+                    eventType: 'interiorAgainstExterior',
+                    position: addVectors(scaleVector(instigatorRay.basisVector, distanceToSplitAlongInstigator), instigatorRay.sourceVector)
+                }
+            }
+        }
+
+    }
+
+    const targetNodeId = edgeToSplit.target;
+    if (targetNodeId === undefined) {
+        throw new Error("Exterior edge does not have target node id");
+    }
+
+    const targetNode = context.graph.nodes[targetNodeId];
+    const clockwiseBisector = targetNode.outEdges.find(eId => context.edgeRank(eId) === 'primary');
+    if (clockwiseBisector === undefined) {
+        throw new Error("Could not find clockwise bisector of exterior edge.")
+    }
+
+    const sourceNode = context.findSource(targetId);
+    const ray2ForTempNode: RayProjection = {sourceVector: sourceNode.position, basisVector: edgeToSplit.basisVector}
+    const clockwiseResult = generateSplitEvent(instigatorData, edgeToSplit, context.getEdgeWithId(clockwiseBisector), ray2ForTempNode, context);
 
     if (clockwiseResult !== null) {
-        const {offsetDistance } = clockwiseResult;
-        const sourceNode = context.findSource(targetId);
+        const {offsetDistance} = clockwiseResult;
         const widdershinsBisectorId = sourceNode.outEdges.find(edgeId => context.edgeRank(edgeId) === 'primary');
-        if (widdershinsBisectorId === undefined){
+        if (widdershinsBisectorId === undefined) {
             throw new Error("Widdershins bisector could not be found on exterior edge's source");
         }
         const bisectorData = context.getInteriorWithId(widdershinsBisectorId);
@@ -129,9 +183,12 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
         const exteriorVertexProjection = projectFromPerpendicular(bisectorRay.basisVector, edgeToSplit.basisVector, offsetDistance);
         const exteriorVertexPosition = addVectors(sourceNode.position, scaleVector(bisectorRay.basisVector, exteriorVertexProjection));
-        const validationRay : RayProjection = {sourceVector: exteriorVertexPosition, basisVector: edgeToSplit.basisVector};
+        const validationRay: RayProjection = {
+            sourceVector: exteriorVertexPosition,
+            basisVector: edgeToSplit.basisVector
+        };
         const widdershinValidation = intersectRays(validationRay, instigatorRay)
-        if (widdershinValidation[2] !== 'converging'){
+        if (widdershinValidation[2] !== 'converging') {
             return null;
         }
     }

@@ -85,6 +85,30 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         edgeData.length = Math.min(length, edgeData.length);
     }
 
+    function spanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number{
+        if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior'){
+            throw new Error('Direct span of interior edges not yet implemented.')
+        }
+
+        if (acceptedEdges[firstEdge.id] || acceptedEdges[secondEdge.id]){
+            throw new Error('Cannot compute span with accepted edges.')
+        }
+
+        let totalSpan = 0;
+        for (let i = 0; i < graph.numExteriorNodes; i++) {
+            const nextEdge = (i + firstEdge.id) % graph.numExteriorNodes;
+            if ((nextEdge)  === secondEdge.id){
+                return totalSpan;
+            }
+
+            if (!acceptedEdges[nextEdge]){
+                totalSpan++;
+            }
+        }
+
+        return totalSpan;
+    }
+
     return {
         graph,
         acceptedEdges: acceptedEdges,
@@ -152,6 +176,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 return
             }
             getInteriorWithId(edgeId).length = Number.POSITIVE_INFINITY;
-        }
+        },
+        clockwiseSpanExcludingAccepted: spanExcludingAccepted
     };
 }

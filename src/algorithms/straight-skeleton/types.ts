@@ -98,6 +98,7 @@ export interface GraphHelpers {
     updateMinLength(edgeId: number, length: number): void;
     resetMinLength(edgeId: number): void;
     isReflexEdge(edgeA: InteriorEdge): boolean;
+    clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
