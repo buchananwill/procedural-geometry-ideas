@@ -77,7 +77,8 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     // Generate all currently valid collision events
     const collisionLists: CollisionEvent[][] = input.interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
-        const checkExteriorCollisions = !context.isPrimaryNonReflex(e1);
+        const edgeData = context.getInteriorWithId(e1)
+        const checkExteriorCollisions = context.isReflexEdge(edgeData);
         list.push(...input.interiorEdges.map(e2 => collideEdges(e1, e2, context)));
 
         if (checkExteriorCollisions) {

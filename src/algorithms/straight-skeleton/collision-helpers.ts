@@ -44,6 +44,7 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
 }
 
 export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+    console.log("Interior and exterior collision")
 
     // no need to test against accepted edges
     if (context.acceptedEdges[eEdge.id]) {
@@ -53,102 +54,9 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     if (context.isReflexEdge(iEdge)){
         return generateSplitEventFromTheEdgeItself(iEdge.id, eEdge.id, context);
     }
+    return null;
 
-    const cwParent = context.clockwiseParent(iEdge);
-    const wsParent = context.widdershinsParent(iEdge);
 
-    // Cannot collide with own parent
-    if (cwParent.id === eEdge.id || wsParent.id === eEdge.id) {
-        return null;
-    }
-
-    const ray1 = context.projectRayInterior(iEdge);
-    const ray2 = context.projectRay(eEdge);
-    const ray2r = context.projectRayReversed(eEdge)
-
-    const intersectionDataFor = intersectRays(ray1, ray2);
-    const intersectionDataRev = intersectRays(ray1, ray2r);
-
-    const collisionF = intersectionDataFor[2] === 'converging';
-    const collisionR = intersectionDataRev[2] === 'converging';
-
-    // Only meaningful result for collisions with exterior edges
-    if (!collisionF && !collisionR) {
-        return null;
-    }
-
-    const intersectionData = collisionF ? intersectionDataFor : intersectionDataRev;
-    const [alongRay1, _alongRay2, resultType] = intersectionData;
-
-    // make rays from vertex source with widdershins parent basis, and intersected exterior edge with its reverse basis from its target.
-    const widdershinsParentRay: RayProjection = {
-        sourceVector: context.findSource(iEdge.id).position,
-        basisVector: wsParent.basisVector
-    }
-    const exteriorCollisionRay: RayProjection = {
-        sourceVector: context.graph.nodes[eEdge.target!].position,
-        basisVector: scaleVector(eEdge.basisVector, -1)
-    }
-    const [alongParent] = intersectRays(widdershinsParentRay, exteriorCollisionRay);
-    const triangleOtherVertex = addVectors(widdershinsParentRay.sourceVector, scaleVector(widdershinsParentRay.basisVector, alongParent))
-    const triangleOtherBisector = makeBisectedBasis(eEdge.basisVector, scaleVector(wsParent.basisVector, -1))
-    const otherRay: RayProjection = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
-
-    const intermediateIntersection = intersectRays(ray1, otherRay)
-    const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
-    if (resultTypeFinal !== 'converging') {
-        // We must be dealing with a non-reflex angle, so don't need to continue;
-        // console.log(`non converging interior-exterior intersection: ${JSON.stringify(intermediateIntersection)}`)
-        return null;
-    }
-
-    const finalCollisionOffset = projectToPerpendicular(ray1.basisVector, widdershinsParentRay.basisVector, alongOriginalInterior)
-
-    if (finalCollisionOffset <= 0) {
-        return null;
-    }
-
-    // Validate that the collision point is within the shrunk wavefront of the exterior edge.
-    // Advance the exterior edge's source and target vertices along their primary bisectors
-    // to the collision offset, then check ray1 intersects within the resulting wavefront segment.
-    // Only check each side if the primary bisector there hasn't been accepted (collapsed).
-    const {graph} = context;
-    const numExt = graph.numExteriorNodes;
-    const sourceBisectorId = graph.nodes[eEdge.source].outEdges.find(id => id >= numExt)!;
-    const targetBisectorId = graph.nodes[eEdge.target!].outEdges.find(id => id >= numExt)!;
-
-    // Check each side using the primary bisectors at the exterior edge's vertices.
-    // The primary bisector direction defines how the wavefront boundary shrinks regardless
-    // of whether the bisector has been accepted (collapsed).
-    const sourceBisectorBasis = context.getEdgeWithId(sourceBisectorId).basisVector;
-    const tSource = projectFromPerpendicular(sourceBisectorBasis, eEdge.basisVector, finalCollisionOffset);
-    const advancedSource = addVectors(graph.nodes[eEdge.source].position, scaleVector(sourceBisectorBasis, tSource));
-    const [, alongWfSource] = intersectRays(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
-
-    const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
-    const tTarget = projectFromPerpendicular(targetBisectorBasis, eEdge.basisVector, finalCollisionOffset);
-    const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
-    const [, alongWfTarget] = intersectRays(ray1, {
-        sourceVector: advancedTarget,
-        basisVector: scaleVector(eEdge.basisVector, -1)
-    });
-
-    let eventType: CollisionType = "interiorAgainstExterior";
-    if (alongWfSource < 0 || alongWfTarget < 0) {
-        eventType = 'phantomDivergentOffset';
-    }
-
-    if (eventType === 'phantomDivergentOffset') {
-        return null;
-    }
-
-    return {
-        collidingEdges: [iEdge.id, eEdge.id],
-        intersectionData,
-        offsetDistance: finalCollisionOffset,
-        position: addVectors(ray1.sourceVector, scaleVector(ray1.basisVector, alongOriginalInterior)),
-        eventType
-    }
 }
 
 export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
@@ -178,16 +86,6 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
         return null;
     }
 
-    // If the edgeA is a reflex edge, we're looking to generate a split event.
-    const isReflex = context.isReflexEdge(edgeA)
-    if (isReflex) {
-        const isWiddershins = crossProduct(ray1.basisVector, ray2.basisVector) > 0;
-        if (isWiddershins) {
-            return generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
-        } else {
-            return generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
-        }
-    }
 
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
@@ -200,6 +98,20 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
             ? 'interiorPair'
             : 'interiorNonAdjacent'
     ;
+
+    if (eventType === 'phantomDivergentOffset'){
+        // If the edgeA is a reflex edge, we're looking to generate a split event.
+        const isReflex = context.isReflexEdge(edgeA)
+        if (isReflex) {
+            const isWiddershins = crossProduct(ray1.basisVector, ray2.basisVector) > 0;
+            if (isWiddershins) {
+                return generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
+            } else {
+                return generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
+            }
+        }
+
+    }
 
     return {
         offsetDistance: Math.max(offsetTarget, offsetDistance),
