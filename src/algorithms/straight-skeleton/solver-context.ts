@@ -57,16 +57,22 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return graph.edges[edge.widdershinsExteriorEdgeIndex];
     }
 
+    function isReflexEdge(edge: InteriorEdge): boolean{
+        const cwParent = clockwiseParent(edge);
+        const wsParent = widdershinsParent(edge);
+
+        return crossProduct(cwParent.basisVector, wsParent.basisVector) < 0;
+    }
+
     function isPrimaryNonReflex(id: number): boolean {
+
+
         if (edgeRank(id) !== 'primary'){
             return false;
         }
 
         const interiorData = getInteriorWithId(id);
-        const cwParent = clockwiseParent(interiorData);
-        const wsParent = widdershinsParent(interiorData);
-
-        return crossProduct(cwParent.basisVector, wsParent.basisVector) > 0;
+        return !isReflexEdge(interiorData);
 
     }
 
@@ -138,6 +144,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         },
         edgeRank,
         isPrimaryNonReflex,
+        isReflexEdge,
         updateMinLength,
         resetMinLength(edgeId: number) {
             const rank = edgeRank(edgeId);

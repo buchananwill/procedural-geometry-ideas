@@ -97,12 +97,14 @@ export interface GraphHelpers {
     isPrimaryNonReflex(edgeId: number): boolean;
     updateMinLength(edgeId: number, length: number): void;
     resetMinLength(edgeId: number): void;
+    isReflexEdge(edgeA: InteriorEdge): boolean;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
     heap: Heap<HeapInteriorEdge>;
+
 }
 
 export type IntersectionType = 'converging' | 'head-on' | 'parallel' | 'diverging' | 'identical-source' | 'co-linear-from-1' | 'co-linear-from-2'

@@ -1,5 +1,6 @@
 import {
-    CollisionEvent, CollisionType,
+    CollisionEvent,
+    CollisionType,
     InteriorEdge,
     PolygonEdge,
     RayProjection,
@@ -17,6 +18,11 @@ import {
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
 import {NO_COLLISION_RESULTS} from "@/algorithms/straight-skeleton/constants";
+import {
+    generateSplitEventFromTheEdgeItself,
+    generateSplitEventViaClockwiseBisector,
+    generateSplitEventViaWiddershinBisector
+} from "@/algorithms/straight-skeleton/generate-split-event";
 
 export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: number, clockwiseParentBasis: Vector2) {
     return units * crossProduct(collidingChild, clockwiseParentBasis);
@@ -42,6 +48,10 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
     // no need to test against accepted edges
     if (context.acceptedEdges[eEdge.id]) {
         return null;
+    }
+
+    if (context.isReflexEdge(iEdge)){
+        return generateSplitEventFromTheEdgeItself(iEdge.id, eEdge.id, context);
     }
 
     const cwParent = context.clockwiseParent(iEdge);
@@ -155,6 +165,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const ray1 = context.projectRayInterior(edgeA);
     const ray2 = context.projectRayInterior(edgeB);
 
+
     const intersectionData = intersectRays(ray1, ray2);
     const [alongRay1, _alongRay2, resultType] = intersectionData;
 
@@ -165,6 +176,17 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // Will be handled by other edge
     if (resultType === 'co-linear-from-2') {
         return null;
+    }
+
+    // If the edgeA is a reflex edge, we're looking to generate a split event.
+    const isReflex = context.isReflexEdge(edgeA)
+    if (isReflex) {
+        const isWiddershins = crossProduct(ray1.basisVector, ray2.basisVector) > 0;
+        if (isWiddershins) {
+            return generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
+        } else {
+            return generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
+        }
     }
 
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
@@ -208,8 +230,7 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
         event = collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
     }
 
-    if (event !== null && event.eventType != 'phantomDivergentOffset')
-    {
+    if (event !== null && event.eventType != 'phantomDivergentOffset') {
         context.updateMinLength(edgeIdA, event.intersectionData[0])
         context.updateMinLength(edgeIdB, event.intersectionData[1])
     }

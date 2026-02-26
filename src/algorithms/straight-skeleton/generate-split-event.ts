@@ -11,7 +11,7 @@ import {
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
-import {makeOffsetDistance, sourceOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
+import {makeOffsetDistance } from "@/algorithms/straight-skeleton/collision-helpers";
 
 /**
  * Code paths to add:
