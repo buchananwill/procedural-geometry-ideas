@@ -68,7 +68,8 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    const position = addVectors(incenterRay1.sourceVector, addVectors(incenterRay1.sourceVector, scaleVector(incenterRay1.basisVector, incenterLengthRay1)));
+    const position = addVectors(incenterRay1.sourceVector, scaleVector(incenterRay1.basisVector, incenterLengthRay1));
+
 
     return {
         position,
