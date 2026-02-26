@@ -177,6 +177,14 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             }
             getInteriorWithId(edgeId).length = Number.POSITIVE_INFINITY;
         },
-        clockwiseSpanExcludingAccepted: spanExcludingAccepted
+        clockwiseSpanExcludingAccepted: spanExcludingAccepted,
+        widdershinsBisector(edgeId: number): PolygonEdge {
+            // todo: error handling!
+            return getEdgeWithId(graph.nodes[getEdgeWithId(edgeId).target!].outEdges.find(e => edgeRank(e) === 'primary')!)
+        },
+        clockwiseBisector(edgeId: number): PolygonEdge {
+            // todo: error handling!
+            return getEdgeWithId(graph.nodes[getEdgeWithId(edgeId).source].outEdges.find(e => edgeRank(e) === 'primary')!)
+        },
     };
 }

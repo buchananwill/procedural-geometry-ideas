@@ -28,7 +28,7 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
         }
 
         if (context.isReflexEdge(context.getInteriorWithId(ev1Id1))) {
-            return length1a - length2a
+            return ev1.offsetDistance - ev2.offsetDistance;
         }
 
         if (context.edgeRank(ev1Id2) !== 'exterior' && context.edgeRank(ev2Id2) !== 'exterior') {
@@ -53,9 +53,9 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
             return ev1.offsetDistance - ev2.offsetDistance;
         }
 
-        if (ev1.eventType === 'interiorPair') {
-            return length1a - length2a;
-        }
+        // if (ev1.eventType === 'interiorPair') {
+        //     return length1a - length2a;
+        // }
 
         return ev1.offsetDistance - ev2.offsetDistance;
 

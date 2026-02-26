@@ -63,6 +63,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
 
     const validationResult = intersectRays(incenterRay1, rayToCheckCollisionIsReal)
     if (validationResult[2] !== 'converging') {
+        // console.log(`Split event validation failed: ${JSON.stringify([validationResult, context])}`)
         // TODO: add debug logging
         return null;
     }
@@ -145,13 +146,39 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
             const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
             const offsetDistance = distanceToSplitAlongInstigator * instigatorOwnParentCross;
             if (offsetDistance > 0) {
-                return {
-                    intersectionData: initialIntersectionTest,
-                    offsetDistance,
-                    collidingEdges: [instigatorId, targetId],
-                    eventType: 'interiorAgainstExterior',
-                    position: addVectors(scaleVector(instigatorRay.basisVector, distanceToSplitAlongInstigator), instigatorRay.sourceVector)
+                const widdershinsBisector: PolygonEdge = context.widdershinsBisector(targetId);
+                const clockwiseBisector = context.clockwiseBisector(targetId);
+
+                const widdershinsProjection = projectFromPerpendicular(widdershinsBisector.basisVector, edgeToSplit.basisVector, offsetDistance)
+                const clockwiseProjection = projectFromPerpendicular(clockwiseBisector.basisVector, edgeToSplit.basisVector, offsetDistance)
+
+                const widdershinsTestRay: RayProjection = {
+                    sourceVector: addVectors(context.findSource(widdershinsBisector.id).position, scaleVector(widdershinsBisector.basisVector, widdershinsProjection)),
+                    basisVector: scaleVector(edgeToSplit.basisVector, -1)
                 }
+
+                const clockwiseTestRay: RayProjection = {
+                    sourceVector: addVectors(context.findSource(clockwiseBisector.id).position, scaleVector(clockwiseBisector.basisVector, clockwiseProjection)),
+                    basisVector: edgeToSplit.basisVector
+                }
+
+                const widdershinsTest = intersectRays(widdershinsTestRay, instigatorRay)
+                const clockwiseTest = intersectRays(clockwiseTestRay, instigatorRay)
+
+                if (widdershinsTest[2] === 'converging' && clockwiseTest[2] == 'converging') {
+
+                    return {
+                        intersectionData: initialIntersectionTest,
+                        offsetDistance,
+                        collidingEdges: [instigatorId, targetId],
+                        eventType: 'interiorAgainstExterior',
+                        position: addVectors(scaleVector(instigatorRay.basisVector, distanceToSplitAlongInstigator), instigatorRay.sourceVector)
+                    }
+                } else {
+
+                    return null
+                }
+
             }
         }
 
