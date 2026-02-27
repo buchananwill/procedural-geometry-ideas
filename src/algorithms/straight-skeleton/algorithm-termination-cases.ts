@@ -5,15 +5,58 @@ import {
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
-import {areEqual, dotProduct} from "@/algorithms/straight-skeleton/core-functions";
+import {
+    areEqual,
+    dotProduct,
+    normalize,
+    subtractVectors,
+    vectorsAreEqual
+} from "@/algorithms/straight-skeleton/core-functions";
 import {collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
 
-function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string{
+function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
+}
+
+/**
+ * For a given edge, scan all existing nodes to see if any node lies exactly
+ * along the edge's basis direction from its source.  If found, wire up
+ * target / inEdges and return true.
+ */
+function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: number): boolean {
+    const edgeData = context.getEdgeWithId(edgeId);
+    const source = context.findSource(edgeId);
+
+    for (let i = 0; i < context.graph.nodes.length; i++) {
+        if (i === edgeData.source) continue;
+        const candidate = context.graph.nodes[i];
+        const [direction, distance] = normalize(subtractVectors(candidate.position, source.position));
+        if (distance > 0 && vectorsAreEqual(direction, edgeData.basisVector)) {
+            edgeData.target = candidate.id;
+            candidate.inEdges.push(edgeId);
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Pre-pass: try to resolve every edge in the input by snapping it to an
+ * existing node.  Returns the list of edge IDs that could NOT be resolved
+ * (and therefore still need collision handling).
+ */
+function resolveEdgesPointingAtNodes(context: StraightSkeletonSolverContext, edgeIds: number[]): number[] {
+    const unresolved: number[] = [];
+    for (const id of edgeIds) {
+        if (!tryAttachEdgeToNode(context, id)) {
+            unresolved.push(id);
+        }
+    }
+    return unresolved;
 }
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
@@ -21,10 +64,27 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         throw new Error("Invalid call: expecting two interior edges");
     }
 
+    const remaining = resolveEdgesPointingAtNodes(context, input.interiorEdges);
+
+    // All edges resolved without collision
+    if (remaining.length === 0) {
+        context.acceptAll(input.interiorEdges);
+        return {childSteps: []};
+    }
+
+    // One edge resolved, the other still needs a target — try to snap it too
+    if (remaining.length === 1) {
+        // The resolved edge created a new target node; re-attempt the remaining one
+        if (tryAttachEdgeToNode(context, remaining[0])) {
+            context.acceptAll(input.interiorEdges);
+            return {childSteps: []};
+        }
+    }
+
+    // Fall back to collision-based resolution
     const [id1, id2] = input.interiorEdges;
     const edgeData1 = context.getEdgeWithId(id1);
     const edgeData2 = context.getEdgeWithId(id2);
-
 
     const dotEdges = dotProduct(edgeData1.basisVector, edgeData2.basisVector);
     // Head on Collision
@@ -43,9 +103,9 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
 
-        // Almost certainly wrong but lets try it.
+        // Co-linear collapse: cross-wire sources
         const intersectionType = collision.intersectionData[2];
-        if (intersectionType === 'co-linear-from-1'){
+        if (intersectionType === 'co-linear-from-1') {
             edgeData1.target = edgeData2.source;
             edgeData2.target = edgeData1.source;
 
@@ -55,11 +115,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             source1.inEdges.push(id2);
             source2.inEdges.push(id1);
         }
-        else {
-            console.log(`${stringifyFinalData(context, input)}`)
-        }
     }
-
 
     context.acceptAll(input.interiorEdges);
 
@@ -126,12 +182,23 @@ export function HandleAlgorithmStepInput(context: StraightSkeletonSolverContext,
 }
 
 export function StepAlgorithm(context: StraightSkeletonSolverContext, inputs: AlgorithmStepInput[]): AlgorithmStepOutput {
-    // context.graph.interiorEdges.forEach(e => context.resetMinLength(e.id))
+    const childSteps: AlgorithmStepInput[] = [];
+    const errors: string[] = [];
+
+    for (const input of inputs) {
+        try {
+            childSteps.push(...HandleAlgorithmStepInput(context, input).childSteps);
+        } catch (e) {
+            errors.push(e instanceof Error ? e.message : String(e));
+        }
+    }
+
+    if (errors.length > 0) {
+        console.warn(`StepAlgorithm: ${errors.length} sub-polygon(s) failed:\n${errors.join('\n')}`);
+    }
 
     return {
-        childSteps: inputs
-            .flatMap(inputList => HandleAlgorithmStepInput(context, inputList).childSteps)
-            .filter(steps => steps.interiorEdges.length > 1)
+        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1)
     }
 }
 
