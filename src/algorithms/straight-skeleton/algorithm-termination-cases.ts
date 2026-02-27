@@ -99,13 +99,19 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         source1.inEdges.push(id2);
         source2.inEdges.push(id1);
     } else {
-        const collision = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
-        if (collision === null) {
+        const collisions = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
+        if (collisions.length === 0) {
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
 
+        // Pick the best (lowest offset, non-phantom) collision
+        const best = collisions
+            .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
+            .sort((a, b) => a.offsetDistance - b.offsetDistance)[0]
+            ?? collisions.sort((a, b) => a.offsetDistance - b.offsetDistance)[0];
+
         // Co-linear collapse: cross-wire sources
-        const intersectionType = collision.intersectionData[2];
+        const intersectionType = best.intersectionData[2];
         if (intersectionType === 'co-linear-from-1') {
             edgeData1.target = edgeData2.source;
             edgeData2.target = edgeData1.source;
@@ -115,6 +121,12 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
 
             source1.inEdges.push(id2);
             source2.inEdges.push(id1);
+        } else {
+            // Standard convergence — wire both edges to the collision point
+            const newNode = context.findOrAddNode(best.position);
+            edgeData1.target = newNode.id;
+            edgeData2.target = newNode.id;
+            newNode.inEdges.push(id1, id2);
         }
     }
 
@@ -132,19 +144,24 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
 
     const edgeData = context.getEdges(input.interiorEdges);
 
-    let event: CollisionEvent | null = null;
+    const allCollisions: CollisionEvent[] = [];
     for (const [index1, index2] of TRIANGLE_INTERSECT_PAIRINGS) {
         const edge1 = context.getInteriorWithId(input.interiorEdges[index1]);
         const edge2 = context.getInteriorWithId(input.interiorEdges[index2]);
-        event = collideInteriorEdges(edge1, edge2, context);
+        allCollisions.push(...collideInteriorEdges(edge1, edge2, context));
     }
 
+    // Pick the best non-phantom collision; fall back to any collision
+    const best = allCollisions
+        .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
+        .sort((a, b) => a.offsetDistance - b.offsetDistance)[0]
+        ?? allCollisions.sort((a, b) => a.offsetDistance - b.offsetDistance)[0];
 
-    if (event === null) {
+    if (!best) {
         throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
     }
 
-    const newNode = context.findOrAddNode(event.position)
+    const newNode = context.findOrAddNode(best.position)
     newNode.inEdges.push(...input.interiorEdges);
     edgeData.forEach(e => {
         e.target = newNode.id;
