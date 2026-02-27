@@ -8,7 +8,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import Heap from "heap-js";
-import {crossProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {crossProduct, dotProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
 
 function makeHeapInteriorEdgeComparator() {
     return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
@@ -61,8 +61,10 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     function isReflexEdge(edge: InteriorEdge): boolean{
         const cwParent = clockwiseParent(edge);
         const wsParent = widdershinsParent(edge);
+        const edgeData = getEdgeWithId(edge.id);
+        return dotProduct(cwParent.basisVector, edgeData.basisVector) < 0
 
-        return crossProduct(cwParent.basisVector, wsParent.basisVector) < 0;
+        // return crossProduct(cwParent.basisVector, wsParent.basisVector) < 0;
     }
 
     function isPrimaryNonReflex(id: number): boolean {

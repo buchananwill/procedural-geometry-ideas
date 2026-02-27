@@ -78,8 +78,9 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
 
         return list.filter(event => {
             // console.log(`filtering events: ${JSON.stringify(event)}`);
-            return event !== null;
+            return event !== null && event.eventType !== 'phantomDivergentOffset';
         })
+            .map(e => e as CollisionEvent)
             // .filter(event => event?.intersectionData[2] !== 'diverging')
             .toSorted(sameInstigatorComparator)
     })

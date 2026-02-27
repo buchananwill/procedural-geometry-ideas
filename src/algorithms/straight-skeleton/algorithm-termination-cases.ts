@@ -1,6 +1,7 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, CollisionEvent,
+    StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
@@ -150,4 +151,37 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     }
 
     return context
+}
+
+export interface SteppedAlgorithmResult {
+    /** Graph snapshots: index 0 = after init, 1..N = after each while-loop iteration */
+    snapshots: StraightSkeletonGraph[];
+    /** Non-null if the algorithm threw an error */
+    error: string | null;
+}
+
+export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult {
+    if (nodes.length < 3) {
+        return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
+    }
+
+    const context = makeStraightSkeletonSolverContext(nodes);
+    const exteriorEdges = [...context.graph.edges];
+
+    initInteriorEdges(context);
+
+    const snapshots: StraightSkeletonGraph[] = [structuredClone(context.graph)];
+    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
+
+    try {
+        while (inputs.length > 0) {
+            inputs = StepAlgorithm(context, inputs).childSteps;
+            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
+            snapshots.push(structuredClone(context.graph));
+        }
+        return {snapshots, error: null};
+    } catch (e) {
+        snapshots.push(structuredClone(context.graph));
+        return {snapshots, error: e instanceof Error ? e.message : String(e)};
+    }
 }

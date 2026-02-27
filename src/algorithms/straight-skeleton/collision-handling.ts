@@ -29,10 +29,8 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const widdershinsCollider = parentSharing[0] ? interiorEdge : otherInterior;
         const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
 
-        const collapsedEdge = clockwiseCollider.widdershinsExteriorEdgeIndex;
         const approximateDirection = makeBisectedBasis(instigatorData.basisVector, targetEdgeData.basisVector)
 
-        context.accept(collapsedEdge);
         context.accept(widdershinsCollider.id);
         context.accept(clockwiseCollider.id);
 

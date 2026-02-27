@@ -22,7 +22,7 @@ import {NO_COLLISION_RESULTS} from "@/algorithms/straight-skeleton/constants";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaClockwiseBisector,
-    generateSplitEventViaWiddershinBisector
+    generateSplitEventViaWiddershinsBisector
 } from "@/algorithms/straight-skeleton/generate-split-event";
 import {createCollisions} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 
@@ -93,36 +93,37 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
-    const eventType: CollisionType = !areEqual(offsetDistance, offsetTarget)
+    const eventType: CollisionType = !areEqual(offsetDistance, offsetTarget) || offsetDistance <= 0
         ? 'phantomDivergentOffset'
         : anyShared
             ? 'interiorPair'
-            : 'interiorNonAdjacent'
-    ;
+            : 'interiorNonAdjacent';
 
-    if (eventType === 'phantomDivergentOffset') {
-        // If the edgeA is a reflex edge, we're looking to generate a split event.
-        const isReflex = context.isReflexEdge(edgeA)
-        if (isReflex) {
-            const isWiddershins = crossProduct(ray1.basisVector, ray2.basisVector) > 0;
-            const widdershinsEvent = generateSplitEventViaWiddershinBisector(edgeA.id, edgeB.id, context);
-            const clockwiseEvent = generateSplitEventViaClockwiseBisector(edgeA.id, edgeB.id, context);
-            if ( clockwiseEvent === null && widdershinsEvent !== null){
-                return widdershinsEvent;
-            }
-
-            if (widdershinsEvent === null && clockwiseEvent !== null){
-                return clockwiseEvent;
-            }
-
-            if (widdershinsEvent !== null && clockwiseEvent !== null){
-                return widdershinsEvent.offsetDistance < clockwiseEvent.offsetDistance ? widdershinsEvent : clockwiseEvent;
-            }
-
-            return null
+    // If the edgeA is a reflex edge, we're looking to generate a split event.
+    const isReflexA = context.isReflexEdge(edgeA)
+    const isReflexB = context.isReflexEdge(edgeB)
+    if (isReflexA || isReflexB) {
+        const reflexEdge = isReflexA ? edgeA : edgeB;
+        const otherEdge = isReflexA ? edgeB : edgeA;
+        const widdershinsEvent = generateSplitEventViaWiddershinsBisector(reflexEdge.id, otherEdge.id, context);
+        const clockwiseEvent = generateSplitEventViaClockwiseBisector(reflexEdge.id, otherEdge.id, context);
+        const widdershinsValid = widdershinsEvent !== null && widdershinsEvent.offsetDistance > 0 && (widdershinsEvent.offsetDistance < offsetDistance || eventType === 'phantomDivergentOffset')
+        const clockwiseValid =  clockwiseEvent !== null && clockwiseEvent.offsetDistance > 0 && (clockwiseEvent.offsetDistance < offsetDistance || eventType === 'phantomDivergentOffset')
+        if (!clockwiseValid && widdershinsValid) {
+            return widdershinsEvent;
         }
 
+        if (!widdershinsValid&& clockwiseValid) {
+            return clockwiseEvent;
+        }
+
+        if (widdershinsValid && clockwiseValid) {
+            return widdershinsEvent.offsetDistance < clockwiseEvent.offsetDistance ? widdershinsEvent : clockwiseEvent;
+        }
+
+
     }
+
 
     return {
         offsetDistance: Math.max(offsetTarget, offsetDistance),
