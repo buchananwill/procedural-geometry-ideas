@@ -1,5 +1,14 @@
 import {AlgorithmStepInput, Vector2} from '@/algorithms/straight-skeleton/types';
-import {ALL_TEST_POLYGONS} from './test-cases';
+import {NamedTestPolygon} from './test-cases';
+import {
+    TRIANGLE, SQUARE, DEFAULT_PENTAGON,
+    AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
+    IMPOSSIBLE_OCTAGON, CRAZY_POLYGON,
+} from './test-cases/test-constants';
+import {LONG_OCTAGON} from './test-cases/long-octagon';
+import {WACKY_OCTAGON} from './test-cases/more-edge-cases';
+import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from './test-cases/isthmus-failure';
+import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from './test-cases/double-reflex-spaceship';
 import {StepAlgorithm} from './algorithm-termination-cases';
 import {makeStraightSkeletonSolverContext} from './solver-context';
 import {initInteriorEdges, tryToAcceptExteriorEdge} from './algorithm-helpers';
@@ -10,7 +19,28 @@ import {
     sizeOfVector,
 } from './core-functions';
 
-const PER_RUN_TIMEOUT_MS = 5_000;
+const PER_RUN_TIMEOUT_MS = 2_000;
+
+/** Geometrically distinct subset — one representative per shape category. */
+const FUZZ_POLYGONS: NamedTestPolygon[] = [
+    // Convex
+    {name: 'Triangle', vertices: TRIANGLE},
+    {name: 'Square', vertices: SQUARE},
+    {name: 'Default Pentagon', vertices: DEFAULT_PENTAGON},
+    // Simple reflex
+    {name: 'Awkward Hexagon', vertices: AWKWARD_HEXAGON},
+    {name: 'Awkward Heptagon', vertices: AWKWARD_HEPTAGON},
+    // Complex reflex
+    {name: 'Impossible Octagon', vertices: IMPOSSIBLE_OCTAGON},
+    {name: 'Crazy Polygon', vertices: CRAZY_POLYGON},
+    // Near-degenerate
+    {name: 'Long Octagon', vertices: LONG_OCTAGON},
+    {name: 'Wacky Octagon', vertices: WACKY_OCTAGON},
+    // Isthmus / split
+    {name: 'Convergence Towards Isthmus', vertices: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS},
+    // Reflex spaceship
+    {name: 'Double Reflex Spaceship', vertices: SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP},
+];
 
 class AlgorithmTimeoutError extends Error {
     constructor(ms: number) {
@@ -111,7 +141,7 @@ function computeEllipseForVertex(vertices: Vector2[], i: number): EllipseParams 
 }
 
 /**
- * Generates ~20 points on a 5×5 grid inside the ellipse.
+ * Generates grid points inside the ellipse.
  * Points are placed at cell centres in normalised [-1,1]² then filtered by u²+v² ≤ 1.
  */
 function generateGridPointsInEllipse(ellipse: EllipseParams, gridSize: number = 5): Vector2[] {
@@ -189,10 +219,9 @@ function checkAlgorithmResult(vertices: Vector2[]): string | null {
 describe('Ellipse fuzz test', () => {
     jest.setTimeout(10_000);
 
-    const GRID_SIZE = 5;
-    const allFailures: FuzzFailure[] = [];
+    const GRID_SIZE = 3;
 
-    it.each(ALL_TEST_POLYGONS)(
+    it.each(FUZZ_POLYGONS)(
         '$name: perturb each vertex within its ellipse',
         ({name, vertices}) => {
             const polygonFailures: FuzzFailure[] = [];
@@ -220,38 +249,7 @@ describe('Ellipse fuzz test', () => {
                 }
             }
 
-            allFailures.push(...polygonFailures);
-
-            if (polygonFailures.length > 0) {
-                console.log(`\n[${name}] ${polygonFailures.length} failures:`);
-                for (const f of polygonFailures) {
-                    console.log(
-                        `  vertex ${f.vertexIndex}: ` +
-                        `(${f.originalPosition.x.toFixed(4)}, ${f.originalPosition.y.toFixed(4)}) -> ` +
-                        `(${f.movedPosition.x.toFixed(4)}, ${f.movedPosition.y.toFixed(4)}): ` +
-                        f.failureReason
-                    );
-                }
-            }
+            expect(polygonFailures).toEqual([]);
         }
     );
-
-    afterAll(() => {
-        console.log('\n========================================');
-        console.log(`FUZZ TEST SUMMARY: ${allFailures.length} total failures`);
-        console.log('========================================');
-        if (allFailures.length > 0) {
-            const grouped = new Map<string, FuzzFailure[]>();
-            for (const f of allFailures) {
-                const list = grouped.get(f.polygonName) ?? [];
-                list.push(f);
-                grouped.set(f.polygonName, list);
-            }
-            for (const [name, failures] of grouped) {
-                console.log(`  ${name}: ${failures.length} failures`);
-            }
-            console.log('\n--- Failure data (JSON) ---');
-            console.log(JSON.stringify(allFailures, null, 2));
-        }
-    });
 });
