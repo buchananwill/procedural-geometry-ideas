@@ -203,6 +203,8 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                         eventType: 'interiorAgainstExterior',
                         position: addVectors(scaleVector(instigatorRay.basisVector, distanceToSplitAlongInstigator), instigatorRay.sourceVector)
                     }
+
+                    return simpleSplit;
                 }
             }
         }
@@ -248,9 +250,6 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         }
     }
 
-    return simpleSplit === null ? clockwiseResult :
-        clockwiseResult === null ? simpleSplit :
-            simpleSplit.offsetDistance < clockwiseResult.offsetDistance ?
-                simpleSplit
-                : clockwiseResult;
+    return clockwiseResult ;
+
 }
