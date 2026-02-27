@@ -81,7 +81,6 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     const [[ray1Length, _, intersectionResult], usingCwIntersection] = result;
     if (intersectionResult !== 'converging') {
         return null;
-        // throw new Error(`Exterior edges for finding temp node did not yield a converging result. ${JSON.stringify([context, instigatorData, edgeToSplit, suppliedRayForTempNode])}`)
     }
     const tempNodePosition = addVectors(ray1ForTempNode.sourceVector, scaleVector(ray1ForTempNode.basisVector, ray1Length));
 
@@ -104,7 +103,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     // Check these edges really collide
     const offsetDistance = makeOffsetDistance(instigatorData, context, incenterRay1, incenterLengthRay1);
     if (offsetDistance < 0) {
-        console.log(`Offset distance was < 0: ${offsetDistance}, intersection: ${intersectionData}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
+        splitLog.warn(`Offset distance was < 0: ${offsetDistance}, intersection: ${intersectionData}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
         return null;
     }
     const clockwiseBisector = context.clockwiseBisector(edgeToSplit.id);

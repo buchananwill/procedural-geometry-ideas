@@ -428,104 +428,91 @@ export const PREMATURE_SPLIT_OUTCOME_V5_ALGORITHM = {
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 9,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 10,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 11,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 12,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 13,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 14,
             "clockwiseExteriorEdgeIndex": 6,
             "widdershinsExteriorEdgeIndex": 5,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 15,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 16,
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 17,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 18,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 19,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 20,
             "clockwiseExteriorEdgeIndex": 6,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         }
     ]
 }

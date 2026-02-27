@@ -4,14 +4,7 @@ import {useState, useMemo, useEffect, useCallback} from "react";
 import dynamic from "next/dynamic";
 import {AppShell, Group, Title, Button, UnstyledButton, Text, Stack, Paper, Switch, Select, Collapse, ScrollArea, Modal, Slider, ActionIcon} from "@mantine/core";
 import {usePolygonStore} from "@/stores/usePolygonStore";
-import {
-    computeStraightSkeleton,
-    computePrimaryInteriorEdges,
-    computePrimaryEdgeIntersections,
-} from "@/algorithms/straight-skeleton/algorithm";
-import type {PrimaryInteriorEdge} from "@/algorithms/straight-skeleton/algorithm";
 import type {StraightSkeletonGraph, StraightSkeletonSolverContext, CollisionType, IntersectionType} from "@/algorithms/straight-skeleton/types";
-import type {Vector2} from "@/algorithms/straight-skeleton/types";
 import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
@@ -31,7 +24,6 @@ export interface DebugDisplayOptions {
     showInteriorEdgeLengths: boolean;
     showSelectedNodeEdgeLengths: boolean;
     showSkeletonNodes: boolean;
-    showPrimaryIntersectionNodes: boolean;
     showNodeIndices: boolean;
     showEdgeIndices: boolean;
     showOffsetDistances: boolean;
@@ -65,8 +57,6 @@ export default function Home() {
     const setVertices = usePolygonStore((s) => s.setVertices);
 
     const [showSkeleton, setShowSkeleton] = useState(false);
-    const [algorithmVersion, setAlgorithmVersion] = useState<"v1" | "v5">("v5");
-    const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
     const [copied, setCopied] = useState(false);
     const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
 
@@ -94,7 +84,6 @@ export default function Home() {
         showInteriorEdgeLengths: false,
         showSelectedNodeEdgeLengths: false,
         showSkeletonNodes: false,
-        showPrimaryIntersectionNodes: false,
         showNodeIndices: false,
         showEdgeIndices: false,
         showOffsetDistances: false,
@@ -158,40 +147,22 @@ export default function Home() {
     const [collisionSweepLines, setCollisionSweepLines] = useState<CollisionSweepLine[] | null>(null);
 
     const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
-        if (!showSkeleton || algorithmVersion !== "v5") return null;
+        if (!showSkeleton) return null;
         try {
             return runAlgorithmV5(vertices);
         } catch (e) {
             console.log(e);
             return null;
         }
-    }, [showSkeleton, vertices, algorithmVersion]);
+    }, [showSkeleton, vertices]);
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
-        if (animationMode && algorithmVersion === "v5" && steppedResult && steppedResult.snapshots.length > 0) {
+        if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
             return steppedResult.snapshots[Math.min(currentStep, steppedResult.snapshots.length - 1)];
         }
         if (!showSkeleton) return null;
-        if (algorithmVersion === "v5") {
-            return solverContext?.graph ?? null;
-        }
-        try {
-            return computeStraightSkeleton(vertices);
-        } catch (e) {
-            console.log(e);
-            return null;
-        }
-    }, [showSkeleton, vertices, algorithmVersion, animationMode, steppedResult, currentStep, solverContext]);
-
-    const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
-        if (!showPrimaryEdges) return [];
-        return computePrimaryInteriorEdges(vertices);
-    }, [showPrimaryEdges, vertices]);
-
-    const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
-        if (!debug.showPrimaryIntersectionNodes || primaryEdges.length === 0) return [];
-        return computePrimaryEdgeIntersections(primaryEdges);
-    }, [debug.showPrimaryIntersectionNodes, primaryEdges]);
+        return solverContext?.graph ?? null;
+    }, [showSkeleton, animationMode, steppedResult, currentStep, solverContext]);
 
     const nodeOffsetDistances = useMemo<Map<number, number> | null>(() => {
         if (!solverContext || !debug.showOffsetDistances) return null;
@@ -256,13 +227,13 @@ export default function Home() {
         setStagePosition({x: 0, y: 0});
     }
 
-    // Clear animation state when vertices or algorithm version change
+    // Clear animation state when vertices change
     useEffect(() => {
         setAnimationMode(false);
         setSteppedResult(null);
         setIsPlaying(false);
         setCurrentStep(0);
-    }, [vertices, algorithmVersion]);
+    }, [vertices]);
 
     // Auto-advance playback timer
     useEffect(() => {
@@ -333,8 +304,6 @@ export default function Home() {
 
                     <PolygonCanvas
                         skeleton={skeleton}
-                        primaryEdges={primaryEdges}
-                        primaryEdgeIntersections={primaryEdgeIntersections}
                         stageScale={stageScale}
                         stagePosition={stagePosition}
                         onScaleChange={setStageScale}
@@ -444,19 +413,6 @@ export default function Home() {
                                 </UnstyledButton>
                                 <Collapse in={algorithmsOpen}>
                                     <Stack gap="xs">
-                                        <Select
-                                            size="xs"
-                                            label="Skeleton version"
-                                            data={[
-                                                {value: "v1", label: "V1 — Heap-based"},
-                                                {value: "v5", label: "V5 — Step-based (latest)"},
-                                            ]}
-                                            value={algorithmVersion}
-                                            onChange={(val) => {
-                                                if (val === "v1" || val === "v5") setAlgorithmVersion(val);
-                                            }}
-                                            allowDeselect={false}
-                                        />
                                         <Button
                                             color="orange"
                                             variant={showSkeleton ? "filled" : "light"}
@@ -465,15 +421,7 @@ export default function Home() {
                                         >
                                             {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
                                         </Button>
-                                        <Button
-                                            color="grape"
-                                            variant={showPrimaryEdges ? "filled" : "light"}
-                                            fullWidth
-                                            onClick={() => setShowPrimaryEdges((s) => !s)}
-                                        >
-                                            {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
-                                        </Button>
-                                        {algorithmVersion === "v5" && (
+                                        {(
                                             <Stack gap="xs" mt="xs">
                                                 {!animationMode ? (
                                                     <Button
@@ -626,12 +574,6 @@ export default function Home() {
                                     label="Skeleton nodes"
                                     checked={debug.showSkeletonNodes}
                                     onChange={() => toggleDebug("showSkeletonNodes")}
-                                />
-                                <Switch
-                                    size="xs"
-                                    label="Primary intersections"
-                                    checked={debug.showPrimaryIntersectionNodes}
-                                    onChange={() => toggleDebug("showPrimaryIntersectionNodes")}
                                 />
 
                                 <Text size="xs" c="dimmed" fw={600} mt={4}>Indices</Text>

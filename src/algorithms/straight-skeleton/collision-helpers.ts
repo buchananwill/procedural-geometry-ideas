@@ -1,5 +1,4 @@
 import {
-    AlgorithmStepInput,
     CollisionEvent,
     CollisionType,
     InteriorEdge,
@@ -25,8 +24,6 @@ import {
     generateSplitEventViaClockwiseBisector,
     generateSplitEventViaWiddershinsBisector
 } from "@/algorithms/straight-skeleton/generate-split-event";
-import {createCollisions} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
-
 export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: number, clockwiseParentBasis: Vector2) {
     return units * crossProduct(collidingChild, clockwiseParentBasis);
 }

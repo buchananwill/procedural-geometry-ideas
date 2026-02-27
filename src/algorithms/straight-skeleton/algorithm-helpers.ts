@@ -50,7 +50,6 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         widdershinsExteriorEdgeIndex: finalWsParent,
         intersectingEdges: [],
         length: Number.MAX_VALUE,
-        heapGeneration: 0
     })
 
     const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)

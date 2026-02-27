@@ -347,80 +347,70 @@ export const INCORRECT_OUTCOME = {
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 8,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 9,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 10,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 11,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 12,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 13,
             "clockwiseExteriorEdgeIndex": 6,
             "widdershinsExteriorEdgeIndex": 5,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 14,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 15,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 16,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         }
     ]
 }
@@ -855,104 +845,91 @@ export const WACKY_OCTAGON_WRONG_OUTCOME = {
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 9,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 10,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 11,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 12,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 13,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 14,
             "clockwiseExteriorEdgeIndex": 6,
             "widdershinsExteriorEdgeIndex": 5,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 15,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 16,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 17,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 18,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 19,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 5,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         },
         {
             "id": 20,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": 1.7976931348623157e+308,
-            "heapGeneration": 0
+            "length": 1.7976931348623157e+308
         }
     ]
 }
@@ -1353,16 +1330,14 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 1
+            "length": null
         },
         {
             "id": 9,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 10,
@@ -1371,8 +1346,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 16
             ],
-            "length": 138.82944661729547,
-            "heapGeneration": 8
+            "length": 138.82944661729547
         },
         {
             "id": 11,
@@ -1381,8 +1355,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 12
             ],
-            "length": 89.40339306336386,
-            "heapGeneration": 2
+            "length": 89.40339306336386
         },
         {
             "id": 12,
@@ -1391,16 +1364,14 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 10
             ],
-            "length": 86.99288781984288,
-            "heapGeneration": 2
+            "length": 86.99288781984288
         },
         {
             "id": 13,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 1
+            "length": null
         },
         {
             "id": 14,
@@ -1409,8 +1380,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 15
             ],
-            "length": 98.21310941890924,
-            "heapGeneration": 2
+            "length": 98.21310941890924
         },
         {
             "id": 15,
@@ -1419,16 +1389,14 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 13
             ],
-            "length": 99.01058526729179,
-            "heapGeneration": 2
+            "length": 99.01058526729179
         },
         {
             "id": 16,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 2
+            "length": null
         },
         {
             "id": 17,
@@ -1437,8 +1405,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 13
             ],
-            "length": 4.389081494958317,
-            "heapGeneration": 1
+            "length": 4.389081494958317
         },
         {
             "id": 18,
@@ -1447,8 +1414,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 8
             ],
-            "length": 64.05628198715269,
-            "heapGeneration": 1
+            "length": 64.05628198715269
         },
         {
             "id": 19,
@@ -1457,8 +1423,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
             "intersectingEdges": [
                 9
             ],
-            "length": 93.74336083236372,
-            "heapGeneration": 1
+            "length": 93.74336083236372
         },
         {
             "id": 20,
@@ -1468,8 +1433,7 @@ export const WACKY_OCTAGON_CORRECT_OUTCOME = {
                 10,
                 16
             ],
-            "length": 41.49379666323503,
-            "heapGeneration": 1
+            "length": 41.49379666323503
         }
     ]
 }

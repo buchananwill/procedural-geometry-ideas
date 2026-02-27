@@ -1,6 +1,6 @@
 import {
     CollisionCache,
-    EdgeRank, HeapInteriorEdge,
+    EdgeRank,
     InteriorEdge,
     PolygonEdge, PolygonNode,
     RayProjection,
@@ -9,15 +9,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {solverLog} from "@/algorithms/straight-skeleton/logger";
-import Heap from "heap-js";
-import {crossProduct, dotProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
-
-function makeHeapInteriorEdgeComparator() {
-    return (e1: HeapInteriorEdge, e2: HeapInteriorEdge) => {
-        return e1.eventDistance - e2.eventDistance;
-    }
-}
-
+import {dotProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
@@ -65,8 +57,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         const wsParent = widdershinsParent(edge);
         const edgeData = getEdgeWithId(edge.id);
         return dotProduct(cwParent.basisVector, edgeData.basisVector) < 0
-
-        // return crossProduct(cwParent.basisVector, wsParent.basisVector) < 0;
     }
 
     function isPrimaryNonReflex(id: number): boolean {
@@ -78,19 +68,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
         const interiorData = getInteriorWithId(id);
         return !isReflexEdge(interiorData);
-
-    }
-
-    function updateMinLength(edgeId: number, length: number): void {
-        if (edgeRank(edgeId) === 'exterior') {
-            return;
-        }
-
-        const edgeData = getInteriorWithId(edgeId);
-        if (length > 0) {
-            solverLog.debug(`Updating edge: ${edgeId} to length ${length}`);
-            edgeData.length = Math.min(length, edgeData.length);
-        }
 
     }
 
@@ -121,7 +98,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     return {
         graph,
         acceptedEdges: acceptedEdges,
-        heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
         collisionCache: new Map() as CollisionCache,
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
@@ -179,7 +155,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         edgeRank,
         isPrimaryNonReflex,
         isReflexEdge,
-        updateMinLength,
         updateMaxOffset(edgeId: number, offset: number) {
             if (offset < 0) {
                 return
@@ -190,13 +165,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             }
 
             edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
-        },
-        resetMinLength(edgeId: number) {
-            const rank = edgeRank(edgeId);
-            if (rank === 'exterior') {
-                return
-            }
-            getInteriorWithId(edgeId).length = Number.POSITIVE_INFINITY;
         },
         clockwiseSpanExcludingAccepted: spanExcludingAccepted,
         widdershinsBisector(edgeId: number): PolygonEdge {

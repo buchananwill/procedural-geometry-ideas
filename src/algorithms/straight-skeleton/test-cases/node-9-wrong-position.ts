@@ -404,112 +404,98 @@ const WRONG_POSITION_NODE_9 = {
             "clockwiseExteriorEdgeIndex": 0,
             "widdershinsExteriorEdgeIndex": 7,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 9,
             "clockwiseExteriorEdgeIndex": 1,
             "widdershinsExteriorEdgeIndex": 0,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 10,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 11,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 12,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 13,
             "clockwiseExteriorEdgeIndex": 5,
             "widdershinsExteriorEdgeIndex": 4,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 14,
             "clockwiseExteriorEdgeIndex": 6,
             "widdershinsExteriorEdgeIndex": 5,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 15,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 16,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 17,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 2,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 18,
             "clockwiseExteriorEdgeIndex": 2,
             "widdershinsExteriorEdgeIndex": 3,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 19,
             "clockwiseExteriorEdgeIndex": 3,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 20,
             "clockwiseExteriorEdgeIndex": 7,
             "widdershinsExteriorEdgeIndex": 1,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         },
         {
             "id": 21,
             "clockwiseExteriorEdgeIndex": 4,
             "widdershinsExteriorEdgeIndex": 6,
             "intersectingEdges": [],
-            "length": null,
-            "heapGeneration": 0
+            "length": null
         }
     ]
 }

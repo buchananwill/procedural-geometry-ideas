@@ -1,5 +1,3 @@
-import Heap from "heap-js";
-
 export interface Vector2 {
     x: number;
     y: number;
@@ -28,7 +26,6 @@ export interface InteriorEdge {
     intersectingEdges?: number[];
     length: number;
     maxOffset?: number;
-    heapGeneration?: number;
 }
 
 export interface StraightSkeletonGraph {
@@ -42,40 +39,6 @@ export interface RayProjection {
     basisVector: Vector2;
     sourceVector: Vector2;
 }
-
-export interface HeapInteriorEdge {
-    ownerId: number;               // evaluated edge (its intersectingEdges has full participant list)
-    participatingEdges: number[];  // [ownerId, ...intersectors] — for stale-event checking
-    eventDistance: number;         // frozen max distance among all participants — for heap ordering
-    generation: number;            // must match InteriorEdge.heapGeneration to be valid
-}
-
-export interface IntersectorInfo {
-    edgeId: number;
-    distanceAlongSelf: number;
-    distanceAlongOther: number;
-    priorityOverride?: number;
-}
-
-export interface EdgeIntersectionEvaluation {
-    edgeIndex: number;
-    shortestLength: number;
-    intersectors: IntersectorInfo[];
-    candidates: { otherId: number; distanceNew: number; distanceOther: number; priorityOverride?: number }[];
-}
-
-export interface StepResult {
-    poppedEdgeId: number;
-    acceptedInteriorEdges: number[];
-    newInteriorEdgeIds: number[];
-}
-
-/*
-Solving context:
-1. SSGraph
-2. A heap with custom comparator
-3. List of bools for accepted exterior edges
-* */
 
 export interface GraphHelpers {
     getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge;
@@ -114,11 +77,7 @@ export interface GraphHelpers {
 
     isPrimaryNonReflex(edgeId: number): boolean;
 
-    updateMinLength(edgeId: number, length: number): void;
-
     updateMaxOffset(edgeId: number, length: number): void;
-
-    resetMinLength(edgeId: number): void;
 
     isReflexEdge(edgeA: InteriorEdge): boolean;
 
@@ -132,7 +91,6 @@ export interface GraphHelpers {
 export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
-    heap: Heap<HeapInteriorEdge>;
     collisionCache: CollisionCache;
 }
 

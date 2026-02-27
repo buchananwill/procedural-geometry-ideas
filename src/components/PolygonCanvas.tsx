@@ -6,7 +6,6 @@ import { KonvaEventObject } from "konva/lib/Node";
 import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 import type { Vector2 } from "@/algorithms/straight-skeleton/types";
-import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
 import type { DebugDisplayOptions, CollisionSweepLine } from "@/app/page";
 
 const VERTEX_RADIUS = 8;
@@ -91,8 +90,6 @@ function decollideLabels(rects: LabelRect[], padding: number): LabelRect[] {
 
 interface PolygonCanvasProps {
   skeleton: StraightSkeletonGraph | null;
-  primaryEdges?: PrimaryInteriorEdge[];
-  primaryEdgeIntersections?: Vector2[];
   stageScale: number;
   stagePosition: { x: number; y: number };
   onScaleChange: (scale: number) => void;
@@ -106,8 +103,6 @@ interface PolygonCanvasProps {
 
 export default function PolygonCanvas({
   skeleton,
-  primaryEdges,
-  primaryEdgeIntersections,
   stageScale,
   stagePosition,
   onScaleChange,
@@ -410,18 +405,6 @@ export default function PolygonCanvas({
       style={{ background: "#1a1b1e", borderRadius: 8, cursor: "crosshair" }}
     >
       <Layer>
-        {/* Primary interior edges */}
-        {primaryEdges?.map((edge) => (
-          <Line
-            key={`primary-${edge.vertexIndex}`}
-            points={[edge.source.x, edge.source.y, edge.target.x, edge.target.y]}
-            stroke="#be4bdb"
-            strokeWidth={1.5 * invScale}
-            dash={[6 * invScale, 4 * invScale]}
-            listening={false}
-          />
-        ))}
-
         {/* Skeleton interior edges */}
         {skeletonLines.map(({ key, points }) => (
           debug.showEdgeDirections ? (
@@ -676,18 +659,6 @@ export default function PolygonCanvas({
             />
           );
         })}
-
-        {/* --- Debug: Primary edge intersection nodes --- */}
-        {debug.showPrimaryIntersectionNodes && primaryEdgeIntersections?.map((pt, i) => (
-          <Circle
-            key={`pei-${i}`}
-            x={pt.x}
-            y={pt.y}
-            radius={4 * invScale}
-            fill="#be4bdb"
-            listening={false}
-          />
-        ))}
 
         {/* Polygon vertices (drawn last so they're on top) */}
         {vertices.map((v, i) => (
