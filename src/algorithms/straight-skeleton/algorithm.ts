@@ -1,122 +1,26 @@
 import {
-    HeapInteriorEdge,
     RayProjection,
-    StraightSkeletonGraph,
+
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
-import {
-    acceptEdgeAndPropagate,
-    addTargetNodeAtInteriorEdgeIntersect,
-    finalizeTargetNodePosition,
-    initStraightSkeletonSolverContext,
-    processCollisionNode,
-    reEvaluateEdge
-} from "@/algorithms/straight-skeleton/algorithm-v1-helpers";
+
 import {
     addVectors,
     makeBasis,
     makeBisectedBasis,
-    vectorsAreEqual,
     scaleVector,
 } from "@/algorithms/straight-skeleton/core-functions";
-import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 
 export function graphIsComplete(context: StraightSkeletonSolverContext): boolean {
     return context.acceptedEdges.every(flag => flag)
 }
 
-export function computeStraightSkeleton(nodes: Vector2[]): StraightSkeletonGraph {
-    if (nodes.length < 3) {
-        return initBoundingPolygon(nodes);
-    }
-    const context = initStraightSkeletonSolverContext(nodes);
-    const {graph, acceptedEdges, heap} = context;
+export function computeStraightSkeleton(nodes: Vector2[]): null {
 
-    let nextEdge: HeapInteriorEdge | undefined;
-    while (!graphIsComplete(context)) {
-        nextEdge = heap.pop();
 
-        if (nextEdge === undefined) {
-            throw new Error(`Graph not complete but no edges left in heap`);
-        }
-
-        // Generation check: skip if this event is from an outdated evaluation
-        const ownerInteriorData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-        if (nextEdge.generation !== ownerInteriorData.heapGeneration) {
-            continue;
-        }
-
-        const ownerAccepted = nextEdge.ownerId < acceptedEdges.length && acceptedEdges[nextEdge.ownerId];
-
-        // Fully stale: owner itself is accepted — discard
-        if (ownerAccepted) {
-            continue;
-        }
-
-        // Partially stale: owner is NOT accepted but some participants are
-        const hasStaleParticipants = nextEdge.participatingEdges.some(
-            eid => eid !== nextEdge!.ownerId && eid < acceptedEdges.length && acceptedEdges[eid]
-        );
-
-        if (hasStaleParticipants) {
-            // Compute where the owner would land based on its recorded length
-            const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-            const targetPos = finalizeTargetNodePosition(interiorEdgeData.id, graph);
-
-            // Check if an existing interior node is at that position
-            let existingNodeIndex = -1;
-            for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-                if (vectorsAreEqual(graph.nodes[i].position, targetPos)) {
-                    existingNodeIndex = i;
-                    break;
-                }
-            }
-
-            if (existingNodeIndex >= 0) {
-                // Accept the owner at the existing node
-                const ownerEdgeId = nextEdge.ownerId;
-                if (!graph.nodes[existingNodeIndex].inEdges.includes(ownerEdgeId)) {
-                    graph.nodes[existingNodeIndex].inEdges.push(ownerEdgeId);
-                }
-                graph.edges[ownerEdgeId].target = existingNodeIndex;
-                acceptEdgeAndPropagate(ownerEdgeId, context);
-
-                // Process collision using ALL interior edges at the node
-                const allNodeEdges = graph.nodes[existingNodeIndex].inEdges.filter(
-                    e => e >= graph.numExteriorNodes
-                );
-                processCollisionNode(context, allNodeEdges, existingNodeIndex);
-            } else {
-                // Re-evaluate the owner edge with dirty-queue propagation
-                reEvaluateEdge(context, nextEdge.ownerId);
-            }
-            continue;
-        }
-
-        const interiorEdgeData = graph.interiorEdges[nextEdge.ownerId - graph.numExteriorNodes];
-
-        const nodeIndex = addTargetNodeAtInteriorEdgeIntersect(context, interiorEdgeData);
-
-        // Accept only edges that aren't already accepted
-        const newlyAcceptedEdges: number[] = graph.nodes[nodeIndex].inEdges.filter(
-            e => !acceptedEdges[e]
-        );
-        newlyAcceptedEdges.forEach(
-            e => {
-                acceptEdgeAndPropagate(e, context);
-            }
-        );
-
-        // Process collision using ALL interior edges at the node
-        const allInteriorEdgesAtNode = graph.nodes[nodeIndex].inEdges.filter(
-            e => e >= graph.numExteriorNodes
-        );
-        processCollisionNode(context, allInteriorEdgesAtNode, nodeIndex);
-    }
-
-    return context.graph;
+    return null;
 }
 
 export interface PrimaryInteriorEdge {
@@ -151,7 +55,7 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
         const cross = cwBasis.x * wsBasis.y - cwBasis.y * wsBasis.x;
         const basis = cross < 0 ? scaleVector(bisected, -1) : bisected;
 
-        const ray: RayProjection = { sourceVector: source, basisVector: basis };
+        const ray: RayProjection = {sourceVector: source, basisVector: basis};
 
         // Find nearest intersection with any non-adjacent exterior edge
         let bestDist = Number.POSITIVE_INFINITY;
@@ -166,7 +70,7 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
             const edgeLength = Math.sqrt(
                 (edgeEnd.x - edgeStart.x) ** 2 + (edgeEnd.y - edgeStart.y) ** 2
             );
-            const edgeRay: RayProjection = { sourceVector: edgeStart, basisVector: edgeBasis };
+            const edgeRay: RayProjection = {sourceVector: edgeStart, basisVector: edgeBasis};
 
             const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay);
 
@@ -180,7 +84,7 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
 
         if (isFinite(bestDist)) {
             const target = addVectors(source, scaleVector(basis, bestDist));
-            result.push({ source, target, vertexIndex: i });
+            result.push({source, target, vertexIndex: i});
         }
     }
 
@@ -213,8 +117,8 @@ export function computePrimaryEdgeIntersections(primaryEdges: PrimaryInteriorEdg
             const bLen = Math.sqrt(bBasis.x * bBasis.x + bBasis.y * bBasis.y);
             if (bLen === 0) continue;
 
-            const rayA: RayProjection = { sourceVector: a.source, basisVector: aBasis };
-            const rayB: RayProjection = { sourceVector: b.source, basisVector: bBasis };
+            const rayA: RayProjection = {sourceVector: a.source, basisVector: aBasis};
+            const rayB: RayProjection = {sourceVector: b.source, basisVector: bBasis};
 
             const [tA, tB] = intersectRays(rayA, rayB);
 

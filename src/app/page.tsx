@@ -12,7 +12,6 @@ import {
 import type {PrimaryInteriorEdge} from "@/algorithms/straight-skeleton/algorithm";
 import type {StraightSkeletonGraph} from "@/algorithms/straight-skeleton/types";
 import type {Vector2} from "@/algorithms/straight-skeleton/types";
-import {computeStraightSkeletonV4} from "@/algorithms/straight-skeleton/algorithm-v4";
 import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 

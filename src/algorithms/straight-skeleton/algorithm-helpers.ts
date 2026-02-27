@@ -1,12 +1,11 @@
 import {
-    InteriorEdge,
     PolygonEdge,
     PolygonNode,
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "@/algorithms/straight-skeleton/types";
 import {
-    assertIsNumber, crossProduct,
+    assertIsNumber,
     makeBisectedBasis,
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
