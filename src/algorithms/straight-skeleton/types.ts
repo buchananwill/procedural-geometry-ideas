@@ -130,7 +130,7 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
     heap: Heap<HeapInteriorEdge>;
-
+    collisionCache: CollisionCache;
 }
 
 export type IntersectionType =
@@ -164,6 +164,18 @@ export interface CollisionEvent {
     intersectionData: IntersectionResult
     eventType: CollisionType
 }
+
+/** Sentinel stored in the collision cache when collideEdges returned null. */
+export const NO_COLLISION_SENTINEL = Symbol('no-collision');
+
+/** A single cache entry: either a real CollisionEvent, or the sentinel for "computed, was null". */
+export type CollisionCacheEntry = CollisionEvent | typeof NO_COLLISION_SENTINEL;
+
+/**
+ * Nested map keyed by (edgeIdA, edgeIdB) in call order.
+ * Outer key = edgeIdA, inner key = edgeIdB.
+ */
+export type CollisionCache = Map<number, Map<number, CollisionCacheEntry>>;
 
 export interface BisectionParams {
     clockwiseExteriorEdgeIndex: number;

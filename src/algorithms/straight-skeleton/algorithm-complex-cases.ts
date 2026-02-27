@@ -3,7 +3,7 @@ import {
     AlgorithmStepOutput, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
-import {collideEdges} from "@/algorithms/straight-skeleton/collision-helpers";
+import {findOrComputeCollision} from "@/algorithms/straight-skeleton/collision-helpers";
 import {areEqual, fp_compare} from "@/algorithms/straight-skeleton/core-functions";
 import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {
@@ -70,10 +70,10 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         const list: (CollisionEvent | null)[] = [];
         const edgeData = context.getInteriorWithId(e1)
         const checkExteriorCollisions = context.isReflexEdge(edgeData);
-        list.push(...interiorEdges.map(e2 => collideEdges(e1, e2, context)));
+        list.push(...interiorEdges.map(e2 => findOrComputeCollision(e1, e2, context)));
 
         if (checkExteriorCollisions) {
-            list.push(...exteriorParents.map(e2 => collideEdges(e1, e2, context)))
+            list.push(...exteriorParents.map(e2 => findOrComputeCollision(e1, e2, context)))
         }
 
         return list.filter(event => {

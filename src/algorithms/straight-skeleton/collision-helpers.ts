@@ -3,6 +3,7 @@ import {
     CollisionEvent,
     CollisionType,
     InteriorEdge,
+    NO_COLLISION_SENTINEL,
     PolygonEdge,
     RayProjection,
     StraightSkeletonSolverContext,
@@ -161,6 +162,44 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
 
     return event;
 
+}
+
+/**
+ * Cache-aware wrapper around collideEdges.
+ * Checks the context's collisionCache first; on miss, computes via
+ * collideEdges and stores the result (using NO_COLLISION_SENTINEL for null).
+ */
+export function findOrComputeCollision(
+    edgeIdA: number,
+    edgeIdB: number,
+    context: StraightSkeletonSolverContext
+): CollisionEvent | null {
+    // Fresh acceptance check — prevents returning stale cached results
+    // for edges accepted since the cache entry was written.
+    if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)) {
+        return null;
+    }
+
+    const cache = context.collisionCache;
+    const innerMap = cache.get(edgeIdA);
+    if (innerMap !== undefined) {
+        const cached = innerMap.get(edgeIdB);
+        if (cached !== undefined) {
+            return cached === NO_COLLISION_SENTINEL ? null : cached;
+        }
+    }
+
+    // Miss — compute and store
+    const result = collideEdges(edgeIdA, edgeIdB, context);
+
+    let targetMap = cache.get(edgeIdA);
+    if (targetMap === undefined) {
+        targetMap = new Map();
+        cache.set(edgeIdA, targetMap);
+    }
+    targetMap.set(edgeIdB, result ?? NO_COLLISION_SENTINEL);
+
+    return result;
 }
 
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {

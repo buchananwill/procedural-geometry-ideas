@@ -1,4 +1,5 @@
 import {
+    CollisionCache,
     EdgeRank, HeapInteriorEdge,
     InteriorEdge,
     PolygonEdge, PolygonNode,
@@ -120,6 +121,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         graph,
         acceptedEdges: acceptedEdges,
         heap: new Heap<HeapInteriorEdge>(makeHeapInteriorEdgeComparator()),
+        collisionCache: new Map() as CollisionCache,
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
             return idList.map(getEdgeWithId)
