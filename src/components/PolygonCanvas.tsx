@@ -7,7 +7,7 @@ import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
 import type { Vector2 } from "@/algorithms/straight-skeleton/types";
 import type { PrimaryInteriorEdge } from "@/algorithms/straight-skeleton/algorithm";
-import type { DebugDisplayOptions } from "@/app/page";
+import type { DebugDisplayOptions, CollisionSweepLine } from "@/app/page";
 
 const VERTEX_RADIUS = 8;
 const EDGE_HIT_DISTANCE = 15;
@@ -59,6 +59,8 @@ interface PolygonCanvasProps {
   debug: DebugDisplayOptions;
   selectedDebugNodes: Set<number>;
   onToggleDebugNode: (nodeId: number) => void;
+  collisionSweepLines: CollisionSweepLine[] | null;
+  nodeOffsetDistances: Map<number, number> | null;
 }
 
 export default function PolygonCanvas({
@@ -72,6 +74,8 @@ export default function PolygonCanvas({
   debug,
   selectedDebugNodes,
   onToggleDebugNode,
+  collisionSweepLines,
+  nodeOffsetDistances,
 }: PolygonCanvasProps) {
   const vertices = usePolygonStore((s) => s.vertices);
   const moveVertex = usePolygonStore((s) => s.moveVertex);
@@ -283,13 +287,13 @@ export default function PolygonCanvas({
 
   // Skeleton nodes for rendering
   const skeletonNodeData = useMemo(() => {
-    if (!skeleton || (!debug.showSkeletonNodes && !debug.showNodeIndices)) return [];
+    if (!skeleton || (!debug.showSkeletonNodes && !debug.showNodeIndices && !debug.showOffsetDistances)) return [];
     const data: { id: number; position: Vector2 }[] = [];
     for (let i = skeleton.numExteriorNodes; i < skeleton.nodes.length; i++) {
       data.push({ id: i, position: skeleton.nodes[i].position });
     }
     return data;
-  }, [skeleton, debug.showSkeletonNodes, debug.showNodeIndices]);
+  }, [skeleton, debug.showSkeletonNodes, debug.showNodeIndices, debug.showOffsetDistances]);
 
   return (
     <div ref={containerRef} style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
@@ -330,6 +334,30 @@ export default function PolygonCanvas({
         {/* Selected node edge highlights */}
         {debug.showSelectedNodeEdgeLengths && selectedNodeEdges.map(({ key, points }) => (
           <Line key={key} points={points} stroke="#40c057" strokeWidth={3 * invScale} listening={false} />
+        ))}
+
+        {/* Collision sweep lines */}
+        {collisionSweepLines?.map((line) => (
+          <Line
+            key={line.key}
+            points={[line.sourceX, line.sourceY, line.targetX, line.targetY]}
+            stroke="#22b8cf"
+            strokeWidth={1.5 * invScale}
+            dash={[4 * invScale, 3 * invScale]}
+            listening={false}
+          />
+        ))}
+
+        {/* Collision sweep target circles */}
+        {collisionSweepLines?.map((line) => (
+          <Circle
+            key={`${line.key}-pt`}
+            x={line.targetX}
+            y={line.targetY}
+            radius={3 * invScale}
+            fill="#22b8cf"
+            listening={false}
+          />
         ))}
 
         {/* Polygon edges */}
@@ -390,6 +418,21 @@ export default function PolygonCanvas({
             />
           );
         })}
+
+        {/* Collision sweep labels */}
+        {collisionSweepLines?.map((line) => (
+          <Text
+            key={`${line.key}-lbl`}
+            x={line.targetX}
+            y={line.targetY}
+            offsetX={-6 * invScale}
+            offsetY={6 * invScale}
+            text={`${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`}
+            fontSize={9 * invScale}
+            fill="#22b8cf"
+            listening={false}
+          />
+        ))}
 
         {/* --- Debug: Edge indices --- */}
         {debug.showEdgeIndices && exteriorEdgeLabels.map(({ mid, index }) => (
@@ -481,6 +524,25 @@ export default function PolygonCanvas({
             listening={false}
           />
         ))}
+
+        {/* Offset distance labels */}
+        {debug.showOffsetDistances && nodeOffsetDistances && skeletonNodeData.map(({ id, position }) => {
+          const offset = nodeOffsetDistances.get(id);
+          if (offset === undefined) return null;
+          return (
+            <Text
+              key={`od-${id}`}
+              x={position.x}
+              y={position.y}
+              offsetX={-10 * invScale}
+              offsetY={-6 * invScale}
+              text={`d=${offset.toFixed(2)}`}
+              fontSize={10 * invScale}
+              fill="#22b8cf"
+              listening={false}
+            />
+          );
+        })}
 
         {/* --- Debug: Primary edge intersection nodes --- */}
         {debug.showPrimaryIntersectionNodes && primaryEdgeIntersections?.map((pt, i) => (

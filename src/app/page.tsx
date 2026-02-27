@@ -10,10 +10,13 @@ import {
     computePrimaryEdgeIntersections,
 } from "@/algorithms/straight-skeleton/algorithm";
 import type {PrimaryInteriorEdge} from "@/algorithms/straight-skeleton/algorithm";
-import type {StraightSkeletonGraph} from "@/algorithms/straight-skeleton/types";
+import type {StraightSkeletonGraph, StraightSkeletonSolverContext, CollisionType} from "@/algorithms/straight-skeleton/types";
 import type {Vector2} from "@/algorithms/straight-skeleton/types";
 import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
+import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
+import {initInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-helpers";
+import {generateCollisionSweep, computeNodeOffsetDistances} from "@/algorithms/straight-skeleton/debug-helpers";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
     ssr: false,
@@ -30,6 +33,19 @@ export interface DebugDisplayOptions {
     showPrimaryIntersectionNodes: boolean;
     showNodeIndices: boolean;
     showEdgeIndices: boolean;
+    showOffsetDistances: boolean;
+}
+
+export interface CollisionSweepLine {
+    key: string;
+    sourceX: number;
+    sourceY: number;
+    targetX: number;
+    targetY: number;
+    offsetDistance: number;
+    edgeIdA: number;
+    edgeIdB: number;
+    eventType: CollisionType;
 }
 
 export default function Home() {
@@ -74,6 +90,7 @@ export default function Home() {
         showPrimaryIntersectionNodes: false,
         showNodeIndices: false,
         showEdgeIndices: false,
+        showOffsetDistances: false,
     });
 
     // Node selection
@@ -127,21 +144,34 @@ export default function Home() {
         });
     }
 
+    // Collision sweep state
+    const [collisionSweepLines, setCollisionSweepLines] = useState<CollisionSweepLine[] | null>(null);
+
+    const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
+        if (!showSkeleton || algorithmVersion !== "v5") return null;
+        try {
+            return runAlgorithmV5(vertices);
+        } catch (e) {
+            console.log(e);
+            return null;
+        }
+    }, [showSkeleton, vertices, algorithmVersion]);
+
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && algorithmVersion === "v5" && steppedResult && steppedResult.snapshots.length > 0) {
             return steppedResult.snapshots[Math.min(currentStep, steppedResult.snapshots.length - 1)];
         }
         if (!showSkeleton) return null;
+        if (algorithmVersion === "v5") {
+            return solverContext?.graph ?? null;
+        }
         try {
-            if (algorithmVersion === "v1") {
-                return computeStraightSkeleton(vertices);
-            }
-            return runAlgorithmV5(vertices).graph;
+            return computeStraightSkeleton(vertices);
         } catch (e) {
-            console.log(e)
+            console.log(e);
             return null;
         }
-    }, [showSkeleton, vertices, algorithmVersion, animationMode, steppedResult, currentStep]);
+    }, [showSkeleton, vertices, algorithmVersion, animationMode, steppedResult, currentStep, solverContext]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -153,9 +183,74 @@ export default function Home() {
         return computePrimaryEdgeIntersections(primaryEdges);
     }, [debug.showPrimaryIntersectionNodes, primaryEdges]);
 
-    // Clear selected debug nodes when skeleton identity changes
+    const nodeOffsetDistances = useMemo<Map<number, number> | null>(() => {
+        if (!solverContext || !debug.showOffsetDistances) return null;
+        return computeNodeOffsetDistances(solverContext);
+    }, [solverContext, debug.showOffsetDistances]);
+
+    function sweepLinesToRender(
+        edgeIds: number[],
+        ctx: StraightSkeletonSolverContext
+    ): CollisionSweepLine[] {
+        const sweepEvents = generateCollisionSweep(edgeIds, ctx);
+        return sweepEvents.map((se, i) => {
+            const sourceNode = ctx.graph.nodes[ctx.graph.edges[se.instigatorEdgeId].source];
+            return {
+                key: `sweep-${i}`,
+                sourceX: sourceNode.position.x,
+                sourceY: sourceNode.position.y,
+                targetX: se.event.position.x,
+                targetY: se.event.position.y,
+                offsetDistance: se.event.offsetDistance,
+                edgeIdA: se.event.collidingEdges[0],
+                edgeIdB: se.event.collidingEdges[1],
+                eventType: se.event.eventType,
+            };
+        });
+    }
+
+    function sweepSelectedNodes() {
+        if (!solverContext || selectedDebugNodes.size === 0) return;
+        const edgeIds: number[] = [];
+        for (const nodeId of selectedDebugNodes) {
+            if (nodeId >= solverContext.graph.nodes.length) continue;
+            const node = solverContext.graph.nodes[nodeId];
+            for (const edgeId of node.outEdges) {
+                if (solverContext.edgeRank(edgeId) !== 'exterior') {
+                    edgeIds.push(edgeId);
+                }
+            }
+        }
+        setCollisionSweepLines(sweepLinesToRender(edgeIds, solverContext));
+    }
+
+    function sweepAllPrimaryInit() {
+        try {
+            const ctx = makeStraightSkeletonSolverContext(vertices);
+            initInteriorEdges(ctx);
+            const edgeIds = ctx.graph.interiorEdges.map(e => e.id);
+            setCollisionSweepLines(sweepLinesToRender(edgeIds, ctx));
+        } catch (e) {
+            console.log("Sweep init failed:", e);
+        }
+    }
+
+    function sweepAllPrimaryFull() {
+        if (!solverContext) return;
+        const n = solverContext.graph.numExteriorNodes;
+        const edgeIds: number[] = [];
+        for (let i = n; i < 2 * n; i++) {
+            if (i < solverContext.graph.edges.length) {
+                edgeIds.push(i);
+            }
+        }
+        setCollisionSweepLines(sweepLinesToRender(edgeIds, solverContext));
+    }
+
+    // Clear selected debug nodes and sweep when skeleton identity changes
     useEffect(() => {
         setSelectedDebugNodes(new Set());
+        setCollisionSweepLines(null);
     }, [skeleton]);
 
     function resetView() {
@@ -249,6 +344,8 @@ export default function Home() {
                         debug={debug}
                         selectedDebugNodes={selectedDebugNodes}
                         onToggleDebugNode={toggleDebugNode}
+                        collisionSweepLines={collisionSweepLines}
+                        nodeOffsetDistances={nodeOffsetDistances}
                     />
 
                     <ScrollArea style={{height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))", width: 240, flexShrink: 0}}>
@@ -539,6 +636,54 @@ export default function Home() {
                                     checked={debug.showEdgeIndices}
                                     onChange={() => toggleDebug("showEdgeIndices")}
                                 />
+                                <Switch
+                                    size="xs"
+                                    label="Offset distances"
+                                    checked={debug.showOffsetDistances}
+                                    onChange={() => toggleDebug("showOffsetDistances")}
+                                />
+
+                                <Text size="xs" c="dimmed" fw={600} mt={4}>Collision Sweep</Text>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    color="cyan"
+                                    fullWidth
+                                    disabled={selectedDebugNodes.size === 0 || !solverContext}
+                                    onClick={sweepSelectedNodes}
+                                >
+                                    Sweep Selected Nodes
+                                </Button>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    color="cyan"
+                                    fullWidth
+                                    disabled={!showSkeleton}
+                                    onClick={sweepAllPrimaryInit}
+                                >
+                                    Sweep Primary (Init)
+                                </Button>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    color="cyan"
+                                    fullWidth
+                                    disabled={!solverContext}
+                                    onClick={sweepAllPrimaryFull}
+                                >
+                                    Sweep Primary (Full)
+                                </Button>
+                                <Button
+                                    size="compact-xs"
+                                    variant="light"
+                                    color="gray"
+                                    fullWidth
+                                    disabled={!collisionSweepLines}
+                                    onClick={() => setCollisionSweepLines(null)}
+                                >
+                                    Clear Sweep
+                                </Button>
                                     </Stack>
                                 </Collapse>
                             </Stack>
