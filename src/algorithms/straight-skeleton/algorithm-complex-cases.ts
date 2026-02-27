@@ -4,6 +4,7 @@ import {
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
 import {findOrComputeCollision} from "@/algorithms/straight-skeleton/collision-helpers";
+import {complexLog} from "@/algorithms/straight-skeleton/logger";
 import {areEqual, fp_compare} from "@/algorithms/straight-skeleton/core-functions";
 import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {
@@ -77,9 +78,8 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         }
 
         return list.filter(event => {
-            // console.log(`filtering events: ${JSON.stringify(event)}`);
             if (event && fp_compare(event.intersectionData[0], edgeData.length) > 0){
-                console.log(JSON.stringify([event, edgeData]))
+                complexLog.debug('Collision exceeds edge length:', event, edgeData);
             }
             return event !== null && event.eventType !== 'phantomDivergentOffset'// && (event.eventType !== 'interiorPair' || event.intersectionData[0] <= edgeData.length);
         })

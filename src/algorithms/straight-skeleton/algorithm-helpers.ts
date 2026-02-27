@@ -4,6 +4,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "@/algorithms/straight-skeleton/types";
+import {solverLog} from "@/algorithms/straight-skeleton/logger";
 import {
     assertIsNumber,
     makeBisectedBasis,
@@ -35,7 +36,7 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     const spanSize = (clockwiseExteriorEdgeIndex - widdershinsExteriorEdgeIndex + graph.numExteriorNodes) % graph.numExteriorNodes;
     const parentsInverted = spanSize > graph.numExteriorNodes / 2;
     if (parentsInverted){
-        // console.log(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`)
+        solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
     }
     const finalCwParent = /*parentsInverted ? widdershinsExteriorEdgeIndex : */ clockwiseExteriorEdgeIndex;
     const finalWsParent = /*parentsInverted ? clockwiseExteriorEdgeIndex : */ widdershinsExteriorEdgeIndex;

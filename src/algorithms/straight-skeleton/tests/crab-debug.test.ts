@@ -1,5 +1,8 @@
 import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {setSkeletonLogLevel} from '../logger';
 import {collideEdges} from '../collision-helpers';
+
+setSkeletonLogLevel('debug');
 import {CRAB_TEST_CASE} from '../test-cases/crab-test-case';
 import {StepAlgorithm, runAlgorithmV5} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';

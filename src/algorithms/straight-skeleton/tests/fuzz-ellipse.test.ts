@@ -9,7 +9,10 @@ import {LONG_OCTAGON} from '../test-cases/long-octagon';
 import {WACKY_OCTAGON} from '../test-cases/more-edge-cases';
 import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '../test-cases/isthmus-failure';
 import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '../test-cases/double-reflex-spaceship';
+import {setSkeletonLogLevel} from '../logger';
 import {StepAlgorithm} from '../algorithm-termination-cases';
+
+setSkeletonLogLevel('silent');
 import {makeStraightSkeletonSolverContext} from '../solver-context';
 import {initInteriorEdges, tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {

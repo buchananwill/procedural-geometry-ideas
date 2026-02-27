@@ -1,5 +1,8 @@
 import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {setSkeletonLogLevel} from '../logger';
 import {collideEdges} from '../collision-helpers';
+
+setSkeletonLogLevel('debug');
 import {
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP,

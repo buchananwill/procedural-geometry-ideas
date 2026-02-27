@@ -1,5 +1,8 @@
 import {initContext, stepWithCapture} from '../test-cases/test-helpers';
+import {setSkeletonLogLevel} from '../logger';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+
+setSkeletonLogLevel('debug');
 import {StepAlgorithm} from '../algorithm-termination-cases';
 import {collideEdges, collideInteriorEdges} from '../collision-helpers';
 import {intersectRays} from '../intersection-edges';

@@ -5,6 +5,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
+import {stepLog} from "@/algorithms/straight-skeleton/logger";
 import {
     areEqual,
     dotProduct,
@@ -194,7 +195,7 @@ export function StepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 
     if (errors.length > 0) {
-        console.warn(`StepAlgorithm: ${errors.length} sub-polygon(s) failed:\n${errors.join('\n')}`);
+        stepLog.warn(`StepAlgorithm: ${errors.length} sub-polygon(s) failed:\n${errors.join('\n')}`);
     }
 
     return {

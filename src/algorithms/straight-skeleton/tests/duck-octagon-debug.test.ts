@@ -1,5 +1,8 @@
 import {initContext, stepWithCapture} from '../test-cases/test-helpers';
+import {setSkeletonLogLevel} from '../logger';
 import {collideEdges} from '../collision-helpers';
+
+setSkeletonLogLevel('debug');
 import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '../test-cases/duck-octagon';
 import {checkSharedParents} from '../collision-helpers';
 import handleCollisionEvent from '../collision-handling';

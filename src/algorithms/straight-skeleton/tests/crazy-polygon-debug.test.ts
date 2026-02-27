@@ -1,5 +1,8 @@
 import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {setSkeletonLogLevel} from '../logger';
 import {collideEdges, makeOffsetDistance, sourceOffsetDistance} from '../collision-helpers';
+
+setSkeletonLogLevel('debug');
 import {CRAZY_POLYGON} from '../test-cases/test-constants';
 import {StepAlgorithm} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';

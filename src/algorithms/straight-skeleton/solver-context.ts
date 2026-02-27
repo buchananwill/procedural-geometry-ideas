@@ -8,6 +8,7 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
+import {solverLog} from "@/algorithms/straight-skeleton/logger";
 import Heap from "heap-js";
 import {crossProduct, dotProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
 
@@ -87,7 +88,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
         const edgeData = getInteriorWithId(edgeId);
         if (length > 0) {
-            console.log(`Updating edge: ${edgeId} to length ${length}`)
+            solverLog.debug(`Updating edge: ${edgeId} to length ${length}`);
             edgeData.length = Math.min(length, edgeData.length);
         }
 

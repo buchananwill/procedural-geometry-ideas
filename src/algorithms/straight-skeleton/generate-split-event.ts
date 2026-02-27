@@ -4,8 +4,9 @@ import {
     RayProjection,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
+import {splitLog} from "@/algorithms/straight-skeleton/logger";
 import {
-    addVectors, crossProduct, dotProduct,
+    addVectors, areEqual, crossProduct, dotProduct,
     makeBisectedBasis,
     projectFromPerpendicular,
     scaleVector
@@ -92,8 +93,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     const validationResultWs = intersectRays(incenterRay1, widdershinsRayTest)
     const validationResultCw = intersectRays(incenterRay1, clockwiseRayTest)
     if (validationResultCw[1] < 0 || validationResultWs[1] < 0) {
-        console.log(`Split event validation failed: ${JSON.stringify([validationResultWs, validationResultCw, context])}`)
-        // TODO: add debug logging
+        splitLog.info('Split event validation failed:', validationResultWs, validationResultCw);
         return null;
     }
 
@@ -168,12 +168,12 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     {
         const [rayLength1] = initialIntersectionTest;
         const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
-        const instigatorOwnParentCross = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector)
+        const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector)
         const instigatorTargetCross = crossProduct(scaleVector(instigatorRay.basisVector, -1), edgeToSplit.basisVector)
-        const divisor = instigatorOwnParentCross + instigatorTargetCross;
-        if (divisor > 0) {
+        const divisor = crossClockwiseParent + instigatorTargetCross;
+        if (!areEqual(divisor, 0)) {
             const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
-            const offsetDistance = distanceToSplitAlongInstigator * instigatorOwnParentCross;
+            const offsetDistance = distanceToSplitAlongInstigator * crossClockwiseParent;
             if (offsetDistance > 0) {
                 const widdershinsBisector: PolygonEdge = context.widdershinsBisector(targetId);
                 const clockwiseBisector = context.clockwiseBisector(targetId);
