@@ -152,12 +152,14 @@ export type CollisionType =
     | 'interiorNonAdjacent'
     | 'interiorAgainstExterior'
     | 'phantomDivergentOffset'
+    | 'outOfBounds';
 
 export const CollisionTypePriority: Record<CollisionType, number> = {
     interiorPair: 0,
     interiorNonAdjacent: 1,
     interiorAgainstExterior: 2,
-    phantomDivergentOffset: 3
+    phantomDivergentOffset: 3,
+    outOfBounds: 4,
 }
 
 export interface CollisionEvent {

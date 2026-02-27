@@ -200,25 +200,37 @@ export default function PolygonCanvas({
   // De-collided positions for sweep labels
   const SWEEP_FONT = 14;      // canvas-unit font size before invScale
   const OFFSET_DIST_FONT = 15;
+  const showDetails = debug.showSweepEventDetails;
+  const sweepLabelTexts = useMemo(() => {
+    if (!collisionSweepLines) return [];
+    return collisionSweepLines.map((line) => {
+      const base = `${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`;
+      if (!showDetails) return base;
+      return `${base} ${line.eventType}\n${line.intersectionType} r1=${line.alongRay1.toFixed(1)} r2=${line.alongRay2.toFixed(1)}`;
+    });
+  }, [collisionSweepLines, showDetails]);
+
   const sweepLabelPositions = useMemo(() => {
     if (!collisionSweepLines || collisionSweepLines.length === 0) return [];
     const charW = SWEEP_FONT * invScale * 0.6;
     const lineH = SWEEP_FONT * invScale * 1.3;
     const pad = 2 * invScale;
 
-    const rects: LabelRect[] = collisionSweepLines.map((line) => {
-      const text = `${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`;
+    const rects: LabelRect[] = collisionSweepLines.map((line, i) => {
+      const text = sweepLabelTexts[i] ?? '';
+      const lines = text.split('\n');
+      const maxLen = Math.max(...lines.map(l => l.length));
       return {
         x: line.targetX + 6 * invScale,
         y: line.targetY - 6 * invScale,
-        w: text.length * charW,
-        h: lineH,
+        w: maxLen * charW,
+        h: lineH * lines.length,
       };
     });
 
     decollideLabels(rects, pad);
     return rects;
-  }, [collisionSweepLines, invScale]);
+  }, [collisionSweepLines, sweepLabelTexts, invScale]);
 
   const handleDragMove = useCallback(
     (index: number, e: KonvaEventObject<DragEvent>) => {
@@ -486,13 +498,14 @@ export default function PolygonCanvas({
         {/* Collision sweep labels (de-collided) */}
         {collisionSweepLines?.map((line, i) => {
           const pos = sweepLabelPositions[i];
-          if (!pos) return null;
+          const text = sweepLabelTexts[i];
+          if (!pos || !text) return null;
           return (
             <Text
               key={`${line.key}-lbl`}
               x={pos.x}
               y={pos.y}
-              text={`${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`}
+              text={text}
               fontSize={SWEEP_FONT * invScale}
               fill="#22b8cf"
               listening={false}

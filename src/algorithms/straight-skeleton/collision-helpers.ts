@@ -127,7 +127,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
 
     return {
-        offsetDistance: Math.max(offsetTarget, offsetDistance),
+        offsetDistance: offsetDistance, //.Math.max(offsetTarget, offsetDistance),
         collidingEdges: [edgeA.id, edgeB.id],
         position: addVectors(scaleVector(ray1.basisVector, alongRay1), ray1.sourceVector),
         intersectionData,
@@ -156,7 +156,7 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
     }
 
     if (event !== null && interiorEdge.maxOffset && event.offsetDistance > interiorEdge.maxOffset) {
-        event.eventType = 'phantomDivergentOffset';
+        event.eventType = 'outOfBounds';
     }
 
     return event;

@@ -2,7 +2,7 @@ import {
     PolygonEdge,
     PolygonNode,
     StraightSkeletonSolverContext,
-    Vector2, BisectionParams, StraightSkeletonGraph
+    Vector2, BisectionParams, StraightSkeletonGraph, RayProjection
 } from "@/algorithms/straight-skeleton/types";
 import {solverLog} from "@/algorithms/straight-skeleton/logger";
 import {
@@ -35,7 +35,7 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
 
     const spanSize = (clockwiseExteriorEdgeIndex - widdershinsExteriorEdgeIndex + graph.numExteriorNodes) % graph.numExteriorNodes;
     const parentsInverted = spanSize > graph.numExteriorNodes / 2;
-    if (parentsInverted){
+    if (parentsInverted) {
         solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
     }
     const finalCwParent = /*parentsInverted ? widdershinsExteriorEdgeIndex : */ clockwiseExteriorEdgeIndex;
@@ -62,8 +62,7 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         && parentsInverted
     ) {
         finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
-    } else
-    {
+    } else {
         finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
     }
 
@@ -91,26 +90,36 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
     const interiorEdge = context.getInteriorWithId(edgeIndex);
     const newRay = context.projectRayInterior(interiorEdge)
     for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-        if (interiorEdge.clockwiseExteriorEdgeIndex === i || interiorEdge.widdershinsExteriorEdgeIndex === i){
+        if (interiorEdge.clockwiseExteriorEdgeIndex === i || interiorEdge.widdershinsExteriorEdgeIndex === i) {
             continue;
         }
-        const exteriorEdgeRay = context.projectRay(context.getEdgeWithId(i))
+        const polygonEdge = context.getEdgeWithId(i);
+        const exteriorEdgeRay = context.projectRay(polygonEdge)
         const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay);
-        if (ray1Length > 0 && ray2Length > 0 ){
-            const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)
-            context.updateMaxOffset(edgeIndex, offset)
-            console.log(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
+        if (ray1Length > 0 && ray2Length > 0) {
+            const exteriorTargetNode = context.graph.nodes[polygonEdge.target!]
+            const rayFromTargetEnd: RayProjection = {
+                sourceVector: exteriorTargetNode.position,
+                basisVector: scaleVector(polygonEdge.basisVector, -1)
+            };
+            const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd);
+            if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
+                const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)
+                context.updateMaxOffset(edgeIndex, offset)
+                console.log(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
+
+            }
         }
     }
 
     return edgeIndex;
 }
 
-export function bisectWithParams(context: StraightSkeletonSolverContext, params: BisectionParams){
+export function bisectWithParams(context: StraightSkeletonSolverContext, params: BisectionParams) {
     return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source, params.approximateDirection ?? undefined);
 }
 
-export function initInteriorEdges(context: StraightSkeletonSolverContext){
+export function initInteriorEdges(context: StraightSkeletonSolverContext) {
     const exteriorEdges = [...context.graph.edges];
 
     // create interior edges from exterior node bisections
@@ -162,7 +171,7 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
             if (candidateEdge === edge) {
                 return true;
             }
-            if (candidateEdge < graph.numExteriorNodes){
+            if (candidateEdge < graph.numExteriorNodes) {
                 continue;
             }
             if (visitedEdges.has(candidateEdge)) {

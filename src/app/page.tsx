@@ -10,7 +10,7 @@ import {
     computePrimaryEdgeIntersections,
 } from "@/algorithms/straight-skeleton/algorithm";
 import type {PrimaryInteriorEdge} from "@/algorithms/straight-skeleton/algorithm";
-import type {StraightSkeletonGraph, StraightSkeletonSolverContext, CollisionType} from "@/algorithms/straight-skeleton/types";
+import type {StraightSkeletonGraph, StraightSkeletonSolverContext, CollisionType, IntersectionType} from "@/algorithms/straight-skeleton/types";
 import type {Vector2} from "@/algorithms/straight-skeleton/types";
 import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
@@ -34,6 +34,7 @@ export interface DebugDisplayOptions {
     showNodeIndices: boolean;
     showEdgeIndices: boolean;
     showOffsetDistances: boolean;
+    showSweepEventDetails: boolean;
 }
 
 export interface CollisionSweepLine {
@@ -46,6 +47,9 @@ export interface CollisionSweepLine {
     edgeIdA: number;
     edgeIdB: number;
     eventType: CollisionType;
+    intersectionType: IntersectionType;
+    alongRay1: number;
+    alongRay2: number;
 }
 
 export default function Home() {
@@ -91,6 +95,7 @@ export default function Home() {
         showNodeIndices: false,
         showEdgeIndices: false,
         showOffsetDistances: false,
+        showSweepEventDetails: false,
     });
 
     // Node selection
@@ -205,6 +210,9 @@ export default function Home() {
                 edgeIdA: se.event.collidingEdges[0],
                 edgeIdB: se.event.collidingEdges[1],
                 eventType: se.event.eventType,
+                intersectionType: se.event.intersectionData[2],
+                alongRay1: se.event.intersectionData[0],
+                alongRay2: se.event.intersectionData[1],
             };
         });
     }
@@ -626,6 +634,13 @@ export default function Home() {
                                     label="Offset distances"
                                     checked={debug.showOffsetDistances}
                                     onChange={() => toggleDebug("showOffsetDistances")}
+                                />
+
+                                <Switch
+                                    size="xs"
+                                    label="Sweep event details"
+                                    checked={debug.showSweepEventDetails}
+                                    onChange={() => toggleDebug("showSweepEventDetails")}
                                 />
 
                                 <Text size="xs" c="dimmed" fw={600} mt={4}>Collision Sweep</Text>
