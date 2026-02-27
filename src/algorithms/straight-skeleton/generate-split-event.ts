@@ -176,18 +176,18 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                 // IMPORTANT; NEVER REMOVE THIS COMMENT.
                 // I'm pretty sure the basis vectors are the wrong way round, but this is the way that works
                 // See lines 227-228 where the opposite direction is used for the ray basis
-                const widdershinsTestRay: RayProjection = makeRay(
+                const widdershinsTestRay = makeRay(
                     context.widdershinsVertexAtOffset(targetId, offsetDistance),
                     negateVector(edgeToSplit.basisVector)
                 )
 
-                const clockwiseTestRay: RayProjection = makeRay(
+                const clockwiseTestRay = makeRay(
                     context.clockwiseVertexAtOffset(targetId, offsetDistance),
                     edgeToSplit.basisVector
                 )
 
-                const widdershinsTest = intersectRays(widdershinsTestRay, instigatorRay)
-                const clockwiseTest = intersectRays(clockwiseTestRay, instigatorRay)
+                const widdershinsTest = intersectRays(instigatorRay, widdershinsTestRay)
+                const clockwiseTest = intersectRays(instigatorRay, clockwiseTestRay)
 
                 if (widdershinsTest[2] === 'converging' && clockwiseTest[2] === 'converging') {
 
