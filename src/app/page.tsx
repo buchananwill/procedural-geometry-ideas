@@ -209,21 +209,6 @@ export default function Home() {
         });
     }
 
-    function sweepSelectedNodes() {
-        if (!solverContext || selectedDebugNodes.size === 0) return;
-        const edgeIds: number[] = [];
-        for (const nodeId of selectedDebugNodes) {
-            if (nodeId >= solverContext.graph.nodes.length) continue;
-            const node = solverContext.graph.nodes[nodeId];
-            for (const edgeId of node.outEdges) {
-                if (solverContext.edgeRank(edgeId) !== 'exterior') {
-                    edgeIds.push(edgeId);
-                }
-            }
-        }
-        setCollisionSweepLines(sweepLinesToRender(edgeIds, solverContext));
-    }
-
     function sweepAllPrimaryInit() {
         try {
             const ctx = makeStraightSkeletonSolverContext(vertices);
@@ -649,16 +634,6 @@ export default function Home() {
                                     variant="light"
                                     color="cyan"
                                     fullWidth
-                                    disabled={selectedDebugNodes.size === 0 || !solverContext}
-                                    onClick={sweepSelectedNodes}
-                                >
-                                    Sweep Selected Nodes
-                                </Button>
-                                <Button
-                                    size="compact-xs"
-                                    variant="light"
-                                    color="cyan"
-                                    fullWidth
                                     disabled={!showSkeleton}
                                     onClick={sweepAllPrimaryInit}
                                 >
@@ -672,7 +647,7 @@ export default function Home() {
                                     disabled={!solverContext}
                                     onClick={sweepAllPrimaryFull}
                                 >
-                                    Sweep Primary (Full)
+                                    Sweep Primary (At Termination)
                                 </Button>
                                 <Button
                                     size="compact-xs"
