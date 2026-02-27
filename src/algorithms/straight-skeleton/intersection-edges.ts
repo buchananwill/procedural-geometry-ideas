@@ -13,52 +13,41 @@ import {
  * Type gives category of result.
  * */
 export function intersectRays(ray1: RayProjection, ray2: RayProjection): IntersectionResult {
-    // We need to form a pair of linear simultaneous equations, relating x1 === x2 && y1 === y2
-
     const relativeRay2Source = subtractVectors(ray2.sourceVector, ray1.sourceVector);
     const [basisTowardsRay2Source, distanceToRay2] = normalize(relativeRay2Source);
 
-    // Important for two colliding reflex vertices
     if (areEqual(distanceToRay2, 0)) {
-        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source']
+        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
     }
 
     const dotOfBasisVectors = dotProduct(ray1.basisVector, ray2.basisVector);
-
-    // --------- Parallel ---------
-
-    // Same direction
-    if (areEqual(dotOfBasisVectors, 1)) {
-        if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
-            return [distanceToRay2, Number.POSITIVE_INFINITY, 'co-linear-from-1']
-        }
-
-        if (vectorsAreEqual(scaleVector(basisTowardsRay2Source, -1), ray2.basisVector)) {
-            return [Number.POSITIVE_INFINITY, distanceToRay2, "co-linear-from-2"]
-        }
-
-        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel']
-    }
-
-    // Opposite Direction
-    if (areEqual(dotOfBasisVectors, -1)) {
-        if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
-            return [distanceToRay2, distanceToRay2, "head-on"]
-        }
-
-        return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel']
-    }
-
-    // ---- Not Parallel ------------
     const crossProductBasisVectors = crossProduct(ray1.basisVector, ray2.basisVector);
 
+    // Near-parallel guard — intersection would be at meaningless distance
+    if (Math.abs(crossProductBasisVectors) < 1e-6) {
+        if (dotOfBasisVectors > 0) {
+            if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
+                return [distanceToRay2, Number.POSITIVE_INFINITY, 'co-linear-from-1'];
+            }
+            if (vectorsAreEqual(basisTowardsRay2Source, scaleVector(ray2.basisVector, -1))) {
+                return [Number.POSITIVE_INFINITY, distanceToRay2, 'co-linear-from-2'];
+            }
+            return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];
+        } else {
+            if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
+                return [distanceToRay2, distanceToRay2, 'head-on'];
+            }
+            return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];
+        }
+    }
+
+    // General case — Cramer's rule for both unknowns
     const ray1Units = crossProduct(relativeRay2Source, ray2.basisVector) / crossProductBasisVectors;
-    const ray2Units = crossProduct(relativeRay2Source, ray1.basisVector) / crossProductBasisVectors; //const ray2Units = areEqual(y2, 0) ? (ray1Units * x1 - xRel) / x2 : (ray1Units * y1 - yRel) / y2;
+    const ray2Units = crossProduct(relativeRay2Source, ray1.basisVector) / crossProductBasisVectors;
 
     if (ray1Units > 0 && ray2Units > 0) {
-        return [ray1Units, ray2Units, 'converging']
+        return [ray1Units, ray2Units, 'converging'];
     }
 
     return [ray1Units, ray2Units, 'diverging'];
-
 }
