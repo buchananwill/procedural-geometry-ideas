@@ -90,6 +90,7 @@ export {
 import {
     INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON
 } from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
+import {LONG_SIDE_ACUTE_VERTEX} from "@/algorithms/straight-skeleton/test-cases/long-single-side-highly-acute-vertex";
 
 export interface NamedTestPolygon {
     name: string;
@@ -148,4 +149,5 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Not Solvable Heptagon', vertices: NOT_SOLVABLE},
     {name: 'Wrong Collision at Node 10', vertices: WRONG_COLLISION_AT_NODE_10},
     {name: 'Premature Split Octagon', vertices: PREMATURE_SPLIT_OCTAGON},
+    {name: 'Long Unbroken Side Then Extreme Acute Angle', vertices: LONG_SIDE_ACUTE_VERTEX}
 ];
