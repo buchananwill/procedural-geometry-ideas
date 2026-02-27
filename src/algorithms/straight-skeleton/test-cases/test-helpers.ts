@@ -122,9 +122,11 @@ export function collectCollisionEvents(context: StraightSkeletonSolverContext): 
 
         // Interior-interior pairs
         for (let j = i + 1; j < edges.length; j++) {
-            const event = collideEdges(e1, edges[j], context);
-            if (event && event.intersectionData[2] !== 'diverging') {
-                allEvents.push({label: `${e1} x ${edges[j]}`, event});
+            const events = collideEdges(e1, edges[j], context);
+            for (const event of events) {
+                if (event.intersectionData[2] !== 'diverging') {
+                    allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                }
             }
         }
 
@@ -132,9 +134,11 @@ export function collectCollisionEvents(context: StraightSkeletonSolverContext): 
         if (checkExterior) {
             for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                 if (context.acceptedEdges[ext]) continue;
-                const event = collideEdges(e1, ext, context);
-                if (event && event.intersectionData[2] !== 'diverging') {
-                    allEvents.push({label: `${e1} x ext${ext}`, event});
+                const events = collideEdges(e1, ext, context);
+                for (const event of events) {
+                    if (event.intersectionData[2] !== 'diverging') {
+                        allEvents.push({label: `${e1} x ext${ext}`, event});
+                    }
                 }
             }
         }

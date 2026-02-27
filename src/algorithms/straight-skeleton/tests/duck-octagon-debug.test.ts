@@ -8,7 +8,7 @@ import {checkSharedParents} from '../collision-helpers';
 import handleCollisionEvent from '../collision-handling';
 import {StepAlgorithm} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
-import type {AlgorithmStepInput} from '../types';
+import type {AlgorithmStepInput, CollisionEvent} from '../types';
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -128,12 +128,14 @@ describe('Duck Octagon Debug — step-through comparison', () => {
         console.log(`  isPrimaryNonReflex: ${ctxP.isPrimaryNonReflex(15)}`);
 
         // Check the collision result for PASSES
-        const collP = collideEdges(15, 2, ctxP);
+        const collsP = collideEdges(15, 2, ctxP);
         console.log(`\n=== PASSES: 15 x ext2 collision ===`);
-        if (collP) {
-            console.log(`  type=${collP.eventType} offset=${collP.offsetDistance.toFixed(4)} pos=(${collP.position.x.toFixed(2)}, ${collP.position.y.toFixed(2)})`);
+        if (collsP.length > 0) {
+            for (const collP of collsP) {
+                console.log(`  type=${collP.eventType} offset=${collP.offsetDistance.toFixed(4)} pos=(${collP.position.x.toFixed(2)}, ${collP.position.y.toFixed(2)})`);
+            }
         } else {
-            console.log(`  null (no collision)`);
+            console.log(`  empty (no collision)`);
         }
     });
 
@@ -145,30 +147,33 @@ describe('Duck Octagon Debug — step-through comparison', () => {
             const exteriorParents = edges.map(id => context.getInteriorWithId(id).clockwiseExteriorEdgeIndex);
 
             console.log(`\n=== ${label}: Step 0 collision events (sorted by offset) ===`);
-            const allEvents: { label: string; event: ReturnType<typeof collideEdges> }[] = [];
+            const allEvents: { label: string; event: CollisionEvent }[] = [];
 
             for (let i = 0; i < edges.length; i++) {
                 const e1 = edges[i];
                 const checkExterior = !context.isPrimaryNonReflex(e1);
                 for (let j = i + 1; j < edges.length; j++) {
-                    const event = collideEdges(e1, edges[j], context);
-                    if (event && event.intersectionData[2] !== 'diverging') {
-                        allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                    const events = collideEdges(e1, edges[j], context);
+                    for (const event of events) {
+                        if (event.intersectionData[2] !== 'diverging') {
+                            allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                        }
                     }
                 }
                 if (checkExterior) {
                     for (const ep of exteriorParents) {
-                        const event = collideEdges(e1, ep, context);
-                        if (event && event.intersectionData[2] !== 'diverging') {
-                            allEvents.push({label: `${e1} x ext${ep}`, event});
+                        const events = collideEdges(e1, ep, context);
+                        for (const event of events) {
+                            if (event.intersectionData[2] !== 'diverging') {
+                                allEvents.push({label: `${e1} x ext${ep}`, event});
+                            }
                         }
                     }
                 }
             }
 
-            allEvents.sort((a, b) => a.event!.offsetDistance - b.event!.offsetDistance);
+            allEvents.sort((a, b) => a.event.offsetDistance - b.event.offsetDistance);
             for (const {label: lbl, event: ev} of allEvents) {
-                if (!ev) continue;
                 console.log(
                     `  ${lbl}: type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)}` +
                     ` pos=(${ev.position.x.toFixed(2)}, ${ev.position.y.toFixed(2)})`
@@ -197,8 +202,8 @@ describe('Duck Octagon Debug — step-through comparison', () => {
                     for (let j = i + 1; j < group.interiorEdges.length; j++) {
                         const e1 = group.interiorEdges[i];
                         const e2 = group.interiorEdges[j];
-                        const collision = collideEdges(e1, e2, context);
-                        if (collision) {
+                        const collisions = collideEdges(e1, e2, context);
+                        for (const collision of collisions) {
                             console.log(
                                 `    ${e1} x ${e2}: type=${collision.eventType}` +
                                 ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -217,8 +222,8 @@ describe('Duck Octagon Debug — step-through comparison', () => {
                     ];
                     for (const ep of exteriorEdges.map(e => e.id)) {
                         if (exteriorParents.includes(ep)) continue;
-                        const collision = collideEdges(e1, ep, context);
-                        if (collision) {
+                        const collisions = collideEdges(e1, ep, context);
+                        for (const collision of collisions) {
                             console.log(
                                 `    ${e1} x ext${ep}: type=${collision.eventType}` +
                                 ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -312,30 +317,33 @@ describe('Moorhen Octagon Debug', () => {
             const exteriorParents = edges.map(id => context.getInteriorWithId(id).clockwiseExteriorEdgeIndex);
 
             console.log(`\n=== ${label}: Step 0 collision events (sorted by offset) ===`);
-            const allEvents: { label: string; event: ReturnType<typeof collideEdges> }[] = [];
+            const allEvents: { label: string; event: CollisionEvent }[] = [];
 
             for (let i = 0; i < edges.length; i++) {
                 const e1 = edges[i];
                 const checkExterior = !context.isPrimaryNonReflex(e1);
                 for (let j = i + 1; j < edges.length; j++) {
-                    const event = collideEdges(e1, edges[j], context);
-                    if (event && event.intersectionData[2] !== 'diverging') {
-                        allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                    const events = collideEdges(e1, edges[j], context);
+                    for (const event of events) {
+                        if (event.intersectionData[2] !== 'diverging') {
+                            allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                        }
                     }
                 }
                 if (checkExterior) {
                     for (const ep of exteriorParents) {
-                        const event = collideEdges(e1, ep, context);
-                        if (event && event.intersectionData[2] !== 'diverging') {
-                            allEvents.push({label: `${e1} x ext${ep}`, event});
+                        const events = collideEdges(e1, ep, context);
+                        for (const event of events) {
+                            if (event.intersectionData[2] !== 'diverging') {
+                                allEvents.push({label: `${e1} x ext${ep}`, event});
+                            }
                         }
                     }
                 }
             }
 
-            allEvents.sort((a, b) => a.event!.offsetDistance - b.event!.offsetDistance);
+            allEvents.sort((a, b) => a.event.offsetDistance - b.event.offsetDistance);
             for (const {label: lbl, event: ev} of allEvents) {
-                if (!ev) continue;
                 console.log(
                     `  ${lbl}: type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)}` +
                     ` pos=(${ev.position.x.toFixed(2)}, ${ev.position.y.toFixed(2)})` +
@@ -360,28 +368,31 @@ describe('Moorhen Octagon Debug', () => {
             console.log(`  basis: (${e12Data.basisVector.x.toFixed(4)}, ${e12Data.basisVector.y.toFixed(4)})`);
 
             console.log(`\n=== ${label}: e12 collision list ===`);
-            const e12Events: { label: string; event: ReturnType<typeof collideEdges> }[] = [];
+            const e12Events: { label: string; event: CollisionEvent }[] = [];
 
             // Interior collisions
             for (const e2 of edges) {
                 if (e2 === 12) continue;
-                const event = collideEdges(12, e2, context);
-                if (event && event.intersectionData[2] !== 'diverging') {
-                    e12Events.push({label: `12 x ${e2}`, event});
+                const events = collideEdges(12, e2, context);
+                for (const event of events) {
+                    if (event.intersectionData[2] !== 'diverging') {
+                        e12Events.push({label: `12 x ${e2}`, event});
+                    }
                 }
             }
 
             // Exterior collisions (e12 is reflex, so checkExterior = true)
             for (const ep of exteriorParents) {
-                const event = collideEdges(12, ep, context);
-                if (event && event.intersectionData[2] !== 'diverging') {
-                    e12Events.push({label: `12 x ext${ep}`, event});
+                const events = collideEdges(12, ep, context);
+                for (const event of events) {
+                    if (event.intersectionData[2] !== 'diverging') {
+                        e12Events.push({label: `12 x ext${ep}`, event});
+                    }
                 }
             }
 
-            e12Events.sort((a, b) => a.event!.offsetDistance - b.event!.offsetDistance);
+            e12Events.sort((a, b) => a.event.offsetDistance - b.event.offsetDistance);
             for (const {label: lbl, event: ev} of e12Events) {
-                if (!ev) continue;
                 console.log(
                     `  ${lbl}: type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)}` +
                     ` rayLen=${ev.intersectionData[0].toFixed(4)}` +
@@ -405,12 +416,13 @@ describe('Moorhen Octagon Debug', () => {
         console.log(`e13: parents(cw=${e13i.clockwiseExteriorEdgeIndex}, ws=${e13i.widdershinsExteriorEdgeIndex}) basis=(${e13d.basisVector.x.toFixed(4)}, ${e13d.basisVector.y.toFixed(4)}) source=node${e13d.source}`);
 
         // Get the collision event
-        const collision = collideEdges(12, 13, context);
+        const collisions = collideEdges(12, 13, context);
         console.log(`\n=== e12 x e13 collision event ===`);
-        if (!collision) {
-            console.log('  null');
+        if (collisions.length === 0) {
+            console.log('  empty (no collision)');
             return;
         }
+        const collision = collisions[0];
         console.log(`  type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}`);
         console.log(`  pos=(${collision.position.x.toFixed(2)}, ${collision.position.y.toFixed(2)})`);
         console.log(`  intersect=[${collision.intersectionData[0].toFixed(4)}, ${collision.intersectionData[1].toFixed(4)}, ${collision.intersectionData[2]}]`);

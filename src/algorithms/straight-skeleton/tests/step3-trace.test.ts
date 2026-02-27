@@ -131,8 +131,8 @@ describe('Step 3 Detailed Trace', () => {
             console.log(`  e${eid} (reflex, cw=${ie.clockwiseExteriorEdgeIndex} ws=${ie.widdershinsExteriorEdgeIndex}):`);
             for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                 if (context.acceptedEdges[ext]) continue;
-                const c = collideEdges(eid, ext, context);
-                console.log(`    vs ext${ext}: ${c ? `type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}` : 'null'}`);
+                const cs = collideEdges(eid, ext, context);
+                console.log(`    vs ext${ext}: ${cs.length > 0 ? cs.map(c => `type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'empty'}`);
             }
         }
     });
@@ -144,11 +144,12 @@ describe('Step 3 Detailed Trace', () => {
         // The collision that fires at step 3 should be 8 x 9 (lowest offset at 76.6779)
         const e8_ie = context.getInteriorWithId(8);
         const e9_ie = context.getInteriorWithId(9);
-        const c89 = collideInteriorEdges(e8_ie, e9_ie, context);
+        const c89_events = collideInteriorEdges(e8_ie, e9_ie, context);
         console.log('\n=== 8 x 9 collision ===');
-        console.log('Event:', c89 ? `type=${c89.eventType} offset=${c89.offsetDistance.toFixed(4)} pos=${fmt(c89.position)}` : 'null');
+        console.log('Events:', c89_events.length > 0 ? c89_events.map(c => `type=${c.eventType} offset=${c.offsetDistance.toFixed(4)} pos=${fmt(c.position)}`).join('; ') : 'empty');
 
-        if (c89) {
+        if (c89_events.length > 0) {
+            const c89 = c89_events[0];
             const parents = checkSharedParents(8, 9, context);
             console.log('Shared parents:', parents);
             console.log('  e8: cw=', e8_ie.clockwiseExteriorEdgeIndex, 'ws=', e8_ie.widdershinsExteriorEdgeIndex);

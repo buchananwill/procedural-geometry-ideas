@@ -77,8 +77,8 @@ describe('Crazy Polygon Debug', () => {
                     for (let j = i + 1; j < group.interiorEdges.length; j++) {
                         const e1 = group.interiorEdges[i];
                         const e2 = group.interiorEdges[j];
-                        const collision = collideEdges(e1, e2, context);
-                        if (collision) {
+                        const collisions = collideEdges(e1, e2, context);
+                        for (const collision of collisions) {
                             console.log(
                                 `    ${e1} x ${e2}: type=${collision.eventType}` +
                                 ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -92,8 +92,8 @@ describe('Crazy Polygon Debug', () => {
                     if (!context.isPrimaryNonReflex(e1)) {
                         for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                             if (context.acceptedEdges[ext]) continue;
-                            const collision = collideEdges(e1, ext, context);
-                            if (collision) {
+                            const collisions = collideEdges(e1, ext, context);
+                            for (const collision of collisions) {
                                 console.log(
                                     `    ${e1} x ext${ext}: type=${collision.eventType}` +
                                     ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -201,10 +201,11 @@ describe('Crazy Polygon Debug', () => {
                 const rayA = context.projectRayInterior(eA);
                 const rayB = context.projectRayInterior(eB);
                 const intersection = intersectRays(rayA, rayB);
-                const collision = collideEdges(activeIds[i], activeIds[j], context);
+                const collisions = collideEdges(activeIds[i], activeIds[j], context);
+                const collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 console.log(
                     `  ${activeIds[i]} x ${activeIds[j]}: ray result=[${intersection[0].toFixed(4)}, ${intersection[1].toFixed(4)}, ${intersection[2]}]` +
-                    (collision ? ` → ${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` : ' → NO COLLISION')
+                    ` → ${collisionStr}`
                 );
             }
         }
@@ -217,10 +218,11 @@ describe('Crazy Polygon Debug', () => {
                 const extEdge = context.getEdgeWithId(ext);
                 const extRay = context.projectRay(extEdge);
                 const initial = intersectRays(instigatorRay, extRay);
-                const collision = collideEdges(ie.id, ext, context);
+                const collisions = collideEdges(ie.id, ext, context);
+                const collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 console.log(
                     `  e${ie.id} x ext${ext}: initialRay=[${initial[0].toFixed(4)}, ${initial[1].toFixed(4)}, ${initial[2]}]` +
-                    (collision ? ` → ${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` : ' → NO COLLISION')
+                    ` → ${collisionStr}`
                 );
             }
         }

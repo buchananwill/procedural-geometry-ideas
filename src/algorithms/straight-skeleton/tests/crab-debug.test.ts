@@ -143,8 +143,8 @@ describe('Crab Test Case Debug', () => {
                     for (let j = i + 1; j < group.interiorEdges.length; j++) {
                         const e1 = group.interiorEdges[i];
                         const e2 = group.interiorEdges[j];
-                        const collision = collideEdges(e1, e2, context);
-                        if (collision) {
+                        const collisions = collideEdges(e1, e2, context);
+                        for (const collision of collisions) {
                             console.log(
                                 `    ${e1} x ${e2}: type=${collision.eventType}` +
                                 ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -158,8 +158,8 @@ describe('Crab Test Case Debug', () => {
                     if (!context.isPrimaryNonReflex(e1)) {
                         for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                             if (context.acceptedEdges[ext]) continue;
-                            const collision = collideEdges(e1, ext, context);
-                            if (collision) {
+                            const collisions = collideEdges(e1, ext, context);
+                            for (const collision of collisions) {
                                 console.log(
                                     `    ${e1} x ext${ext}: type=${collision.eventType}` +
                                     ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -257,8 +257,8 @@ describe('Crab Test Case Debug', () => {
                 const intersection = intersectRays(rayA, rayB);
                 let collisionStr: string;
                 try {
-                    const collision = collideEdges(activeIds[i], activeIds[j], context);
-                    collisionStr = collision ? `${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` : 'NO COLLISION';
+                    const collisions = collideEdges(activeIds[i], activeIds[j], context);
+                    collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 } catch (e) {
                     collisionStr = `CRASH: ${e instanceof Error ? e.message : String(e)}`;
                 }
@@ -278,8 +278,8 @@ describe('Crab Test Case Debug', () => {
                 const initial = intersectRays(instigatorRay, extRay);
                 let collisionStr: string;
                 try {
-                    const collision = collideEdges(ie.id, ext, context);
-                    collisionStr = collision ? `${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` : 'NO COLLISION';
+                    const collisions = collideEdges(ie.id, ext, context);
+                    collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 } catch (e) {
                     collisionStr = `CRASH: ${e instanceof Error ? e.message : String(e)}`;
                 }

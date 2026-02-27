@@ -149,8 +149,8 @@ describe('Double Reflex Spaceship Debug', () => {
                     for (let j = i + 1; j < group.interiorEdges.length; j++) {
                         const e1 = group.interiorEdges[i];
                         const e2 = group.interiorEdges[j];
-                        const collision = collideEdges(e1, e2, context);
-                        if (collision) {
+                        const collisions = collideEdges(e1, e2, context);
+                        for (const collision of collisions) {
                             console.log(
                                 `    ${e1} x ${e2}: type=${collision.eventType}` +
                                 ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -165,8 +165,8 @@ describe('Double Reflex Spaceship Debug', () => {
                     if (!context.isPrimaryNonReflex(e1)) {
                         for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                             if (context.acceptedEdges[ext]) continue;
-                            const collision = collideEdges(e1, ext, context);
-                            if (collision) {
+                            const collisions = collideEdges(e1, ext, context);
+                            for (const collision of collisions) {
                                 console.log(
                                     `    ${e1} x ext${ext}: type=${collision.eventType}` +
                                     ` offset=${collision.offsetDistance.toFixed(4)}` +
@@ -243,28 +243,32 @@ describe('Double Reflex Spaceship Debug', () => {
 
             for (const otherId of edges) {
                 if (otherId === v4Edge.id) continue;
-                const event = collideEdges(v4Edge.id, otherId, context);
-                if (event && event.intersectionData[2] !== 'diverging') {
-                    v4Events.push({
-                        label: `e${v4Edge.id} x e${otherId}`,
-                        offset: event.offsetDistance,
-                        detail: `type=${event.eventType} offset=${event.offsetDistance.toFixed(4)}` +
-                            ` pos=(${event.position.x.toFixed(2)}, ${event.position.y.toFixed(2)})`,
-                    });
+                const events = collideEdges(v4Edge.id, otherId, context);
+                for (const event of events) {
+                    if (event.intersectionData[2] !== 'diverging') {
+                        v4Events.push({
+                            label: `e${v4Edge.id} x e${otherId}`,
+                            offset: event.offsetDistance,
+                            detail: `type=${event.eventType} offset=${event.offsetDistance.toFixed(4)}` +
+                                ` pos=(${event.position.x.toFixed(2)}, ${event.position.y.toFixed(2)})`,
+                        });
+                    }
                 }
             }
 
             // Exterior collisions (if reflex)
             if (context.isReflexEdge(v4Edge)) {
                 for (let ext = 0; ext < numExt; ext++) {
-                    const event = collideEdges(v4Edge.id, ext, context);
-                    if (event && event.intersectionData[2] !== 'diverging') {
-                        v4Events.push({
-                            label: `e${v4Edge.id} x ext${ext}`,
-                            offset: event.offsetDistance,
-                            detail: `type=${event.eventType} offset=${event.offsetDistance.toFixed(4)}` +
-                                ` pos=(${event.position.x.toFixed(2)}, ${event.position.y.toFixed(2)})`,
-                        });
+                    const events = collideEdges(v4Edge.id, ext, context);
+                    for (const event of events) {
+                        if (event.intersectionData[2] !== 'diverging') {
+                            v4Events.push({
+                                label: `e${v4Edge.id} x ext${ext}`,
+                                offset: event.offsetDistance,
+                                detail: `type=${event.eventType} offset=${event.offsetDistance.toFixed(4)}` +
+                                    ` pos=(${event.position.x.toFixed(2)}, ${event.position.y.toFixed(2)})`,
+                            });
+                        }
                     }
                 }
             }

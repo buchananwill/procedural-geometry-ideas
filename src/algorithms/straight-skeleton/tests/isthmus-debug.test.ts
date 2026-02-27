@@ -11,7 +11,7 @@ import {
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_7,
 } from '../test-cases/isthmus-failure';
-import type {AlgorithmStepInput, Vector2} from '../types';
+import type {AlgorithmStepInput, CollisionEvent, Vector2} from '../types';
 import {crossProduct, dotProduct, makeBisectedBasis, scaleVector, addVectors, subtractVectors, normalize} from '../core-functions';
 
 // ---------------------------------------------------------------------------
@@ -54,26 +54,30 @@ describe('Isthmus Debug', () => {
                 console.log(`\n=== ${name}: e3 (id=${e3Interior.id}) vs e6 (id=${e6Interior.id}) ===`);
 
                 // Check if they converge or diverge
-                const collision = collideEdges(e3Interior.id, e6Interior.id, context);
-                if (collision) {
-                    console.log(
-                        `  collision: type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` +
-                        ` pos=(${collision.position.x.toFixed(2)}, ${collision.position.y.toFixed(2)})` +
-                        ` intersect=[${collision.intersectionData[0].toFixed(4)}, ${collision.intersectionData[1].toFixed(4)}, ${collision.intersectionData[2]}]`
-                    );
+                const collisions = collideEdges(e3Interior.id, e6Interior.id, context);
+                if (collisions.length > 0) {
+                    for (const collision of collisions) {
+                        console.log(
+                            `  collision: type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}` +
+                            ` pos=(${collision.position.x.toFixed(2)}, ${collision.position.y.toFixed(2)})` +
+                            ` intersect=[${collision.intersectionData[0].toFixed(4)}, ${collision.intersectionData[1].toFixed(4)}, ${collision.intersectionData[2]}]`
+                        );
+                    }
                 } else {
-                    console.log(`  collision: null (no collision / diverging / filtered)`);
+                    console.log(`  collision: empty (no collision / diverging / filtered)`);
                 }
 
                 // Also test with collideInteriorEdges directly for more detail
-                const rawCollision = collideInteriorEdges(e3Interior, e6Interior, context);
-                if (rawCollision) {
-                    console.log(
-                        `  raw collision: type=${rawCollision.eventType} offset=${rawCollision.offsetDistance.toFixed(4)}` +
-                        ` intersect=[${rawCollision.intersectionData[0].toFixed(4)}, ${rawCollision.intersectionData[1].toFixed(4)}, ${rawCollision.intersectionData[2]}]`
-                    );
+                const rawCollisions = collideInteriorEdges(e3Interior, e6Interior, context);
+                if (rawCollisions.length > 0) {
+                    for (const rawCollision of rawCollisions) {
+                        console.log(
+                            `  raw collision: type=${rawCollision.eventType} offset=${rawCollision.offsetDistance.toFixed(4)}` +
+                            ` intersect=[${rawCollision.intersectionData[0].toFixed(4)}, ${rawCollision.intersectionData[1].toFixed(4)}, ${rawCollision.intersectionData[2]}]`
+                        );
+                    }
                 } else {
-                    console.log(`  raw collision: null`);
+                    console.log(`  raw collision: empty`);
                 }
 
                 // Check the actual intersection type (converging vs diverging)
@@ -112,22 +116,26 @@ describe('Isthmus Debug', () => {
             const exteriorParents = edges.map(id => context.getInteriorWithId(id).clockwiseExteriorEdgeIndex);
 
             console.log(`\n=== ${name}: Step 0 collisions (sorted by offset) ===`);
-            const allEvents: { label: string; event: NonNullable<ReturnType<typeof collideEdges>> }[] = [];
+            const allEvents: { label: string; event: CollisionEvent }[] = [];
 
             for (let i = 0; i < edges.length; i++) {
                 const e1 = edges[i];
                 const checkExterior = !context.isPrimaryNonReflex(e1);
                 for (let j = i + 1; j < edges.length; j++) {
-                    const event = collideEdges(e1, edges[j], context);
-                    if (event && event.intersectionData[2] !== 'diverging') {
-                        allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                    const events = collideEdges(e1, edges[j], context);
+                    for (const event of events) {
+                        if (event.intersectionData[2] !== 'diverging') {
+                            allEvents.push({label: `${e1} x ${edges[j]}`, event});
+                        }
                     }
                 }
                 if (checkExterior) {
                     for (const ep of exteriorParents) {
-                        const event = collideEdges(e1, ep, context);
-                        if (event && event.intersectionData[2] !== 'diverging') {
-                            allEvents.push({label: `${e1} x ext${ep}`, event});
+                        const events = collideEdges(e1, ep, context);
+                        for (const event of events) {
+                            if (event.intersectionData[2] !== 'diverging') {
+                                allEvents.push({label: `${e1} x ext${ep}`, event});
+                            }
                         }
                     }
                 }
@@ -323,19 +331,20 @@ describe('Isthmus Debug', () => {
                             for (let j = i + 1; j < childEdges.length; j++) {
                                 const ie1 = context.getInteriorWithId(childEdges[i]);
                                 const ie2 = context.getInteriorWithId(childEdges[j]);
-                                const collision = collideInteriorEdges(ie1, ie2, context);
+                                const collisions = collideInteriorEdges(ie1, ie2, context);
                                 const ray1 = context.projectRayInterior(ie1);
                                 const ray2 = context.projectRayInterior(ie2);
                                 const rawIntersect = intersectRays(ray1, ray2);
                                 const dot = dotProduct(ray1.basisVector, ray2.basisVector);
 
+                                const collisionStr = collisions.length > 0
+                                    ? collisions.map(c => `type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ')
+                                    : 'empty';
                                 console.log(
                                     `    e${childEdges[i]} x e${childEdges[j]}: ` +
                                     `raw=[${rawIntersect[0].toFixed(4)}, ${rawIntersect[1].toFixed(4)}, '${rawIntersect[2]}'] ` +
                                     `dot=${dot.toFixed(4)} ` +
-                                    (collision
-                                        ? `collision: type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)}`
-                                        : `collision: null`)
+                                    `collision: ${collisionStr}`
                                 );
                             }
                         }
@@ -366,12 +375,12 @@ describe('Isthmus Debug', () => {
 
             // Generate ALL possible collisions for these edges (interior-interior and interior-exterior)
             const edges = inputs[0].interiorEdges;
-            const allEvents: { label: string; event: NonNullable<ReturnType<typeof collideEdges>> }[] = [];
+            const allEvents: { label: string; event: CollisionEvent }[] = [];
 
             for (let i = 0; i < edges.length; i++) {
                 for (let j = i + 1; j < edges.length; j++) {
-                    const event = collideEdges(edges[i], edges[j], context);
-                    if (event) {
+                    const events = collideEdges(edges[i], edges[j], context);
+                    for (const event of events) {
                         allEvents.push({label: `e${edges[i]} x e${edges[j]} (${event.intersectionData[2]})`, event});
                     }
                 }
@@ -380,8 +389,8 @@ describe('Isthmus Debug', () => {
                 if (isReflex) {
                     for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                         if (context.acceptedEdges[ext]) continue;
-                        const event = collideEdges(edges[i], ext, context);
-                        if (event) {
+                        const events = collideEdges(edges[i], ext, context);
+                        for (const event of events) {
                             allEvents.push({label: `e${edges[i]} x ext${ext} (${event.intersectionData[2]})`, event});
                         }
                     }
@@ -402,14 +411,17 @@ describe('Isthmus Debug', () => {
             const e16 = edges.find(e => context.edgeRank(e) === 'secondary');
             if (e14Id && e15Id && e16) {
                 console.log(`\n  Key comparison:`);
-                const e14_e16 = collideEdges(e14Id, e16, context);
-                console.log(`  e${e14Id} x e${e16}: ${e14_e16 ? `type=${e14_e16.eventType} offset=${e14_e16.offsetDistance.toFixed(4)}` : 'null'}`);
+                const e14_e16_events = collideEdges(e14Id, e16, context);
+                const e14_e16_str = e14_e16_events.length > 0 ? e14_e16_events.map(c => `type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'empty';
+                console.log(`  e${e14Id} x e${e16}: ${e14_e16_str}`);
 
                 for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                     if (context.acceptedEdges[ext]) continue;
-                    const e15_ext = collideEdges(e15Id, ext, context);
-                    if (e15_ext && e15_ext.eventType !== 'phantomDivergentOffset') {
-                        console.log(`  e${e15Id} x ext${ext}: type=${e15_ext.eventType} offset=${e15_ext.offsetDistance.toFixed(4)}`);
+                    const e15_ext_events = collideEdges(e15Id, ext, context);
+                    for (const e15_ext of e15_ext_events) {
+                        if (e15_ext.eventType !== 'phantomDivergentOffset') {
+                            console.log(`  e${e15Id} x ext${ext}: type=${e15_ext.eventType} offset=${e15_ext.offsetDistance.toFixed(4)}`);
+                        }
                     }
                 }
             }
@@ -450,19 +462,23 @@ describe('Isthmus Debug', () => {
             console.log(`  e16's cw parent = ${e16Interior.clockwiseExteriorEdgeIndex}, ws parent = ${e16Interior.widdershinsExteriorEdgeIndex}`);
             console.log(`  ext6.id = ${ext6.id}. Is parent of e16? cw=${ext6.id === e16Interior.clockwiseExteriorEdgeIndex}, ws=${ext6.id === e16Interior.widdershinsExteriorEdgeIndex}`);
 
-            const collision = collideEdges(e16Id, 6, context);
-            if (collision) {
-                console.log(`  collision: type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)} pos=(${collision.position.x.toFixed(2)}, ${collision.position.y.toFixed(2)})`);
+            const collisions = collideEdges(e16Id, 6, context);
+            if (collisions.length > 0) {
+                for (const collision of collisions) {
+                    console.log(`  collision: type=${collision.eventType} offset=${collision.offsetDistance.toFixed(4)} pos=(${collision.position.x.toFixed(2)}, ${collision.position.y.toFixed(2)})`);
+                }
             } else {
-                console.log(`  collision: null`);
+                console.log(`  collision: empty`);
             }
 
             // Also check all non-accepted exterior edges
             for (let ext = 0; ext < context.graph.numExteriorNodes; ext++) {
                 if (context.acceptedEdges[ext]) continue;
-                const c = collideEdges(e16Id, ext, context);
-                if (c && c.eventType !== 'phantomDivergentOffset') {
-                    console.log(`  e${e16Id} x ext${ext}: type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}`);
+                const events = collideEdges(e16Id, ext, context);
+                for (const c of events) {
+                    if (c.eventType !== 'phantomDivergentOffset') {
+                        console.log(`  e${e16Id} x ext${ext}: type=${c.eventType} offset=${c.offsetDistance.toFixed(4)}`);
+                    }
                 }
             }
         }
