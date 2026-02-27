@@ -1,12 +1,49 @@
-import {Vector2} from '@/algorithms/straight-skeleton/types';
+import {AlgorithmStepInput, Vector2} from '@/algorithms/straight-skeleton/types';
 import {ALL_TEST_POLYGONS} from './test-cases';
-import {runAlgorithmV5} from './algorithm-termination-cases';
+import {StepAlgorithm} from './algorithm-termination-cases';
+import {makeStraightSkeletonSolverContext} from './solver-context';
+import {initInteriorEdges, tryToAcceptExteriorEdge} from './algorithm-helpers';
 import {
     addVectors,
     subtractVectors,
     scaleVector,
     sizeOfVector,
 } from './core-functions';
+
+const PER_RUN_TIMEOUT_MS = 5_000;
+
+class AlgorithmTimeoutError extends Error {
+    constructor(ms: number) {
+        super(`Timed out after ${ms}ms (algorithm hung)`);
+    }
+}
+
+/**
+ * Equivalent to runAlgorithmV5 but checks a deadline between each iteration
+ * of the main loop, throwing AlgorithmTimeoutError if exceeded.
+ */
+function runAlgorithmV5WithDeadline(nodes: Vector2[], deadlineMs: number) {
+    if (nodes.length < 3) {
+        throw new Error("Must have at least three nodes to perform algorithm");
+    }
+    const context = makeStraightSkeletonSolverContext(nodes);
+    const exteriorEdges = [...context.graph.edges];
+
+    initInteriorEdges(context);
+
+    let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
+    const deadline = Date.now() + deadlineMs;
+
+    while (inputs.length > 0) {
+        if (Date.now() > deadline) {
+            throw new AlgorithmTimeoutError(deadlineMs);
+        }
+        inputs = StepAlgorithm(context, inputs).childSteps;
+        exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
+    }
+
+    return context;
+}
 
 interface FuzzFailure {
     polygonName: string;
@@ -104,14 +141,20 @@ function generateGridPointsInEllipse(ellipse: EllipseParams, gridSize: number = 
 }
 
 /**
- * Runs the algorithm on the given vertices and checks all four regression criteria.
+ * Runs the algorithm on the given vertices and checks regression criteria.
  * Returns null on success, or a failure reason string.
+ *
+ * Uses runAlgorithmV5WithDeadline so that a hung algorithm is caught by
+ * a Date.now() check between loop iterations rather than blocking forever.
  */
 function checkAlgorithmResult(vertices: Vector2[]): string | null {
     let ctx;
     try {
-        ctx = runAlgorithmV5(vertices);
+        ctx = runAlgorithmV5WithDeadline(vertices, PER_RUN_TIMEOUT_MS);
     } catch (e) {
+        if (e instanceof AlgorithmTimeoutError) {
+            return e.message;
+        }
         return `Threw: ${e instanceof Error ? e.message : String(e)}`;
     }
 
