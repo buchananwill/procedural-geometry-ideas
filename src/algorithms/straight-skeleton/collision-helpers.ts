@@ -71,7 +71,7 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
 
 /**
  * */
-export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent[] {
     const ray1 = context.projectRayInterior(edgeA);
     const ray2 = context.projectRayInterior(edgeB);
 
@@ -80,14 +80,13 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const [alongRay1, _alongRay2, resultType] = intersectionData;
 
     if (NO_COLLISION_RESULTS.includes(resultType)) {
-        return null;
+        return [];
     }
 
     // Will be handled by other edge
     if (resultType === 'co-linear-from-2') {
-        return null;
+        return [];
     }
-
 
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
@@ -101,65 +100,65 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
             : 'interiorNonAdjacent';
 
     // If the edgeA is a reflex edge, we're looking to generate a split event.
+    const events: CollisionEvent[] = [];
     const isReflexA = context.isReflexEdge(edgeA)
-    const isReflexB = context.isReflexEdge(edgeB)
-    if (isReflexA || isReflexB) {
-        const reflexEdge = isReflexA ? edgeA : edgeB;
-        const otherEdge = isReflexA ? edgeB : edgeA;
+    if (isReflexA) {
+        const reflexEdge = edgeA;
+        const otherEdge = edgeB;
         const widdershinsEvent = generateSplitEventViaWiddershinsBisector(reflexEdge.id, otherEdge.id, context);
         const clockwiseEvent = generateSplitEventViaClockwiseBisector(reflexEdge.id, otherEdge.id, context);
-        const widdershinsValid = widdershinsEvent !== null && widdershinsEvent.offsetDistance > 0 && (widdershinsEvent.offsetDistance < offsetDistance || eventType === 'phantomDivergentOffset')
-        const clockwiseValid =  clockwiseEvent !== null && clockwiseEvent.offsetDistance > 0 && (clockwiseEvent.offsetDistance < offsetDistance || eventType === 'phantomDivergentOffset')
-        if (!clockwiseValid && widdershinsValid) {
-            return widdershinsEvent;
+        if (widdershinsEvent){
+            events.push(widdershinsEvent)
         }
 
-        if (!widdershinsValid&& clockwiseValid) {
-            return clockwiseEvent;
+        if (clockwiseEvent){
+            events.push(clockwiseEvent);
         }
-
-        if (widdershinsValid && clockwiseValid) {
-            return widdershinsEvent.offsetDistance < clockwiseEvent.offsetDistance ? widdershinsEvent : clockwiseEvent;
-        }
-
 
     }
 
-
-    return {
+    events.push({
         offsetDistance: offsetDistance, //.Math.max(offsetTarget, offsetDistance),
         collidingEdges: [edgeA.id, edgeB.id],
         position: addVectors(scaleVector(ray1.basisVector, alongRay1), ray1.sourceVector),
         intersectionData,
         eventType
-    }
+    })
+
+    return events
 }
 
-export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent[] {
     const rankA = context.edgeRank(edgeIdA);
     const rankB = context.edgeRank(edgeIdB);
 
-    let event: CollisionEvent | null = null;
+    const events: CollisionEvent[] = [];
     if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)) {
-        return event;
+        return [];
     }
 
     if (rankA === 'exterior') {
-        return event
+        return []
     }
     const interiorEdge = context.getInteriorWithId(edgeIdA);
 
     if (rankB === 'exterior') {
-        event = collideInteriorAndExteriorEdge(interiorEdge, context.getEdgeWithId(edgeIdB), context)
+        const event = collideInteriorAndExteriorEdge(interiorEdge, context.getEdgeWithId(edgeIdB), context)
+        if (event) {
+            events.push(event)
+        }
     } else {
-        event = collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
+        events.push(...collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context));
     }
 
-    if (event !== null && interiorEdge.maxOffset && event.offsetDistance > interiorEdge.maxOffset) {
-        event.eventType = 'outOfBounds';
-    }
+    events.forEach(e => {
+        if (interiorEdge.maxOffset && e.offsetDistance > interiorEdge.maxOffset) {
+            e.eventType = 'outOfBounds';
+        }
 
-    return event;
+    })
+
+    return events;
 
 }
 
@@ -172,11 +171,11 @@ export function findOrComputeCollision(
     edgeIdA: number,
     edgeIdB: number,
     context: StraightSkeletonSolverContext
-): CollisionEvent | null {
+): CollisionEvent[] {
     // Fresh acceptance check — prevents returning stale cached results
     // for edges accepted since the cache entry was written.
     if (context.isAccepted(edgeIdA) || context.isAccepted(edgeIdB)) {
-        return null;
+        return [];
     }
 
     const cache = context.collisionCache;
@@ -184,7 +183,7 @@ export function findOrComputeCollision(
     if (innerMap !== undefined) {
         const cached = innerMap.get(edgeIdB);
         if (cached !== undefined) {
-            return cached === NO_COLLISION_SENTINEL ? null : cached;
+            return cached === NO_COLLISION_SENTINEL ? [] : cached;
         }
     }
 

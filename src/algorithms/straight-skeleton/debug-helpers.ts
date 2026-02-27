@@ -26,18 +26,17 @@ export function generateCollisionSweep(
         // Collide against all interior edges
         for (const interiorEdge of context.graph.interiorEdges) {
             if (interiorEdge.id === edgeId) continue;
-            const event = collideEdges(edgeId, interiorEdge.id, context);
-            if (event !== null) {
-                results.push({instigatorEdgeId: edgeId, event});
+            const events = collideEdges(edgeId, interiorEdge.id, context);
+            if (events !== null) {
+                results.push(...events.map(event => ({instigatorEdgeId: edgeId, event: event})));
             }
         }
 
         // Collide against all exterior edges
         for (let i = 0; i < context.graph.numExteriorNodes; i++) {
-            const event = collideEdges(edgeId, i, context);
-            if (event !== null) {
-                results.push({instigatorEdgeId: edgeId, event});
-            }
+            const events = collideEdges(edgeId, i, context);
+                results.push(...events.map(event => ({instigatorEdgeId: edgeId, event: event})));
+
         }
     }
 
