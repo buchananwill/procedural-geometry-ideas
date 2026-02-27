@@ -187,7 +187,7 @@ function checkAlgorithmResult(vertices: Vector2[]): string | null {
 }
 
 describe('Ellipse fuzz test', () => {
-    jest.setTimeout(120_000);
+    jest.setTimeout(10_000);
 
     const GRID_SIZE = 5;
     const allFailures: FuzzFailure[] = [];
