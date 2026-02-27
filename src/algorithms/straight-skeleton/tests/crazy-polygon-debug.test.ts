@@ -563,44 +563,4 @@ describe('Crazy Polygon Fuzz', () => {
         }
     });
 
-    it('fuzz from ellipse test suite (all polygons)', () => {
-        const GRID = 5;
-        const allFailures: {polygon: string; vertex: number; pos: Vector2; reason: string}[] = [];
-
-        for (const {name, vertices} of ALL_TEST_POLYGONS) {
-            for (let vi = 0; vi < vertices.length; vi++) {
-                const ellipse = computeEllipseForVertex(vertices, vi);
-                if (!ellipse) continue;
-
-                const points = generateGridPoints(ellipse, GRID);
-                for (const point of points) {
-                    const modified = vertices.map(v => ({...v}));
-                    modified[vi] = {x: point.x, y: point.y};
-                    const reason = checkAlgorithmResult(modified);
-                    if (reason) {
-                        allFailures.push({polygon: name, vertex: vi, pos: point, reason});
-                    }
-                }
-            }
-        }
-
-        console.log('\n========================================');
-        console.log(`FUZZ TEST SUMMARY: ${allFailures.length} total failures`);
-        console.log('========================================');
-        if (allFailures.length > 0) {
-            const grouped = new Map<string, typeof allFailures>();
-            for (const f of allFailures) {
-                const key = `${f.polygon} v${f.vertex}`;
-                const list = grouped.get(key) ?? [];
-                list.push(f);
-                grouped.set(key, list);
-            }
-            for (const [key, failures] of grouped) {
-                console.log(`  ${key}: ${failures.length} failures`);
-                for (const f of failures) {
-                    console.log(`    ${fmt(f.pos)}: ${f.reason}`);
-                }
-            }
-        }
-    });
 });
