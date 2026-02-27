@@ -1,13 +1,13 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from './test-cases/test-helpers';
-import {collideEdges} from './collision-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {collideEdges} from '../collision-helpers';
 import {
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP,
-} from './test-cases/double-reflex-spaceship';
-import {StepAlgorithm} from './algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from './algorithm-helpers';
-import {crossProduct, subtractVectors, normalize, dotProduct} from './core-functions';
-import type {AlgorithmStepInput} from './types';
+} from '../test-cases/double-reflex-spaceship';
+import {StepAlgorithm} from '../algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import {crossProduct, subtractVectors, normalize, dotProduct} from '../core-functions';
+import type {AlgorithmStepInput} from '../types';
 
 const CASES = [
     {name: 'FAILURE', verts: PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP},

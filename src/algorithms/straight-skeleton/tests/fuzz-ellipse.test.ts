@@ -1,23 +1,23 @@
 import {AlgorithmStepInput, Vector2} from '@/algorithms/straight-skeleton/types';
-import {NamedTestPolygon} from './test-cases';
+import {NamedTestPolygon} from '../test-cases';
 import {
     TRIANGLE, SQUARE, DEFAULT_PENTAGON,
     AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, CRAZY_POLYGON,
-} from './test-cases/test-constants';
-import {LONG_OCTAGON} from './test-cases/long-octagon';
-import {WACKY_OCTAGON} from './test-cases/more-edge-cases';
-import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from './test-cases/isthmus-failure';
-import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from './test-cases/double-reflex-spaceship';
-import {StepAlgorithm} from './algorithm-termination-cases';
-import {makeStraightSkeletonSolverContext} from './solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from './algorithm-helpers';
+} from '../test-cases/test-constants';
+import {LONG_OCTAGON} from '../test-cases/long-octagon';
+import {WACKY_OCTAGON} from '../test-cases/more-edge-cases';
+import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '../test-cases/isthmus-failure';
+import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '../test-cases/double-reflex-spaceship';
+import {StepAlgorithm} from '../algorithm-termination-cases';
+import {makeStraightSkeletonSolverContext} from '../solver-context';
+import {initInteriorEdges, tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {
     addVectors,
     subtractVectors,
     scaleVector,
     sizeOfVector,
-} from './core-functions';
+} from '../core-functions';
 
 const PER_RUN_TIMEOUT_MS = 2_000;
 

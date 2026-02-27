@@ -8,8 +8,8 @@ import {
     normalize,
     makeBasis,
     makeBisectedBasis,
-} from './core-functions';
-import type { Vector2, StraightSkeletonGraph, PolygonEdge } from './types';
+} from '../core-functions';
+import type { Vector2, StraightSkeletonGraph, PolygonEdge } from '../types';
 import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 
 // ---------------------------------------------------------------------------

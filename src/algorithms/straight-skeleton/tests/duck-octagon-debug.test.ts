@@ -1,11 +1,11 @@
-import {initContext, stepWithCapture} from './test-cases/test-helpers';
-import {collideEdges} from './collision-helpers';
-import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from './test-cases/duck-octagon';
-import {checkSharedParents} from './collision-helpers';
-import handleCollisionEvent from './collision-handling';
-import {StepAlgorithm} from './algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from './algorithm-helpers';
-import type {AlgorithmStepInput} from './types';
+import {initContext, stepWithCapture} from '../test-cases/test-helpers';
+import {collideEdges} from '../collision-helpers';
+import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '../test-cases/duck-octagon';
+import {checkSharedParents} from '../collision-helpers';
+import handleCollisionEvent from '../collision-handling';
+import {StepAlgorithm} from '../algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import type {AlgorithmStepInput} from '../types';
 
 // ---------------------------------------------------------------------------
 // Tests

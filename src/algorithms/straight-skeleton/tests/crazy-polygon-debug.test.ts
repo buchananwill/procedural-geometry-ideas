@@ -1,17 +1,17 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from './test-cases/test-helpers';
-import {collideEdges, makeOffsetDistance, sourceOffsetDistance} from './collision-helpers';
-import {CRAZY_POLYGON} from './test-cases/test-constants';
-import {StepAlgorithm} from './algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from './algorithm-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {collideEdges, makeOffsetDistance, sourceOffsetDistance} from '../collision-helpers';
+import {CRAZY_POLYGON} from '../test-cases/test-constants';
+import {StepAlgorithm} from '../algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {
     addVectors, crossProduct, subtractVectors, normalize, dotProduct,
     scaleVector, projectFromPerpendicular, areEqual
-} from './core-functions';
-import {intersectRays} from './intersection-edges';
-import {generateSplitEventFromTheEdgeItself} from './generate-split-event';
-import type {AlgorithmStepInput, RayProjection, Vector2} from './types';
-import {ALL_TEST_POLYGONS} from './test-cases';
-import {runAlgorithmV5} from './algorithm-termination-cases';
+} from '../core-functions';
+import {intersectRays} from '../intersection-edges';
+import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
+import type {AlgorithmStepInput, RayProjection, Vector2} from '../types';
+import {ALL_TEST_POLYGONS} from '../test-cases';
+import {runAlgorithmV5} from '../algorithm-termination-cases';
 
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 const fmtRay = (r: RayProjection) => `src=${fmt(r.sourceVector)} basis=${fmt(r.basisVector)}`;

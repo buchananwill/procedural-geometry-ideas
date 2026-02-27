@@ -1,13 +1,13 @@
-import {initContext} from './test-cases/test-helpers';
-import {CRAZY_POLYGON} from './test-cases/test-constants';
-import {StepAlgorithm} from './algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from './algorithm-helpers';
-import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from './collision-helpers';
-import {createCollisions, handleInteriorEdges} from './algorithm-complex-cases';
-import handleCollisionEvent from './collision-handling';
-import {addVectors, scaleVector, crossProduct, areEqual} from './core-functions';
-import {intersectRays} from './intersection-edges';
-import type {AlgorithmStepInput, CollisionEvent} from './types';
+import {initContext} from '../test-cases/test-helpers';
+import {CRAZY_POLYGON} from '../test-cases/test-constants';
+import {StepAlgorithm} from '../algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '../collision-helpers';
+import {createCollisions, handleInteriorEdges} from '../algorithm-complex-cases';
+import handleCollisionEvent from '../collision-handling';
+import {addVectors, scaleVector, crossProduct, areEqual} from '../core-functions';
+import {intersectRays} from '../intersection-edges';
+import type {AlgorithmStepInput, CollisionEvent} from '../types';
 
 const fmt = (v: {x:number,y:number}) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 

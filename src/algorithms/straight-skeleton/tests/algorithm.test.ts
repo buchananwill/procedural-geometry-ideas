@@ -1,13 +1,13 @@
-import {computeStraightSkeleton} from './algorithm';
-import {runAlgorithmV5} from './algorithm-termination-cases';
+import {computeStraightSkeleton} from '../algorithm';
+import {runAlgorithmV5} from '../algorithm-termination-cases';
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
-import {interiorNodes} from './test-cases/test-helpers';
+import {interiorNodes} from '../test-cases/test-helpers';
 import {
     TRIANGLE,
     SQUARE,
     RECTANGLE,
     PENTAGON_HOUSE,
-} from './test-cases/test-constants';
+} from '../test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Shape-specific interior node counts

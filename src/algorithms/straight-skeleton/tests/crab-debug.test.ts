@@ -1,15 +1,15 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from './test-cases/test-helpers';
-import {collideEdges} from './collision-helpers';
-import {CRAB_TEST_CASE} from './test-cases/crab-test-case';
-import {StepAlgorithm, runAlgorithmV5} from './algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from './algorithm-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
+import {collideEdges} from '../collision-helpers';
+import {CRAB_TEST_CASE} from '../test-cases/crab-test-case';
+import {StepAlgorithm, runAlgorithmV5} from '../algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {
     addVectors, crossProduct, subtractVectors, normalize, dotProduct,
     scaleVector, projectFromPerpendicular
-} from './core-functions';
-import {intersectRays} from './intersection-edges';
-import {generateSplitEventFromTheEdgeItself} from './generate-split-event';
-import type {AlgorithmStepInput, RayProjection, Vector2} from './types';
+} from '../core-functions';
+import {intersectRays} from '../intersection-edges';
+import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
+import type {AlgorithmStepInput, RayProjection, Vector2} from '../types';
 
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 const fmtRay = (r: RayProjection) => `src=${fmt(r.sourceVector)} basis=${fmt(r.basisVector)}`;

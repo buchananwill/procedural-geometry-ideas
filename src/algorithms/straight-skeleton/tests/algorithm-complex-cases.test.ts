@@ -1,10 +1,10 @@
-import {runAlgorithmV5} from './algorithm-termination-cases';
-import {interiorNodes} from './test-cases/test-helpers';
+import {runAlgorithmV5} from '../algorithm-termination-cases';
+import {interiorNodes} from '../test-cases/test-helpers';
 import {
     SQUARE,
     RECTANGLE,
     PENTAGON_HOUSE,
-} from './test-cases/test-constants';
+} from '../test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Shape-specific assertions beyond what regression.test.ts covers.

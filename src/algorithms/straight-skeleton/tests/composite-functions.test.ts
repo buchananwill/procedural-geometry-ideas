@@ -1,5 +1,5 @@
-import { intersectRays } from './intersection-edges';
-import type { RayProjection } from './types';
+import { intersectRays } from '../intersection-edges';
+import type { RayProjection } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
