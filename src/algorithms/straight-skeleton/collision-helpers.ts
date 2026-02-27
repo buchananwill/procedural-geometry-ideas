@@ -154,10 +154,10 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
         event = collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context)
     }
 
-    if (event !== null && event.eventType != 'phantomDivergentOffset') {
-        context.updateMinLength(edgeIdA, event.intersectionData[0])
-        context.updateMinLength(edgeIdB, event.intersectionData[1])
-    }
+    // if (event !== null && event.eventType != 'phantomDivergentOffset') {
+    //     context.updateMinLength(edgeIdA, event.intersectionData[0])
+    //     context.updateMinLength(edgeIdB, event.intersectionData[1])
+    // }
 
     return event;
 

@@ -50,21 +50,10 @@ export function intersectRays(ray1: RayProjection, ray2: RayProjection): Interse
     }
 
     // ---- Not Parallel ------------
-
-    const xRel = relativeRay2Source.x;
-    const yRel = relativeRay2Source.y;
-
-
-    const x1 = ray1.basisVector.x;
-    const x2 = ray2.basisVector.x;
-    const y1 = ray1.basisVector.y;
-    const y2 = ray2.basisVector.y;
-
-
     const crossProductBasisVectors = crossProduct(ray1.basisVector, ray2.basisVector);
 
     const ray1Units = crossProduct(relativeRay2Source, ray2.basisVector) / crossProductBasisVectors;
-    const ray2Units = areEqual(y2, 0) ? (ray1Units * x1 - xRel) / x2 : (ray1Units * y1 - yRel) / y2;
+    const ray2Units = crossProduct(relativeRay2Source, ray1.basisVector) / crossProductBasisVectors; //const ray2Units = areEqual(y2, 0) ? (ray1Units * x1 - xRel) / x2 : (ray1Units * y1 - yRel) / y2;
 
     if (ray1Units > 0 && ray2Units > 0) {
         return [ray1Units, ray2Units, 'converging']

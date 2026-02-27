@@ -11,6 +11,7 @@ import {
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
+import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 
 
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
@@ -84,6 +85,20 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         acceptedEdges.push(false);
     }
     acceptedEdges[edgeIndex] = false;
+
+
+    const interiorEdge = context.getInteriorWithId(edgeIndex);
+    const newRay = context.projectRayInterior(interiorEdge)
+    for (let i = 0; i < context.graph.numExteriorNodes; i++) {
+        if (interiorEdge.clockwiseExteriorEdgeIndex === i || interiorEdge.widdershinsExteriorEdgeIndex === i){
+            continue;
+        }
+        const exteriorEdgeRay = context.projectRay(context.getEdgeWithId(i))
+        const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay);
+        if (ray1Length > 0 && ray2Length > 0 ){
+            context.updateMinLength(edgeIndex, ray1Length);
+        }
+    }
 
     return edgeIndex;
 }

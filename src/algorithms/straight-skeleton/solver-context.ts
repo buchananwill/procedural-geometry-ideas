@@ -85,7 +85,11 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         }
 
         const edgeData = getInteriorWithId(edgeId);
-        edgeData.length = Math.min(length, edgeData.length);
+        if (length > 0) {
+            console.log(`Updating edge: ${edgeId} to length ${length}`)
+            edgeData.length = Math.min(length, edgeData.length);
+        }
+
     }
 
     function spanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number{

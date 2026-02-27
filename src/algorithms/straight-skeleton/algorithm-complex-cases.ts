@@ -4,7 +4,7 @@ import {
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
 import {collideEdges} from "@/algorithms/straight-skeleton/collision-helpers";
-import {areEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {areEqual, fp_compare} from "@/algorithms/straight-skeleton/core-functions";
 import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {
     bisectWithParams,
@@ -15,46 +15,46 @@ function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
     function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
 
 
-        const [length1a, length1b] = ev1.intersectionData;
-        const [length2a, length2b] = ev2.intersectionData;
-        const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
-        const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
-
-        const [ev1Id1, ev1Id2] = ev1.collidingEdges;
-        const [ev2Id1, ev2Id2] = ev1.collidingEdges;
-        if (ev2Id1 !== ev1Id1) {
-            throw new Error("Different instigators! Invalid comparison.")
-        }
-
-        if (context.isReflexEdge(context.getInteriorWithId(ev1Id1))) {
-            return ev1.offsetDistance - ev2.offsetDistance;
-        }
-
-        if (context.edgeRank(ev1Id2) !== 'exterior' && context.edgeRank(ev2Id2) !== 'exterior') {
-
-            const interiorEdge = context.getInteriorWithId(ev1Id1);
-            const ev1IsShortestForId1 = areEqual(interiorEdge.length, length1a);
-            const ev2IsShortestForId1 = areEqual(interiorEdge.length, length2a);
-            const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev1Id2).length, length1b)
-            const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
-
-            if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)) {
-                return -1;
-            }
-
-            if ((!ev1IsShortestForId1 || !ev1IsShortestForId2) && (ev2IsShortestForId1 && ev2IsShortestForId2)) {
-                return 1;
-            }
-        }
-
-
-        if (ev1Phantom !== ev2Phantom) {
-            return ev1.offsetDistance - ev2.offsetDistance;
-        }
-
-        // if (ev1.eventType === 'interiorPair') {
-        //     return length1a - length2a;
+        // const [length1a, length1b] = ev1.intersectionData;
+        // const [length2a, length2b] = ev2.intersectionData;
+        // const ev1Phantom = ev1.eventType === 'phantomDivergentOffset';
+        // const ev2Phantom = ev2.eventType === 'phantomDivergentOffset';
+        //
+        // const [ev1Id1, ev1Id2] = ev1.collidingEdges;
+        // const [ev2Id1, ev2Id2] = ev1.collidingEdges;
+        // if (ev2Id1 !== ev1Id1) {
+        //     throw new Error("Different instigators! Invalid comparison.")
         // }
+        //
+        // if (context.isReflexEdge(context.getInteriorWithId(ev1Id1))) {
+        //     return ev1.offsetDistance - ev2.offsetDistance;
+        // }
+        //
+        // if (context.edgeRank(ev1Id2) !== 'exterior' && context.edgeRank(ev2Id2) !== 'exterior') {
+        //
+        //     const interiorEdge = context.getInteriorWithId(ev1Id1);
+        //     const ev1IsShortestForId1 = areEqual(interiorEdge.length, length1a);
+        //     const ev2IsShortestForId1 = areEqual(interiorEdge.length, length2a);
+        //     const ev1IsShortestForId2 = areEqual(context.getInteriorWithId(ev1Id2).length, length1b)
+        //     const ev2IsShortestForId2 = areEqual(context.getInteriorWithId(ev2Id2).length, length2b)
+        //
+        //     if ((ev1IsShortestForId1 && ev1IsShortestForId2) && (!ev2IsShortestForId1 || !ev2IsShortestForId2)) {
+        //         return -1;
+        //     }
+        //
+        //     if ((!ev1IsShortestForId1 || !ev1IsShortestForId2) && (ev2IsShortestForId1 && ev2IsShortestForId2)) {
+        //         return 1;
+        //     }
+        // }
+        //
+        //
+        // if (ev1Phantom !== ev2Phantom) {
+        //     return ev1.offsetDistance - ev2.offsetDistance;
+        // }
+        //
+        // // if (ev1.eventType === 'interiorPair') {
+        // //     return length1a - length2a;
+        // // }
 
         return ev1.offsetDistance - ev2.offsetDistance;
 
@@ -78,10 +78,12 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
 
         return list.filter(event => {
             // console.log(`filtering events: ${JSON.stringify(event)}`);
-            return event !== null && event.eventType !== 'phantomDivergentOffset';
+            if (event && fp_compare(event.intersectionData[0], edgeData.length) > 0){
+                console.log(JSON.stringify([event, edgeData]))
+            }
+            return event !== null && event.eventType !== 'phantomDivergentOffset'// && (event.eventType !== 'interiorPair' || event.intersectionData[0] <= edgeData.length);
         })
             .map(e => e as CollisionEvent)
-            // .filter(event => event?.intersectionData[2] !== 'diverging')
             .toSorted(sameInstigatorComparator)
     })
         .filter(list => list.length > 0);
