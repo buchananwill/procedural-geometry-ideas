@@ -4,11 +4,11 @@ import type {
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2,
-} from '../types';
-import {makeStraightSkeletonSolverContext} from '../solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from '../algorithm-helpers';
-import {stepAlgorithm} from '../algorithm-termination-cases';
-import {collideEdges} from '../collision-helpers';
+} from '@/algorithms/straight-skeleton/types';
+import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
+import {initInteriorEdges, tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
 
 // ---------------------------------------------------------------------------
 // Graph query helpers

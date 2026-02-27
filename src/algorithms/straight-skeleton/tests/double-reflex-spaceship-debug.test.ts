@@ -1,17 +1,17 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
-import {setSkeletonLogLevel} from '../logger';
-import {collideEdges} from '../collision-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
+import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
 
 setSkeletonLogLevel('debug');
 import {
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP,
-} from '../test-cases/double-reflex-spaceship';
+} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
 
-import {stepAlgorithm} from '../algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
-import {crossProduct, subtractVectors, normalize, dotProduct} from '../core-functions';
-import type {AlgorithmStepInput} from '../types';
+import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {crossProduct, subtractVectors, normalize, dotProduct} from '@/algorithms/straight-skeleton/core-functions';
+import type {AlgorithmStepInput} from '@/algorithms/straight-skeleton/types';
 
 const CASES = [
     {name: 'FAILURE', verts: PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP},

@@ -1,26 +1,26 @@
 import {AlgorithmStepInput, Vector2} from '@/algorithms/straight-skeleton/types';
-import {NamedTestPolygon} from '../test-cases';
+import {NamedTestPolygon} from '@/algorithms/straight-skeleton/test-cases';
 import {
     TRIANGLE, SQUARE, DEFAULT_PENTAGON,
     AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, CRAZY_POLYGON,
-} from '../test-cases/test-constants';
-import {LONG_OCTAGON} from '../test-cases/long-octagon';
-import {WACKY_OCTAGON} from '../test-cases/more-edge-cases';
-import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '../test-cases/isthmus-failure';
-import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '../test-cases/double-reflex-spaceship';
-import {setSkeletonLogLevel} from '../logger';
-import {stepAlgorithm} from '../algorithm-termination-cases';
+} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+import {LONG_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
+import {WACKY_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/more-edge-cases';
+import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
+import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
 
 setSkeletonLogLevel('silent');
-import {makeStraightSkeletonSolverContext} from '../solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
+import {initInteriorEdges, tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
 import {
     addVectors,
     subtractVectors,
     scaleVector,
     sizeOfVector,
-} from '../core-functions';
+} from '@/algorithms/straight-skeleton/core-functions';
 
 const PER_RUN_TIMEOUT_MS = 2_000;
 

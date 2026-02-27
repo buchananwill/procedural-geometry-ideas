@@ -1,20 +1,19 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
-import {setSkeletonLogLevel} from '../logger';
-import {collideEdges} from '../collision-helpers';
-import {CRAB_TEST_CASE} from '../test-cases/crab-test-case';
-
-import {stepAlgorithm, runAlgorithmV5} from '../algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
+import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
+import {CRAB_TEST_CASE} from '@/algorithms/straight-skeleton/test-cases/crab-test-case';
+import {stepAlgorithm, runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
 import {
     crossProduct,
     subtractVectors,
     normalize,
     dotProduct,
     scaleVector
-} from '../core-functions';
-import {intersectRays} from '../intersection-edges';
-import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
-import type {AlgorithmStepInput, RayProjection, Vector2} from '../types';
+} from '@/algorithms/straight-skeleton/core-functions';
+import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
+import {generateSplitEventFromTheEdgeItself} from '@/algorithms/straight-skeleton/generate-split-event';
+import type {AlgorithmStepInput, RayProjection, Vector2} from '@/algorithms/straight-skeleton/types';
 
 setSkeletonLogLevel('debug');
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;

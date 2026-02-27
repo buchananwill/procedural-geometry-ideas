@@ -1,6 +1,6 @@
-import {runAlgorithmV5} from '../algorithm-termination-cases';
-import type {StraightSkeletonGraph, Vector2} from '../types';
-import {TRIANGLE} from '../test-cases/test-constants';
+import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import type {StraightSkeletonGraph, Vector2} from '@/algorithms/straight-skeleton/types';
+import {TRIANGLE} from '@/algorithms/straight-skeleton/test-cases/test-constants';
 
 // ---------------------------------------------------------------------------
 // Helpers

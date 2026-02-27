@@ -1,15 +1,15 @@
 import {
     collisionDistanceFromBasisUnits,
     sourceOffsetDistance,
-} from '../collision-helpers';
+} from '@/algorithms/straight-skeleton/collision-helpers';
 import {
     createBisectionInteriorEdge,
-} from '../algorithm-helpers';
-import {makeStraightSkeletonSolverContext} from '../solver-context';
-import {crossProduct, subtractVectors, normalize} from '../core-functions';
+} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
+import {crossProduct, subtractVectors, normalize} from '@/algorithms/straight-skeleton/core-functions';
 import {
     SYMMETRICAL_OCTAGON,
-} from '../test-cases/test-constants';
+} from '@/algorithms/straight-skeleton/test-cases/test-constants';
 
 
 // ---------------------------------------------------------------------------

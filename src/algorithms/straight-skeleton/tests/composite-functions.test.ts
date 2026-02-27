@@ -1,5 +1,5 @@
-import { intersectRays } from '../intersection-edges';
-import type { RayProjection } from '../types';
+import { intersectRays } from '@/algorithms/straight-skeleton/intersection-edges';
+import type { RayProjection } from '@/algorithms/straight-skeleton/types';
 
 // ---------------------------------------------------------------------------
 // Helpers

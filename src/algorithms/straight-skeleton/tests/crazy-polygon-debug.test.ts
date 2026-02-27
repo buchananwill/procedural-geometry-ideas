@@ -9,9 +9,9 @@ import {
     sourceOffsetDistance
 } from '@/algorithms/straight-skeleton/collision-helpers';
 
-import {CRAZY_POLYGON} from '../test-cases/test-constants';
-import {stepAlgorithm} from '../algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
+import {CRAZY_POLYGON} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
 import {
     addVectors,
     crossProduct,
@@ -21,16 +21,16 @@ import {
     scaleVector,
     projectFromPerpendicular,
     areEqual
-} from '../core-functions';
-import {intersectRays} from '../intersection-edges';
-import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
+} from '@/algorithms/straight-skeleton/core-functions';
+import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
+import {generateSplitEventFromTheEdgeItself} from '@/algorithms/straight-skeleton/generate-split-event';
 import type {
     AlgorithmStepInput,
     RayProjection,
     Vector2
-} from '../types';
+} from '@/algorithms/straight-skeleton/types';
 
-import {runAlgorithmV5} from '../algorithm-termination-cases';
+import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
 
 setSkeletonLogLevel('debug');
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;

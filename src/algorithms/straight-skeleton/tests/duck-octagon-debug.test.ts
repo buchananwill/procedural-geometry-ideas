@@ -1,14 +1,13 @@
-import {initContext, stepWithCapture} from '../test-cases/test-helpers';
-import {setSkeletonLogLevel} from '../logger';
-import {collideEdges} from '../collision-helpers';
+import {initContext, stepWithCapture} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
+import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+import {collideEdges, checkSharedParents} from '@/algorithms/straight-skeleton/collision-helpers';
 
 setSkeletonLogLevel('debug');
-import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '../test-cases/duck-octagon';
-import {checkSharedParents} from '../collision-helpers';
-import handleCollisionEvent from '../collision-handling';
-import {stepAlgorithm} from '../algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
-import type {AlgorithmStepInput, CollisionEvent} from '../types';
+import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
+import handleCollisionEvent from '@/algorithms/straight-skeleton/collision-handling';
+import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import type {AlgorithmStepInput, CollisionEvent} from '@/algorithms/straight-skeleton/types';
 
 // ---------------------------------------------------------------------------
 // Tests
