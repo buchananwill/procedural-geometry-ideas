@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Stage, Layer, Line, Circle, Text } from "react-konva";
+import { Stage, Layer, Line, Circle, Text, Arrow } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
 import type { StraightSkeletonGraph } from "@/algorithms/straight-skeleton/types";
@@ -169,6 +169,26 @@ export default function PolygonCanvas({
       return [{ key: id, points: [src.position.x, src.position.y, tgt.position.x, tgt.position.y] }];
     });
   }, [skeleton]);
+
+  // Unresolved interior edges (no target set) — shown as fixed-length rays
+  const UNRESOLVED_RAY_LENGTH = 100;
+  const unresolvedEdges = useMemo(() => {
+    if (!skeleton || !debug.showUnresolvedEdges) return [];
+    return skeleton.interiorEdges.flatMap(({ id }) => {
+      const edge = skeleton.edges[id];
+      if (edge.target !== undefined) return [];
+      const src = skeleton.nodes[edge.source];
+      return [{
+        key: `unresolved-${id}`,
+        id,
+        points: [
+          src.position.x, src.position.y,
+          src.position.x + edge.basisVector.x * UNRESOLVED_RAY_LENGTH,
+          src.position.y + edge.basisVector.y * UNRESOLVED_RAY_LENGTH,
+        ],
+      }];
+    });
+  }, [skeleton, debug.showUnresolvedEdges]);
 
   // Edges connected to selected debug nodes
   const selectedNodeEdges = useMemo(() => {
@@ -404,7 +424,20 @@ export default function PolygonCanvas({
 
         {/* Skeleton interior edges */}
         {skeletonLines.map(({ key, points }) => (
-          <Line key={key} points={points} stroke="#fab005" strokeWidth={1.5 * invScale} listening={false} />
+          debug.showEdgeDirections ? (
+            <Arrow key={key} points={points} stroke="#fab005" fill="#fab005" strokeWidth={1.5 * invScale} pointerLength={8 * invScale} pointerWidth={6 * invScale} listening={false} />
+          ) : (
+            <Line key={key} points={points} stroke="#fab005" strokeWidth={1.5 * invScale} listening={false} />
+          )
+        ))}
+
+        {/* Unresolved interior edges (no target) */}
+        {unresolvedEdges.map(({ key, points }) => (
+          debug.showEdgeDirections ? (
+            <Arrow key={key} points={points} stroke="#ff6b6b" fill="#ff6b6b" strokeWidth={1.5 * invScale} pointerLength={8 * invScale} pointerWidth={6 * invScale} dash={[6 * invScale, 4 * invScale]} listening={false} />
+          ) : (
+            <Line key={key} points={points} stroke="#ff6b6b" strokeWidth={1.5 * invScale} dash={[6 * invScale, 4 * invScale]} listening={false} />
+          )
         ))}
 
         {/* Selected node edge highlights */}
@@ -437,13 +470,34 @@ export default function PolygonCanvas({
         ))}
 
         {/* Polygon edges */}
-        <Line
-          points={flatPoints}
-          closed
-          stroke="#4c6ef5"
-          strokeWidth={2 * invScale}
-          fill="rgba(76, 110, 245, 0.1)"
-        />
+        {debug.showEdgeDirections ? (
+          <>
+            <Line points={flatPoints} closed stroke="transparent" strokeWidth={0} fill="rgba(76, 110, 245, 0.1)" listening={false} />
+            {vertices.map((v, i) => {
+              const next = vertices[(i + 1) % vertices.length];
+              return (
+                <Arrow
+                  key={`poly-arrow-${i}`}
+                  points={[v.x, v.y, next.x, next.y]}
+                  stroke="#4c6ef5"
+                  fill="#4c6ef5"
+                  strokeWidth={2 * invScale}
+                  pointerLength={10 * invScale}
+                  pointerWidth={8 * invScale}
+                  listening={false}
+                />
+              );
+            })}
+          </>
+        ) : (
+          <Line
+            points={flatPoints}
+            closed
+            stroke="#4c6ef5"
+            strokeWidth={2 * invScale}
+            fill="rgba(76, 110, 245, 0.1)"
+          />
+        )}
 
         {/* --- Debug: Edge length labels --- */}
 
