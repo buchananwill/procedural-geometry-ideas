@@ -16,6 +16,7 @@ import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skele
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-helpers";
+import {ALL_TEST_POLYGONS} from "@/algorithms/straight-skeleton/test-cases";
 import {generateCollisionSweep, computeNodeOffsetDistances} from "@/algorithms/straight-skeleton/debug-helpers";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
@@ -389,6 +390,19 @@ export default function Home() {
                                         >
                                             Delete Selected
                                         </Button>
+                                        <Select
+                                            size="xs"
+                                            label="Load test polygon"
+                                            placeholder="Select..."
+                                            data={ALL_TEST_POLYGONS.map((p) => p.name)}
+                                            value={null}
+                                            onChange={(name) => {
+                                                const poly = ALL_TEST_POLYGONS.find((p) => p.name === name);
+                                                if (poly) setVertices(poly.vertices);
+                                            }}
+                                            searchable
+                                            clearable
+                                        />
                                     </Stack>
                                 </Collapse>
                             </Stack>
