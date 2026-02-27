@@ -5,6 +5,7 @@ import {
     NO_COLLISION_SENTINEL,
     PolygonEdge,
     RayProjection,
+    SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
@@ -20,8 +21,7 @@ import {
 import {NO_COLLISION_RESULTS} from "@/algorithms/straight-skeleton/constants";
 import {
     generateSplitEventFromTheEdgeItself,
-    generateSplitEventViaClockwiseBisector,
-    generateSplitEventViaWiddershinsBisector
+    generateSplitEventViaBisector,
 } from "@/algorithms/straight-skeleton/generate-split-event";
 /**
  * Pick the best (lowest offset) non-phantom/non-outOfBounds collision.
@@ -113,8 +113,8 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     if (isReflexA) {
         const reflexEdge = edgeA;
         const otherEdge = edgeB;
-        const widdershinsEvent = generateSplitEventViaWiddershinsBisector(reflexEdge.id, otherEdge.id, context);
-        const clockwiseEvent = generateSplitEventViaClockwiseBisector(reflexEdge.id, otherEdge.id, context);
+        const widdershinsEvent = generateSplitEventViaBisector(reflexEdge.id, otherEdge.id, SkeletonDirection.Widdershins, context);
+        const clockwiseEvent = generateSplitEventViaBisector(reflexEdge.id, otherEdge.id, SkeletonDirection.Clockwise, context);
         if (widdershinsEvent){
             events.push(widdershinsEvent)
         }

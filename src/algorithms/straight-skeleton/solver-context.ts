@@ -4,6 +4,7 @@ import {
     InteriorEdge,
     PolygonEdge, PolygonNode,
     RayProjection,
+    SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2
 } from "@/algorithms/straight-skeleton/types";
@@ -228,6 +229,12 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 clockwise: clockwiseParent(interior),
                 widdershins: widdershinsParent(interior),
             };
+        },
+        parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge {
+            const interior = getInteriorWithId(interiorEdgeId);
+            return direction === SkeletonDirection.Clockwise
+                ? clockwiseParent(interior)
+                : widdershinsParent(interior);
         },
         exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[] {
             const parents = interiorEdgeIds.map(id => getInteriorWithId(id).clockwiseExteriorEdgeIndex);

@@ -19,6 +19,11 @@ export interface PolygonEdge {
 
 export type EdgeRank = 'exterior' | 'primary' | 'secondary';
 
+export enum SkeletonDirection {
+    Clockwise = 'clockwise',
+    Widdershins = 'widdershins',
+}
+
 export interface InteriorEdge {
     id: number;
     clockwiseExteriorEdgeIndex: number;
@@ -42,63 +47,35 @@ export interface RayProjection {
 
 export interface GraphHelpers {
     getEdgeWithInterior(interiorEdge: InteriorEdge): PolygonEdge;
-
     getEdgeWithId(id: number): PolygonEdge;
-
     getEdges(idList: number[]): PolygonEdge[];
-
     getInteriorWithId(id: number): InteriorEdge;
-
     getInteriorEdges(idList: number[]): InteriorEdge[]
-
     projectRay(edge: PolygonEdge): RayProjection;
-
     projectRayReversed(edge: PolygonEdge): RayProjection;
-
     projectRayInterior(edge: InteriorEdge): RayProjection;
-
     clockwiseParent(edge: InteriorEdge): PolygonEdge;
-
     widdershinsParent(edge: InteriorEdge): PolygonEdge;
-
     accept(edgeId: number): void;
-
     acceptAll(edgeIds: number[]): void;
-
     isAccepted(edgeId: number): boolean;
-
     isAcceptedInterior(edge: InteriorEdge): boolean;
-
     findOrAddNode(position: Vector2): PolygonNode;
-
     findSource(edgeId: number): PolygonNode;
-
     sourcePosition(edgeId: number): Vector2;
-
     edgeRank(edgeId: number): EdgeRank;
-
     isPrimaryNonReflex(edgeId: number): boolean;
-
     updateMaxOffset(edgeId: number, length: number): void;
-
     isReflexEdge(edgeA: InteriorEdge): boolean;
-
     clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
-
     widdershinsBisector(edgeId: number): PolygonEdge;
-
     clockwiseBisector(edgeId: number): PolygonEdge;
-
     clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2;
-
     widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2;
-
     terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode;
-
     crossWireEdges(id1: number, id2: number): void;
-
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
-
+    parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
 }
 
