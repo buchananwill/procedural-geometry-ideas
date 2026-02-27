@@ -1,21 +1,38 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
-import {setSkeletonLogLevel} from '../logger';
-import {collideEdges, makeOffsetDistance, sourceOffsetDistance} from '../collision-helpers';
+import {
+    initContext,
+    stepWithCapture
+} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
+import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+import {
+    collideEdges,
+    makeOffsetDistance,
+    sourceOffsetDistance
+} from '@/algorithms/straight-skeleton/collision-helpers';
 
-setSkeletonLogLevel('debug');
 import {CRAZY_POLYGON} from '../test-cases/test-constants';
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {
-    addVectors, crossProduct, subtractVectors, normalize, dotProduct,
-    scaleVector, projectFromPerpendicular, areEqual
+    addVectors,
+    crossProduct,
+    subtractVectors,
+    normalize,
+    dotProduct,
+    scaleVector,
+    projectFromPerpendicular,
+    areEqual
 } from '../core-functions';
 import {intersectRays} from '../intersection-edges';
 import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
-import type {AlgorithmStepInput, RayProjection, Vector2} from '../types';
-import {ALL_TEST_POLYGONS} from '../test-cases';
+import type {
+    AlgorithmStepInput,
+    RayProjection,
+    Vector2
+} from '../types';
+
 import {runAlgorithmV5} from '../algorithm-termination-cases';
 
+setSkeletonLogLevel('debug');
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 const fmtRay = (r: RayProjection) => `src=${fmt(r.sourceVector)} basis=${fmt(r.basisVector)}`;
 
@@ -107,7 +124,7 @@ describe('Crazy Polygon Debug', () => {
             }
 
             try {
-                inputs = StepAlgorithm(context, inputs).childSteps;
+                inputs = stepAlgorithm(context, inputs).childSteps;
                 exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
                 step++;
             } catch (e) {

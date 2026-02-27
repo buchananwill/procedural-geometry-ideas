@@ -3,7 +3,8 @@ import {
     areEqual,
     crossProduct,
     dotProduct,
-    normalize, scaleVector,
+    negateVector,
+    normalize,
     subtractVectors, vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
 
@@ -29,7 +30,7 @@ export function intersectRays(ray1: RayProjection, ray2: RayProjection): Interse
             if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
                 return [distanceToRay2, Number.POSITIVE_INFINITY, 'co-linear-from-1'];
             }
-            if (vectorsAreEqual(basisTowardsRay2Source, scaleVector(ray2.basisVector, -1))) {
+            if (vectorsAreEqual(basisTowardsRay2Source, negateVector(ray2.basisVector))) {
                 return [Number.POSITIVE_INFINITY, distanceToRay2, 'co-linear-from-2'];
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];

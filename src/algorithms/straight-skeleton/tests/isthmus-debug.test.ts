@@ -3,7 +3,7 @@ import {setSkeletonLogLevel} from '../logger';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 
 setSkeletonLogLevel('debug');
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 import {collideEdges, collideInteriorEdges} from '../collision-helpers';
 import {intersectRays} from '../intersection-edges';
 import {
@@ -275,7 +275,7 @@ describe('Isthmus Debug', () => {
 
             // Run step 0
             try {
-                const result = StepAlgorithm(context, inputs);
+                const result = stepAlgorithm(context, inputs);
                 inputs = result.childSteps;
                 exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
@@ -300,7 +300,7 @@ describe('Isthmus Debug', () => {
 
                 // Run step 1
                 if (inputs.length > 0) {
-                    const result2 = StepAlgorithm(context, inputs);
+                    const result2 = stepAlgorithm(context, inputs);
                     inputs = result2.childSteps;
                     exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
@@ -365,7 +365,7 @@ describe('Isthmus Debug', () => {
             let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
 
             // Run step 0
-            const result0 = StepAlgorithm(context, inputs);
+            const result0 = stepAlgorithm(context, inputs);
             inputs = result0.childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
@@ -435,7 +435,7 @@ describe('Isthmus Debug', () => {
             let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
 
             // Run step 0 to create e16
-            const result0 = StepAlgorithm(context, inputs);
+            const result0 = stepAlgorithm(context, inputs);
             inputs = result0.childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
@@ -491,7 +491,7 @@ describe('Isthmus Debug', () => {
             let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
 
             // Run step 0
-            StepAlgorithm(context, inputs);
+            stepAlgorithm(context, inputs);
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
             // Get e16 and ext6
@@ -595,7 +595,7 @@ describe('Isthmus Debug', () => {
             let stepNum = 0;
             while (inputs.length > 0 && stepNum < 5) {
                 try {
-                    const result = StepAlgorithm(context, inputs);
+                    const result = stepAlgorithm(context, inputs);
                     inputs = result.childSteps;
                     exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 

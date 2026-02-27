@@ -10,7 +10,7 @@ import {WACKY_OCTAGON} from '../test-cases/more-edge-cases';
 import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '../test-cases/isthmus-failure';
 import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '../test-cases/double-reflex-spaceship';
 import {setSkeletonLogLevel} from '../logger';
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 
 setSkeletonLogLevel('silent');
 import {makeStraightSkeletonSolverContext} from '../solver-context';
@@ -71,7 +71,7 @@ function runAlgorithmV5WithDeadline(nodes: Vector2[], deadlineMs: number) {
         if (Date.now() > deadline) {
             throw new AlgorithmTimeoutError(deadlineMs);
         }
-        inputs = StepAlgorithm(context, inputs).childSteps;
+        inputs = stepAlgorithm(context, inputs).childSteps;
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
     }
 

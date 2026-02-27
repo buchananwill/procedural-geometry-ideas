@@ -1,19 +1,22 @@
 import {initContext, stepWithCapture, collectCollisionEvents} from '../test-cases/test-helpers';
 import {setSkeletonLogLevel} from '../logger';
 import {collideEdges} from '../collision-helpers';
-
-setSkeletonLogLevel('debug');
 import {CRAB_TEST_CASE} from '../test-cases/crab-test-case';
-import {StepAlgorithm, runAlgorithmV5} from '../algorithm-termination-cases';
+
+import {stepAlgorithm, runAlgorithmV5} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {
-    addVectors, crossProduct, subtractVectors, normalize, dotProduct,
-    scaleVector, projectFromPerpendicular
+    crossProduct,
+    subtractVectors,
+    normalize,
+    dotProduct,
+    scaleVector
 } from '../core-functions';
 import {intersectRays} from '../intersection-edges';
 import {generateSplitEventFromTheEdgeItself} from '../generate-split-event';
 import type {AlgorithmStepInput, RayProjection, Vector2} from '../types';
 
+setSkeletonLogLevel('debug');
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 const fmtRay = (r: RayProjection) => `src=${fmt(r.sourceVector)} basis=${fmt(r.basisVector)}`;
 
@@ -173,7 +176,7 @@ describe('Crab Test Case Debug', () => {
             }
 
             try {
-                inputs = StepAlgorithm(context, inputs).childSteps;
+                inputs = stepAlgorithm(context, inputs).childSteps;
                 exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
                 step++;
             } catch (e) {

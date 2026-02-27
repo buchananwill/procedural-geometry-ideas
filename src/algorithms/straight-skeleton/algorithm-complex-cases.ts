@@ -12,26 +12,16 @@ import {
     tryToAcceptExteriorEdge
 } from "@/algorithms/straight-skeleton/algorithm-helpers";
 
-function makeSameInstigatorComparator(context: StraightSkeletonSolverContext) {
-    function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
-
-
-        const [ev1Id1, ev1Id2] = ev1.collidingEdges;
-        const [ev2Id1, ev2Id2] = ev1.collidingEdges;
-        if (ev2Id1 !== ev1Id1) {
-            throw new Error("Different instigators! Invalid comparison.")
-        }
-
-
-        return ev1.offsetDistance - ev2.offsetDistance;
-
+function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
+    if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
+        throw new Error("Different instigators! Invalid comparison.")
     }
+    return ev1.offsetDistance - ev2.offsetDistance;
 
-    return sameInstigatorComparator;
 }
 
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
-    const sameInstigatorComparator = makeSameInstigatorComparator(context)
+
 
     return interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
@@ -43,10 +33,9 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
             list.push(...exteriorParents.flatMap(e2 => findOrComputeCollision(e1, e2, context)))
         }
 
-        return list.filter(event => {
-            return event !== null && CollisionTypePriority[event.eventType] < 3;// && (event.eventType !== 'interiorPair' || event.intersectionData[0] <= edgeData.length);
+        return list.filter((event): event is CollisionEvent => {
+            return !!event && CollisionTypePriority[event.eventType] < 3;
         })
-            .map(e => e as CollisionEvent)
             .toSorted(sameInstigatorComparator)
     })
         .filter(list => list.length > 0);

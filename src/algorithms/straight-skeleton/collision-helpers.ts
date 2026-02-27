@@ -10,12 +10,11 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {
-    addVectors,
     areEqual,
     crossProduct,
+    findPositionAlongRay,
     normalize,
     projectToPerpendicular,
-    scaleVector,
     subtractVectors
 } from "@/algorithms/straight-skeleton/core-functions";
 import {NO_COLLISION_RESULTS} from "@/algorithms/straight-skeleton/constants";
@@ -24,6 +23,18 @@ import {
     generateSplitEventViaClockwiseBisector,
     generateSplitEventViaWiddershinsBisector
 } from "@/algorithms/straight-skeleton/generate-split-event";
+/**
+ * Pick the best (lowest offset) non-phantom/non-outOfBounds collision.
+ * Falls back to the lowest-offset collision of any type if none qualify.
+ */
+export function bestNonPhantomCollision(events: CollisionEvent[]): CollisionEvent | undefined {
+    const byOffset = (a: CollisionEvent, b: CollisionEvent) => a.offsetDistance - b.offsetDistance;
+    return events
+        .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
+        .sort(byOffset)[0]
+        ?? events.sort(byOffset)[0];
+}
+
 export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: number, clockwiseParentBasis: Vector2) {
     return units * crossProduct(collidingChild, clockwiseParentBasis);
 }
@@ -115,9 +126,9 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     }
 
     events.push({
-        offsetDistance: offsetDistance, //.Math.max(offsetTarget, offsetDistance),
+        offsetDistance: offsetDistance,
         collidingEdges: [edgeA.id, edgeB.id],
-        position: addVectors(scaleVector(ray1.basisVector, alongRay1), ray1.sourceVector),
+        position: findPositionAlongRay(ray1, alongRay1),
         intersectionData,
         eventType
     })

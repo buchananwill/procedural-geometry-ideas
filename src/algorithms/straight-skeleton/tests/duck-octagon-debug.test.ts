@@ -6,7 +6,7 @@ setSkeletonLogLevel('debug');
 import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '../test-cases/duck-octagon';
 import {checkSharedParents} from '../collision-helpers';
 import handleCollisionEvent from '../collision-handling';
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import type {AlgorithmStepInput, CollisionEvent} from '../types';
 
@@ -236,7 +236,7 @@ describe('Duck Octagon Debug — step-through comparison', () => {
             }
 
             try {
-                inputs = StepAlgorithm(context, inputs).childSteps;
+                inputs = stepAlgorithm(context, inputs).childSteps;
                 exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
                 step++;
             } catch (e) {

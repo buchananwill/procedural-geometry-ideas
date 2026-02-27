@@ -4,24 +4,19 @@ import {
     RayProjection,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
-import {complexLog, splitLog} from "@/algorithms/straight-skeleton/logger";
+import { splitLog} from "@/algorithms/straight-skeleton/logger";
 import {
     addVectors, areEqual, crossProduct, dotProduct,
+    findPositionAlongRay,
     makeBisectedBasis,
+    makeRay,
+    negateVector,
     projectFromPerpendicular,
     scaleVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
 
-/**
- * Code paths to add:
- *
- * 1. Handling the potential edge split.
- * 2. Finding an edge split via the widdershins bisector DONE
- * 3. Finding an edge split via the clockwise bisector DONE
- * 4. Finding an edge split via the edge itself
- * */
 export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
     const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
@@ -55,7 +50,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     }
 
     const edgeToSplitRayCw = context.projectRay(edgeToSplit);
-    const edgeToSplitRayWs: RayProjection = {sourceVector: context.graph.nodes[edgeToSplit.target!].position, basisVector: scaleVector(edgeToSplit.basisVector, -1)}
+    const edgeToSplitRayWs: RayProjection = makeRay(context.graph.nodes[edgeToSplit.target!].position, negateVector(edgeToSplit.basisVector))
 
     const collisionCw = intersectRays(ray1ForTempNode, edgeToSplitRayCw);
     const collisionWs = intersectRays(ray1ForTempNode, edgeToSplitRayWs);
@@ -82,7 +77,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     if (intersectionResult !== 'converging') {
         return null;
     }
-    const tempNodePosition = addVectors(ray1ForTempNode.sourceVector, scaleVector(ray1ForTempNode.basisVector, ray1Length));
+    const tempNodePosition = findPositionAlongRay(ray1ForTempNode, ray1Length);
 
     const rayUsed = usingCwIntersection ? edgeToSplitRayCw : edgeToSplitRayWs;
 
@@ -91,11 +86,11 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
 
     // incenterRay2 HAS to point towards the original bisector
     const tempBasisPart2 = dotProduct(rayUsed.basisVector, incenterRay1.basisVector) < 0
-        ? scaleVector(rayUsed.basisVector, -1)
+        ? negateVector(rayUsed.basisVector)
         : rayUsed.basisVector;
-    const tempBasis = makeBisectedBasis(scaleVector(ray1ForTempNode.basisVector, -1), tempBasisPart2);
+    const tempBasis = makeBisectedBasis(negateVector(ray1ForTempNode.basisVector), tempBasisPart2);
     // Now form the ray
-    const incenterRay2: RayProjection = {sourceVector: tempNodePosition, basisVector: tempBasis};
+    const incenterRay2: RayProjection = makeRay(tempNodePosition, tempBasis);
 
     const intersectionData = intersectRays(incenterRay1, incenterRay2);
     const [incenterLengthRay1] = intersectionData;
@@ -111,21 +106,11 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
 
     const projectionForClockwiseBisector = projectFromPerpendicular(clockwiseBisector.basisVector, edgeToSplit.basisVector, offsetDistance);
     const projectionForWiddershinsBisector = projectFromPerpendicular(widdershinsBisector.basisVector, edgeToSplit.basisVector, offsetDistance);
-    const sourceClockwise = context.findSource(clockwiseBisector.id);
-    const sourceWiddershins = context.findSource(widdershinsBisector.id);
+    const clockwiseVertexAtOffset = addVectors(context.sourcePosition(clockwiseBisector.id), scaleVector(clockwiseBisector.basisVector, projectionForClockwiseBisector));
+    const widdershinsVertexAtOffset = addVectors(context.sourcePosition(widdershinsBisector.id), scaleVector(widdershinsBisector.basisVector, projectionForWiddershinsBisector));
 
-    const clockwiseVertexAtOffset = addVectors(sourceClockwise.position, scaleVector(clockwiseBisector.basisVector, projectionForClockwiseBisector));
-    const widdershinsVertexAtOffset = addVectors(sourceWiddershins.position, scaleVector(widdershinsBisector.basisVector, projectionForWiddershinsBisector));
-
-    // I'm pretty sure the basis vectors are the wrong way round, but this is the way that works
-    const clockwiseRayTest: RayProjection = {
-        sourceVector: clockwiseVertexAtOffset,
-        basisVector: edgeToSplit.basisVector
-    };
-    const widdershinsRayTest: RayProjection = {
-        sourceVector: widdershinsVertexAtOffset,
-        basisVector: scaleVector(edgeToSplit.basisVector, -1)
-    };
+    const clockwiseRayTest: RayProjection = makeRay(clockwiseVertexAtOffset, edgeToSplit.basisVector);
+    const widdershinsRayTest: RayProjection = makeRay(widdershinsVertexAtOffset, negateVector(edgeToSplit.basisVector));
 
     const validationResultWs = intersectRays(incenterRay1, widdershinsRayTest)
     const validationResultCw = intersectRays(incenterRay1, clockwiseRayTest)
@@ -134,7 +119,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    const position = addVectors(incenterRay1.sourceVector, scaleVector(incenterRay1.basisVector, incenterLengthRay1));
+    const position = findPositionAlongRay(incenterRay1, incenterLengthRay1);
 
 
     return {
@@ -153,7 +138,6 @@ export function generateSplitEventViaWiddershinsBisector(instigatorId: number, t
         return null;
     }
 
-    // TODO: check instigatorId is reflex??
     const instigatorData = context.getInteriorWithId(instigatorId);
 
     const edgeToSplit = context.clockwiseParent(context.getInteriorWithId(targetId))
@@ -167,14 +151,12 @@ export function generateSplitEventViaClockwiseBisector(instigatorId: number, tar
         return null;
     }
 
-    // TODO: check instigatorId is reflex??
     const instigatorData = context.getInteriorWithId(instigatorId);
     const edgeToSplit = context.widdershinsParent(context.getInteriorWithId(targetId))
 
     return generateSplitEvent(instigatorData, edgeToSplit, context)
 }
 
-// TODO: Diagrammatic Analysis of this scenario to prove robustness. I think the only catch is we need to also check the projection of the opposite bisector, at the found offset, before we sign off on the collision.
 export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
@@ -195,7 +177,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         const [rayLength1] = initialIntersectionTest;
         const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
         const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector)
-        const instigatorTargetCross = crossProduct(scaleVector(instigatorRay.basisVector, -1), edgeToSplit.basisVector)
+        const instigatorTargetCross = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector)
         const divisor = crossClockwiseParent + instigatorTargetCross;
         if (!areEqual(divisor, 0)) {
             const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
@@ -207,15 +189,15 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                 const widdershinsProjection = projectFromPerpendicular(widdershinsBisector.basisVector, edgeToSplit.basisVector, offsetDistance)
                 const clockwiseProjection = projectFromPerpendicular(clockwiseBisector.basisVector, edgeToSplit.basisVector, offsetDistance)
 
-                const widdershinsTestRay: RayProjection = {
-                    sourceVector: addVectors(context.findSource(widdershinsBisector.id).position, scaleVector(widdershinsBisector.basisVector, widdershinsProjection)),
-                    basisVector: scaleVector(edgeToSplit.basisVector, -1)
-                }
+                const widdershinsTestRay: RayProjection = makeRay(
+                    addVectors(context.sourcePosition(widdershinsBisector.id), scaleVector(widdershinsBisector.basisVector, widdershinsProjection)),
+                    negateVector(edgeToSplit.basisVector)
+                )
 
-                const clockwiseTestRay: RayProjection = {
-                    sourceVector: addVectors(context.findSource(clockwiseBisector.id).position, scaleVector(clockwiseBisector.basisVector, clockwiseProjection)),
-                    basisVector: edgeToSplit.basisVector
-                }
+                const clockwiseTestRay: RayProjection = makeRay(
+                    addVectors(context.sourcePosition(clockwiseBisector.id), scaleVector(clockwiseBisector.basisVector, clockwiseProjection)),
+                    edgeToSplit.basisVector
+                )
 
                 const widdershinsTest = intersectRays(widdershinsTestRay, instigatorRay)
                 const clockwiseTest = intersectRays(clockwiseTestRay, instigatorRay)
@@ -227,7 +209,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                         offsetDistance,
                         collidingEdges: [instigatorId, targetId],
                         eventType: 'interiorAgainstExterior',
-                        position: addVectors(scaleVector(instigatorRay.basisVector, distanceToSplitAlongInstigator), instigatorRay.sourceVector)
+                        position: findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator)
                     }
 
                     return simpleSplit;
@@ -265,10 +247,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
         const exteriorVertexProjection = projectFromPerpendicular(bisectorRay.basisVector, edgeToSplit.basisVector, offsetDistance);
         const exteriorVertexPosition = addVectors(sourceNode.position, scaleVector(bisectorRay.basisVector, exteriorVertexProjection));
-        const validationRay: RayProjection = {
-            sourceVector: exteriorVertexPosition,
-            basisVector: edgeToSplit.basisVector
-        };
+        const validationRay: RayProjection = makeRay(exteriorVertexPosition, edgeToSplit.basisVector);
         const widdershinValidation = intersectRays(validationRay, instigatorRay)
         if (widdershinValidation[2] !== 'converging') {
             return null;

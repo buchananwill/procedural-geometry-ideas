@@ -3,7 +3,7 @@ import {setSkeletonLogLevel} from '../logger';
 import {CRAZY_POLYGON} from '../test-cases/test-constants';
 
 setSkeletonLogLevel('debug');
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '../algorithm-helpers';
 import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '../collision-helpers';
 import {createCollisions, handleInteriorEdges} from '../algorithm-complex-cases';
@@ -22,7 +22,7 @@ describe('Step 3 Detailed Trace', () => {
         let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
 
         for (let step = 0; step < stepCount; step++) {
-            inputs = StepAlgorithm(context, inputs).childSteps;
+            inputs = stepAlgorithm(context, inputs).childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
         }
         return {context, inputs, exteriorEdges};
@@ -190,7 +190,7 @@ describe('Step 3 Detailed Trace', () => {
             console.log('Accepted ext before:', accBefore);
 
             try {
-                inputs = StepAlgorithm(context, inputs).childSteps;
+                inputs = stepAlgorithm(context, inputs).childSteps;
                 exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
             } catch (e) {
                 console.log('ERROR:', e instanceof Error ? e.message : e);

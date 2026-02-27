@@ -13,7 +13,7 @@ import {
     subtractVectors,
     vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
-import {collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
+import {bestNonPhantomCollision, collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
@@ -105,10 +105,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         }
 
         // Pick the best (lowest offset, non-phantom) collision
-        const best = collisions
-            .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
-            .sort((a, b) => a.offsetDistance - b.offsetDistance)[0]
-            ?? collisions.sort((a, b) => a.offsetDistance - b.offsetDistance)[0];
+        const best = bestNonPhantomCollision(collisions)!;
 
         // Co-linear collapse: cross-wire sources
         const intersectionType = best.intersectionData[2];
@@ -152,10 +149,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     }
 
     // Pick the best non-phantom collision; fall back to any collision
-    const best = allCollisions
-        .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
-        .sort((a, b) => a.offsetDistance - b.offsetDistance)[0]
-        ?? allCollisions.sort((a, b) => a.offsetDistance - b.offsetDistance)[0];
+    const best = bestNonPhantomCollision(allCollisions);
 
     if (!best) {
         throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
@@ -175,7 +169,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
 }
 
 
-export function HandleAlgorithmStepInput(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
+export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     const result: AlgorithmStepOutput = {
         childSteps: []
     };
@@ -199,20 +193,20 @@ export function HandleAlgorithmStepInput(context: StraightSkeletonSolverContext,
     return result;
 }
 
-export function StepAlgorithm(context: StraightSkeletonSolverContext, inputs: AlgorithmStepInput[]): AlgorithmStepOutput {
+export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: AlgorithmStepInput[]): AlgorithmStepOutput {
     const childSteps: AlgorithmStepInput[] = [];
     const errors: string[] = [];
 
     for (const input of inputs) {
         try {
-            childSteps.push(...HandleAlgorithmStepInput(context, input).childSteps);
+            childSteps.push(...handleAlgorithmStepInput(context, input).childSteps);
         } catch (e) {
             errors.push(e instanceof Error ? e.message : String(e));
         }
     }
 
     if (errors.length > 0) {
-        stepLog.warn(`StepAlgorithm: ${errors.length} sub-polygon(s) failed:\n${errors.join('\n')}`);
+        stepLog.warn(`stepAlgorithm: ${errors.length} sub-polygon(s) failed:\n${errors.join('\n')}`);
     }
 
     return {
@@ -231,7 +225,7 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     while (inputs.length > 0) {
-        inputs = StepAlgorithm(context, inputs).childSteps
+        inputs = stepAlgorithm(context, inputs).childSteps
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
     }
 
@@ -260,7 +254,7 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
 
     try {
         while (inputs.length > 0) {
-            inputs = StepAlgorithm(context, inputs).childSteps;
+            inputs = stepAlgorithm(context, inputs).childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
             snapshots.push(structuredClone(context.graph));
         }

@@ -8,8 +8,11 @@ import {
     Vector2
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
-import {solverLog} from "@/algorithms/straight-skeleton/logger";
-import {dotProduct, scaleVector, vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {
+    dotProduct,
+    negateVector,
+    vectorsAreEqual
+} from "@/algorithms/straight-skeleton/core-functions";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
@@ -54,7 +57,6 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
     function isReflexEdge(edge: InteriorEdge): boolean {
         const cwParent = clockwiseParent(edge);
-        const wsParent = widdershinsParent(edge);
         const edgeData = getEdgeWithId(edge.id);
         return dotProduct(cwParent.basisVector, edgeData.basisVector) < 0
     }
@@ -119,7 +121,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         projectRayReversed(edge: PolygonEdge): RayProjection {
             return {
                 sourceVector: graph.nodes[edge.source].position,
-                basisVector: scaleVector(edge.basisVector, -1)
+                basisVector: negateVector(edge.basisVector)
             };
         },
         projectRayInterior(edge: InteriorEdge): RayProjection {
@@ -152,6 +154,9 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         findSource(edgeId: number): PolygonNode {
             return graph.nodes[graph.edges[edgeId].source]
         },
+        sourcePosition(edgeId: number): Vector2 {
+            return graph.nodes[graph.edges[edgeId].source].position;
+        },
         edgeRank,
         isPrimaryNonReflex,
         isReflexEdge,
@@ -160,7 +165,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 return
             }
             const edgeData = getInteriorWithId(edgeId);
-            if (edgeData.maxOffset === undefined){
+            if (edgeData.maxOffset === undefined) {
                 edgeData.maxOffset = offset;
             }
 
@@ -168,12 +173,20 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         },
         clockwiseSpanExcludingAccepted: spanExcludingAccepted,
         widdershinsBisector(edgeId: number): PolygonEdge {
-            // todo: error handling!
-            return getEdgeWithId(graph.nodes[getEdgeWithId(edgeId).target!].outEdges.find(e => edgeRank(e) === 'primary')!)
+            const targetNode = graph.nodes[getEdgeWithId(edgeId).target!];
+            const bisectorId = targetNode.outEdges.find(e => edgeRank(e) === 'primary');
+            if (bisectorId === undefined) {
+                throw new Error(`No primary bisector found at target of edge ${edgeId}`);
+            }
+            return getEdgeWithId(bisectorId);
         },
         clockwiseBisector(edgeId: number): PolygonEdge {
-            // todo: error handling!
-            return getEdgeWithId(graph.nodes[getEdgeWithId(edgeId).source].outEdges.find(e => edgeRank(e) === 'primary')!)
+            const sourceNode = graph.nodes[getEdgeWithId(edgeId).source];
+            const bisectorId = sourceNode.outEdges.find(e => edgeRank(e) === 'primary');
+            if (bisectorId === undefined) {
+                throw new Error(`No primary bisector found at source of edge ${edgeId}`);
+            }
+            return getEdgeWithId(bisectorId);
         },
     };
 }

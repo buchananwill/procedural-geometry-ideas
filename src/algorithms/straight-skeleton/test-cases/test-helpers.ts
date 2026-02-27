@@ -7,7 +7,7 @@ import type {
 } from '../types';
 import {makeStraightSkeletonSolverContext} from '../solver-context';
 import {initInteriorEdges, tryToAcceptExteriorEdge} from '../algorithm-helpers';
-import {StepAlgorithm} from '../algorithm-termination-cases';
+import {stepAlgorithm} from '../algorithm-termination-cases';
 import {collideEdges} from '../collision-helpers';
 
 // ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ export function stepWithCapture(vertices: Vector2[]): {
     while (inputs.length > 0) {
         try {
             lastInputs = inputs;
-            inputs = StepAlgorithm(context, inputs).childSteps;
+            inputs = stepAlgorithm(context, inputs).childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
 
             snapshots.push({

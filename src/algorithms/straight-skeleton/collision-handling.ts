@@ -1,6 +1,6 @@
 import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/types";
 import {checkSharedParents} from "@/algorithms/straight-skeleton/collision-helpers";
-import {makeBisectedBasis, scaleVector} from "@/algorithms/straight-skeleton/core-functions";
+import {makeBisectedBasis, negateVector} from "@/algorithms/straight-skeleton/core-functions";
 
 
 function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
@@ -50,7 +50,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const edgeData2 = context.getEdgeWithId(target);
 
         const approximateDir1 = makeBisectedBasis(edgeData1.basisVector, edgeData2.basisVector);
-        const approximateDir2 = scaleVector(approximateDir1, -1);
+        const approximateDir2 = negateVector(approximateDir1);
 
         context.accept(instigator);
         context.accept(target);
@@ -92,7 +92,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
                 clockwiseExteriorEdgeIndex: instigatorInterior.clockwiseExteriorEdgeIndex,
                 widdershinsExteriorEdgeIndex: target,
                 source: newNode.id,
-                approximateDirection: scaleVector(targetExterior.basisVector, -1)
+                approximateDirection: negateVector(targetExterior.basisVector)
             },
             {
                 clockwiseExteriorEdgeIndex: target,

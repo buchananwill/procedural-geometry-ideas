@@ -71,6 +71,18 @@ export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
     return bisection;
 }
 
+export function negateVector(v: Vector2): Vector2 {
+    return {x: -v.x, y: -v.y};
+}
+
+export function findPositionAlongRay(ray: RayProjection, t: number): Vector2 {
+    return addVectors(ray.sourceVector, scaleVector(ray.basisVector, t));
+}
+
+export function makeRay(source: Vector2, basis: Vector2): RayProjection {
+    return {sourceVector: source, basisVector: basis};
+}
+
 export function crossProduct(a: Vector2, b: Vector2): number {
     return a.x * b.y - b.x * a.y
 }

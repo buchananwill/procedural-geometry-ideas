@@ -2,13 +2,15 @@ import {
     PolygonEdge,
     PolygonNode,
     StraightSkeletonSolverContext,
-    Vector2, BisectionParams, StraightSkeletonGraph, RayProjection
+    Vector2, BisectionParams, StraightSkeletonGraph
 } from "@/algorithms/straight-skeleton/types";
 import {complexLog, solverLog} from "@/algorithms/straight-skeleton/logger";
 import {
     assertIsNumber,
+    crossProduct,
     makeBisectedBasis,
-    scaleVector
+    makeRay,
+    negateVector
 } from "@/algorithms/straight-skeleton/core-functions";
 import {interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
@@ -17,14 +19,13 @@ import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpe
 
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
 ) {
-    const crossProduct = clockwiseEdge.basisVector.x * widdershinsEdge.basisVector.y
-        - clockwiseEdge.basisVector.y * widdershinsEdge.basisVector.x;
-    return crossProduct < 0 ? scaleVector(bisectedBasis, -1) : bisectedBasis;
+    const cross = crossProduct(clockwiseEdge.basisVector, widdershinsEdge.basisVector);
+    return cross < 0 ? negateVector(bisectedBasis) : bisectedBasis;
 }
 
 export function ensureDirectionNotReversed(basis: Vector2, approximateDirection: Vector2) {
     const dot = basis.x * approximateDirection.x + basis.y * approximateDirection.y;
-    return dot < 0 ? scaleVector(basis, -1) : basis;
+    return dot < 0 ? negateVector(basis) : basis;
 }
 
 /**
@@ -38,21 +39,19 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
     if (parentsInverted) {
         solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
     }
-    const finalCwParent = /*parentsInverted ? widdershinsExteriorEdgeIndex : */ clockwiseExteriorEdgeIndex;
-    const finalWsParent = /*parentsInverted ? clockwiseExteriorEdgeIndex : */ widdershinsExteriorEdgeIndex;
-    const clockwiseEdge = graph.edges[finalCwParent];
-    const widdershinsEdge = graph.edges[finalWsParent];
+    const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
+    const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
     const id = graph.edges.length;
 
     graph.interiorEdges.push({
         id,
-        clockwiseExteriorEdgeIndex: finalCwParent,
-        widdershinsExteriorEdgeIndex: finalWsParent,
+        clockwiseExteriorEdgeIndex,
+        widdershinsExteriorEdgeIndex,
         intersectingEdges: [],
         length: Number.MAX_VALUE,
     })
 
-    const fromNodeWiddershins = scaleVector(widdershinsEdge.basisVector, -1)
+    const fromNodeWiddershins = negateVector(widdershinsEdge.basisVector)
     const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
 
     let finalBasis: Vector2;
@@ -97,10 +96,7 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay);
         if (ray1Length > 0 && ray2Length > 0) {
             const exteriorTargetNode = context.graph.nodes[polygonEdge.target!]
-            const rayFromTargetEnd: RayProjection = {
-                sourceVector: exteriorTargetNode.position,
-                basisVector: scaleVector(polygonEdge.basisVector, -1)
-            };
+            const rayFromTargetEnd = makeRay(exteriorTargetNode.position, negateVector(polygonEdge.basisVector));
             const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)

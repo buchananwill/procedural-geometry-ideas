@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## General Protocol
+
+1. When carrying out work split into **Phases**, _always_ pause at the end of a **Phase**, and await confirmation for beginning the next **Phase**  
+
 ## Commands
 
 ```bash

@@ -73,6 +73,8 @@ export interface GraphHelpers {
 
     findSource(edgeId: number): PolygonNode;
 
+    sourcePosition(edgeId: number): Vector2;
+
     edgeRank(edgeId: number): EdgeRank;
 
     isPrimaryNonReflex(edgeId: number): boolean;
