@@ -48,6 +48,47 @@ function midpoint(ax: number, ay: number, bx: number, by: number): { x: number; 
   return { x: (ax + bx) / 2, y: (ay + by) / 2 };
 }
 
+interface LabelRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Greedy label de-collision.  For each label (in order), if it overlaps any
+ * already-placed label, nudge it downward until it no longer overlaps.
+ * Mutates the rects in-place and returns the same array for convenience.
+ * charW / lineH are approximate character width and line height in canvas units.
+ */
+function decollideLabels(rects: LabelRect[], padding: number): LabelRect[] {
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i];
+    // Check against all previously placed labels, nudge until clear
+    let attempts = 0;
+    while (attempts < 40) {
+      let overlaps = false;
+      for (let j = 0; j < i; j++) {
+        const o = rects[j];
+        if (
+          r.x < o.x + o.w + padding &&
+          r.x + r.w + padding > o.x &&
+          r.y < o.y + o.h + padding &&
+          r.y + r.h + padding > o.y
+        ) {
+          // Nudge below the overlapping label
+          r.y = o.y + o.h + padding;
+          overlaps = true;
+          break; // re-check from the start
+        }
+      }
+      if (!overlaps) break;
+      attempts++;
+    }
+  }
+  return rects;
+}
+
 interface PolygonCanvasProps {
   skeleton: StraightSkeletonGraph | null;
   primaryEdges?: PrimaryInteriorEdge[];
@@ -155,6 +196,29 @@ export default function PolygonCanvas({
     }
     return edges;
   }, [skeleton, selectedDebugNodes]);
+
+  // De-collided positions for sweep labels
+  const SWEEP_FONT = 14;      // canvas-unit font size before invScale
+  const OFFSET_DIST_FONT = 15;
+  const sweepLabelPositions = useMemo(() => {
+    if (!collisionSweepLines || collisionSweepLines.length === 0) return [];
+    const charW = SWEEP_FONT * invScale * 0.6;
+    const lineH = SWEEP_FONT * invScale * 1.3;
+    const pad = 2 * invScale;
+
+    const rects: LabelRect[] = collisionSweepLines.map((line) => {
+      const text = `${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`;
+      return {
+        x: line.targetX + 6 * invScale,
+        y: line.targetY - 6 * invScale,
+        w: text.length * charW,
+        h: lineH,
+      };
+    });
+
+    decollideLabels(rects, pad);
+    return rects;
+  }, [collisionSweepLines, invScale]);
 
   const handleDragMove = useCallback(
     (index: number, e: KonvaEventObject<DragEvent>) => {
@@ -419,20 +483,22 @@ export default function PolygonCanvas({
           );
         })}
 
-        {/* Collision sweep labels */}
-        {collisionSweepLines?.map((line) => (
-          <Text
-            key={`${line.key}-lbl`}
-            x={line.targetX}
-            y={line.targetY}
-            offsetX={-6 * invScale}
-            offsetY={6 * invScale}
-            text={`${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`}
-            fontSize={9 * invScale}
-            fill="#22b8cf"
-            listening={false}
-          />
-        ))}
+        {/* Collision sweep labels (de-collided) */}
+        {collisionSweepLines?.map((line, i) => {
+          const pos = sweepLabelPositions[i];
+          if (!pos) return null;
+          return (
+            <Text
+              key={`${line.key}-lbl`}
+              x={pos.x}
+              y={pos.y}
+              text={`${line.offsetDistance.toFixed(1)} e${line.edgeIdA}\u00d7e${line.edgeIdB}`}
+              fontSize={SWEEP_FONT * invScale}
+              fill="#22b8cf"
+              listening={false}
+            />
+          );
+        })}
 
         {/* --- Debug: Edge indices --- */}
         {debug.showEdgeIndices && exteriorEdgeLabels.map(({ mid, index }) => (
@@ -537,7 +603,7 @@ export default function PolygonCanvas({
               offsetX={-10 * invScale}
               offsetY={-6 * invScale}
               text={`d=${offset.toFixed(2)}`}
-              fontSize={10 * invScale}
+              fontSize={OFFSET_DIST_FONT * invScale}
               fill="#22b8cf"
               listening={false}
             />
