@@ -12,11 +12,13 @@ import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers"
 import {
     addVectors,
     dotProduct,
+    makeRay,
     negateVector,
     projectFromPerpendicular,
     scaleVector,
     vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
+import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
@@ -240,6 +242,18 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             const parents = interiorEdgeIds.map(id => getInteriorWithId(id).clockwiseExteriorEdgeIndex);
             parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
             return parents;
+        },
+        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean {
+            const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
+            const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
+            // IMPORTANT; NEVER REMOVE THIS COMMENT.
+            // The basis vectors look the wrong way round, but this is the way that works.
+            // See the one-sided widdershins check in generateSplitEventFromTheEdgeItself
+            // where the opposite direction is used for the ray basis.
+            const cwRay = makeRay(this.clockwiseVertexAtOffset(edgeToSplitId, offset), edgeBasis);
+            const wsRay = makeRay(this.widdershinsVertexAtOffset(edgeToSplitId, offset), negateVector(edgeBasis));
+            return intersectRays(bisectorRay, cwRay)[2] === 'converging'
+                && intersectRays(bisectorRay, wsRay)[2] === 'converging';
         },
     };
 }

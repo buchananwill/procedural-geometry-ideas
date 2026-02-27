@@ -76,6 +76,7 @@ export interface GraphHelpers {
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
+    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
@@ -108,6 +109,12 @@ export const CollisionTypePriority: Record<CollisionType, number> = {
     interiorAgainstExterior: 2,
     phantomDivergentOffset: 3,
     outOfBounds: 4,
+}
+
+export interface SplitOffsetResult {
+    offsetDistance: number;
+    position: Vector2;
+    intersectionData: IntersectionResult;
 }
 
 export interface CollisionEvent {

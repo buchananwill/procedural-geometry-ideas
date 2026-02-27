@@ -3,6 +3,7 @@ import {
     InteriorEdge, IntersectionResult, PolygonEdge,
     RayProjection,
     SkeletonDirection,
+    SplitOffsetResult,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
 import { splitLog} from "@/algorithms/straight-skeleton/logger";
@@ -16,27 +17,17 @@ import {
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
 
-export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
-
-    // ray1 is always reversed from the instigator's clockwise parent
+/**
+ * Find the split offset by constructing a triangular incenter.
+ * Uses the parent bisector most perpendicular to the edge being split.
+ * Useful when the bisector doesn't directly strike the edge in its starting state.
+ */
+function findOffsetViaIncenter(
+    instigatorData: InteriorEdge,
+    edgeToSplit: PolygonEdge,
+    context: StraightSkeletonSolverContext
+): SplitOffsetResult | null {
     const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
-
-    // Safety early return from situations that cannot generate valid split events
-    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
-
-    // Can't split an edge from behind!
-    if (isBehindEdge){
-        return null;
-    }
-
-
-    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent)
-
-    // Can't split your neighbour
-    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
-        return null;
-    }
 
     // Make a ray from the parent that is most perpendicular to the splitting edge
     const clockwiseDot = dotProduct(instigatorClockwiseParent.basisVector, edgeToSplit.basisVector);
@@ -109,26 +100,78 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    // Check these edges really collide after accounting for the vertex offset
-    // IMPORTANT, NEVER REMOVE THIS COMMENT: THIS IS ALSO COUNTER-INTUITIVE LIKE AT LINES 181-183
-    const clockwiseRayTest: RayProjection = makeRay(context.clockwiseVertexAtOffset(edgeToSplit.id, offsetDistance), edgeToSplit.basisVector);
-    const widdershinsRayTest: RayProjection = makeRay(context.widdershinsVertexAtOffset(edgeToSplit.id, offsetDistance), negateVector(edgeToSplit.basisVector));
+    const position = findPositionAlongRay(incenterRay1, incenterLengthRay1);
 
-    const validationResultWs = intersectRays(incenterRay1, widdershinsRayTest)
-    const validationResultCw = intersectRays(incenterRay1, clockwiseRayTest)
-    if (validationResultCw[1] < 0 || validationResultWs[1] < 0) {
-        splitLog.info('Split event validation failed:', validationResultWs, validationResultCw, instigatorData, edgeToSplit);
+    return { offsetDistance, position, intersectionData };
+}
+
+/**
+ * Find the split offset by direct bisector–edge intersection.
+ * Solves the equation: offset = distanceAlongBisector * cross(bisector, parent),
+ * where distanceAlongBisector partitions the total bisector length by the ratio
+ * of the perpendicular projections to parent and struck edge.
+ */
+function findOffsetByDirectStrike(
+    instigatorData: InteriorEdge,
+    edgeToSplit: PolygonEdge,
+    initialIntersection: IntersectionResult,
+    context: StraightSkeletonSolverContext
+): SplitOffsetResult | null {
+    const instigatorRay = context.projectRayInterior(instigatorData);
+    const [rayLength1] = initialIntersection;
+    const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
+    const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector);
+    const instigatorTargetCross = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
+    const divisor = crossClockwiseParent + instigatorTargetCross;
+
+    if (areEqual(divisor, 0)) {
         return null;
     }
 
-    const position = findPositionAlongRay(incenterRay1, incenterLengthRay1);
+    const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
+    const offsetDistance = distanceToSplitAlongInstigator * crossClockwiseParent;
 
+    if (offsetDistance <= 0) {
+        return null;
+    }
+
+    const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
+
+    return { offsetDistance, position, intersectionData: initialIntersection };
+}
+
+export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+
+    const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
+
+    // Can't split an edge from behind!
+    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
+    if (isBehindEdge){
+        return null;
+    }
+
+    // Can't split your neighbour
+    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
+    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent)
+    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
+        return null;
+    }
+
+    const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
+    if (result === null) {
+        return null;
+    }
+
+    if (!context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.offsetDistance)) {
+        splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
+        return null;
+    }
 
     return {
-        position,
-        intersectionData,
+        position: result.position,
+        intersectionData: result.intersectionData,
         collidingEdges: [instigatorData.id, edgeToSplit.id],
-        offsetDistance,
+        offsetDistance: result.offsetDistance,
         eventType: 'interiorAgainstExterior'
     }
 }
@@ -157,7 +200,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
 
-    const edgeSplitRay = context.projectRay(edgeToSplit)
+    const edgeSplitRay = context.projectRay(edgeToSplit);
     const instigatorRay = context.projectRayInterior(instigatorData);
 
     const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay);
@@ -166,78 +209,55 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    // Try simple split
-
-    let simpleSplit: CollisionEvent | null = null
-    {
-        const [rayLength1] = initialIntersectionTest;
-        const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
-        const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector)
-        const instigatorTargetCross = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector)
-        const divisor = crossClockwiseParent + instigatorTargetCross;
-        if (!areEqual(divisor, 0)) {
-            const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
-            const offsetDistance = distanceToSplitAlongInstigator * crossClockwiseParent;
-            if (offsetDistance > 0) {
-
-                // IMPORTANT; NEVER REMOVE THIS COMMENT.
-                // I'm pretty sure the basis vectors are the wrong way round, but this is the way that works
-                // See lines 227-228 where the opposite direction is used for the ray basis
-                const widdershinsTestRay = makeRay(
-                    context.widdershinsVertexAtOffset(targetId, offsetDistance),
-                    negateVector(edgeToSplit.basisVector)
-                )
-
-                const clockwiseTestRay = makeRay(
-                    context.clockwiseVertexAtOffset(targetId, offsetDistance),
-                    edgeToSplit.basisVector
-                )
-
-                const widdershinsTest = intersectRays(instigatorRay, widdershinsTestRay)
-                const clockwiseTest = intersectRays(instigatorRay, clockwiseTestRay)
-
-                if (widdershinsTest[2] === 'converging' && clockwiseTest[2] === 'converging') {
-
-                    simpleSplit = {
-                        intersectionData: initialIntersectionTest,
-                        offsetDistance,
-                        collidingEdges: [instigatorId, targetId],
-                        eventType: 'interiorAgainstExterior',
-                        position: findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator)
-                    }
-
-                    return simpleSplit;
-                }
-            }
-        }
-
+    // --- Path 1: Direct-strike offset ---
+    const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
+    if (directResult !== null && context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
+        return {
+            intersectionData: directResult.intersectionData,
+            offsetDistance: directResult.offsetDistance,
+            collidingEdges: [instigatorId, targetId],
+            eventType: 'interiorAgainstExterior',
+            position: directResult.position
+        };
     }
 
-    const targetNodeId = edgeToSplit.target;
-    if (targetNodeId === undefined) {
-        throw new Error("Exterior edge does not have target node id");
+    // --- Path 2: Incenter fallback ---
+
+    // Guards — only needed before incenter path
+    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
+    if (isBehindEdge) {
+        return null;
     }
 
-    const targetNode = context.graph.nodes[targetNodeId];
-    const clockwiseBisector = targetNode.outEdges.find(eId => context.edgeRank(eId) === 'primary');
-    if (clockwiseBisector === undefined) {
-        throw new Error("Could not find clockwise bisector of exterior edge.")
+    const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
+    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
+    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent);
+    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
+        return null;
     }
 
-    const clockwiseResult = generateSplitEvent(instigatorData, edgeToSplit, context);
-
-    if (clockwiseResult !== null) {
-        const {offsetDistance} = clockwiseResult;
-        if (offsetDistance < 0) {
-            return null;
-        }
-        const validationRay: RayProjection = makeRay(context.widdershinsVertexAtOffset(targetId, offsetDistance), edgeToSplit.basisVector);
-        const widdershinValidation = intersectRays(validationRay, instigatorRay)
-        if (widdershinValidation[2] !== 'converging') {
-            return null;
-        }
+    const incenterResult = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
+    if (incenterResult === null) {
+        return null;
     }
 
-    return clockwiseResult ;
+    if (!context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.offsetDistance)) {
+        return null;
+    }
 
+    // Extra one-sided widdershins check — different from the unified validation;
+    // verifies the instigator approaches from the correct side.
+    const validationRay: RayProjection = makeRay(context.widdershinsVertexAtOffset(targetId, incenterResult.offsetDistance), edgeToSplit.basisVector);
+    const widdershinsValidation = intersectRays(validationRay, instigatorRay);
+    if (widdershinsValidation[2] !== 'converging') {
+        return null;
+    }
+
+    return {
+        position: incenterResult.position,
+        intersectionData: incenterResult.intersectionData,
+        collidingEdges: [instigatorId, targetId],
+        offsetDistance: incenterResult.offsetDistance,
+        eventType: 'interiorAgainstExterior'
+    };
 }
