@@ -24,6 +24,13 @@ import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpe
  * */
 export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
+    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
+
+    // Can't split an edge from behind!
+    if (isBehindEdge){
+        return null;
+    }
+
     // ray1 is always reversed from the instigator's clockwise parent
     const instigatorClockwiseParent = context.clockwiseParent(instigatorData);
     const instigatorWiddershinsParent = context.widdershinsParent(instigatorData);

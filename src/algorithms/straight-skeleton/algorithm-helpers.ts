@@ -4,7 +4,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph, RayProjection
 } from "@/algorithms/straight-skeleton/types";
-import {solverLog} from "@/algorithms/straight-skeleton/logger";
+import {complexLog, solverLog} from "@/algorithms/straight-skeleton/logger";
 import {
     assertIsNumber,
     makeBisectedBasis,
@@ -106,7 +106,7 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)
                 context.updateMaxOffset(edgeIndex, offset)
-                console.log(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
+                complexLog.info(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
 
             }
         }
