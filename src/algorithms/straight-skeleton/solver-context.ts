@@ -9,8 +9,11 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
 import {
+    addVectors,
     dotProduct,
     negateVector,
+    projectFromPerpendicular,
+    scaleVector,
     vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
 
@@ -97,6 +100,40 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return totalSpan;
     }
 
+    function vertexAtOffset(bisector: PolygonEdge, edgeBasis: Vector2, offset: number): Vector2 {
+        const t = projectFromPerpendicular(bisector.basisVector, edgeBasis, offset);
+        return addVectors(graph.nodes[bisector.source].position, scaleVector(bisector.basisVector, t));
+    }
+
+    function findOrAddNode(position: Vector2): PolygonNode {
+        const node = graph.nodes.find(n => {
+            return vectorsAreEqual(n.position, position);
+        })
+        if (node !== undefined) {
+            return node;
+        }
+        const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: []});
+        return graph.nodes[index - 1];
+    }
+
+    function widdershinsBisector(edgeId: number): PolygonEdge {
+        const targetNode = graph.nodes[getEdgeWithId(edgeId).target!];
+        const bisectorId = targetNode.outEdges.find(e => edgeRank(e) === 'primary');
+        if (bisectorId === undefined) {
+            throw new Error(`No primary bisector found at target of edge ${edgeId}`);
+        }
+        return getEdgeWithId(bisectorId);
+    }
+
+    function clockwiseBisector(edgeId: number): PolygonEdge {
+        const sourceNode = graph.nodes[getEdgeWithId(edgeId).source];
+        const bisectorId = sourceNode.outEdges.find(e => edgeRank(e) === 'primary');
+        if (bisectorId === undefined) {
+            throw new Error(`No primary bisector found at source of edge ${edgeId}`);
+        }
+        return getEdgeWithId(bisectorId);
+    }
+
     return {
         graph,
         acceptedEdges: acceptedEdges,
@@ -141,16 +178,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         isAcceptedInterior(edge: InteriorEdge): boolean {
             return acceptedEdges[edge.id];
         },
-        findOrAddNode(position: Vector2): PolygonNode {
-            const node = graph.nodes.find(n => {
-                return vectorsAreEqual(n.position, position);
-            })
-            if (node !== undefined) {
-                return node;
-            }
-            const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: []});
-            return graph.nodes[index - 1];
-        },
+        findOrAddNode,
         findSource(edgeId: number): PolygonNode {
             return graph.nodes[graph.edges[edgeId].source]
         },
@@ -172,21 +200,39 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
         },
         clockwiseSpanExcludingAccepted: spanExcludingAccepted,
-        widdershinsBisector(edgeId: number): PolygonEdge {
-            const targetNode = graph.nodes[getEdgeWithId(edgeId).target!];
-            const bisectorId = targetNode.outEdges.find(e => edgeRank(e) === 'primary');
-            if (bisectorId === undefined) {
-                throw new Error(`No primary bisector found at target of edge ${edgeId}`);
-            }
-            return getEdgeWithId(bisectorId);
+        widdershinsBisector,
+        clockwiseBisector,
+        clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2 {
+            return vertexAtOffset(clockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
         },
-        clockwiseBisector(edgeId: number): PolygonEdge {
-            const sourceNode = graph.nodes[getEdgeWithId(edgeId).source];
-            const bisectorId = sourceNode.outEdges.find(e => edgeRank(e) === 'primary');
-            if (bisectorId === undefined) {
-                throw new Error(`No primary bisector found at source of edge ${edgeId}`);
-            }
-            return getEdgeWithId(bisectorId);
+        widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2 {
+            return vertexAtOffset(widdershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
+        },
+        terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode {
+            const node = findOrAddNode(position);
+            node.inEdges.push(...edgeIds);
+            edgeIds.forEach(id => { getEdgeWithId(id).target = node.id; });
+            return node;
+        },
+        crossWireEdges(id1: number, id2: number): void {
+            const edge1 = getEdgeWithId(id1);
+            const edge2 = getEdgeWithId(id2);
+            edge1.target = edge2.source;
+            edge2.target = edge1.source;
+            graph.nodes[edge1.source].inEdges.push(id2);
+            graph.nodes[edge2.source].inEdges.push(id1);
+        },
+        parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge } {
+            const interior = getInteriorWithId(interiorEdgeId);
+            return {
+                clockwise: clockwiseParent(interior),
+                widdershins: widdershinsParent(interior),
+            };
+        },
+        exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[] {
+            const parents = interiorEdgeIds.map(id => getInteriorWithId(id).clockwiseExteriorEdgeIndex);
+            parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
+            return parents;
         },
     };
 }

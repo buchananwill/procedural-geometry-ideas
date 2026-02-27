@@ -51,10 +51,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     };
 
 
-    const exteriorParents = input.interiorEdges
-        .map(context.getInteriorWithId)
-        .map(iEdge => iEdge.clockwiseExteriorEdgeIndex);
-    exteriorParents.push(context.widdershinsParent(context.getInteriorWithId(input.interiorEdges[0])).id)
+    const exteriorParents = context.exteriorParentsOfSubPolygon(input.interiorEdges);
 
 
     // Generate all currently valid collision events
@@ -201,8 +198,7 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
 
     const N = context.graph.numExteriorNodes;
     for (const interiorEdge of allOutgoingInteriorEdges) {
-        const cwParent = context.clockwiseParent(context.getInteriorWithId(interiorEdge));
-        const wsParent = context.widdershinsParent(context.getInteriorWithId(interiorEdge));
+        const { clockwise: cwParent, widdershins: wsParent } = context.parentEdges(interiorEdge);
 
         let success = false;
 

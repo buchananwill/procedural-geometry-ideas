@@ -90,14 +90,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     const dotEdges = dotProduct(edgeData1.basisVector, edgeData2.basisVector);
     // Head on Collision
     if (areEqual(dotEdges, -1)) {
-        edgeData1.target = edgeData2.source;
-        edgeData2.target = edgeData1.source;
-
-        const source1 = context.findSource(id1);
-        const source2 = context.findSource(id2);
-
-        source1.inEdges.push(id2);
-        source2.inEdges.push(id1);
+        context.crossWireEdges(id1, id2);
     } else {
         const collisions = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
         if (collisions.length === 0) {
@@ -110,20 +103,10 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // Co-linear collapse: cross-wire sources
         const intersectionType = best.intersectionData[2];
         if (intersectionType === 'co-linear-from-1') {
-            edgeData1.target = edgeData2.source;
-            edgeData2.target = edgeData1.source;
-
-            const source1 = context.findSource(id1);
-            const source2 = context.findSource(id2);
-
-            source1.inEdges.push(id2);
-            source2.inEdges.push(id1);
+            context.crossWireEdges(id1, id2);
         } else {
             // Standard convergence — wire both edges to the collision point
-            const newNode = context.findOrAddNode(best.position);
-            edgeData1.target = newNode.id;
-            edgeData2.target = newNode.id;
-            newNode.inEdges.push(id1, id2);
+            context.terminateEdgesAtPoint([id1, id2], best.position);
         }
     }
 
@@ -139,8 +122,6 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
         throw new Error("Invalid call: expecting three interior edges");
     }
 
-    const edgeData = context.getEdges(input.interiorEdges);
-
     const allCollisions: CollisionEvent[] = [];
     for (const [index1, index2] of TRIANGLE_INTERSECT_PAIRINGS) {
         const edge1 = context.getInteriorWithId(input.interiorEdges[index1]);
@@ -155,11 +136,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
         throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
     }
 
-    const newNode = context.findOrAddNode(best.position)
-    newNode.inEdges.push(...input.interiorEdges);
-    edgeData.forEach(e => {
-        e.target = newNode.id;
-    })
+    context.terminateEdgesAtPoint(input.interiorEdges, best.position);
 
     context.acceptAll(input.interiorEdges);
 

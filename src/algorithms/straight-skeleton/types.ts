@@ -88,6 +88,18 @@ export interface GraphHelpers {
     widdershinsBisector(edgeId: number): PolygonEdge;
 
     clockwiseBisector(edgeId: number): PolygonEdge;
+
+    clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2;
+
+    widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2;
+
+    terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode;
+
+    crossWireEdges(id1: number, id2: number): void;
+
+    parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
+
+    exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {

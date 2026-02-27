@@ -209,14 +209,8 @@ export function findOrComputeCollision(
 }
 
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {
-    const edge1Data = context.getInteriorWithId(edge1);
-    const edge2Data = context.getInteriorWithId(edge2);
-
-    const e1CwParent = context.clockwiseParent(edge1Data)
-    const e1WsParent = context.widdershinsParent(edge1Data);
-
-    const e2CwParent = context.clockwiseParent(edge2Data);
-    const e2WsParent = context.widdershinsParent(edge2Data);
+    const { clockwise: e1CwParent, widdershins: e1WsParent } = context.parentEdges(edge1);
+    const { clockwise: e2CwParent, widdershins: e2WsParent } = context.parentEdges(edge2);
 
     return [
         e1CwParent.id === e2WsParent.id,

@@ -13,23 +13,19 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     const interiorEdge = context.getInteriorWithId(instigator);
 
-    const newNode = context.findOrAddNode(event.position);
-    newNode.inEdges.push(instigator)
+    const newNode = context.terminateEdgesAtPoint([instigator], event.position);
     const instigatorData = context.getEdgeWithId(instigator);
-    instigatorData.target = newNode.id;
 
     if (event.eventType === 'interiorPair') {
         const otherInterior = context.getInteriorWithId(target);
-        newNode.inEdges.push(target);
-        const targetEdgeData = context.getEdgeWithId(target);
-        targetEdgeData.target = newNode.id;
+        context.terminateEdgesAtPoint([target], event.position);
 
         const parentSharing = checkSharedParents(instigator, target, context);
 
         const widdershinsCollider = parentSharing[0] ? interiorEdge : otherInterior;
         const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
 
-        const approximateDirection = makeBisectedBasis(instigatorData.basisVector, targetEdgeData.basisVector)
+        const approximateDirection = makeBisectedBasis(instigatorData.basisVector, context.getEdgeWithId(target).basisVector)
 
         context.accept(widdershinsCollider.id);
         context.accept(clockwiseCollider.id);
