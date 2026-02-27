@@ -72,7 +72,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         const [wsRay1] = collisionWs;
 
         const usingCw = cwRay1 < wsRay1;
-        return usingCw ? [collisionWs, usingCw] : [collisionWs, usingCw];
+        return usingCw ? [collisionCw, usingCw] : [collisionWs, usingCw];
     };
 
     const result = bestResult();
