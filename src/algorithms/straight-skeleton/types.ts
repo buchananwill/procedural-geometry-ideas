@@ -28,7 +28,6 @@ export interface InteriorEdge {
     id: number;
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
-    intersectingEdges?: number[];
     length: number;
     maxOffset?: number;
 }

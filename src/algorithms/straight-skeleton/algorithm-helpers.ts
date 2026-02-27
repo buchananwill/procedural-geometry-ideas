@@ -47,7 +47,6 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
         id,
         clockwiseExteriorEdgeIndex,
         widdershinsExteriorEdgeIndex,
-        intersectingEdges: [],
         length: Number.MAX_VALUE,
     })
 
