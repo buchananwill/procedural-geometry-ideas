@@ -159,6 +159,9 @@ export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSk
             if (candidateEdge === edge) {
                 return true;
             }
+            if (candidateEdge < graph.numExteriorNodes){
+                continue;
+            }
             if (visitedEdges.has(candidateEdge)) {
                 continue;
             }
