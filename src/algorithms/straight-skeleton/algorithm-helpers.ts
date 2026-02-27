@@ -11,6 +11,7 @@ import {
 } from "@/algorithms/straight-skeleton/core-functions";
 import {interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
+import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
 
 
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
@@ -95,7 +96,9 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         const exteriorEdgeRay = context.projectRay(context.getEdgeWithId(i))
         const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay);
         if (ray1Length > 0 && ray2Length > 0 ){
-            context.updateMinLength(edgeIndex, ray1Length);
+            const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)
+            context.updateMaxOffset(edgeIndex, offset)
+            console.log(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
         }
     }
 

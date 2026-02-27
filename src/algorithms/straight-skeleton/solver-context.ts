@@ -59,7 +59,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return graph.edges[edge.widdershinsExteriorEdgeIndex];
     }
 
-    function isReflexEdge(edge: InteriorEdge): boolean{
+    function isReflexEdge(edge: InteriorEdge): boolean {
         const cwParent = clockwiseParent(edge);
         const wsParent = widdershinsParent(edge);
         const edgeData = getEdgeWithId(edge.id);
@@ -71,7 +71,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     function isPrimaryNonReflex(id: number): boolean {
 
 
-        if (edgeRank(id) !== 'primary'){
+        if (edgeRank(id) !== 'primary') {
             return false;
         }
 
@@ -80,8 +80,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
     }
 
-    function updateMinLength(edgeId:number, length: number): void {
-        if (edgeRank(edgeId) === 'exterior'){
+    function updateMinLength(edgeId: number, length: number): void {
+        if (edgeRank(edgeId) === 'exterior') {
             return;
         }
 
@@ -93,23 +93,23 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
     }
 
-    function spanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number{
-        if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior'){
+    function spanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number {
+        if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior') {
             throw new Error('Direct span of interior edges not yet implemented.')
         }
 
-        if (acceptedEdges[firstEdge.id] || acceptedEdges[secondEdge.id]){
+        if (acceptedEdges[firstEdge.id] || acceptedEdges[secondEdge.id]) {
             throw new Error('Cannot compute span with accepted edges.')
         }
 
         let totalSpan = 0;
         for (let i = 0; i < graph.numExteriorNodes; i++) {
             const nextEdge = (i + firstEdge.id) % graph.numExteriorNodes;
-            if ((nextEdge)  === secondEdge.id){
+            if ((nextEdge) === secondEdge.id) {
                 return totalSpan;
             }
 
-            if (!acceptedEdges[nextEdge]){
+            if (!acceptedEdges[nextEdge]) {
                 totalSpan++;
             }
         }
@@ -179,9 +179,20 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         isPrimaryNonReflex,
         isReflexEdge,
         updateMinLength,
+        updateMaxOffset(edgeId: number, offset: number) {
+            if (offset < 0) {
+                return
+            }
+            const edgeData = getInteriorWithId(edgeId);
+            if (edgeData.maxOffset === undefined){
+                edgeData.maxOffset = offset;
+            }
+
+            edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
+        },
         resetMinLength(edgeId: number) {
             const rank = edgeRank(edgeId);
-            if (rank === 'exterior'){
+            if (rank === 'exterior') {
                 return
             }
             getInteriorWithId(edgeId).length = Number.POSITIVE_INFINITY;

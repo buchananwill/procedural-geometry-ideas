@@ -27,6 +27,7 @@ export interface InteriorEdge {
     widdershinsExteriorEdgeIndex: number;
     intersectingEdges?: number[];
     length: number;
+    maxOffset?: number;
     heapGeneration?: number;
 }
 
@@ -114,6 +115,8 @@ export interface GraphHelpers {
     isPrimaryNonReflex(edgeId: number): boolean;
 
     updateMinLength(edgeId: number, length: number): void;
+
+    updateMaxOffset(edgeId: number, length: number): void;
 
     resetMinLength(edgeId: number): void;
 
