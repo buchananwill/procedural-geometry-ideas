@@ -44,9 +44,6 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         }
 
         return list.filter(event => {
-            if (event && fp_compare(event.intersectionData[0], edgeData.length) > 0){
-                complexLog.debug('Collision exceeds edge length:', event, edgeData);
-            }
             return event !== null && CollisionTypePriority[event.eventType] < 3;// && (event.eventType !== 'interiorPair' || event.intersectionData[0] <= edgeData.length);
         })
             .map(e => e as CollisionEvent)
