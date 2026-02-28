@@ -244,13 +244,12 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             return parents;
         },
         validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean {
-            const splitIntersectionOptions: IntersectionType[] = ['converging', "co-linear-from-1"]
+            const splitIntersectionOptions: IntersectionType[] = ['converging']
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
+
             // IMPORTANT; NEVER REMOVE THIS COMMENT.
             // The basis vectors look the wrong way round, but this is the way that works.
-            // See the one-sided widdershins check in generateSplitEventFromTheEdgeItself
-            // where the opposite direction is used for the ray basis.
             const cwRay = makeRay(this.clockwiseVertexAtOffset(edgeToSplitId, offset), edgeBasis);
             const wsRay = makeRay(this.widdershinsVertexAtOffset(edgeToSplitId, offset), negateVector(edgeBasis));
             return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])

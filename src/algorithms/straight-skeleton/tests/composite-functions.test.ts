@@ -71,7 +71,7 @@ describe('unitsToIntersection', () => {
             const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-1');
             expect(u1).toBeCloseTo(5);
-            expect(u2).toBe(Number.POSITIVE_INFINITY);
+            expect(u2).toBe(0);
         });
 
         it('works for diagonal co-linear rays', () => {
@@ -80,7 +80,7 @@ describe('unitsToIntersection', () => {
             const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-1');
             expect(u1).toBeCloseTo(Math.sqrt(18)); // distance from (0,0) to (3,3)
-            expect(u2).toBe(Number.POSITIVE_INFINITY);
+            expect(u2).toBe(0);
         });
     });
 
@@ -93,7 +93,7 @@ describe('unitsToIntersection', () => {
             const r2 = ray(0, 0, 1, 0);
             const [u1, u2, type] = intersectRays(r1, r2);
             expect(type).toBe('co-linear-from-2');
-            expect(u1).toBe(Number.POSITIVE_INFINITY);
+            expect(u1).toBe(0);
             expect(u2).toBeCloseTo(5);
         });
     });

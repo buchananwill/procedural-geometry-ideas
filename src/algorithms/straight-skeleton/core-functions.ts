@@ -38,6 +38,15 @@ export function scaleVector(v: Vector2, scalar: number): Vector2 {
     return {x: v.x * scalar, y: v.y * scalar};
 }
 
+export function rotateCw90(vector: Vector2):Vector2 {
+    // noinspection JSSuspiciousNameCombination rotation of vector
+    return {x: vector.y, y: -vector.x}
+}
+
+export function rotateWs90(vector: Vector2): Vector2 {
+    return negateVector(rotateCw90(vector))
+}
+
 export function sizeOfVector(v: Vector2): number {
     return Math.sqrt(v.x * v.x + v.y * v.y);
 }
@@ -66,7 +75,7 @@ export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
     const [bisection, size] = normalize(added);
     if (areEqual(size, 0)) {
         // noinspection JSSuspiciousNameCombination Matrix rotation
-        return {x: iBasis.y, y: iBasis.x * -1}
+        return rotateCw90(iBasis)
     }
     return bisection;
 }
@@ -105,3 +114,4 @@ export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpe
     const cross = crossProduct(iBasis, jBasis);
     return areEqual(cross, 0) ? 0 : perpendicular / cross;
 }
+

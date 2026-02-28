@@ -27,7 +27,10 @@ function findOffsetViaIncenter(
     edgeToSplit: PolygonEdge,
     context: StraightSkeletonSolverContext
 ): SplitOffsetResult | null {
-    const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
+    const {
+        clockwise: instigatorClockwiseParent,
+        widdershins: instigatorWiddershinsParent
+    } = context.parentEdges(instigatorData.id);
 
     // Make a ray from the parent that is most perpendicular to the splitting edge
     const clockwiseDot = dotProduct(instigatorClockwiseParent.basisVector, edgeToSplit.basisVector);
@@ -50,12 +53,12 @@ function findOffsetViaIncenter(
     const collisionWs = intersectRays(ray1ForTempNode, edgeToSplitRayWs);
 
     // intersect both in case ray is narrowly passing outside either end of the edge
-    const bestResult = ():[IntersectionResult, boolean] => {
-        if (collisionCw[2] === 'converging' && collisionWs[2] !== "converging"){
+    const bestResult = (): [IntersectionResult, boolean] => {
+        if (collisionCw[2] === 'converging' && collisionWs[2] !== "converging") {
             return [collisionCw, true];
         }
 
-        if (collisionWs[2] === 'converging' && collisionCw[2] !== 'converging'){
+        if (collisionWs[2] === 'converging' && collisionCw[2] !== 'converging') {
             return [collisionWs, false];
         }
 
@@ -102,7 +105,7 @@ function findOffsetViaIncenter(
 
     const position = findPositionAlongRay(incenterRay1, incenterLengthRay1);
 
-    return { offsetDistance, position, intersectionData };
+    return {offsetDistance, position, intersectionData};
 }
 
 /**
@@ -138,16 +141,19 @@ function findOffsetByDirectStrike(
 
     const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
 
-    return { offsetDistance, position, intersectionData: initialIntersection };
+    return {offsetDistance, position, intersectionData: initialIntersection};
 }
 
 export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
-    const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
+    const {
+        clockwise: instigatorClockwiseParent,
+        widdershins: instigatorWiddershinsParent
+    } = context.parentEdges(instigatorData.id);
 
     // Can't split an edge from behind!
     const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
-    if (isBehindEdge){
+    if (isBehindEdge) {
         return null;
     }
 
@@ -213,16 +219,17 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        if (context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
-            complexLog.error('Collide creates invalid split', directResult, instigatorId, targetId, context)
+        if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
+            complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
+        } else {
+            return {
+                intersectionData: directResult.intersectionData,
+                offsetDistance: directResult.offsetDistance,
+                collidingEdges: [instigatorId, targetId],
+                eventType: 'interiorAgainstExterior',
+                position: directResult.position
+            };
         }
-        return {
-            intersectionData: directResult.intersectionData,
-            offsetDistance: directResult.offsetDistance,
-            collidingEdges: [instigatorId, targetId],
-            eventType: 'interiorAgainstExterior',
-            position: directResult.position
-        };
     }
 
     // --- Path 2: Incenter fallback ---
@@ -233,7 +240,10 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    const { clockwise: instigatorClockwiseParent, widdershins: instigatorWiddershinsParent } = context.parentEdges(instigatorData.id);
+    const {
+        clockwise: instigatorClockwiseParent,
+        widdershins: instigatorWiddershinsParent
+    } = context.parentEdges(instigatorData.id);
     const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
     const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent);
     if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
