@@ -27,11 +27,11 @@ export function intersectRays(ray1: RayProjection, ray2: RayProjection): Interse
     // Near-parallel guard — intersection would be at meaningless distance
     if (Math.abs(crossProductBasisVectors) < 1e-6) {
         if (dotOfBasisVectors > 0) {
-            if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector)) {
-                return [distanceToRay2, Number.POSITIVE_INFINITY, 'co-linear-from-1'];
+            if (vectorsAreEqual(basisTowardsRay2Source, ray1.basisVector, 1e-4)) {
+                return [distanceToRay2, 0, 'co-linear-from-1'];
             }
             if (vectorsAreEqual(basisTowardsRay2Source, negateVector(ray2.basisVector))) {
-                return [Number.POSITIVE_INFINITY, distanceToRay2, 'co-linear-from-2'];
+                return [0, distanceToRay2, 'co-linear-from-2'];
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];
         } else {

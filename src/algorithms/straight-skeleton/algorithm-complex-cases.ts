@@ -21,8 +21,6 @@ function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
 }
 
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
-
-
     return interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
         const edgeData = context.getInteriorWithId(e1)

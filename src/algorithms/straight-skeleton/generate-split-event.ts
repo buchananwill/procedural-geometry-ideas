@@ -6,7 +6,7 @@ import {
     SplitOffsetResult,
     StraightSkeletonSolverContext
 } from "@/algorithms/straight-skeleton/types";
-import { splitLog} from "@/algorithms/straight-skeleton/logger";
+import {complexLog, splitLog} from "@/algorithms/straight-skeleton/logger";
 import {
     areEqual, crossProduct, dotProduct,
     findPositionAlongRay,
@@ -212,7 +212,10 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
-    if (directResult !== null && context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
+    if (directResult !== null) {
+        if (context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
+            complexLog.error('Collide creates invalid split', directResult, instigatorId, targetId, context)
+        }
         return {
             intersectionData: directResult.intersectionData,
             offsetDistance: directResult.offsetDistance,

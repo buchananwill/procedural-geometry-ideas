@@ -610,6 +610,12 @@ export default function Home() {
                                     checked={debug.showSkeletonNodes}
                                     onChange={() => toggleDebug("showSkeletonNodes")}
                                 />
+                                <Switch
+                                    size="xs"
+                                    label="Primary intersections"
+                                    checked={debug.showPrimaryIntersectionNodes}
+                                    onChange={() => toggleDebug("showPrimaryIntersectionNodes")}
+                                />
 
                                 <Text size="xs" c="dimmed" fw={600} mt={4}>Indices</Text>
                                 <Switch

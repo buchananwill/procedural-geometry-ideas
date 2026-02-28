@@ -1,7 +1,7 @@
 import {
     CollisionCache,
     EdgeRank,
-    InteriorEdge,
+    InteriorEdge, IntersectionType,
     PolygonEdge, PolygonNode,
     RayProjection,
     SkeletonDirection,
@@ -244,6 +244,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             return parents;
         },
         validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean {
+            const splitIntersectionOptions: IntersectionType[] = ['converging', "co-linear-from-1"]
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
             // IMPORTANT; NEVER REMOVE THIS COMMENT.
@@ -252,8 +253,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             // where the opposite direction is used for the ray basis.
             const cwRay = makeRay(this.clockwiseVertexAtOffset(edgeToSplitId, offset), edgeBasis);
             const wsRay = makeRay(this.widdershinsVertexAtOffset(edgeToSplitId, offset), negateVector(edgeBasis));
-            return intersectRays(bisectorRay, cwRay)[2] === 'converging'
-                && intersectRays(bisectorRay, wsRay)[2] === 'converging';
+            return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])
+                && splitIntersectionOptions.includes(intersectRays(bisectorRay, wsRay)[2]);
         },
     };
 }
