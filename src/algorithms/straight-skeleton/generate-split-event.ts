@@ -224,7 +224,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
         if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
-            complexLog.warn('Collide creates invalid split', directResult, instigatorId, targetId, context)
+            complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
             return {
                 intersectionData: directResult.intersectionData,

@@ -659,9 +659,12 @@ describe('e38-e30 Collision Debug', () => {
     // Test 8: Deep probe into validateSplitReachesEdge
     // -----------------------------------------------------------------------
     it('8. deep probe — replicate validateSplitReachesEdge at critical step', () => {
+        const {complexLog} = require('@/algorithms/straight-skeleton/logger');
+
         const context = initContext(POLYGON);
         const exteriorEdges = context.graph.edges.slice(0, context.graph.numExteriorNodes);
         let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
+        const N = context.graph.numExteriorNodes;
 
         // Run to step 10
         for (let step = 0; step < 10; step++) {
@@ -680,20 +683,31 @@ describe('e38-e30 Collision Debug', () => {
         console.log(`Bisector ray: src=${fmt(bisectorRay.sourceVector)} basis=${fmt(bisectorRay.basisVector)}`);
         console.log(`Edge basis: ${fmt(edgeBasis)}`);
 
-        // Find active segments
+        // Find active segments — replicate activeExteriorEdgeSegments with makeClockwiseSweepIndex sorting
+        const rotateId = (id: number): number => {
+            return (id - TARGET_ID + N) % N;
+        };
+        const makeClockwiseSweepIndex = (interiorEdge: {widdershinsExteriorEdgeIndex: number, clockwiseExteriorEdgeIndex: number}): number => {
+            const wsParentId = interiorEdge.widdershinsExteriorEdgeIndex;
+            const cwParentId = interiorEdge.clockwiseExteriorEdgeIndex;
+            return N - rotateId(wsParentId) - rotateId(cwParentId) - 1;
+        };
+
         const allBordering = context.graph.interiorEdges.filter(ie2 =>
             !context.isAccepted(ie2.id) && (ie2.widdershinsExteriorEdgeIndex === TARGET_ID || ie2.clockwiseExteriorEdgeIndex === TARGET_ID)
-        );
-        console.log(`\nActive interior edges bordering e${TARGET_ID}: ${allBordering.length}`);
+        ).toSorted((a, b) => makeClockwiseSweepIndex(a) - makeClockwiseSweepIndex(b));
+
+        console.log(`\nActive interior edges bordering e${TARGET_ID} (sorted by clockwise sweep index): ${allBordering.length}`);
         for (const ae of allBordering) {
             const ed = context.getEdgeWithId(ae.id);
             const src = context.graph.nodes[ed.source];
-            console.log(`  e${ae.id}: cw=${ae.clockwiseExteriorEdgeIndex} ws=${ae.widdershinsExteriorEdgeIndex} rank=${context.edgeRank(ae.id)} src=n${ed.source}${fmt(src.position)} basis=${fmt(ed.basisVector)}`);
+            const sweepIdx = makeClockwiseSweepIndex(ae);
+            console.log(`  e${ae.id}: cw=${ae.clockwiseExteriorEdgeIndex} ws=${ae.widdershinsExteriorEdgeIndex} rank=${context.edgeRank(ae.id)} src=n${ed.source}${fmt(src.position)} basis=${fmt(ed.basisVector)} sweepIdx=${sweepIdx}`);
         }
 
         // Pair them up as segments (same as activeExteriorEdgeSegments)
         if (allBordering.length < 2) {
-            console.log('<<< Fewer than 2 children — validateSplitReachesEdge returns false');
+            console.log('<<< Fewer than 2 children — validateSplitReachesEdge returns false (segments empty)');
             return;
         }
 
@@ -701,7 +715,10 @@ describe('e38-e30 Collision Debug', () => {
         for (let i = 0; i < allBordering.length; i += 2) {
             const wsBisector = allBordering[i];
             const cwBisector = allBordering[i + 1];
-            if (!cwBisector) break;
+            if (!cwBisector) {
+                console.log(`\n--- Unpaired edge e${wsBisector.id} (odd number of bordering edges!) ---`);
+                break;
+            }
 
             console.log(`\n--- Segment ${i/2}: ws=e${wsBisector.id}, cw=e${cwBisector.id} ---`);
 
@@ -752,6 +769,13 @@ describe('e38-e30 Collision Debug', () => {
             }
         }
 
+        // Now call the actual validateSplitReachesEdge to trigger the debug logging
+        console.log('\n\n=== Calling actual validateSplitReachesEdge (debug logging enabled) ===');
+        complexLog.setLevel('debug');
+        const actualResult = context.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, offset);
+        console.log(`validateSplitReachesEdge result: ${actualResult}`);
+        complexLog.setLevel('error');
+
         // Also check: does it pass at step 9?
         console.log('\n\n=== Comparison: validateSplitReachesEdge at Step 9 ===');
         const context2 = initContext(POLYGON);
@@ -765,15 +789,31 @@ describe('e38-e30 Collision Debug', () => {
         const validates9 = context2.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, offset);
         console.log(`Step 9 validateSplitReachesEdge: ${validates9}`);
 
-        // Show bordering edges at step 9
+        // Show bordering edges at step 9 — with proper sorting
+        const N2 = context2.graph.numExteriorNodes;
+        const rotateId2 = (id: number): number => (id - TARGET_ID + N2) % N2;
+        const makeClockwiseSweepIndex2 = (interiorEdge: {widdershinsExteriorEdgeIndex: number, clockwiseExteriorEdgeIndex: number}): number => {
+            return N2 - rotateId2(interiorEdge.widdershinsExteriorEdgeIndex) - rotateId2(interiorEdge.clockwiseExteriorEdgeIndex) - 1;
+        };
+
         const bordering9 = context2.graph.interiorEdges.filter(ie2 =>
             !context2.isAccepted(ie2.id) && (ie2.widdershinsExteriorEdgeIndex === TARGET_ID || ie2.clockwiseExteriorEdgeIndex === TARGET_ID)
-        );
-        console.log(`Active interior edges bordering e${TARGET_ID} at step 9: ${bordering9.length}`);
+        ).toSorted((a, b) => makeClockwiseSweepIndex2(a) - makeClockwiseSweepIndex2(b));
+
+        console.log(`Active interior edges bordering e${TARGET_ID} at step 9 (sorted): ${bordering9.length}`);
         for (const ae of bordering9) {
             const ed = context2.getEdgeWithId(ae.id);
             const src = context2.graph.nodes[ed.source];
-            console.log(`  e${ae.id}: cw=${ae.clockwiseExteriorEdgeIndex} ws=${ae.widdershinsExteriorEdgeIndex} rank=${context2.edgeRank(ae.id)} src=n${ed.source}${fmt(src.position)}`);
+            const sweepIdx = makeClockwiseSweepIndex2(ae);
+            console.log(`  e${ae.id}: cw=${ae.clockwiseExteriorEdgeIndex} ws=${ae.widdershinsExteriorEdgeIndex} rank=${context2.edgeRank(ae.id)} src=n${ed.source}${fmt(src.position)} sweepIdx=${sweepIdx}`);
+        }
+        console.log(`Step 9 segment pairs:`);
+        for (let i = 0; i < bordering9.length; i += 2) {
+            if (bordering9[i + 1]) {
+                console.log(`  segment ${i/2}: ws=e${bordering9[i].id}, cw=e${bordering9[i + 1].id}`);
+            } else {
+                console.log(`  unpaired: e${bordering9[i].id}`);
+            }
         }
 
         // Show accepted edges diff between step 9 and 10
@@ -799,6 +839,9 @@ describe('e38-e30 Collision Debug', () => {
         }
         const newlyAcceptedInt = accInt10.filter(x => !accInt9.includes(x));
         console.log(`Newly accepted int at step 10: [${newlyAcceptedInt.join(',')}]`);
+
+        // Reset log level
+        complexLog.setLevel('error');
     });
 
     // -----------------------------------------------------------------------

@@ -20,6 +20,7 @@ import {
 } from "@/algorithms/straight-skeleton/core-functions";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
 import {sourceOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
+import {complexLog, splitLog} from "@/algorithms/straight-skeleton/logger";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
@@ -166,7 +167,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         const children = graph.interiorEdges.filter(e => {
             return !acceptedEdges[e.id] && (e.widdershinsExteriorEdgeIndex === edgeId || e.clockwiseExteriorEdgeIndex === edgeId)
         })
-            .toSorted(makeClockwiseSweepIndex)
+            .toSorted((e1, e2) => makeClockwiseSweepIndex(e1) - makeClockwiseSweepIndex(e2))
 
         const sections: EdgeSection[] = []
 
@@ -308,10 +309,19 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 // Update: this is correct now that the edge shrinkage/collapse is computed dynamically, using the active edge segments.
                 const widdershinsSourceOffset = sourceOffsetDistance(widdershinsBisector, this)
                 const clockwiseSourceOffset = sourceOffsetDistance(clockwiseBisector, this)
-                const cwRay = makeRay(vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset), negateVector(edgeBasis));
-                const wsRay = makeRay(vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset), edgeBasis);
-                return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])
-                    && splitIntersectionOptions.includes(intersectRays(bisectorRay, wsRay)[2]);
+                const cwVertex = vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset);
+                const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset);
+                const cwRay = makeRay(cwVertex, negateVector(edgeBasis));
+                const wsRay = makeRay(wsVertex, edgeBasis);
+                const cwTest = intersectRays(bisectorRay, cwRay);
+                const wsTest = intersectRays(bisectorRay, wsRay);
+                const valid =  splitIntersectionOptions.includes(cwTest[2])
+                    && splitIntersectionOptions.includes(wsTest[2]);
+
+                if (!valid) {
+                    splitLog.debug("Rejecting edge split.", cwVertex, cwTest,clockwiseEdge, wsVertex, wsTest, widdershinsEdge)
+                }
+                return valid;
 
             })
 
