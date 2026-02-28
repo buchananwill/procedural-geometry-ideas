@@ -41,7 +41,7 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         .filter(list => list.length > 0);
 }
 
-export function handleInteriorEdges(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
+export function handleInteriorNGon(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
     }

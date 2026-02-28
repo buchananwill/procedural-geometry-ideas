@@ -16,7 +16,7 @@ import {
 import {bestNonPhantomCollision, collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {handleInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
+import {handleInteriorNGon} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
@@ -164,7 +164,7 @@ export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext,
     }
 
     if (input.interiorEdges.length > 3) {
-        result.childSteps.push(...handleInteriorEdges(context, input).childSteps)
+        result.childSteps.push(...handleInteriorNGon(context, input).childSteps)
     }
 
     return result;

@@ -6,7 +6,7 @@ setSkeletonLogLevel('debug');
 import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
 import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
 import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '@/algorithms/straight-skeleton/collision-helpers';
-import {createCollisions, handleInteriorEdges} from '@/algorithms/straight-skeleton/algorithm-complex-cases';
+import {createCollisions, handleInteriorNGon} from '@/algorithms/straight-skeleton/algorithm-complex-cases';
 import handleCollisionEvent from '@/algorithms/straight-skeleton/collision-handling';
 import {addVectors, scaleVector, crossProduct, areEqual} from '@/algorithms/straight-skeleton/core-functions';
 import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
