@@ -92,6 +92,14 @@ import {
 } from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
 import {LONG_SIDE_ACUTE_VERTEX} from "@/algorithms/straight-skeleton/test-cases/long-single-side-highly-acute-vertex";
 
+// collision-e38-and-e30-gets-dropped-incorrectly.ts
+export {
+    INCORRECT_ORDERING_E38_E30_COLLISION
+} from '@/algorithms/straight-skeleton/test-cases/collision-e38-and-e30-gets-dropped-incorrectly';
+import {
+    INCORRECT_ORDERING_E38_E30_COLLISION
+} from '@/algorithms/straight-skeleton/test-cases/collision-e38-and-e30-gets-dropped-incorrectly';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];
@@ -149,5 +157,6 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Not Solvable Heptagon', vertices: NOT_SOLVABLE},
     {name: 'Wrong Collision at Node 10', vertices: WRONG_COLLISION_AT_NODE_10},
     {name: 'Premature Split Octagon', vertices: PREMATURE_SPLIT_OCTAGON},
-    {name: 'Long Unbroken Side Then Extreme Acute Angle', vertices: LONG_SIDE_ACUTE_VERTEX}
+    {name: 'Long Unbroken Side Then Extreme Acute Angle', vertices: LONG_SIDE_ACUTE_VERTEX},
+    {name: 'Incorrect Ordering e38-e30 Collision', vertices: INCORRECT_ORDERING_E38_E30_COLLISION},
 ];
