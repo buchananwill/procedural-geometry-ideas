@@ -189,7 +189,7 @@ export function generateSplitEventViaBisector(
     direction: SkeletonDirection,
     context: StraightSkeletonSolverContext,
 ): CollisionEvent | null {
-    if (context.edgeRank(instigatorId) === 'exterior' || context.edgeRank(targetId) === 'exterior') {
+    if (context.edgeRank(instigatorId) !== 'primary' || context.edgeRank(targetId) === 'exterior') {
         return null;
     }
 
@@ -244,6 +244,13 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         clockwise: instigatorClockwiseParent,
         widdershins: instigatorWiddershinsParent
     } = context.parentEdges(instigatorData.id);
+
+    // Second edges are implicitly always non-reflex, because they form collapse events or half a split event
+    const edgeRank = context.edgeRank(instigatorId)
+    if (edgeRank === 'secondary'){
+        return null;
+    }
+
     const clockwiseSpan = context.clockwiseSpanIncludingAccepted(instigatorClockwiseParent, edgeToSplit);
     const widdershinsSpan = context.clockwiseSpanIncludingAccepted(edgeToSplit, instigatorWiddershinsParent);
 

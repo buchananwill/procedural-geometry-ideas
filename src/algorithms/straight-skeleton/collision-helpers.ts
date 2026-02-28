@@ -23,6 +23,7 @@ import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
 } from "@/algorithms/straight-skeleton/generate-split-event";
+
 /**
  * Pick the best (lowest offset) non-phantom/non-outOfBounds collision.
  * Falls back to the lowest-offset collision of any type if none qualify.
@@ -30,8 +31,8 @@ import {
 export function bestNonPhantomCollision(events: CollisionEvent[]): CollisionEvent | undefined {
     const byOffset = (a: CollisionEvent, b: CollisionEvent) => a.offsetDistance - b.offsetDistance;
     return events
-        .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
-        .sort(byOffset)[0]
+            .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
+            .sort(byOffset)[0]
         ?? events.sort(byOffset)[0];
 }
 
@@ -109,17 +110,19 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     // If the edgeA is a reflex edge, we're looking to generate a split event.
     const events: CollisionEvent[] = [];
-    const isReflexA = context.isReflexEdge(edgeA)
-    if (isReflexA) {
+    const canGenerateSplits = context.isReflexEdge(edgeA)
+        && context.edgeRank(edgeA.id) === 'primary';
+    // && context.edgeRank(edgeB.id) === 'primary';
+    if (canGenerateSplits) {
         const reflexEdge = edgeA;
         const otherEdge = edgeB;
         const widdershinsEvent = generateSplitEventViaBisector(reflexEdge.id, otherEdge.id, SkeletonDirection.Widdershins, context);
         const clockwiseEvent = generateSplitEventViaBisector(reflexEdge.id, otherEdge.id, SkeletonDirection.Clockwise, context);
-        if (widdershinsEvent){
+        if (widdershinsEvent) {
             events.push(widdershinsEvent)
         }
 
-        if (clockwiseEvent){
+        if (clockwiseEvent) {
             events.push(clockwiseEvent);
         }
 
@@ -174,6 +177,8 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
  * Cache-aware wrapper around collideEdges.
  * Checks the context's collisionCache first; on miss, computes via
  * collideEdges and stores the result (using NO_COLLISION_SENTINEL for null).
+ * IMPORTANT: Reflex bisectors cannot cache their results, because they need to re-evaluate for split validity if the
+ * rate of shrinkage of an edge changes (after a collapse event)
  */
 export function findOrComputeCollision(
     edgeIdA: number,
@@ -209,8 +214,8 @@ export function findOrComputeCollision(
 }
 
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {
-    const { clockwise: e1CwParent, widdershins: e1WsParent } = context.parentEdges(edge1);
-    const { clockwise: e2CwParent, widdershins: e2WsParent } = context.parentEdges(edge2);
+    const {clockwise: e1CwParent, widdershins: e1WsParent} = context.parentEdges(edge1);
+    const {clockwise: e2CwParent, widdershins: e2WsParent} = context.parentEdges(edge2);
 
     return [
         e1CwParent.id === e2WsParent.id,

@@ -43,6 +43,7 @@ export interface DebugDisplayOptions {
     showSweepEventDetails: boolean;
     showUnresolvedEdges: boolean;
     showEdgeDirections: boolean;
+    showParentEdges: boolean;
 }
 
 export interface CollisionSweepLine {
@@ -105,6 +106,7 @@ export default function Home() {
         showSweepEventDetails: false,
         showUnresolvedEdges: false,
         showEdgeDirections: false,
+        showParentEdges: false,
     });
 
     // Node selection
@@ -647,6 +649,12 @@ export default function Home() {
                                     label="Edge directions"
                                     checked={debug.showEdgeDirections}
                                     onChange={() => toggleDebug("showEdgeDirections")}
+                                />
+                                <Switch
+                                    size="xs"
+                                    label="Parent edges"
+                                    checked={debug.showParentEdges}
+                                    onChange={() => toggleDebug("showParentEdges")}
                                 />
 
                                 <Switch

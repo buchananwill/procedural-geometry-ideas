@@ -24,7 +24,7 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
     return interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
         const edgeData = context.getInteriorWithId(e1)
-        const checkExteriorCollisions = context.isReflexEdge(edgeData);
+        const checkExteriorCollisions = context.isReflexEdge(edgeData) && context.edgeRank(edgeData.id) === 'primary'
         list.push(...interiorEdges.flatMap(e2 => findOrComputeCollision(e1, e2, context)));
 
         if (checkExteriorCollisions) {

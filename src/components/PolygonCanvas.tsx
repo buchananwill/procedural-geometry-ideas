@@ -381,6 +381,26 @@ export default function PolygonCanvas({
     });
   }, [skeleton, debug.showInteriorEdgeLengths, debug.showEdgeIndices]);
 
+  // Parent edge labels for all interior edges (resolved + unresolved)
+  const parentEdgeLabels = useMemo(() => {
+    if (!skeleton || !debug.showParentEdges) return [];
+    return skeleton.interiorEdges.map(({ id, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex }) => {
+      const edge = skeleton.edges[id];
+      const src = skeleton.nodes[edge.source].position;
+      let mid: { x: number; y: number };
+      if (edge.target !== undefined) {
+        const tgt = skeleton.nodes[edge.target].position;
+        mid = midpoint(src.x, src.y, tgt.x, tgt.y);
+      } else {
+        mid = {
+          x: src.x + edge.basisVector.x * UNRESOLVED_RAY_LENGTH * 0.5,
+          y: src.y + edge.basisVector.y * UNRESOLVED_RAY_LENGTH * 0.5,
+        };
+      }
+      return { mid, id, cw: clockwiseExteriorEdgeIndex, wid: widdershinsExteriorEdgeIndex };
+    });
+  }, [skeleton, debug.showParentEdges]);
+
   // Skeleton nodes for rendering
   const skeletonNodeData = useMemo(() => {
     if (!skeleton || (!debug.showSkeletonNodes && !debug.showNodeIndices && !debug.showOffsetDistances)) return [];
@@ -594,6 +614,21 @@ export default function PolygonCanvas({
             fontSize={11 * invScale}
             fill="#ffa94d"
             fontStyle="bold"
+            listening={false}
+          />
+        ))}
+
+        {/* --- Debug: Parent edges of interior edges --- */}
+        {parentEdgeLabels.map(({ mid, id, cw, wid }) => (
+          <Text
+            key={`parent-${id}`}
+            x={mid.x}
+            y={mid.y}
+            offsetX={-4 * invScale}
+            offsetY={-14 * invScale}
+            text={`[${cw},${wid}]`}
+            fontSize={11 * invScale}
+            fill="#e599f7"
             listening={false}
           />
         ))}
