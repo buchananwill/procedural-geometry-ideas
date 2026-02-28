@@ -4,13 +4,25 @@ import {useState, useMemo, useEffect, useCallback} from "react";
 import dynamic from "next/dynamic";
 import {AppShell, Group, Title, Button, UnstyledButton, Text, Stack, Paper, Switch, Select, Collapse, ScrollArea, Modal, Slider, ActionIcon} from "@mantine/core";
 import {usePolygonStore} from "@/stores/usePolygonStore";
-import type {StraightSkeletonGraph, StraightSkeletonSolverContext, CollisionType, IntersectionType} from "@/algorithms/straight-skeleton/types";
+import type {
+    StraightSkeletonGraph,
+    StraightSkeletonSolverContext,
+    CollisionType,
+    IntersectionType,
+    Vector2,
+    PrimaryInteriorEdge
+} from "@/algorithms/straight-skeleton/types";
 import {runAlgorithmV5, runAlgorithmV5Stepped} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import type {SteppedAlgorithmResult} from "@/algorithms/straight-skeleton/algorithm-termination-cases";
 import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
 import {initInteriorEdges} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {ALL_TEST_POLYGONS} from "@/algorithms/straight-skeleton/test-cases";
-import {generateCollisionSweep, computeNodeOffsetDistances} from "@/algorithms/straight-skeleton/debug-helpers";
+import {
+    generateCollisionSweep,
+    computeNodeOffsetDistances,
+    computePrimaryInteriorEdges,
+    computePrimaryEdgeIntersections
+} from "@/algorithms/straight-skeleton/debug-helpers";
 
 const PolygonCanvas = dynamic(() => import("@/components/PolygonCanvas"), {
     ssr: false,
@@ -24,6 +36,7 @@ export interface DebugDisplayOptions {
     showInteriorEdgeLengths: boolean;
     showSelectedNodeEdgeLengths: boolean;
     showSkeletonNodes: boolean;
+    showPrimaryIntersectionNodes: boolean;
     showNodeIndices: boolean;
     showEdgeIndices: boolean;
     showOffsetDistances: boolean;
@@ -57,6 +70,7 @@ export default function Home() {
     const setVertices = usePolygonStore((s) => s.setVertices);
 
     const [showSkeleton, setShowSkeleton] = useState(false);
+    const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
     const [copied, setCopied] = useState(false);
     const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
 
@@ -84,6 +98,7 @@ export default function Home() {
         showInteriorEdgeLengths: false,
         showSelectedNodeEdgeLengths: false,
         showSkeletonNodes: false,
+        showPrimaryIntersectionNodes: false,
         showNodeIndices: false,
         showEdgeIndices: false,
         showOffsetDistances: false,
@@ -163,6 +178,16 @@ export default function Home() {
         if (!showSkeleton) return null;
         return solverContext?.graph ?? null;
     }, [showSkeleton, animationMode, steppedResult, currentStep, solverContext]);
+
+    const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
+        if (!showPrimaryEdges) return [];
+        return computePrimaryInteriorEdges(vertices);
+    }, [showPrimaryEdges, vertices]);
+
+    const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
+        if (!debug.showPrimaryIntersectionNodes || primaryEdges.length === 0) return [];
+        return computePrimaryEdgeIntersections(primaryEdges);
+    }, [debug.showPrimaryIntersectionNodes, primaryEdges]);
 
     const nodeOffsetDistances = useMemo<Map<number, number> | null>(() => {
         if (!solverContext || !debug.showOffsetDistances) return null;
@@ -304,6 +329,8 @@ export default function Home() {
 
                     <PolygonCanvas
                         skeleton={skeleton}
+                        primaryEdges={primaryEdges}
+                        primaryEdgeIntersections={primaryEdgeIntersections}
                         stageScale={stageScale}
                         stagePosition={stagePosition}
                         onScaleChange={setStageScale}
@@ -420,6 +447,14 @@ export default function Home() {
                                             onClick={() => setShowSkeleton((s) => !s)}
                                         >
                                             {showSkeleton ? "Hide Skeleton" : "Show Skeleton"}
+                                        </Button>
+                                        <Button
+                                            color="grape"
+                                            variant={showPrimaryEdges ? "filled" : "light"}
+                                            fullWidth
+                                            onClick={() => setShowPrimaryEdges((s) => !s)}
+                                        >
+                                            {showPrimaryEdges ? "Hide" : "Show"} Primary Interior Edges
                                         </Button>
                                         {(
                                             <Stack gap="xs" mt="xs">

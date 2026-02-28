@@ -107,7 +107,8 @@ function findOffsetViaIncenter(
 
 /**
  * Find the split offset by direct bisector–edge intersection.
- * Solves the equation: offset = distanceAlongBisector * cross(bisector, parent),
+ * Solves the equation:
+ * offset = distanceAlongBisector * cross(bisector, parent)
  * where distanceAlongBisector partitions the total bisector length by the ratio
  * of the perpendicular projections to parent and struck edge.
  */

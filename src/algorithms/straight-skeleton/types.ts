@@ -17,6 +17,13 @@ export interface PolygonEdge {
     basisVector: Vector2;
 }
 
+export interface PrimaryInteriorEdge {
+    source: Vector2;
+    target: Vector2;
+    vertexIndex: number;
+}
+
+
 export type EdgeRank = 'exterior' | 'primary' | 'secondary';
 
 export enum SkeletonDirection {
