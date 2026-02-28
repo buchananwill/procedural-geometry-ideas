@@ -5,7 +5,7 @@ import {
 } from "@/algorithms/straight-skeleton/types";
 import {findOrComputeCollision} from "@/algorithms/straight-skeleton/collision-helpers";
 
-import {areEqual} from "@/algorithms/straight-skeleton/core-functions";
+import {areEqual, fp_compare} from "@/algorithms/straight-skeleton/core-functions";
 import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
 import {
     bisectWithParams,
@@ -57,59 +57,26 @@ export function handleInteriorEdges(context: StraightSkeletonSolverContext, inpu
     // Generate all currently valid collision events
     const collisionLists: CollisionEvent[][] = createCollisions(input.interiorEdges, exteriorParents, context)
 
-    const collisionEventSlices: CollisionEvent[][] = [];
-
+    const collisionsToHandle: CollisionEvent[] = [];
     let bestOffset = Number.POSITIVE_INFINITY;
-    let slicesRemaining = true;
-    while (slicesRemaining) {
-        slicesRemaining = false;
-        let sliceInputs: [number, number][] = [];
-        const nextSlice: CollisionEvent[] = [];
-
-
-        for (let i = 0; i < collisionLists.length; i++) {
-            const collisionList = collisionLists[i];
-            if (collisionList.length === 0) {
-                continue;
-            }
-
-            slicesRemaining = true;
-            if (collisionList[0].offsetDistance < bestOffset) {
-                bestOffset = collisionList[0].offsetDistance;
-                sliceInputs = []
-            }
-
-            let slicePointer = 0;
-
-            while (slicePointer < collisionList.length && areEqual(collisionList[slicePointer].offsetDistance, bestOffset)) {
-                slicePointer++;
-            }
-
-            sliceInputs.push([i, slicePointer])
-        }
-
-        sliceInputs.forEach(([list, count]) => {
-            const collisionList = collisionLists[list];
-            nextSlice.push(...collisionList.slice(0, count))
-            collisionLists[list] = collisionList.slice(count)
+    const flattenedCollisions = collisionLists.flat()
+        .toSorted((e1, e2) => {
+            return e1.offsetDistance -e2.offsetDistance
         })
 
-        collisionEventSlices.push(nextSlice);
-        bestOffset = Number.POSITIVE_INFINITY;
-    }
-
-    let collisionsToHandle: CollisionEvent[] | null = null;
-
-    for (const collisionEventSlice of collisionEventSlices) {
-        const validEvents = collisionEventSlice.filter(e => e.eventType !== 'phantomDivergentOffset')
-        if (validEvents.length > 0) {
-            collisionsToHandle = validEvents;
+    for (const flattenedCollision of flattenedCollisions) {
+        if (fp_compare(flattenedCollision.offsetDistance, bestOffset) <= 0){
+            collisionsToHandle.push(flattenedCollision)
+        }
+        else
+        {
             break;
         }
+        bestOffset = Math.min(bestOffset, flattenedCollision.offsetDistance)
+
     }
 
-
-    if (collisionsToHandle === null || collisionLists.length === 0) {
+    if (collisionLists.length === 0) {
         throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
     }
 
