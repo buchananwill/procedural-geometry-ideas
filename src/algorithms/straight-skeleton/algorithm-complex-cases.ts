@@ -34,7 +34,6 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         return list.filter((event): event is CollisionEvent => {
             return !!event && CollisionTypePriority[event.eventType] < 3;
         })
-            .toSorted(sameInstigatorComparator)
     })
         .filter(list => list.length > 0);
 }
@@ -59,10 +58,11 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     let bestOffset = Number.POSITIVE_INFINITY;
     const flattenedCollisions = collisionLists.flat()
         .toSorted((e1, e2) => {
-            return e1.offsetDistance -e2.offsetDistance
+            return e1.offsetDistance - e2.offsetDistance
         })
 
     for (const flattenedCollision of flattenedCollisions) {
+        bestOffset = Math.min(bestOffset, flattenedCollision.offsetDistance)
         if (fp_compare(flattenedCollision.offsetDistance, bestOffset) <= 0){
             collisionsToHandle.push(flattenedCollision)
         }
@@ -70,7 +70,6 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         {
             break;
         }
-        bestOffset = Math.min(bestOffset, flattenedCollision.offsetDistance)
 
     }
 

@@ -38,19 +38,19 @@ function findOffsetViaIncenter(
 
     const usingClockwiseParent = Math.abs(clockwiseDot) < Math.abs(widdershinsDot);
 
-    let ray1ForTempNode: RayProjection;
+    let bisectorParentRayForTempNode: RayProjection;
     if (usingClockwiseParent) {
-        ray1ForTempNode = context.projectRayReversed(instigatorClockwiseParent);
+        bisectorParentRayForTempNode = context.projectRayReversed(instigatorClockwiseParent);
     } else {
-        ray1ForTempNode = context.projectRay(instigatorWiddershinsParent);
+        bisectorParentRayForTempNode = context.projectRay(instigatorWiddershinsParent);
     }
 
     // prepare rays from each end, looking towards the edge's centre
     const edgeToSplitRayCw = context.projectRay(edgeToSplit);
     const edgeToSplitRayWs: RayProjection = makeRay(context.graph.nodes[edgeToSplit.target!].position, negateVector(edgeToSplit.basisVector))
 
-    const collisionCw = intersectRays(ray1ForTempNode, edgeToSplitRayCw);
-    const collisionWs = intersectRays(ray1ForTempNode, edgeToSplitRayWs);
+    const collisionCw = intersectRays(bisectorParentRayForTempNode, edgeToSplitRayCw);
+    const collisionWs = intersectRays(bisectorParentRayForTempNode, edgeToSplitRayWs);
 
     // intersect both in case ray is narrowly passing outside either end of the edge
     const bestResult = (): [IntersectionResult, boolean] => {
@@ -62,10 +62,10 @@ function findOffsetViaIncenter(
             return [collisionWs, false];
         }
 
-        const [cwRay1] = collisionCw;
-        const [wsRay1] = collisionWs;
+        const [cwRay1, cwRay2] = collisionCw;
+        const [wsRay1, wsRay2] = collisionWs;
 
-        const usingCw = cwRay1 < wsRay1;
+        const usingCw = Math.abs(cwRay1 - cwRay2) < Math.abs(wsRay1 - wsRay2);
         return usingCw ? [collisionCw, usingCw] : [collisionWs, usingCw];
     };
 
@@ -76,7 +76,7 @@ function findOffsetViaIncenter(
     if (intersectionResult !== 'converging') {
         return null;
     }
-    const tempNodePosition = findPositionAlongRay(ray1ForTempNode, ray1Length);
+    const tempNodePosition = findPositionAlongRay(bisectorParentRayForTempNode, ray1Length);
 
     const rayUsed = usingCwIntersection ? edgeToSplitRayCw : edgeToSplitRayWs;
 
@@ -87,7 +87,7 @@ function findOffsetViaIncenter(
     const tempBasisPart2 = dotProduct(rayUsed.basisVector, incenterRay1.basisVector) < 0
         ? negateVector(rayUsed.basisVector)
         : rayUsed.basisVector;
-    const tempBasis = makeBisectedBasis(negateVector(ray1ForTempNode.basisVector), tempBasisPart2);
+    const tempBasis = makeBisectedBasis(negateVector(bisectorParentRayForTempNode.basisVector), tempBasisPart2);
 
     // Now form the ray
     const incenterRay2: RayProjection = makeRay(tempNodePosition, tempBasis);
@@ -125,19 +125,15 @@ function findOffsetByDirectStrike(
     const [rayLength1] = initialIntersection;
     const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
     const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector);
-    const instigatorTargetCross = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
-    const divisor = crossClockwiseParent + instigatorTargetCross;
+    const negativeInstigatorCrossTarget = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
+    const crossSumDivisor = crossClockwiseParent + negativeInstigatorCrossTarget;
 
-    if (areEqual(divisor, 0)) {
+    if (areEqual(crossSumDivisor, 0)) {
         return null;
     }
 
-    const distanceToSplitAlongInstigator = rayLength1 * instigatorTargetCross / divisor;
+    const distanceToSplitAlongInstigator = rayLength1 * negativeInstigatorCrossTarget / crossSumDivisor;
     const offsetDistance = distanceToSplitAlongInstigator * crossClockwiseParent;
-
-    if (offsetDistance <= 0) {
-        return null;
-    }
 
     const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
 
@@ -208,11 +204,19 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const instigatorData = context.getInteriorWithId(instigatorId);
 
     const edgeSplitRay = context.projectRay(edgeToSplit);
+    const backwardsEdgeSplitRay = context.projectRayReversed(edgeToSplit);
     const instigatorRay = context.projectRayInterior(instigatorData);
 
     const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay);
-    if (initialIntersectionTest[2] !== 'converging') {
+    const initialIntersectionTest2 = intersectRays(instigatorRay, backwardsEdgeSplitRay);
+    if (initialIntersectionTest[2] !== 'converging' && initialIntersectionTest2[2] !== 'converging') {
         // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
+        return null;
+    }
+
+    // Cannot split from behind
+    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
+    if (isBehindEdge) {
         return null;
     }
 
@@ -220,7 +224,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
         if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
-            complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
+            complexLog.warn('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
             return {
                 intersectionData: directResult.intersectionData,
@@ -234,11 +238,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     // --- Path 2: Incenter fallback ---
 
-    // Guards — only needed before incenter path
-    const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
-    if (isBehindEdge) {
-        return null;
-    }
+
 
     const {
         clockwise: instigatorClockwiseParent,
