@@ -245,14 +245,6 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    // Extra one-sided widdershins check — different from the unified validation;
-    // verifies the instigator approaches from the correct side.
-    const validationRay: RayProjection = makeRay(context.widdershinsVertexAtOffset(targetId, incenterResult.offsetDistance), edgeToSplit.basisVector);
-    const widdershinsValidation = intersectRays(validationRay, instigatorRay);
-    if (widdershinsValidation[2] !== 'converging') {
-        return null;
-    }
-
     return {
         position: incenterResult.position,
         intersectionData: incenterResult.intersectionData,
