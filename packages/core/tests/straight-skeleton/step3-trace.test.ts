@@ -1,16 +1,16 @@
-import {initContext} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {CRAZY_POLYGON} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+import {initContext} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {CRAZY_POLYGON} from '@proc-geo/test-fixtures';
 
 setSkeletonLogLevel('debug');
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '@/algorithms/straight-skeleton/collision-helpers';
-import {createCollisions, handleInteriorNGon} from '@/algorithms/straight-skeleton/algorithm-complex-cases';
-import handleCollisionEvent from '@/algorithms/straight-skeleton/collision-handling';
-import {addVectors, scaleVector, crossProduct, areEqual} from '@/algorithms/straight-skeleton/core-functions';
-import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
-import type {AlgorithmStepInput, CollisionEvent} from '@/algorithms/straight-skeleton/types';
+import {stepAlgorithm} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
+import {collideEdges, collideInteriorEdges, checkSharedParents, makeOffsetDistance, sourceOffsetDistance} from '@proc-geo/core';
+import {createCollisions, handleInteriorNGon} from '@proc-geo/core';
+import {handleCollisionEvent} from '@proc-geo/core';
+import {addVectors, scaleVector, crossProduct, areEqual} from '@proc-geo/core';
+import {intersectRays} from '@proc-geo/core';
+import type {AlgorithmStepInput, CollisionEvent} from '@proc-geo/core';
 
 const fmt = (v: {x:number,y:number}) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 

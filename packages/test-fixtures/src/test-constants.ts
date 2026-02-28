@@ -1,5 +1,4 @@
-import type {StraightSkeletonSolverContext, Vector2} from '@/algorithms/straight-skeleton/types';
-import * as var_module_global_error from "VAR_MODULE_GLOBAL_ERROR";
+import type {StraightSkeletonSolverContext, Vector2} from '@proc-geo/core';
 
 // ---------------------------------------------------------------------------
 // Test polygon constants — NODES MUST BE ORDERED CLOCKWISE

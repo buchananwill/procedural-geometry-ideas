@@ -1,15 +1,15 @@
 import {
     collisionDistanceFromBasisUnits,
     sourceOffsetDistance,
-} from '@/algorithms/straight-skeleton/collision-helpers';
+} from '@proc-geo/core';
 import {
     createBisectionInteriorEdge,
-} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
-import {crossProduct, subtractVectors, normalize} from '@/algorithms/straight-skeleton/core-functions';
+} from '@proc-geo/core';
+import {makeStraightSkeletonSolverContext} from '@proc-geo/core';
+import {crossProduct, subtractVectors, normalize} from '@proc-geo/core';
 import {
     SYMMETRICAL_OCTAGON,
-} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+} from '@proc-geo/test-fixtures';
 
 
 // ---------------------------------------------------------------------------

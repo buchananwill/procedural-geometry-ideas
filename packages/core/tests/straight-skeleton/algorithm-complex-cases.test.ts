@@ -1,10 +1,10 @@
-import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {interiorNodes} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
+import {runAlgorithmV5} from '@proc-geo/core';
+import {interiorNodes} from '@proc-geo/test-fixtures';
 import {
     SQUARE,
     RECTANGLE,
     PENTAGON_HOUSE,
-} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+} from '@proc-geo/test-fixtures';
 
 // ---------------------------------------------------------------------------
 // Shape-specific assertions beyond what regression.test.ts covers.

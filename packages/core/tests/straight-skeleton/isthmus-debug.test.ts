@@ -1,18 +1,18 @@
-import {initContext, stepWithCapture} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {initContext, stepWithCapture} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 
 setSkeletonLogLevel('debug');
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {collideEdges, collideInteriorEdges} from '@/algorithms/straight-skeleton/collision-helpers';
-import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
+import {stepAlgorithm} from '@proc-geo/core';
+import {collideEdges, collideInteriorEdges} from '@proc-geo/core';
+import {intersectRays} from '@proc-geo/core';
 import {
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_7,
-} from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
-import type {AlgorithmStepInput, CollisionEvent, Vector2} from '@/algorithms/straight-skeleton/types';
-import {crossProduct, dotProduct, makeBisectedBasis, scaleVector, addVectors, subtractVectors, normalize} from '@/algorithms/straight-skeleton/core-functions';
+} from '@proc-geo/test-fixtures';
+import type {AlgorithmStepInput, CollisionEvent, Vector2} from '@proc-geo/core';
+import {crossProduct, dotProduct, makeBisectedBasis, scaleVector, addVectors, subtractVectors, normalize} from '@proc-geo/core';
 
 // ---------------------------------------------------------------------------
 // Tests

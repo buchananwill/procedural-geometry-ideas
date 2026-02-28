@@ -4,11 +4,14 @@ import type {
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2,
-} from '@/algorithms/straight-skeleton/types';
-import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
+} from '@proc-geo/core';
+import {
+    makeStraightSkeletonSolverContext,
+    initInteriorEdges,
+    tryToAcceptExteriorEdge,
+    stepAlgorithm,
+    collideEdges,
+} from '@proc-geo/core';
 
 // ---------------------------------------------------------------------------
 // Graph query helpers

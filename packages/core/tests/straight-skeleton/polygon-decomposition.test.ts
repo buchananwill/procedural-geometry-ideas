@@ -1,12 +1,12 @@
-import {Vector2} from '@/algorithms/straight-skeleton/types';
+import {Vector2} from '@proc-geo/core';
 import {
     findFirstCrossing,
     splitAtCrossing,
     decomposePolygon,
     ensureClockwise,
     CrossingPoint,
-} from '@/algorithms/straight-skeleton/polygon-decomposition';
-import {signedArea, isClockwise} from '@/algorithms/random-polygon/geometry-helpers';
+} from '@proc-geo/core';
+import {signedArea, isClockwise} from '@proc-geo/core';
 
 // Helpers
 const V = (x: number, y: number): Vector2 => ({x, y});

@@ -1,15 +1,15 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
-import {INCORRECT_ORDERING_E38_E30_COLLISION} from '@/algorithms/straight-skeleton/test-cases/collision-e38-and-e30-gets-dropped-incorrectly';
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import {crossProduct, areEqual, findPositionAlongRay, makeBisectedBasis, negateVector, dotProduct, projectToPerpendicular, normalize, subtractVectors} from '@/algorithms/straight-skeleton/core-functions';
-import {generateSplitEventFromTheEdgeItself, generateSplitEvent} from '@/algorithms/straight-skeleton/generate-split-event';
-import {createCollisions} from '@/algorithms/straight-skeleton/algorithm-complex-cases';
-import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
-import {makeOffsetDistance, sourceOffsetDistance, collisionDistanceFromBasisUnits} from '@/algorithms/straight-skeleton/collision-helpers';
-import type {AlgorithmStepInput, CollisionEvent, Vector2, RayProjection} from '@/algorithms/straight-skeleton/types';
+import {initContext, stepWithCapture, collectCollisionEvents} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {collideEdges} from '@proc-geo/core';
+import {INCORRECT_ORDERING_E38_E30_COLLISION} from '@proc-geo/test-fixtures';
+import {stepAlgorithm} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
+import {crossProduct, areEqual, findPositionAlongRay, makeBisectedBasis, negateVector, dotProduct, projectToPerpendicular, normalize, subtractVectors} from '@proc-geo/core';
+import {generateSplitEventFromTheEdgeItself, generateSplitEvent} from '@proc-geo/core';
+import {createCollisions} from '@proc-geo/core';
+import {intersectRays} from '@proc-geo/core';
+import {makeOffsetDistance, sourceOffsetDistance, collisionDistanceFromBasisUnits} from '@proc-geo/core';
+import type {AlgorithmStepInput, CollisionEvent, Vector2, RayProjection} from '@proc-geo/core';
 
 setSkeletonLogLevel('error');
 
@@ -384,7 +384,7 @@ describe('e38-e30 Collision Debug', () => {
                 const instigatorRay = context.projectRayInterior(ie);
                 const edgeSplitRay = context.projectRay(e30Edge);
                 const backwardsRay = context.projectRayReversed(e30Edge);
-                const {intersectRays} = require('@/algorithms/straight-skeleton/intersection-edges');
+                const {intersectRays} = require('@proc-geo/core');
                 const fwdTest = intersectRays(instigatorRay, edgeSplitRay);
                 const bwdTest = intersectRays(instigatorRay, backwardsRay);
                 console.log(`  Ray test fwd: [${fwdTest[0].toFixed(4)}, ${fwdTest[1].toFixed(4)}, ${fwdTest[2]}]`);
@@ -659,7 +659,7 @@ describe('e38-e30 Collision Debug', () => {
     // Test 8: Deep probe into validateSplitReachesEdge
     // -----------------------------------------------------------------------
     it('8. deep probe — replicate validateSplitReachesEdge at critical step', () => {
-        const {complexLog} = require('@/algorithms/straight-skeleton/logger');
+        const {complexLog} = require('@proc-geo/core');
 
         const context = initContext(POLYGON);
         const exteriorEdges = context.graph.edges.slice(0, context.graph.numExteriorNodes);
@@ -736,7 +736,7 @@ describe('e38-e30 Collision Debug', () => {
             console.log(`  wsOffsetForProjection: ${wsOffsetForProjection.toFixed(6)}`);
 
             // Compute the vertex positions at offset
-            const {addVectors, scaleVector, projectFromPerpendicular} = require('@/algorithms/straight-skeleton/core-functions');
+            const {addVectors, scaleVector, projectFromPerpendicular} = require('@proc-geo/core');
             const cwSrcPos = context.graph.nodes[cwEdge.source].position;
             const wsSrcPos = context.graph.nodes[wsEdge.source].position;
 

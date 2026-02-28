@@ -1,104 +1,126 @@
-import {Vector2} from "@/algorithms/straight-skeleton/types";
+import {Vector2} from "@proc-geo/core";
+
+// test-helpers.ts
+export {
+    interiorNodes, boundingBox, initContext,
+    stepWithCapture, collectCollisionEvents,
+} from './test-helpers';
+export type { StepSnapshot, LabelledCollisionEvent } from './test-helpers';
 
 // test-constants.ts
 export {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
-    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON
-} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON,
+    getAcceptedExteriorEdges,
+} from './test-constants';
+export type { DiagnosticStepResult } from './test-constants';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON
-} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+} from './test-constants';
 
 // duck-octagon.ts
 export {
     DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES
-} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
+} from './duck-octagon';
 import {
     DUCK_OCTAGON_FAILS,
     DUCK_OCTAGON_PASSES,
     MOORHEN_FAILS,
     MOORHEN_PASSES
-} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
+} from './duck-octagon';
 
 // double-reflex-spaceship.ts
 export {
     FAILURE_CASE_DOUBLE_SPACESHIP_V2,
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP
-} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+} from './double-reflex-spaceship';
 import {
     FAILURE_CASE_DOUBLE_SPACESHIP_V2,
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP
-} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+} from './double-reflex-spaceship';
 
 // isthmus-failure.ts
 export {
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_7,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
-} from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
+} from './isthmus-failure';
 import {
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_7,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
-} from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
+} from './isthmus-failure';
 
 // long-octagon.ts
 export {
     LONG_OCTAGON, FAILING_LONG_OCTAGON, FAILING_GENTLE_REFLEX_PENTAGON
-} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
+} from './long-octagon';
 import {
     LONG_OCTAGON,
     FAILING_LONG_OCTAGON,
     FAILING_GENTLE_REFLEX_PENTAGON
-} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
+} from './long-octagon';
 
 // mid-case-failure.ts
 export {
     SUCCESS_OUTER, FAILURE_START_CASE, FAILURE_END_CASE, SUCCESS_INNER
-} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
+} from './mid-case-failure';
 import {
     SUCCESS_OUTER,
     FAILURE_START_CASE,
     FAILURE_END_CASE,
     SUCCESS_INNER
-} from '@/algorithms/straight-skeleton/test-cases/mid-case-failure';
+} from './mid-case-failure';
 
 // missing-edge-at-node-11.ts
-export {MissingEdgeAtNode11} from '@/algorithms/straight-skeleton/test-cases/missing-edge-at-node-11';
-import {MissingEdgeAtNode11} from '@/algorithms/straight-skeleton/test-cases/missing-edge-at-node-11';
+export {MissingEdgeAtNode11} from './missing-edge-at-node-11';
+import {MissingEdgeAtNode11} from './missing-edge-at-node-11';
 
 // more-edge-cases.ts
-export {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/more-edge-cases';
-import {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/more-edge-cases';
+export {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from './more-edge-cases';
+import {CAUSES_MISSING_SECONDARY_EDGE, WACKY_OCTAGON} from './more-edge-cases';
 
 // comparative-heptagons.ts
 export {
     NOT_SOLVABLE, WRONG_COLLISION_AT_NODE_10
-} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
+} from './comparative-heptagons';
 import {
     NOT_SOLVABLE,
     WRONG_COLLISION_AT_NODE_10
-} from '@/algorithms/straight-skeleton/test-cases/comparative-heptagons';
+} from './comparative-heptagons';
 
 // premature-split-event.ts
 export {
     INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON
-} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
+} from './premature-split-event';
 import {
     INPUT_OCTAGON as PREMATURE_SPLIT_OCTAGON
-} from '@/algorithms/straight-skeleton/test-cases/premature-split-event';
-import {LONG_SIDE_ACUTE_VERTEX} from "@/algorithms/straight-skeleton/test-cases/long-single-side-highly-acute-vertex";
+} from './premature-split-event';
+export {LONG_SIDE_ACUTE_VERTEX} from "./long-single-side-highly-acute-vertex";
+import {LONG_SIDE_ACUTE_VERTEX} from "./long-single-side-highly-acute-vertex";
 
 // collision-e38-and-e30-gets-dropped-incorrectly.ts
 export {
     INCORRECT_ORDERING_E38_E30_COLLISION
-} from '@/algorithms/straight-skeleton/test-cases/collision-e38-and-e30-gets-dropped-incorrectly';
+} from './collision-e38-and-e30-gets-dropped-incorrectly';
 import {
     INCORRECT_ORDERING_E38_E30_COLLISION
-} from '@/algorithms/straight-skeleton/test-cases/collision-e38-and-e30-gets-dropped-incorrectly';
+} from './collision-e38-and-e30-gets-dropped-incorrectly';
+
+// crab-test-case.ts
+export {CRAB_TEST_CASE, CRAB_TEST_CASE_2, CRAB_TEST_CASE_3} from './crab-test-case';
+
+// loses-when-reflex-is-first-collision.ts
+export {LOSES_WHEN_REFLEX_IS_FIRST_COLLISION, PASSES_WITH_SOFTER_REFLEX, PASSES_WHEN_REFLEX_HITS_ADJACENT_BISECTOR} from './loses-when-reflex-is-first-collision';
+
+// simple-reflex-misses-first-event.ts
+export {SIMPLE_REFLEX} from './simple-reflex-misses-first-event';
+
+// why-no-collision-e15-e18.ts
+export {WHY_NO_COLLISION} from './why-no-collision-e15-e18';
 
 export interface NamedTestPolygon {
     name: string;

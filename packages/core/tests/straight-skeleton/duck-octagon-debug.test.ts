@@ -1,13 +1,13 @@
-import {initContext, stepWithCapture} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {collideEdges, checkSharedParents} from '@/algorithms/straight-skeleton/collision-helpers';
+import {initContext, stepWithCapture} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {collideEdges, checkSharedParents} from '@proc-geo/core';
 
 setSkeletonLogLevel('debug');
-import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@/algorithms/straight-skeleton/test-cases/duck-octagon';
-import handleCollisionEvent from '@/algorithms/straight-skeleton/collision-handling';
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import type {AlgorithmStepInput, CollisionEvent} from '@/algorithms/straight-skeleton/types';
+import {DUCK_OCTAGON_FAILS, DUCK_OCTAGON_PASSES, MOORHEN_FAILS, MOORHEN_PASSES} from '@proc-geo/test-fixtures';
+import {handleCollisionEvent} from '@proc-geo/core';
+import {stepAlgorithm} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
+import type {AlgorithmStepInput, CollisionEvent} from '@proc-geo/core';
 
 // ---------------------------------------------------------------------------
 // Tests

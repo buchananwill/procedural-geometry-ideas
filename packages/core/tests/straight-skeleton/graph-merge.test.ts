@@ -4,12 +4,12 @@ import {
     PolygonEdge,
     InteriorEdge,
     Vector2,
-} from '@/algorithms/straight-skeleton/types';
+} from '@proc-geo/core';
 import {
     mergeSkeletonGraphs,
     makeMergedSolverContext,
     SubPolygonResult,
-} from '@/algorithms/straight-skeleton/graph-merge';
+} from '@proc-geo/core';
 
 const V = (x: number, y: number): Vector2 => ({x, y});
 

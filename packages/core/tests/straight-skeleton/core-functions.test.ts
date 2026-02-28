@@ -8,9 +8,9 @@ import {
     normalize,
     makeBasis,
     makeBisectedBasis,
-} from '@/algorithms/straight-skeleton/core-functions';
-import type { Vector2, StraightSkeletonGraph, PolygonEdge } from '@/algorithms/straight-skeleton/types';
-import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
+} from '@proc-geo/core';
+import type { Vector2, StraightSkeletonGraph, PolygonEdge } from '@proc-geo/core';
+import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@proc-geo/core";
 
 // ---------------------------------------------------------------------------
 // Helpers

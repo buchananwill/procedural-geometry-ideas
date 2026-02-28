@@ -4,8 +4,8 @@ import {
   isClockwise,
   findSelfIntersection,
   findClosingIntersection,
-} from "./geometry-helpers";
-import type { Vector2 } from "@/algorithms/straight-skeleton/types";
+} from "@proc-geo/core";
+import type { Vector2 } from "@proc-geo/core";
 
 describe("segmentSegmentIntersection", () => {
   it("finds intersection of crossing segments (X shape)", () => {

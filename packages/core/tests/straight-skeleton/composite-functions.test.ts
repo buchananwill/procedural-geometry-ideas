@@ -1,5 +1,5 @@
-import { intersectRays } from '@/algorithms/straight-skeleton/intersection-edges';
-import type { RayProjection } from '@/algorithms/straight-skeleton/types';
+import { intersectRays } from '@proc-geo/core';
+import type { RayProjection } from '@proc-geo/core';
 
 // ---------------------------------------------------------------------------
 // Helpers

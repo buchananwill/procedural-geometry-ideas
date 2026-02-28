@@ -1,17 +1,17 @@
 import {
     initContext,
     stepWithCapture
-} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
+} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
 import {
     collideEdges,
     makeOffsetDistance,
     sourceOffsetDistance
-} from '@/algorithms/straight-skeleton/collision-helpers';
+} from '@proc-geo/core';
 
-import {CRAZY_POLYGON} from '@/algorithms/straight-skeleton/test-cases/test-constants';
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {CRAZY_POLYGON} from '@proc-geo/test-fixtures';
+import {stepAlgorithm} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 import {
     addVectors,
     crossProduct,
@@ -21,16 +21,16 @@ import {
     scaleVector,
     projectFromPerpendicular,
     areEqual
-} from '@/algorithms/straight-skeleton/core-functions';
-import {intersectRays} from '@/algorithms/straight-skeleton/intersection-edges';
-import {generateSplitEventFromTheEdgeItself} from '@/algorithms/straight-skeleton/generate-split-event';
+} from '@proc-geo/core';
+import {intersectRays} from '@proc-geo/core';
+import {generateSplitEventFromTheEdgeItself} from '@proc-geo/core';
 import type {
     AlgorithmStepInput,
     RayProjection,
     Vector2
-} from '@/algorithms/straight-skeleton/types';
+} from '@proc-geo/core';
 
-import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {runAlgorithmV5} from '@proc-geo/core';
 
 setSkeletonLogLevel('debug');
 const fmt = (v: Vector2) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;

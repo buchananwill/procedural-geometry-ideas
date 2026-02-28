@@ -1,17 +1,17 @@
-import {initContext, stepWithCapture, collectCollisionEvents} from '@/algorithms/straight-skeleton/test-cases/test-helpers';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {collideEdges} from '@/algorithms/straight-skeleton/collision-helpers';
+import {initContext, stepWithCapture, collectCollisionEvents} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {collideEdges} from '@proc-geo/core';
 
 setSkeletonLogLevel('debug');
 import {
     PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP,
     SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP,
-} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
+} from '@proc-geo/test-fixtures';
 
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import {tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
-import {crossProduct, subtractVectors, normalize, dotProduct} from '@/algorithms/straight-skeleton/core-functions';
-import type {AlgorithmStepInput} from '@/algorithms/straight-skeleton/types';
+import {stepAlgorithm} from '@proc-geo/core';
+import {tryToAcceptExteriorEdge} from '@proc-geo/core';
+import {crossProduct, subtractVectors, normalize, dotProduct} from '@proc-geo/core';
+import type {AlgorithmStepInput} from '@proc-geo/core';
 
 const CASES = [
     {name: 'FAILURE', verts: PREVIOUSLY_FAILURE_CASE_DOUBLE_REFLEX_SPACESHIP},

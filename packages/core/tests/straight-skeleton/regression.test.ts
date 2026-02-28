@@ -1,5 +1,5 @@
-import {ALL_TEST_POLYGONS} from '@/algorithms/straight-skeleton/test-cases';
-import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {runAlgorithmV5} from '@proc-geo/core';
 
 describe('V5 algorithm regression suite', () => {
     describe.each(ALL_TEST_POLYGONS)('$name', ({name, vertices}) => {

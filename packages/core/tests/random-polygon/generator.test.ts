@@ -1,15 +1,15 @@
 import {
   initGeneratorState,
-  step,
-  generate,
+  randomPolygonStep as step,
+  generateRandomPolygon as generate,
   ensureClockwise,
   randomInRange,
   basisFromAngle,
   DEFAULT_PARAMS,
-} from "./generator";
-import { isClockwise, segmentSegmentIntersection } from "./geometry-helpers";
-import type { RandomPolygonParams } from "./types";
-import type { Vector2 } from "@/algorithms/straight-skeleton/types";
+  isClockwise,
+  segmentSegmentIntersection,
+} from "@proc-geo/core";
+import type { RandomPolygonParams, Vector2 } from "@proc-geo/core";
 
 describe("initGeneratorState", () => {
   it("creates state with one vertex and status running", () => {

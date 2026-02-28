@@ -1,6 +1,6 @@
-import {runAlgorithmV5} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
-import type {StraightSkeletonGraph, Vector2} from '@/algorithms/straight-skeleton/types';
-import {TRIANGLE} from '@/algorithms/straight-skeleton/test-cases/test-constants';
+import {runAlgorithmV5} from '@proc-geo/core';
+import type {StraightSkeletonGraph, Vector2} from '@proc-geo/core';
+import {TRIANGLE} from '@proc-geo/test-fixtures';
 
 // ---------------------------------------------------------------------------
 // Helpers

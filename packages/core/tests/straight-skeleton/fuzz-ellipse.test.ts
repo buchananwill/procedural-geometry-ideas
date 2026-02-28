@@ -1,28 +1,28 @@
-import {AlgorithmStepInput, Vector2} from '@/algorithms/straight-skeleton/types';
-import {NamedTestPolygon} from '@/algorithms/straight-skeleton/test-cases';
+import {AlgorithmStepInput, Vector2} from '@proc-geo/core';
+import {NamedTestPolygon} from '@proc-geo/test-fixtures';
 import {
     TRIANGLE, SQUARE, DEFAULT_PENTAGON,
     AWKWARD_HEXAGON, AWKWARD_HEPTAGON,
     IMPOSSIBLE_OCTAGON, CRAZY_POLYGON,
-} from '@/algorithms/straight-skeleton/test-cases/test-constants';
-import {LONG_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/long-octagon';
-import {WACKY_OCTAGON} from '@/algorithms/straight-skeleton/test-cases/more-edge-cases';
-import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '@/algorithms/straight-skeleton/test-cases/isthmus-failure';
-import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@/algorithms/straight-skeleton/test-cases/double-reflex-spaceship';
-import {setSkeletonLogLevel} from '@/algorithms/straight-skeleton/logger';
-import {stepAlgorithm} from '@/algorithms/straight-skeleton/algorithm-termination-cases';
+} from '@proc-geo/test-fixtures';
+import {LONG_OCTAGON} from '@proc-geo/test-fixtures';
+import {WACKY_OCTAGON} from '@proc-geo/test-fixtures';
+import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '@proc-geo/test-fixtures';
+import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@proc-geo/test-fixtures';
+import {setSkeletonLogLevel} from '@proc-geo/core';
+import {stepAlgorithm} from '@proc-geo/core';
 
 setSkeletonLogLevel('silent');
-import {makeStraightSkeletonSolverContext} from '@/algorithms/straight-skeleton/solver-context';
-import {initInteriorEdges, tryToAcceptExteriorEdge} from '@/algorithms/straight-skeleton/algorithm-helpers';
+import {makeStraightSkeletonSolverContext} from '@proc-geo/core';
+import {initInteriorEdges, tryToAcceptExteriorEdge} from '@proc-geo/core';
 import {
     addVectors,
     subtractVectors,
     scaleVector,
     sizeOfVector,
-} from '@/algorithms/straight-skeleton/core-functions';
-import {decomposePolygon} from '@/algorithms/straight-skeleton/polygon-decomposition';
-import {mergeSkeletonGraphs, makeMergedSolverContext} from '@/algorithms/straight-skeleton/graph-merge';
+} from '@proc-geo/core';
+import {decomposePolygon} from '@proc-geo/core';
+import {mergeSkeletonGraphs, makeMergedSolverContext} from '@proc-geo/core';
 
 const PER_RUN_TIMEOUT_MS = 2_000;
 
