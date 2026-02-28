@@ -21,6 +21,8 @@ import {
     scaleVector,
     sizeOfVector,
 } from '@/algorithms/straight-skeleton/core-functions';
+import {decomposePolygon} from '@/algorithms/straight-skeleton/polygon-decomposition';
+import {mergeSkeletonGraphs, makeMergedSolverContext} from '@/algorithms/straight-skeleton/graph-merge';
 
 const PER_RUN_TIMEOUT_MS = 2_000;
 
@@ -52,30 +54,50 @@ class AlgorithmTimeoutError extends Error {
 }
 
 /**
- * Equivalent to runAlgorithmV5 but checks a deadline between each iteration
- * of the main loop, throwing AlgorithmTimeoutError if exceeded.
+ * Run the skeleton on a single simple polygon with a deadline.
  */
-function runAlgorithmV5WithDeadline(nodes: Vector2[], deadlineMs: number) {
-    if (nodes.length < 3) {
-        throw new Error("Must have at least three nodes to perform algorithm");
-    }
+function runSimplePolygonWithDeadline(nodes: Vector2[], deadline: number) {
     const context = makeStraightSkeletonSolverContext(nodes);
     const exteriorEdges = [...context.graph.edges];
 
     initInteriorEdges(context);
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
-    const deadline = Date.now() + deadlineMs;
 
     while (inputs.length > 0) {
         if (Date.now() > deadline) {
-            throw new AlgorithmTimeoutError(deadlineMs);
+            throw new AlgorithmTimeoutError(Date.now() - deadline);
         }
         inputs = stepAlgorithm(context, inputs).childSteps;
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
     }
 
     return context;
+}
+
+/**
+ * Equivalent to runAlgorithmV5 but checks a deadline between each iteration
+ * of the main loop, throwing AlgorithmTimeoutError if exceeded.
+ * Handles self-intersecting polygons via decomposition.
+ */
+function runAlgorithmV5WithDeadline(nodes: Vector2[], deadlineMs: number) {
+    if (nodes.length < 3) {
+        throw new Error("Must have at least three nodes to perform algorithm");
+    }
+
+    const deadline = Date.now() + deadlineMs;
+    const decomposition = decomposePolygon(nodes);
+
+    if (!decomposition.wasSelfIntersecting) {
+        return runSimplePolygonWithDeadline(nodes, deadline);
+    }
+
+    const subResults = decomposition.subPolygons.map(subPoly => ({
+        graph: runSimplePolygonWithDeadline(subPoly, deadline).graph,
+    }));
+
+    const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
+    return makeMergedSolverContext(merged);
 }
 
 interface FuzzFailure {
@@ -193,16 +215,20 @@ function checkAlgorithmResult(vertices: Vector2[]): string | null {
 
     const {graph} = ctx;
 
-    for (let i = 0; i < graph.numExteriorNodes; i++) {
-        if (!ctx.acceptedEdges[i]) {
-            return `Exterior edge ${i} not accepted`;
+    // Check all interior edges have resolved targets
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (edge.target === undefined) {
+            return `Interior edge ${interiorEdge.id} has no target (unresolved)`;
         }
     }
 
+    // Edge count invariant
     if (graph.edges.length !== graph.numExteriorNodes + graph.interiorEdges.length) {
         return `Edge count invariant: ${graph.edges.length} !== ${graph.numExteriorNodes} + ${graph.interiorEdges.length}`;
     }
 
+    // Bounding box check using original input vertices
     const xs = vertices.map(v => v.x);
     const ys = vertices.map(v => v.y);
     const minX = Math.min(...xs);

@@ -18,6 +18,8 @@ import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
 import {handleInteriorNGon} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
+import {decomposePolygon} from "@/algorithms/straight-skeleton/polygon-decomposition";
+import {mergeSkeletonGraphs, makeMergedSolverContext} from "@/algorithms/straight-skeleton/graph-merge";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -191,10 +193,8 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 }
 
-export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
-    if (nodes.length < 3) {
-        throw new Error("Must have at least three nodes to perform algorithm");
-    }
+/** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
+function runSimplePolygon(nodes: Vector2[]): StraightSkeletonSolverContext {
     const context = makeStraightSkeletonSolverContext(nodes);
     const exteriorEdges = [...context.graph.edges]
 
@@ -209,6 +209,25 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     return context
 }
 
+export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
+    if (nodes.length < 3) {
+        throw new Error("Must have at least three nodes to perform algorithm");
+    }
+
+    const decomposition = decomposePolygon(nodes);
+
+    if (!decomposition.wasSelfIntersecting) {
+        return runSimplePolygon(nodes);
+    }
+
+    const subResults = decomposition.subPolygons.map(subPoly => ({
+        graph: runSimplePolygon(subPoly).graph,
+    }));
+
+    const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
+    return makeMergedSolverContext(merged);
+}
+
 export interface SteppedAlgorithmResult {
     /** Graph snapshots: index 0 = after init, 1..N = after each while-loop iteration */
     snapshots: StraightSkeletonGraph[];
@@ -221,6 +240,38 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
     }
 
+    const decomposition = decomposePolygon(nodes);
+
+    if (!decomposition.wasSelfIntersecting) {
+        return runSimplePolygonStepped(nodes);
+    }
+
+    // For decomposed polygons, run each sub-polygon stepped and concatenate snapshots,
+    // with the merged graph as the final snapshot.
+    const allSnapshots: StraightSkeletonGraph[] = [];
+    const subGraphs: StraightSkeletonGraph[] = [];
+    let lastError: string | null = null;
+
+    for (const subPoly of decomposition.subPolygons) {
+        const result = runSimplePolygonStepped(subPoly);
+        allSnapshots.push(...result.snapshots);
+        if (result.error) lastError = result.error;
+        if (result.snapshots.length > 0) {
+            subGraphs.push(result.snapshots[result.snapshots.length - 1]);
+        }
+    }
+
+    // Append merged graph as final snapshot
+    const merged = mergeSkeletonGraphs(
+        subGraphs.map(graph => ({graph})),
+        decomposition.crossingPoints,
+    );
+    allSnapshots.push(merged.graph);
+
+    return {snapshots: allSnapshots, error: lastError};
+}
+
+function runSimplePolygonStepped(nodes: Vector2[]): SteppedAlgorithmResult {
     const context = makeStraightSkeletonSolverContext(nodes);
     const exteriorEdges = [...context.graph.edges];
 
