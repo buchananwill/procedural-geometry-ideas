@@ -1,11 +1,9 @@
-"use client";
-
 import { useState } from "react";
 import {
   Paper, Stack, Title, Button, UnstyledButton, Text, Slider, NumberInput,
   Group, Collapse,
 } from "@mantine/core";
-import { useRandomPolygonStore } from "@/stores/useRandomPolygonStore";
+import { useRandomPolygonStore } from "../stores/useRandomPolygonStore";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;

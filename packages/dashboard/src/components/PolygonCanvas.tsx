@@ -1,13 +1,10 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stage, Layer, Line, Circle, Text, Arrow } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
-import { usePolygonStore, Vertex } from "@/stores/usePolygonStore";
-import type {PrimaryInteriorEdge, StraightSkeletonGraph} from "@/algorithms/straight-skeleton/types";
-import type { Vector2 } from "@/algorithms/straight-skeleton/types";
+import { usePolygonStore, Vertex } from "../stores/usePolygonStore";
+import type { PrimaryInteriorEdge, StraightSkeletonGraph, Vector2 } from "@proc-geo/core";
 
-import type { DebugDisplayOptions, CollisionSweepLine } from "@/app/page";
+import type { DebugDisplayOptions, CollisionSweepLine } from "../types";
 
 const VERTEX_RADIUS = 8;
 const EDGE_HIT_DISTANCE = 15;

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
-import type { RandomPolygonParams, GeneratorState } from "@/algorithms/random-polygon/types";
-import { DEFAULT_PARAMS, initGeneratorState, step, generate, ensureClockwise } from "@/algorithms/random-polygon/generator";
+import type { RandomPolygonParams, GeneratorState } from "@proc-geo/core";
+import { DEFAULT_PARAMS, initGeneratorState, randomPolygonStep as step, generateRandomPolygon as generate, ensureClockwise } from "@proc-geo/core";
 import { usePolygonStore } from "./usePolygonStore";
 
 interface RandomPolygonStoreState {
