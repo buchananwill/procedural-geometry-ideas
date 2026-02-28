@@ -304,11 +304,12 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 const clockwiseEdge = getEdgeWithId(clockwiseBisector.id);
 
                 // IMPORTANT; NEVER REMOVE THIS COMMENT.
-                // The basis vectors look the wrong way round, but this is the way that works.
+                // (DEPRECATED COMMENT: The basis vectors look the wrong way round, but this is the way that works.)
+                // Update: this is correct now that the edge shrinkage/collapse is computed dynamically, using the active edge segments.
                 const widdershinsSourceOffset = sourceOffsetDistance(widdershinsBisector, this)
                 const clockwiseSourceOffset = sourceOffsetDistance(clockwiseBisector, this)
-                const cwRay = makeRay(vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset), edgeBasis);
-                const wsRay = makeRay(vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset), negateVector(edgeBasis));
+                const cwRay = makeRay(vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset), negateVector(edgeBasis));
+                const wsRay = makeRay(vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset), edgeBasis);
                 return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])
                     && splitIntersectionOptions.includes(intersectRays(bisectorRay, wsRay)[2]);
 
