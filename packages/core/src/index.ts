@@ -1,0 +1,162 @@
+// ── Types ────────────────────────────────────────────────────────────────────
+export type {
+  Vector2,
+  PolygonNode,
+  PolygonEdge,
+  PrimaryInteriorEdge,
+  InteriorEdge,
+  StraightSkeletonGraph,
+  RayProjection,
+  GraphHelpers,
+  StraightSkeletonSolverContext,
+  SplitOffsetResult,
+  CollisionEvent,
+  BisectionParams,
+  AlgorithmStepInput,
+  AlgorithmStepOutput,
+  EdgeRank,
+  IntersectionType,
+  IntersectionResult,
+  CollisionType,
+  CollisionCacheEntry,
+  CollisionCache,
+} from './straight-skeleton/types';
+export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
+
+// ── Constants ────────────────────────────────────────────────────────────────
+export { FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
+
+// ── Core math ────────────────────────────────────────────────────────────────
+export {
+  areEqual,
+  vectorsAreEqual,
+  assertIsNumber,
+  fp_compare,
+  addVectors,
+  subtractVectors,
+  scaleVector,
+  rotateCw90,
+  rotateWs90,
+  sizeOfVector,
+  normalize,
+  makeBasis,
+  makeBisectedBasis,
+  negateVector,
+  findPositionAlongRay,
+  makeRay,
+  crossProduct,
+  dotProduct,
+  projectToPerpendicular,
+  projectFromPerpendicular,
+} from './straight-skeleton/core-functions';
+
+// ── Graph construction ───────────────────────────────────────────────────────
+export { addNode, interiorEdgeIndex, initBoundingPolygon } from './straight-skeleton/graph-helpers';
+
+// ── Solver context ───────────────────────────────────────────────────────────
+export { makeStraightSkeletonSolverContext } from './straight-skeleton/solver-context';
+
+// ── Intersection ─────────────────────────────────────────────────────────────
+export { intersectRays } from './straight-skeleton/intersection-edges';
+
+// ── Algorithm helpers ────────────────────────────────────────────────────────
+export {
+  ensureBisectionIsInterior,
+  ensureDirectionNotReversed,
+  addBisectionEdge,
+  createBisectionInteriorEdge,
+  bisectWithParams,
+  initInteriorEdges,
+  hasInteriorLoop,
+  tryToAcceptExteriorEdge,
+} from './straight-skeleton/algorithm-helpers';
+
+// ── Collision ────────────────────────────────────────────────────────────────
+export {
+  bestNonPhantomCollision,
+  collisionDistanceFromBasisUnits,
+  sourceOffsetDistance,
+  collideInteriorAndExteriorEdge,
+  makeOffsetDistance,
+  collideInteriorEdges,
+  collideEdges,
+  findOrComputeCollision,
+  checkSharedParents,
+} from './straight-skeleton/collision-helpers';
+
+// ── Collision handling ───────────────────────────────────────────────────────
+export { default as handleCollisionEvent } from './straight-skeleton/collision-handling';
+
+// ── Split events ─────────────────────────────────────────────────────────────
+export {
+  generateSplitEvent,
+  generateSplitEventViaBisector,
+  generateSplitEventFromTheEdgeItself,
+} from './straight-skeleton/generate-split-event';
+
+// ── V5 algorithm ─────────────────────────────────────────────────────────────
+export {
+  handleInteriorEdgePair,
+  handleInteriorEdgeTriangle,
+  handleAlgorithmStepInput,
+  stepAlgorithm,
+  runAlgorithmV5,
+  runAlgorithmV5Stepped,
+} from './straight-skeleton/algorithm-termination-cases';
+export type { SteppedAlgorithmResult } from './straight-skeleton/algorithm-termination-cases';
+
+export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
+
+// ── Graph merge (polygon decomposition) ──────────────────────────────────────
+export { mergeSkeletonGraphs, makeMergedSolverContext } from './straight-skeleton/graph-merge';
+export type { SubPolygonResult, MergedGraphResult } from './straight-skeleton/graph-merge';
+
+export {
+  findFirstCrossing,
+  splitAtCrossing,
+  decomposePolygon,
+  ensureClockwise as ensureClockwiseSkeleton,
+} from './straight-skeleton/polygon-decomposition';
+export type { CrossingPoint, DecompositionResult } from './straight-skeleton/polygon-decomposition';
+
+// ── Debug helpers ────────────────────────────────────────────────────────────
+export {
+  generateCollisionSweep,
+  computeNodeOffsetDistances,
+  computePrimaryInteriorEdges,
+  computePrimaryEdgeIntersections,
+} from './straight-skeleton/debug-helpers';
+export type { CollisionSweepEvent } from './straight-skeleton/debug-helpers';
+
+// ── Logger ───────────────────────────────────────────────────────────────────
+export { solverLog, collisionLog, splitLog, complexLog, stepLog, setSkeletonLogLevel } from './straight-skeleton/logger';
+export type { LogLevel } from './straight-skeleton/logger';
+
+// ── Random polygon ──────────────────────────────────────────────────────────
+export type {
+  RangeParams,
+  RandomPolygonParams,
+  SegmentIntersection,
+  GeneratorState,
+  GeneratorStatus,
+} from './random-polygon/types';
+
+export {
+  DEFAULT_PARAMS,
+  randomInRange,
+  randomEdgeLength,
+  randomAngleDelta,
+  basisFromAngle,
+  initGeneratorState,
+  step as randomPolygonStep,
+  ensureClockwise,
+  generate as generateRandomPolygon,
+} from './random-polygon/generator';
+
+export {
+  segmentSegmentIntersection,
+  signedArea,
+  isClockwise,
+  findSelfIntersection,
+  findClosingIntersection,
+} from './random-polygon/geometry-helpers';

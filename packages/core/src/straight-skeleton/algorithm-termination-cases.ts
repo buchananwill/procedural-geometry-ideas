@@ -4,22 +4,22 @@ import {
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
-} from "@/algorithms/straight-skeleton/types";
-import {stepLog} from "@/algorithms/straight-skeleton/logger";
+} from "./types";
+import {stepLog} from "./logger";
 import {
     areEqual,
     dotProduct,
     normalize,
     subtractVectors,
     vectorsAreEqual
-} from "@/algorithms/straight-skeleton/core-functions";
-import {bestNonPhantomCollision, collideInteriorEdges} from "@/algorithms/straight-skeleton/collision-helpers";
-import {makeStraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/solver-context";
-import {initInteriorEdges, tryToAcceptExteriorEdge} from "@/algorithms/straight-skeleton/algorithm-helpers";
-import {handleInteriorNGon} from "@/algorithms/straight-skeleton/algorithm-complex-cases";
-import {TRIANGLE_INTERSECT_PAIRINGS} from "@/algorithms/straight-skeleton/constants";
-import {decomposePolygon} from "@/algorithms/straight-skeleton/polygon-decomposition";
-import {mergeSkeletonGraphs, makeMergedSolverContext} from "@/algorithms/straight-skeleton/graph-merge";
+} from "./core-functions";
+import {bestNonPhantomCollision, collideInteriorEdges} from "./collision-helpers";
+import {makeStraightSkeletonSolverContext} from "./solver-context";
+import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
+import {handleInteriorNGon} from "./algorithm-complex-cases";
+import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
+import {decomposePolygon} from "./polygon-decomposition";
+import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`

@@ -5,8 +5,8 @@ import {
     PolygonNode,
     PolygonEdge,
     InteriorEdge,
-} from "@/algorithms/straight-skeleton/types";
-import {vectorsAreEqual} from "@/algorithms/straight-skeleton/core-functions";
+} from "./types";
+import {vectorsAreEqual} from "./core-functions";
 
 export interface SubPolygonResult {
     graph: StraightSkeletonGraph;

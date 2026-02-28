@@ -1,11 +1,11 @@
-import {IntersectionResult, RayProjection} from "@/algorithms/straight-skeleton/types";
+import {IntersectionResult, RayProjection} from "./types";
 import {
     areEqual, crossProduct,
     dotProduct,
     negateVector,
     normalize, rotateCw90, rotateWs90,
     subtractVectors, vectorsAreEqual
-} from "@/algorithms/straight-skeleton/core-functions";
+} from "./core-functions";
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.

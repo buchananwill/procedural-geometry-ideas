@@ -1,5 +1,5 @@
-import {RayProjection, Vector2} from "@/algorithms/straight-skeleton/types";
-import {FLOATING_POINT_EPSILON} from "@/algorithms/straight-skeleton/constants";
+import {RayProjection, Vector2} from "./types";
+import {FLOATING_POINT_EPSILON} from "./constants";
 
 export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
     return Math.abs(a - b) < epsilon;

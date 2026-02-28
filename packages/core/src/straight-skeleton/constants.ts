@@ -1,4 +1,4 @@
-import {IntersectionType} from "@/algorithms/straight-skeleton/types";
+import {IntersectionType} from "./types";
 
 export const FLOATING_POINT_EPSILON = 0.00000001;
 

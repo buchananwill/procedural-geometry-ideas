@@ -1,5 +1,5 @@
-import {PolygonEdge, StraightSkeletonGraph, Vector2} from "@/algorithms/straight-skeleton/types";
-import {makeBasis} from "@/algorithms/straight-skeleton/core-functions";
+import {PolygonEdge, StraightSkeletonGraph, Vector2} from "./types";
+import {makeBasis} from "./core-functions";
 
 export function addNode(position: Vector2, g: StraightSkeletonGraph){
     const nodeIndex = g.nodes.length;

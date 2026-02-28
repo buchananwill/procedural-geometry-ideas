@@ -1,6 +1,6 @@
-import type { Vector2 } from "@/algorithms/straight-skeleton/types";
+import type { Vector2 } from "../straight-skeleton/types";
 import type { SegmentIntersection } from "./types";
-import { subtractVectors, crossProduct, addVectors, scaleVector } from "@/algorithms/straight-skeleton/core-functions";
+import { subtractVectors, crossProduct, addVectors, scaleVector } from "../straight-skeleton/core-functions";
 
 const EPSILON = 1e-10;
 

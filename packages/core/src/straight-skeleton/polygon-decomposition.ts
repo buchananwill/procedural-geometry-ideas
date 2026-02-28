@@ -1,5 +1,5 @@
-import {Vector2} from "@/algorithms/straight-skeleton/types";
-import {segmentSegmentIntersection, signedArea, isClockwise} from "@/algorithms/random-polygon/geometry-helpers";
+import {Vector2} from "./types";
+import {segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
 
 const ENDPOINT_EPSILON = 1e-8;
 const AREA_EPSILON = 1e-6;

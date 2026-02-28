@@ -1,8 +1,8 @@
 import type {CollisionEvent, PrimaryInteriorEdge, RayProjection, StraightSkeletonSolverContext, Vector2} from './types';
 import {collideEdges} from './collision-helpers';
 import {sourceOffsetDistance} from './collision-helpers';
-import {addVectors, makeBasis, makeBisectedBasis, scaleVector} from "@/algorithms/straight-skeleton/core-functions";
-import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
+import {addVectors, makeBasis, makeBisectedBasis, scaleVector} from "./core-functions";
+import {intersectRays} from "./intersection-edges";
 
 export interface CollisionSweepEvent {
     instigatorEdgeId: number;

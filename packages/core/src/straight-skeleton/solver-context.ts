@@ -7,8 +7,8 @@ import {
     SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2
-} from "@/algorithms/straight-skeleton/types";
-import {initBoundingPolygon} from "@/algorithms/straight-skeleton/graph-helpers";
+} from "./types";
+import {initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
     dotProduct,
@@ -17,10 +17,10 @@ import {
     projectFromPerpendicular,
     scaleVector,
     vectorsAreEqual
-} from "@/algorithms/straight-skeleton/core-functions";
-import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
-import {sourceOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
-import {complexLog, splitLog} from "@/algorithms/straight-skeleton/logger";
+} from "./core-functions";
+import {intersectRays} from "./intersection-edges";
+import {sourceOffsetDistance} from "./collision-helpers";
+import {complexLog, splitLog} from "./logger";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);

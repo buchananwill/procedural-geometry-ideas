@@ -1,6 +1,6 @@
-import type { Vector2 } from "@/algorithms/straight-skeleton/types";
+import type { Vector2 } from "../straight-skeleton/types";
 import type { RandomPolygonParams, GeneratorState } from "./types";
-import { addVectors, scaleVector } from "@/algorithms/straight-skeleton/core-functions";
+import { addVectors, scaleVector } from "../straight-skeleton/core-functions";
 import {
   findSelfIntersection,
   findClosingIntersection,

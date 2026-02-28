@@ -1,6 +1,6 @@
-import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/types";
-import {checkSharedParents} from "@/algorithms/straight-skeleton/collision-helpers";
-import {makeBisectedBasis, negateVector, rotateCw90, rotateWs90} from "@/algorithms/straight-skeleton/core-functions";
+import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "./types";
+import {checkSharedParents} from "./collision-helpers";
+import {makeBisectedBasis, negateVector, rotateCw90, rotateWs90} from "./core-functions";
 
 
 function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {

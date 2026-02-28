@@ -5,17 +5,17 @@ import {
     SkeletonDirection,
     SplitOffsetResult,
     StraightSkeletonSolverContext
-} from "@/algorithms/straight-skeleton/types";
-import {complexLog, splitLog} from "@/algorithms/straight-skeleton/logger";
+} from "./types";
+import {complexLog, splitLog} from "./logger";
 import {
     areEqual, crossProduct, dotProduct,
     findPositionAlongRay,
     makeBisectedBasis,
     makeRay,
     negateVector,
-} from "@/algorithms/straight-skeleton/core-functions";
-import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
-import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
+} from "./core-functions";
+import {intersectRays} from "./intersection-edges";
+import {makeOffsetDistance} from "./collision-helpers";
 
 /**
  * Find the split offset by constructing a triangular incenter.

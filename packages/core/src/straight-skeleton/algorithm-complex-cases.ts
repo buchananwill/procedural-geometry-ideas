@@ -2,15 +2,15 @@ import {
     AlgorithmStepInput,
     AlgorithmStepOutput, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext
-} from "@/algorithms/straight-skeleton/types";
-import {findOrComputeCollision} from "@/algorithms/straight-skeleton/collision-helpers";
+} from "./types";
+import {findOrComputeCollision} from "./collision-helpers";
 
-import {areEqual, fp_compare} from "@/algorithms/straight-skeleton/core-functions";
-import handleCollisionEvent from "@/algorithms/straight-skeleton/collision-handling";
+import {areEqual, fp_compare} from "./core-functions";
+import handleCollisionEvent from "./collision-handling";
 import {
     bisectWithParams,
     tryToAcceptExteriorEdge
-} from "@/algorithms/straight-skeleton/algorithm-helpers";
+} from "./algorithm-helpers";
 
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {

@@ -8,8 +8,8 @@ import {
     SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2
-} from "@/algorithms/straight-skeleton/types";
-import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
+} from "./types";
+import {intersectRays} from "./intersection-edges";
 import {
     areEqual,
     crossProduct,
@@ -17,12 +17,12 @@ import {
     normalize,
     projectToPerpendicular,
     subtractVectors
-} from "@/algorithms/straight-skeleton/core-functions";
-import {NO_COLLISION_RESULTS} from "@/algorithms/straight-skeleton/constants";
+} from "./core-functions";
+import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
-} from "@/algorithms/straight-skeleton/generate-split-event";
+} from "./generate-split-event";
 
 /**
  * Pick the best (lowest offset) non-phantom/non-outOfBounds collision.

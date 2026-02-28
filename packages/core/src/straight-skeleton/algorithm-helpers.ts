@@ -3,18 +3,18 @@ import {
     PolygonNode,
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
-} from "@/algorithms/straight-skeleton/types";
-import {complexLog, solverLog} from "@/algorithms/straight-skeleton/logger";
+} from "./types";
+import {complexLog, solverLog} from "./logger";
 import {
     assertIsNumber,
     crossProduct, dotProduct,
     makeBisectedBasis,
     makeRay,
     negateVector
-} from "@/algorithms/straight-skeleton/core-functions";
-import {interiorEdgeIndex} from "@/algorithms/straight-skeleton/graph-helpers";
-import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
-import {makeOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
+} from "./core-functions";
+import {interiorEdgeIndex} from "./graph-helpers";
+import {intersectRays} from "./intersection-edges";
+import {makeOffsetDistance} from "./collision-helpers";
 
 
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
