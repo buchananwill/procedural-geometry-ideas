@@ -19,6 +19,7 @@ import {
     vectorsAreEqual
 } from "@/algorithms/straight-skeleton/core-functions";
 import {intersectRays} from "@/algorithms/straight-skeleton/intersection-edges";
+import {sourceOffsetDistance} from "@/algorithms/straight-skeleton/collision-helpers";
 
 export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
@@ -103,7 +104,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return totalSpan;
     }
 
-    function spanExlcudingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number{
+    function spanExlcudingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number {
         return span(firstEdge, secondEdge, false);
     }
 
@@ -123,7 +124,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return graph.nodes[index - 1];
     }
 
-    function widdershinsBisector(edgeId: number): PolygonEdge {
+    function primaryWiddershinsBisector(edgeId: number): PolygonEdge {
         const targetNode = graph.nodes[getEdgeWithId(edgeId).target!];
         const bisectorId = targetNode.outEdges.find(e => edgeRank(e) === 'primary');
         if (bisectorId === undefined) {
@@ -132,13 +133,52 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return getEdgeWithId(bisectorId);
     }
 
-    function clockwiseBisector(edgeId: number): PolygonEdge {
+    function primaryClockwiseBisector(edgeId: number): PolygonEdge {
         const sourceNode = graph.nodes[getEdgeWithId(edgeId).source];
         const bisectorId = sourceNode.outEdges.find(e => edgeRank(e) === 'primary');
         if (bisectorId === undefined) {
             throw new Error(`No primary bisector found at source of edge ${edgeId}`);
         }
         return getEdgeWithId(bisectorId);
+    }
+
+    interface EdgeSection {
+        widdershinsBisector: InteriorEdge,
+        clockwiseBisector: InteriorEdge
+    }
+
+    function activeExteriorEdgeSegments(edgeId: number): EdgeSection[] {
+        if (edgeRank(edgeId) !== 'exterior') {
+            throw new Error("Can only find active sections for exterior edges.")
+        }
+
+        const rotateId = (id: number): number => {
+            return (id - edgeId + graph.numExteriorNodes) % graph.numExteriorNodes;
+        }
+
+        const makeClockwiseSweepIndex = (interiorEdge: InteriorEdge): number => {
+            const wsParent = widdershinsParent(interiorEdge)
+            const cwParent = clockwiseParent(interiorEdge);
+
+            return graph.numExteriorNodes - rotateId(wsParent.id) - rotateId(cwParent.id) - 1; // subtract 1 to keep return strictly less than the number of exterior edges.
+        }
+
+        const children = graph.interiorEdges.filter(e => {
+            return !acceptedEdges[e.id] && (e.widdershinsExteriorEdgeIndex === edgeId || e.clockwiseExteriorEdgeIndex === edgeId)
+        })
+            .toSorted(makeClockwiseSweepIndex)
+
+        const sections: EdgeSection[] = []
+
+        if (children.length < 2) {
+            return sections
+        }
+
+        for (let i = 0; i < children.length; i += 2) {
+            sections.push({widdershinsBisector: children[i], clockwiseBisector: children[i + 1]})
+        }
+
+        return sections;
     }
 
     return {
@@ -208,18 +248,20 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         },
         clockwiseSpanExcludingAccepted: spanExlcudingAccepted,
         clockwiseSpanIncludingAccepted: span,
-        widdershinsBisector,
-        clockwiseBisector,
+        widdershinsBisector: primaryWiddershinsBisector,
+        clockwiseBisector: primaryClockwiseBisector,
         clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2 {
-            return vertexAtOffset(clockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
+            return vertexAtOffset(primaryClockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
         },
         widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2 {
-            return vertexAtOffset(widdershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
+            return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
         },
         terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode {
             const node = findOrAddNode(position);
             node.inEdges.push(...edgeIds);
-            edgeIds.forEach(id => { getEdgeWithId(id).target = node.id; });
+            edgeIds.forEach(id => {
+                getEdgeWithId(id).target = node.id;
+            });
             return node;
         },
         crossWireEdges(id1: number, id2: number): void {
@@ -253,12 +295,25 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
 
-            // IMPORTANT; NEVER REMOVE THIS COMMENT.
-            // The basis vectors look the wrong way round, but this is the way that works.
-            const cwRay = makeRay(this.clockwiseVertexAtOffset(edgeToSplitId, offset), edgeBasis);
-            const wsRay = makeRay(this.widdershinsVertexAtOffset(edgeToSplitId, offset), negateVector(edgeBasis));
-            return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])
-                && splitIntersectionOptions.includes(intersectRays(bisectorRay, wsRay)[2]);
+            const segments = activeExteriorEdgeSegments(edgeToSplitId);
+
+            // We're now testing all active segments, because if the edge has split or engaged in a collapse anywhere, the shrinkage/expansion rate will have changed.
+            return segments.some(segment => {
+                const {widdershinsBisector, clockwiseBisector} = segment;
+                const widdershinsEdge = getEdgeWithId(widdershinsBisector.id);
+                const clockwiseEdge = getEdgeWithId(clockwiseBisector.id);
+
+                // IMPORTANT; NEVER REMOVE THIS COMMENT.
+                // The basis vectors look the wrong way round, but this is the way that works.
+                const widdershinsSourceOffset = sourceOffsetDistance(widdershinsBisector, this)
+                const clockwiseSourceOffset = sourceOffsetDistance(clockwiseBisector, this)
+                const cwRay = makeRay(vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset), edgeBasis);
+                const wsRay = makeRay(vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset), negateVector(edgeBasis));
+                return splitIntersectionOptions.includes(intersectRays(bisectorRay, cwRay)[2])
+                    && splitIntersectionOptions.includes(intersectRays(bisectorRay, wsRay)[2]);
+
+            })
+
         },
     };
 }

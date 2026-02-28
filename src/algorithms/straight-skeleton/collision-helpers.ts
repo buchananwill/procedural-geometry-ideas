@@ -191,6 +191,8 @@ export function findOrComputeCollision(
         return [];
     }
 
+    const isReflex = context.isReflexEdge(context.getInteriorWithId(edgeIdA))
+
     const cache = context.collisionCache;
     const innerMap = cache.get(edgeIdA);
     if (innerMap !== undefined) {
@@ -208,7 +210,10 @@ export function findOrComputeCollision(
         targetMap = new Map();
         cache.set(edgeIdA, targetMap);
     }
-    targetMap.set(edgeIdB, result ?? NO_COLLISION_SENTINEL);
+
+    if (!isReflex) {
+        targetMap.set(edgeIdB, result ?? NO_COLLISION_SENTINEL);
+    }
 
     return result;
 }

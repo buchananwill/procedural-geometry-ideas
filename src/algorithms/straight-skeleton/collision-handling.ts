@@ -69,8 +69,6 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     if (event.eventType === 'interiorAgainstExterior') {
         const instigatorInterior = context.getInteriorWithId(instigator);
-        const instigatorEdge = context.getEdgeWithId(instigator);
-        const targetExterior = context.getEdgeWithId(target);
 
         if (event.collidingEdges.length > 2) {
             event.collidingEdges.slice(2).forEach(e => {
@@ -83,7 +81,6 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
         context.acceptedEdges[instigator] = true;
 
-        const approximateDirection = negateVector(instigatorData.basisVector)
 
         return [
             {
