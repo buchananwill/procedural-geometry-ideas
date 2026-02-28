@@ -79,7 +79,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
     }
 
-    function spanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number {
+    function span(firstEdge: PolygonEdge, secondEdge: PolygonEdge, includeAccepted = true): number {
         if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior') {
             throw new Error('Direct span of interior edges not yet implemented.')
         }
@@ -95,12 +95,16 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 return totalSpan;
             }
 
-            if (!acceptedEdges[nextEdge]) {
+            if (includeAccepted || !acceptedEdges[nextEdge]) {
                 totalSpan++;
             }
         }
 
         return totalSpan;
+    }
+
+    function spanExlcudingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number{
+        return span(firstEdge, secondEdge, false);
     }
 
     function vertexAtOffset(bisector: PolygonEdge, edgeBasis: Vector2, offset: number): Vector2 {
@@ -202,7 +206,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
 
             edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
         },
-        clockwiseSpanExcludingAccepted: spanExcludingAccepted,
+        clockwiseSpanExcludingAccepted: spanExlcudingAccepted,
+        clockwiseSpanIncludingAccepted: span,
         widdershinsBisector,
         clockwiseBisector,
         clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2 {

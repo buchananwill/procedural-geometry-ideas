@@ -7,7 +7,7 @@ import {
 import {complexLog, solverLog} from "@/algorithms/straight-skeleton/logger";
 import {
     assertIsNumber,
-    crossProduct,
+    crossProduct, dotProduct,
     makeBisectedBasis,
     makeRay,
     negateVector
@@ -31,37 +31,56 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
 /**
  * returns index of just-added edge
  * */
-export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
+export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
 
-
-    const spanSize = (clockwiseExteriorEdgeIndex - widdershinsExteriorEdgeIndex + graph.numExteriorNodes) % graph.numExteriorNodes;
-    const parentsInverted = spanSize > graph.numExteriorNodes / 2;
-    if (parentsInverted) {
-        solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
-    }
+    const {graph} = context;
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
     const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
+
+    const spanCwToWs = context.clockwiseSpanExcludingAccepted(clockwiseEdge, widdershinsEdge)
+    const spanWsToCs = context.clockwiseSpanExcludingAccepted(widdershinsEdge, clockwiseEdge);
+
+    const parentsInverted = spanWsToCs > spanCwToWs;
     const id = graph.edges.length;
+    if (parentsInverted) {
+        solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
+        graph.interiorEdges.push({
+            id,
+            widdershinsExteriorEdgeIndex,
+            clockwiseExteriorEdgeIndex,
+            length: Number.MAX_VALUE,
+        })
+    } else {
+        graph.interiorEdges.push({
+            id,
+            clockwiseExteriorEdgeIndex,
+            widdershinsExteriorEdgeIndex,
+            length: Number.MAX_VALUE,
+        })
 
-    graph.interiorEdges.push({
-        id,
-        clockwiseExteriorEdgeIndex,
-        widdershinsExteriorEdgeIndex,
-        length: Number.MAX_VALUE,
-    })
+    }
 
-    const fromNodeWiddershins = negateVector(widdershinsEdge.basisVector)
-    const bisectedBasis = makeBisectedBasis(clockwiseEdge.basisVector, fromNodeWiddershins);
+    const newEdge = context.getInteriorWithId(id);
+
+    const fromNodeWiddershins = negateVector(context.widdershinsParent(newEdge).basisVector)
+    const fromNodeClockwise = context.clockwiseParent(newEdge).basisVector;
+
+    const bisectedBasis = makeBisectedBasis(fromNodeClockwise, fromNodeWiddershins);
 
     let finalBasis: Vector2;
 
-    if (approximateDirection
-        && parentsInverted
-    ) {
-        finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
-    } else {
-        finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+    finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+
+    if (approximateDirection && dotProduct(approximateDirection, finalBasis) < 0){
+        finalBasis = negateVector(finalBasis)
     }
+    // if (approximateDirection
+    //     && parentsInverted
+    // ) {
+    //     finalBasis = ensureDirectionNotReversed(bisectedBasis, approximateDirection);
+    // } else {
+    //     finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+    // }
 
     graph.edges.push({id, source, basisVector: finalBasis})
 
@@ -76,7 +95,7 @@ export function addBisectionEdge(graph: StraightSkeletonGraph, clockwiseExterior
  */
 export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number, approximateDirection?: Vector2): number {
     const {acceptedEdges, graph} = context;
-    const edgeIndex = addBisectionEdge(graph, clockwiseParent, widdershinsParent, source, approximateDirection);
+    const edgeIndex = addBisectionEdge(context, clockwiseParent, widdershinsParent, source, approximateDirection);
 
     while (acceptedEdges.length <= edgeIndex) {
         acceptedEdges.push(false);

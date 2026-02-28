@@ -1,6 +1,6 @@
 import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "@/algorithms/straight-skeleton/types";
 import {checkSharedParents} from "@/algorithms/straight-skeleton/collision-helpers";
-import {makeBisectedBasis, negateVector} from "@/algorithms/straight-skeleton/core-functions";
+import {makeBisectedBasis, negateVector, rotateCw90, rotateWs90} from "@/algorithms/straight-skeleton/core-functions";
 
 
 function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
@@ -69,6 +69,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     if (event.eventType === 'interiorAgainstExterior') {
         const instigatorInterior = context.getInteriorWithId(instigator);
+        const instigatorEdge = context.getEdgeWithId(instigator);
         const targetExterior = context.getEdgeWithId(target);
 
         if (event.collidingEdges.length > 2) {
@@ -82,19 +83,20 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
         context.acceptedEdges[instigator] = true;
 
+        const approximateDirection = negateVector(instigatorData.basisVector)
 
         return [
             {
                 clockwiseExteriorEdgeIndex: instigatorInterior.clockwiseExteriorEdgeIndex,
                 widdershinsExteriorEdgeIndex: target,
                 source: newNode.id,
-                approximateDirection: negateVector(targetExterior.basisVector)
+                approximateDirection: rotateWs90(instigatorData.basisVector)
             },
             {
                 clockwiseExteriorEdgeIndex: target,
                 widdershinsExteriorEdgeIndex: instigatorInterior.widdershinsExteriorEdgeIndex,
                 source: newNode.id,
-                approximateDirection: targetExterior.basisVector
+                approximateDirection: rotateCw90(instigatorData.basisVector)
 
             }
         ]

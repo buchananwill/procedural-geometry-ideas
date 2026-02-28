@@ -74,6 +74,7 @@ export interface GraphHelpers {
     updateMaxOffset(edgeId: number, length: number): void;
     isReflexEdge(edgeA: InteriorEdge): boolean;
     clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
+    clockwiseSpanIncludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
     widdershinsBisector(edgeId: number): PolygonEdge;
     clockwiseBisector(edgeId: number): PolygonEdge;
     clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2;

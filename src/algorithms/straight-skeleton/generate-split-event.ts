@@ -244,8 +244,9 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         clockwise: instigatorClockwiseParent,
         widdershins: instigatorWiddershinsParent
     } = context.parentEdges(instigatorData.id);
-    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent);
+    const clockwiseSpan = context.clockwiseSpanIncludingAccepted(instigatorClockwiseParent, edgeToSplit);
+    const widdershinsSpan = context.clockwiseSpanIncludingAccepted(edgeToSplit, instigatorWiddershinsParent);
+
     if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
         return null;
     }
