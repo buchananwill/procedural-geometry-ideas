@@ -41,3 +41,16 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/.idea/.gitignore
+/examples/awkward heptagon - now working.xcf
+/examples/complex example.png
+/examples/critical missing scenario.xcf
+/.idea/modules.xml
+/examples/more ss ideas.xcf
+/.idea/procedural-geometry-ideas.iml
+/.idea/inspectionProfiles/Project_Default.xml
+/examples/reflex breaks scenario.xcf
+/.claude/settings.local.json
+/examples/Untitled.xcf
+/.idea/vcs.xml
+/examples/why doesn't it look like ths.xcf
