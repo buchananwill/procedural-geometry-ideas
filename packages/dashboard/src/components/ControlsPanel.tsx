@@ -58,7 +58,7 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
             <Stack gap="xs">
                 <UnstyledButton w="100%" onClick={() => setControlsOpen(o => !o)}>
                     <Group justify="space-between">
-                        <Title order={5}>Controls</Title>
+                        <Title order={5}>Edit Polygon</Title>
                         <Text size="xs" c="blue">{controlsOpen ? "\u25B2" : "\u25BC"}</Text>
                     </Group>
                 </UnstyledButton>

@@ -35,7 +35,7 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
                 <Stack gap="xs">
                     <UnstyledButton w="100%" onClick={() => setAlgorithmsOpen(o => !o)}>
                         <Group justify="space-between">
-                            <Title order={5}>Algorithms</Title>
+                            <Title order={5}>Algorithm</Title>
                             <Text size="xs" c="blue">{algorithmsOpen ? "\u25B2" : "\u25BC"}</Text>
                         </Group>
                     </UnstyledButton>
