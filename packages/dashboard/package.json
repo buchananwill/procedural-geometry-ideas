@@ -2,6 +2,18 @@
   "name": "@proc-geo/dashboard",
   "version": "0.1.0",
   "description": "React component library for exploring procedural geometry algorithms",
+  "license": "MIT",
+  "author": "Will Buchanan <willwritescode@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buchananwill/procedural-geometry-ideas",
+    "directory": "packages/dashboard"
+  },
+  "homepage": "https://github.com/buchananwill/procedural-geometry-ideas#readme",
+  "bugs": "https://github.com/buchananwill/procedural-geometry-ideas/issues",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

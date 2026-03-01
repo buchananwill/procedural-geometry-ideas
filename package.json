@@ -2,6 +2,7 @@
   "name": "procedural-geometry",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @proc-geo/demo dev",
     "build": "pnpm --filter @proc-geo/core build && pnpm --filter @proc-geo/test-fixtures build && pnpm --filter @proc-geo/dashboard build && pnpm --filter @proc-geo/demo build",
