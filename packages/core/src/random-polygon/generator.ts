@@ -1,4 +1,4 @@
-import type { Vector2 } from "../straight-skeleton/types";
+import type { Vector2 } from "../shared/types";
 import type { RandomPolygonParams, GeneratorState } from "./types";
 import { addVectors, scaleVector } from "../straight-skeleton/core-functions";
 import {

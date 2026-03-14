@@ -1,4 +1,4 @@
-import type { Vector2 } from "../straight-skeleton/types";
+import type { Vector2 } from "../shared/types";
 
 /** Range with variance control for random generation */
 export interface RangeParams {

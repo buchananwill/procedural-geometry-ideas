@@ -1,7 +1,5 @@
-export interface Vector2 {
-    x: number;
-    y: number;
-}
+import type { Vector2 } from '../shared/types';
+export type { Vector2 } from '../shared/types';
 
 export interface PolygonNode {
     id: number;
