@@ -101,6 +101,10 @@ interface PolygonCanvasProps {
   nodeOffsetDistances: Map<number, number> | null;
 }
 
+/**
+ * @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead.
+ * This component will be removed in Phase 5.
+ */
 export default function PolygonCanvas({
   skeleton,
   primaryEdges,
