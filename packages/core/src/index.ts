@@ -160,3 +160,25 @@ export {
   findSelfIntersection,
   findClosingIntersection,
 } from './random-polygon/geometry-helpers';
+
+// ── D0L system ────────────────────────────────────────────────────────────────
+export {
+    compile as compileDolSystem,
+    generate as generateDolSystem,
+    interpret as interpretDolSystem,
+} from './dol-system';
+export type {
+    Keyword,
+    Letter,
+    DolSymbol,
+    TurtleConfig,
+    SystemConfig,
+    CompiledSystem,
+    LinkedToken,
+    LinkedWord,
+    GenerationResult,
+    Segment as DolSegment,
+    TurtleOutput,
+    ValidationError as DolValidationError,
+} from './dol-system';
+export {KEYWORD_OPCODES, NUM_KEYWORDS, DolSystemValidationError} from './dol-system';
