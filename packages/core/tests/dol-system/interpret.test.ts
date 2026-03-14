@@ -193,7 +193,7 @@ describe('interpret() — segment.generation field', () => {
         expect(output.paths[0][0].generation).toBe(0);  // oldest F, from gen0 X
         expect(output.paths[0][1].generation).toBe(1);  // from gen1 X
         expect(output.paths[0][2].generation).toBe(2);  // from gen2 X
-        expect(output.paths[0][3].generation).toBe(3);  // from gen3 X (terminal expansion)
+        expect(output.paths[0][3].generation).toBe(3);  // from gen3 X (last rewriting generation)
     });
 
     it('stem-derived segments trace back to generation 1 where stem appears after rewriting', () => {

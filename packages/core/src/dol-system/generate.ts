@@ -1,4 +1,4 @@
-import type {CompiledSystem, LinkedToken, LinkedWord, GenerationResult} from './types';
+import type {CompiledSystem, LinkedWord, GenerationResult} from './types';
 import {NUM_KEYWORDS} from './types';
 
 export function step(system: CompiledSystem, word: LinkedWord): LinkedWord {
@@ -38,23 +38,6 @@ export function generate(system: CompiledSystem, generations: number): Generatio
             }
         }
     }
-
-    // TODO: Surely this is unnecessary if the system converged? Should have a conditional
-    // Terminal expansion
-    const lastWord = gens[gens.length - 1];
-    const terminal: LinkedWord = [];
-    for (let i = 0; i < lastWord.length; i++) {
-        const token = lastWord[i];
-        if (token.opcode < NUM_KEYWORDS) {
-            terminal.push({opcode: token.opcode, parentIndex: i});
-        } else {
-            const definition = system.definitions[token.opcode];
-            for (const opcode of definition) {
-                terminal.push({opcode, parentIndex: i});
-            }
-        }
-    }
-    gens.push(terminal);
 
     return {generations: gens, system, converged};
 }

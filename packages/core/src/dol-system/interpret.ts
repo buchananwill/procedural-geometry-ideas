@@ -1,9 +1,9 @@
-import type {GenerationResult, Segment, TurtleConfig, TurtleOutput} from './types';
+import type {GenerationResult, LinkedToken, Segment, TurtleConfig, TurtleOutput} from './types';
 import {NUM_KEYWORDS} from './types';
 
-function resolveLetter(result: GenerationResult, terminalIndex: number): { letter: string; generation: number } {
-    let genIdx = result.generations.length - 1;
-    let tokenIdx = terminalIndex;
+function resolveLetter(result: GenerationResult, startGenIdx: number, startTokenIdx: number): { letter: string; generation: number } {
+    let genIdx = startGenIdx;
+    let tokenIdx = startTokenIdx;
 
     while (genIdx >= 0) {
         const token = result.generations[genIdx][tokenIdx];
@@ -23,36 +23,53 @@ function resolveLetter(result: GenerationResult, terminalIndex: number): { lette
     }
 
     throw new Error(
-        `resolveLetter: exhausted generation chain without resolution (terminalIndex=${terminalIndex}). This indicates a bug in the generation or provenance data.`
+        `resolveLetter: exhausted generation chain without resolution (startGenIdx=${startGenIdx}, startTokenIdx=${startTokenIdx}). This indicates a bug in the generation or provenance data.`
     );
 }
 
 export function interpret(result: GenerationResult, config: TurtleConfig): TurtleOutput {
     let position = {x: 0, y: 0};
-    let heading = 0;
-    const stack: Array<{ position: { x: number; y: number }; heading: number }> = [];
+    let dx = 1;  // initial heading east: cos(0) = 1
+    let dy = 0;  //                        sin(0) = 0
+    const stack: Array<{ position: { x: number; y: number }; dx: number; dy: number }> = [];
     let currentPath: Segment[] = [];
     const paths: Segment[][] = [];
 
     const min = {x: 0, y: 0};
     const max = {x: 0, y: 0};
 
-    const rewritingGenerations = result.generations.length - 2;
+    const rewritingGenerations = result.generations.length - 1;
     const effectiveStep = config.stepLength * Math.pow(config.generationScaling, rewritingGenerations);
 
-    const finalGen = result.generations[result.generations.length - 1];
+    const deltaRad = config.angleDelta * Math.PI / 180;
+    const cosD = Math.cos(deltaRad);
+    const sinD = Math.sin(deltaRad);
 
-    for (let i = 0; i < finalGen.length; i++) {
-        const token = finalGen[i];
+    // Terminal expansion — expand remaining Letters in the last rewriting generation
+    // to their keyword definitions before turtle-walking.
+    const lastGen = result.generations[result.generations.length - 1];
+    const terminalWord: LinkedToken[] = [];
+    for (let i = 0; i < lastGen.length; i++) {
+        const token = lastGen[i];
+        if (token.opcode < NUM_KEYWORDS) {
+            terminalWord.push({ opcode: token.opcode, parentIndex: i });
+        } else {
+            const definition = result.system.definitions[token.opcode];
+            for (const opcode of definition) {
+                terminalWord.push({ opcode, parentIndex: i });
+            }
+        }
+    }
+
+    for (let i = 0; i < terminalWord.length; i++) {
+        const token = terminalWord[i];
         switch (token.opcode) {
             case 0: { // F
-                // TODO: If we pre-computed rotation matrices from the rotation delta, and stored a basis vector for the turtle state, we could drop the trig functions.
-                const headingRad = heading * Math.PI / 180;
                 const newPos = {
-                    x: position.x + Math.cos(headingRad) * effectiveStep,
-                    y: position.y + Math.sin(headingRad) * effectiveStep,
+                    x: position.x + dx * effectiveStep,
+                    y: position.y + dy * effectiveStep,
                 };
-                const {letter, generation} = resolveLetter(result, i);
+                const {letter, generation} = resolveLetter(result, result.generations.length - 1, terminalWord[i].parentIndex);
                 const segment: Segment = {
                     from: {...position},
                     to: newPos,
@@ -77,19 +94,28 @@ export function interpret(result: GenerationResult, config: TurtleConfig): Turtl
                 position = newPos;
                 break;
             }
-            case 1: // +
-                heading += config.angleDelta;
+            case 1: { // +
+                const ndx = dx * cosD - dy * sinD;
+                const ndy = dx * sinD + dy * cosD;
+                dx = ndx;
+                dy = ndy;
                 break;
-            case 2: // -
-                heading -= config.angleDelta;
+            }
+            case 2: { // -
+                const ndx = dx * cosD + dy * sinD;
+                const ndy = -dx * sinD + dy * cosD;
+                dx = ndx;
+                dy = ndy;
                 break;
+            }
             case 3: // [
-                stack.push({position: {...position}, heading});
+                stack.push({position: {...position}, dx, dy});
                 break;
             case 4: { // ]
                 const state = stack.pop()!;
                 position = state.position;
-                heading = state.heading;
+                dx = state.dx;
+                dy = state.dy;
                 if (currentPath.length > 0) {
                     paths.push(currentPath);
                 }

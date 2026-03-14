@@ -59,9 +59,9 @@ describe('generate() — generations array structure', () => {
 // ── generate() — rewriting ────────────────────────────────────────────────────
 
 describe('generate() — rewriting', () => {
-    it('applies exactly maxIterations rewriting steps before terminal expansion', () => {
+    it('applies exactly maxIterations rewriting steps', () => {
         const result = generate(squareSystem, 3);
-        expect(result.generations.length).toBe(5);
+        expect(result.generations.length).toBe(4);
     });
 
     it('gen1 word matches expected expansion of X', () => {
@@ -85,7 +85,7 @@ describe('generate() — convergence', () => {
 
     it('stops after 0 rewriting steps when axiom converges immediately', () => {
         const result = generate(convergeSystem, 5);
-        expect(result.generations.length).toBe(2);
+        expect(result.generations.length).toBe(1);
     });
 
     it('sets converged=false when iteration limit is reached with letters remaining', () => {
@@ -94,65 +94,14 @@ describe('generate() — convergence', () => {
     });
 });
 
-// ── generate() — terminal expansion ──────────────────────────────────────────
-
-describe('generate() — terminal expansion', () => {
-    it('final generation contains only keyword opcodes (0..4)', () => {
-        const result = generate(squareSystem, 3);
-        const terminal = result.generations[result.generations.length - 1];
-        expect(terminal.every(t => t.opcode < 5)).toBe(true);
-    });
-
-    it('terminal expansion of X gives [F] with correct parent linking', () => {
-        const result = generate(squareSystem, 3);
-        const terminal = result.generations[4];
-        expect(terminal[6].opcode).toBe(0);
-        expect(terminal[6].parentIndex).toBe(6);
-    });
-
-    it('terminal expansion passes keywords through unchanged', () => {
-        const result = generate(squareSystem, 3);
-        const gen3 = result.generations[3];
-        const terminal = result.generations[4];
-        for (let i = 0; i < 6; i++) {
-            expect(terminal[i].opcode).toBe(gen3[i].opcode);
-            expect(terminal[i].parentIndex).toBe(i);
-        }
-    });
-
-    it('terminal expansion of all-keyword axiom is a no-op copy', () => {
-        const result = generate(convergeSystem, 5);
-        const axiom = result.generations[0];
-        const terminal = result.generations[1];
-        expect(terminal.map(t => t.opcode)).toEqual(axiom.map(t => t.opcode));
-    });
-
-    it('terminal expansion of BRANCH_CONFIG produces full keyword word', () => {
-        const result = generate(branchSystem, 1);
-        const terminal = result.generations[result.generations.length - 1];
-        expect(terminal.map(t => t.opcode)).toEqual([0, 3, 1, 0, 4, 3, 2, 0, 4]);
-    });
-
-    it('multi-token definition expansion links all tokens to the parent letter', () => {
-        const result = generate(branchSystem, 1);
-        const terminal = result.generations[result.generations.length - 1];
-        // Token 0 (F) came from stem at gen1 index 0
-        expect(terminal[0].parentIndex).toBe(0);
-        // Tokens 1-8 came from tip at gen1 index 1
-        for (let i = 1; i <= 8; i++) {
-            expect(terminal[i].parentIndex).toBe(1);
-        }
-    });
-});
-
 // ── generate() — provenance chain ────────────────────────────────────────────
 
 describe('generate() — provenance tracing', () => {
-    it('can trace the final F at pos 6 back to the axiom X at pos 0', () => {
+    it('can trace the + at gen3 pos 5 back to the axiom X at pos 0', () => {
         const result = generate(squareSystem, 3);
         const gens = result.generations;
         let genIdx = gens.length - 1;
-        let tokenIdx = 6;
+        let tokenIdx = 5;
         const chain: { gen: number; opcode: number }[] = [];
 
         while (genIdx >= 0) {

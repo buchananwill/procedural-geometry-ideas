@@ -1,15 +1,11 @@
 import type {SystemConfig, CompiledSystem, ValidationError, Keyword} from './types';
-import {DolSystemValidationError, KEYWORD_OPCODES} from './types';
+import {DolSystemValidationError, KEYWORD_OPCODES, KEYWORD_NAMES} from './types';
 
-const KEYWORDS: Set<string> = new Set(['F', '+', '-', '[', ']']);
+const KEYWORDS: Set<string> = new Set(KEYWORD_NAMES);
 
-const KEYWORD_OPCODE_MAP: Record<string, number> = {
-    'F': KEYWORD_OPCODES.F,
-    '+': KEYWORD_OPCODES.PLUS,
-    '-': KEYWORD_OPCODES.MINUS,
-    '[': KEYWORD_OPCODES.PUSH,
-    ']': KEYWORD_OPCODES.POP,
-};
+const KEYWORD_OPCODE_MAP: Record<string, number> = Object.fromEntries(
+    KEYWORD_NAMES.map((name, i) => [name, i])
+);
 
 export function compile(config: SystemConfig): CompiledSystem {
     const errors: ValidationError[] = [];
@@ -59,8 +55,7 @@ export function compile(config: SystemConfig): CompiledSystem {
         opcodeTable.set(sortedLetters[i], 5 + i);
     }
 
-    // TODO 14/3/26: Violates DRY principle. Derived init array from global constants.
-    const reverseTable: string[] = ['F', '+', '-', '[', ']'];
+    const reverseTable: string[] = [...KEYWORD_NAMES];
     for (const letter of sortedLetters) {
         reverseTable.push(letter);
     }

@@ -22,6 +22,14 @@ export const KEYWORD_OPCODES = {
 
 export const NUM_KEYWORDS = 5;
 
+/**
+ * Keyword character literals in opcode order.
+ * KEYWORD_NAMES[i] is the character whose opcode is i.
+ * This is the single source of truth for keyword identity — KEYWORD_OPCODES,
+ * compile()'s reverseTable, and all keyword membership checks derive from this.
+ */
+export const KEYWORD_NAMES: readonly string[] = ['F', '+', '-', '[', ']'] as const;
+
 // ── User-facing configuration ─────────────────────────────────────────────────
 
 export interface TurtleConfig {
@@ -86,9 +94,9 @@ export type LinkedWord = LinkedToken[];
 
 export interface GenerationResult {
     /**
-     * All generations from axiom (index 0) through the final terminal expansion
-     * (last index). The terminal expansion is always the last entry, even when
-     * the axiom contains only keywords (in which case it is a copy of gen 0).
+     * All rewriting generations from axiom (index 0) through the final rewritten
+     * word (last index). Contains only rewriting steps — terminal expansion of
+     * Letters to keywords is performed by interpret(), not stored here.
      */
     generations: LinkedWord[];
     /** Back-reference for opcode→symbol resolution. */
