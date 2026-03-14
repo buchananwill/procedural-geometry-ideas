@@ -14,13 +14,13 @@ The system distinguishes two classes of symbol:
 
 Five built-in symbols with fixed turtle semantics and immutable identity production rules:
 
-| Keyword | Turtle action             |
-|---------|---------------------------|
-| `F`     | Move forward and draw     |
-| `+`     | Turn left by angle delta  |
-| `-`     | Turn right by angle delta |
+| Keyword | Turtle action                                     |
+|---------|---------------------------------------------------|
+| `F`     | Move forward and draw                             |
+| `+`     | Turn left by angle delta                          |
+| `-`     | Turn right by angle delta                         |
 | `[`     | Push turtle state (position + heading) onto stack |
-| `]`     | Pop turtle state from stack |
+| `]`     | Pop turtle state from stack                       |
 
 Keywords are irreducible. They pass through all rewriting steps unchanged.
 
