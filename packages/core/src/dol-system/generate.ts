@@ -39,6 +39,7 @@ export function generate(system: CompiledSystem, generations: number): Generatio
         }
     }
 
+    // TODO: Surely this is unnecessary if the system converged? Should have a conditional
     // Terminal expansion
     const lastWord = gens[gens.length - 1];
     const terminal: LinkedWord = [];

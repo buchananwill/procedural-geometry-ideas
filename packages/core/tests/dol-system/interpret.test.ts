@@ -184,13 +184,16 @@ describe('interpret() — segment.letter field', () => {
 });
 
 describe('interpret() — segment.generation field', () => {
-    it('X-derived segments trace back to generation 0 (axiom) where X lives', () => {
+    it('X-derived segments have generation equal to when that X was last a Letter', () => {
         const sys = compile(SQUARE_CONFIG);
         const result = generate(sys, 3);
         const output = interpret(result, SQUARE_CONFIG.turtle);
-        for (const seg of output.paths[0]) {
-            expect(seg.generation).toBe(0);
-        }
+        // 4 segments from terminal [F,+,F,+,F,+,F]
+        // Each F traces back to an X at a different generation
+        expect(output.paths[0][0].generation).toBe(0);  // oldest F, from gen0 X
+        expect(output.paths[0][1].generation).toBe(1);  // from gen1 X
+        expect(output.paths[0][2].generation).toBe(2);  // from gen2 X
+        expect(output.paths[0][3].generation).toBe(3);  // from gen3 X (terminal expansion)
     });
 
     it('stem-derived segments trace back to generation 1 where stem appears after rewriting', () => {

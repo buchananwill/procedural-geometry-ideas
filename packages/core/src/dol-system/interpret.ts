@@ -1,51 +1,30 @@
-import type {CompiledSystem, GenerationResult, Segment, TurtleConfig, TurtleOutput} from './types';
+import type {GenerationResult, Segment, TurtleConfig, TurtleOutput} from './types';
 import {NUM_KEYWORDS} from './types';
-
-function productionHasKeywords(system: CompiledSystem, opcode: number): boolean {
-    const prod = system.productions[opcode];
-    return prod.some(op => op < NUM_KEYWORDS);
-}
 
 function resolveLetter(result: GenerationResult, terminalIndex: number): { letter: string; generation: number } {
     let genIdx = result.generations.length - 1;
     let tokenIdx = terminalIndex;
 
-    while (true) {
+    while (genIdx >= 0) {
         const token = result.generations[genIdx][tokenIdx];
 
+        // Found a Letter — this is the nearest non-terminal ancestor
         if (token.opcode >= NUM_KEYWORDS) {
-            // Found a Letter. Check if its production contains keywords.
-            if (productionHasKeywords(result.system, token.opcode)) {
-                // Self-recursive with keywords: trace same-name chain to root.
-                const letterOpcode = token.opcode;
-                let letterGen = genIdx;
-                let letterIdx = tokenIdx;
-                while (true) {
-                    const t = result.generations[letterGen][letterIdx];
-                    if (t.parentIndex === -1) {
-                        return {letter: result.system.reverseTable[letterOpcode], generation: letterGen};
-                    }
-                    const parentGen = letterGen - 1;
-                    const parentToken = result.generations[parentGen][t.parentIndex];
-                    if (parentToken.opcode !== letterOpcode) {
-                        return {letter: result.system.reverseTable[letterOpcode], generation: letterGen};
-                    }
-                    letterIdx = t.parentIndex;
-                    letterGen = parentGen;
-                }
-            } else {
-                // No keywords in production: return this Letter immediately.
-                return {letter: result.system.reverseTable[token.opcode], generation: genIdx};
-            }
+            return { letter: result.system.reverseTable[token.opcode], generation: genIdx };
         }
 
+        // Reached the axiom with only keywords — return the keyword itself
         if (token.parentIndex === -1) {
-            return {letter: result.system.reverseTable[token.opcode], generation: genIdx};
+            return { letter: result.system.reverseTable[token.opcode], generation: genIdx };
         }
 
         tokenIdx = token.parentIndex;
         genIdx--;
     }
+
+    throw new Error(
+        `resolveLetter: exhausted generation chain without resolution (terminalIndex=${terminalIndex}). This indicates a bug in the generation or provenance data.`
+    );
 }
 
 export function interpret(result: GenerationResult, config: TurtleConfig): TurtleOutput {
@@ -67,6 +46,7 @@ export function interpret(result: GenerationResult, config: TurtleConfig): Turtl
         const token = finalGen[i];
         switch (token.opcode) {
             case 0: { // F
+                // TODO: If we pre-computed rotation matrices from the rotation delta, and stored a basis vector for the turtle state, we could drop the trig functions.
                 const headingRad = heading * Math.PI / 180;
                 const newPos = {
                     x: position.x + Math.cos(headingRad) * effectiveStep,

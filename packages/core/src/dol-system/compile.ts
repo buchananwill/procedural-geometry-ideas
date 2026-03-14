@@ -59,6 +59,7 @@ export function compile(config: SystemConfig): CompiledSystem {
         opcodeTable.set(sortedLetters[i], 5 + i);
     }
 
+    // TODO 14/3/26: Violates DRY principle. Derived init array from global constants.
     const reverseTable: string[] = ['F', '+', '-', '[', ']'];
     for (const letter of sortedLetters) {
         reverseTable.push(letter);
