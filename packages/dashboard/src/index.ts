@@ -27,3 +27,10 @@ export { default as RandomPolygonPanel } from './components/RandomPolygonPanel';
 export { default as ControlsPanel } from './components/ControlsPanel';
 export { default as AlgorithmPanel } from './components/AlgorithmPanel';
 export { default as DebugPanel } from './components/DebugPanel';
+
+// D0L System
+export { DOL_PRESETS } from './dol-system/presets';
+export { useDolSystemStore } from './stores/useDolSystemStore';
+export type { DolSystemStoreState } from './stores/useDolSystemStore';
+export { useDolGeneration } from './hooks/useDolGeneration';
+export type { DolGenerationState } from './hooks/useDolGeneration';
