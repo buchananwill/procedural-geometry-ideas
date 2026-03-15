@@ -120,6 +120,12 @@ export default function DebugPanel({
                         />
 
                         <Text size="xs" c="dimmed" fw={600} mt={4}>Collision Sweep</Text>
+                        <Switch
+                            size="xs"
+                            label="Collision sweep"
+                            checked={debug.showCollisionSweep}
+                            onChange={() => toggleDebug("showCollisionSweep")}
+                        />
                         <Button
                             size="compact-xs"
                             variant="light"

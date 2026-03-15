@@ -256,7 +256,7 @@ export function skeletonToScene(params: {
                 });
             }
         }
-        groups.push({type: 'group', id: 'group:collision-sweep', children});
+        groups.push({type: 'group', id: 'group:collision-sweep', children, visible: debug.showCollisionSweep});
     }
 
     // 6. group:polygon
@@ -459,7 +459,7 @@ export function skeletonToScene(params: {
         groups.push({type: 'group', id: 'group:debug-labels', children});
     }
 
-    // 8. group:debug-nodes — skeleton node index labels and offset distance labels
+    // 8. group:debug-node-labels — skeleton node index labels and offset distance labels
     {
         const children: ScenePrimitive[] = [];
         if (skeleton && (debug.showSkeletonNodes || debug.showNodeIndices || debug.showOffsetDistances)) {
@@ -500,7 +500,7 @@ export function skeletonToScene(params: {
                 }
             }
         }
-        groups.push({type: 'group', id: 'group:debug-nodes', children});
+        groups.push({type: 'group', id: 'group:debug-node-labels', children});
     }
 
     // 9. group:intersection-nodes

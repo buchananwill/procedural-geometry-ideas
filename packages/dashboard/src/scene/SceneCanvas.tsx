@@ -26,11 +26,33 @@ function getTouchCenter(t1: Touch, t2: Touch): { x: number; y: number } {
 
 function applyOpacity(color: string, opacity?: number): string {
     if (opacity === undefined || opacity >= 1) return color;
-    const hex = color.replace('#', '');
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    return `rgba(${r},${g},${b},${opacity})`;
+
+    // 6-digit hex
+    const hex6 = color.match(/^#([0-9a-fA-F]{6})$/);
+    if (hex6) {
+        const r = parseInt(hex6[1].substring(0, 2), 16);
+        const g = parseInt(hex6[1].substring(2, 4), 16);
+        const b = parseInt(hex6[1].substring(4, 6), 16);
+        return `rgba(${r},${g},${b},${opacity})`;
+    }
+
+    // 3-digit hex
+    const hex3 = color.match(/^#([0-9a-fA-F]{3})$/);
+    if (hex3) {
+        const r = parseInt(hex3[1][0] + hex3[1][0], 16);
+        const g = parseInt(hex3[1][1] + hex3[1][1], 16);
+        const b = parseInt(hex3[1][2] + hex3[1][2], 16);
+        return `rgba(${r},${g},${b},${opacity})`;
+    }
+
+    // rgb()/rgba()
+    const rgbMatch = color.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgbMatch) {
+        return `rgba(${rgbMatch[1]},${rgbMatch[2]},${rgbMatch[3]},${opacity})`;
+    }
+
+    // Named colors and unknown formats: opacity cannot be applied without a full CSS color parser.
+    return color;
 }
 
 function renderPrimitive(p: ScenePrimitive, invScale: number): ReactNode {
@@ -71,8 +93,7 @@ function renderPrimitive(p: ScenePrimitive, invScale: number): ReactNode {
                     x={p.x}
                     y={p.y}
                     radius={p.radius * invScale}
-                    fill={p.fill.color}
-                    opacity={p.fill.opacity}
+                    fill={applyOpacity(p.fill.color, p.fill.opacity)}
                     stroke={p.stroke?.color}
                     strokeWidth={p.stroke ? p.stroke.width * invScale : 0}
                     listening={false}

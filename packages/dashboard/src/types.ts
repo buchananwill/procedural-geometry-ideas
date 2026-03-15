@@ -13,6 +13,7 @@ export interface DebugDisplayOptions {
     showUnresolvedEdges: boolean;
     showEdgeDirections: boolean;
     showParentEdges: boolean;
+    showCollisionSweep: boolean;
 }
 
 export interface CollisionSweepLine {

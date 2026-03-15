@@ -128,7 +128,7 @@ export function SkeletonInteractionOverlay({
     );
 }
 
-export function useSkeletonStageClick(params: {
+export function useSkeletonStageClick({ vertices, invScale }: {
     vertices: Vertex[];
     invScale: number;
 }): (logicalPos: { x: number; y: number }) => void {
@@ -137,7 +137,6 @@ export function useSkeletonStageClick(params: {
 
     return useCallback(
         (logicalPos: { x: number; y: number }) => {
-            const { vertices, invScale } = params;
             let bestDist = Infinity;
             let bestIndex = -1;
             let bestPoint: Vertex = { x: 0, y: 0 };
@@ -159,6 +158,6 @@ export function useSkeletonStageClick(params: {
                 setSelectedVertex(null);
             }
         },
-        [params.vertices, params.invScale, addVertex, setSelectedVertex]
+        [vertices, invScale, addVertex, setSelectedVertex]
     );
 }

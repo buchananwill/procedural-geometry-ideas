@@ -49,6 +49,7 @@ export default function StraightSkeletonPage() {
         showUnresolvedEdges: false,
         showEdgeDirections: false,
         showParentEdges: false,
+        showCollisionSweep: true,
     });
 
     function toggleDebug(key: keyof DebugDisplayOptions) {

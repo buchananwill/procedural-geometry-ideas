@@ -37,14 +37,7 @@ export interface DolSystemStoreState {
     setTurtleParam: (key: keyof TurtleConfig, value: number) => void;
 }
 
-function recompile(s: {
-    config: SystemConfig;
-    generationCount: number;
-    compiledSystem: CompiledSystem | null;
-    generationResult: GenerationResult | null;
-    turtleOutput: TurtleOutput | null;
-    compilationError: string | null;
-}) {
+function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | 'compiledSystem' | 'generationResult' | 'turtleOutput' | 'compilationError'>) {
     try {
         const plainConfig = current(s).config;
         const compiled = compileDolSystem(plainConfig);
@@ -104,6 +97,7 @@ export const useDolSystemStore = create<DolSystemStoreState>()(
                 const preset = DOL_PRESETS.find((p) => p.name === name);
                 if (!preset) return;
                 s.config = preset.config as SystemConfig;
+                // Intentionally reset generationCount to the preset's maxIterations when switching presets.
                 s.generationCount = preset.config.maxIterations;
                 recompile(s);
             }),
