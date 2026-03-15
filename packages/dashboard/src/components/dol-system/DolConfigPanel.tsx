@@ -5,7 +5,7 @@ import {
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 import { DOL_PRESETS } from '../../dol-system/presets';
 import DolAlphabetSection from './DolAlphabetSection';
-import DolProductionsSection from './DolProductionsSection';
+import DolProductionsPanel from './DolProductionsPanel';
 import DolTurtleSection from './DolTurtleSection';
 
 export default function DolConfigPanel() {
@@ -37,7 +37,7 @@ export default function DolConfigPanel() {
                         />
                         <DolAlphabetSection key={JSON.stringify(config.alphabet)} />
                         <Divider />
-                        <DolProductionsSection key={JSON.stringify({ productions: config.productions, axiom: config.axiom })} />
+                        <DolProductionsPanel />
                         <Divider />
                         <DolTurtleSection key={JSON.stringify(config.turtle)} />
                     </Stack>

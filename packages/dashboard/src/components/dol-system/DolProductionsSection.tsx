@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-    Stack, UnstyledButton, Text, Group, Collapse,
+    Stack, Text, Group,
     TextInput, Tooltip,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
@@ -12,6 +12,7 @@ function ProductionRow({ letter, rhs, onBlurChange }: {
     onBlurChange: (letter: string, value: string) => void;
 }) {
     const [draft, setDraft] = useState(rhs);
+
     return (
         <Group gap="xs" align="flex-end">
             <Text size="xs" fw={600} style={{ width: 40 }}>{letter} &rarr;</Text>
@@ -29,7 +30,6 @@ function ProductionRow({ letter, rhs, onBlurChange }: {
 }
 
 export default function DolProductionsSection() {
-    const [opened, setOpened] = useState(true);
     const config = useDolSystemStore((s) => s.config);
     const setProduction = useDolSystemStore((s) => s.setProduction);
     const setAxiom = useDolSystemStore((s) => s.setAxiom);
@@ -38,39 +38,29 @@ export default function DolProductionsSection() {
 
     return (
         <Stack gap="xs">
-            <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
-                <Group justify="space-between">
-                    <Text size="xs" c="dimmed" fw={600}>Production Rules</Text>
-                    <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
-                </Group>
-            </UnstyledButton>
-            <Collapse in={opened}>
-                <Stack gap="xs">
-                    {Object.keys(config.productions).map((letter) => (
-                        <ProductionRow
-                            key={letter}
-                            letter={letter}
-                            rhs={symbolsToText(config.productions[letter])}
-                            onBlurChange={(l, val) => {
-                                const symbols = parseSymbols(val);
-                                setProduction(l, symbols);
-                            }}
-                        />
-                    ))}
-                    <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
-                    <Tooltip label="The starting word. The L-System begins here and applies production rules to expand it each generation. Space-separate symbols.">
-                        <TextInput
-                            size="xs"
-                            value={axiomDraft}
-                            onChange={(e) => setAxiomDraft(e.currentTarget.value)}
-                            onBlur={() => {
-                                const symbols = parseSymbols(axiomDraft);
-                                setAxiom(symbols);
-                            }}
-                        />
-                    </Tooltip>
-                </Stack>
-            </Collapse>
+            {Object.keys(config.productions).map((letter) => (
+                <ProductionRow
+                    key={letter}
+                    letter={letter}
+                    rhs={symbolsToText(config.productions[letter])}
+                    onBlurChange={(l, val) => {
+                        const symbols = parseSymbols(val);
+                        setProduction(l, symbols);
+                    }}
+                />
+            ))}
+            <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
+            <Tooltip label="The starting word. The L-System begins here and applies production rules to expand it each generation. Space-separate symbols.">
+                <TextInput
+                    size="xs"
+                    value={axiomDraft}
+                    onChange={(e) => setAxiomDraft(e.currentTarget.value)}
+                    onBlur={() => {
+                        const symbols = parseSymbols(axiomDraft);
+                        setAxiom(symbols);
+                    }}
+                />
+            </Tooltip>
         </Stack>
     );
 }
