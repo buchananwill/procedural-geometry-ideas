@@ -38,4 +38,4 @@ export { useDolSystemStore } from './stores/useDolSystemStore';
 export type { DolSystemStoreState } from './stores/useDolSystemStore';
 export { useDolGeneration } from './hooks/useDolGeneration';
 export type { DolGenerationState } from './hooks/useDolGeneration';
-export { DolConfigPanel, DolGenerationPanel } from './components/dol-system';
+export { DolConfigPanel, DolGenerationPanel, DolInstructionsPanel } from './components/dol-system';

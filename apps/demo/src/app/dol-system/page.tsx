@@ -6,7 +6,7 @@ import { Stack, Paper, Button } from "@mantine/core";
 import {
     DolConfigPanel,
     DolGenerationPanel,
-    useDolSystemStore,
+    DolInstructionsPanel,
     useDolGeneration,
     turtleToScene,
     PlaybackController,
@@ -24,9 +24,6 @@ export default function DolSystemPage() {
     const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
 
     const dolGeneration = useDolGeneration();
-    const config = useDolSystemStore((s) => s.config);
-
-    const configKey = JSON.stringify(config.axiom);
 
     function resetView() {
         setStageScale(1);
@@ -44,7 +41,8 @@ export default function DolSystemPage() {
                     Reset View
                 </Button>
             </Paper>
-            <DolConfigPanel key={configKey} />
+            <DolInstructionsPanel />
+            <DolConfigPanel />
             <DolGenerationPanel />
         </Stack>
     );
