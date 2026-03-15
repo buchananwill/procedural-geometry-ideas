@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/core";
 import "@mantine/core/styles.css";
 import "./globals.css";
+import AppShellLayout from "./AppShellLayout";
 
 export const metadata: Metadata = {
   title: "Procedural Geometry",
@@ -19,7 +20,9 @@ export default function RootLayout({
         <ColorSchemeScript />
       </head>
       <body>
-        <MantineProvider>{children}</MantineProvider>
+        <MantineProvider>
+          <AppShellLayout>{children}</AppShellLayout>
+        </MantineProvider>
       </body>
     </html>
   );
