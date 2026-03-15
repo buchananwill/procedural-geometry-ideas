@@ -1,19 +1,12 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useCallback } from 'react';
 import type { TurtleOutput } from '@proc-geo/core';
 import { generateDolSystem, interpretDolSystem } from '@proc-geo/core';
 import { useDolSystemStore } from '../stores/useDolSystemStore';
+import { usePlaybackStore } from '../stores/usePlaybackStore';
+import type { PlaybackControllerState } from './PlaybackControllerState';
 
 export interface DolGenerationState {
-    currentGeneration: number;
-    setCurrentGeneration: (n: number) => void;
-    maxGeneration: number;
-    isPlaying: boolean;
-    playDelay: number;
-    setPlayDelay: (ms: number) => void;
-    play: () => void;
-    pause: () => void;
-    stepForward: () => void;
-    stepBackward: () => void;
+    playback: PlaybackControllerState;
     currentTurtleOutput: TurtleOutput | null;
 }
 
@@ -22,69 +15,102 @@ export function useDolGeneration(): DolGenerationState {
     const generationCount = useDolSystemStore((s) => s.generationCount);
     const turtle = useDolSystemStore((s) => s.config.turtle);
 
-    const [currentGeneration, setCurrentGeneration] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [playDelay, setPlayDelay] = useState(500);
+    const currentFrame = usePlaybackStore((s) => s.currentFrame);
+    const isPlaying = usePlaybackStore((s) => s.isPlaying);
+    const playDelay = usePlaybackStore((s) => s.playDelay);
+    const setCurrentFrame = usePlaybackStore((s) => s.setCurrentFrame);
+    const setIsPlaying = usePlaybackStore((s) => s.setIsPlaying);
+    const setPlayDelay = usePlaybackStore((s) => s.setPlayDelay);
+    const resetPlayback = usePlaybackStore((s) => s.resetPlayback);
+    const clampToMax = usePlaybackStore((s) => s.clampToMax);
 
-    const maxGeneration = generationCount;
+    const maxFrame = generationCount;
 
     const currentTurtleOutput = useMemo<TurtleOutput | null>(() => {
         if (!compiledSystem) return null;
-        const result = generateDolSystem(compiledSystem, currentGeneration);
+        const result = generateDolSystem(compiledSystem, currentFrame);
         return interpretDolSystem(result, turtle);
-    }, [compiledSystem, currentGeneration, turtle]);
+    }, [compiledSystem, currentFrame, turtle]);
 
-    // Reset currentGeneration when compiledSystem changes
+    // Reset playback when compiledSystem changes
     useEffect(() => {
-        setCurrentGeneration(0);
-        setIsPlaying(false);
-    }, [compiledSystem]);
+        resetPlayback();
+    }, [compiledSystem, resetPlayback]);
+
+    // Clamp when generationCount changes
+    useEffect(() => {
+        clampToMax(generationCount);
+    }, [generationCount, clampToMax]);
 
     // Auto-advance playback
     useEffect(() => {
         if (!isPlaying) return;
-        if (currentGeneration >= maxGeneration) {
+        if (currentFrame >= maxFrame) {
             setIsPlaying(false);
             return;
         }
         const timer = setTimeout(() => {
-            setCurrentGeneration((prev) => Math.min(prev + 1, maxGeneration));
+            setCurrentFrame(Math.min(currentFrame + 1, maxFrame));
         }, playDelay);
         return () => clearTimeout(timer);
-    }, [isPlaying, currentGeneration, playDelay, maxGeneration]);
+    }, [isPlaying, currentFrame, playDelay, maxFrame, setCurrentFrame, setIsPlaying]);
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            setIsPlaying(false);
+        };
+    }, [setIsPlaying]);
 
     const play = useCallback(() => {
-        if (currentGeneration >= maxGeneration) {
-            setCurrentGeneration(0);
+        if (currentFrame >= maxFrame) {
+            setCurrentFrame(0);
         }
         setIsPlaying(true);
-    }, [currentGeneration, maxGeneration]);
+    }, [currentFrame, maxFrame, setCurrentFrame, setIsPlaying]);
 
     const pause = useCallback(() => {
         setIsPlaying(false);
-    }, []);
+    }, [setIsPlaying]);
+
+    const togglePlayPause = useCallback(() => {
+        if (isPlaying) {
+            setIsPlaying(false);
+        } else {
+            if (currentFrame >= maxFrame) {
+                setCurrentFrame(0);
+            }
+            setIsPlaying(true);
+        }
+    }, [isPlaying, currentFrame, maxFrame, setCurrentFrame, setIsPlaying]);
 
     const stepForward = useCallback(() => {
         setIsPlaying(false);
-        setCurrentGeneration((prev) => Math.min(prev + 1, maxGeneration));
-    }, [maxGeneration]);
+        setCurrentFrame(Math.min(currentFrame + 1, maxFrame));
+    }, [currentFrame, maxFrame, setCurrentFrame, setIsPlaying]);
 
     const stepBackward = useCallback(() => {
         setIsPlaying(false);
-        setCurrentGeneration((prev) => Math.max(prev - 1, 0));
-    }, []);
+        setCurrentFrame(Math.max(currentFrame - 1, 0));
+    }, [currentFrame, setCurrentFrame, setIsPlaying]);
 
-    return {
-        currentGeneration,
-        setCurrentGeneration,
-        maxGeneration,
+    const playback: PlaybackControllerState = {
+        currentFrame,
+        maxFrame,
         isPlaying,
         playDelay,
+        setCurrentFrame,
         setPlayDelay,
         play,
         pause,
+        togglePlayPause,
         stepForward,
         stepBackward,
+        frameLabel: `Gen ${currentFrame} / ${maxFrame}`,
+    };
+
+    return {
+        playback,
         currentTurtleOutput,
     };
 }

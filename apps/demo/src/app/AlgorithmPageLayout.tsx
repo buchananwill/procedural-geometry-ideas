@@ -9,9 +9,10 @@ interface AlgorithmPageLayoutProps {
     canvas: React.ReactNode;
     panels: React.ReactNode;
     algorithmName?: string;
+    playbackController?: React.ReactNode;
 }
 
-export default function AlgorithmPageLayout({ canvas, panels, algorithmName }: AlgorithmPageLayoutProps) {
+export default function AlgorithmPageLayout({ canvas, panels, algorithmName, playbackController }: AlgorithmPageLayoutProps) {
     const setTitle = useSetAlgorithmTitle();
     useEffect(() => {
         setTitle(algorithmName ?? "");
@@ -30,6 +31,8 @@ export default function AlgorithmPageLayout({ canvas, panels, algorithmName }: A
             >
                 <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative", display: "flex", flexDirection: "column" }}>
                     {canvas}
+
+                    {playbackController}
 
                     {!isDesktop && (
                         <ActionIcon

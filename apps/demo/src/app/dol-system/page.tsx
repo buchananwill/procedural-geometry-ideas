@@ -9,6 +9,7 @@ import {
     useDolSystemStore,
     useDolGeneration,
     turtleToScene,
+    PlaybackController,
 } from "@proc-geo/dashboard";
 import type { ScenePrimitive } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -24,6 +25,7 @@ export default function DolSystemPage() {
 
     const dolGeneration = useDolGeneration();
     const setGenerationCount = useDolSystemStore((s) => s.setGenerationCount);
+    const generationCount = useDolSystemStore((s) => s.generationCount);
     const config = useDolSystemStore((s) => s.config);
 
     const configKey = JSON.stringify(config.axiom);
@@ -46,7 +48,7 @@ export default function DolSystemPage() {
             </Paper>
             <DolConfigPanel key={configKey} />
             <DolGenerationPanel
-                generation={dolGeneration}
+                maxGeneration={generationCount}
                 onSetMaxGeneration={setGenerationCount}
             />
         </Stack>
@@ -65,6 +67,9 @@ export default function DolSystemPage() {
                 />
             }
             panels={controlPanels}
+            playbackController={
+                <PlaybackController playback={dolGeneration.playback} color="teal" />
+            }
         />
     );
 }

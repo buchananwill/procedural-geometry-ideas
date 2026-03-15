@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import type {
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
@@ -13,6 +13,8 @@ import {
 } from "@proc-geo/core";
 import type { SteppedAlgorithmResult } from "@proc-geo/core";
 import type { Vertex } from "../stores/usePolygonStore";
+import { usePlaybackStore } from "../stores/usePlaybackStore";
+import type { PlaybackControllerState } from "./PlaybackControllerState";
 
 export interface SkeletonAnimationState {
     showSkeleton: boolean;
@@ -22,15 +24,12 @@ export interface SkeletonAnimationState {
 
     animationMode: boolean;
     steppedResult: SteppedAlgorithmResult | null;
-    currentStep: number;
-    setCurrentStep: (v: number | ((prev: number) => number)) => void;
-    isPlaying: boolean;
-    setIsPlaying: (v: boolean | ((prev: boolean) => boolean)) => void;
-    stepDelay: number;
-    setStepDelay: (v: number) => void;
     errorModalOpen: boolean;
     setErrorModalOpen: (v: boolean) => void;
-    maxStep: number;
+
+    playback: PlaybackControllerState;
+    hasError: boolean;
+    errorMessage: string | null;
 
     solverContext: StraightSkeletonSolverContext | null;
     skeleton: StraightSkeletonGraph | null;
@@ -38,9 +37,6 @@ export interface SkeletonAnimationState {
     primaryEdgeIntersections: Vector2[];
 
     startAnimation: () => void;
-    togglePlayPause: () => void;
-    stepForward: () => void;
-    stepBackward: () => void;
     exitAnimation: () => void;
 }
 
@@ -50,10 +46,17 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
 
     const [animationMode, setAnimationMode] = useState(false);
     const [steppedResult, setSteppedResult] = useState<SteppedAlgorithmResult | null>(null);
-    const [currentStep, setCurrentStep] = useState(0);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [stepDelay, setStepDelay] = useState(500);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
+
+    const currentFrame = usePlaybackStore((s) => s.currentFrame);
+    const isPlaying = usePlaybackStore((s) => s.isPlaying);
+    const playDelay = usePlaybackStore((s) => s.playDelay);
+    const setCurrentFrame = usePlaybackStore((s) => s.setCurrentFrame);
+    const setIsPlaying = usePlaybackStore((s) => s.setIsPlaying);
+    const setPlayDelay = usePlaybackStore((s) => s.setPlayDelay);
+    const resetPlayback = usePlaybackStore((s) => s.resetPlayback);
+
+    const maxStep = steppedResult ? steppedResult.snapshots.length - 1 : 0;
 
     const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
         if (!showSkeleton) return null;
@@ -67,11 +70,11 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
-            return steppedResult.snapshots[Math.min(currentStep, steppedResult.snapshots.length - 1)];
+            return steppedResult.snapshots[Math.min(currentFrame, steppedResult.snapshots.length - 1)];
         }
         if (!showSkeleton) return null;
         return solverContext?.graph ?? null;
-    }, [showSkeleton, animationMode, steppedResult, currentStep, solverContext]);
+    }, [showSkeleton, animationMode, steppedResult, currentFrame, solverContext]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -87,65 +90,98 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
     useEffect(() => {
         setAnimationMode(false);
         setSteppedResult(null);
-        setIsPlaying(false);
-        setCurrentStep(0);
-    }, [vertices]);
+        resetPlayback();
+    }, [vertices, resetPlayback]);
 
     // Auto-advance playback timer
     useEffect(() => {
         if (!isPlaying || !steppedResult) return;
-        const maxStep = steppedResult.snapshots.length - 1;
-        if (currentStep >= maxStep) {
+        if (currentFrame >= maxStep) {
             setIsPlaying(false);
             return;
         }
         const timer = setTimeout(() => {
-            setCurrentStep(prev => Math.min(prev + 1, maxStep));
-        }, stepDelay);
+            setCurrentFrame(Math.min(currentFrame + 1, maxStep));
+        }, playDelay);
         return () => clearTimeout(timer);
-    }, [isPlaying, currentStep, stepDelay, steppedResult]);
+    }, [isPlaying, currentFrame, playDelay, steppedResult, maxStep, setCurrentFrame, setIsPlaying]);
 
-    function startAnimation() {
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            setIsPlaying(false);
+        };
+    }, [setIsPlaying]);
+
+    const startAnimation = useCallback(() => {
         const result = runAlgorithmV5Stepped(vertices);
         setSteppedResult(result);
-        setCurrentStep(0);
+        resetPlayback();
         setAnimationMode(true);
         setShowSkeleton(true);
-        setIsPlaying(false);
         if (result.error) {
             setErrorModalOpen(true);
         }
-    }
+    }, [vertices, resetPlayback]);
 
-    function togglePlayPause() {
-        if (!steppedResult) return;
-        if (currentStep >= steppedResult.snapshots.length - 1) {
-            setCurrentStep(0);
+    const togglePlayPause = useCallback(() => {
+        if (!steppedResult) {
+            setIsPlaying(false);
+            return;
+        }
+        if (currentFrame >= steppedResult.snapshots.length - 1) {
+            setCurrentFrame(0);
             setIsPlaying(true);
         } else {
-            setIsPlaying(prev => !prev);
+            setIsPlaying(!isPlaying);
         }
-    }
+    }, [steppedResult, currentFrame, isPlaying, setCurrentFrame, setIsPlaying]);
 
-    function stepForward() {
+    const stepForward = useCallback(() => {
         if (!steppedResult) return;
         setIsPlaying(false);
-        setCurrentStep(prev => Math.min(prev + 1, steppedResult.snapshots.length - 1));
-    }
+        setCurrentFrame(Math.min(currentFrame + 1, steppedResult.snapshots.length - 1));
+    }, [steppedResult, currentFrame, setCurrentFrame, setIsPlaying]);
 
-    function stepBackward() {
+    const stepBackward = useCallback(() => {
         setIsPlaying(false);
-        setCurrentStep(prev => Math.max(prev - 1, 0));
-    }
+        setCurrentFrame(Math.max(currentFrame - 1, 0));
+    }, [currentFrame, setCurrentFrame, setIsPlaying]);
 
-    function exitAnimation() {
+    const exitAnimation = useCallback(() => {
         setAnimationMode(false);
         setSteppedResult(null);
-        setIsPlaying(false);
-        setCurrentStep(0);
-    }
+        resetPlayback();
+    }, [resetPlayback]);
 
-    const maxStep = steppedResult ? steppedResult.snapshots.length - 1 : 0;
+    const hasError = steppedResult?.error != null;
+    const errorMessage = steppedResult?.error ?? null;
+
+    const play = useCallback(() => {
+        if (currentFrame >= maxStep) {
+            setCurrentFrame(0);
+        }
+        setIsPlaying(true);
+    }, [currentFrame, maxStep, setCurrentFrame, setIsPlaying]);
+
+    const pause = useCallback(() => {
+        setIsPlaying(false);
+    }, [setIsPlaying]);
+
+    const playback: PlaybackControllerState = {
+        currentFrame,
+        maxFrame: maxStep,
+        isPlaying,
+        playDelay,
+        setCurrentFrame,
+        setPlayDelay,
+        play,
+        pause,
+        togglePlayPause,
+        stepForward,
+        stepBackward,
+        frameLabel: `Step ${currentFrame} / ${maxStep}`,
+    };
 
     return {
         showSkeleton,
@@ -154,23 +190,16 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
         setShowPrimaryEdges,
         animationMode,
         steppedResult,
-        currentStep,
-        setCurrentStep,
-        isPlaying,
-        setIsPlaying,
-        stepDelay,
-        setStepDelay,
         errorModalOpen,
         setErrorModalOpen,
-        maxStep,
+        playback,
+        hasError,
+        errorMessage,
         solverContext,
         skeleton,
         primaryEdges,
         primaryEdgeIntersections,
         startAnimation,
-        togglePlayPause,
-        stepForward,
-        stepBackward,
         exitAnimation,
     };
 }

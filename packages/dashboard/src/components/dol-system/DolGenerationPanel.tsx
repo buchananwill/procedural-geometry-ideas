@@ -1,30 +1,16 @@
 import { useState } from 'react';
 import {
     Paper, Stack, Title, UnstyledButton, Text, Group, Collapse,
-    Slider, ActionIcon, NumberInput,
+    NumberInput,
 } from '@mantine/core';
-import type { DolGenerationState } from '../../hooks/useDolGeneration';
 
 interface DolGenerationPanelProps {
-    generation: DolGenerationState;
+    maxGeneration: number;
     onSetMaxGeneration: (n: number) => void;
 }
 
-export default function DolGenerationPanel({ generation, onSetMaxGeneration }: DolGenerationPanelProps) {
+export default function DolGenerationPanel({ maxGeneration, onSetMaxGeneration }: DolGenerationPanelProps) {
     const [opened, setOpened] = useState(false);
-
-    const {
-        currentGeneration,
-        setCurrentGeneration,
-        maxGeneration,
-        isPlaying,
-        playDelay,
-        setPlayDelay,
-        play,
-        pause,
-        stepForward,
-        stepBackward,
-    } = generation;
 
     return (
         <Paper p="md" withBorder>
@@ -37,77 +23,6 @@ export default function DolGenerationPanel({ generation, onSetMaxGeneration }: D
                 </UnstyledButton>
                 <Collapse in={opened}>
                     <Stack gap="xs">
-                        <Text size="xs" c="dimmed" fw={600}>
-                            Generation {currentGeneration} / {maxGeneration}
-                        </Text>
-                        <Slider
-                            min={0}
-                            max={Math.max(maxGeneration, 0)}
-                            step={1}
-                            value={currentGeneration}
-                            onChange={(val) => {
-                                if (isPlaying) pause();
-                                setCurrentGeneration(val);
-                            }}
-                            size="sm"
-                            label={(val) => `Gen ${val}`}
-                        />
-                        <Group grow gap="xs">
-                            <ActionIcon
-                                variant="light"
-                                color="teal"
-                                onClick={() => { pause(); setCurrentGeneration(0); }}
-                                disabled={currentGeneration === 0}
-                                title="Jump to start"
-                            >
-                                <Text size="xs">|&lt;</Text>
-                            </ActionIcon>
-                            <ActionIcon
-                                variant="light"
-                                color="teal"
-                                onClick={stepBackward}
-                                disabled={currentGeneration === 0}
-                                title="Step backward"
-                            >
-                                <Text size="xs">&lt;</Text>
-                            </ActionIcon>
-                            <ActionIcon
-                                variant={isPlaying ? 'filled' : 'light'}
-                                color="teal"
-                                onClick={isPlaying ? pause : play}
-                                title={isPlaying ? 'Pause' : 'Play'}
-                            >
-                                <Text size="xs">{isPlaying ? '||' : '>'}</Text>
-                            </ActionIcon>
-                            <ActionIcon
-                                variant="light"
-                                color="teal"
-                                onClick={stepForward}
-                                disabled={currentGeneration >= maxGeneration}
-                                title="Step forward"
-                            >
-                                <Text size="xs">&gt;</Text>
-                            </ActionIcon>
-                            <ActionIcon
-                                variant="light"
-                                color="teal"
-                                onClick={() => { pause(); setCurrentGeneration(maxGeneration); }}
-                                disabled={currentGeneration >= maxGeneration}
-                                title="Jump to end"
-                            >
-                                <Text size="xs">&gt;|</Text>
-                            </ActionIcon>
-                        </Group>
-                        <Text size="xs" c="dimmed">Delay: {playDelay}ms</Text>
-                        <Slider
-                            min={50}
-                            max={2000}
-                            step={50}
-                            value={playDelay}
-                            onChange={setPlayDelay}
-                            size="sm"
-                            label={(val) => `${val}ms`}
-                        />
                         <NumberInput
                             size="xs"
                             label="Max Generations"

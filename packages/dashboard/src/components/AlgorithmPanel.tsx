@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
     Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse,
-    Slider, ActionIcon, Modal,
+    Modal,
 } from "@mantine/core";
 import type { SkeletonAnimationState } from "../hooks/useSkeletonAnimation";
 
@@ -16,16 +16,11 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
         showSkeleton, setShowSkeleton,
         showPrimaryEdges, setShowPrimaryEdges,
         animationMode,
-        steppedResult,
-        currentStep, setCurrentStep,
-        isPlaying, setIsPlaying,
-        stepDelay, setStepDelay,
+        hasError,
+        errorMessage,
         errorModalOpen, setErrorModalOpen,
-        maxStep,
+        playback,
         startAnimation,
-        togglePlayPause,
-        stepForward,
-        stepBackward,
         exitAnimation,
     } = animation;
 
@@ -70,79 +65,12 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
                                         </Button>
                                     ) : (
                                         <>
-                                            <Text size="xs" c="dimmed" fw={600}>
-                                                Step {currentStep} / {maxStep}
-                                                {steppedResult?.error && " (error)"}
-                                            </Text>
-                                            <Slider
-                                                min={0}
-                                                max={Math.max(maxStep, 0)}
-                                                step={1}
-                                                value={currentStep}
-                                                onChange={(val) => {
-                                                    setIsPlaying(false);
-                                                    setCurrentStep(val);
-                                                }}
-                                                size="sm"
-                                                label={(val) => `Step ${val}`}
-                                            />
-                                            <Group grow gap="xs">
-                                                <ActionIcon
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={() => { setIsPlaying(false); setCurrentStep(0); }}
-                                                    disabled={currentStep === 0}
-                                                    title="Jump to start"
-                                                >
-                                                    <Text size="xs">|&lt;</Text>
-                                                </ActionIcon>
-                                                <ActionIcon
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={stepBackward}
-                                                    disabled={currentStep === 0}
-                                                    title="Step backward"
-                                                >
-                                                    <Text size="xs">&lt;</Text>
-                                                </ActionIcon>
-                                                <ActionIcon
-                                                    variant={isPlaying ? "filled" : "light"}
-                                                    color="yellow"
-                                                    onClick={togglePlayPause}
-                                                    title={isPlaying ? "Pause" : "Play"}
-                                                >
-                                                    <Text size="xs">{isPlaying ? "||" : ">"}</Text>
-                                                </ActionIcon>
-                                                <ActionIcon
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={stepForward}
-                                                    disabled={currentStep >= maxStep}
-                                                    title="Step forward"
-                                                >
-                                                    <Text size="xs">&gt;</Text>
-                                                </ActionIcon>
-                                                <ActionIcon
-                                                    variant="light"
-                                                    color="yellow"
-                                                    onClick={() => { setIsPlaying(false); setCurrentStep(maxStep); }}
-                                                    disabled={currentStep >= maxStep}
-                                                    title="Jump to end"
-                                                >
-                                                    <Text size="xs">&gt;|</Text>
-                                                </ActionIcon>
-                                            </Group>
-                                            <Text size="xs" c="dimmed">Delay: {stepDelay}ms</Text>
-                                            <Slider
-                                                min={50}
-                                                max={2000}
-                                                step={50}
-                                                value={stepDelay}
-                                                onChange={setStepDelay}
-                                                size="sm"
-                                                label={(val) => `${val}ms`}
-                                            />
-                                            {steppedResult?.error && (
+                                            {hasError && (
+                                                <Text size="xs" c="red" fw={600}>
+                                                    {playback.frameLabel} (error)
+                                                </Text>
+                                            )}
+                                            {hasError && (
                                                 <Button
                                                     color="red"
                                                     variant="light"
@@ -186,11 +114,11 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
                     </Text>
                     <Paper p="sm" withBorder style={{ fontFamily: "monospace" }}>
                         <Text size="xs" c="red" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                            {steppedResult?.error}
+                            {errorMessage}
                         </Text>
                     </Paper>
                     <Text size="xs" c="dimmed">
-                        Steps completed: {maxStep} (including partial state at failure)
+                        Steps completed: {playback.maxFrame} (including partial state at failure)
                     </Text>
                     <Button onClick={() => setErrorModalOpen(false)} fullWidth>
                         Dismiss

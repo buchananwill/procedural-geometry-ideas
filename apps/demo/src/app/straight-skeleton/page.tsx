@@ -15,6 +15,7 @@ import {
     ControlsPanel,
     AlgorithmPanel,
     DebugPanel,
+    PlaybackController,
 } from "@proc-geo/dashboard";
 import type { DebugDisplayOptions } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -160,6 +161,11 @@ export default function StraightSkeletonPage() {
                 />
             }
             panels={controlPanels}
+            playbackController={
+                animation.animationMode
+                    ? <PlaybackController playback={animation.playback} color="yellow" />
+                    : undefined
+            }
         />
     );
 }
