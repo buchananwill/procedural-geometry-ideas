@@ -10,13 +10,13 @@ const branchSystem = compile(BRANCH_CONFIG);
 
 describe('step()', () => {
     it('expands a single Letter token into its production', () => {
-        const axiomWord = [{opcode: 5, parentIndex: -1}];
+        const axiomWord = [{opcode: 6, parentIndex: -1}];
         const gen1 = step(squareSystem, axiomWord);
-        expect(gen1.map(t => t.opcode)).toEqual([0, 1, 5]);
+        expect(gen1.map(t => t.opcode)).toEqual([0, 1, 6]);
     });
 
     it('every output token references its parent index in the input word', () => {
-        const axiomWord = [{opcode: 5, parentIndex: -1}];
+        const axiomWord = [{opcode: 6, parentIndex: -1}];
         const gen1 = step(squareSystem, axiomWord);
         expect(gen1.every(t => t.parentIndex === 0)).toBe(true);
     });
@@ -35,9 +35,9 @@ describe('step()', () => {
     });
 
     it('expands two letters independently in the same word', () => {
-        const stemTip = [{opcode: 5, parentIndex: -1}, {opcode: 6, parentIndex: -1}];
+        const stemTip = [{opcode: 6, parentIndex: -1}, {opcode: 7, parentIndex: -1}];
         const result = step(branchSystem, stemTip);
-        expect(result.map(t => t.opcode)).toEqual([5, 6, 6]);
+        expect(result.map(t => t.opcode)).toEqual([6, 7, 7]);
     });
 });
 
@@ -46,7 +46,7 @@ describe('step()', () => {
 describe('generate() — generations array structure', () => {
     it('generations[0] is the compiled axiom with parentIndex=-1 for each token', () => {
         const result = generate(squareSystem, 3);
-        expect(result.generations[0].map(t => t.opcode)).toEqual([5]);
+        expect(result.generations[0].map(t => t.opcode)).toEqual([6]);
         expect(result.generations[0][0].parentIndex).toBe(-1);
     });
 
@@ -66,12 +66,12 @@ describe('generate() — rewriting', () => {
 
     it('gen1 word matches expected expansion of X', () => {
         const result = generate(squareSystem, 3);
-        expect(result.generations[1].map(t => t.opcode)).toEqual([0, 1, 5]);
+        expect(result.generations[1].map(t => t.opcode)).toEqual([0, 1, 6]);
     });
 
     it('gen3 word is F+F+F+X (7 tokens)', () => {
         const result = generate(squareSystem, 3);
-        expect(result.generations[3].map(t => t.opcode)).toEqual([0, 1, 0, 1, 0, 1, 5]);
+        expect(result.generations[3].map(t => t.opcode)).toEqual([0, 1, 0, 1, 0, 1, 6]);
     });
 });
 
@@ -113,7 +113,7 @@ describe('generate() — provenance tracing', () => {
         }
 
         const root = chain[chain.length - 1];
-        expect(root.opcode).toBe(5);  // X
+        expect(root.opcode).toBe(6);  // X
         expect(root.gen).toBe(0);
     });
 });

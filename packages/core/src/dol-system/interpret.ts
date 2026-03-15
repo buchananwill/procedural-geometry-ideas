@@ -122,6 +122,31 @@ export function interpret(result: GenerationResult, config: TurtleConfig): Turtl
                 currentPath = [];
                 break;
             }
+            case 5: { // f (move without drawing)
+                const newPos = {
+                    x: position.x + dx * effectiveStep,
+                    y: position.y + dy * effectiveStep,
+                };
+                // Update bounds with from
+                if (position.x < min.x) min.x = position.x;
+                if (position.y < min.y) min.y = position.y;
+                if (position.x > max.x) max.x = position.x;
+                if (position.y > max.y) max.y = position.y;
+                // Update bounds with to
+                if (newPos.x < min.x) min.x = newPos.x;
+                if (newPos.y < min.y) min.y = newPos.y;
+                if (newPos.x > max.x) max.x = newPos.x;
+                if (newPos.y > max.y) max.y = newPos.y;
+
+                position = newPos;
+                // f lifts the pen: advance position without drawing, then start a new polyline.
+                // This ensures F f F produces two visually separate line segments with a gap between them.
+                if (currentPath.length > 0) {
+                    paths.push(currentPath);
+                    currentPath = [];
+                }
+                break;
+            }
         }
     }
 

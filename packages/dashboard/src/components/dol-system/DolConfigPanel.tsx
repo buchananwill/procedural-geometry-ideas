@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import {
     Paper, Stack, Title, UnstyledButton, Text, Group, Collapse,
-    Select, TextInput, ActionIcon, NumberInput, Badge, Button, Alert,
+    Select, TextInput, ActionIcon, NumberInput, Pill, Button, Alert, Tooltip,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 import { DOL_PRESETS } from '../../dol-system/presets';
 import type { Keyword } from '@proc-geo/core';
 
-const VALID_KEYWORDS = new Set(['F', '+', '-', '[', ']']);
+const VALID_KEYWORDS = new Set(['F', '+', '-', '[', ']', 'f']);
 
 function parseSymbols(raw: string): string[] {
     return raw.split(/\s+/).filter(s => s.length > 0);
@@ -21,20 +21,190 @@ function parseKeywords(raw: string): Keyword[] {
     return raw.split(/\s+/).filter(s => VALID_KEYWORDS.has(s)) as Keyword[];
 }
 
-export default function DolConfigPanel() {
-    const [opened, setOpened] = useState(false);
-    const [newLetterName, setNewLetterName] = useState('');
-    const [newLetterKeywords, setNewLetterKeywords] = useState('');
+function AlphabetRow({ letter, keywords, onBlurChange, onRemove }: {
+    letter: string;
+    keywords: string;
+    onBlurChange: (letter: string, value: string) => void;
+    onRemove: (letter: string) => void;
+}) {
+    const [draft, setDraft] = useState(keywords);
+    return (
+        <Group gap="xs" align="flex-end">
+            <Pill size="sm">{letter}</Pill>
+            <TextInput
+                size="xs"
+                style={{ flex: 1 }}
+                value={draft}
+                onChange={(e) => setDraft(e.currentTarget.value)}
+                onBlur={() => onBlurChange(letter, draft)}
+            />
+            <ActionIcon
+                size="sm"
+                variant="light"
+                color="red"
+                onClick={() => onRemove(letter)}
+                title="Remove letter"
+            >
+                <Text size="xs">x</Text>
+            </ActionIcon>
+        </Group>
+    );
+}
 
+function ProductionRow({ letter, rhs, onBlurChange }: {
+    letter: string;
+    rhs: string;
+    onBlurChange: (letter: string, value: string) => void;
+}) {
+    const [draft, setDraft] = useState(rhs);
+    return (
+        <Group gap="xs" align="flex-end">
+            <Text size="xs" fw={600} style={{ width: 40 }}>{letter} &rarr;</Text>
+            <TextInput
+                size="xs"
+                style={{ flex: 1 }}
+                value={draft}
+                onChange={(e) => setDraft(e.currentTarget.value)}
+                onBlur={() => onBlurChange(letter, draft)}
+            />
+        </Group>
+    );
+}
+
+function ConfigFormContent() {
     const config = useDolSystemStore((s) => s.config);
     const compilationError = useDolSystemStore((s) => s.compilationError);
-    const loadPreset = useDolSystemStore((s) => s.loadPreset);
     const setAlphabet = useDolSystemStore((s) => s.setAlphabet);
     const addLetter = useDolSystemStore((s) => s.addLetter);
     const removeLetter = useDolSystemStore((s) => s.removeLetter);
     const setProduction = useDolSystemStore((s) => s.setProduction);
     const setAxiom = useDolSystemStore((s) => s.setAxiom);
     const setTurtleParam = useDolSystemStore((s) => s.setTurtleParam);
+
+    const [newLetterName, setNewLetterName] = useState('');
+    const [newLetterKeywords, setNewLetterKeywords] = useState('');
+    const [axiomDraft, setAxiomDraft] = useState(symbolsToText(config.axiom));
+    const [stepDraft, setStepDraft] = useState<string | number>(config.turtle.stepLength);
+    const [angleDraft, setAngleDraft] = useState<string | number>(config.turtle.angleDelta);
+    const [scalingDraft, setScalingDraft] = useState<string | number>(config.turtle.generationScaling);
+
+    return (
+        <Stack gap="xs">
+            {/* Alphabet editor */}
+            <Text size="xs" c="dimmed" fw={600} mt={4}>Alphabet</Text>
+            {Object.keys(config.alphabet).map((letter) => (
+                <AlphabetRow
+                    key={letter}
+                    letter={letter}
+                    keywords={symbolsToText(config.alphabet[letter])}
+                    onBlurChange={(l, val) => {
+                        const keywords = parseKeywords(val);
+                        setAlphabet(l, keywords);
+                    }}
+                    onRemove={removeLetter}
+                />
+            ))}
+            <Group gap="xs" align="flex-end">
+                <TextInput
+                    size="xs"
+                    placeholder="Name"
+                    style={{ width: 60 }}
+                    value={newLetterName}
+                    onChange={(e) => setNewLetterName(e.currentTarget.value)}
+                />
+                <Tooltip label="Keywords: F + - [ ] f" position="top">
+                    <TextInput
+                        size="xs"
+                        placeholder="Keywords"
+                        style={{ flex: 1 }}
+                        value={newLetterKeywords}
+                        onChange={(e) => setNewLetterKeywords(e.currentTarget.value)}
+                    />
+                </Tooltip>
+                <Button
+                    size="compact-xs"
+                    variant="light"
+                    onClick={() => {
+                        const name = newLetterName.trim();
+                        if (!name) return;
+                        const keywords = parseKeywords(newLetterKeywords);
+                        addLetter(name, keywords);
+                        setNewLetterName('');
+                        setNewLetterKeywords('');
+                    }}
+                >
+                    Add
+                </Button>
+            </Group>
+
+            {/* Productions editor */}
+            <Text size="xs" c="dimmed" fw={600} mt={4}>Productions</Text>
+            {Object.keys(config.productions).map((letter) => (
+                <ProductionRow
+                    key={letter}
+                    letter={letter}
+                    rhs={symbolsToText(config.productions[letter])}
+                    onBlurChange={(l, val) => {
+                        const symbols = parseSymbols(val);
+                        setProduction(l, symbols);
+                    }}
+                />
+            ))}
+
+            {/* Axiom editor */}
+            <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
+            <TextInput
+                size="xs"
+                value={axiomDraft}
+                onChange={(e) => setAxiomDraft(e.currentTarget.value)}
+                onBlur={() => {
+                    const symbols = parseSymbols(axiomDraft);
+                    setAxiom(symbols);
+                }}
+            />
+
+            {/* Turtle params */}
+            <Text size="xs" c="dimmed" fw={600} mt={4}>Turtle Parameters</Text>
+            <NumberInput
+                size="xs"
+                label="Step Length"
+                value={stepDraft}
+                onChange={(v) => setStepDraft(v)}
+                onBlur={() => setTurtleParam('stepLength', typeof stepDraft === 'number' ? stepDraft : 0)}
+            />
+            <NumberInput
+                size="xs"
+                label="Angle Delta (deg)"
+                value={angleDraft}
+                onChange={(v) => setAngleDraft(v)}
+                onBlur={() => setTurtleParam('angleDelta', typeof angleDraft === 'number' ? angleDraft : 0)}
+            />
+            <NumberInput
+                size="xs"
+                label="Generation Scaling"
+                value={scalingDraft}
+                onChange={(v) => setScalingDraft(v)}
+                onBlur={() => setTurtleParam('generationScaling', typeof scalingDraft === 'number' ? scalingDraft : 1)}
+                step={0.01}
+                min={0.01}
+                max={2}
+                decimalScale={4}
+            />
+
+            {/* Error display */}
+            {compilationError && (
+                <Alert color="red" title="Compilation Error">
+                    {compilationError}
+                </Alert>
+            )}
+        </Stack>
+    );
+}
+
+export default function DolConfigPanel() {
+    const [opened, setOpened] = useState(false);
+    const config = useDolSystemStore((s) => s.config);
+    const loadPreset = useDolSystemStore((s) => s.loadPreset);
 
     return (
         <Paper p="md" withBorder>
@@ -59,122 +229,7 @@ export default function DolConfigPanel() {
                             }}
                             clearable
                         />
-
-                        {/* Alphabet editor */}
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>Alphabet</Text>
-                        {Object.keys(config.alphabet).map((letter) => (
-                            <Group key={letter} gap="xs" align="flex-end">
-                                <Badge size="sm" variant="light">{letter}</Badge>
-                                <TextInput
-                                    size="xs"
-                                    style={{ flex: 1 }}
-                                    defaultValue={symbolsToText(config.alphabet[letter])}
-                                    onBlur={(e) => {
-                                        const keywords = parseKeywords(e.currentTarget.value);
-                                        setAlphabet(letter, keywords);
-                                    }}
-                                />
-                                <ActionIcon
-                                    size="sm"
-                                    variant="light"
-                                    color="red"
-                                    onClick={() => removeLetter(letter)}
-                                    title="Remove letter"
-                                >
-                                    <Text size="xs">x</Text>
-                                </ActionIcon>
-                            </Group>
-                        ))}
-                        <Group gap="xs" align="flex-end">
-                            <TextInput
-                                size="xs"
-                                placeholder="Name"
-                                style={{ width: 60 }}
-                                value={newLetterName}
-                                onChange={(e) => setNewLetterName(e.currentTarget.value)}
-                            />
-                            <TextInput
-                                size="xs"
-                                placeholder="Keywords (F + - [ ])"
-                                style={{ flex: 1 }}
-                                value={newLetterKeywords}
-                                onChange={(e) => setNewLetterKeywords(e.currentTarget.value)}
-                            />
-                            <Button
-                                size="compact-xs"
-                                variant="light"
-                                onClick={() => {
-                                    const name = newLetterName.trim();
-                                    if (!name) return;
-                                    const keywords = parseKeywords(newLetterKeywords);
-                                    addLetter(name, keywords);
-                                    setNewLetterName('');
-                                    setNewLetterKeywords('');
-                                }}
-                            >
-                                Add
-                            </Button>
-                        </Group>
-
-                        {/* Productions editor */}
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>Productions</Text>
-                        {Object.keys(config.productions).map((letter) => (
-                            <Group key={letter} gap="xs" align="flex-end">
-                                <Text size="xs" fw={600} style={{ width: 40 }}>{letter} &rarr;</Text>
-                                <TextInput
-                                    size="xs"
-                                    style={{ flex: 1 }}
-                                    defaultValue={symbolsToText(config.productions[letter])}
-                                    onBlur={(e) => {
-                                        const symbols = parseSymbols(e.currentTarget.value);
-                                        setProduction(letter, symbols);
-                                    }}
-                                />
-                            </Group>
-                        ))}
-
-                        {/* Axiom editor */}
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
-                        <TextInput
-                            size="xs"
-                            defaultValue={symbolsToText(config.axiom)}
-                            onBlur={(e) => {
-                                const symbols = parseSymbols(e.currentTarget.value);
-                                setAxiom(symbols);
-                            }}
-                        />
-
-                        {/* Turtle params */}
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>Turtle Parameters</Text>
-                        <NumberInput
-                            size="xs"
-                            label="Step Length"
-                            value={config.turtle.stepLength}
-                            onChange={(v) => setTurtleParam('stepLength', typeof v === 'number' ? v : 0)}
-                        />
-                        <NumberInput
-                            size="xs"
-                            label="Angle Delta (deg)"
-                            value={config.turtle.angleDelta}
-                            onChange={(v) => setTurtleParam('angleDelta', typeof v === 'number' ? v : 0)}
-                        />
-                        <NumberInput
-                            size="xs"
-                            label="Generation Scaling"
-                            value={config.turtle.generationScaling}
-                            onChange={(v) => setTurtleParam('generationScaling', typeof v === 'number' ? v : 1)}
-                            step={0.01}
-                            min={0.01}
-                            max={2}
-                            decimalScale={4}
-                        />
-
-                        {/* Error display */}
-                        {compilationError && (
-                            <Alert color="red" title="Compilation Error">
-                                {compilationError}
-                            </Alert>
-                        )}
+                        <ConfigFormContent key={JSON.stringify(config)} />
                     </Stack>
                 </Collapse>
             </Stack>

@@ -103,7 +103,7 @@ describe('Barrel re-exports', () => {
 
     it('core barrel exports NUM_KEYWORDS', async () => {
         const core = await import('@proc-geo/core');
-        expect(core.NUM_KEYWORDS).toBe(5);
+        expect(core.NUM_KEYWORDS).toBe(6);
     });
 
     it('core barrel exports DolSystemValidationError', async () => {

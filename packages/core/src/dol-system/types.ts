@@ -2,8 +2,8 @@ import type {Vector2} from '../shared/types';
 
 // ── Symbol vocabulary ─────────────────────────────────────────────────────────
 
-/** The five built-in turtle control symbols. */
-export type Keyword = 'F' | '+' | '-' | '[' | ']';
+/** The six built-in turtle control symbols. */
+export type Keyword = 'F' | '+' | '-' | '[' | ']' | 'f';
 
 /** A user-defined, non-terminal symbol name (max 16 characters). */
 export type Letter = string;
@@ -11,16 +11,17 @@ export type Letter = string;
 /** A token that may appear in a production rule's right-hand side or in the axiom. */
 export type Symbol = Keyword | Letter;
 
-/** Opcode constants for the five keywords — dense integers 0..4. */
+/** Opcode constants for the six keywords — dense integers 0..5. */
 export const KEYWORD_OPCODES = {
     F: 0,
     PLUS: 1,
     MINUS: 2,
     PUSH: 3,
     POP: 4,
+    MOVE_NO_DRAW: 5,
 } as const;
 
-export const NUM_KEYWORDS = 5;
+export const NUM_KEYWORDS = 6;
 
 /**
  * Keyword character literals in opcode order.
@@ -28,7 +29,7 @@ export const NUM_KEYWORDS = 5;
  * This is the single source of truth for keyword identity — KEYWORD_OPCODES,
  * compile()'s reverseTable, and all keyword membership checks derive from this.
  */
-export const KEYWORD_NAMES: readonly string[] = ['F', '+', '-', '[', ']'] as const;
+export const KEYWORD_NAMES: readonly string[] = ['F', '+', '-', '[', ']', 'f'] as const;
 
 // ── User-facing configuration ─────────────────────────────────────────────────
 
@@ -74,8 +75,8 @@ export interface CompiledSystem {
     definitions: number[][];
     /** Compiled axiom in opcode space. */
     axiom: number[];
-    /** Always 5. Keyword opcodes are 0..4; letter opcodes start at NUM_KEYWORDS. */
-    numKeywords: 5;
+    /** Always 6. Keyword opcodes are 0..5; letter opcodes start at NUM_KEYWORDS. */
+    numKeywords: 6;
 }
 
 // ── Generation (rewriting) ────────────────────────────────────────────────────

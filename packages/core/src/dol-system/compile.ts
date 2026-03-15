@@ -1,5 +1,5 @@
 import type {SystemConfig, CompiledSystem, ValidationError, Keyword} from './types';
-import {DolSystemValidationError, KEYWORD_OPCODES, KEYWORD_NAMES} from './types';
+import {DolSystemValidationError, KEYWORD_OPCODES, KEYWORD_NAMES, NUM_KEYWORDS} from './types';
 
 const KEYWORDS: Set<string> = new Set(KEYWORD_NAMES);
 
@@ -52,7 +52,7 @@ export function compile(config: SystemConfig): CompiledSystem {
     const sortedLetters = Object.keys(config.alphabet).sort();
     const opcodeTable = new Map<string, number>();
     for (let i = 0; i < sortedLetters.length; i++) {
-        opcodeTable.set(sortedLetters[i], 5 + i);
+        opcodeTable.set(sortedLetters[i], NUM_KEYWORDS + i);
     }
 
     const reverseTable: string[] = [...KEYWORD_NAMES];
@@ -67,9 +67,9 @@ export function compile(config: SystemConfig): CompiledSystem {
     }
 
     // Productions
-    const totalOpcodes = 5 + sortedLetters.length;
+    const totalOpcodes = NUM_KEYWORDS + sortedLetters.length;
     const productions: number[][] = [];
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < NUM_KEYWORDS; k++) {
         productions[k] = [k];
     }
     for (const letter of sortedLetters) {
@@ -83,7 +83,7 @@ export function compile(config: SystemConfig): CompiledSystem {
 
     // Definitions
     const definitions: number[][] = [];
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < NUM_KEYWORDS; k++) {
         definitions[k] = [];
     }
     for (const letter of sortedLetters) {
@@ -100,6 +100,6 @@ export function compile(config: SystemConfig): CompiledSystem {
         productions,
         definitions,
         axiom,
-        numKeywords: 5 as const,
+        numKeywords: NUM_KEYWORDS as typeof NUM_KEYWORDS,
     };
 }
