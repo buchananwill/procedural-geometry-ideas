@@ -147,6 +147,7 @@ export default function StraightSkeletonPage() {
 
     return (
         <AlgorithmPageLayout
+            algorithmName="Straight Skeleton"
             canvas={
                 <SceneCanvas
                     scene={scene}

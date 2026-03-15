@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect } from "react";
-import { AppShell, Burger, Drawer, Group, NavLink, Title } from "@mantine/core";
+import { AppShell, Burger, Group, NavLink, Title } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useAlgorithmTitle } from "./AlgorithmTitleContext";
 
 interface AppShellLayoutProps {
     children: React.ReactNode;
@@ -12,29 +13,27 @@ interface AppShellLayoutProps {
 
 export default function AppShellLayout({ children }: AppShellLayoutProps) {
     const pathname = usePathname();
-    const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
+    const algorithmTitle = useAlgorithmTitle();
+    const [navbarOpened, { open: openNavbar, close: closeNavbar, toggle: toggleNavbar }] = useDisclosure(false);
 
     useEffect(() => {
-        closeDrawer();
-    }, [pathname]);
+        closeNavbar();
+    }, [pathname, closeNavbar]);
 
     return (
-        <AppShell header={{ height: 60 }} padding="md">
+        <AppShell
+            header={{ height: 60 }}
+            navbar={{ width: 200, breakpoint: "sm", collapsed: { mobile: !navbarOpened, desktop: !navbarOpened } }}
+            padding="md"
+        >
             <AppShell.Header>
                 <Group h="100%" px="md">
-                    <Burger opened={drawerOpened} onClick={drawerOpened ? closeDrawer : openDrawer} size="sm" />
-                    <Title order={3}>Procedural Geometry</Title>
+                    <Burger opened={navbarOpened} onClick={toggleNavbar} size="sm" />
+                    <Title order={3}>Procedural Geometry{algorithmTitle ? ` \u2014 ${algorithmTitle}` : ""}</Title>
                 </Group>
             </AppShell.Header>
 
-            <Drawer
-                opened={drawerOpened}
-                onClose={closeDrawer}
-                position="left"
-                size="xs"
-                title="Navigation"
-                padding="sm"
-            >
+            <AppShell.Navbar p="md">
                 <NavLink
                     component={Link}
                     href="/straight-skeleton"
@@ -47,7 +46,7 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                     label="L-System (D0L)"
                     active={pathname === "/dol-system"}
                 />
-            </Drawer>
+            </AppShell.Navbar>
 
             <AppShell.Main>{children}</AppShell.Main>
         </AppShell>

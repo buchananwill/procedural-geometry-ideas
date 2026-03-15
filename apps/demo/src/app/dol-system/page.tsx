@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Stack } from "@mantine/core";
+import { Stack, Paper, Button } from "@mantine/core";
 import {
     DolConfigPanel,
     DolGenerationPanel,
@@ -28,12 +28,22 @@ export default function DolSystemPage() {
 
     const configKey = JSON.stringify(config.axiom);
 
+    function resetView() {
+        setStageScale(1);
+        setStagePosition({ x: 0, y: 0 });
+    }
+
     const scene: ScenePrimitive[] = dolGeneration.currentTurtleOutput
         ? turtleToScene({ turtleOutput: dolGeneration.currentTurtleOutput, colorMode: "generation" })
         : [];
 
     const controlPanels = (
         <Stack gap="sm">
+            <Paper withBorder p="sm">
+                <Button variant="light" color="cyan" onClick={resetView} fullWidth>
+                    Reset View
+                </Button>
+            </Paper>
             <DolConfigPanel key={configKey} />
             <DolGenerationPanel
                 generation={dolGeneration}
@@ -44,6 +54,7 @@ export default function DolSystemPage() {
 
     return (
         <AlgorithmPageLayout
+            algorithmName="L-System (D0L)"
             canvas={
                 <SceneCanvas
                     scene={scene}

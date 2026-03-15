@@ -1,14 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
 import { Group, ScrollArea, Stack, Drawer, ActionIcon, Text } from "@mantine/core";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
+import { useSetAlgorithmTitle } from "./AlgorithmTitleContext";
 
 interface AlgorithmPageLayoutProps {
     canvas: React.ReactNode;
     panels: React.ReactNode;
+    algorithmName?: string;
 }
 
-export default function AlgorithmPageLayout({ canvas, panels }: AlgorithmPageLayoutProps) {
+export default function AlgorithmPageLayout({ canvas, panels, algorithmName }: AlgorithmPageLayoutProps) {
+    const setTitle = useSetAlgorithmTitle();
+    useEffect(() => {
+        setTitle(algorithmName ?? "");
+        return () => setTitle("");
+    }, [algorithmName, setTitle]);
     const isDesktop = useMediaQuery("(min-width: 768px)");
     const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
 

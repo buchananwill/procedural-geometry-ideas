@@ -3,6 +3,7 @@ import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from "@mantine/c
 import "@mantine/core/styles.css";
 import "./globals.css";
 import AppShellLayout from "./AppShellLayout";
+import { AlgorithmTitleProvider } from "./AlgorithmTitleContext";
 
 export const metadata: Metadata = {
   title: "Procedural Geometry",
@@ -21,7 +22,9 @@ export default function RootLayout({
       </head>
       <body>
         <MantineProvider>
-          <AppShellLayout>{children}</AppShellLayout>
+          <AlgorithmTitleProvider>
+            <AppShellLayout>{children}</AppShellLayout>
+          </AlgorithmTitleProvider>
         </MantineProvider>
       </body>
     </html>
