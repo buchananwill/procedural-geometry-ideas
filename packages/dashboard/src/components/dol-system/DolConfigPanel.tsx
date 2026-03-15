@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-    Paper, Stack, Title, UnstyledButton, Text, Group, Collapse, Select,
+    Paper, Stack, Title, UnstyledButton, Text, Group, Collapse, Select, Divider,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 import { DOL_PRESETS } from '../../dol-system/presets';
@@ -36,7 +36,9 @@ export default function DolConfigPanel() {
                             clearable
                         />
                         <DolAlphabetSection key={JSON.stringify(config.alphabet)} />
+                        <Divider />
                         <DolProductionsSection key={JSON.stringify({ productions: config.productions, axiom: config.axiom })} />
+                        <Divider />
                         <DolTurtleSection key={JSON.stringify(config.turtle)} />
                     </Stack>
                 </Collapse>
