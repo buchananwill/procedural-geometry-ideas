@@ -103,7 +103,7 @@ interface PolygonCanvasProps {
 
 /**
  * @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead.
- * This component will be removed in Phase 5.
+ * This component will be removed in a future release.
  */
 export default function PolygonCanvas({
   skeleton,

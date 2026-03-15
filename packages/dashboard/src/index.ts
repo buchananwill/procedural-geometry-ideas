@@ -19,7 +19,7 @@ export type { SceneCanvasProps } from './scene/SceneCanvas';
 export { skeletonToScene, turtleToScene } from './scene/adapters';
 
 // Components
-/** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in Phase 5. */
+/** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in a future release. */
 export { default as PolygonCanvas } from './components/PolygonCanvas';
 export { SkeletonInteractionOverlay, useSkeletonStageClick } from './components/SkeletonInteractionOverlay';
 export type { SkeletonInteractionOverlayProps } from './components/SkeletonInteractionOverlay';
