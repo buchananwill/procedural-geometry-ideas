@@ -14,6 +14,7 @@ export function useDolGeneration(): DolGenerationState {
     const compiledSystem = useDolSystemStore((s) => s.compiledSystem);
     const generationCount = useDolSystemStore((s) => s.generationCount);
     const turtle = useDolSystemStore((s) => s.config.turtle);
+    const maxWordLength = useDolSystemStore((s) => s.maxWordLength);
 
     const currentFrame = usePlaybackStore((s) => s.currentFrame);
     const isPlaying = usePlaybackStore((s) => s.isPlaying);
@@ -28,9 +29,9 @@ export function useDolGeneration(): DolGenerationState {
 
     const currentTurtleOutput = useMemo<TurtleOutput | null>(() => {
         if (!compiledSystem) return null;
-        const result = generateDolSystem(compiledSystem, currentFrame);
+        const result = generateDolSystem(compiledSystem, currentFrame, maxWordLength);
         return interpretDolSystem(result, turtle);
-    }, [compiledSystem, currentFrame, turtle]);
+    }, [compiledSystem, currentFrame, turtle, maxWordLength]);
 
     // Reset playback when compiledSystem changes
     useEffect(() => {

@@ -26,9 +26,14 @@ export interface DolSystemStoreState {
     generationResult: GenerationResult | null;
     turtleOutput: TurtleOutput | null;
     compilationError: string | null;
+    isStale: boolean;
+    maxWordLength: number;
+    wordTruncated: boolean;
 
     loadPreset: (name: string) => void;
     setGenerationCount: (n: number) => void;
+    setMaxWordLength: (n: number) => void;
+    triggerGeneration: () => void;
     setAlphabet: (letter: Letter, definition: Keyword[]) => void;
     addLetter: (letter: Letter, definition: Keyword[]) => void;
     removeLetter: (letter: Letter) => void;
@@ -37,16 +42,17 @@ export interface DolSystemStoreState {
     setTurtleParam: (key: keyof TurtleConfig, value: number) => void;
 }
 
-function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | 'compiledSystem' | 'generationResult' | 'turtleOutput' | 'compilationError'>) {
+function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | 'compiledSystem' | 'generationResult' | 'turtleOutput' | 'compilationError' | 'wordTruncated'>, maxWordLength: number) {
     try {
         const plainConfig = current(s).config;
         const compiled = compileDolSystem(plainConfig);
-        const result = generateDolSystem(compiled, s.generationCount);
+        const result = generateDolSystem(compiled, s.generationCount, maxWordLength);
         const output = interpretDolSystem(result, plainConfig.turtle);
         s.compiledSystem = compiled as CompiledSystem;
         s.generationResult = result as GenerationResult;
         s.turtleOutput = output as TurtleOutput;
         s.compilationError = null;
+        s.wordTruncated = result.truncated;
     } catch (e) {
         if (e instanceof DolSystemValidationError) {
             s.compilationError = e.message;
@@ -56,15 +62,18 @@ function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | '
         s.compiledSystem = null;
         s.generationResult = null;
         s.turtleOutput = null;
+        s.wordTruncated = false;
     }
 }
+
+const DEFAULT_MAX_WORD_LENGTH = 100000;
 
 function computeInitialState() {
     const config = { ...DOL_PRESETS[0].config };
     const generationCount = config.maxIterations;
     try {
         const compiled = compileDolSystem(config);
-        const result = generateDolSystem(compiled, generationCount);
+        const result = generateDolSystem(compiled, generationCount, DEFAULT_MAX_WORD_LENGTH);
         const output = interpretDolSystem(result, config.turtle);
         return {
             config,
@@ -73,6 +82,9 @@ function computeInitialState() {
             generationResult: result,
             turtleOutput: output,
             compilationError: null,
+            isStale: false,
+            maxWordLength: DEFAULT_MAX_WORD_LENGTH,
+            wordTruncated: result.truncated,
         };
     } catch (e) {
         return {
@@ -82,6 +94,9 @@ function computeInitialState() {
             generationResult: null,
             turtleOutput: null,
             compilationError: e instanceof DolSystemValidationError ? e.message : String(e),
+            isStale: false,
+            maxWordLength: DEFAULT_MAX_WORD_LENGTH,
+            wordTruncated: false,
         };
     }
 }
@@ -99,51 +114,64 @@ export const useDolSystemStore = create<DolSystemStoreState>()(
                 s.config = preset.config as SystemConfig;
                 // Intentionally reset generationCount to the preset's maxIterations when switching presets.
                 s.generationCount = preset.config.maxIterations;
-                recompile(s);
+                recompile(s, s.maxWordLength);
+                s.isStale = s.compilationError !== null;
             }),
 
         setGenerationCount: (n: number) =>
             set((s) => {
                 s.generationCount = n;
-                recompile(s);
+                s.isStale = true;
+            }),
+
+        setMaxWordLength: (n: number) =>
+            set((s) => {
+                s.maxWordLength = n;
+                s.isStale = true;
+            }),
+
+        triggerGeneration: () =>
+            set((s) => {
+                recompile(s, s.maxWordLength);
+                s.isStale = s.compilationError !== null;
             }),
 
         setAlphabet: (letter: Letter, definition: Keyword[]) =>
             set((s) => {
                 s.config.alphabet[letter] = definition;
-                recompile(s);
+                s.isStale = true;
             }),
 
         addLetter: (letter: Letter, definition: Keyword[]) =>
             set((s) => {
                 s.config.alphabet[letter] = definition;
                 s.config.productions[letter] = [letter];
-                recompile(s);
+                s.isStale = true;
             }),
 
         removeLetter: (letter: Letter) =>
             set((s) => {
                 delete s.config.alphabet[letter];
                 delete s.config.productions[letter];
-                recompile(s);
+                s.isStale = true;
             }),
 
         setProduction: (letter: Letter, rhs: DolSymbol[]) =>
             set((s) => {
                 s.config.productions[letter] = rhs;
-                recompile(s);
+                s.isStale = true;
             }),
 
         setAxiom: (axiom: DolSymbol[]) =>
             set((s) => {
                 s.config.axiom = axiom;
-                recompile(s);
+                s.isStale = true;
             }),
 
         setTurtleParam: (key: keyof TurtleConfig, value: number) =>
             set((s) => {
                 s.config.turtle[key] = value;
-                recompile(s);
+                s.isStale = true;
             }),
     }))
 );

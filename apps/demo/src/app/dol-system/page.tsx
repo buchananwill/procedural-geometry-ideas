@@ -24,8 +24,6 @@ export default function DolSystemPage() {
     const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
 
     const dolGeneration = useDolGeneration();
-    const setGenerationCount = useDolSystemStore((s) => s.setGenerationCount);
-    const generationCount = useDolSystemStore((s) => s.generationCount);
     const config = useDolSystemStore((s) => s.config);
 
     const configKey = JSON.stringify(config.axiom);
@@ -47,10 +45,7 @@ export default function DolSystemPage() {
                 </Button>
             </Paper>
             <DolConfigPanel key={configKey} />
-            <DolGenerationPanel
-                maxGeneration={generationCount}
-                onSetMaxGeneration={setGenerationCount}
-            />
+            <DolGenerationPanel />
         </Stack>
     );
 

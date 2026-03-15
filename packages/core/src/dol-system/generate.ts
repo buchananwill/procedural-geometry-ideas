@@ -13,9 +13,14 @@ export function step(system: CompiledSystem, word: LinkedWord): LinkedWord {
     return result;
 }
 
-export function generate(system: CompiledSystem, generations: number): GenerationResult {
+export function generate(
+    system: CompiledSystem,
+    generations: number,
+    maxWordLength: number = Infinity,
+): GenerationResult {
     const gens: LinkedWord[] = [];
     let converged = false;
+    let truncated = false;
 
     // Gen 0: axiom
     const gen0: LinkedWord = system.axiom.map(opcode => ({opcode, parentIndex: -1}));
@@ -32,6 +37,10 @@ export function generate(system: CompiledSystem, generations: number): Generatio
         for (let i = 1; i <= generations; i++) {
             current = step(system, current);
             gens.push(current);
+            if (current.length >= maxWordLength) {
+                truncated = true;
+                break;
+            }
             if (isConverged(current)) {
                 converged = true;
                 break;
@@ -39,5 +48,5 @@ export function generate(system: CompiledSystem, generations: number): Generatio
         }
     }
 
-    return {generations: gens, system, converged};
+    return {generations: gens, system, converged, truncated};
 }

@@ -104,6 +104,8 @@ export interface GenerationResult {
     system: CompiledSystem;
     /** True if rewriting stopped early because the word became all keywords. */
     converged: boolean;
+    /** True if generation halted because word length exceeded maxWordLength. */
+    truncated: boolean;
 }
 
 // ── Turtle output ─────────────────────────────────────────────────────────────
