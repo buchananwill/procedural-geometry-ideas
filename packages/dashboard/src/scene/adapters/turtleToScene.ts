@@ -1,0 +1,67 @@
+import type { TurtleOutput } from '@proc-geo/core';
+import type { ScenePrimitive, SceneGroup, SceneLine } from '../types';
+
+const LETTER_PALETTE = [
+    '#4c6ef5', '#fab005', '#f03e3e', '#40c057',
+    '#22b8cf', '#be4bdb', '#fd7e14', '#74c0fc',
+];
+
+function generationColor(generation: number, maxGeneration: number): string {
+    const t = maxGeneration > 0 ? generation / maxGeneration : 0;
+    const r = Math.round(66 + t * (240 - 66));
+    const g = Math.round(133 + t * (62 - 133));
+    const b = Math.round(244 + t * (62 - 244));
+    return `rgb(${r},${g},${b})`;
+}
+
+export function turtleToScene(params: {
+    turtleOutput: TurtleOutput;
+    colorMode: 'letter' | 'generation';
+}): ScenePrimitive[] {
+    const { turtleOutput, colorMode } = params;
+    const { paths } = turtleOutput;
+
+    let maxGen = 0;
+    for (const path of paths) {
+        for (const seg of path) {
+            if (seg.generation > maxGen) maxGen = seg.generation;
+        }
+    }
+
+    const letterMap = new Map<string, number>();
+    let letterCounter = 0;
+
+    const children: ScenePrimitive[] = [];
+
+    for (const path of paths) {
+        if (path.length === 0) continue;
+
+        let color: string;
+        if (colorMode === 'letter') {
+            const letter = path[0].letter;
+            if (!letterMap.has(letter)) {
+                letterMap.set(letter, letterCounter++);
+            }
+            color = LETTER_PALETTE[letterMap.get(letter)! % LETTER_PALETTE.length];
+        } else {
+            color = generationColor(path[0].generation, maxGen);
+        }
+
+        const points = [path[0].from.x, path[0].from.y, ...path.flatMap(s => [s.to.x, s.to.y])];
+
+        const line: SceneLine = {
+            type: 'line',
+            points,
+            stroke: { color, width: 1.5 },
+        };
+        children.push(line);
+    }
+
+    const group: SceneGroup = {
+        type: 'group',
+        id: 'group:turtle-paths',
+        children,
+    };
+
+    return [group];
+}

@@ -16,7 +16,7 @@ export type { CollisionSweepState } from './hooks/useCollisionSweep';
 export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
-export { skeletonToScene } from './scene/adapters';
+export { skeletonToScene, turtleToScene } from './scene/adapters';
 
 // Components
 /** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in Phase 5. */
@@ -34,3 +34,4 @@ export { useDolSystemStore } from './stores/useDolSystemStore';
 export type { DolSystemStoreState } from './stores/useDolSystemStore';
 export { useDolGeneration } from './hooks/useDolGeneration';
 export type { DolGenerationState } from './hooks/useDolGeneration';
+export { DolConfigPanel, DolGenerationPanel } from './components/dol-system';
