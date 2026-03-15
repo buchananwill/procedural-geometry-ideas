@@ -5,7 +5,7 @@ User feedback takes precedence where the two conflict.
 
 ---
 
-## Phase 1: Scene rendering fixes & code quality cleanup
+## Phase 1: Scene rendering fixes & code quality cleanup ✅
 
 **Files:** `SceneCanvas.tsx`, `skeletonToScene.ts`, `SkeletonInteractionOverlay.tsx`, `useDolSystemStore.ts`,
 `turtleToScene.ts`
@@ -25,7 +25,7 @@ Addresses review items W1–W8:
 
 ---
 
-## Phase 2: D0L input handling & small UI fixes
+## Phase 2: D0L input handling & small UI fixes ✅
 
 **Files:** `DolConfigPanel.tsx`, `types.ts` (core), `compile.ts` (core), `interpret.ts` (core)
 
@@ -42,7 +42,7 @@ Addresses user items 6–9 and review items W10–W11:
 
 ---
 
-## Phase 3: AppShell header & Reset View
+## Phase 3: AppShell header & Reset View ✅
 
 **Files:** `AppShellLayout.tsx`, `AlgorithmPageLayout.tsx`, `page.tsx` (dol-system), `page.tsx` (straight-skeleton)
 
