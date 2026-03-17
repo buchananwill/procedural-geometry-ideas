@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
     Stack, UnstyledButton, Text, Group, Collapse,
-    TextInput, ActionIcon, Pill, Button, Tooltip,
+    TextInput, ActionIcon, Pill, Tooltip,
 } from '@mantine/core';
+import { IconCircleMinus, IconCirclePlus } from '@tabler/icons-react';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 import { symbolsToText, parseKeywords } from './dol-config-utils';
 
@@ -32,7 +33,7 @@ function AlphabetRow({ letter, keywords, onBlurChange, onRemove }: {
                 onClick={() => onRemove(letter)}
                 title="Remove letter"
             >
-                <Text size="xs">x</Text>
+                <IconCircleMinus size={14} />
             </ActionIcon>
         </Group>
     );
@@ -89,8 +90,8 @@ export default function DolAlphabetSection() {
                                 onChange={(e) => setNewLetterKeywords(e.currentTarget.value)}
                             />
                         </Tooltip>
-                        <Button
-                            size="compact-xs"
+                        <ActionIcon
+                            size="sm"
                             variant="light"
                             onClick={() => {
                                 const name = newLetterName.trim();
@@ -101,8 +102,8 @@ export default function DolAlphabetSection() {
                                 setNewLetterKeywords('');
                             }}
                         >
-                            Add
-                        </Button>
+                            <IconCirclePlus size={14} />
+                        </ActionIcon>
                     </Group>
                 </Stack>
             </Collapse>

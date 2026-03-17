@@ -5,7 +5,7 @@ import {
 import type { DolSymbol } from '@proc-geo/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 
-const KEYWORD_NAMES: readonly string[] = ['F', '+', '-', '[', ']', 'f'];
+const PALETTE_ORDER = ['F', 'f', '+', '-', '[', ']'] as const;
 
 const KEYWORD_TOOLTIPS: Record<string, string> = {
     F: 'Draw forward',
@@ -178,7 +178,7 @@ export default function DolProductionComposer() {
         <Stack gap="xs">
             <Text size="xs" c="dimmed">Drag symbols into rules below</Text>
             <Group gap={4} wrap="wrap">
-                {KEYWORD_NAMES.map((kw) => (
+                {PALETTE_ORDER.map((kw) => (
                     <Tooltip key={kw} label={KEYWORD_TOOLTIPS[kw] || kw}>
                         <Pill
                             draggable

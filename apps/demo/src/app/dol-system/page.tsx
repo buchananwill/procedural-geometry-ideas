@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import { Stack, Paper, Button } from "@mantine/core";
+import { Stack, Paper, Button, Group } from "@mantine/core";
 import {
     DolConfigPanel,
+    DolGenerateButton,
     DolGenerationPanel,
     DolInstructionsPanel,
     useDolGeneration,
@@ -37,9 +38,12 @@ export default function DolSystemPage() {
     const controlPanels = (
         <Stack gap="sm">
             <Paper withBorder p="sm">
-                <Button variant="light" color="cyan" onClick={resetView} fullWidth>
-                    Reset View
-                </Button>
+                <Group gap="xs">
+                    <Button variant="light" color="cyan" onClick={resetView}>
+                        Reset View
+                    </Button>
+                    <DolGenerateButton />
+                </Group>
             </Paper>
             <DolInstructionsPanel />
             <DolConfigPanel />

@@ -40,7 +40,8 @@
   },
   "dependencies": {
     "@proc-geo/core": "workspace:*",
-    "@proc-geo/test-fixtures": "workspace:*"
+    "@proc-geo/test-fixtures": "workspace:*",
+    "@tabler/icons-react": "^3"
   },
   "peerDependencies": {
     "@mantine/core": "^8",
