@@ -31,7 +31,7 @@ function computeFitView(
     const PADDING = 0.1;
     const scaleX = (canvasSize.width * (1 - 2 * PADDING)) / bw;
     const scaleY = (canvasSize.height * (1 - 2 * PADDING)) / bh;
-    const scale = Math.min(scaleX, scaleY, 10);
+    const scale = Math.min(scaleX, scaleY, 100);
     const cx = (bounds.min.x + bounds.max.x) / 2;
     const cy = (bounds.min.y + bounds.max.y) / 2;
     return {

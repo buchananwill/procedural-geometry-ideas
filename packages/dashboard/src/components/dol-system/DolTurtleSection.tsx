@@ -25,7 +25,7 @@ export default function DolTurtleSection() {
             </UnstyledButton>
             <Collapse in={opened}>
                 <Stack gap="xs">
-                    <Tooltip label="Base forward distance for each F command. Scaled per-generation by Generation Scaling.">
+                    <Tooltip label="Base forward distance for each F command. Scaled per-generation by Generation Scaling." maw={300} multiline>
                         <NumberInput
                             size="xs"
                             label="Step Length"
@@ -34,7 +34,7 @@ export default function DolTurtleSection() {
                             onBlur={() => setTurtleParam('stepLength', typeof stepDraft === 'number' ? stepDraft : 0)}
                         />
                     </Tooltip>
-                    <Tooltip label="Turn angle in degrees for + and - commands. 90 gives square grids, 60 gives hexagonal.">
+                    <Tooltip label="Turn angle in degrees for + and - commands. 90 gives square grids, 60 gives hexagonal." maw={300} multiline>
                         <NumberInput
                             size="xs"
                             label="Angle Delta (deg)"
@@ -43,7 +43,7 @@ export default function DolTurtleSection() {
                             onBlur={() => setTurtleParam('angleDelta', typeof angleDraft === 'number' ? angleDraft : 0)}
                         />
                     </Tooltip>
-                    <Tooltip label="Multiplier applied to Step Length each generation. Values < 1 shrink older branches for fractal self-similarity.">
+                    <Tooltip label="Multiplier applied to Step Length each generation. Values < 1 shrink older branches for fractal self-similarity." maw={300} multiline>
                         <NumberInput
                             size="xs"
                             label="Generation Scaling"

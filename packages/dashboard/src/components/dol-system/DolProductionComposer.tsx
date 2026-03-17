@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import {
     Stack, Text, Group, Pill, Box, Tooltip,
 } from '@mantine/core';
@@ -102,6 +102,19 @@ function VisualProductionRow({ label, rowId, rhs, onChange }: {
     rhs: DolSymbol[];
     onChange: (newRhs: DolSymbol[]) => void;
 }) {
+    const counterRef = useRef(0);
+    const idsRef = useRef<string[]>([]);
+    const prevRhsRef = useRef<DolSymbol[]>();
+
+    // Regenerate IDs whenever the array reference changes (after reorder, insert, delete).
+    // IDs stay stable during a drag (same render cycle, same refs) but change after
+    // a drag completes (new rhs array reference), forcing dnd-kit to create fresh
+    // sortable instances and avoiding the OptimisticSortingPlugin DOM desync.
+    if (prevRhsRef.current !== rhs) {
+        prevRhsRef.current = rhs;
+        idsRef.current = rhs.map(() => `${rowId}-pill-${counterRef.current++}`);
+    }
+
     const handleRemove = useCallback((index: number) => {
         onChange(rhs.filter((_, j) => j !== index));
     }, [rhs, onChange]);
@@ -115,8 +128,8 @@ function VisualProductionRow({ label, rowId, rhs, onChange }: {
                 )}
                 {rhs.map((sym, i) => (
                     <SortablePill
-                        key={`${rowId}-${i}`}
-                        id={`${rowId}-${i}`}
+                        key={idsRef.current[i]}
+                        id={idsRef.current[i]}
                         symbol={sym}
                         index={i}
                         group={rowId}
@@ -159,9 +172,8 @@ export default function DolProductionComposer() {
         if (!source || !target) return;
 
         const sourceData = source.data as Record<string, unknown>;
-        const sourceIsSortable = isSortable(source);
 
-        if (!sourceIsSortable) {
+        if (!isSortable(source)) {
             // Palette drag -> insert into a row
             const symbol = sourceData.symbol as string;
             if (!symbol) return;
@@ -170,8 +182,8 @@ export default function DolProductionComposer() {
             let insertIndex: number;
 
             if (isSortable(target)) {
-                targetGroup = target.group as string | undefined;
-                insertIndex = target.index + 1;
+                targetGroup = target.sortable.group as string | undefined;
+                insertIndex = target.sortable.index + 1;
             } else {
                 // Dropped on the droppable row container
                 const targetData = target.data as Record<string, unknown>;
@@ -187,33 +199,23 @@ export default function DolProductionComposer() {
             newRhs.splice(insertIndex, 0, symbol);
             rowData.setter(newRhs);
         } else {
-            // Sortable reorder within the same row
-            const sourceGroup = source.group as string | undefined;
+            // Sortable reorder — use the underlying Sortable instance
+            // which always has initialIndex, index, initialGroup, group.
+            const sortable = source.sortable;
+            const fromIndex = sortable.initialIndex;
+            const toIndex = sortable.index;
+            const fromGroup = sortable.initialGroup as string | undefined;
+            const toGroup = sortable.group as string | undefined;
 
-            let targetGroup: string | undefined;
-            let newIndex: number;
+            // Only handle reorder within the same group
+            if (!fromGroup || fromGroup !== toGroup) return;
+            if (fromIndex === toIndex) return;
 
-            if (isSortable(target)) {
-                targetGroup = target.group as string | undefined;
-                newIndex = target.index;
-            } else {
-                const targetData = target.data as Record<string, unknown>;
-                targetGroup = targetData.rowId as string | undefined;
-                newIndex = 0;
-            }
-
-            // Only allow reorder within same group
-            if (!sourceGroup || sourceGroup !== targetGroup) return;
-
-            const oldIndex = source.initialIndex;
-            if (oldIndex === newIndex) return;
-
-            const rowData = getRowData(sourceGroup);
+            const rowData = getRowData(fromGroup);
             if (!rowData) return;
 
             const newRhs = [...rowData.rhs];
-            const [removed] = newRhs.splice(oldIndex, 1);
-            newRhs.splice(newIndex, 0, removed);
+            newRhs.splice(toIndex, 0, newRhs.splice(fromIndex, 1)[0]);
             rowData.setter(newRhs);
         }
     }, [getRowData]);
@@ -247,7 +249,7 @@ export default function DolProductionComposer() {
                     onChange={setAxiom}
                 />
             </Stack>
-            <DragOverlay>
+            <DragOverlay dropAnimation={null}>
                 <OverlayContent />
             </DragOverlay>
         </DragDropProvider>

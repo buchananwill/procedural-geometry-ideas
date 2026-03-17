@@ -16,7 +16,7 @@ function ProductionRow({ letter, rhs, onBlurChange }: {
     return (
         <Group gap="xs" align="flex-end">
             <Text size="xs" fw={600} style={{ width: 40 }}>{letter} &rarr;</Text>
-            <Tooltip label="Rewriting rule: each generation, this letter is replaced by this sequence. Space-separate symbols.">
+            <Tooltip label="Rewriting rule: each generation, this letter is replaced by this sequence. Space-separate symbols." maw={300} multiline>
                 <TextInput
                     size="xs"
                     style={{ flex: 1 }}
@@ -50,7 +50,7 @@ export default function DolProductionsSection() {
                 />
             ))}
             <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
-            <Tooltip label="The starting word. The L-System begins here and applies production rules to expand it each generation. Space-separate symbols.">
+            <Tooltip label="The starting word. The L-System begins here and applies production rules to expand it each generation. Space-separate symbols." maw={300} multiline>
                 <TextInput
                     size="xs"
                     value={axiomDraft}

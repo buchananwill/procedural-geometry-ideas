@@ -209,8 +209,8 @@ export function SceneCanvas({
             const scaleBy = 1.1;
             const oldScale = stageScale;
             const newScale = e.evt.deltaY < 0
-                ? Math.min(oldScale * scaleBy, 10)
-                : Math.max(oldScale / scaleBy, 0.1);
+                ? Math.min(oldScale * scaleBy, 100)
+                : Math.max(oldScale / scaleBy, 0.01);
 
             const mousePointTo = {
                 x: (pointer.x - stagePosition.x) / oldScale,

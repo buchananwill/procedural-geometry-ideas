@@ -17,7 +17,7 @@ function AlphabetRow({ letter, keywords, onBlurChange, onRemove }: {
     return (
         <Group gap="xs" align="flex-end">
             <Pill size="sm">{letter}</Pill>
-            <Tooltip label="Keywords assigned to this letter. Edit and press Tab or click away to apply.">
+            <Tooltip label="Keywords assigned to this letter. Edit and press Tab or click away to apply." maw={300} multiline>
                 <TextInput
                     size="xs"
                     style={{ flex: 1 }}
@@ -72,7 +72,7 @@ export default function DolAlphabetSection() {
                         />
                     ))}
                     <Group gap="xs" align="flex-end">
-                        <Tooltip label="A short identifier for this symbol, e.g. A or B. Used in production rules and the axiom.">
+                        <Tooltip label="A short identifier for this symbol, e.g. A or B. Used in production rules and the axiom." maw={300} multiline>
                             <TextInput
                                 size="xs"
                                 placeholder="Name"
@@ -81,7 +81,23 @@ export default function DolAlphabetSection() {
                                 onChange={(e) => setNewLetterName(e.currentTarget.value)}
                             />
                         </Tooltip>
-                        <Tooltip label="Space-separated drawing commands this letter executes. Valid keywords: F (draw forward), f (move without drawing), + (turn left by Angle Delta), - (turn right), [ (push position), ] (pop position).">
+                        <Tooltip
+                            maw={300}
+                            multiline
+                            label={
+                                <span>
+                                    Space-separated drawing commands this letter executes.
+                                    <br /><br />
+                                    Valid keywords:
+                                    <br />F — draw forward
+                                    <br />f — move without drawing
+                                    <br />+ — turn left by Angle Delta
+                                    <br />- — turn right
+                                    <br />[ — push position
+                                    <br />] — pop position
+                                </span>
+                            }
+                        >
                             <TextInput
                                 size="xs"
                                 placeholder="Keywords"
