@@ -1,0 +1,12 @@
+.resizeHandle {
+  width: 6px;
+  background: transparent;
+  cursor: col-resize;
+  transition: background 150ms ease;
+  flex-shrink: 0;
+}
+
+.resizeHandle:hover,
+.resizeHandle[data-separator="active"] {
+  background: var(--mantine-color-blue-5);
+}

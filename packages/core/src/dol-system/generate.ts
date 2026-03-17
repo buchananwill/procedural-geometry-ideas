@@ -1,13 +1,13 @@
 import type {CompiledSystem, LinkedWord, GenerationResult} from './types';
 import {NUM_KEYWORDS} from './types';
 
-export function step(system: CompiledSystem, word: LinkedWord): LinkedWord {
+export function step(system: CompiledSystem, word: LinkedWord, skipProvenance?: boolean): LinkedWord {
     const result: LinkedWord = [];
     for (let i = 0; i < word.length; i++) {
         const token = word[i];
         const production = system.productions[token.opcode];
         for (const opcode of production) {
-            result.push({opcode, parentIndex: i});
+            result.push({opcode, parentIndex: skipProvenance ? -1 : i});
         }
     }
     return result;
@@ -17,6 +17,7 @@ export function generate(
     system: CompiledSystem,
     generations: number,
     maxWordLength: number = Infinity,
+    skipProvenance?: boolean,
 ): GenerationResult {
     const gens: LinkedWord[] = [];
     let converged = false;
@@ -35,7 +36,7 @@ export function generate(
         // Rewriting loop
         let current = gen0;
         for (let i = 1; i <= generations; i++) {
-            current = step(system, current);
+            current = step(system, current, skipProvenance);
             gens.push(current);
             if (current.length >= maxWordLength) {
                 truncated = true;

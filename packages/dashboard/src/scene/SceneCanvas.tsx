@@ -12,6 +12,7 @@ export interface SceneCanvasProps {
     onPositionChange: (pos: { x: number; y: number }) => void;
     interactionOverlay?: (invScale: number) => ReactNode;
     onStageClick?: (logicalPos: { x: number; y: number }, e: KonvaEventObject<MouseEvent>) => void;
+    onResize?: (size: { width: number; height: number }) => void;
 }
 
 function getTouchDistance(t1: Touch, t2: Touch): number {
@@ -134,6 +135,7 @@ export function SceneCanvas({
     onPositionChange,
     interactionOverlay,
     onStageClick,
+    onResize,
 }: SceneCanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const stageRef = useRef<ReturnType<typeof Stage> | null>(null);
@@ -144,11 +146,14 @@ export function SceneCanvas({
         if (!el) return;
         const ro = new ResizeObserver((entries) => {
             const { width, height } = entries[0].contentRect;
-            if (width > 0 && height > 0) setSize({ width, height });
+            if (width > 0 && height > 0) {
+                setSize({ width, height });
+                onResize?.({ width, height });
+            }
         });
         ro.observe(el);
         return () => ro.disconnect();
-    }, []);
+    }, [onResize]);
 
     // Pan tracking refs
     const isPanning = useRef(false);

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import { Group, ScrollArea, Stack, Drawer, ActionIcon, Text } from "@mantine/core";
+import { ScrollArea, Stack, Drawer, ActionIcon, Text } from "@mantine/core";
+import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
+import styles from "./AlgorithmPageLayout.module.css";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
 import { useSetAlgorithmTitle } from "./AlgorithmTitleContext";
 
@@ -23,44 +25,46 @@ export default function AlgorithmPageLayout({ canvas, panels, algorithmName, pla
 
     return (
         <>
-            <Group
-                align="stretch"
-                gap="md"
-                wrap="nowrap"
-                style={{ height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))" }}
-            >
-                <div style={{ flex: 1, minWidth: 0, minHeight: 0, position: "relative", display: "flex", flexDirection: "column" }}>
-                    {canvas}
-
-                    {playbackController}
-
-                    {!isDesktop && (
-                        <ActionIcon
-                            variant="filled"
-                            color="blue"
-                            size="xl"
-                            radius="xl"
-                            onClick={openDrawer}
-                            style={{
-                                position: "absolute",
-                                top: 12,
-                                right: 12,
-                                zIndex: 10,
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-                            }}
-                            title="Open controls"
-                        >
-                            <Text size="lg" fw={700}>&#9776;</Text>
-                        </ActionIcon>
-                    )}
+            {isDesktop ? (
+                <div style={{ height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))" }}>
+                    <PanelGroup orientation="horizontal" style={{ height: "100%" }}>
+                        <Panel minSize={30}>
+                            <div style={{ minWidth: 0, minHeight: 0, position: "relative", display: "flex", flexDirection: "column", height: "100%" }}>
+                                {playbackController}
+                                {canvas}
+                            </div>
+                        </Panel>
+                        <PanelResizeHandle className={styles.resizeHandle} />
+                        <Panel defaultSize={`20%`} minSize={`10%`} maxSize={`40%`}>
+                            <ScrollArea style={{ height: "100%" }} p={'sm'}>
+                                <Stack>{panels}</Stack>
+                            </ScrollArea>
+                        </Panel>
+                    </PanelGroup>
                 </div>
-
-                {isDesktop && (
-                    <ScrollArea style={{ height: "100%", width: 240, flexShrink: 0 }}>
-                        <Stack w={240}>{panels}</Stack>
-                    </ScrollArea>
-                )}
-            </Group>
+            ) : (
+                <div style={{ height: "calc(100vh - 60px - 2 * var(--mantine-spacing-md))", position: "relative", display: "flex", flexDirection: "column" }}>
+                    <ActionIcon
+                        variant="filled"
+                        color="blue"
+                        size="xl"
+                        radius="xl"
+                        onClick={openDrawer}
+                        style={{
+                            position: "absolute",
+                            top: 12,
+                            right: 12,
+                            zIndex: 10,
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        }}
+                        title="Open controls"
+                    >
+                        <Text size="lg" fw={700}>&#9776;</Text>
+                    </ActionIcon>
+                    {playbackController}
+                    {canvas}
+                </div>
+            )}
 
             <Drawer
                 opened={drawerOpened && !isDesktop}

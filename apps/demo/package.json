@@ -9,17 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@mantine/core": "^8.3.15",
+    "@mantine/hooks": "^8.3.15",
     "@proc-geo/core": "workspace:*",
     "@proc-geo/dashboard": "workspace:*",
     "@proc-geo/test-fixtures": "workspace:*",
-    "@mantine/core": "^8.3.15",
-    "@mantine/hooks": "^8.3.15",
     "immer": "^11.1.4",
     "konva": "^10.2.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-konva": "^19.2.2",
+    "react-resizable-panels": "^4.7.3",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

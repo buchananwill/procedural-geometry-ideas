@@ -29,6 +29,7 @@ export interface DolSystemStoreState {
     isStale: boolean;
     maxWordLength: number;
     wordTruncated: boolean;
+    skipProvenance: boolean;
 
     loadPreset: (name: string) => void;
     setGenerationCount: (n: number) => void;
@@ -40,13 +41,15 @@ export interface DolSystemStoreState {
     setProduction: (letter: Letter, rhs: DolSymbol[]) => void;
     setAxiom: (axiom: DolSymbol[]) => void;
     setTurtleParam: (key: keyof TurtleConfig, value: number) => void;
+    loadConfig: (config: SystemConfig) => void;
+    setSkipProvenance: (v: boolean) => void;
 }
 
-function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | 'compiledSystem' | 'generationResult' | 'turtleOutput' | 'compilationError' | 'wordTruncated'>, maxWordLength: number) {
+function recompile(s: Pick<DolSystemStoreState, 'config' | 'generationCount' | 'compiledSystem' | 'generationResult' | 'turtleOutput' | 'compilationError' | 'wordTruncated'>, maxWordLength: number, skipProvenance?: boolean) {
     try {
         const plainConfig = current(s).config;
         const compiled = compileDolSystem(plainConfig);
-        const result = generateDolSystem(compiled, s.generationCount, maxWordLength);
+        const result = generateDolSystem(compiled, s.generationCount, maxWordLength, skipProvenance);
         const output = interpretDolSystem(result, plainConfig.turtle);
         s.compiledSystem = compiled as CompiledSystem;
         s.generationResult = result as GenerationResult;
@@ -73,7 +76,7 @@ function computeInitialState() {
     const generationCount = config.maxIterations;
     try {
         const compiled = compileDolSystem(config);
-        const result = generateDolSystem(compiled, generationCount, DEFAULT_MAX_WORD_LENGTH);
+        const result = generateDolSystem(compiled, generationCount, DEFAULT_MAX_WORD_LENGTH, false);
         const output = interpretDolSystem(result, config.turtle);
         return {
             config,
@@ -85,6 +88,7 @@ function computeInitialState() {
             isStale: false,
             maxWordLength: DEFAULT_MAX_WORD_LENGTH,
             wordTruncated: result.truncated,
+            skipProvenance: false,
         };
     } catch (e) {
         return {
@@ -97,6 +101,7 @@ function computeInitialState() {
             isStale: false,
             maxWordLength: DEFAULT_MAX_WORD_LENGTH,
             wordTruncated: false,
+            skipProvenance: false,
         };
     }
 }
@@ -114,7 +119,7 @@ export const useDolSystemStore = create<DolSystemStoreState>()(
                 s.config = preset.config as SystemConfig;
                 // Intentionally reset generationCount to the preset's maxIterations when switching presets.
                 s.generationCount = preset.config.maxIterations;
-                recompile(s, s.maxWordLength);
+                recompile(s, s.maxWordLength, s.skipProvenance);
                 s.isStale = s.compilationError !== null;
             }),
 
@@ -132,7 +137,7 @@ export const useDolSystemStore = create<DolSystemStoreState>()(
 
         triggerGeneration: () =>
             set((s) => {
-                recompile(s, s.maxWordLength);
+                recompile(s, s.maxWordLength, s.skipProvenance);
                 s.isStale = s.compilationError !== null;
             }),
 
@@ -171,6 +176,19 @@ export const useDolSystemStore = create<DolSystemStoreState>()(
         setTurtleParam: (key: keyof TurtleConfig, value: number) =>
             set((s) => {
                 s.config.turtle[key] = value;
+                s.isStale = true;
+            }),
+
+        loadConfig: (config: SystemConfig) =>
+            set((s) => {
+                s.config = config as SystemConfig;
+                recompile(s, s.maxWordLength, s.skipProvenance);
+                s.isStale = s.compilationError !== null;
+            }),
+
+        setSkipProvenance: (v: boolean) =>
+            set((s) => {
+                s.skipProvenance = v;
                 s.isStale = true;
             }),
     }))

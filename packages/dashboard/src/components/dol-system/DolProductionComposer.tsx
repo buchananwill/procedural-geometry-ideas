@@ -1,8 +1,13 @@
-import { useState, useRef, useCallback } from 'react';
+import { useCallback } from 'react';
 import {
     Stack, Text, Group, Pill, Box, Tooltip,
 } from '@mantine/core';
 import type { DolSymbol } from '@proc-geo/core';
+import {
+    DragDropProvider, DragOverlay, useDraggable, useDroppable, useDragOperation,
+} from '@dnd-kit/react';
+import type { DragEndEvent } from '@dnd-kit/react';
+import { useSortable, isSortable } from '@dnd-kit/react/sortable';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 
 const PALETTE_ORDER = ['F', 'f', '+', '-', '[', ']'] as const;
@@ -16,29 +21,79 @@ const KEYWORD_TOOLTIPS: Record<string, string> = {
     ']': 'Pop position',
 };
 
-interface DragPayload {
-    source: 'palette' | 'row';
-    symbol?: string;
-    letter?: string;
-    index?: number;
-}
+function PalettePill({ symbol, hasTooltip }: { symbol: string; hasTooltip: boolean }) {
+    const { ref, isDragSource } = useDraggable({
+        id: `palette-${symbol}`,
+        data: { symbol, source: 'palette' as const },
+    });
 
-function makePaletteDragStart(symbol: string) {
-    return (e: React.DragEvent) => {
-        const payload: DragPayload = { source: 'palette', symbol };
-        e.dataTransfer.setData('text/plain', JSON.stringify(payload));
-        e.dataTransfer.effectAllowed = 'copy';
-    };
-}
+    const pill = (
+        <span ref={ref} style={{ display: 'inline-flex' }}>
+            <Pill style={{ cursor: 'grab', opacity: isDragSource ? 0.4 : 1 }}>
+                {symbol}
+            </Pill>
+        </span>
+    );
 
-function computeInsertIndex(container: HTMLElement, clientX: number): number {
-    const children = Array.from(container.querySelectorAll('[data-pill-index]'));
-    for (let i = 0; i < children.length; i++) {
-        const rect = children[i].getBoundingClientRect();
-        const midpoint = rect.left + rect.width / 2;
-        if (clientX < midpoint) return i;
+    if (hasTooltip) {
+        return <Tooltip label={KEYWORD_TOOLTIPS[symbol] || symbol}>{pill}</Tooltip>;
     }
-    return children.length;
+    return pill;
+}
+
+function SortablePill({ id, symbol, index, group, onRemove }: {
+    id: string;
+    symbol: string;
+    index: number;
+    group: string;
+    onRemove: () => void;
+}) {
+    const { ref, isDragSource } = useSortable({
+        id,
+        index,
+        group,
+        data: { symbol, source: 'row' as const },
+    });
+
+    return (
+        <span ref={ref} style={{ display: 'inline-flex' }}>
+            <Pill
+                withRemoveButton
+                onRemove={onRemove}
+                style={{ cursor: 'grab', opacity: isDragSource ? 0.4 : 1 }}
+            >
+                {symbol}
+            </Pill>
+        </span>
+    );
+}
+
+function DroppableRow({ rowId, children }: { rowId: string; children: React.ReactNode }) {
+    const { ref, isDropTarget } = useDroppable({
+        id: `row-${rowId}`,
+        data: { rowId },
+    });
+
+    return (
+        <Box
+            ref={ref}
+            style={{
+                flex: 1,
+                minHeight: 32,
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 4,
+                padding: 4,
+                borderRadius: 4,
+                border: isDropTarget
+                    ? '1px dashed var(--mantine-color-blue-5)'
+                    : '1px dashed var(--mantine-color-gray-4)',
+            }}
+        >
+            {children}
+        </Box>
+    );
 }
 
 function VisualProductionRow({ label, rowId, rhs, onChange }: {
@@ -47,53 +102,6 @@ function VisualProductionRow({ label, rowId, rhs, onChange }: {
     rhs: DolSymbol[];
     onChange: (newRhs: DolSymbol[]) => void;
 }) {
-    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        if (containerRef.current) {
-            setDragOverIndex(computeInsertIndex(containerRef.current, e.clientX));
-        }
-    }, []);
-
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        setDragOverIndex(null);
-        let payload: DragPayload;
-        try {
-            payload = JSON.parse(e.dataTransfer.getData('text/plain'));
-        } catch {
-            return;
-        }
-
-        // Fallback — containerRef is always populated during drag events
-        const insertAt = containerRef.current
-            ? computeInsertIndex(containerRef.current, e.clientX)
-            : rhs.length;
-
-        if (payload.source === 'palette' && payload.symbol) {
-            const newRhs = [...rhs];
-            newRhs.splice(insertAt, 0, payload.symbol);
-            onChange(newRhs);
-        // Cross-row pill moves are not supported — pills can only be reordered within their own row
-        } else if (payload.source === 'row' && payload.letter === rowId && payload.index != null) {
-            const oldIndex = payload.index;
-            const newRhs = [...rhs];
-            const [removed] = newRhs.splice(oldIndex, 1);
-            const adjustedInsert = insertAt > oldIndex ? insertAt - 1 : insertAt;
-            newRhs.splice(adjustedInsert, 0, removed);
-            onChange(newRhs);
-        }
-    }, [rowId, rhs, onChange]);
-
-    const handleDragLeave = useCallback((e: React.DragEvent) => {
-        if (containerRef.current && !containerRef.current.contains(e.relatedTarget as Node)) {
-            setDragOverIndex(null);
-        }
-    }, []);
-
     const handleRemove = useCallback((index: number) => {
         onChange(rhs.filter((_, j) => j !== index));
     }, [rhs, onChange]);
@@ -101,70 +109,31 @@ function VisualProductionRow({ label, rowId, rhs, onChange }: {
     return (
         <Group gap="xs" align="center" wrap="nowrap">
             <Text size="xs" fw={600} style={{ width: 50, flexShrink: 0 }}>{label} &rarr;</Text>
-            <Box
-                ref={containerRef}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-                onDragLeave={handleDragLeave}
-                style={{
-                    flex: 1,
-                    minHeight: 32,
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                    gap: 4,
-                    padding: 4,
-                    borderRadius: 4,
-                    border: dragOverIndex != null
-                        ? '1px dashed var(--mantine-color-blue-5)'
-                        : '1px dashed var(--mantine-color-gray-4)',
-                    position: 'relative',
-                }}
-            >
-                {rhs.length === 0 && dragOverIndex == null && (
+            <DroppableRow rowId={rowId}>
+                {rhs.length === 0 && (
                     <Text size="xs" c="dimmed" style={{ userSelect: 'none' }}>Drop symbols here</Text>
                 )}
                 {rhs.map((sym, i) => (
-                    <span key={`${i}-${sym}`} style={{ display: 'inline-flex', alignItems: 'center', position: 'relative' }}>
-                        {dragOverIndex === i && (
-                            <span style={{
-                                width: 2,
-                                height: 20,
-                                backgroundColor: 'var(--mantine-color-blue-5)',
-                                marginRight: 2,
-                                borderRadius: 1,
-                                flexShrink: 0,
-                            }} />
-                        )}
-                        <Pill
-                            data-pill-index={i}
-                            withRemoveButton
-                            onRemove={() => handleRemove(i)}
-                            draggable
-                            onDragStart={(e: React.DragEvent) => {
-                                const payload: DragPayload = { source: 'row', letter: rowId, index: i };
-                                e.dataTransfer.setData('text/plain', JSON.stringify(payload));
-                                e.dataTransfer.effectAllowed = 'move';
-                            }}
-                            style={{ cursor: 'grab' }}
-                        >
-                            {sym}
-                        </Pill>
-                    </span>
+                    <SortablePill
+                        key={`${rowId}-${i}`}
+                        id={`${rowId}-${i}`}
+                        symbol={sym}
+                        index={i}
+                        group={rowId}
+                        onRemove={() => handleRemove(i)}
+                    />
                 ))}
-                {dragOverIndex != null && dragOverIndex >= rhs.length && (
-                    <span style={{
-                        width: 2,
-                        height: 20,
-                        backgroundColor: 'var(--mantine-color-blue-5)',
-                        marginLeft: 2,
-                        borderRadius: 1,
-                        flexShrink: 0,
-                    }} />
-                )}
-            </Box>
+            </DroppableRow>
         </Group>
     );
+}
+
+function OverlayContent() {
+    const { source } = useDragOperation();
+    if (!source) return null;
+    const symbol = source.data?.symbol as string | undefined;
+    if (!symbol) return null;
+    return <Pill>{symbol}</Pill>;
 }
 
 export default function DolProductionComposer() {
@@ -174,48 +143,113 @@ export default function DolProductionComposer() {
 
     const letters = Object.keys(config.alphabet);
 
+    const getRowData = useCallback((rowId: string): { rhs: DolSymbol[]; setter: (newRhs: DolSymbol[]) => void } | null => {
+        if (rowId === '__axiom__') {
+            return { rhs: [...config.axiom], setter: setAxiom };
+        }
+        if (rowId in config.productions) {
+            return { rhs: [...config.productions[rowId]], setter: (newRhs) => setProduction(rowId, newRhs) };
+        }
+        return null;
+    }, [config.axiom, config.productions, setAxiom, setProduction]);
+
+    const handleDragEnd = useCallback((event: DragEndEvent) => {
+        if (event.canceled) return;
+        const { source, target } = event.operation;
+        if (!source || !target) return;
+
+        const sourceData = source.data as Record<string, unknown>;
+        const sourceIsSortable = isSortable(source);
+
+        if (!sourceIsSortable) {
+            // Palette drag -> insert into a row
+            const symbol = sourceData.symbol as string;
+            if (!symbol) return;
+
+            let targetGroup: string | undefined;
+            let insertIndex: number;
+
+            if (isSortable(target)) {
+                targetGroup = target.group as string | undefined;
+                insertIndex = target.index + 1;
+            } else {
+                // Dropped on the droppable row container
+                const targetData = target.data as Record<string, unknown>;
+                targetGroup = targetData.rowId as string | undefined;
+                insertIndex = 0;
+            }
+
+            if (!targetGroup) return;
+            const rowData = getRowData(targetGroup);
+            if (!rowData) return;
+
+            const newRhs = [...rowData.rhs];
+            newRhs.splice(insertIndex, 0, symbol);
+            rowData.setter(newRhs);
+        } else {
+            // Sortable reorder within the same row
+            const sourceGroup = source.group as string | undefined;
+
+            let targetGroup: string | undefined;
+            let newIndex: number;
+
+            if (isSortable(target)) {
+                targetGroup = target.group as string | undefined;
+                newIndex = target.index;
+            } else {
+                const targetData = target.data as Record<string, unknown>;
+                targetGroup = targetData.rowId as string | undefined;
+                newIndex = 0;
+            }
+
+            // Only allow reorder within same group
+            if (!sourceGroup || sourceGroup !== targetGroup) return;
+
+            const oldIndex = source.initialIndex;
+            if (oldIndex === newIndex) return;
+
+            const rowData = getRowData(sourceGroup);
+            if (!rowData) return;
+
+            const newRhs = [...rowData.rhs];
+            const [removed] = newRhs.splice(oldIndex, 1);
+            newRhs.splice(newIndex, 0, removed);
+            rowData.setter(newRhs);
+        }
+    }, [getRowData]);
+
     return (
-        <Stack gap="xs">
-            <Text size="xs" c="dimmed">Drag symbols into rules below</Text>
-            <Group gap={4} wrap="wrap">
-                {PALETTE_ORDER.map((kw) => (
-                    <Tooltip key={kw} label={KEYWORD_TOOLTIPS[kw] || kw}>
-                        <Pill
-                            draggable
-                            onDragStart={makePaletteDragStart(kw)}
-                            style={{ cursor: 'grab' }}
-                        >
-                            {kw}
-                        </Pill>
-                    </Tooltip>
-                ))}
-                {letters.map((letter) => (
-                    <Pill
+        <DragDropProvider onDragEnd={handleDragEnd}>
+            <Stack gap="xs">
+                <Text size="xs" c="dimmed">Drag symbols into rules below</Text>
+                <Group gap={4} wrap="wrap">
+                    {PALETTE_ORDER.map((kw) => (
+                        <PalettePill key={kw} symbol={kw} hasTooltip={true} />
+                    ))}
+                    {letters.map((letter) => (
+                        <PalettePill key={letter} symbol={letter} hasTooltip={false} />
+                    ))}
+                </Group>
+                {Object.keys(config.productions).map((letter) => (
+                    <VisualProductionRow
                         key={letter}
-                        draggable
-                        onDragStart={makePaletteDragStart(letter)}
-                        style={{ cursor: 'grab' }}
-                    >
-                        {letter}
-                    </Pill>
+                        label={letter}
+                        rowId={letter}
+                        rhs={config.productions[letter]}
+                        onChange={(newRhs) => setProduction(letter, newRhs)}
+                    />
                 ))}
-            </Group>
-            {Object.keys(config.productions).map((letter) => (
+                <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
                 <VisualProductionRow
-                    key={letter}
-                    label={letter}
-                    rowId={letter}
-                    rhs={config.productions[letter]}
-                    onChange={(newRhs) => setProduction(letter, newRhs)}
+                    label="Axiom"
+                    rowId="__axiom__"
+                    rhs={config.axiom}
+                    onChange={setAxiom}
                 />
-            ))}
-            <Text size="xs" c="dimmed" fw={600} mt={4}>Axiom</Text>
-            <VisualProductionRow
-                label="Axiom"
-                rowId="__axiom__"
-                rhs={config.axiom}
-                onChange={setAxiom}
-            />
-        </Stack>
+            </Stack>
+            <DragOverlay>
+                <OverlayContent />
+            </DragOverlay>
+        </DragDropProvider>
     );
 }

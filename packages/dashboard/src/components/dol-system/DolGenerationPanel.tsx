@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
     Paper, Stack, Title, UnstyledButton, Text, Group, Collapse,
-    NumberInput, Button, Badge, Alert,
+    NumberInput, Button, Badge, Alert, Switch,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
 
@@ -25,6 +25,8 @@ export default function DolGenerationPanel() {
     const maxWordLength = useDolSystemStore((s) => s.maxWordLength);
     const setMaxWordLength = useDolSystemStore((s) => s.setMaxWordLength);
     const wordTruncated = useDolSystemStore((s) => s.wordTruncated);
+    const skipProvenance = useDolSystemStore((s) => s.skipProvenance);
+    const setSkipProvenance = useDolSystemStore((s) => s.setSkipProvenance);
 
     return (
         <Paper p="md" withBorder>
@@ -52,6 +54,13 @@ export default function DolGenerationPanel() {
                             step={1000}
                             value={maxWordLength}
                             onChange={(v) => setMaxWordLength(typeof v === 'number' ? v : 1000)}
+                        />
+                        <Switch
+                            size="xs"
+                            label="Skip provenance (faster)"
+                            description="Color by letter/generation unavailable when on"
+                            checked={skipProvenance}
+                            onChange={(e) => setSkipProvenance(e.currentTarget.checked)}
                         />
                         {wordTruncated && (
                             <Alert color="yellow" title="Truncated">
