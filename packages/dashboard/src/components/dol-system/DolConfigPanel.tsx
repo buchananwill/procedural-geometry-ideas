@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
     Paper, Stack, Title, UnstyledButton, Text, Group, Collapse, Select, Divider, Button,
 } from '@mantine/core';
@@ -17,14 +17,34 @@ export default function DolConfigPanel() {
     const loadPreset = useDolSystemStore((s) => s.loadPreset);
     const loadConfig = useDolSystemStore((s) => s.loadConfig);
 
-    function copyConfig() {
-        navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
+    const copyConfig = useCallback(() => {
+        const json = JSON.stringify(config, null, 2);
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(json).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+            }).catch(() => {});
+        } else {
+            // Fallback for non-secure contexts (e.g. LAN access)
+            const textarea = document.createElement('textarea');
+            textarea.value = json;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
-        });
-    }
+        }
+    }, [config]);
 
-    function pasteConfig() {
+    const pasteConfig = useCallback(() => {
+        if (!navigator.clipboard?.readText) {
+            setPasted('fail');
+            setTimeout(() => setPasted(null), 1500);
+            return;
+        }
         navigator.clipboard.readText().then((text) => {
             try {
                 const parsed = JSON.parse(text);
@@ -45,7 +65,7 @@ export default function DolConfigPanel() {
             setPasted('fail');
             setTimeout(() => setPasted(null), 1500);
         });
-    }
+    }, [loadConfig]);
 
     return (
         <Paper p="md" withBorder>
