@@ -180,13 +180,21 @@ export {
     cubicBezierDerivative,
     cubicBezierSecondDerivative,
     smoothStroke,
+    simplifyStroke,
+    detectCorners,
     fitStrokeSpline,
+    fitCatmullRom,
+    fitStroke,
     mapByArcLengthFraction,
     flattenSpline,
     mapRawToSpline,
     runStrokePipeline,
     lerpStroke,
     DEFAULT_STROKE_PIPELINE_CONFIG,
+    SMOOTHING_VARIANT_DEFAULTS,
+    SIMPLIFICATION_VARIANT_DEFAULTS,
+    CORNER_DETECTION_VARIANT_DEFAULTS,
+    FITTING_VARIANT_DEFAULTS,
 } from './stroke-spline';
 
 // ── D0L system ────────────────────────────────────────────────────────────────

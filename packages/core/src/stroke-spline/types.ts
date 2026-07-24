@@ -19,15 +19,24 @@ export interface CubicBezier {
 
 export type SmoothingConfig =
     | { variant: 'pass-through' }
-    | { variant: 'moving-average'; windowSize: number };
+    | { variant: 'moving-average'; windowSize: number }
+    | { variant: 'gaussian'; sigma: number }
+    | { variant: 'one-euro'; minCutoff: number; beta: number }
+    | { variant: 'chaikin'; iterations: number };
 
-export type SimplificationConfig = { variant: 'pass-through' };
+export type SimplificationConfig =
+    | { variant: 'pass-through' }
+    | { variant: 'rdp'; epsilon: number }
+    | { variant: 'resample'; spacing: number };
 
-export type CornerDetectionConfig = { variant: 'pass-through' };
+export type CornerDetectionConfig =
+    | { variant: 'pass-through' }
+    | { variant: 'angle-threshold'; thresholdDeg: number; span: number };
 
 export type FittingConfig =
     | { variant: 'pass-through' }
-    | { variant: 'schneider'; errorTolerance: number };
+    | { variant: 'schneider'; errorTolerance: number }
+    | { variant: 'catmull-rom'; alpha: number };
 
 export interface StrokePipelineConfig {
     smoothing: SmoothingConfig;

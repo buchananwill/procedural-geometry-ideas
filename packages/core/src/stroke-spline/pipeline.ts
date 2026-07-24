@@ -1,16 +1,17 @@
 import type { Vector2 } from '../straight-skeleton/types';
 import type {
     CornerDetectionConfig,
-    CornerDetectionResult,
     FittingConfig,
-    FitResult,
     SimplificationConfig,
+    SmoothingConfig,
     StrokePipelineConfig,
     StrokePipelineResult,
     StrokePoint,
 } from './types';
 import { smoothStroke } from './smoothing';
-import { fitStrokeSpline } from './schneider';
+import { simplifyStroke } from './simplification';
+import { detectCorners } from './corner-detection';
+import { fitStroke } from './fitting';
 import { mapByArcLengthFraction, mapRawToSpline } from './correspondence';
 
 export const DEFAULT_STROKE_PIPELINE_CONFIG: StrokePipelineConfig = {
@@ -20,40 +21,33 @@ export const DEFAULT_STROKE_PIPELINE_CONFIG: StrokePipelineConfig = {
     fitting: { variant: 'schneider', errorTolerance: 4 },
 };
 
-function simplifyStroke(points: StrokePoint[], config: SimplificationConfig): StrokePoint[] {
-    switch (config.variant) {
-        case 'pass-through':
-            return points.slice();
-        default: {
-            const _exhaustive: never = config.variant;
-            return _exhaustive;
-        }
-    }
-}
+/** Default config per variant, used when a stage's dropdown selection changes. */
+export const SMOOTHING_VARIANT_DEFAULTS: Record<SmoothingConfig['variant'], SmoothingConfig> = {
+    'pass-through': { variant: 'pass-through' },
+    'moving-average': { variant: 'moving-average', windowSize: 5 },
+    'gaussian': { variant: 'gaussian', sigma: 2 },
+    'one-euro': { variant: 'one-euro', minCutoff: 1, beta: 0.005 },
+    'chaikin': { variant: 'chaikin', iterations: 3 },
+};
 
-function detectCorners(points: StrokePoint[], config: CornerDetectionConfig): CornerDetectionResult {
-    switch (config.variant) {
-        case 'pass-through':
-            return { points: points.slice(), cornerIndices: [] };
-        default: {
-            const _exhaustive: never = config.variant;
-            return _exhaustive;
-        }
-    }
-}
+export const SIMPLIFICATION_VARIANT_DEFAULTS: Record<SimplificationConfig['variant'], SimplificationConfig> = {
+    'pass-through': { variant: 'pass-through' },
+    'rdp': { variant: 'rdp', epsilon: 2 },
+    'resample': { variant: 'resample', spacing: 10 },
+};
 
-function fitStroke(corners: CornerDetectionResult, config: FittingConfig): FitResult | null {
-    switch (config.variant) {
-        case 'pass-through':
-            return null;
-        case 'schneider':
-            return fitStrokeSpline(corners.points, config.errorTolerance);
-        default: {
-            const _exhaustive: never = config;
-            return _exhaustive;
-        }
-    }
-}
+export const CORNER_DETECTION_VARIANT_DEFAULTS: Record<CornerDetectionConfig['variant'], CornerDetectionConfig> = {
+    'pass-through': { variant: 'pass-through' },
+    // Span 4: at typical pointer sample density, upstream smoothing spreads a
+    // hand-drawn corner over several samples; a tighter span misses it.
+    'angle-threshold': { variant: 'angle-threshold', thresholdDeg: 60, span: 4 },
+};
+
+export const FITTING_VARIANT_DEFAULTS: Record<FittingConfig['variant'], FittingConfig> = {
+    'pass-through': { variant: 'pass-through' },
+    'schneider': { variant: 'schneider', errorTolerance: 4 },
+    'catmull-rom': { variant: 'catmull-rom', alpha: 0.5 },
+};
 
 export function runStrokePipeline(raw: StrokePoint[], config: StrokePipelineConfig): StrokePipelineResult {
     const smoothed = smoothStroke(raw, config.smoothing);
