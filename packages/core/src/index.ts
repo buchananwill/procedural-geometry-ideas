@@ -161,6 +161,34 @@ export {
   findClosingIntersection,
 } from './random-polygon/geometry-helpers';
 
+// ── Stroke → spline ──────────────────────────────────────────────────────────
+export type {
+    StrokePoint,
+    CubicBezier,
+    SmoothingConfig,
+    SimplificationConfig,
+    CornerDetectionConfig,
+    FittingConfig,
+    StrokePipelineConfig,
+    CornerDetectionResult,
+    SplineParameterization,
+    FitResult,
+    StrokePipelineResult,
+} from './stroke-spline';
+export {
+    evaluateCubicBezier,
+    cubicBezierDerivative,
+    cubicBezierSecondDerivative,
+    smoothStroke,
+    fitStrokeSpline,
+    mapByArcLengthFraction,
+    flattenSpline,
+    mapRawToSpline,
+    runStrokePipeline,
+    lerpStroke,
+    DEFAULT_STROKE_PIPELINE_CONFIG,
+} from './stroke-spline';
+
 // ── D0L system ────────────────────────────────────────────────────────────────
 export {
     compile as compileDolSystem,

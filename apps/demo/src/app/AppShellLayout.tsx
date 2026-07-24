@@ -46,6 +46,12 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                     label="L-System (D0L)"
                     active={pathname === "/dol-system"}
                 />
+                <NavLink
+                    component={Link}
+                    href="/pen-stroke"
+                    label="Pen Stroke → Spline"
+                    active={pathname === "/pen-stroke"}
+                />
             </AppShell.Navbar>
 
             <AppShell.Main>{children}</AppShell.Main>

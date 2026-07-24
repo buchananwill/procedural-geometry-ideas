@@ -32,6 +32,12 @@ export { default as AlgorithmPanel } from './components/AlgorithmPanel';
 export { default as DebugPanel } from './components/DebugPanel';
 export { default as PlaybackController } from './components/PlaybackController';
 
+// Pen Stroke → Spline
+export { usePenStrokeStore } from './stores/usePenStrokeStore';
+export type { PenStrokeStoreState } from './stores/usePenStrokeStore';
+export { PenStrokeCanvas, PenStrokeLerpPanel, PenStrokePipelinePanel, SliderNumberInput } from './components/pen-stroke';
+export type { SliderNumberInputProps } from './components/pen-stroke';
+
 // D0L System
 export { DOL_PRESETS } from './dol-system/presets';
 export { useDolSystemStore } from './stores/useDolSystemStore';
