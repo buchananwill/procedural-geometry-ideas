@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
     Paper, Stack, UnstyledButton, Text, Group, Collapse, List, Title,
 } from '@mantine/core';
+import CollapseChevron from '../CollapseChevron';
 
 export default function DolInstructionsPanel() {
     const [opened, setOpened] = useState(() => {
@@ -40,7 +41,7 @@ export default function DolInstructionsPanel() {
                 <UnstyledButton w="100%" onClick={handleToggle}>
                     <Group justify="space-between">
                         <Title order={5}>How D0L Systems Work</Title>
-                        <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                        <CollapseChevron opened={opened} />
                     </Group>
                 </UnstyledButton>
                 <Collapse in={opened}>

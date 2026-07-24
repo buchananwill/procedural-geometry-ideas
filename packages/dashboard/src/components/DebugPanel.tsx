@@ -4,6 +4,7 @@ import {
 } from "@mantine/core";
 import type { StraightSkeletonSolverContext } from "@proc-geo/core";
 import type { DebugDisplayOptions, CollisionSweepLine } from "../types";
+import CollapseChevron from "./CollapseChevron";
 
 interface DebugPanelProps {
     debug: DebugDisplayOptions;
@@ -34,7 +35,7 @@ export default function DebugPanel({
                 <UnstyledButton w="100%" onClick={() => setDebugOpen(o => !o)}>
                     <Group justify="space-between">
                         <Title order={5}>Debug</Title>
-                        <Text size="xs" c="blue">{debugOpen ? "\u25B2" : "\u25BC"}</Text>
+                        <CollapseChevron opened={debugOpen} />
                     </Group>
                 </UnstyledButton>
                 <Collapse in={debugOpen}>

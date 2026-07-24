@@ -4,6 +4,7 @@ import {
     NumberInput, Alert, Tooltip,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
+import CollapseChevron from '../CollapseChevron';
 
 export default function DolTurtleSection() {
     const [opened, setOpened] = useState(true);
@@ -20,7 +21,7 @@ export default function DolTurtleSection() {
             <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
                 <Group justify="space-between">
                     <Text size="xs" c="dimmed" fw={600}>Turtle Parameters</Text>
-                    <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                    <CollapseChevron opened={opened} />
                 </Group>
             </UnstyledButton>
             <Collapse in={opened}>

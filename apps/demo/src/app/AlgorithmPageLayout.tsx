@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { ScrollArea, Stack, Drawer, ActionIcon, Text } from "@mantine/core";
+import { ScrollArea, Stack, Drawer, ActionIcon } from "@mantine/core";
+import { List as ListIcon } from "@phosphor-icons/react";
 import { Group as PanelGroup, Panel, Separator as PanelResizeHandle } from "react-resizable-panels";
 import styles from "./AlgorithmPageLayout.module.css";
 import { useDisclosure, useMediaQuery } from "@mantine/hooks";
@@ -59,7 +60,7 @@ export default function AlgorithmPageLayout({ canvas, panels, algorithmName, pla
                         }}
                         title="Open controls"
                     >
-                        <Text size="lg" fw={700}>&#9776;</Text>
+                        <ListIcon size={22} weight="bold" />
                     </ActionIcon>
                     {playbackController}
                     {canvas}

@@ -11,6 +11,7 @@
   "dependencies": {
     "@mantine/core": "^8.3.15",
     "@mantine/hooks": "^8.3.15",
+    "@phosphor-icons/react": "^2.1.10",
     "@proc-geo/core": "workspace:*",
     "@proc-geo/dashboard": "workspace:*",
     "@proc-geo/test-fixtures": "workspace:*",

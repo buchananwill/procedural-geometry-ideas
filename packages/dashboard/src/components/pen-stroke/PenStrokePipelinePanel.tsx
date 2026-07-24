@@ -231,7 +231,7 @@ export default function PenStrokePipelinePanel() {
                     )}
                     {result?.fit && (
                         <Text size="xs" c="dimmed">
-                            {result.raw.length} points → {result.fit.segments.length} segment
+                            {result.raw.length} points {'->'} {result.fit.segments.length} segment
                             {result.fit.segments.length === 1 ? '' : 's'}, max error{' '}
                             {result.fit.maxError.toFixed(2)} px
                         </Text>

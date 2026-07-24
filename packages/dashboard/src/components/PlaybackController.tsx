@@ -3,6 +3,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import type { PlaybackControllerState } from "../hooks/PlaybackControllerState";
+import CollapseChevron from "./CollapseChevron";
 
 interface PlaybackControllerProps {
     playback: PlaybackControllerState;
@@ -31,7 +32,7 @@ export default function PlaybackController({
                         size="lg"
                         onClick={toggle}
                     >
-                        <Text size="xs">{opened ? "\u25BC" : "\u25B2"}</Text>
+                        <CollapseChevron opened={!opened} color="currentColor" />
                     </ActionIcon>
                 </Tooltip>
             </div>

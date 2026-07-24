@@ -4,6 +4,7 @@ import {
 } from '@mantine/core';
 import type { SystemConfig } from '@proc-geo/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
+import CollapseChevron from '../CollapseChevron';
 import { DOL_PRESETS } from '../../dol-system/presets';
 import DolAlphabetSection from './DolAlphabetSection';
 import DolProductionsPanel from './DolProductionsPanel';
@@ -73,7 +74,7 @@ export default function DolConfigPanel() {
                 <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
                     <Group justify="space-between">
                         <Title order={5}>D0L Configuration</Title>
-                        <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                        <CollapseChevron opened={opened} />
                     </Group>
                 </UnstyledButton>
                 <Collapse in={opened}>

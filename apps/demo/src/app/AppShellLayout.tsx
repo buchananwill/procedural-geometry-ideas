@@ -49,7 +49,7 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                 <NavLink
                     component={Link}
                     href="/pen-stroke"
-                    label="Pen Stroke → Spline"
+                    label="Pen Stroke -> Spline"
                     active={pathname === "/pen-stroke"}
                 />
             </AppShell.Navbar>

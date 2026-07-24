@@ -16,6 +16,7 @@ import {
     AlgorithmPanel,
     DebugPanel,
     PlaybackController,
+    CollapseChevron,
 } from "@proc-geo/dashboard";
 import type { DebugDisplayOptions } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -107,7 +108,7 @@ export default function StraightSkeletonPage() {
                     <UnstyledButton w="100%" onClick={() => setInstructionsOpen(o => !o)}>
                         <Group justify="space-between">
                             <Title order={5}>Instructions</Title>
-                            <Text size="xs" c="blue">{instructionsOpen ? "\u25B2" : "\u25BC"}</Text>
+                            <CollapseChevron opened={instructionsOpen} />
                         </Group>
                     </UnstyledButton>
                     <Collapse in={instructionsOpen}>

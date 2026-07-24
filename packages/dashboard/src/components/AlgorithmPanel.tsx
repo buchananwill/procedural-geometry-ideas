@@ -4,6 +4,7 @@ import {
     Modal,
 } from "@mantine/core";
 import type { SkeletonAnimationState } from "../hooks/useSkeletonAnimation";
+import CollapseChevron from "./CollapseChevron";
 
 interface AlgorithmPanelProps {
     animation: SkeletonAnimationState;
@@ -31,7 +32,7 @@ export default function AlgorithmPanel({ animation }: AlgorithmPanelProps) {
                     <UnstyledButton w="100%" onClick={() => setAlgorithmsOpen(o => !o)}>
                         <Group justify="space-between">
                             <Title order={5}>Algorithm</Title>
-                            <Text size="xs" c="blue">{algorithmsOpen ? "\u25B2" : "\u25BC"}</Text>
+                            <CollapseChevron opened={algorithmsOpen} />
                         </Group>
                     </UnstyledButton>
                     <Collapse in={algorithmsOpen}>

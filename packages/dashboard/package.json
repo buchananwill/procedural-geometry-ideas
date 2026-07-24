@@ -40,9 +40,9 @@
   },
   "dependencies": {
     "@dnd-kit/react": "^0.3.2",
+    "@phosphor-icons/react": "^2.1.10",
     "@proc-geo/core": "workspace:*",
-    "@proc-geo/test-fixtures": "workspace:*",
-    "@tabler/icons-react": "^3"
+    "@proc-geo/test-fixtures": "workspace:*"
   },
   "peerDependencies": {
     "@mantine/core": "^8",

@@ -3,6 +3,7 @@ import {
     Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse, Select,
 } from "@mantine/core";
 import { usePolygonStore } from "../stores/usePolygonStore";
+import CollapseChevron from "./CollapseChevron";
 import { ALL_TEST_POLYGONS } from "@proc-geo/test-fixtures";
 
 interface ControlsPanelProps {
@@ -59,7 +60,7 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
                 <UnstyledButton w="100%" onClick={() => setControlsOpen(o => !o)}>
                     <Group justify="space-between">
                         <Title order={5}>Edit Polygon</Title>
-                        <Text size="xs" c="blue">{controlsOpen ? "\u25B2" : "\u25BC"}</Text>
+                        <CollapseChevron opened={controlsOpen} />
                     </Group>
                 </UnstyledButton>
                 <Collapse in={controlsOpen}>

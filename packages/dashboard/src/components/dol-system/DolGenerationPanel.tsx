@@ -4,6 +4,7 @@ import {
     NumberInput, Button, Badge, Alert, Switch,
 } from '@mantine/core';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
+import CollapseChevron from '../CollapseChevron';
 
 export function DolGenerateButton() {
     const triggerGeneration = useDolSystemStore((s) => s.triggerGeneration);
@@ -34,7 +35,7 @@ export default function DolGenerationPanel() {
                 <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
                     <Group justify="space-between">
                         <Title order={5}>D0L Generation</Title>
-                        <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                        <CollapseChevron opened={opened} />
                     </Group>
                 </UnstyledButton>
                 <Collapse in={opened}>

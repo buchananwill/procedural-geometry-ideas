@@ -1,4 +1,5 @@
 import { Button, Group, Paper, Slider, Stack, Text } from '@mantine/core';
+import { ArrowsLeftRight } from '@phosphor-icons/react';
 import { usePenStrokeStore } from '../../stores/usePenStrokeStore';
 
 /**
@@ -14,8 +15,12 @@ export default function PenStrokeLerpPanel() {
     return (
         <Paper withBorder p="sm">
             <Stack gap="xs">
-                <Group justify="space-between">
-                    <Text size="sm" fw={600}>Raw ↔ Spline</Text>
+                <Group justify="space-between" wrap="nowrap">
+                    <Group gap={6} wrap="nowrap">
+                        <Text size="sm" fw={600}>Raw</Text>
+                        <ArrowsLeftRight size={14} />
+                        <Text size="sm" fw={600}>Spline</Text>
+                    </Group>
                     <Button size="compact-xs" variant="light" color="gray" onClick={clearStroke}>
                         Clear
                     </Button>

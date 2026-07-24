@@ -31,6 +31,8 @@ export { default as ControlsPanel } from './components/ControlsPanel';
 export { default as AlgorithmPanel } from './components/AlgorithmPanel';
 export { default as DebugPanel } from './components/DebugPanel';
 export { default as PlaybackController } from './components/PlaybackController';
+export { default as CollapseChevron } from './components/CollapseChevron';
+export type { CollapseChevronProps } from './components/CollapseChevron';
 
 // Pen Stroke → Spline
 export { usePenStrokeStore } from './stores/usePenStrokeStore';

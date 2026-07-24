@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
     Stack, UnstyledButton, Text, Group, Collapse, SegmentedControl,
 } from '@mantine/core';
+import CollapseChevron from '../CollapseChevron';
 import DolProductionsSection from './DolProductionsSection';
 import DolProductionComposer from './DolProductionComposer';
 
@@ -16,7 +17,7 @@ export default function DolProductionsPanel() {
             <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
                 <Group justify="space-between">
                     <Text size="xs" c="dimmed" fw={600}>Production Rules</Text>
-                    <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                    <CollapseChevron opened={opened} />
                 </Group>
             </UnstyledButton>
             <Collapse in={opened}>

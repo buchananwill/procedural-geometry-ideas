@@ -3,8 +3,9 @@ import {
     Stack, UnstyledButton, Text, Group, Collapse,
     TextInput, ActionIcon, Pill, Tooltip,
 } from '@mantine/core';
-import { IconCircleMinus, IconCirclePlus } from '@tabler/icons-react';
+import { MinusCircle, PlusCircle } from '@phosphor-icons/react';
 import { useDolSystemStore } from '../../stores/useDolSystemStore';
+import CollapseChevron from '../CollapseChevron';
 import { symbolsToText, parseKeywords } from './dol-config-utils';
 
 function AlphabetRow({ letter, keywords, onBlurChange, onRemove }: {
@@ -33,7 +34,7 @@ function AlphabetRow({ letter, keywords, onBlurChange, onRemove }: {
                 onClick={() => onRemove(letter)}
                 title="Remove letter"
             >
-                <IconCircleMinus size={14} />
+                <MinusCircle size={14} />
             </ActionIcon>
         </Group>
     );
@@ -54,7 +55,7 @@ export default function DolAlphabetSection() {
             <UnstyledButton w="100%" onClick={() => setOpened(o => !o)}>
                 <Group justify="space-between">
                     <Text size="xs" c="dimmed" fw={600}>Alphabet Definitions</Text>
-                    <Text size="xs" c="blue">{opened ? '\u25B2' : '\u25BC'}</Text>
+                    <CollapseChevron opened={opened} />
                 </Group>
             </UnstyledButton>
             <Collapse in={opened}>
@@ -118,7 +119,7 @@ export default function DolAlphabetSection() {
                                 setNewLetterKeywords('');
                             }}
                         >
-                            <IconCirclePlus size={14} />
+                            <PlusCircle size={14} />
                         </ActionIcon>
                     </Group>
                 </Stack>

@@ -4,6 +4,7 @@ import {
   Group, Collapse,
 } from "@mantine/core";
 import { useRandomPolygonStore } from "../stores/useRandomPolygonStore";
+import CollapseChevron from "./CollapseChevron";
 
 const RAD_TO_DEG = 180 / Math.PI;
 const DEG_TO_RAD = Math.PI / 180;
@@ -30,7 +31,7 @@ export default function RandomPolygonPanel() {
         <UnstyledButton w="100%" onClick={() => setOpened((o) => !o)}>
           <Group justify="space-between">
             <Title order={5}>Random Polygon</Title>
-            <Text size="xs" c="blue">{opened ? "\u25B2" : "\u25BC"}</Text>
+            <CollapseChevron opened={opened} />
           </Group>
         </UnstyledButton>
 

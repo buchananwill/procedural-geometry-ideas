@@ -13,7 +13,7 @@ const PenStrokeCanvas = dynamic(
 export default function PenStrokePage() {
     return (
         <AlgorithmPageLayout
-            algorithmName="Pen Stroke → Spline"
+            algorithmName="Pen Stroke -> Spline"
             canvas={<PenStrokeCanvas />}
             panels={
                 <Stack gap="sm">
