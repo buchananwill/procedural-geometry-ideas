@@ -1,4 +1,4 @@
-import { Paper, Select, Stack, Text } from '@mantine/core';
+import { Paper, Select, Stack, Switch, Text } from '@mantine/core';
 import {
     CORNER_DETECTION_VARIANT_DEFAULTS,
     FITTING_VARIANT_DEFAULTS,
@@ -19,6 +19,8 @@ export default function PenStrokePipelinePanel() {
     const cornerDetection = usePenStrokeStore((s) => s.cornerDetection);
     const fitting = usePenStrokeStore((s) => s.fitting);
     const result = usePenStrokeStore((s) => s.result);
+    const smoothingPreviewEnabled = usePenStrokeStore((s) => s.smoothingPreviewEnabled);
+    const setSmoothingPreviewEnabled = usePenStrokeStore((s) => s.setSmoothingPreviewEnabled);
     const setSmoothing = usePenStrokeStore((s) => s.setSmoothing);
     const setSimplification = usePenStrokeStore((s) => s.setSimplification);
     const setCornerDetection = usePenStrokeStore((s) => s.setCornerDetection);
@@ -98,6 +100,13 @@ export default function PenStrokePipelinePanel() {
                             onChange={(iterations) => setSmoothing({ variant: 'chaikin', iterations })}
                         />
                     )}
+                    <Switch
+                        size="xs"
+                        label="Live smoothing preview"
+                        description="Ghost trail while hovering: raw cursor path vs. where this smoother would place it"
+                        checked={smoothingPreviewEnabled}
+                        onChange={(e) => setSmoothingPreviewEnabled(e.currentTarget.checked)}
+                    />
                 </Stack>
 
                 <Stack gap="xs">

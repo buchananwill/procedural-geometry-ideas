@@ -26,3 +26,16 @@ Baseline concept (from initial discussion, confirmed): staged pipeline (capture 
 6. **Capture record**: `(x, y, t)` per point from day one, plus pressure via Pointer Events when available. Approved.
 7. **Naming**: route `/pen-stroke`; core module `packages/core/src/stroke-spline/`; store `usePenStrokeStore`; components `packages/dashboard/src/components/pen-stroke/`. Approved.
 8. **Lerp slider**: plain manual slider in V1, no playback/animation.
+
+## Stretch Goal: Live Smoothing Preview (implemented)
+
+**Concept (Will)**: a togglable visualizer showing where the noise-smoothing stage would place the input, driven by the actual cursor trajectory — active while the cursor moves over the canvas even without pen down, so each smoothing algorithm's character can be understood before committing a stroke.
+
+**Design decisions (Claude's research):**
+
+1. **Semantics**: maintain a rolling hover buffer of recent cursor samples (`StrokePoint[]`, time-windowed ~1.5–2 s so an idle cursor's trail evaporates; hard cap ~256 points). Each animation frame, run the currently selected `SmoothingConfig` over the buffer via the existing `smoothStroke` — zero core changes needed; hover samples carry real timestamps so the 1€ filter works unmodified.
+2. **Causality is the lesson, not a bug**: 1€ (causal) shows its head lagging the true cursor — speed-adaptively; symmetric kernels (moving average, Gaussian) show endpoint-pinning (smoothed head converges to cursor); Chaikin shows densification. No prediction or special-casing per variant — honest behavior on the real trail is the visualization.
+3. **Rendering**: two ghost trails on a dedicated Konva layer — raw trail faint/dim, smoothed trail in an accent color distinct from the committed cyan stroke; optional emphasized dot at the smoothed head (makes 1€ lag visceral). Committed stroke rendering unchanged.
+4. **Performance**: hover samples never touch the Zustand store (120 Hz pointermove through `set()` would re-render every panel). Buffer lives in a ref inside `PenStrokeCanvas`; a `requestAnimationFrame` loop prunes stale samples and imperatively updates the Konva `Line` nodes' points (bypassing React reconciliation). Smoothing a ≤256-point buffer per frame is trivial (O(n·w)).
+5. **Toggle**: `Switch` ("Live smoothing preview") — the page's first boolean param, finally exercising design point 5's toggle affordance. State: `smoothingPreviewEnabled` in `usePenStrokeStore` (view-level; no pipeline recompute). Placement: in the Smoothing section of the pipeline panel.
+6. **Interaction with drawing**: preview hidden while pen is down (the real stroke is being drawn); hover buffer cleared on pen-down, resumes collecting on pen-up. Fade the tail of the trails (opacity ramp) so the sliding-window truncation at the buffer's start doesn't read as algorithm behavior.

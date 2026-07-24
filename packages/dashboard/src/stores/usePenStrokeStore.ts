@@ -20,6 +20,8 @@ export interface PenStrokeStoreState {
     fitting: FittingConfig;
     lerpAlpha: number;
     result: StrokePipelineResult | null;
+    /** View-level toggle for the live smoothing ghost-trail preview; no pipeline recompute. */
+    smoothingPreviewEnabled: boolean;
 
     beginStroke: (p: StrokePoint) => void;
     appendPoint: (p: StrokePoint) => void;
@@ -30,6 +32,7 @@ export interface PenStrokeStoreState {
     setCornerDetection: (config: CornerDetectionConfig) => void;
     setFitting: (config: FittingConfig) => void;
     setLerpAlpha: (alpha: number) => void;
+    setSmoothingPreviewEnabled: (enabled: boolean) => void;
 }
 
 /** Re-run the full pipeline from the stored raw input (the fixture until re-drawn). */
@@ -57,6 +60,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
         lerpAlpha: 1,
         result: null,
+        smoothingPreviewEnabled: false,
 
         beginStroke: (p) =>
             set((s) => {
@@ -112,6 +116,11 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         setLerpAlpha: (alpha) =>
             set((s) => {
                 s.lerpAlpha = alpha;
+            }),
+
+        setSmoothingPreviewEnabled: (enabled) =>
+            set((s) => {
+                s.smoothingPreviewEnabled = enabled;
             }),
     }))
 );
