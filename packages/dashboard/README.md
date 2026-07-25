@@ -129,8 +129,121 @@ import {
 ```
 
 `useSkeletonAnimation` runs the solver and exposes stepping/playback state; `skeletonToScene` converts a solver result
-into scene primitives that `SceneCanvas` draws. `PolygonCanvas` still exists but is **deprecated** in favour of
-`SceneCanvas` + `skeletonToScene` + `SkeletonInteractionOverlay`.
+into scene primitives that `SceneCanvas` draws.
+
+### Migrating from `PolygonCanvas`
+
+`PolygonCanvas` is **deprecated** and will be removed in a future release. It has been replaced by three pieces that
+split what it used to do in one component:
+
+| Concern | Now handled by |
+|---------|----------------|
+| What to draw | `skeletonToScene(...)` → `ScenePrimitive[]` |
+| Canvas, zoom, pan, touch | `SceneCanvas` |
+| Vertex dragging, node selection, click-edge-to-add-vertex | `SkeletonInteractionOverlay` + `useSkeletonStageClick` |
+
+Nothing is lost in the move — every `PolygonCanvas` prop has a destination:
+
+| `PolygonCanvas` prop | Goes to |
+|----------------------|---------|
+| `skeleton` | `skeletonToScene` |
+| `primaryEdges` | `skeletonToScene` |
+| `primaryEdgeIntersections` | `skeletonToScene` |
+| `debug` | `skeletonToScene` |
+| `collisionSweepLines` | `skeletonToScene` |
+| `nodeOffsetDistances` | `skeletonToScene` |
+| `selectedDebugNodes` | **both** — `skeletonToScene` (renders highlights) and `SkeletonInteractionOverlay` (handles clicks) |
+| `onToggleDebugNode` | `SkeletonInteractionOverlay` |
+| `stageScale`, `stagePosition` | `SceneCanvas` |
+| `onScaleChange`, `onPositionChange` | `SceneCanvas` |
+
+Three inputs are new and have no `PolygonCanvas` equivalent:
+
+- **`vertices`** — `skeletonToScene` needs the polygon itself, which `PolygonCanvas` read from the store internally.
+- **`invScale`** — `1 / stageScale`. Used to keep stroke widths, label sizes and hit targets constant on screen as you
+  zoom. Required by both `skeletonToScene` and `SkeletonInteractionOverlay`; forgetting it is the most common mistake.
+- **`skeletonNodePositions`** — a flattened `{ id, x, y }[]` for the overlay's clickable nodes.
+
+#### Before
+
+```tsx
+<PolygonCanvas
+  skeleton={animation.skeleton}
+  primaryEdges={animation.primaryEdges}
+  primaryEdgeIntersections={animation.primaryEdgeIntersections}
+  stageScale={stageScale}
+  stagePosition={stagePosition}
+  onScaleChange={setStageScale}
+  onPositionChange={setStagePosition}
+  debug={debug}
+  selectedDebugNodes={sweep.selectedDebugNodes}
+  onToggleDebugNode={sweep.toggleDebugNode}
+  collisionSweepLines={sweep.collisionSweepLines}
+  nodeOffsetDistances={sweep.nodeOffsetDistances}
+/>
+```
+
+#### After
+
+```tsx
+import {
+  SceneCanvas, skeletonToScene,
+  SkeletonInteractionOverlay, useSkeletonStageClick,
+} from '@proc-geo/dashboard';
+
+const invScale = 1 / stageScale;
+
+const scene = skeletonToScene({
+  vertices,
+  skeleton: animation.skeleton,
+  primaryEdges: animation.primaryEdges,
+  primaryEdgeIntersections: animation.primaryEdgeIntersections,
+  debug,
+  collisionSweepLines: sweep.collisionSweepLines,
+  nodeOffsetDistances: sweep.nodeOffsetDistances,
+  selectedDebugNodes: sweep.selectedDebugNodes,
+  invScale,
+});
+
+const skeletonNodePositions = useMemo(
+  () => animation.skeleton?.nodes.map((n) => ({ id: n.id, x: n.position.x, y: n.position.y })) ?? [],
+  [animation.skeleton],
+);
+
+const onStageClick = useSkeletonStageClick({ vertices, invScale });
+
+const interactionOverlay = (overlayInvScale: number) => (
+  <SkeletonInteractionOverlay
+    invScale={overlayInvScale}
+    selectedDebugNodes={sweep.selectedDebugNodes}
+    onToggleDebugNode={sweep.toggleDebugNode}
+    skeletonNodePositions={skeletonNodePositions}
+    showSkeletonNodes={debug.showSkeletonNodes}
+  />
+);
+
+return (
+  <SceneCanvas
+    scene={scene}
+    stageScale={stageScale}
+    stagePosition={stagePosition}
+    onScaleChange={setStageScale}
+    onPositionChange={setStagePosition}
+    interactionOverlay={interactionOverlay}
+    onStageClick={onStageClick}
+  />
+);
+```
+
+Everything around the canvas is unchanged: `usePolygonStore`, `useSkeletonAnimation`, `useCollisionSweep`, your
+`debug` state and the control panels all carry over as-is. `SceneCanvas` has the same client-only and sized-parent
+requirements as `PolygonCanvas` did — load it with `ssr: false` and give it a parent with a real height.
+
+> **Note on `interactionOverlay`.** It is a *function* taking `invScale`, not a node. `SceneCanvas` calls it with the
+> current inverse scale so the overlay resizes as you zoom — pass a callback, not `<SkeletonInteractionOverlay … />`.
+
+A complete working migration lives in the demo app at `apps/demo/src/app/straight-skeleton/page.tsx`, which is the
+reference this guide was written from.
 
 ## D0L L-systems
 

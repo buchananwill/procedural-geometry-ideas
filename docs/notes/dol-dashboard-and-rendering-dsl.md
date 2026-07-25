@@ -6,6 +6,12 @@ canvas.
 This sets the architectural foundation for a pool of algorithms that can exchange outputs and be visualized through a
 common pipeline.
 
+> **This is a design document, not a migration guide.** It records how the Scene DSL was designed and which files the
+> refactor touched. If you are porting an existing consumer off the deprecated `PolygonCanvas`, read the
+> [dashboard README migration section](../../packages/dashboard/README.md#migrating-from-polygoncanvas) instead — it
+> has a prop-by-prop mapping and a verified before/after. The complete worked example is
+> [the demo's straight-skeleton page](../../apps/demo/src/app/straight-skeleton/page.tsx).
+
 ## Architecture: Rendering DSL
 
 ### Core Insight
@@ -159,8 +165,12 @@ function skeletonToScene(params: {
     collisionSweepLines: CollisionSweepLine[] | null;
     nodeOffsetDistances: Map<number, number> | null;
     selectedDebugNodes: Set<number>;
+    invScale: number;
 }): ScenePrimitive[]
 ```
+
+`invScale` is `1 / stageScale`. It keeps stroke widths, label sizes and hit targets constant on screen as the stage
+zooms, so every primitive that has an on-screen dimension scales by it.
 
 This function extracts the rendering logic from PolygonCanvas into a pure function that returns `ScenePrimitive[]`. Each
 current rendering block maps to a `SceneGroup`:
