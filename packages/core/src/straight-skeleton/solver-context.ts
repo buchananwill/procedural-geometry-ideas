@@ -11,6 +11,7 @@ import {
 import {initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
+    areEqual,
     dotProduct,
     makeRay,
     negateVector,
@@ -309,8 +310,24 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
                 // Update: this is correct now that the edge shrinkage/collapse is computed dynamically, using the active edge segments.
                 const widdershinsSourceOffset = sourceOffsetDistance(widdershinsBisector, this)
                 const clockwiseSourceOffset = sourceOffsetDistance(clockwiseBisector, this)
-                const cwVertex = vertexAtOffset(clockwiseEdge, edgeBasis, offset - clockwiseSourceOffset);
-                const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, offset - widdershinsSourceOffset);
+                const clockwiseLocalOffset = offset - clockwiseSourceOffset;
+                const widdershinsLocalOffset = offset - widdershinsSourceOffset;
+
+                // A bounding bisector only exists from its own source offset onwards. Extrapolating
+                // one backwards past its origin walks the endpoint the wrong way along the bisector,
+                // which inflates the segment instead of shrinking it and lets a bisector appear to
+                // strike an edge that is still occluded at this offset. Such a segment describes
+                // geometry that does not exist yet, so it cannot validate a split.
+                const notYetBorn = (localOffset: number) => localOffset < 0 && !areEqual(localOffset, 0);
+                if (notYetBorn(clockwiseLocalOffset) || notYetBorn(widdershinsLocalOffset)) {
+                    splitLog.debug(
+                        `Rejecting split of e${edgeToSplitId} by e${bisectorId} at offset ${offset}: bounding bisector not yet born.`,
+                    );
+                    return false;
+                }
+
+                const cwVertex = vertexAtOffset(clockwiseEdge, edgeBasis, clockwiseLocalOffset);
+                const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, widdershinsLocalOffset);
                 const cwRay = makeRay(cwVertex, negateVector(edgeBasis));
                 const wsRay = makeRay(wsVertex, edgeBasis);
                 const cwTest = intersectRays(bisectorRay, cwRay);

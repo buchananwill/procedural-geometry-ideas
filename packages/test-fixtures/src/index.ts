@@ -122,6 +122,10 @@ export {SIMPLE_REFLEX} from './simple-reflex-misses-first-event';
 // why-no-collision-e15-e18.ts
 export {WHY_NO_COLLISION} from './why-no-collision-e15-e18';
 
+// premature-bisector-split.ts
+export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
+import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];
@@ -181,4 +185,8 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Premature Split Octagon', vertices: PREMATURE_SPLIT_OCTAGON},
     {name: 'Long Unbroken Side Then Extreme Acute Angle', vertices: LONG_SIDE_ACUTE_VERTEX},
     {name: 'Incorrect Ordering e38-e30 Collision', vertices: INCORRECT_ORDERING_E38_E30_COLLISION},
+
+    // Premature-bisector split (premature-bisector-split.ts)
+    {name: 'Premature Bisector Split (fails)', vertices: PREMATURE_BISECTOR_SPLIT_FAILS},
+    {name: 'Premature Bisector Split (passes)', vertices: PREMATURE_BISECTOR_SPLIT_PASSES},
 ];
