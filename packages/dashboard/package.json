@@ -1,7 +1,24 @@
 {
   "name": "@proc-geo/dashboard",
-  "version": "0.1.0",
-  "description": "React component library for exploring procedural geometry algorithms",
+  "version": "0.2.0",
+  "description": "React components for exploring procedural geometry — straight skeleton, pen-stroke to spline, and D0L L-systems on an interactive Konva canvas",
+  "keywords": [
+    "react",
+    "react-components",
+    "geometry",
+    "computational-geometry",
+    "straight-skeleton",
+    "pen-stroke",
+    "spline",
+    "curve-fitting",
+    "l-system",
+    "lindenmayer",
+    "konva",
+    "mantine",
+    "canvas",
+    "visualization",
+    "procedural-generation"
+  ],
   "license": "MIT",
   "author": "Will Buchanan <willwritescode@gmail.com>",
   "repository": {
@@ -15,6 +32,7 @@
     "access": "public"
   },
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",

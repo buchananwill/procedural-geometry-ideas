@@ -28,7 +28,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 19 named polygon fixtures + test helpers. Optional for consumers.                               | Yes          |
+| `@proc-geo/test-fixtures` | 35 named polygon fixtures + test helpers. Optional for consumers.                               | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 
@@ -142,7 +142,8 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-19 named polygon fixtures exported from `src/index.ts`, plus `test-helpers.ts` and `test-constants.ts`. Depends on
+35 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
+`test-constants.ts`. A further 8 polygons are exported individually but excluded from that list. Depends on
 `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known polygon shapes.
 
 ### `@proc-geo/dashboard` (`packages/dashboard/`)

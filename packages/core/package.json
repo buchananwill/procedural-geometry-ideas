@@ -1,7 +1,26 @@
 {
   "name": "@proc-geo/core",
-  "version": "0.1.0",
-  "description": "Procedural geometry algorithms — straight skeleton, random polygon generation, and more",
+  "version": "0.2.0",
+  "description": "Procedural geometry algorithms in pure TypeScript — straight skeleton, random polygon generation, pen-stroke to spline fitting, and D0L L-systems",
+  "keywords": [
+    "geometry",
+    "computational-geometry",
+    "straight-skeleton",
+    "polygon",
+    "polygon-offset",
+    "medial-axis",
+    "spline",
+    "bezier",
+    "curve-fitting",
+    "schneider",
+    "catmull-rom",
+    "stroke-smoothing",
+    "one-euro-filter",
+    "l-system",
+    "lindenmayer",
+    "procedural-generation",
+    "typescript"
+  ],
   "license": "MIT",
   "author": "Will Buchanan <willwritescode@gmail.com>",
   "repository": {
@@ -15,6 +34,7 @@
     "access": "public"
   },
   "type": "module",
+  "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
