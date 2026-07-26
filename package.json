@@ -5,6 +5,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "pnpm --filter @proc-geo/demo dev",
+    "dev:watch": "pnpm --parallel --filter @proc-geo/core --filter @proc-geo/dashboard --filter @proc-geo/demo dev",
     "build": "pnpm --filter @proc-geo/core build && pnpm --filter @proc-geo/test-fixtures build && pnpm --filter @proc-geo/dashboard build && pnpm --filter @proc-geo/demo build",
     "test": "pnpm --filter @proc-geo/core test",
     "lint": "pnpm --filter @proc-geo/demo lint"

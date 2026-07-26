@@ -64,6 +64,7 @@
   "devDependencies": {
     "@proc-geo/test-fixtures": "workspace:*",
     "@types/jest": "^30.0.0",
+    "@types/node": "^20.19.33",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.0",
     "tsup": "^8.4.0",
