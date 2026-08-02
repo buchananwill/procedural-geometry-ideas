@@ -61,13 +61,13 @@ const elements = [
     {x: 0, y: 3},
     {x: 0, y: 4},
     {x: 0, y: 5},
-]
+];
 
-const selected = [1, 2, 3]
+let selected = [1, 2, 3];
 
-const pivot = 0
+const pivot = 0;
 
-const inputDelta = PI_OVER_THREE
+const inputDelta = PI_OVER_THREE;
 ```
 
 ### Rigid Rotation
@@ -93,30 +93,53 @@ const inputDelta = PI_OVER_THREE
 
 - Distances between selected elements must be preserved.
 - Distances between unselected elements must be preserved.
-- Walking from the pivot towards the selection, the distance between the last unselected element (may or may not be the pivot itself) and first selected element must be preserved.
+- Walking from the pivot towards the selection, the distance between the last unselected element (may or may not be the
+  pivot itself) and first selected element must be preserved.
 - Other distances when one element is selected, and one unselected, may change freely.
 - Joint angles where all three elements are unselected must be preserved.
-- All joints formed where the last element, walking away from the pivot, is selected, must be mutated by an equal division of the delta, where the divisor is the total number of such joints.  
+- All joints formed where the last element, walking away from the pivot, is selected, must be mutated by an equal
+  division of the delta, where the divisor is the total number of such joints.
 - Joint angles where the last element, walking away from the pivot, is _NOT_ selected, may be mutated freely.
 
 #### Worked Example
 
 - The distance `[3,4]` is free to change.
 - All other neighbour-element distances are fixed.
-- The pivot is the first element, so although only two selected joints are spanned, the deviation at each is `inputDelta / 3`, i.e. `PI / 9`.
+- The pivot is the first element, so although only two selected joints are spanned, the deviation at each is
+  `inputDelta / 3`, i.e. `PI / 9`.
 - Element `[1]` is rotated `PI/9` about the pivot.
-- Joints `[[0,1,2],[1,2,3]]` are each rotated `PI / 9` radians, propagated local transforms to the other selected elements further from the pivot.
+- Joints `[[0,1,2],[1,2,3]]` are each rotated `PI / 9` radians, propagated local transforms to the other selected
+  elements further from the pivot.
 - Elements `[4,5]` are not translated.
-- If the resulting pose is found to be invalid, then a search is carried out to find the largest input delta that is valid, e.g. bisection to a depth of 8.
-- For each `candidate_delta`, the deviation per "joint" is always `candidate_delta / 3`, because there are three places to distribute that delta evenly. 
+- If the resulting pose is found to be invalid, then a search is carried out to find the largest input delta that is
+  valid, e.g. bisection to a depth of 8.
+- For each `candidate_delta`, the deviation per "joint" is always `candidate_delta / 3`, because there are three places
+  to distribute that delta evenly.
 
 ### Saturate Articulation
 
-- The distance between the pivot, and the closest selected element by walking along the array towards the selection, must be preserved.
+- The distance between the pivot, and the closest selected element by walking along the array towards the selection,
+  must be preserved.
 - The distances between unselected elements must be preserved.
 - The distances between a selected element and an unselected, non-pivot element, are free to change.
 - The distances between selected elements must be preserved.
 - All selected elements are ordered by ascending index distance from the pivot element.
-- The input delta is applied to the first selected element, by rotating it around the pivot element until the element's constraints do not permit it to move further.
-- The other selected elements received the same rotation and translation in the pivot space, as it performed by the Rigid Rotation algorithm.
-- If this results in surplus input delta, the algorithm recurses to the 
+- The input delta is applied to the first selected element, by rotating it around the pivot element until the element's
+  constraints do not permit it to move further.
+- The other selected elements received the same rotation and translation in the pivot space, as it performed by the
+  Rigid Rotation algorithm.
+- If this results in surplus input delta, the algorithm recurses, using the now-saturated element as the new pivot, and
+  transforming the remaining selected elements.
+- If all selected elements are saturated (no further delta can be applied to any without resulting in an invalid pose)
+  then the remaining delta is discarded.
+
+#### Worked Example
+
+```javascript
+selected = [2,3,4];
+let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
+```
+
+- The initial rotation will translate `selected` around a pivot at element `[0]`
+- The joint formed by elements `[0,1,2]` will saturate before the full input delta is applied.
+- The remaining portion of the input delta will be applied by translating and rotating `[3,4]` around `[2]` as a pivot.
