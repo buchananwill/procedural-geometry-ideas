@@ -47,3 +47,8 @@ export type { DolSystemStoreState } from './stores/useDolSystemStore';
 export { useDolGeneration } from './hooks/useDolGeneration';
 export type { DolGenerationState } from './hooks/useDolGeneration';
 export { DolConfigPanel, DolGenerateButton, DolGenerationPanel, DolInstructionsPanel } from './components/dol-system';
+
+// Articulation constraint solver
+export { useArticulationStore } from './stores/useArticulationStore';
+export type { ArticulationStoreState, TransformMode } from './stores/useArticulationStore';
+export { ArticulationCanvas, ArticulationControlsPanel, ArticulationConstraintPanel } from './components/articulation';
