@@ -52,6 +52,12 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                     label="Pen Stroke -> Spline"
                     active={pathname === "/pen-stroke"}
                 />
+                <NavLink
+                    component={Link}
+                    href="/articulation"
+                    label="Articulation Constraints"
+                    active={pathname === "/articulation"}
+                />
             </AppShell.Navbar>
 
             <AppShell.Main>{children}</AppShell.Main>
