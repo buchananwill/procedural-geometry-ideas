@@ -70,13 +70,13 @@ const pivot = 0;
 const inputDelta = PI_OVER_THREE;
 ```
 
-### Rigid Rotation
+### Rigid Assembly
 
 - Distances between selected elements must be preserved by the transformation.
 - The distance from the pivot to each selected element must be preserved
 - Internal joint angles of selected elements must be preserved by the transformation.
-- Joints that include at least one non-selected element are permitted to change angle.
-- Distances between an unselected element and a selected element are permitted to change.
+- Joints that include at least one non-selected element and one selected element are permitted to change angle.
+- Distances between an unselected element that is not the pivot, and a selected element, are permitted to change.
 - Distances between any pair of unselected elements are not permitted to change.
 - Joint angles where all three elements are unselected are not permitted to change.
 - Rotations transform the locations of the selected elements by using the local space of the pivot, and the input delta
@@ -86,7 +86,7 @@ const inputDelta = PI_OVER_THREE;
 
 - The distance`[3,4]` is free to change.
 - The distance `[0,1]` is _not_ free to change, because this is a pivot-to-element distance.
-- The joint angles `[[0,1,2], [2,3,4], [3,4,5]` are free to change
+- The joint angles `[[2,3,4], [3,4,5]` are free to change
 - All other joint angles and element spacings must be unmutated.
 
 ### Spread Articulation
@@ -97,15 +97,15 @@ const inputDelta = PI_OVER_THREE;
   pivot itself) and first selected element must be preserved.
 - Other distances when one element is selected, and one unselected, may change freely.
 - Joint angles where all three elements are unselected must be preserved.
-- All joints formed where the last element, walking away from the pivot, is selected, must be mutated by an equal
-  division of the delta, where the divisor is the total number of such joints.
+- Walking away from the pivot, the delta is divided equally across every consecutive pair of elements whose second
+  element is selected; each such pair's yaw is mutated by one share. The divisor is the total number of such pairs.
 - Joint angles where the last element, walking away from the pivot, is _NOT_ selected, may be mutated freely.
 
 #### Worked Example
 
 - The distance `[3,4]` is free to change.
 - All other neighbour-element distances are fixed.
-- The pivot is the first element, so although only two selected joints are spanned, the deviation at each is
+- The qualifying pairs are `[0,1]`, `[1,2]` and `[2,3]` (each second element is selected), so the deviation at each is
   `inputDelta / 3`, i.e. `PI / 9`.
 - Element `[1]` is rotated `PI/9` about the pivot.
 - Joints `[[0,1,2],[1,2,3]]` are each rotated `PI / 9` radians, propagated local transforms to the other selected
@@ -113,8 +113,8 @@ const inputDelta = PI_OVER_THREE;
 - Elements `[4,5]` are not translated.
 - If the resulting pose is found to be invalid, then a search is carried out to find the largest input delta that is
   valid, e.g. bisection to a depth of 8.
-- For each `candidate_delta`, the deviation per "joint" is always `candidate_delta / 3`, because there are three places
-  to distribute that delta evenly.
+- For each `candidate_delta`, the deviation per pair is always `candidate_delta / 3`, because there are three
+  qualifying pairs to distribute that delta evenly across.
 
 ### Saturate Articulation
 
@@ -127,7 +127,7 @@ const inputDelta = PI_OVER_THREE;
 - The input delta is applied to the first selected element, by rotating it around the pivot element until the element's
   constraints do not permit it to move further.
 - The other selected elements received the same rotation and translation in the pivot space, as it performed by the
-  Rigid Rotation algorithm.
+  Rigid Assembly algorithm.
 - If this results in surplus input delta, the algorithm recurses, using the now-saturated element as the new pivot, and
   transforming the remaining selected elements.
 - If all selected elements are saturated (no further delta can be applied to any without resulting in an invalid pose)
