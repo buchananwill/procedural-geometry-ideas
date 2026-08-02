@@ -6,6 +6,7 @@ import { clampToValid } from './clamping';
 import { isPoseValid } from './validity';
 import { isContiguous, splitSpans } from './topology';
 import { rigidStrategy } from './strategies/rigid';
+import { spreadStrategy } from './strategies/spread';
 
 /**
  * Strategy registry. Tasks adding strategies register them here; unknown ids
@@ -13,6 +14,7 @@ import { rigidStrategy } from './strategies/rigid';
  */
 export const STRATEGIES: Partial<Record<StrategyId, ConstraintStrategy>> = {
     rigid: rigidStrategy,
+    spread: spreadStrategy,
 };
 
 function identity(chain: ArticulationChain): SolveResult {
