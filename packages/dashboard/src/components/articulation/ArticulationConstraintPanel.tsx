@@ -1,4 +1,5 @@
 import { Button, Group, NumberInput, Paper, Stack, Switch, Text, Title } from '@mantine/core';
+import { useEffect, useState } from 'react';
 import type { ElementConstraints, MinMax } from '@proc-geo/core';
 import { useArticulationStore } from '../../stores/useArticulationStore';
 
@@ -13,6 +14,45 @@ const AXES: Array<{ key: AxisKey; label: string; isAngle: boolean; defaultBound:
     { key: 'jointAngle', label: 'Joint angle (deg)', isAngle: true, defaultBound: { min: -Math.PI / 2, max: Math.PI / 2 } },
 ];
 
+function CommittedNumberInput({
+    label,
+    value,
+    onCommit,
+}: {
+    label: string;
+    value: number;
+    onCommit: (v: number) => void;
+}) {
+    const [draft, setDraft] = useState<string | number>(value);
+    const [focused, setFocused] = useState(false);
+
+    useEffect(() => {
+        if (!focused) setDraft(value);
+    }, [value, focused]);
+
+    return (
+        <NumberInput
+            size="xs"
+            label={label}
+            value={draft}
+            onChange={setDraft}
+            onFocus={() => setFocused(true)}
+            onBlur={() => {
+                setFocused(false);
+                const n = typeof draft === 'number' ? draft : parseFloat(draft);
+                if (Number.isFinite(n)) {
+                    onCommit(n);
+                } else {
+                    setDraft(value);
+                }
+            }}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+            }}
+        />
+    );
+}
+
 function AxisRow({
     axis,
     constraints,
@@ -23,7 +63,7 @@ function AxisRow({
     onChange: (next: ElementConstraints) => void;
 }) {
     const bound = constraints[axis.key];
-    const toDisplay = (v: number) => (axis.isAngle ? v * RAD_TO_DEG : v);
+    const toDisplay = (v: number) => (axis.isAngle ? Math.round(v * RAD_TO_DEG * 1e4) / 1e4 : v);
     const fromDisplay = (v: number) => (axis.isAngle ? v * DEG_TO_RAD : v);
     const setBound = (b: MinMax | undefined) => onChange({ ...constraints, [axis.key]: b });
 
@@ -37,22 +77,18 @@ function AxisRow({
             />
             {bound && (
                 <Group gap="xs" grow>
-                    <NumberInput
-                        size="xs"
+                    <CommittedNumberInput
                         label="min"
                         value={toDisplay(bound.min)}
-                        onChange={(v) => {
-                            if (typeof v !== 'number') return;
+                        onCommit={(v) => {
                             const min = fromDisplay(v);
                             setBound({ min, max: Math.max(min, bound.max) });
                         }}
                     />
-                    <NumberInput
-                        size="xs"
+                    <CommittedNumberInput
                         label="max"
                         value={toDisplay(bound.max)}
-                        onChange={(v) => {
-                            if (typeof v !== 'number') return;
+                        onCommit={(v) => {
                             const max = fromDisplay(v);
                             setBound({ min: Math.min(bound.min, max), max });
                         }}
