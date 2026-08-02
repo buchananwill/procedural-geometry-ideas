@@ -79,8 +79,23 @@ export function ArticulationConstraintPanel() {
     const paste = async () => {
         try {
             const text = await navigator.clipboard.readText();
-            const parsed = JSON.parse(text) as ElementConstraints;
-            applyConstraintsTo(selection, parsed);
+            const parsed: unknown = JSON.parse(text);
+            if (typeof parsed !== 'object' || parsed === null) return;
+            const sanitized: ElementConstraints = {};
+            for (const key of ['distanceToPrev', 'distanceToNext', 'jointAngle'] as const) {
+                const bound = (parsed as Record<string, unknown>)[key];
+                if (
+                    typeof bound === 'object' &&
+                    bound !== null &&
+                    Number.isFinite((bound as { min?: unknown }).min) &&
+                    Number.isFinite((bound as { max?: unknown }).max)
+                ) {
+                    const { min, max } = bound as { min: number; max: number };
+                    sanitized[key] = { min, max };
+                }
+            }
+            if (Object.keys(sanitized).length === 0) return;
+            applyConstraintsTo(selection, sanitized);
         } catch {
             // invalid clipboard contents: ignore
         }

@@ -14,6 +14,7 @@ const DRAG_THRESHOLD_PX = 4;
 type PointerSession =
     | { type: 'maybe-add'; start: { x: number; y: number }; shift: boolean }
     | { type: 'marquee'; start: { x: number; y: number }; currentPos: { x: number; y: number }; shift: boolean }
+    | { type: 'maybe-transform'; index: number; start: { x: number; y: number } }
     | { type: 'transform' };
 
 export function ArticulationCanvas() {
@@ -71,8 +72,7 @@ export function ArticulationCanvas() {
         if (store.selection.includes(index)) {
             const pos = stagePos(e);
             if (pos) {
-                sessionRef.current = { type: 'transform' };
-                store.beginDrag(pos);
+                sessionRef.current = { type: 'maybe-transform', index, start: pos };
             }
         } else {
             store.selectOnly(index);
@@ -95,6 +95,13 @@ export function ArticulationCanvas() {
             return;
         }
         const moved = Math.hypot(pos.x - session.start.x, pos.y - session.start.y);
+        if (session.type === 'maybe-transform' && moved >= DRAG_THRESHOLD_PX) {
+            const store = useArticulationStore.getState();
+            store.beginDrag(session.start);
+            sessionRef.current = { type: 'transform' };
+            store.updateDrag(pos);
+            return;
+        }
         if (session.type === 'maybe-add' && moved >= DRAG_THRESHOLD_PX) {
             sessionRef.current = { type: 'marquee', start: session.start, currentPos: pos, shift: session.shift };
         }
@@ -120,6 +127,11 @@ export function ArticulationCanvas() {
             store.endDrag();
             return;
         }
+        if (session.type === 'maybe-transform') {
+            // never crossed the drag threshold: treat as a plain click that collapses selection
+            store.selectOnly(session.index);
+            return;
+        }
         if (session.type === 'maybe-add') {
             store.addElement(session.start);
             return;
@@ -137,6 +149,32 @@ export function ArticulationCanvas() {
         setMarquee(null);
     };
 
+    const handlePointerLeave = () => {
+        const session = sessionRef.current;
+        sessionRef.current = null;
+        if (!session) return;
+        const store = useArticulationStore.getState();
+        if (session.type === 'transform') {
+            store.endDrag();
+            return;
+        }
+        if (session.type === 'marquee') {
+            const x0 = Math.min(session.start.x, session.currentPos.x);
+            const x1 = Math.max(session.start.x, session.currentPos.x);
+            const y0 = Math.min(session.start.y, session.currentPos.y);
+            const y1 = Math.max(session.start.y, session.currentPos.y);
+            const hits = store.elements
+                .map((p, i) => ({ p, i }))
+                .filter(({ p }) => p.x >= x0 && p.x <= x1 && p.y >= y0 && p.y <= y1)
+                .map(({ i }) => i);
+            store.marqueeSelect(hits, session.shift);
+            setMarquee(null);
+            return;
+        }
+        // maybe-add or maybe-transform sliding off the stage before crossing the drag
+        // threshold: cancel outright, never create an element or select on click.
+    };
+
     const clamped = drag !== null && appliedFraction < 1;
     const linkPoints = elements.flatMap((p) => [p.x, p.y]);
 
@@ -148,7 +186,7 @@ export function ArticulationCanvas() {
                 onPointerDown={handleStagePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
+                onPointerLeave={handlePointerLeave}
                 style={{ background: '#1a1b1e', borderRadius: 8, touchAction: 'none' }}
             >
                 <Layer>

@@ -10,6 +10,10 @@ interface DragSession {
     /** Pose cached at drag start; every update re-solves from here. */
     originElements: Vector2[];
     startPointer: Vector2;
+    /** Pointer position as of the last updateDrag call (rotate mode angle tracking). */
+    lastPointer: Vector2;
+    /** Unwrapped total rotation swept so far, may legitimately exceed +-PI. */
+    accumulatedAngle: number;
 }
 
 export interface ArticulationStoreState {
@@ -168,7 +172,12 @@ export const useArticulationStore = create<ArticulationStoreState>()(
 
         beginDrag: (pointer) =>
             set((s) => {
-                s.drag = { originElements: current(s).elements.map((p) => ({ ...p })), startPointer: pointer };
+                s.drag = {
+                    originElements: current(s).elements.map((p) => ({ ...p })),
+                    startPointer: pointer,
+                    lastPointer: pointer,
+                    accumulatedAngle: 0,
+                };
                 s.appliedFraction = 1;
             }),
 
@@ -186,9 +195,17 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 } else {
                     const pivotPos = origin[plain.pivotIndex];
                     if (!pivotPos) return;
-                    const a0 = angleAround(pivotPos, s.drag.startPointer);
-                    const a1 = angleAround(pivotPos, pointer);
-                    delta = { kind: 'rotate' as const, angle: normalizeAngle(a1 - a0) };
+                    const lastVec = { x: s.drag.lastPointer.x - pivotPos.x, y: s.drag.lastPointer.y - pivotPos.y };
+                    const currVec = { x: pointer.x - pivotPos.x, y: pointer.y - pivotPos.y };
+                    const lastLen = Math.hypot(lastVec.x, lastVec.y);
+                    const currLen = Math.hypot(currVec.x, currVec.y);
+                    if (lastLen >= 12 && currLen >= 12) {
+                        const a0 = angleAround(pivotPos, s.drag.lastPointer);
+                        const a1 = angleAround(pivotPos, pointer);
+                        s.drag.accumulatedAngle += normalizeAngle(a1 - a0);
+                    }
+                    s.drag.lastPointer = pointer;
+                    delta = { kind: 'rotate' as const, angle: s.drag.accumulatedAngle };
                 }
                 const result = solveArticulation({
                     chain: { elements: origin, constraints: plain.constraints },
@@ -204,6 +221,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
         endDrag: () =>
             set((s) => {
                 s.drag = null;
+                s.appliedFraction = 1;
             }),
     })),
 );
