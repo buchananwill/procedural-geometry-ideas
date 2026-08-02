@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
 import { solveArticulation } from '@proc-geo/core';
-import type { ElementConstraints, StrategyId, Vector2 } from '@proc-geo/core';
+import type { ElementConstraints, StrategyId, Vector2, TransformDelta } from '@proc-geo/core';
 
 export type TransformMode = 'translate' | 'rotate';
 
@@ -176,8 +176,8 @@ export const useArticulationStore = create<ArticulationStoreState>()(
             set((s) => {
                 if (!s.drag) return;
                 const plain = current(s);
-                const origin = s.drag.originElements;
-                let delta;
+                const origin = plain.drag!.originElements;
+                let delta: TransformDelta;
                 if (plain.transformMode === 'translate') {
                     delta = {
                         kind: 'translate' as const,
