@@ -218,3 +218,23 @@ export type {
     ValidationError as DolValidationError,
 } from './dol-system';
 export {KEYWORD_OPCODES, NUM_KEYWORDS, DolSystemValidationError} from './dol-system';
+
+// ── Articulation constraint solver ───────────────────────────────────────────
+export type {
+    MinMax,
+    ElementConstraints,
+    ArticulationChain,
+    TransformDelta,
+    StrategyId,
+    SolveInput,
+    SolveResult,
+    RotationInput,
+    ConstraintStrategy,
+} from './articulation';
+export {
+    ARTICULATION_EPSILON,
+    jointAngleAt,
+    isPoseValid,
+    solveArticulation,
+    STRATEGIES,
+} from './articulation';
