@@ -50,6 +50,9 @@ algorithms later.
 - The solver must cache the pre-delta pose, and if the raw input delta cannot be interpreted into a valid pose, the
   algorithm must apply the largest delta in the same direction that results in a valid new pose, given the original
   pose.
+- The three algorithm sections below (Rigid Assembly, Spread Articulation, Saturate Articulation) describe rotation;
+  their pivot-preservation bullets are rotation-only invariants. Translation, common to all three, is described
+  afterwards in its own section.
 
 ### Data For Worked Examples
 
@@ -143,3 +146,43 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
 - The initial rotation will translate `selected` around a pivot at element `[0]`
 - The joint formed by elements `[0,1,2]` will saturate before the full input delta is applied.
 - The remaining portion of the input delta will be applied by translating and rotating `[3,4]` around `[2]` as a pivot.
+
+### Translate
+
+- Translation applies the input delta, a vector, to every selected element. The pivot plays no role in translation
+  for any of the three algorithms — it is a rotation-only concept.
+- Rigid Assembly and Spread Articulation translate the selection as a single rigid unit: every selected element
+  receives the same offset. If the raw delta does not produce a valid pose, the algorithm clamps to the largest scale
+  of the vector, in the same direction, that does. Spread Articulation defines no distinct translate semantics; it
+  delegates to the same rigid-unit behaviour.
+- Saturate Articulation translates the selection as a rigid unit for as long as it can, then peels elements off the
+  ends of the selection as they bind. A discontiguous selection never reaches this cascade: the solver dispatches it
+  to Rigid Assembly, for every delta kind.
+  - The selection's boundary is whichever selected elements sit next to an inactive neighbour — unselected, or
+    already frozen. An interior element has no boundary; a selection with no unselected neighbour on either side has
+    no boundary at all and translates freely.
+  - Moving the active elements as a rigid body can only disturb the link to each boundary's inactive neighbour and the
+    joint angles at both ends of that link — everything else in the active set is unaffected. The step is clamped to
+    the largest fraction of the remaining vector for which every boundary's link-distance and joint-angle bounds hold
+    at once: it is the conjunction of all boundary predicates, not any one alone, that makes the clamp valid.
+  - The cascade freezes whichever boundary elements' predicates fail one bisection step past the accepted fraction — always at
+    least one, since that fraction is the clamp's known-invalid upper bound — and the boundary moves inward to the
+    newly-frozen element's still-active neighbour. A defensive fallback freezes the boundary, or boundaries on an
+    ε-tie, with the smallest individually-permitted fraction.
+  - The remaining, unconsumed portion of the delta is then applied to whatever is still active, and the cycle repeats
+    until either the vector is exhausted or every selected element has frozen.
+  - If every selected element freezes before the vector is exhausted, the remaining delta is discarded, exactly as in
+    Saturate Rotate.
+  - `appliedFraction` for Saturate Translate is the consumed distance divided by the requested distance, the same
+    convention as Saturate Rotate (whose own fraction is the mean of the per-span fractions when the pivot lies inside
+    the selection).
+
+#### Worked Example
+
+- Four elements at `x = 0, 1, 2, 3`; `selected = [1, 2, 3]`; the link `[0,1]` has a maximum distance of `2`.
+- The drag is `+x` by `5`.
+- Element `1` can travel only to just short of `x = 2` before that maximum binds (the clamp is found by bisection), so
+  it freezes there; elements `2` and `3` are still active.
+- The link `[1,2]` becomes the new lower boundary for the remaining active elements.
+- With nothing left to bind, elements `2` and `3` absorb the whole remainder of the drag, ending at `x = 7` and
+  `x = 8`.

@@ -13,6 +13,7 @@ export function ArticulationControlsPanel() {
     const transformMode = useArticulationStore((s) => s.transformMode);
     const selection = useArticulationStore((s) => s.selection);
     const appliedFraction = useArticulationStore((s) => s.appliedFraction);
+    const appliedStrategyId = useArticulationStore((s) => s.appliedStrategyId);
     const setStrategy = useArticulationStore((s) => s.setStrategy);
     const setTransformMode = useArticulationStore((s) => s.setTransformMode);
     const deleteSelected = useArticulationStore((s) => s.deleteSelected);
@@ -37,9 +38,10 @@ export function ArticulationControlsPanel() {
                     value={transformMode}
                     onChange={(v) => setTransformMode(v as 'rotate' | 'translate')}
                 />
-                {appliedFraction < 1 && (
+                {appliedFraction < 1 - 1e-6 && (
                     <Badge color="red" variant="light">
-                        Clamped to {(appliedFraction * 100).toFixed(0)}%
+                        {appliedStrategyId === 'saturate' ? 'Absorbed' : 'Clamped to'}{' '}
+                        {Math.floor(appliedFraction * 100)}%
                     </Badge>
                 )}
                 <Group gap="xs">

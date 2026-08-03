@@ -28,6 +28,7 @@ apps/*/dist
 
 # editors
 .obsidian/
+.idea/
 
 # debug
 npm-debug.log*

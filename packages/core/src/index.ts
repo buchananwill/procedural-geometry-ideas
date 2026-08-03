@@ -235,6 +235,7 @@ export {
     ARTICULATION_EPSILON,
     jointAngleAt,
     isPoseValid,
+    isContiguous,
     solveArticulation,
     STRATEGIES,
 } from './articulation';

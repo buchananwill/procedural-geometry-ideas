@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
-import { solveArticulation } from '@proc-geo/core';
+import { isContiguous, solveArticulation } from '@proc-geo/core';
 import type { ElementConstraints, StrategyId, Vector2, TransformDelta } from '@proc-geo/core';
 
 export type TransformMode = 'translate' | 'rotate';
@@ -26,6 +26,12 @@ export interface ArticulationStoreState {
     drag: DragSession | null;
     /** From the last solve; < 1 means constraints clamped the input. */
     appliedFraction: number;
+    /**
+     * The strategy that actually produced `appliedFraction` -- solveArticulation
+     * dispatches discontiguous selections to rigid regardless of `strategyId`, so
+     * this can differ from it.
+     */
+    appliedStrategyId: StrategyId;
 
     addElement: (p: Vector2) => void;
     deleteSelected: () => void;
@@ -65,6 +71,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
         transformMode: 'rotate',
         drag: null,
         appliedFraction: 1,
+        appliedStrategyId: 'rigid',
 
         addElement: (p) =>
             set((s) => {
@@ -119,6 +126,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.pivotIndex = 0;
                 s.drag = null;
                 s.appliedFraction = 1;
+                s.appliedStrategyId = s.strategyId;
             }),
 
         selectOnly: (index) =>
@@ -179,6 +187,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                     accumulatedAngle: 0,
                 };
                 s.appliedFraction = 1;
+                s.appliedStrategyId = s.strategyId;
             }),
 
         updateDrag: (pointer) =>
@@ -216,12 +225,20 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 });
                 s.elements = result.elements;
                 s.appliedFraction = result.appliedFraction;
+                // Mirrors solveArticulation's own sanitization (dedupe, in-bounds, sort)
+                // so this reflects the strategy that actually produced the result above --
+                // a discontiguous selection is dispatched to rigid regardless of strategyId.
+                const sortedSelection = [...new Set(plain.selection)]
+                    .filter((i) => Number.isInteger(i) && i >= 0 && i < origin.length)
+                    .sort((a, b) => a - b);
+                s.appliedStrategyId = isContiguous(sortedSelection) ? plain.strategyId : 'rigid';
             }),
 
         endDrag: () =>
             set((s) => {
                 s.drag = null;
                 s.appliedFraction = 1;
+                s.appliedStrategyId = s.strategyId;
             }),
     })),
 );

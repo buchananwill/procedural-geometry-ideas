@@ -38,7 +38,14 @@ export interface SolveInput {
 export interface SolveResult {
     /** Full new pose; unselected elements are unchanged copies. */
     elements: Vector2[];
-    /** 1 = raw delta applied; <1 = clamped by constraints; 0 = fully blocked. */
+    /**
+     * For rigid and spread: the input delta scaled by this factor produces the
+     * result pose (1 = raw delta applied, <1 = clamped, 0 = fully blocked).
+     * For saturate: the fraction of the input absorbed before the remainder
+     * was discarded (consumed delta / requested delta). For a rotation whose
+     * pivot lies inside the selection, this is the mean of the per-span
+     * fractions.
+     */
     appliedFraction: number;
 }
 
