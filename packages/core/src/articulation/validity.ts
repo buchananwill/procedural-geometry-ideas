@@ -22,24 +22,45 @@ function boundHolds(value: number, bound: MinMax): boolean {
 }
 
 /**
- * Shared validity predicate: true iff every enabled bound holds. A link is
- * governed by BOTH endpoints' constraints (intersection semantics). Validity
- * is a property of the data, never of the strategy.
+ * Distance bounds on the link between `lowerIndex` and `lowerIndex + 1`. The
+ * link is governed by BOTH endpoints' constraints (intersection semantics).
+ */
+export function linkDistanceHolds(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    lowerIndex: number,
+): boolean {
+    const distance = distV(elements[lowerIndex], elements[lowerIndex + 1]);
+    const prevBound = constraints[lowerIndex + 1]?.distanceToPrev;
+    if (prevBound && !boundHolds(distance, prevBound)) return false;
+    const nextBound = constraints[lowerIndex]?.distanceToNext;
+    if (nextBound && !boundHolds(distance, nextBound)) return false;
+    return true;
+}
+
+/** Joint-angle bound at one element; vacuously true where it cannot be evaluated. */
+export function jointAngleHolds(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    index: number,
+): boolean {
+    const bound = constraints[index]?.jointAngle;
+    if (!bound) return true;
+    const angle = jointAngleAt(elements, index);
+    if (angle === null) return true;
+    return boundHolds(angle, bound);
+}
+
+/**
+ * Shared validity predicate: true iff every enabled bound holds. Validity is a
+ * property of the data, never of the strategy.
  */
 export function isPoseValid(elements: Vector2[], constraints: ElementConstraints[]): boolean {
-    for (let i = 1; i < elements.length; i++) {
-        const d = distV(elements[i - 1], elements[i]);
-        const prevBound = constraints[i]?.distanceToPrev;
-        if (prevBound && !boundHolds(d, prevBound)) return false;
-        const nextBound = constraints[i - 1]?.distanceToNext;
-        if (nextBound && !boundHolds(d, nextBound)) return false;
+    for (let lowerIndex = 0; lowerIndex < elements.length - 1; lowerIndex++) {
+        if (!linkDistanceHolds(elements, constraints, lowerIndex)) return false;
     }
-    for (let i = 1; i < elements.length - 1; i++) {
-        const bound = constraints[i]?.jointAngle;
-        if (!bound) continue;
-        const angle = jointAngleAt(elements, i);
-        if (angle === null) continue;
-        if (!boundHolds(angle, bound)) return false;
+    for (let index = 1; index < elements.length - 1; index++) {
+        if (!jointAngleHolds(elements, constraints, index)) return false;
     }
     return true;
 }

@@ -51,27 +51,31 @@ The pivot plays no role in translation, neither for the input delta nor for orde
 ```
 active = selection; out = copy of elements; remaining = vector; consumed = 0
 while active nonempty and |remaining| > ε:
-    for each boundary element b (inactive neighbour n):
-        probe(b) = clampToValid(translate active by t·remaining,
-                                validity restricted to constraints touching the boundary link (n, b):
-                                distance bounds on (n, b) from both endpoints,
-                                plus joint-angle bounds at b and at n)
-    t = min over probes           // no boundaries ⇒ t = 1
+    boundaries = boundary pairs (b, n) of active     // none ⇒ apply remaining in full, done
+    restricted(pair) = distance bounds on the link (n, b) from both endpoints,
+                       plus joint-angle bounds at b and at n
+    t = clampToValid(translate active by t·remaining,
+                     validity = AND over boundaries of restricted(pair))
     apply t·remaining to active in out
     consumed += t·|remaining|; remaining *= (1 − t)
     if t ≥ 1: break
-    freeze the argmin boundary element(s) — both on an ε-tie — remove from active
+    freeze the boundary element(s) blocking at t + one bisection step
+        (fallback: argmin of the per-pair probes, both on an ε-tie)
 appliedFraction = consumed / |vector|
 ```
 
-**Why restricted-validity probes are sound:** rigid translation of a contiguous active set perturbs only the boundary links. Each probe therefore isolates exactly the constraints that boundary can violate, and `min(probes)` equals the true group clamp — but unlike a single global clamp, it identifies *which* element bound.
+**Why restricted validity is sound:** rigid translation of a contiguous active set perturbs only the boundary links and the joint angles at their endpoints; every interior link and joint travels unchanged. The restricted per-pair predicates therefore enumerate exactly what the motion can violate, so their **conjunction** is equivalent to full validity for this motion — that conjunction is what the step is clamped on, and it is what guarantees the applied pose is globally valid.
+
+A per-pair *minimum* would not be equivalent. A min-distance bound makes a pair's validity non-monotone in `t` — the link shortens through the forbidden zone and lengthens out of it again — so one pair's probe can return a `t` that steps straight through another pair's dip, and the applied pose is never re-checked against it. The per-pair probes therefore serve **attribution only**: identifying which element bound. Attribution first asks which pairs are unsatisfied one bisection step past the accepted `t`, falling back to the argmin probe when that names nobody; at least one element freezes on every iteration that stops short, so the cascade always terminates.
+
+Tunnelling *at the endpoint* — the full vector being valid for every pair at once while intermediate `t` are not — remains possible. That is `clampToValid`'s documented contract (it accepts `poseAt(1)` when valid) and matches rigid's existing behaviour.
 
 **Cascade correctness details:**
 
 - When an element freezes, its link to its still-active neighbour becomes the next boundary link; the next iteration's probe covers its constraints automatically. Frozen elements never move again.
 - A single-element active set with inactive neighbours on both sides is one probe covering both links (and the joint bounds at the element and both neighbours).
 - When all elements are frozen and delta remains, the remainder is discarded (mirrors Saturate Rotate).
-- Each probe re-derives the pose from the iteration's base scaled by `t` (never cumulative), reusing `clampToValid` unchanged.
+- Each clamp and probe re-derives the pose from the iteration's base scaled by `t` (never cumulative), reusing `clampToValid` unchanged.
 
 ## 3. `appliedFraction` redefinition + badge wording
 
