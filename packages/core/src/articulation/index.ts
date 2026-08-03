@@ -10,7 +10,12 @@ export type {
     ConstraintStrategy,
 } from './types';
 export { ARTICULATION_EPSILON, jointAngleAt, isPoseValid } from './validity';
-export { clampToValid, CLAMP_BISECTION_DEPTH } from './clamping';
+export {
+    clampToValid,
+    CLAMP_COARSE_SAMPLE_COUNT,
+    CLAMP_REFINEMENT_DEPTH,
+    CLAMP_RESOLUTION,
+} from './clamping';
 export { isContiguous, splitSpans } from './topology';
 export { solveArticulation, STRATEGIES } from './solve';
 export { rigidStrategy } from './strategies/rigid';

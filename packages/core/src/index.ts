@@ -238,4 +238,7 @@ export {
     isContiguous,
     solveArticulation,
     STRATEGIES,
+    CLAMP_COARSE_SAMPLE_COUNT,
+    CLAMP_REFINEMENT_DEPTH,
+    CLAMP_RESOLUTION,
 } from './articulation';

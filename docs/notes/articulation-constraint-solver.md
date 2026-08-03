@@ -121,7 +121,8 @@ const inputDelta = PI_OVER_THREE;
   elements further from the pivot.
 - Elements `[4,5]` are not translated.
 - If the resulting pose is found to be invalid, then a search is carried out to find the largest input delta that is
-  valid, e.g. bisection to a depth of 8.
+  valid: a descending coarse scan of 64 even steps, then bisection refinement of the accepted step down to a resolution
+  of `2^-12` of the delta.
 - For each `candidate_delta`, the deviation per pair is always `candidate_delta / 3`, because there are three
   qualifying pairs to distribute that delta evenly across.
 
@@ -171,7 +172,7 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
     joint angles at both ends of that link — everything else in the active set is unaffected. The step is clamped to
     the largest fraction of the remaining vector for which every boundary's link-distance and joint-angle bounds hold
     at once: it is the conjunction of all boundary predicates, not any one alone, that makes the clamp valid.
-  - The cascade freezes whichever boundary elements' predicates fail one bisection step past the accepted fraction — always at
+  - The cascade freezes whichever boundary elements' predicates fail one clamp resolution past the accepted fraction — always at
     least one, since that fraction is the clamp's known-invalid upper bound — and the boundary moves inward to the
     newly-frozen element's still-active neighbour. A defensive fallback freezes the boundary, or boundaries on an
     ε-tie, with the smallest individually-permitted fraction.
@@ -187,7 +188,8 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
 
 - Four elements at `x = 0, 1, 2, 3`; `selected = [1, 2, 3]`; the link `[0,1]` has a maximum distance of `2`.
 - The drag is `+x` by `5`.
-- Element `1` can travel only to just short of `x = 2` before that maximum binds (the clamp is found by bisection), so
+- Element `1` can travel only to just short of `x = 2` before that maximum binds (the clamp is found by the
+  coarse-scan-then-refine search, to `2^-12` of the drag), so
   it freezes there; elements `2` and `3` are still active.
 - The link `[1,2]` becomes the new lower boundary for the remaining active elements.
 - With nothing left to bind, elements `2` and `3` absorb the whole remainder of the drag, ending at `x = 7` and

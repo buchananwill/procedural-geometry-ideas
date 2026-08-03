@@ -1,11 +1,9 @@
 import { solveArticulation } from '../../src/articulation/solve';
+import { CLAMP_RESOLUTION } from '../../src/articulation/clamping';
 import { isPoseValid, jointAngleAt } from '../../src/articulation/validity';
 import { distV } from '../../src/articulation/geometry';
 import type { ArticulationChain, ElementConstraints, SolveInput } from '../../src/articulation/types';
 import type { Vector2 } from '../../src/shared/types';
-
-/** Bisection resolution of one clamp step, as a fraction of that step. */
-const BISECTION_STEP = 1 / 256;
 
 function horizontalChain(length: number): ArticulationChain {
     const elements: Vector2[] = Array.from({ length }, (_, x) => ({ x, y: 0 }));
@@ -52,7 +50,7 @@ describe('saturate translate spills past a single boundary', () => {
 
     it('saturates the boundary element at its maximum distance', () => {
         expect(distV(p[0], p[1])).toBeLessThanOrEqual(2 + 1e-6);
-        expect(distV(p[0], p[1])).toBeGreaterThan(2 - 5 * BISECTION_STEP);
+        expect(distV(p[0], p[1])).toBeGreaterThan(2 - 5 * CLAMP_RESOLUTION);
     });
     it('moves the interior elements further than the boundary element', () => {
         const boundaryDisplacement = p[1].x - 1;
@@ -84,12 +82,12 @@ describe('saturate translate boundary race', () => {
 
     it('freezes the tighter boundary element first', () => {
         expect(p[1].y).toBeLessThanOrEqual(Math.sqrt(3) + 1e-6);
-        expect(p[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * BISECTION_STEP);
+        expect(p[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * CLAMP_RESOLUTION);
     });
     it('keeps the slacker boundary element moving until its own bound', () => {
         expect(p[3].y).toBeGreaterThan(p[1].y);
         expect(p[3].y).toBeLessThanOrEqual(Math.sqrt(24) + 1e-6);
-        expect(p[3].y).toBeGreaterThan(Math.sqrt(24) - 10 * BISECTION_STEP);
+        expect(p[3].y).toBeGreaterThan(Math.sqrt(24) - 10 * CLAMP_RESOLUTION);
     });
     it('lets the unbounded interior element absorb the whole vector', () => {
         expect(p[2].y).toBeCloseTo(10, 9);
@@ -124,7 +122,7 @@ describe('saturate translate full saturation discards the remainder', () => {
         // the consumed distance.
         expect(result.appliedFraction).toBeCloseTo(p[2].y / 10, 9);
         expect(p[2].y).toBeLessThanOrEqual(2 * Math.sqrt(3) + 1e-6);
-        expect(p[2].y).toBeGreaterThan(2 * Math.sqrt(3) - 20 * BISECTION_STEP);
+        expect(p[2].y).toBeGreaterThan(2 * Math.sqrt(3) - 20 * CLAMP_RESOLUTION);
     });
     it('leaves every link within its bound', () => {
         [0, 1, 2, 3].forEach((i) => expect(distV(p[i], p[i + 1])).toBeLessThanOrEqual(2 + 1e-6));
@@ -155,12 +153,12 @@ describe('saturate translate of a single element between constrained neighbours'
 
     it('stops at the tighter of the two links', () => {
         expect(result.elements[1].y).toBeLessThanOrEqual(Math.sqrt(3) + 1e-6);
-        expect(result.elements[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * BISECTION_STEP);
+        expect(result.elements[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * CLAMP_RESOLUTION);
     });
     it('reports the stopped fraction, remainder discarded', () => {
         const stoppedFraction = Math.sqrt(3) / 10;
         expect(result.appliedFraction).toBeLessThanOrEqual(stoppedFraction + 1e-9);
-        expect(result.appliedFraction).toBeGreaterThan(stoppedFraction - BISECTION_STEP);
+        expect(result.appliedFraction).toBeGreaterThan(stoppedFraction - CLAMP_RESOLUTION);
     });
     it('does not move the neighbours', () => {
         expect(result.elements[0]).toEqual({ x: 0, y: 0 });
@@ -191,6 +189,42 @@ describe('saturate translate against a min-distance bound in the travel directio
     it('stops in front of the forbidden dip instead of tunnelling into it', () => {
         expect(distV(result.elements[1], result.elements[2])).toBeGreaterThanOrEqual(0.9 - 1e-6);
         expect(result.elements[1].x).toBeLessThan(1.2);
+        expect(isPoseValid(result.elements, chain.constraints)).toBe(true);
+    });
+});
+
+describe('saturate translate reaches a valid island beyond a min-distance dip', () => {
+    // Element 1 (at x = 1) is dragged +x by 2 between fixed neighbours at x = 0
+    // and x = 2. Link (0,1) may reach 2.5, so travel is capped at 1.5; link
+    // (1,2) must stay at least 0.3, which forbids travel in (0.7, 1.3). The
+    // valid set in step fraction is therefore [0, 0.35] u [0.65, 0.75]: an
+    // island past a dip, with the full delta itself invalid.
+    const DIP_NEAR_EDGE_FRACTION = 0.35;
+    const ISLAND_TOP_FRACTION = 0.75;
+    const chain = horizontalChain(3);
+    chain.constraints[1] = { distanceToPrev: { min: 0, max: 2.5 } };
+    chain.constraints[2] = { distanceToPrev: { min: 0.3, max: 3 } };
+    const result = solveArticulation(input(chain, {
+        selection: [1],
+        delta: { kind: 'translate', vector: { x: 2, y: 0 } },
+    }));
+
+    it('starts from a valid pose', () => {
+        expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
+    });
+    it('applies more than the fraction in front of the dip', () => {
+        // A plain depth-8 bisection of [0, 1] samples 0.5 (inside the dip),
+        // then converges below 0.35; the coarse scan finds the island instead.
+        expect(result.appliedFraction).toBeGreaterThan(DIP_NEAR_EDGE_FRACTION);
+        expect(result.appliedFraction).toBeLessThanOrEqual(ISLAND_TOP_FRACTION);
+        expect(result.appliedFraction).toBeGreaterThan(ISLAND_TOP_FRACTION - CLAMP_RESOLUTION);
+    });
+    it('tunnels the dragged element past its neighbour', () => {
+        expect(result.elements[1].x).toBeGreaterThan(chain.elements[2].x);
+    });
+    it('ends on a globally valid pose', () => {
+        expect(distV(result.elements[0], result.elements[1])).toBeLessThanOrEqual(2.5 + 1e-6);
+        expect(distV(result.elements[1], result.elements[2])).toBeGreaterThanOrEqual(0.3 - 1e-6);
         expect(isPoseValid(result.elements, chain.constraints)).toBe(true);
     });
 });

@@ -2,7 +2,7 @@ import type { Vector2 } from '../../shared/types';
 import type { ArticulationChain, ConstraintStrategy, SolveResult, StrategyInput } from '../types';
 import type { ClampResult } from '../clamping';
 import { addV, lenV, rotateAbout, scaleV } from '../geometry';
-import { CLAMP_BISECTION_DEPTH, clampToValid } from '../clamping';
+import { CLAMP_RESOLUTION, clampToValid } from '../clamping';
 import { ARTICULATION_EPSILON, isPoseValid, jointAngleHolds, linkDistanceHolds } from '../validity';
 import { splitSpans } from '../topology';
 import { identityResult } from '../identity-result';
@@ -48,8 +48,8 @@ function solveSaturateRotation(input: StrategyInput, angle: number): SolveResult
     return { elements: out, appliedFraction: fractionSum / spans.length };
 }
 
-/** One bisection step of `clampToValid`: the resolution of an accepted fraction. */
-const PROBE_LOOKAHEAD_FRACTION = 2 ** -CLAMP_BISECTION_DEPTH;
+/** The resolution of an accepted fraction: one step of `clampToValid`'s search. */
+const PROBE_LOOKAHEAD_FRACTION = CLAMP_RESOLUTION;
 
 /**
  * The still-movable elements, always a contiguous index range because the
@@ -98,8 +98,9 @@ function findBoundaryPairs(active: ActiveRange, chainLength: number): BoundaryPa
  * on the CONJUNCTION of the boundary pairs -- a per-pair minimum would not,
  * because a min-distance bound makes a pair's validity non-monotone in the
  * step fraction, so one pair's probe can step straight through another pair's
- * forbidden dip. Freeze attribution is primarily the lookahead one bisection
- * step past the accepted fraction; the per-pair probes are only its fallback.
+ * forbidden dip. Freeze attribution is primarily the lookahead one clamp
+ * resolution past the accepted fraction; the per-pair probes are only its
+ * fallback.
  */
 function boundaryPairIsSatisfied(
     elements: Vector2[],
@@ -146,7 +147,7 @@ function probeBoundaryPair(step: CascadeStep, pair: BoundaryPair): number {
     ).t;
 }
 
-/** The pairs that are unsatisfied one bisection step past the accepted fraction. */
+/** The pairs that are unsatisfied one clamp resolution past the accepted fraction. */
 function pairsBlockingJustBeyond(step: CascadeStep, acceptedFraction: number): BoundaryPair[] {
     const lookaheadPose = stepPoseAt(step, Math.min(1, acceptedFraction + PROBE_LOOKAHEAD_FRACTION));
     return step.boundaryPairs.filter((pair) => !boundaryPairIsSatisfied(lookaheadPose, step.chain, pair));
