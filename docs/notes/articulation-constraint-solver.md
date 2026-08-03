@@ -4,6 +4,12 @@ The purpose of this module is to allow exploration of constraint solving on a se
 them as articulation points in a linkage. The constraints will vary: both element separation and joint angle can be free
 or constrained.
 
+Two priorities govern every solving strategy, in order: the solver must never produce an invalid pose, and within that
+limit it must accommodate the user's input delta as closely as possible. Validity is a property of poses, never of
+paths — the user is searching a constrained space for a visually pleasing arrangement, not simulating physical motion.
+"Tunnelling" through regions of invalid pose space to reach a valid pose is therefore desirable behaviour, not a
+defect, and no strategy should trade accommodation away to preserve continuity of motion.
+
 Three modes of constraint satisfaction will initially be offered:
 
 1. Rigid Assembly

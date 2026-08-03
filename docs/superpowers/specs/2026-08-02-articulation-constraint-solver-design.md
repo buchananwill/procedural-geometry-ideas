@@ -10,6 +10,10 @@ A miniature sandbox explorer that lets a user build a single open chain of artic
 distance/angle constraints to elements, and interactively drag selections to see how three different constraint-solving
 strategies interpret the same input. The goal is understanding the algorithms, not production IK.
 
+Two priorities govern every strategy, in order: never produce an invalid pose; otherwise accommodate the user's input
+delta as closely as possible. Poses are validated, paths are not — tunnelling through invalid intermediate poses to
+reach a valid one is desirable UX, not a defect (see the source design note's opening for the full statement).
+
 ## Module Placement (follows existing conventions)
 
 | Layer     | Location                                            | Contents                                          |
