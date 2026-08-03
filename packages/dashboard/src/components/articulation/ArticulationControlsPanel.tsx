@@ -2,6 +2,7 @@ import { Badge, Button, Group, Paper, SegmentedControl, Stack, Text, Title } fro
 import { STRATEGIES } from '@proc-geo/core';
 import type { StrategyId } from '@proc-geo/core';
 import { useArticulationStore } from '../../stores/useArticulationStore';
+import { indicatesClamping } from './clamp-indication';
 
 const STRATEGY_OPTIONS = (Object.keys(STRATEGIES) as StrategyId[]).map((id) => ({
     value: id,
@@ -25,6 +26,7 @@ export function ArticulationControlsPanel() {
                 <Title order={5}>Solver</Title>
                 <SegmentedControl
                     fullWidth
+                    orientation="vertical"
                     data={STRATEGY_OPTIONS}
                     value={strategyId}
                     onChange={(v) => setStrategy(v as StrategyId)}
@@ -38,7 +40,7 @@ export function ArticulationControlsPanel() {
                     value={transformMode}
                     onChange={(v) => setTransformMode(v as 'rotate' | 'translate')}
                 />
-                {appliedFraction < 1 - 1e-6 && (
+                {indicatesClamping(appliedFraction) && (
                     <Badge color="red" variant="light">
                         {appliedStrategyId === 'saturate' ? 'Absorbed' : 'Clamped to'}{' '}
                         {Math.floor(appliedFraction * 100)}%

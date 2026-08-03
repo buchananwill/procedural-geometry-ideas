@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line, Circle, Rect } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useArticulationStore } from '../../stores/useArticulationStore';
+import { indicatesClamping } from './clamp-indication';
 
 const LINK_COLOR = '#5c6470';
 const ELEMENT_COLOR = '#7a8288';
@@ -175,7 +176,7 @@ export function ArticulationCanvas() {
         // threshold: cancel outright, never create an element or select on click.
     };
 
-    const clamped = drag !== null && appliedFraction < 1;
+    const clamped = drag !== null && indicatesClamping(appliedFraction);
     const linkPoints = elements.flatMap((p) => [p.x, p.y]);
 
     return (
