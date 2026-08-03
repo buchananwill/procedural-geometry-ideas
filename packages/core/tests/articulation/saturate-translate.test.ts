@@ -1,6 +1,12 @@
 import { solveArticulation } from '../../src/articulation/solve';
 import { CLAMP_RESOLUTION } from '../../src/articulation/clamping';
-import { isPoseValid, jointAngleAt } from '../../src/articulation/validity';
+import {
+    ARTICULATION_EPSILON,
+    isPoseValid,
+    jointAngleAt,
+    jointAngleViolation,
+    linkDistanceViolation,
+} from '../../src/articulation/validity';
 import { distV } from '../../src/articulation/geometry';
 import type { ArticulationChain, ElementConstraints, SolveInput } from '../../src/articulation/types';
 import type { Vector2 } from '../../src/shared/types';
@@ -243,16 +249,37 @@ describe('saturate translate when a freeze would strand a later boundary in its 
     });
 });
 
-describe('saturate translate from an already-invalid boundary', () => {
-    it('freezes that side with zero motion and lets the other side move', () => {
+describe('saturate translate from an already-violated boundary', () => {
+    function violatedBoundaryChain(): ArticulationChain {
         const chain = horizontalChain(4);
-        chain.constraints[1] = { distanceToPrev: { min: 0, max: 0.5 } }; // violated from the start
+        chain.constraints[1] = { distanceToPrev: { min: 0, max: 0.5 } }; // link (0,1) is 1 long
+        return chain;
+    }
+
+    it('holds the violated side still when the drag would stretch the link further', () => {
+        const DRAG_DISTANCE = 5;
+        const chain = violatedBoundaryChain();
         const result = solveArticulation(input(chain, {
             selection: [1, 2],
-            delta: { kind: 'translate', vector: { x: 0, y: 5 } },
+            delta: { kind: 'translate', vector: { x: 0, y: DRAG_DISTANCE } },
         }));
-        expect(result.elements[1]).toEqual({ x: 1, y: 0 });
-        expect(result.elements[2].y).toBeCloseTo(5, 9);
+        expect(distV(result.elements[1], chain.elements[1]))
+            .toBeLessThanOrEqual(DRAG_DISTANCE * CLAMP_RESOLUTION);
+        expect(result.elements[2].y).toBeCloseTo(DRAG_DISTANCE, 9);
+    });
+
+    it('moves the violated side when the drag shortens the link toward its bound', () => {
+        const chain = violatedBoundaryChain();
+        const startingViolation = linkDistanceViolation(chain.elements, chain.constraints, 0);
+        const result = solveArticulation(input(chain, {
+            selection: [1, 2],
+            delta: { kind: 'translate', vector: { x: -0.4, y: 0 } },
+        }));
+        expect(result.appliedFraction).toBeCloseTo(1, 9);
+        expect(result.elements[1].x).toBeCloseTo(0.6, 9);
+        expect(result.elements[2].x).toBeCloseTo(1.6, 9);
+        expect(startingViolation).toBeCloseTo(0.5, 9);
+        expect(linkDistanceViolation(result.elements, chain.constraints, 0)).toBeCloseTo(0.1, 9);
     });
 });
 
@@ -381,6 +408,77 @@ describe('saturate translate fuzz (fixed seeds)', () => {
                 if (failures.length > 2) break;
             }
             expect(validInputs).toBeGreaterThan(TRIALS_PER_SEED / 2);
+            expect(failures).toEqual([]);
+        });
+    }
+});
+
+/** Every constraint's violation magnitude, in a fixed order for pairwise comparison. */
+function everyViolation(elements: Vector2[], constraints: ElementConstraints[]): number[] {
+    const violations: number[] = [];
+    for (let lowerIndex = 0; lowerIndex < elements.length - 1; lowerIndex++) {
+        violations.push(linkDistanceViolation(elements, constraints, lowerIndex));
+    }
+    for (let index = 0; index < elements.length; index++) {
+        violations.push(jointAngleViolation(elements, constraints, index));
+    }
+    return violations;
+}
+
+/** Displace one element far enough that the bounds fitted to the original pose break. */
+function withOneElementDisplaced(chain: ArticulationChain, random: () => number): ArticulationChain {
+    const displacedIndex = Math.floor(random() * chain.elements.length);
+    const heading = random() * Math.PI * 2;
+    const magnitude = 0.8 + random() * 3;
+    const elements = chain.elements.map((point, index) => (index === displacedIndex
+        ? { x: point.x + Math.cos(heading) * magnitude, y: point.y + Math.sin(heading) * magnitude }
+        : { ...point }));
+    return { elements, constraints: chain.constraints };
+}
+
+describe('saturate translate fuzz from invalid starting poses (fixed seeds)', () => {
+    const TRIALS_PER_SEED = 120;
+    for (const seed of [7, 20260803]) {
+        it(`seed ${seed}: no constraint ends more violated than it began`, () => {
+            const random = seededRandom(seed);
+            const failures: string[] = [];
+            let invalidInputs = 0;
+            for (let trial = 0; trial < TRIALS_PER_SEED; trial++) {
+                const chain = withOneElementDisplaced(randomChain(random), random);
+                const selection = randomContiguousSelection(random, chain.elements.length);
+                const heading = random() * Math.PI * 2;
+                const magnitude = 0.2 + random() * 12;
+                if (isPoseValid(chain.elements, chain.constraints)) continue;
+                invalidInputs++;
+                const startingViolations = everyViolation(chain.elements, chain.constraints);
+                const result = solveArticulation({
+                    chain,
+                    selection,
+                    pivotIndex: 0,
+                    strategyId: 'saturate',
+                    delta: {
+                        kind: 'translate',
+                        vector: { x: Math.cos(heading) * magnitude, y: Math.sin(heading) * magnitude },
+                    },
+                });
+                const endingViolations = everyViolation(result.elements, chain.constraints);
+                // The cascade rebases per iteration and each accepted step may add up
+                // to epsilon, so the structural growth bound is one epsilon per
+                // element, not one per solve.
+                const violationGrowthBudget = chain.elements.length * ARTICULATION_EPSILON;
+                endingViolations.forEach((violation, position) => {
+                    if (violation > startingViolations[position] + violationGrowthBudget) {
+                        failures.push(`trial ${trial}: violation ${position} rose `
+                            + `${startingViolations[position]} -> ${violation} `
+                            + `${JSON.stringify({ chain, selection, result })}`);
+                    }
+                });
+                if (!(result.appliedFraction >= 0 && result.appliedFraction <= 1 + 1e-9)) {
+                    failures.push(`trial ${trial}: appliedFraction ${result.appliedFraction}`);
+                }
+                if (failures.length > 2) break;
+            }
+            expect(invalidInputs).toBeGreaterThan(TRIALS_PER_SEED / 4);
             expect(failures).toEqual([]);
         });
     }

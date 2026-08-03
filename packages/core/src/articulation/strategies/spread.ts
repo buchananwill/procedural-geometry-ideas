@@ -2,7 +2,7 @@ import type { Vector2 } from '../../shared/types';
 import type { ConstraintStrategy, SolveResult, StrategyInput } from '../types';
 import { rotateAbout } from '../geometry';
 import { clampToValid } from '../clamping';
-import { isPoseValid } from '../validity';
+import { makePoseNoWorsePredicate } from '../validity';
 import { splitSpans } from '../topology';
 import { translateSelectionAsRigidUnit } from './rigid';
 
@@ -51,7 +51,7 @@ function solveSpreadRotation(input: StrategyInput, angle: number): SolveResult {
     const spans = splitSpans(input.selection, input.pivotIndex);
     const clamp = clampToValid(
         (t) => spreadPose(input, spans, t * angle),
-        (els) => isPoseValid(els, input.chain.constraints),
+        makePoseNoWorsePredicate(input.chain.elements, input.chain.constraints),
     );
     return { elements: clamp.elements, appliedFraction: clamp.t };
 }

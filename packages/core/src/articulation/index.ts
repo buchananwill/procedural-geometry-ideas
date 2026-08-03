@@ -9,7 +9,15 @@ export type {
     StrategyInput,
     ConstraintStrategy,
 } from './types';
-export { ARTICULATION_EPSILON, jointAngleAt, isPoseValid } from './validity';
+export {
+    ARTICULATION_EPSILON,
+    jointAngleAt,
+    isPoseValid,
+    isPoseNoWorse,
+    makePoseNoWorsePredicate,
+    linkDistanceViolation,
+    jointAngleViolation,
+} from './validity';
 export {
     clampToValid,
     CLAMP_COARSE_SAMPLE_COUNT,

@@ -1,5 +1,5 @@
 import { solveArticulation } from '../../src/articulation/solve';
-import { jointAngleAt } from '../../src/articulation/validity';
+import { jointAngleAt, linkDistanceViolation } from '../../src/articulation/validity';
 import { distV } from '../../src/articulation/geometry';
 import { rigidStrategy } from '../../src/articulation/strategies/rigid';
 import { spreadStrategy } from '../../src/articulation/strategies/spread';
@@ -69,12 +69,24 @@ describe('rigid clamping', () => {
         const angle = jointAngleAt(result.elements, 4)!;
         expect(Math.abs(angle)).toBeLessThanOrEqual(0.1 + 1e-6);
     });
-    it('returns identity when the starting pose is already invalid', () => {
+    it('applies the full delta from an invalid starting pose when nothing worsens', () => {
         const chain = verticalChain();
         chain.constraints[1] = { distanceToPrev: { min: 5, max: 6 } };
         const result = solveArticulation(solveInput(chain));
-        expect(result.appliedFraction).toBe(0);
-        expect(result.elements).toEqual(chain.elements);
+        // Rotating about element 0 preserves every distance from it, so the
+        // violated link (0,1) is carried along unchanged.
+        expect(result.appliedFraction).toBe(1);
+        expect(linkDistanceViolation(result.elements, chain.constraints, 0)).toBeCloseTo(4, 9);
+    });
+    it('still clamps on an unrelated bound while carrying an existing violation', () => {
+        const chain = verticalChain();
+        chain.constraints[1] = { distanceToPrev: { min: 5, max: 6 } };
+        chain.constraints[4] = { jointAngle: { min: -0.1, max: 0.1 } };
+        const result = solveArticulation(solveInput(chain));
+        expect(result.appliedFraction).toBeGreaterThan(0);
+        expect(result.appliedFraction).toBeLessThan(1);
+        expect(Math.abs(jointAngleAt(result.elements, 4)!)).toBeLessThanOrEqual(0.1 + 1e-6);
+        expect(linkDistanceViolation(result.elements, chain.constraints, 0)).toBeCloseTo(4, 9);
     });
 });
 

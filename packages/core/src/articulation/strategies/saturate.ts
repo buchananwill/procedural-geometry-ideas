@@ -1,9 +1,14 @@
 import type { Vector2 } from '../../shared/types';
-import type { ArticulationChain, ConstraintStrategy, SolveResult, StrategyInput } from '../types';
+import type { ArticulationChain, ConstraintStrategy, ElementConstraints, SolveResult, StrategyInput } from '../types';
 import type { ClampResult } from '../clamping';
 import { addV, lenV, rotateAbout, scaleV } from '../geometry';
 import { CLAMP_RESOLUTION, clampToValid } from '../clamping';
-import { ARTICULATION_EPSILON, isPoseValid, jointAngleHolds, linkDistanceHolds } from '../validity';
+import {
+    ARTICULATION_EPSILON,
+    jointAngleViolation,
+    linkDistanceViolation,
+    makePoseNoWorsePredicate,
+} from '../validity';
 import { splitSpans } from '../topology';
 import { identityResult } from '../identity-result';
 
@@ -22,7 +27,7 @@ function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angl
         const stepAngle = remaining;
         const clamp = clampToValid(
             (t) => base.map((p, i) => (active.includes(i) ? rotateAbout(p, center, t * stepAngle) : p)),
-            (els) => isPoseValid(els, chain.constraints),
+            makePoseNoWorsePredicate(base, chain.constraints),
         );
         for (let i = 0; i < out.length; i++) out[i] = clamp.elements[i];
         consumed += clamp.t * stepAngle;
@@ -63,15 +68,56 @@ interface ActiveRange {
 
 type BoundarySide = 'lower' | 'upper';
 
-/** An active element paired with the inactive neighbour it can collide with. */
+/** The constraint violations a boundary pair's own motion can perturb. */
+interface BoundaryPairViolations {
+    linkDistance: number;
+    activeJointAngle: number;
+    inactiveJointAngle: number;
+}
+
+/**
+ * An active element paired with the inactive neighbour it can collide with,
+ * carrying the violations its constraints already had in the step's base pose
+ * so no candidate fraction has to measure them again.
+ */
 interface BoundaryPair {
     side: BoundarySide;
     activeElement: number;
     inactiveNeighbour: number;
+    baseViolations: BoundaryPairViolations;
 }
 
 function activeRangeIsEmpty(active: ActiveRange): boolean {
     return active.lowIndex > active.highIndex;
+}
+
+function measureBoundaryPairViolations(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    activeElement: number,
+    inactiveNeighbour: number,
+): BoundaryPairViolations {
+    const lowerLinkIndex = Math.min(activeElement, inactiveNeighbour);
+    return {
+        linkDistance: linkDistanceViolation(elements, constraints, lowerLinkIndex),
+        activeJointAngle: jointAngleViolation(elements, constraints, activeElement),
+        inactiveJointAngle: jointAngleViolation(elements, constraints, inactiveNeighbour),
+    };
+}
+
+function makeBoundaryPair(
+    side: BoundarySide,
+    activeElement: number,
+    inactiveNeighbour: number,
+    chain: ArticulationChain,
+    basePose: Vector2[],
+): BoundaryPair {
+    return {
+        side,
+        activeElement,
+        inactiveNeighbour,
+        baseViolations: measureBoundaryPairViolations(basePose, chain.constraints, activeElement, inactiveNeighbour),
+    };
 }
 
 /**
@@ -79,13 +125,13 @@ function activeRangeIsEmpty(active: ActiveRange): boolean {
  * either unselected or already frozen. A chain end is no boundary at all, so a
  * whole-chain active range yields none and translates freely.
  */
-function findBoundaryPairs(active: ActiveRange, chainLength: number): BoundaryPair[] {
+function findBoundaryPairs(active: ActiveRange, chain: ArticulationChain, basePose: Vector2[]): BoundaryPair[] {
     const pairs: BoundaryPair[] = [];
     if (active.lowIndex > 0) {
-        pairs.push({ side: 'lower', activeElement: active.lowIndex, inactiveNeighbour: active.lowIndex - 1 });
+        pairs.push(makeBoundaryPair('lower', active.lowIndex, active.lowIndex - 1, chain, basePose));
     }
-    if (active.highIndex < chainLength - 1) {
-        pairs.push({ side: 'upper', activeElement: active.highIndex, inactiveNeighbour: active.highIndex + 1 });
+    if (active.highIndex < chain.elements.length - 1) {
+        pairs.push(makeBoundaryPair('upper', active.highIndex, active.highIndex + 1, chain, basePose));
     }
     return pairs;
 }
@@ -94,23 +140,33 @@ function findBoundaryPairs(active: ActiveRange, chainLength: number): BoundaryPa
  * Rigid translation of a contiguous active set leaves every interior link and
  * interior joint untouched, so the restricted checks below enumerate exactly
  * what the motion can perturb: each boundary link and the joint angles at its
- * two endpoints. What guarantees an applied pose is globally valid is clamping
- * on the CONJUNCTION of the boundary pairs -- a per-pair minimum would not,
- * because a min-distance bound makes a pair's validity non-monotone in the
- * step fraction, so one pair's probe can step straight through another pair's
+ * two endpoints. Each is compared against the step's base pose rather than
+ * against its bound outright, so a pair that starts out violated may still
+ * move, provided it does not get any worse.
+ *
+ * What guarantees an applied pose is no worse globally is clamping on the
+ * CONJUNCTION of the boundary pairs -- a per-pair minimum would not, because a
+ * min-distance bound makes a pair's acceptance non-monotone in the step
+ * fraction, so one pair's probe can step straight through another pair's
  * forbidden dip. Freeze attribution is primarily the lookahead one clamp
  * resolution past the accepted fraction; the per-pair probes are only its
  * fallback.
  */
-function boundaryPairIsSatisfied(
+function boundaryPairIsNoWorse(
     elements: Vector2[],
     chain: ArticulationChain,
     pair: BoundaryPair,
 ): boolean {
-    const lowerLinkIndex = Math.min(pair.activeElement, pair.inactiveNeighbour);
-    return linkDistanceHolds(elements, chain.constraints, lowerLinkIndex)
-        && jointAngleHolds(elements, chain.constraints, pair.activeElement)
-        && jointAngleHolds(elements, chain.constraints, pair.inactiveNeighbour);
+    const candidate = measureBoundaryPairViolations(
+        elements,
+        chain.constraints,
+        pair.activeElement,
+        pair.inactiveNeighbour,
+    );
+    const base = pair.baseViolations;
+    return candidate.linkDistance <= base.linkDistance + ARTICULATION_EPSILON
+        && candidate.activeJointAngle <= base.activeJointAngle + ARTICULATION_EPSILON
+        && candidate.inactiveJointAngle <= base.inactiveJointAngle + ARTICULATION_EPSILON;
 }
 
 function poseWithActiveTranslatedBy(basePose: Vector2[], active: ActiveRange, offset: Vector2): Vector2[] {
@@ -131,11 +187,11 @@ function stepPoseAt(step: CascadeStep, fraction: number): Vector2[] {
     return poseWithActiveTranslatedBy(step.basePose, step.active, scaleV(step.stepVector, fraction));
 }
 
-/** Largest fraction of the step vector that keeps every boundary pair satisfied. */
+/** Largest fraction of the step vector that worsens no boundary pair. */
 function clampStepToBoundaries(step: CascadeStep): ClampResult {
     return clampToValid(
         (fraction) => stepPoseAt(step, fraction),
-        (posed) => step.boundaryPairs.every((pair) => boundaryPairIsSatisfied(posed, step.chain, pair)),
+        (posed) => step.boundaryPairs.every((pair) => boundaryPairIsNoWorse(posed, step.chain, pair)),
     );
 }
 
@@ -143,14 +199,14 @@ function clampStepToBoundaries(step: CascadeStep): ClampResult {
 function probeBoundaryPair(step: CascadeStep, pair: BoundaryPair): number {
     return clampToValid(
         (fraction) => stepPoseAt(step, fraction),
-        (posed) => boundaryPairIsSatisfied(posed, step.chain, pair),
+        (posed) => boundaryPairIsNoWorse(posed, step.chain, pair),
     ).t;
 }
 
-/** The pairs that are unsatisfied one clamp resolution past the accepted fraction. */
+/** The pairs that would be worsened one clamp resolution past the accepted fraction. */
 function pairsBlockingJustBeyond(step: CascadeStep, acceptedFraction: number): BoundaryPair[] {
     const lookaheadPose = stepPoseAt(step, Math.min(1, acceptedFraction + PROBE_LOOKAHEAD_FRACTION));
-    return step.boundaryPairs.filter((pair) => !boundaryPairIsSatisfied(lookaheadPose, step.chain, pair));
+    return step.boundaryPairs.filter((pair) => !boundaryPairIsNoWorse(lookaheadPose, step.chain, pair));
 }
 
 /**
@@ -198,7 +254,7 @@ function solveSaturateTranslation(input: StrategyInput, vector: Vector2): SolveR
             basePose: elements,
             active,
             stepVector: remainingVector,
-            boundaryPairs: findBoundaryPairs(active, chain.elements.length),
+            boundaryPairs: findBoundaryPairs(active, chain, elements),
         };
         if (step.boundaryPairs.length === 0) {
             elements = stepPoseAt(step, 1);

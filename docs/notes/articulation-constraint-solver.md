@@ -5,10 +5,19 @@ them as articulation points in a linkage. The constraints will vary: both elemen
 or constrained.
 
 Two priorities govern every solving strategy, in order: the solver must never produce an invalid pose, and within that
-limit it must accommodate the user's input delta as closely as possible. Validity is a property of poses, never of
-paths — the user is searching a constrained space for a visually pleasing arrangement, not simulating physical motion.
-"Tunnelling" through regions of invalid pose space to reach a valid pose is therefore desirable behaviour, not a
-defect, and no strategy should trade accommodation away to preserve continuity of motion.
+limit it must accommodate the user's input delta as closely as possible. From a valid pose the solver must never
+produce an invalid one; from an invalid pose — which constraint edits under an existing pose can always create — it
+must never worsen any constraint's violation, and must permit deltas that reduce them, so the user can drag the chain
+back toward validity. Validity is a property of poses, never of paths — the user is searching a constrained space for
+a visually pleasing arrangement, not simulating physical motion. "Tunnelling" through regions of invalid pose space to
+reach a valid pose is therefore desirable behaviour, not a defect, and no strategy should trade accommodation away to
+preserve continuity of motion.
+
+"Valid" and "never worsen" are both read to the solver's epsilon tolerance: every bound has always admitted an
+epsilon margin, and the non-worsening rule likewise permits growth of up to epsilon per solve (per cascade iteration
+for saturate). A pose riding exactly on a bound can therefore drift within that tolerance class across repeated
+gestures — accepted deliberately, since epsilon is orders of magnitude below anything visible on canvas and capping it
+exactly would trade floating-point robustness for no observable behaviour.
 
 Three modes of constraint satisfaction will initially be offered:
 
