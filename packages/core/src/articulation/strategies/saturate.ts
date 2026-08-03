@@ -12,13 +12,21 @@ import {
 import { splitSpans } from '../topology';
 import { identityResult } from '../identity-result';
 
+/** What one span's cascade consumed, and which of its elements stopped moving. */
+interface SpanSaturation {
+    consumedFraction: number;
+    peeledElements: number[];
+}
+
 /**
  * Consume as much of `angle` as constraints allow for one span. Mutates
- * `out` in place; returns the fraction of the requested angle consumed.
+ * `out` in place; reports the fraction of the requested angle consumed and the
+ * elements peeled off the span's near end as each became the rotation centre.
  */
-function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angle: number): number {
+function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angle: number): SpanSaturation {
     const { chain, pivotIndex } = input;
     const active = [...span];
+    const peeledElements: number[] = [];
     let center = out[pivotIndex];
     let remaining = angle;
     let consumed = 0;
@@ -35,22 +43,33 @@ function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angl
         if (clamp.t >= 1) break;
         // First active element saturates and becomes the new rotation center.
         const saturated = active.shift()!;
+        peeledElements.push(saturated);
         center = out[saturated];
     }
-    return angle === 0 ? 1 : consumed / angle;
+    return { consumedFraction: angle === 0 ? 1 : consumed / angle, peeledElements };
 }
 
 function solveSaturateRotation(input: StrategyInput, angle: number): SolveResult {
     const spans = splitSpans(input.selection, input.pivotIndex);
     // Defence-in-depth: solveArticulation already guards this, but saturateStrategy
     // is exported directly from the barrel, and dividing by zero spans would be NaN.
-    if (spans.length === 0) return identityResult(input.chain);
+    if (spans.length === 0) return identityResult(input.chain, 'saturate');
     const out = input.chain.elements.map((p) => ({ ...p }));
+    const frozenElementIndices: number[] = [];
     let fractionSum = 0;
     for (const span of spans) {
-        fractionSum += saturateSpan(out, input, span, angle);
+        const saturation = saturateSpan(out, input, span, angle);
+        fractionSum += saturation.consumedFraction;
+        // Spans are disjoint (splitSpans excludes the pivot), so a plain push
+        // cannot duplicate an element across spans.
+        frozenElementIndices.push(...saturation.peeledElements);
     }
-    return { elements: out, appliedFraction: fractionSum / spans.length };
+    return {
+        elements: out,
+        appliedFraction: fractionSum / spans.length,
+        appliedStrategyId: 'saturate',
+        frozenElementIndices,
+    };
 }
 
 /** The resolution of an accepted fraction: one step of `clampToValid`'s search. */
@@ -228,6 +247,16 @@ function pairsToFreeze(step: CascadeStep, acceptedFraction: number): BoundaryPai
     return blocking.length > 0 ? blocking : pairsWithTightestProbe(step);
 }
 
+/**
+ * Freeze order, first mention wins: a single-element active range is named by
+ * both of its boundary pairs, and the report must not repeat it.
+ */
+function appendNewlyFrozenElements(frozenElementIndices: number[], pairs: BoundaryPair[]): void {
+    for (const pair of pairs) {
+        if (!frozenElementIndices.includes(pair.activeElement)) frozenElementIndices.push(pair.activeElement);
+    }
+}
+
 function freezeBoundElements(active: ActiveRange, pairs: BoundaryPair[]): ActiveRange {
     const frozen = { ...active };
     for (const pair of pairs) {
@@ -244,6 +273,7 @@ function solveSaturateTranslation(input: StrategyInput, vector: Vector2): SolveR
     let active: ActiveRange = { lowIndex: selection[0], highIndex: selection[selection.length - 1] };
     let remainingVector = vector;
     let consumedDistance = 0;
+    const frozenElementIndices: number[] = [];
 
     while (!activeRangeIsEmpty(active)) {
         const remainingDistance = lenV(remainingVector);
@@ -268,12 +298,16 @@ function solveSaturateTranslation(input: StrategyInput, vector: Vector2): SolveR
         remainingVector = scaleV(remainingVector, 1 - clamp.t);
         if (clamp.t >= 1) break;
 
-        active = freezeBoundElements(active, pairsToFreeze(step, clamp.t));
+        const freezing = pairsToFreeze(step, clamp.t);
+        appendNewlyFrozenElements(frozenElementIndices, freezing);
+        active = freezeBoundElements(active, freezing);
     }
 
     return {
         elements,
         appliedFraction: requestedDistance === 0 ? 1 : consumedDistance / requestedDistance,
+        appliedStrategyId: 'saturate',
+        frozenElementIndices,
     };
 }
 

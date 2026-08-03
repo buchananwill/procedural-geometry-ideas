@@ -28,6 +28,7 @@ export function ArticulationCanvas() {
     const selection = useArticulationStore((s) => s.selection);
     const pivotIndex = useArticulationStore((s) => s.pivotIndex);
     const appliedFraction = useArticulationStore((s) => s.appliedFraction);
+    const frozenElementIndices = useArticulationStore((s) => s.frozenElementIndices);
     const drag = useArticulationStore((s) => s.drag);
 
     useEffect(() => {
@@ -177,6 +178,13 @@ export function ArticulationCanvas() {
     };
 
     const clamped = drag !== null && indicatesClamping(appliedFraction);
+    const frozenElements = new Set(frozenElementIndices);
+    // A solver that named nobody blocked the selection as one body -- rigid and
+    // spread always do -- so every selected element carries the clamp colour.
+    // Deliberate gap: elements frozen during a FULLY absorbed drag show no
+    // colour at all, because this is clamp feedback, not freeze feedback.
+    const showsAsClamped = (index: number) =>
+        clamped && (frozenElements.size === 0 || frozenElements.has(index));
     const linkPoints = elements.flatMap((p) => [p.x, p.y]);
 
     return (
@@ -203,7 +211,7 @@ export function ArticulationCanvas() {
                                 x={p.x}
                                 y={p.y}
                                 radius={ELEMENT_RADIUS}
-                                fill={isSelected ? (clamped ? CLAMPED_COLOR : SELECTED_COLOR) : ELEMENT_COLOR}
+                                fill={isSelected ? (showsAsClamped(i) ? CLAMPED_COLOR : SELECTED_COLOR) : ELEMENT_COLOR}
                                 stroke={isPivot ? PIVOT_RING_COLOR : undefined}
                                 strokeWidth={isPivot ? 3 : 0}
                                 onPointerDown={(e) => handleElementPointerDown(i, e)}

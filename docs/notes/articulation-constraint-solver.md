@@ -192,6 +192,14 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
   - `appliedFraction` for Saturate Translate is the consumed distance divided by the requested distance, the same
     convention as Saturate Rotate (whose own fraction is the mean of the per-span fractions when the pivot lies inside
     the selection).
+  - Every solve also reports `appliedStrategyId` — the strategy that actually ran, which is Rigid Assembly whenever
+    the solver substituted it — and `frozenElementIndices`, the elements the saturate cascade stopped early, in freeze
+    order (simultaneous stops report the lower boundary, or below-pivot span, first). Rigid and spread always report
+    an empty list. The canvas colours only the frozen elements as clamped during a clamped drag, falling back to the
+    whole selection when the list is empty because the selection was blocked as one body. A pivot inside a saturate
+    selection is excluded from both spans, so it is never reported frozen and keeps the selection colour. Elements that
+    froze during a drag that was nonetheless fully absorbed currently receive no colouring — the highlight is clamp
+    feedback, not freeze feedback.
 
 #### Worked Example
 

@@ -43,6 +43,10 @@ describe('saturate translate without constraints', () => {
     it('does not mutate the input chain', () => {
         expect(chain.elements[2]).toEqual({ x: 2, y: 0 });
     });
+    it('reports the saturate strategy and freezes nobody', () => {
+        expect(result.appliedStrategyId).toBe('saturate');
+        expect(result.frozenElementIndices).toEqual([]);
+    });
 });
 
 describe('saturate translate spills past a single boundary', () => {
@@ -70,6 +74,9 @@ describe('saturate translate spills past a single boundary', () => {
     });
     it('leaves the unselected neighbour where it was', () => {
         expect(p[0]).toEqual({ x: 0, y: 0 });
+    });
+    it('names the boundary element as the only frozen one', () => {
+        expect(result.frozenElementIndices).toEqual([1]);
     });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
@@ -103,6 +110,9 @@ describe('saturate translate boundary race', () => {
         expect(p[0]).toEqual({ x: 0, y: 0 });
         expect(p[4]).toEqual({ x: 4, y: 0 });
     });
+    it('reports both boundary elements, tighter one first', () => {
+        expect(result.frozenElementIndices).toEqual([1, 3]);
+    });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
         expect(isPoseValid(p, chain.constraints)).toBe(true);
@@ -133,6 +143,11 @@ describe('saturate translate full saturation discards the remainder', () => {
     it('leaves every link within its bound', () => {
         [0, 1, 2, 3].forEach((i) => expect(distV(p[i], p[i + 1])).toBeLessThanOrEqual(2 + 1e-6));
     });
+    it('names every selected element once, in freeze order', () => {
+        // Elements 1 and 3 freeze in the same step, lower boundary first; element
+        // 2 is then named by both of its boundary pairs but reported once.
+        expect(result.frozenElementIndices).toEqual([1, 3, 2]);
+    });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
         expect(isPoseValid(p, chain.constraints)).toBe(true);
@@ -157,6 +172,9 @@ describe('saturate translate of a single element between constrained neighbours'
     chain.constraints[1] = { distanceToPrev: { min: 0, max: 2 }, distanceToNext: { min: 0, max: 2 } };
     const result = solveArticulation(input(chain, { selection: [1] }));
 
+    it('names the single element once, though both of its links bind', () => {
+        expect(result.frozenElementIndices).toEqual([1]);
+    });
     it('stops at the tighter of the two links', () => {
         expect(result.elements[1].y).toBeLessThanOrEqual(Math.sqrt(3) + 1e-6);
         expect(result.elements[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * CLAMP_RESOLUTION);
@@ -375,6 +393,18 @@ function randomContiguousSelection(random: () => number, chainLength: number): n
     return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
 }
 
+/** The frozen report is only meaningful if it names distinct selected elements. */
+function frozenReportProblem(frozenElementIndices: number[], selection: number[]): string | null {
+    const selected = new Set(selection);
+    const alreadyReported = new Set<number>();
+    for (const index of frozenElementIndices) {
+        if (!selected.has(index)) return `frozen element ${index} is not in the selection`;
+        if (alreadyReported.has(index)) return `frozen element ${index} is reported twice`;
+        alreadyReported.add(index);
+    }
+    return null;
+}
+
 describe('saturate translate fuzz (fixed seeds)', () => {
     const TRIALS_PER_SEED = 120;
     for (const seed of [1, 42, 1337, 99991]) {
@@ -404,6 +434,11 @@ describe('saturate translate fuzz (fixed seeds)', () => {
                 }
                 if (!(result.appliedFraction >= 0 && result.appliedFraction <= 1 + 1e-9)) {
                     failures.push(`trial ${trial}: appliedFraction ${result.appliedFraction}`);
+                }
+                const frozenProblem = frozenReportProblem(result.frozenElementIndices, selection);
+                if (frozenProblem) failures.push(`trial ${trial}: ${frozenProblem}`);
+                if (result.appliedStrategyId !== 'saturate') {
+                    failures.push(`trial ${trial}: appliedStrategyId ${result.appliedStrategyId}`);
                 }
                 if (failures.length > 2) break;
             }
@@ -475,6 +510,11 @@ describe('saturate translate fuzz from invalid starting poses (fixed seeds)', ()
                 });
                 if (!(result.appliedFraction >= 0 && result.appliedFraction <= 1 + 1e-9)) {
                     failures.push(`trial ${trial}: appliedFraction ${result.appliedFraction}`);
+                }
+                const frozenProblem = frozenReportProblem(result.frozenElementIndices, selection);
+                if (frozenProblem) failures.push(`trial ${trial}: ${frozenProblem}`);
+                if (result.appliedStrategyId !== 'saturate') {
+                    failures.push(`trial ${trial}: appliedStrategyId ${result.appliedStrategyId}`);
                 }
                 if (failures.length > 2) break;
             }

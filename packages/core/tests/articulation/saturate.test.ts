@@ -54,6 +54,40 @@ describe('saturate rotation (spec worked example)', () => {
     it('element 5 stays unmoved', () => {
         expect(p[5]).toEqual({ x: 0, y: 5 });
     });
+    it('reports the saturated element as frozen', () => {
+        expect(result.appliedStrategyId).toBe('saturate');
+        expect(result.frozenElementIndices).toEqual([2]);
+    });
+});
+
+describe('saturate rotation peels one element per saturated joint', () => {
+    // Joints at elements 1 and 2 both limited to PI/9: element 2 saturates joint 1
+    // and becomes the rotation centre, then element 3 saturates joint 2.
+    const chain = verticalChain();
+    chain.constraints[1] = { jointAngle: { min: -PI_OVER_NINE, max: PI_OVER_NINE } };
+    chain.constraints[2] = { jointAngle: { min: -PI_OVER_NINE, max: PI_OVER_NINE } };
+    const result = solveArticulation(input(chain));
+
+    it('names the peeled elements in the order they stopped', () => {
+        expect(result.frozenElementIndices).toEqual([2, 3]);
+    });
+    it('leaves the last selected element carrying the remainder', () => {
+        expect(Math.abs(jointAngleAt(result.elements, 3)!)).toBeGreaterThan(0.05);
+    });
+});
+
+describe('saturate rotation about a pivot inside the selection', () => {
+    // Selection straddles pivot 2, so splitSpans yields the descending span
+    // below the pivot before the ascending span above it. A span turning
+    // rigidly about the pivot can only change the joint at the pivot itself,
+    // so that is the joint each span saturates, peeling its near element.
+    const chain = verticalChain();
+    chain.constraints[2] = { jointAngle: { min: -PI_OVER_NINE, max: PI_OVER_NINE } };
+    const result = solveArticulation(input(chain, { selection: [0, 1, 2, 3, 4], pivotIndex: 2 }));
+
+    it('reports each span\'s peeled elements, below-span first', () => {
+        expect(result.frozenElementIndices).toEqual([1, 3]);
+    });
 });
 
 describe('saturate full saturation discards the remainder', () => {
@@ -65,6 +99,7 @@ describe('saturate full saturation discards the remainder', () => {
         expect(result.appliedFraction).toBeLessThan(1);
         const angle = Math.abs(jointAngleAt(result.elements, 1)!);
         expect(angle).toBeLessThanOrEqual(PI_OVER_NINE + 1e-6);
+        expect(result.frozenElementIndices).toEqual([2]);
     });
 });
 
@@ -78,5 +113,7 @@ describe('saturate without constraints degrades to rigid', () => {
             expect(pt.y).toBeCloseTo(rig.elements[i].y, 9);
         });
         expect(sat.appliedFraction).toBe(1);
+        expect(sat.appliedStrategyId).toBe('saturate');
+        expect(sat.frozenElementIndices).toEqual([]);
     });
 });

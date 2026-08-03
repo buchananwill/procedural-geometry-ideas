@@ -1,5 +1,6 @@
-import type { ConstraintStrategy, SolveInput, SolveResult, StrategyId, StrategyInput, TransformDelta } from './types';
+import type { ConstraintStrategy, SolveInput, SolveResult, StrategyId, TransformDelta } from './types';
 import { lenV } from './geometry';
+import { ARTICULATION_EPSILON } from './validity';
 import { isContiguous } from './topology';
 import { identityResult } from './identity-result';
 import { rigidStrategy } from './strategies/rigid';
@@ -22,11 +23,17 @@ function sanitizeSelection(selection: number[], chainLength: number): number[] {
         .sort((a, b) => a - b);
 }
 
+/**
+ * Degeneracy is epsilon-based, matching the saturate cascade's own bail-out:
+ * a sub-epsilon delta must yield an identity result (appliedFraction 1), not
+ * a cascade that consumes nothing and reports a spurious full clamp.
+ */
 function isDegenerateDelta(delta: TransformDelta): boolean {
     if (delta.kind === 'translate') {
-        return !Number.isFinite(delta.vector.x) || !Number.isFinite(delta.vector.y) || lenV(delta.vector) === 0;
+        return !Number.isFinite(delta.vector.x) || !Number.isFinite(delta.vector.y)
+            || lenV(delta.vector) <= ARTICULATION_EPSILON;
     }
-    return !Number.isFinite(delta.angle) || delta.angle === 0;
+    return !Number.isFinite(delta.angle) || Math.abs(delta.angle) <= ARTICULATION_EPSILON;
 }
 
 function isValidPivotForDelta(delta: TransformDelta, pivotIndex: number, chainLength: number): boolean {
@@ -40,6 +47,16 @@ function isRotationOfPivotAlone(delta: TransformDelta, selection: number[], pivo
 }
 
 /**
+ * The strategy a sanitized selection dispatches to: the registered one, with
+ * rigid standing in for a discontiguous selection (which the other strategies'
+ * span arithmetic assumes away) and for an unregistered id.
+ */
+function resolveStrategy(strategyId: StrategyId, selection: number[]): ConstraintStrategy {
+    if (!isContiguous(selection)) return rigidStrategy;
+    return STRATEGIES[strategyId] ?? rigidStrategy;
+}
+
+/**
  * Entry point. Normalizes the selection, returns identity for degenerate
  * inputs, applies the shared discontiguous-selection -> rigid fallback, and
  * otherwise delegates to the chosen strategy. Never throws on bad input.
@@ -48,21 +65,17 @@ export function solveArticulation(input: SolveInput): SolveResult {
     const { chain, pivotIndex, delta } = input;
     const chainLength = chain.elements.length;
     const selection = sanitizeSelection(input.selection, chainLength);
-    if (chainLength < 2 || selection.length === 0) return identityResult(chain);
-    if (isDegenerateDelta(delta)) return identityResult(chain);
-    if (!isValidPivotForDelta(delta, pivotIndex, chainLength)) return identityResult(chain);
-    if (isRotationOfPivotAlone(delta, selection, pivotIndex)) return identityResult(chain);
+    const strategy = resolveStrategy(input.strategyId, selection);
+    if (chainLength < 2 || selection.length === 0) return identityResult(chain, strategy.id);
+    if (isDegenerateDelta(delta)) return identityResult(chain, strategy.id);
+    if (!isValidPivotForDelta(delta, pivotIndex, chainLength)) return identityResult(chain, strategy.id);
+    if (isRotationOfPivotAlone(delta, selection, pivotIndex)) return identityResult(chain, strategy.id);
 
-    const strategyInput: StrategyInput = {
+    return strategy.solve({
         chain,
         selection,
         selectionSet: new Set(selection),
         pivotIndex,
         delta,
-    };
-
-    if (!isContiguous(selection)) return rigidStrategy.solve(strategyInput);
-
-    const strategy = STRATEGIES[input.strategyId] ?? rigidStrategy;
-    return strategy.solve(strategyInput);
+    });
 }

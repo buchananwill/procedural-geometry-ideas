@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
-import { isContiguous, solveArticulation } from '@proc-geo/core';
+import { solveArticulation } from '@proc-geo/core';
 import type { ElementConstraints, StrategyId, Vector2, TransformDelta } from '@proc-geo/core';
 
 export type TransformMode = 'translate' | 'rotate';
@@ -32,6 +32,11 @@ export interface ArticulationStoreState {
      * this can differ from it.
      */
     appliedStrategyId: StrategyId;
+    /**
+     * Selected elements the last solve stopped moving ahead of the rest of the
+     * selection. Empty when the selection moved (or was blocked) as one body.
+     */
+    frozenElementIndices: number[];
 
     addElement: (p: Vector2) => void;
     deleteSelected: () => void;
@@ -72,6 +77,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
         drag: null,
         appliedFraction: 1,
         appliedStrategyId: 'rigid',
+        frozenElementIndices: [],
 
         addElement: (p) =>
             set((s) => {
@@ -116,6 +122,8 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.selection = [];
                 s.pivotIndex = newPivot;
                 s.drag = null;
+                s.appliedFraction = 1;
+                s.frozenElementIndices = [];
             }),
 
         clearAll: () =>
@@ -127,6 +135,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.drag = null;
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
+                s.frozenElementIndices = [];
             }),
 
         selectOnly: (index) =>
@@ -188,6 +197,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 };
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
+                s.frozenElementIndices = [];
             }),
 
         updateDrag: (pointer) =>
@@ -225,13 +235,8 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 });
                 s.elements = result.elements;
                 s.appliedFraction = result.appliedFraction;
-                // Mirrors solveArticulation's own sanitization (dedupe, in-bounds, sort)
-                // so this reflects the strategy that actually produced the result above --
-                // a discontiguous selection is dispatched to rigid regardless of strategyId.
-                const sortedSelection = [...new Set(plain.selection)]
-                    .filter((i) => Number.isInteger(i) && i >= 0 && i < origin.length)
-                    .sort((a, b) => a - b);
-                s.appliedStrategyId = isContiguous(sortedSelection) ? plain.strategyId : 'rigid';
+                s.appliedStrategyId = result.appliedStrategyId;
+                s.frozenElementIndices = result.frozenElementIndices;
             }),
 
         endDrag: () =>
@@ -239,6 +244,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.drag = null;
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
+                s.frozenElementIndices = [];
             }),
     })),
 );

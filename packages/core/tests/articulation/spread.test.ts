@@ -31,6 +31,10 @@ describe('spread rotation (spec worked example)', () => {
     it('applies the full delta when unconstrained', () => {
         expect(result.appliedFraction).toBe(1);
     });
+    it('reports the spread strategy and freezes nothing', () => {
+        expect(result.appliedStrategyId).toBe('spread');
+        expect(result.frozenElementIndices).toEqual([]);
+    });
     it('rotates element 1 by delta/3 about the pivot', () => {
         expect(p[1].x).toBeCloseTo(-Math.sin(PI_OVER_NINE), 9);
         expect(p[1].y).toBeCloseTo(Math.cos(PI_OVER_NINE), 9);
@@ -78,6 +82,13 @@ describe('spread clamping keeps the divisor fixed', () => {
         expect(result.appliedFraction).toBeGreaterThan(0);
         // Every qualifying pair still gets an equal share: joints 1 and 2 stay equal.
         expect(jointAngleAt(p, 1)).toBeCloseTo(jointAngleAt(p, 2)!, 6);
+    });
+    it('names no frozen element, because spread clamps the whole selection at once', () => {
+        const chain = verticalChain();
+        chain.constraints[1] = { jointAngle: { min: -PI_OVER_NINE / 2, max: PI_OVER_NINE / 2 } };
+        const result = solveArticulation(input(chain));
+        expect(result.appliedStrategyId).toBe('spread');
+        expect(result.frozenElementIndices).toEqual([]);
     });
 });
 

@@ -47,6 +47,25 @@ export interface SolveResult {
      * fractions.
      */
     appliedFraction: number;
+    /**
+     * The strategy that actually produced this pose: the requested one, or
+     * rigid where solveArticulation substituted it (a discontiguous selection,
+     * or an id absent from the registry). An identity result reports the
+     * strategy that WOULD have run had the input not been degenerate.
+     */
+    appliedStrategyId: StrategyId;
+    /**
+     * Selected elements this solve stopped moving before the rest of the
+     * selection, in the order they stopped: saturate's translate cascade
+     * freezes them at a boundary, and its rotation peels them off as each
+     * becomes the next span's rotation centre. Simultaneous stops tie-break
+     * deterministically: the lower boundary before the upper for a translate
+     * step, and the below-pivot span before the above-pivot span for a
+     * rotation. Rigid and spread move the selection as one body and so always
+     * report an empty array, as does saturate when the whole selection carried
+     * the delta through.
+     */
+    frozenElementIndices: number[];
 }
 
 /**

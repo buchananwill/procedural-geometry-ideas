@@ -53,7 +53,12 @@ function solveSpreadRotation(input: StrategyInput, angle: number): SolveResult {
         (t) => spreadPose(input, spans, t * angle),
         makePoseNoWorsePredicate(input.chain.elements, input.chain.constraints),
     );
-    return { elements: clamp.elements, appliedFraction: clamp.t };
+    return {
+        elements: clamp.elements,
+        appliedFraction: clamp.t,
+        appliedStrategyId: 'spread',
+        frozenElementIndices: [],
+    };
 }
 
 export const spreadStrategy: ConstraintStrategy = {
@@ -63,7 +68,7 @@ export const spreadStrategy: ConstraintStrategy = {
         if (input.delta.kind === 'translate') {
             // Spread defines no distinct translate semantics today; it moves
             // the selection as a rigid unit, same as the rigid strategy.
-            return translateSelectionAsRigidUnit(input.chain, input.selectionSet, input.delta.vector);
+            return translateSelectionAsRigidUnit(input.chain, input.selectionSet, input.delta.vector, 'spread');
         }
         return solveSpreadRotation(input, input.delta.angle);
     },

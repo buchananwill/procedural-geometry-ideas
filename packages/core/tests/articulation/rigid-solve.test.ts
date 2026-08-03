@@ -3,7 +3,7 @@ import { jointAngleAt, linkDistanceViolation } from '../../src/articulation/vali
 import { distV } from '../../src/articulation/geometry';
 import { rigidStrategy } from '../../src/articulation/strategies/rigid';
 import { spreadStrategy } from '../../src/articulation/strategies/spread';
-import type { ArticulationChain, SolveInput } from '../../src/articulation/types';
+import type { ArticulationChain, SolveInput, StrategyId } from '../../src/articulation/types';
 import type { Vector2 } from '../../src/shared/types';
 
 const PI_OVER_THREE = Math.PI / 3;
@@ -31,6 +31,10 @@ describe('rigid rotation (spec worked example)', () => {
 
     it('applies the full delta when unconstrained', () => {
         expect(result.appliedFraction).toBe(1);
+    });
+    it('reports the rigid strategy and freezes nothing', () => {
+        expect(result.appliedStrategyId).toBe('rigid');
+        expect(result.frozenElementIndices).toEqual([]);
     });
     it('rotates selected elements about the pivot position', () => {
         // (0,1) rotated CCW by PI/3 about origin -> (-sin60, cos60)
@@ -68,6 +72,8 @@ describe('rigid clamping', () => {
         expect(result.appliedFraction).toBeLessThan(1);
         const angle = jointAngleAt(result.elements, 4)!;
         expect(Math.abs(angle)).toBeLessThanOrEqual(0.1 + 1e-6);
+        // The whole body is blocked together: no element is singled out.
+        expect(result.frozenElementIndices).toEqual([]);
     });
     it('applies the full delta from an invalid starting pose when nothing worsens', () => {
         const chain = verticalChain();
@@ -101,6 +107,9 @@ describe('translation (strategy-independent, rigid-unit)', () => {
             expect(result.elements[2]).toEqual({ x: 2, y: 2 });
             expect(result.elements[4]).toEqual({ x: 0, y: 4 });
             expect(result.appliedFraction).toBe(1);
+            // Rigid-unit translation is still attributed to the chosen strategy.
+            expect(result.appliedStrategyId).toBe(strategyId);
+            expect(result.frozenElementIndices).toEqual([]);
         }
     });
     it('clamps translation against distance constraints', () => {
@@ -123,6 +132,36 @@ describe('degenerate inputs and fallbacks', () => {
         const tiny: ArticulationChain = { elements: [{ x: 0, y: 0 }], constraints: [{}] };
         expect(solveArticulation(solveInput(tiny, { selection: [0] })).elements).toEqual(tiny.elements);
     });
+    it('identity results report the strategy that would have run', () => {
+        // Load-bearing subtlety: isContiguous([]) is true, so an empty selection
+        // reports the requested strategy, never the rigid fallback.
+        const chain = verticalChain();
+        (['rigid', 'spread', 'saturate'] as const).forEach((strategyId) => {
+            const emptySelection = solveArticulation(solveInput(chain, { selection: [], strategyId }));
+            expect(emptySelection.appliedStrategyId).toBe(strategyId);
+            const outOfRange = solveArticulation(solveInput(chain, { selection: [99], strategyId }));
+            expect(outOfRange.appliedStrategyId).toBe(strategyId);
+        });
+    });
+    it('sub-epsilon deltas are identity with full appliedFraction for every strategy', () => {
+        const chain = verticalChain();
+        (['rigid', 'spread', 'saturate'] as const).forEach((strategyId) => {
+            const rotate = solveArticulation(solveInput(chain, {
+                strategyId,
+                delta: { kind: 'rotate', angle: 1e-9 },
+            }));
+            expect(rotate.elements).toEqual(chain.elements);
+            expect(rotate.appliedFraction).toBe(1);
+            expect(rotate.frozenElementIndices).toEqual([]);
+            const translate = solveArticulation(solveInput(chain, {
+                strategyId,
+                delta: { kind: 'translate', vector: { x: 1e-9, y: 0 } },
+            }));
+            expect(translate.elements).toEqual(chain.elements);
+            expect(translate.appliedFraction).toBe(1);
+            expect(translate.frozenElementIndices).toEqual([]);
+        });
+    });
     it('out-of-range indices are dropped / identity, never a throw', () => {
         const chain = verticalChain();
         expect(solveArticulation(solveInput(chain, { selection: [99] })).elements).toEqual(chain.elements);
@@ -134,6 +173,20 @@ describe('degenerate inputs and fallbacks', () => {
         // rigid: each selected element rotated about pivot; distances to pivot preserved
         [1, 3, 5].forEach((i) => expect(distV(result.elements[0], result.elements[i])).toBeCloseTo(i, 9));
         expect(result.elements[2]).toEqual({ x: 0, y: 2 });
+        expect(result.appliedStrategyId).toBe('rigid');
+        expect(result.frozenElementIndices).toEqual([]);
+    });
+    it('reports the rigid fallback for a discontiguous saturate rotation', () => {
+        const chain = verticalChain();
+        const result = solveArticulation(solveInput(chain, { selection: [1, 3, 5], strategyId: 'saturate' }));
+        expect(result.appliedStrategyId).toBe('rigid');
+        expect(result.frozenElementIndices).toEqual([]);
+    });
+    it('reports the rigid fallback for an unregistered strategy id', () => {
+        const chain = verticalChain();
+        const result = solveArticulation(solveInput(chain, { strategyId: 'no-such-strategy' as StrategyId }));
+        expect(result.appliedStrategyId).toBe('rigid');
+        [1, 2, 3].forEach((i) => expect(distV(result.elements[0], result.elements[i])).toBeCloseTo(i, 9));
     });
     it('discontiguous selection with a translate delta dispatches to rigid, not the chosen strategy', () => {
         const chain = verticalChain();
@@ -150,6 +203,8 @@ describe('degenerate inputs and fallbacks', () => {
             [1, 3, 5].forEach((i) => expect(result.elements[i]).toEqual({ x: 2, y: i }));
             expect(result.elements[2]).toEqual({ x: 0, y: 2 });
             expect(result.appliedFraction).toBe(1);
+            expect(result.appliedStrategyId).toBe('rigid');
+            expect(result.frozenElementIndices).toEqual([]);
         } finally {
             rigidSpy.mockRestore();
             spreadSpy.mockRestore();
@@ -161,6 +216,9 @@ describe('degenerate inputs and fallbacks', () => {
             const validResult = solveArticulation(solveInput(validChain, { selection: [2], pivotIndex: 2, strategyId }));
             expect(validResult.elements).toEqual(validChain.elements);
             expect(validResult.appliedFraction).toBe(1);
+            // An identity result names the strategy that would have run.
+            expect(validResult.appliedStrategyId).toBe(strategyId);
+            expect(validResult.frozenElementIndices).toEqual([]);
 
             const invalidChain = verticalChain();
             invalidChain.constraints[1] = { distanceToPrev: { min: 5, max: 6 } };
