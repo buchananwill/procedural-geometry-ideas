@@ -228,7 +228,7 @@ export type {
     StrategyId,
     SolveInput,
     SolveResult,
-    RotationInput,
+    StrategyInput,
     ConstraintStrategy,
 } from './articulation';
 export {

@@ -1,8 +1,10 @@
 import type { Vector2 } from '../../shared/types';
-import type { ConstraintStrategy, RotationInput, SolveResult } from '../types';
+import type { ConstraintStrategy, SolveResult, StrategyInput } from '../types';
 import { rotateAbout } from '../geometry';
 import { clampToValid } from '../clamping';
 import { isPoseValid } from '../validity';
+import { splitSpans } from '../topology';
+import { translateSelectionAsRigidUnit } from './rigid';
 
 /** Index pairs (a, b) walking from the pivot to the far end of the span. */
 function walkPairs(pivotIndex: number, span: number[]): Array<[number, number]> {
@@ -17,7 +19,7 @@ function walkPairs(pivotIndex: number, span: number[]): Array<[number, number]> 
 
 function applySpreadToSpan(
     out: Vector2[],
-    input: RotationInput,
+    input: StrategyInput,
     span: number[],
     angle: number,
 ): void {
@@ -35,22 +37,34 @@ function applySpreadToSpan(
     }
 }
 
-function spreadPose(input: RotationInput, angle: number): Vector2[] {
+function spreadPose(input: StrategyInput, spans: number[][], angle: number): Vector2[] {
     const out = input.chain.elements.map((p) => ({ ...p }));
-    for (const span of input.spans) {
+    for (const span of spans) {
         applySpreadToSpan(out, input, span, angle);
     }
     return out;
 }
 
+function solveSpreadRotation(input: StrategyInput, angle: number): SolveResult {
+    // Empty spans need no guard here: spreadPose simply rotates nothing, and
+    // spread never divides by the span count, so there is no NaN to avoid.
+    const spans = splitSpans(input.selection, input.pivotIndex);
+    const clamp = clampToValid(
+        (t) => spreadPose(input, spans, t * angle),
+        (els) => isPoseValid(els, input.chain.constraints),
+    );
+    return { elements: clamp.elements, appliedFraction: clamp.t };
+}
+
 export const spreadStrategy: ConstraintStrategy = {
     id: 'spread',
     label: 'Spread Articulation',
-    solveRotation(input: RotationInput): SolveResult {
-        const clamp = clampToValid(
-            (t) => spreadPose(input, t * input.angle),
-            (els) => isPoseValid(els, input.chain.constraints),
-        );
-        return { elements: clamp.elements, appliedFraction: clamp.t };
+    solve(input: StrategyInput): SolveResult {
+        if (input.delta.kind === 'translate') {
+            // Spread defines no distinct translate semantics today; it moves
+            // the selection as a rigid unit, same as the rigid strategy.
+            return translateSelectionAsRigidUnit(input.chain, input.selectionSet, input.delta.vector);
+        }
+        return solveSpreadRotation(input, input.delta.angle);
     },
 };

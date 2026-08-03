@@ -1,10 +1,7 @@
-import type { ConstraintStrategy, SolveInput, SolveResult, StrategyId } from './types';
-import type { ArticulationChain } from './types';
-import type { Vector2 } from '../shared/types';
-import { addV, lenV, scaleV } from './geometry';
-import { clampToValid } from './clamping';
-import { isPoseValid } from './validity';
-import { isContiguous, splitSpans } from './topology';
+import type { ConstraintStrategy, SolveInput, SolveResult, StrategyId, StrategyInput, TransformDelta } from './types';
+import { lenV } from './geometry';
+import { isContiguous } from './topology';
+import { identityResult } from './identity-result';
 import { rigidStrategy } from './strategies/rigid';
 import { spreadStrategy } from './strategies/spread';
 import { saturateStrategy } from './strategies/saturate';
@@ -19,49 +16,53 @@ export const STRATEGIES: Partial<Record<StrategyId, ConstraintStrategy>> = {
     saturate: saturateStrategy,
 };
 
-function identity(chain: ArticulationChain): SolveResult {
-    return { elements: chain.elements.map((p) => ({ ...p })), appliedFraction: 1 };
+function sanitizeSelection(selection: number[], chainLength: number): number[] {
+    return [...new Set(selection)]
+        .filter((i) => Number.isInteger(i) && i >= 0 && i < chainLength)
+        .sort((a, b) => a - b);
 }
 
-function translateRigid(chain: ArticulationChain, selectionSet: Set<number>, vector: Vector2): SolveResult {
-    const clamp = clampToValid(
-        (t) => chain.elements.map((p, i) => (selectionSet.has(i) ? addV(p, scaleV(vector, t)) : { ...p })),
-        (els) => isPoseValid(els, chain.constraints),
-    );
-    return { elements: clamp.elements, appliedFraction: clamp.t };
+function isDegenerateDelta(delta: TransformDelta): boolean {
+    if (delta.kind === 'translate') {
+        return !Number.isFinite(delta.vector.x) || !Number.isFinite(delta.vector.y) || lenV(delta.vector) === 0;
+    }
+    return !Number.isFinite(delta.angle) || delta.angle === 0;
+}
+
+function isValidPivotForDelta(delta: TransformDelta, pivotIndex: number, chainLength: number): boolean {
+    if (delta.kind === 'translate') return true; // the pivot plays no role in translation
+    return Number.isInteger(pivotIndex) && pivotIndex >= 0 && pivotIndex < chainLength;
+}
+
+/** Rotating a selection that is nothing but the pivot itself moves nothing. */
+function isRotationOfPivotAlone(delta: TransformDelta, selection: number[], pivotIndex: number): boolean {
+    return delta.kind === 'rotate' && selection.length === 1 && selection[0] === pivotIndex;
 }
 
 /**
- * Entry point. Normalizes the selection, dispatches translation (shared,
- * rigid-unit semantics for every strategy), applies the discontiguous ->
- * rigid fallback, splits spans around a selected pivot, and delegates
- * rotation to the chosen strategy. Never throws on bad input.
+ * Entry point. Normalizes the selection, returns identity for degenerate
+ * inputs, applies the shared discontiguous-selection -> rigid fallback, and
+ * otherwise delegates to the chosen strategy. Never throws on bad input.
  */
 export function solveArticulation(input: SolveInput): SolveResult {
     const { chain, pivotIndex, delta } = input;
-    const n = chain.elements.length;
-    const sorted = [...new Set(input.selection)]
-        .filter((i) => Number.isInteger(i) && i >= 0 && i < n)
-        .sort((a, b) => a - b);
-    if (n < 2 || sorted.length === 0) return identity(chain);
+    const chainLength = chain.elements.length;
+    const selection = sanitizeSelection(input.selection, chainLength);
+    if (chainLength < 2 || selection.length === 0) return identityResult(chain);
+    if (isDegenerateDelta(delta)) return identityResult(chain);
+    if (!isValidPivotForDelta(delta, pivotIndex, chainLength)) return identityResult(chain);
+    if (isRotationOfPivotAlone(delta, selection, pivotIndex)) return identityResult(chain);
 
-    if (delta.kind === 'translate') {
-        if (!Number.isFinite(delta.vector.x) || !Number.isFinite(delta.vector.y) || lenV(delta.vector) === 0) {
-            return identity(chain);
-        }
-        return translateRigid(chain, new Set(sorted), delta.vector);
-    }
+    const strategyInput: StrategyInput = {
+        chain,
+        selection,
+        selectionSet: new Set(selection),
+        pivotIndex,
+        delta,
+    };
 
-    if (!Number.isFinite(delta.angle) || delta.angle === 0) return identity(chain);
-    if (!Number.isInteger(pivotIndex) || pivotIndex < 0 || pivotIndex >= n) return identity(chain);
-
-    const selectionSet = new Set(sorted);
-    if (!isContiguous(sorted)) {
-        return rigidStrategy.solveRotation({ chain, selectionSet, pivotIndex, spans: [sorted], angle: delta.angle });
-    }
-    const spans = splitSpans(sorted, pivotIndex);
-    if (spans.length === 0) return identity(chain); // selection is exactly the pivot
+    if (!isContiguous(selection)) return rigidStrategy.solve(strategyInput);
 
     const strategy = STRATEGIES[input.strategyId] ?? rigidStrategy;
-    return strategy.solveRotation({ chain, selectionSet, pivotIndex, spans, angle: delta.angle });
+    return strategy.solve(strategyInput);
 }

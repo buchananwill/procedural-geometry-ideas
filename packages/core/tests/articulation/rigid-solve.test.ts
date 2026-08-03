@@ -1,6 +1,8 @@
 import { solveArticulation } from '../../src/articulation/solve';
 import { jointAngleAt } from '../../src/articulation/validity';
 import { distV } from '../../src/articulation/geometry';
+import { rigidStrategy } from '../../src/articulation/strategies/rigid';
+import { spreadStrategy } from '../../src/articulation/strategies/spread';
 import type { ArticulationChain, SolveInput } from '../../src/articulation/types';
 import type { Vector2 } from '../../src/shared/types';
 
@@ -11,7 +13,7 @@ function verticalChain(): ArticulationChain {
     return { elements, constraints: elements.map(() => ({})) };
 }
 
-function rotateInput(chain: ArticulationChain, overrides: Partial<SolveInput> = {}): SolveInput {
+function solveInput(chain: ArticulationChain, overrides: Partial<SolveInput> = {}): SolveInput {
     return {
         chain,
         selection: [1, 2, 3],
@@ -24,7 +26,7 @@ function rotateInput(chain: ArticulationChain, overrides: Partial<SolveInput> = 
 
 describe('rigid rotation (spec worked example)', () => {
     const chain = verticalChain();
-    const result = solveArticulation(rotateInput(chain));
+    const result = solveArticulation(solveInput(chain));
     const p = result.elements;
 
     it('applies the full delta when unconstrained', () => {
@@ -61,7 +63,7 @@ describe('rigid clamping', () => {
         // Joint at element 4 forms between links (3,4) and (4,5); rotating
         // [1,2,3] bends the joint at 3 and 4. Constrain joint 4 tightly.
         chain.constraints[4] = { jointAngle: { min: -0.1, max: 0.1 } };
-        const result = solveArticulation(rotateInput(chain));
+        const result = solveArticulation(solveInput(chain));
         expect(result.appliedFraction).toBeGreaterThan(0);
         expect(result.appliedFraction).toBeLessThan(1);
         const angle = jointAngleAt(result.elements, 4)!;
@@ -70,7 +72,7 @@ describe('rigid clamping', () => {
     it('returns identity when the starting pose is already invalid', () => {
         const chain = verticalChain();
         chain.constraints[1] = { distanceToPrev: { min: 5, max: 6 } };
-        const result = solveArticulation(rotateInput(chain));
+        const result = solveArticulation(solveInput(chain));
         expect(result.appliedFraction).toBe(0);
         expect(result.elements).toEqual(chain.elements);
     });
@@ -80,7 +82,7 @@ describe('translation (strategy-independent, rigid-unit)', () => {
     it('moves the selection as a unit for every strategy id', () => {
         for (const strategyId of ['rigid', 'spread', 'saturate'] as const) {
             const chain = verticalChain();
-            const result = solveArticulation(rotateInput(chain, {
+            const result = solveArticulation(solveInput(chain, {
                 strategyId,
                 delta: { kind: 'translate', vector: { x: 2, y: 0 } },
             }));
@@ -93,7 +95,7 @@ describe('translation (strategy-independent, rigid-unit)', () => {
         const chain = verticalChain();
         // link (0,1) must stay <= 2 long; translating [1,2,3] by +x 5 stretches it
         chain.constraints[1] = { distanceToPrev: { min: 0, max: 2 } };
-        const result = solveArticulation(rotateInput(chain, {
+        const result = solveArticulation(solveInput(chain, {
             delta: { kind: 'translate', vector: { x: 5, y: 0 } },
         }));
         expect(result.appliedFraction).toBeLessThan(1);
@@ -104,21 +106,55 @@ describe('translation (strategy-independent, rigid-unit)', () => {
 describe('degenerate inputs and fallbacks', () => {
     it('empty selection, zero delta, or short chain are identity', () => {
         const chain = verticalChain();
-        expect(solveArticulation(rotateInput(chain, { selection: [] })).elements).toEqual(chain.elements);
-        expect(solveArticulation(rotateInput(chain, { delta: { kind: 'rotate', angle: 0 } })).elements).toEqual(chain.elements);
+        expect(solveArticulation(solveInput(chain, { selection: [] })).elements).toEqual(chain.elements);
+        expect(solveArticulation(solveInput(chain, { delta: { kind: 'rotate', angle: 0 } })).elements).toEqual(chain.elements);
         const tiny: ArticulationChain = { elements: [{ x: 0, y: 0 }], constraints: [{}] };
-        expect(solveArticulation(rotateInput(tiny, { selection: [0] })).elements).toEqual(tiny.elements);
+        expect(solveArticulation(solveInput(tiny, { selection: [0] })).elements).toEqual(tiny.elements);
     });
     it('out-of-range indices are dropped / identity, never a throw', () => {
         const chain = verticalChain();
-        expect(solveArticulation(rotateInput(chain, { selection: [99] })).elements).toEqual(chain.elements);
-        expect(solveArticulation(rotateInput(chain, { pivotIndex: 99 })).elements).toEqual(chain.elements);
+        expect(solveArticulation(solveInput(chain, { selection: [99] })).elements).toEqual(chain.elements);
+        expect(solveArticulation(solveInput(chain, { pivotIndex: 99 })).elements).toEqual(chain.elements);
     });
     it('discontiguous selection uses rigid semantics regardless of strategy id', () => {
         const chain = verticalChain();
-        const result = solveArticulation(rotateInput(chain, { selection: [1, 3, 5], strategyId: 'spread' }));
+        const result = solveArticulation(solveInput(chain, { selection: [1, 3, 5], strategyId: 'spread' }));
         // rigid: each selected element rotated about pivot; distances to pivot preserved
         [1, 3, 5].forEach((i) => expect(distV(result.elements[0], result.elements[i])).toBeCloseTo(i, 9));
         expect(result.elements[2]).toEqual({ x: 0, y: 2 });
+    });
+    it('discontiguous selection with a translate delta dispatches to rigid, not the chosen strategy', () => {
+        const chain = verticalChain();
+        const rigidSpy = jest.spyOn(rigidStrategy, 'solve');
+        const spreadSpy = jest.spyOn(spreadStrategy, 'solve');
+        try {
+            const result = solveArticulation(solveInput(chain, {
+                selection: [1, 3, 5],
+                strategyId: 'spread',
+                delta: { kind: 'translate', vector: { x: 2, y: 0 } },
+            }));
+            expect(rigidSpy).toHaveBeenCalledTimes(1);
+            expect(spreadSpy).not.toHaveBeenCalled();
+            [1, 3, 5].forEach((i) => expect(result.elements[i]).toEqual({ x: 2, y: i }));
+            expect(result.elements[2]).toEqual({ x: 0, y: 2 });
+            expect(result.appliedFraction).toBe(1);
+        } finally {
+            rigidSpy.mockRestore();
+            spreadSpy.mockRestore();
+        }
+    });
+    it('selection exactly the pivot is identity for every strategy id, valid or already-invalid pose', () => {
+        for (const strategyId of ['rigid', 'spread', 'saturate'] as const) {
+            const validChain = verticalChain();
+            const validResult = solveArticulation(solveInput(validChain, { selection: [2], pivotIndex: 2, strategyId }));
+            expect(validResult.elements).toEqual(validChain.elements);
+            expect(validResult.appliedFraction).toBe(1);
+
+            const invalidChain = verticalChain();
+            invalidChain.constraints[1] = { distanceToPrev: { min: 5, max: 6 } };
+            const invalidResult = solveArticulation(solveInput(invalidChain, { selection: [2], pivotIndex: 2, strategyId }));
+            expect(invalidResult.elements).toEqual(invalidChain.elements);
+            expect(invalidResult.appliedFraction).toBe(1);
+        }
     });
 });

@@ -1,17 +1,20 @@
 import type { Vector2 } from '../../shared/types';
-import type { ConstraintStrategy, RotationInput, SolveResult } from '../types';
+import type { ConstraintStrategy, SolveResult, StrategyInput } from '../types';
 import { rotateAbout } from '../geometry';
 import { clampToValid } from '../clamping';
 import { ARTICULATION_EPSILON, isPoseValid } from '../validity';
+import { splitSpans } from '../topology';
+import { identityResult } from '../identity-result';
+import { translateSelectionAsRigidUnit } from './rigid';
 
 /**
  * Consume as much of `angle` as constraints allow for one span. Mutates
  * `out` in place; returns the fraction of the requested angle consumed.
  */
-function saturateSpan(out: Vector2[], input: RotationInput, span: number[], angle: number): number {
-    const { chain } = input;
+function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angle: number): number {
+    const { chain, pivotIndex } = input;
     const active = [...span];
-    let center = out[input.pivotIndex];
+    let center = out[pivotIndex];
     let remaining = angle;
     let consumed = 0;
     while (active.length > 0 && Math.abs(remaining) > ARTICULATION_EPSILON) {
@@ -32,16 +35,28 @@ function saturateSpan(out: Vector2[], input: RotationInput, span: number[], angl
     return angle === 0 ? 1 : consumed / angle;
 }
 
+function solveSaturateRotation(input: StrategyInput, angle: number): SolveResult {
+    const spans = splitSpans(input.selection, input.pivotIndex);
+    // Defence-in-depth: solveArticulation already guards this, but saturateStrategy
+    // is exported directly from the barrel, and dividing by zero spans would be NaN.
+    if (spans.length === 0) return identityResult(input.chain);
+    const out = input.chain.elements.map((p) => ({ ...p }));
+    let fractionSum = 0;
+    for (const span of spans) {
+        fractionSum += saturateSpan(out, input, span, angle);
+    }
+    return { elements: out, appliedFraction: fractionSum / spans.length };
+}
+
 export const saturateStrategy: ConstraintStrategy = {
     id: 'saturate',
     label: 'Saturate Articulation',
-    solveRotation(input: RotationInput): SolveResult {
-        const out = input.chain.elements.map((p) => ({ ...p }));
-        let fractionSum = 0;
-        for (const span of input.spans) {
-            fractionSum += saturateSpan(out, input, span, input.angle);
+    solve(input: StrategyInput): SolveResult {
+        if (input.delta.kind === 'translate') {
+            // Temporary: real probe-cascade translate semantics land in a
+            // later unit. Delegate to the rigid translate for now.
+            return translateSelectionAsRigidUnit(input.chain, input.selectionSet, input.delta.vector);
         }
-        const appliedFraction = input.spans.length === 0 ? 1 : fractionSum / input.spans.length;
-        return { elements: out, appliedFraction };
+        return solveSaturateRotation(input, input.delta.angle);
     },
 };

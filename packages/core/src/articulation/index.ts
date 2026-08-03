@@ -6,7 +6,7 @@ export type {
     StrategyId,
     SolveInput,
     SolveResult,
-    RotationInput,
+    StrategyInput,
     ConstraintStrategy,
 } from './types';
 export { ARTICULATION_EPSILON, jointAngleAt, isPoseValid } from './validity';
