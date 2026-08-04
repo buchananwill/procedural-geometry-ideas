@@ -21,7 +21,7 @@ function CommittedNumberInput({
 }: {
     label: string;
     value: number;
-    onCommit: (v: number) => void;
+    onCommit: (committedValue: number) => void;
 }) {
     const [draft, setDraft] = useState<string | number>(value);
     const [focused, setFocused] = useState(false);
@@ -39,9 +39,9 @@ function CommittedNumberInput({
             onFocus={() => setFocused(true)}
             onBlur={() => {
                 setFocused(false);
-                const n = typeof draft === 'number' ? draft : parseFloat(draft);
-                if (Number.isFinite(n)) {
-                    onCommit(n);
+                const parsed = typeof draft === 'number' ? draft : parseFloat(draft);
+                if (Number.isFinite(parsed)) {
+                    onCommit(parsed);
                 } else {
                     setDraft(value);
                 }
@@ -55,17 +55,27 @@ function CommittedNumberInput({
 
 function AxisRow({
     axis,
+    elementIndex,
     constraints,
-    onChange,
 }: {
     axis: (typeof AXES)[number];
+    elementIndex: number;
     constraints: ElementConstraints;
-    onChange: (next: ElementConstraints) => void;
 }) {
+    const setConstraints = useArticulationStore((s) => s.setConstraints);
     const bound = constraints[axis.key];
     const toDisplay = (v: number) => (axis.isAngle ? Math.round(v * RAD_TO_DEG * 1e4) / 1e4 : v);
     const fromDisplay = (v: number) => (axis.isAngle ? v * DEG_TO_RAD : v);
-    const setBound = (b: MinMax | undefined) => onChange({ ...constraints, [axis.key]: b });
+    const setBound = (nextBound: MinMax | undefined) => {
+        const latest = useArticulationStore.getState().constraints[elementIndex] ?? {};
+        setConstraints(elementIndex, { ...latest, [axis.key]: nextBound });
+    };
+    /**
+     * Read at commit time rather than from the render closure, so the cross-clamp sees
+     * every prior synchronous store write regardless of when React re-renders this row.
+     */
+    const currentBound = (): MinMax | undefined =>
+        useArticulationStore.getState().constraints[elementIndex]?.[axis.key];
 
     return (
         <Stack gap={4}>
@@ -80,17 +90,21 @@ function AxisRow({
                     <CommittedNumberInput
                         label="min"
                         value={toDisplay(bound.min)}
-                        onCommit={(v) => {
-                            const min = fromDisplay(v);
-                            setBound({ min, max: Math.max(min, bound.max) });
+                        onCommit={(committedValue) => {
+                            const latestBound = currentBound();
+                            if (!latestBound) return;
+                            const min = fromDisplay(committedValue);
+                            setBound({ min, max: Math.max(min, latestBound.max) });
                         }}
                     />
                     <CommittedNumberInput
                         label="max"
                         value={toDisplay(bound.max)}
-                        onCommit={(v) => {
-                            const max = fromDisplay(v);
-                            setBound({ min: Math.min(bound.min, max), max });
+                        onCommit={(committedValue) => {
+                            const latestBound = currentBound();
+                            if (!latestBound) return;
+                            const max = fromDisplay(committedValue);
+                            setBound({ min: Math.min(latestBound.min, max), max });
                         }}
                     />
                 </Group>
@@ -102,7 +116,6 @@ function AxisRow({
 export function ArticulationConstraintPanel() {
     const selection = useArticulationStore((s) => s.selection);
     const constraints = useArticulationStore((s) => s.constraints);
-    const setConstraints = useArticulationStore((s) => s.setConstraints);
     const applyConstraintsTo = useArticulationStore((s) => s.applyConstraintsTo);
 
     const single = selection.length === 1 ? selection[0] : null;
@@ -151,11 +164,13 @@ export function ArticulationConstraintPanel() {
                     <>
                         <Text size="xs" c="dimmed">Element #{single}</Text>
                         {AXES.map((axis) => (
+                            // Keyed by element too: a selection change must remount the inputs so
+                            // any focused draft dies with them instead of landing on the new element.
                             <AxisRow
-                                key={axis.key}
+                                key={`${single}:${axis.key}`}
                                 axis={axis}
+                                elementIndex={single}
                                 constraints={active!}
-                                onChange={(next) => setConstraints(single, next)}
                             />
                         ))}
                     </>

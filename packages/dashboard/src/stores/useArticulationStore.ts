@@ -58,6 +58,19 @@ export interface ArticulationStoreState {
     endDrag: () => void;
 }
 
+/**
+ * Deep copy: pasting one struct onto several elements would otherwise leave them
+ * sharing MinMax objects — a latent aliasing hazard the moment any code mutates a
+ * bound in place, which immer's auto-freeze currently masks.
+ */
+function cloneElementConstraints(constraints: ElementConstraints): ElementConstraints {
+    const clone: ElementConstraints = {};
+    for (const [axisKey, bound] of Object.entries(constraints)) {
+        if (bound) clone[axisKey as keyof ElementConstraints] = { ...bound };
+    }
+    return clone;
+}
+
 const angleAround = (center: Vector2, p: Vector2) => Math.atan2(p.y - center.y, p.x - center.x);
 
 /** Smallest signed representation of an angle difference, in (-PI, PI]. */
@@ -185,7 +198,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
         applyConstraintsTo: (indices, constraints) =>
             set((s) => {
                 for (const i of indices) {
-                    if (i >= 0 && i < s.constraints.length) s.constraints[i] = { ...constraints };
+                    if (i >= 0 && i < s.constraints.length) s.constraints[i] = cloneElementConstraints(constraints);
                 }
             }),
 
