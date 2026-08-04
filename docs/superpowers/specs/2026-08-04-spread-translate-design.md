@@ -22,8 +22,11 @@ The event-based frozen list (saturate collecting its cascade's freeze moments) i
 measurement in `solveArticulation`, applied identically to every strategy:
 
 - A **selected** element is element-clamped iff, in the result pose, any enabled bound it participates in sits within
-  detection tolerance of its limit: either link it is an endpoint of (whichever endpoint's constraint entry enables
-  the bound), or the joint angle at the element. A link at its bound marks both its selected endpoints.
+  detection tolerance of its limit. One uniform rule: an at-bound constraint marks every selected element that
+  participates in it. A link at its bound marks both its endpoints (whichever endpoint's constraint entry enables the
+  bound). A joint angle at its bound marks all three elements whose positions form it — the element it turns at and
+  its two neighbours — so a joint bound owned by an unselected element still highlights the selected elements moving
+  against it.
 - `clampedElementIndices` lists them in ascending index order. Freeze order is gone — no UI consumed it, and the
   at-bound set is a property of the pose, not a history of the solve.
 - Strategies stop collecting anything: saturate's `peeledElements` / `appendNewlyFrozenElements` plumbing is deleted.

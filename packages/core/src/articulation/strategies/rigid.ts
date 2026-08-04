@@ -1,5 +1,5 @@
 import type { Vector2 } from '../../shared/types';
-import type { ArticulationChain, ConstraintStrategy, SolveResult, StrategyId, StrategyInput } from '../types';
+import type { ArticulationChain, ConstraintStrategy, StrategyId, StrategyInput, StrategyResult } from '../types';
 import { addV, rotateAbout, scaleV } from '../geometry';
 import { clampToValid } from '../clamping';
 import { makePoseNoWorsePredicate } from '../validity';
@@ -30,7 +30,7 @@ export function translateSelectionAsRigidUnit(
     selectionSet: Set<number>,
     vector: Vector2,
     appliedStrategyId: StrategyId,
-): SolveResult {
+): StrategyResult {
     const clamp = clampToValid(
         (t) => translationPose(chain, selectionSet, scaleV(vector, t)),
         makePoseNoWorsePredicate(chain.elements, chain.constraints),
@@ -39,11 +39,10 @@ export function translateSelectionAsRigidUnit(
         elements: clamp.elements,
         appliedFraction: clamp.t,
         appliedStrategyId,
-        frozenElementIndices: [],
     };
 }
 
-function solveRigidRotation(input: StrategyInput, angle: number): SolveResult {
+function solveRigidRotation(input: StrategyInput, angle: number): StrategyResult {
     const pivotPos = input.chain.elements[input.pivotIndex];
     const clamp = clampToValid(
         (t) => rigidRotationPose(input.chain, input.selectionSet, pivotPos, t * angle),
@@ -53,14 +52,13 @@ function solveRigidRotation(input: StrategyInput, angle: number): SolveResult {
         elements: clamp.elements,
         appliedFraction: clamp.t,
         appliedStrategyId: 'rigid',
-        frozenElementIndices: [],
     };
 }
 
 export const rigidStrategy: ConstraintStrategy = {
     id: 'rigid',
     label: 'Rigid Assembly',
-    solve(input: StrategyInput): SolveResult {
+    solve(input: StrategyInput): StrategyResult {
         if (input.delta.kind === 'translate') {
             return translateSelectionAsRigidUnit(input.chain, input.selectionSet, input.delta.vector, 'rigid');
         }

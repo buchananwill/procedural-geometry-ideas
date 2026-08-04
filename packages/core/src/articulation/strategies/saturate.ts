@@ -1,5 +1,5 @@
 import type { Vector2 } from '../../shared/types';
-import type { ArticulationChain, ConstraintStrategy, ElementConstraints, SolveResult, StrategyInput } from '../types';
+import type { ArticulationChain, ConstraintStrategy, ElementConstraints, StrategyInput, StrategyResult } from '../types';
 import type { ClampResult } from '../clamping';
 import { addV, lenV, rotateAbout, scaleV } from '../geometry';
 import { CLAMP_RESOLUTION, clampToValid } from '../clamping';
@@ -12,21 +12,15 @@ import {
 import { splitSpans } from '../topology';
 import { identityResult } from '../identity-result';
 
-/** What one span's cascade consumed, and which of its elements stopped moving. */
-interface SpanSaturation {
-    consumedFraction: number;
-    peeledElements: number[];
-}
-
 /**
- * Consume as much of `angle` as constraints allow for one span. Mutates
- * `out` in place; reports the fraction of the requested angle consumed and the
- * elements peeled off the span's near end as each became the rotation centre.
+ * Consume as much of `angle` as constraints allow for one span. Mutates `out`
+ * in place and reports the fraction of the requested angle consumed. Each time
+ * the span's near element saturates it is dropped from the active set and
+ * becomes the rotation centre for the remainder.
  */
-function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angle: number): SpanSaturation {
+function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angle: number): number {
     const { chain, pivotIndex } = input;
     const active = [...span];
-    const peeledElements: number[] = [];
     let center = out[pivotIndex];
     let remaining = angle;
     let consumed = 0;
@@ -41,34 +35,26 @@ function saturateSpan(out: Vector2[], input: StrategyInput, span: number[], angl
         consumed += clamp.t * stepAngle;
         remaining = stepAngle * (1 - clamp.t);
         if (clamp.t >= 1) break;
-        // First active element saturates and becomes the new rotation center.
         const saturated = active.shift()!;
-        peeledElements.push(saturated);
         center = out[saturated];
     }
-    return { consumedFraction: angle === 0 ? 1 : consumed / angle, peeledElements };
+    return angle === 0 ? 1 : consumed / angle;
 }
 
-function solveSaturateRotation(input: StrategyInput, angle: number): SolveResult {
+function solveSaturateRotation(input: StrategyInput, angle: number): StrategyResult {
     const spans = splitSpans(input.selection, input.pivotIndex);
     // Defence-in-depth: solveArticulation already guards this, but saturateStrategy
     // is exported directly from the barrel, and dividing by zero spans would be NaN.
     if (spans.length === 0) return identityResult(input.chain, 'saturate');
     const out = input.chain.elements.map((p) => ({ ...p }));
-    const frozenElementIndices: number[] = [];
     let fractionSum = 0;
     for (const span of spans) {
-        const saturation = saturateSpan(out, input, span, angle);
-        fractionSum += saturation.consumedFraction;
-        // Spans are disjoint (splitSpans excludes the pivot), so a plain push
-        // cannot duplicate an element across spans.
-        frozenElementIndices.push(...saturation.peeledElements);
+        fractionSum += saturateSpan(out, input, span, angle);
     }
     return {
         elements: out,
         appliedFraction: fractionSum / spans.length,
         appliedStrategyId: 'saturate',
-        frozenElementIndices,
     };
 }
 
@@ -78,7 +64,7 @@ const PROBE_LOOKAHEAD_FRACTION = CLAMP_RESOLUTION;
 /**
  * The still-movable elements, always a contiguous index range because the
  * selection is contiguous and the range only ever shrinks from its ends.
- * Elements outside it that were selected are frozen.
+ * Selected elements outside it have already stopped for good.
  */
 interface ActiveRange {
     lowIndex: number;
@@ -141,7 +127,7 @@ function makeBoundaryPair(
 
 /**
  * Neighbours just outside the active range are inactive by construction --
- * either unselected or already frozen. A chain end is no boundary at all, so a
+ * either unselected or already stopped. A chain end is no boundary at all, so a
  * whole-chain active range yields none and translates freely.
  */
 function findBoundaryPairs(active: ActiveRange, chain: ArticulationChain, basePose: Vector2[]): BoundaryPair[] {
@@ -167,8 +153,8 @@ function findBoundaryPairs(active: ActiveRange, chain: ArticulationChain, basePo
  * CONJUNCTION of the boundary pairs -- a per-pair minimum would not, because a
  * min-distance bound makes a pair's acceptance non-monotone in the step
  * fraction, so one pair's probe can step straight through another pair's
- * forbidden dip. Freeze attribution is primarily the lookahead one clamp
- * resolution past the accepted fraction; the per-pair probes are only its
+ * forbidden dip. Which pairs the step blamed is primarily the lookahead one
+ * clamp resolution past the accepted fraction; the per-pair probes are only its
  * fallback.
  */
 function boundaryPairIsNoWorse(
@@ -242,38 +228,28 @@ function pairsWithTightestProbe(step: CascadeStep): BoundaryPair[] {
 }
 
 /** Never empty for a step that has boundary pairs, so the cascade always shrinks. */
-function pairsToFreeze(step: CascadeStep, acceptedFraction: number): BoundaryPair[] {
+function pairsThatStopHere(step: CascadeStep, acceptedFraction: number): BoundaryPair[] {
     const blocking = pairsBlockingJustBeyond(step, acceptedFraction);
     return blocking.length > 0 ? blocking : pairsWithTightestProbe(step);
 }
 
-/**
- * Freeze order, first mention wins: a single-element active range is named by
- * both of its boundary pairs, and the report must not repeat it.
- */
-function appendNewlyFrozenElements(frozenElementIndices: number[], pairs: BoundaryPair[]): void {
+/** Withdraw each stopped boundary element from the active range's near end. */
+function narrowActiveRange(active: ActiveRange, pairs: BoundaryPair[]): ActiveRange {
+    const narrowed = { ...active };
     for (const pair of pairs) {
-        if (!frozenElementIndices.includes(pair.activeElement)) frozenElementIndices.push(pair.activeElement);
+        if (pair.side === 'lower') narrowed.lowIndex++;
+        else narrowed.highIndex--;
     }
+    return narrowed;
 }
 
-function freezeBoundElements(active: ActiveRange, pairs: BoundaryPair[]): ActiveRange {
-    const frozen = { ...active };
-    for (const pair of pairs) {
-        if (pair.side === 'lower') frozen.lowIndex++;
-        else frozen.highIndex--;
-    }
-    return frozen;
-}
-
-function solveSaturateTranslation(input: StrategyInput, vector: Vector2): SolveResult {
+function solveSaturateTranslation(input: StrategyInput, vector: Vector2): StrategyResult {
     const { chain, selection } = input;
     const requestedDistance = lenV(vector);
     let elements = chain.elements.map((point) => ({ ...point }));
     let active: ActiveRange = { lowIndex: selection[0], highIndex: selection[selection.length - 1] };
     let remainingVector = vector;
     let consumedDistance = 0;
-    const frozenElementIndices: number[] = [];
 
     while (!activeRangeIsEmpty(active)) {
         const remainingDistance = lenV(remainingVector);
@@ -298,23 +274,20 @@ function solveSaturateTranslation(input: StrategyInput, vector: Vector2): SolveR
         remainingVector = scaleV(remainingVector, 1 - clamp.t);
         if (clamp.t >= 1) break;
 
-        const freezing = pairsToFreeze(step, clamp.t);
-        appendNewlyFrozenElements(frozenElementIndices, freezing);
-        active = freezeBoundElements(active, freezing);
+        active = narrowActiveRange(active, pairsThatStopHere(step, clamp.t));
     }
 
     return {
         elements,
         appliedFraction: requestedDistance === 0 ? 1 : consumedDistance / requestedDistance,
         appliedStrategyId: 'saturate',
-        frozenElementIndices,
     };
 }
 
 export const saturateStrategy: ConstraintStrategy = {
     id: 'saturate',
     label: 'Saturate Articulation',
-    solve(input: StrategyInput): SolveResult {
+    solve(input: StrategyInput): StrategyResult {
         if (input.delta.kind === 'translate') {
             return solveSaturateTranslation(input, input.delta.vector);
         }

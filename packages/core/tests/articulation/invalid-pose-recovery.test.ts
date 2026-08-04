@@ -91,7 +91,7 @@ describe('saturate translate whose boundary link starts violated', () => {
         delta: { kind: 'translate', vector: { x: -1, y: 0 } },
     });
 
-    it('moves the boundary element instead of freezing it', () => {
+    it('moves the boundary element instead of holding it back', () => {
         expect(result.elements[1].x).toBeCloseTo(4, 9);
         expect(result.elements[2].x).toBeCloseTo(5, 9);
         expect(result.appliedFraction).toBeCloseTo(1, 9);

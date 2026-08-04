@@ -55,9 +55,10 @@ describe('clampToValid', () => {
         expect(r.t).toBeGreaterThan(bound - CLAMP_RESOLUTION);
     });
     it('leaves the accepted fraction plus CLAMP_RESOLUTION on a tested invalid fraction', () => {
-        // The attribution invariant saturate's freeze cascade relies on: that
-        // sum must reproduce a searched fraction bit-exactly, not merely
-        // approximately, so at least one boundary predicate provably fails there.
+        // The attribution invariant saturate's cascade relies on when it decides
+        // which boundary pairs stop: that sum must reproduce a searched fraction
+        // bit-exactly, not merely approximately, so at least one boundary
+        // predicate provably fails there.
         const testedInvalidFractions = new Set<number>();
         let requestedFraction = 0;
         const recordingPoseAt = (t: number): Vector2[] => {

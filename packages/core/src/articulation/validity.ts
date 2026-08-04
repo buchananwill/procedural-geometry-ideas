@@ -1,8 +1,15 @@
 import type { Vector2 } from '../shared/types';
-import type { ElementConstraints, MinMax } from './types';
+import type { ElementClampTolerance, ElementConstraints, MinMax } from './types';
 import { crossV, dotV, distV, lenV, subV } from './geometry';
 
 export const ARTICULATION_EPSILON = 1e-6;
+
+/**
+ * How close a constraint value counts as at its limit by default: generous
+ * enough that a clamped solve, which stops up to one clamp resolution short of
+ * the true edge, is always recognised as having reached it.
+ */
+export const DEFAULT_ELEMENT_CLAMP_TOLERANCE: ElementClampTolerance = { distance: 0.5, angle: 0.005 };
 
 /**
  * Signed turning angle at element i between (p[i]-p[i-1]) and (p[i+1]-p[i]),
@@ -22,11 +29,30 @@ function boundViolation(value: number, bound: MinMax): number {
     return Math.max(0, bound.min - value, value - bound.max);
 }
 
+/** How far the value sits from the nearer of the bound's two limits, on either side of it. */
+function distanceFromNearestLimit(value: number, bound: MinMax): number {
+    return Math.min(Math.abs(value - bound.min), Math.abs(value - bound.max));
+}
+
+/**
+ * The bounds governing the length of the link between `lowerLinkIndex` and
+ * `lowerLinkIndex + 1`. Either endpoint's constraint entry may declare one and
+ * both then apply (intersection semantics), so this is the single place that
+ * knows which entries a link's distance answers to.
+ */
+function enabledLinkDistanceBounds(constraints: ElementConstraints[], lowerLinkIndex: number): MinMax[] {
+    const bounds: MinMax[] = [];
+    const nextBound = constraints[lowerLinkIndex]?.distanceToNext;
+    if (nextBound) bounds.push(nextBound);
+    const prevBound = constraints[lowerLinkIndex + 1]?.distanceToPrev;
+    if (prevBound) bounds.push(prevBound);
+    return bounds;
+}
+
 /**
  * How far the length of the link between `lowerLinkIndex` and
- * `lowerLinkIndex + 1` falls outside its bounds. The link is governed by BOTH
- * endpoints' constraints (intersection semantics), so the worse of the two
- * entries is the link's violation. Zero when unconstrained or within bounds.
+ * `lowerLinkIndex + 1` falls outside its bounds -- the worst of the entries
+ * governing it. Zero when unconstrained or within bounds.
  */
 export function linkDistanceViolation(
     elements: Vector2[],
@@ -34,12 +60,9 @@ export function linkDistanceViolation(
     lowerLinkIndex: number,
 ): number {
     const distance = distV(elements[lowerLinkIndex], elements[lowerLinkIndex + 1]);
-    const prevBound = constraints[lowerLinkIndex + 1]?.distanceToPrev;
-    const nextBound = constraints[lowerLinkIndex]?.distanceToNext;
-    return Math.max(
-        prevBound ? boundViolation(distance, prevBound) : 0,
-        nextBound ? boundViolation(distance, nextBound) : 0,
-    );
+    const violations = enabledLinkDistanceBounds(constraints, lowerLinkIndex)
+        .map((bound) => boundViolation(distance, bound));
+    return Math.max(0, ...violations);
 }
 
 /**
@@ -156,4 +179,84 @@ export function isPoseNoWorse(
     constraints: ElementConstraints[],
 ): boolean {
     return makePoseNoWorsePredicate(basePose, constraints)(candidatePose);
+}
+
+/**
+ * True iff the link between `lowerLinkIndex` and `lowerLinkIndex + 1` sits
+ * within `tolerance` of one of its limits, from either side of it.
+ */
+function linkDistanceIsAtBound(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    lowerLinkIndex: number,
+    tolerance: number,
+): boolean {
+    const distance = distV(elements[lowerLinkIndex], elements[lowerLinkIndex + 1]);
+    return enabledLinkDistanceBounds(constraints, lowerLinkIndex)
+        .some((bound) => distanceFromNearestLimit(distance, bound) <= tolerance);
+}
+
+/**
+ * True iff the turning angle at `index` sits within `tolerance` of one of its
+ * limits. False where no bound exists or the angle cannot be evaluated.
+ */
+function jointAngleIsAtBound(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    index: number,
+    tolerance: number,
+): boolean {
+    const bound = constraints[index]?.jointAngle;
+    if (!bound) return false;
+    const angle = jointAngleAt(elements, index);
+    if (angle === null) return false;
+    return distanceFromNearestLimit(angle, bound) <= tolerance;
+}
+
+/**
+ * Every element participating in a constraint that sits at one of its limits.
+ * One uniform rule: an at-bound constraint marks all of its participants -- a
+ * link marks both of its endpoints, and a joint angle marks the element it
+ * turns at together with the two elements whose positions form it.
+ */
+function elementsParticipatingInAnAtBoundConstraint(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    tolerance: ElementClampTolerance,
+): Set<number> {
+    const participants = new Set<number>();
+    for (let lowerLinkIndex = 0; lowerLinkIndex < elements.length - 1; lowerLinkIndex++) {
+        if (!linkDistanceIsAtBound(elements, constraints, lowerLinkIndex, tolerance.distance)) continue;
+        participants.add(lowerLinkIndex);
+        participants.add(lowerLinkIndex + 1);
+    }
+    for (let index = 1; index < elements.length - 1; index++) {
+        if (!jointAngleIsAtBound(elements, constraints, index, tolerance.angle)) continue;
+        participants.add(index - 1);
+        participants.add(index);
+        participants.add(index + 1);
+    }
+    return participants;
+}
+
+/**
+ * The selected elements participating in an at-bound constraint in this pose,
+ * in ascending index order. Purely a measurement of the pose handed in: it
+ * knows nothing of how the pose was reached, so every strategy reports on the
+ * same terms.
+ *
+ * The default tolerance is repeated in solveArticulation, which always passes
+ * one explicitly; it is spelled out here too because the barrel exports this
+ * function for callers measuring a pose they built themselves.
+ */
+export function measureClampedElementIndices(
+    elements: Vector2[],
+    constraints: ElementConstraints[],
+    selection: number[],
+    tolerance: ElementClampTolerance = DEFAULT_ELEMENT_CLAMP_TOLERANCE,
+): number[] {
+    const participants = elementsParticipatingInAnAtBoundConstraint(elements, constraints, tolerance);
+    return [...new Set(selection)]
+        .sort((first, second) => first - second)
+        .filter((index) => participants.has(index));
 }

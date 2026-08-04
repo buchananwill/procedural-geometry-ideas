@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line, Circle, Rect } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useArticulationStore } from '../../stores/useArticulationStore';
-import { indicatesClamping } from './clamp-indication';
 
 const LINK_COLOR = '#5c6470';
 const ELEMENT_COLOR = '#7a8288';
@@ -27,8 +26,7 @@ export function ArticulationCanvas() {
     const elements = useArticulationStore((s) => s.elements);
     const selection = useArticulationStore((s) => s.selection);
     const pivotIndex = useArticulationStore((s) => s.pivotIndex);
-    const appliedFraction = useArticulationStore((s) => s.appliedFraction);
-    const frozenElementIndices = useArticulationStore((s) => s.frozenElementIndices);
+    const clampedElementIndices = useArticulationStore((s) => s.clampedElementIndices);
     const drag = useArticulationStore((s) => s.drag);
 
     useEffect(() => {
@@ -177,14 +175,11 @@ export function ArticulationCanvas() {
         // threshold: cancel outright, never create an element or select on click.
     };
 
-    const clamped = drag !== null && indicatesClamping(appliedFraction);
-    const frozenElements = new Set(frozenElementIndices);
-    // A solver that named nobody blocked the selection as one body -- rigid and
-    // spread always do -- so every selected element carries the clamp colour.
-    // Deliberate gap: elements frozen during a FULLY absorbed drag show no
-    // colour at all, because this is clamp feedback, not freeze feedback.
-    const showsAsClamped = (index: number) =>
-        clamped && (frozenElements.size === 0 || frozenElements.has(index));
+    // Red means element-clamped for as long as a drag is live: the elements the
+    // solver reports at one of their bounds, whatever the applied fraction. The
+    // badge is the only selection-clamp indicator.
+    const clampedElements = new Set(clampedElementIndices);
+    const showsAsClamped = (index: number) => drag !== null && clampedElements.has(index);
     const linkPoints = elements.flatMap((p) => [p.x, p.y]);
 
     return (

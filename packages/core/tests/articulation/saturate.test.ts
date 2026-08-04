@@ -54,13 +54,15 @@ describe('saturate rotation (spec worked example)', () => {
     it('element 5 stays unmoved', () => {
         expect(p[5]).toEqual({ x: 0, y: 5 });
     });
-    it('reports the saturated element as frozen', () => {
+    it('reports the selected participant of the saturated joint', () => {
         expect(result.appliedStrategyId).toBe('saturate');
-        expect(result.frozenElementIndices).toEqual([2]);
+        // The joint at unselected element 1 is formed by elements 0, 1 and 2, so
+        // it marks element 2 -- the only one of the three that is selected.
+        expect(result.clampedElementIndices).toEqual([2]);
     });
 });
 
-describe('saturate rotation peels one element per saturated joint', () => {
+describe('saturate rotation hands the surplus down one joint at a time', () => {
     // Joints at elements 1 and 2 both limited to PI/9: element 2 saturates joint 1
     // and becomes the rotation centre, then element 3 saturates joint 2.
     const chain = verticalChain();
@@ -68,8 +70,11 @@ describe('saturate rotation peels one element per saturated joint', () => {
     chain.constraints[2] = { jointAngle: { min: -PI_OVER_NINE, max: PI_OVER_NINE } };
     const result = solveArticulation(input(chain));
 
-    it('names the peeled elements in the order they stopped', () => {
-        expect(result.frozenElementIndices).toEqual([2, 3]);
+    it('names the selected participants of both saturated joints', () => {
+        // Joint 1 (elements 0,1,2) marks 2; joint 2 (elements 1,2,3) marks 2 and
+        // 3. Element 4 participates in neither and carries no bound of its own.
+        expect(Math.abs(jointAngleAt(result.elements, 2)!)).toBeCloseTo(PI_OVER_NINE, 3);
+        expect(result.clampedElementIndices).toEqual([2, 3]);
     });
     it('leaves the last selected element carrying the remainder', () => {
         expect(Math.abs(jointAngleAt(result.elements, 3)!)).toBeGreaterThan(0.05);
@@ -80,13 +85,18 @@ describe('saturate rotation about a pivot inside the selection', () => {
     // Selection straddles pivot 2, so splitSpans yields the descending span
     // below the pivot before the ascending span above it. A span turning
     // rigidly about the pivot can only change the joint at the pivot itself,
-    // so that is the joint each span saturates, peeling its near element.
+    // so that is the joint each span saturates.
     const chain = verticalChain();
     chain.constraints[2] = { jointAngle: { min: -PI_OVER_NINE, max: PI_OVER_NINE } };
     const result = solveArticulation(input(chain, { selection: [0, 1, 2, 3, 4], pivotIndex: 2 }));
 
-    it('reports each span\'s peeled elements, below-span first', () => {
-        expect(result.frozenElementIndices).toEqual([1, 3]);
+    it('names the pivot and both span heads, the participants of the joint they drove to its bound', () => {
+        // The pivot moves in neither span, but it is selected and its own joint
+        // is what stopped them, so the at-bound measurement reports it -- along
+        // with elements 1 and 3, whose positions form that same angle. Elements
+        // 0 and 4 are selected but participate in no bound.
+        expect(Math.abs(jointAngleAt(result.elements, 2)!)).toBeCloseTo(PI_OVER_NINE, 3);
+        expect(result.clampedElementIndices).toEqual([1, 2, 3]);
     });
 });
 
@@ -99,7 +109,9 @@ describe('saturate full saturation discards the remainder', () => {
         expect(result.appliedFraction).toBeLessThan(1);
         const angle = Math.abs(jointAngleAt(result.elements, 1)!);
         expect(angle).toBeLessThanOrEqual(PI_OVER_NINE + 1e-6);
-        expect(result.frozenElementIndices).toEqual([2]);
+        // The joint that stopped it sits at unselected element 1; element 2 is
+        // its selected participant.
+        expect(result.clampedElementIndices).toEqual([2]);
     });
 });
 
@@ -114,6 +126,6 @@ describe('saturate without constraints degrades to rigid', () => {
         });
         expect(sat.appliedFraction).toBe(1);
         expect(sat.appliedStrategyId).toBe('saturate');
-        expect(sat.frozenElementIndices).toEqual([]);
+        expect(sat.clampedElementIndices).toEqual([]);
     });
 });

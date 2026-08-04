@@ -33,10 +33,12 @@ export interface ArticulationStoreState {
      */
     appliedStrategyId: StrategyId;
     /**
-     * Selected elements the last solve stopped moving ahead of the rest of the
-     * selection. Empty when the selection moved (or was blocked) as one body.
+     * Selected elements sitting at a constraint bound they participate in, in
+     * the last solved pose, ascending. Independent of `appliedFraction`: a
+     * fully absorbed drag can leave elements resting on bounds, while a clamped
+     * drag always names at least one selected element.
      */
-    frozenElementIndices: number[];
+    clampedElementIndices: number[];
 
     addElement: (p: Vector2) => void;
     deleteSelected: () => void;
@@ -77,7 +79,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
         drag: null,
         appliedFraction: 1,
         appliedStrategyId: 'rigid',
-        frozenElementIndices: [],
+        clampedElementIndices: [],
 
         addElement: (p) =>
             set((s) => {
@@ -123,7 +125,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.pivotIndex = newPivot;
                 s.drag = null;
                 s.appliedFraction = 1;
-                s.frozenElementIndices = [];
+                s.clampedElementIndices = [];
             }),
 
         clearAll: () =>
@@ -135,7 +137,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.drag = null;
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
-                s.frozenElementIndices = [];
+                s.clampedElementIndices = [];
             }),
 
         selectOnly: (index) =>
@@ -197,7 +199,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 };
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
-                s.frozenElementIndices = [];
+                s.clampedElementIndices = [];
             }),
 
         updateDrag: (pointer) =>
@@ -236,7 +238,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.elements = result.elements;
                 s.appliedFraction = result.appliedFraction;
                 s.appliedStrategyId = result.appliedStrategyId;
-                s.frozenElementIndices = result.frozenElementIndices;
+                s.clampedElementIndices = result.clampedElementIndices;
             }),
 
         endDrag: () =>
@@ -244,7 +246,7 @@ export const useArticulationStore = create<ArticulationStoreState>()(
                 s.drag = null;
                 s.appliedFraction = 1;
                 s.appliedStrategyId = s.strategyId;
-                s.frozenElementIndices = [];
+                s.clampedElementIndices = [];
             }),
     })),
 );

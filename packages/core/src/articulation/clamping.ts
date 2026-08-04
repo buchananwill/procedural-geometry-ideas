@@ -39,9 +39,10 @@ function findHighestValidCoarseSampleIndex(
  * The arithmetic must stay dyadic: both bounds enter as multiples of
  * 1 / CLAMP_COARSE_SAMPLE_COUNT and every midpoint halves that spacing, so all
  * sampled fractions are exact multiples of CLAMP_RESOLUTION and no rounding
- * occurs. Callers depend on that exactness -- saturate's freeze attribution
- * probes `acceptedFraction + CLAMP_RESOLUTION` and needs it to reproduce, bit
- * for bit, a fraction this search tested and found invalid. Running the full
+ * occurs. Callers depend on that exactness -- saturate's cascade probes
+ * `acceptedFraction + CLAMP_RESOLUTION` to see which boundary pairs stop there,
+ * and needs it to reproduce, bit for bit, a fraction this search tested and
+ * found invalid. Running the full
  * depth unconditionally is what leaves the bracket exactly CLAMP_RESOLUTION
  * wide, so never exit the loop early.
  */

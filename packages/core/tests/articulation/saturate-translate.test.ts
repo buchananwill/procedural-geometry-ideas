@@ -43,9 +43,9 @@ describe('saturate translate without constraints', () => {
     it('does not mutate the input chain', () => {
         expect(chain.elements[2]).toEqual({ x: 2, y: 0 });
     });
-    it('reports the saturate strategy and freezes nobody', () => {
+    it('reports the saturate strategy and no element clamp', () => {
         expect(result.appliedStrategyId).toBe('saturate');
-        expect(result.frozenElementIndices).toEqual([]);
+        expect(result.clampedElementIndices).toEqual([]);
     });
 });
 
@@ -67,7 +67,7 @@ describe('saturate translate spills past a single boundary', () => {
         expect(p[2].x - 2).toBeGreaterThan(boundaryDisplacement);
         expect(p[3].x - 3).toBeGreaterThan(boundaryDisplacement);
     });
-    it('gives the unfrozen elements the full requested displacement', () => {
+    it('gives the still-active elements the full requested displacement', () => {
         expect(p[2].x).toBeCloseTo(7, 9);
         expect(p[3].x).toBeCloseTo(8, 9);
         expect(result.appliedFraction).toBeCloseTo(1, 9);
@@ -75,8 +75,10 @@ describe('saturate translate spills past a single boundary', () => {
     it('leaves the unselected neighbour where it was', () => {
         expect(p[0]).toEqual({ x: 0, y: 0 });
     });
-    it('names the boundary element as the only frozen one', () => {
-        expect(result.frozenElementIndices).toEqual([1]);
+    it('names the boundary element as the only clamped one, though the drag was fully absorbed', () => {
+        expect(result.appliedFraction).toBeCloseTo(1, 9);
+        // Link (0,1) is at its maximum; links (1,2) and (2,3) carry no bounds.
+        expect(result.clampedElementIndices).toEqual([1]);
     });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
@@ -93,7 +95,7 @@ describe('saturate translate boundary race', () => {
     const result = solveArticulation(input(chain));
     const p = result.elements;
 
-    it('freezes the tighter boundary element first', () => {
+    it('stops the tighter boundary element first', () => {
         expect(p[1].y).toBeLessThanOrEqual(Math.sqrt(3) + 1e-6);
         expect(p[1].y).toBeGreaterThan(Math.sqrt(3) - 10 * CLAMP_RESOLUTION);
     });
@@ -110,8 +112,10 @@ describe('saturate translate boundary race', () => {
         expect(p[0]).toEqual({ x: 0, y: 0 });
         expect(p[4]).toEqual({ x: 4, y: 0 });
     });
-    it('reports both boundary elements, tighter one first', () => {
-        expect(result.frozenElementIndices).toEqual([1, 3]);
+    it('reports both boundary elements, ascending', () => {
+        // Both ended on their own link's maximum; element 2 sits between two
+        // unbounded links and is reported by neither.
+        expect(result.clampedElementIndices).toEqual([1, 3]);
     });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
@@ -121,7 +125,7 @@ describe('saturate translate boundary race', () => {
 
 describe('saturate translate full saturation discards the remainder', () => {
     // Every link capped at 2, so perpendicular travel per element is sqrt(3):
-    // elements 1 and 3 freeze together, then element 2 freezes on both links.
+    // elements 1 and 3 stop together, then element 2 stops on both links.
     const chain = horizontalChain(5);
     [1, 2, 3, 4].forEach((i) => {
         chain.constraints[i] = { distanceToPrev: { min: 0, max: 2 } };
@@ -143,10 +147,15 @@ describe('saturate translate full saturation discards the remainder', () => {
     it('leaves every link within its bound', () => {
         [0, 1, 2, 3].forEach((i) => expect(distV(p[i], p[i + 1])).toBeLessThanOrEqual(2 + 1e-6));
     });
-    it('names every selected element once, in freeze order', () => {
-        // Elements 1 and 3 freeze in the same step, lower boundary first; element
-        // 2 is then named by both of its boundary pairs but reported once.
-        expect(result.frozenElementIndices).toEqual([1, 3, 2]);
+    it('names every selected element once, ascending', () => {
+        // All four links end at their maximum of 2, so every selected element is
+        // an endpoint of at least one link at its bound.
+        [0, 1, 2, 3].forEach((lowerIndex) => {
+            const linkLength = distV(p[lowerIndex], p[lowerIndex + 1]);
+            expect(linkLength).toBeLessThanOrEqual(2 + 1e-6);
+            expect(linkLength).toBeGreaterThan(2 - 20 * CLAMP_RESOLUTION);
+        });
+        expect(result.clampedElementIndices).toEqual([1, 2, 3]);
     });
     it('ends on a globally valid pose', () => {
         expect(isPoseValid(chain.elements, chain.constraints)).toBe(true);
@@ -165,6 +174,18 @@ describe('saturate translate of the whole chain', () => {
         result.elements.forEach((point, i) => expect(point).toEqual({ x: i, y: 10 }));
         expect(isPoseValid(result.elements, chain.constraints)).toBe(true);
     });
+    it('still reports elements that ride their bounds through a free translation', () => {
+        const chain = horizontalChain(4);
+        [1, 2, 3].forEach((i) => {
+            chain.constraints[i] = { distanceToPrev: { min: 0.9, max: 1.1 }, jointAngle: { min: 0, max: 0 } };
+        });
+        const result = solveArticulation(input(chain, { selection: [0, 1, 2, 3] }));
+        // Nothing was clamped -- the whole chain moved freely -- yet every link
+        // sits 0.1 from a limit and every joint exactly on one, all inside the
+        // detection tolerance. The at-bound set is a property of the pose.
+        expect(result.appliedFraction).toBe(1);
+        expect(result.clampedElementIndices).toEqual([0, 1, 2, 3]);
+    });
 });
 
 describe('saturate translate of a single element between constrained neighbours', () => {
@@ -173,7 +194,7 @@ describe('saturate translate of a single element between constrained neighbours'
     const result = solveArticulation(input(chain, { selection: [1] }));
 
     it('names the single element once, though both of its links bind', () => {
-        expect(result.frozenElementIndices).toEqual([1]);
+        expect(result.clampedElementIndices).toEqual([1]);
     });
     it('stops at the tighter of the two links', () => {
         expect(result.elements[1].y).toBeLessThanOrEqual(Math.sqrt(3) + 1e-6);
@@ -253,7 +274,7 @@ describe('saturate translate reaches a valid island beyond a min-distance dip', 
     });
 });
 
-describe('saturate translate when a freeze would strand a later boundary in its dip', () => {
+describe('saturate translate when an early stop would strand a later boundary in its dip', () => {
     // Link (0,1) clamps element 1 at t = 5/6, by which point dist(3,4) has
     // shrunk below its own minimum even though it recovers by t = 1.
     const chain = horizontalChain(5);
@@ -393,14 +414,14 @@ function randomContiguousSelection(random: () => number, chainLength: number): n
     return Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
 }
 
-/** The frozen report is only meaningful if it names distinct selected elements. */
-function frozenReportProblem(frozenElementIndices: number[], selection: number[]): string | null {
+/** The clamp report is only meaningful if it names distinct selected elements, ascending. */
+function clampReportProblem(clampedElementIndices: number[], selection: number[]): string | null {
     const selected = new Set(selection);
-    const alreadyReported = new Set<number>();
-    for (const index of frozenElementIndices) {
-        if (!selected.has(index)) return `frozen element ${index} is not in the selection`;
-        if (alreadyReported.has(index)) return `frozen element ${index} is reported twice`;
-        alreadyReported.add(index);
+    let previous = -1;
+    for (const index of clampedElementIndices) {
+        if (!selected.has(index)) return `clamped element ${index} is not in the selection`;
+        if (index <= previous) return `clamped element ${index} is out of ascending order after ${previous}`;
+        previous = index;
     }
     return null;
 }
@@ -435,8 +456,8 @@ describe('saturate translate fuzz (fixed seeds)', () => {
                 if (!(result.appliedFraction >= 0 && result.appliedFraction <= 1 + 1e-9)) {
                     failures.push(`trial ${trial}: appliedFraction ${result.appliedFraction}`);
                 }
-                const frozenProblem = frozenReportProblem(result.frozenElementIndices, selection);
-                if (frozenProblem) failures.push(`trial ${trial}: ${frozenProblem}`);
+                const clampProblem = clampReportProblem(result.clampedElementIndices, selection);
+                if (clampProblem) failures.push(`trial ${trial}: ${clampProblem}`);
                 if (result.appliedStrategyId !== 'saturate') {
                     failures.push(`trial ${trial}: appliedStrategyId ${result.appliedStrategyId}`);
                 }
@@ -511,8 +532,8 @@ describe('saturate translate fuzz from invalid starting poses (fixed seeds)', ()
                 if (!(result.appliedFraction >= 0 && result.appliedFraction <= 1 + 1e-9)) {
                     failures.push(`trial ${trial}: appliedFraction ${result.appliedFraction}`);
                 }
-                const frozenProblem = frozenReportProblem(result.frozenElementIndices, selection);
-                if (frozenProblem) failures.push(`trial ${trial}: ${frozenProblem}`);
+                const clampProblem = clampReportProblem(result.clampedElementIndices, selection);
+                if (clampProblem) failures.push(`trial ${trial}: ${clampProblem}`);
                 if (result.appliedStrategyId !== 'saturate') {
                     failures.push(`trial ${trial}: appliedStrategyId ${result.appliedStrategyId}`);
                 }

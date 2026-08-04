@@ -1,5 +1,5 @@
 import type { Vector2 } from '../../shared/types';
-import type { ConstraintStrategy, SolveResult, StrategyInput } from '../types';
+import type { ConstraintStrategy, StrategyInput, StrategyResult } from '../types';
 import { rotateAbout } from '../geometry';
 import { clampToValid } from '../clamping';
 import { makePoseNoWorsePredicate } from '../validity';
@@ -45,7 +45,7 @@ function spreadPose(input: StrategyInput, spans: number[][], angle: number): Vec
     return out;
 }
 
-function solveSpreadRotation(input: StrategyInput, angle: number): SolveResult {
+function solveSpreadRotation(input: StrategyInput, angle: number): StrategyResult {
     // Empty spans need no guard here: spreadPose simply rotates nothing, and
     // spread never divides by the span count, so there is no NaN to avoid.
     const spans = splitSpans(input.selection, input.pivotIndex);
@@ -57,14 +57,13 @@ function solveSpreadRotation(input: StrategyInput, angle: number): SolveResult {
         elements: clamp.elements,
         appliedFraction: clamp.t,
         appliedStrategyId: 'spread',
-        frozenElementIndices: [],
     };
 }
 
 export const spreadStrategy: ConstraintStrategy = {
     id: 'spread',
     label: 'Spread Articulation',
-    solve(input: StrategyInput): SolveResult {
+    solve(input: StrategyInput): StrategyResult {
         if (input.delta.kind === 'translate') {
             // Spread defines no distinct translate semantics today; it moves
             // the selection as a rigid unit, same as the rigid strategy.

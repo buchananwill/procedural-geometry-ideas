@@ -171,35 +171,27 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
   receives the same offset. If the raw delta does not produce a valid pose, the algorithm clamps to the largest scale
   of the vector, in the same direction, that does. Spread Articulation defines no distinct translate semantics; it
   delegates to the same rigid-unit behaviour.
-- Saturate Articulation translates the selection as a rigid unit for as long as it can, then peels elements off the
+- Saturate Articulation translates the selection as a rigid unit for as long as it can, then drops elements from the
   ends of the selection as they bind. A discontiguous selection never reaches this cascade: the solver dispatches it
   to Rigid Assembly, for every delta kind.
   - The selection's boundary is whichever selected elements sit next to an inactive neighbour — unselected, or
-    already frozen. An interior element has no boundary; a selection with no unselected neighbour on either side has
+    already stopped. An interior element has no boundary; a selection with no unselected neighbour on either side has
     no boundary at all and translates freely.
   - Moving the active elements as a rigid body can only disturb the link to each boundary's inactive neighbour and the
     joint angles at both ends of that link — everything else in the active set is unaffected. The step is clamped to
     the largest fraction of the remaining vector for which every boundary's link-distance and joint-angle bounds hold
     at once: it is the conjunction of all boundary predicates, not any one alone, that makes the clamp valid.
-  - The cascade freezes whichever boundary elements' predicates fail one clamp resolution past the accepted fraction — always at
+  - The cascade stops whichever boundary elements' predicates fail one clamp resolution past the accepted fraction — always at
     least one, since that fraction is the clamp's known-invalid upper bound — and the boundary moves inward to the
-    newly-frozen element's still-active neighbour. A defensive fallback freezes the boundary, or boundaries on an
+    stopped element's still-active neighbour. A defensive fallback stops the boundary, or boundaries on an
     ε-tie, with the smallest individually-permitted fraction.
   - The remaining, unconsumed portion of the delta is then applied to whatever is still active, and the cycle repeats
-    until either the vector is exhausted or every selected element has frozen.
-  - If every selected element freezes before the vector is exhausted, the remaining delta is discarded, exactly as in
+    until either the vector is exhausted or every selected element has stopped.
+  - If every selected element stops before the vector is exhausted, the remaining delta is discarded, exactly as in
     Saturate Rotate.
   - `appliedFraction` for Saturate Translate is the consumed distance divided by the requested distance, the same
     convention as Saturate Rotate (whose own fraction is the mean of the per-span fractions when the pivot lies inside
     the selection).
-  - Every solve also reports `appliedStrategyId` — the strategy that actually ran, which is Rigid Assembly whenever
-    the solver substituted it — and `frozenElementIndices`, the elements the saturate cascade stopped early, in freeze
-    order (simultaneous stops report the lower boundary, or below-pivot span, first). Rigid and spread always report
-    an empty list. The canvas colours only the frozen elements as clamped during a clamped drag, falling back to the
-    whole selection when the list is empty because the selection was blocked as one body. A pivot inside a saturate
-    selection is excluded from both spans, so it is never reported frozen and keeps the selection colour. Elements that
-    froze during a drag that was nonetheless fully absorbed currently receive no colouring — the highlight is clamp
-    feedback, not freeze feedback.
 
 #### Worked Example
 
@@ -207,7 +199,36 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
 - The drag is `+x` by `5`.
 - Element `1` can travel only to just short of `x = 2` before that maximum binds (the clamp is found by the
   coarse-scan-then-refine search, to `2^-12` of the drag), so
-  it freezes there; elements `2` and `3` are still active.
+  it stops there; elements `2` and `3` are still active.
 - The link `[1,2]` becomes the new lower boundary for the remaining active elements.
 - With nothing left to bind, elements `2` and `3` absorb the whole remainder of the drag, ending at `x = 7` and
   `x = 8`.
+
+## Reporting: selection clamp and element clamp
+
+- A **selection clamp** is the solve discarding part of the input delta: `appliedFraction < 1`. The badge is its only
+  indicator. Every solve also reports `appliedStrategyId` — the strategy that actually ran, which is Rigid Assembly
+  whenever the solver substituted it.
+- An **element clamp** is an individual element sitting at one of its constraint bounds. `clampedElementIndices` lists
+  the selected elements in that state, in ascending index order.
+- The set is measured once, by `solveArticulation`, off whatever pose the strategy returned — identically for rigid,
+  spread, saturate, and identity results. It is a property of the pose, not a history of the solve, so the strategies
+  collect nothing.
+- One uniform rule: a constraint sitting at one of its limits marks every selected element that participates in it. A
+  link's distance bound (declared by whichever endpoint's constraint entry) marks both of its endpoints. A joint angle
+  bound at element `j` marks `j - 1`, `j` and `j + 1` — the three elements whose positions form the angle — so a joint
+  bound owned by an *unselected* element still names the selected elements pressing against it, which is the common
+  case for a drag blocked at the edge of its selection.
+- "At" is measured from either side of the limit, so an element resting just inside a bound and one pushed just
+  outside it by an invalid starting pose both count. A clamped solve stops up to one clamp resolution short of the
+  true edge, which a bare ε would miss, so the tolerance is a fixed world-space one: `SolveInput`'s optional
+  `elementClampTolerance`, defaulting to `DEFAULT_ELEMENT_CLAMP_TOLERANCE` (`0.5` world units, `0.005` radians). With
+  distance tolerance τ the binding constraint of a clamped drag is provably within τ for any step up to
+  `τ / CLAMP_RESOLUTION`. The angle envelope additionally depends on link length, since one clamp resolution of a step
+  turns a joint by roughly `stepMagnitude / (4096 · linkLength)` radians; at demo scale — links of order tens of units
+  against drags of the same order — that is orders of magnitude inside the default `0.005` rad tolerance, and only
+  sub-unit links paired with very long drags could approach it.
+- The canvas rule is simply: red means element-clamped, for as long as a drag is live. A fully absorbed drag can still
+  show elements resting on bounds; a selection-clamped rigid drag shows the binding element rather than the whole
+  body; an unconstrained drag shows nothing. A pivot inside a saturate selection is excluded from both spans but is
+  still measured like any other selected element, so it can be reported.
