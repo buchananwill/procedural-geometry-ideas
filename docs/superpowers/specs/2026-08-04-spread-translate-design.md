@@ -43,7 +43,10 @@ canvas ever gains zoom it passes a viewport-scaled value so the rendered epsilon
 detection envelope, stated and tested: with distance tolerance `τ`, the binding constraint of a clamped solve is
 provably within `τ` of its bound for any step up to `τ / CLAMP_RESOLUTION` (~2000 units at the default) — the
 property test asserts the binding constraint is always reported within that envelope, and a second property bounds
-over-reporting (nothing reported whose every bound is farther than the tolerance).
+over-reporting (nothing reported whose every bound is farther than the tolerance). Spread translate's
+achievement-maximising selection samples fractions at `1/512` rather than the clamp's `2^-12`, so a validity-limited
+spread drag can stop one `1/512` step shy of where the clamp would have; constraints the relaxation itself parks land
+exactly on their bounds, so at-bound reporting is unaffected in the common cases.
 
 **Canvas rule simplifies.** Red = element-clamped, whenever a drag is active — no `appliedFraction` gate, no
 whole-selection fallback. A clamped rigid drag now highlights the binding element(s) rather than the whole body
@@ -77,15 +80,49 @@ restores feasibility while preserving the ramp's intent:
   side, projecting each link's length into its `[min, max]` and each joint angle into its bounds (rotate the outgoing
   link direction into the allowed cone). Fixed iteration count (16 initially, an exported constant), fixed sweep
   order, no randomness: `relaxedPoseAt(t)` is deterministic and derived from the base pose every call.
+- **Every joint the span's motion can affect is projected — boundary joints included.** An unprojected joint is a
+  global veto: its violation survives into the candidate pose and the outer clamp refuses the whole pose, so the
+  first joint to saturate halts all further rotation of the armature in that direction (observed in play: a single
+  contiguous selection with an unselected pivot stops dead once the nearest joint hits its bound, permitting only
+  extension). Instead, the sweep clamps each boundary joint AT its bound and carries on — the joint parks at its
+  limit and the remaining joints bend further to keep accommodating the distal target. Concretely that adds: the
+  joint at the anchor-side element (one arm fixed, one arm the first selected element), and for an interior
+  selection the joint at the far element (its outer arm being the anchor just past the span). The rule is that a
+  joint is projectable once the arm behind it cannot move again — already placed by this sweep, or an anchor.
+- **One boundary joint has no legal correction and stays with validity**: the joint at that anchor just past the
+  span. Its only movable arm is the far element, and every turn of the far element that would settle it breaks a
+  link the sweep has just settled, so there is nothing to project with. Implemented and measured anyway, it cost
+  more than it bought — it swung the far element away from its target (achievement 0.0996 → 0.0000 on a short
+  interior span) to buy a joint validity was already handling. Removed; the link beyond the far element is likewise
+  validity's business.
+- **The shared pivot joint (pivot inside the selection) is the one boundary joint two spans contend for**, so it is
+  split symmetrically: after each iteration, any excess bend at the pivot joint is corrected by rigidly rotating
+  each span about the pivot by half the excess, keeping the projection deterministic and order-independent between
+  the spans.
 - Unreachable targets behave like FABRIK: the span extends toward the target and falls short — then the outer clamp
-  decides how much of `t` survives.
+  decides how much of `t` survives (with boundary joints projected, the clamp is a safety net rather than the
+  routine limiter).
 
-### Validity: one global clamp
+### Validity, and selecting on achievement
 
-`poseAt(t) = relax(ramp(t))` feeds the existing `clampToValid` with the whole-pose non-worsening predicate. One
-global `t` covers both spans — they do NOT clamp independently, which is load-bearing for the pivot-caveat: when the
-pivot joint carries an angle constraint, both spans' motion tightens it jointly, and only a whole-pose predicate
-honours that coupling.
+`poseAt(t) = relax(ramp(t))` is evaluated over the fixed grid of fractions the clamp search scans — the coarse
+`CLAMP_COARSE_SAMPLE_COUNT` samples, then a finer pass across the bracket either side of the winner — and every
+candidate must satisfy the same whole-pose non-worsening predicate every other strategy clamps on. One global `t`
+covers both spans; they do NOT clamp independently, which is load-bearing for the pivot-caveat: when the pivot joint
+carries an angle constraint, both spans' motion tightens it jointly, and only a whole-pose predicate honours that
+coupling.
+
+What differs from every other strategy is **which valid candidate is selected: the one maximising measured
+achievement, ties going to the larger fraction** — not the largest valid fraction. Largest-valid only ever tracked
+accommodation because validity was the limiter; once boundary joints are projected the relaxation makes nearly every
+fraction valid, and achievement stops being monotone in `t`. The fractions above the best one feed the ramp targets
+the joint cones forbid, and the relaxation curls the span round to somewhere it can legally sit — measured on the
+armature fixture, a leftward drag of 300 units sent the far element 286 units the OTHER way, and the same gesture at
+225 units tracked the cursor perfectly, so the pose jumped 500 units mid-drag. Selecting on achievement removes the
+discontinuity and dominates the old behaviour on every direction measured. The selected fraction is therefore a
+multiple of `1 / (CLAMP_COARSE_SAMPLE_COUNT · SPREAD_REFINEMENT_SAMPLE_COUNT)`; the refinement pass keeps the coarse
+winner as its incumbent, so it can only improve on it, and the search is a pure argmax over a fixed grid — no
+randomness, no assumption about the shape of achievement between samples.
 
 `appliedFraction` is **measured, not `t`**: the mean across spans of the furthest element's achieved displacement
 along the requested direction, over the requested magnitude, read off the accepted pose. The two differ whenever the

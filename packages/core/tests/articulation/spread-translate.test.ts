@@ -1,5 +1,4 @@
 import { solveArticulation } from '../../src/articulation/solve';
-import { CLAMP_RESOLUTION } from '../../src/articulation/clamping';
 import {
     ARTICULATION_EPSILON,
     isPoseValid,
@@ -7,7 +6,9 @@ import {
     jointAngleViolation,
     linkDistanceViolation,
 } from '../../src/articulation/validity';
-import { distV } from '../../src/articulation/geometry';
+import { distV, subV } from '../../src/articulation/geometry';
+import { CLAMP_COARSE_SAMPLE_COUNT } from '../../src/articulation/clamping';
+import { SPREAD_REFINEMENT_SAMPLE_COUNT } from '../../src/articulation/strategies/spread';
 import type { ArticulationChain, ElementConstraints, SolveInput } from '../../src/articulation/types';
 import type { Vector2 } from '../../src/shared/types';
 
@@ -222,8 +223,8 @@ describe('spread translate beyond the reach of the chain', () => {
 
 describe('spread translate against a joint angle at the pivot', () => {
     // Pivot 2 sits between the two spans, so both of their ramps open the joint
-    // it owns. One global fraction covers both: they clamp together, at the same
-    // fraction of the same vector, which is what the coupling requires.
+    // it owns and neither may claim it: the relaxation parks it on its limit by
+    // turning each span back through half the excess.
     const JOINT_LIMIT = 0.2;
     const chain = horizontalChain(5);
     chain.constraints[2] = { jointAngle: { min: -JOINT_LIMIT, max: JOINT_LIMIT } };
@@ -234,25 +235,76 @@ describe('spread translate against a joint angle at the pivot', () => {
     }));
     const p = result.elements;
 
-    it('holds the joint inside its bound', () => {
-        expect(Math.abs(jointAngleAt(p, 2)!)).toBeLessThanOrEqual(JOINT_LIMIT + ARTICULATION_EPSILON);
+    it('parks the joint exactly on its bound', () => {
+        expect(jointAngleAt(p, 2)!).toBeCloseTo(JOINT_LIMIT, 9);
         expect(isPoseValid(p, chain.constraints)).toBe(true);
     });
-    it('stops just short of the fraction the joint permits', () => {
-        // Displacing both neighbours by h opens the joint to 2 * atan(h).
-        const permittedFraction = Math.tan(JOINT_LIMIT / 2);
-        expect(result.appliedFraction).toBeLessThanOrEqual(permittedFraction);
-        expect(result.appliedFraction).toBeGreaterThan(permittedFraction - CLAMP_RESOLUTION);
+    it('turns each span back through half the excess the ramp opened', () => {
+        // The ramp puts both neighbours a unit above their starting places, at
+        // distance sqrt(2) from the pivot; the split leaves each arm half the
+        // cone off the axis, so each rises by sqrt(2) * sin(JOINT_LIMIT / 2).
+        const achievedHeight = Math.SQRT2 * Math.sin(JOINT_LIMIT / 2);
+        expect(p[1].y).toBeCloseTo(achievedHeight, 9);
+        expect(p[3].y).toBeCloseTo(achievedHeight, 9);
+        expect(result.appliedFraction).toBeCloseTo(achievedHeight, 9);
     });
-    it('clamps both spans jointly, each far end at the same single fraction', () => {
-        expect(p[1].y).toBeCloseTo(result.appliedFraction, 12);
-        expect(p[3].y).toBeCloseTo(result.appliedFraction, 12);
+    it('gives the two spans an equal share of the cone', () => {
+        expect(p[1].y).toBeCloseTo(p[3].y, 12);
     });
     it('never moves the pivot', () => {
         expect(p[2]).toEqual({ x: 2, y: 0 });
     });
     it('names the three elements whose positions form the joint', () => {
         expect(result.clampedElementIndices).toEqual([1, 2, 3]);
+    });
+});
+
+describe('spread translate splitting a pivot joint between spans of unequal length', () => {
+    // Below the pivot one element, above it two, so the ramp opens the joint
+    // lopsidedly. The correction is still halved between them: each span turns
+    // rigidly about the pivot through half the excess, in opposite senses.
+    const JOINT_LIMIT = 0.2;
+    const chain = horizontalChain(5);
+    chain.constraints[2] = { jointAngle: { min: -JOINT_LIMIT, max: JOINT_LIMIT } };
+    const result = solveArticulation(input(chain, {
+        selection: [1, 2, 3, 4],
+        pivotIndex: 2,
+        delta: { kind: 'translate', vector: { x: 0, y: 1 } },
+    }));
+    const p = result.elements;
+    const pivot = chain.elements[2];
+
+    /** Ramp weights are arc lengths over the span's own furthest arc length: 1 below, 1/2 and 1 above. */
+    const rampedPose: Vector2[] = [
+        { x: 0, y: 0 },
+        { x: 1, y: 1 },
+        { x: 2, y: 0 },
+        { x: 3, y: 0.5 },
+        { x: 4, y: 1 },
+    ];
+    const bearingFromPivot = (point: Vector2): number => Math.atan2(point.y - pivot.y, point.x - pivot.x);
+    const turnOf = (index: number): number => bearingFromPivot(p[index]) - bearingFromPivot(rampedPose[index]);
+
+    it('parks the joint exactly on its bound', () => {
+        expect(jointAngleAt(p, 2)!).toBeCloseTo(JOINT_LIMIT, 9);
+        expect(isPoseValid(p, chain.constraints)).toBe(true);
+    });
+    it('turns each span through half the excess, and neither through more', () => {
+        const rampedExcess = jointAngleAt(rampedPose, 2)! - JOINT_LIMIT;
+        const halfExcess = rampedExcess / 2;
+        expect(turnOf(1)).toBeCloseTo(halfExcess, 9);
+        expect(turnOf(3)).toBeCloseTo(-halfExcess, 9);
+        expect(turnOf(4)).toBeCloseTo(-halfExcess, 9);
+        expect(Math.abs(turnOf(1))).toBeLessThanOrEqual(Math.abs(halfExcess) + ARTICULATION_EPSILON);
+        expect(Math.abs(turnOf(3))).toBeLessThanOrEqual(Math.abs(halfExcess) + ARTICULATION_EPSILON);
+    });
+    it('turns each span rigidly, so the links it settled survive the split', () => {
+        expect(distV(p[2], p[1])).toBeCloseTo(distV(pivot, rampedPose[1]), 9);
+        expect(distV(p[3], p[4])).toBeCloseTo(distV(rampedPose[3], rampedPose[4]), 9);
+    });
+    it('never moves the pivot or the unselected element', () => {
+        expect(p[2]).toEqual({ x: 2, y: 0 });
+        expect(p[0]).toEqual({ x: 0, y: 0 });
     });
 });
 
@@ -306,6 +358,171 @@ describe('spread translate over a violated link inside the span', () => {
         expect(distV(result.elements[0], result.elements[1])).toBeCloseTo(3, 9);
         expect(result.elements[2].x).toBeCloseTo(8, 9);
         expect(isPoseValid(result.elements, chain.constraints)).toBe(true);
+    });
+});
+
+/**
+ * Six elements, a hundred apart, each joint turning fifteen degrees, every joint
+ * bounded to thirty and every link to 20..200 -- the armature the reported
+ * defect was found on.
+ */
+function armatureChain(): ArticulationChain {
+    const elements: Vector2[] = [{ x: 0, y: 0 }];
+    for (let index = 1; index < 6; index++) {
+        const heading = (index - 1) * (Math.PI / 12);
+        elements.push({
+            x: elements[index - 1].x + Math.cos(heading) * 100,
+            y: elements[index - 1].y + Math.sin(heading) * 100,
+        });
+    }
+    return {
+        elements,
+        constraints: elements.map(() => ({
+            distanceToPrev: { min: 20, max: 200 },
+            jointAngle: { min: -JOINT_BOUND, max: JOINT_BOUND },
+        })),
+    };
+}
+
+const JOINT_BOUND = Math.PI / 6;
+
+function armatureDrag(vector: Vector2, selection: number[] = [2, 3, 4, 5]) {
+    const chain = armatureChain();
+    const result = solveArticulation({
+        chain,
+        selection,
+        pivotIndex: 1,
+        strategyId: 'spread',
+        delta: { kind: 'translate', vector },
+    });
+    const furthestElement = selection[selection.length - 1];
+    const displacement = subV(result.elements[furthestElement], chain.elements[furthestElement]);
+    const magnitude = Math.hypot(vector.x, vector.y);
+    return {
+        chain,
+        result,
+        pose: result.elements,
+        farDisplacement: distV(result.elements[furthestElement], chain.elements[furthestElement]),
+        /** How far the far element got along the direction asked for, in world units. */
+        achievedDistance: (displacement.x * vector.x + displacement.y * vector.y) / magnitude,
+        /** The finest spacing the fraction search can distinguish, in world units. */
+        searchGranularity: magnitude / (CLAMP_COARSE_SAMPLE_COUNT * SPREAD_REFINEMENT_SAMPLE_COUNT),
+    };
+}
+
+describe('spread translate past a joint saturated next to the pivot', () => {
+    // The pivot sits inside the chain and outside the selection, so the joint it
+    // owns is a boundary joint: one arm reaches back to an unselected element,
+    // the other is the first selected one. Before that joint was projected, it
+    // saturated at thirty degrees and the outer clamp then refused every further
+    // fraction -- the armature stopped dead, and dragging harder achieved
+    // nothing. These are the measurements from that behaviour.
+    const CLAMPED_FRACTION_BEFORE_BOUNDARY_JOINTS = 0.3984;
+    const SECOND_JOINT_BEFORE_BOUNDARY_JOINTS = 12.7 * (Math.PI / 180);
+    const dragged = armatureDrag({ x: 0, y: 300 });
+    const p = dragged.pose;
+
+    it('parks the saturated joint on its bound rather than vetoing the pose', () => {
+        expect(jointAngleAt(p, 1)!).toBeCloseTo(JOINT_BOUND, 6);
+        expect(jointAngleAt(p, 1)!).toBeLessThanOrEqual(JOINT_BOUND + ARTICULATION_EPSILON);
+    });
+    it('bends the joints beyond it far past where the old clamp point left them', () => {
+        expect(jointAngleAt(p, 2)!).toBeGreaterThan(2 * SECOND_JOINT_BEFORE_BOUNDARY_JOINTS);
+        expect(jointAngleAt(p, 2)!).toBeLessThanOrEqual(JOINT_BOUND + ARTICULATION_EPSILON);
+    });
+    it('achieves far more of the drag than the old veto allowed', () => {
+        expect(dragged.result.appliedFraction).toBeGreaterThan(2 * CLAMPED_FRACTION_BEFORE_BOUNDARY_JOINTS);
+        expect(dragged.farDisplacement).toBeGreaterThan(250);
+    });
+    it('keeps moving when the drag grows, which is what it stopped doing', () => {
+        // The defect in one line: doubling the drag used to leave the far element
+        // in exactly the same place, because the same joint vetoed both poses.
+        const further = armatureDrag({ x: 0, y: 600 });
+        expect(further.farDisplacement).toBeGreaterThan(dragged.farDisplacement * 1.3);
+    });
+    it('ends on a globally valid pose, anchors untouched', () => {
+        expect(isPoseValid(dragged.chain.elements, dragged.chain.constraints)).toBe(true);
+        expect(isPoseValid(p, dragged.chain.constraints)).toBe(true);
+        expect(p[0]).toEqual(dragged.chain.elements[0]);
+        expect(p[1]).toEqual(dragged.chain.elements[1]);
+    });
+});
+
+describe('spread translate dragged in directions the joint cones fight', () => {
+    // Projecting the boundary joints made nearly every fraction valid, which
+    // stopped the largest valid one from meaning the most accommodating one: the
+    // ramp fed the relaxation targets the cones forbid, and it curled the span
+    // around to somewhere legal -- once 286 units OPPOSITE the drag. These are
+    // the achieved distances the largest-valid-fraction selector managed on this
+    // armature, before achievement became the thing selected on.
+    const ACHIEVED_BEFORE_MAXIMISING_SELECTION: Array<[string, Vector2, number]> = [
+        ['down, which was never in trouble', { x: 0, y: -300 }, 300.0],
+        ['straight back along the chain', { x: -300, y: 0 }, 207.0],
+        ['back and down at forty-five degrees', { x: -212, y: -212 }, 214.7],
+        ['back and up, the worst of them', { x: -300, y: 150 }, 124.1],
+    ];
+
+    for (const [label, vector, achievedBefore] of ACHIEVED_BEFORE_MAXIMISING_SELECTION) {
+        it(`accommodates at least as much of a drag ${label}`, () => {
+            const dragged = armatureDrag(vector);
+            expect(dragged.achievedDistance)
+                .toBeGreaterThanOrEqual(achievedBefore - dragged.searchGranularity);
+            expect(isPoseValid(dragged.pose, dragged.chain.constraints)).toBe(true);
+        });
+    }
+
+    it('never sends the far element backwards against the drag', () => {
+        for (const [, vector] of ACHIEVED_BEFORE_MAXIMISING_SELECTION) {
+            expect(armatureDrag(vector).achievedDistance).toBeGreaterThan(0);
+        }
+    });
+
+    it('does not snap into a curl part way through a gesture', () => {
+        // The reported discontinuity: 225 units of leftward drag tracked the
+        // cursor, 300 flung the tip 286 units the other way. Growing the drag
+        // may stop adding progress, but it must not take progress away.
+        const tracking = armatureDrag({ x: -225, y: 0 });
+        const beyond = armatureDrag({ x: -300, y: 0 });
+        expect(tracking.achievedDistance).toBeCloseTo(225, 6);
+        expect(beyond.achievedDistance).toBeGreaterThanOrEqual(
+            tracking.achievedDistance - beyond.searchGranularity,
+        );
+    });
+
+    it('keeps the achieved distance non-decreasing as the drag grows', () => {
+        // A longer vector's candidate grid contains the shorter vector's poses
+        // at proportionally smaller fractions, so the argmax can only hold or
+        // improve -- give or take the one grid step the two rasters differ by.
+        for (const direction of [{ x: -1, y: 0 }, { x: 0, y: 1 }, { x: -1, y: 0.5 }]) {
+            let previous = { achievedDistance: 0, searchGranularity: 0 };
+            for (const magnitude of [75, 150, 225, 300, 450, 600]) {
+                const dragged = armatureDrag({ x: direction.x * magnitude, y: direction.y * magnitude });
+                expect(dragged.achievedDistance)
+                    .toBeGreaterThanOrEqual(previous.achievedDistance - dragged.searchGranularity);
+                previous = dragged;
+            }
+        }
+    });
+});
+
+describe('spread translate against the joint at an interior selection far end', () => {
+    // Element 5 is unselected, so the joint at the far element 4 is a boundary
+    // joint with its outer arm anchored -- projectable, and projected, by the
+    // backward sweep that starts from the pinned far element.
+    const CLAMPED_FRACTION_BEFORE_BOUNDARY_JOINTS = 0.2190;
+    const dragged = armatureDrag({ x: 0, y: 300 }, [2, 3, 4]);
+    const p = dragged.pose;
+
+    it('parks the far element joint on its bound', () => {
+        expect(jointAngleAt(p, 4)!).toBeCloseTo(-JOINT_BOUND, 6);
+    });
+    it('achieves more of the drag than the unprojected boundary joint allowed', () => {
+        expect(dragged.result.appliedFraction).toBeGreaterThan(CLAMPED_FRACTION_BEFORE_BOUNDARY_JOINTS * 1.15);
+    });
+    it('ends on a globally valid pose, anchors untouched', () => {
+        expect(isPoseValid(p, dragged.chain.constraints)).toBe(true);
+        expect(p[5]).toEqual(dragged.chain.elements[5]);
+        expect(p[1]).toEqual(dragged.chain.elements[1]);
     });
 });
 
@@ -371,6 +588,27 @@ describe('spread translate determinism', () => {
         expect(second.elements).toEqual(first.elements);
         expect(second.appliedFraction).toBe(first.appliedFraction);
         expect(second.clampedElementIndices).toEqual(first.clampedElementIndices);
+    });
+    it('is identical too where boundary joints and the pivot split are in play', () => {
+        const armature = armatureDrag({ x: -220, y: 140 });
+        const repeated = armatureDrag({ x: -220, y: 140 });
+        expect(repeated.pose).toEqual(armature.pose);
+        expect(repeated.result.appliedFraction).toBe(armature.result.appliedFraction);
+
+        const splitChain = (): ArticulationChain => {
+            const chain = horizontalChain(5);
+            chain.constraints[2] = { jointAngle: { min: -0.2, max: 0.2 } };
+            return chain;
+        };
+        const splitInput: Partial<SolveInput> = {
+            selection: [1, 2, 3, 4],
+            pivotIndex: 2,
+            delta: { kind: 'translate', vector: { x: 0.5, y: 1 } },
+        };
+        const firstSplit = solveArticulation(input(splitChain(), splitInput));
+        const secondSplit = solveArticulation(input(splitChain(), splitInput));
+        expect(secondSplit.elements).toEqual(firstSplit.elements);
+        expect(secondSplit.appliedFraction).toBe(firstSplit.appliedFraction);
     });
 });
 

@@ -7,7 +7,7 @@ import type {
     StrategyResult,
 } from '../types';
 import { addV, distV, dotV, lenV, rotateAbout, scaleV, subV } from '../geometry';
-import { clampToValid } from '../clamping';
+import { CLAMP_COARSE_SAMPLE_COUNT, clampToValid } from '../clamping';
 import {
     ARTICULATION_EPSILON,
     jointAngleAt,
@@ -85,14 +85,18 @@ interface SpanRamp {
     elementIndices: number[];
     /** The anchored element immediately inside the span, on the pivot side. */
     anchorIndex: number;
+    /** +1 where the span walks up the chain away from the pivot, -1 where it walks down. */
+    walkStep: number;
     /** Parallel to elementIndices: each element's share of the input vector. */
     deltaWeights: number[];
 }
 
-/** What the relaxation projects against: the constraints, and the pose the solve started from. */
+/** What the relaxation projects against: the constraints, the anchors, and the pose the solve started from. */
 interface RelaxationContext {
     basePose: Vector2[];
     constraints: ElementConstraints[];
+    anchors: Set<number>;
+    pivotIndex: number;
 }
 
 function isElementIndex(index: number, chainLength: number): boolean {
@@ -139,7 +143,7 @@ function makeSpanRamp(elements: Vector2[], pivotIndex: number, elementIndices: n
     const deltaWeights = furthestArcLength < ARTICULATION_EPSILON
         ? arcLengths.map(() => 0)
         : arcLengths.map((arcLength) => arcLength / furthestArcLength);
-    return { elementIndices, anchorIndex: elementIndices[0] - walkStep, deltaWeights };
+    return { elementIndices, anchorIndex: elementIndices[0] - walkStep, walkStep, deltaWeights };
 }
 
 function makeSpanRamps(
@@ -224,6 +228,30 @@ function projectJointAngle(
 }
 
 /**
+ * Whether the joint at the sweep's fixed element can be settled by turning the
+ * element ahead of it: only if the arm behind that joint cannot move afterwards,
+ * either because this sweep has already placed it or because it is an anchor.
+ *
+ * The anchor case is what makes a BOUNDARY joint projectable, and it is
+ * load-bearing. A joint left unprojected does not merely go unhelped -- its
+ * violation survives into the candidate pose, and the outer clamp then refuses
+ * the whole pose, so the first joint to saturate stops the entire armature
+ * instead of parking at its limit while the joints beyond it keep bending. It
+ * covers the joint at the anchor itself, whose outer arm is immovable, and the
+ * joint at the far element, whose outer arm is the anchor just past the span.
+ *
+ * One boundary joint stays out of reach even so: the one at that anchor just
+ * past the span. Its only movable arm is the far element, and every turn of the
+ * far element that would settle it breaks a link the sweep has just settled, so
+ * there is no legal correction and the clamp answers for it. Measured, forcing
+ * one anyway cost more than it bought -- it swung the far element away from the
+ * target to buy a joint the clamp was already handling.
+ */
+function jointArmBehindIsFixed(context: RelaxationContext, position: number, elementBehind: number): boolean {
+    return position >= 2 || context.anchors.has(elementBehind);
+}
+
+/**
  * Walk consecutive elements from the one that stays put to the far end, placing
  * each against the neighbour already settled behind it.
  */
@@ -233,11 +261,36 @@ function sweepAlong(context: RelaxationContext, posed: Vector2[], orderedIndices
     for (let position = 1; position < orderedIndices.length; position++) {
         const fixedIndex = orderedIndices[position - 1];
         projectLinkLength(context, posed, fixedIndex, orderedIndices[position]);
-        // A joint is the sweep's to project only once both of its arms have been
-        // placed by this sweep; the joints at either end of the segment reach
-        // outside it -- into the anchored side, or past the far element -- and
-        // are left for the clamp to judge.
-        if (position >= 2) projectJointAngle(context, posed, fixedIndex, sweepStep);
+        if (jointArmBehindIsFixed(context, position, fixedIndex - sweepStep)) {
+            projectJointAngle(context, posed, fixedIndex, sweepStep);
+        }
+    }
+}
+
+/**
+ * The joint at the pivot is the one joint two spans contend for: each span's
+ * motion opens it, so neither may claim it and no sweep projects it. Any excess
+ * bend is instead undone by turning each span rigidly about the pivot by half of
+ * it -- which preserves every link the sweeps just settled, and gives the two
+ * spans the same share of the cone whatever order they were relaxed in.
+ *
+ * Applied once the iterations are done rather than inside them: each iteration
+ * re-pins the far elements at their ramp targets, which would undo the share of
+ * whichever span is nothing but its far element and skew the split.
+ */
+function splitPivotJointExcessBetweenSpans(context: RelaxationContext, posed: Vector2[], spans: SpanRamp[]): void {
+    if (spans.length < 2) return;
+    const bound = context.constraints[context.pivotIndex]?.jointAngle;
+    if (!bound) return;
+    const angle = jointAngleAt(posed, context.pivotIndex);
+    if (angle === null) return;
+    const projectedAngle = Math.min(Math.max(angle, bound.min), bound.max);
+    if (projectedAngle === angle) return;
+    const halfExcess = (projectedAngle - angle) / 2;
+    for (const span of spans) {
+        for (const elementIndex of span.elementIndices) {
+            posed[elementIndex] = rotateAbout(posed[elementIndex], posed[context.pivotIndex], span.walkStep * halfExcess);
+        }
     }
 }
 
@@ -268,23 +321,28 @@ function relaxedPose(context: RelaxationContext, rampedPose: Vector2[], spans: S
     for (let iteration = 0; iteration < SPREAD_RELAXATION_ITERATIONS; iteration++) {
         spans.forEach((span, position) => relaxSpan(context, posed, span, rampTargets[position]));
     }
+    splitPivotJointExcessBetweenSpans(context, posed, spans);
     return posed;
 }
 
 /**
- * Ramp, then relax, both rebuilt from the base pose on every call: clampToValid
- * samples this dozens of times in a search order of its own, so the pose at a
+ * Ramp, then relax, both rebuilt from the base pose on every call: the search
+ * below evaluates this at fractions in an order of its own, so the pose at a
  * fraction must be deterministic and must never accumulate an earlier call's
  * result.
  */
-function spreadTranslatePoseAt(chain: ArticulationChain, spans: SpanRamp[], scaledVector: Vector2): Vector2[] {
+function spreadTranslatePoseAt(
+    chain: ArticulationChain,
+    spans: SpanRamp[],
+    context: RelaxationContext,
+    scaledVector: Vector2,
+): Vector2[] {
     // The relaxation moves elements even at a zero delta -- from an invalid
-    // start there are violations for it to project away -- but clampToValid
-    // reads poseAt(0) as the pose to fall back to when nothing else is
+    // start there are violations for it to project away -- but the fraction 0
+    // candidate is the one the search falls back on when nothing else is
     // acceptable, and that must be the pose the solve started from.
     if (scaledVector.x === 0 && scaledVector.y === 0) return chain.elements.map((point) => ({ ...point }));
-    const ramped = rampPose(chain.elements, spans, scaledVector);
-    return relaxedPose({ basePose: chain.elements, constraints: chain.constraints }, ramped, spans);
+    return relaxedPose(context, rampPose(chain.elements, spans, scaledVector), spans);
 }
 
 /**
@@ -331,6 +389,109 @@ function meanAchievedFraction(
     return mean >= 1 - ARTICULATION_EPSILON ? 1 : mean;
 }
 
+/**
+ * Steps either side of the coarse winner taken by the refinement pass, and the
+ * factor by which they divide the coarse grid: the selected fraction is a
+ * multiple of 1 / (CLAMP_COARSE_SAMPLE_COUNT * SPREAD_REFINEMENT_SAMPLE_COUNT).
+ */
+export const SPREAD_REFINEMENT_SAMPLE_COUNT = 8;
+
+/** A sampled fraction's relaxed pose, with the accommodation it turned out to deliver. */
+interface AchievementCandidate {
+    fraction: number;
+    elements: Vector2[];
+    achievedFraction: number;
+}
+
+/** One candidate fraction, or null where its pose is not one the solve may return. */
+function evaluateFraction(
+    chain: ArticulationChain,
+    spans: SpanRamp[],
+    context: RelaxationContext,
+    vector: Vector2,
+    fraction: number,
+    isPoseAcceptable: (elements: Vector2[]) => boolean,
+): AchievementCandidate | null {
+    const elements = spreadTranslatePoseAt(chain, spans, context, scaleV(vector, fraction));
+    if (!isPoseAcceptable(elements)) return null;
+    return {
+        fraction,
+        elements,
+        achievedFraction: meanAchievedFraction(chain.elements, elements, spans, vector),
+    };
+}
+
+/**
+ * The more accommodating of the two. Every scan runs downward and only a strict
+ * improvement displaces the incumbent, so equal achievement keeps the larger
+ * fraction -- which is what makes an unobstructed drag select the whole vector.
+ */
+function moreAchievingOf(
+    incumbent: AchievementCandidate,
+    candidate: AchievementCandidate | null,
+): AchievementCandidate {
+    if (candidate === null) return incumbent;
+    return candidate.achievedFraction > incumbent.achievedFraction ? candidate : incumbent;
+}
+
+/**
+ * The pose that accommodates the drag best, chosen from a fixed grid of
+ * fractions -- the clamp search's coarse samples, then a finer raster around
+ * the coarse winner -- keeping only those the non-worsening predicate accepts.
+ *
+ * Every other strategy can take the largest valid fraction, because there
+ * validity is what limits accommodation and the two rise together. Here they
+ * come apart: with boundary joints projected the relaxation makes nearly every
+ * fraction valid, and the fractions above the best one buy nothing -- they feed
+ * the ramp a target the joint cones forbid, and the relaxation curls the span
+ * around to somewhere it can legally sit, which can be further from the cursor
+ * than a smaller fraction managed, or on the wrong side of it entirely. So the
+ * selector optimises the objective -- how much of the drag the far elements
+ * actually achieved -- and merely requires validity.
+ *
+ * Standing still is always among the candidates, so the search cannot come away
+ * empty: the worst it can conclude is that nothing beat not moving.
+ */
+function selectMostAchievingPose(
+    chain: ArticulationChain,
+    spans: SpanRamp[],
+    context: RelaxationContext,
+    vector: Vector2,
+): AchievementCandidate {
+    const isPoseAcceptable = makePoseNoWorsePredicate(chain.elements, chain.constraints);
+    const evaluate = (fraction: number): AchievementCandidate | null =>
+        evaluateFraction(chain, spans, context, vector, fraction, isPoseAcceptable);
+
+    // Standing still reproduces the base pose, which the predicate accepts by
+    // construction -- it is no worse than itself -- so the search always has an
+    // incumbent and can never come away with nothing to return.
+    const stationaryPose = chain.elements.map((point) => ({ ...point }));
+    let best: AchievementCandidate = {
+        fraction: 0,
+        elements: stationaryPose,
+        achievedFraction: meanAchievedFraction(chain.elements, stationaryPose, spans, vector),
+    };
+    for (let sampleIndex = CLAMP_COARSE_SAMPLE_COUNT; sampleIndex >= 1; sampleIndex--) {
+        best = moreAchievingOf(best, evaluate(sampleIndex / CLAMP_COARSE_SAMPLE_COUNT));
+        // A strict-improvement incumbent at full achievement can never be
+        // displaced, so an unobstructed drag pays one evaluation, not the grid.
+        if (best.achievedFraction >= 1) return best;
+    }
+
+    // A finer pass across the bracket either side of the coarse winner. The
+    // winner stands in it as the incumbent, so this can only improve on it --
+    // no assumption about the shape of achievement between grid points, just a
+    // wider argmax over a fixed set of fractions.
+    const bracketCentre = best.fraction;
+    const refinedStep = 1 / (CLAMP_COARSE_SAMPLE_COUNT * SPREAD_REFINEMENT_SAMPLE_COUNT);
+    for (let step = SPREAD_REFINEMENT_SAMPLE_COUNT; step >= -SPREAD_REFINEMENT_SAMPLE_COUNT; step--) {
+        const fraction = bracketCentre + step * refinedStep;
+        if (fraction < 0 || fraction > 1) continue;
+        best = moreAchievingOf(best, evaluate(fraction));
+    }
+    return best;
+}
+
 function solveSpreadTranslation(input: StrategyInput, vector: Vector2): StrategyResult {
     const { chain, pivotIndex, selection, selectionSet } = input;
     // Translation needs no pivot for the other strategies, so solveArticulation
@@ -346,13 +507,16 @@ function solveSpreadTranslation(input: StrategyInput, vector: Vector2): Strategy
     // A selection of nothing but the pivot is all anchor: spread translate, unlike
     // rigid and saturate, never moves the pivot, so there is nothing to move at all.
     if (spans.length === 0) return identityResult(chain, 'spread');
-    const clamp = clampToValid(
-        (t) => spreadTranslatePoseAt(chain, spans, scaleV(vector, t)),
-        makePoseNoWorsePredicate(chain.elements, chain.constraints),
-    );
+    const context: RelaxationContext = {
+        basePose: chain.elements,
+        constraints: chain.constraints,
+        anchors,
+        pivotIndex,
+    };
+    const selected = selectMostAchievingPose(chain, spans, context, vector);
     return {
-        elements: clamp.elements,
-        appliedFraction: meanAchievedFraction(chain.elements, clamp.elements, spans, vector),
+        elements: selected.elements,
+        appliedFraction: selected.achievedFraction,
         appliedStrategyId: 'spread',
     };
 }

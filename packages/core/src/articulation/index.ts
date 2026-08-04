@@ -31,5 +31,9 @@ export {
 export { isContiguous, splitSpans } from './topology';
 export { solveArticulation, STRATEGIES } from './solve';
 export { rigidStrategy } from './strategies/rigid';
-export { spreadStrategy, SPREAD_RELAXATION_ITERATIONS } from './strategies/spread';
+export {
+    spreadStrategy,
+    SPREAD_RELAXATION_ITERATIONS,
+    SPREAD_REFINEMENT_SAMPLE_COUNT,
+} from './strategies/spread';
 export { saturateStrategy } from './strategies/saturate';

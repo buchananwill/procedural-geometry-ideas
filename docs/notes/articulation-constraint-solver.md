@@ -226,24 +226,56 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
     link in the span in turn, and a later placement never disturbs an earlier one. It is equally what lets an
     unreachable target pull the far element short of it — or a minimum bound push it past — which is the FABRIK
     behaviour the design wants: the span reaches toward the target and falls where it can.
-  - Only joints with both arms inside the swept span are projected. The joints at either end reach outside it: into
-    the anchored side — the pivot joint itself, when the pivot lies inside the selection — or past the far element.
-    Those, and the link beyond the far element, are the clamp's business rather than the relaxation's.
+  - **Every joint the span's motion can reach is projected, boundary joints included**, and that is load-bearing
+    rather than a refinement. An unprojected joint is not merely unhelped: its violation survives into the candidate
+    pose, the whole-pose clamp then refuses that pose, and so the first joint to saturate stops the entire armature
+    instead of parking on its limit. Observed in play, and measured: a chain whose joints are bounded to thirty
+    degrees, dragged from an unselected interior pivot, delivered its far element 120 units and not a unit more,
+    however much harder it was dragged — every further fraction vetoed by the one joint next to the pivot. With that
+    joint projected the same drag delivers the full 300, the near joint resting on its thirty degrees while the
+    joints beyond it bend to make up the difference.
+  - A joint is the sweep's to project when the arm behind it cannot move afterwards — either the sweep has already
+    placed it, or it is an anchor. That covers the interior joints, the joint at the anchor itself (outer arm
+    immovable), and the joint at the far element (outer arm the anchor just past the span). One boundary joint has no
+    legal correction and stays with the clamp: the joint at that anchor beyond the span, whose only movable arm is
+    the far element, since every turn of the far element that would settle it breaks a link the sweep has just
+    settled. Forcing one anyway was measured to cost more than it bought — it swung the far element away from its
+    target to buy a joint the clamp was already handling.
+  - The link beyond the far element likewise belongs to the clamp.
   - The sweep order and the iteration count are fixed, nothing is random, and every pose is rebuilt from the pose the
     drag started from: `relax(ramp(t))` is deterministic and never cumulative, which is exactly what the clamp search
     requires of the poses it samples.
-- **The clamp — validity.** `poseAt(t) = relax(ramp(t))` goes to the same largest-valid-delta search, against the same
-  whole-pose non-worsening predicate, as every other strategy. One global `t` covers both spans; they do NOT clamp
-  independently, which is load-bearing when the pivot joint carries an angle bound, since both spans tighten it
-  jointly and only a whole-pose predicate honours that coupling. The price of that exact coupling is a ceiling: an
-  interior pivot's joint bound clamps the whole ramp, because no sweep repairs that joint — a relaxation that
-  projected the pivot joint symmetrically from both sides could accommodate far more of such a drag, and is the
-  obvious place to take this further.
-- **The report.** `appliedFraction` is *measured*, not the clamp's `t`: the mean across spans of the furthest
-  element's displacement resolved along the drag direction, over the drag's magnitude, read off the pose being
-  returned. The two part company whenever the relaxation absorbs a shortfall the clamp is content with — every
-  fraction of an out-of-reach drag relaxes to a perfectly valid pose, so `t` would report the whole delta applied
-  while the far element sat a third of the way to the cursor. The badge follows the element, not the search.
+- **The clamp — validity, then achievement.** `poseAt(t) = relax(ramp(t))` is evaluated across the same fixed grid of
+  fractions the largest-valid-delta search scans, and every candidate must satisfy the same whole-pose non-worsening
+  predicate as every other strategy. One global `t` covers both spans; they do NOT clamp independently, which is
+  load-bearing when the pivot joint carries an angle bound, since both spans tighten it jointly and only a whole-pose
+  predicate honours that coupling.
+  - Where this parts company with the other strategies is in **which valid candidate it takes: the most accommodating
+    one, not the largest fraction**. Largest-valid only ever meant most-accommodating because validity was the
+    limiter. Once boundary joints are projected almost every fraction is valid, and the fractions above the best one
+    buy nothing: they hand the ramp a target the joint cones forbid, and the relaxation curls the span round to
+    somewhere it can legally sit — measured on a thirty-degree armature, a leftward drag of 300 units put the far
+    element 286 units the *other* way, while the same gesture at 225 units tracked the cursor exactly. The pose
+    jumped five hundred units in the middle of a drag. Selecting on measured achievement removes that cliff and beats
+    the old behaviour in every direction tried.
+  - Ties go to the larger fraction, so an unobstructed drag still takes the whole vector. A finer pass across the
+    bracket either side of the coarse winner keeps that winner as its incumbent, so it can only improve on it. The
+    whole search is an argmax over a fixed grid: no randomness, no assumption that achievement is smooth or
+    single-peaked between samples, and the same answer every time.
+- **The pivot joint** is the one joint two spans contend for, so no sweep may claim it: each span's motion opens it,
+  and whichever span went last would otherwise take the whole cone. It is split instead — once the iterations are
+  done, any excess bend is undone by turning each span rigidly about the pivot through half of it, in opposite
+  senses. Rigid rotation about the pivot preserves every link the sweeps just settled and every distance to the
+  pivot, so the correction costs the spans nothing but their share of the bend, and the outcome does not depend on
+  which span was relaxed first. It is applied after the iterations rather than inside them because each iteration
+  re-pins the far elements at their ramp targets, which would undo the share of whichever span is nothing but its
+  far element and quietly skew the split.
+- **The report.** `appliedFraction` is *measured*, not a fraction handed down by the search: the mean across spans of
+  the furthest element's displacement resolved along the drag direction, over the drag's magnitude, read off the pose
+  being returned — the same quantity the selection above maximised. The two would part company whenever the
+  relaxation absorbs a shortfall validity is content with: every fraction of an out-of-reach drag relaxes to a
+  perfectly valid pose, so a fraction would report the whole delta applied while the far element sat a third of the
+  way to the cursor. The badge follows the element, not the search.
 - Because the projection repairs the links inside a span, Spread Translate is the one strategy whose drag actively
   pulls a violated link back to its bound as it passes. Anything outside the swept spans is governed by the usual
   rule, and only ever gets no worse.
