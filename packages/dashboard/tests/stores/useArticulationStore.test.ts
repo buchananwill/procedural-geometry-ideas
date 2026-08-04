@@ -64,6 +64,23 @@ describe('applyConstraintsTo', () => {
     });
 });
 
+describe('replaceChain', () => {
+    it('replaces the elements with unconstrained copies and resets solve state', () => {
+        useArticulationStore.setState({ selection: [1, 2], pivotIndex: 2, appliedFraction: 0.5 });
+        const replacement = [{ x: 400, y: 100 }, { x: 400, y: 200 }];
+        useArticulationStore.getState().replaceChain(replacement);
+        const state = useArticulationStore.getState();
+        expect(state.elements).toEqual(replacement);
+        expect(state.elements[0]).not.toBe(replacement[0]);
+        expect(state.constraints).toEqual([{}, {}]);
+        expect(state.selection).toEqual([]);
+        expect(state.pivotIndex).toBe(0);
+        expect(state.drag).toBeNull();
+        expect(state.appliedFraction).toBe(1);
+        expect(state.clampedElementIndices).toEqual([]);
+    });
+});
+
 describe('setConstraints', () => {
     it('sets the constraints of the given element', () => {
         useArticulationStore.getState().setConstraints(2, { jointAngle: { min: -2, max: 2 } });

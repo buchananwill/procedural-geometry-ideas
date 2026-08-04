@@ -1,6 +1,7 @@
-import { Badge, Button, Group, Paper, SegmentedControl, Stack, Text, Title } from '@mantine/core';
+import { useState } from 'react';
+import { Badge, Button, Divider, Group, Paper, SegmentedControl, Select, Stack, Text, Title } from '@mantine/core';
 import { STRATEGIES } from '@proc-geo/core';
-import type { StrategyId } from '@proc-geo/core';
+import type { StrategyId, Vector2 } from '@proc-geo/core';
 import { useArticulationStore } from '../../stores/useArticulationStore';
 import { indicatesClamping } from './clamp-indication';
 
@@ -12,6 +13,24 @@ const STRATEGY_OPTIONS = STRATEGY_DISPLAY_ORDER
     .filter((id) => STRATEGIES[id] !== undefined)
     .map((id) => ({ value: id, label: STRATEGIES[id]!.label }));
 
+/**
+ * Exact-coordinate fixtures for probing behaviour the pointer cannot reproduce,
+ * such as floating-point-exact collinear chains.
+ */
+const DEBUG_SHAPES: Record<string, { label: string; elements: Vector2[] }> = {
+    verticalLine: {
+        label: 'Vertical line, six elements at 100',
+        elements: Array.from({ length: 6 }, (_, index) => ({ x: 400, y: 100 + index * 100 })),
+    },
+    horizontalLine: {
+        label: 'Horizontal line, six elements at 100',
+        elements: Array.from({ length: 6 }, (_, index) => ({ x: 150 + index * 100, y: 300 })),
+    },
+};
+
+const DEBUG_SHAPE_OPTIONS = Object.entries(DEBUG_SHAPES)
+    .map(([value, shape]) => ({ value, label: shape.label }));
+
 export function ArticulationControlsPanel() {
     const strategyId = useArticulationStore((s) => s.strategyId);
     const transformMode = useArticulationStore((s) => s.transformMode);
@@ -22,6 +41,8 @@ export function ArticulationControlsPanel() {
     const setTransformMode = useArticulationStore((s) => s.setTransformMode);
     const deleteSelected = useArticulationStore((s) => s.deleteSelected);
     const clearAll = useArticulationStore((s) => s.clearAll);
+    const replaceChain = useArticulationStore((s) => s.replaceChain);
+    const [debugShapeKey, setDebugShapeKey] = useState<string>('verticalLine');
 
     return (
         <Paper p="sm" withBorder>
@@ -61,6 +82,23 @@ export function ArticulationControlsPanel() {
                     Click empty space to add an element. Drag empty space to marquee-select. Shift-click toggles
                     selection, Ctrl-click sets the pivot, drag a selected element to transform.
                 </Text>
+                <Divider label="Debug shapes" labelPosition="center" />
+                <Select
+                    size="xs"
+                    data={DEBUG_SHAPE_OPTIONS}
+                    value={debugShapeKey}
+                    onChange={(value) => {
+                        if (value !== null) setDebugShapeKey(value);
+                    }}
+                    allowDeselect={false}
+                />
+                <Button
+                    size="xs"
+                    variant="default"
+                    onClick={() => replaceChain(DEBUG_SHAPES[debugShapeKey].elements)}
+                >
+                    Replace shape
+                </Button>
             </Stack>
         </Paper>
     );

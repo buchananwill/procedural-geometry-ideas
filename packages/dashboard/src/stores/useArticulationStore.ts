@@ -43,6 +43,8 @@ export interface ArticulationStoreState {
     addElement: (p: Vector2) => void;
     deleteSelected: () => void;
     clearAll: () => void;
+    /** Replace the whole chain with a fresh set of elements, unconstrained. */
+    replaceChain: (elements: Vector2[]) => void;
     selectOnly: (index: number) => void;
     toggleSelect: (index: number) => void;
     marqueeSelect: (indices: number[], additive: boolean) => void;
@@ -145,6 +147,18 @@ export const useArticulationStore = create<ArticulationStoreState>()(
             set((s) => {
                 s.elements = [];
                 s.constraints = [];
+                s.selection = [];
+                s.pivotIndex = 0;
+                s.drag = null;
+                s.appliedFraction = 1;
+                s.appliedStrategyId = s.strategyId;
+                s.clampedElementIndices = [];
+            }),
+
+        replaceChain: (elements) =>
+            set((s) => {
+                s.elements = elements.map((point) => ({ ...point }));
+                s.constraints = elements.map(() => ({}));
                 s.selection = [];
                 s.pivotIndex = 0;
                 s.drag = null;
