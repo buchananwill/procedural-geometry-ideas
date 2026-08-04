@@ -165,12 +165,15 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
 
 ### Translate
 
-- Translation applies the input delta, a vector, to every selected element. The pivot plays no role in translation
-  for any of the three algorithms — it is a rotation-only concept.
-- Rigid Assembly and Spread Articulation translate the selection as a single rigid unit: every selected element
-  receives the same offset. If the raw delta does not produce a valid pose, the algorithm clamps to the largest scale
-  of the vector, in the same direction, that does. Spread Articulation defines no distinct translate semantics; it
-  delegates to the same rigid-unit behaviour.
+- Translation applies the input delta, a vector, to the selected elements. For Rigid Assembly and Saturate
+  Articulation the pivot plays no role in it — there it is a rotation-only concept. Spread Articulation is the
+  exception: its falloff is measured from the pivot, so the pivot is the one selected element its translate never
+  moves.
+- Rigid Assembly translates the selection as a single rigid unit: every selected element receives the same offset. If
+  the raw delta does not produce a valid pose, the algorithm clamps to the largest scale of the vector, in the same
+  direction, that does.
+- Spread Articulation ramps the vector along the chain instead, then relaxes the links the ramp sheared — described
+  in its own section below.
 - Saturate Articulation translates the selection as a rigid unit for as long as it can, then drops elements from the
   ends of the selection as they bind. A discontiguous selection never reaches this cascade: the solver dispatches it
   to Rigid Assembly, for every delta kind.
@@ -193,7 +196,7 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
     convention as Saturate Rotate (whose own fraction is the mean of the per-span fractions when the pivot lies inside
     the selection).
 
-#### Worked Example
+#### Worked Example (Saturate Translate)
 
 - Four elements at `x = 0, 1, 2, 3`; `selected = [1, 2, 3]`; the link `[0,1]` has a maximum distance of `2`.
 - The drag is `+x` by `5`.
@@ -204,10 +207,71 @@ let maxJointAngle = { elements: [0,1,2], limit: PI_OVER_NINE};
 - With nothing left to bind, elements `2` and `3` absorb the whole remainder of the drag, ending at `x = 7` and
   `x = 8`.
 
+#### Spread Translate
+
+- **The ramp — intent.** Element `e` is seeded at `origin(e) + delta · (arcLength(e) / arcLength(f))`, where `f` is
+  the furthest element of `e`'s span and arc length is measured along the chain from the pivot, at the pose the drag
+  started from: the sum of the link lengths walked from the pivot to reach the element. A physically nearer element
+  therefore moves less however the chain is folded, and the furthest element of each span receives the whole vector.
+  A pivot inside the selection mirrors Spread Rotate — two spans, each with its own furthest element and its own
+  ramp. A span whose furthest element sits at zero arc length, the chain having collapsed onto coincident points, has
+  no ramp to normalise by and stays where it is.
+- **The relaxation — feasibility.** The ramp shears the links, so a fixed-count constraint projection restores them
+  while preserving the ramp's intent. The **anchor set** — every unselected element and the pivot, and in future
+  whatever the user-authored Freeze state adds to it — never moves. Each span is then swept
+  `SPREAD_RELAXATION_ITERATIONS` (16) times with FABRIK's two half-sweeps: backward from the far element pinned at
+  its ramp target toward the anchored side, then forward from the anchor back out, projecting each link's length into
+  the interval both of its endpoints' entries admit and each joint angle into its bound.
+  - It is the forward sweep that makes the pose feasible: walking outward from an immovable anchor it settles every
+    link in the span in turn, and a later placement never disturbs an earlier one. It is equally what lets an
+    unreachable target pull the far element short of it — or a minimum bound push it past — which is the FABRIK
+    behaviour the design wants: the span reaches toward the target and falls where it can.
+  - Only joints with both arms inside the swept span are projected. The joints at either end reach outside it: into
+    the anchored side — the pivot joint itself, when the pivot lies inside the selection — or past the far element.
+    Those, and the link beyond the far element, are the clamp's business rather than the relaxation's.
+  - The sweep order and the iteration count are fixed, nothing is random, and every pose is rebuilt from the pose the
+    drag started from: `relax(ramp(t))` is deterministic and never cumulative, which is exactly what the clamp search
+    requires of the poses it samples.
+- **The clamp — validity.** `poseAt(t) = relax(ramp(t))` goes to the same largest-valid-delta search, against the same
+  whole-pose non-worsening predicate, as every other strategy. One global `t` covers both spans; they do NOT clamp
+  independently, which is load-bearing when the pivot joint carries an angle bound, since both spans tighten it
+  jointly and only a whole-pose predicate honours that coupling. The price of that exact coupling is a ceiling: an
+  interior pivot's joint bound clamps the whole ramp, because no sweep repairs that joint — a relaxation that
+  projected the pivot joint symmetrically from both sides could accommodate far more of such a drag, and is the
+  obvious place to take this further.
+- **The report.** `appliedFraction` is *measured*, not the clamp's `t`: the mean across spans of the furthest
+  element's displacement resolved along the drag direction, over the drag's magnitude, read off the pose being
+  returned. The two part company whenever the relaxation absorbs a shortfall the clamp is content with — every
+  fraction of an out-of-reach drag relaxes to a perfectly valid pose, so `t` would report the whole delta applied
+  while the far element sat a third of the way to the cursor. The badge follows the element, not the search.
+- Because the projection repairs the links inside a span, Spread Translate is the one strategy whose drag actively
+  pulls a violated link back to its bound as it passes. Anything outside the swept spans is governed by the usual
+  rule, and only ever gets no worse.
+- A selection of nothing but the pivot is entirely anchor, so Spread Translate returns the identity — where Rigid
+  Assembly and Saturate Articulation would translate that single element. A discontiguous selection falls back to
+  Rigid Assembly at dispatch, as for every delta kind.
+
+##### Worked Example
+
+- The six elements at `y = 0..5`, `selected = [1, 2, 3]`, `pivot = 0`, and an input delta of `+x` by `9`.
+- Arc lengths from the pivot are `1`, `2` and `3`, so the ramp weights are `1/3`, `2/3` and `1`: elements `1`, `2`
+  and `3` are seeded at `x = 3`, `6` and `9`. The pivot and elements `4` and `5` do not move. With nothing
+  constrained the relaxation is a no-op and that seeded pose is the answer, at `appliedFraction = 1`.
+- Now give the links `[0,1]`, `[1,2]` and `[2,3]` a maximum distance of `1`, their starting length. Element `3` can
+  never leave the circle of radius `3` about the anchored pivot, and its seeded target at `(9, 3)` is far outside it,
+  so the relaxation straightens the three links toward that target and element `3` comes to rest on the circle,
+  around `(2.85, 0.95)`. The pose is valid at every fraction, so the clamp discards nothing — but the far element
+  travelled `2.85` of the `9` it was asked for, and `appliedFraction` is that `0.32`, not `1`.
+- Add a maximum distance to the link `[3,4]` and the drag has something outside the span to answer for as well: that
+  link is no part of any sweep, so the clamp holds it too, and the fraction reported is the far element's achievement
+  under both limits at once.
+
 ## Reporting: selection clamp and element clamp
 
-- A **selection clamp** is the solve discarding part of the input delta: `appliedFraction < 1`. The badge is its only
-  indicator. Every solve also reports `appliedStrategyId` — the strategy that actually ran, which is Rigid Assembly
+- A **selection clamp** is the solve not delivering the whole input delta: `appliedFraction < 1`. The badge is its
+  only indicator. For most strategies that means delta discarded by the clamp; for Spread Translate it also covers a
+  span that reached toward its target and fell short, since there the fraction is measured off the far element rather
+  than taken from the clamp. Every solve also reports `appliedStrategyId` — the strategy that actually ran, which is Rigid Assembly
   whenever the solver substituted it.
 - An **element clamp** is an individual element sitting at one of its constraint bounds. `clampedElementIndices` lists
   the selected elements in that state, in ascending index order.

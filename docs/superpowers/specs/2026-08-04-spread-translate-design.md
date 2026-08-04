@@ -1,7 +1,7 @@
 # Spread Translate & Element-Clamp Reporting — Design
 
 **Date:** 2026-08-04
-**Status:** Draft, awaiting approval
+**Status:** Approved; implemented (§1–§2 in Unit 9, §3 Spread Translate in Unit 10)
 **Scope:** Three coupled changes: (1) terminology — "clamp" throughout, element clamp vs selection clamp, retiring
 "freeze" from solver vocabulary; (2) uniform at-bound element-clamp reporting replacing the event-based frozen list;
 (3) the Spread Translate strategy — ramp-seeded, relaxation-based articulation completing the 6-way strategy × delta
@@ -85,8 +85,13 @@ restores feasibility while preserving the ramp's intent:
 `poseAt(t) = relax(ramp(t))` feeds the existing `clampToValid` with the whole-pose non-worsening predicate. One
 global `t` covers both spans — they do NOT clamp independently, which is load-bearing for the pivot-caveat: when the
 pivot joint carries an angle constraint, both spans' motion tightens it jointly, and only a whole-pose predicate
-honours that coupling. `appliedFraction = t`: the fraction of the requested displacement the furthest element(s)
-achieved.
+honours that coupling.
+
+`appliedFraction` is **measured, not `t`**: the mean across spans of the furthest element's achieved displacement
+along the requested direction, over the requested magnitude, read off the accepted pose. The two differ whenever the
+relaxation absorbs a shortfall the clamp is content with — an out-of-reach target straightens the span and every `t`
+stays valid, so `t` would report 1 while the far element sits a third of the way to the cursor. A doubly limited
+drag (clamped *and* short of reach) reports the genuine achievement of the pose that came back.
 
 Degenerate cases follow house rules: a pivot-only selection yields no spans (the pivot is an anchor with arc length
 0) and returns identity — unlike rigid and saturate, spread translate never moves the pivot; discontiguous selections

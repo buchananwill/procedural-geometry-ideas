@@ -50,6 +50,21 @@ function enabledLinkDistanceBounds(constraints: ElementConstraints[], lowerLinkI
 }
 
 /**
+ * The single interval a link's length must lie in: the intersection of every
+ * enabled entry, or null when neither endpoint constrains it. Judging a link
+ * only needs the entries one at a time, but PLACING an element needs the one
+ * interval that satisfies them all at once.
+ */
+export function linkDistanceBounds(constraints: ElementConstraints[], lowerLinkIndex: number): MinMax | null {
+    const bounds = enabledLinkDistanceBounds(constraints, lowerLinkIndex);
+    if (bounds.length === 0) return null;
+    return {
+        min: Math.max(...bounds.map((bound) => bound.min)),
+        max: Math.min(...bounds.map((bound) => bound.max)),
+    };
+}
+
+/**
  * How far the length of the link between `lowerLinkIndex` and
  * `lowerLinkIndex + 1` falls outside its bounds -- the worst of the entries
  * governing it. Zero when unconstrained or within bounds.

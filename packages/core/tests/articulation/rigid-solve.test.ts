@@ -97,9 +97,11 @@ describe('rigid clamping', () => {
     });
 });
 
-describe('translation (strategy-independent, rigid-unit)', () => {
-    it('moves the selection as a unit for every strategy id', () => {
-        for (const strategyId of ['rigid', 'spread', 'saturate'] as const) {
+describe('translation (rigid-unit strategies)', () => {
+    // Spread is absent by design: its translate ramps the selection away from
+    // the pivot rather than carrying it rigidly. See spread-translate.test.ts.
+    it('moves the selection as a unit for every rigid-unit strategy id', () => {
+        for (const strategyId of ['rigid', 'saturate'] as const) {
             const chain = verticalChain();
             const result = solveArticulation(solveInput(chain, {
                 strategyId,

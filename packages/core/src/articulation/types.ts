@@ -57,12 +57,15 @@ export interface StrategyResult {
     /** Full new pose; unselected elements are unchanged copies. */
     elements: Vector2[];
     /**
-     * For rigid and spread: the input delta scaled by this factor produces the
-     * result pose (1 = raw delta applied, <1 = selection-clamped, 0 = fully
-     * blocked). For saturate: the fraction of the input absorbed before the
-     * remainder was discarded (consumed delta / requested delta). For a
-     * rotation whose pivot lies inside the selection, this is the mean of the
-     * per-span fractions.
+     * For rigid, and for spread rotate: the input delta scaled by this factor
+     * produces the result pose (1 = raw delta applied, <1 = selection-clamped,
+     * 0 = fully blocked). For saturate: the fraction of the input absorbed
+     * before the remainder was discarded (consumed delta / requested delta).
+     * For spread translate: the fraction of the requested vector the furthest
+     * element of each span achieved, since its relaxation can leave that
+     * element short of the target inside a pose the clamp accepts whole. For a
+     * rotation whose pivot lies inside the selection, and for every spread
+     * translate, this is the mean of the per-span fractions.
      */
     appliedFraction: number;
     /**
