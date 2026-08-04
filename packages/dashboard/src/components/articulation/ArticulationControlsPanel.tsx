@@ -31,7 +31,11 @@ const DEBUG_SHAPES: Record<string, { label: string; elements: Vector2[] }> = {
 const DEBUG_SHAPE_OPTIONS = Object.entries(DEBUG_SHAPES)
     .map(([value, shape]) => ({ value, label: shape.label }));
 
-export function ArticulationControlsPanel() {
+export interface ArticulationControlsPanelProps {
+    onResetView: () => void;
+}
+
+export function ArticulationControlsPanel({ onResetView }: ArticulationControlsPanelProps) {
     const strategyId = useArticulationStore((s) => s.strategyId);
     const transformMode = useArticulationStore((s) => s.transformMode);
     const selection = useArticulationStore((s) => s.selection);
@@ -78,9 +82,13 @@ export function ArticulationControlsPanel() {
                         Clear all
                     </Button>
                 </Group>
+                <Button size="xs" variant="light" color="cyan" fullWidth onClick={onResetView}>
+                    Reset View
+                </Button>
                 <Text size="xs" c="dimmed">
                     Click empty space to add an element. Drag empty space to marquee-select. Shift-click toggles
-                    selection, Ctrl-click sets the pivot, drag a selected element to transform.
+                    selection, Ctrl-click sets the pivot, drag a selected element to transform. Middle-drag or
+                    Alt+left-drag to pan.
                 </Text>
                 <Divider label="Debug shapes" labelPosition="center" />
                 <Select

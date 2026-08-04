@@ -14,13 +14,14 @@ This package deliberately does not bundle React, Mantine, or Konva — install t
 copy of each in your app:
 
 ```bash
-npm install react react-dom @mantine/core @mantine/hooks konva react-konva zustand immer
+npm install react react-dom @mantine/core @mantine/hooks @mantine/notifications konva react-konva zustand immer
 ```
 
 | Peer                          | Range |
 |-------------------------------|-------|
 | `react`, `react-dom`          | `^19` |
 | `@mantine/core`, `@mantine/hooks` | `^8`  |
+| `@mantine/notifications`      | `^8`  |
 | `konva`                       | `^10` |
 | `react-konva`                 | `^19` |
 | `zustand`                     | `^5`  |
@@ -33,22 +34,33 @@ npm install react react-dom @mantine/core @mantine/hooks konva react-konva zusta
 The components are Mantine components, so they need a `MantineProvider` and Mantine's stylesheet somewhere above them.
 In a Next.js App Router project that goes in your root layout:
 
+Some components report failures as toasts, so they also need `<Notifications />` mounted inside the provider:
+
 ```tsx
 // app/layout.tsx
 import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
+import { Notifications } from '@mantine/notifications';
 import '@mantine/core/styles.css';
+import '@mantine/notifications/styles.css';
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" {...mantineHtmlProps}>
       <head><ColorSchemeScript /></head>
       <body>
-        <MantineProvider>{children}</MantineProvider>
+        <MantineProvider>
+          <Notifications />
+          {children}
+        </MantineProvider>
       </body>
     </html>
   );
 }
 ```
+
+> **Mount `<Notifications />` even if you think you do not need it.** Without it, `notifications.show(...)` still
+> succeeds — the toasts simply never render, so failures such as `ArticulationConstraintPanel`'s "Paste ignored"
+> warning are silently swallowed, and the queued notifications accumulate unbounded for the life of the page.
 
 Everything exported from this package is a client component. The published bundle carries a `"use client"` directive,
 so you can import it directly from a server component without marking your own page.

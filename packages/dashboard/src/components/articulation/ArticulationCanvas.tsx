@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stage, Layer, Line, Circle, Rect } from 'react-konva';
 import type { KonvaEventObject } from 'konva/lib/Node';
 import { useArticulationStore } from '../../stores/useArticulationStore';
+import { screenToWorld } from './screen-to-world';
 
 const LINK_COLOR = '#5c6470';
 const ELEMENT_COLOR = '#7a8288';
@@ -17,11 +18,31 @@ type PointerSession =
     | { type: 'maybe-transform'; index: number; start: { x: number; y: number } }
     | { type: 'transform' };
 
-export function ArticulationCanvas() {
+/**
+ * Pan trigger shared with the other demo canvases: middle-drag, or alt plus
+ * left-drag. Left-drag alone is spoken for here by add, marquee and transform.
+ */
+function isPanTrigger(event: PointerEvent): boolean {
+    const isMiddleButton = event.button === 1;
+    const isAltLeftButton = event.button === 0 && event.altKey;
+    return isMiddleButton || isAltLeftButton;
+}
+
+export interface ArticulationCanvasProps {
+    stagePosition: { x: number; y: number };
+    onPositionChange: (pos: { x: number; y: number }) => void;
+}
+
+export function ArticulationCanvas({ stagePosition, onPositionChange }: ArticulationCanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 800, height: 600 });
     const sessionRef = useRef<PointerSession | null>(null);
     const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+    /**
+     * Pointer-to-stage-origin offset held for the duration of a pan drag. At most
+     * one gesture is ever live: a pan and a pointer session are mutually exclusive.
+     */
+    const panOriginRef = useRef<{ x: number; y: number } | null>(null);
 
     const elements = useArticulationStore((s) => s.elements);
     const selection = useArticulationStore((s) => s.selection);
@@ -52,12 +73,39 @@ export function ArticulationCanvas() {
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
-    const stagePos = (e: KonvaEventObject<PointerEvent>) => {
+    const worldPointerPosition = (e: KonvaEventObject<PointerEvent>) => {
         const stage = e.target.getStage();
-        return stage?.getPointerPosition() ?? null;
+        const screenPosition = stage?.getPointerPosition();
+        if (!screenPosition) return null;
+        return screenToWorld(screenPosition, stagePosition);
+    };
+
+    /**
+     * Drop a live gesture, discharging whatever the store is owed for it, so that
+     * another gesture can take over without stranding a drag or a marquee rect.
+     */
+    const abandonSession = () => {
+        const session = sessionRef.current;
+        sessionRef.current = null;
+        if (!session) return;
+        if (session.type === 'transform') useArticulationStore.getState().endDrag();
+        if (session.type === 'marquee') setMarquee(null);
+    };
+
+    const beginPan = (e: KonvaEventObject<PointerEvent>) => {
+        e.evt.preventDefault();
+        abandonSession();
+        panOriginRef.current = {
+            x: e.evt.clientX - stagePosition.x,
+            y: e.evt.clientY - stagePosition.y,
+        };
     };
 
     const handleElementPointerDown = (index: number, e: KonvaEventObject<PointerEvent>) => {
+        // A pan owns the pointer until it ends: no second gesture may start under it.
+        if (panOriginRef.current) return;
+        // A pan press over an element belongs to the stage: leave the event to bubble.
+        if (isPanTrigger(e.evt)) return;
         e.cancelBubble = true;
         if (e.evt.button !== 0) return;
         const store = useArticulationStore.getState();
@@ -70,7 +118,7 @@ export function ArticulationCanvas() {
             return;
         }
         if (store.selection.includes(index)) {
-            const pos = stagePos(e);
+            const pos = worldPointerPosition(e);
             if (pos) {
                 sessionRef.current = { type: 'maybe-transform', index, start: pos };
             }
@@ -80,15 +128,25 @@ export function ArticulationCanvas() {
     };
 
     const handleStagePointerDown = (e: KonvaEventObject<PointerEvent>) => {
+        if (panOriginRef.current) return;
+        if (isPanTrigger(e.evt)) {
+            beginPan(e);
+            return;
+        }
         if (e.target !== e.target.getStage()) return; // element handlers own their events
         if (e.evt.button !== 0) return;
-        const pos = stagePos(e);
+        const pos = worldPointerPosition(e);
         if (pos) sessionRef.current = { type: 'maybe-add', start: pos, shift: e.evt.shiftKey };
     };
 
     const handlePointerMove = (e: KonvaEventObject<PointerEvent>) => {
+        const panOrigin = panOriginRef.current;
+        if (panOrigin) {
+            onPositionChange({ x: e.evt.clientX - panOrigin.x, y: e.evt.clientY - panOrigin.y });
+            return;
+        }
         const session = sessionRef.current;
-        const pos = stagePos(e);
+        const pos = worldPointerPosition(e);
         if (!session || !pos) return;
         if (session.type === 'transform') {
             useArticulationStore.getState().updateDrag(pos);
@@ -119,6 +177,11 @@ export function ArticulationCanvas() {
     };
 
     const handlePointerUp = () => {
+        if (panOriginRef.current) {
+            panOriginRef.current = null;
+            abandonSession();
+            return;
+        }
         const session = sessionRef.current;
         sessionRef.current = null;
         const store = useArticulationStore.getState();
@@ -150,6 +213,7 @@ export function ArticulationCanvas() {
     };
 
     const handlePointerLeave = () => {
+        panOriginRef.current = null;
         const session = sessionRef.current;
         sessionRef.current = null;
         if (!session) return;
@@ -187,6 +251,8 @@ export function ArticulationCanvas() {
             <Stage
                 width={size.width}
                 height={size.height}
+                x={stagePosition.x}
+                y={stagePosition.y}
                 onPointerDown={handleStagePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}

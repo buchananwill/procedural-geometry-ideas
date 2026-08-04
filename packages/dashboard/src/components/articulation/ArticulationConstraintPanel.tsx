@@ -1,4 +1,5 @@
 import { Button, Group, NumberInput, Paper, Stack, Switch, Text, Title } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { useEffect, useState } from 'react';
 import type { ElementConstraints, MinMax } from '@proc-geo/core';
 import { useArticulationStore } from '../../stores/useArticulationStore';
@@ -125,11 +126,21 @@ export function ArticulationConstraintPanel() {
         if (active === null) return;
         await navigator.clipboard.writeText(JSON.stringify(active));
     };
+    const warnPasteIgnored = () => {
+        notifications.show({
+            color: 'yellow',
+            title: 'Paste ignored',
+            message: 'The clipboard did not contain valid constraint data.',
+        });
+    };
     const paste = async () => {
         try {
             const text = await navigator.clipboard.readText();
             const parsed: unknown = JSON.parse(text);
-            if (typeof parsed !== 'object' || parsed === null) return;
+            if (typeof parsed !== 'object' || parsed === null) {
+                warnPasteIgnored();
+                return;
+            }
             const sanitized: ElementConstraints = {};
             for (const key of ['distanceToPrev', 'distanceToNext', 'jointAngle'] as const) {
                 const bound = (parsed as Record<string, unknown>)[key];
@@ -143,10 +154,14 @@ export function ArticulationConstraintPanel() {
                     sanitized[key] = { min, max };
                 }
             }
-            if (Object.keys(sanitized).length === 0) return;
+            if (Object.keys(sanitized).length === 0) {
+                warnPasteIgnored();
+                return;
+            }
             applyConstraintsTo(selection, sanitized);
         } catch {
-            // invalid clipboard contents: ignore
+            // unreadable clipboard or unparseable JSON: nothing to apply
+            warnPasteIgnored();
         }
     };
 
