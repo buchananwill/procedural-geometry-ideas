@@ -2,23 +2,23 @@
 
 The purpose of this module is to allow exploration of constraint solving on a series of connected elements, by treating
 them as articulation points in a linkage. The constraints vary: both element separation and joint angle can be free or
-constrained. This document captures the philosophical intent of the solver set — what each strategy means, which
-invariants are load-bearing, and which behaviours were deliberate decisions rather than accidents — as the guide for
+constrained. This document captures the philosophical intent of the solver set: what each strategy means, which
+invariants are load-bearing, and which behaviours were deliberate decisions rather than accidents. It is a the guide for
 porting the TypeScript implementation into other languages and paradigms. Where a number or an algorithm appears here,
 it is part of the design; where something is absent, the port is free.
 
 Two priorities govern every solving strategy, in order: the solver must never produce an invalid pose, and within that
 limit it must accommodate the user's input delta as closely as possible. From a valid pose the solver must never
-produce an invalid one; from an invalid pose — which constraint edits under an existing pose can always create — it
+produce an invalid one; from an invalid pose (which may result from e.g. editing the constraints of an existing pose) it
 must never worsen any constraint's violation, and must permit deltas that reduce them, so the user can drag the chain
-back toward validity. Validity is a property of poses, never of paths — the user is searching a constrained space for
+back toward validity. Validity is a property of poses, never of paths: the user is searching a constrained space for
 a visually pleasing arrangement, not simulating physical motion. "Tunnelling" through regions of invalid pose space to
 reach a valid pose is therefore desirable behaviour, not a defect, and no strategy should trade accommodation away to
 preserve continuity of motion.
 
 "Valid" and "never worsen" are both read to the solver's epsilon tolerance: every bound admits an epsilon margin, and
 the non-worsening rule likewise permits growth of up to epsilon per solve (per cascade iteration for saturate). A pose
-riding exactly on a bound can therefore drift within that tolerance class across repeated gestures — accepted
+riding exactly on a bound can therefore drift within that tolerance class across repeated gestures. This is accepted
 deliberately, since epsilon is orders of magnitude below anything visible on canvas and capping it exactly would trade
 floating-point robustness for no observable behaviour.
 
@@ -30,10 +30,10 @@ a premise they declined to adopt. Angle bounds that must always hold should be p
 Three modes of constraint satisfaction are offered, ordered by the degree to which the input delta is interpreted
 against the selection as a rigid assembly versus as individual elements:
 
-1. Rigid Assembly — the selection moves as one body.
-2. Saturate Articulation — the selection moves as one body until boundary elements bind, then sheds them and carries
+1. Rigid Assembly: the selection moves as one body.
+2. Saturate Articulation: the selection moves as one body until boundary elements bind, then sheds them and carries
    the remainder onward.
-3. Spread Articulation — the delta is distributed across the selection element by element.
+3. Spread Articulation: the delta is distributed across the selection element by element.
 
 Each mode interprets both delta kinds, rotation and translation, giving a six-way matrix. The strategies are
 implemented behind a polymorphic Strategy Pattern so further resolution algorithms can be added later; the six here
