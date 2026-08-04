@@ -4,10 +4,13 @@ import type { StrategyId } from '@proc-geo/core';
 import { useArticulationStore } from '../../stores/useArticulationStore';
 import { indicatesClamping } from './clamp-indication';
 
-const STRATEGY_OPTIONS = (Object.keys(STRATEGIES) as StrategyId[]).map((id) => ({
-    value: id,
-    label: STRATEGIES[id]!.label,
-}));
+// Presentation order: the axis runs from interpreting the input against the
+// selection as one rigid assembly toward interpreting it per element.
+const STRATEGY_DISPLAY_ORDER: StrategyId[] = ['rigid', 'saturate', 'spread'];
+
+const STRATEGY_OPTIONS = STRATEGY_DISPLAY_ORDER
+    .filter((id) => STRATEGIES[id] !== undefined)
+    .map((id) => ({ value: id, label: STRATEGIES[id]!.label }));
 
 export function ArticulationControlsPanel() {
     const strategyId = useArticulationStore((s) => s.strategyId);

@@ -35,8 +35,8 @@ export interface ArticulationStoreState {
     /**
      * Selected elements sitting at a constraint bound they participate in, in
      * the last solved pose, ascending. Independent of `appliedFraction`: a
-     * fully absorbed drag can leave elements resting on bounds, while a clamped
-     * drag always names at least one selected element.
+     * fully absorbed drag can leave elements resting on bounds, and a clamped
+     * drag from an already-violated pose can name none.
      */
     clampedElementIndices: number[];
 

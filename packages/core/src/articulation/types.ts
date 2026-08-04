@@ -93,10 +93,12 @@ export interface SolveResult extends StrategyResult {
      *
      * The set is a property of the pose, not a history of the solve, so it is
      * measured identically for every strategy and for identity results. A drag
-     * that was fully absorbed can still report clamped elements, and a
-     * selection-clamped drag always names at least one selected element,
-     * because only selected elements move and so the binding constraint always
-     * has a selected participant.
+     * that was fully absorbed can still report clamped elements. From a valid
+     * base pose a selection-clamped drag always names at least one selected
+     * element, because only selected elements move and so the binding
+     * constraint always has a selected participant; from an already-violated
+     * base the limiter is the non-worsening rule rather than a limit, and the
+     * set can be empty.
      */
     clampedElementIndices: number[];
 }
