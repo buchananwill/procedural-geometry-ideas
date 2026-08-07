@@ -111,6 +111,13 @@ export type { SteppedAlgorithmResult, SolveSkeletonOptions } from './straight-sk
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
 
+// ── Offset projection ────────────────────────────────────────────────────────
+export {
+  computeNodeOffsets,
+  computeMaxOffset,
+  computeOffsetRings,
+} from './straight-skeleton/offset-projection';
+
 // ── Graph merge (polygon decomposition) ──────────────────────────────────────
 export { mergeSkeletonGraphs, makeMergedSolverContext } from './straight-skeleton/graph-merge';
 export type { SubPolygonResult, MergedGraphResult } from './straight-skeleton/graph-merge';
