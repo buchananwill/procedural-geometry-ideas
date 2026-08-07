@@ -126,6 +126,20 @@ export {WHY_NO_COLLISION} from './why-no-collision-e15-e18';
 export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
+// near-regular-polygons.ts
+// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these are
+// analytic control shapes that the solver currently fails to resolve, and the sweeps over
+// ALL_TEST_POLYGONS assert completeness for every member. See the file header for detail.
+export {
+    NEAR_REGULAR_CIRCLE_16,
+    NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_CIRCLE_48,
+    NEAR_REGULAR_ELLIPSE_16,
+    NEAR_REGULAR_ELLIPSE_32,
+    NEAR_REGULAR_PEANUT_32,
+    NEAR_REGULAR_ROSETTE5_40,
+} from './near-regular-polygons';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];
