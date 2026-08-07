@@ -269,11 +269,19 @@ export {
 } from './articulation';
 
 // ── Parcel generation: offset provenance and strip decomposition ─────────────
-export { computeOffsetRingsDetailed, requireProjectableResult } from './straight-skeleton/offset-projection';
+export {
+    computeOffsetRingsDetailed,
+    projectOffsetWavefront,
+    requireProjectableResult,
+} from './straight-skeleton/offset-projection';
 export type {
+    DegenerateCycle,
+    OffsetProjection,
     OffsetRing,
     OffsetRingSegment,
     OffsetRingVertex,
+    UnclosedChain,
+    UnclosedChainReason,
 } from './straight-skeleton/offset-projection';
 export { computeStrips } from './straight-skeleton/strip-decomposition';
 export type {

@@ -1,6 +1,5 @@
 import type {InteriorEdge, SkeletonSolveResult, StraightSkeletonSolverContext, Vector2} from './types';
 import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAreEqual} from './core-functions';
-import {sourceOffsetDistance} from './collision-helpers';
 
 /**
  * Projection of a solved straight skeleton back into wavefront positions.
@@ -20,14 +19,31 @@ import {sourceOffsetDistance} from './collision-helpers';
  *
  * Every interior edge (bisector) is alive over a half-open offset interval `[birth, death)`:
  *
- * - `birth` is the offset at which the bisector's source node came into existence — zero for
- *   primary bisectors, which start at original polygon vertices, and the source node's own offset
- *   for secondary bisectors created by a collapse or split event.
+ * - `birth` is the offset of the bisector's source node — zero for primary bisectors, which start
+ *   at original polygon vertices, and the node's own offset for secondary bisectors created by a
+ *   collapse or split event.
  * - `death` is the offset of the node the bisector terminates at.
  *
  * The interval is half-open: a bisector that dies exactly at `t` is **excluded** at `t`, and a
  * bisector born exactly at `t` is **included**. That keeps the two ends of an event from both
  * contributing a vertex at the instant the event happens.
+ *
+ * ## Both ends of a lifetime come from one table
+ *
+ * `birth` and `death` are the same quantity — a node's offset — read for two different nodes, so
+ * they are both read from the single map {@link computeNodeOffsets} builds and never derived a
+ * second way. That is load-bearing rather than tidy. At an event, one bisector dies at the node
+ * where the next is born, and the half-open interval hands the wavefront vertex from the first to
+ * the second only if `death` of the one is bit-for-bit `birth` of the other. Deriving `birth`
+ * independently — from `sourceOffsetDistance`, say, which the solver uses and which reaches the
+ * same number by a different route — makes the two disagree in the last few bits, and wherever they
+ * disagree the hand-over drops a bisector that nothing replaces. A dropped bisector breaks the
+ * chain of wavefront segments and costs the whole ring.
+ *
+ * Because the two ends agree exactly, the comparison needs no slack and is not given any. A
+ * tolerance here does not buy robustness: widening the interval makes a bisector alive at both ends
+ * of an event and duplicates a vertex, and shifting it — which is what a tolerance subtracted from
+ * both ends does — reintroduces exactly the dropout it was meant to guard against.
  *
  * ## Offsets are re-derived, not read back
  *
@@ -42,9 +58,6 @@ import {sourceOffsetDistance} from './collision-helpers';
  * callers must resolve the self-intersection first (see `decomposePolygon`) and project each
  * sub-polygon's own solve.
  */
-
-/** Slack used when testing an offset against a lifetime boundary. */
-const LIFETIME_TOLERANCE = 1e-9;
 
 /** A bisector that is alive at the requested offset, with its wavefront position there. */
 interface AliveBisector {
@@ -106,6 +119,68 @@ export interface OffsetRingSegment {
 export interface OffsetRing {
     vertices: OffsetRingVertex[];
     segments: OffsetRingSegment[];
+}
+
+/** Why a run of wavefront segments never closed into a ring. */
+export type UnclosedChainReason =
+    /** The last segment's end bisector opens no segment anywhere: the wavefront has a loose end. */
+    | 'no-successor'
+    /** The walk rejoined itself part way along instead of at the seed: the wavefront forked. */
+    | 'rejoined-mid-chain';
+
+/**
+ * A run of wavefront segments that never closed, and is therefore missing from the projection.
+ *
+ * This is always a defect, never a shape. The wavefront at any offset short of the maximum is a set
+ * of closed loops; a run with a loose end means the projection failed to reconstruct one of them,
+ * and the area it would have enclosed is simply absent from {@link OffsetProjection.rings}. A caller
+ * that cannot tell "there are no lots here" from "the projection failed" will read the loss as the
+ * former, which is why this is reported rather than dropped.
+ */
+export interface UnclosedChain {
+    reason: UnclosedChainReason;
+    /** Exterior edge ids of the segments walked, in walk order. */
+    exteriorEdgeIds: number[];
+    /** Bisector ids along the run: each segment's start, then the final segment's end. */
+    bisectorIds: number[];
+    /** Where the run began. */
+    start: Vector2;
+    /** Where the walk stopped, having found nothing to continue to. */
+    end: Vector2;
+}
+
+/**
+ * A closed cycle that enclosed no area and was dropped.
+ *
+ * Unlike an {@link UnclosedChain} this is not a defect. Fewer than three segments of non-zero length
+ * cannot bound a region, so the cycle contributes nothing whether it is kept or not. It is reported
+ * only so that the count of cycles found and the count of rings returned can be reconciled.
+ */
+export interface DegenerateCycle {
+    /** Bisector ids along the cycle, in walk order. */
+    bisectorIds: number[];
+    /** Segments in the cycle before zero-length ones were dropped. */
+    segmentCount: number;
+    /** Segments of non-zero length that survived: always fewer than three, or it would be a ring. */
+    keptSegmentCount: number;
+}
+
+/**
+ * Everything the projection found at one offset, including what it could not use.
+ *
+ * `rings` is the answer. The other two fields are the account of what did not make it into that
+ * answer: `unclosedChains` is wavefront the projection failed on and `degenerateCycles` is wavefront
+ * that was genuinely empty. A projection is sound exactly when `unclosedChains` is empty.
+ */
+export interface OffsetProjection {
+    /** The offset projected to, echoed back. */
+    offset: number;
+    /** The closed rings — the same value {@link computeOffsetRingsDetailed} returns. */
+    rings: OffsetRing[];
+    /** Runs of wavefront that never closed. Non-empty means rings are missing from `rings`. */
+    unclosedChains: UnclosedChain[];
+    /** Closed cycles that bounded no area and were dropped. Harmless. */
+    degenerateCycles: DegenerateCycle[];
 }
 
 /**
@@ -211,10 +286,15 @@ export function computeMaxOffset(result: SkeletonSolveResult): number {
     return maxOffset;
 }
 
-/** Bisectors alive at `offset`, with the wavefront position each one occupies there. */
+/**
+ * Bisectors alive at `offset`, with the wavefront position each one occupies there.
+ *
+ * Both ends of the lifetime are read from `nodeOffsets`, so at an event the bisector dying there
+ * and the bisector born there compare against the identical number and the hand-over is exact. See
+ * the module header for why nothing else will do.
+ */
 function collectAliveBisectors(
     result: SkeletonSolveResult,
-    context: StraightSkeletonSolverContext,
     nodeOffsets: Map<number, number>,
     offset: number,
 ): AliveBisector[] {
@@ -228,12 +308,12 @@ function collectAliveBisectors(
         }
 
         const death = nodeOffsets.get(polygonEdge.target);
-        if (death === undefined) {
+        const birth = nodeOffsets.get(polygonEdge.source);
+        if (death === undefined || birth === undefined) {
             continue;
         }
 
-        const birth = sourceOffsetDistance(interiorEdge, context);
-        if (offset < birth - LIFETIME_TOLERANCE || offset >= death - LIFETIME_TOLERANCE) {
+        if (offset < birth || offset >= death) {
             continue;
         }
 
@@ -270,6 +350,18 @@ function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: Int
  * widdershins parent closes a segment. Sorting the endpoints along the edge's basis direction and
  * pairing them in order recovers the live spans. An edge can yield more than one pair, which is
  * exactly the case where the wavefront has pinched and the boundary has split in two.
+ *
+ * ## Where two endpoints land on the same point
+ *
+ * At the exact offset of a split event, the bisector the split kills and the bisector it creates
+ * both sit on the split point, so a closing endpoint and an opening endpoint have the identical
+ * position along the edge. The tie is broken **close before open**, and that ordering is the whole
+ * of the matter: the span arriving from lower down the edge has to be shut before the new one is
+ * opened. Opening first instead makes the second opener arrive while a start is still pending, and
+ * `pendingStart ??=` then drops it — the new bisector never opens a span, the chain that should
+ * have run through it has nothing to continue to, and the ring it belonged to is lost. Two live
+ * bisectors bounding a genuinely zero-length span cannot occur and so is not a case to preserve:
+ * a span of zero length means its two bisectors have met, and bisectors that have met are dead.
  */
 function segmentsAlongExteriorEdge(
     result: SkeletonSolveResult,
@@ -290,7 +382,7 @@ function segmentsAlongExteriorEdge(
         }
     }
 
-    endpoints.sort((a, b) => (a.alongEdge - b.alongEdge) || (Number(b.isStart) - Number(a.isStart)));
+    endpoints.sort((a, b) => (a.alongEdge - b.alongEdge) || (Number(a.isStart) - Number(b.isStart)));
 
     const segments: WavefrontSegment[] = [];
     let pendingStart: SegmentEndpoint | null = null;
@@ -350,8 +442,19 @@ function makeRing(cycle: WavefrontSegment[]): OffsetRing | null {
     return {vertices, segments};
 }
 
-/** Walk the segment graph into closed cycles, discarding any chain that does not close. */
-function assembleRings(segments: WavefrontSegment[]): OffsetRing[] {
+/** Bisector ids along a run of segments: each segment's start, then the last segment's end. */
+function chainBisectorIds(chain: WavefrontSegment[]): number[] {
+    return [...chain.map(segment => segment.startBisectorId), chain[chain.length - 1].endBisectorId];
+}
+
+/**
+ * Walk the segment graph into closed cycles.
+ *
+ * A run that does not close cannot become a ring, but it is not thrown away either: it is described
+ * in {@link OffsetProjection.unclosedChains} so that a caller can tell a projection that found
+ * nothing from one that lost something. See {@link UnclosedChain}.
+ */
+function assembleRings(segments: WavefrontSegment[], offset: number): OffsetProjection {
     const indexByStartBisector = new Map<number, number>();
     segments.forEach((segment, index) => {
         if (!indexByStartBisector.has(segment.startBisectorId)) {
@@ -360,6 +463,8 @@ function assembleRings(segments: WavefrontSegment[]): OffsetRing[] {
     });
 
     const rings: OffsetRing[] = [];
+    const unclosedChains: UnclosedChain[] = [];
+    const degenerateCycles: DegenerateCycle[] = [];
     const visited = new Set<number>();
 
     for (let seed = 0; seed < segments.length; seed++) {
@@ -370,33 +475,61 @@ function assembleRings(segments: WavefrontSegment[]): OffsetRing[] {
         const cycle: WavefrontSegment[] = [];
         let cursor = seed;
         let closed = false;
+        let reason: UnclosedChainReason = 'no-successor';
         for (;;) {
             visited.add(cursor);
             cycle.push(segments[cursor]);
             const next = indexByStartBisector.get(segments[cursor].endBisectorId);
-            if (next === undefined || visited.has(next)) {
-                closed = next === seed;
+            if (next === seed) {
+                closed = true;
+                break;
+            }
+            if (next === undefined) {
+                reason = 'no-successor';
+                break;
+            }
+            if (visited.has(next)) {
+                reason = 'rejoined-mid-chain';
                 break;
             }
             cursor = next;
         }
 
         if (!closed) {
+            unclosedChains.push({
+                reason,
+                exteriorEdgeIds: cycle.map(segment => segment.exteriorEdgeId),
+                bisectorIds: chainBisectorIds(cycle),
+                start: cycle[0].startPosition,
+                end: cycle[cycle.length - 1].endPosition,
+            });
             continue;
         }
 
         const ring = makeRing(cycle);
-        if (ring !== null) {
-            rings.push(ring);
+        if (ring === null) {
+            degenerateCycles.push({
+                bisectorIds: chainBisectorIds(cycle),
+                segmentCount: cycle.length,
+                keptSegmentCount: cycle.filter(
+                    segment => !vectorsAreEqual(segment.startPosition, segment.endPosition)).length,
+            });
+            continue;
         }
+        rings.push(ring);
     }
 
-    return rings;
+    return {offset, rings, unclosedChains, degenerateCycles};
 }
 
-/** The single implementation behind both public ring entry points. */
-function projectWavefront(result: SkeletonSolveResult, offset: number, caller: string): OffsetRing[] {
-    const context = requireProjectableResult(result, caller);
+/** A projection that found no wavefront at all, and lost nothing finding it. */
+function emptyProjection(offset: number): OffsetProjection {
+    return {offset, rings: [], unclosedChains: [], degenerateCycles: []};
+}
+
+/** The single implementation behind every public ring entry point. */
+function projectWavefront(result: SkeletonSolveResult, offset: number, caller: string): OffsetProjection {
+    requireProjectableResult(result, caller);
 
     if (!(offset >= 0)) {
         throw new Error(`${caller} requires a non-negative offset, received ${offset}.`);
@@ -411,12 +544,12 @@ function projectWavefront(result: SkeletonSolveResult, offset: number, caller: s
         }
     }
     if (offset >= maxOffset) {
-        return [];
+        return emptyProjection(offset);
     }
 
-    const alive = collectAliveBisectors(result, context, nodeOffsets, offset);
+    const alive = collectAliveBisectors(result, nodeOffsets, offset);
     if (alive.length === 0) {
-        return [];
+        return emptyProjection(offset);
     }
 
     const segments: WavefrontSegment[] = [];
@@ -424,7 +557,7 @@ function projectWavefront(result: SkeletonSolveResult, offset: number, caller: s
         segments.push(...segmentsAlongExteriorEdge(result, exteriorEdgeId, alive));
     }
 
-    return assembleRings(segments);
+    return assembleRings(segments, offset);
 }
 
 /**
@@ -441,7 +574,28 @@ function projectWavefront(result: SkeletonSolveResult, offset: number, caller: s
  * @throws if `offset` is negative, or the solve is incomplete or has no solver context.
  */
 export function computeOffsetRingsDetailed(result: SkeletonSolveResult, offset: number): OffsetRing[] {
-    return projectWavefront(result, offset, 'computeOffsetRingsDetailed');
+    return projectWavefront(result, offset, 'computeOffsetRingsDetailed').rings;
+}
+
+/**
+ * The wavefront at `offset` together with an account of anything the projection could not use.
+ *
+ * The widest of the three ring entry points, and the one to reach for when an empty or short result
+ * has to be acted on rather than merely displayed. {@link computeOffsetRings} and
+ * {@link computeOffsetRingsDetailed} are this function with `.rings` taken, and no ring differs
+ * between them; the difference is only that they discard the account and this one does not.
+ *
+ * A projection is sound exactly when {@link OffsetProjection.unclosedChains} is empty, which for a
+ * correctly solved skeleton it always is. A non-empty value means whole rings are missing from
+ * `rings` — the wavefront was there and the projection failed to close it — and is the one signal
+ * that distinguishes "the offset contour here is empty" from "the offset contour here was lost".
+ * Callers that treat an empty ring list as a real answer, such as a parcel generator deciding a
+ * block yields no lots, should check it before believing the answer.
+ *
+ * @throws if `offset` is negative, or the solve is incomplete or has no solver context.
+ */
+export function projectOffsetWavefront(result: SkeletonSolveResult, offset: number): OffsetProjection {
+    return projectWavefront(result, offset, 'projectOffsetWavefront');
 }
 
 /**
@@ -457,9 +611,12 @@ export function computeOffsetRingsDetailed(result: SkeletonSolveResult, offset: 
  * - `offset >= computeMaxOffset(result)` returns `[]` — the wavefront has been fully consumed.
  * - A bisector whose lifetime ends exactly at `offset` does not contribute; lifetimes are half-open.
  *
+ * An empty result is reported the same way whether the wavefront was genuinely empty or the
+ * projection lost it. Use {@link projectOffsetWavefront} where the difference matters.
+ *
  * @throws if `offset` is negative, or the solve is incomplete or has no solver context.
  */
 export function computeOffsetRings(result: SkeletonSolveResult, offset: number): Vector2[][] {
     return projectWavefront(result, offset, 'computeOffsetRings')
-        .map(ring => ring.vertices.map(vertex => vertex.position));
+        .rings.map(ring => ring.vertices.map(vertex => vertex.position));
 }
