@@ -282,3 +282,7 @@ export type {
     CornerContext,
     CornerAssignment,
 } from './straight-skeleton/strip-decomposition';
+
+// ── Parcel generation: slicing strips into parcels ───────────────────────────
+export { sliceStrip, sliceStrips } from './straight-skeleton/parcel-slicing';
+export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
