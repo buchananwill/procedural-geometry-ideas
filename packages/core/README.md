@@ -113,7 +113,7 @@ const polygon = generateRandomPolygon({
 and third arguments set the start position and the retry limit (default `10`); if every attempt fails, a small triangle
 is returned rather than throwing.
 
-Pair it with `@proc-geo/test-fixtures` for 35 named polygons covering known tricky cases.
+Pair it with `@proc-geo/test-fixtures` for 37 named polygons covering known tricky cases.
 
 ---
 
@@ -277,7 +277,7 @@ produced it.
 
 ## Related packages
 
-- **[`@proc-geo/test-fixtures`](https://www.npmjs.com/package/@proc-geo/test-fixtures)** — 35 named polygon fixtures
+- **[`@proc-geo/test-fixtures`](https://www.npmjs.com/package/@proc-geo/test-fixtures)** — 37 named polygon fixtures
   for regression testing and benchmarking.
 - **[`@proc-geo/dashboard`](https://www.npmjs.com/package/@proc-geo/dashboard)** — React components (Mantine + Konva)
   for exploring all four modules interactively.
