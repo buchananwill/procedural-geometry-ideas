@@ -1,6 +1,8 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, CollisionEvent,
+    SkeletonDiagnostic,
+    SkeletonSolveResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
@@ -20,6 +22,7 @@ import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
+import {isClockwise} from "../random-polygon/geometry-helpers";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -189,26 +192,50 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 
     return {
-        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1)
+        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1),
+        errors
     }
 }
 
+/** Outcome of solving one simple (non-self-intersecting) polygon. */
+interface SimplePolygonRun {
+    context: StraightSkeletonSolverContext;
+    /** Messages accumulated from every `stepAlgorithm` iteration of this run. */
+    errors: string[];
+}
+
 /** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
-function runSimplePolygon(nodes: Vector2[]): StraightSkeletonSolverContext {
+function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
     const context = makeStraightSkeletonSolverContext(nodes);
     const exteriorEdges = [...context.graph.edges]
+    const errors: string[] = [];
 
     initInteriorEdges(context);
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     while (inputs.length > 0) {
-        inputs = stepAlgorithm(context, inputs).childSteps
+        const output = stepAlgorithm(context, inputs);
+        errors.push(...(output.errors ?? []));
+        inputs = output.childSteps
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
     }
 
-    return context
+    return {context, errors}
 }
 
+/**
+ * Legacy entry point, preserved verbatim for existing callers.
+ *
+ * It reports nothing about how well the solve went, and retains three silent-failure modes:
+ * 1. Counter-clockwise input does not throw — it yields a graph with only the boundary and no
+ *    resolved interior edges.
+ * 2. Per-sub-polygon exceptions are swallowed by `stepAlgorithm`, so a partially-resolved
+ *    skeleton is indistinguishable from a complete one.
+ * 3. Self-intersecting input returns the merged solver context, whose helpers throw when called.
+ *
+ * Prefer {@link solveSkeleton}, which normalises winding, reports diagnostics, and returns
+ * `context: null` instead of a throwing stub for the merged path.
+ */
 export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
@@ -217,15 +244,104 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     const decomposition = decomposePolygon(nodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        return runSimplePolygon(nodes);
+        return runSimplePolygon(nodes).context;
     }
 
     const subResults = decomposition.subPolygons.map(subPoly => ({
-        graph: runSimplePolygon(subPoly).graph,
+        graph: runSimplePolygon(subPoly).context.graph,
     }));
 
     const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
     return makeMergedSolverContext(merged);
+}
+
+export interface SolveSkeletonOptions {
+    /**
+     * Reverse counter-clockwise input before solving. The solver only handles clockwise
+     * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
+     * Defaults to `true`.
+     */
+    normaliseWinding?: boolean;
+}
+
+/** Collect the interior edges of a solved graph that never acquired a target node. */
+function findUnresolvedInteriorEdgeIds(graph: StraightSkeletonGraph): number[] {
+    return graph.interiorEdges
+        .filter(interiorEdge => graph.edges[interiorEdge.id]?.target === undefined)
+        .map(interiorEdge => interiorEdge.id);
+}
+
+function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): void {
+    for (const error of errors) {
+        diagnostics.push({kind: 'step-failure', detail: error});
+    }
+}
+
+/**
+ * Primary entry point: solve the straight skeleton and report how complete the answer is.
+ *
+ * Unlike {@link runAlgorithmV5}, every degraded outcome is visible on the returned value —
+ * winding correction, self-intersection, swallowed step failures, and interior edges that
+ * never resolved all appear in `diagnostics`, and `complete` summarises whether the skeleton
+ * can be trusted.
+ *
+ * Throws only when there are fewer than three vertices.
+ */
+export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOptions): SkeletonSolveResult {
+    if (vertices.length < 3) {
+        throw new Error("Must have at least three nodes to perform algorithm");
+    }
+
+    const normaliseWinding = options?.normaliseWinding ?? true;
+    const diagnostics: SkeletonDiagnostic[] = [];
+
+    let workingVertices = vertices;
+    if (normaliseWinding && !isClockwise(vertices)) {
+        workingVertices = [...vertices].reverse();
+        diagnostics.push({
+            kind: 'winding-normalised',
+            detail: `Input was counter-clockwise; ${vertices.length} vertices reversed to clockwise winding before solving.`,
+        });
+    }
+
+    const decomposition = decomposePolygon(workingVertices);
+
+    let graph: StraightSkeletonGraph;
+    let context: StraightSkeletonSolverContext | null;
+
+    if (decomposition.wasSelfIntersecting) {
+        diagnostics.push({
+            kind: 'self-intersecting',
+            detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
+        });
+
+        const subResults = decomposition.subPolygons.map(subPolygon => {
+            const run = runSimplePolygon(subPolygon);
+            pushStepFailures(diagnostics, run.errors);
+            return {graph: run.context.graph};
+        });
+
+        graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
+        context = null;
+    } else {
+        const run = runSimplePolygon(workingVertices);
+        pushStepFailures(diagnostics, run.errors);
+        graph = run.context.graph;
+        context = run.context;
+    }
+
+    const unresolvedEdgeIds = findUnresolvedInteriorEdgeIds(graph);
+    if (unresolvedEdgeIds.length > 0) {
+        diagnostics.push({
+            kind: 'unresolved-edges',
+            detail: `${unresolvedEdgeIds.length} interior edge(s) finished without a target node: ${unresolvedEdgeIds.join(', ')}.`,
+        });
+    }
+
+    const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges');
+    const complete = !blocking && graph.interiorEdges.length > 0;
+
+    return {graph, context, complete, diagnostics};
 }
 
 export interface SteppedAlgorithmResult {

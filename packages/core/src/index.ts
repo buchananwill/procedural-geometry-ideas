@@ -20,6 +20,9 @@ export type {
   CollisionType,
   CollisionCacheEntry,
   CollisionCache,
+  SkeletonDiagnosticKind,
+  SkeletonDiagnostic,
+  SkeletonSolveResult,
 } from './straight-skeleton/types';
 export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
 
@@ -102,8 +105,9 @@ export {
   stepAlgorithm,
   runAlgorithmV5,
   runAlgorithmV5Stepped,
+  solveSkeleton,
 } from './straight-skeleton/algorithm-termination-cases';
-export type { SteppedAlgorithmResult } from './straight-skeleton/algorithm-termination-cases';
+export type { SteppedAlgorithmResult, SolveSkeletonOptions } from './straight-skeleton/algorithm-termination-cases';
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
 
