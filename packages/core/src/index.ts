@@ -267,3 +267,18 @@ export {
     SPREAD_RELAXATION_ITERATIONS,
     SPREAD_REFINEMENT_SAMPLE_COUNT,
 } from './articulation';
+
+// ── Parcel generation: offset provenance and strip decomposition ─────────────
+export { computeOffsetRingsDetailed, requireProjectableResult } from './straight-skeleton/offset-projection';
+export type {
+    OffsetRing,
+    OffsetRingSegment,
+    OffsetRingVertex,
+} from './straight-skeleton/offset-projection';
+export { computeStrips } from './straight-skeleton/strip-decomposition';
+export type {
+    Strip,
+    StripOptions,
+    CornerContext,
+    CornerAssignment,
+} from './straight-skeleton/strip-decomposition';
