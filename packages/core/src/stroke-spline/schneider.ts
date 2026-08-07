@@ -1,5 +1,5 @@
 import type { Vector2 } from '../straight-skeleton/types';
-import type { CubicBezier, FitResult, SplineParameterization } from './types';
+import type { CubicBezier, FitResult, SeamNeighbours, SplineParameterization } from './types';
 import { evaluateCubicBezier, cubicBezierDerivative, cubicBezierSecondDerivative } from './bezier';
 
 /**
@@ -216,12 +216,27 @@ function fitCubic(state: FitState, first: number, last: number, tHat1: Vector2, 
     fitCubic(state, splitPoint, last, { x: -tHatCenter.x, y: -tHatCenter.y }, tHat2);
 }
 
+/** Unit tangent from a virtual neighbour to the point beyond the endpoint, or null if degenerate. */
+function tangentAcrossSeam(from: Vector2 | null | undefined, to: Vector2): Vector2 | null {
+    if (!from) return null;
+    return normalizeOrNull({ x: to.x - from.x, y: to.y - from.y });
+}
+
 /**
- * Fit a cubic Bezier spline to an open polyline. Returns null when fewer than
- * two distinct points exist. `parameterization` has one entry per *input*
- * point — consecutive duplicates share their representative's entry.
+ * Fit a cubic Bezier spline to a polyline. Returns null when fewer than two
+ * distinct points exist. `parameterization` has one entry per *input* point —
+ * consecutive duplicates share their representative's entry.
+ *
+ * End tangents are the one-sided chord directions unless `seam` supplies a
+ * virtual neighbour beyond that end, in which case the two-sided direction
+ * across the seam is used — the same construction `computeCenterTangent`
+ * applies at an interior split, so the join is tangent-continuous.
  */
-export function fitStrokeSpline(inputPoints: Vector2[], errorTolerance: number): FitResult | null {
+export function fitStrokeSpline(
+    inputPoints: Vector2[],
+    errorTolerance: number,
+    seam?: SeamNeighbours | null,
+): FitResult | null {
     // Collapse consecutive duplicates, remembering each input's representative.
     const points: Vector2[] = [];
     const inputToDeduped: number[] = new Array(inputPoints.length);
@@ -242,9 +257,13 @@ export function fitStrokeSpline(inputPoints: Vector2[], errorTolerance: number):
 
     if (points.length < 2) return null;
 
-    const tHat1 = normalizeOrNull({ x: points[1].x - points[0].x, y: points[1].y - points[0].y })!;
     const n = points.length;
-    const tHat2 = normalizeOrNull({ x: points[n - 2].x - points[n - 1].x, y: points[n - 2].y - points[n - 1].y })!;
+    const tHat1 =
+        tangentAcrossSeam(seam?.before, points[1]) ??
+        normalizeOrNull({ x: points[1].x - points[0].x, y: points[1].y - points[0].y })!;
+    const tHat2 =
+        tangentAcrossSeam(seam?.after, points[n - 2]) ??
+        normalizeOrNull({ x: points[n - 2].x - points[n - 1].x, y: points[n - 2].y - points[n - 1].y })!;
 
     const state: FitState = {
         points,

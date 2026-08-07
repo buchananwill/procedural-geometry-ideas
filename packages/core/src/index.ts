@@ -208,6 +208,10 @@ export {
     FITTING_VARIANT_DEFAULTS,
 } from './stroke-spline';
 
+// ── Stroke → spline: closed loops ────────────────────────────────────────────
+export type { ClosureConfig, SeamNeighbours } from './stroke-spline';
+export { isStrokeClosed, isSeamCorner, closeFittedChain, CLOSURE_VARIANT_DEFAULTS } from './stroke-spline';
+
 // ── D0L system ────────────────────────────────────────────────────────────────
 export {
     compile as compileDolSystem,

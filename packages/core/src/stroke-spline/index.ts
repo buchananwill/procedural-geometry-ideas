@@ -5,6 +5,8 @@ export type {
     SimplificationConfig,
     CornerDetectionConfig,
     FittingConfig,
+    ClosureConfig,
+    SeamNeighbours,
     StrokePipelineConfig,
     CornerDetectionResult,
     SplineParameterization,
@@ -20,6 +22,7 @@ export { fitStrokeSpline } from './schneider';
 export { fitCatmullRom } from './catmull-rom';
 export { fitStroke } from './fitting';
 export { mapByArcLengthFraction, flattenSpline, mapRawToSpline } from './correspondence';
+export { isStrokeClosed, isSeamCorner, closeFittedChain } from './closure';
 export {
     runStrokePipeline,
     lerpStroke,
@@ -28,4 +31,5 @@ export {
     SIMPLIFICATION_VARIANT_DEFAULTS,
     CORNER_DETECTION_VARIANT_DEFAULTS,
     FITTING_VARIANT_DEFAULTS,
+    CLOSURE_VARIANT_DEFAULTS,
 } from './pipeline';

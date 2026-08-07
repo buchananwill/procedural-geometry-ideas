@@ -1,5 +1,6 @@
 import type { Vector2 } from '../straight-skeleton/types';
 import type {
+    ClosureConfig,
     CornerDetectionConfig,
     FittingConfig,
     SimplificationConfig,
@@ -12,13 +13,17 @@ import { smoothStroke } from './smoothing';
 import { simplifyStroke } from './simplification';
 import { detectCorners } from './corner-detection';
 import { fitStroke } from './fitting';
+import { applyClosure, closeFittedChain } from './closure';
 import { mapByArcLengthFraction, mapRawToSpline } from './correspondence';
+
+const OPEN_CLOSURE_CONFIG: ClosureConfig = { variant: 'pass-through' };
 
 export const DEFAULT_STROKE_PIPELINE_CONFIG: StrokePipelineConfig = {
     smoothing: { variant: 'moving-average', windowSize: 5 },
     simplification: { variant: 'pass-through' },
     cornerDetection: { variant: 'pass-through' },
     fitting: { variant: 'schneider', errorTolerance: 4 },
+    closure: { variant: 'pass-through' },
 };
 
 /** Default config per variant, used when a stage's dropdown selection changes. */
@@ -49,11 +54,25 @@ export const FITTING_VARIANT_DEFAULTS: Record<FittingConfig['variant'], FittingC
     'catmull-rom': { variant: 'catmull-rom', alpha: 0.5 },
 };
 
+export const CLOSURE_VARIANT_DEFAULTS: Record<ClosureConfig['variant'], ClosureConfig> = {
+    'pass-through': { variant: 'pass-through' },
+    // 20px: the slack a hand leaves when returning a loop to its start, and
+    // comfortably above the few px that smoothing shifts the endpoints by.
+    'distance-threshold': { variant: 'distance-threshold', threshold: 20 },
+};
+
 export function runStrokePipeline(raw: StrokePoint[], config: StrokePipelineConfig): StrokePipelineResult {
     const smoothed = smoothStroke(raw, config.smoothing);
     const simplified = simplifyStroke(smoothed, config.simplification);
-    const corners = detectCorners(simplified, config.cornerDetection);
-    const fit = fitStroke(corners, config.fitting);
+    const detected = detectCorners(simplified, config.cornerDetection);
+    const { closed, corners, seam } = applyClosure(
+        raw,
+        detected,
+        config.closure ?? OPEN_CLOSURE_CONFIG,
+        config.cornerDetection,
+    );
+    const fit = fitStroke(corners, config.fitting, seam);
+    if (closed && fit) closeFittedChain(fit);
 
     let correspondence: Vector2[];
     if (fit) {
@@ -66,7 +85,7 @@ export function runStrokePipeline(raw: StrokePoint[], config: StrokePipelineConf
                 : mapByArcLengthFraction(raw, corners.points);
     }
 
-    return { raw, smoothed, simplified, corners, fit, correspondence };
+    return { raw, smoothed, simplified, corners, fit, correspondence, closed };
 }
 
 /** View-level morph between the raw capture and its spline correspondence. */
