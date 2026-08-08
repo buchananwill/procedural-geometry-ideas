@@ -5,14 +5,15 @@ import {
     computeStrips,
     isClockwise,
     setSkeletonLogLevel,
+    signedArea,
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
 
 /*
  * ============================================================================
- *  THE LAST TWO `describe` BLOCKS RECORD KNOWN DEFECTS. THOSE ASSERTIONS ARE
- *  NOT DESIRED BEHAVIOUR AND ARE NOT A SPECIFICATION.
+ *  THE LAST `describe` BLOCK RECORDS A KNOWN DEFECT. ITS ASSERTIONS ARE NOT
+ *  DESIRED BEHAVIOUR AND ARE NOT A SPECIFICATION. EVERY OTHER BLOCK IS.
  * ============================================================================
  *
  * How far from the origin, and at what size, the solver and its projections stop working.
@@ -22,6 +23,24 @@ import {
  * across and may sit 10^5 to 10^6 from the origin. This file measures that envelope.
  *
  * ----------------------------------------------------------------------------
+ * THE SHOELACE DEFECT — FIXED
+ * ----------------------------------------------------------------------------
+ *
+ * `signedArea` used to sum `a.x * b.y - b.x * a.y` over ABSOLUTE coordinates, in both
+ * `strip-decomposition.ts` and `random-polygon/geometry-helpers.ts`. Each term is then of
+ * order D^2 for a polygon at distance D, so the sum carried an absolute error of about
+ * `D^2 * 2^-52` while the answer itself is only the true area A. The sign was lost once
+ * `D > sqrt(A) * 6.7e7`:
+ *
+ *     a unit-square strip tile, A ~= 0.75   ->  D ~= 5.8e7    (observed: failed at 1e8)
+ *     a 550-span fixture's strip, A ~= 1e4  ->  D ~= 6.7e9    (observed: failed at 1e10)
+ *
+ * Both implementations now subtract the ring's own first vertex before summing. The shoelace
+ * is invariant under translation, so the result is mathematically identical — but the
+ * intermediate products no longer carry the D^2 term, and the computation is numerically
+ * translation-invariant as well.
+ *
+ * ----------------------------------------------------------------------------
  * MEASURED — all 37 ALL_TEST_POLYGONS fixtures, solve + offset rings at 50% of max
  * + strips at depth 50% of max. Cell shows how many of the 37 came through all three.
  * ----------------------------------------------------------------------------
@@ -29,72 +48,54 @@ import {
  * Translation only (fixtures keep their native 10^2-10^3 span):
  *
  *     translate      0    1e3    1e4    1e5    1e6    1e7    1e8    1e9   1e10   1e11
- *     passing       37     37     37     37     37     37     33     33      0      0
+ *     before        37     37     37     37     37     37     33     33      0      0
+ *     after         37     37     37     37     37     37     35     37     29     29
  *
- * At 1e8 the four losses are Square and Rectangle (empty strips) and Broken Polygon and Long
- * Unbroken Side (no offset rings); the solver itself still reports 37 of 37 complete. By 1e10
- * every fixture has at least one empty strip, and by 1e11 25 of 37 no longer solve at all.
- *
- * Scale only (span stretched, still centred on the origin):
+ * Scale only (span stretched, still centred on the origin) — UNCHANGED by the fix, and
+ * correctly so. At scale S about the origin, D ~= S * span while sqrt(A) ~= S * span, so the
+ * shoelace has the same relative headroom at every scale. Whatever limits the scale sweep is
+ * a different numerical problem:
  *
  *     scale       1e-6   1e-4   1e-2      1    1e2    1e4    1e6    1e8
- *     passing       37     37     37     37     37     37     27     18
+ *     before        37     37     37     37     37     37     27     18
+ *     after         37     37     37     37     37     37     27     18
  *
  * Realistic world-space: scale 50 — every fixture becomes 15 000 to 40 000 units across,
- * i.e. a 150-400 m region in centimetres — then translated:
+ * i.e. a 150-400 m region in centimetres — then translated. Was clean before, still is:
  *
  *     translate      0    1e4    1e5    1e6    1e7    1e8
- *     passing       37     37     37     37     37     37
- *
- * THE INTENDED OPERATING ENVELOPE IS CLEAN. A 300 m region at 10^6 centimetres from the
- * origin is nowhere near any of the failure onsets. That is the headline result and it is a
- * negative one.
+ *     before/after  37     37     37     37     37     37
  *
  * ----------------------------------------------------------------------------
- * WHERE THE FIRST FAILURE APPEARS, PER FIXTURE, BY TRANSLATION
+ * THE TWO FAILURE MODES, AND WHERE THEY NOW STAND
  * ----------------------------------------------------------------------------
  *
- * The onset tracks the fixture's own size, not the translation alone:
+ * 1. FIXED — `computeStrips` returning strips with an EMPTY boundary. The clipped face's
+ *    computed area rounded to exactly zero, so it satisfied neither `signedArea < 0` (outer)
+ *    nor `signedArea > 0` (hole), and `outer[0] ?? []` handed back nothing. Not one fixture
+ *    produces an empty or miscounted strip at any translation up to 1e11 now: wherever the
+ *    solve and the offset ring are sound, the strips are too. The Square survives to 1e11
+ *    with an exact area of -4, exact winding and four full faces.
  *
- *     fixture span      first failing translation
- *     2 to 9 units      1e8  to 3e8
- *     ~550 units        1e10
+ * 2. NOT FIXED, AND NOT THE SHOELACE — `solveSkeleton` returns `complete: true` with
+ *    `diagnostics: []` and a WRONG skeleton. Broken Polygon translated to 1e8 reports a
+ *    maximum offset of 308.98 where the true value is 126.63, and `computeOffsetRings` then
+ *    returns nothing past a quarter of the way in. Refuted as a shoelace symptom by direct
+ *    measurement, asserted in the last block: that polygon's area is 95 054.8, so its
+ *    absolute-form shoelace at 1e8 is accurate to a relative 1.6e-6 with the correct sign and
+ *    a safe distance of 2.07e10 — 200x headroom. The fix left its reported maximum offset
+ *    bit-for-bit identical (308.9784380383704 before and after).
  *
- * That ratio is the fingerprint of the shoelace sum in `signedArea`. Both
- * `strip-decomposition.ts` and `random-polygon/geometry-helpers.ts` compute it as
- * `sum(a.x * b.y - b.x * a.y)` on absolute coordinates. Each term is of order D^2 for a
- * polygon at distance D, so the sum carries an absolute error of about `D^2 * 2^-52` while the
- * answer itself is only the true area A. The sign is lost once `D > sqrt(A) * 6.7e7`:
+ * Beyond 1e10 the solver itself starts failing on eight of the thirty-seven fixtures with
+ * `step-failure` / `unresolved-edges`. That is a third, separate limit — and unlike the two
+ * above it is SIGNALLED: `complete` is false and the diagnostics say so.
  *
- *     a unit-square strip tile, A ~= 0.75   ->  D ~= 5.8e7    (observed: fails at 1e8)
- *     a 550-span fixture's strip, A ~= 1e4  ->  D ~= 6.7e9    (observed: fails at 1e10)
+ * Neither remaining defect is the near-regular defect of `near-regular-failures.test.ts`.
+ * Every fixture here solves cleanly untranslated, and the trigger is position, not symmetry.
  *
- * Subtracting the ring's own first vertex before summing makes the computation
- * translation-invariant and removes the cancellation entirely. That is a one-line change in
- * each of the two `signedArea` implementations; it has NOT been made, because this task is
- * diagnostic.
- *
- * ----------------------------------------------------------------------------
- * THE TWO DISTINCT FAILURE MODES, IN ORDER OF ONSET
- * ----------------------------------------------------------------------------
- *
- * 1. `computeStrips` returns strips with an EMPTY boundary. The clipped face's computed area
- *    rounds to exactly zero, so it satisfies neither `signedArea < 0` (outer) nor
- *    `signedArea > 0` (hole), and `outer[0] ?? []` hands back nothing. The solve is complete,
- *    the offset ring is exact, and a whole quarter of the block silently disappears.
- *
- * 2. `solveSkeleton` returns `complete: true` with `diagnostics: []` and a WRONG skeleton.
- *    Broken Polygon translated to 1e8 reports a maximum offset of 308.98 where the true value
- *    is 126.63 — impossible for a shape 680 units across — and `computeOffsetRings` then
- *    returns nothing at all past a quarter of the way in. There is no signal on the result
- *    that anything went wrong.
- *
- * Neither is the near-regular defect of `near-regular-failures.test.ts`. Every fixture here
- * solves cleanly untranslated, and the trigger is position, not symmetry.
- *
- * WHEN THESE ARE FIXED, INVERT THE ASSERTIONS IN THE LAST TWO BLOCKS — DO NOT DELETE THIS
- * FILE. The first two blocks are a genuine specification of the operating envelope and should
- * be kept and widened.
+ * WHEN THE REMAINING DEFECT IS FIXED, INVERT THE ASSERTIONS IN THE LAST BLOCK — DO NOT DELETE
+ * THIS FILE. Everything above it is a genuine specification of the operating envelope and
+ * should be kept and widened.
  */
 
 setSkeletonLogLevel('silent');
@@ -111,25 +112,16 @@ function place(vertices: Vector2[], scale: number, translate: number): Vector2[]
     return vertices.map(vertex => ({x: vertex.x * scale + translate, y: vertex.y * scale + translate}));
 }
 
-/** Shoelace exactly as `strip-decomposition.ts` and `geometry-helpers.ts` compute it. */
+/**
+ * The shoelace as `strip-decomposition.ts` and `geometry-helpers.ts` USED to compute it, over
+ * absolute coordinates. Retained as the witness of what the fix removed.
+ */
 function signedAreaAbsolute(ring: Vector2[]): number {
     let total = 0;
     for (let i = 0; i < ring.length; i++) {
         const a = ring[i];
         const b = ring[(i + 1) % ring.length];
         total += a.x * b.y - b.x * a.y;
-    }
-    return total / 2;
-}
-
-/** The same quantity with the ring's own first vertex subtracted first: translation-invariant. */
-function signedAreaRelative(ring: Vector2[]): number {
-    const origin = ring[0];
-    let total = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i];
-        const b = ring[(i + 1) % ring.length];
-        total += (a.x - origin.x) * (b.y - origin.y) - (b.x - origin.x) * (a.y - origin.y);
     }
     return total / 2;
 }
@@ -164,7 +156,7 @@ describe('large coordinates', () => {
     });
 
     describe('translation alone is safe well past the intended range', () => {
-        it.each([1e5, 1e6, 1e7])('every fixture survives translation to %p at its native span', translate => {
+        it.each([1e5, 1e6, 1e7, 1e9])('every fixture survives translation to %p at its native span', translate => {
             expect(survivorCount(1, translate)).toBe(ALL_TEST_POLYGONS.length);
         });
 
@@ -173,30 +165,50 @@ describe('large coordinates', () => {
         });
     });
 
-    describe('strips lose whole faces far from the origin (known defect)', () => {
-        it('currently empties two of a square\'s four strips at 1e8, while everything else is exact', () => {
+    describe('strip faces survive any translation, because signedArea is translation-invariant', () => {
+        it.each([1e8, 1e9, 1e10, 1e11])(
+            'never loses or miscounts a strip face at translation %p, wherever solve and offset are sound',
+            translate => {
+                const checked: string[] = [];
+                for (const polygon of ALL_TEST_POLYGONS) {
+                    const result = solveSkeleton(place(polygon.vertices, 1, translate));
+                    if (!result.complete || result.context === null) {
+                        continue;
+                    }
+                    const maxOffset = computeMaxOffset(result);
+                    const rings = computeOffsetRings(result, maxOffset * 0.5);
+                    if (rings.length === 0 || rings.some(ring => ring.length < 3)) {
+                        continue;
+                    }
+                    const strips = computeStrips(result, {depth: maxOffset * 0.5});
+                    expect(strips).toHaveLength(result.graph.numExteriorNodes);
+                    expect(strips.filter(strip => strip.boundary.length < 3)).toEqual([]);
+                    checked.push(polygon.name);
+                }
+                // Guard against the assertions above passing vacuously.
+                expect(checked.length).toBeGreaterThanOrEqual(29);
+            },
+        );
+
+        it("keeps all four of a square's strips at 1e8, where two used to come back empty", () => {
             const result = solveSkeleton(place(fixture('Square'), 1, 1e8));
 
-            // The solve itself is perfect: five nodes, apex dead centre, max offset exactly 1.
             expect(result.complete).toBe(true);
             expect(result.diagnostics).toEqual([]);
             expect(computeMaxOffset(result)).toBe(1);
 
-            // So is the offset ring.
             const rings = computeOffsetRings(result, 0.5);
             expect(rings).toHaveLength(1);
             expect(rings[0]).toHaveLength(4);
 
-            // The strips are not. Two of the four come back with no boundary at all — and with
-            // no holes either, so they were not merely misclassified as holes: their computed
-            // area rounded to exactly zero and they matched neither filter.
             const strips = computeStrips(result, {depth: 0.5});
             expect(strips).toHaveLength(4);
-            expect(strips.filter(strip => strip.boundary.length === 0)).toHaveLength(2);
+            expect(strips.filter(strip => strip.boundary.length === 0)).toEqual([]);
+            expect(strips.every(strip => strip.boundary.length === 4)).toBe(true);
             expect(strips.every(strip => strip.holes.length === 0)).toBe(true);
         });
 
-        it('is the absolute shoelace cancelling, not anything geometric', () => {
+        it('computes the same strip tile area at the origin and at 1e8, where the absolute sum gave zero', () => {
             // The trapezoid that strip 0 of that square should be, at the origin and at 1e8.
             const tile: Vector2[] = [
                 {x: 0, y: 0},
@@ -206,22 +218,58 @@ describe('large coordinates', () => {
             ];
             const shifted = tile.map(vertex => ({x: vertex.x + 1e8, y: vertex.y + 1e8}));
 
-            expect(signedAreaAbsolute(tile)).toBeCloseTo(-0.75, 12);
-            expect(signedAreaRelative(shifted)).toBeCloseTo(-0.75, 6);
+            expect(signedArea(tile)).toBeCloseTo(-0.75, 12);
+            expect(signedArea(shifted)).toBeCloseTo(-0.75, 6);
 
-            // The form the source uses gives neither the right value nor even the right sign.
+            // What the source used to do, kept as the witness: neither the right value nor the right sign.
             expect(signedAreaAbsolute(shifted)).not.toBeLessThan(-0.7);
         });
 
-        it('loses a square\'s winding entirely by 1e9 — the same sum, in the solver\'s pre-pass', () => {
+        it("keeps a square's winding out to 1e11, where the absolute sum lost it by 1e9", () => {
             const atOrigin = fixture('Square');
             expect(isClockwise(atOrigin)).toBe(true);
+            expect(signedArea(atOrigin)).toBe(-4);
 
-            const far = place(atOrigin, 1, 1e9);
-            // Same polygon, same winding, 2 units across. The shoelace sum returns exactly zero.
-            expect(signedAreaRelative(far)).toBeCloseTo(-4, 6);
-            expect(signedAreaAbsolute(far)).toBe(0);
-            expect(isClockwise(far)).toBe(false);
+            for (const translate of [1e8, 1e9, 1e10, 1e11]) {
+                const far = place(atOrigin, 1, translate);
+                expect(signedArea(far)).toBe(-4);
+                expect(isClockwise(far)).toBe(true);
+            }
+
+            // The absolute sum returns exactly zero for the same 2-unit square at 1e9.
+            expect(signedAreaAbsolute(place(atOrigin, 1, 1e9))).toBe(0);
+        });
+
+        it('decides winding exactly as the old absolute sum did, everywhere the old sum was reliable', () => {
+            // `isClockwise` gates `solveSkeleton`'s winding normalisation, so a change in its
+            // answer would change every solve. It changes for no fixture, in either winding, at
+            // any scale >= 1 out to translation 1e7 — the whole realistic envelope and well past
+            // it. The only placements where the two forms disagree are ones where the old form
+            // had already lost the sign (span under a unit, translated 1e5 or more), and there
+            // the new answer is the correct one: it matches the fixture's winding at the origin.
+            const scales = [1, 10, 50, 1e2, 1e3, 1e4];
+            const translations = [0, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7];
+            let compared = 0;
+
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const clockwiseAtOrigin = isClockwise(polygon.vertices);
+                for (const scale of scales) {
+                    for (const translate of translations) {
+                        const placed = place(polygon.vertices, scale, translate);
+                        const reversed = [...placed].reverse();
+
+                        expect(isClockwise(placed)).toBe(signedAreaAbsolute(placed) < 0);
+                        expect(isClockwise(reversed)).toBe(signedAreaAbsolute(reversed) < 0);
+
+                        // ...and both agree with the ground truth taken at the origin.
+                        expect(isClockwise(placed)).toBe(clockwiseAtOrigin);
+                        expect(isClockwise(reversed)).toBe(!clockwiseAtOrigin);
+                        compared += 2;
+                    }
+                }
+            }
+
+            expect(compared).toBe(ALL_TEST_POLYGONS.length * scales.length * translations.length * 2);
         });
     });
 
@@ -246,6 +294,25 @@ describe('large coordinates', () => {
             expect(computeOffsetRings(far, maxOffset * 0.25)).toHaveLength(1);
             expect(computeOffsetRings(far, maxOffset * 0.5)).toEqual([]);
             expect(computeOffsetRings(far, maxOffset * 0.75)).toEqual([]);
+        });
+
+        it('is not the shoelace: that polygon has 200x of headroom at 1e8', () => {
+            const atOrigin = fixture('Broken Polygon');
+            const far = place(atOrigin, 1, 1e8);
+
+            const area = signedArea(atOrigin);
+            expect(area).toBeCloseTo(-95054.8457, 4);
+
+            // The absolute form — the one that was replaced — was already accurate here, to a
+            // relative 1.6e-6 and with the correct sign. The safe distance for this area is
+            // sqrt(95054.8) * 6.7e7 ~= 2.07e10, so 1e8 is nowhere near the cliff.
+            const absolute = signedAreaAbsolute(far);
+            expect(absolute).toBeLessThan(0);
+            expect(Math.abs(absolute - signedArea(far)) / Math.abs(area)).toBeLessThan(1e-5);
+            expect(Math.sqrt(Math.abs(area)) * 6.7e7).toBeGreaterThan(2e10);
+
+            // Hence the fix cannot have moved this result, and did not: it is bit-identical.
+            expect(computeMaxOffset(solveSkeleton(far))).toBe(308.9784380383704);
         });
     });
 });
