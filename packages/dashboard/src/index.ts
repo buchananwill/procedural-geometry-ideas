@@ -28,6 +28,8 @@ export { SkeletonInteractionOverlay, useSkeletonStageClick } from './components/
 export type { SkeletonInteractionOverlayProps } from './components/SkeletonInteractionOverlay';
 export { default as RandomPolygonPanel } from './components/RandomPolygonPanel';
 export { default as ControlsPanel } from './components/ControlsPanel';
+export { interpretGeometryPaste, MIN_POLYGON_VERTICES } from './components/geometry-clipboard';
+export type { GeometryPasteAccepted, GeometryPasteOutcome, GeometryPasteRejected } from './components/geometry-clipboard';
 export { default as AlgorithmPanel } from './components/AlgorithmPanel';
 export { default as DebugPanel } from './components/DebugPanel';
 export { default as PlaybackController } from './components/PlaybackController';
@@ -37,8 +39,8 @@ export type { CollapseChevronProps } from './components/CollapseChevron';
 // Pen Stroke → Spline
 export { usePenStrokeStore } from './stores/usePenStrokeStore';
 export type { PenStrokeStoreState } from './stores/usePenStrokeStore';
-export { PenStrokeCanvas, PenStrokeLerpPanel, PenStrokePipelinePanel, SliderNumberInput } from './components/pen-stroke';
-export type { SliderNumberInputProps } from './components/pen-stroke';
+export { PenStrokeCanvas, PenStrokeCopyPanel, PenStrokeLerpPanel, PenStrokePipelinePanel, SliderNumberInput, summariseStrokeCopy } from './components/pen-stroke';
+export type { SliderNumberInputProps, StrokeClipboardSummary } from './components/pen-stroke';
 
 // D0L System
 export { DOL_PRESETS } from './dol-system/presets';

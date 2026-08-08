@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Stack } from "@mantine/core";
-import { PenStrokeLerpPanel, PenStrokePipelinePanel } from "@proc-geo/dashboard";
+import { PenStrokeCopyPanel, PenStrokeLerpPanel, PenStrokePipelinePanel } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
 
 const PenStrokeCanvas = dynamic(
@@ -18,6 +18,7 @@ export default function PenStrokePage() {
             panels={
                 <Stack gap="sm">
                     <PenStrokeLerpPanel />
+                    <PenStrokeCopyPanel />
                     <PenStrokePipelinePanel />
                 </Stack>
             }

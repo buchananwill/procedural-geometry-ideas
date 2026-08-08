@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
 import type {
+    ClosureConfig,
     CornerDetectionConfig,
     FittingConfig,
     SimplificationConfig,
@@ -18,6 +19,13 @@ export interface PenStrokeStoreState {
     simplification: SimplificationConfig;
     cornerDetection: CornerDetectionConfig;
     fitting: FittingConfig;
+    /**
+     * Loop closure. The pipeline defaults this to `pass-through`, which makes
+     * `result.closed` permanently false and so makes every copied payload an
+     * open path the straight skeleton must refuse. It is a store field because
+     * the copy control needs it to be reachable from the UI.
+     */
+    closure: ClosureConfig;
     lerpAlpha: number;
     result: StrokePipelineResult | null;
     /** View-level toggle for the live smoothing ghost-trail preview; no pipeline recompute. */
@@ -31,6 +39,7 @@ export interface PenStrokeStoreState {
     setSimplification: (config: SimplificationConfig) => void;
     setCornerDetection: (config: CornerDetectionConfig) => void;
     setFitting: (config: FittingConfig) => void;
+    setClosure: (config: ClosureConfig) => void;
     setLerpAlpha: (alpha: number) => void;
     setSmoothingPreviewEnabled: (enabled: boolean) => void;
 }
@@ -47,8 +56,16 @@ function rerun(s: PenStrokeStoreState) {
         simplification: plain.simplification,
         cornerDetection: plain.cornerDetection,
         fitting: plain.fitting,
+        closure: plain.closure,
     }) as StrokePipelineResult;
 }
+
+/**
+ * Closure is on by default, at a seam gap a hand can hit without aiming.
+ * `distance-threshold` only closes a stroke whose last sample actually returned
+ * to its first, so a genuinely open stroke is unaffected.
+ */
+const DEFAULT_CLOSURE: ClosureConfig = { variant: 'distance-threshold', threshold: 30 };
 
 export const usePenStrokeStore = create<PenStrokeStoreState>()(
     immer((set) => ({
@@ -58,6 +75,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         simplification: DEFAULT_STROKE_PIPELINE_CONFIG.simplification,
         cornerDetection: DEFAULT_STROKE_PIPELINE_CONFIG.cornerDetection,
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
+        closure: DEFAULT_CLOSURE,
         lerpAlpha: 1,
         result: null,
         smoothingPreviewEnabled: false,
@@ -110,6 +128,12 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         setFitting: (config) =>
             set((s) => {
                 s.fitting = config;
+                rerun(s);
+            }),
+
+        setClosure: (config) =>
+            set((s) => {
+                s.closure = config;
                 rerun(s);
             }),
 
