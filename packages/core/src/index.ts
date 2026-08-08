@@ -298,3 +298,30 @@ export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
 // ── Stroke → spline: vertex budgeting ────────────────────────────────────────
 export type { VertexBudgetResult } from './stroke-spline';
 export { reduceToVertexBudget, strokeToBudgetedPolygon, DEFAULT_VERTEX_BUDGET } from './stroke-spline';
+
+// ── Shared geometry interchange payload ──────────────────────────────────────
+export type {
+    GeometryPayload,
+    GeometryPayloadBody,
+    GeometryPayloadEnvelope,
+    GeometryPayloadKind,
+    VertexRunBody,
+} from './shared/geometry-payload';
+export { GEOMETRY_PAYLOAD_FORMAT, GEOMETRY_PAYLOAD_VERSION, makeVertexRun } from './shared/geometry-payload';
+
+export type {
+    AssumedField,
+    ParseFailureReason,
+    ParseGeometryPayloadFailure,
+    ParseGeometryPayloadResult,
+    ParseGeometryPayloadSuccess,
+    PayloadEncoding,
+    SerialiseOptions,
+} from './shared/geometry-payload-codec';
+export {
+    LEGACY_BARE_ARRAY_CLOSED,
+    LEGACY_BARE_ARRAY_MIN_VERTICES,
+    MAX_SERIALISED_LENGTH,
+    parseGeometryPayload,
+    serialiseGeometryPayload,
+} from './shared/geometry-payload-codec';
