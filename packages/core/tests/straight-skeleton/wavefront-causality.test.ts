@@ -314,6 +314,34 @@ describe('wavefront causality', () => {
      * `tryAttachEdgeToNode` assigned that target directly and was therefore invisible to every
      * runtime causality check the solver had. Nothing in the suite noticed until this sweep
      * covered them, which is why it stays whatever the promotion status of the fixtures.
+     *
+     * `NEAR_REGULAR_PEANUT_32` had its own block here for as long as its waist was unresolved,
+     * because the checks held on it only vacuously. It is now an ordinary member of this list,
+     * and the history is worth keeping next to it because that waist is the reason the direction
+     * check exists at all.
+     *
+     * The waist pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck
+     * before it reaches anywhere wider — and the solver records that as node 32. The event emits
+     * one bisector per lobe: e64, bounded by the two left-hand neck edges 7 and 22, and e65,
+     * bounded by the two right-hand ones 6 and 23.
+     *
+     * Two successive defects lived there. First, each was cross-wired to the bisector born at
+     * 98.60 in the *other* lobe on nothing better than `dot(basis1, basis2) === -1`.
+     * Anti-parallel is not head-on: those pairs point directly away from each other, and the
+     * cross-wire made all four run backwards along their own basis while, in two cases, still
+     * running *forwards* in offset — which is why the offset check scored that damage at only
+     * 4.25 and the direction check scored it as a clean reversal. Refusing the bogus cross-wire
+     * made the checks pass vacuously instead: all four edges were left with no target, and an
+     * edge without a target is audited by neither.
+     *
+     * Second, and the actual cause: `bisectionsForMerge` gave both new bisectors an
+     * `approximateDirection` derived from the two annihilating arrivals, which are exactly
+     * anti-parallel, so `makeBisectedBasis` fell through to `rotateCw90` of its first argument
+     * — a perpendicular with no reference to the geometry — and `addBisectionEdge` flipped the
+     * correct parent-derived basis on the strength of it. e64 pointed right into the wrong lobe
+     * and e65 pointed left into the other. Anti-parallel arrivals now supply no hint, the parent
+     * derivation stands, e64 runs left to node 33 and e65 runs right to node 34, and all three
+     * checks below hold on the peanut with every edge targeted.
      */
     const CAUSAL_NEAR_REGULAR_FIXTURES: [string, Vector2[]][] = [
         ['NEAR_REGULAR_CIRCLE_16', NEAR_REGULAR_CIRCLE_16],
@@ -321,6 +349,7 @@ describe('wavefront causality', () => {
         ['NEAR_REGULAR_CIRCLE_48', NEAR_REGULAR_CIRCLE_48],
         ['NEAR_REGULAR_ELLIPSE_16', NEAR_REGULAR_ELLIPSE_16],
         ['NEAR_REGULAR_ELLIPSE_32', NEAR_REGULAR_ELLIPSE_32],
+        ['NEAR_REGULAR_PEANUT_32', NEAR_REGULAR_PEANUT_32],
         ['NEAR_REGULAR_ROSETTE5_40', NEAR_REGULAR_ROSETTE5_40],
     ];
 
@@ -336,42 +365,6 @@ describe('wavefront causality', () => {
 
         it('never terminates an edge behind its own source', () => {
             expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
-        });
-    });
-
-    /**
-     * The peanut kept its own block because its waist used to break both causality checks, and
-     * the history of what broke them is worth keeping next to the assertions.
-     *
-     * The waist pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck
-     * before it reaches anywhere wider — and the solver records that as node 32. The event emits
-     * one bisector per lobe: e64, bounded by the two left-hand neck edges 7 and 22, and e65,
-     * bounded by the two right-hand ones 6 and 23. Each used to be cross-wired to the bisector
-     * born at 98.60 in the *other* lobe, on nothing better than `dot(basis1, basis2) === -1`.
-     * Anti-parallel is not head-on: those pairs point directly away from each other, and the
-     * cross-wire made all four run backwards along their own basis while, in two cases, still
-     * running *forwards* in offset — which is exactly why the offset check below scored the
-     * damage at only 4.25 and the direction check scores it at a clean reversal.
-     *
-     * Both assertions now hold. They hold honestly for the rest of the skeleton and vacuously at
-     * the waist: refusing the bogus cross-wire leaves e64, e65, e67 and e68 with no target at
-     * all, and an edge without a target is not audited by either check. `solveSkeleton` reports
-     * that plainly — two step failures and four unresolved edges — and
-     * `near-regular-polygons.test.ts` pins it. The peanut can join `ALL_TEST_POLYGONS` when those
-     * four resolve, not before.
-     */
-    describe('NEAR_REGULAR_PEANUT_32', () => {
-        it('never runs backwards in time along a skeleton edge', () => {
-            const violations = findOffsetViolations(NEAR_REGULAR_PEANUT_32);
-            expect(describeViolations(violations)).toBe('');
-        });
-
-        it('never places a node beyond its own clearance', () => {
-            expect(findClearanceViolations(NEAR_REGULAR_PEANUT_32).join('; ')).toBe('');
-        });
-
-        it('never terminates an edge behind its own source', () => {
-            expect(describeDirectionViolations(findDirectionViolations(NEAR_REGULAR_PEANUT_32))).toBe('');
         });
     });
 });

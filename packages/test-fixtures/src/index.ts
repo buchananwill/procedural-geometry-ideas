@@ -129,7 +129,9 @@ import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from '.
 // near-regular-polygons.ts
 // Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these analytic
 // control shapes all solve, but the sweeps over that list assert more than completeness, and
-// three of those wider assertions still fail on them. See the file header for detail.
+// two of those wider assertions still fail on six of the seven. Both remaining blockers are
+// downstream of the solver — the offset projection at a many-way event, and the large-coordinate
+// envelope. See the file header for which fixture each one blocks.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,

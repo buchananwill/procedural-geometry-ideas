@@ -7,7 +7,15 @@ import {
     NEAR_REGULAR_PEANUT_32,
     NEAR_REGULAR_ROSETTE5_40,
 } from '@proc-geo/test-fixtures';
-import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-geo/core';
+import {
+    computeMaxOffset,
+    computeOffsetRings,
+    computeStrips,
+    isClockwise,
+    setSkeletonLogLevel,
+    solveSkeleton,
+    Vector2,
+} from '@proc-geo/core';
 
 /*
  * ============================================================================
@@ -43,7 +51,7 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  * collapse, one per sub-polygon for a partition. Pairwise collapse and non-adjacent split are
  * the two- and two-singleton cases of that same rule, so nothing else changed shape.
  *
- * Three smaller faults surfaced behind it and are fixed with it:
+ * Four smaller faults surfaced behind it and are fixed with it:
  *
  *   - `ensureBisectionIsInterior` flipped a bisector whenever `cross(cw, ws) < 0`. At a
  *     collinear vertex that cross is zero and its sign is noise, so the same straight vertex
@@ -55,6 +63,13 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  *     full separation along both rays — each ray reaching the other's *source* — which is twice
  *     the event and lands the collision on an existing node. They now meet where their offsets
  *     agree.
+ *   - `bisectionsForMerge` handed every newly born bisector an `approximateDirection` of
+ *     `makeBisectedBasis(lastArrival, firstDeparture)`, and `addBisectionEdge` flips the
+ *     parent-derived basis whenever the two disagree. At a waist pinch the two arrivals are
+ *     exactly anti-parallel, so that call summed them to zero, took its degenerate branch, and
+ *     returned `rotateCw90` of whichever argument came first — a perpendicular chosen by
+ *     rotation convention alone. Both bisectors born at the peanut's neck were inverted by it.
+ *     Anti-parallel arrivals now supply no hint at all and the parent derivation stands.
  *
  * ----------------------------------------------------------------------------
  * MEASURED AFTER THE FIX — centre (300, 300), radius 150, swept n = 3..64
@@ -71,30 +86,32 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  * WHY THESE FIXTURES ARE STILL OUT OF `ALL_TEST_POLYGONS`
  * ----------------------------------------------------------------------------
  *
- * Solving is not the only thing that list asserts. Promoting all seven was tried and measured,
- * and three separate things stand in the way.
+ * Solving is not the only thing that list asserts. All seven now solve completely, so promotion
+ * was re-measured with all seven temporarily added to the list. Every sweep passes except two,
+ * and between them they still block six of the seven:
  *
- *   - `offset-event-boundary-regression.test.ts` — at the exact offset of a terminal many-way
- *     event the wavefront ring passes through the single node that event created, and
- *     `projectOffsetWavefront` cannot close it. This is pre-existing and not caused by the
- *     fix: `NEAR_REGULAR_ELLIPSE_16`, which solved before the fix as well as after, reports
- *     the identical unclosed chain at 72.361834 on both sides of the change. It is the same
- *     class as the Pentagon House exception that file already documents.
- *   - `NEAR_REGULAR_PEANUT_32` no longer solves at all. Its waist used to report `complete`
- *     only because an anti-parallel pair was cross-wired without checking whether the two
- *     bisectors close on each other or retreat from each other; four edges got fabricated
- *     targets and two of them ran backwards by 4.25. The fabrication is gone, the causality
- *     checks in `wavefront-causality.test.ts` now pass, and in its place the four waist
- *     bisectors are simply unresolved — see the `it.failing` below for the pinch-event defect
- *     that inverts them. This also puts `strip-decomposition.test.ts` back out of reach for the
- *     peanut, not because the tiling degraded (it was 2e-15) but because `computeStrips`
- *     refuses an incomplete solve outright.
+ *   - `offset-event-boundary-regression.test.ts` — at the exact offset of a many-way event the
+ *     wavefront ring passes through the single node that event created, and
+ *     `projectOffsetWavefront` cannot close it. Blocks `NEAR_REGULAR_ELLIPSE_16` (72.361834),
+ *     `NEAR_REGULAR_ELLIPSE_32` (68.277064), `NEAR_REGULAR_ROSETTE5_40` (37.456461, 55.672712)
+ *     and `NEAR_REGULAR_PEANUT_32` (106.597832). This is pre-existing and not caused by any
+ *     solver fix: `NEAR_REGULAR_ELLIPSE_16` reports the identical unclosed chain on both sides
+ *     of every change made here. It is the same class as the Pentagon House exception that file
+ *     already documents. The peanut's instance is the two-ring form of it: the lobes' events sit
+ *     one ULP apart, so at either offset one lobe's ring closes and the other does not, and the
+ *     projected area reads 8.534 -> 4.267 -> 8.534 rather than dropping to zero.
  *   - `large-coordinate-failures.test.ts` — these are 300-unit shapes, so they leave the
- *     translation envelope earlier than the corpus's smaller fixtures.
+ *     translation envelope earlier than the corpus's smaller fixtures. Blocks
+ *     `NEAR_REGULAR_CIRCLE_32`, `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40`.
  *
- * The other six are blocked only by the projection limit and the envelope. Promote them once
- * the projection closes a terminal many-way event and the envelope reaches them; the peanut
- * additionally needs its waist to resolve.
+ * `NEAR_REGULAR_CIRCLE_16` is now blocked by neither and is promotable on its own; doing so also
+ * means updating the hard-coded event-offset count in `offset-event-boundary-regression.test.ts`,
+ * which is 271 for the present list. The rest need the projection to close a many-way event, the
+ * envelope to reach 300-unit shapes, or both.
+ *
+ * The peanut in particular is no longer a solver problem. It solves complete with no
+ * diagnostics, both causality invariants hold on it non-vacuously, and its strip tiling is
+ * 3.1e-15 of the polygon area at worst across every depth and corner policy.
  */
 
 setSkeletonLogLevel('silent');
@@ -130,6 +147,17 @@ function seededRandom(seed: number): () => number {
     };
 }
 
+/** Shoelace area of a closed ring, sign discarded. */
+function signedRingArea(ring: Vector2[]): number {
+    let total = 0;
+    for (let i = 0; i < ring.length; i++) {
+        const a = ring[i];
+        const b = ring[(i + 1) % ring.length];
+        total += a.x * b.y - b.x * a.y;
+    }
+    return total / 2;
+}
+
 function jitter(vertices: Vector2[], amplitude: number, seed: number): Vector2[] {
     const random = seededRandom(seed);
     return vertices.map(vertex => ({
@@ -161,7 +189,7 @@ describe('near-regular polygons', () => {
     });
 
     describe('every fixture solves completely', () => {
-        it.each(FIXTURES.filter(([name]) => name !== 'peanut-32'))('%s', (_name, vertices) => {
+        it.each(FIXTURES)('%s', (_name, vertices) => {
             const result = solveSkeleton(vertices);
 
             expect(result.diagnostics).toEqual([]);
@@ -169,56 +197,77 @@ describe('near-regular polygons', () => {
         });
 
         /**
-         * The peanut's waist is unresolved, and is now honest about it.
+         * The peanut's waist, named because it is the only place in the corpus where two
+         * arrivals annihilate exactly anti-parallel and the bisector born from them therefore
+         * has no usable direction hint.
          *
-         * It used to report `complete` with no diagnostics, but only because
-         * `handleInteriorEdgePair` cross-wired any anti-parallel pair on the strength of
-         * `dot(basis1, basis2) === -1`. Two bisectors pointing directly *away* from each other
-         * are equally anti-parallel, so that fabricated a target for four edges that never meet.
-         * The handler now consults `intersectRays` and cross-wires only a genuine 'head-on', so
-         * those four fall through to the collision path, where no collision can be produced.
+         * The waist closes at (300, 300) at offset 94.35, when e39 (basis (0, +1)) and e55
+         * (basis (0, -1)) meet, and the event emits one bisector per lobe: e64 bounded by the
+         * two left-hand neck edges 7 and 22, and e65 bounded by the two right-hand ones 6 and
+         * 23. Both used to come out inverted, because `bisectionsForMerge` handed each an
+         * `approximateDirection` of `makeBisectedBasis(arrival1, arrival2)` — which for exactly
+         * anti-parallel arrivals is `rotateCw90` of whichever argument came first, a
+         * perpendicular chosen by rotation convention with no reference to which lobe the new
+         * bisector belongs to. `addBisectionEdge` then flipped the correct parent-derived basis
+         * on the strength of it.
          *
-         * What is actually wrong is upstream, at the pinch event itself. The waist closes at
-         * (300, 300) when e39 (basis (0, +1)) and e55 (basis (0, -1)) annihilate, and
-         * `bisectionsForMerge` hands each new bisector an `approximateDirection` of
-         * `makeBisectedBasis(arrival1, arrival2)`. Those two arrivals are exactly anti-parallel,
-         * so that call takes its degenerate `rotateCw90` fallback and returns a perpendicular
-         * chosen by rotation convention alone, with no reference to which lobe the new bisector
-         * belongs to. `addBisectionEdge` then uses it to flip the bisector derived from the
-         * parents, which was right both times:
-         *
-         *   e64, parents {cw 7, ws 22} — the left-hand neck edges — natural basis (-1, 0),
-         *        flipped to (+1, 0), aimed into the right lobe;
-         *   e65, parents {cw 23, ws 6} — the right-hand neck edges — natural basis (+1, 0),
-         *        flipped to (-1, 0), aimed into the left lobe.
-         *
-         * The partition is not at fault: {e64, e67} do share parents 7 and 22, and {e65, e68}
-         * share 6 and 23, so each pair is the correct 2-gon for its lobe. With the natural bases
-         * restored, e64 would chase e67 and reach node 33 at offset 98.60 — exactly the offset
-         * node 33 already carries — and e65 would reach node 34 the same way.
-         *
-         * `it.failing` rather than a loosened assertion: this is the real check, so it reports
-         * the day the pinch stops inverting its bisectors, and that is the day the peanut can
-         * join `ALL_TEST_POLYGONS`.
+         * This asserts the bases directly rather than only that the solve completes, because
+         * the completeness assertion above would also pass on a skeleton that got there some
+         * other way. Each bisector must run into the lobe whose two neck edges bound it.
          */
-        it.failing('peanut-32', () => {
-            const result = solveSkeleton(NEAR_REGULAR_PEANUT_32);
+        it('peanut-32: the waist bisectors run into their own lobes', () => {
+            const {graph} = solveSkeleton(NEAR_REGULAR_PEANUT_32);
 
-            expect(result.diagnostics).toEqual([]);
-            expect(result.complete).toBe(true);
+            const byParents = (clockwise: number, widdershins: number) => {
+                const interior = graph.interiorEdges.find(edge =>
+                    edge.clockwiseExteriorEdgeIndex === clockwise
+                    && edge.widdershinsExteriorEdgeIndex === widdershins
+                    && graph.edges[edge.id].source === 32);
+                expect(interior).toBeDefined();
+                return graph.edges[interior!.id];
+            };
+
+            // Parents 7 and 22 are the left-hand neck edges, so this one must run left.
+            expect(byParents(7, 22).basisVector.x).toBeCloseTo(-1, 9);
+            // Parents 23 and 6 are the right-hand ones, so this one must run right.
+            expect(byParents(23, 6).basisVector.x).toBeCloseTo(1, 9);
+
+            // And both terminate on the node the opposite side of their own lobe's neck.
+            for (const [clockwise, widdershins] of [[7, 22], [23, 6]] as const) {
+                const edge = byParents(clockwise, widdershins);
+                expect(edge.target).toBeDefined();
+                const travel = graph.nodes[edge.target!].position.x - graph.nodes[edge.source].position.x;
+                expect(travel * edge.basisVector.x).toBeGreaterThan(0);
+            }
         });
 
-        // Pins the damage so it cannot quietly spread while the pinch is unfixed: exactly the
-        // four waist bisectors are unresolved, and nothing else in a 32-vertex skeleton is.
-        it('peanut-32: leaves exactly the four waist bisectors unresolved', () => {
+        /**
+         * `strip-decomposition.test.ts` sweeps `ALL_TEST_POLYGONS` and so cannot see the peanut,
+         * and while the waist was unresolved `computeStrips` refused the solve outright. The
+         * peanut is the corpus's only two-lobed shape, so its tiling is worth one assertion here
+         * until it is promoted: the strips plus the offset rings must account for the polygon
+         * exactly, which is the same load-bearing identity that file asserts, at the same
+         * tolerance. Measured worst case across these depths is 3.1e-15 of the polygon area.
+         */
+        it('peanut-32: strips plus offset rings tile the polygon', () => {
             const result = solveSkeleton(NEAR_REGULAR_PEANUT_32);
-            const unresolved = result.diagnostics
-                .filter(diagnostic => diagnostic.kind === 'unresolved-edges')
-                .map(diagnostic => diagnostic.detail);
+            const maxOffset = computeMaxOffset(result);
+            const boundary = result.graph.nodes
+                .slice(0, result.graph.numExteriorNodes)
+                .map(node => node.position);
+            const polygonArea = Math.abs(signedRingArea(boundary));
 
-            expect(unresolved).toEqual([
-                '4 interior edge(s) finished without a target node: 64, 65, 67, 68.',
-            ]);
+            for (const fraction of [0.1, 0.4, 0.9, 1.1]) {
+                const depth = maxOffset * fraction;
+                const covered = computeStrips(result, {depth})
+                    .reduce((total, strip) => total + strip.holes.reduce(
+                        (area, hole) => area - Math.abs(signedRingArea(hole)),
+                        Math.abs(signedRingArea(strip.boundary))), 0)
+                    + computeOffsetRings(result, depth)
+                        .reduce((total, ring) => total + Math.abs(signedRingArea(ring)), 0);
+
+                expect(Math.abs(covered - polygonArea) / polygonArea).toBeLessThan(1e-12);
+            }
         });
     });
 
