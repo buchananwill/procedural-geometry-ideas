@@ -80,14 +80,19 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  *     fix: `NEAR_REGULAR_ELLIPSE_16`, which solved before the fix as well as after, reports
  *     the identical unclosed chain at 72.361834 on both sides of the change. It is the same
  *     class as the Pentagon House exception that file already documents.
- *   - `wavefront-causality.test.ts` and `strip-decomposition.test.ts` — `NEAR_REGULAR_PEANUT_32`
- *     solves completely, but one interior edge of its skeleton still runs backwards in time,
- *     and its strips do not tile.
+ *   - `wavefront-causality.test.ts` — `NEAR_REGULAR_PEANUT_32` solves completely, but its
+ *     skeleton is still not causal at the waist. This was much worse: an interior edge ran from
+ *     offset 98.60 all the way back to an original polygon vertex at offset 0, because
+ *     `tryAttachEdgeToNode` snapped it there without ever computing an offset. That snap is now
+ *     guarded and the strips tile exactly (relative area error 1.6e-1 -> 2e-15, so
+ *     `strip-decomposition.test.ts` is no longer a blocker), but the neck pinches shut at offset
+ *     94.35 and two bisectors born at 98.60 are still terminated on the node that event created,
+ *     running backwards by 4.25. See `wavefront-causality.test.ts` for the full account.
  *   - `large-coordinate-failures.test.ts` — these are 300-unit shapes, so they leave the
  *     translation envelope earlier than the corpus's smaller fixtures.
  *
- * Promote them once the projection closes a terminal many-way event and the peanut's skeleton
- * is causal.
+ * Promote them once the projection closes a terminal many-way event, the peanut's neck is
+ * causal, and the envelope reaches them.
  */
 
 setSkeletonLogLevel('silent');

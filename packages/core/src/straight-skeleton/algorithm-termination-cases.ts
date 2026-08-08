@@ -16,7 +16,12 @@ import {
     subtractVectors,
     vectorsAreEqual
 } from "./core-functions";
-import {bestNonPhantomCollision, collideInteriorEdges} from "./collision-helpers";
+import {
+    bestNonPhantomCollision,
+    collideInteriorEdges,
+    makeOffsetDistance,
+    sourceOffsetDistance
+} from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
@@ -30,6 +35,27 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
 }
 
 /**
+ * The offset at which a node was created, derived the same way the solver derives it
+ * everywhere else. Exterior nodes sit on the boundary, so their offset is zero; an interior
+ * node is born at the source offset of any bisector emitted from it.
+ *
+ * Returns `undefined` for a terminal interior node, which emits nothing and therefore has no
+ * offset recorded anywhere for us to read.
+ */
+function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): number | undefined {
+    if (node.id < context.graph.numExteriorNodes) {
+        return 0;
+    }
+
+    const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
+    if (outInterior === undefined) {
+        return undefined;
+    }
+
+    return sourceOffsetDistance(context.getInteriorWithId(outInterior), context);
+}
+
+/**
  * For a given edge, scan all existing nodes to see if any node lies exactly
  * along the edge's basis direction from its source.  If found, wire up
  * target / inEdges and return true.
@@ -38,10 +64,28 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
  * ridge node it feeds, for instance — so the *nearest* one wins. A bisector ends where the
  * wavefront next arrives, and taking any further node instead runs the edge backwards
  * through skeleton the solver has already resolved.
+ *
+ * CAUSALITY. This snap pass is an *early* part of the algorithm, written to close the
+ * terminal scenario when the skeleton fully solves, and reached only from
+ * `handleInteriorEdgePair`, the two-edge base case. It predates the tighter runtime checks
+ * added later, and because it assigns `target` directly — computing no offset and building
+ * no `CollisionEvent` — none of them can see it: not `validateSplitReachesEdge`'s
+ * `notYetBorn` guard, not the `phantomDivergentOffset` classification in
+ * `collideInteriorEdges`, not the `outOfBounds` check against `maxOffset`. Its own
+ * `distance > 0` test is only a proxy for causality, and holds only while the bisector points
+ * inward; a *secondary* bisector aimed at a distant original polygon vertex marches forward
+ * along its ray but backwards in time. So the same birth-relative rule the collision path
+ * applies is applied here explicitly: a snap is a collision at `distance` along the ray, so
+ * its offset must not be earlier than the bisector's own birth offset. `makeOffsetDistance`
+ * and `sourceOffsetDistance` are reused verbatim so this rule cannot drift away from
+ * `notYetBorn`.
  */
 function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: number): boolean {
     const edgeData = context.getEdgeWithId(edgeId);
     const source = context.findSource(edgeId);
+    const interiorEdge = context.getInteriorWithId(edgeId);
+    const ray = context.projectRayInterior(interiorEdge);
+    const birthOffset = sourceOffsetDistance(interiorEdge, context);
 
     let nearest: PolygonNode | undefined;
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -50,10 +94,39 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         if (i === edgeData.source) continue;
         const candidate = context.graph.nodes[i];
         const [direction, distance] = normalize(subtractVectors(candidate.position, source.position));
-        if (distance > 0 && distance < nearestDistance && vectorsAreEqual(direction, edgeData.basisVector)) {
-            nearest = candidate;
-            nearestDistance = distance;
+        if (!(distance > 0 && distance < nearestDistance && vectorsAreEqual(direction, edgeData.basisVector))) {
+            continue;
         }
+
+        // Same tolerance convention as `notYetBorn`: a snap exactly at the birth offset is
+        // legitimate, only a strictly earlier one is rejected.
+        const snapOffset = makeOffsetDistance(interiorEdge, context, ray, distance);
+        const localOffset = snapOffset - birthOffset;
+        if (localOffset < 0 && !areEqual(localOffset, 0)) {
+            stepLog.debug(
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: snap offset ${snapOffset} precedes the bisector's birth offset ${birthOffset}.`,
+            );
+            continue;
+        }
+
+        // Stronger form, mirroring the phantom classifier: both sides must agree on when the
+        // meeting happens, so the candidate's own birth offset has to match the offset this
+        // bisector computes on arriving there. This earns its keep beyond the birth check above.
+        // A snap mutates two things — `target` here and `inEdges` on the node — but only
+        // `target` is ever rewritten downstream, so a snap that is later superseded leaves the
+        // node permanently claiming an in-edge that no longer points at it. On the peanut the
+        // birth check alone still let e67 and e68 snap outward before a later pass corrected
+        // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
+        const candidateOffset = nodeOffset(context, candidate);
+        if (candidateOffset !== undefined && !areEqual(candidateOffset, snapOffset)) {
+            stepLog.debug(
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: node exists at offset ${candidateOffset} but the bisector arrives at ${snapOffset}.`,
+            );
+            continue;
+        }
+
+        nearest = candidate;
+        nearestDistance = distance;
     }
 
     if (nearest === undefined) {

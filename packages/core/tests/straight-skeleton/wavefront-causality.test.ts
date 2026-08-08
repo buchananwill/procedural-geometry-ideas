@@ -1,5 +1,12 @@
 import {
     ALL_TEST_POLYGONS,
+    NEAR_REGULAR_CIRCLE_16,
+    NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_CIRCLE_48,
+    NEAR_REGULAR_ELLIPSE_16,
+    NEAR_REGULAR_ELLIPSE_32,
+    NEAR_REGULAR_PEANUT_32,
+    NEAR_REGULAR_ROSETTE5_40,
     PREMATURE_BISECTOR_SPLIT_FAILS,
     PREMATURE_BISECTOR_SPLIT_PASSES,
 } from '@proc-geo/test-fixtures';
@@ -209,6 +216,75 @@ describe('wavefront causality', () => {
 
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(vertices).join('; ')).toBe('');
+        });
+    });
+
+    /**
+     * The near-regular fixtures are exported individually rather than through
+     * `ALL_TEST_POLYGONS`, so the sweep above never reaches them — yet they are the corpus's
+     * densest, most symmetric shapes, the ones that put many events on one point at one offset.
+     * `NEAR_REGULAR_PEANUT_32` solved `complete` with no diagnostics while one of its interior
+     * edges ran from offset 98.60 back to an *original polygon vertex* at offset 0, because
+     * `tryAttachEdgeToNode` assigned that target directly and was therefore invisible to every
+     * runtime causality check the solver had. Nothing in the suite noticed until this sweep
+     * covered them, which is why it stays whatever the promotion status of the fixtures.
+     */
+    const CAUSAL_NEAR_REGULAR_FIXTURES: [string, Vector2[]][] = [
+        ['NEAR_REGULAR_CIRCLE_16', NEAR_REGULAR_CIRCLE_16],
+        ['NEAR_REGULAR_CIRCLE_32', NEAR_REGULAR_CIRCLE_32],
+        ['NEAR_REGULAR_CIRCLE_48', NEAR_REGULAR_CIRCLE_48],
+        ['NEAR_REGULAR_ELLIPSE_16', NEAR_REGULAR_ELLIPSE_16],
+        ['NEAR_REGULAR_ELLIPSE_32', NEAR_REGULAR_ELLIPSE_32],
+        ['NEAR_REGULAR_ROSETTE5_40', NEAR_REGULAR_ROSETTE5_40],
+    ];
+
+    describe.each(CAUSAL_NEAR_REGULAR_FIXTURES)('%s', (_name, vertices) => {
+        it('never runs backwards in time along a skeleton edge', () => {
+            const violations = findOffsetViolations(vertices);
+            expect(describeViolations(violations)).toBe('');
+        });
+
+        it('never places a node beyond its own clearance', () => {
+            expect(findClearanceViolations(vertices).join('; ')).toBe('');
+        });
+    });
+
+    /**
+     * The peanut is held apart because one causality defect survives in it, in a different part
+     * of the solver from the one the snap guard closed.
+     *
+     * The waist pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck
+     * before it reaches anywhere wider — and the solver records that as node 32. Two bisectors
+     * born at offset 98.60 on either side of the neck then meet head-on at exactly that point,
+     * and `handleInteriorNGon` terminates both there through `terminateEdgesAtPoint`. Their
+     * meeting point is right, but the node already standing on it is 4.25 older, so both edges
+     * run backwards by 4.25. That is the same family as the unclosed terminal many-way event
+     * `offset-event-boundary-regression.test.ts` documents: a node from an earlier event sitting
+     * on the point a later event resolves to. It is not the snap path — the snap guard rejects
+     * both of these candidates outright, which is exactly why they now reach the collision path
+     * at all.
+     *
+     * `it.failing` rather than a deletion or a loosened bound: the assertion is the real one, so
+     * this reports as a failure the day the neck is handled properly, and that is the day the
+     * peanut can join `ALL_TEST_POLYGONS`.
+     */
+    describe('NEAR_REGULAR_PEANUT_32', () => {
+        it.failing('never runs backwards in time along a skeleton edge', () => {
+            const violations = findOffsetViolations(NEAR_REGULAR_PEANUT_32);
+            expect(describeViolations(violations)).toBe('');
+        });
+
+        // Pins the residual so it cannot quietly grow back. Before the snap guard the worst edge
+        // ran backwards by 98.60 — all the way to an original polygon vertex at offset zero.
+        it('confines the remaining violation to the neck', () => {
+            const violations = findOffsetViolations(NEAR_REGULAR_PEANUT_32);
+            const worst = Math.max(...violations.map(v => v.sourceOffset - v.targetOffset));
+
+            expect(worst).toBeLessThan(5);
+        });
+
+        it('never places a node beyond its own clearance', () => {
+            expect(findClearanceViolations(NEAR_REGULAR_PEANUT_32).join('; ')).toBe('');
         });
     });
 });
