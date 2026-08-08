@@ -10,7 +10,7 @@ import type {
     StrokePipelineResult,
     StrokePoint,
 } from '@proc-geo/core';
-import { DEFAULT_STROKE_PIPELINE_CONFIG, DEFAULT_VERTEX_BUDGET, runStrokePipeline } from '@proc-geo/core';
+import { DEFAULT_STROKE_PIPELINE_CONFIG, runStrokePipeline } from '@proc-geo/core';
 import type { StrokeClipboardSummary } from '../components/pen-stroke/stroke-clipboard';
 import { clampVertexBudget, summariseStrokeCopy } from '../components/pen-stroke/stroke-clipboard';
 
@@ -95,6 +95,18 @@ function rerun(s: PenStrokeStoreState) {
  */
 const DEFAULT_CLOSURE: ClosureConfig = { variant: 'distance-threshold', threshold: 30 };
 
+/**
+ * The pen's own default, chosen from playtesting rather than derived: 12-16 is
+ * where a drawn region stops feeling over-sampled and starts feeling like the
+ * shape you meant, so 16 is the top of that band.
+ *
+ * Deliberately below core's `DEFAULT_VERTEX_BUDGET` of 64, which answers a
+ * different question — the most a caller should ask for before the solve stops
+ * feeling instant (~0.7 s at 64, against ~2 ms at 16). That is a ceiling; this
+ * is a starting point.
+ */
+const PEN_DEFAULT_VERTEX_BUDGET = 16;
+
 export const usePenStrokeStore = create<PenStrokeStoreState>()(
     immer((set) => ({
         rawPoints: [],
@@ -104,7 +116,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         cornerDetection: DEFAULT_STROKE_PIPELINE_CONFIG.cornerDetection,
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
         closure: DEFAULT_CLOSURE,
-        vertexBudget: DEFAULT_VERTEX_BUDGET,
+        vertexBudget: PEN_DEFAULT_VERTEX_BUDGET,
         lerpAlpha: 1,
         result: null,
         copySummary: null,
