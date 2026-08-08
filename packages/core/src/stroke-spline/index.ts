@@ -23,6 +23,8 @@ export { fitCatmullRom } from './catmull-rom';
 export { fitStroke } from './fitting';
 export { mapByArcLengthFraction, flattenSpline, mapRawToSpline } from './correspondence';
 export { isStrokeClosed, isSeamCorner, closeFittedChain } from './closure';
+export type { VertexBudgetResult } from './vertex-budget';
+export { reduceToVertexBudget, strokeToBudgetedPolygon, DEFAULT_VERTEX_BUDGET } from './vertex-budget';
 export {
     runStrokePipeline,
     lerpStroke,

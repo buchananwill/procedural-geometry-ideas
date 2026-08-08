@@ -294,3 +294,7 @@ export type {
 // ── Parcel generation: slicing strips into parcels ───────────────────────────
 export { sliceStrip, sliceStrips } from './straight-skeleton/parcel-slicing';
 export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
+
+// ── Stroke → spline: vertex budgeting ────────────────────────────────────────
+export type { VertexBudgetResult } from './stroke-spline';
+export { reduceToVertexBudget, strokeToBudgetedPolygon, DEFAULT_VERTEX_BUDGET } from './stroke-spline';
