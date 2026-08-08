@@ -10,13 +10,7 @@ import {
     bisectWithParams,
     tryToAcceptExteriorEdge
 } from "./algorithm-helpers";
-import {
-    bisectionsForLayer,
-    clusterCoincidentMerges,
-    mergesShareAnEdge,
-    ResolvedMerge,
-    ringsOfSubPolygon
-} from "./coincident-events";
+import {bisectionsForMerge, clusterCoincidentMerges, mergesShareAnEdge, ringsOfSubPolygon} from "./coincident-events";
 
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
@@ -83,13 +77,16 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
     }
 
-    // Handle collisions. A bisection is a bisection: whether the event it came from collapsed a
-    // stretch of ring or split the ring in two is not recorded here, because the sub-polygons are
-    // read back off the resulting wavefront by connectivity rather than derived from the events.
-    const bisections: BisectionParams[] = [];
+    // Handle collisions
+    const collapseEvents: BisectionParams[] = [];
+    let partitionEvents: BisectionParams[] = [];
 
     const recordBisections = (bisectionList: BisectionParams[]) => {
-        bisections.push(...bisectionList);
+        if (bisectionList.length > 1) {
+            partitionEvents.push(...bisectionList)
+        } else {
+            collapseEvents.push(...bisectionList)
+        }
     };
 
     const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) =>
@@ -111,12 +108,6 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const ringOfMerge = rings === null ? null : merges.map(merge =>
         rings.find(ring => merge.edgeIds.every(edgeId => ring.includes(edgeId))));
 
-    // `mergesShareAnEdge` was expected to become unnecessary once the layer was resolved as a
-    // whole, and it did not. It is not a mask for the overlapping-arc defect — it detects an edge
-    // arriving at two different points in one layer, which is a whole ridge collapsing at once,
-    // and no per-ring reduction can express that: the edge terminates on one node, so the second
-    // event's arrivals lose their partner. Removing it costs the reflex L k = 6..10 and
-    // `stroke-derived-polygons`.
     if (rings === null || ringOfMerge === null || ringOfMerge.some(ring => ring === undefined)
         || mergesShareAnEdge(merges)) {
         collisionsToHandle
@@ -124,11 +115,6 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             .map(event => handleCollisionEvent(event, context))
             .forEach(recordBisections)
     } else {
-        // One event set per ring, not one per merge. Every merge on a ring removes edges from
-        // it, so the arcs that survive the layer can only be read off the ring once every
-        // arrival is known — see `bisectionsForLayer`.
-        const resolvedByRing = new Map<number[], ResolvedMerge[]>();
-
         merges.forEach((merge, index) => {
             const arrivals = merge.edgeIds.filter(edgeId => !context.isAccepted(edgeId));
             if (arrivals.length < 2) {
@@ -137,17 +123,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
             const node = context.terminateEdgesAtPoint(arrivals, merge.position);
             context.acceptAll(arrivals);
-
-            const ring = ringOfMerge[index]!;
-            const resolved = resolvedByRing.get(ring);
-            if (resolved === undefined) {
-                resolvedByRing.set(ring, [{edgeIds: arrivals, nodeId: node.id}]);
-            } else {
-                resolved.push({edgeIds: arrivals, nodeId: node.id});
-            }
+            recordBisections(bisectionsForMerge(ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context))
         })
-
-        resolvedByRing.forEach((resolved, ring) => recordBisections(bisectionsForLayer(ring, resolved, context)));
 
         collisionsToHandle
             .filter(event => event.eventType === 'interiorAgainstExterior')
@@ -158,27 +135,98 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
 
+    const partitionSpan = (params: BisectionParams) => {
+        return (params.clockwiseExteriorEdgeIndex - params.widdershinsExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
+    }
+    // Collapse/partition into child
+    // How do we resolve precedence/priority of conflicting partition splits? Take the smallest?
+    /* Clover Leaf Example:
+
+    Partition Pair 1:  [[0,4], [4,0]]
+    Partition Pair 2:  [[4,8], [8,4]]
+    Partition Pair 3:  [[8,0], [0,8]]
+
+    Outcome we want is: [[0,4], [4,8], [8,0]]
+
+    Rule is: sort by clockwise bisection first, then span of bisection.
+    Span of bisection = (end - start + length) % length
+
+     * */
+    partitionEvents = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+        .toSorted((params1, params2) => {
+            if (params1.clockwiseExteriorEdgeIndex !== params2.clockwiseExteriorEdgeIndex) {
+                return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
+            }
+
+            return partitionSpan(params1) - partitionSpan(params2);
+        });
+
+    let currentPartitionStart = -1;
+    let currentPartitionEnd = -1;
+    const finalPartitionEvents: BisectionParams[] = [];
+    for (const partitionEvent of partitionEvents) {
+        if (currentPartitionStart === partitionEvent.clockwiseExteriorEdgeIndex) {
+            if (partitionEvent.widdershinsExteriorEdgeIndex < currentPartitionEnd) {
+                throw new Error(`Partition sorting failure: start: ${currentPartitionStart}, end: ${currentPartitionEnd}, event end: ${partitionEvent.widdershinsExteriorEdgeIndex}`)
+            }
+            continue;
+        }
+
+        currentPartitionStart = partitionEvent.clockwiseExteriorEdgeIndex;
+        currentPartitionEnd = partitionEvent.widdershinsExteriorEdgeIndex;
+
+        finalPartitionEvents.push(partitionEvent)
+    }
+
+    const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
+
+    allOutgoingInteriorEdges.push(...finalPartitionEvents
+        .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
+            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+        .map(params => {
+            return bisectWithParams(context, params)
+        }))
+
     // Both bounding parents must still be live. An accepted parent has no wavefront left to
     // bisect, and `clockwiseSpanExcludingAccepted` refuses to measure a span that touches one,
-    // so admitting a half-accepted bisection throws instead of producing an edge.
-    const allOutgoingInteriorEdges = [
-        ...input.interiorEdges.filter(e => !context.isAccepted(e)),
-        ...bisections
-            .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-                && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-            .map(params => bisectWithParams(context, params)),
-    ];
+    // so admitting a half-accepted collapse throws instead of producing an edge.
+    allOutgoingInteriorEdges.push(
+        ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
+            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+            .map(params => bisectWithParams(context, params))
+    )
 
-    // The sub-polygons are whatever closed wavefront rings the outgoing edges form. Deriving
-    // them instead from the exterior-edge spans of the partitioning events cannot survive a
-    // layer with several of them: the spans overlap, and the widest one silently swallows the
-    // edges of the ones nested inside it. Connectivity is the ground truth — consecutive
-    // interior edges share an exterior parent — so ask the edges themselves.
-    const outgoingRings = ringsOfSubPolygon(allOutgoingInteriorEdges, context);
+    if (finalPartitionEvents.length === 0) {
+        result.childSteps.push({interiorEdges: allOutgoingInteriorEdges})
 
-    result.childSteps = outgoingRings === null
-        ? [{interiorEdges: allOutgoingInteriorEdges}]
-        : outgoingRings.map(ring => ({interiorEdges: ring}));
+        return result;
+    }
+
+    result.childSteps = finalPartitionEvents.map(() => ({interiorEdges: []}))
+
+    const N = context.graph.numExteriorNodes;
+    for (const interiorEdge of allOutgoingInteriorEdges) {
+        const { clockwise: cwParent, widdershins: wsParent } = context.parentEdges(interiorEdge);
+
+        let success = false;
+
+        for (let i = 0; i < finalPartitionEvents.length; i++) {
+            const event = finalPartitionEvents[i];
+            const cwInSpan = (cwParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
+            const wsInSpan = (wsParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
+            const spanSize = (event.widdershinsExteriorEdgeIndex - event.clockwiseExteriorEdgeIndex + N) % N;
+            if (cwInSpan <= spanSize && wsInSpan <= spanSize) {
+                const partitionSet = result.childSteps[i];
+                partitionSet.interiorEdges.push(interiorEdge);
+                success = true;
+                break;
+            }
+        }
+
+        if (!success) {
+            throw new Error(`Unable to play interior edge ${interiorEdge} in any span: ${finalPartitionEvents.flatMap(e => [e.clockwiseExteriorEdgeIndex, e.widdershinsExteriorEdgeIndex])}`)
+        }
+    }
 
     return result;
 }
