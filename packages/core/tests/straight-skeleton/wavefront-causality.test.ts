@@ -172,6 +172,88 @@ function findClearanceViolations(vertices: Vector2[]): string[] {
     return violations;
 }
 
+interface DirectionViolation {
+    interiorEdgeId: number;
+    sourceNode: number;
+    targetNode: number;
+    sourcePosition: Vector2;
+    targetPosition: Vector2;
+    basisVector: Vector2;
+    dot: number;
+}
+
+/**
+ * A third invariant, and the strictest of the three about direction: an interior edge must
+ * end somewhere *ahead of* its own source, along its own basis vector.
+ *
+ * Every interior edge is a bisector ray. Its basis vector is not decoration — it is the
+ * direction the wavefront vertex actually travels, fixed at the edge's birth by the two
+ * original polygon edges that define it. Whatever node the solver eventually gives that
+ * edge as a `target`, the vertex has to have reached it by walking forwards along that ray.
+ * A target sitting behind the source means the solver wired the edge to a point the moving
+ * vertex never visits, and the drawn segment runs the opposite way to the motion it claims
+ * to depict.
+ *
+ * Why this is not subsumed by the offset check above. The offset check compares *when* the
+ * two endpoint events happened; this one compares *where* they are relative to the direction
+ * of travel. Those come apart. On `NEAR_REGULAR_PEANUT_32` the anti-parallel neck pair ran
+ * from offset 94.35 to offset 98.60 — forward in time, and therefore invisible to the offset
+ * check — while pointing (+1, 0) and terminating 36 units to the *left* of their own source.
+ * Only a directional test separates that case.
+ *
+ * Derived from raw geometry: the source and target positions come from the graph's nodes and
+ * the basis vector from the edge itself, so nothing about the solver's timing bookkeeping is
+ * trusted.
+ */
+function findDirectionViolations(vertices: Vector2[]): DirectionViolation[] {
+    const context = runAlgorithmV5(vertices);
+    const {graph} = context;
+
+    const violations: DirectionViolation[] = [];
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (!edge || edge.target === undefined) continue;
+
+        const source = graph.nodes[edge.source];
+        const target = graph.nodes[edge.target];
+        if (!source || !target) continue;
+
+        const travel = {x: target.position.x - source.position.x, y: target.position.y - source.position.y};
+        const length = Math.hypot(travel.x, travel.y);
+        // A zero-length edge has no direction to disagree with; the offset and clearance
+        // checks own that degeneracy.
+        if (length <= TOLERANCE) continue;
+
+        const dot = (travel.x / length) * edge.basisVector.x + (travel.y / length) * edge.basisVector.y;
+        if (dot > 0) continue;
+
+        violations.push({
+            interiorEdgeId: interiorEdge.id,
+            sourceNode: edge.source,
+            targetNode: edge.target,
+            sourcePosition: source.position,
+            targetPosition: target.position,
+            basisVector: edge.basisVector,
+            dot,
+        });
+    }
+    return violations;
+}
+
+function formatPoint(v: Vector2): string {
+    return `(${v.x.toFixed(2)}, ${v.y.toFixed(2)})`;
+}
+
+function describeDirectionViolations(violations: DirectionViolation[]): string {
+    return violations
+        .map(v =>
+            `interior edge ${v.interiorEdgeId}: source node ${v.sourceNode} at ` +
+            `${formatPoint(v.sourcePosition)} -> target node ${v.targetNode} at ` +
+            `${formatPoint(v.targetPosition)}, but basis is ${formatPoint(v.basisVector)} ` +
+            `(dot ${v.dot.toFixed(3)}, edge runs backwards along its own ray)`)
+        .join('; ');
+}
+
 function describeViolations(violations: OffsetViolation[]): string {
     return violations
         .map(v =>
@@ -217,6 +299,10 @@ describe('wavefront causality', () => {
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(vertices).join('; ')).toBe('');
         });
+
+        it('never terminates an edge behind its own source', () => {
+            expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
+        });
     });
 
     /**
@@ -247,44 +333,45 @@ describe('wavefront causality', () => {
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(vertices).join('; ')).toBe('');
         });
+
+        it('never terminates an edge behind its own source', () => {
+            expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
+        });
     });
 
     /**
-     * The peanut is held apart because one causality defect survives in it, in a different part
-     * of the solver from the one the snap guard closed.
+     * The peanut kept its own block because its waist used to break both causality checks, and
+     * the history of what broke them is worth keeping next to the assertions.
      *
      * The waist pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck
-     * before it reaches anywhere wider — and the solver records that as node 32. Two bisectors
-     * born at offset 98.60 on either side of the neck then meet head-on at exactly that point,
-     * and `handleInteriorNGon` terminates both there through `terminateEdgesAtPoint`. Their
-     * meeting point is right, but the node already standing on it is 4.25 older, so both edges
-     * run backwards by 4.25. That is the same family as the unclosed terminal many-way event
-     * `offset-event-boundary-regression.test.ts` documents: a node from an earlier event sitting
-     * on the point a later event resolves to. It is not the snap path — the snap guard rejects
-     * both of these candidates outright, which is exactly why they now reach the collision path
-     * at all.
+     * before it reaches anywhere wider — and the solver records that as node 32. The event emits
+     * one bisector per lobe: e64, bounded by the two left-hand neck edges 7 and 22, and e65,
+     * bounded by the two right-hand ones 6 and 23. Each used to be cross-wired to the bisector
+     * born at 98.60 in the *other* lobe, on nothing better than `dot(basis1, basis2) === -1`.
+     * Anti-parallel is not head-on: those pairs point directly away from each other, and the
+     * cross-wire made all four run backwards along their own basis while, in two cases, still
+     * running *forwards* in offset — which is exactly why the offset check below scored the
+     * damage at only 4.25 and the direction check scores it at a clean reversal.
      *
-     * `it.failing` rather than a deletion or a loosened bound: the assertion is the real one, so
-     * this reports as a failure the day the neck is handled properly, and that is the day the
-     * peanut can join `ALL_TEST_POLYGONS`.
+     * Both assertions now hold. They hold honestly for the rest of the skeleton and vacuously at
+     * the waist: refusing the bogus cross-wire leaves e64, e65, e67 and e68 with no target at
+     * all, and an edge without a target is not audited by either check. `solveSkeleton` reports
+     * that plainly — two step failures and four unresolved edges — and
+     * `near-regular-polygons.test.ts` pins it. The peanut can join `ALL_TEST_POLYGONS` when those
+     * four resolve, not before.
      */
     describe('NEAR_REGULAR_PEANUT_32', () => {
-        it.failing('never runs backwards in time along a skeleton edge', () => {
+        it('never runs backwards in time along a skeleton edge', () => {
             const violations = findOffsetViolations(NEAR_REGULAR_PEANUT_32);
             expect(describeViolations(violations)).toBe('');
         });
 
-        // Pins the residual so it cannot quietly grow back. Before the snap guard the worst edge
-        // ran backwards by 98.60 — all the way to an original polygon vertex at offset zero.
-        it('confines the remaining violation to the neck', () => {
-            const violations = findOffsetViolations(NEAR_REGULAR_PEANUT_32);
-            const worst = Math.max(...violations.map(v => v.sourceOffset - v.targetOffset));
-
-            expect(worst).toBeLessThan(5);
-        });
-
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(NEAR_REGULAR_PEANUT_32).join('; ')).toBe('');
+        });
+
+        it('never terminates an edge behind its own source', () => {
+            expect(describeDirectionViolations(findDirectionViolations(NEAR_REGULAR_PEANUT_32))).toBe('');
         });
     });
 });

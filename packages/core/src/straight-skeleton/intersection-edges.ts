@@ -1,4 +1,4 @@
-import {IntersectionResult, RayProjection} from "./types";
+import {IntersectionResult, RayProjection, Vector2} from "./types";
 import {
     areEqual, crossProduct,
     dotProduct,
@@ -6,6 +6,29 @@ import {
     normalize, rotateCw90, rotateWs90,
     subtractVectors, vectorsAreEqual
 } from "./core-functions";
+import {FLOATING_POINT_EPSILON} from "./constants";
+
+/**
+ * For two anti-parallel rays: does ray 2's source lie *ahead* of ray 1, on ray 1's own line?
+ *
+ * This is the whole of the head-on/parallel distinction. Anti-parallel says only that the two
+ * rays run along opposite directions; whether they close on each other or retreat depends
+ * entirely on which side of ray 1's source the other source sits.
+ *
+ * Measured in absolute units — the along-ray and across-ray components of the raw separation —
+ * rather than by comparing the *normalised* separation against the basis vector. Normalising
+ * divides the separation by its own length, so at small separations it amplifies float noise
+ * without bound: a genuinely head-on pair whose sources were 3.9e-8 apart came out with a
+ * lateral component of 6.2e-9 (numerically zero) yet a unit direction 0.15 away from the basis,
+ * and was misread as 'parallel'. The floor of 1 in the tolerance keeps the previous, purely
+ * relative behaviour everywhere the sources are more than a unit apart, and only relaxes the
+ * test in the sub-unit regime where the relative form is meaningless.
+ */
+function sourceLiesAhead(separation: Vector2, basisVector: Vector2, separationDistance: number): boolean {
+    const forward = dotProduct(separation, basisVector);
+    const lateral = Math.abs(crossProduct(separation, basisVector));
+    return forward > 0 && lateral <= FLOATING_POINT_EPSILON * Math.max(1, separationDistance);
+}
 
 /**
  * Returns a tuple holding the unit distance along each ray until it intersects the other.
@@ -38,7 +61,7 @@ export function intersectRays(ray1Param: RayProjection, ray2Param: RayProjection
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];
         } else {
-            if (vectorsAreEqual(r1SourceToR2Source, ray1.basisVector)) {
+            if (sourceLiesAhead(relativeRay2Source, ray1.basisVector, distanceToRay2)) {
                 return [distanceToRay2, distanceToRay2, 'head-on'];
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];

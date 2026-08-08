@@ -71,8 +71,8 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  * WHY THESE FIXTURES ARE STILL OUT OF `ALL_TEST_POLYGONS`
  * ----------------------------------------------------------------------------
  *
- * Solving is not the only thing that list asserts. Promoting all seven was tried and measured:
- * every one solves, but three suites fail on them for reasons downstream of the solver.
+ * Solving is not the only thing that list asserts. Promoting all seven was tried and measured,
+ * and three separate things stand in the way.
  *
  *   - `offset-event-boundary-regression.test.ts` — at the exact offset of a terminal many-way
  *     event the wavefront ring passes through the single node that event created, and
@@ -80,19 +80,21 @@ import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-ge
  *     fix: `NEAR_REGULAR_ELLIPSE_16`, which solved before the fix as well as after, reports
  *     the identical unclosed chain at 72.361834 on both sides of the change. It is the same
  *     class as the Pentagon House exception that file already documents.
- *   - `wavefront-causality.test.ts` — `NEAR_REGULAR_PEANUT_32` solves completely, but its
- *     skeleton is still not causal at the waist. This was much worse: an interior edge ran from
- *     offset 98.60 all the way back to an original polygon vertex at offset 0, because
- *     `tryAttachEdgeToNode` snapped it there without ever computing an offset. That snap is now
- *     guarded and the strips tile exactly (relative area error 1.6e-1 -> 2e-15, so
- *     `strip-decomposition.test.ts` is no longer a blocker), but the neck pinches shut at offset
- *     94.35 and two bisectors born at 98.60 are still terminated on the node that event created,
- *     running backwards by 4.25. See `wavefront-causality.test.ts` for the full account.
+ *   - `NEAR_REGULAR_PEANUT_32` no longer solves at all. Its waist used to report `complete`
+ *     only because an anti-parallel pair was cross-wired without checking whether the two
+ *     bisectors close on each other or retreat from each other; four edges got fabricated
+ *     targets and two of them ran backwards by 4.25. The fabrication is gone, the causality
+ *     checks in `wavefront-causality.test.ts` now pass, and in its place the four waist
+ *     bisectors are simply unresolved — see the `it.failing` below for the pinch-event defect
+ *     that inverts them. This also puts `strip-decomposition.test.ts` back out of reach for the
+ *     peanut, not because the tiling degraded (it was 2e-15) but because `computeStrips`
+ *     refuses an incomplete solve outright.
  *   - `large-coordinate-failures.test.ts` — these are 300-unit shapes, so they leave the
  *     translation envelope earlier than the corpus's smaller fixtures.
  *
- * Promote them once the projection closes a terminal many-way event, the peanut's neck is
- * causal, and the envelope reaches them.
+ * The other six are blocked only by the projection limit and the envelope. Promote them once
+ * the projection closes a terminal many-way event and the envelope reaches them; the peanut
+ * additionally needs its waist to resolve.
  */
 
 setSkeletonLogLevel('silent');
@@ -159,11 +161,64 @@ describe('near-regular polygons', () => {
     });
 
     describe('every fixture solves completely', () => {
-        it.each(FIXTURES)('%s', (_name, vertices) => {
+        it.each(FIXTURES.filter(([name]) => name !== 'peanut-32'))('%s', (_name, vertices) => {
             const result = solveSkeleton(vertices);
 
             expect(result.diagnostics).toEqual([]);
             expect(result.complete).toBe(true);
+        });
+
+        /**
+         * The peanut's waist is unresolved, and is now honest about it.
+         *
+         * It used to report `complete` with no diagnostics, but only because
+         * `handleInteriorEdgePair` cross-wired any anti-parallel pair on the strength of
+         * `dot(basis1, basis2) === -1`. Two bisectors pointing directly *away* from each other
+         * are equally anti-parallel, so that fabricated a target for four edges that never meet.
+         * The handler now consults `intersectRays` and cross-wires only a genuine 'head-on', so
+         * those four fall through to the collision path, where no collision can be produced.
+         *
+         * What is actually wrong is upstream, at the pinch event itself. The waist closes at
+         * (300, 300) when e39 (basis (0, +1)) and e55 (basis (0, -1)) annihilate, and
+         * `bisectionsForMerge` hands each new bisector an `approximateDirection` of
+         * `makeBisectedBasis(arrival1, arrival2)`. Those two arrivals are exactly anti-parallel,
+         * so that call takes its degenerate `rotateCw90` fallback and returns a perpendicular
+         * chosen by rotation convention alone, with no reference to which lobe the new bisector
+         * belongs to. `addBisectionEdge` then uses it to flip the bisector derived from the
+         * parents, which was right both times:
+         *
+         *   e64, parents {cw 7, ws 22} — the left-hand neck edges — natural basis (-1, 0),
+         *        flipped to (+1, 0), aimed into the right lobe;
+         *   e65, parents {cw 23, ws 6} — the right-hand neck edges — natural basis (+1, 0),
+         *        flipped to (-1, 0), aimed into the left lobe.
+         *
+         * The partition is not at fault: {e64, e67} do share parents 7 and 22, and {e65, e68}
+         * share 6 and 23, so each pair is the correct 2-gon for its lobe. With the natural bases
+         * restored, e64 would chase e67 and reach node 33 at offset 98.60 — exactly the offset
+         * node 33 already carries — and e65 would reach node 34 the same way.
+         *
+         * `it.failing` rather than a loosened assertion: this is the real check, so it reports
+         * the day the pinch stops inverting its bisectors, and that is the day the peanut can
+         * join `ALL_TEST_POLYGONS`.
+         */
+        it.failing('peanut-32', () => {
+            const result = solveSkeleton(NEAR_REGULAR_PEANUT_32);
+
+            expect(result.diagnostics).toEqual([]);
+            expect(result.complete).toBe(true);
+        });
+
+        // Pins the damage so it cannot quietly spread while the pinch is unfixed: exactly the
+        // four waist bisectors are unresolved, and nothing else in a 32-vertex skeleton is.
+        it('peanut-32: leaves exactly the four waist bisectors unresolved', () => {
+            const result = solveSkeleton(NEAR_REGULAR_PEANUT_32);
+            const unresolved = result.diagnostics
+                .filter(diagnostic => diagnostic.kind === 'unresolved-edges')
+                .map(diagnostic => diagnostic.detail);
+
+            expect(unresolved).toEqual([
+                '4 interior edge(s) finished without a target node: 64, 65, 67, 68.',
+            ]);
         });
     });
 

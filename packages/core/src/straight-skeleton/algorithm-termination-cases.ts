@@ -11,11 +11,11 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
-    dotProduct,
     normalize,
     subtractVectors,
     vectorsAreEqual
 } from "./core-functions";
+import {intersectRays} from "./intersection-edges";
 import {
     bestNonPhantomCollision,
     collideInteriorEdges,
@@ -177,15 +177,29 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
 
     // Fall back to collision-based resolution
     const [id1, id2] = input.interiorEdges;
-    const edgeData1 = context.getEdgeWithId(id1);
-    const edgeData2 = context.getEdgeWithId(id2);
+    const interior1 = context.getInteriorWithId(id1);
+    const interior2 = context.getInteriorWithId(id2);
 
-    const dotEdges = dotProduct(edgeData1.basisVector, edgeData2.basisVector);
+    // ANTI-PARALLEL IS NOT HEAD-ON. This used to test `dot(basis1, basis2) === -1` and cross-wire
+    // on the strength of it, which is wrong: two bisectors pointing directly *away* from each
+    // other are equally anti-parallel. Cross-wiring those makes each terminate at the other's
+    // source, so both edges run backwards along their own basis — a 2-cycle in which the
+    // wavefront vertex is drawn travelling the opposite way to the direction it actually moves.
+    //
+    // `intersectRays` already draws the distinction the dot product cannot. Its anti-parallel
+    // branch returns 'head-on' only when the other ray's source lies *ahead* along this ray, and
+    // 'parallel' when it lies behind. No new geometric rule is needed here; the existing one just
+    // has to be consulted rather than re-derived badly.
+    const [, , pairIntersection] = intersectRays(
+        context.projectRayInterior(interior1),
+        context.projectRayInterior(interior2),
+    );
+
     // Head on Collision
-    if (areEqual(dotEdges, -1)) {
+    if (pairIntersection === 'head-on') {
         context.crossWireEdges(id1, id2);
     } else {
-        const collisions = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
+        const collisions = collideInteriorEdges(interior1, interior2, context);
         if (collisions.length === 0) {
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
