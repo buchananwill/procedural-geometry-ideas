@@ -4,5 +4,12 @@ export { default as PenStrokeLerpPanel } from './PenStrokeLerpPanel';
 export { default as PenStrokePipelinePanel } from './PenStrokePipelinePanel';
 export { default as SliderNumberInput } from './SliderNumberInput';
 export type { SliderNumberInputProps } from './SliderNumberInput';
-export { clampVertexBudget, MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET, summariseStrokeCopy } from './stroke-clipboard';
-export type { StrokeClipboardSummary } from './stroke-clipboard';
+export {
+    clampVertexBudget,
+    DEFAULT_STROKE_REDUCTION_MODE,
+    MAX_VERTEX_BUDGET,
+    MIN_VERTEX_BUDGET,
+    STROKE_REDUCTION_MODES,
+    summariseStrokeCopy,
+} from './stroke-clipboard';
+export type { StrokeClipboardSummary, StrokeReductionMode } from './stroke-clipboard';

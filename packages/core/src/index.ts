@@ -297,7 +297,18 @@ export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
 
 // ── Stroke → spline: vertex budgeting ────────────────────────────────────────
 export type { VertexBudgetResult } from './stroke-spline';
-export { reduceToVertexBudget, strokeToBudgetedPolygon, DEFAULT_VERTEX_BUDGET } from './stroke-spline';
+export {
+    reduceToVertexBudget,
+    reduceRingToVertexBudget,
+    strokeToBudgetedPolygon,
+    strokeToRing,
+    hasRedundantSeam,
+    DEFAULT_VERTEX_BUDGET,
+} from './stroke-spline';
+
+// ── Stroke → spline: least-squares straightening ─────────────────────────────
+export type { StraightenedBudgetResult, StraightenOptions } from './stroke-spline';
+export { straightenToVertexBudget, strokeToStraightenedPolygon } from './stroke-spline';
 
 // ── Shared geometry interchange payload ──────────────────────────────────────
 export type {

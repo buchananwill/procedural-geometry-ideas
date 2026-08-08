@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Button, Paper, Stack, Switch, Text } from '@mantine/core';
+import { Button, Paper, SegmentedControl, Stack, Switch, Text } from '@mantine/core';
 import { usePenStrokeStore } from '../../stores/usePenStrokeStore';
 import SliderNumberInput from './SliderNumberInput';
-import { MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET } from './stroke-clipboard';
+import type { StrokeReductionMode } from './stroke-clipboard';
+import { MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET, STROKE_REDUCTION_MODES } from './stroke-clipboard';
 
 /** Seam gap restored when the closure switch is turned back on. */
 const DEFAULT_SEAM_THRESHOLD = 30;
@@ -39,6 +40,8 @@ export default function PenStrokeCopyPanel() {
     const setClosure = usePenStrokeStore((s) => s.setClosure);
     const vertexBudget = usePenStrokeStore((s) => s.vertexBudget);
     const setVertexBudget = usePenStrokeStore((s) => s.setVertexBudget);
+    const reductionMode = usePenStrokeStore((s) => s.reductionMode);
+    const setReductionMode = usePenStrokeStore((s) => s.setReductionMode);
     const budgetPreviewEnabled = usePenStrokeStore((s) => s.budgetPreviewEnabled);
     const setBudgetPreviewEnabled = usePenStrokeStore((s) => s.setBudgetPreviewEnabled);
     const summary = usePenStrokeStore((s) => s.copySummary);
@@ -88,6 +91,20 @@ export default function PenStrokeCopyPanel() {
                     marks={BUDGET_MARKS}
                     onChange={setVertexBudget}
                 />
+                <Stack gap={4}>
+                    <Text size="xs" fw={500}>Reduction</Text>
+                    <SegmentedControl
+                        size="xs"
+                        fullWidth
+                        name="stroke-reduction-mode"
+                        value={reductionMode}
+                        onChange={(value) => setReductionMode(value as StrokeReductionMode)}
+                        data={STROKE_REDUCTION_MODES.map((m) => ({ value: m.value, label: m.label }))}
+                    />
+                    <Text size="xs" c="dimmed">
+                        {STROKE_REDUCTION_MODES.find((m) => m.value === reductionMode)?.hint}
+                    </Text>
+                </Stack>
                 <Switch
                     size="xs"
                     label="Show clamped polygon"

@@ -84,7 +84,7 @@ function copyVertices(vertices: Vector2[]): Vector2[] {
 }
 
 /** Distance from `p` to the segment `a`-`b` (the segment, so endpoints cap it). */
-function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
+export function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const lenSq = dx * dx + dy * dy;
@@ -98,7 +98,7 @@ function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
  * measured after the fact rather than inferred from the RDP tolerance, so
  * `maxError` describes the polyline actually returned.
  */
-function maxDeviation(source: Vector2[], target: Vector2[]): number {
+export function maxDeviation(source: Vector2[], target: Vector2[]): number {
     if (target.length === 0) return 0;
     if (target.length === 1) {
         return source.reduce((worst, p) => Math.max(worst, Math.hypot(p.x - target[0].x, p.y - target[0].y)), 0);
@@ -116,7 +116,7 @@ function maxDeviation(source: Vector2[], target: Vector2[]): number {
 }
 
 /** Bounding-box diagonal: any RDP tolerance at least this large collapses the input to its two endpoints. */
-function boundingDiagonal(vertices: Vector2[]): number {
+export function boundingDiagonal(vertices: Vector2[]): number {
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -216,6 +216,89 @@ export function reduceToVertexBudget(vertices: Vector2[], budget: number): Verte
 }
 
 /**
+ * How close the two ends of a closed ring have to be before they are treated as
+ * one vertex rather than two, as a fraction of the ring's bounding diagonal.
+ *
+ * The gap being merged is an artefact, not a feature of the drawing. A closed
+ * fit ends exactly where it began, so flattening emits the seam point twice and
+ * the ring is built by dropping the exact duplicate — which leaves the ring's
+ * last point one flattening sample short of its first, a gap fixed by
+ * `ARC_SAMPLES_PER_SEGMENT` and unrelated to the budget. RDP pins both ends, so
+ * without a merge that pair always costs two vertices: at budget 8 the observed
+ * pair sat 0.88 px apart, 12% of the budget spent on a vertex nobody can see.
+ *
+ * 0.5% of the bounding diagonal is ~3 px on a 600 px shape — below the width of
+ * the line it is drawn with, so two vertices that close are one corner as far as
+ * the eye is concerned, while a seam the user genuinely left open (a stroke that
+ * stopped short) is far wider than this and survives. Only ever applied to a
+ * ring the caller has declared closed, and only ever to its two ends, so no
+ * interior detail can be merged away by it.
+ */
+const SEAM_MERGE_FRACTION = 0.005;
+
+/**
+ * Worst deviation of `source` from the polygon `target`, including the closing
+ * edge when `closed`. The open measure would charge every point near the seam to
+ * whichever open edge happens to be nearest, which is not the edge the consumer
+ * will draw.
+ */
+export function maxDeviationFromRing(source: Vector2[], target: Vector2[], closed: boolean): number {
+    const measured = closed && target.length > 2 ? [...target, target[0]] : target;
+    return maxDeviation(source, measured);
+}
+
+/** True when a closed ring's two ends are near enough to be a single vertex. */
+export function hasRedundantSeam(ring: Vector2[], closed: boolean): boolean {
+    if (!closed || ring.length < 4) return false;
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    return Math.hypot(last.x - first.x, last.y - first.y) <= SEAM_MERGE_FRACTION * boundingDiagonal(ring);
+}
+
+/**
+ * Reduce a ring to `budget`, spending no vertex on a redundant seam.
+ *
+ * `reduceToVertexBudget` reduces an open polyline with both ends pinned, which
+ * is right for its contract and wrong for a closed ring whose two ends are the
+ * same corner: it returns them both. This wrapper detects that case, reduces at
+ * `budget + 1` instead, and drops the trailing near-duplicate — so the vertex
+ * the seam was wasting is spent on the shape, and the result still honours
+ * `budget`. When the ends are genuinely apart, or the ring is open, or nothing
+ * needed reducing at all, this is exactly `reduceToVertexBudget`.
+ *
+ * The reported `maxError` is measured against the closing edge as well when
+ * `closed`, since that edge is part of the polygon the caller receives.
+ */
+export function reduceRingToVertexBudget(ring: Vector2[], budget: number, closed: boolean): VertexBudgetResult {
+    if (!hasRedundantSeam(ring, closed) || ring.length <= budget) {
+        const plain = reduceToVertexBudget(ring, budget);
+        return { ...plain, maxError: maxDeviationFromRing(ring, plain.vertices, closed) };
+    }
+
+    const roomy = reduceToVertexBudget(ring, budget + 1);
+    const vertices = roomy.vertices.slice(0, roomy.vertices.length - 1);
+    return {
+        vertices,
+        achieved: vertices.length,
+        maxError: maxDeviationFromRing(ring, vertices, closed),
+        reduced: true,
+    };
+}
+
+/**
+ * The polyline a stroke pipeline result describes, as a ring: the fitted spline
+ * flattened (or the corner-detection polyline when fitting was pass-through),
+ * with a closed result's exact seam duplicate removed so the polygon carries no
+ * zero-length edge.
+ */
+export function strokeToRing(result: StrokePipelineResult): Vector2[] {
+    const polyline: Vector2[] = result.fit
+        ? flattenSpline(result.fit)
+        : result.corners.points.map((p) => ({ x: p.x, y: p.y }));
+    return result.closed && polyline.length > 1 ? polyline.slice(0, polyline.length - 1) : polyline;
+}
+
+/**
  * The polygon a stroke pipeline result describes, reduced to `budget`.
  *
  * Convenience, and a narrow one: it exists because turning a
@@ -231,12 +314,12 @@ export function reduceToVertexBudget(vertices: Vector2[], budget: number): Verte
  *
  * Falls back to the corner-detection polyline when the fitting stage was
  * pass-through and there is no spline to flatten.
+ *
+ * A closed result also has its seam merged: dropping the exact duplicate still
+ * leaves the ring's ends one flattening sample apart, and RDP pins both, so the
+ * budget would otherwise buy two vertices for one corner. See
+ * `reduceRingToVertexBudget`.
  */
 export function strokeToBudgetedPolygon(result: StrokePipelineResult, budget: number): VertexBudgetResult {
-    const polyline: Vector2[] = result.fit
-        ? flattenSpline(result.fit)
-        : result.corners.points.map((p) => ({ x: p.x, y: p.y }));
-
-    const ring = result.closed && polyline.length > 1 ? polyline.slice(0, polyline.length - 1) : polyline;
-    return reduceToVertexBudget(ring, budget);
+    return reduceRingToVertexBudget(strokeToRing(result), budget, result.closed);
 }

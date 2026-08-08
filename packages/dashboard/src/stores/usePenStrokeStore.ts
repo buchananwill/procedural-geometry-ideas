@@ -11,8 +11,12 @@ import type {
     StrokePoint,
 } from '@proc-geo/core';
 import { DEFAULT_STROKE_PIPELINE_CONFIG, runStrokePipeline } from '@proc-geo/core';
-import type { StrokeClipboardSummary } from '../components/pen-stroke/stroke-clipboard';
-import { clampVertexBudget, summariseStrokeCopy } from '../components/pen-stroke/stroke-clipboard';
+import type { StrokeClipboardSummary, StrokeReductionMode } from '../components/pen-stroke/stroke-clipboard';
+import {
+    clampVertexBudget,
+    DEFAULT_STROKE_REDUCTION_MODE,
+    summariseStrokeCopy,
+} from '../components/pen-stroke/stroke-clipboard';
 
 export interface PenStrokeStoreState {
     rawPoints: StrokePoint[];
@@ -35,6 +39,13 @@ export interface PenStrokeStoreState {
      * number, and a number two components both read is a store field.
      */
     vertexBudget: number;
+    /**
+     * Which vertex-reduction mode the budgeted payload is built with. Like the
+     * budget it is applied to the pipeline's output rather than being a pipeline
+     * stage, and like the budget it lives here because the canvas overlay and the
+     * copy button must agree on it exactly.
+     */
+    reductionMode: StrokeReductionMode;
     lerpAlpha: number;
     result: StrokePipelineResult | null;
     /**
@@ -64,6 +75,7 @@ export interface PenStrokeStoreState {
     setFitting: (config: FittingConfig) => void;
     setClosure: (config: ClosureConfig) => void;
     setVertexBudget: (budget: number) => void;
+    setReductionMode: (mode: StrokeReductionMode) => void;
     setLerpAlpha: (alpha: number) => void;
     setSmoothingPreviewEnabled: (enabled: boolean) => void;
     setBudgetPreviewEnabled: (enabled: boolean) => void;
@@ -85,7 +97,7 @@ function rerun(s: PenStrokeStoreState) {
         closure: plain.closure,
     }) as StrokePipelineResult;
     s.result = result;
-    s.copySummary = summariseStrokeCopy(result, plain.vertexBudget);
+    s.copySummary = summariseStrokeCopy(result, plain.vertexBudget, plain.reductionMode);
 }
 
 /**
@@ -117,6 +129,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
         closure: DEFAULT_CLOSURE,
         vertexBudget: PEN_DEFAULT_VERTEX_BUDGET,
+        reductionMode: DEFAULT_STROKE_REDUCTION_MODE,
         lerpAlpha: 1,
         result: null,
         copySummary: null,
@@ -190,7 +203,23 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
                 // Only the budgeting is redone: the budget is applied to the
                 // pipeline's output, so nothing upstream of it can have changed.
                 const plain = current(s);
-                s.copySummary = plain.result ? summariseStrokeCopy(plain.result, clamped) : null;
+                s.copySummary = plain.result
+                    ? summariseStrokeCopy(plain.result, clamped, plain.reductionMode)
+                    : null;
+            }),
+
+        setReductionMode: (mode) =>
+            set((s) => {
+                if (mode === s.reductionMode) return;
+                s.reductionMode = mode;
+                // Same reasoning as the budget: the mode reduces the pipeline's
+                // output, so only the summary is rebuilt — and rebuilding it here,
+                // once, is what keeps the canvas preview and the clipboard the
+                // same vertices rather than two reductions that happen to agree.
+                const plain = current(s);
+                s.copySummary = plain.result
+                    ? summariseStrokeCopy(plain.result, plain.vertexBudget, mode)
+                    : null;
             }),
 
         setLerpAlpha: (alpha) =>
