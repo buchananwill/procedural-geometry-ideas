@@ -127,9 +127,9 @@ export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from '.
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
 // near-regular-polygons.ts
-// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these are
-// analytic control shapes that the solver currently fails to resolve, and the sweeps over
-// ALL_TEST_POLYGONS assert completeness for every member. See the file header for detail.
+// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these analytic
+// control shapes all solve, but the sweeps over that list assert more than completeness, and
+// three of those wider assertions still fail on them. See the file header for detail.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,

@@ -1,6 +1,7 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, CollisionEvent,
+    PolygonNode,
     SkeletonDiagnostic,
     SkeletonSolveResult,
     StraightSkeletonGraph,
@@ -32,22 +33,36 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
  * For a given edge, scan all existing nodes to see if any node lies exactly
  * along the edge's basis direction from its source.  If found, wire up
  * target / inEdges and return true.
+ *
+ * Several nodes can be collinear with the ray — an apex vertex sits directly beyond the
+ * ridge node it feeds, for instance — so the *nearest* one wins. A bisector ends where the
+ * wavefront next arrives, and taking any further node instead runs the edge backwards
+ * through skeleton the solver has already resolved.
  */
 function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: number): boolean {
     const edgeData = context.getEdgeWithId(edgeId);
     const source = context.findSource(edgeId);
 
+    let nearest: PolygonNode | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+
     for (let i = 0; i < context.graph.nodes.length; i++) {
         if (i === edgeData.source) continue;
         const candidate = context.graph.nodes[i];
         const [direction, distance] = normalize(subtractVectors(candidate.position, source.position));
-        if (distance > 0 && vectorsAreEqual(direction, edgeData.basisVector)) {
-            edgeData.target = candidate.id;
-            candidate.inEdges.push(edgeId);
-            return true;
+        if (distance > 0 && distance < nearestDistance && vectorsAreEqual(direction, edgeData.basisVector)) {
+            nearest = candidate;
+            nearestDistance = distance;
         }
     }
-    return false;
+
+    if (nearest === undefined) {
+        return false;
+    }
+
+    edgeData.target = nearest.id;
+    nearest.inEdges.push(edgeId);
+    return true;
 }
 
 /**

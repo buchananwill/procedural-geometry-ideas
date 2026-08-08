@@ -16,9 +16,27 @@ import {
 
 /*
  * ============================================================================
- *  THE `known defect` BLOCK RECORDS BEHAVIOUR THAT IS WRONG. ITS ASSERTIONS
- *  ARE NOT A SPECIFICATION.
+ *  THE EVEN-RESAMPLING DEFECT THIS FILE RECORDED IS FIXED. ONE `known defect`
+ *  TEST REMAINS — THE REFLEX L-SHAPE — AND ITS ASSERTION IS NOT A
+ *  SPECIFICATION. EVERYTHING ELSE HERE IS.
  * ============================================================================
+ *
+ * WHAT CHANGED
+ *
+ * The simultaneous-event defect this file diagnosed is fixed in the solver; see
+ * `near-regular-polygons.test.ts` for the mechanism. Every evenly resampled polyline in the
+ * permanent sweep below now solves, where all of them failed before, and equal subdivision of
+ * a square or an irregular hexagon now solves at every k from 1 to 10.
+ *
+ * What survives is the reflex L-shape at k = 4 and k >= 6. Subdividing it makes an entire arm
+ * collapse onto its ridge in one offset layer, so the two ridge bisectors turn up in several
+ * coincident groups at once — a whole strip closing rather than a set of independent vertex
+ * events. `handleInteriorNGon` detects the overlap and falls back to pairwise handling for
+ * that layer, which is the behaviour that was always wrong here. It is strictly better than
+ * before (k = 2, 3 and 5 were failing too), and it is the remaining work.
+ *
+ * The measurements below are as taken BEFORE the fix, and are kept because they are what
+ * localised it.
  *
  * The straight skeleton fed the way the game will actually feed it: a hand-drawn stroke run
  * through `runStrokePipeline` with closure enabled, the fitted chain sampled into a polygon,
@@ -345,8 +363,8 @@ describe('stroke-derived polygons', () => {
         });
     });
 
-    describe('an evenly resampled polyline defeats the solver (known defect)', () => {
-        it('currently fails for every stroke and every smoothing when there is no curve fit', () => {
+    describe('an evenly resampled polyline', () => {
+        it('solves for every stroke and every smoothing when there is no curve fit', () => {
             const outcomes: string[] = [];
             for (const [strokeName, raw] of STROKES) {
                 for (const [smoothingName, smoothing] of SMOOTHINGS) {
@@ -361,12 +379,13 @@ describe('stroke-derived polygons', () => {
                 }
             }
 
-            // Every one of them fails today. RDP output is a polyline, so resampling it at even
-            // arc length lays down exactly collinear, exactly equally spaced vertices.
-            expect(outcomes.filter(outcome => outcome.endsWith('failed'))).toHaveLength(outcomes.length);
+            // Every one of these failed before the coincident-event fix. RDP output is a
+            // polyline, so resampling it at even arc length lays down exactly collinear, exactly
+            // equally spaced vertices — the densest source of tied events the pipeline has.
+            expect(outcomes.filter(outcome => outcome.endsWith('failed'))).toEqual([]);
         });
 
-        it('currently still solves the same strokes when a curve fitter breaks up the even spacing', () => {
+        it('also solves the same strokes when a curve fitter breaks up the even spacing', () => {
             for (const [, raw] of STROKES) {
                 for (const [, fitting] of [FITTINGS[0], FITTINGS[1]]) {
                     const polygon = polygonEvenlySpaced(
@@ -376,7 +395,7 @@ describe('stroke-derived polygons', () => {
             }
         });
 
-        it('currently solves `resample` simplification fine on its own — it is not the culprit', () => {
+        it('solves `resample` simplification fine on its own — it never was the culprit', () => {
             for (const [, raw] of STROKES) {
                 for (const [, simplification] of [SIMPLIFICATIONS[2], SIMPLIFICATIONS[3]]) {
                     for (const [, fitting] of [FITTINGS[0], FITTINGS[1]]) {
@@ -389,21 +408,35 @@ describe('stroke-derived polygons', () => {
         });
     });
 
-    describe('equal spacing between collinear vertices is the trigger (known defect)', () => {
-        it('currently fails on plain polygons subdivided into equal pieces', () => {
-            expect(solveSkeleton(subdivide(SQUARE, 3)).complete).toBe(true);
-            expect(solveSkeleton(subdivide(SQUARE, 4)).complete).toBe(false);
-            expect(solveSkeleton(subdivide(SQUARE, 5)).complete).toBe(false);
-            expect(solveSkeleton(subdivide(SQUARE, 8)).complete).toBe(false);
+    describe('equal spacing between collinear vertices', () => {
+        const subdivisions = Array.from({length: 10}, (_unused, index) => index + 1);
 
-            expect(solveSkeleton(subdivide(L_SHAPE, 2)).complete).toBe(false);
-            expect(solveSkeleton(subdivide(L_SHAPE, 3)).complete).toBe(true);
-            expect(solveSkeleton(subdivide(L_SHAPE, 4)).complete).toBe(false);
+        const failingSubdivisions = (polygon: Vector2[]): number[] =>
+            subdivisions.filter(k => !solveSkeleton(subdivide(polygon, k)).complete);
 
-            // Sporadic, not a density threshold: the hexagon fails only at k = 3.
-            expect(solveSkeleton(subdivide(IRREGULAR_HEXAGON, 2)).complete).toBe(true);
-            expect(solveSkeleton(subdivide(IRREGULAR_HEXAGON, 3)).complete).toBe(false);
-            expect(solveSkeleton(subdivide(IRREGULAR_HEXAGON, 4)).complete).toBe(true);
+        it('solves a convex polygon subdivided into any number of equal pieces', () => {
+            // Before the fix: k = 1, 2, 3 solved and k = 4 to 10 all failed.
+            expect(failingSubdivisions(SQUARE)).toEqual([]);
+        });
+
+        it('solves a non-convex polygon subdivided into any number of equal pieces', () => {
+            // Before the fix: k = 3, 6, 7 and 9 failed, sporadically rather than by density.
+            expect(failingSubdivisions(IRREGULAR_HEXAGON)).toEqual([]);
+        });
+
+        it('still loses the reflex L-shape at some subdivisions (known defect)', () => {
+            // NOT DESIRED BEHAVIOUR. What is left of the original defect, and the one shape in
+            // this file that the coincident-event fix does not rescue outright.
+            //
+            // Subdividing the L makes both arms collapse onto their own ridge in a single
+            // offset layer: every perpendicular bisector from one long side meets the opposite
+            // side's bisector at the same offset, at a different point each. The two ridge
+            // bisectors therefore appear in several coincident groups at once, which is a whole
+            // strip closing rather than a set of independent vertex events, and
+            // `handleInteriorNGon` falls back to pairwise handling for that layer.
+            //
+            // Measured before the fix: k = 2, 4, 5, 6, 7, 8, 9, 10 failed. Now:
+            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 6, 7, 8, 9, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {

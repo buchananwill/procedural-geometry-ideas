@@ -78,6 +78,43 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
 
 }
 
+/** How much offset each unit travelled along this edge's ray buys its clockwise parent. */
+function offsetRate(edge: InteriorEdge, ray: RayProjection, context: StraightSkeletonSolverContext): number {
+    return crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
+}
+
+/**
+ * Where two edges running head-on along the same line actually meet.
+ *
+ * `intersectRays` reports a head-on pair as the full separation along both rays — each ray
+ * reaching the other's source — which is twice the event and puts the collision point on top
+ * of an existing node. They really meet where their offsets agree, which splits the
+ * separation in proportion to how fast each converts travel into offset. Returns `null` when
+ * the two rates cancel, leaving no offset at which they agree.
+ */
+function meetHeadOn(
+    edgeA: InteriorEdge,
+    edgeB: InteriorEdge,
+    ray1: RayProjection,
+    ray2: RayProjection,
+    separation: number,
+    context: StraightSkeletonSolverContext,
+): [number, number] | null {
+    const rateA = offsetRate(edgeA, ray1, context);
+    const rateB = offsetRate(edgeB, ray2, context);
+    const combinedRate = rateA + rateB;
+
+    if (areEqual(combinedRate, 0)) {
+        return null;
+    }
+
+    const sourceOffsetA = sourceOffsetDistance(edgeA, context);
+    const sourceOffsetB = sourceOffsetDistance(edgeB, context);
+    const alongA = (sourceOffsetB - sourceOffsetA + separation * rateB) / combinedRate;
+
+    return [alongA, separation - alongA];
+}
+
 /**
  * */
 export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent[] {
@@ -86,7 +123,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
 
     const intersectionData = intersectRays(ray1, ray2);
-    const [alongRay1, _alongRay2, resultType] = intersectionData;
+    const [rawAlongRay1, rawAlongRay2, resultType] = intersectionData;
 
     if (NO_COLLISION_RESULTS.includes(resultType)) {
         return [];
@@ -96,6 +133,16 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     if (resultType === 'co-linear-from-2') {
         return [];
     }
+
+    const headOnMeeting = resultType === 'head-on'
+        ? meetHeadOn(edgeA, edgeB, ray1, ray2, rawAlongRay1, context)
+        : null;
+
+    if (resultType === 'head-on' && headOnMeeting === null) {
+        return [];
+    }
+
+    const [alongRay1, _alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
 
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);

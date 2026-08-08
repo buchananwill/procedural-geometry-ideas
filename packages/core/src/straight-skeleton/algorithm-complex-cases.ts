@@ -4,13 +4,13 @@ import {
     StraightSkeletonSolverContext
 } from "./types";
 import {findOrComputeCollision} from "./collision-helpers";
-
 import {areEqual, fp_compare} from "./core-functions";
 import handleCollisionEvent from "./collision-handling";
 import {
     bisectWithParams,
     tryToAcceptExteriorEdge
 } from "./algorithm-helpers";
+import {bisectionsForMerge, clusterCoincidentMerges, mergesShareAnEdge, ringsOfSubPolygon} from "./coincident-events";
 
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
@@ -80,18 +80,58 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // Handle collisions
     const collapseEvents: BisectionParams[] = [];
     let partitionEvents: BisectionParams[] = [];
-    collisionsToHandle
-        .toSorted((e1, e2) => {
-            return CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType]
-        })
-        .map(event => handleCollisionEvent(event, context))
-        .forEach(bisectionList => {
-            if (bisectionList.length > 1) {
-                partitionEvents.push(...bisectionList)
-            } else {
-                collapseEvents.push(...bisectionList)
+
+    const recordBisections = (bisectionList: BisectionParams[]) => {
+        if (bisectionList.length > 1) {
+            partitionEvents.push(...bisectionList)
+        } else {
+            collapseEvents.push(...bisectionList)
+        }
+    };
+
+    const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) =>
+        CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
+
+    // Every interior-to-interior collision at this offset that shares a collision point is one
+    // vertex event, not several. Resolve each such event whole — terminate all its arrivals on
+    // one node, then emit one bisector per surviving arc — before touching the next. Handling
+    // the reported pairs individually is what leaves the ring inconsistent on symmetric input,
+    // where a single point can absorb every edge at once.
+    const rings = ringsOfSubPolygon(input.interiorEdges, context);
+    const merges = rings === null ? [] : clusterCoincidentMerges(
+        collisionsToHandle.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'),
+    );
+
+    // A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring.
+    // Deciding that for every merge before mutating anything keeps the fallback all-or-nothing,
+    // rather than leaving half a layer resolved two different ways.
+    const ringOfMerge = rings === null ? null : merges.map(merge =>
+        rings.find(ring => merge.edgeIds.every(edgeId => ring.includes(edgeId))));
+
+    if (rings === null || ringOfMerge === null || ringOfMerge.some(ring => ring === undefined)
+        || mergesShareAnEdge(merges)) {
+        collisionsToHandle
+            .toSorted(byEventPriority)
+            .map(event => handleCollisionEvent(event, context))
+            .forEach(recordBisections)
+    } else {
+        merges.forEach((merge, index) => {
+            const arrivals = merge.edgeIds.filter(edgeId => !context.isAccepted(edgeId));
+            if (arrivals.length < 2) {
+                return;
             }
+
+            const node = context.terminateEdgesAtPoint(arrivals, merge.position);
+            context.acceptAll(arrivals);
+            recordBisections(bisectionsForMerge(ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context))
         })
+
+        collisionsToHandle
+            .filter(event => event.eventType === 'interiorAgainstExterior')
+            .toSorted(byEventPriority)
+            .map(event => handleCollisionEvent(event, context))
+            .forEach(recordBisections)
+    }
 
     exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
 
@@ -147,8 +187,12 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             return bisectWithParams(context, params)
         }))
 
+    // Both bounding parents must still be live. An accepted parent has no wavefront left to
+    // bisect, and `clockwiseSpanExcludingAccepted` refuses to measure a span that touches one,
+    // so admitting a half-accepted collapse throws instead of producing an edge.
     allOutgoingInteriorEdges.push(
-        ...collapseEvents.filter(params => !(context.isAccepted(params.widdershinsExteriorEdgeIndex) && context.isAccepted(params.clockwiseExteriorEdgeIndex)))
+        ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
+            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
             .map(params => bisectWithParams(context, params))
     )
 

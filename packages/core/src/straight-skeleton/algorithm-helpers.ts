@@ -6,6 +6,7 @@ import {
 } from "./types";
 import {complexLog, solverLog} from "./logger";
 import {
+    areEqual,
     assertIsNumber,
     crossProduct, dotProduct,
     makeBisectedBasis,
@@ -17,10 +18,21 @@ import {intersectRays} from "./intersection-edges";
 import {makeOffsetDistance} from "./collision-helpers";
 
 
+/**
+ * Flip a naive bisection when the boundary turns widdershins at the vertex, which puts the
+ * bisection outside the polygon.
+ *
+ * The cross product is the sine of the turn, so at a straight vertex it is zero and its sign
+ * is whatever the last bits of the two edge bases happen to say — the same collinear vertex
+ * reads positive near the origin and negative once translated. There is no turn to correct
+ * for in that case: `makeBisectedBasis` has already fallen back to the inward perpendicular,
+ * and flipping it points the bisector out of the polygon. So a turn indistinguishable from
+ * zero is treated as no turn at all.
+ */
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
 ) {
     const cross = crossProduct(clockwiseEdge.basisVector, widdershinsEdge.basisVector);
-    return cross < 0 ? negateVector(bisectedBasis) : bisectedBasis;
+    return cross < 0 && !areEqual(cross, 0) ? negateVector(bisectedBasis) : bisectedBasis;
 }
 
 export function ensureDirectionNotReversed(basis: Vector2, approximateDirection: Vector2) {

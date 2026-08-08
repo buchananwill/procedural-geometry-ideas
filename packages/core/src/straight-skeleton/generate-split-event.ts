@@ -147,6 +147,15 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         widdershins: instigatorWiddershinsParent
     } = context.parentEdges(instigatorData.id);
 
+    // Can't split an edge that is already finished, or split from behind a finished one. An
+    // accepted exterior edge has no wavefront left to cut, and its span is not measurable —
+    // `clockwiseSpanExcludingAccepted` throws rather than answer for one.
+    if (context.isAccepted(edgeToSplit.id)
+        || context.isAccepted(instigatorClockwiseParent.id)
+        || context.isAccepted(instigatorWiddershinsParent.id)) {
+        return null;
+    }
+
     // Can't split an edge from behind!
     const isBehindEdge = crossProduct(context.getEdgeWithInterior(instigatorData).basisVector, edgeToSplit.basisVector) > 0;
     if (isBehindEdge) {

@@ -66,6 +66,16 @@ import {
  * below asserts that it never has anything to report.
  *
  * ----------------------------------------------------------------------------
+ * THE CHAIN THAT COULD NOT BE CLOSED, AND NO LONGER EXISTS
+ * ----------------------------------------------------------------------------
+ *
+ * This file used to record one genuine exception: Pentagon House at the offset its two apex
+ * nodes share. That was a solver artefact and the solver's coincident-event work removed it —
+ * the terminating ridge used to wire itself to the roof apex behind it, and now cross-wires to
+ * its partner. Every event of every fixture closes; the sweep asserting so has no exception in
+ * it any more.
+ *
+ * ----------------------------------------------------------------------------
  * THE ONE BOUNDARY THAT IS REAL AND STAYS
  * ----------------------------------------------------------------------------
  *
@@ -255,26 +265,27 @@ describe('offset projection at event boundaries', () => {
             expect(problems.join('; ')).toBe('');
         });
 
-        it('reports the one chain in the corpus that genuinely cannot be closed', () => {
-            // Pentagon House terminates in a single apex, but the solver landed the two nodes of
-            // that one geometric event on offsets one ulp apart: 2.9999999999999996 and 3. In the
-            // half-open window between them the graph says two bisectors are alive whose partners
-            // are already dead, and no closed loop exists to be found. That is a solver artefact,
-            // not a projection one — the projection's job here is to say so rather than to return
-            // an empty list that reads as "the wavefront ended". It is the only such offset in the
-            // whole corpus, and it lies 4.4e-16 short of the maximum offset, where the ring it
-            // would have closed is far finer than the module's coordinate tolerance anyway.
+        it('closes Pentagon House at the terminal offset its two apex nodes share', () => {
+            // This used to be the one chain in the corpus that could not be closed. Pentagon
+            // House ends in a ridge whose two nodes sit at 2.9999999999999996 and 3 — the same
+            // geometric offset, one ulp apart — and in the half-open window between them the
+            // graph said two bisectors were alive whose partners were already dead.
+            //
+            // The two nodes are still one ulp apart, and that part was never wrong: they are two
+            // distinct vertex events that both happen at offset 3. What changed is the wiring
+            // between them. The ridge joining them used to run on into the roof apex behind it,
+            // because `tryAttachEdgeToNode` snapped to the first node collinear with the ray
+            // rather than the nearest. The two bisectors are now cross-wired to each other, the
+            // chain has a successor, and the projection closes.
             const result = solvedFixture('Pentagon House');
             const maxOffset = computeMaxOffset(result);
             const event = eventOffsets(result).find(offset => offset < maxOffset)!;
             expect(maxOffset - event).toBeLessThan(1e-15);
 
             const projection = projectOffsetWavefront(result, event);
-            expect(projection.rings).toEqual([]);
-            expect(projection.unclosedChains).toHaveLength(1);
-            expect(projection.unclosedChains[0].reason).toBe('no-successor');
+            expect(projection.unclosedChains).toEqual([]);
 
-            // A micrometre either side of it the projection is sound again.
+            // A micrometre either side of it the projection is sound too.
             for (const delta of [-NEIGHBOURHOOD, NEIGHBOURHOOD]) {
                 expect(projectOffsetWavefront(result, event + delta).unclosedChains).toEqual([]);
             }
