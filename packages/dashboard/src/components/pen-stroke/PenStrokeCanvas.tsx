@@ -14,6 +14,9 @@ const PREVIEW_MAX_POINTS = 256;
 const PREVIEW_RAW_COLOR = '#5c6470';
 const PREVIEW_SMOOTH_COLOR = '#ffa94d';
 
+/** Magenta, so the clamped polygon cannot be mistaken for the cyan stroke it is derived from. */
+const BUDGET_COLOR = '#f06595';
+
 /**
  * Single-stroke drawing canvas: LMB (or pen/touch) down begins a stroke and
  * wipes the previous one, dragging captures raw (x, y, t, pressure) samples,
@@ -25,6 +28,12 @@ const PREVIEW_SMOOTH_COLOR = '#ffa94d';
  * selected smoothing variant would place it. Hover samples live in a ref and
  * are rendered by an rAF loop that mutates the Konva nodes directly — they
  * never touch the store, so 120 Hz pointer moves cause zero React renders.
+ *
+ * With the budget preview enabled it also draws the clamped polygon the copy
+ * button would write, straight from `copySummary.vertices` — the same array the
+ * clipboard text is serialised from, never a second reduction — with a dot at
+ * every vertex so the budget is countable by eye, over a faint copy of the raw
+ * stroke so the deviation the budget cost is visible against its source.
  */
 export default function PenStrokeCanvas() {
     const containerRef = useRef<HTMLDivElement>(null);
@@ -35,6 +44,8 @@ export default function PenStrokeCanvas() {
     const result = usePenStrokeStore((s) => s.result);
     const lerpAlpha = usePenStrokeStore((s) => s.lerpAlpha);
     const previewEnabled = usePenStrokeStore((s) => s.smoothingPreviewEnabled);
+    const budgetPreviewEnabled = usePenStrokeStore((s) => s.budgetPreviewEnabled);
+    const copySummary = usePenStrokeStore((s) => s.copySummary);
     const beginStroke = usePenStrokeStore((s) => s.beginStroke);
     const appendPoint = usePenStrokeStore((s) => s.appendPoint);
     const endStroke = usePenStrokeStore((s) => s.endStroke);
@@ -129,6 +140,16 @@ export default function PenStrokeCanvas() {
         return rawPoints.flatMap((p) => [p.x, p.y]);
     }, [isDrawing, result, lerpAlpha, rawPoints]);
 
+    const showBudget = budgetPreviewEnabled && !isDrawing && copySummary !== null;
+    const budgetPoints = useMemo(
+        () => (copySummary ? copySummary.vertices.flatMap((v) => [v.x, v.y]) : []),
+        [copySummary],
+    );
+    const sourcePoints = useMemo(
+        () => (result ? result.raw.flatMap((p) => [p.x, p.y]) : []),
+        [result],
+    );
+
     return (
         <div ref={containerRef} style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
             <Stage
@@ -180,6 +201,41 @@ export default function PenStrokeCanvas() {
                             fill={PREVIEW_SMOOTH_COLOR}
                             visible={false}
                         />
+                    </Layer>
+                )}
+                {showBudget && copySummary && (
+                    <Layer listening={false}>
+                        <Line
+                            name="budgetSource"
+                            points={sourcePoints}
+                            stroke={PREVIEW_RAW_COLOR}
+                            strokeWidth={1}
+                            opacity={0.7}
+                            lineCap="round"
+                            lineJoin="round"
+                            closed={false}
+                        />
+                        <Line
+                            name="budgetPolygon"
+                            points={budgetPoints}
+                            stroke={BUDGET_COLOR}
+                            strokeWidth={2}
+                            lineCap="round"
+                            lineJoin="round"
+                            closed={copySummary.closed}
+                        />
+                        {copySummary.vertices.map((v, i) => (
+                            <Circle
+                                key={i}
+                                name="budgetVertex"
+                                x={v.x}
+                                y={v.y}
+                                radius={3.5}
+                                fill={BUDGET_COLOR}
+                                stroke="#1a1b1e"
+                                strokeWidth={1}
+                            />
+                        ))}
                     </Layer>
                 )}
             </Stage>

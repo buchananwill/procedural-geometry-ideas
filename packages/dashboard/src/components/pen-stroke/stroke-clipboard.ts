@@ -1,4 +1,4 @@
-import type { StrokePipelineResult } from '@proc-geo/core';
+import type { StrokePipelineResult, Vector2 } from '@proc-geo/core';
 import { DEFAULT_VERTEX_BUDGET, makeVertexRun, serialiseGeometryPayload, strokeToBudgetedPolygon } from '@proc-geo/core';
 
 /**
@@ -14,9 +14,40 @@ import { DEFAULT_VERTEX_BUDGET, makeVertexRun, serialiseGeometryPayload, strokeT
  * solver a closing edge the user never drew.
  */
 
+/**
+ * Smallest budget the control may offer. `reduceToVertexBudget` throws below
+ * three rather than clamping, so this is a hard floor and not a taste call.
+ */
+export const MIN_VERTEX_BUDGET = 3;
+
+/**
+ * Largest budget the control may offer, and the shipped default.
+ *
+ * Deliberately the same number as `DEFAULT_VERTEX_BUDGET` rather than something
+ * roomier: the budget exists because straight-skeleton solve cost grows at
+ * roughly the cube of the vertex count, and core's own timings put 64 at ~0.7 s
+ * against ~3 s at 106. Offering 128 on the slider would spend half the track on
+ * budgets nobody drawing interactively wants, and stretch out precisely the low
+ * end — 8 to 16 — that the control is for.
+ */
+export const MAX_VERTEX_BUDGET = DEFAULT_VERTEX_BUDGET;
+
+/** Round and clamp an arbitrary control reading into a budget `reduceToVertexBudget` accepts. */
+export function clampVertexBudget(budget: number): number {
+    if (!Number.isFinite(budget)) return DEFAULT_VERTEX_BUDGET;
+    return Math.min(MAX_VERTEX_BUDGET, Math.max(MIN_VERTEX_BUDGET, Math.round(budget)));
+}
+
 export interface StrokeClipboardSummary {
     /** The serialised payload, ready for `navigator.clipboard.writeText`. */
     text: string;
+    /**
+     * The budgeted vertices, exactly as serialised into {@link text} — the same
+     * objects, not a second reduction from the same inputs. Anything that wants
+     * to *draw* what the copy will carry reads this, so the drawing and the
+     * clipboard cannot drift apart.
+     */
+    vertices: Vector2[];
     /** Vertices in the copied payload, after budgeting. */
     vertexCount: number;
     /** True when budgeting removed vertices; false when the stroke was already within budget. */
@@ -47,6 +78,7 @@ export function summariseStrokeCopy(
 
     return {
         text,
+        vertices: budgeted.vertices,
         vertexCount: budgeted.achieved,
         reduced: budgeted.reduced,
         maxError: budgeted.maxError,

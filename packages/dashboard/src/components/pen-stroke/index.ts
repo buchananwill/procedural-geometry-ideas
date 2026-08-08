@@ -4,5 +4,5 @@ export { default as PenStrokeLerpPanel } from './PenStrokeLerpPanel';
 export { default as PenStrokePipelinePanel } from './PenStrokePipelinePanel';
 export { default as SliderNumberInput } from './SliderNumberInput';
 export type { SliderNumberInputProps } from './SliderNumberInput';
-export { summariseStrokeCopy } from './stroke-clipboard';
+export { clampVertexBudget, MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET, summariseStrokeCopy } from './stroke-clipboard';
 export type { StrokeClipboardSummary } from './stroke-clipboard';

@@ -39,7 +39,7 @@ export type { CollapseChevronProps } from './components/CollapseChevron';
 // Pen Stroke → Spline
 export { usePenStrokeStore } from './stores/usePenStrokeStore';
 export type { PenStrokeStoreState } from './stores/usePenStrokeStore';
-export { PenStrokeCanvas, PenStrokeCopyPanel, PenStrokeLerpPanel, PenStrokePipelinePanel, SliderNumberInput, summariseStrokeCopy } from './components/pen-stroke';
+export { clampVertexBudget, MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET, PenStrokeCanvas, PenStrokeCopyPanel, PenStrokeLerpPanel, PenStrokePipelinePanel, SliderNumberInput, summariseStrokeCopy } from './components/pen-stroke';
 export type { SliderNumberInputProps, StrokeClipboardSummary } from './components/pen-stroke';
 
 // D0L System

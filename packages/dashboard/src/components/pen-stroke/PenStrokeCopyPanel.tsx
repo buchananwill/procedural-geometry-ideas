@@ -1,12 +1,24 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button, Paper, Stack, Switch, Text } from '@mantine/core';
-import { DEFAULT_VERTEX_BUDGET } from '@proc-geo/core';
 import { usePenStrokeStore } from '../../stores/usePenStrokeStore';
 import SliderNumberInput from './SliderNumberInput';
-import { summariseStrokeCopy } from './stroke-clipboard';
+import { MAX_VERTEX_BUDGET, MIN_VERTEX_BUDGET } from './stroke-clipboard';
 
 /** Seam gap restored when the closure switch is turned back on. */
 const DEFAULT_SEAM_THRESHOLD = 30;
+
+/**
+ * Click-targets on the budget slider. The interesting range for a shape you
+ * intend to read as a handful of straight edges is the bottom of the track, so
+ * the marks are geometric rather than evenly spaced.
+ */
+const BUDGET_MARKS = [
+    { value: 4, label: '4' },
+    { value: 8, label: '8' },
+    { value: 16, label: '16' },
+    { value: 32, label: '32' },
+    { value: 64, label: '64' },
+];
 
 /**
  * Copies the current stroke to the clipboard as a shared geometry payload, so
@@ -17,21 +29,20 @@ const DEFAULT_SEAM_THRESHOLD = 30;
  * the skeleton can solve or a path it must refuse — the two readings sit next to
  * each other so the refusal is never a surprise.
  *
- * Budgeting runs on render rather than on click so the panel can state up front
- * how many vertices the copy will carry and whether the budget cost anything.
- * The reduction is a binary search over RDP tolerances, so it is memoised on the
- * pipeline result.
+ * Budgeting runs ahead of the click rather than on it, so the panel can state up
+ * front how many vertices the copy will carry and whether the budget cost
+ * anything. That budgeting happens once, in the store, because the canvas
+ * overlay draws the same vertices this button copies.
  */
 export default function PenStrokeCopyPanel() {
-    const result = usePenStrokeStore((s) => s.result);
     const closure = usePenStrokeStore((s) => s.closure);
     const setClosure = usePenStrokeStore((s) => s.setClosure);
+    const vertexBudget = usePenStrokeStore((s) => s.vertexBudget);
+    const setVertexBudget = usePenStrokeStore((s) => s.setVertexBudget);
+    const budgetPreviewEnabled = usePenStrokeStore((s) => s.budgetPreviewEnabled);
+    const setBudgetPreviewEnabled = usePenStrokeStore((s) => s.setBudgetPreviewEnabled);
+    const summary = usePenStrokeStore((s) => s.copySummary);
     const [copied, setCopied] = useState(false);
-
-    const summary = useMemo(
-        () => (result ? summariseStrokeCopy(result, DEFAULT_VERTEX_BUDGET) : null),
-        [result],
-    );
 
     function copyStrokeToClipboard() {
         if (!summary) return;
@@ -68,6 +79,22 @@ export default function PenStrokeCopyPanel() {
                         onChange={(threshold) => setClosure({ variant: 'distance-threshold', threshold })}
                     />
                 )}
+                <SliderNumberInput
+                    label="Max vertices"
+                    value={vertexBudget}
+                    min={MIN_VERTEX_BUDGET}
+                    max={MAX_VERTEX_BUDGET}
+                    step={1}
+                    marks={BUDGET_MARKS}
+                    onChange={setVertexBudget}
+                />
+                <Switch
+                    size="xs"
+                    label="Show clamped polygon"
+                    description="Draw the budgeted vertices — exactly what Copy will write — over the stroke"
+                    checked={budgetPreviewEnabled}
+                    onChange={(e) => setBudgetPreviewEnabled(e.currentTarget.checked)}
+                />
                 <Button
                     onClick={copyStrokeToClipboard}
                     variant="light"

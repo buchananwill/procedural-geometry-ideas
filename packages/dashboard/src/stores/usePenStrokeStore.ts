@@ -10,7 +10,9 @@ import type {
     StrokePipelineResult,
     StrokePoint,
 } from '@proc-geo/core';
-import { DEFAULT_STROKE_PIPELINE_CONFIG, runStrokePipeline } from '@proc-geo/core';
+import { DEFAULT_STROKE_PIPELINE_CONFIG, DEFAULT_VERTEX_BUDGET, runStrokePipeline } from '@proc-geo/core';
+import type { StrokeClipboardSummary } from '../components/pen-stroke/stroke-clipboard';
+import { clampVertexBudget, summariseStrokeCopy } from '../components/pen-stroke/stroke-clipboard';
 
 export interface PenStrokeStoreState {
     rawPoints: StrokePoint[];
@@ -26,10 +28,31 @@ export interface PenStrokeStoreState {
      * the copy control needs it to be reachable from the UI.
      */
     closure: ClosureConfig;
+    /**
+     * Vertex ceiling applied to the copied payload. Not a pipeline stage — it is
+     * applied to the pipeline's output on the way to the clipboard — but it lives
+     * here because the canvas overlay and the copy button must budget to the same
+     * number, and a number two components both read is a store field.
+     */
+    vertexBudget: number;
     lerpAlpha: number;
     result: StrokePipelineResult | null;
+    /**
+     * The clipboard payload for the current result at the current budget,
+     * computed once here.
+     *
+     * It is state rather than a per-component `useMemo` because two consumers
+     * need it — the copy button writes `text`, the canvas overlay draws
+     * `vertices` — and budgeting twice from the same inputs would make "the
+     * preview shows exactly what will be exported" a coincidence that holds only
+     * while both call sites happen to agree. Recomputed wherever `result` or
+     * `vertexBudget` changes, and nowhere else.
+     */
+    copySummary: StrokeClipboardSummary | null;
     /** View-level toggle for the live smoothing ghost-trail preview; no pipeline recompute. */
     smoothingPreviewEnabled: boolean;
+    /** View-level toggle for drawing the budget-clamped polygon over the stroke. Off by default. */
+    budgetPreviewEnabled: boolean;
 
     beginStroke: (p: StrokePoint) => void;
     appendPoint: (p: StrokePoint) => void;
@@ -40,24 +63,29 @@ export interface PenStrokeStoreState {
     setCornerDetection: (config: CornerDetectionConfig) => void;
     setFitting: (config: FittingConfig) => void;
     setClosure: (config: ClosureConfig) => void;
+    setVertexBudget: (budget: number) => void;
     setLerpAlpha: (alpha: number) => void;
     setSmoothingPreviewEnabled: (enabled: boolean) => void;
+    setBudgetPreviewEnabled: (enabled: boolean) => void;
 }
 
 /** Re-run the full pipeline from the stored raw input (the fixture until re-drawn). */
 function rerun(s: PenStrokeStoreState) {
     if (s.isDrawing || s.rawPoints.length < 2) {
         s.result = null;
+        s.copySummary = null;
         return;
     }
     const plain = current(s);
-    s.result = runStrokePipeline(plain.rawPoints, {
+    const result = runStrokePipeline(plain.rawPoints, {
         smoothing: plain.smoothing,
         simplification: plain.simplification,
         cornerDetection: plain.cornerDetection,
         fitting: plain.fitting,
         closure: plain.closure,
     }) as StrokePipelineResult;
+    s.result = result;
+    s.copySummary = summariseStrokeCopy(result, plain.vertexBudget);
 }
 
 /**
@@ -76,15 +104,19 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         cornerDetection: DEFAULT_STROKE_PIPELINE_CONFIG.cornerDetection,
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
         closure: DEFAULT_CLOSURE,
+        vertexBudget: DEFAULT_VERTEX_BUDGET,
         lerpAlpha: 1,
         result: null,
+        copySummary: null,
         smoothingPreviewEnabled: false,
+        budgetPreviewEnabled: false,
 
         beginStroke: (p) =>
             set((s) => {
                 s.rawPoints = [p];
                 s.isDrawing = true;
                 s.result = null;
+                s.copySummary = null;
             }),
 
         appendPoint: (p) =>
@@ -105,6 +137,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
                 s.rawPoints = [];
                 s.isDrawing = false;
                 s.result = null;
+                s.copySummary = null;
             }),
 
         setSmoothing: (config) =>
@@ -137,6 +170,17 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
                 rerun(s);
             }),
 
+        setVertexBudget: (budget) =>
+            set((s) => {
+                const clamped = clampVertexBudget(budget);
+                if (clamped === s.vertexBudget) return;
+                s.vertexBudget = clamped;
+                // Only the budgeting is redone: the budget is applied to the
+                // pipeline's output, so nothing upstream of it can have changed.
+                const plain = current(s);
+                s.copySummary = plain.result ? summariseStrokeCopy(plain.result, clamped) : null;
+            }),
+
         setLerpAlpha: (alpha) =>
             set((s) => {
                 s.lerpAlpha = alpha;
@@ -145,6 +189,11 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         setSmoothingPreviewEnabled: (enabled) =>
             set((s) => {
                 s.smoothingPreviewEnabled = enabled;
+            }),
+
+        setBudgetPreviewEnabled: (enabled) =>
+            set((s) => {
+                s.budgetPreviewEnabled = enabled;
             }),
     }))
 );

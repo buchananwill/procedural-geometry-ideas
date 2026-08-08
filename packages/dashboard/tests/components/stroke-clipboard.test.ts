@@ -1,6 +1,11 @@
 import type { StrokePipelineConfig, StrokePoint } from '@proc-geo/core';
 import { DEFAULT_STROKE_PIPELINE_CONFIG, parseGeometryPayload, runStrokePipeline } from '@proc-geo/core';
-import { summariseStrokeCopy } from '../../src/components/pen-stroke/stroke-clipboard';
+import {
+    clampVertexBudget,
+    MAX_VERTEX_BUDGET,
+    MIN_VERTEX_BUDGET,
+    summariseStrokeCopy,
+} from '../../src/components/pen-stroke/stroke-clipboard';
 import { interpretGeometryPaste } from '../../src/components/geometry-clipboard';
 
 /**
@@ -112,6 +117,45 @@ describe('summariseStrokeCopy', () => {
         const result = runStrokePipeline(wobblyLoop(), DEFAULT_STROKE_PIPELINE_CONFIG);
         expect(result.closed).toBe(false);
         expect(summariseStrokeCopy(result).closed).toBe(false);
+    });
+});
+
+describe('the budgeted vertices a preview would draw', () => {
+    it('are the same vertices the clipboard text carries, at any budget', () => {
+        const result = runStrokePipeline(wobblyLoop(), CLOSED_CONFIG);
+        for (const budget of [MIN_VERTEX_BUDGET, 8, 12, 16, MAX_VERTEX_BUDGET]) {
+            const summary = summariseStrokeCopy(result, budget);
+            const parsed = parseGeometryPayload(summary.text);
+            expect(parsed.ok).toBe(true);
+            if (!parsed.ok) return;
+            expect(summary.vertices).toHaveLength(summary.vertexCount);
+            expect(summary.vertices.length).toBeLessThanOrEqual(budget);
+            // Exact equality, not a tolerance: the payload is serialised from
+            // this very array, so anything less would let the two drift.
+            expect(parsed.payload.vertices).toEqual(summary.vertices);
+        }
+    });
+
+    it('shrinks as the budget shrinks, so moving the control changes the drawing', () => {
+        const result = runStrokePipeline(wobblyLoop(), CLOSED_CONFIG);
+        const counts = [8, 16, 32, 64].map((b) => summariseStrokeCopy(result, b).vertexCount);
+        expect(counts).toEqual([...counts].sort((a, b) => a - b));
+        expect(counts[0]).toBeLessThan(counts[counts.length - 1]);
+    });
+});
+
+describe('clampVertexBudget', () => {
+    it('holds the control inside the range reduceToVertexBudget accepts', () => {
+        expect(clampVertexBudget(0)).toBe(MIN_VERTEX_BUDGET);
+        expect(clampVertexBudget(-10)).toBe(MIN_VERTEX_BUDGET);
+        expect(clampVertexBudget(1e6)).toBe(MAX_VERTEX_BUDGET);
+        expect(clampVertexBudget(12)).toBe(12);
+    });
+
+    it('rounds, so a number input mid-keystroke cannot throw a RangeError', () => {
+        expect(clampVertexBudget(11.4)).toBe(11);
+        expect(clampVertexBudget(11.6)).toBe(12);
+        expect(clampVertexBudget(Number.NaN)).toBeGreaterThanOrEqual(MIN_VERTEX_BUDGET);
     });
 });
 
