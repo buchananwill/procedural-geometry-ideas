@@ -645,14 +645,119 @@ describe('parcel slicing', () => {
         });
     });
 
+    describe('full depth: a strip cut to the skeleton is still divided into lots', () => {
+        /**
+         * At `depth >= computeMaxOffset` a strip is a whole skeleton face, so its lateral boundary is
+         * a bare skeleton arc and its two end parcels have three corners each. The triangle rule of
+         * the merge pass is stated on shape alone, and unioning is its only remedy, so left unbounded
+         * it deletes every cut the sampler and the `Amax` split placed and hands the strip back as
+         * the single deep wedge it started as. It is bounded by `Amax` for exactly that reason, and
+         * these are the properties that bound states.
+         */
+        /**
+         * Sampling as coarse as a village-scale consumer asks for — the ratios the `/parcels` page
+         * derives — where a strip carries only two or three sampled cuts and the merge cascade has
+         * that much less to chew through before it reaches the strip's one-parcel escape clause.
+         */
+        function coarseFixture(name: string): {strips: Strip[]; options: SliceOptions} {
+            const result = solvedFixture(name);
+            const boundary = boundaryOf(result);
+            const area = Math.abs(signedRingArea(boundary));
+            const perimeter = polylineLength([...boundary, boundary[0]]);
+            return {
+                strips: computeStrips(result, {depth: computeMaxOffset(result)}),
+                options: {
+                    minWidth: perimeter / 26,
+                    maxWidth: perimeter / 13,
+                    minArea: area / 70,
+                    maxArea: area / 7,
+                    splitIrregularity: 0.3,
+                    seed: 1,
+                },
+            };
+        }
+
+        it.each(TILING_FIXTURES)('%s: full depth is not dissolved back to one parcel per strip', name => {
+            const {strips, options} = scaledFixture(name, 1);
+            const counts = strips.map(strip => sliceStrip(strip, options).length);
+            expect(Math.max(...counts)).toBeGreaterThan(1);
+        });
+
+        /**
+         * The `Amax` bound of the `area bounds` block, restated at full depth — where it used to be
+         * comprehensively false.
+         *
+         * The split pass cut these strips correctly; the merge pass then deleted every cut it made,
+         * chasing a triangular end parcel that unioning could never fix, and handed back a single
+         * wedge many times `Amax` with a full strip's frontage still on it. `minArea` is zero, so no
+         * undersized merge can be blamed and nothing but the triangle rule is under test.
+         */
+        it.each(TILING_FIXTURES)('%s: coarse sampling at full depth respects Amax', name => {
+            const {strips, options} = coarseFixture(name);
+            const unmerged: SliceOptions = {...options, minArea: 0};
+            const problems: string[] = [];
+
+            for (const [index, strip] of strips.entries()) {
+                const parcels = sliceStrip(strip, unmerged);
+                for (const [parcelIndex, parcel] of parcels.entries()) {
+                    if (parcel.area <= unmerged.maxArea) {
+                        continue;
+                    }
+                    if (parcels.length === 1 || polylineLength(parcel.frontage) < 2 * unmerged.minWidth) {
+                        continue;
+                    }
+                    problems.push(
+                        `strip ${index} parcel ${parcelIndex} has area ${parcel.area} over ` +
+                        `Amax ${unmerged.maxArea} with ${polylineLength(parcel.frontage)} of frontage`);
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it.each(TILING_FIXTURES)('%s: coarse sampling at full depth tiles and keeps egress', name => {
+            const {strips, options} = coarseFixture(name);
+            const problems: string[] = [];
+
+            for (const [index, strip] of strips.entries()) {
+                const parcels = sliceStrip(strip, options);
+                problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it.each(TILING_FIXTURES)('%s: a smaller Amax still buys more parcels at full depth', name => {
+            // The reported defect in its measured form: overriding `Amax` downward at full depth
+            // changed nothing, because the split pass cut and the merge pass immediately undid it.
+            const {strips, options} = scaledFixture(name, 1);
+            const parcelsWith = (maxArea: number): number =>
+                strips.reduce((total, strip) => total + sliceStrip(strip, {...options, maxArea}).length, 0);
+
+            expect(parcelsWith(options.maxArea / 4)).toBeGreaterThan(parcelsWith(options.maxArea));
+        });
+
+        it.each(TILING_FIXTURES)('%s: and those extra parcels still tile and still have egress', name => {
+            const {strips, options} = scaledFixture(name, 1);
+            const tight: SliceOptions = {...options, maxArea: options.maxArea / 4};
+            const problems: string[] = [];
+
+            for (const [index, strip] of strips.entries()) {
+                const parcels = sliceStrip(strip, tight);
+                problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+    });
+
     describe('end to end over every fixture', () => {
-        it('solves, strips at 25% and 50% of max offset, and slices every strip', () => {
+        it('solves, strips at 25%, 50%, 75% and 100% of max offset, and slices every strip', () => {
             const problems: string[] = [];
             let parcelCount = 0;
             let stripCount = 0;
 
             for (const polygon of ALL_TEST_POLYGONS) {
-                for (const fraction of [0.25, 0.5]) {
+                for (const fraction of [0.25, 0.5, 0.75, 1]) {
                     const {strips, options} = scaledFixture(polygon.name, fraction);
                     for (const [index, strip] of strips.entries()) {
                         const parcels = sliceStrip(strip, options);

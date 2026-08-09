@@ -718,12 +718,52 @@ function splitOversizedParcels(arena: Arena, cuts: Cut[], options: SliceOptions)
 }
 
 /**
+ * Which cut to delete to union a faulty parcel into the neighbour it shares the longest edge with.
+ *
+ * Deleting cut `k` unions parcels `k - 1` and `k`, so the answer is `faulty` to absorb the parcel on
+ * the left and `faulty + 1` to absorb the one on the right. The end parcels have only one neighbour
+ * and so have no choice.
+ */
+function cutToDissolve(cuts: Cut[], parcelCount: number, faulty: number): number {
+    if (faulty === 0) {
+        return 1;
+    }
+    if (faulty === parcelCount - 1) {
+        return faulty;
+    }
+    return cuts[faulty].length >= cuts[faulty + 1].length ? faulty : faulty + 1;
+}
+
+/**
  * Merge away parcels that are triangular or below `Amin`, each into the neighbour it shares the
  * longest edge with, until neither fault remains or a single parcel is left.
  *
  * This runs after the `Amax` split, as the paper orders it, so a merge may push a parcel back above
  * `Amax`; that is the paper's own trade and not a defect. The sole parcel of a strip is exempt from
  * both faults because there is nothing left to merge it into.
+ *
+ * ## The triangle fault is bounded by `Amax`; the area fault is not
+ *
+ * A parcel below `Amin` is unusable at any shape, so it is always merged. A *triangular* parcel is a
+ * different claim: the rule exists to remove shapes too poor to build on, and it is stated on shape
+ * alone, so it fires on a full-sized lot exactly as readily as on a sliver. Unioning is the only
+ * remedy the rule has and it only ever makes a parcel bigger, so on a strip whose ends are
+ * structurally triangular the rule chases a fault it cannot remove and dissolves the whole strip.
+ *
+ * That is not hypothetical, it is the ordinary case at full depth. A strip cut at `depth >=
+ * computeMaxOffset` is a whole skeleton face, and its lateral boundary is then a single skeleton arc
+ * running from the end of the frontage to an apex rather than an arc plus a run of offset contour.
+ * The first parcel of such a strip is therefore frontage, ray, arc — three corners — and so is the
+ * last, and unioning either exposes a fresh triangular end parcel behind it. The cascade only stops
+ * at the strip's own escape clause, one parcel: every cut the sampler placed and every cut the
+ * `Amax` split added is deleted, and a full-depth strip comes back as the deep wedge it started as.
+ *
+ * So the triangle fault is refused once the union it demands would itself exceed `Amax`. A triangle
+ * already the size of a lot is not the sliver the rule is aimed at, and merging it would produce a
+ * larger parcel with a worse shape — undoing, in particular, the split that had just brought it
+ * under `Amax`. Where `Amax` is infinite the guard never binds and the rule is the unconditional one
+ * again. A triangular parcel can therefore survive on a strip deep enough that its ends have no
+ * fourth corner to offer; that is a real consequence and is stated on {@link sliceStrip}.
  */
 function mergeUndersizedParcels(arena: Arena, cuts: Cut[], options: SliceOptions): Cut[] {
     const current = [...cuts];
@@ -733,19 +773,25 @@ function mergeUndersizedParcels(arena: Arena, cuts: Cut[], options: SliceOptions
         if (parcels.length <= 1) {
             return current;
         }
-        const faulty = parcels.findIndex(
-            parcel => parcel.area < options.minArea || isTriangular(parcel, arena.scale));
-        if (faulty < 0) {
+
+        let dissolved = -1;
+        for (let faulty = 0; faulty < parcels.length; faulty++) {
+            const undersized = parcels[faulty].area < options.minArea;
+            if (!undersized && !isTriangular(parcels[faulty], arena.scale)) {
+                continue;
+            }
+            const candidate = cutToDissolve(current, parcels.length, faulty);
+            const unioned = parcels[candidate - 1].area + parcels[candidate].area;
+            if (!undersized && unioned > options.maxArea) {
+                continue;
+            }
+            dissolved = candidate;
+            break;
+        }
+        if (dissolved < 0) {
             return current;
         }
-
-        const last = parcels.length - 1;
-        const removed = faulty === 0
-            ? faulty + 1
-            : faulty === last
-                ? faulty
-                : current[faulty].length >= current[faulty + 1].length ? faulty : faulty + 1;
-        current.splice(removed, 1);
+        current.splice(dissolved, 1);
     }
 
     return current;
@@ -768,7 +814,8 @@ function wholeStripAsParcel(strip: Strip): Parcel[] {
  * Origins are sampled along the strip's frontage at roughly `(Wmin + Wmax) / 2` apart, perturbed by
  * `splitIrregularity`; a ray is cast inward from each, confined to a single skeleton face; parcels
  * above `Amax` are cut again; and parcels that are triangular or below `Amin` are merged into the
- * neighbour they share the longest edge with.
+ * neighbour they share the longest edge with — the triangle case only while the union would stay
+ * within `Amax`, so that the merge cannot dissolve a strip whose ends are triangular by construction.
  *
  * Guarantees, in the order they matter:
  *
@@ -790,6 +837,12 @@ function wholeStripAsParcel(strip: Strip): Parcel[] {
  * - A frontage shorter than `2 * Wmin` yields one parcel: the whole strip.
  * - A strip whose frontage cannot be located as a run of its own boundary, or which is entirely
  *   frontage with no land behind it, is likewise returned whole rather than sliced badly.
+ * - A strip cut at the **full** skeleton depth keeps triangular parcels at its two ends. Its lateral
+ *   boundary is a bare skeleton arc, so the end parcels have three corners and no rearrangement of
+ *   the cuts can give them a fourth: on a strip whose whole face is a triangle, any two parcels
+ *   include at least one triangular one. Merging them away would take the strip back to a single
+ *   wedge, so the triangle rule stands down once the union would breach `Amax` — a full-depth strip
+ *   yields lots, and the end ones are triangles.
  *
  * @throws if the width or area bounds are not ordered and positive, or the seed is not finite.
  */
