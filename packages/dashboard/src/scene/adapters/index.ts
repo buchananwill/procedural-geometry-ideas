@@ -1,4 +1,4 @@
 export { skeletonToScene } from './skeletonToScene';
 export { turtleToScene } from './turtleToScene';
-export { parcelColour, parcelsToScene, stripColour } from './parcelsToScene';
-export type { ParcelsToSceneParams } from './parcelsToScene';
+export { muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour } from './parcelsToScene';
+export type { ParcelsSceneTerrain, ParcelsToSceneParams } from './parcelsToScene';

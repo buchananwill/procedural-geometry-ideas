@@ -19,8 +19,8 @@ export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
 export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
-export { skeletonToScene, turtleToScene, parcelColour, parcelsToScene, stripColour } from './scene/adapters';
-export type { ParcelsToSceneParams } from './scene/adapters';
+export { skeletonToScene, turtleToScene, muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour } from './scene/adapters';
+export type { ParcelsSceneTerrain, ParcelsToSceneParams } from './scene/adapters';
 
 // Components
 /** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in a future release. */
@@ -56,8 +56,14 @@ export { useParcelStore, deriveSliceDefaults, effectiveSliceOptions, polygonArea
 export type { DerivableSliceKey, DerivedSliceOptions, ParcelLayerVisibility, ParcelStoreState, SliceOptionSources } from './stores/useParcelStore';
 export { useParcelPipeline } from './hooks/useParcelPipeline';
 export type { ParcelPipelineFailure, ParcelPipelineResult, ParcelPipelineStage } from './hooks/useParcelPipeline';
-export { ParcelControlsPanel, ParcelLayerPanel, ParcelReportPanel } from './components/parcels';
-export type { ParcelControlsPanelProps, ParcelReportPanelProps } from './components/parcels';
+export { ParcelControlsPanel, ParcelLayerPanel, ParcelReportPanel, TerrainPanel } from './components/parcels';
+export type { ParcelControlsPanelProps, ParcelReportPanelProps, TerrainPanelProps } from './components/parcels';
+
+// Terrain seam: slope-aware parcels
+export { DEFAULT_MAX_DISPLAY_SLOPE_DEGREES, DEFAULT_SLOPE_THRESHOLD_DEGREES, TERRAIN_SOURCES, useTerrainStore } from './stores/useTerrainStore';
+export type { TerrainSourceId, TerrainSourceOption, TerrainStoreState } from './stores/useTerrainStore';
+export { useParcelTerrain } from './hooks/useParcelTerrain';
+export type { ParcelTerrainState, SlopeFieldCell } from './hooks/useParcelTerrain';
 
 // Articulation constraint solver
 export { useArticulationStore } from './stores/useArticulationStore';

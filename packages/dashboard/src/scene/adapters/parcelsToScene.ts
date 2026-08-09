@@ -1,7 +1,8 @@
-import type { Parcel, Strip, Vector2 } from '@proc-geo/core';
+import type { Parcel, PolygonSlopeStatistics, Strip, Vector2 } from '@proc-geo/core';
 import type { StraightSkeletonGraph } from '@proc-geo/core';
 import type { Vertex } from '../../stores/usePolygonStore';
 import type { ParcelLayerVisibility } from '../../stores/useParcelStore';
+import type { SlopeFieldCell } from '../../hooks/useParcelTerrain';
 import type { SceneGroup, ScenePrimitive } from '../types';
 
 /**
@@ -47,6 +48,64 @@ export function parcelColour(index: number): string {
     return hslHex(index * GOLDEN_ANGLE_DEGREES + 40, 0.72, 0.58);
 }
 
+/**
+ * Slope colour ramp: green through yellow and orange to deep red.
+ *
+ * Sequential and monotone in lightness as well as hue, so it still reads as an ordering in
+ * greyscale and to a viewer who cannot separate red from green — which matters here, because the
+ * whole point of the layer is that steeper ground looks worse.
+ */
+const SLOPE_RAMP: { at: number; rgb: [number, number, number] }[] = [
+    { at: 0.0, rgb: [26, 127, 55] },
+    { at: 0.25, rgb: [116, 196, 118] },
+    { at: 0.5, rgb: [254, 224, 139] },
+    { at: 0.75, rgb: [252, 141, 89] },
+    { at: 1.0, rgb: [151, 25, 40] },
+];
+
+function toHex(rgb: [number, number, number]): string {
+    return `#${rgb.map((c) => Math.round(Math.min(255, Math.max(0, c))).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Colour for a slope, ramped over `[0, maxDegrees]`.
+ *
+ * Clamped at both ends rather than extended, so a 70-degree cliff and an 80-degree one are both
+ * simply the last colour. Distinguishing them would be precision about ground nobody can build on.
+ */
+export function slopeColour(degrees: number, maxDegrees: number): string {
+    const t = maxDegrees > 0 ? Math.min(1, Math.max(0, degrees / maxDegrees)) : 0;
+    for (let i = 1; i < SLOPE_RAMP.length; i++) {
+        const previous = SLOPE_RAMP[i - 1];
+        const next = SLOPE_RAMP[i];
+        if (t <= next.at) {
+            const span = next.at - previous.at;
+            const local = span === 0 ? 0 : (t - previous.at) / span;
+            return toHex([
+                previous.rgb[0] + (next.rgb[0] - previous.rgb[0]) * local,
+                previous.rgb[1] + (next.rgb[1] - previous.rgb[1]) * local,
+                previous.rgb[2] + (next.rgb[2] - previous.rgb[2]) * local,
+            ]);
+        }
+    }
+    return toHex(SLOPE_RAMP[SLOPE_RAMP.length - 1].rgb);
+}
+
+/** The canvas background `SceneCanvas` paints behind everything. */
+const CANVAS_BACKGROUND: [number, number, number] = [26, 27, 30];
+
+/**
+ * Mixes a hex colour towards the canvas background — the opaque equivalent of drawing it at
+ * `weight` opacity over an empty canvas.
+ */
+export function muteOntoCanvas(hex: string, weight: number): string {
+    const channel = (offset: number) => {
+        const value = parseInt(hex.slice(1 + offset * 2, 3 + offset * 2), 16);
+        return value * weight + CANVAS_BACKGROUND[offset] * (1 - weight);
+    };
+    return toHex([channel(0), channel(1), channel(2)]);
+}
+
 function flatten(points: Vector2[]): number[] {
     return points.flatMap((p) => [p.x, p.y]);
 }
@@ -56,6 +115,22 @@ const RING_COLOUR = '#ffd43b';
 const SKELETON_COLOUR = '#5c5f66';
 /** Frontage is the property the whole method exists to guarantee, so it gets the loudest stroke. */
 const FRONTAGE_COLOUR = '#ff4d4f';
+/** The marking for a lot the threshold rejects: a hard white dash nothing else on the page uses. */
+const TOO_STEEP_COLOUR = '#ffffff';
+
+/** Terrain to judge and draw the parcels against. `null` restores the page's terrain-free behaviour. */
+export interface ParcelsSceneTerrain {
+    /** One entry per parcel, in the flattened `parcelsByStrip` order. */
+    slopes: PolygonSlopeStatistics[];
+    /** Background slope field, in polygon coordinates. Empty to draw none. */
+    field: SlopeFieldCell[];
+    /** Lots whose mean slope exceeds this are marked. */
+    thresholdDegrees: number;
+    /** Top of the colour ramp. */
+    maxDisplaySlopeDegrees: number;
+    /** When false the parcels keep their index colours and only the threshold marking applies. */
+    colourBySlope: boolean;
+}
 
 export interface ParcelsToSceneParams {
     vertices: Vertex[];
@@ -64,6 +139,7 @@ export interface ParcelsToSceneParams {
     strips: Strip[];
     parcelsByStrip: Parcel[][];
     layers: ParcelLayerVisibility;
+    terrain?: ParcelsSceneTerrain | null;
 }
 
 /**
@@ -80,7 +156,37 @@ export interface ParcelsToSceneParams {
  */
 export function parcelsToScene(params: ParcelsToSceneParams): ScenePrimitive[] {
     const { vertices, skeleton, offsetRings, strips, parcelsByStrip, layers } = params;
+    const terrain = params.terrain ?? null;
     const groups: SceneGroup[] = [];
+
+    // 0. group:terrain-field — under everything, because it is the ground everything else sits on.
+    {
+        const rampTop = terrain?.maxDisplaySlopeDegrees ?? 45;
+        const children: ScenePrimitive[] = (terrain?.field ?? []).map((cell) => {
+            // Muted, because the parcels drawn over it carry the same ramp and have to stay
+            // legible against it — and more muted still off the edge of the terrain, where the
+            // sampler was clamping and the colour is an extrapolation rather than a reading.
+            //
+            // The muting is baked into the colour rather than applied as a fill opacity, and the
+            // cells then overlap slightly. Both are needed to stop 2300 cells reading as a grid
+            // drawn over the terrain. Semi-transparent cells let the dark canvas through their
+            // antialiased edges, and overlapping *those* only moves the problem, since the overlaps
+            // blend twice and draw as a grid of dark squares instead. Opaque cells fix the
+            // double-blend; the overlap then fixes the seam, where two abutting antialiased edges
+            // each cover about half the pixel and composite in sequence, leaving a quarter of the
+            // background showing through.
+            const colour = muteOntoCanvas(slopeColour(cell.slopeDegrees, rampTop), cell.inDomain ? 0.5 : 0.15);
+            const size = cell.size * 1.02;
+            return {
+                type: 'line' as const,
+                points: [cell.x, cell.y, cell.x + size, cell.y, cell.x + size, cell.y + size, cell.x, cell.y + size],
+                closed: true,
+                stroke: { color: colour, width: 0 },
+                fill: { color: colour },
+            };
+        });
+        groups.push({ type: 'group', id: 'group:terrain-field', children });
+    }
 
     // 1. group:parcel-strips
     {
@@ -115,13 +221,23 @@ export function parcelsToScene(params: ParcelsToSceneParams): ScenePrimitive[] {
         for (const parcels of parcelsByStrip) {
             for (const parcel of parcels) {
                 if (parcel.boundary.length >= 3) {
-                    const colour = parcelColour(running);
+                    const slope = terrain?.slopes[running] ?? null;
+                    const colour =
+                        terrain !== null && terrain.colourBySlope && slope !== null
+                            ? slopeColour(slope.meanSlopeDegrees, terrain.maxDisplaySlopeDegrees)
+                            : parcelColour(running);
+                    // A lot the threshold rejects gets a dashed white outline as well as its colour.
+                    // Colour alone is not a verdict: the ramp is continuous and the threshold is a
+                    // line on it, so the two have to be drawn as two different things.
+                    const tooSteep = slope !== null && !slope.buildable;
                     children.push({
                         type: 'line',
                         points: flatten(parcel.boundary),
                         closed: true,
-                        stroke: { color: '#1a1b1e', width: 1 },
-                        fill: { color: colour, opacity: 0.75 },
+                        stroke: tooSteep
+                            ? { color: TOO_STEEP_COLOUR, width: 2, dash: [7, 4] }
+                            : { color: '#1a1b1e', width: 1 },
+                        fill: { color: colour, opacity: 0.85 },
                     });
                 }
                 running++;

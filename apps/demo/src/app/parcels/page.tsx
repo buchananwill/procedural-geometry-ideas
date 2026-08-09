@@ -9,10 +9,13 @@ import {
     ParcelControlsPanel,
     ParcelLayerPanel,
     ParcelReportPanel,
+    TerrainPanel,
     parcelsToScene,
     useParcelPipeline,
     useParcelStore,
+    useParcelTerrain,
     usePolygonStore,
+    useTerrainStore,
 } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
 
@@ -34,6 +37,10 @@ export default function ParcelsPage() {
     const [instructionsOpen, setInstructionsOpen] = useState(false);
 
     const result = useParcelPipeline(vertices);
+    const colourBySlope = useTerrainStore((s) => s.colourBySlope);
+    // The parcels are judged against the terrain the same batch they are drawn from, so the colours
+    // and the verdicts can never be one render apart.
+    const terrain = useParcelTerrain(result.vertices, result.parcelsByStrip);
 
     // The skeleton layer draws the arcs the strips were cut from, so it must come from the same
     // solve the strips did — not a second one run for display.
@@ -44,6 +51,15 @@ export default function ParcelsPage() {
         strips: result.strips,
         parcelsByStrip: result.parcelsByStrip,
         layers,
+        terrain: terrain.enabled
+            ? {
+                  slopes: terrain.slopes,
+                  field: terrain.field,
+                  thresholdDegrees: terrain.slopeThresholdDegrees,
+                  maxDisplaySlopeDegrees: terrain.maxDisplaySlopeDegrees,
+                  colourBySlope,
+              }
+            : null,
     });
 
     function resetView() {
@@ -73,6 +89,11 @@ export default function ParcelsPage() {
                                 tiling of the region. Re-roll the seed to redraw the lot boundaries.
                             </Text>
                             <Text size="sm" c="dimmed">
+                                The Terrain panel puts the region on real ground. Parcels are coloured
+                                by mean slope, and any lot steeper than the threshold is outlined in a
+                                white dash — drag the threshold to watch the verdicts move.
+                            </Text>
+                            <Text size="sm" c="dimmed">
                                 Scroll to zoom. Middle-click or Alt+drag to pan.
                             </Text>
                         </Stack>
@@ -81,6 +102,8 @@ export default function ParcelsPage() {
             </Paper>
 
             <ParcelReportPanel result={result} />
+
+            <TerrainPanel terrain={terrain} parcelCount={result.parcels.length} />
 
             <ParcelControlsPanel
                 maxOffset={result.maxOffset}
