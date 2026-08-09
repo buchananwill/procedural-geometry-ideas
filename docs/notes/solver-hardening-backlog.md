@@ -147,7 +147,51 @@ consumer genuinely needs hundreds of vertices.
 
 ---
 
-## 7. Repo hygiene
+## 7. Strip overlap on exactly-collinear input, with `complete: true` and empty diagnostics
+
+**Where:** found 2026-08-09 by adversarial review during the parcel-quality work; **no fixture in
+the repo yet** — coordinates below are the measured repro.
+
+An axis-aligned dumbbell tiles with a **1.00e-1 relative error** at depth 0.2 and 0.5 of max
+offset — strips overlap strips (1483/20000 bbox samples double-covered ≈ 22 area units, matching
+the excess exactly), while the solve reports `complete: true` with empty diagnostics and the ring
+accounting is innocent. A perturbed dumbbell of identical topology (non-collinear) tiles to
+~2.5e-16 at every depth.
+
+```json
+[
+  {"x": 0,  "y": 0},  {"x": 0,  "y": 10}, {"x": 10, "y": 10}, {"x": 10, "y": 6},
+  {"x": 20, "y": 6},  {"x": 20, "y": 10}, {"x": 30, "y": 10}, {"x": 30, "y": 0},
+  {"x": 20, "y": 0},  {"x": 20, "y": 4},  {"x": 10, "y": 4},  {"x": 10, "y": 0}
+]
+```
+
+(`computeMaxOffset` = 5, area = 220; baseline `computeStrips`, no post-processing options.)
+
+**This is the items 2–3 regime** — exactly-collinear, machine-generated input — surfacing in the
+strip decomposition rather than the solve. Two consequences: `result.complete` is **not** a
+sufficient precondition for the tiling identity, and any future consumer feeding machine-generated
+polygons (mesh import, resample-to-N, recursive subdivision) hits this before it hits item 3.
+
+**First step if resumed:** add the fixture (export-only), then decide whether the overlap is
+downstream fallout of the item-3 layer-partitioning defect (`0e2f233` recoverable from history) or
+independent.
+
+---
+
+## 8. Near-degenerate corner-geometry fuzz for the corner-correction guards
+
+`cutPointOnEdge` / `cutStaysInside` decide transfer safety with strict sign tests and a single
+midpoint ray-cast. The parcel-quality review proved the degenerate limit resolves **both ways**
+(a needle's coincident double-cut proceeded to zero frontage; the same configuration on an
+axis-aligned rectangle was refused) before the surviving-frontage floor closed the known cases.
+Cuts passing within float-noise of a boundary vertex remain unfuzzed; 20k-sample overlap probes
+found nothing. Parked per the brief's decision 14: systematic fuzzing across near-degenerate
+corner geometries, only if corner correction misbehaviour resurfaces.
+
+---
+
+## 9. Repo hygiene
 
 - **`pnpm lint` fails**, pre-existing: `apps/demo/src/app/dol-system/page.tsx:51`
   (`no-explicit-any`) and an unused variable in `AppShellLayout.tsx`.

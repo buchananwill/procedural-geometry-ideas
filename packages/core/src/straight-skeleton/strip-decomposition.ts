@@ -102,17 +102,62 @@ export interface StripOptions {
     /** Inward depth, `d_offset` in the paper. */
     depth: number;
     /**
+     * Shortest frontage, in world units, a strip may be left standing with. `undefined` = off.
+     *
+     * A run of exterior edges whose total length falls below this cannot host even one
+     * minimum-width parcel, so instead of getting its own strip it is merged into the neighbouring
+     * run whose junction is straightest — interior angle closest to π — which reads as the short
+     * edge being part of the same street rather than a street of its own. Chains of short edges
+     * merge transitively, and merging repeats until every strip's frontage reaches this length,
+     * so the guarantee is on the strip, not just the single edge.
+     *
+     * One guard: merging never reduces the decomposition below two strips, because a single
+     * all-edge strip always closes a loop around the offset contour — the `holes` strip
+     * `sliceStrip` cannot cut. The floor is necessary, not sufficient: at extreme thresholds
+     * (every run short) one of the two surviving runs can still encircle the contour on its own,
+     * and such a strip degrades gracefully downstream to a single whole-strip parcel — decision 13
+     * of the parcel-quality brief. Junctions are merged flattest-first, so the survivors tend to
+     * be the sharpest corners, though the greedy order does not guarantee the globally sharpest.
+     */
+    minEdgeLength?: number;
+    /**
      * Are these two adjacent exterior edges the same logical street?
      *
      * Called once per adjacent pair, `(i, i + 1)` around the boundary including the wrap from last
-     * back to first. Default: never merge, giving one strip per exterior edge.
+     * back to first. Default: never merge, giving one strip per exterior edge. Applied before
+     * {@link minEdgeLength}, which then merges whole runs rather than single edges.
      */
     sameLogicalStreet?: (edgeIdA: number, edgeIdB: number) => boolean;
+    /**
+     * Mitre tolerance, in radians: the deviation from straight, `|θ − π|`, a junction's interior
+     * angle may carry before the corner between its two strips is reshaped. `undefined` — or any
+     * value ≥ π, which no deviation can exceed — turns the correction off.
+     *
+     * The β-strip correction of Vanegas §4.2.2 exists because the skeleton's diagonal seam tilts
+     * away from vertical by *half* the junction's deviation from straight, so even gentle corners
+     * read as mitred. A deviation predicate rather than a fire-below-threshold one is what makes
+     * the correction reach the wide, gentle band (decision 15 of the parcel-quality brief): at
+     * every convex junction deviating more than the tolerance, the corner region is awarded to
+     * the strip with the longer frontage — Vanegas' StreetLength rule — and the shorter street's
+     * frontage is cut back perpendicular to it. The transfer is area-conserving by construction,
+     * so the tiling identity is unmoved.
+     *
+     * Reflex junctions also exceed the tolerance but are never reshaped: the seam bisects the
+     * corner wedge, so at a reflex junction it leaves the vertex more than 90° from either edge
+     * and the seam apex projects behind the vertex — no valid perpendicular cut exists. The
+     * reflex arm is parked with that finding (decision 16; see the reflex-arm characterisation
+     * tests).
+     *
+     * Ignored when {@link classifyCorner} is supplied: an explicit policy is the expert override.
+     * Values above `π` are rejected — a deviation can never exceed π, so such a tolerance is
+     * almost certainly degrees passed where radians belong.
+     */
+    mitreTolerance?: number;
     /**
      * Which side gets the corner region at the vertex shared by two adjacent strips.
      *
      * Default: `'none'`, which leaves the diagonal seam where the skeleton put it — the β-strips are
-     * then exactly the α-strips.
+     * then exactly the α-strips. Wins over {@link mitreTolerance} when both are given.
      */
     classifyCorner?: (context: CornerContext) => CornerAssignment;
 }
@@ -518,6 +563,93 @@ function groupIntoRuns(edgeCount: number, sameLogicalStreet: (a: number, b: numb
     return runs;
 }
 
+/** Bounding-box diagonal of the exterior boundary — the polygon's own characteristic length. */
+function exteriorScale(graph: StraightSkeletonGraph): number {
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let node = 0; node < graph.numExteriorNodes; node++) {
+        const {x, y} = graph.nodes[node].position;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+    }
+    const diagonal = Math.hypot(maxX - minX, maxY - minY);
+    return diagonal > 0 ? diagonal : 1;
+}
+
+/** Length of one exterior edge of the solved graph. */
+function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): number {
+    const from = graph.nodes[edgeId].position;
+    const to = graph.nodes[(edgeId + 1) % graph.numExteriorNodes].position;
+    return Math.hypot(to.x - from.x, to.y - from.y);
+}
+
+/**
+ * Merge every run whose total edge length falls short of `minEdgeLength` into a neighbouring run.
+ *
+ * The neighbour is chosen by straightest continuation: of the short run's two junctions, merge the
+ * one whose interior angle is closest to π, because a near-straight junction is two segments of one
+ * street while a sharp one is a genuine corner. Where several short runs compete, the flattest
+ * junction anywhere goes first, so the surviving junctions tend to be the sharpest — a greedy
+ * tendency, not a guarantee: a short run flanked by the two sharpest junctions must still be
+ * absorbed through one of them. Merging repeats until nothing is short, so chains of short edges
+ * coalesce transitively and the resulting strip — not merely the union of its parts — meets the
+ * length bound.
+ *
+ * The floor is two runs. One run would union every clipped face into the closed band around the
+ * offset contour, which is the `holes` strip that `sliceStrip` refuses to cut. The floor removes
+ * that certainty, not every occurrence: when every run is short, one of the two survivors can
+ * itself wrap far enough around to close a loop (see the pennant characterisation test), and the
+ * resulting `holes` strip is handed back whole by `sliceStrip` rather than sliced — accepted as an
+ * envelope edge by decision 13 of the parcel-quality brief.
+ *
+ * Straightness is measured as `|angle − π|`, which is invariant under conjugating the angle to
+ * `2π − θ` — this pass therefore never depended on the orientation of `interiorAngleAt`, and the
+ * 2026-08-09 orientation fix to that function provably changed nothing here.
+ */
+function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
+    const merged = runs.map(run => [...run]);
+    const lengths = merged.map(
+        run => run.reduce((total, edgeId) => total + exteriorEdgeLength(graph, edgeId), 0));
+
+    /** How far from straight the junction between run `index` and its successor bends. */
+    const bendAfter = (index: number): number => {
+        const incoming = merged[index][merged[index].length - 1];
+        const outgoing = merged[(index + 1) % merged.length][0];
+        return Math.abs(interiorAngleAt(graph, incoming, outgoing) - Math.PI);
+    };
+
+    while (merged.length > 2) {
+        let junction = -1;
+        let flattest = Infinity;
+        for (let index = 0; index < merged.length; index++) {
+            if (lengths[index] >= minEdgeLength) {
+                continue;
+            }
+            for (const candidate of [(index - 1 + merged.length) % merged.length, index]) {
+                const bend = bendAfter(candidate);
+                if (bend < flattest) {
+                    flattest = bend;
+                    junction = candidate;
+                }
+            }
+        }
+        if (junction < 0) {
+            return merged;
+        }
+
+        const absorbed = (junction + 1) % merged.length;
+        merged[junction] = [...merged[junction], ...merged[absorbed]];
+        lengths[junction] += lengths[absorbed];
+        merged.splice(absorbed, 1);
+        lengths.splice(absorbed, 1);
+    }
+    return merged;
+}
+
 function frontageOf(graph: StraightSkeletonGraph, run: number[]): Vector2[] {
     const frontage = [graph.nodes[run[0]].position];
     for (const edgeId of run) {
@@ -554,9 +686,19 @@ function polylineLength(polyline: Vector2[]): number {
 export function computeStrips(result: SkeletonSolveResult, options: StripOptions): Strip[] {
     requireProjectableResult(result, 'computeStrips');
 
-    const {depth} = options;
+    const {depth, minEdgeLength} = options;
     if (!(depth >= 0)) {
         throw new Error(`computeStrips requires a non-negative depth, received ${depth}.`);
+    }
+    if (minEdgeLength !== undefined && !(minEdgeLength >= 0 && Number.isFinite(minEdgeLength))) {
+        throw new Error(
+            `computeStrips requires a non-negative finite minEdgeLength, received ${minEdgeLength}.`);
+    }
+    const {mitreTolerance} = options;
+    if (mitreTolerance !== undefined && !(mitreTolerance >= 0 && mitreTolerance <= Math.PI)) {
+        throw new Error(
+            `computeStrips requires mitreTolerance in [0, π] radians, received ` +
+            `${mitreTolerance}. A value above π is usually degrees passed where radians belong.`);
     }
 
     const {graph} = result;
@@ -581,13 +723,22 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
         clippedFaces.push(clipFaceToDepth(face, depth, crossingAt));
     }
 
-    const runs = groupIntoRuns(edgeCount, options.sameLogicalStreet ?? (() => false));
+    let runs = groupIntoRuns(edgeCount, options.sameLogicalStreet ?? (() => false));
+    if (minEdgeLength !== undefined && minEdgeLength > 0) {
+        runs = mergeShortRuns(graph, runs, minEdgeLength);
+    }
     const strips: Strip[] = runs.map(run => {
         const tiles = run.map(edgeId => clippedFaces[edgeId]).filter(tile => tile.length >= 3);
         const contours = run.length === 1 ? tiles : unionOfTiles(tiles);
         const outer = contours.filter(contour => signedArea(contour) < 0);
         const holes = contours.filter(contour => signedArea(contour) > 0);
         outer.sort((a, b) => signedArea(a) - signedArea(b));
+        // Stated invariant: a run is a contiguous arc of boundary edges, adjacent clipped faces
+        // meet vertex-for-vertex along their shared seam, and each face touches its own edge of
+        // that arc — so the union of a run's faces is connected and has exactly one outer contour.
+        // The sort puts the largest outer ring first only as defence in depth: if the invariant
+        // ever broke, any further outer rings would be silently discarded here, so a tiling-error
+        // failure in the suites should look this way first.
         return {
             supportingEdgeIds: run,
             boundary: outer[0] ?? [],
@@ -632,7 +783,11 @@ function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, o
 
     const toBefore = Math.atan2(before.y - vertex.y, before.x - vertex.x);
     const toAfter = Math.atan2(after.y - vertex.y, after.x - vertex.x);
-    let angle = toBefore - toAfter;
+    // The clockwise sweep from the outgoing direction back to the reversed incoming one is
+    // `toAfter - toBefore` under this module's clockwise winding. The subtraction was inverted
+    // until 2026-08-09 and reported the conjugate `2π − θ`; the characterisation tests in
+    // strip-decomposition.test.ts now guard the corrected orientation.
+    let angle = toAfter - toBefore;
     while (angle <= 0) {
         angle += Math.PI * 2;
     }
@@ -642,8 +797,31 @@ function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, o
     return angle;
 }
 
+/**
+ * The production corner policy behind {@link StripOptions.mitreTolerance}.
+ *
+ * A corner qualifies when its deviation from straight, `|θ − π|`, exceeds the tolerance — the
+ * seam's visible tilt is half that deviation, so this is a bound on how mitred a border may look —
+ * and the junction is convex: the reflex arm is geometrically vacuous (decision 16, see the
+ * reflex-arm characterisation tests), so the gate states outright what the transfer guards would
+ * otherwise refuse case by case. The region goes to the strip with the longer frontage, Vanegas'
+ * StreetLength rule: the corner lot fronts the main street, and the side street's strip stops
+ * short of it. Ties go to the previous strip, so the choice is deterministic.
+ */
+function mitreClassifier(tolerance: number): (context: CornerContext) => CornerAssignment {
+    return context => {
+        if (!(Math.abs(context.interiorAngle - Math.PI) > tolerance) || !(context.interiorAngle < Math.PI)) {
+            return 'none';
+        }
+        return context.previousFrontageLength >= context.nextFrontageLength ? 'previous' : 'next';
+    };
+}
+
 function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], options: StripOptions): void {
-    const {classifyCorner} = options;
+    const classifyCorner = options.classifyCorner
+        ?? (options.mitreTolerance !== undefined
+            ? mitreClassifier(options.mitreTolerance)
+            : undefined);
     if (classifyCorner === undefined) {
         return;
     }
@@ -651,11 +829,13 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
     const {graph} = result;
     const edgeCount = graph.numExteriorNodes;
     const frontageLengths = strips.map(strip => polylineLength(strip.frontage));
-    const edgeLength = (edgeId: number): number => {
-        const from = graph.nodes[edgeId].position;
-        const to = graph.nodes[(edgeId + 1) % edgeCount].position;
-        return Math.hypot(to.x - from.x, to.y - from.y);
-    };
+    const edgeLength = (edgeId: number): number => exteriorEdgeLength(graph, edgeId);
+    // Decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
+    // no minimum is configured, a scale-relative epsilon still refuses the degenerate transfers
+    // that would collapse a frontage to (numerically) nothing.
+    const minFrontage = options.minEdgeLength !== undefined && options.minEdgeLength > 0
+        ? options.minEdgeLength
+        : exteriorScale(graph) * EPSILON;
 
     for (const corner of cornersBetweenStrips(strips, edgeCount)) {
         const previous = strips[corner.previousStripIndex];
@@ -674,7 +854,7 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
             nextStripIndex: corner.nextStripIndex,
         });
         if (assignment !== 'none') {
-            transferCorner(graph, strips, corner, assignment);
+            transferCorner(graph, strips, corner, assignment, minFrontage);
         }
     }
 }
@@ -725,9 +905,12 @@ function findSeam(previousBoundary: Vector2[], nextBoundary: Vector2[], vertex: 
  * so the new seam meets that street at a right angle — which is the whole point of the correction,
  * since the diagonal it replaces is what made corner parcels look wrong.
  *
- * Returns `null` when the foot does not land strictly inside the donating edge. Landing at or past
- * the far end would consume the donor's entire frontage rather than its corner, which is not a
- * correction but a different decomposition, so the corner is left alone instead.
+ * Returns `null` when the foot does not land strictly inside the donating span — the donor's
+ * *current* frontage segment, not the original exterior edge, so a second donation at the other
+ * end of an already-shortened frontage is measured against what actually remains. Landing at or
+ * past either end would consume the donor's frontage rather than its corner, which is not a
+ * correction but a different decomposition, so the corner is left alone instead. Both ends carry
+ * the same epsilon (decision 12 of the parcel-quality brief).
  */
 function cutPointOnEdge(anchor: Vector2, far: Vector2, apex: Vector2): Vector2 | null {
     const runX = far.x - anchor.x;
@@ -738,12 +921,23 @@ function cutPointOnEdge(anchor: Vector2, far: Vector2, apex: Vector2): Vector2 |
     }
 
     const fraction = ((apex.x - anchor.x) * runX + (apex.y - anchor.y) * runY) / lengthSquared;
-    if (!(fraction > EPSILON) || !(fraction < 1)) {
+    if (!(fraction > EPSILON) || !(fraction < 1 - EPSILON)) {
         return null;
     }
     return {x: anchor.x + fraction * runX, y: anchor.y + fraction * runY};
 }
 
+/**
+ * Do two segments cross strictly, endpoint touches and near-tangencies excluded?
+ *
+ * The comparisons carry a tolerance scaled to the product of the segment lengths — the natural
+ * unit of a 2D cross product — because the corner-cut chord this guards *ends on* a boundary
+ * segment by construction: the cut is `anchor + fraction · run`, which lands within a few ulps of
+ * the frontage line, on a side chosen by rounding residue alone. Under exact-zero comparisons that
+ * residue made `cutStaysInside` refuse or accept identical geometry at random — the Awkward
+ * Heptagon's v0 corner kept its mitre for exactly this reason. A sine of 1e-9 is far below any
+ * real crossing and far above any rounding residue, so the tolerance separates the two cleanly.
+ */
 function segmentsProperlyCross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector2): boolean {
     const cross = (o: Vector2, p: Vector2, q: Vector2): number =>
         (p.x - o.x) * (q.y - o.y) - (p.y - o.y) * (q.x - o.x);
@@ -751,7 +945,11 @@ function segmentsProperlyCross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector
     const d2 = cross(b1, b2, a2);
     const d3 = cross(a1, a2, b1);
     const d4 = cross(a1, a2, b2);
-    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    const tolerance = EPSILON * Math.hypot(a2.x - a1.x, a2.y - a1.y) * Math.hypot(b2.x - b1.x, b2.y - b1.y);
+    const positive = (d: number): boolean => d > tolerance;
+    const negative = (d: number): boolean => d < -tolerance;
+    return ((positive(d1) && negative(d2)) || (negative(d1) && positive(d2)))
+        && ((positive(d3) && negative(d4)) || (negative(d3) && positive(d4)));
 }
 
 function containsPoint(ring: Vector2[], point: Vector2): boolean {
@@ -805,15 +1003,28 @@ function spliceCyclicRun(ring: Vector2[], startIndex: number, runLength: number,
  * and the decomposition still tiles the block. The donating strip's frontage is shortened to the cut
  * point, because that is now where its street-facing edge really begins or ends.
  *
- * The transfer is abandoned, leaving the corner as the skeleton left it, when the seam is degenerate,
- * when the perpendicular foot falls outside the donating edge, or when the cut would leave the
- * donating strip.
+ * The cut point is the apex's perpendicular foot on the donor's *current* frontage — searched
+ * segment by segment outward from the shared vertex, because on a merged multi-edge street the
+ * nearest point of the frontage may lie beyond the first edge. Whatever frontage lies between the
+ * shared vertex and the cut moves to the taker along with the wedge. The apex itself is chosen by
+ * retreat: the deepest seam point whose chord to such a foot stays inside the donor and leaves it
+ * `minFrontage` of street — a bent seam or a deep clip often invalidates the deepest point while
+ * a shallower one still admits a clean, smaller correction.
+ *
+ * The transfer is abandoned, leaving the corner as the skeleton left it, only when the seam is
+ * degenerate or when *no* seam point admits a valid cut: foot strictly inside some frontage
+ * segment, chord interior to the donor, and the donor's surviving frontage at or above
+ * `minFrontage` — decision 12 of the parcel-quality brief. The cut is validated against the
+ * frontage as it stands *now*, not the original exterior edges, so a strip that has already
+ * donated one corner cannot be consumed from the other end: sequential transfers see the shortened
+ * frontage, and the length floor holds after every transfer, not merely before the first.
  */
 function transferCorner(
     graph: StraightSkeletonGraph,
     strips: Strip[],
     corner: Corner,
     assignment: CornerAssignment,
+    minFrontage: number,
 ): void {
     const previous = strips[corner.previousStripIndex];
     const next = strips[corner.nextStripIndex];
@@ -821,36 +1032,91 @@ function transferCorner(
         return;
     }
 
-    const edgeCount = graph.numExteriorNodes;
     const vertex = graph.nodes[corner.vertexNode].position;
     const seam = findSeam(previous.boundary, next.boundary, vertex);
     if (seam === null) {
         return;
     }
 
-    const apex = seam.points[seam.points.length - 1];
-    const runLength = seam.points.length;
     const donor = assignment === 'previous' ? next : previous;
-    const donorEdgeFar = assignment === 'previous'
-        ? graph.nodes[(corner.outgoingEdgeId + 1) % edgeCount].position
-        : graph.nodes[corner.incomingEdgeId].position;
-
-    const cut = cutPointOnEdge(vertex, donorEdgeFar, apex);
-    if (cut === null || !cutStaysInside(donor, apex, cut)) {
+    if (donor.frontage.length < 2) {
         return;
     }
 
+    // The donor's CURRENT frontage, oriented so `oriented[0]` is always the shared vertex —
+    // reversed when the donor is the previous strip.
+    const oriented = assignment === 'previous' ? donor.frontage : [...donor.frontage].reverse();
+
+    // Deepest seam point first, retreating on failure. The seam is a polyline, not the straight
+    // diagonal of Vanegas' figure: it bends at every skeleton event it passes, and when a bend
+    // leans into the donor the straight chord from the deepest point exits the strip and the cut
+    // is invalid there. A shallower seam point still has a valid perpendicular chord, so instead
+    // of abandoning the corner the transfer retreats — it moves a smaller wedge and leaves the
+    // seam beyond the chosen point where it was. For each candidate apex, the cut is its
+    // perpendicular foot on the donor's current frontage, searched segment by segment outward
+    // from the shared vertex: on a merged multi-edge street the nearest point of the frontage may
+    // lie beyond the first edge, and `transferred` counts the frontage vertices that move to the
+    // taker along with the wedge.
+    interface ChosenCut {
+        apexIndex: number;
+        cut: Vector2;
+        transferred: number;
+        survivingFrontage: Vector2[];
+    }
+    let chosen: ChosenCut | null = null;
+    for (let apexIndex = seam.points.length - 1; apexIndex >= 1 && chosen === null; apexIndex--) {
+        const apex = seam.points[apexIndex];
+        let cut: Vector2 | null = null;
+        let transferred = 0;
+        for (let segment = 0; segment + 1 < oriented.length; segment++) {
+            cut = cutPointOnEdge(oriented[segment], oriented[segment + 1], apex);
+            if (cut !== null) {
+                transferred = segment;
+                break;
+            }
+        }
+        if (cut === null || !cutStaysInside(donor, apex, cut)) {
+            continue;
+        }
+        const survivingFrontage = assignment === 'previous'
+            ? [cut, ...next.frontage.slice(1 + transferred)]
+            : [...previous.frontage.slice(0, -(1 + transferred)), cut];
+        if (polylineLength(survivingFrontage) < minFrontage) {
+            // A shallower apex pulls the foot back toward the vertex, so retreating can still
+            // satisfy the decision-12 floor where this depth could not.
+            continue;
+        }
+        chosen = {apexIndex, cut, transferred, survivingFrontage};
+    }
+    if (chosen === null) {
+        return;
+    }
+
+    // The donated frontage vertices, `oriented[1 .. transferred]`, leave the donor's boundary and
+    // frontage and join the taker's boundary as the same position objects, so every shared segment
+    // still cancels exactly and the tiling identity survives the transfer unchanged. `spanLength`
+    // covers the seam only up to the chosen apex; any deeper seam stays shared, exactly as it was.
+    const {apexIndex, cut, transferred, survivingFrontage} = chosen;
+    const apex = seam.points[apexIndex];
+    const spanLength = apexIndex + 1;
+    const donated = oriented.slice(1, 1 + transferred);
     const previousRunStart = seam.previousStart;
-    const nextRunStart = (seam.nextEnd - runLength + 1 + next.boundary.length) % next.boundary.length;
+    const nextRunStart = (seam.nextEnd - apexIndex + next.boundary.length) % next.boundary.length;
 
     if (assignment === 'previous') {
-        previous.boundary = spliceCyclicRun(previous.boundary, previousRunStart, runLength, [vertex, cut, apex]);
-        next.boundary = spliceCyclicRun(next.boundary, nextRunStart, runLength, [apex, cut]);
-        next.frontage = [cut, ...next.frontage.slice(1)];
+        previous.boundary = spliceCyclicRun(
+            previous.boundary, previousRunStart, spanLength, [vertex, ...donated, cut, apex]);
+        next.boundary = spliceCyclicRun(next.boundary, nextRunStart, spanLength + transferred, [apex, cut]);
+        next.frontage = survivingFrontage;
         return;
     }
 
-    previous.boundary = spliceCyclicRun(previous.boundary, previousRunStart, runLength, [cut, apex]);
-    next.boundary = spliceCyclicRun(next.boundary, nextRunStart, runLength, [apex, cut, vertex]);
-    previous.frontage = [...previous.frontage.slice(0, -1), cut];
+    previous.boundary = spliceCyclicRun(
+        previous.boundary,
+        (previousRunStart - transferred + previous.boundary.length) % previous.boundary.length,
+        spanLength + transferred,
+        [cut, apex]);
+    next.boundary = spliceCyclicRun(
+        next.boundary, nextRunStart, spanLength, [apex, cut, ...[...donated].reverse(), vertex]);
+    previous.frontage = survivingFrontage;
 }

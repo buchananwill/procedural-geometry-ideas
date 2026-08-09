@@ -20,6 +20,7 @@ const resetStore = () => {
         derived: deriveSliceDefaults(UNIT_SQUARE),
         overrides: {},
         splitIrregularity: 0.3,
+        mitreToleranceDeg: 30,
         seed: 1,
     });
 };
@@ -114,6 +115,19 @@ describe('depth and seed', () => {
         expect(useParcelStore.getState().splitIrregularity).toBe(0);
         useParcelStore.getState().setSplitIrregularity(9);
         expect(useParcelStore.getState().splitIrregularity).toBe(1);
+    });
+
+    it('defaults the mitre tolerance to 30 degrees, unscaled by the polygon', () => {
+        expect(useParcelStore.getState().mitreToleranceDeg).toBe(30);
+    });
+
+    it('clamps the mitre tolerance into [0, 180] degrees', () => {
+        useParcelStore.getState().setMitreToleranceDeg(-30);
+        expect(useParcelStore.getState().mitreToleranceDeg).toBe(0);
+        useParcelStore.getState().setMitreToleranceDeg(270);
+        expect(useParcelStore.getState().mitreToleranceDeg).toBe(180);
+        useParcelStore.getState().setMitreToleranceDeg(95.5);
+        expect(useParcelStore.getState().mitreToleranceDeg).toBe(95.5);
     });
 
     it('keeps the seed an integer, since sliceStrips indexes its generator with it', () => {

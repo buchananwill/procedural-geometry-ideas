@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {ALL_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeStrips,
@@ -41,6 +41,17 @@ interface Scaled {
     strips: Strip[];
     options: SliceOptions;
     polygonArea: number;
+}
+
+/** A strip decomposition with slice options scaled to its polygon. */
+interface ScaledStrips {
+    strips: Strip[];
+    options: SliceOptions;
+}
+
+/** As {@link ScaledStrips}, echoing back the strip-level frontage bound the strips were cut with. */
+interface MergedScaledStrips extends ScaledStrips {
+    minEdgeLength: number;
 }
 
 function signedRingArea(ring: Vector2[]): number {
@@ -747,6 +758,165 @@ describe('parcel slicing', () => {
                 problems.push(...egressProblems(`strip ${index}`, strip, parcels));
             }
             expect(problems.join('; ')).toBe('');
+        });
+    });
+
+    describe('short-edge merging upstream of slicing', () => {
+        /**
+         * `computeStrips` with `minEdgeLength` set to the effective `minWidth` — the wiring the
+         * dashboard uses — so an exterior edge too short to host a minimum-width parcel merges
+         * into its straightest neighbouring run instead of spawning a degenerate strip.
+         */
+        function mergedScaled(result: SkeletonSolveResult, depthFraction: number): MergedScaledStrips {
+            const boundary = boundaryOf(result);
+            const polygonArea = Math.abs(signedRingArea(boundary));
+            const perimeter = polylineLength([...boundary, boundary[0]]);
+            const options: SliceOptions = {
+                minWidth: perimeter / 26,
+                maxWidth: perimeter / 13,
+                minArea: polygonArea / 70,
+                maxArea: polygonArea / 7,
+                splitIrregularity: 0.3,
+                seed: 1,
+            };
+            const strips = computeStrips(result, {
+                depth: computeMaxOffset(result) * depthFraction,
+                minEdgeLength: options.minWidth,
+            });
+            return {strips, options, minEdgeLength: options.minWidth};
+        }
+
+        it.each(TILING_FIXTURES)('%s: merged strips still tile and every parcel keeps egress', name => {
+            const {strips, options} = mergedScaled(solvedFixture(name), 0.5);
+            const problems: string[] = [];
+
+            for (const [index, strip] of strips.entries()) {
+                const parcels = sliceStrip(strip, options);
+                problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it.each(TILING_FIXTURES)('%s: every merged strip owns at least minEdgeLength of frontage', name => {
+            const {strips, minEdgeLength} = mergedScaled(solvedFixture(name), 0.5);
+            if (strips.length <= 2) {
+                // The two-strip floor that keeps the closed-loop holes strip from forming is the
+                // only licence for a short strip to survive.
+                return;
+            }
+            for (const strip of strips) {
+                expect(polylineLength(strip.frontage)).toBeGreaterThanOrEqual(minEdgeLength * (1 - 1e-9));
+            }
+        });
+
+        describe('corner correction upstream of slicing', () => {
+            const TOLERANCE_30 = (30 * Math.PI) / 180;
+
+            /** Strips with the production 120-degree corner correction switched on. */
+            function correctedScaled(result: SkeletonSolveResult, depthFraction: number, minEdgeLength?: number): ScaledStrips {
+                const boundary = boundaryOf(result);
+                const polygonArea = Math.abs(signedRingArea(boundary));
+                const perimeter = polylineLength([...boundary, boundary[0]]);
+                return {
+                    strips: computeStrips(result, {
+                        depth: computeMaxOffset(result) * depthFraction,
+                        minEdgeLength,
+                        mitreTolerance: TOLERANCE_30,
+                    }),
+                    options: {
+                        minWidth: perimeter / 26,
+                        maxWidth: perimeter / 13,
+                        minArea: polygonArea / 70,
+                        maxArea: polygonArea / 7,
+                        splitIrregularity: 0.3,
+                        seed: 1,
+                    },
+                };
+            }
+
+            it.each(TILING_FIXTURES)('%s: corrected strips still tile and every parcel keeps egress', name => {
+                const {strips, options} = correctedScaled(solvedFixture(name), 0.5);
+                const problems: string[] = [];
+
+                for (const [index, strip] of strips.entries()) {
+                    const parcels = sliceStrip(strip, options);
+                    problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                    problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+                }
+                expect(problems.join('; ')).toBe('');
+            });
+
+            it.each([0.25, 0.5, 0.75, 1])('the repro polygon with merging AND correction tiles and keeps egress at %p of max offset', fraction => {
+                const result = solveSkeleton(SHORT_EDGE_PROMONTORY);
+                const boundary = boundaryOf(result);
+                const perimeter = polylineLength([...boundary, boundary[0]]);
+                const {strips, options} = correctedScaled(result, fraction, perimeter / 26);
+                const problems: string[] = [];
+
+                expect(strips.flatMap(strip => strip.supportingEdgeIds).sort((a, b) => a - b))
+                    .toEqual([...Array(result.graph.numExteriorNodes).keys()]);
+                for (const [index, strip] of strips.entries()) {
+                    const parcels = sliceStrip(strip, options);
+                    problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                    problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+                }
+                expect(problems.join('; ')).toBe('');
+            });
+        });
+
+        describe('the short-edge repro polygon', () => {
+            // Export-only fixture: it fails the translation-to-1e9 envelope sweep, so it stays out
+            // of ALL_TEST_POLYGONS — see the fixture file. Everything at native placement passes.
+            const solved = (): SkeletonSolveResult => solveSkeleton(SHORT_EDGE_PROMONTORY);
+
+            it('spawns short-frontage strips by default, and merging removes every one', () => {
+                const result = solved();
+                const {strips, minEdgeLength} = mergedScaled(result, 0.5);
+                const unmerged = computeStrips(result, {depth: computeMaxOffset(result) * 0.5});
+
+                // The defect precondition: without merging, some strips cannot host a
+                // minimum-width parcel.
+                const short = unmerged.filter(
+                    strip => polylineLength(strip.frontage) < minEdgeLength);
+                expect(short.length).toBeGreaterThan(0);
+
+                expect(strips.length).toBeLessThan(unmerged.length);
+                expect(strips.length).toBeGreaterThan(2);
+                for (const strip of strips) {
+                    expect(polylineLength(strip.frontage)).toBeGreaterThanOrEqual(minEdgeLength * (1 - 1e-9));
+                }
+                expect(strips.flatMap(strip => strip.supportingEdgeIds).sort((a, b) => a - b))
+                    .toEqual([...Array(result.graph.numExteriorNodes).keys()]);
+            });
+
+            it.each([0.25, 0.5, 0.75, 1])('tiles and keeps egress with merging active at %p of max offset', fraction => {
+                const result = solved();
+                const {strips, options} = mergedScaled(result, fraction);
+                const problems: string[] = [];
+
+                for (const [index, strip] of strips.entries()) {
+                    const parcels = sliceStrip(strip, options);
+                    problems.push(...tilingProblems(`strip ${index}`, strip, parcels));
+                    problems.push(...egressProblems(`strip ${index}`, strip, parcels));
+                }
+                expect(problems.join('; ')).toBe('');
+            });
+
+            it('a parcel fronting a merged strip may span several exterior edges — egress amended, not weakened', () => {
+                const result = solved();
+                const {strips, options} = mergedScaled(result, 0.5);
+                const merged = strips.find(strip => strip.supportingEdgeIds.length > 1);
+                expect(merged).toBeDefined();
+
+                const parcels = sliceStrip(merged!, options);
+                expect(parcels.length).toBeGreaterThan(0);
+                // Every parcel still owns a contiguous, non-degenerate frontage run …
+                expect(egressProblems('merged strip', merged!, parcels).join('; ')).toBe('');
+                // … and at least one of those runs bends: it spans more than one exterior edge.
+                const spanning = parcels.some(parcel => parcel.frontage.length > 2);
+                expect(spanning).toBe(true);
+            });
         });
     });
 

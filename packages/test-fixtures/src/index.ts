@@ -126,6 +126,13 @@ export {WHY_NO_COLLISION} from './why-no-collision-e15-e18';
 export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
+// short-edge-promontory.ts
+// Exported individually and left out of ALL_TEST_POLYGONS: it solves, strips, and slices cleanly
+// at its native placement and survives translation to 1e7 and the scale sweeps, but fails the
+// translation-to-1e9 envelope sweep in large-coordinate-failures.test.ts — the same blocker that
+// holds six of the seven near-regular fixtures out (see below). Details in the fixture file.
+export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
+
 // near-regular-polygons.ts
 // Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these analytic
 // control shapes all solve, but the sweeps over that list assert more than completeness, and

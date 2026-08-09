@@ -4,8 +4,8 @@ import {
 } from '@mantine/core';
 import CollapseChevron from '../CollapseChevron';
 import SliderNumberInput from '../pen-stroke/SliderNumberInput';
+import ParcelSliceControls from './ParcelSliceControls';
 import { useParcelStore } from '../../stores/useParcelStore';
-import type { DerivableSliceKey } from '../../stores/useParcelStore';
 
 export interface ParcelControlsPanelProps {
     /** `computeMaxOffset` for the current polygon, shown so the depth percentage means something. */
@@ -23,17 +23,6 @@ const DEPTH_MARKS = [
     { value: 100, label: '100%' },
 ];
 
-/**
- * A slider range for a parameter whose natural scale came from the polygon.
- *
- * The derived value sits a quarter of the way along, so there is room to go both well below and
- * well above it without the track resolution collapsing on either side.
- */
-function rangeAround(derivedValue: number): { min: number; max: number; step: number } {
-    const max = Math.max(derivedValue * 4, 1e-4);
-    return { min: 0, max, step: max / 200 };
-}
-
 function format(value: number): string {
     if (value === 0) return '0';
     if (Math.abs(value) >= 1000) return value.toFixed(0);
@@ -46,9 +35,7 @@ export default function ParcelControlsPanel({ maxOffset, depth, vertexCount }: P
 
     const depthPercent = useParcelStore((s) => s.depthPercent);
     const setDepthPercent = useParcelStore((s) => s.setDepthPercent);
-    const derived = useParcelStore((s) => s.derived);
     const overrides = useParcelStore((s) => s.overrides);
-    const setSliceOption = useParcelStore((s) => s.setSliceOption);
     const clearOverrides = useParcelStore((s) => s.clearOverrides);
     const splitIrregularity = useParcelStore((s) => s.splitIrregularity);
     const setSplitIrregularity = useParcelStore((s) => s.setSplitIrregularity);
@@ -57,21 +44,6 @@ export default function ParcelControlsPanel({ maxOffset, depth, vertexCount }: P
     const rerollSeed = useParcelStore((s) => s.rerollSeed);
 
     const overrideCount = Object.keys(overrides).length;
-
-    function sliceSlider(key: DerivableSliceKey, label: string) {
-        const value = overrides[key] ?? derived[key];
-        const { min, max, step } = rangeAround(derived[key]);
-        return (
-            <SliderNumberInput
-                label={`${label}${overrides[key] === undefined ? ' (derived)' : ''}`}
-                value={value}
-                min={min}
-                max={max}
-                step={step}
-                onChange={(next) => setSliceOption(key, next)}
-            />
-        );
-    }
 
     return (
         <Paper p="md" withBorder>
@@ -98,11 +70,7 @@ export default function ParcelControlsPanel({ maxOffset, depth, vertexCount }: P
                             onChange={setDepthPercent}
                         />
 
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>Slice options</Text>
-                        {sliceSlider('minWidth', 'Min width')}
-                        {sliceSlider('maxWidth', 'Max width')}
-                        {sliceSlider('minArea', 'Min area')}
-                        {sliceSlider('maxArea', 'Max area')}
+                        <ParcelSliceControls />
                         <SliderNumberInput
                             label="Split irregularity"
                             value={splitIrregularity}

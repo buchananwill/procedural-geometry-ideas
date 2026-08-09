@@ -5,8 +5,9 @@ import type { SliceOptions, Vector2 } from '@proc-geo/core';
 /**
  * The slice parameters whose sensible value depends on how big the polygon is.
  *
- * `splitIrregularity` and `seed` are deliberately absent: irregularity is a taste dial in `[0, 1]`
- * and a seed is an arbitrary integer, so neither has anything to derive from.
+ * `splitIrregularity`, `mitreToleranceDeg` and `seed` are deliberately absent: irregularity is a
+ * taste dial in `[0, 1]`, the mitre tolerance is an angle and means the same thing at every
+ * polygon size, and a seed is an arbitrary integer — none has anything to derive from.
  */
 export type DerivableSliceKey = 'minArea' | 'maxArea' | 'minWidth' | 'maxWidth';
 
@@ -42,6 +43,19 @@ export interface ParcelStoreState {
      */
     overrides: Partial<DerivedSliceOptions>;
     splitIrregularity: number;
+    /**
+     * Mitre tolerance in degrees, in `[0, 180]`: how far from straight (180°) a block junction's
+     * interior angle may deviate before the corner between its two strips is reshaped so the seam
+     * meets the longer street at a right angle. The seam's visible tilt is half the deviation, so
+     * this dial directly bounds how mitred parcel borders may look.
+     *
+     * Degrees rather than radians because it is a human dial; `useParcelPipeline` converts at the
+     * `computeStrips` boundary. Not polygon-scaled — an angle means the same thing at every size.
+     * `180` disables the correction (no junction deviates that far); `0` corrects every junction
+     * that deviates at all; the default of 30 reaches the wide 120–150° band that render
+     * inspection showed still visibly mitred under the old fire-below-120° rule.
+     */
+    mitreToleranceDeg: number;
     seed: number;
 
     layers: ParcelLayerVisibility;
@@ -54,6 +68,7 @@ export interface ParcelStoreState {
     /** Drop every override, so the polygon-derived defaults apply again. */
     clearOverrides: () => void;
     setSplitIrregularity: (value: number) => void;
+    setMitreToleranceDeg: (value: number) => void;
     setSeed: (seed: number) => void;
     rerollSeed: () => void;
     toggleLayer: (layer: keyof ParcelLayerVisibility) => void;
@@ -142,6 +157,7 @@ export const useParcelStore = create<ParcelStoreState>()(
         derived: { minArea: 1, maxArea: 10, minWidth: 1, maxWidth: 2 },
         overrides: {},
         splitIrregularity: 0.3,
+        mitreToleranceDeg: 30,
         seed: 1,
         layers: { ...DEFAULT_LAYERS },
 
@@ -168,6 +184,13 @@ export const useParcelStore = create<ParcelStoreState>()(
         setSplitIrregularity: (value) =>
             set((state) => {
                 state.splitIrregularity = Math.min(1, Math.max(0, value));
+            }),
+
+        setMitreToleranceDeg: (value) =>
+            set((state) => {
+                // 180 is the ceiling because no interior angle deviates more than 180° from
+                // straight — the value that switches the correction off entirely.
+                state.mitreToleranceDeg = Math.min(180, Math.max(0, value));
             }),
 
         setSeed: (seed) =>

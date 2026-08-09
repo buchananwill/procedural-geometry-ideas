@@ -74,6 +74,28 @@ function describe(error: unknown): string {
 }
 
 /**
+ * Every knob the pipeline recomputes from, grouped so the live and debounced readings travel as
+ * one value each. The main memo depends on exactly two objects — adding a knob costs a field here
+ * and nothing there.
+ */
+interface PipelineParams {
+    vertices: Vertex[];
+    depthPercent: number;
+    mitreToleranceDeg: number;
+    sliceOptions: SliceOptions;
+}
+
+/** Field-wise staleness: is the debounce still holding back a newer reading of any knob? */
+function paramsDiffer(a: PipelineParams, b: PipelineParams): boolean {
+    return (
+        a.vertices !== b.vertices ||
+        a.depthPercent !== b.depthPercent ||
+        a.mitreToleranceDeg !== b.mitreToleranceDeg ||
+        a.sliceOptions !== b.sliceOptions
+    );
+}
+
+/**
  * Runs the parcel pipeline — solve, offset, strips, slice — and reports where it stopped.
  *
  * Every stage after the solve throws on an unusable input rather than returning an empty result, so
@@ -90,27 +112,49 @@ export function useParcelPipeline(vertices: Vertex[]): ParcelPipelineResult {
     const derived = useParcelStore((s) => s.derived);
     const overrides = useParcelStore((s) => s.overrides);
     const splitIrregularity = useParcelStore((s) => s.splitIrregularity);
+    const mitreToleranceDeg = useParcelStore((s) => s.mitreToleranceDeg);
     const seed = useParcelStore((s) => s.seed);
     const setDerived = useParcelStore((s) => s.setDerived);
-
-    const [debouncedVertices] = useDebouncedValue(vertices, POLYGON_DEBOUNCE_MS);
-    const [debouncedDepthPercent] = useDebouncedValue(depthPercent, PARAMETER_DEBOUNCE_MS);
 
     const sliceOptions = useMemo<SliceOptions>(
         () => effectiveSliceOptions({ derived, overrides, splitIrregularity, seed }),
         [derived, overrides, splitIrregularity, seed],
     );
+
+    // The polygon debounces slower than the knobs — a re-solve costs far more than a re-cut — so
+    // the debounced group is assembled from individually debounced fields rather than debounced
+    // as one object.
+    const [debouncedVertices] = useDebouncedValue(vertices, POLYGON_DEBOUNCE_MS);
+    const [debouncedDepthPercent] = useDebouncedValue(depthPercent, PARAMETER_DEBOUNCE_MS);
+    const [debouncedMitreToleranceDeg] = useDebouncedValue(mitreToleranceDeg, PARAMETER_DEBOUNCE_MS);
     const [debouncedSliceOptions] = useDebouncedValue(sliceOptions, PARAMETER_DEBOUNCE_MS);
+
+    const liveParams = useMemo<PipelineParams>(
+        () => ({ vertices, depthPercent, mitreToleranceDeg, sliceOptions }),
+        [vertices, depthPercent, mitreToleranceDeg, sliceOptions],
+    );
+    const debouncedParams = useMemo<PipelineParams>(
+        () => ({
+            vertices: debouncedVertices,
+            depthPercent: debouncedDepthPercent,
+            mitreToleranceDeg: debouncedMitreToleranceDeg,
+            sliceOptions: debouncedSliceOptions,
+        }),
+        [debouncedVertices, debouncedDepthPercent, debouncedMitreToleranceDeg, debouncedSliceOptions],
+    );
 
     useEffect(() => {
         setDerived(deriveSliceDefaults(debouncedVertices));
     }, [debouncedVertices, setDerived]);
 
     return useMemo<ParcelPipelineResult>(() => {
-        const stale =
-            debouncedVertices !== vertices ||
-            debouncedDepthPercent !== depthPercent ||
-            debouncedSliceOptions !== sliceOptions;
+        const {
+            vertices: debouncedVertices,
+            depthPercent: debouncedDepthPercent,
+            mitreToleranceDeg: debouncedMitreToleranceDeg,
+            sliceOptions: debouncedSliceOptions,
+        } = debouncedParams;
+        const stale = paramsDiffer(liveParams, debouncedParams);
 
         const empty: ParcelPipelineResult = {
             vertices: debouncedVertices,
@@ -185,7 +229,15 @@ export function useParcelPipeline(vertices: Vertex[]): ParcelPipelineResult {
 
         let strips: Strip[];
         try {
-            strips = computeStrips(solve, { depth });
+            // The effective minWidth doubles as the strip-level minimum edge length: an exterior
+            // edge too short to host one minimum-width parcel merges into its straightest
+            // neighbouring run instead of spawning a degenerate strip of its own. The mitre
+            // tolerance is a human dial in degrees (180 = off); core takes radians.
+            strips = computeStrips(solve, {
+                depth,
+                minEdgeLength: debouncedSliceOptions.minWidth,
+                mitreTolerance: (debouncedMitreToleranceDeg * Math.PI) / 180,
+            });
         } catch (error) {
             return { ...offset, failure: { stage: 'strips', message: describe(error) } };
         }
@@ -209,12 +261,5 @@ export function useParcelPipeline(vertices: Vertex[]): ParcelPipelineResult {
             parcelArea,
             coverage: empty.polygonArea > 0 ? parcelArea / empty.polygonArea : 0,
         };
-    }, [
-        vertices,
-        depthPercent,
-        sliceOptions,
-        debouncedVertices,
-        debouncedDepthPercent,
-        debouncedSliceOptions,
-    ]);
+    }, [liveParams, debouncedParams]);
 }
