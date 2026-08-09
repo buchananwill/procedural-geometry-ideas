@@ -1,5 +1,7 @@
 # dependencies
 node_modules
+# pnpm workspace — a stray `npm install` must not reintroduce npm's lockfile
+package-lock.json
 /.pnp
 .pnp.*
 .yarn/*
