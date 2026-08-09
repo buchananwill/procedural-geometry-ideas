@@ -19,7 +19,8 @@ export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
 export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
-export { skeletonToScene, turtleToScene } from './scene/adapters';
+export { skeletonToScene, turtleToScene, parcelColour, parcelsToScene, stripColour } from './scene/adapters';
+export type { ParcelsToSceneParams } from './scene/adapters';
 
 // Components
 /** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in a future release. */
@@ -49,6 +50,14 @@ export type { DolSystemStoreState } from './stores/useDolSystemStore';
 export { useDolGeneration } from './hooks/useDolGeneration';
 export type { DolGenerationState } from './hooks/useDolGeneration';
 export { DolConfigPanel, DolGenerateButton, DolGenerationPanel, DolInstructionsPanel } from './components/dol-system';
+
+// Parcel generation (strips → parcels)
+export { useParcelStore, deriveSliceDefaults, effectiveSliceOptions, polygonArea, polygonPerimeter } from './stores/useParcelStore';
+export type { DerivableSliceKey, DerivedSliceOptions, ParcelLayerVisibility, ParcelStoreState, SliceOptionSources } from './stores/useParcelStore';
+export { useParcelPipeline } from './hooks/useParcelPipeline';
+export type { ParcelPipelineFailure, ParcelPipelineResult, ParcelPipelineStage } from './hooks/useParcelPipeline';
+export { ParcelControlsPanel, ParcelLayerPanel, ParcelReportPanel } from './components/parcels';
+export type { ParcelControlsPanelProps, ParcelReportPanelProps } from './components/parcels';
 
 // Articulation constraint solver
 export { useArticulationStore } from './stores/useArticulationStore';
