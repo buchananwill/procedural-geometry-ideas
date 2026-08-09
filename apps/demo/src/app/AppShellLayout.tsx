@@ -42,6 +42,12 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                 />
                 <NavLink
                     component={Link}
+                    href="/parcels"
+                    label="Parcels"
+                    active={pathname === "/parcels"}
+                />
+                <NavLink
+                    component={Link}
                     href="/dol-system"
                     label="L-System (D0L)"
                     active={pathname === "/dol-system"}
@@ -51,6 +57,12 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                     href="/pen-stroke"
                     label="Pen Stroke -> Spline"
                     active={pathname === "/pen-stroke"}
+                />
+                <NavLink
+                    component={Link}
+                    href="/articulation"
+                    label="Articulation Constraints"
+                    active={pathname === "/articulation"}
                 />
             </AppShell.Navbar>
 

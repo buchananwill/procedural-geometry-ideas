@@ -2,8 +2,11 @@ import { useState } from "react";
 import {
     Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse, Select,
 } from "@mantine/core";
+import { notifications } from "@mantine/notifications";
+import { makeVertexRun, serialiseGeometryPayload } from "@proc-geo/core";
 import { usePolygonStore } from "../stores/usePolygonStore";
 import CollapseChevron from "./CollapseChevron";
+import { interpretGeometryPaste } from "./geometry-clipboard";
 import { ALL_TEST_POLYGONS } from "@proc-geo/test-fixtures";
 
 interface ControlsPanelProps {
@@ -23,7 +26,8 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
     const [pasted, setPasted] = useState<"ok" | "fail" | null>(null);
 
     function copyVerticesToClipboard() {
-        const json = JSON.stringify(vertices.map(({ x, y }) => ({ x, y })), null, 2);
+        // This store holds a closed region, so the payload says so.
+        const json = serialiseGeometryPayload(makeVertexRun(vertices, true), { indent: 2 });
         navigator.clipboard.writeText(json).then(() => {
             setCopied(true);
             setTimeout(() => setCopied(false), 1500);
@@ -32,24 +36,29 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
 
     function pasteVerticesFromClipboard() {
         navigator.clipboard.readText().then((text) => {
-            try {
-                const parsed = JSON.parse(text);
-                if (!Array.isArray(parsed) || parsed.length < 3) throw new Error();
-                const verts = parsed.map((v: unknown) => {
-                    if (typeof v !== "object" || v === null) throw new Error();
-                    const obj = v as Record<string, unknown>;
-                    if (typeof obj.x !== "number" || typeof obj.y !== "number") throw new Error();
-                    if (!isFinite(obj.x) || !isFinite(obj.y)) throw new Error();
-                    return { x: obj.x, y: obj.y };
-                });
-                setVertices(verts);
+            const outcome = interpretGeometryPaste(text);
+            if (outcome.ok) {
+                setVertices(outcome.vertices);
                 setPasted("ok");
-            } catch {
+                if (outcome.note !== null) {
+                    notifications.show({
+                        color: "yellow",
+                        title: "Pasted with an assumption",
+                        message: outcome.note,
+                    });
+                }
+            } else {
                 setPasted("fail");
+                notifications.show({ color: "red", title: outcome.title, message: outcome.message });
             }
             setTimeout(() => setPasted(null), 1500);
-        }).catch(() => {
+        }).catch((error: unknown) => {
             setPasted("fail");
+            notifications.show({
+                color: "red",
+                title: "Clipboard unavailable",
+                message: error instanceof Error ? error.message : "The clipboard could not be read.",
+            });
             setTimeout(() => setPasted(null), 1500);
         });
     }
@@ -88,7 +97,7 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
                             color="teal"
                             fullWidth
                         >
-                            {pasted === "ok" ? "Pasted!" : pasted === "fail" ? "Invalid Data" : "Paste Vertices"}
+                            {pasted === "ok" ? "Pasted!" : pasted === "fail" ? "Rejected" : "Paste Vertices"}
                         </Button>
                         <Button
                             onClick={() => {

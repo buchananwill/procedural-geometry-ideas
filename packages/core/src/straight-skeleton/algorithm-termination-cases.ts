@@ -1,6 +1,9 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, CollisionEvent,
+    PolygonNode,
+    SkeletonDiagnostic,
+    SkeletonSolveResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2
@@ -8,43 +11,131 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
-    dotProduct,
     normalize,
     subtractVectors,
     vectorsAreEqual
 } from "./core-functions";
-import {bestNonPhantomCollision, collideInteriorEdges} from "./collision-helpers";
+import {intersectRays} from "./intersection-edges";
+import {
+    bestNonPhantomCollision,
+    collideInteriorEdges,
+    makeOffsetDistance,
+    sourceOffsetDistance
+} from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
+import {isClockwise} from "../random-polygon/geometry-helpers";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
 }
 
 /**
+ * The offset at which a node was created, derived the same way the solver derives it
+ * everywhere else. Exterior nodes sit on the boundary, so their offset is zero; an interior
+ * node is born at the source offset of any bisector emitted from it.
+ *
+ * Returns `undefined` for a terminal interior node, which emits nothing and therefore has no
+ * offset recorded anywhere for us to read.
+ */
+function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): number | undefined {
+    if (node.id < context.graph.numExteriorNodes) {
+        return 0;
+    }
+
+    const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
+    if (outInterior === undefined) {
+        return undefined;
+    }
+
+    return sourceOffsetDistance(context.getInteriorWithId(outInterior), context);
+}
+
+/**
  * For a given edge, scan all existing nodes to see if any node lies exactly
  * along the edge's basis direction from its source.  If found, wire up
  * target / inEdges and return true.
+ *
+ * Several nodes can be collinear with the ray — an apex vertex sits directly beyond the
+ * ridge node it feeds, for instance — so the *nearest* one wins. A bisector ends where the
+ * wavefront next arrives, and taking any further node instead runs the edge backwards
+ * through skeleton the solver has already resolved.
+ *
+ * CAUSALITY. This snap pass is an *early* part of the algorithm, written to close the
+ * terminal scenario when the skeleton fully solves, and reached only from
+ * `handleInteriorEdgePair`, the two-edge base case. It predates the tighter runtime checks
+ * added later, and because it assigns `target` directly — computing no offset and building
+ * no `CollisionEvent` — none of them can see it: not `validateSplitReachesEdge`'s
+ * `notYetBorn` guard, not the `phantomDivergentOffset` classification in
+ * `collideInteriorEdges`, not the `outOfBounds` check against `maxOffset`. Its own
+ * `distance > 0` test is only a proxy for causality, and holds only while the bisector points
+ * inward; a *secondary* bisector aimed at a distant original polygon vertex marches forward
+ * along its ray but backwards in time. So the same birth-relative rule the collision path
+ * applies is applied here explicitly: a snap is a collision at `distance` along the ray, so
+ * its offset must not be earlier than the bisector's own birth offset. `makeOffsetDistance`
+ * and `sourceOffsetDistance` are reused verbatim so this rule cannot drift away from
+ * `notYetBorn`.
  */
 function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: number): boolean {
     const edgeData = context.getEdgeWithId(edgeId);
     const source = context.findSource(edgeId);
+    const interiorEdge = context.getInteriorWithId(edgeId);
+    const ray = context.projectRayInterior(interiorEdge);
+    const birthOffset = sourceOffsetDistance(interiorEdge, context);
+
+    let nearest: PolygonNode | undefined;
+    let nearestDistance = Number.POSITIVE_INFINITY;
 
     for (let i = 0; i < context.graph.nodes.length; i++) {
         if (i === edgeData.source) continue;
         const candidate = context.graph.nodes[i];
         const [direction, distance] = normalize(subtractVectors(candidate.position, source.position));
-        if (distance > 0 && vectorsAreEqual(direction, edgeData.basisVector)) {
-            edgeData.target = candidate.id;
-            candidate.inEdges.push(edgeId);
-            return true;
+        if (!(distance > 0 && distance < nearestDistance && vectorsAreEqual(direction, edgeData.basisVector))) {
+            continue;
         }
+
+        // Same tolerance convention as `notYetBorn`: a snap exactly at the birth offset is
+        // legitimate, only a strictly earlier one is rejected.
+        const snapOffset = makeOffsetDistance(interiorEdge, context, ray, distance);
+        const localOffset = snapOffset - birthOffset;
+        if (localOffset < 0 && !areEqual(localOffset, 0)) {
+            stepLog.debug(
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: snap offset ${snapOffset} precedes the bisector's birth offset ${birthOffset}.`,
+            );
+            continue;
+        }
+
+        // Stronger form, mirroring the phantom classifier: both sides must agree on when the
+        // meeting happens, so the candidate's own birth offset has to match the offset this
+        // bisector computes on arriving there. This earns its keep beyond the birth check above.
+        // A snap mutates two things — `target` here and `inEdges` on the node — but only
+        // `target` is ever rewritten downstream, so a snap that is later superseded leaves the
+        // node permanently claiming an in-edge that no longer points at it. On the peanut the
+        // birth check alone still let e67 and e68 snap outward before a later pass corrected
+        // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
+        const candidateOffset = nodeOffset(context, candidate);
+        if (candidateOffset !== undefined && !areEqual(candidateOffset, snapOffset)) {
+            stepLog.debug(
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: node exists at offset ${candidateOffset} but the bisector arrives at ${snapOffset}.`,
+            );
+            continue;
+        }
+
+        nearest = candidate;
+        nearestDistance = distance;
     }
-    return false;
+
+    if (nearest === undefined) {
+        return false;
+    }
+
+    edgeData.target = nearest.id;
+    nearest.inEdges.push(edgeId);
+    return true;
 }
 
 /**
@@ -86,15 +177,29 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
 
     // Fall back to collision-based resolution
     const [id1, id2] = input.interiorEdges;
-    const edgeData1 = context.getEdgeWithId(id1);
-    const edgeData2 = context.getEdgeWithId(id2);
+    const interior1 = context.getInteriorWithId(id1);
+    const interior2 = context.getInteriorWithId(id2);
 
-    const dotEdges = dotProduct(edgeData1.basisVector, edgeData2.basisVector);
+    // ANTI-PARALLEL IS NOT HEAD-ON. This used to test `dot(basis1, basis2) === -1` and cross-wire
+    // on the strength of it, which is wrong: two bisectors pointing directly *away* from each
+    // other are equally anti-parallel. Cross-wiring those makes each terminate at the other's
+    // source, so both edges run backwards along their own basis — a 2-cycle in which the
+    // wavefront vertex is drawn travelling the opposite way to the direction it actually moves.
+    //
+    // `intersectRays` already draws the distinction the dot product cannot. Its anti-parallel
+    // branch returns 'head-on' only when the other ray's source lies *ahead* along this ray, and
+    // 'parallel' when it lies behind. No new geometric rule is needed here; the existing one just
+    // has to be consulted rather than re-derived badly.
+    const [, , pairIntersection] = intersectRays(
+        context.projectRayInterior(interior1),
+        context.projectRayInterior(interior2),
+    );
+
     // Head on Collision
-    if (areEqual(dotEdges, -1)) {
+    if (pairIntersection === 'head-on') {
         context.crossWireEdges(id1, id2);
     } else {
-        const collisions = collideInteriorEdges(context.getInteriorWithId(id1), context.getInteriorWithId(id2), context);
+        const collisions = collideInteriorEdges(interior1, interior2, context);
         if (collisions.length === 0) {
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
@@ -189,26 +294,50 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 
     return {
-        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1)
+        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1),
+        errors
     }
 }
 
+/** Outcome of solving one simple (non-self-intersecting) polygon. */
+interface SimplePolygonRun {
+    context: StraightSkeletonSolverContext;
+    /** Messages accumulated from every `stepAlgorithm` iteration of this run. */
+    errors: string[];
+}
+
 /** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
-function runSimplePolygon(nodes: Vector2[]): StraightSkeletonSolverContext {
+function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
     const context = makeStraightSkeletonSolverContext(nodes);
     const exteriorEdges = [...context.graph.edges]
+    const errors: string[] = [];
 
     initInteriorEdges(context);
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     while (inputs.length > 0) {
-        inputs = stepAlgorithm(context, inputs).childSteps
+        const output = stepAlgorithm(context, inputs);
+        errors.push(...(output.errors ?? []));
+        inputs = output.childSteps
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
     }
 
-    return context
+    return {context, errors}
 }
 
+/**
+ * Legacy entry point, preserved verbatim for existing callers.
+ *
+ * It reports nothing about how well the solve went, and retains three silent-failure modes:
+ * 1. Counter-clockwise input does not throw — it yields a graph with only the boundary and no
+ *    resolved interior edges.
+ * 2. Per-sub-polygon exceptions are swallowed by `stepAlgorithm`, so a partially-resolved
+ *    skeleton is indistinguishable from a complete one.
+ * 3. Self-intersecting input returns the merged solver context, whose helpers throw when called.
+ *
+ * Prefer {@link solveSkeleton}, which normalises winding, reports diagnostics, and returns
+ * `context: null` instead of a throwing stub for the merged path.
+ */
 export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
@@ -217,15 +346,104 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     const decomposition = decomposePolygon(nodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        return runSimplePolygon(nodes);
+        return runSimplePolygon(nodes).context;
     }
 
     const subResults = decomposition.subPolygons.map(subPoly => ({
-        graph: runSimplePolygon(subPoly).graph,
+        graph: runSimplePolygon(subPoly).context.graph,
     }));
 
     const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
     return makeMergedSolverContext(merged);
+}
+
+export interface SolveSkeletonOptions {
+    /**
+     * Reverse counter-clockwise input before solving. The solver only handles clockwise
+     * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
+     * Defaults to `true`.
+     */
+    normaliseWinding?: boolean;
+}
+
+/** Collect the interior edges of a solved graph that never acquired a target node. */
+function findUnresolvedInteriorEdgeIds(graph: StraightSkeletonGraph): number[] {
+    return graph.interiorEdges
+        .filter(interiorEdge => graph.edges[interiorEdge.id]?.target === undefined)
+        .map(interiorEdge => interiorEdge.id);
+}
+
+function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): void {
+    for (const error of errors) {
+        diagnostics.push({kind: 'step-failure', detail: error});
+    }
+}
+
+/**
+ * Primary entry point: solve the straight skeleton and report how complete the answer is.
+ *
+ * Unlike {@link runAlgorithmV5}, every degraded outcome is visible on the returned value —
+ * winding correction, self-intersection, swallowed step failures, and interior edges that
+ * never resolved all appear in `diagnostics`, and `complete` summarises whether the skeleton
+ * can be trusted.
+ *
+ * Throws only when there are fewer than three vertices.
+ */
+export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOptions): SkeletonSolveResult {
+    if (vertices.length < 3) {
+        throw new Error("Must have at least three nodes to perform algorithm");
+    }
+
+    const normaliseWinding = options?.normaliseWinding ?? true;
+    const diagnostics: SkeletonDiagnostic[] = [];
+
+    let workingVertices = vertices;
+    if (normaliseWinding && !isClockwise(vertices)) {
+        workingVertices = [...vertices].reverse();
+        diagnostics.push({
+            kind: 'winding-normalised',
+            detail: `Input was counter-clockwise; ${vertices.length} vertices reversed to clockwise winding before solving.`,
+        });
+    }
+
+    const decomposition = decomposePolygon(workingVertices);
+
+    let graph: StraightSkeletonGraph;
+    let context: StraightSkeletonSolverContext | null;
+
+    if (decomposition.wasSelfIntersecting) {
+        diagnostics.push({
+            kind: 'self-intersecting',
+            detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
+        });
+
+        const subResults = decomposition.subPolygons.map(subPolygon => {
+            const run = runSimplePolygon(subPolygon);
+            pushStepFailures(diagnostics, run.errors);
+            return {graph: run.context.graph};
+        });
+
+        graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
+        context = null;
+    } else {
+        const run = runSimplePolygon(workingVertices);
+        pushStepFailures(diagnostics, run.errors);
+        graph = run.context.graph;
+        context = run.context;
+    }
+
+    const unresolvedEdgeIds = findUnresolvedInteriorEdgeIds(graph);
+    if (unresolvedEdgeIds.length > 0) {
+        diagnostics.push({
+            kind: 'unresolved-edges',
+            detail: `${unresolvedEdgeIds.length} interior edge(s) finished without a target node: ${unresolvedEdgeIds.join(', ')}.`,
+        });
+    }
+
+    const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges');
+    const complete = !blocking && graph.interiorEdges.length > 0;
+
+    return {graph, context, complete, diagnostics};
 }
 
 export interface SteppedAlgorithmResult {

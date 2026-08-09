@@ -20,6 +20,9 @@ export type {
   CollisionType,
   CollisionCacheEntry,
   CollisionCache,
+  SkeletonDiagnosticKind,
+  SkeletonDiagnostic,
+  SkeletonSolveResult,
 } from './straight-skeleton/types';
 export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
 
@@ -102,10 +105,18 @@ export {
   stepAlgorithm,
   runAlgorithmV5,
   runAlgorithmV5Stepped,
+  solveSkeleton,
 } from './straight-skeleton/algorithm-termination-cases';
-export type { SteppedAlgorithmResult } from './straight-skeleton/algorithm-termination-cases';
+export type { SteppedAlgorithmResult, SolveSkeletonOptions } from './straight-skeleton/algorithm-termination-cases';
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
+
+// ── Offset projection ────────────────────────────────────────────────────────
+export {
+  computeNodeOffsets,
+  computeMaxOffset,
+  computeOffsetRings,
+} from './straight-skeleton/offset-projection';
 
 // ── Graph merge (polygon decomposition) ──────────────────────────────────────
 export { mergeSkeletonGraphs, makeMergedSolverContext } from './straight-skeleton/graph-merge';
@@ -197,6 +208,10 @@ export {
     FITTING_VARIANT_DEFAULTS,
 } from './stroke-spline';
 
+// ── Stroke → spline: closed loops ────────────────────────────────────────────
+export type { ClosureConfig, SeamNeighbours } from './stroke-spline';
+export { isStrokeClosed, isSeamCorner, closeFittedChain, CLOSURE_VARIANT_DEFAULTS } from './stroke-spline';
+
 // ── D0L system ────────────────────────────────────────────────────────────────
 export {
     compile as compileDolSystem,
@@ -218,3 +233,165 @@ export type {
     ValidationError as DolValidationError,
 } from './dol-system';
 export {KEYWORD_OPCODES, NUM_KEYWORDS, DolSystemValidationError} from './dol-system';
+
+// ── Articulation constraint solver ───────────────────────────────────────────
+export type {
+    MinMax,
+    ElementConstraints,
+    ArticulationChain,
+    TransformDelta,
+    StrategyId,
+    ElementClampTolerance,
+    SolveInput,
+    StrategyResult,
+    SolveResult,
+    StrategyInput,
+    ConstraintStrategy,
+} from './articulation';
+export {
+    ARTICULATION_EPSILON,
+    DEFAULT_ELEMENT_CLAMP_TOLERANCE,
+    jointAngleAt,
+    isPoseValid,
+    isPoseNoWorse,
+    makePoseNoWorsePredicate,
+    linkDistanceViolation,
+    jointAngleViolation,
+    measureClampedElementIndices,
+    isContiguous,
+    solveArticulation,
+    STRATEGIES,
+    CLAMP_COARSE_SAMPLE_COUNT,
+    CLAMP_REFINEMENT_DEPTH,
+    CLAMP_RESOLUTION,
+    SPREAD_RELAXATION_ITERATIONS,
+    SPREAD_REFINEMENT_SAMPLE_COUNT,
+} from './articulation';
+
+// ── Parcel generation: offset provenance and strip decomposition ─────────────
+export {
+    computeOffsetRingsDetailed,
+    projectOffsetWavefront,
+    requireProjectableResult,
+} from './straight-skeleton/offset-projection';
+export type {
+    DegenerateCycle,
+    OffsetProjection,
+    OffsetRing,
+    OffsetRingSegment,
+    OffsetRingVertex,
+    UnclosedChain,
+    UnclosedChainReason,
+} from './straight-skeleton/offset-projection';
+export { computeStrips } from './straight-skeleton/strip-decomposition';
+export type {
+    Strip,
+    StripOptions,
+    CornerContext,
+    CornerAssignment,
+} from './straight-skeleton/strip-decomposition';
+
+// ── Parcel generation: slicing strips into parcels ───────────────────────────
+export { sliceStrip, sliceStrips } from './straight-skeleton/parcel-slicing';
+export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
+
+// ── Stroke → spline: vertex budgeting ────────────────────────────────────────
+export type { VertexBudgetResult } from './stroke-spline';
+export {
+    reduceToVertexBudget,
+    reduceRingToVertexBudget,
+    strokeToBudgetedPolygon,
+    strokeToRing,
+    hasRedundantSeam,
+    DEFAULT_VERTEX_BUDGET,
+} from './stroke-spline';
+
+// ── Stroke → spline: least-squares straightening ─────────────────────────────
+export type { StraightenedBudgetResult, StraightenOptions } from './stroke-spline';
+export { straightenToVertexBudget, strokeToStraightenedPolygon } from './stroke-spline';
+
+// ── Shared geometry interchange payload ──────────────────────────────────────
+export type {
+    GeometryPayload,
+    GeometryPayloadBody,
+    GeometryPayloadEnvelope,
+    GeometryPayloadKind,
+    VertexRunBody,
+} from './shared/geometry-payload';
+export { GEOMETRY_PAYLOAD_FORMAT, GEOMETRY_PAYLOAD_VERSION, makeVertexRun } from './shared/geometry-payload';
+
+export type {
+    AssumedField,
+    ParseFailureReason,
+    ParseGeometryPayloadFailure,
+    ParseGeometryPayloadResult,
+    ParseGeometryPayloadSuccess,
+    PayloadEncoding,
+    SerialiseOptions,
+} from './shared/geometry-payload-codec';
+export {
+    LEGACY_BARE_ARRAY_CLOSED,
+    LEGACY_BARE_ARRAY_MIN_VERTICES,
+    MAX_SERIALISED_LENGTH,
+    parseGeometryPayload,
+    serialiseGeometryPayload,
+} from './shared/geometry-payload-codec';
+
+// ── Terrain seam: batch point sampling, slope helpers, synthetic + mapgen4 sources ────────────
+export type {
+    AnalyticField,
+    Bounds2,
+    FitPlacementOptions,
+    HemisphereSamplerOptions,
+    Mapgen4PatchData,
+    Mapgen4SamplerMetrics,
+    Mapgen4SamplerOptions,
+    Mapgen4TerrainSampler,
+    PlaneSamplerOptions,
+    PolygonSlopeOptions,
+    PolygonSlopeStatistics,
+    RidgeSamplerOptions,
+    TerrainDomain,
+    TerrainPlacement,
+    TerrainSample,
+    TerrainSampler,
+    Vector3,
+} from './terrain';
+export {
+    ASPECT_FLAT_TOLERANCE,
+    DEFAULT_HORIZONTAL_EXTENT_METRES,
+    DEFAULT_INTERIOR_SAMPLES,
+    DEFAULT_VERTICAL_SCALE_METRES,
+    MAPGEN4_PATCH,
+    MAPGEN4_PATCH_ELEVATION_RANGE,
+    MAPGEN4_PATCH_WINDOW_UNITS,
+    TERRAIN_NORMAL_TOLERANCE,
+    UNBOUNDED_DOMAIN,
+    aspectDegrees,
+    aspectRadians,
+    bearingDegrees,
+    bearingRadians,
+    boundsOfPoints,
+    clampToDomain,
+    createAnalyticSampler,
+    createFlatSampler,
+    createHemisphereSampler,
+    createMapgen4Sampler,
+    createPlaneSampler,
+    createRidgeSampler,
+    createSlopeAspectPlaneSampler,
+    downhillDirection,
+    evaluatePolygonSlopes,
+    fitPlacementToDomain,
+    isInDomain,
+    isPointInPolygon,
+    isValidTerrainNormal,
+    mapgen4ReliefMetres,
+    normalFromGradient,
+    normaliseUpward,
+    slopeDegrees,
+    slopeGrade,
+    slopeRadians,
+    squareDomain,
+    uphillDirection,
+} from './terrain';

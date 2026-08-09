@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { current } from 'immer';
 import type {
+    ClosureConfig,
     CornerDetectionConfig,
     FittingConfig,
     SimplificationConfig,
@@ -10,6 +11,12 @@ import type {
     StrokePoint,
 } from '@proc-geo/core';
 import { DEFAULT_STROKE_PIPELINE_CONFIG, runStrokePipeline } from '@proc-geo/core';
+import type { StrokeClipboardSummary, StrokeReductionMode } from '../components/pen-stroke/stroke-clipboard';
+import {
+    clampVertexBudget,
+    DEFAULT_STROKE_REDUCTION_MODE,
+    summariseStrokeCopy,
+} from '../components/pen-stroke/stroke-clipboard';
 
 export interface PenStrokeStoreState {
     rawPoints: StrokePoint[];
@@ -18,10 +25,45 @@ export interface PenStrokeStoreState {
     simplification: SimplificationConfig;
     cornerDetection: CornerDetectionConfig;
     fitting: FittingConfig;
+    /**
+     * Loop closure. The pipeline defaults this to `pass-through`, which makes
+     * `result.closed` permanently false and so makes every copied payload an
+     * open path the straight skeleton must refuse. It is a store field because
+     * the copy control needs it to be reachable from the UI.
+     */
+    closure: ClosureConfig;
+    /**
+     * Vertex ceiling applied to the copied payload. Not a pipeline stage — it is
+     * applied to the pipeline's output on the way to the clipboard — but it lives
+     * here because the canvas overlay and the copy button must budget to the same
+     * number, and a number two components both read is a store field.
+     */
+    vertexBudget: number;
+    /**
+     * Which vertex-reduction mode the budgeted payload is built with. Like the
+     * budget it is applied to the pipeline's output rather than being a pipeline
+     * stage, and like the budget it lives here because the canvas overlay and the
+     * copy button must agree on it exactly.
+     */
+    reductionMode: StrokeReductionMode;
     lerpAlpha: number;
     result: StrokePipelineResult | null;
+    /**
+     * The clipboard payload for the current result at the current budget,
+     * computed once here.
+     *
+     * It is state rather than a per-component `useMemo` because two consumers
+     * need it — the copy button writes `text`, the canvas overlay draws
+     * `vertices` — and budgeting twice from the same inputs would make "the
+     * preview shows exactly what will be exported" a coincidence that holds only
+     * while both call sites happen to agree. Recomputed wherever `result` or
+     * `vertexBudget` changes, and nowhere else.
+     */
+    copySummary: StrokeClipboardSummary | null;
     /** View-level toggle for the live smoothing ghost-trail preview; no pipeline recompute. */
     smoothingPreviewEnabled: boolean;
+    /** View-level toggle for drawing the budget-clamped polygon over the stroke. Off by default. */
+    budgetPreviewEnabled: boolean;
 
     beginStroke: (p: StrokePoint) => void;
     appendPoint: (p: StrokePoint) => void;
@@ -31,24 +73,51 @@ export interface PenStrokeStoreState {
     setSimplification: (config: SimplificationConfig) => void;
     setCornerDetection: (config: CornerDetectionConfig) => void;
     setFitting: (config: FittingConfig) => void;
+    setClosure: (config: ClosureConfig) => void;
+    setVertexBudget: (budget: number) => void;
+    setReductionMode: (mode: StrokeReductionMode) => void;
     setLerpAlpha: (alpha: number) => void;
     setSmoothingPreviewEnabled: (enabled: boolean) => void;
+    setBudgetPreviewEnabled: (enabled: boolean) => void;
 }
 
 /** Re-run the full pipeline from the stored raw input (the fixture until re-drawn). */
 function rerun(s: PenStrokeStoreState) {
     if (s.isDrawing || s.rawPoints.length < 2) {
         s.result = null;
+        s.copySummary = null;
         return;
     }
     const plain = current(s);
-    s.result = runStrokePipeline(plain.rawPoints, {
+    const result = runStrokePipeline(plain.rawPoints, {
         smoothing: plain.smoothing,
         simplification: plain.simplification,
         cornerDetection: plain.cornerDetection,
         fitting: plain.fitting,
+        closure: plain.closure,
     }) as StrokePipelineResult;
+    s.result = result;
+    s.copySummary = summariseStrokeCopy(result, plain.vertexBudget, plain.reductionMode);
 }
+
+/**
+ * Closure is on by default, at a seam gap a hand can hit without aiming.
+ * `distance-threshold` only closes a stroke whose last sample actually returned
+ * to its first, so a genuinely open stroke is unaffected.
+ */
+const DEFAULT_CLOSURE: ClosureConfig = { variant: 'distance-threshold', threshold: 30 };
+
+/**
+ * The pen's own default, chosen from playtesting rather than derived: 12-16 is
+ * where a drawn region stops feeling over-sampled and starts feeling like the
+ * shape you meant, so 16 is the top of that band.
+ *
+ * Deliberately below core's `DEFAULT_VERTEX_BUDGET` of 64, which answers a
+ * different question — the most a caller should ask for before the solve stops
+ * feeling instant (~0.7 s at 64, against ~2 ms at 16). That is a ceiling; this
+ * is a starting point.
+ */
+const PEN_DEFAULT_VERTEX_BUDGET = 16;
 
 export const usePenStrokeStore = create<PenStrokeStoreState>()(
     immer((set) => ({
@@ -58,15 +127,21 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         simplification: DEFAULT_STROKE_PIPELINE_CONFIG.simplification,
         cornerDetection: DEFAULT_STROKE_PIPELINE_CONFIG.cornerDetection,
         fitting: DEFAULT_STROKE_PIPELINE_CONFIG.fitting,
+        closure: DEFAULT_CLOSURE,
+        vertexBudget: PEN_DEFAULT_VERTEX_BUDGET,
+        reductionMode: DEFAULT_STROKE_REDUCTION_MODE,
         lerpAlpha: 1,
         result: null,
+        copySummary: null,
         smoothingPreviewEnabled: false,
+        budgetPreviewEnabled: false,
 
         beginStroke: (p) =>
             set((s) => {
                 s.rawPoints = [p];
                 s.isDrawing = true;
                 s.result = null;
+                s.copySummary = null;
             }),
 
         appendPoint: (p) =>
@@ -87,6 +162,7 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
                 s.rawPoints = [];
                 s.isDrawing = false;
                 s.result = null;
+                s.copySummary = null;
             }),
 
         setSmoothing: (config) =>
@@ -113,6 +189,39 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
                 rerun(s);
             }),
 
+        setClosure: (config) =>
+            set((s) => {
+                s.closure = config;
+                rerun(s);
+            }),
+
+        setVertexBudget: (budget) =>
+            set((s) => {
+                const clamped = clampVertexBudget(budget);
+                if (clamped === s.vertexBudget) return;
+                s.vertexBudget = clamped;
+                // Only the budgeting is redone: the budget is applied to the
+                // pipeline's output, so nothing upstream of it can have changed.
+                const plain = current(s);
+                s.copySummary = plain.result
+                    ? summariseStrokeCopy(plain.result, clamped, plain.reductionMode)
+                    : null;
+            }),
+
+        setReductionMode: (mode) =>
+            set((s) => {
+                if (mode === s.reductionMode) return;
+                s.reductionMode = mode;
+                // Same reasoning as the budget: the mode reduces the pipeline's
+                // output, so only the summary is rebuilt — and rebuilding it here,
+                // once, is what keeps the canvas preview and the clipboard the
+                // same vertices rather than two reductions that happen to agree.
+                const plain = current(s);
+                s.copySummary = plain.result
+                    ? summariseStrokeCopy(plain.result, plain.vertexBudget, mode)
+                    : null;
+            }),
+
         setLerpAlpha: (alpha) =>
             set((s) => {
                 s.lerpAlpha = alpha;
@@ -121,6 +230,11 @@ export const usePenStrokeStore = create<PenStrokeStoreState>()(
         setSmoothingPreviewEnabled: (enabled) =>
             set((s) => {
                 s.smoothingPreviewEnabled = enabled;
+            }),
+
+        setBudgetPreviewEnabled: (enabled) =>
+            set((s) => {
+                s.budgetPreviewEnabled = enabled;
             }),
     }))
 );

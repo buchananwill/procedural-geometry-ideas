@@ -63,7 +63,7 @@ pnpm lint      # Lint the demo app
 # Per-package commands
 pnpm --filter @proc-geo/core build
 pnpm --filter @proc-geo/core test
-pnpm --filter @proc-geo/core test -- --testPathPattern=core-functions
+pnpm --filter @proc-geo/core test -- --testPathPatterns=core-functions
 pnpm --filter @proc-geo/test-fixtures build
 pnpm --filter @proc-geo/dashboard build
 pnpm --filter @proc-geo/demo dev
@@ -142,8 +142,10 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-35 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
-`test-constants.ts`. A further 8 polygons are exported individually but excluded from that list. Depends on
+37 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
+`test-constants.ts`. Further polygons are exported individually but excluded from that list -- several suites
+sweep `ALL_TEST_POLYGONS` asserting that every entry solves completely, so a known-failing fixture must stay
+out of it. Depends on
 `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known polygon shapes.
 
 ### `@proc-geo/dashboard` (`packages/dashboard/`)

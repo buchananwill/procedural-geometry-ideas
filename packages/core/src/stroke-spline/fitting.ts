@@ -1,9 +1,9 @@
 import type { Vector2 } from '../straight-skeleton/types';
-import type { CornerDetectionResult, FitResult, FittingConfig } from './types';
+import type { CornerDetectionResult, FitResult, FittingConfig, SeamNeighbours } from './types';
 import { fitStrokeSpline } from './schneider';
 import { fitCatmullRom } from './catmull-rom';
 
-type SectionFitter = (points: Vector2[]) => FitResult | null;
+type SectionFitter = (points: Vector2[], seam: SeamNeighbours | null) => FitResult | null;
 
 /**
  * Corner-aware fitting: the point list is split into sections at the detected
@@ -12,18 +12,30 @@ type SectionFitter = (points: Vector2[]) => FitResult | null;
  * Section results are merged into a single FitResult with global segment
  * indices; corner points belong to the section on each side (identical
  * position), with the later section's parameter winning.
+ *
+ * `seam` is non-null only for a closed chain whose seam is not itself a corner.
+ * Its `before` belongs to the first section and its `after` to the last, so the
+ * two ends of the merged chain meet with matching tangents.
  */
-function fitSections(points: Vector2[], cornerIndices: number[], fitSection: SectionFitter): FitResult | null {
+function fitSections(
+    points: Vector2[],
+    cornerIndices: number[],
+    seam: SeamNeighbours | null,
+    fitSection: SectionFitter,
+): FitResult | null {
     const n = points.length;
     const breaks = cornerIndices.filter((i) => i > 0 && i < n - 1).sort((a, b) => a - b);
-    if (breaks.length === 0) return fitSection(points);
+    if (breaks.length === 0) return fitSection(points, seam);
 
     const merged: FitResult = { segments: [], parameterization: new Array(n), maxError: 0 };
     const bounds = [0, ...breaks, n - 1];
     for (let s = 0; s < bounds.length - 1; s++) {
         const first = bounds[s];
         const last = bounds[s + 1];
-        const sectionFit = fitSection(points.slice(first, last + 1));
+        const sectionSeam: SeamNeighbours | null = seam
+            ? { before: s === 0 ? seam.before : null, after: s === bounds.length - 2 ? seam.after : null }
+            : null;
+        const sectionFit = fitSection(points.slice(first, last + 1), sectionSeam);
         if (!sectionFit) continue;
         const segmentOffset = merged.segments.length;
         merged.segments.push(...sectionFit.segments);
@@ -48,18 +60,22 @@ function fitSections(points: Vector2[], cornerIndices: number[], fitSection: Sec
     return merged;
 }
 
-export function fitStroke(corners: CornerDetectionResult, config: FittingConfig): FitResult | null {
+export function fitStroke(
+    corners: CornerDetectionResult,
+    config: FittingConfig,
+    seam: SeamNeighbours | null = null,
+): FitResult | null {
     const points: Vector2[] = corners.points;
     switch (config.variant) {
         case 'pass-through':
             return null;
         case 'schneider':
-            return fitSections(points, corners.cornerIndices, (section) =>
-                fitStrokeSpline(section, config.errorTolerance),
+            return fitSections(points, corners.cornerIndices, seam, (section, sectionSeam) =>
+                fitStrokeSpline(section, config.errorTolerance, sectionSeam),
             );
         case 'catmull-rom':
-            return fitSections(points, corners.cornerIndices, (section) =>
-                fitCatmullRom(section, config.alpha),
+            return fitSections(points, corners.cornerIndices, seam, (section, sectionSeam) =>
+                fitCatmullRom(section, config.alpha, sectionSeam),
             );
         default: {
             const _exhaustive: never = config;

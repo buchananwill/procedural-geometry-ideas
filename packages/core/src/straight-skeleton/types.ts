@@ -164,4 +164,49 @@ export interface AlgorithmStepInput {
 
 export interface AlgorithmStepOutput {
     childSteps: AlgorithmStepInput[]
+    /**
+     * Messages for sub-polygons that threw while being handled. Populated by `stepAlgorithm`,
+     * which catches per-sub-polygon exceptions so that sibling sub-polygons still resolve.
+     * Absent (or empty) means every input was handled without error.
+     */
+    errors?: string[]
+}
+
+/**
+ * Classes of non-fatal problem reported by `solveSkeleton`.
+ *
+ * - `winding-normalised` — the input was counter-clockwise and was reversed before solving.
+ * - `self-intersecting`  — the input crossed itself and was decomposed, solved per sub-polygon, and merged.
+ * - `step-failure`       — a sub-polygon threw during a solver step and was skipped.
+ * - `unresolved-edges`   — one or more interior edges finished the solve without a target node.
+ */
+export type SkeletonDiagnosticKind =
+    'winding-normalised'
+    | 'self-intersecting'
+    | 'step-failure'
+    | 'unresolved-edges';
+
+export interface SkeletonDiagnostic {
+    kind: SkeletonDiagnosticKind;
+    detail: string;
+}
+
+export interface SkeletonSolveResult {
+    graph: StraightSkeletonGraph;
+    /**
+     * The solver context used to produce `graph`, or `null` exactly when the input was
+     * self-intersecting and the decompose-and-merge path was taken. A merged graph is
+     * assembled from several independent solves, so no single solver context describes it —
+     * `null` states that at the type level rather than handing back a context whose helpers
+     * (`getInteriorWithId`, `projectRayInterior`, `clockwiseParent`, `edgeRank`, …) throw.
+     * Callers that need those helpers must check for `null` first.
+     */
+    context: StraightSkeletonSolverContext | null;
+    /**
+     * True when the skeleton is fully resolved: no `step-failure` and no `unresolved-edges`
+     * diagnostics, and the graph has at least one interior edge. A `winding-normalised` or
+     * `self-intersecting` diagnostic on its own does not make a result incomplete.
+     */
+    complete: boolean;
+    diagnostics: SkeletonDiagnostic[];
 }

@@ -45,6 +45,13 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const edgeData1 = context.getEdgeWithId(instigator)
         const edgeData2 = context.getEdgeWithId(target);
 
+        // The target arrives at this point just as the instigator does, so it ends here too.
+        // Accepting it without terminating it strands it: `accept` only marks the edge resolved,
+        // it does not give it a target node, and the reciprocal event cannot repair the omission
+        // because by then both edges are accepted and the handler returns early above. The
+        // `interiorPair` branch terminates both for exactly this reason.
+        context.terminateEdgesAtPoint([target], event.position);
+
         const approximateDir1 = makeBisectedBasis(edgeData1.basisVector, edgeData2.basisVector);
         const approximateDir2 = negateVector(approximateDir1);
 

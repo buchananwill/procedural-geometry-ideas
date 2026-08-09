@@ -28,6 +28,10 @@ apps/*/dist
 
 # editors
 .obsidian/
+.idea/
+
+# browser automation artifacts
+.playwright-mcp/
 
 # debug
 npm-debug.log*

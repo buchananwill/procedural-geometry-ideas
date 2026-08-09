@@ -7,7 +7,7 @@ export default defineConfig({
   clean: true,
   external: [
     'react', 'react-dom',
-    '@mantine/core', '@mantine/hooks',
+    '@mantine/core', '@mantine/hooks', '@mantine/notifications',
     'konva', 'react-konva',
     'zustand', 'zustand/middleware/immer',
     'immer',

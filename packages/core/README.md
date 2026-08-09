@@ -113,7 +113,7 @@ const polygon = generateRandomPolygon({
 and third arguments set the start position and the retry limit (default `10`); if every attempt fails, a small triangle
 is returned rather than throwing.
 
-Pair it with `@proc-geo/test-fixtures` for 35 named polygons covering known tricky cases.
+Pair it with `@proc-geo/test-fixtures` for 37 named polygons covering known tricky cases.
 
 ---
 
@@ -146,6 +146,7 @@ result.fit?.maxError;  // worst deviation from the input points
 | `simplification`  | `pass-through`, `rdp`, `resample`                               |
 | `cornerDetection` | `pass-through`, `angle-threshold`                               |
 | `fitting`         | `pass-through`, `schneider`, `catmull-rom`                      |
+| `closure`         | `pass-through`, `distance-threshold` (optional; see *Closed loops*) |
 
 Each variant is a discriminated union member carrying its own parameters, so the type checker enforces that
 `{ variant: 'gaussian' }` supplies `sigma` and nothing else:
@@ -173,6 +174,50 @@ Notes on the individual stages:
   curve must pass through the samples rather than approximate them.
 - **Corner detection** feeds hard breakpoints into fitting. Sections between corners are fitted independently, so
   tangents are one-sided and the curve creases at a corner instead of rounding it off.
+
+### Closed loops
+
+`closure` decides whether the stroke is a loop rather than an open curve. It is an optional fifth config field, not a
+stage — it produces no polyline of its own, it only changes how the ends of the chain are joined. Omitting it is
+identical to `{ variant: 'pass-through' }`, which is what `DEFAULT_STROKE_PIPELINE_CONFIG` uses, so open-curve output
+is untouched.
+
+| Variant              | Behaviour                                                                              |
+|----------------------|----------------------------------------------------------------------------------------|
+| `pass-through`       | Always open.                                                                            |
+| `distance-threshold` | Closed when the *raw* stroke's last sample is within `threshold` of its first (inclusive). |
+
+```ts
+const result = runStrokePipeline(raw, {
+  ...DEFAULT_STROKE_PIPELINE_CONFIG,
+  closure: { variant: 'distance-threshold', threshold: 20 },
+});
+result.closed;  // true when the stroke was interpreted as a loop
+```
+
+`CLOSURE_VARIANT_DEFAULTS` provides a starting config per variant, as for the four stages. `isStrokeClosed(raw, config)`
+runs the detection on its own.
+
+When `result.closed` is true:
+
+- **The chain is a genuine loop.** The last segment's `p3` is *exactly* the first segment's `p0` — strict equality,
+  not "within epsilon" — so a polygon consumer comparing with an absolute tolerance sees no sliver. The final point of
+  `corners.points` is moved onto the first point (by at most `threshold`); the point count is unchanged, so the
+  index-matched correspondence still applies.
+- **The seam does not crease**, unless it is a corner. The fitters are given the points either side of the seam as
+  virtual neighbours, so the end tangents are the two-sided direction across the join — the same construction used at
+  an interior split. If the seam's own turn angle exceeds the `angle-threshold` detector's `thresholdDeg`, the crease
+  is kept instead, exactly as at any other detected corner.
+
+Detection reads the raw stroke, so it does not shift when you change smoothing or simplification. Strokes of fewer
+than four samples are never closed — collapsing the seam would leave too few distinct points to bound a region.
+
+**Known limitation.** Closure joins the ends; it does not wrap the *stages* around the seam. The smoothing window and
+the simplification / corner-detection spans still shrink at the first and last points, so the samples nearest the seam
+are smoothed less than the rest of the loop. On a clean radius-150 circle with `moving-average` `windowSize: 5`, the
+interior is pulled in to radius 147.4 while the seam stays at 150 — a ~2.6-unit outward bump; `windowSize: 9` widens
+that to ~8.4. The curve is still tangent-continuous across the seam, it just bulges slightly there. Wrapping the
+stages' neighbourhoods is a separate change with its own tuning consequences.
 
 ### Correspondence and morphing
 
@@ -232,7 +277,7 @@ produced it.
 
 ## Related packages
 
-- **[`@proc-geo/test-fixtures`](https://www.npmjs.com/package/@proc-geo/test-fixtures)** — 35 named polygon fixtures
+- **[`@proc-geo/test-fixtures`](https://www.npmjs.com/package/@proc-geo/test-fixtures)** — 37 named polygon fixtures
   for regression testing and benchmarking.
 - **[`@proc-geo/dashboard`](https://www.npmjs.com/package/@proc-geo/dashboard)** — React components (Mantine + Konva)
   for exploring all four modules interactively.

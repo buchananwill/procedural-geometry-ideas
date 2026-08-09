@@ -38,11 +38,34 @@ export type FittingConfig =
     | { variant: 'schneider'; errorTolerance: number }
     | { variant: 'catmull-rom'; alpha: number };
 
+/**
+ * Loop closure. `distance-threshold` treats the stroke as closed when its last
+ * raw sample lies within `threshold` of its first (inclusive). `pass-through`
+ * is the open-curve behaviour and is what an omitted `closure` field means.
+ */
+export type ClosureConfig =
+    | { variant: 'pass-through' }
+    | { variant: 'distance-threshold'; threshold: number };
+
 export interface StrokePipelineConfig {
     smoothing: SmoothingConfig;
     simplification: SimplificationConfig;
     cornerDetection: CornerDetectionConfig;
     fitting: FittingConfig;
+    /** Optional; omitting it is identical to `{ variant: 'pass-through' }`. */
+    closure?: ClosureConfig;
+}
+
+/**
+ * Virtual neighbours either side of a closed stroke's seam, handed to the
+ * fitters so the end tangents are the seam's two-sided tangent rather than the
+ * one-sided chord an open curve would use. `before` precedes the chain's first
+ * point; `after` follows the chain's last point. A fitter given both produces
+ * matching (antiparallel) end tangents, so the join does not crease.
+ */
+export interface SeamNeighbours {
+    before: Vector2 | null;
+    after: Vector2 | null;
 }
 
 // ── Stage outputs ────────────────────────────────────────────────────────────
@@ -76,4 +99,10 @@ export interface StrokePipelineResult {
     fit: FitResult | null;
     /** Index-matched to `raw`: each raw point's target position on the final curve. */
     correspondence: Vector2[];
+    /**
+     * True when the stroke was interpreted as a closed loop. When true,
+     * `corners.points` ends exactly on its first point and the last fitted
+     * segment's `p3` is exactly the first segment's `p0`.
+     */
+    closed: boolean;
 }

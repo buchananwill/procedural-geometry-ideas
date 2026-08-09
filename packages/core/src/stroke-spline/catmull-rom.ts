@@ -1,7 +1,15 @@
 import type { Vector2 } from '../straight-skeleton/types';
-import type { CubicBezier, FitResult } from './types';
+import type { CubicBezier, FitResult, SeamNeighbours } from './types';
 
 const DEDUPE_EPSILON_SQ = 1e-12;
+
+/** Reject a virtual neighbour that coincides with the endpoint it sits beside (zero knot interval). */
+function distinctNeighbour(neighbour: Vector2 | null | undefined, anchor: Vector2): Vector2 | null {
+    if (!neighbour) return null;
+    const dx = neighbour.x - anchor.x;
+    const dy = neighbour.y - anchor.y;
+    return dx * dx + dy * dy < DEDUPE_EPSILON_SQ ? null : neighbour;
+}
 
 /**
  * Catmull-Rom spline through the input points, emitted as cubic Bezier
@@ -12,8 +20,16 @@ const DEDUPE_EPSILON_SQ = 1e-12;
  * so the parameterization is exact and maxError is 0 by construction.
  * One segment per input gap — no compression; pair with simplification
  * upstream to make it interesting.
+ *
+ * The chord tangent used at an open end is replaced by the regular
+ * Catmull-Rom tangent when `seam` supplies a virtual neighbour beyond that
+ * end, which makes a closed chain's seam as continuous as any interior knot.
  */
-export function fitCatmullRom(inputPoints: Vector2[], alpha: number): FitResult | null {
+export function fitCatmullRom(
+    inputPoints: Vector2[],
+    alpha: number,
+    seam?: SeamNeighbours | null,
+): FitResult | null {
     // Collapse consecutive duplicates (they produce zero-length knot intervals),
     // remembering each input's representative.
     const points: Vector2[] = [];
@@ -36,12 +52,15 @@ export function fitCatmullRom(inputPoints: Vector2[], alpha: number): FitResult 
     const n = points.length;
     if (n < 2) return null;
 
+    const before = distinctNeighbour(seam?.before, points[0]);
+    const after = distinctNeighbour(seam?.after, points[n - 1]);
+
     const segments: CubicBezier[] = [];
     for (let i = 0; i < n - 1; i++) {
         const p1 = points[i];
         const p2 = points[i + 1];
-        const p0 = i > 0 ? points[i - 1] : null;
-        const p3 = i < n - 2 ? points[i + 2] : null;
+        const p0 = i > 0 ? points[i - 1] : before;
+        const p3 = i < n - 2 ? points[i + 2] : after;
 
         const t12 = Math.pow(Math.hypot(p2.x - p1.x, p2.y - p1.y), alpha);
 

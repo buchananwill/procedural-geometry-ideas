@@ -39,13 +39,25 @@ export function segmentSegmentIntersection(
 /**
  * Signed area of a polygon via the shoelace formula.
  * Negative = clockwise winding (the convention used throughout this codebase).
+ *
+ * Each term is taken relative to the polygon's own first vertex. The shoelace sum is
+ * invariant under translation, so this is mathematically identical to summing over absolute
+ * coordinates — but it is also numerically translation-invariant. Summed absolutely, every
+ * term is of order D^2 for a polygon at distance D from the origin, so the sum carries an
+ * absolute error of about D^2 * 2^-52 while the answer itself is only the true area A, and
+ * the sign is lost once D > sqrt(A) * 6.7e7. Relative terms are of order A, so no such
+ * cancellation occurs.
  */
 export function signedArea(vertices: Vector2[]): number {
   let area = 0;
   const n = vertices.length;
+  if (n === 0) return 0;
+  const origin = vertices[0];
   for (let i = 0; i < n; i++) {
     const j = (i + 1) % n;
-    area += vertices[i].x * vertices[j].y - vertices[j].x * vertices[i].y;
+    area +=
+      (vertices[i].x - origin.x) * (vertices[j].y - origin.y) -
+      (vertices[j].x - origin.x) * (vertices[i].y - origin.y);
   }
   return area / 2;
 }

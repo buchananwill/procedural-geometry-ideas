@@ -126,6 +126,29 @@ export {WHY_NO_COLLISION} from './why-no-collision-e15-e18';
 export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
+// short-edge-promontory.ts
+// Exported individually and left out of ALL_TEST_POLYGONS: it solves, strips, and slices cleanly
+// at its native placement and survives translation to 1e7 and the scale sweeps, but fails the
+// translation-to-1e9 envelope sweep in large-coordinate-failures.test.ts — the same blocker that
+// holds six of the seven near-regular fixtures out (see below). Details in the fixture file.
+export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
+
+// near-regular-polygons.ts
+// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these analytic
+// control shapes all solve, but the sweeps over that list assert more than completeness, and
+// two of those wider assertions still fail on six of the seven. Both remaining blockers are
+// downstream of the solver — the offset projection at a many-way event, and the large-coordinate
+// envelope. See the file header for which fixture each one blocks.
+export {
+    NEAR_REGULAR_CIRCLE_16,
+    NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_CIRCLE_48,
+    NEAR_REGULAR_ELLIPSE_16,
+    NEAR_REGULAR_ELLIPSE_32,
+    NEAR_REGULAR_PEANUT_32,
+    NEAR_REGULAR_ROSETTE5_40,
+} from './near-regular-polygons';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];
