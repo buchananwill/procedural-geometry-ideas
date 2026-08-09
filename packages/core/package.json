@@ -1,6 +1,6 @@
 {
   "name": "@proc-geo/core",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Procedural geometry algorithms in pure TypeScript — straight skeleton, random polygon generation, pen-stroke to spline fitting, and D0L L-systems",
   "keywords": [
     "geometry",

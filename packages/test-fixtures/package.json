@@ -1,6 +1,6 @@
 {
   "name": "@proc-geo/test-fixtures",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Polygon fixtures for @proc-geo/core — 35 named polygons and solver test helpers for regression testing and benchmarking",
   "keywords": [
     "geometry",
