@@ -19,6 +19,15 @@ import {computeMaxOffset, computeNodeOffsets, SkeletonSolveResult, Vector2} from
  * copy that drifted on either point would silently re-aim one suite at a different
  * population.
  *
+ * `distanceToSegment` and `distanceToSupportingLine` live here for the same reason. They are
+ * the two distances every offset suite states its properties in — how far a wavefront vertex
+ * is from the boundary, and how far a node is from the line of the edge that dates it — and
+ * `offset-projection.test.ts` and `wavefront-causality.test.ts` had a copy each. They are
+ * pure point-to-line geometry that reads nothing the solver produced, so sharing them costs
+ * the causality suite none of the independence from production that it depends on: what that
+ * suite must not borrow is `offset-projection.ts`'s *derivation of a node's offset*, which
+ * stays re-derived there.
+ *
  * This file is deliberately NOT named `*.test.ts`: `jest.config.cjs` matches
  * `tests/**\/*.test.ts`, so a helper module beside the suites is not collected as an
  * empty suite.
@@ -39,6 +48,24 @@ export function signedRingArea(ring: Vector2[]): number {
 /** The area a whole projection encloses, rings counted regardless of their winding. */
 export function totalRingArea(rings: Vector2[][]): number {
     return rings.reduce((sum, ring) => sum + Math.abs(signedRingArea(ring)), 0);
+}
+
+/** Euclidean distance from p to the segment ab. */
+export function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const raw = lengthSquared === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared;
+    const t = Math.max(0, Math.min(1, raw));
+    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Perpendicular distance from p to the infinite line through a and b. */
+export function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const length = Math.hypot(dx, dy);
+    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
 }
 
 /** The distinct offsets at which the wavefront has an event: the interior nodes' own offsets. */

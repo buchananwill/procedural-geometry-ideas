@@ -11,6 +11,7 @@ import {
     PREMATURE_BISECTOR_SPLIT_PASSES,
 } from '@proc-geo/test-fixtures';
 import {runAlgorithmV5, StraightSkeletonGraph, Vector2} from '@proc-geo/core';
+import {distanceToSegment, distanceToSupportingLine} from './wavefront-measurement-helpers';
 
 /**
  * Causal consistency of the wavefront.
@@ -45,14 +46,6 @@ import {runAlgorithmV5, StraightSkeletonGraph, Vector2} from '@proc-geo/core';
 
 const TOLERANCE = 1e-6;
 
-/** Perpendicular distance from p to the infinite line through a and b. */
-function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
-}
-
 interface OffsetViolation {
     interiorEdgeId: number;
     sourceNode: number;
@@ -74,7 +67,11 @@ interface OffsetViolation {
  *
  * It stays deliberately independent of `computeNodeOffsets` in `offset-projection.ts`, which
  * computes the same thing for production: the point of this file is to trust nothing the solver
- * recorded, and sharing the derivation with the code under audit would give that up.
+ * recorded, and sharing the derivation with the code under audit would give that up. What *is*
+ * shared, from `wavefront-measurement-helpers.ts`, is the point-to-line distance the derivation is
+ * written in — pure geometry that reads nothing the solver produced, so borrowing it takes nothing
+ * away from the audit while keeping this suite's notion of a distance identical to the offset
+ * suites' one.
  */
 function deriveNodeOffsets(vertices: Vector2[], graph: StraightSkeletonGraph): Map<number, number> {
     const edgeCount = vertices.length;
@@ -131,16 +128,6 @@ function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
         }
     }
     return violations;
-}
-
-/** Euclidean distance from p to the segment ab. */
-function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSquared = dx * dx + dy * dy;
-    const raw = lengthSquared === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared;
-    const t = Math.max(0, Math.min(1, raw));
-    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
 /**

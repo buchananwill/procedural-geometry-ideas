@@ -133,6 +133,25 @@ function isContinuous(before: number, at: number, after: number): boolean {
 }
 
 /**
+ * Does a ring visit the same point twice?
+ *
+ * A wavefront ring is a simple closed walk, so two of its vertices landing on the same point means a
+ * bisector was assembled into it twice or a chain closed on itself early. A nanometre is the same
+ * separation the sweeps either side of an event are taken at: closer than that and the two readings
+ * are the same reading.
+ */
+function hasRepeatedVertex(ring: Vector2[], tolerance: number): boolean {
+    for (let i = 0; i < ring.length; i++) {
+        for (let j = i + 1; j < ring.length; j++) {
+            if (Math.hypot(ring[i].x - ring[j].x, ring[i].y - ring[j].y) < tolerance) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+/**
  * How far a mutated node's own event is pushed away from where the rest of the solve puts it.
  *
  * A micrometre is not a tolerance and nothing compares against it: it is a displacement chosen to be
@@ -353,10 +372,15 @@ describe('offset projection at event boundaries', () => {
                 }
             }
             expect(silentLosses.join('; ')).toBe('');
-            // Non-vacuity: the report has to actually fire on a substantial share of the corpus, or
-            // the assertion above is being satisfied by a mutation that never bites.
-            expect(mutated).toBeGreaterThan(0);
-            expect(fired).toBeGreaterThan(mutated / 4);
+
+            // Non-vacuity, pinned rather than bounded. A share-of-corpus bound would still pass if
+            // the report's sensitivity quietly halved, and how loudly the mutation bites is exactly
+            // what the assertion above depends on. These two counts are a measurement of this
+            // corpus at this commit, so a change in either is drift to be re-measured and explained
+            // — a wider corpus moves `mutated`, and only a change in what the projection reports
+            // moves `fired`.
+            expect(mutated).toBe(233);
+            expect(fired).toBe(103);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {
@@ -432,13 +456,9 @@ describe('offset projection at event boundaries', () => {
                 const result = solvedFixture(name);
                 for (const event of eventOffsets(result)) {
                     for (const delta of [0, -1e-9, 1e-9, -NEIGHBOURHOOD, NEIGHBOURHOOD]) {
-                        for (const ring of computeOffsetRings(result, event + delta)) {
-                            for (let i = 0; i < ring.length; i++) {
-                                for (let j = i + 1; j < ring.length; j++) {
-                                    if (Math.hypot(ring[i].x - ring[j].x, ring[i].y - ring[j].y) < 1e-9) {
-                                        problems.push(`${name} @${event.toFixed(6)}+${delta} repeats a vertex`);
-                                    }
-                                }
+                        for (const [index, ring] of computeOffsetRings(result, event + delta).entries()) {
+                            if (hasRepeatedVertex(ring, 1e-9)) {
+                                problems.push(`${name} @${event.toFixed(6)}+${delta} ring ${index} repeats a vertex`);
                             }
                         }
                     }
