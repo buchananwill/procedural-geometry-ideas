@@ -89,21 +89,63 @@ handed back down are small and the cubic cost is paid on ever-fewer vertices. No
 `Rectangle` at `mergeGroupSize: 3` is used as the pinned demonstration of decision 6: one child
 fails, its sibling still subdivides.
 
+## The page (decisions 8–13)
+
+- **Modelled on `/parcels`** — the same `AlgorithmPageLayout`, the same `SceneCanvas` with its wheel
+  zoom and Alt/middle-drag pan, the same collapsible `Paper` panel idiom and instructions block. The
+  canvas is loaded through `next/dynamic` with `ssr: false`, as every Konva canvas in this app is.
+- **First paint draws a subdivision.** The store's defaults are `Duck Octagon (passes)` at two levels
+  with a merge group of two — four segments becoming fifteen — and the canvas fits the polygon to the
+  viewport on its first resize. Without the fit the page would open on empty canvas, because the
+  fixtures sit two to five hundred units from the origin; the fit is keyed on the bounds and viewport
+  numbers, so re-solving at a new level count leaves a pan or zoom the user has since made alone.
+- **Levels survive greyscale** (decision 10). Two channels, both monotone in level: segment
+  boundaries run a pure grey ramp (`#ffffff` → `#adb5bd` → `#6c757d`) at 2.6 → 1.6 → 1.0 stroke
+  width, and each level's skeleton arcs run a warm ramp (`#ffd43b` → `#e8880c` → `#a04a06`) at
+  3.4 → 2.0 → 1.2, root heaviest. Levels are drawn root-first so a deeper level's thin strokes land
+  on top of the heavy ones they subdivide, and the input polygon is drawn last in blue.
+- **Failed cells are reserved-colour** (decision 11): filled at 0.28 opacity and dash-outlined in
+  `#e64980`, plus an `unsolved` label at the centroid. Nothing else on the page uses that colour, and
+  the fill is what makes a failure read as a hole rather than a gap.
+- **Skeleton arcs are recovered by re-solving.** `RecursiveNode`'s specified shape carries segments
+  but not the solve, so the canvas asks `solveSkeleton` the same deterministic question again for
+  drawing. The alternative was adding a graph field the spec's type roster does not have; keeping the
+  roster exact was judged worth one repeated solve per node, on a canvas that already re-solves on
+  every parameter change.
+- **Counts** (decision 13) are text in the controls panel: per level, segments / regions / failures,
+  next to that level's visibility switch and colour swatch; then totals for segments, leaf cells and
+  failures, with the distinct failure reasons spelled out verbatim underneath.
+
 ## Build & Test Results
 
-- `pnpm --filter @proc-geo/core test`: **63 suites, 2727 tests, all passing** (baseline in the spec
-  was 62 / 2679; this task adds one suite and 48 tests).
+- `pnpm --filter @proc-geo/core test`, run twice (decision 17): **63 suites, 2727 tests, all passing
+  both times** — the intersection of the two failure sets is empty. Baseline in the spec was 62 /
+  2679; this task adds one suite and 48 tests.
 - Mutation-checked the new suite rather than red-on-stub, and report it as such: cutting the depth
   to half the maximum offset breaks the tiling assertions on every fixture; shifting the leaf-level
   condition by one breaks 40 of 48; replacing the incomplete-solve branch with a throw breaks the
   sibling-continuation test. The suite is not vacuous.
-- `pnpm build` and `pnpm lint`: pending, see the closing section.
+- `pnpm build`: **green across all four packages**, and `/recursive` appears in the Next.js route
+  table as a static route.
+- `pnpm lint`: two problems, **both pre-existing and both outside this task's files** — an unused
+  `openNavbar` warning in `AppShellLayout.tsx` and an `any` error in `dol-system/page.tsx`. Verified
+  by stashing this task's changes and re-running: identical output. Nothing in the eight files this
+  task owns is flagged.
+- The built `/recursive` route was served and fetched (HTTP 200), and the scene adapter was exercised
+  against the built packages outside React: the default fixture yields groups of 17 and 55 primitives
+  plus the input outline, the fit transform centres the polygon, hiding level 0 sets exactly that
+  group's `visible` to false, and `Rectangle` at a merge group of three renders its failed child in
+  the reserved colour with the `unsolved` label while its sibling subdivides. No headless browser is
+  available in the container, so the picture itself has not been screenshotted.
 
 ## Open Questions / Risks
 
 - **No navigation entry.** `apps/demo/src/app/AppShellLayout.tsx` holds the `NavLink` list and is
   outside my declared file ownership, so `/recursive` is reachable by URL but not from the navbar.
   Flagged, not fixed.
+- **The picture has not been seen.** There is no headless browser in the container, so the page is
+  verified by build, by an HTTP 200 on the built route, and by exercising the scene adapter directly
+  against the built packages — not by looking at it. A human should open `/recursive` once.
 - **`mergeGroupSize >= edge count`** makes every pair of edges the same street, so `computeStrips`
   emits a single segment equal to the region and the child is the parent again. It terminates (the
   level clamp bounds it) and it is honest, but it is a picture of nothing happening. The UI clamps
