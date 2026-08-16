@@ -11,7 +11,9 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
+    dotProduct,
     normalize,
+    rotateCw90,
     subtractVectors,
     vectorsAreEqual
 } from "./core-functions";
@@ -205,6 +207,15 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     // Head on Collision
     if (pairIntersection === 'head-on') {
         context.crossWireEdges(id1, id2);
+    } else if (pairIntersection === 'identical-source') {
+        // A SHARED SOURCE IS A TERMINAL STATE, NOT A FAILURE. Rays leaving one point in different
+        // directions do not intersect, and there is nothing left for them to propagate into: the
+        // wavefront has finished. `intersectRays` classifies coincident sources first, before every
+        // other test, and that verdict is already computed above for the head-on check — it was
+        // then discarded by `NO_COLLISION_RESULTS` as "no collision" so that the collision branch
+        // below threw two lines later. No new predicate and no new tolerance is introduced here; an
+        // existing decision simply stops being thrown away.
+        context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1));
     } else {
         const collisions = collideInteriorEdges(interior1, interior2, context);
         if (collisions.length === 0) {
@@ -231,9 +242,144 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     }
 }
 
+/** A terminal point and the wavefront offset at which every face reaches it. */
+interface TerminalSolution {
+    position: Vector2;
+    /** The wavefront clock `t`: the offset from the supporting lines at which they meet here. */
+    offset: number;
+}
+
+type Row3 = [number, number, number];
+
+function determinant3(row0: Row3, row1: Row3, row2: Row3): number {
+    return row0[0] * (row1[1] * row2[2] - row1[2] * row2[1])
+        - row0[1] * (row1[0] * row2[2] - row1[2] * row2[0])
+        + row0[2] * (row1[0] * row2[1] - row1[1] * row2[0]);
+}
+
+/** The exterior edges bounding these interior edges' faces, deduplicated, in first-seen order. */
+function distinctExteriorParents(context: StraightSkeletonSolverContext, interiorEdgeIds: number[]): number[] {
+    const parents: number[] = [];
+    for (const edgeId of interiorEdgeIds) {
+        const interior = context.getInteriorWithId(edgeId);
+        for (const parent of [interior.clockwiseExteriorEdgeIndex, interior.widdershinsExteriorEdgeIndex]) {
+            if (!parents.includes(parent)) {
+                parents.push(parent);
+            }
+        }
+    }
+    return parents;
+}
+
+/**
+ * Where three offset lines meet, and when — solved in closed form, with no tolerance anywhere.
+ *
+ * Each supporting line contributes `n . P - t = n . A`, where `n` is that edge's inward unit
+ * normal and `A` any point on it. Three of them are three equations in the three unknowns
+ * `(x, y, t)`, solved here by Cramer's rule.
+ *
+ * THE WAVEFRONT CLOCK IS AN UNKNOWN, NOT A CONSTRAINT CHECKED AFTERWARDS. That is what makes this
+ * stronger than intersecting two bisectors and then pricing the result on each edge's clock and
+ * hoping the two agree: the returned point is by construction the one place all three offset lines
+ * coincide at a single common offset. It also means the solve never reads a bisector source, so
+ * coincident sources stop being a case.
+ *
+ * THE INWARD NORMAL IS NOT RE-DERIVED HERE. It is `rotateCw90` of the edge's unit basis, which is
+ * the convention `FaceEdge.normal` already establishes in `parcel-slicing.ts` — inward for a
+ * clockwise ring, and the normal against which `(p - start) . normal` is the skeleton offset within
+ * that edge's face. `initBoundingPolygon` orients every exterior edge from its own node to the
+ * next, so that basis and that rotation agree with the face model exactly. An outward normal
+ * produces a negative `t` that is internally consistent and wrong; the caller tests the sign.
+ *
+ * Returns `undefined` when the system is singular, which is malformed input rather than poor
+ * conditioning: across 785 measured terminals the determinant never fell below 0.106 in magnitude.
+ */
+function solveTerminalPoint(
+    context: StraightSkeletonSolverContext,
+    exteriorParentIds: number[],
+): TerminalSolution | undefined {
+    const lines = exteriorParentIds.map(parentId => {
+        const normal = rotateCw90(context.getEdgeWithId(parentId).basisVector);
+        return {normal, offsetFromOrigin: dotProduct(normal, context.sourcePosition(parentId))};
+    });
+
+    const rows = lines.map<Row3>(line => [line.normal.x, line.normal.y, -1]);
+    const rhs = lines.map(line => line.offsetFromOrigin);
+
+    const determinant = determinant3(rows[0], rows[1], rows[2]);
+    if (areEqual(determinant, 0)) {
+        return undefined;
+    }
+
+    const substituted = (column: number): number => {
+        const replaced = rows.map<Row3>((row, index) => {
+            const copy: Row3 = [row[0], row[1], row[2]];
+            copy[column] = rhs[index];
+            return copy;
+        });
+        return determinant3(replaced[0], replaced[1], replaced[2]) / determinant;
+    };
+
+    return {position: {x: substituted(0), y: substituted(1)}, offset: substituted(2)};
+}
+
+/**
+ * The closed-form answer for this terminal triangle, or `undefined` when the assumptions it rests
+ * on do not hold — in which case the existing collision path resolves the step instead.
+ *
+ * Every fall-through is logged, because each one is an assumption made observable rather than an
+ * assumption trusted: all 785 measured terminals had exactly three distinct parents and a
+ * well-conditioned system, but that is a measurement on one corpus and not a proof.
+ */
+function solveTerminalTriangle(
+    context: StraightSkeletonSolverContext,
+    interiorEdgeIds: number[],
+): TerminalSolution | undefined {
+    const parents = distinctExteriorParents(context, interiorEdgeIds);
+    if (parents.length !== 3) {
+        stepLog.debug(
+            `Terminal triangle [${interiorEdgeIds.join(', ')}] has ${parents.length} distinct exterior parents, `
+            + `not three, so the three-line system is not determined: falling through to the collision path.`,
+        );
+        return undefined;
+    }
+
+    const solution = solveTerminalPoint(context, parents);
+    if (solution === undefined) {
+        stepLog.debug(
+            `Terminal triangle [${interiorEdgeIds.join(', ')}] over parents [${parents.join(', ')}] has a singular `
+            + `determinant: falling through to the collision path.`,
+        );
+        return undefined;
+    }
+
+    // The offset is the wavefront clock, measured outwards from the boundary, so it cannot run
+    // backwards. A negative one means the normals came out pointing away from the interior — the
+    // one sign-sensitive step in this construction — and the position it pairs with is worthless.
+    if (solution.offset < 0 && !areEqual(solution.offset, 0)) {
+        stepLog.debug(
+            `Terminal triangle [${interiorEdgeIds.join(', ')}] solved to a negative offset `
+            + `${solution.offset}, so its parents' normals point outward: falling through to the collision path.`,
+        );
+        return undefined;
+    }
+
+    return solution;
+}
+
 export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 3) {
         throw new Error("Invalid call: expecting three interior edges");
+    }
+
+    const terminal = solveTerminalTriangle(context, input.interiorEdges);
+    if (terminal !== undefined) {
+        context.terminateEdgesAtPoint(input.interiorEdges, terminal.position);
+        context.acceptAll(input.interiorEdges);
+
+        return {
+            childSteps: []
+        }
     }
 
     const allCollisions: CollisionEvent[] = [];

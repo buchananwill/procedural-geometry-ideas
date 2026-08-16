@@ -13,6 +13,13 @@ export {
     DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON,
     getAcceptedExteriorEdges,
 } from './test-constants';
+
+// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: the sweeps over that
+// list assert that every entry both solves and tiles, and this one solves — reporting
+// `complete: true` with empty diagnostics — while its strips overlap by a tenth of its area. The
+// failure is pinned as it stands by collinear-dumbbell.test.ts; see the fixture for why its
+// degeneracy is shared supporting lines rather than redundant vertices.
+export {COLLINEAR_DUMBBELL} from './test-constants';
 export type { DiagnosticStepResult } from './test-constants';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,

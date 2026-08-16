@@ -115,7 +115,19 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         return addVectors(graph.nodes[bisector.source].position, scaleVector(bisector.basisVector, t));
     }
 
+    /**
+     * The node at `position`, created if no existing node is within tolerance of it.
+     *
+     * PRECONDITION: `position` is finite. A NaN coordinate never compares equal to itself under an
+     * absolute tolerance — the difference is NaN and every comparison against it is false — so the
+     * lookup below misses and appends **a fresh node on every call**. An infinite one is no better.
+     * A non-finite position is a defect upstream of this function, and failing loudly at the first
+     * one beats accumulating duplicate nodes that no later pass can reconcile.
+     */
     function findOrAddNode(position: Vector2): PolygonNode {
+        if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+            throw new Error(`Cannot place a node at the non-finite position (${position.x}, ${position.y}).`);
+        }
         const node = graph.nodes.find(n => {
             return vectorsAreEqual(n.position, position);
         })
