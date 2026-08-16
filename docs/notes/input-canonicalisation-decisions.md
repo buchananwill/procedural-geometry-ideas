@@ -147,6 +147,28 @@ export function canonicalisePolygon(
     is loud. Re-measure it and report the new set. If it does not go empty, say so plainly and report
     what remains — a partial result honestly reported is worth more than a gate quietly relaxed.
 
+14a. **Three specific lists must go empty, and one of them is an OPEN REGRESSION this task is the
+    scheduled fix for.** `REFLEX_L_KNOWN_FAILURES` is `[5, 6, 8, 10]`;
+    `DOUBLE_REFLEX_PLUS_KNOWN_FAILURES` is `[9]`; and `failingSubdivisions(L_SHAPE)` in
+    `stroke-derived-polygons.test.ts` is `[4, 6, 7, 8, 9, 10]`. **The plus's list was empty until the
+    normalisation scale became a power of two**, and its header records the regression as open rather
+    than settled.
+
+    **Why this task is the fix, and the reasoning is the whole justification for the stage.** Those
+    fixtures span exactly 300 units, so the pre-power-of-two scale was exactly their span — and
+    dividing by exactly the span put uniformly subdivided vertices on exact fractions in unit space,
+    on the bit. **The old scale was canonicalising that input by accident.** Subdividing an edge into
+    k equal pieces adds exactly-collinear vertices and nothing else; removing them restores the
+    unsubdivided fixture, which passes at every k. Measured and recorded at the power-of-two merge:
+    taking the scale exponent by `Math.ceil` and by `Math.floor` — opposite directions of relative
+    epsilon — reproduces the identical failure set, and rescaling a fixture to span exactly 256 shuffles
+    the set's membership without changing its size. **It is not a tolerance-against-magnitude problem
+    and must not be attacked as one.**
+
+    **If these lists do not go empty, that is the headline result of the task**, not a footnote: it
+    would mean the failures survive canonical input and the defect is structural after all, which
+    reopens the reverted layer-partitioning fix rather than this stage.
+
 15. **Backlog item 7 is NOT retired by this change and must not be expected to be.** The collinear
     dumbbell has no redundant vertices — every one of its twelve turns is 90° — so no vertex-local
     predicate can see it. Its degeneracy is that *non-adjacent* edges share a supporting line, making
