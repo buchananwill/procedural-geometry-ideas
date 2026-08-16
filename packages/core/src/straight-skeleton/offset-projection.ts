@@ -79,8 +79,14 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * sub-polygon's own solve.
  */
 
-/** A bisector that is alive at the requested offset, with its wavefront position there. */
-interface AliveBisector {
+/**
+ * A bisector that is alive at the requested offset, with its wavefront position there.
+ *
+ * `clockwiseParentId` and `widdershinsParentId` are exterior edge ids: the bisector opens a
+ * wavefront span on the first and closes one on the second, which is how {@link
+ * segmentsAlongExteriorEdge} pairs endpoints into segments.
+ */
+export interface AliveBisector {
     id: number;
     position: Vector2;
     clockwiseParentId: number;
@@ -312,8 +318,17 @@ export function computeMaxOffset(result: SkeletonSolveResult): number {
  * Both ends of the lifetime are read from `nodeOffsets`, so at an event the bisector dying there
  * and the bisector born there compare against the identical number and the hand-over is exact. See
  * the module header for why nothing else will do.
+ *
+ * Exported for the same reason as {@link requireProjectableResult}: this is the module's single
+ * derivation of *which bisectors carry the wavefront at an offset, and where*, and anything that
+ * relates the offset contour back to the skeleton must read it from here rather than reconstruct
+ * it. The half-open lifetime rule and the perpendicular-to-along-ray conversion are each a formula
+ * whose last few bits are load-bearing, and a second copy of either is precisely the two-routes-to-
+ * one-quantity fault the module header records as having cost whole rings.
+ *
+ * `nodeOffsets` must be the map {@link computeNodeOffsets} returns for this same `result`.
  */
-function collectAliveBisectors(
+export function collectAliveBisectors(
     result: SkeletonSolveResult,
     nodeOffsets: Map<number, number>,
     offset: number,

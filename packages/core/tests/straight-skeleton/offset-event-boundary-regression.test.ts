@@ -11,14 +11,18 @@ import {
     computeOffsetRings,
     computeStrips,
     dotProduct,
-    projectFromPerpendicular,
     projectOffsetWavefront,
     setSkeletonLogLevel,
     SkeletonSolveResult,
     solveSkeleton,
     UnclosedChain,
+    UnclosedChainReason,
     Vector2,
 } from '@proc-geo/core';
+// Package-internal: the projection's own derivation of which bisectors are alive at an offset and
+// where they sit. The diagnosis below is a claim about that exact derivation, so it has to call it
+// rather than restate it — a restatement would keep passing after the real formula moved.
+import {AliveBisector, collectAliveBisectors} from '../../src/straight-skeleton/offset-projection';
 
 /*
  * ============================================================================
@@ -435,6 +439,18 @@ describe('offset projection at event boundaries', () => {
  * The signature is unambiguous: the failure is always at the lower member of an ULP-separated pair,
  * and the higher member always projects cleanly.
  *
+ * ONE BREAK IS REPORTED TWICE
+ *
+ * A broken loop yields two `UnclosedChain`s, not one, and only the first of them is about the
+ * defect. `assembleRings` seeds a walk at every unvisited segment: the walk that reaches the dropped
+ * span stops with `no-successor`, and a later seed picks up the rest of the same loop and walks
+ * forward into the segment that first walk started from — already visited, so it stops with
+ * `rejoined-mid-chain`. The two are one ring. That is asserted rather than asserted-in-prose: every
+ * rejoined chain's last bisector is the FIRST bisector of a `no-successor` chain at the same offset,
+ * which is precisely the seed the earlier walk began at. So the mechanism below is measured on the
+ * `no-successor` population — the half that carries a terminal bisector to interrogate — and the
+ * other half is tied back to it by that linkage.
+ *
  * The module header of `offset-projection.ts` states that two live bisectors bounding a zero-length
  * span cannot occur. On these fixtures it does occur, and that is the defect. Fixing it is NOT the
  * change proposed by item 4 — a "terminated chain" predicate would be answering a question none of
@@ -498,6 +514,19 @@ const LOST_RINGS_PER_FIXTURE: Record<string, number> = {
     'Near Regular Peanut 32': 7,
 };
 
+/**
+ * The same losses split by how the walk failed, rather than by fixture.
+ *
+ * Both halves are pinned because they are one mechanism reported twice: the walk that dies is a
+ * `no-successor`, and the remainder of the very same loop, walked from a different seed, arrives
+ * back at that dead walk's first segment and is reported as a `rejoined-mid-chain`. The linkage is
+ * asserted below; these counts stop either population drifting unnoticed behind it.
+ */
+const LOST_RINGS_PER_REASON: Record<UnclosedChainReason, number> = {
+    'no-successor': 23,
+    'rejoined-mid-chain': 13,
+};
+
 /** How far apart two re-derived offsets of one simultaneous event may be. Femtometres, not slack. */
 const SIMULTANEITY_BAND = 1e-12;
 
@@ -530,39 +559,21 @@ function lostRingCases(): LostRingCase[] {
     return cases;
 }
 
-/** Bisector ids alive at `offset` under the projection's own half-open `[birth, death)` rule. */
-function liveBisectorIds(result: SkeletonSolveResult, nodeOffsets: Map<number, number>, offset: number): number[] {
-    const live: number[] = [];
-    for (const interiorEdge of result.graph.interiorEdges) {
-        const edge = result.graph.edges[interiorEdge.id];
-        if (edge === undefined || edge.target === undefined) {
-            continue;
-        }
-        const birth = nodeOffsets.get(edge.source);
-        const death = nodeOffsets.get(edge.target);
-        if (birth === undefined || death === undefined || offset < birth || offset >= death) {
-            continue;
-        }
-        live.push(interiorEdge.id);
-    }
-    return live;
+/**
+ * The losses whose walk simply ran out of successor — the primary failure.
+ *
+ * The `rejoined-mid-chain` losses are the *other* half of the same broken loop and carry no
+ * terminal bisector of their own to interrogate, so every test that reasons about the bisector a
+ * walk died on starts here. That they share the root cause is asserted separately, by linkage,
+ * rather than assumed.
+ */
+function noSuccessorLosses(): LostRingCase[] {
+    return lostRingCases().filter(lost => lost.chain.reason === 'no-successor');
 }
 
-/** Where a bisector's wavefront vertex sits at `offset`, re-derived the way the projection does. */
-function bisectorPositionAt(
-    result: SkeletonSolveResult,
-    nodeOffsets: Map<number, number>,
-    bisectorId: number,
-    offset: number,
-): Vector2 {
-    const {graph} = result;
-    const interiorEdge = graph.interiorEdges.find(candidate => candidate.id === bisectorId)!;
-    const edge = graph.edges[bisectorId];
-    const birth = nodeOffsets.get(edge.source)!;
-    const alongRay = projectFromPerpendicular(
-        edge.basisVector, graph.edges[interiorEdge.clockwiseExteriorEdgeIndex].basisVector, offset - birth);
-    const source = graph.nodes[edge.source].position;
-    return {x: source.x + edge.basisVector.x * alongRay, y: source.y + edge.basisVector.y * alongRay};
+/** The losses whose walk forked back into ground an earlier walk had already covered. */
+function rejoinedLosses(): LostRingCase[] {
+    return lostRingCases().filter(lost => lost.chain.reason === 'rejoined-mid-chain');
 }
 
 /** The bisector the walk ran out of road on: the last id in the chain. */
@@ -580,14 +591,19 @@ function terminalBisectorOf(chain: UnclosedChain): number {
 function failedSpanOf(lost: LostRingCase): FailedSpan | null {
     const {result, offset} = lost;
     const {graph} = result;
-    const nodeOffsets = computeNodeOffsets(result);
-    const openBisectorId = terminalBisectorOf(lost.chain);
-    const opener = graph.interiorEdges.find(candidate => candidate.id === openBisectorId)!;
-    const exteriorEdgeId = opener.clockwiseExteriorEdgeIndex;
+    const alive: AliveBisector[] = collectAliveBisectors(result, computeNodeOffsets(result), offset);
 
-    const live = liveBisectorIds(result, nodeOffsets, offset);
-    const closer = graph.interiorEdges.find(candidate =>
-        live.includes(candidate.id) && candidate.widdershinsExteriorEdgeIndex === exteriorEdgeId);
+    const openBisectorId = terminalBisectorOf(lost.chain);
+    const opener = alive.find(candidate => candidate.id === openBisectorId);
+    if (opener === undefined) {
+        // The walk reached this bisector at this offset, so the projection called it alive; if the
+        // same call now says otherwise, the diagnosis below is measuring a different mechanism.
+        throw new Error(
+            `${lost.fixtureName} @${offset}: b${openBisectorId} terminates a walked chain but is not alive.`);
+    }
+    const exteriorEdgeId = opener.clockwiseParentId;
+
+    const closer = alive.find(candidate => candidate.widdershinsParentId === exteriorEdgeId);
     if (closer === undefined) {
         return null;
     }
@@ -597,9 +613,12 @@ function failedSpanOf(lost: LostRingCase): FailedSpan | null {
     const alongEdge = (point: Vector2): number =>
         dotProduct({x: point.x - edgeSource.x, y: point.y - edgeSource.y}, exteriorEdge.basisVector);
 
-    const open = alongEdge(bisectorPositionAt(result, nodeOffsets, openBisectorId, offset));
-    const close = alongEdge(bisectorPositionAt(result, nodeOffsets, closer.id, offset));
-    return {exteriorEdgeId, openBisectorId, closeBisectorId: closer.id, length: close - open};
+    return {
+        exteriorEdgeId,
+        openBisectorId,
+        closeBisectorId: closer.id,
+        length: alongEdge(closer.position) - alongEdge(opener.position),
+    };
 }
 
 /** Node ids whose re-derived offset is exactly `offset`. */
@@ -627,15 +646,44 @@ describe('the near-regular ring loss, diagnosed', () => {
             // these counts and has to be re-measured if they change.
             expect(counts).toEqual(LOST_RINGS_PER_FIXTURE);
         });
+
+        it('reports every loss as one of exactly two chain reasons, in known proportion', () => {
+            const counts: Record<string, number> = {'no-successor': 0, 'rejoined-mid-chain': 0};
+            for (const lost of lostRingCases()) {
+                // A reason outside the two seeded keys adds a third one and fails the comparison,
+                // so this is also the assertion that no unaccounted-for reason has appeared.
+                counts[lost.chain.reason] = (counts[lost.chain.reason] ?? 0) + 1;
+            }
+            expect(counts).toEqual(LOST_RINGS_PER_REASON);
+        });
+
+        it('accounts for the rejoined chains as the far side of a broken chain, not a second defect', () => {
+            const problems: string[] = [];
+            for (const rejoined of rejoinedLosses()) {
+                const rejoinTarget = terminalBisectorOf(rejoined.chain);
+                const where = `${rejoined.fixtureName} @${rejoined.offset.toFixed(6)}`;
+
+                // The walk stopped because `indexByStartBisector` sent it to a segment already
+                // visited. If the loop it rejoined is the one a `no-successor` walk broke, that
+                // segment is the seed that walk started from — its chain's FIRST bisector.
+                const broken = noSuccessorLosses().filter(lost =>
+                    lost.fixtureName === rejoined.fixtureName
+                    && lost.offset === rejoined.offset
+                    && lost.chain.bisectorIds[0] === rejoinTarget);
+                if (broken.length === 0) {
+                    problems.push(
+                        `${where}: rejoins at b${rejoinTarget}, which seeds no broken chain at this offset`);
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+            expect(rejoinedLosses().length).toBe(LOST_RINGS_PER_REASON['rejoined-mid-chain']);
+        });
     });
 
     describe('every clause of the terminal-event hypothesis fails', () => {
         it('runs into a node that has a bisector born at it', () => {
             const problems: string[] = [];
-            for (const lost of lostRingCases()) {
-                if (lost.chain.reason !== 'no-successor') {
-                    continue;
-                }
+            for (const lost of noSuccessorLosses()) {
                 const deathNode = lost.result.graph.edges[terminalBisectorOf(lost.chain)].target!;
                 const born = bisectorsBornAt(lost.result, deathNode);
                 if (born.length === 0) {
@@ -647,10 +695,7 @@ describe('the near-regular ring loss, diagnosed', () => {
 
         it('runs into a node that is not terminal, and is not even the last event of its fixture', () => {
             const problems: string[] = [];
-            for (const lost of lostRingCases()) {
-                if (lost.chain.reason !== 'no-successor') {
-                    continue;
-                }
+            for (const lost of noSuccessorLosses()) {
                 const nodeOffsets = computeNodeOffsets(lost.result);
                 const maxOffset = computeMaxOffset(lost.result);
                 const deathNode = lost.result.graph.edges[terminalBisectorOf(lost.chain)].target!;
@@ -691,10 +736,7 @@ describe('the near-regular ring loss, diagnosed', () => {
     describe('what is actually happening', () => {
         it('queries the lower member of a pair of re-derived offsets for one simultaneous event', () => {
             const problems: string[] = [];
-            for (const lost of lostRingCases()) {
-                if (lost.chain.reason !== 'no-successor') {
-                    continue;
-                }
+            for (const lost of noSuccessorLosses()) {
                 const nodeOffsets = computeNodeOffsets(lost.result);
                 const deathNode = lost.result.graph.edges[terminalBisectorOf(lost.chain)].target!;
                 const deathOffset = nodeOffsets.get(deathNode)!;
@@ -719,10 +761,7 @@ describe('the near-regular ring loss, diagnosed', () => {
 
         it('pairs nodes that are the same instant at genuinely different places', () => {
             const problems: string[] = [];
-            for (const lost of lostRingCases()) {
-                if (lost.chain.reason !== 'no-successor') {
-                    continue;
-                }
+            for (const lost of noSuccessorLosses()) {
                 const nodeOffsets = computeNodeOffsets(lost.result);
                 const deathNode = lost.result.graph.edges[terminalBisectorOf(lost.chain)].target!;
                 const deathPosition = lost.result.graph.nodes[deathNode].position;
@@ -743,10 +782,7 @@ describe('the near-regular ring loss, diagnosed', () => {
         it('drops a span of non-positive length between two bisectors the table still calls alive', () => {
             const problems: string[] = [];
             let measured = 0;
-            for (const lost of lostRingCases()) {
-                if (lost.chain.reason !== 'no-successor') {
-                    continue;
-                }
+            for (const lost of noSuccessorLosses()) {
                 const span = failedSpanOf(lost);
                 const where = `${lost.fixtureName} @${lost.offset.toFixed(6)}`;
                 if (span === null) {
