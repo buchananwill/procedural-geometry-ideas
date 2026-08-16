@@ -309,10 +309,12 @@ export type {
 
 // ── Recursive segment subdivision ────────────────────────────────────────────
 export {
+    DEGENERATE_AREA_EPSILON,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
     clampLevels,
     clampMergeGroupSize,
+    flattenRecursiveTree,
     makeMergeGroupPredicate,
     subdivideRecursively,
 } from './straight-skeleton/recursive-subdivision';
@@ -320,6 +322,7 @@ export type {
     RecursiveNode,
     RecursiveOptions,
     SameLogicalStreetPredicate,
+    SegmentOutcome,
 } from './straight-skeleton/recursive-subdivision';
 
 // ── Parcel generation: slicing strips into parcels ───────────────────────────

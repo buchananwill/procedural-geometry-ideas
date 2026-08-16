@@ -3,13 +3,12 @@ import {
     Box, Button, Collapse, Group, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Text,
     Title, UnstyledButton,
 } from '@mantine/core';
-import { MAX_RECURSION_LEVELS } from '@proc-geo/core';
+import { flattenRecursiveTree, MAX_RECURSION_LEVELS } from '@proc-geo/core';
 import type { RecursiveNode } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import CollapseChevron from './CollapseChevron';
-import { RECURSIVE_LEVEL_STYLES } from './RecursiveSubdivisionCanvas';
+import { styleForLevel } from './RecursiveSubdivisionCanvas';
 import {
-    collectRecursiveNodes,
     MAX_MERGE_GROUP_SIZE,
     summariseRecursiveTree,
     useRecursiveSubdivisionStore,
@@ -53,7 +52,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
 
     const summary = useMemo(() => summariseRecursiveTree(tree), [tree]);
     const reasons = useMemo(() => {
-        const failures = collectRecursiveNodes(tree)
+        const failures = flattenRecursiveTree(tree)
             .map((node) => node.failure)
             .filter((failure): failure is string => failure !== undefined);
         return [...new Set(failures)];
@@ -125,10 +124,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                             w={12}
                                             h={12}
                                             style={{
-                                                background:
-                                                    RECURSIVE_LEVEL_STYLES[
-                                                        Math.min(level.level, RECURSIVE_LEVEL_STYLES.length - 1)
-                                                    ].segmentColour,
+                                                background: styleForLevel(level.level).segmentColour,
                                                 borderRadius: 2,
                                             }}
                                         />

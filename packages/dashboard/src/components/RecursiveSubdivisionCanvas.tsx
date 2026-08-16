@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { solveSkeleton } from '@proc-geo/core';
-import type { RecursiveNode, StraightSkeletonGraph, Vector2 } from '@proc-geo/core';
+import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
+import type { RecursiveNode, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
 import { SceneCanvas } from '../scene/SceneCanvas';
 import type { ScenePrimitive, SceneGroup } from '../scene/types';
-import { collectRecursiveNodes } from '../stores/useRecursiveSubdivisionStore';
 
 /**
  * The picture: every level of a recursive subdivision on one canvas.
@@ -52,19 +51,22 @@ const INPUT_POLYGON_COLOUR = '#4dabf7';
 /** Fraction of the viewport the fitted polygon fills, leaving a margin for the heaviest strokes. */
 const FIT_MARGIN_FRACTION = 0.9;
 
-interface Bounds {
+/** Axis-aligned extent of a point set, in polygon units. */
+export interface Bounds {
     minX: number;
     minY: number;
     maxX: number;
     maxY: number;
 }
 
-interface CanvasSize {
+/** Viewport extent, in pixels. */
+export interface CanvasSize {
     width: number;
     height: number;
 }
 
-interface CanvasView {
+/** Stage transform: what {@link fitView} hands back to the canvas. */
+export interface CanvasView {
     scale: number;
     position: { x: number; y: number };
 }
@@ -79,7 +81,13 @@ function flatten(points: Vector2[]): number[] {
     return points.flatMap((p) => [p.x, p.y]);
 }
 
-function styleForLevel(level: number): RecursiveLevelStyle {
+/**
+ * The style a level is drawn in — the deepest style repeating once the tree runs past the ramp.
+ *
+ * The one place that clamp is written down, so a swatch in a panel and the stroke on the canvas
+ * cannot disagree about what level 3 looks like.
+ */
+export function styleForLevel(level: number): RecursiveLevelStyle {
     return RECURSIVE_LEVEL_STYLES[Math.min(level, RECURSIVE_LEVEL_STYLES.length - 1)];
 }
 
@@ -178,48 +186,57 @@ function failedCell(node: RecursiveNode): ScenePrimitive[] {
 }
 
 /**
+ * One segment: its outline, plus a dashed ring per hole.
+ *
+ * Holes are dashed rather than solid because a segment that wraps an island has two rings of equal
+ * standing on the canvas, and only the dash says which of them is the outside of the cell.
+ */
+function segmentPrimitives(segment: Strip, style: RecursiveLevelStyle): ScenePrimitive[] {
+    if (segment.boundary.length < 3) return [];
+    return [
+        {
+            type: 'line',
+            points: flatten(segment.boundary),
+            closed: true,
+            stroke: { color: style.segmentColour, width: style.segmentWidth },
+        },
+        ...segment.holes
+            .filter((hole) => hole.length >= 3)
+            .map<ScenePrimitive>((hole) => ({
+                type: 'line',
+                points: flatten(hole),
+                closed: true,
+                stroke: { color: style.segmentColour, width: style.segmentWidth, dash: [4, 4] },
+            })),
+    ];
+}
+
+/** Everything drawn for one region: its failure patch, or its skeleton arcs under its segments. */
+function nodePrimitives(node: RecursiveNode, style: RecursiveLevelStyle): ScenePrimitive[] {
+    if (node.failure !== undefined) return failedCell(node);
+    return [
+        ...skeletonEdges(node),
+        ...node.segments.flatMap((segment) => segmentPrimitives(segment, style)),
+    ];
+}
+
+/**
  * Draws the tree level by level, root first, so the thinner strokes of a deeper level land on top of
  * the heavier ones they subdivide. The input polygon goes last for the same reason.
  */
 export function recursiveTreeToScene(tree: RecursiveNode, levelVisibility: boolean[]): ScenePrimitive[] {
-    const nodes = collectRecursiveNodes(tree);
+    const nodes = flattenRecursiveTree(tree);
     const deepest = nodes.reduce((deepestSoFar, node) => Math.max(deepestSoFar, node.level), 0);
     const groups: SceneGroup[] = [];
 
     for (let level = 0; level <= deepest; level++) {
         const style = styleForLevel(level);
-        const children: ScenePrimitive[] = [];
-
-        for (const node of nodes.filter((candidate) => candidate.level === level)) {
-            if (node.failure !== undefined) {
-                children.push(...failedCell(node));
-                continue;
-            }
-            children.push(...skeletonEdges(node));
-            for (const segment of node.segments) {
-                if (segment.boundary.length < 3) continue;
-                children.push({
-                    type: 'line',
-                    points: flatten(segment.boundary),
-                    closed: true,
-                    stroke: { color: style.segmentColour, width: style.segmentWidth },
-                });
-                for (const hole of segment.holes) {
-                    if (hole.length < 3) continue;
-                    children.push({
-                        type: 'line',
-                        points: flatten(hole),
-                        closed: true,
-                        stroke: { color: style.segmentColour, width: style.segmentWidth, dash: [4, 4] },
-                    });
-                }
-            }
-        }
-
         groups.push({
             type: 'group',
             id: `group:recursive-level-${level}`,
-            children,
+            children: nodes
+                .filter((candidate) => candidate.level === level)
+                .flatMap((node) => nodePrimitives(node, style)),
             visible: levelVisibility[level] ?? true,
         });
     }

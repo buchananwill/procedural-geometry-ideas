@@ -40,6 +40,19 @@ export const MIN_RECURSION_LEVELS = 1;
  */
 export const MAX_RECURSION_LEVELS = 3;
 
+/**
+ * Area below which a region counts as degenerate for decision 5.
+ *
+ * A floor rather than an exact zero, because the regions this driver recurses on are *computed*:
+ * a segment boundary comes back from `computeStrips` as intersections of offset rays, so a sliver
+ * that is geometrically collinear arrives with an area of `1e-13` and never with an exact `0`.
+ * Testing `=== 0` would therefore only ever catch hand-authored collinear input and would hand every
+ * real near-degenerate cell to the solver. The value matches the `AREA_EPSILON` that
+ * `polygon-decomposition.ts` already uses for the same "is this sub-polygon degenerate" question;
+ * it is an absolute area in the polygon's own units, which is the same footing that constant is on.
+ */
+export const DEGENERATE_AREA_EPSILON = 1e-6;
+
 export interface RecursiveOptions {
     /** How many times to subdivide. 1 = one pass, no recursion. Clamped to [1, 3]. */
     levels: number;
@@ -108,6 +121,17 @@ export function subdivideRecursively(boundary: Vector2[], options: RecursiveOpti
     return subdivideNode(boundary, 0, levels, sameLogicalStreet);
 }
 
+/**
+ * Every node of a subdivision tree, the node itself first, then each subtree in child order.
+ *
+ * Lives here rather than in whichever caller wants it because counting, censusing and drawing a tree
+ * all start by walking it, and three copies of one recursive line are three places for the traversal
+ * order to drift apart.
+ */
+export function flattenRecursiveTree(node: RecursiveNode): RecursiveNode[] {
+    return [node, ...node.children.flatMap(flattenRecursiveTree)];
+}
+
 /** The polygon as the solver will see it: clockwise, per this codebase's winding convention. */
 function toClockwise(boundary: Vector2[]): Vector2[] {
     return signedArea(boundary) > 0 ? [...boundary].reverse() : [...boundary];
@@ -118,7 +142,9 @@ function describe(error: unknown): string {
 }
 
 /** Segments of one region, or the reason it has none. Never both. */
-type SegmentOutcome = {segments: Strip[]; failure?: undefined} | {segments?: undefined; failure: string};
+export type SegmentOutcome =
+    | {segments: Strip[]; failure?: undefined}
+    | {segments?: undefined; failure: string};
 
 /**
  * Divides one region into segments at full depth.
@@ -131,8 +157,12 @@ function divideIntoSegments(boundary: Vector2[], sameLogicalStreet: SameLogicalS
     if (boundary.length < 3) {
         return {failure: `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`};
     }
-    if (signedArea(boundary) === 0) {
-        return {failure: `Degenerate region: ${boundary.length} boundary vertices enclosing zero area.`};
+    const area = Math.abs(signedArea(boundary));
+    if (area < DEGENERATE_AREA_EPSILON) {
+        return {
+            failure: `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
+                + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`,
+        };
     }
 
     try {

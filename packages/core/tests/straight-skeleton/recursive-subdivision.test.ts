@@ -2,9 +2,12 @@ import {ALL_TEST_POLYGONS, SQUARE} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeStrips,
+    DEGENERATE_AREA_EPSILON,
+    flattenRecursiveTree,
     makeMergeGroupPredicate,
     MAX_RECURSION_LEVELS,
     RecursiveNode,
+    signedArea,
     solveSkeleton,
     Strip,
     subdivideRecursively,
@@ -50,24 +53,19 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
 
 const DEFAULT_MERGE_GROUP_SIZE = 2;
 
-function signedRingArea(ring: Vector2[]): number {
-    let total = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i];
-        const b = ring[(i + 1) % ring.length];
-        total += a.x * b.y - b.x * a.y;
-    }
-    return total / 2;
+/**
+ * Ring area via the library's own shoelace, not a re-derived one.
+ *
+ * `signedArea` takes every term relative to the ring's first vertex, which is what makes it
+ * translation-invariant; a version summed over absolute coordinates loses the D^2 cancellation the
+ * `AREA_TOLERANCE_FRACTION` below is calibrated against the moment a fixture sits far from the origin.
+ */
+function ringArea(ring: Vector2[]): number {
+    return Math.abs(signedArea(ring));
 }
 
 function stripArea(strip: Strip): number {
-    return strip.holes.reduce(
-        (area, hole) => area - Math.abs(signedRingArea(hole)),
-        Math.abs(signedRingArea(strip.boundary)));
-}
-
-function collectNodes(node: RecursiveNode): RecursiveNode[] {
-    return [node, ...node.children.flatMap(collectNodes)];
+    return strip.holes.reduce((area, hole) => area - ringArea(hole), ringArea(strip.boundary));
 }
 
 function fixtureVertices(name: string): Vector2[] {
@@ -81,7 +79,7 @@ function fixtureVertices(name: string): Vector2[] {
 /** Structural invariants every node of every tree must satisfy. Returns the problems it found. */
 function structuralProblems(root: RecursiveNode, levels: number): string[] {
     const problems: string[] = [];
-    for (const node of collectNodes(root)) {
+    for (const node of flattenRecursiveTree(root)) {
         const where = `level ${node.level}`;
         if (node.level >= levels) {
             problems.push(`${where} exists but only ${levels} level(s) were requested`);
@@ -108,9 +106,9 @@ function structuralProblems(root: RecursiveNode, levels: number): string[] {
 /** Relative error of the tiling identity at every node that divided. Returns the problems it found. */
 function tilingProblems(root: RecursiveNode): string[] {
     const problems: string[] = [];
-    for (const node of collectNodes(root)) {
+    for (const node of flattenRecursiveTree(root)) {
         if (node.failure !== undefined) continue;
-        const regionArea = Math.abs(signedRingArea(node.boundary));
+        const regionArea = Math.abs(signedArea(node.boundary));
         const covered = node.segments.reduce((total, segment) => total + stripArea(segment), 0);
         const error = Math.abs(covered - regionArea) / regionArea;
         if (!(error < AREA_TOLERANCE_FRACTION)) {
@@ -162,7 +160,7 @@ describe('recursive segment subdivision', () => {
 
         it('never recurses deeper than the maximum, whatever it is asked for', () => {
             const root = subdivideRecursively(SQUARE, {levels: 99, mergeGroupSize: 2});
-            const deepest = Math.max(...collectNodes(root).map(node => node.level));
+            const deepest = Math.max(...flattenRecursiveTree(root).map(node => node.level));
             expect(deepest).toBe(MAX_RECURSION_LEVELS - 1);
         });
     });
@@ -178,6 +176,17 @@ describe('recursive segment subdivision', () => {
                 expect(child.level).toBe(1);
                 expect(child.boundary).toEqual(root.segments[index].boundary);
             });
+        });
+
+        it('flattens the tree root first, then each subtree in child order', () => {
+            const root = subdivideRecursively(fixtureVertices('Awkward Heptagon'), {
+                levels: 2,
+                mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
+            });
+            const flat = flattenRecursiveTree(root);
+            expect(flat[0]).toBe(root);
+            expect(flat).toHaveLength(1 + root.children.length);
+            expect(flat.slice(1)).toEqual(root.children);
         });
     });
 
@@ -196,8 +205,37 @@ describe('recursive segment subdivision', () => {
             const root = subdivideRecursively(
                 [{x: 0, y: 0}, {x: 1, y: 0}, {x: 2, y: 0}],
                 {levels: 2, mergeGroupSize: 2});
-            expect(root.failure).toMatch(/zero area/);
+            expect(root.failure).toMatch(/^Degenerate region/);
+            expect(root.failure).toMatch(/degeneracy floor/);
             expect(root.segments).toEqual([]);
+        });
+
+        it('calls a sliver of near-zero area degenerate rather than solving it', () => {
+            // The case the tolerance exists for: a computed sub-region is never *exactly* collinear,
+            // it is collinear to within summation noise. This triangle encloses 5e-14 — a hair above
+            // zero and far below the floor — so an exact `=== 0` test would hand it to the solver.
+            const sliver: Vector2[] = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0.5, y: 1e-13}];
+            expect(Math.abs(signedArea(sliver))).toBeGreaterThan(0);
+            expect(Math.abs(signedArea(sliver))).toBeLessThan(DEGENERATE_AREA_EPSILON);
+
+            const root = subdivideRecursively(sliver, {levels: 2, mergeGroupSize: 2});
+            expect(root.failure).toMatch(/^Degenerate region/);
+            expect(root.segments).toEqual([]);
+            expect(root.children).toEqual([]);
+        });
+
+        it('subdivides a small region whose area clears the degeneracy floor', () => {
+            // The other side of the same boundary: shrinking a square until its area is merely small
+            // must not make it degenerate, or the floor would be silently eating real geometry.
+            const side = Math.sqrt(DEGENERATE_AREA_EPSILON) * 10;
+            const small: Vector2[] = [
+                {x: 0, y: 0}, {x: 0, y: side}, {x: side, y: side}, {x: side, y: 0},
+            ];
+            expect(Math.abs(signedArea(small))).toBeGreaterThan(DEGENERATE_AREA_EPSILON);
+
+            const root = subdivideRecursively(small, {levels: 1, mergeGroupSize: 1});
+            expect(root.failure).toBeUndefined();
+            expect(root.segments).toHaveLength(4);
         });
 
         it('keeps subdividing the siblings of a segment that fails', () => {
@@ -230,7 +268,7 @@ describe('recursive segment subdivision', () => {
                 // Depth: a tree in which nothing failed must reach exactly the requested level
                 // count. Where something did fail that branch stops early by design, and the
                 // structural check above is what holds the rest of the shape.
-                const nodes = collectNodes(root);
+                const nodes = flattenRecursiveTree(root);
                 const deepest = Math.max(...nodes.map(node => node.level)) + 1;
                 if (nodes.every(node => node.failure === undefined) && deepest !== levels) {
                     problems.push(`levels ${levels}: the tree reached ${deepest} level(s) with nothing failing`);
@@ -249,7 +287,7 @@ describe('recursive segment subdivision', () => {
 
             for (const mergeGroupSize of CENSUS_MERGE_GROUP_SIZES) {
                 for (const polygon of ALL_TEST_POLYGONS) {
-                    const nodes = collectNodes(subdivideRecursively(polygon.vertices, {
+                    const nodes = flattenRecursiveTree(subdivideRecursively(polygon.vertices, {
                         levels: MAX_RECURSION_LEVELS,
                         mergeGroupSize,
                     }));

@@ -67,7 +67,6 @@ export type { ParcelTerrainState, SlopeFieldCell } from './hooks/useParcelTerrai
 
 // Recursive segment subdivision
 export {
-    collectRecursiveNodes,
     DEFAULT_MERGE_GROUP_SIZE,
     DEFAULT_RECURSIVE_FIXTURE,
     DEFAULT_RECURSIVE_LEVELS,
@@ -80,8 +79,20 @@ export type {
     RecursiveSubdivisionStoreState,
     RecursiveTreeSummary,
 } from './stores/useRecursiveSubdivisionStore';
-export { default as RecursiveSubdivisionCanvas, fitView, recursiveTreeToScene, RECURSIVE_LEVEL_STYLES } from './components/RecursiveSubdivisionCanvas';
-export type { RecursiveLevelStyle, RecursiveSubdivisionCanvasProps } from './components/RecursiveSubdivisionCanvas';
+export {
+    default as RecursiveSubdivisionCanvas,
+    fitView,
+    recursiveTreeToScene,
+    styleForLevel,
+    RECURSIVE_LEVEL_STYLES,
+} from './components/RecursiveSubdivisionCanvas';
+export type {
+    Bounds,
+    CanvasSize,
+    CanvasView,
+    RecursiveLevelStyle,
+    RecursiveSubdivisionCanvasProps,
+} from './components/RecursiveSubdivisionCanvas';
 export { default as RecursiveControlsPanel } from './components/RecursiveControlsPanel';
 export type { RecursiveControlsPanelProps } from './components/RecursiveControlsPanel';
 

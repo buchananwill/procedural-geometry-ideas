@@ -3,6 +3,7 @@ import { immer } from 'zustand/middleware/immer';
 import {
     clampLevels,
     clampMergeGroupSize,
+    flattenRecursiveTree,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
 } from '@proc-geo/core';
@@ -78,13 +79,9 @@ export interface RecursiveTreeSummary {
     totalFailures: number;
 }
 
-export function collectRecursiveNodes(node: RecursiveNode): RecursiveNode[] {
-    return [node, ...node.children.flatMap(collectRecursiveNodes)];
-}
-
 /** Per-level and leaf counts for a subdivision tree. */
 export function summariseRecursiveTree(root: RecursiveNode): RecursiveTreeSummary {
-    const nodes = collectRecursiveNodes(root);
+    const nodes = flattenRecursiveTree(root);
     const deepest = nodes.reduce((deepestSoFar, node) => Math.max(deepestSoFar, node.level), 0);
 
     const levels: RecursiveLevelSummary[] = [];
