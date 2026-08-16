@@ -7,6 +7,12 @@ import {
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
+import {
+    distanceToSegment,
+    distanceToSupportingLine,
+    signedRingArea,
+    totalRingArea,
+} from './wavefront-measurement-helpers';
 
 /**
  * Properties of the offset projection, rather than golden coordinates.
@@ -20,6 +26,10 @@ import {
  * The one place a fixture is named is the splitting test, which needs a shape that genuinely pinches
  * apart. That the wavefront can become several disconnected loops is the whole reason this API
  * returns a list of rings, so it is asserted directly rather than left to the sweep.
+ *
+ * The area and point-to-line measurements are taken from `wavefront-measurement-helpers.ts`, shared
+ * with the suites that assert the same properties at event offsets, so a property this file states
+ * away from an event and the one they state on one are stated over the same quantity.
  */
 
 const TOLERANCE = 1e-6;
@@ -27,38 +37,6 @@ const TOLERANCE = 1e-6;
 /** The polygon the solver actually worked on, after any winding normalisation. */
 function boundaryOf(result: SkeletonSolveResult): Vector2[] {
     return result.graph.nodes.slice(0, result.graph.numExteriorNodes).map(node => node.position);
-}
-
-function signedRingArea(ring: Vector2[]): number {
-    let total = 0;
-    for (let i = 0; i < ring.length; i++) {
-        const a = ring[i];
-        const b = ring[(i + 1) % ring.length];
-        total += a.x * b.y - b.x * a.y;
-    }
-    return total / 2;
-}
-
-function totalRingArea(rings: Vector2[][]): number {
-    return rings.reduce((sum, ring) => sum + Math.abs(signedRingArea(ring)), 0);
-}
-
-/** Euclidean distance from p to the segment ab. */
-function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const lengthSquared = dx * dx + dy * dy;
-    const raw = lengthSquared === 0 ? 0 : ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSquared;
-    const t = Math.max(0, Math.min(1, raw));
-    return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
-}
-
-/** Perpendicular distance from p to the infinite line through a and b. */
-function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const length = Math.hypot(dx, dy);
-    return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
 }
 
 function clearanceFromBoundary(p: Vector2, boundary: Vector2[]): number {

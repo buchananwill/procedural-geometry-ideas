@@ -51,6 +51,26 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * supporting line of one of the original polygon edges that defines it — rather than from anything
  * the solver recorded about timing. Exterior nodes lie on the boundary, so their offset is zero.
  *
+ * ## Where one instant is several numbers, and the argument above stops holding
+ *
+ * Everything above is about a hand-over *at one node*, and it is correct as written. There is a
+ * second case it does not cover, measured on the near-regular fixtures and recorded in
+ * `near-regular-ring-loss-diagnosis.test.ts`.
+ *
+ * A symmetric polygon produces *simultaneous mirror events*: two or more events at genuinely
+ * different places in the plane that happen at the same offset. Each node's offset is re-derived
+ * from the supporting line of one of its own parent edges, and mirror nodes have different parent
+ * edges, so one instant comes back as several offsets 7e-15 to 3.5e-13 apart. There is no single
+ * table entry to read them both from, and no tolerance is admissible here for the reasons above.
+ *
+ * Querying at the lowest of such a set leaves the bisectors meeting at the others alive by the
+ * table while they have already met in the plane. Their span along the exterior edge they share
+ * then has length zero or slightly negative, and {@link segmentsAlongExteriorEdge} drops both of
+ * its endpoints. So the claim below that two live bisectors bounding a zero-length span cannot
+ * occur holds for a single node and fails across a simultaneous pair: on those fixtures it occurs,
+ * the chain loses its successor, and the ring is reported as an {@link UnclosedChain}. The report
+ * is honest — a ring really is missing — and the defect is upstream of the walk.
+ *
  * ## Preconditions
  *
  * Every entry point requires `result.complete === true` and `result.context !== null`. A
@@ -59,8 +79,14 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * sub-polygon's own solve.
  */
 
-/** A bisector that is alive at the requested offset, with its wavefront position there. */
-interface AliveBisector {
+/**
+ * A bisector that is alive at the requested offset, with its wavefront position there.
+ *
+ * `clockwiseParentId` and `widdershinsParentId` are exterior edge ids: the bisector opens a
+ * wavefront span on the first and closes one on the second, which is how {@link
+ * segmentsAlongExteriorEdge} pairs endpoints into segments.
+ */
+export interface AliveBisector {
     id: number;
     position: Vector2;
     clockwiseParentId: number;
@@ -292,8 +318,17 @@ export function computeMaxOffset(result: SkeletonSolveResult): number {
  * Both ends of the lifetime are read from `nodeOffsets`, so at an event the bisector dying there
  * and the bisector born there compare against the identical number and the hand-over is exact. See
  * the module header for why nothing else will do.
+ *
+ * Exported for the same reason as {@link requireProjectableResult}: this is the module's single
+ * derivation of *which bisectors carry the wavefront at an offset, and where*, and anything that
+ * relates the offset contour back to the skeleton must read it from here rather than reconstruct
+ * it. The half-open lifetime rule and the perpendicular-to-along-ray conversion are each a formula
+ * whose last few bits are load-bearing, and a second copy of either is precisely the two-routes-to-
+ * one-quantity fault the module header records as having cost whole rings.
+ *
+ * `nodeOffsets` must be the map {@link computeNodeOffsets} returns for this same `result`.
  */
-function collectAliveBisectors(
+export function collectAliveBisectors(
     result: SkeletonSolveResult,
     nodeOffsets: Map<number, number>,
     offset: number,
@@ -362,6 +397,10 @@ function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: Int
  * have run through it has nothing to continue to, and the ring it belonged to is lost. Two live
  * bisectors bounding a genuinely zero-length span cannot occur and so is not a case to preserve:
  * a span of zero length means its two bisectors have met, and bisectors that have met are dead.
+ *
+ * That last sentence is true of one node and false across a simultaneous mirror pair, where the
+ * two bisectors have met while the table still dates their death a few femtometres later. See the
+ * module header's section on one instant being several numbers.
  */
 function segmentsAlongExteriorEdge(
     result: SkeletonSolveResult,
