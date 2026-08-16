@@ -10,7 +10,7 @@ import {
     PREMATURE_BISECTOR_SPLIT_FAILS,
     PREMATURE_BISECTOR_SPLIT_PASSES,
 } from '@proc-geo/test-fixtures';
-import {runAlgorithmV5, Vector2} from '@proc-geo/core';
+import {runAlgorithmV5, StraightSkeletonGraph, Vector2} from '@proc-geo/core';
 
 /**
  * Causal consistency of the wavefront.
@@ -62,12 +62,21 @@ interface OffsetViolation {
 }
 
 /**
- * Re-derive each node's offset from geometry alone, then check that no skeleton
- * edge travels backwards in time.
+ * Re-derive every node's offset from geometry alone: its distance from the supporting line of one
+ * of the original polygon edges that defines it. Boundary nodes sit on the boundary, so their
+ * offset is zero, and a node with no interior edge incident on it is absent rather than guessed at.
+ *
+ * This is the oracle both checks below are made against, so it is derived once. It is a formula
+ * whose every step matters — which interior edges count as defining a node, which of them is read
+ * when there is more than one, and which polygon edge that one names — and a second copy that
+ * drifted on any of those would leave the two checks auditing subtly different quantities while
+ * appearing to agree.
+ *
+ * It stays deliberately independent of `computeNodeOffsets` in `offset-projection.ts`, which
+ * computes the same thing for production: the point of this file is to trust nothing the solver
+ * recorded, and sharing the derivation with the code under audit would give that up.
  */
-function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
-    const context = runAlgorithmV5(vertices);
-    const {graph} = context;
+function deriveNodeOffsets(vertices: Vector2[], graph: StraightSkeletonGraph): Map<number, number> {
     const edgeCount = vertices.length;
 
     // Which original polygon edges define each interior edge. The solver records
@@ -77,8 +86,6 @@ function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
         parentEdges.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
     }
 
-    // Offset of a node = its distance from a defining edge's supporting line.
-    // Boundary nodes sit on the boundary, so their offset is zero.
     const offsetOf = new Map<number, number>();
     for (let i = 0; i < graph.numExteriorNodes; i++) {
         offsetOf.set(i, 0);
@@ -94,6 +101,17 @@ function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
             distanceToSupportingLine(node.position, vertices[parent], vertices[(parent + 1) % edgeCount]),
         );
     }
+
+    return offsetOf;
+}
+
+/**
+ * Check that no skeleton edge travels backwards in time.
+ */
+function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
+    const context = runAlgorithmV5(vertices);
+    const {graph} = context;
+    const offsetOf = deriveNodeOffsets(vertices, graph);
 
     const violations: OffsetViolation[] = [];
     for (const interiorEdge of graph.interiorEdges) {
@@ -140,21 +158,15 @@ function findClearanceViolations(vertices: Vector2[]): string[] {
     const context = runAlgorithmV5(vertices);
     const {graph} = context;
     const edgeCount = vertices.length;
-
-    const parentEdges = new Map<number, number>();
-    for (const interiorEdge of graph.interiorEdges) {
-        parentEdges.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
-    }
+    const offsetOf = deriveNodeOffsets(vertices, graph);
 
     const violations: string[] = [];
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const node = graph.nodes[i];
-        const incident = [...new Set([...node.inEdges, ...node.outEdges])]
-            .filter(id => parentEdges.has(id));
-        if (incident.length === 0) continue;
-        const parent = parentEdges.get(incident[0])!;
-        const offset = distanceToSupportingLine(
-            node.position, vertices[parent], vertices[(parent + 1) % edgeCount]);
+        // Absent means the node has no interior edge to date it by; the causality check above
+        // skips those for the same reason.
+        const offset = offsetOf.get(i);
+        if (offset === undefined) continue;
 
         let clearance = Infinity;
         for (let k = 0; k < edgeCount; k++) {

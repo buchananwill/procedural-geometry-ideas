@@ -55,7 +55,7 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  *
  * Everything above is about a hand-over *at one node*, and it is correct as written. There is a
  * second case it does not cover, measured on the near-regular fixtures and recorded in
- * `offset-event-boundary-regression.test.ts` under "the near-regular ring loss, diagnosed".
+ * `near-regular-ring-loss-diagnosis.test.ts`.
  *
  * A symmetric polygon produces *simultaneous mirror events*: two or more events at genuinely
  * different places in the plane that happen at the same offset. Each node's offset is re-derived
