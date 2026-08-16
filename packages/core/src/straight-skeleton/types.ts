@@ -1,4 +1,5 @@
 import type { Vector2 } from '../shared/types';
+import type { SkeletonNormalisation } from './normalisation';
 export type { Vector2 } from '../shared/types';
 
 export interface PolygonNode {
@@ -209,4 +210,16 @@ export interface SkeletonSolveResult {
      */
     complete: boolean;
     diagnostics: SkeletonDiagnostic[];
+    /**
+     * The unit-extent transform this solve used, ALREADY UNDONE on `graph` and on `context` — it is
+     * carried so that downstream consumers can scale their own LENGTH-DIMENSIONED INPUTS across the
+     * same seam.
+     *
+     * The solver's `1e-8` epsilon is absolute, so the polygon is normalised to unit extent before
+     * solving and denormalised afterwards; anything a caller feeds back in that is measured in the
+     * caller's units has to make the same trip. Strip depth and `minWidth`/`maxWidth` go through
+     * `normaliseLength`; `minArea`/`maxArea` go through `normaliseArea`, which squares. Dimensionless
+     * quantities — fractions of the maximum offset, aspect-ratio bounds — cross the seam untouched.
+     */
+    normalisation: SkeletonNormalisation;
 }

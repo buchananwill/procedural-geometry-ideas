@@ -26,6 +26,22 @@ export type {
 } from './straight-skeleton/types';
 export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
 
+// ── Unit-extent normalisation (the solver's boundary transform) ──────────────
+export type { SkeletonNormalisation } from './straight-skeleton/normalisation';
+export {
+  SMALLEST_NORMAL_DOUBLE,
+  makeSkeletonNormalisation,
+  normalisePosition,
+  denormalisePosition,
+  normaliseLength,
+  denormaliseLength,
+  normaliseArea,
+  denormaliseArea,
+  normalisePolygon,
+  denormaliseGraph,
+  denormaliseCollisionCache,
+} from './straight-skeleton/normalisation';
+
 // ── Constants ────────────────────────────────────────────────────────────────
 export { FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
 

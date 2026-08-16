@@ -435,8 +435,11 @@ describe('stroke-derived polygons', () => {
             // strip closing rather than a set of independent vertex events, and
             // `handleInteriorNGon` falls back to pairwise handling for that layer.
             //
-            // Measured before the fix: k = 2, 4, 5, 6, 7, 8, 9, 10 failed. Now:
-            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 6, 7, 8, 9, 10]);
+            // Measured before the coincident-event fix: k = 2, 4, 5, 6, 7, 8, 9, 10 failed. After
+            // it: 4, 6, 7, 8, 9, 10. Unit-extent normalisation then recovered k = 6 as well —
+            // incidentally, not by addressing this defect, which is a whole strip closing in one
+            // offset layer and not a tolerance-against-magnitude problem. Now:
+            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 7, 8, 9, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {

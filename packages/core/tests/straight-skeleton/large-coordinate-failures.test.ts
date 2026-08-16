@@ -12,8 +12,9 @@ import {
 
 /*
  * ============================================================================
- *  THE LAST `describe` BLOCK RECORDS A KNOWN DEFECT. ITS ASSERTIONS ARE NOT
- *  DESIRED BEHAVIOUR AND ARE NOT A SPECIFICATION. EVERY OTHER BLOCK IS.
+ *  EVERY BLOCK IN THIS FILE IS NOW A SPECIFICATION. THE LAST ONE USED TO
+ *  RECORD A KNOWN DEFECT; UNIT-EXTENT NORMALISATION CLOSED IT AND ITS
+ *  ASSERTIONS ARE INVERTED ACCORDINGLY.
  * ============================================================================
  *
  * How far from the origin, and at what size, the solver and its projections stop working.
@@ -45,57 +46,69 @@ import {
  * + strips at depth 50% of max. Cell shows how many of the 37 came through all three.
  * ----------------------------------------------------------------------------
  *
- * Translation only (fixtures keep their native 10^2-10^3 span):
+ * Translation only (fixtures keep their native 10^2-10^3 span). `shoelace` is the shoelace fix
+ * alone; `normalised` adds unit-extent normalisation on top of it:
  *
  *     translate      0    1e3    1e4    1e5    1e6    1e7    1e8    1e9   1e10   1e11
- *     before        37     37     37     37     37     37     33     33      0      0
- *     after         37     37     37     37     37     37     35     37     29     29
+ *     original      37     37     37     37     37     37     33     33      0      0
+ *     shoelace      37     37     37     37     37     37     35     37     29     29
+ *     normalised    37     37     37     37     37     37     37     37     37     37
  *
- * Scale only (span stretched, still centred on the origin) — UNCHANGED by the fix, and
- * correctly so. At scale S about the origin, D ~= S * span while sqrt(A) ~= S * span, so the
- * shoelace has the same relative headroom at every scale. Whatever limits the scale sweep is
- * a different numerical problem:
+ * Scale only (span stretched, still centred on the origin). The shoelace fix left this sweep
+ * UNCHANGED, and correctly so: at scale S about the origin, D ~= S * span while sqrt(A) ~=
+ * S * span, so the shoelace has the same relative headroom at every scale. What limited it was
+ * the other numerical problem entirely — an absolute `1e-8` degeneracy tolerance measured
+ * against coordinates that grow — and normalisation is what removes that:
  *
  *     scale       1e-6   1e-4   1e-2      1    1e2    1e4    1e6    1e8
- *     before        37     37     37     37     37     37     27     18
- *     after         37     37     37     37     37     37     27     18
+ *     original      37     37     37     37     37     37     27     18
+ *     shoelace      37     37     37     37     37     37     27     18
+ *     normalised    37     37     37     37     37     37     37     37
  *
  * Realistic world-space: scale 50 — every fixture becomes 15 000 to 40 000 units across,
- * i.e. a 150-400 m region in centimetres — then translated. Was clean before, still is:
+ * i.e. a 150-400 m region in centimetres — then translated. Was clean throughout:
  *
  *     translate      0    1e4    1e5    1e6    1e7    1e8
- *     before/after  37     37     37     37     37     37
+ *     all three     37     37     37     37     37     37
  *
  * ----------------------------------------------------------------------------
  * THE TWO FAILURE MODES, AND WHERE THEY NOW STAND
  * ----------------------------------------------------------------------------
  *
- * 1. FIXED — `computeStrips` returning strips with an EMPTY boundary. The clipped face's
- *    computed area rounded to exactly zero, so it satisfied neither `signedArea < 0` (outer)
- *    nor `signedArea > 0` (hole), and `outer[0] ?? []` handed back nothing. Not one fixture
- *    produces an empty or miscounted strip at any translation up to 1e11 now: wherever the
- *    solve and the offset ring are sound, the strips are too. The Square survives to 1e11
- *    with an exact area of -4, exact winding and four full faces.
+ * 1. FIXED BY THE SHOELACE CHANGE — `computeStrips` returning strips with an EMPTY boundary.
+ *    The clipped face's computed area rounded to exactly zero, so it satisfied neither
+ *    `signedArea < 0` (outer) nor `signedArea > 0` (hole), and `outer[0] ?? []` handed back
+ *    nothing. Not one fixture produces an empty or miscounted strip at any translation up to
+ *    1e11 now: wherever the solve and the offset ring are sound, the strips are too. The Square
+ *    survives to 1e11 with an exact area of -4, exact winding and four full faces.
  *
- * 2. NOT FIXED, AND NOT THE SHOELACE — `solveSkeleton` returns `complete: true` with
- *    `diagnostics: []` and a WRONG skeleton. Broken Polygon translated to 1e8 reports a
- *    maximum offset of 308.98 where the true value is 126.63, and `computeOffsetRings` then
- *    returns nothing past a quarter of the way in. Refuted as a shoelace symptom by direct
- *    measurement, asserted in the last block: that polygon's area is 95 054.8, so its
- *    absolute-form shoelace at 1e8 is accurate to a relative 1.6e-6 with the correct sign and
- *    a safe distance of 2.07e10 — 200x headroom. The fix left its reported maximum offset
- *    bit-for-bit identical (308.9784380383704 before and after).
+ * 2. FIXED BY UNIT-EXTENT NORMALISATION, AND IT NEVER WAS THE SHOELACE — `solveSkeleton`
+ *    returning `complete: true` with `diagnostics: []` and a WRONG skeleton. Broken Polygon
+ *    translated to 1e8 used to report a maximum offset of 308.9784380383704 where its native
+ *    value is 126.63015964243034, and `computeOffsetRings` then returned nothing past a quarter
+ *    of the way in. It now reports 126.630159636494 — the native value to a relative 5e-11 —
+ *    and its rings project all the way in. The cause was `FLOATING_POINT_EPSILON`: an absolute
+ *    `1e-8` compared against raw coordinates is a relative tolerance that TIGHTENS as the
+ *    polygon moves away from the origin, so the degeneracy test the solver depends on became
+ *    unreachably strict. `solveSkeleton` now normalises the polygon to unit extent before
+ *    solving and denormalises on the way out, which leaves the constant alone and makes it
+ *    relative by construction. See `normalisation.ts` and `normalisation.test.ts`.
  *
- * Beyond 1e10 the solver itself starts failing on eight of the thirty-seven fixtures with
- * `step-failure` / `unresolved-edges`. That is a third, separate limit — and unlike the two
- * above it is SIGNALLED: `complete` is false and the diagnostics say so.
+ *    That it was NOT the shoelace is still asserted in the last block, because the measurement
+ *    is what ruled the shoelace out: that polygon's area is 95 054.8, so its absolute-form
+ *    shoelace at 1e8 is accurate to a relative 1.6e-6 with the correct sign and a safe distance
+ *    of 2.07e10 — 200x headroom. The shoelace change accordingly left the wrong answer
+ *    bit-for-bit identical, 308.9784380383704 before and after; only normalisation moved it.
  *
- * Neither remaining defect is the near-regular defect of `near-regular-failures.test.ts`.
- * Every fixture here solves cleanly untranslated, and the trigger is position, not symmetry.
+ * The third limit is gone with the second: every fixture now survives translation to 1e11 and
+ * scaling to 1e8, where eight of the thirty-seven used to fail with `step-failure` /
+ * `unresolved-edges`. Unlike the wrong-skeleton mode, that one was at least SIGNALLED.
  *
- * WHEN THE REMAINING DEFECT IS FIXED, INVERT THE ASSERTIONS IN THE LAST BLOCK — DO NOT DELETE
- * THIS FILE. Everything above it is a genuine specification of the operating envelope and
- * should be kept and widened.
+ * Neither defect was the near-regular defect of `near-regular-polygons.test.ts`. Every fixture
+ * here solves cleanly untranslated, and the trigger was position, not symmetry.
+ *
+ * DO NOT DELETE THIS FILE. It is a genuine specification of the operating envelope and should
+ * be kept and widened.
  */
 
 setSkeletonLogLevel('silent');
@@ -156,13 +169,22 @@ describe('large coordinates', () => {
     });
 
     describe('translation alone is safe well past the intended range', () => {
-        it.each([1e5, 1e6, 1e7, 1e9])('every fixture survives translation to %p at its native span', translate => {
-            expect(survivorCount(1, translate)).toBe(ALL_TEST_POLYGONS.length);
-        });
+        // 1e10 and 1e11 were 29 of 37 before unit-extent normalisation.
+        it.each([1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11])(
+            'every fixture survives translation to %p at its native span',
+            translate => {
+                expect(survivorCount(1, translate)).toBe(ALL_TEST_POLYGONS.length);
+            },
+        );
 
-        it('every fixture survives being scaled up by 10 000 about the origin', () => {
-            expect(survivorCount(1e4, 0)).toBe(ALL_TEST_POLYGONS.length);
-        });
+        // 1e6 and 1e8 were 27 and 18 of 37 before unit-extent normalisation. The scale sweep is
+        // the one the shoelace fix could not touch, because it is the tolerance and not the sum.
+        it.each([1e-6, 1e-4, 1e-2, 1e2, 1e4, 1e6, 1e8])(
+            'every fixture survives being scaled by %p about the origin',
+            scale => {
+                expect(survivorCount(scale, 0)).toBe(ALL_TEST_POLYGONS.length);
+            },
+        );
     });
 
     describe('strip faces survive any translation, because signedArea is translation-invariant', () => {
@@ -273,30 +295,35 @@ describe('large coordinates', () => {
         });
     });
 
-    describe('the solver reports success on a wrong skeleton (known defect)', () => {
-        it('currently returns complete: true and no diagnostics for a corrupt solve at 1e8', () => {
+    describe('translating a rigid shape no longer changes its skeleton', () => {
+        // WAS THE FILE'S KNOWN DEFECT AND IS NOW ITS SPECIFICATION. Before unit-extent
+        // normalisation these three tests asserted the opposite: a maximum offset above 300 at
+        // 1e8, and offset rings that came back empty past a quarter of the way in.
+        it('reports the same maximum offset at the origin and at 1e8', () => {
             const atOrigin = solveSkeleton(fixture('Broken Polygon'));
             const far = solveSkeleton(place(fixture('Broken Polygon'), 1, 1e8));
 
             expect(atOrigin.complete).toBe(true);
             expect(computeMaxOffset(atOrigin)).toBeCloseTo(126.630159, 5);
 
-            // Translating a rigid shape cannot change how far its wavefront travels. It does.
+            // Translating a rigid shape cannot change how far its wavefront travels, and no
+            // longer does. It used to report 308.9784380383704 here.
             expect(far.complete).toBe(true);
             expect(far.diagnostics).toEqual([]);
-            expect(computeMaxOffset(far)).toBeGreaterThan(300);
+            expect(computeMaxOffset(far)).toBeCloseTo(126.630159, 5);
+            expect(Math.abs(computeMaxOffset(far) - computeMaxOffset(atOrigin))).toBeLessThan(1e-6);
         });
 
-        it('currently offsets that corrupt skeleton into nothing, silently, past a quarter in', () => {
+        it('offsets that skeleton all the way in, at every depth', () => {
             const far = solveSkeleton(place(fixture('Broken Polygon'), 1, 1e8));
             const maxOffset = computeMaxOffset(far);
 
             expect(computeOffsetRings(far, maxOffset * 0.25)).toHaveLength(1);
-            expect(computeOffsetRings(far, maxOffset * 0.5)).toEqual([]);
-            expect(computeOffsetRings(far, maxOffset * 0.75)).toEqual([]);
+            expect(computeOffsetRings(far, maxOffset * 0.5)).toHaveLength(1);
+            expect(computeOffsetRings(far, maxOffset * 0.75)).toHaveLength(1);
         });
 
-        it('is not the shoelace: that polygon has 200x of headroom at 1e8', () => {
+        it('was not the shoelace: that polygon had 200x of headroom at 1e8', () => {
             const atOrigin = fixture('Broken Polygon');
             const far = place(atOrigin, 1, 1e8);
 
@@ -305,14 +332,13 @@ describe('large coordinates', () => {
 
             // The absolute form — the one that was replaced — was already accurate here, to a
             // relative 1.6e-6 and with the correct sign. The safe distance for this area is
-            // sqrt(95054.8) * 6.7e7 ~= 2.07e10, so 1e8 is nowhere near the cliff.
+            // sqrt(95054.8) * 6.7e7 ~= 2.07e10, so 1e8 is nowhere near the cliff. The shoelace
+            // change accordingly left the wrong answer bit-for-bit identical at
+            // 308.9784380383704; only the tolerance fix moved it.
             const absolute = signedAreaAbsolute(far);
             expect(absolute).toBeLessThan(0);
             expect(Math.abs(absolute - signedArea(far)) / Math.abs(area)).toBeLessThan(1e-5);
             expect(Math.sqrt(Math.abs(area)) * 6.7e7).toBeGreaterThan(2e10);
-
-            // Hence the fix cannot have moved this result, and did not: it is bit-identical.
-            expect(computeMaxOffset(solveSkeleton(far))).toBe(308.9784380383704);
         });
     });
 });

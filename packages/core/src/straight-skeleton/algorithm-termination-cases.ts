@@ -29,6 +29,13 @@ import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
+import {
+    SkeletonNormalisation,
+    denormaliseCollisionCache,
+    denormaliseGraph,
+    makeSkeletonNormalisation,
+    normalisePolygon,
+} from "./normalisation";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -343,18 +350,35 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
         throw new Error("Must have at least three nodes to perform algorithm");
     }
 
-    const decomposition = decomposePolygon(nodes);
+    // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts` for
+    // why, for the enumeration of what scales, and for why it must never be re-applied mid-solve.
+    // The decomposition runs in UNIT space along with the solve, because its crossing test carries
+    // the same absolute tolerances the solver does.
+    const normalisation = makeSkeletonNormalisation(nodes);
+    const unitNodes = normalisePolygon(nodes, normalisation);
+
+    const decomposition = decomposePolygon(unitNodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        return runSimplePolygon(nodes).context;
+        const context = runSimplePolygon(unitNodes).context;
+        // BOTH HALVES OF THE CONTEXT, because both are handed to the caller and a cache left in unit
+        // space would answer in the wrong units about edges that are still perfectly valid.
+        denormaliseGraph(context.graph, normalisation);
+        denormaliseCollisionCache(context.collisionCache, normalisation);
+        return context;
     }
 
     const subResults = decomposition.subPolygons.map(subPoly => ({
         graph: runSimplePolygon(subPoly).context.graph,
     }));
 
+    // MERGED IN UNIT SPACE, then denormalised. The merge deduplicates crossing-point nodes with
+    // `vectorsAreEqual`, which is the same absolute tolerance, so it has to see unit coordinates too.
     const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
-    return makeMergedSolverContext(merged);
+    const mergedContext = makeMergedSolverContext(merged);
+    denormaliseGraph(mergedContext.graph, normalisation);
+    denormaliseCollisionCache(mergedContext.collisionCache, normalisation);
+    return mergedContext;
 }
 
 export interface SolveSkeletonOptions {
@@ -397,9 +421,15 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     const normaliseWinding = options?.normaliseWinding ?? true;
     const diagnostics: SkeletonDiagnostic[] = [];
 
-    let workingVertices = vertices;
-    if (normaliseWinding && !isClockwise(vertices)) {
-        workingVertices = [...vertices].reverse();
+    // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts`. The
+    // winding test and the decomposition both run in unit space along with the solve, because both
+    // carry the same absolute tolerances and both would otherwise change meaning with the caller's
+    // coordinates. Everything on the returned result is carried back before it is handed over.
+    const normalisation = makeSkeletonNormalisation(vertices);
+    let workingVertices = normalisePolygon(vertices, normalisation);
+
+    if (normaliseWinding && !isClockwise(workingVertices)) {
+        workingVertices = [...workingVertices].reverse();
         diagnostics.push({
             kind: 'winding-normalised',
             detail: `Input was counter-clockwise; ${vertices.length} vertices reversed to clockwise winding before solving.`,
@@ -432,6 +462,13 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         context = run.context;
     }
 
+    // BEFORE ANYTHING READS THE GRAPH, so that the unresolved-edge scan, the completeness flag and
+    // everything the caller subsequently does all see one graph in one space.
+    denormaliseGraph(graph, normalisation);
+    if (context !== null) {
+        denormaliseCollisionCache(context.collisionCache, normalisation);
+    }
+
     const unresolvedEdgeIds = findUnresolvedInteriorEdgeIds(graph);
     if (unresolvedEdgeIds.length > 0) {
         diagnostics.push({
@@ -443,7 +480,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges');
     const complete = !blocking && graph.interiorEdges.length > 0;
 
-    return {graph, context, complete, diagnostics};
+    return {graph, context, complete, diagnostics, normalisation};
 }
 
 export interface SteppedAlgorithmResult {
@@ -453,15 +490,42 @@ export interface SteppedAlgorithmResult {
     error: string | null;
 }
 
+/**
+ * Carry every snapshot back to caller space, once each.
+ *
+ * DEDUPLICATED BY OBJECT IDENTITY, because `mergeSkeletonGraphs` returns its single input graph by
+ * reference when there is exactly one sub-polygon and no crossing point — in which case the merged
+ * "final" snapshot IS the last sub-polygon snapshot, and denormalising the list naively would scale
+ * that one graph twice. Nothing in a graph could detect a double application afterwards.
+ */
+function denormaliseSnapshots(snapshots: StraightSkeletonGraph[], normalisation: SkeletonNormalisation): void {
+    const done = new Set<StraightSkeletonGraph>();
+    for (const snapshot of snapshots) {
+        if (done.has(snapshot)) {
+            continue;
+        }
+        done.add(snapshot);
+        denormaliseGraph(snapshot, normalisation);
+    }
+}
+
 export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult {
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
     }
 
-    const decomposition = decomposePolygon(nodes);
+    // NORMALISED ONCE, HERE. See `normalisation.ts`. EVERY SNAPSHOT is denormalised on the way out,
+    // not just the last: they are what a debug visualiser draws, and scrubbing through a sequence of
+    // graphs half of which were in unit space would be worse than useless.
+    const normalisation = makeSkeletonNormalisation(nodes);
+    const unitNodes = normalisePolygon(nodes, normalisation);
+
+    const decomposition = decomposePolygon(unitNodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        return runSimplePolygonStepped(nodes);
+        const result = runSimplePolygonStepped(unitNodes);
+        denormaliseSnapshots(result.snapshots, normalisation);
+        return result;
     }
 
     // For decomposed polygons, run each sub-polygon stepped and concatenate snapshots,
@@ -479,12 +543,15 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
         }
     }
 
-    // Append merged graph as final snapshot
+    // Append merged graph as final snapshot. Merged in UNIT space, because the crossing-point
+    // deduplication compares positions under the same absolute tolerance the solver uses.
     const merged = mergeSkeletonGraphs(
         subGraphs.map(graph => ({graph})),
         decomposition.crossingPoints,
     );
     allSnapshots.push(merged.graph);
+
+    denormaliseSnapshots(allSnapshots, normalisation);
 
     return {snapshots: allSnapshots, error: lastError};
 }

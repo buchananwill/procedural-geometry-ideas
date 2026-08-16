@@ -8,6 +8,7 @@ import {
     NEAR_REGULAR_ROSETTE5_40,
 } from '@proc-geo/test-fixtures';
 import {
+    FLOATING_POINT_EPSILON,
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
@@ -298,9 +299,28 @@ describe('near-regular polygons', () => {
     });
 
     describe('jitter — perturbing away from exact symmetry changes nothing', () => {
-        // Before the fix these were the rescue: a displacement of 1.5e-7 on a radius of 150 was
-        // enough to separate the tied events and turn every failing run into a complete solve.
-        // Exact symmetry now solves too, so the whole ladder must come out the same.
+        // Before the fix these were the rescue: a displacement of fifteen times the solver's
+        // tolerance was enough to separate the tied events and turn every failing run into a
+        // complete solve. Exact symmetry now solves too, so the whole ladder must come out the same.
+        //
+        // THE SMALLEST RUNG IS EXPRESSED RELATIVE TO THE POLYGON, not as a bare 1.5e-7, because
+        // `solveSkeleton` now normalises to unit extent before solving. `FLOATING_POINT_EPSILON`
+        // is unchanged at 1e-8 but is compared against unit-space coordinates, so the caller-space
+        // displacement it corresponds to is `1e-8 * span` — 3e-6 for this 300-unit circle. A bare
+        // 1.5e-7 is no longer "barely above" the tolerance; it is a twentieth of it, which lands
+        // inside the ambiguous band instead of clear of it and says nothing about symmetry.
+        //
+        // The band itself did not widen. Measured over 25 seeds at multiples of the effective
+        // tolerance, the failing seeds are the same before and after: 1x fails 10 and 9 of 25
+        // respectively, 3x fails {5,18} in both, 5x fails {3,4,6,11,17} in both, 15x fails {11} in
+        // both, and 30x and above are clean in both. Normalisation moved the band by the span and
+        // changed nothing else about it.
+        const spanOf = (vertices: Vector2[]): number => Math.max(
+            Math.max(...vertices.map(v => v.x)) - Math.min(...vertices.map(v => v.x)),
+            Math.max(...vertices.map(v => v.y)) - Math.min(...vertices.map(v => v.y)),
+        );
+        const barelyAboveTolerance = 15 * FLOATING_POINT_EPSILON * spanOf(NEAR_REGULAR_CIRCLE_32);
+
         it('solves the exactly symmetric 32-vertex circle', () => {
             expect(solveSkeleton(NEAR_REGULAR_CIRCLE_32).complete).toBe(true);
         });
@@ -314,7 +334,7 @@ describe('near-regular polygons', () => {
         });
 
         it.each([1, 2, 3, 4, 5])('solves it jittered barely above FLOATING_POINT_EPSILON (seed %i)', seed => {
-            expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, 1.5e-7, seed)).complete).toBe(true);
+            expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, barelyAboveTolerance, seed)).complete).toBe(true);
         });
     });
 });
