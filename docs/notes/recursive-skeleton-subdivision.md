@@ -436,6 +436,30 @@ fixed in the port; 22–25 are open in both.
 
 ## Open
 
+- **A POWER-OF-TWO normalisation scale would make the round trip bit-exact, and recursion is what
+  makes that worth having.** Scaling by `2 ** Math.round(Math.log2(longestSide))` instead of by
+  `longestSide` keeps the polygon within √2 of unit extent while making normalise/denormalise exactly
+  invertible: a power-of-two multiply is exact, and for a translated polygon the centring subtraction
+  is exact by Sterbenz. Measured after decision 20 landed, the current scale leaves ≤3.2e-14 relative
+  movement at native. **One solve can absorb that; a three-level recursion crosses the seam at every
+  level and compounds it, against a tiling identity asserted per level.** The upstream port had no
+  reason to want this and we do. Two lines, but it moves the pass/fail boundary and needs the whole
+  envelope re-measured, so it is its own task.
+- **`inEdges` ordering is unstable under any arithmetic perturbation** — 21 of 37 fixtures reorder at
+  native placement with identical sets. Anything downstream depending on that order is depending on a
+  tie-break. Sort where the list is built, or establish that nothing reads it.
+- **A lone NaN vertex is invisible to the bounding-box scan** and travels into the solve intact, because
+  every comparison against NaN is false. Decision 24 rejects non-finite positions at `findOrAddNode`,
+  which is downstream of this; the entry points do not validate their input polygon at all.
+- **`collision-helpers.ts:213` treats a `maxOffset` of exactly 0 as absent**, via a truthy test rather
+  than an `undefined` check. Latent, pre-existing, and a real difference from the ported version.
+- **Post-solve debug recomputation still runs in caller space.** `generateCollisionSweep` and
+  `useCollisionSweep` take a denormalised context and regenerate collisions against the absolute
+  epsilon, so the dashboard's sweep overlay keeps the magnitude sensitivity the solve itself no longer
+  has. The contact sheet of decision 37 will render through this path.
+- **Assert and log text now reports unit-space coordinates**, because that is where the solver stands.
+  A debuggability cost the upstream port recorded and also did not fix; the transform is not threaded
+  into the context.
 - **The merge cost functions, stated precisely.** Decision 31 fixes the objectives as an axis, which
   dissolves the question of which one is right, but each still needs defining before it can be
   implemented: whether the per-group cost is absolute, squared or relative deviation from target, and
