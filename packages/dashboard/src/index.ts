@@ -19,8 +19,8 @@ export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
 export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
-export { skeletonToScene, turtleToScene, muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour } from './scene/adapters';
-export type { ParcelsSceneTerrain, ParcelsToSceneParams } from './scene/adapters';
+export { skeletonToScene, turtleToScene, muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour, recursiveTreeToScene, styleForLevel, RECURSIVE_LEVEL_STYLES } from './scene/adapters';
+export type { ParcelsSceneTerrain, ParcelsToSceneParams, RecursiveLevelStyle } from './scene/adapters';
 
 // Components
 /** @deprecated Use SceneCanvas + skeletonToScene + SkeletonInteractionOverlay instead. Will be removed in a future release. */
@@ -82,15 +82,11 @@ export type {
 export {
     default as RecursiveSubdivisionCanvas,
     fitView,
-    recursiveTreeToScene,
-    styleForLevel,
-    RECURSIVE_LEVEL_STYLES,
 } from './components/RecursiveSubdivisionCanvas';
 export type {
     Bounds,
     CanvasSize,
     CanvasView,
-    RecursiveLevelStyle,
     RecursiveSubdivisionCanvasProps,
 } from './components/RecursiveSubdivisionCanvas';
 export { default as RecursiveControlsPanel } from './components/RecursiveControlsPanel';

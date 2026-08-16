@@ -3,6 +3,7 @@ import {solveSkeleton} from './algorithm-termination-cases';
 import {computeMaxOffset} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
 import type {Strip, StripOptions} from './strip-decomposition';
+import {ensureClockwise} from './polygon-decomposition';
 import {signedArea} from '../random-polygon/geometry-helpers';
 
 /**
@@ -132,11 +133,6 @@ export function flattenRecursiveTree(node: RecursiveNode): RecursiveNode[] {
     return [node, ...node.children.flatMap(flattenRecursiveTree)];
 }
 
-/** The polygon as the solver will see it: clockwise, per this codebase's winding convention. */
-function toClockwise(boundary: Vector2[]): Vector2[] {
-    return signedArea(boundary) > 0 ? [...boundary].reverse() : [...boundary];
-}
-
 function describe(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
@@ -147,24 +143,31 @@ export type SegmentOutcome =
     | {segments?: undefined; failure: string};
 
 /**
- * Divides one region into segments at full depth.
+ * Decision 5's degeneracy test: why this region has no skeleton, or `undefined` when it has one.
  *
- * Decision 5's degeneracy test comes first because `solveSkeleton` throws below three vertices and a
- * zero-area polygon has no skeleton to speak of; both are reported the same way as a solve that
- * merely failed, because to the caller they are the same event — this cell was not subdivided.
+ * `solveSkeleton` throws below three vertices and a zero-area polygon has no skeleton to speak of;
+ * both are reported the same way as a solve that merely failed, because to the caller they are the
+ * same event — this cell was not subdivided.
  */
-function divideIntoSegments(boundary: Vector2[], sameLogicalStreet: SameLogicalStreetPredicate): SegmentOutcome {
+function degenerateRegionFailure(boundary: Vector2[]): string | undefined {
     if (boundary.length < 3) {
-        return {failure: `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`};
+        return `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`;
     }
     const area = Math.abs(signedArea(boundary));
     if (area < DEGENERATE_AREA_EPSILON) {
-        return {
-            failure: `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
-                + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`,
-        };
+        return `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
+            + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`;
     }
+    return undefined;
+}
 
+/**
+ * Divides one non-degenerate region into segments at full depth.
+ *
+ * The caller has already screened for degeneracy, so everything reported here is a solve that was
+ * attempted and did not finish.
+ */
+function divideIntoSegments(boundary: Vector2[], sameLogicalStreet: SameLogicalStreetPredicate): SegmentOutcome {
     try {
         const result = solveSkeleton(boundary);
         if (!result.complete) {
@@ -183,7 +186,17 @@ function subdivideNode(
     levels: number,
     sameLogicalStreet: SameLogicalStreetPredicate,
 ): RecursiveNode {
-    const clockwise = toClockwise(boundary);
+    // Screened before the winding is touched: a region with no area has no winding to normalise, so
+    // it is recorded exactly as it was handed in rather than arbitrarily reversed on the way out.
+    const degeneracy = degenerateRegionFailure(boundary);
+    if (degeneracy !== undefined) {
+        return {level, boundary, segments: [], children: [], failure: degeneracy};
+    }
+
+    // `ensureClockwise` from `./polygon-decomposition` is this package's one winding-normalisation
+    // formula, rather than a third copy of it. A `Strip.boundary` already arrives clockwise, so this
+    // only does real work on the root's raw input.
+    const clockwise = ensureClockwise(boundary);
     const outcome = divideIntoSegments(clockwise, sameLogicalStreet);
     if (outcome.segments === undefined) {
         return {level, boundary: clockwise, segments: [], children: [], failure: outcome.failure};

@@ -7,7 +7,7 @@ import { flattenRecursiveTree, MAX_RECURSION_LEVELS } from '@proc-geo/core';
 import type { RecursiveNode } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import CollapseChevron from './CollapseChevron';
-import { styleForLevel } from './RecursiveSubdivisionCanvas';
+import { styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
 import {
     MAX_MERGE_GROUP_SIZE,
     summariseRecursiveTree,

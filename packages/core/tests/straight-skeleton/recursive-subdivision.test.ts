@@ -178,6 +178,22 @@ describe('recursive segment subdivision', () => {
             });
         });
 
+        it('records the region it solved at the package winding convention, whichever way it was handed in', () => {
+            const clockwise = fixtureVertices('Awkward Heptagon');
+            const counterClockwise = [...clockwise].reverse();
+            const options = {levels: 1, mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE};
+
+            const fromClockwise = subdivideRecursively(clockwise, options);
+            const fromCounterClockwise = subdivideRecursively(counterClockwise, options);
+
+            // `isClockwise` is `signedArea < 0`, so both roots must land on the negative branch.
+            expect(signedArea(fromClockwise.boundary)).toBeLessThan(0);
+            expect(signedArea(fromCounterClockwise.boundary)).toBeLessThan(0);
+            // Reversed, never re-derived: the same vertices in the opposite order.
+            expect(fromCounterClockwise.boundary).toEqual(clockwise);
+            expect(fromClockwise.boundary).toEqual(clockwise);
+        });
+
         it('flattens the tree root first, then each subtree in child order', () => {
             const root = subdivideRecursively(fixtureVertices('Awkward Heptagon'), {
                 levels: 2,
