@@ -111,9 +111,10 @@ cases have no coincidence handling at all and answer a well-defined terminal sta
    785 terminals: agreement within 1e-15, worst case 3.3e-15.
 
 9. **The inward normal is taken from the convention already established and working in
-   [strip-decomposition.ts](../../packages/core/src/straight-skeleton/strip-decomposition.ts), where
+   [parcel-slicing.ts](../../packages/core/src/straight-skeleton/parcel-slicing.ts), where
    `FaceEdge.normal` is documented as the inward unit normal such that `(p - start) · normal` is the
-   skeleton offset within that edge's face.** Do not re-derive the rotation from the winding order.
+   skeleton offset within that edge's face.** *(Corrected: an earlier revision of this decision cited
+   `strip-decomposition.ts`, which is where `Strip` lives, not `FaceEdge`.)* Do not re-derive the rotation from the winding order.
    That derivation is the sign-sensitive step in this whole document, `rotateCw90` and `rotateWs90`
    both exist and differ only in sign, and an outward normal produces a negative `t` that is
    internally consistent and wrong. **Verify the cited convention before reusing it**, then reuse it
@@ -185,9 +186,10 @@ cases have no coincidence handling at all and answer a well-defined terminal sta
 
 18. **The dumbbell's degeneracy is NOT redundant vertices and must not be described as such.** Every
     one of its twelve turns is 90°, so nothing is collinear at a vertex. Its degeneracy is that
-    *non-adjacent* edges share a supporting line — two on `y=10`, two on `y=0`, two on `x=10` — making
-    wall-to-wall distances exactly equal so the pinches land in one layer. No vertex-local test can
-    see it. Record this at the fixture, because the obvious wrong reading is one line away.
+    *non-adjacent* edges share a supporting line — two on `y=10`, two on `y=0`, two on `x=10` and two
+    on `x=20` — making wall-to-wall distances exactly equal so the pinches land in one layer. No
+    vertex-local test can see it. Record this at the fixture, because the obvious wrong reading is one
+    line away. *(Corrected: an earlier revision counted three shared lines; there are four.)*
 
 ### Verification
 

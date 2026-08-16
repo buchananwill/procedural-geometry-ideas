@@ -436,6 +436,17 @@ fixed in the port; 22–25 are open in both.
 
 ## Open
 
+- **Backlog item 4 — terminal many-way events cannot be projected — has moved from PARKED to ON THE
+  CRITICAL PATH for this arc, and it got worse.** `computeOffsetRings` is how the residue stream of
+  decision 10 obtains its region, and recursion produces symmetric machine-generated geometry, which
+  produces many-way events by construction — precisely what the projection cannot close. Measured when
+  the coincidence clustering landed: `unclosedChains` rose on four of seven near-regular fixtures
+  (ellipse-16 1→4, ellipse-32 4→5, peanut-32 0→4, rosette5-40 6→22), attributed by isolation to the
+  clustering alone. **That rise is correct behaviour**: connected components fuse events the
+  first-match partition wrongly split, so there are genuinely more many-way arrivals and the known
+  downstream limit is exercised at more of them. Every fixture still solves completely. **Droste
+  recursion cannot be built on a projection that drops rings at exactly the events symmetry
+  generates**, so this now precedes decision 10's residue stream rather than sitting behind it.
 - **A POWER-OF-TWO normalisation scale would make the round trip bit-exact, and recursion is what
   makes that worth having.** Scaling by `2 ** Math.round(Math.log2(longestSide))` instead of by
   `longestSide` keeps the polygon within √2 of unit extent while making normalise/denormalise exactly
