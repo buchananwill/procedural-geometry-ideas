@@ -307,6 +307,21 @@ export type {
     CornerAssignment,
 } from './straight-skeleton/strip-decomposition';
 
+// ── Recursive segment subdivision ────────────────────────────────────────────
+export {
+    MAX_RECURSION_LEVELS,
+    MIN_RECURSION_LEVELS,
+    clampLevels,
+    clampMergeGroupSize,
+    makeMergeGroupPredicate,
+    subdivideRecursively,
+} from './straight-skeleton/recursive-subdivision';
+export type {
+    RecursiveNode,
+    RecursiveOptions,
+    SameLogicalStreetPredicate,
+} from './straight-skeleton/recursive-subdivision';
+
 // ── Parcel generation: slicing strips into parcels ───────────────────────────
 export { sliceStrip, sliceStrips } from './straight-skeleton/parcel-slicing';
 export type { Parcel, SliceOptions } from './straight-skeleton/parcel-slicing';
