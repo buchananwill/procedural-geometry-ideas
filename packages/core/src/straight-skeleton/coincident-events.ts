@@ -28,25 +28,179 @@ export interface CoincidentMerge {
  * Events at the same offset but different points are genuinely independent and stay in
  * separate groups; events at the same point are one vertex event however many pairs
  * reported it.
+ *
+ * CONNECTED COMPONENTS, NOT FIRST MATCH. This used to join each event to the first group
+ * already within `vectorsAreEqual` of it. Proximity under a fixed absolute tolerance is not
+ * transitive, so that partition depended on the order the events arrived in: instrumentation
+ * of a 48-gon fan measured 1424 events over 48 distinct edge ids reaching this function intact
+ * and leaving it as *four* groups, where the identical relation at the identical tolerance,
+ * replayed as connected components, gives one at every placement measured.
+ *
+ * The predicate and its tolerance do not move — only the rule for turning that relation into a
+ * partition. Changing both at once would make any fixture regression unattributable.
+ *
+ * SINGLE-LINKAGE CHAINING IS AN ACCEPTED COST. Transitive closure under a fixed tolerance means
+ * a run of events each within tolerance of the next becomes one group however far its extremes
+ * lie apart. On this corpus that is the wanted behaviour — it is what reunites a fan whose
+ * extremes are measured 1.95e-08 apart. The alternative not taken is gap-based partitioning,
+ * which bounds a group's diameter at the price of a second threshold nothing has measured.
  */
 export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMerge[] {
-    const merges: CoincidentMerge[] = [];
+    const merges = coincidentComponents(events).map(component => ({
+        position: medoidPosition(component.map(index => events[index].position)),
+        edgeIds: distinctEdgeIds(component.map(index => events[index])),
+    }));
 
-    for (const event of events) {
-        let merge = merges.find(candidate => vectorsAreEqual(candidate.position, event.position));
-        if (merge === undefined) {
-            merge = {position: event.position, edgeIds: []};
-            merges.push(merge);
+    assertMergePositionsAreDistinct(merges);
+
+    return merges;
+}
+
+/**
+ * No two merges of one layer may carry positions comparing equal under `vectorsAreEqual`.
+ *
+ * First-match clustering gave this for free by construction. Components plus a member
+ * representative restore it by an argument about the partition — distinct components contain no
+ * pair within tolerance of each other, and a medoid is a member — so it is checked rather than
+ * trusted. `CoincidentMerge.position` feeds `terminateEdgesAtPoint` and thence `findOrAddNode`,
+ * which matches existing nodes by *the same* tolerance this module clusters by, so two merges
+ * whose positions compare equal there would collapse onto one graph node and fuse two
+ * independent vertex events into one junction. That skeleton is causally consistent, so the
+ * causality, clearance and direction audits all pass it: the failure mode is silent, which is
+ * why it is asserted here rather than left to a downstream check.
+ *
+ * Internal to the solver — deliberately not re-exported from the package index. It is exported
+ * from this module only so the suite can convict it against a centroid representative, the
+ * mutation it exists to catch.
+ */
+export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void {
+    for (let i = 0; i < merges.length; i++) {
+        for (let j = i + 1; j < merges.length; j++) {
+            if (vectorsAreEqual(merges[i].position, merges[j].position)) {
+                throw new Error(
+                    `Coincidence clustering produced two merges at the same position: `
+                    + `[${merges[i].edgeIds.join(', ')}] and [${merges[j].edgeIds.join(', ')}] `
+                    + `both at (${merges[i].position.x}, ${merges[i].position.y}).`,
+                );
+            }
         }
+    }
+}
 
-        for (const edgeId of event.collidingEdges) {
-            if (!merge.edgeIds.includes(edgeId)) {
-                merge.edgeIds.push(edgeId);
+/**
+ * The events of one layer partitioned into connected components under `vectorsAreEqual`, as
+ * lists of indices into `events`.
+ *
+ * Components appear in the order their first member arrived, and members within a component in
+ * arrival order, so `edgeIds` keeps the first-seen ordering the type documents.
+ */
+function coincidentComponents(events: CollisionEvent[]): number[][] {
+    const parent = events.map((_, index) => index);
+
+    const find = (index: number): number => {
+        let root = index;
+        while (parent[root] !== root) {
+            root = parent[root];
+        }
+        for (let step = index; parent[step] !== root; ) {
+            const next = parent[step];
+            parent[step] = root;
+            step = next;
+        }
+        return root;
+    };
+
+    for (let i = 0; i < events.length; i++) {
+        for (let j = i + 1; j < events.length; j++) {
+            if (find(i) === find(j)) {
+                continue;
+            }
+            if (vectorsAreEqual(events[i].position, events[j].position)) {
+                parent[find(j)] = find(i);
             }
         }
     }
 
-    return merges;
+    const componentByRoot = new Map<number, number[]>();
+    for (let index = 0; index < events.length; index++) {
+        const root = find(index);
+        const component = componentByRoot.get(root);
+        if (component === undefined) {
+            componentByRoot.set(root, [index]);
+        } else {
+            component.push(index);
+        }
+    }
+
+    return [...componentByRoot.values()];
+}
+
+/**
+ * The member position nearest the component's centroid, exact ties broken lexicographically by
+ * position — x first, then y.
+ *
+ * THE CENTROID IS THE YARDSTICK, NEVER THE ANSWER. Nothing bounds a centroid's distance from any
+ * member: a component chained into a ring of radius R about a point P has centroid exactly P,
+ * and a separate single-event component at P is genuinely distinct from it at every member yet
+ * collapses to the same place. Under single-linkage chaining the centroid's drift from its own
+ * extremes grows as `(k - 1) * epsilon / 2`. The representative must therefore be a member.
+ *
+ * TIES BREAK ON POSITION, NOT ARRIVAL INDEX. For a two-member component the centroid is
+ * bit-identical under either arrival order — IEEE-754 addition commutes, and only associativity
+ * fails, which needs three terms — so both distances are computed identically and the selection
+ * can differ only on an exact tie. An index tie-break would decide that case by arrival order and
+ * be the last remaining source of order dependence; a positional one makes the representative an
+ * exact function of the member set. Exact ties are characteristic of the symmetric input this
+ * clustering exists for, not a curiosity.
+ */
+function medoidPosition(positions: Vector2[]): Vector2 {
+    const centroid = centroidOf(positions);
+
+    let best = positions[0];
+    let bestDistance = squaredDistance(best, centroid);
+
+    for (const position of positions.slice(1)) {
+        const distance = squaredDistance(position, centroid);
+        if (distance < bestDistance || (distance === bestDistance && precedesLexicographically(position, best))) {
+            best = position;
+            bestDistance = distance;
+        }
+    }
+
+    return best;
+}
+
+function centroidOf(positions: Vector2[]): Vector2 {
+    let x = 0;
+    let y = 0;
+    for (const position of positions) {
+        x += position.x;
+        y += position.y;
+    }
+    return {x: x / positions.length, y: y / positions.length};
+}
+
+function squaredDistance(from: Vector2, to: Vector2): number {
+    const dx = from.x - to.x;
+    const dy = from.y - to.y;
+    return dx * dx + dy * dy;
+}
+
+function precedesLexicographically(candidate: Vector2, incumbent: Vector2): boolean {
+    return candidate.x < incumbent.x || (candidate.x === incumbent.x && candidate.y < incumbent.y);
+}
+
+/** Every edge id reported by these events, deduplicated, in first-seen order. */
+function distinctEdgeIds(events: CollisionEvent[]): number[] {
+    const edgeIds: number[] = [];
+    for (const event of events) {
+        for (const edgeId of event.collidingEdges) {
+            if (!edgeIds.includes(edgeId)) {
+                edgeIds.push(edgeId);
+            }
+        }
+    }
+    return edgeIds;
 }
 
 /**
