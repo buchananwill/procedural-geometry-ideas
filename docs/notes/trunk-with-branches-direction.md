@@ -73,6 +73,14 @@ extraction *parameterisable* rather than canonical.
 
 ## Recursion — and the caveat that gates it
 
+> **SUPERSEDED 2026-08-16 by [recursive-skeleton-subdivision.md](./recursive-skeleton-subdivision.md).**
+> This section describes recursion over *parcels*; that reading is withdrawn. Recursion is over the
+> raw skeleton segmentation after an area-stabilising merge pass, and the residue and the segments
+> are two child streams of one partition rather than competing schemes. **The gate below still
+> stands and is restated there** — with the addition that canonicalising input at every level
+> retires backlog item 3 outright, which shrinks the `0e2f233` budget this paragraph reserves.
+> Everything else in this note is current.
+
 The recursive form: first pass divides the region into 4–8 large parcels (merging along the
 perimeter as usual); each parcel is then re-solved and re-sliced, recursing to the desired leaf
 size. Two levels are expected to suffice. Each level chooses its spine topology — **through-road**
