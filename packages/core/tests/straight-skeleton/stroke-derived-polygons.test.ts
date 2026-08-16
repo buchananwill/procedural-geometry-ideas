@@ -438,8 +438,22 @@ describe('stroke-derived polygons', () => {
             // Measured before the coincident-event fix: k = 2, 4, 5, 6, 7, 8, 9, 10 failed. After
             // it: 4, 6, 7, 8, 9, 10. Unit-extent normalisation then recovered k = 6 as well —
             // incidentally, not by addressing this defect, which is a whole strip closing in one
-            // offset layer and not a tolerance-against-magnitude problem. Now:
-            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 7, 8, 9, 10]);
+            // offset layer and not a tolerance-against-magnitude problem.
+            //
+            // k = 6 HAS SINCE GONE BACK, and by the same incidental route it arrived by. Task 236
+            // made the normalisation scale the power of two NEAREST the longest bounding-box side
+            // rather than the side itself, so that normalise/denormalise round-trips on the bit.
+            // This fixture spans exactly 300 units, so the old scale was exactly its span — and
+            // dividing by exactly the span is what put a uniformly subdivided edge on exact
+            // fractions in unit space, which is what let k = 6's coincident group land as one
+            // group. No power of two divides 300, so it no longer does. Confirmed to be the scale
+            // and not the tolerance band: taking the exponent by Math.ceil (normalised extent <= 1,
+            // epsilon relatively LOOSER) and by Math.floor both reproduce this exact list.
+            //
+            // So k = 6 is back where the coincident-event fix left it, and the underlying defect —
+            // a whole strip closing in one offset layer — is untouched and still the thing to fix.
+            // Now:
+            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 6, 7, 8, 9, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {

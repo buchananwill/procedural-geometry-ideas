@@ -31,9 +31,33 @@ import {
  * THE MEASURE IS THE LONGEST BOUNDING-BOX SIDE, NOT THE DIAGONAL. The two differ for elongated
  * regions, which is the common case for a lane-bounded block, and the longest side is the quantity
  * that actually bounds every coordinate the solver will hold: after the transform no vertex is
- * further than 0.5 from the centre on either axis, so the largest magnitude in the solve is known
- * and bounded regardless of aspect ratio. The diagonal would leave a long thin polygon smaller than
- * unit extent on both axes and a square one larger, for no gain.
+ * further than `1/sqrt(2)` from the centre on either axis (see the next paragraph for where the
+ * sqrt(2) comes from), so the largest magnitude in the solve is known and bounded regardless of
+ * aspect ratio. The diagonal would leave a long thin polygon smaller than unit extent on both axes
+ * and a square one larger, for no gain.
+ *
+ * THE SCALE IS THE NEAREST POWER OF TWO TO THAT SIDE, NOT THE SIDE ITSELF, AND THAT IS WHAT MAKES
+ * THE ROUND TRIP EXACT. The factor is `2 ** Math.round(Math.log2(longestSide))`, with `toUnitScale`
+ * and `fromUnitScale` computed from that exponent directly — `2 ** -e` and `2 ** e` — so the two are
+ * EXACT reciprocals rather than one being derived by dividing into the other. Multiplying or
+ * dividing a finite double by a power of two adjusts the exponent field and leaves the mantissa
+ * untouched, so it is exact in IEEE-754 provided the result neither overflows nor falls subnormal.
+ * Scaling by an arbitrary `1 / longestSide` rounds the mantissa twice — once going in, once coming
+ * out — and the two roundings do not cancel.
+ *
+ * The cost is that the normalised extent is no longer exactly 1. Writing `longestSide = 2 ** (e + d)`
+ * with `d` in `[-0.5, 0.5]` by construction of `Math.round`, the normalised extent is `2 ** d` and so
+ * lands in `[1/sqrt(2), sqrt(2)]`. That bound is what preserves every tolerance argument above: the
+ * solver still never sees a magnitude it was not designed for, which is the entire justification
+ * this transform rests on. A 300-unit fixture scales by 256, not by 300, and comes out 1.171875
+ * across; a vertex 150 from the centre becomes 0.5859375 — exact, terminating in binary — and
+ * multiplying by 256 returns 150 bit-for-bit.
+ *
+ * THE EXPONENT IS CLAMPED SO THAT BOTH DIRECTIONS STAY NORMAL. `2 ** -e` for a large positive `e`
+ * falls subnormal, and multiplying by a subnormal loses mantissa bits — which would silently destroy
+ * the exactness this whole scheme exists for. Outside the range where both `2 ** e` and `2 ** -e`
+ * are normal doubles the transform falls back to the identity, flagged exactly as a degenerate
+ * extent is.
  *
  * APPLIED EXACTLY ONCE, AT THE BOUNDARY, AND NEVER RE-APPLIED MID-SOLVE. That is what preserves the
  * one bit-exactness requirement this solver carries. `offset-projection.ts` needs a bisector's birth
@@ -44,10 +68,23 @@ import {
  * WAY THROUGH a solve would not be invisible, because normalise and denormalise each round, so
  * nothing below may be called on a graph the solver is still working on.
  *
- * ROUND-TRIPPING IS NOT BIT-EXACT. `x / L * L` is not `x` for a general `L`, so denormalised output
- * differs from pre-normalisation output in the last few ulps. The skeleton suites are invariant
- * based at a `1e-6` tolerance and carry no bit-exact goldens, so nothing is pinned to the old bits —
- * but any FUTURE golden must be recorded on denormalised output.
+ * ROUND-TRIPPING IS EXACT IN THE SCALING, AND ONLY CONDITIONALLY EXACT IN THE CENTRING. This is
+ * stated at the strength it actually holds, no higher. The scaling half is exact unconditionally,
+ * because the factor is a power of two and both directions are guaranteed normal. The centring half
+ * is a subtraction, and by the Sterbenz lemma `p - c` is exact whenever `c / 2 <= p <= 2c` — which
+ * holds comfortably for a polygon translated away from the origin, where a 300-unit span sitting at
+ * 1e8 puts every vertex within a whisker of the centre. NEAR THE ORIGIN, where the span is
+ * comparable to the coordinates themselves, the subtraction can round; the round trip is then exact
+ * in the scaling but not in the centring, and lands within an ulp or so rather than on the bit.
+ * `normalisation.test.ts` records which regimes achieve bit-equality and pins the achieved error for
+ * those that do not.
+ *
+ * This matters because the recursive subdivision arc crosses this seam once per level per
+ * sub-region and asserts a tiling identity at every level against that level's own input, so a
+ * round-trip error invisible in a single solve is injected at every level boundary and compounds
+ * through the tree. The skeleton suites are invariant based at a `1e-6` tolerance and carry no
+ * bit-exact goldens, so nothing is pinned to the old bits — but any FUTURE golden must be recorded
+ * on denormalised output.
  *
  * WHAT SCALES AND WHAT DOES NOT. This is the whole risk of the change, so every length-dimensioned
  * quantity the solver stores is enumerated here rather than left to be rediscovered:
@@ -93,16 +130,29 @@ import {
 export interface SkeletonNormalisation {
     /** The input's bounding-box centre, in the CALLER'S coordinates. */
     centre: Vector2;
-    /** Multiply a caller-space length by this to reach unit space. */
+    /**
+     * Multiply a caller-space length by this to reach unit space: `2 ** -exponent`, a NEGATIVE power
+     * of two for a polygon larger than a unit.
+     */
     toUnitScale: number;
-    /** Multiply a unit-space length by this to reach caller space: the input's longest bounding-box side. */
+    /**
+     * Multiply a unit-space length by this to reach caller space: `2 ** exponent`, the power of two
+     * NEAREST the input's longest bounding-box side. Exactly the reciprocal of {@link toUnitScale},
+     * bit for bit, which is what makes the round trip exact.
+     */
     fromUnitScale: number;
     /**
-     * Set when the input's longest bounding-box side was not a positive NORMAL double — zero,
-     * subnormal, infinite, or NaN — so no usable scale could be derived from it. Both scales are
-     * then 1 and ONLY the centring translation is applied. At that extent there is no shape for a
-     * scale factor to describe, and the reciprocal of a subnormal overflows to infinity, which would
-     * take the whole solve with it.
+     * Set when no usable EXACT scale could be derived from the input's longest bounding-box side.
+     * Two causes, flagged identically because the caller's recourse is the same for both:
+     *
+     *   - The side was not a positive NORMAL double — zero, subnormal, infinite, or NaN. At that
+     *     extent there is no shape for a scale factor to describe, and the reciprocal of a subnormal
+     *     overflows to infinity, which would take the whole solve with it.
+     *   - The side's exponent fell outside the range where BOTH `2 ** exponent` and `2 ** -exponent`
+     *     are normal doubles. A subnormal scale in either direction loses mantissa bits on every
+     *     multiply, silently, which is precisely the failure this transform exists to prevent.
+     *
+     * Both scales are then 1 and ONLY the centring translation is applied.
      */
     degenerateExtent: boolean;
 }
@@ -116,6 +166,28 @@ export interface SkeletonNormalisation {
  * vertex into `NaN`.
  */
 export const SMALLEST_NORMAL_DOUBLE = 2.2250738585072014e-308;
+
+/**
+ * The lowest scale exponent for which BOTH `2 ** exponent` and `2 ** -exponent` are normal doubles.
+ *
+ * `2 ** -1022` is the smallest normal double and `2 ** 1022` is comfortably finite, so -1022 is the
+ * floor. One step lower and `2 ** exponent` is subnormal.
+ *
+ * NO POLYGON CAN ACTUALLY TRIP THIS ONE. The degeneracy guard has already rejected every side below
+ * `SMALLEST_NORMAL_DOUBLE`, whose `Math.log2` is exactly -1022, and `Math.round` cannot take that
+ * lower. It is checked for symmetry with the ceiling, which IS reachable.
+ */
+const MIN_EXACT_SCALE_EXPONENT = -1022;
+
+/**
+ * The highest scale exponent for which BOTH `2 ** exponent` and `2 ** -exponent` are normal doubles.
+ *
+ * NOT 1023, even though `2 ** 1023` is a perfectly good finite double: its reciprocal `2 ** -1023`
+ * is SUBNORMAL, and multiplying by a subnormal drops mantissa bits without a word of complaint.
+ * That is the one new way this transform can fail, and it fails silently, so the bound is set by
+ * whichever direction runs out first.
+ */
+const MAX_EXACT_SCALE_EXPONENT = 1022;
 
 /** The transform that does nothing, for a polygon that offers no usable extent. */
 function identityNormalisation(centre: Vector2): SkeletonNormalisation {
@@ -132,6 +204,11 @@ function identityNormalisation(centre: Vector2): SkeletonNormalisation {
  *
  * An EMPTY vertex list is degenerate with a zero centre. A polygon with extent on only ONE axis is
  * NOT degenerate, because the longer side is what the scale is taken from.
+ *
+ * THE SCALE IS THE NEAREST POWER OF TWO TO THAT SIDE, so the two scales are exact reciprocals and
+ * the round trip is bit-exact in its scaling. The normalised extent is therefore in
+ * `[1/sqrt(2), sqrt(2)]` rather than exactly 1. An exponent whose reciprocal power would be
+ * subnormal is rejected the same way a degenerate extent is. See this module's header.
  */
 export function makeSkeletonNormalisation(vertices: readonly Vector2[]): SkeletonNormalisation {
     if (vertices.length === 0) {
@@ -156,16 +233,28 @@ export function makeSkeletonNormalisation(vertices: readonly Vector2[]): Skeleto
 
     const longestSide = Math.max(maxX - minX, maxY - minY);
 
-    // NaN fails the `>=`; Infinity fails `isFinite`. Neither needs a special case of its own.
+    // NaN fails the `>=`; Infinity fails `isFinite`. Neither needs a special case of its own. This
+    // guard runs FIRST, so `Math.log2` below can never see a zero, a subnormal or a NaN.
     const scaleIsUsable = Number.isFinite(longestSide) && longestSide >= SMALLEST_NORMAL_DOUBLE;
     if (!scaleIsUsable) {
         return identityNormalisation(centre);
     }
 
+    // `Math.round` ties toward +Infinity. That is deterministic and reproducible, and at an exact
+    // half-way point either neighbouring power of two satisfies the [1/sqrt(2), sqrt(2)] bound, so
+    // the tie is not worked around.
+    const exponent = Math.round(Math.log2(longestSide));
+    if (exponent < MIN_EXACT_SCALE_EXPONENT || exponent > MAX_EXACT_SCALE_EXPONENT) {
+        return identityNormalisation(centre);
+    }
+
+    // COMPUTED FROM THE EXPONENT IN BOTH DIRECTIONS, never one from the other: `1 / (2 ** exponent)`
+    // would be exact here too, but deriving each from the exponent is what makes the reciprocity a
+    // property of the construction rather than a fact about this particular divisor.
     return {
         centre,
-        toUnitScale: 1 / longestSide,
-        fromUnitScale: longestSide,
+        toUnitScale: 2 ** -exponent,
+        fromUnitScale: 2 ** exponent,
         degenerateExtent: false,
     };
 }

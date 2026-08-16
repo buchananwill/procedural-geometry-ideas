@@ -9,6 +9,7 @@ import {
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
+import {place} from './placement-helpers';
 
 /*
  * ============================================================================
@@ -65,6 +66,20 @@ import {
  *     shoelace      37     37     37     37     37     37     27     18
  *     normalised    37     37     37     37     37     37     37     37
  *
+ * RE-MEASURED IN FULL when the normalisation scale became the nearest POWER OF TWO to the longest
+ * side rather than the side itself (see `normalisation.ts`). That change moves the floating-point
+ * pass/fail boundary — the normalised extent is now in [1/sqrt(2), sqrt(2)] instead of exactly 1 —
+ * so the whole envelope was reproduced rather than assumed. NOT ONE CELL MOVED:
+ *
+ *     translate      0    1e3    1e4    1e5    1e6    1e7    1e8    1e9   1e10   1e11
+ *     power-of-two  37     37     37     37     37     37     37     37     37     37
+ *
+ *     scale       1e-6   1e-4   1e-2      1    1e2    1e4    1e6    1e8
+ *     power-of-two  37     37     37     37     37     37     37     37
+ *
+ *     translate      0    1e4    1e5    1e6    1e7    1e8      (at scale 50)
+ *     power-of-two  37     37     37     37     37     37
+ *
  * Realistic world-space: scale 50 — every fixture becomes 15 000 to 40 000 units across,
  * i.e. a 150-400 m region in centimetres — then translated. Was clean throughout:
  *
@@ -87,7 +102,11 @@ import {
  *    translated to 1e8 used to report a maximum offset of 308.9784380383704 where its native
  *    value is 126.63015964243034, and `computeOffsetRings` then returned nothing past a quarter
  *    of the way in. It now reports 126.630159636494 — the native value to a relative 5e-11 —
- *    and its rings project all the way in. The cause was `FLOATING_POINT_EPSILON`: an absolute
+ *    and its rings project all the way in. Under the power-of-two scale it reports the SAME
+ *    126.630159636494 bit for bit, while the native figure moved from 126.63015964243039 to
+ *    126.63015964243037, so the gap between them closed from 5.936385605309624e-9 to
+ *    5.936371394454909e-9. The canary moved TOWARDS native, which is the direction that change
+ *    exists to produce. The cause was `FLOATING_POINT_EPSILON`: an absolute
  *    `1e-8` compared against raw coordinates is a relative tolerance that TIGHTENS as the
  *    polygon moves away from the origin, so the degeneracy test the solver depends on became
  *    unreachably strict. `solveSkeleton` now normalises the polygon to unit extent before
@@ -119,10 +138,6 @@ function fixture(name: string): Vector2[] {
         throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
     }
     return found.vertices;
-}
-
-function place(vertices: Vector2[], scale: number, translate: number): Vector2[] {
-    return vertices.map(vertex => ({x: vertex.x * scale + translate, y: vertex.y * scale + translate}));
 }
 
 /**
@@ -312,6 +327,23 @@ describe('large coordinates', () => {
             expect(far.diagnostics).toEqual([]);
             expect(computeMaxOffset(far)).toBeCloseTo(126.630159, 5);
             expect(Math.abs(computeMaxOffset(far) - computeMaxOffset(atOrigin))).toBeLessThan(1e-6);
+        });
+
+        it('closes the gap to native rather than widening it, under the power-of-two scale', () => {
+            // THE NAMED REGRESSION CANARY, PINNED AT THE MEASURED FIGURE. The point of scaling by an
+            // exact power of two is to remove round-trip error, so this gap may shrink but must not
+            // grow: a canary drifting AWAY from native would mean the exact scale had been
+            // implemented as an approximation somewhere. Measured before the change at
+            // 5.936385605309624e-9 (native 126.63015964243039), and after it at
+            // 5.936371394454909e-9 (native 126.63015964243037, far 126.630159636494 unmoved).
+            const gapBeforeThePowerOfTwoScale = 5.936385605309624e-9;
+            const gapUnderThePowerOfTwoScale = 5.936371394454909e-9;
+
+            const atOrigin = computeMaxOffset(solveSkeleton(fixture('Broken Polygon')));
+            const far = computeMaxOffset(solveSkeleton(place(fixture('Broken Polygon'), 1, 1e8)));
+
+            expect(Math.abs(far - atOrigin)).toBeLessThanOrEqual(gapUnderThePowerOfTwoScale);
+            expect(Math.abs(far - atOrigin)).toBeLessThan(gapBeforeThePowerOfTwoScale);
         });
 
         it('offsets that skeleton all the way in, at every depth', () => {
