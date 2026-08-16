@@ -1,5 +1,6 @@
 import type {StraightSkeletonSolverContext, Vector2} from '../../src/straight-skeleton/types';
 import {
+    handleInteriorEdgePair,
     handleInteriorEdgeTriangle,
     runAlgorithmV5,
 } from '../../src/straight-skeleton/algorithm-termination-cases';
@@ -163,5 +164,89 @@ describe('handleInteriorEdgeTriangle: the guards, and what they fall through to'
         for (const edgeId of threeOfFour) {
             expect(context.getEdgeWithId(edgeId).target).toBeDefined();
         }
+    });
+});
+
+/**
+ * Two bisectors leaving one point in different directions, pointing at no existing node.
+ *
+ * `intersectRays` classifies coincident sources before every other test, and the two-edge base case
+ * already computes that verdict for its head-on check — it was then discarded as "no collision" and
+ * the case threw two lines later.
+ */
+function pairFromOneSource(directions: [Vector2, Vector2]): InitialisedContext {
+    const initialised = initialisedContext(SQUARE);
+    const {context, interiorEdgeIds} = initialised;
+    const shared = context.findOrAddNode({x: 1, y: 1});
+    const pair = interiorEdgeIds.slice(0, 2);
+
+    pair.forEach((edgeId, index) => {
+        const edge = context.getEdgeWithId(edgeId);
+        edge.source = shared.id;
+        edge.basisVector = directions[index];
+    });
+
+    return {context, interiorEdgeIds: pair};
+}
+
+describe('handleInteriorEdgePair: a shared source is a terminal state, not a failure', () => {
+    it('terminates both edges at their shared source', () => {
+        // The wavefront has finished; there is nothing left to propagate. Rays leaving one point in
+        // different directions never intersect, which the base case used to read as an error.
+        const {context, interiorEdgeIds} = pairFromOneSource([{x: 1, y: 0}, {x: 0, y: -1}]);
+        const sharedSource = context.getEdgeWithId(interiorEdgeIds[0]).source;
+
+        const output = handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
+
+        expect(output.childSteps).toEqual([]);
+        for (const edgeId of interiorEdgeIds) {
+            expect(context.getEdgeWithId(edgeId).target).toBe(sharedSource);
+            expect(context.isAccepted(edgeId)).toBe(true);
+        }
+        expect(context.graph.nodes[sharedSource].position).toEqual({x: 1, y: 1});
+    });
+
+    it('adds no node, because the shared source is already one', () => {
+        const {context, interiorEdgeIds} = pairFromOneSource([{x: 1, y: 0}, {x: 0, y: -1}]);
+        const nodeCount = context.graph.nodes.length;
+
+        handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
+
+        expect(context.graph.nodes).toHaveLength(nodeCount);
+    });
+
+    it('still cross-wires a head-on pair rather than treating it as terminal', () => {
+        const {context, interiorEdgeIds} = initialisedContext(SQUARE);
+        const [first, second] = interiorEdgeIds.slice(0, 2);
+
+        handleInteriorEdgePair(context, {interiorEdges: [first, second]});
+
+        expect(context.getEdgeWithId(first).target).toBeDefined();
+        expect(context.getEdgeWithId(second).target).toBeDefined();
+    });
+});
+
+describe('findOrAddNode: a non-finite position is a defect, not a new node', () => {
+    it.each([
+        ['NaN x', {x: Number.NaN, y: 0}],
+        ['NaN y', {x: 0, y: Number.NaN}],
+        ['infinite x', {x: Number.POSITIVE_INFINITY, y: 0}],
+        ['infinite y', {x: 0, y: Number.NEGATIVE_INFINITY}],
+    ])('throws on %s', (_label, position) => {
+        const context = makeStraightSkeletonSolverContext(SQUARE);
+
+        expect(() => context.findOrAddNode(position as Vector2)).toThrow(/non-finite/);
+    });
+
+    it('still matches an existing node and still appends a new one', () => {
+        // A NaN coordinate never compares equal to itself under an absolute tolerance, so the
+        // lookup missed and appended a fresh node on every call. Finite positions are unaffected.
+        const context = makeStraightSkeletonSolverContext(SQUARE);
+        const nodeCount = context.graph.nodes.length;
+
+        expect(context.findOrAddNode({x: 0, y: 0}).id).toBe(0);
+        expect(context.graph.nodes).toHaveLength(nodeCount);
+        expect(context.findOrAddNode({x: 1, y: 1}).id).toBe(nodeCount);
+        expect(context.graph.nodes).toHaveLength(nodeCount + 1);
     });
 });

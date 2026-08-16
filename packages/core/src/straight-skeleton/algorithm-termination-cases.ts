@@ -207,6 +207,15 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     // Head on Collision
     if (pairIntersection === 'head-on') {
         context.crossWireEdges(id1, id2);
+    } else if (pairIntersection === 'identical-source') {
+        // A SHARED SOURCE IS A TERMINAL STATE, NOT A FAILURE. Rays leaving one point in different
+        // directions do not intersect, and there is nothing left for them to propagate into: the
+        // wavefront has finished. `intersectRays` classifies coincident sources first, before every
+        // other test, and that verdict is already computed above for the head-on check — it was
+        // then discarded by `NO_COLLISION_RESULTS` as "no collision" so that the collision branch
+        // below threw two lines later. No new predicate and no new tolerance is introduced here; an
+        // existing decision simply stops being thrown away.
+        context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1));
     } else {
         const collisions = collideInteriorEdges(interior1, interior2, context);
         if (collisions.length === 0) {
