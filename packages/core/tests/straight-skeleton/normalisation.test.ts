@@ -21,6 +21,7 @@ import {
     setSkeletonLogLevel,
     solveSkeleton,
 } from '@proc-geo/core';
+import {place} from './placement-helpers';
 
 /*
  * ============================================================================
@@ -75,11 +76,6 @@ function boundsOf(vertices: readonly Vector2[]): VertexBounds {
         maximum.y = Math.max(maximum.y, vertex.y);
     }
     return {minimum, maximum};
-}
-
-/** The placement used by the operating-envelope sweep in `large-coordinate-failures.test.ts`. */
-function place(vertices: readonly Vector2[], scale: number, translate: number): Vector2[] {
-    return vertices.map(vertex => ({x: vertex.x * scale + translate, y: vertex.y * scale + translate}));
 }
 
 function makeGraph(): StraightSkeletonGraph {
@@ -464,13 +460,32 @@ describe('unit-extent normalisation', () => {
         interface RoundTripMeasurement {
             /** Coordinates that did not return bit-for-bit. */
             inexact: number;
-            /** The largest relative error over those coordinates; zero when there were none. */
-            worstRelativeError: number;
+            /**
+             * The largest error over those coordinates, RELATIVE to the coordinate; zero when there
+             * were none.
+             *
+             * A coordinate of exactly zero has no relative error to report — the fixture corpus
+             * puts vertices on both axes, so at `translate === 0` that is a live possibility, and
+             * dividing by it would put an `Infinity` in the failure message where the real number
+             * belongs. At zero the ABSOLUTE error is reported instead, which is the only meaningful
+             * quantity there and is on the same scale as a relative error would be.
+             */
+            worstError: number;
+            /**
+             * The first coordinate that did not return, named. This is what the bit-exactness
+             * assertions below print when they fail: a bare count says a cell regressed, this says
+             * WHICH coordinate of which fixture did it, and by how much.
+             */
+            firstInexact: string | null;
         }
+
+        /** What {@link measureRoundTrip} returns for a cell that round-trips on the bit throughout. */
+        const EXACT_ROUND_TRIP: RoundTripMeasurement = {inexact: 0, worstError: 0, firstInexact: null};
 
         function measureRoundTrip(scale: number, translate: number): RoundTripMeasurement {
             let inexact = 0;
-            let worstRelativeError = 0;
+            let worstError = 0;
+            let firstInexact: string | null = null;
 
             for (const polygon of ALL_TEST_POLYGONS) {
                 const placed = place(polygon.vertices, scale, translate);
@@ -486,33 +501,27 @@ describe('unit-extent normalisation', () => {
                         }
                         inexact++;
                         const error = Math.abs(returned[index][axis] - vertex[axis]);
-                        worstRelativeError = Math.max(worstRelativeError, error / Math.abs(vertex[axis]));
+                        const magnitude = Math.abs(vertex[axis]);
+                        worstError = Math.max(worstError, magnitude === 0 ? error : error / magnitude);
+                        firstInexact ??=
+                            `${polygon.name} vertex ${index}.${axis}: ` +
+                            `${vertex[axis]} returned as ${returned[index][axis]}`;
                     }
                 });
             }
 
-            return {inexact, worstRelativeError};
+            return {inexact, worstError, firstInexact};
         }
 
         it.each(TRANSLATIONS)('returns every fixture coordinate BIT-FOR-BIT at translate %p', translate => {
             // Sterbenz territory: the span is tiny beside the offset, so `p - c` is exact and the
-            // power-of-two scaling cannot round. Asserted with Object.is, never a tolerance.
-            for (const polygon of ALL_TEST_POLYGONS) {
-                const placed = place(polygon.vertices, 1, translate);
-                const normalisation = makeSkeletonNormalisation(placed);
-                const returned = normalisePolygon(placed, normalisation).map(vertex =>
-                    denormalisePosition(normalisation, vertex),
-                );
-
-                placed.forEach((vertex, index) => {
-                    expect(Object.is(returned[index].x, vertex.x)).toBe(true);
-                    expect(Object.is(returned[index].y, vertex.y)).toBe(true);
-                });
-            }
+            // power-of-two scaling cannot round. Measured with Object.is, never a tolerance —
+            // `measureRoundTrip` compares on the bit and names the first coordinate that does not.
+            expect(measureRoundTrip(1, translate)).toEqual(EXACT_ROUND_TRIP);
         });
 
         it.each(EXACT_SCALES)('returns every fixture coordinate BIT-FOR-BIT at scale %p', scale => {
-            expect(measureRoundTrip(scale, 0)).toEqual({inexact: 0, worstRelativeError: 0});
+            expect(measureRoundTrip(scale, 0)).toEqual(EXACT_ROUND_TRIP);
         });
 
         it.each(INEXACT_SCALES)(
@@ -524,8 +533,8 @@ describe('unit-extent normalisation', () => {
                 const measurement = measureRoundTrip(scale, 0);
 
                 expect(measurement.inexact).toBeLessThanOrEqual(measuredInexact);
-                expect(measurement.worstRelativeError).toBeLessThanOrEqual(WORST_MEASURED_RELATIVE_ERROR);
-                expect(measurement.worstRelativeError).toBeLessThan(Number.EPSILON);
+                expect(measurement.worstError).toBeLessThanOrEqual(WORST_MEASURED_RELATIVE_ERROR);
+                expect(measurement.worstError).toBeLessThan(Number.EPSILON);
             },
         );
 

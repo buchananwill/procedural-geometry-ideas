@@ -9,6 +9,7 @@ import {
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
+import {place} from './placement-helpers';
 
 /*
  * ============================================================================
@@ -137,10 +138,6 @@ function fixture(name: string): Vector2[] {
         throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
     }
     return found.vertices;
-}
-
-function place(vertices: Vector2[], scale: number, translate: number): Vector2[] {
-    return vertices.map(vertex => ({x: vertex.x * scale + translate, y: vertex.y * scale + translate}));
 }
 
 /**

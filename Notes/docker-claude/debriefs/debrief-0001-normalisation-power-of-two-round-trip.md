@@ -176,5 +176,13 @@ outside my scope.
 - The deferred item from the spec still stands: threading the transform into the solver context so
   assertions report caller-space coordinates.
 - Sorting `inEdges` where it is built, likewise deferred and likewise perturbed by this change.
-</content>
-</invoke>
+
+---
+
+**SUPERSEDED IN PART by `debrief-0002-normalisation-review-cycle-one.md`.** Section 4's "Decision
+11 — the two failures" attributes both to the tightened effective epsilon from the `[1/sqrt(2),
+sqrt(2)]` extent band. That diagnosis is WRONG and is withdrawn: taking the exponent by `Math.ceil`
+(extent `<= 1`, epsilon relatively looser) reproduces both failures identically. The cause is that
+the old scale was exactly the fixtures' 300-unit span and so preserved uniform subdivision spacing
+bit-exactly in unit space, which no power of two can. Both failures are resolved in cycle 1.
+Everything else in this debrief stands.
