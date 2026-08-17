@@ -153,6 +153,57 @@ const SWEPT_FIXTURES = ALL_TEST_POLYGONS
     })
     .map(polygon => polygon.name);
 
+/** One offset a sweep visits: an event of a fixture, and how far from that event to sample. */
+interface EventSample {
+    name: string;
+    result: SkeletonSolveResult;
+    event: number;
+    delta: number;
+}
+
+/** Which of a fixture's events a sweep visits, judged against that fixture's maximum offset. */
+type EventFilter = (event: number, maxOffset: number) => boolean;
+
+/** Every event the fixture has: the sweep has nothing to steer around. */
+const EVERY_EVENT: EventFilter = () => true;
+
+/** Events clear of the terminal band, where an empty projection is a loss rather than the answer. */
+const MID_SOLVE_EVENT: EventFilter = (event, maxOffset) => maxOffset - event > TERMINAL_BAND;
+
+/** Events with a micrometre still to run, so `event + NEIGHBOURHOOD` is short of the maximum. */
+const EVENT_CLEAR_OF_MAXIMUM: EventFilter = (event, maxOffset) => event + NEIGHBOURHOOD < maxOffset;
+
+/**
+ * Every (fixture, event, delta) the sweeps below visit, enumerated in one place.
+ *
+ * The sweeps walk the same three nested loops and differ only in which events they keep and how far
+ * either side of one they sample. Spelling the walk out at each of them put up to four `for`
+ * statements between the reader and the property being asserted, and left the "which events are
+ * sampleable" rule restated once per sweep to drift. Each fixture is still solved once and its
+ * maximum offset taken once, exactly as when each sweep did its own walking.
+ *
+ * It THROWS rather than yielding nothing. Every sweep here asserts that a list of problems came out
+ * empty, which an empty population satisfies just as well as a sound projection does, so an
+ * enumeration that quietly stopped producing samples would retire this file's guarantees without
+ * failing anything.
+ */
+function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSample> {
+    let yielded = 0;
+    for (const name of SWEPT_FIXTURES) {
+        const result = solvedFixture(name);
+        const maxOffset = computeMaxOffset(result);
+        for (const event of eventOffsets(result).filter(offset => keep(offset, maxOffset))) {
+            for (const delta of deltas) {
+                yielded += 1;
+                yield {name, result, event, delta};
+            }
+        }
+    }
+    if (yielded === 0) {
+        throw new Error('eventSamples enumerated nothing; every sweep over it would pass vacuously.');
+    }
+}
+
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
         it('is every fixture, and 270 distinct event offsets across them', () => {
@@ -188,15 +239,9 @@ describe('offset projection at event boundaries', () => {
 
         it('is still there one nanometre before every mid-solve event of every fixture', () => {
             const problems: string[] = [];
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                const maxOffset = computeMaxOffset(result);
-                for (const event of eventOffsets(result).filter(e => maxOffset - e > TERMINAL_BAND)) {
-                    for (const delta of [-1e-9, 0, 1e-9]) {
-                        if (computeOffsetRings(result, event + delta).length === 0) {
-                            problems.push(`${name} @${event.toFixed(6)}${delta >= 0 ? '+' : ''}${delta}: no rings`);
-                        }
-                    }
+            for (const {name, result, event, delta} of eventSamples([-1e-9, 0, 1e-9], MID_SOLVE_EVENT)) {
+                if (computeOffsetRings(result, event + delta).length === 0) {
+                    problems.push(`${name} @${event.toFixed(6)}${delta >= 0 ? '+' : ''}${delta}: no rings`);
                 }
             }
             expect(problems.join('; ')).toBe('');
@@ -258,19 +303,13 @@ describe('offset projection at event boundaries', () => {
     describe('nothing is discarded silently', () => {
         it('reports no unclosed chain at, or either side of, any event of any fixture', () => {
             const problems: string[] = [];
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                const maxOffset = computeMaxOffset(result);
-                for (const event of eventOffsets(result).filter(e => maxOffset - e > TERMINAL_BAND)) {
-                    for (const delta of [0, -1e-9, 1e-9, -NEIGHBOURHOOD, NEIGHBOURHOOD]) {
-                        const offset = Math.max(0, event + delta);
-                        const projection = projectOffsetWavefront(result, offset);
-                        for (const chain of projection.unclosedChains) {
-                            problems.push(
-                                `${name} @${event.toFixed(6)}${delta >= 0 ? '+' : ''}${delta}: `
-                                + `${chain.reason} over bisectors ${chain.bisectorIds.join('>')}`);
-                        }
-                    }
+            const deltas = [0, -1e-9, 1e-9, -NEIGHBOURHOOD, NEIGHBOURHOOD];
+            for (const {name, result, event, delta} of eventSamples(deltas, MID_SOLVE_EVENT)) {
+                const projection = projectOffsetWavefront(result, Math.max(0, event + delta));
+                for (const chain of projection.unclosedChains) {
+                    problems.push(
+                        `${name} @${event.toFixed(6)}${delta >= 0 ? '+' : ''}${delta}: `
+                        + `${chain.reason} over bisectors ${chain.bisectorIds.join('>')}`);
                 }
             }
             expect(problems.join('; ')).toBe('');
@@ -391,22 +430,16 @@ describe('offset projection at event boundaries', () => {
     describe('properties that held before the fix and still hold', () => {
         it('is clean a micrometre either side of every event', () => {
             const problems: string[] = [];
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                // The last event is the maximum offset; `event + 1e-6` is past it, where an
-                // empty result is the documented answer rather than a loss.
-                const maxOffset = computeMaxOffset(result);
-                for (const event of eventOffsets(result).filter(e => e + NEIGHBOURHOOD < maxOffset)) {
-                    for (const delta of [-NEIGHBOURHOOD, NEIGHBOURHOOD]) {
-                        const rings = computeOffsetRings(result, event + delta);
-                        if (rings.length === 0) {
-                            problems.push(`${name} @${event.toFixed(6)}${delta > 0 ? '+' : '-'}1e-6 returned no rings`);
-                        }
-                        for (const ring of rings) {
-                            if (ring.length < 3) {
-                                problems.push(`${name} @${event.toFixed(6)} has a ${ring.length}-vertex ring`);
-                            }
-                        }
+            // The last event is the maximum offset; `event + 1e-6` is past it, where an empty
+            // result is the documented answer rather than a loss — hence EVENT_CLEAR_OF_MAXIMUM.
+            for (const {name, result, event, delta} of eventSamples([-NEIGHBOURHOOD, NEIGHBOURHOOD], EVENT_CLEAR_OF_MAXIMUM)) {
+                const rings = computeOffsetRings(result, event + delta);
+                if (rings.length === 0) {
+                    problems.push(`${name} @${event.toFixed(6)}${delta > 0 ? '+' : '-'}1e-6 returned no rings`);
+                }
+                for (const ring of rings) {
+                    if (ring.length < 3) {
+                        problems.push(`${name} @${event.toFixed(6)} has a ${ring.length}-vertex ring`);
                     }
                 }
             }
@@ -415,15 +448,11 @@ describe('offset projection at event boundaries', () => {
 
         it('never returns a ring with a repeated vertex, at or around an event', () => {
             const problems: string[] = [];
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                for (const event of eventOffsets(result)) {
-                    for (const delta of [0, -1e-9, 1e-9, -NEIGHBOURHOOD, NEIGHBOURHOOD]) {
-                        for (const [index, ring] of computeOffsetRings(result, event + delta).entries()) {
-                            if (hasRepeatedVertex(ring, 1e-9)) {
-                                problems.push(`${name} @${event.toFixed(6)}+${delta} ring ${index} repeats a vertex`);
-                            }
-                        }
+            const deltas = [0, -1e-9, 1e-9, -NEIGHBOURHOOD, NEIGHBOURHOOD];
+            for (const {name, result, event, delta} of eventSamples(deltas, EVERY_EVENT)) {
+                for (const [index, ring] of computeOffsetRings(result, event + delta).entries()) {
+                    if (hasRepeatedVertex(ring, 1e-9)) {
+                        problems.push(`${name} @${event.toFixed(6)}+${delta} ring ${index} repeats a vertex`);
                     }
                 }
             }
@@ -432,16 +461,11 @@ describe('offset projection at event boundaries', () => {
 
         it('leaves strip decomposition completely unaffected — computeStrips is not implicated', () => {
             const problems: string[] = [];
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                for (const event of eventOffsets(result)) {
-                    for (const delta of [0, -1e-9, 1e-9]) {
-                        const strips = computeStrips(result, {depth: event + delta});
-                        const empty = strips.filter(strip => strip.boundary.length < 3).length;
-                        if (empty > 0) {
-                            problems.push(`${name} @${event.toFixed(6)}+${delta}: ${empty} of ${strips.length} strips are empty`);
-                        }
-                    }
+            for (const {name, result, event, delta} of eventSamples([0, -1e-9, 1e-9], EVERY_EVENT)) {
+                const strips = computeStrips(result, {depth: event + delta});
+                const empty = strips.filter(strip => strip.boundary.length < 3).length;
+                if (empty > 0) {
+                    problems.push(`${name} @${event.toFixed(6)}+${delta}: ${empty} of ${strips.length} strips are empty`);
                 }
             }
             expect(problems.join('; ')).toBe('');

@@ -389,18 +389,30 @@ function firstIncidentParentEdge(
 }
 
 /**
+ * The largest of `offsets`, and zero when there are none.
+ *
+ * An offset is a distance and never negative, so the zero floor is only ever the empty case: a solve
+ * with nothing to measure spans no distance. Every "how far does this wavefront travel" in the
+ * module reads this rather than restating the loop, so the three of them cannot drift apart.
+ */
+function largestOffset(offsets: Iterable<number>): number {
+    let largest = 0;
+    for (const offset of offsets) {
+        if (offset > largest) {
+            largest = offset;
+        }
+    }
+    return largest;
+}
+
+/**
  * The same table with every simultaneous set collapsed onto a single value.
  *
  * The tolerance is {@link SIMULTANEITY_RELATIVE_TOLERANCE} of the largest re-derived offset, so a
  * translated or scaled solve partitions identically to its original.
  */
 function canonicaliseSimultaneousOffsets(interiorOffsets: Map<number, number>): Map<number, number> {
-    let maxOffset = 0;
-    for (const offset of interiorOffsets.values()) {
-        if (offset > maxOffset) {
-            maxOffset = offset;
-        }
-    }
+    const maxOffset = largestOffset(interiorOffsets.values());
 
     const canonical = new Map<number, number>();
     for (const set of simultaneousOffsetSets(interiorOffsets, maxOffset * SIMULTANEITY_RELATIVE_TOLERANCE)) {
@@ -493,13 +505,7 @@ function representativeOffset(offsets: number[]): number {
 export function computeMaxOffset(result: SkeletonSolveResult): number {
     requireProjectableResult(result, 'computeMaxOffset');
 
-    let maxOffset = 0;
-    for (const offset of computeNodeOffsets(result).values()) {
-        if (offset > maxOffset) {
-            maxOffset = offset;
-        }
-    }
-    return maxOffset;
+    return largestOffset(computeNodeOffsets(result).values());
 }
 
 /**
@@ -768,13 +774,7 @@ function projectWavefront(result: SkeletonSolveResult, offset: number, caller: s
 
     const nodeOffsets = computeNodeOffsets(result);
 
-    let maxOffset = 0;
-    for (const nodeOffset of nodeOffsets.values()) {
-        if (nodeOffset > maxOffset) {
-            maxOffset = nodeOffset;
-        }
-    }
-    if (offset >= maxOffset) {
+    if (offset >= largestOffset(nodeOffsets.values())) {
         return emptyProjection(offset);
     }
 

@@ -130,10 +130,33 @@ const LOST_RINGS_BEFORE_THE_FIX: Record<string, number> = {
 };
 
 /**
- * How far apart two re-derived offsets of one simultaneous event may be. Femtometres, not slack:
- * nothing in the projection compares against this, and this file only measures with it.
+ * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
+ * solve's own maximum offset. Femtometres, not slack: nothing in the projection compares against
+ * this, and this file only measures with it.
+ *
+ * RELATIVE, BECAUSE THE GUARANTEE IT RESTATES IS. `computeNodeOffsets` partitions against this
+ * fraction of the solve's maximum offset, so an absolute band states a different guarantee at every
+ * magnitude — and on these fixtures, whose maximum offsets are 88.7 to 106.9, an absolute 1e-12
+ * asked for roughly a hundredth of what production actually delivers. `offset-projection.test.ts`
+ * scales its own band by the same quantity, so the two suites now measure the same thing.
  */
-const SIMULTANEITY_BAND = 1e-12;
+const SIMULTANEITY_RELATIVE_BAND = 1e-12;
+
+/**
+ * The widest one instant's re-derived offsets are measured to spread, as a fraction of the solve's
+ * maximum offset.
+ *
+ * Measured on this file's OWN derivation — `rawOffsetsOfNode` dates a node against every parent edge
+ * of every incident bisector, where `computeNodeOffsets` reads only the first — so it is wider than
+ * the bound recorded against the production constant. Worst over these four fixtures: 4.17e-15, on
+ * Near Regular Rosette5 40.
+ *
+ * The spread is asserted against this MEASUREMENT rather than against
+ * {@link SIMULTANEITY_RELATIVE_BAND}, which is ~240x looser: a set that had swallowed a genuinely
+ * distinct event would still have to be within the band that built it, so the band cannot detect
+ * the thing this assertion exists to detect.
+ */
+const WITHIN_INSTANT_RELATIVE_SPREAD = 1e-14;
 
 /** Below this separation two nodes are a coincident cluster rather than mirror images. */
 const MIRROR_SEPARATION = 1;
@@ -266,7 +289,8 @@ describe('the near-regular simultaneous mirror events', () => {
                 }
                 // One instant, several numbers — but never further apart than one instant's worth.
                 // A wider spread would mean this set has swallowed a genuinely distinct event.
-                if (mirrorSet.spread > SIMULTANEITY_BAND) {
+                const spreadBound = computeMaxOffset(mirrorSet.result) * WITHIN_INSTANT_RELATIVE_SPREAD;
+                if (mirrorSet.spread > spreadBound) {
                     problems.push(`${where}: raw offsets span ${mirrorSet.spread.toExponential(3)}`);
                 }
             }
@@ -312,11 +336,13 @@ describe('the near-regular simultaneous mirror events', () => {
         it('leaves no ulp-separated pair of event offsets anywhere in the table', () => {
             const problems: string[] = [];
             for (const fixture of NEAR_REGULAR_FIXTURES) {
-                const offsets = eventOffsets(solvedHeldOutFixture(fixture));
+                const result = solvedHeldOutFixture(fixture);
+                const separation = computeMaxOffset(result) * SIMULTANEITY_RELATIVE_BAND;
+                const offsets = eventOffsets(result);
                 for (let i = 1; i < offsets.length; i++) {
                     // Distinct offsets are now distinct EVENTS: no two of them are within one
                     // instant's worth of each other, which is the entire content of the fix.
-                    if (offsets[i] - offsets[i - 1] <= SIMULTANEITY_BAND) {
+                    if (offsets[i] - offsets[i - 1] <= separation) {
                         problems.push(
                             `${fixture.name}: ${offsets[i - 1]} and ${offsets[i]} are one instant, two entries`);
                     }
