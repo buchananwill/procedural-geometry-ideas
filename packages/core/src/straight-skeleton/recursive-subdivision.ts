@@ -318,6 +318,19 @@ export function clampLevels(levels: number): number {
     return Math.min(MAX_RECURSION_LEVELS, Math.max(MIN_RECURSION_LEVELS, Math.floor(levels)));
 }
 
+/**
+ * Decision 3's predicate: whether `level` is the deepest level a composition of `levels` levels has.
+ *
+ * PUBLISHED RATHER THAN RESTATED AT EACH SITE, for the same reason the clamps are: the driver, the
+ * readout that reports an overridden setting, and the panel that disables a terminal level's controls
+ * must all answer this identically or the readout says a level recursed that the driver stopped. It
+ * asks only for the array's LENGTH, so a list of {@link LevelSpec} and a list of {@link LevelPolicy}
+ * are both answerable — they are the same composition at two stages of preparation.
+ */
+export function isLastLevel(level: number, levels: readonly unknown[]): boolean {
+    return level + 1 >= levels.length;
+}
+
 /** Merge group size, forced to a whole number of at least one. */
 export function clampMergeGroupSize(mergeGroupSize: number): number {
     if (!Number.isFinite(mergeGroupSize)) {
@@ -681,7 +694,7 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     // nowhere to go, so it is read as `leaf`/`void`. The override is silent HERE and loud in the
     // caller — a control that appears to do nothing is worse than one that is visibly disabled, which
     // is the readout's job rather than the driver's.
-    const isLastLevel = level + 1 >= run.levels.length;
+    const terminal = isLastLevel(level, run.levels);
     return {
         level,
         boundary: clockwise,
@@ -692,13 +705,13 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
         // becomes a child carrying its failure, never a gap in the sequence. `leaf` grows none of
         // them: the ring of cells is final, which is a different thing from a cell that came out
         // childless because the recursion ran out of levels.
-        children: isLastLevel || spec.segments !== 'recurse'
+        children: terminal || spec.segments !== 'recurse'
             ? []
             : outcome.segments.map(segment => subdivideNode(segment.boundary, level + 1, run)),
         residueRings: outcome.residueRings,
         // One child per RING, in the same order, and for the same reason. `void` keeps the rings and
         // grows nothing from them: that is a courtyard, not an absence of residue.
-        residueChildren: isLastLevel || spec.residue !== 'recurse'
+        residueChildren: terminal || spec.residue !== 'recurse'
             ? []
             : outcome.residueRings.map(ring => subdivideNode(ring, level + 1, run)),
     };

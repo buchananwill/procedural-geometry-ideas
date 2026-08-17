@@ -12,6 +12,7 @@ import {
     FALLBACK_LEVEL_SPEC,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
+    isLastLevel,
     LevelSpec,
     makeMergeGroupPredicate,
     makeSkeletonNormalisation,
@@ -224,8 +225,14 @@ function stripArea(strip: Strip): number {
     return strip.holes.reduce((area, hole) => area - ringArea(hole), ringArea(strip.boundary));
 }
 
-/** Residue children that record a failure — the rings decision 4 discarded rather than recursed. */
-function discardedResidueChildren(node: RecursiveNode): RecursiveNode[] {
+/**
+ * Residue children that record a failure — the rings this node kept but did not subdivide.
+ *
+ * NOT "the degenerate ones". A residue ring recurses through the very same path a segment child does,
+ * so it can just as well come back with an incomplete solve as with a degeneracy, and the census
+ * below counts the rings the recursion did not reach whatever the reason was.
+ */
+function unsubdividedResidueChildren(node: RecursiveNode): RecursiveNode[] {
     return node.residueChildren.filter(child => child.failure !== undefined);
 }
 
@@ -1286,6 +1293,26 @@ describe('recursive segment subdivision', () => {
             expect(deeper.length).toBeGreaterThan(1);
             expect(deeper.every(node => childStreams(node) === 'neither')).toBe(true);
         });
+
+        it('publishes the last-level predicate rather than leaving each caller to restate it', () => {
+            // Decision 3's rule is asked three times over — by the driver here, by the readout that
+            // reports an overridden setting, and by the panel that disables a terminal row — and a
+            // readout that answered it differently would report a recursion the driver never ran.
+            const spec = levelSpec('recurse', 'recurse', {depthFraction: PINCH_DEPTH_FRACTION});
+            const levels = [spec, spec];
+
+            expect(isLastLevel(0, levels)).toBe(false);
+            expect(isLastLevel(1, levels)).toBe(true);
+            expect(isLastLevel(0, [spec])).toBe(true);
+
+            // And it answers for the tree the driver actually grew: exactly the levels the predicate
+            // calls last are the ones whose solved regions grew no children of either kind.
+            const root = subdivideRecursively(fixtureVertices(PINCHING_FIXTURE), {levels});
+            const solved = flattenRecursiveTree(root).filter(node => node.failure === undefined);
+            expect(solved.length).toBeGreaterThan(1);
+            expect(solved.map(node => childStreams(node) === 'neither'))
+                .toEqual(solved.map(node => isLastLevel(node.level, levels)));
+        });
     });
 
     /**
@@ -1479,7 +1506,7 @@ describe('recursive segment subdivision', () => {
             expect(root.residueChildren[0].failure).toMatch(/^Degenerate region/);
             expect(root.residueChildren[0].segments).toEqual([]);
             expect(root.residueChildren[0].children).toEqual([]);
-            expect(discardedResidueChildren(root)).toHaveLength(1);
+            expect(unsubdividedResidueChildren(root)).toHaveLength(1);
         });
 
         it("leaves its parent and its parent's segments subdividing as normal", () => {
@@ -1707,7 +1734,7 @@ describe('recursive segment subdivision', () => {
             let subdivided = 0;
             let failed = 0;
             let residueRings = 0;
-            let discardedRings = 0;
+            let unsubdividedRings = 0;
 
             for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
                 for (const mergeGroupSize of CENSUS_MERGE_GROUP_SIZES) {
@@ -1719,8 +1746,8 @@ describe('recursive segment subdivision', () => {
                         })));
                         subdivided += nodes.filter(node => node.failure === undefined).length;
                         residueRings += nodes.reduce((total, node) => total + node.residueRings.length, 0);
-                        discardedRings += nodes.reduce(
-                            (total, node) => total + discardedResidueChildren(node).length, 0);
+                        unsubdividedRings += nodes.reduce(
+                            (total, node) => total + unsubdividedResidueChildren(node).length, 0);
 
                         const failures = nodes.filter(node => node.failure !== undefined);
                         failed += failures.length;
@@ -1746,7 +1773,7 @@ describe('recursive segment subdivision', () => {
                 `${MAX_RECURSION_LEVELS} levels, depths ${SWEPT_DEPTH_FRACTIONS.join('/')}, ` +
                 `merge groups ${CENSUS_MERGE_GROUP_SIZES.join('/')} — ` +
                 `${subdivided} node(s) subdivided, ${failed} recorded a failure; ` +
-                `${residueRings} residue ring(s), ${discardedRings} of them discarded as degenerate.\n` +
+                `${residueRings} residue ring(s), ${unsubdividedRings} of them not subdivided.\n` +
                 `${rows.length === 0 ? '  (no failures)' : rows.map(row => `  ${row}`).join('\n')}`);
 
             // Every recorded failure must say one of the things this driver can actually report; an

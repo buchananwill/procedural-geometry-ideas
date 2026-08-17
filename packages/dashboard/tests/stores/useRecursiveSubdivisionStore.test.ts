@@ -25,11 +25,14 @@ import type {
     RecursiveTreeSummary,
 } from '../../src/stores/useRecursiveSubdivisionStore';
 import {
+    DEGENERATE_FAILURE,
     failedNode,
+    INCOMPLETE_SOLVE_FAILURE,
     RESIDUE_TREE,
     RESIDUE_TREE_LEVELS,
     TREE,
     TREE_LEVELS,
+    UNSOLVED_RESIDUE_TREE,
 } from '../fixtures/recursive-trees';
 
 /**
@@ -74,16 +77,16 @@ function levelCounts(summary: RecursiveTreeSummary): RecursiveLevelCounts[] {
         segments: level.segments,
         failures: level.failures,
         residueRings: level.residueRings,
-        discardedResidueRings: level.discardedResidueRings,
+        unsubdividedResidueRings: level.unsubdividedResidueRings,
     }));
 }
 
 describe('summariseRecursiveTree', () => {
     it('counts nodes, segments and failures at each level', () => {
         expect(levelCounts(summariseRecursiveTree(TREE, TREE_LEVELS))).toEqual([
-            { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 0, discardedResidueRings: 0 },
-            { level: 1, nodes: 3, segments: 6, failures: 1, residueRings: 0, discardedResidueRings: 0 },
-            { level: 2, nodes: 1, segments: 2, failures: 0, residueRings: 0, discardedResidueRings: 0 },
+            { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 0, unsubdividedResidueRings: 0 },
+            { level: 1, nodes: 3, segments: 6, failures: 1, residueRings: 0, unsubdividedResidueRings: 0 },
+            { level: 2, nodes: 1, segments: 2, failures: 0, residueRings: 0, unsubdividedResidueRings: 0 },
         ]);
     });
 
@@ -101,13 +104,13 @@ describe('summariseRecursiveTree', () => {
     it('reports a root that failed as one level with no segments', () => {
         const summary = summariseRecursiveTree(failedNode(0), [DEFAULT_LEVEL_SPEC]);
         expect(levelCounts(summary)).toEqual([
-            { level: 0, nodes: 1, segments: 0, failures: 1, residueRings: 0, discardedResidueRings: 0 },
+            { level: 0, nodes: 1, segments: 0, failures: 1, residueRings: 0, unsubdividedResidueRings: 0 },
         ]);
         expect(summary.leafSegments).toBe(0);
         expect(summary.totalSegments).toBe(0);
         expect(summary.totalFailures).toBe(1);
         expect(summary.totalResidueRings).toBe(0);
-        expect(summary.totalDiscardedResidueRings).toBe(0);
+        expect(summary.totalUnsubdividedResidueRings).toBe(0);
     });
 
     it('reports one row per specified level, even where the level grew no regions', () => {
@@ -168,23 +171,39 @@ describe('what each stream did, per level', () => {
  * What the readout says below full depth.
  *
  * The residue is a second stream of children, so the counts have to keep it apart from the first:
- * rings are not segments, a discarded ring is not a failed region, and a residue subtree is still
+ * rings are not segments, an unsubdivided ring is not a failed region, and a residue subtree is still
  * part of the tree. A count that conflated any pair of those would still add up.
  */
 describe('summariseRecursiveTree below full depth', () => {
-    it('counts residue rings and discarded rings level by level', () => {
+    it('counts residue rings and unsubdivided rings level by level', () => {
         expect(levelCounts(summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS))).toEqual([
-            { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 2, discardedResidueRings: 1 },
-            { level: 1, nodes: 2, segments: 2, failures: 1, residueRings: 1, discardedResidueRings: 0 },
+            { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 2, unsubdividedResidueRings: 1 },
+            { level: 1, nodes: 2, segments: 2, failures: 1, residueRings: 1, unsubdividedResidueRings: 0 },
         ]);
     });
 
-    it('totals the rings over the whole tree, discards among them', () => {
+    it('totals the rings over the whole tree, the unsubdivided ones among them', () => {
         const summary = summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS);
         expect(summary.totalResidueRings).toBe(3);
-        expect(summary.totalDiscardedResidueRings).toBe(1);
-        // A discarded ring is a child that recorded a reason, so it is a failure as well as a discard.
+        expect(summary.totalUnsubdividedResidueRings).toBe(1);
+        // An unsubdivided ring is a child that recorded a reason, so it is a failure as well.
         expect(summary.totalFailures).toBe(1);
+    });
+
+    it('counts a ring stopped by an incomplete solve exactly as it counts a degenerate one', () => {
+        // A residue ring recurses through the same path a segment child does, so it fails for the same
+        // three reasons — and in the real corpus it stops on an incomplete solve far more often than on
+        // the degeneracy floor. The two trees differ ONLY in the sentence their unrecursed ring carries,
+        // so a count that is blind to the reason must report them identically. That is what licenses the
+        // readout to say "not subdivided" and nothing more: it has not checked which reason it was.
+        expect(RESIDUE_TREE.residueChildren[1].failure).toBe(DEGENERATE_FAILURE);
+        expect(UNSOLVED_RESIDUE_TREE.residueChildren[1].failure).toBe(INCOMPLETE_SOLVE_FAILURE);
+        expect(INCOMPLETE_SOLVE_FAILURE).not.toMatch(/^Degenerate region/);
+
+        const unsolved = summariseRecursiveTree(UNSOLVED_RESIDUE_TREE, RESIDUE_TREE_LEVELS);
+        expect(levelCounts(unsolved))
+            .toEqual(levelCounts(summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS)));
+        expect(unsolved.totalUnsubdividedResidueRings).toBe(1);
     });
 
     it('counts the final ring of a droste node as leaf cells, courtyard or no courtyard', () => {

@@ -59,8 +59,25 @@ export function node(level: number, segments: number, children: RecursiveNode[] 
     };
 }
 
-/** A region that would not subdivide: no segments, no children, a reason. */
-export function failedNode(level: number): RecursiveNode {
+/**
+ * The reason {@link failedNode} gives when it is not told one: a region that was no polygon at all.
+ *
+ * One of the three sentences the driver can report, and the one a residue ring hits least often —
+ * which is why the incomplete-solve reason below exists beside it.
+ */
+export const DEGENERATE_FAILURE = 'Degenerate region: no area.';
+
+/**
+ * A region that WAS a polygon and still did not subdivide, because its own solve did not finish.
+ *
+ * The failure a residue ring reaches by far the most often in the real corpus, and nothing about it is
+ * degenerate: the ring has area, vertices and a winding. A readout that calls every ring it did not
+ * recurse on "degenerate" is wrong about this one, so the fixtures carry it explicitly.
+ */
+export const INCOMPLETE_SOLVE_FAILURE = 'Incomplete solve: unresolved-collision: two edges never met.';
+
+/** A region that would not subdivide: no segments, no children, and the reason it gives. */
+export function failedNode(level: number, failure: string = DEGENERATE_FAILURE): RecursiveNode {
     return {
         level,
         boundary: SQUARE,
@@ -69,7 +86,7 @@ export function failedNode(level: number): RecursiveNode {
         children: [],
         residueRings: [],
         residueChildren: [],
-        failure: 'Degenerate region: no area.',
+        failure,
     };
 }
 
@@ -137,6 +154,18 @@ export const TREE_LEVELS: LevelSpec[] = [
 export const RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
     nodeWithResidue(1, 2, 1),
     failedNode(1),
+]);
+
+/**
+ * {@link RESIDUE_TREE} with its unrecursed ring stopped by an INCOMPLETE SOLVE rather than degeneracy.
+ *
+ * Identical in shape, different in reason, and that is the whole of it: the counts a readout reports
+ * cannot tell these two trees apart, so a readout that names degeneracy is asserting a cause it has
+ * not checked. The corpus produces this variant far more often than the degenerate one.
+ */
+export const UNSOLVED_RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
+    nodeWithResidue(1, 2, 1),
+    failedNode(1, INCOMPLETE_SOLVE_FAILURE),
 ]);
 
 /** The spec array {@link RESIDUE_TREE} is the tree of: the droste reading, then a terminal level. */

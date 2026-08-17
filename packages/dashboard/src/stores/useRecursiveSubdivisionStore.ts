@@ -6,6 +6,7 @@ import {
     clampMergeGroupSize,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
+    isLastLevel,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
 } from '@proc-geo/core';
@@ -198,14 +199,18 @@ export interface RecursiveLevelSummary {
     /** Residue rings those regions were left holding. Zero everywhere at full depth. */
     residueRings: number;
     /**
-     * Rings at this level that were discarded rather than recursed on.
+     * Rings at this level the recursion did not reach, WHATEVER THE REASON.
      *
      * A ring can be a real part of the region and still be no polygon at all — fewer than three
-     * vertices, or an area under the degeneracy floor. Such a ring is kept in the picture and in the
-     * area accounting, and its child records why it was not subdivided; this is that count. It is
-     * zero under the `void` treatment, where no ring was a candidate for recursion in the first place.
+     * vertices, or an area under the degeneracy floor — but it can equally be a perfectly good polygon
+     * whose own solve did not finish, because a residue ring recurses through exactly the path a
+     * segment child does. Both are counted here and neither is named: the ring is kept in the picture
+     * and in the area accounting, its child records the reason, and the readout says only that the
+     * recursion stopped there. Reporting every one of them as degenerate would assert a cause that is
+     * false for most of them. Zero under the `void` treatment, where no ring was a candidate for
+     * recursion in the first place.
      */
-    discardedResidueRings: number;
+    unsubdividedResidueRings: number;
     /** What became of the segments this level produced. */
     segmentStream: SegmentStreamReport;
     /** What became of the residue rings this level produced. */
@@ -231,11 +236,11 @@ export interface RecursiveTreeSummary {
     totalSegments: number;
     totalFailures: number;
     totalResidueRings: number;
-    totalDiscardedResidueRings: number;
+    totalUnsubdividedResidueRings: number;
 }
 
-/** Rings this node kept but did not recurse on — see {@link RecursiveLevelSummary.discardedResidueRings}. */
-function discardedResidueRings(node: RecursiveNode): number {
+/** Rings this node kept but did not recurse on — see {@link RecursiveLevelSummary.unsubdividedResidueRings}. */
+function unsubdividedResidueRings(node: RecursiveNode): number {
     return node.residueChildren.filter((child) => child.failure !== undefined).length;
 }
 
@@ -247,9 +252,9 @@ function sumOver(nodes: RecursiveNode[], count: (node: RecursiveNode) => number)
 function streamReport<TTreatment extends string>(
     requested: TTreatment,
     recursed: boolean,
-    isLastLevel: boolean,
+    terminal: boolean,
 ): RecursiveStreamReport<TTreatment> {
-    return { requested, recursed, overridden: requested === 'recurse' && isLastLevel };
+    return { requested, recursed, overridden: requested === 'recurse' && terminal };
 }
 
 /**
@@ -265,22 +270,24 @@ export function summariseRecursiveTree(root: RecursiveNode, specs: LevelSpec[]):
 
     const levels: RecursiveLevelSummary[] = levelSpecs.map((spec, level) => {
         const atLevel = nodes.filter((node) => node.level === level);
-        const isLastLevel = level + 1 >= levelSpecs.length;
+        // The driver's own predicate rather than the arithmetic restated: a readout that answered
+        // decision 3 differently from the driver would report a recursion that never happened.
+        const terminal = isLastLevel(level, levelSpecs);
         return {
             level,
             nodes: atLevel.length,
             segments: sumOver(atLevel, (node) => node.segments.length),
             failures: atLevel.filter((node) => node.failure !== undefined).length,
             residueRings: sumOver(atLevel, (node) => node.residueRings.length),
-            discardedResidueRings: sumOver(atLevel, discardedResidueRings),
+            unsubdividedResidueRings: sumOver(atLevel, unsubdividedResidueRings),
             segmentStream: streamReport(
                 spec.segments,
                 atLevel.some((node) => node.children.length > 0),
-                isLastLevel),
+                terminal),
             residueStream: streamReport(
                 spec.residue,
                 atLevel.some((node) => node.residueChildren.length > 0),
-                isLastLevel),
+                terminal),
             residueInert: spec.depthFraction >= FULL_DEPTH_FRACTION,
         };
     });
@@ -293,7 +300,7 @@ export function summariseRecursiveTree(root: RecursiveNode, specs: LevelSpec[]):
         totalSegments: sumOver(nodes, (node) => node.segments.length),
         totalFailures: nodes.filter((node) => node.failure !== undefined).length,
         totalResidueRings: sumOver(nodes, (node) => node.residueRings.length),
-        totalDiscardedResidueRings: sumOver(nodes, discardedResidueRings),
+        totalUnsubdividedResidueRings: sumOver(nodes, unsubdividedResidueRings),
     };
 }
 

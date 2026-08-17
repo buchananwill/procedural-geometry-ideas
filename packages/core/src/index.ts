@@ -341,6 +341,7 @@ export {
     clampLevels,
     clampMergeGroupSize,
     flattenRecursiveTree,
+    isLastLevel,
     makeMergeGroupPredicate,
     subdivideRecursively,
     uniformLevelSpecs,
