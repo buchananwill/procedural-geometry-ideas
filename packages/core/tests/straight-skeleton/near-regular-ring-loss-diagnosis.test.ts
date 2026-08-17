@@ -8,93 +8,76 @@ import {
     computeMaxOffset,
     computeNodeOffsets,
     computeOffsetRings,
-    dotProduct,
     projectOffsetWavefront,
     setSkeletonLogLevel,
     SkeletonSolveResult,
     solveSkeleton,
-    UnclosedChain,
-    UnclosedChainReason,
     Vector2,
 } from '@proc-geo/core';
-// Package-internal: the projection's own derivation of which bisectors are alive at an offset and
-// where they sit. The diagnosis below is a claim about that exact derivation, so it has to call it
-// rather than restate it — a restatement would keep passing after the real formula moved.
-import {AliveBisector, collectAliveBisectors} from '../../src/straight-skeleton/offset-projection';
-import {eventOffsets, signedRingArea} from './wavefront-measurement-helpers';
+import {
+    eventOffsets,
+    isContinuous,
+    MUTATION_DISPLACEMENT,
+    rawOffsetsOfNode,
+    signedRingArea,
+    totalRingArea,
+    withNodeOffsetDelayed,
+} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
- *  THE NEAR-REGULAR LOSS IS A SIMULTANEOUS-EVENT PAIR, NOT A TERMINATED RING.
- *  MEASURED, NOT ASSUMED. THESE ASSERTIONS PIN A DIAGNOSIS.
+ *  THE NEAR-REGULAR LOSS WAS A SIMULTANEOUS-EVENT PAIR, AND THE TABLE NOW
+ *  SAYS SO. THE DIAGNOSIS IS MEASURED; THE FIX IS ASSERTED AGAINST IT.
  * ============================================================================
  *
  * WHAT THIS FILE RECORDS, AND WHY IT IS NOT IN `offset-event-boundary-regression.test.ts`
  *
- * That file is a specification: it asserts, over `ALL_TEST_POLYGONS`, that the projection survives
- * every event, and it changes only if that guarantee regresses. This file is the opposite kind of
- * artefact — it pins CURRENT, BROKEN behaviour over four fixtures deliberately held out of that
- * corpus, and it is expected to change the day the defect below is fixed. Two reasons to change,
- * two files.
+ * That file sweeps `ALL_TEST_POLYGONS`. These four fixtures are deliberately held out of that
+ * corpus and are not promoted into it here: promoting them moves the hard-coded event count that
+ * file pins and would make any regression unattributable. So the guarantee for these four — that
+ * the projection survives every one of their events — is asserted here instead, over the same
+ * measurements, imported from `wavefront-measurement-helpers.ts`.
+ *
+ * WHAT WAS WRONG
  *
  * Backlog item 4 — "terminal many-way events cannot be projected" — proposed that at the exact
  * offset of a terminal many-way event the wavefront has finished, so every bisector in the failing
- * chain dies at one node, nothing is born there, and the chain has no successor because its ring has
- * legitimately ceased to exist.
+ * chain dies at one node, nothing is born there, and the chain has no successor because its ring
+ * has legitimately ceased to exist. THAT HYPOTHESIS WAS REFUTED, clause by clause, by the
+ * measurements this file used to carry: a bisector *was* born at the node, the node was *not*
+ * terminal, and the chain's bisectors died at several nodes rather than one.
  *
- * THAT HYPOTHESIS IS REFUTED. Every clause of it fails, in every named case, and the assertions
- * below are the measurement rather than a description of it:
+ * What was actually happening is *simultaneous mirror events*. These fixtures are symmetric, so
+ * they produce two or more events at genuinely different places in the plane which happen at the
+ * same offset. `computeNodeOffsets` re-derives each node's offset from the supporting line of one
+ * of its own parent edges, and mirror nodes have different parent edges, so one instant came back
+ * as several numbers 7e-15 to 3.5e-13 apart. Querying at the LOWER of such a set left the pair of
+ * bisectors meeting at the HIGHER node alive by the table while they had already met in the plane;
+ * their span along the exterior edge they shared came out zero or slightly negative,
+ * `segmentsAlongExteriorEdge` dropped both of its endpoints, the chain had nothing to continue to,
+ * and the ring was lost. Measured, at the commit before the fix: 4 lost rings on Ellipse 16, 6 on
+ * Ellipse 32, 19 on Rosette5 40 and 7 on Peanut 32 — 36 in all, reported as 23 `no-successor`
+ * chains and the 13 `rejoined-mid-chain` far halves of the same broken loops.
  *
- *   1. The chain's bisectors do NOT all die at one node. Near Regular Ellipse 16 @72.361834 walks
- *      thirteen bisectors that die at six distinct nodes.
- *   2. The node the chain runs into DOES have a bisector born at it — in every case, without
- *      exception. Nothing has ceased to exist there.
- *   3. That node is NOT terminal. Near Regular Rosette5 40 fails at 37.456461 of a maximum 88.670259,
- *      and the whole ring is present and sound a nanometre either side of the failure.
+ * WHAT FIXED IT
  *
- * WHAT IS ACTUALLY HAPPENING
+ * `computeNodeOffsets` canonicalises its table: the re-derived offsets are partitioned into
+ * simultaneous sets by connected components under a tolerance relative to the maximum offset, and
+ * each set is collapsed onto one of its own members. Mirror nodes then agree bit-for-bit and the
+ * span between them is closed by two bisectors that are dead together.
  *
- * These fixtures are symmetric, so they produce *simultaneous mirror events*: two or more events at
- * genuinely different places in the plane which happen at the same offset. `computeNodeOffsets`
- * re-derives each node's offset from the supporting line of one of its own parent edges, and mirror
- * nodes have different parent edges, so the same instant comes back as offsets 7e-15 to 3.5e-13
- * apart. They are one event in the wavefront and several distinct numbers in the table.
+ * NO COMPARISON WAS GIVEN ANY SLACK. The lifetime comparison is still exact and must stay so;
+ * widening it duplicates a vertex and shifting it reintroduces the dropout. Only the table those
+ * comparisons read has changed.
  *
- * Query at the LOWER of such a pair and the pair of bisectors meeting at the HIGHER node is still
- * alive by the table while having already met in the plane. Their span along the exterior edge they
- * share therefore comes out with length zero or slightly negative. `segmentsAlongExteriorEdge` drops
- * both of its endpoints — an inverted span sorts close-before-open and the close finds no pending
- * start, and an exactly-zero-length span hits the deliberate close-before-open tie-break to the same
- * effect. The chain that ran through that bisector has nothing to continue to, and the ring is lost.
+ * WHAT THIS FILE ASSERTS NOW
  *
- * The signature is unambiguous: the failure is always at the lower member of an ULP-separated pair,
- * and the higher member always projects cleanly.
- *
- * ONE BREAK IS REPORTED TWICE
- *
- * A broken loop yields two `UnclosedChain`s, not one, and only the first of them is about the
- * defect. `assembleRings` seeds a walk at every unvisited segment: the walk that reaches the dropped
- * span stops with `no-successor`, and a later seed picks up the rest of the same loop and walks
- * forward into the segment that first walk started from — already visited, so it stops with
- * `rejoined-mid-chain`. The two are one ring. That is asserted rather than asserted-in-prose: every
- * rejoined chain's last bisector is the FIRST bisector of a `no-successor` chain at the same offset,
- * which is precisely the seed the earlier walk began at. So the mechanism below is measured on the
- * `no-successor` population — the half that carries a terminal bisector to interrogate — and the
- * other half is tied back to it by that linkage.
- *
- * The module header of `offset-projection.ts` states that two live bisectors bounding a zero-length
- * span cannot occur. On these fixtures it does occur, and that is the defect. Fixing it is NOT the
- * change proposed by item 4 — a "terminated chain" predicate would be answering a question none of
- * these cases asks.
- *
- * WHY THESE TESTS ASSERT THE PRESENT, BROKEN BEHAVIOUR
- *
- * They pin a diagnosis so it cannot rot, in the same spirit as `reflex-subdivision.test.ts` pinning
- * its failing set. A change in either direction is a real finding: if the counts below move, the
- * mechanism has moved with them and this comment needs re-measuring, not adjusting.
- *
- * The near-regular fixtures are imported individually and stay OUT of `ALL_TEST_POLYGONS`, and so
- * out of the sweep in `offset-event-boundary-regression.test.ts`. Nothing here promotes them.
+ * Both halves, because either alone is worthless. The mechanism is still measured — the mirror sets
+ * are still there, their members still sit hundreds of units apart in the plane, and their parent
+ * edges still date them to numbers that disagree in the last bits — and the loss those numbers used
+ * to cause is asserted to be gone at every event of all four fixtures, and a nanometre either side
+ * of each. That the losses are gone by being fixed rather than by having stopped being reported is
+ * convicted by mutation, below.
  */
 
 setSkeletonLogLevel('silent');
@@ -105,36 +88,27 @@ export interface HeldOutFixture {
     vertices: Vector2[];
 }
 
-/** One run of wavefront the projection could not close, with everything needed to explain it. */
-export interface LostRingCase {
+/**
+ * Nodes the canonical table dates to one instant, with the raw numbers their own parent edges date
+ * them to.
+ *
+ * `rawOffsets` is re-derived here from the graph rather than read from the projection: this file's
+ * claim is that the *raw* derivation disagrees with itself across mirror nodes, which is a claim
+ * about the geometry and not about the table, and a table lookup could not distinguish it from the
+ * canonicalisation having simply overwritten everything.
+ */
+export interface SimultaneousMirrorSet {
     fixtureName: string;
     result: SkeletonSolveResult;
-    /** The event offset that was queried. */
-    offset: number;
-    chain: UnclosedChain;
-}
-
-/**
- * The span the projection failed to build: the opening endpoint of the chain's terminal bisector and
- * the closing endpoint that should have paired with it, measured along their shared exterior edge.
- */
-export interface FailedSpan {
-    exteriorEdgeId: number;
-    openBisectorId: number;
-    closeBisectorId: number;
-    /** Signed length along the edge basis — the close's coordinate minus the open's. */
-    length: number;
-}
-
-/** Where and when a chain's terminal bisector dies, read from one solve's one offset table. */
-export interface DeathNode {
-    /** The node the terminal bisector is wired to. */
-    nodeId: number;
-    /** That node's re-derived offset — the instant the bisector's lifetime ends. */
-    offset: number;
-    position: Vector2;
-    /** The whole table the offset came from, so a caller comparing against it reads the same one. */
-    nodeOffsets: Map<number, number>;
+    /** The one value the table gives every member. */
+    canonicalOffset: number;
+    nodeIds: number[];
+    /** Every distinct number the members' own parent edges date them to, ascending. */
+    rawOffsets: number[];
+    /** The widest distance in the plane between two members. */
+    separation: number;
+    /** The widest disagreement between two of `rawOffsets`. */
+    spread: number;
 }
 
 const NEAR_REGULAR_FIXTURES: HeldOutFixture[] = [
@@ -145,13 +119,10 @@ const NEAR_REGULAR_FIXTURES: HeldOutFixture[] = [
 ];
 
 /**
- * The unclosed-chain count per fixture, measured rather than inherited.
- *
- * Item 4 recorded a different set and the decision spec a third; both are superseded by this one,
- * taken at this commit. These are counts of (event offset, chain) pairs over every event offset of
- * the fixture.
+ * The counts this file was written against, before the fix. They are prose rather than assertions
+ * because the assertions below are that every one of them is now zero.
  */
-const LOST_RINGS_PER_FIXTURE: Record<string, number> = {
+const LOST_RINGS_BEFORE_THE_FIX: Record<string, number> = {
     'Near Regular Ellipse 16': 4,
     'Near Regular Ellipse 32': 6,
     'Near Regular Rosette5 40': 19,
@@ -159,20 +130,23 @@ const LOST_RINGS_PER_FIXTURE: Record<string, number> = {
 };
 
 /**
- * The same losses split by how the walk failed, rather than by fixture.
- *
- * Both halves are pinned because they are one mechanism reported twice: the walk that dies is a
- * `no-successor`, and the remainder of the very same loop, walked from a different seed, arrives
- * back at that dead walk's first segment and is reported as a `rejoined-mid-chain`. The linkage is
- * asserted below; these counts stop either population drifting unnoticed behind it.
+ * How far apart two re-derived offsets of one simultaneous event may be. Femtometres, not slack:
+ * nothing in the projection compares against this, and this file only measures with it.
  */
-const LOST_RINGS_PER_REASON: Record<UnclosedChainReason, number> = {
-    'no-successor': 23,
-    'rejoined-mid-chain': 13,
-};
-
-/** How far apart two re-derived offsets of one simultaneous event may be. Femtometres, not slack. */
 const SIMULTANEITY_BAND = 1e-12;
+
+/** Below this separation two nodes are a coincident cluster rather than mirror images. */
+const MIRROR_SEPARATION = 1;
+
+/**
+ * How close to the maximum offset a ring stops having distinguishable vertices, and an empty
+ * projection becomes the documented answer rather than a loss. The same band, for the same reason,
+ * as the sweep over `ALL_TEST_POLYGONS`.
+ */
+const TERMINAL_BAND = 1e-6;
+
+/** How far either side of an event the area is sampled to check it is continuous through it. */
+const NEIGHBOURHOOD = 1e-6;
 
 const NEAR_REGULAR_SOLVES = new Map<string, SkeletonSolveResult>();
 
@@ -202,202 +176,149 @@ function nodeOffsetsOf(result: SkeletonSolveResult): Map<number, number> {
     return offsets;
 }
 
-/** Every chain the projection failed to close, over every event offset of every near-regular fixture. */
-function lostRingCases(): LostRingCase[] {
-    const cases: LostRingCase[] = [];
-    for (const fixture of NEAR_REGULAR_FIXTURES) {
-        const result = solvedHeldOutFixture(fixture);
-        for (const offset of eventOffsets(result)) {
-            for (const chain of projectOffsetWavefront(result, offset).unclosedChains) {
-                cases.push({fixtureName: fixture.name, result, offset, chain});
-            }
+function separationOf(result: SkeletonSolveResult, nodeIds: number[]): number {
+    let widest = 0;
+    for (let i = 0; i < nodeIds.length; i++) {
+        for (let j = i + 1; j < nodeIds.length; j++) {
+            const a = result.graph.nodes[nodeIds[i]].position;
+            const b = result.graph.nodes[nodeIds[j]].position;
+            widest = Math.max(widest, Math.hypot(a.x - b.x, a.y - b.y));
         }
     }
-    return cases;
+    return widest;
 }
 
 /**
- * The losses whose walk simply ran out of successor — the primary failure.
- *
- * The `rejoined-mid-chain` losses are the *other* half of the same broken loop and carry no
- * terminal bisector of their own to interrogate, so every test that reasons about the bisector a
- * walk died on starts here. That they share the root cause is asserted separately, by linkage,
- * rather than assumed.
+ * The sets of nodes the table dates to one instant, over every near-regular fixture, keeping only
+ * those whose members are genuinely apart in the plane — a mirror set rather than a cluster of
+ * nodes that happen to sit on top of one another.
  */
-function noSuccessorLosses(): LostRingCase[] {
-    return lostRingCases().filter(lost => lost.chain.reason === 'no-successor');
-}
+function simultaneousMirrorSets(): SimultaneousMirrorSet[] {
+    const sets: SimultaneousMirrorSet[] = [];
+    for (const fixture of NEAR_REGULAR_FIXTURES) {
+        const result = solvedHeldOutFixture(fixture);
 
-/** The losses whose walk forked back into ground an earlier walk had already covered. */
-function rejoinedLosses(): LostRingCase[] {
-    return lostRingCases().filter(lost => lost.chain.reason === 'rejoined-mid-chain');
-}
+        const nodeIdsByOffset = new Map<number, number[]>();
+        for (const [nodeId, offset] of nodeOffsetsOf(result)) {
+            if (offset <= 0) {
+                continue;
+            }
+            nodeIdsByOffset.set(offset, [...(nodeIdsByOffset.get(offset) ?? []), nodeId]);
+        }
 
-/** The bisector the walk ran out of road on: the last id in the chain. */
-function terminalBisectorOf(chain: UnclosedChain): number {
-    return chain.bisectorIds[chain.bisectorIds.length - 1];
-}
-
-/**
- * Where the chain's terminal bisector is wired to die, and when.
- *
- * Every clause of the refuted hypothesis is a claim about this one node, so the derivation of it —
- * follow the terminal bisector to its target, then read that target out of the solve's offset table
- * — is made once here rather than restated per assertion.
- */
-function deathNodeOf(lost: LostRingCase): DeathNode {
-    const nodeOffsets = nodeOffsetsOf(lost.result);
-    const nodeId = lost.result.graph.edges[terminalBisectorOf(lost.chain)].target!;
-    const offset = nodeOffsets.get(nodeId);
-    if (offset === undefined) {
-        throw new Error(
-            `${lost.fixtureName} @${lost.offset}: n${nodeId} ends a walked chain but has no re-derived offset.`);
+        for (const [canonicalOffset, nodeIds] of nodeIdsByOffset) {
+            const separation = separationOf(result, nodeIds);
+            if (nodeIds.length < 2 || separation < MIRROR_SEPARATION) {
+                continue;
+            }
+            const rawOffsets = [...new Set(nodeIds.flatMap(nodeId => rawOffsetsOfNode(result, nodeId)))]
+                .sort((a, b) => a - b);
+            sets.push({
+                fixtureName: fixture.name,
+                result,
+                canonicalOffset,
+                nodeIds,
+                rawOffsets,
+                separation,
+                spread: rawOffsets[rawOffsets.length - 1] - rawOffsets[0],
+            });
+        }
     }
-    return {nodeId, offset, position: lost.result.graph.nodes[nodeId].position, nodeOffsets};
+    return sets;
 }
 
-/**
- * The span that should have continued the chain and did not.
- *
- * The chain's terminal bisector opens a span on its clockwise parent edge; the live bisector naming
- * that same edge as its widdershins parent closes it. Returns null if no live bisector closes there
- * at all, which would be a different failure from the one measured here.
- */
-function failedSpanOf(lost: LostRingCase): FailedSpan | null {
-    const {result, offset} = lost;
-    const {graph} = result;
-    const alive: AliveBisector[] = collectAliveBisectors(result, nodeOffsetsOf(result), offset);
-
-    const openBisectorId = terminalBisectorOf(lost.chain);
-    const opener = alive.find(candidate => candidate.id === openBisectorId);
-    if (opener === undefined) {
-        // The walk reached this bisector at this offset, so the projection called it alive; if the
-        // same call now says otherwise, the diagnosis below is measuring a different mechanism.
-        throw new Error(
-            `${lost.fixtureName} @${offset}: b${openBisectorId} terminates a walked chain but is not alive.`);
+/** Every unclosed chain the projection reports, over every event offset of every fixture. */
+function unclosedChainCounts(): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const fixture of NEAR_REGULAR_FIXTURES) {
+        const result = solvedHeldOutFixture(fixture);
+        counts[fixture.name] = 0;
+        for (const offset of eventOffsets(result)) {
+            counts[fixture.name] += projectOffsetWavefront(result, offset).unclosedChains.length;
+        }
     }
-    const exteriorEdgeId = opener.clockwiseParentId;
-
-    const closer = alive.find(candidate => candidate.widdershinsParentId === exteriorEdgeId);
-    if (closer === undefined) {
-        return null;
-    }
-
-    const exteriorEdge = graph.edges[exteriorEdgeId];
-    const edgeSource = graph.nodes[exteriorEdge.source].position;
-    const alongEdge = (point: Vector2): number =>
-        dotProduct({x: point.x - edgeSource.x, y: point.y - edgeSource.y}, exteriorEdge.basisVector);
-
-    return {
-        exteriorEdgeId,
-        openBisectorId,
-        closeBisectorId: closer.id,
-        length: alongEdge(closer.position) - alongEdge(opener.position),
-    };
+    return counts;
 }
 
-/** Node ids whose re-derived offset is exactly `offset`. */
-function nodesAtExactly(nodeOffsets: Map<number, number>, offset: number): number[] {
-    return [...nodeOffsets.entries()].filter(([, value]) => value === offset).map(([nodeId]) => nodeId);
-}
+describe('the near-regular simultaneous mirror events', () => {
+    describe('the mechanism, still measured', () => {
+        it('puts several nodes at one instant, hundreds of units apart in the plane', () => {
+            const byFixture = new Map<string, SimultaneousMirrorSet[]>();
+            for (const mirrorSet of simultaneousMirrorSets()) {
+                byFixture.set(mirrorSet.fixtureName, [...(byFixture.get(mirrorSet.fixtureName) ?? []), mirrorSet]);
+            }
 
-function bisectorsBornAt(result: SkeletonSolveResult, nodeId: number): number[] {
-    return result.graph.interiorEdges
-        .filter(interiorEdge => result.graph.edges[interiorEdge.id]?.source === nodeId)
-        .map(interiorEdge => interiorEdge.id);
-}
-
-describe('the near-regular ring loss, diagnosed', () => {
-    describe('the loss itself', () => {
-        it('is still present, in the numbers this comment was written against', () => {
-            const counts: Record<string, number> = {};
+            // Every fixture has them; this is why these four were held out in the first place.
             for (const fixture of NEAR_REGULAR_FIXTURES) {
-                counts[fixture.name] = 0;
+                expect(byFixture.get(fixture.name) ?? []).not.toHaveLength(0);
             }
-            for (const lost of lostRingCases()) {
-                counts[lost.fixtureName] += 1;
-            }
-            // A move in EITHER direction is a finding: the diagnosis above was measured against
-            // these counts and has to be re-measured if they change.
-            expect(counts).toEqual(LOST_RINGS_PER_FIXTURE);
+            expect(Math.max(...simultaneousMirrorSets().map(mirrorSet => mirrorSet.separation)))
+                .toBeGreaterThan(100);
         });
 
-        it('reports every loss as one of exactly two chain reasons, in known proportion', () => {
-            const counts: Record<string, number> = {'no-successor': 0, 'rejoined-mid-chain': 0};
-            for (const lost of lostRingCases()) {
-                // A reason outside the two seeded keys adds a third one and fails the comparison,
-                // so this is also the assertion that no unaccounted-for reason has appeared.
-                counts[lost.chain.reason] = (counts[lost.chain.reason] ?? 0) + 1;
-            }
-            expect(counts).toEqual(LOST_RINGS_PER_REASON);
-        });
-
-        it('accounts for the rejoined chains as the far side of a broken chain, not a second defect', () => {
+        it('has the members\' own parent edges disagree, in the last bits and no further', () => {
             const problems: string[] = [];
-            for (const rejoined of rejoinedLosses()) {
-                const rejoinTarget = terminalBisectorOf(rejoined.chain);
-                const where = `${rejoined.fixtureName} @${rejoined.offset.toFixed(6)}`;
-
-                // The walk stopped because `indexByStartBisector` sent it to a segment already
-                // visited. If the loop it rejoined is the one a `no-successor` walk broke, that
-                // segment is the seed that walk started from — its chain's FIRST bisector.
-                const broken = noSuccessorLosses().filter(lost =>
-                    lost.fixtureName === rejoined.fixtureName
-                    && lost.offset === rejoined.offset
-                    && lost.chain.bisectorIds[0] === rejoinTarget);
-                if (broken.length === 0) {
-                    problems.push(
-                        `${where}: rejoins at b${rejoinTarget}, which seeds no broken chain at this offset`);
+            let disagreeing = 0;
+            for (const mirrorSet of simultaneousMirrorSets()) {
+                const where = `${mirrorSet.fixtureName} @${mirrorSet.canonicalOffset.toFixed(6)}`;
+                if (mirrorSet.spread > 0) {
+                    disagreeing += 1;
+                }
+                // One instant, several numbers — but never further apart than one instant's worth.
+                // A wider spread would mean this set has swallowed a genuinely distinct event.
+                if (mirrorSet.spread > SIMULTANEITY_BAND) {
+                    problems.push(`${where}: raw offsets span ${mirrorSet.spread.toExponential(3)}`);
                 }
             }
             expect(problems.join('; ')).toBe('');
-            expect(rejoinedLosses().length).toBe(LOST_RINGS_PER_REASON['rejoined-mid-chain']);
+            // Non-vacuity: if nothing disagreed there would be nothing here to canonicalise, and
+            // every assertion in this file would be passing on an empty population.
+            expect(disagreeing).toBeGreaterThan(0);
         });
-    });
 
-    describe('every clause of the terminal-event hypothesis fails', () => {
-        it('runs into a node that has a bisector born at it', () => {
+        it('collapses each set onto one of its own members, never onto an average of them', () => {
             const problems: string[] = [];
-            for (const lost of noSuccessorLosses()) {
-                const death = deathNodeOf(lost);
-                const born = bisectorsBornAt(lost.result, death.nodeId);
-                if (born.length === 0) {
-                    problems.push(`${lost.fixtureName} @${lost.offset.toFixed(6)}: nothing born at n${death.nodeId}`);
+            for (const mirrorSet of simultaneousMirrorSets()) {
+                const where = `${mirrorSet.fixtureName} @${mirrorSet.canonicalOffset}`;
+                // Bit-exact membership. A mean of the set would sit between two members and fail
+                // this, which is the mutation this assertion exists to catch.
+                if (!mirrorSet.rawOffsets.includes(mirrorSet.canonicalOffset)) {
+                    problems.push(`${where}: canonical offset is not one of ${mirrorSet.rawOffsets.join(', ')}`);
                 }
             }
             expect(problems.join('; ')).toBe('');
         });
 
-        it('runs into a node that is not terminal, and is not even the last event of its fixture', () => {
+        it('leaves two nodes at one offset as two nodes, at their own positions', () => {
             const problems: string[] = [];
-            for (const lost of noSuccessorLosses()) {
-                const death = deathNodeOf(lost);
-                if (!(death.offset < computeMaxOffset(lost.result))) {
-                    problems.push(
-                        `${lost.fixtureName} @${lost.offset.toFixed(6)}: n${death.nodeId} is at the maximum offset`);
+            for (const mirrorSet of simultaneousMirrorSets()) {
+                const positions = mirrorSet.nodeIds.map(nodeId => mirrorSet.result.graph.nodes[nodeId].position);
+                if (new Set(mirrorSet.nodeIds).size !== mirrorSet.nodeIds.length) {
+                    problems.push(`${mirrorSet.fixtureName}: a node id appears twice in one set`);
+                }
+                // The peanut's waist puts two nodes on opposite banks of a thin neck. Unifying
+                // offsets must not fuse them, and nothing here may move one onto the other.
+                for (let i = 0; i < positions.length; i++) {
+                    for (let j = i + 1; j < positions.length; j++) {
+                        if (positions[i].x === positions[j].x && positions[i].y === positions[j].y) {
+                            problems.push(`${mirrorSet.fixtureName}: two members share a position`);
+                        }
+                    }
                 }
             }
             expect(problems.join('; ')).toBe('');
         });
 
-        it('walks bisectors that die at several different nodes, not at one', () => {
-            const spreads = lostRingCases()
-                .filter(lost => lost.chain.bisectorIds.length > 3)
-                .map(lost => new Set(
-                    lost.chain.bisectorIds.map(id => lost.result.graph.edges[id]?.target)).size);
-            expect(spreads.length).toBeGreaterThan(0);
-            expect(Math.min(...spreads)).toBeGreaterThan(1);
-        });
-
-        it('leaves the ring intact, and the projection sound, a nanometre either side', () => {
+        it('leaves no ulp-separated pair of event offsets anywhere in the table', () => {
             const problems: string[] = [];
-            for (const lost of lostRingCases()) {
-                for (const delta of [-1e-9, 1e-9]) {
-                    const projection = projectOffsetWavefront(lost.result, lost.offset + delta);
-                    if (projection.unclosedChains.length > 0 || projection.rings.length === 0) {
+            for (const fixture of NEAR_REGULAR_FIXTURES) {
+                const offsets = eventOffsets(solvedHeldOutFixture(fixture));
+                for (let i = 1; i < offsets.length; i++) {
+                    // Distinct offsets are now distinct EVENTS: no two of them are within one
+                    // instant's worth of each other, which is the entire content of the fix.
+                    if (offsets[i] - offsets[i - 1] <= SIMULTANEITY_BAND) {
                         problems.push(
-                            `${lost.fixtureName} @${lost.offset.toFixed(6)}${delta > 0 ? '+' : ''}${delta}: `
-                            + `${projection.rings.length} rings, ${projection.unclosedChains.length} chains`);
+                            `${fixture.name}: ${offsets[i - 1]} and ${offsets[i]} are one instant, two entries`);
                     }
                 }
             }
@@ -405,72 +326,140 @@ describe('the near-regular ring loss, diagnosed', () => {
         });
     });
 
-    describe('what is actually happening', () => {
-        it('queries the lower member of a pair of re-derived offsets for one simultaneous event', () => {
-            const problems: string[] = [];
-            for (const lost of noSuccessorLosses()) {
-                const death = deathNodeOf(lost);
-                const gap = death.offset - lost.offset;
-                const where = `${lost.fixtureName} @${lost.offset.toFixed(6)}`;
-
-                // The terminal bisector is still alive: its death is in the future, by femtometres.
-                if (!(gap > 0)) {
-                    problems.push(`${where}: n${death.nodeId} is not later than the query (gap ${gap})`);
-                } else if (gap > SIMULTANEITY_BAND) {
-                    problems.push(`${where}: n${death.nodeId} is ${gap.toExponential(3)} later, not one event`);
-                }
-
-                // And the query offset is some *other* node's reading of the same instant.
-                const twins = nodesAtExactly(death.nodeOffsets, lost.offset)
-                    .filter(nodeId => nodeId !== death.nodeId);
-                if (twins.length === 0) {
-                    problems.push(`${where}: no other node reads this offset`);
-                }
-            }
-            expect(problems.join('; ')).toBe('');
+    describe('the loss it used to cause', () => {
+        it('is gone: every event of every near-regular fixture closes', () => {
+            // Was 4 / 6 / 19 / 7 — 36 lost rings, reported as 23 `no-successor` chains and 13
+            // `rejoined-mid-chain` far halves of the same loops.
+            expect(unclosedChainCounts()).toEqual({
+                'Near Regular Ellipse 16': 0,
+                'Near Regular Ellipse 32': 0,
+                'Near Regular Rosette5 40': 0,
+                'Near Regular Peanut 32': 0,
+            });
+            expect(Object.values(LOST_RINGS_BEFORE_THE_FIX).reduce((total, count) => total + count, 0)).toBe(36);
         });
 
-        it('pairs nodes that are the same instant at genuinely different places', () => {
+        it('is gone at the instants that used to fail, each of them now one table entry', () => {
+            // The failure was always at the LOWER member of a set and the higher members always
+            // projected cleanly, so every instant that used to lose a ring is a mirror set here.
+            // Each is now a single entry in the table, and the projection at that entry is sound.
+            //
+            // The members that are not the representative are no longer offsets anything asks for.
+            // They are not in the table, and a caller walking the skeleton event by event walks the
+            // table. Below an event by less than a nanometre — which is where those raw members now
+            // sit — the reconstruction of a bisector's position is itself noisier than the distance
+            // to the event, and a span can still sort the wrong way round. That is a property of an
+            // exact lifetime comparison and not of mirror events: measured on `ALL_TEST_POLYGONS`,
+            // which has no mirror sets in it at all, 101 of 810 probes at 1e-13, 1e-14 and 1e-15
+            // below an event report an unclosed chain. It is unchanged by this work, in either
+            // direction, and is a finding to report rather than a defect this file pins.
             const problems: string[] = [];
-            for (const lost of noSuccessorLosses()) {
-                const death = deathNodeOf(lost);
-                for (const twin of nodesAtExactly(death.nodeOffsets, lost.offset)) {
-                    const twinPosition = lost.result.graph.nodes[twin].position;
-                    const separation = Math.hypot(
-                        twinPosition.x - death.position.x, twinPosition.y - death.position.y);
-                    if (separation < 1) {
-                        problems.push(
-                            `${lost.fixtureName} @${lost.offset.toFixed(6)}: n${twin} and n${death.nodeId} are `
-                            + `${separation} apart — a coincident cluster, not a mirror pair`);
-                    }
-                }
-            }
-            expect(problems.join('; ')).toBe('');
-        });
-
-        it('drops a span of non-positive length between two bisectors the table still calls alive', () => {
-            const problems: string[] = [];
-            let measured = 0;
-            for (const lost of noSuccessorLosses()) {
-                const span = failedSpanOf(lost);
-                const where = `${lost.fixtureName} @${lost.offset.toFixed(6)}`;
-                if (span === null) {
-                    problems.push(`${where}: no live bisector closes on the terminal bisector's parent edge`);
+            for (const mirrorSet of simultaneousMirrorSets()) {
+                const where = `${mirrorSet.fixtureName} @${mirrorSet.canonicalOffset}`;
+                if (!eventOffsets(mirrorSet.result).includes(mirrorSet.canonicalOffset)) {
+                    problems.push(`${where}: the set's own value is not an event offset`);
                     continue;
                 }
-                measured += 1;
-                // Zero or inverted, and never more than a femtometre of either: the two bisectors have
-                // met, which the module header asserts cannot happen while both are alive.
-                if (span.length > 0) {
+                // At the maximum offset the wavefront has been consumed and an empty projection is
+                // the documented answer, so only the mid-solve instants are required to carry rings.
+                const isTerminal = computeMaxOffset(mirrorSet.result) - mirrorSet.canonicalOffset <= TERMINAL_BAND;
+                const projection = projectOffsetWavefront(mirrorSet.result, mirrorSet.canonicalOffset);
+                if (projection.unclosedChains.length > 0 || (projection.rings.length === 0 && !isTerminal)) {
                     problems.push(
-                        `${where}: span b${span.openBisectorId}->b${span.closeBisectorId} on `
-                        + `e${span.exteriorEdgeId} has positive length ${span.length.toExponential(3)}`);
-                } else if (span.length < -SIMULTANEITY_BAND) {
-                    problems.push(`${where}: span is ${span.length.toExponential(3)}, too long to be one event`);
+                        `${where}: ${projection.rings.length} rings, `
+                        + `${projection.unclosedChains.length} unclosed chains`);
                 }
             }
             expect(problems.join('; ')).toBe('');
-            expect(measured).toBeGreaterThan(0);
+        });
+
+        it('leaves the ring intact at every event, and a nanometre either side of it', () => {
+            const problems: string[] = [];
+            for (const fixture of NEAR_REGULAR_FIXTURES) {
+                const result = solvedHeldOutFixture(fixture);
+                const maxOffset = computeMaxOffset(result);
+                for (const offset of eventOffsets(result).filter(event => maxOffset - event > TERMINAL_BAND)) {
+                    for (const delta of [-1e-9, 0, 1e-9]) {
+                        const projection = projectOffsetWavefront(result, offset + delta);
+                        if (projection.unclosedChains.length > 0 || projection.rings.length === 0) {
+                            problems.push(
+                                `${fixture.name} @${offset.toFixed(6)}${delta >= 0 ? '+' : ''}${delta}: `
+                                + `${projection.rings.length} rings, ${projection.unclosedChains.length} chains`);
+                        }
+                    }
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it('encloses the area the limit either side of the event encloses', () => {
+            // A ring that closes while enclosing the wrong area is worse than one that fails to
+            // close, because nothing downstream would report it. Same continuity test, same slack,
+            // as the sweep over `ALL_TEST_POLYGONS`.
+            const problems: string[] = [];
+            for (const fixture of NEAR_REGULAR_FIXTURES) {
+                const result = solvedHeldOutFixture(fixture);
+                for (const offset of eventOffsets(result)) {
+                    const before = totalRingArea(computeOffsetRings(result, offset - NEIGHBOURHOOD));
+                    const at = totalRingArea(computeOffsetRings(result, offset));
+                    const after = totalRingArea(computeOffsetRings(result, offset + NEIGHBOURHOOD));
+                    if (!isContinuous(before, at, after)) {
+                        problems.push(`${fixture.name} @${offset.toFixed(6)}: ${before} -> ${at} -> ${after}`);
+                    }
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+    });
+
+    describe('and the report that found the loss still works', () => {
+        it('fires when a hand-over on these fixtures is broken by hand', () => {
+            // The counts above are worth nothing if `unclosedChains` can no longer be non-empty on
+            // these fixtures — a suppressed report would pass them just as well as a fix. So the
+            // report is convicted here the same way the `ALL_TEST_POLYGONS` sweep convicts it: push
+            // one node's offset a micrometre later than the rest of the solve dates it, which is six
+            // orders of magnitude outside the canonicalisation band and so survives it, and query
+            // the original offset again. Every such mutation must be REPORTED or HARMLESS; silently
+            // returning smaller rings is the outcome the whole module exists to prevent.
+            const silentLosses: string[] = [];
+            let fired = 0;
+            let mutated = 0;
+            for (const fixture of NEAR_REGULAR_FIXTURES) {
+                const result = solvedHeldOutFixture(fixture);
+                const maxOffset = computeMaxOffset(result);
+                for (const [nodeId, event] of nodeOffsetsOf(result)) {
+                    if (!(event > 0) || maxOffset - event <= TERMINAL_BAND) {
+                        continue;
+                    }
+                    const before = projectOffsetWavefront(result, event);
+                    if (before.unclosedChains.length > 0 || before.rings.length === 0) {
+                        continue;
+                    }
+                    mutated += 1;
+
+                    const broken = withNodeOffsetDelayed(result, nodeId, MUTATION_DISPLACEMENT);
+                    if (projectOffsetWavefront(broken, event).unclosedChains.length > 0) {
+                        fired += 1;
+                        continue;
+                    }
+
+                    const area = totalRingArea(computeOffsetRings(result, event));
+                    const afterArea = totalRingArea(computeOffsetRings(broken, event));
+                    if (!isContinuous(area, afterArea, area)) {
+                        silentLosses.push(
+                            `${fixture.name} @${event.toFixed(6)} n${nodeId}: ${area} -> ${afterArea} `
+                            + `with nothing reported`);
+                    }
+                }
+            }
+            expect(silentLosses.join('; ')).toBe('');
+
+            // Pinned rather than bounded, for the same reason the sibling suite pins its pair: a
+            // share-of-corpus bound would still pass if the report's sensitivity quietly halved.
+            // Measured at this commit: 48 mid-solve events across the four fixtures that project
+            // cleanly, 40 of which the report fires on and 8 of which cost no area at all.
+            expect(mutated).toBe(48);
+            expect(fired).toBe(40);
         });
     });
 
@@ -490,36 +479,30 @@ describe('the near-regular ring loss, diagnosed', () => {
             expect(computeOffsetRings(result, maxOffset)).toEqual([]);
         });
 
-        it('loses one of the two mirror rings at the lower offset of each pair, and neither at the higher', () => {
+        it('keeps both mirror rings at every event past the pinch, where one used to be lost', () => {
+            // The lower member of each simultaneous pair used to come back with one ring where the
+            // higher member had two: the mirror lobe was the ring being dropped. Both members are
+            // now one offset and both lobes survive it.
             const result = solvedHeldOutFixture(peanut);
-            const offsets = eventOffsets(result);
             const problems: string[] = [];
 
-            for (const [index, offset] of offsets.entries()) {
-                const projection = projectOffsetWavefront(result, offset);
-                if (projection.unclosedChains.length === 0) {
+            for (const offset of eventOffsets(result)) {
+                const rings = computeOffsetRings(result, offset);
+                if (rings.length !== 2) {
                     continue;
                 }
-                const twin = offsets[index + 1];
-                if (twin === undefined || twin - offset > SIMULTANEITY_BAND) {
-                    problems.push(`@${offset.toFixed(6)}: no simultaneous twin above it`);
-                    continue;
-                }
-                const atTwin = computeOffsetRings(result, twin);
-                if (projection.rings.length !== 1 || atTwin.length !== 2) {
-                    problems.push(
-                        `@${offset.toFixed(6)}: ${projection.rings.length} rings here, ${atTwin.length} at the twin`);
-                    continue;
-                }
-                // The ring that survived is one of the twin's two, unchanged: exactly one was lost.
-                const survivor = Math.abs(signedRingArea(projection.rings[0].vertices.map(vertex => vertex.position)));
-                for (const ring of atTwin) {
-                    if (Math.abs(Math.abs(signedRingArea(ring)) - survivor) > 1e-9) {
-                        problems.push(`@${offset.toFixed(6)}: surviving ring area ${survivor} is not the twin's`);
-                    }
+                const areas = rings.map(ring => Math.abs(signedRingArea(ring)));
+                if (Math.abs(areas[0] - areas[1]) > 1e-9) {
+                    problems.push(`@${offset.toFixed(6)}: lobe areas ${areas[0]} and ${areas[1]} differ`);
                 }
             }
             expect(problems.join('; ')).toBe('');
+
+            // Non-vacuity: the two-lobe configuration is reached at an event, not merely between
+            // events, so the loop above has something to check.
+            const twoLobeEvents = eventOffsets(result)
+                .filter(offset => computeOffsetRings(result, offset).length === 2);
+            expect(twoLobeEvents.length).toBeGreaterThan(0);
         });
     });
 });

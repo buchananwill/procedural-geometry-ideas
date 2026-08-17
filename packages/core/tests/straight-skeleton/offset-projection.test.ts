@@ -10,9 +10,11 @@ import {
 import {
     distanceToSegment,
     distanceToSupportingLine,
+    rawOffsetsOfNode,
     signedRingArea,
     totalRingArea,
 } from './wavefront-measurement-helpers';
+import {place} from './placement-helpers';
 
 /**
  * Properties of the offset projection, rather than golden coordinates.
@@ -33,6 +35,13 @@ import {
  */
 
 const TOLERANCE = 1e-6;
+
+/**
+ * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
+ * solve's maximum offset. Stated here as a measurement to assert against, not as slack: nothing in
+ * the projection compares against a tolerance, and this suite only measures with it.
+ */
+const SIMULTANEITY_BAND = 1e-12;
 
 /** The polygon the solver actually worked on, after any winding normalisation. */
 function boundaryOf(result: SkeletonSolveResult): Vector2[] {
@@ -127,6 +136,24 @@ function solvedFixture(name: string): SkeletonSolveResult {
     return solveSkeleton(fixture.vertices);
 }
 
+/**
+ * Which nodes the offset table dates to the same instant, as a string that can be compared between
+ * two solves of the same shape at different sizes.
+ *
+ * The offsets themselves scale with the shape and so cannot be compared directly; the PARTITION
+ * they induce cannot, and is exactly what a relative tolerance promises to keep fixed.
+ */
+function partitionSignature(result: SkeletonSolveResult): string {
+    const nodeIdsByOffset = new Map<number, number[]>();
+    for (const [nodeId, offset] of computeNodeOffsets(result)) {
+        nodeIdsByOffset.set(offset, [...(nodeIdsByOffset.get(offset) ?? []), nodeId]);
+    }
+    return [...nodeIdsByOffset.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, nodeIds]) => [...nodeIds].sort((a, b) => a - b).join(','))
+        .join(' | ');
+}
+
 describe('offset projection', () => {
     describe('preconditions', () => {
         it('rejects a negative offset', () => {
@@ -166,6 +193,90 @@ describe('offset projection', () => {
             const result = solvedFixture('Awkward Heptagon');
             const offsets = [...computeNodeOffsets(result).values()];
             expect(computeMaxOffset(result)).toBeCloseTo(Math.max(...offsets), 9);
+        });
+    });
+
+    /*
+     * The table is canonicalised: nodes belonging to one simultaneous event are given one identical
+     * offset, because mirror nodes re-derive that one instant from different parent edges and get
+     * numbers that disagree in the last bits. The fixtures where that matters are held out of this
+     * corpus and are asserted in `near-regular-ring-loss-diagnosis.test.ts`; what belongs here are
+     * the properties the canonicalisation must have on ANY input, whether or not it changes
+     * anything on that input.
+     */
+    describe('the node-offset table is canonical', () => {
+        it('never moves a node further from the geometry than one instant is wide', () => {
+            // The table is still the geometry: every node's canonical offset is within a
+            // femtometre-scale band of a distance its own parent edges actually date it to. A
+            // canonicalisation that merged two genuinely distinct events would show up here as a
+            // node whose offset is nowhere near any line it lies between.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const result = solvedFixture(polygon.name);
+                const maxOffset = computeMaxOffset(result);
+                for (const [nodeId, offset] of computeNodeOffsets(result)) {
+                    if (nodeId < result.graph.numExteriorNodes) {
+                        continue;
+                    }
+                    const raw = rawOffsetsOfNode(result, nodeId);
+                    if (raw.length === 0) {
+                        continue;
+                    }
+                    const drift = Math.min(...raw.map(candidate => Math.abs(candidate - offset)));
+                    if (drift > maxOffset * SIMULTANEITY_BAND) {
+                        problems.push(
+                            `${polygon.name} n${nodeId}: offset ${offset} is ${drift.toExponential(3)} `
+                            + `from every distance its own parent edges give it`);
+                    }
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it('gives one instant one value, however many nodes read it', () => {
+            // Metamorphic, and the point of the whole exercise: two nodes the table dates to the
+            // same instant must compare equal on the BIT, because the lifetime comparison that
+            // reads them is exact and is given no slack. Grouping by value and then checking the
+            // groups are separated by far more than the band is the same statement from the other
+            // side — no two distinct entries of the table are one instant's worth apart.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const result = solvedFixture(polygon.name);
+                const maxOffset = computeMaxOffset(result);
+                const distinct = [...new Set(computeNodeOffsets(result).values())].sort((a, b) => a - b);
+                for (let i = 1; i < distinct.length; i++) {
+                    if (distinct[i] - distinct[i - 1] <= maxOffset * SIMULTANEITY_BAND) {
+                        problems.push(
+                            `${polygon.name}: ${distinct[i - 1]} and ${distinct[i]} are one instant, two entries`);
+                    }
+                }
+            }
+            expect(problems.join('; ')).toBe('');
+        });
+
+        it('partitions a scaled fixture exactly as it partitions the fixture', () => {
+            // The tolerance is RELATIVE to the solve's own maximum offset, so the partition is a
+            // property of the shape and not of how large it is drawn. Scaling by powers of two is
+            // exact in binary, so the offsets of the scaled solve are the offsets of the original
+            // multiplied by the scale and nothing else has moved: an ABSOLUTE tolerance would
+            // therefore merge everything at 2^-30 and nothing at 2^30, and this comparison is what
+            // catches that.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const native = partitionSignature(solveSkeleton(polygon.vertices));
+                for (const scale of [2 ** -30, 2 ** -10, 2 ** 10, 2 ** 30]) {
+                    const scaled = solveSkeleton(place(polygon.vertices, scale, 0));
+                    if (!scaled.complete || scaled.context === null) {
+                        problems.push(`${polygon.name} at scale ${scale}: no longer solves`);
+                        continue;
+                    }
+                    const signature = partitionSignature(scaled);
+                    if (signature !== native) {
+                        problems.push(`${polygon.name} at scale ${scale}: ${signature} vs ${native}`);
+                    }
+                }
+            }
+            expect(problems.join('; ')).toBe('');
         });
     });
 

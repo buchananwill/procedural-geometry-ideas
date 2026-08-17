@@ -10,7 +10,13 @@ import {
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
-import {eventOffsets, totalRingArea} from './wavefront-measurement-helpers';
+import {
+    eventOffsets,
+    isContinuous,
+    MUTATION_DISPLACEMENT,
+    totalRingArea,
+    withNodeOffsetDelayed,
+} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -72,11 +78,12 @@ import {eventOffsets, totalRingArea} from './wavefront-measurement-helpers';
  * WHAT THIS FILE IS NOT
  * ----------------------------------------------------------------------------
  *
- * The near-regular fixtures are held out of `ALL_TEST_POLYGONS`, and the projection does still lose
- * rings on them. That is a live defect with a measured diagnosis, pinned in
- * `near-regular-ring-loss-diagnosis.test.ts`. It is deliberately not here: this file asserts a
- * guarantee and changes only if the guarantee regresses, while that one pins broken behaviour and
- * is expected to change the day the defect is fixed. The two share their measurements through
+ * The near-regular fixtures are held out of `ALL_TEST_POLYGONS`, so nothing here sweeps them. The
+ * projection used to lose rings on them; the simultaneous-mirror-event work has since fixed that,
+ * and `near-regular-ring-loss-diagnosis.test.ts` carries both the diagnosis and the guarantee for
+ * those four. They stay held out until they are promoted deliberately, which is a separate change:
+ * promoting them moves the event count this file pins, and bundling the two would make any
+ * regression unattributable. The two suites share their measurements through
  * `wavefront-measurement-helpers.ts` so that the guarantee and the diagnosis are stated over the
  * same quantities.
  *
@@ -121,18 +128,6 @@ function solvedFixture(name: string): SkeletonSolveResult {
 }
 
 /**
- * Is the ring area at an event ordered between the areas a micrometre either side of it?
- *
- * The wavefront only ever shrinks, so the three readings must come out in that order. An event that
- * loses ring area comes out below both neighbours and fails; one that gains comes out above both.
- * The slack covers the genuine micrometre of shrinkage between the samples, nothing more.
- */
-function isContinuous(before: number, at: number, after: number): boolean {
-    const slack = Math.max(1e-9, before * 1e-6);
-    return at <= before + slack && at >= after - slack;
-}
-
-/**
  * Does a ring visit the same point twice?
  *
  * A wavefront ring is a simple closed walk, so two of its vertices landing on the same point means a
@@ -151,54 +146,6 @@ function hasRepeatedVertex(ring: Vector2[], tolerance: number): boolean {
     return false;
 }
 
-/**
- * How far a mutated node's own event is pushed away from where the rest of the solve puts it.
- *
- * A micrometre is not a tolerance and nothing compares against it: it is a displacement chosen to be
- * enormous next to the femtometres the hand-over actually turns on, so that a report which fails to
- * fire has failed for a reason other than the perturbation being too small to see.
- */
-const MUTATION_DISPLACEMENT = 1e-6;
-
-/** A copy of `result` with one node displaced, and nothing else about the solve touched. */
-function withNodeMoved(result: SkeletonSolveResult, nodeId: number, displacement: Vector2): SkeletonSolveResult {
-    const nodes = result.graph.nodes.map((node, index) => index === nodeId
-        ? {...node, position: {x: node.position.x + displacement.x, y: node.position.y + displacement.y}}
-        : node);
-    return {...result, graph: {...result.graph, nodes}};
-}
-
-/**
- * A copy of `result` in which one node's re-derived offset is later than the solve put it, so the
- * hand-over there no longer happens at the offset every other node dates it to.
- *
- * The bisectors dying at that node stay alive past the instant they meet, and the bisector born
- * there is not yet alive when they do — which is precisely the broken hand-over decision 9 asks for,
- * and precisely what `collectAliveBisectors` reading one table for both ends otherwise makes
- * impossible.
- *
- * The displacement direction is chosen by measurement rather than by re-deriving which parent edge
- * `computeNodeOffsets` reads this node against: the four axis displacements are tried and the one
- * that dates the node latest is kept. Restating that parent-edge choice here would be a second route
- * to a quantity the module already owns, which is the fault this whole file exists to record.
- */
-function withNodeOffsetDelayed(result: SkeletonSolveResult, nodeId: number, by: number): SkeletonSolveResult {
-    const step = by * 2;
-    const displacements: Vector2[] = [{x: step, y: 0}, {x: -step, y: 0}, {x: 0, y: step}, {x: 0, y: -step}];
-
-    let latest = result;
-    let latestOffset = -Infinity;
-    for (const displacement of displacements) {
-        const moved = withNodeMoved(result, nodeId, displacement);
-        const offset = computeNodeOffsets(moved).get(nodeId);
-        if (offset !== undefined && offset > latestOffset) {
-            latestOffset = offset;
-            latest = moved;
-        }
-    }
-    return latest;
-}
-
 const SWEPT_FIXTURES = ALL_TEST_POLYGONS
     .filter(polygon => {
         const result = solveSkeleton(polygon.vertices);
@@ -208,12 +155,17 @@ const SWEPT_FIXTURES = ALL_TEST_POLYGONS
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 271 distinct event offsets across them', () => {
+        it('is every fixture, and 270 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
                 (total, name) => total + eventOffsets(solvedFixture(name)).length, 0);
-            expect(events).toBe(271);
+            // Was 271. Pentagon House's two apex nodes read 2.9999999999999996 and 3 — one instant
+            // re-derived twice, one ulp apart — and `computeNodeOffsets` now collapses a
+            // simultaneous set onto a single member, so those two offsets are one event rather than
+            // two. That is the only pair in this corpus within the canonicalisation band; every
+            // other event offset here is unmoved.
+            expect(events).toBe(270);
         });
     });
 
@@ -385,27 +337,38 @@ describe('offset projection at event boundaries', () => {
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {
             // This used to be the one chain in the corpus that could not be closed. Pentagon
-            // House ends in a ridge whose two nodes sit at 2.9999999999999996 and 3 — the same
+            // House ends in a ridge whose two nodes re-derived 2.9999999999999996 and 3 — the same
             // geometric offset, one ulp apart — and in the half-open window between them the
             // graph said two bisectors were alive whose partners were already dead.
             //
-            // The two nodes are still one ulp apart, and that part was never wrong: they are two
-            // distinct vertex events that both happen at offset 3. What changed is the wiring
-            // between them. The ridge joining them used to run on into the roof apex behind it,
-            // because `tryAttachEdgeToNode` snapped to the first node collinear with the ray
-            // rather than the nearest. The two bisectors are now cross-wired to each other, the
-            // chain has a successor, and the projection closes.
+            // Two things fixed it, in that order. The wiring first: the ridge joining the two
+            // nodes used to run on into the roof apex behind it, because `tryAttachEdgeToNode`
+            // snapped to the first node collinear with the ray rather than the nearest, and the
+            // two bisectors are now cross-wired to each other so the chain has a successor. The
+            // table second: the two nodes are two distinct vertex events at ONE instant, and
+            // `computeNodeOffsets` now hands that instant to both of them as one identical
+            // number. There is no half-open window between them left to be inside.
             const result = solvedFixture('Pentagon House');
             const maxOffset = computeMaxOffset(result);
-            const event = eventOffsets(result).find(offset => offset < maxOffset)!;
-            expect(maxOffset - event).toBeLessThan(1e-15);
 
-            const projection = projectOffsetWavefront(result, event);
-            expect(projection.unclosedChains).toEqual([]);
+            // Two nodes, one offset — and the offset is a member of the pair rather than an
+            // average of it, so it is still exactly the number the solve produced.
+            const apexOffsets = [...computeNodeOffsets(result).values()].filter(offset => offset > 0);
+            expect(apexOffsets.length).toBeGreaterThan(1);
+            expect(new Set(apexOffsets)).toEqual(new Set([maxOffset]));
+            expect(eventOffsets(result)).toEqual([maxOffset]);
 
-            // A micrometre either side of it the projection is sound too.
-            for (const delta of [-NEIGHBOURHOOD, NEIGHBOURHOOD]) {
-                expect(projectOffsetWavefront(result, event + delta).unclosedChains).toEqual([]);
+            // The nodes themselves are untouched: unifying offsets must not fuse graph nodes.
+            const apexNodeIds = [...computeNodeOffsets(result).entries()]
+                .filter(([, offset]) => offset > 0)
+                .map(([nodeId]) => nodeId);
+            expect(new Set(apexNodeIds).size).toBe(apexNodeIds.length);
+
+            // And the run-up to that terminal instant is sound rather than merely absent.
+            for (const offset of [maxOffset - NEIGHBOURHOOD, maxOffset - 1e-3, maxOffset - 1e-1]) {
+                const projection = projectOffsetWavefront(result, offset);
+                expect(projection.unclosedChains).toEqual([]);
+                expect(projection.rings.length).toBeGreaterThan(0);
             }
         });
 

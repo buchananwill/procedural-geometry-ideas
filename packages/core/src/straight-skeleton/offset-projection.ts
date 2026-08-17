@@ -51,7 +51,7 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * supporting line of one of the original polygon edges that defines it — rather than from anything
  * the solver recorded about timing. Exterior nodes lie on the boundary, so their offset is zero.
  *
- * ## Where one instant is several numbers, and the argument above stops holding
+ * ## Where one instant is several numbers, and how the table is made to say so
  *
  * Everything above is about a hand-over *at one node*, and it is correct as written. There is a
  * second case it does not cover, measured on the near-regular fixtures and recorded in
@@ -61,15 +61,30 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * different places in the plane that happen at the same offset. Each node's offset is re-derived
  * from the supporting line of one of its own parent edges, and mirror nodes have different parent
  * edges, so one instant comes back as several offsets 7e-15 to 3.5e-13 apart. There is no single
- * table entry to read them both from, and no tolerance is admissible here for the reasons above.
+ * table entry to read them both from.
  *
- * Querying at the lowest of such a set leaves the bisectors meeting at the others alive by the
- * table while they have already met in the plane. Their span along the exterior edge they share
- * then has length zero or slightly negative, and {@link segmentsAlongExteriorEdge} drops both of
- * its endpoints. So the claim below that two live bisectors bounding a zero-length span cannot
- * occur holds for a single node and fails across a simultaneous pair: on those fixtures it occurs,
- * the chain loses its successor, and the ring is reported as an {@link UnclosedChain}. The report
- * is honest — a ring really is missing — and the defect is upstream of the walk.
+ * Querying at the lowest of such a set left the bisectors meeting at the others alive by the
+ * table while they had already met in the plane. Their span along the exterior edge they share
+ * then had length zero or slightly negative, {@link segmentsAlongExteriorEdge} dropped both of its
+ * endpoints, the chain lost its successor, and the ring was reported as an {@link UnclosedChain}.
+ * So the claim below that two live bisectors bounding a zero-length span cannot occur holds for a
+ * single node and failed across a simultaneous pair.
+ *
+ * ### The resolution: canonicalise the table, never the comparison
+ *
+ * {@link computeNodeOffsets} now collapses each simultaneous set of re-derived offsets to one
+ * identical value before it returns, so mirror nodes agree bit-for-bit by construction rather than
+ * by luck, and the argument above holds across a mirror set exactly as it holds at one node.
+ *
+ * **No slack was added to any comparison, and none is admissible.** Widening the half-open
+ * lifetime makes a bisector alive at both ends of an event and duplicates a vertex; shifting it
+ * reintroduces the dropout. What changed is the *table those comparisons read*. Every lifetime
+ * comparison downstream is still bit-exact.
+ *
+ * The proximity tolerance is relative to the skeleton's own maximum offset — offsets are
+ * caller-space lengths, so an absolute one would mean different things at different magnitudes —
+ * and the partition is by connected components, never first match. See
+ * {@link SIMULTANEITY_RELATIVE_TOLERANCE} for the measured bounds either side of it.
  *
  * ## Preconditions
  *
@@ -248,11 +263,54 @@ function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
 }
 
 /**
+ * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
+ * skeleton's own maximum offset.
+ *
+ * RELATIVE, NEVER ABSOLUTE. Node offsets are caller-space lengths, so an absolute tolerance would
+ * mean a different thing on a polygon spanning 1e-3 and one spanning 1e8 — the precise defect
+ * unit-extent normalisation exists to remove. The scale comes from the solved geometry rather than
+ * from a world constant.
+ *
+ * STATED AND MEASURED, NOT CHOSEN. Over `ALL_TEST_POLYGONS` plus the four near-regular fixtures,
+ * with offsets taken relative to each solve's maximum:
+ *
+ * - the widest gap *within* one instant is **1.42e-15** (Near Regular Ellipse 32: 1.42e-13 absolute
+ *   against a maximum offset of 99.79), and every within-instant gap measured lies below 1e-14;
+ * - the narrowest gap to a genuinely distinct event is **1.23e-4** (Duck Octagon (fails): 9.42e-3
+ *   absolute against a maximum offset of 76.89).
+ *
+ * The two bounds are eleven orders of magnitude apart, so this value is not marginal: it sits ~700x
+ * above the largest spread it must close and ~1e8x below the smallest gap it must not cross. Were
+ * they within an order of magnitude of each other, that would be a finding against the whole
+ * approach rather than a tolerance to tune.
+ *
+ * This is NOT slack in a lifetime comparison. It partitions the table; the comparisons that read
+ * the table stay bit-exact. See the module header.
+ */
+const SIMULTANEITY_RELATIVE_TOLERANCE = 1e-12;
+
+/**
+ * One simultaneous event as the table sees it: the nodes that reach it, and the distinct offsets
+ * they re-derived for it.
+ *
+ * `offsets` is ascending and deduplicated; `nodeIds` is every node reading one of them.
+ */
+interface SimultaneousOffsetSet {
+    nodeIds: number[];
+    offsets: number[];
+}
+
+/**
  * Offset distance of every node in the solved skeleton, keyed by node id.
  *
  * Exterior nodes lie on the original boundary and are mapped to zero. Every other node is mapped to
  * the perpendicular distance from its position to the supporting line of one of the original polygon
  * edges that defines it, found via the `clockwiseExteriorEdgeIndex` of an incident interior edge.
+ *
+ * Nodes that belong to one simultaneous event receive one identical value: the re-derived distances
+ * are partitioned into simultaneous sets and each set is collapsed onto one of its own members. Two
+ * nodes at the same offset and different positions remain two nodes — this unifies *offsets*, and
+ * touches neither the graph nor any node's position.
  *
  * A node with no incident interior edge is absent from the map rather than guessed at.
  *
@@ -261,6 +319,28 @@ function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
 export function computeNodeOffsets(result: SkeletonSolveResult): Map<number, number> {
     requireProjectableResult(result, 'computeNodeOffsets');
 
+    const offsets = new Map<number, number>();
+    for (let nodeId = 0; nodeId < result.graph.numExteriorNodes; nodeId++) {
+        offsets.set(nodeId, 0);
+    }
+
+    const interiorOffsets = rederiveInteriorNodeOffsets(result);
+    for (const [nodeId, offset] of canonicaliseSimultaneousOffsets(interiorOffsets)) {
+        offsets.set(nodeId, offset);
+    }
+
+    return offsets;
+}
+
+/**
+ * The raw perpendicular distance re-derived for every interior node, before canonicalisation.
+ *
+ * Exterior nodes are excluded and stay out of the partition entirely. Their offset is zero by
+ * construction rather than by re-derivation, so it carries none of the last-bit disagreement the
+ * partition exists to reconcile, and letting a set straddle the boundary could move it off zero —
+ * which would take the original polygon away from `offset === 0`.
+ */
+function rederiveInteriorNodeOffsets(result: SkeletonSolveResult): Map<number, number> {
     const {graph} = result;
     const exteriorEdgeCount = graph.numExteriorNodes;
 
@@ -270,17 +350,12 @@ export function computeNodeOffsets(result: SkeletonSolveResult): Map<number, num
     }
 
     const offsets = new Map<number, number>();
-    for (let nodeId = 0; nodeId < exteriorEdgeCount; nodeId++) {
-        offsets.set(nodeId, 0);
-    }
-
     for (let nodeId = exteriorEdgeCount; nodeId < graph.nodes.length; nodeId++) {
         const node = graph.nodes[nodeId];
-        const incident = [...new Set([...node.inEdges, ...node.outEdges])].filter(id => parentEdgeOf.has(id));
-        if (incident.length === 0) {
+        const parentEdgeId = firstIncidentParentEdge(node.inEdges, node.outEdges, parentEdgeOf);
+        if (parentEdgeId === undefined) {
             continue;
         }
-        const parentEdgeId = parentEdgeOf.get(incident[0])!;
         offsets.set(
             nodeId,
             distanceToSupportingLine(
@@ -292,6 +367,121 @@ export function computeNodeOffsets(result: SkeletonSolveResult): Map<number, num
     }
 
     return offsets;
+}
+
+/**
+ * The exterior edge that dates a node: the clockwise parent of the first bisector incident to it
+ * that has one. `undefined` when the node has no incident interior edge, which is why such a node is
+ * absent from the table rather than guessed at.
+ */
+function firstIncidentParentEdge(
+    inEdges: number[],
+    outEdges: number[],
+    parentEdgeOf: Map<number, number>,
+): number | undefined {
+    for (const edgeId of new Set([...inEdges, ...outEdges])) {
+        const parentEdgeId = parentEdgeOf.get(edgeId);
+        if (parentEdgeId !== undefined) {
+            return parentEdgeId;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * The same table with every simultaneous set collapsed onto a single value.
+ *
+ * The tolerance is {@link SIMULTANEITY_RELATIVE_TOLERANCE} of the largest re-derived offset, so a
+ * translated or scaled solve partitions identically to its original.
+ */
+function canonicaliseSimultaneousOffsets(interiorOffsets: Map<number, number>): Map<number, number> {
+    let maxOffset = 0;
+    for (const offset of interiorOffsets.values()) {
+        if (offset > maxOffset) {
+            maxOffset = offset;
+        }
+    }
+
+    const canonical = new Map<number, number>();
+    for (const set of simultaneousOffsetSets(interiorOffsets, maxOffset * SIMULTANEITY_RELATIVE_TOLERANCE)) {
+        const representative = representativeOffset(set.offsets);
+        for (const nodeId of set.nodeIds) {
+            canonical.set(nodeId, representative);
+        }
+    }
+
+    return canonical;
+}
+
+/**
+ * The offsets partitioned into connected components under "within `tolerance` of each other".
+ *
+ * CONNECTED COMPONENTS, NOT FIRST MATCH. Proximity under a fixed tolerance is not transitive, so
+ * joining each offset to the first set already within tolerance of it makes the partition depend on
+ * the order the nodes are visited. `clusterCoincidentMerges` was bitten by exactly that and is the
+ * direct precedent for this function; the fix is the same one. In one dimension the components are
+ * the runs of the *sorted* distinct values separated by a gap wider than the tolerance, which is
+ * the transitive closure computed exactly rather than approximated — and, being a function of the
+ * value set alone, is independent of visitation order by construction.
+ *
+ * SINGLE-LINKAGE CHAINING IS AN ACCEPTED COST, as it is there: a run of offsets each within
+ * tolerance of the next becomes one set however far its extremes lie apart. Measured on this corpus
+ * the widest set spans 1.42e-15 relative against a tolerance of 1e-12, so no observed set is
+ * anywhere near chaining into its neighbour.
+ */
+function simultaneousOffsetSets(interiorOffsets: Map<number, number>, tolerance: number): SimultaneousOffsetSet[] {
+    const nodeIdsByOffset = new Map<number, number[]>();
+    for (const [nodeId, offset] of interiorOffsets) {
+        const nodeIds = nodeIdsByOffset.get(offset);
+        if (nodeIds === undefined) {
+            nodeIdsByOffset.set(offset, [nodeId]);
+        } else {
+            nodeIds.push(nodeId);
+        }
+    }
+
+    const sets: SimultaneousOffsetSet[] = [];
+    let current: SimultaneousOffsetSet | null = null;
+    for (const [offset, nodeIds] of [...nodeIdsByOffset.entries()].sort((a, b) => a[0] - b[0])) {
+        if (current === null || offset - current.offsets[current.offsets.length - 1] > tolerance) {
+            current = {nodeIds: [...nodeIds], offsets: [offset]};
+            sets.push(current);
+            continue;
+        }
+        current.nodeIds.push(...nodeIds);
+        current.offsets.push(offset);
+    }
+
+    return sets;
+}
+
+/**
+ * The value one simultaneous set collapses onto: the member nearest the set's mean, exact ties
+ * broken towards the smaller value.
+ *
+ * A MEMBER, NEVER A MEAN. The mean is not one of the values it summarises and nothing bounds its
+ * distance from them, so under single-linkage chaining it can drift towards — and collide with — a
+ * neighbouring set where no member of either would. Taking a member inherits the partition's
+ * separation guarantee directly. The mean is the yardstick, never the answer; `medoidPosition` in
+ * `coincident-events.ts` picks its representative the same way and for the same reason.
+ *
+ * `offsets` is ascending and deduplicated, so the sum, the comparison order and therefore the
+ * result are a function of the set alone and do not move with the order the nodes were visited.
+ */
+function representativeOffset(offsets: number[]): number {
+    const mean = offsets.reduce((total, offset) => total + offset, 0) / offsets.length;
+
+    let best = offsets[0];
+    let bestDistance = Math.abs(best - mean);
+    for (const offset of offsets.slice(1)) {
+        const distance = Math.abs(offset - mean);
+        if (distance < bestDistance) {
+            best = offset;
+            bestDistance = distance;
+        }
+    }
+
+    return best;
 }
 
 /**
@@ -398,9 +588,11 @@ function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: Int
  * bisectors bounding a genuinely zero-length span cannot occur and so is not a case to preserve:
  * a span of zero length means its two bisectors have met, and bisectors that have met are dead.
  *
- * That last sentence is true of one node and false across a simultaneous mirror pair, where the
- * two bisectors have met while the table still dates their death a few femtometres later. See the
- * module header's section on one instant being several numbers.
+ * That last sentence was true of one node and false across a simultaneous mirror pair, where the
+ * two bisectors had met while the table still dated their death a few femtometres later. It is now
+ * true of a mirror set too, because {@link computeNodeOffsets} gives every node of one instant the
+ * same offset and the two bisectors are dead together. See the module header's section on one
+ * instant being several numbers.
  */
 function segmentsAlongExteriorEdge(
     result: SkeletonSolveResult,
