@@ -1,4 +1,4 @@
-import { subdivideRecursively } from '@proc-geo/core';
+import { FULL_DEPTH_FRACTION, subdivideRecursively } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import {
     recursiveTreeToScene,
@@ -376,10 +376,19 @@ describe('the residue on the canvas', () => {
  * Duck Octagon subdivides cleanly at three levels, so it cannot show that a failure still reads as a
  * failure once its neighbours are tinted. The driver's own census names Pentagon House in groups of
  * three as a fixture that stops subdividing, which is what this uses.
+ *
+ * Solved at FULL depth with the residue voided, so the only fills in the scene are territories and
+ * failure patches: at `FULL_DEPTH_FRACTION` the wavefront is fully consumed and no residue ring is
+ * produced at all, which keeps this suite's fill census about the failure and nothing else.
  */
 describe('a failed cell among tinted ones', () => {
     const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === 'Pentagon House');
-    const tree = subdivideRecursively(fixture?.vertices ?? [], { levels: 3, mergeGroupSize: 3 });
+    const tree = subdivideRecursively(fixture?.vertices ?? [], {
+        levels: 3,
+        mergeGroupSize: 3,
+        depthFraction: FULL_DEPTH_FRACTION,
+        residue: 'void',
+    });
 
     it('is a fixture that really does fail, or this proves nothing', () => {
         expect(fixture).toBeDefined();

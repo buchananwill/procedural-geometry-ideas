@@ -233,3 +233,89 @@ neutral on today's corpus; its value is that it cannot go wrong later.
    *lost* by the projection (`unclosedChains`) can be told apart from a residue that was genuinely
    empty. The spec named `computeOffsetRings` in its reuse list, so this was not done here; the
    distinction matters the moment a ring goes missing.
+
+---
+
+# Revision cycle 1 — review response
+
+Reviews read directly from `GET ${SERVER_URL}/tasks/246/reviews/0` (runs 1299 decomp: **approve**,
+1301 correctness: **request_changes**). One BLOCKING finding, no NOTE findings.
+
+## R1. Finding addressed
+
+**[B1, finding 2627] Test calls `subdivideRecursively` with an incomplete `RecursiveOptions`** —
+`packages/dashboard/tests/scene/recursiveSubdivisionToScene.test.ts:382`.
+
+The finding is correct as written. `RecursiveOptions` declares `depthFraction` and `residue` without
+`?` (Type Roster §1, source `recursive-subdivision.ts:100-116`), and the call passed only `levels` and
+`mergeGroupSize`. The suite was green for the two reasons the reviewer names and neither is a defence:
+the dashboard `tsconfig.json` scopes `include` to `src`, so ts-jest raised no diagnostic for a file
+under `tests/`; and at runtime `clampDepthFraction(undefined)` falls back to `FULL_DEPTH_FRACTION`
+while `run.residue !== 'recurse'` absorbs `undefined` as void. The assertions happened to remain true
+only because this suite depends on neither dial.
+
+**Fix applied:** the call now passes `depthFraction: FULL_DEPTH_FRACTION, residue: 'void'`, and the
+suite's doc comment says why those two values and not the store defaults. They are the values the call
+was *already* getting from the clamps, chosen deliberately so the fix is provably behaviour-preserving
+rather than a re-aimed test: at full depth the wavefront is fully consumed, `residueRings` is empty
+(driver line 357), and so the residue treatment is unreachable. That keeps this suite's fill census
+about exactly what its title claims — a failure patch among territory tints — with no residue layer
+competing for fills. Taking the store's `DEFAULT_DEPTH_FRACTION` of `0.5` instead would have been a
+different test: it would put residue rings into the scene and change the failure census the fixture
+was selected for.
+
+`FULL_DEPTH_FRACTION` is imported from `@proc-geo/core` (it is already exported, `index.ts:335`) — no
+literal `1` was written at the call site.
+
+## R2. Verification that the fix has teeth
+
+The reviewer's reproduction was re-run on both sides of the change, using a temporary out-of-tree
+tsconfig that extends the dashboard's and adds `tests/` to `include` (no repo file was created):
+
+- On `3abade7` (unmodified): `tests/scene/recursiveSubdivisionToScene.test.ts(382,64): error TS2345:
+  ... is missing the following properties from type 'RecursiveOptions': depthFraction, residue` —
+  the finding reproduced exactly.
+- With the fix: clean, zero diagnostics.
+
+The same pass also type-checked the other two dashboard test files in this task's ownership
+(`tests/stores/useRecursiveSubdivisionStore.test.ts`, `tests/fixtures/recursive-trees.ts`) against the
+strict config; both are clean, so B1 was the only instance of this class in the owned surface.
+
+## R3. Build & test results (this cycle)
+
+| Gate | Result |
+|---|---|
+| `pnpm --filter @proc-geo/core test` | **67 suites / 3418 tests, all pass** |
+| `pnpm --filter @proc-geo/dashboard test` | **13 suites / 195 tests, all pass** |
+| `pnpm build` (all four packages) | **clean** — core, test-fixtures, dashboard ESM+CJS+DTS; demo prerenders all 7 routes |
+| `pnpm lint` | **fails, pre-existing** — see below |
+
+The Pentagon House solver stack traces in the dashboard test output are the expected logged failure
+this suite exists to exercise, not a regression; `totalFailures > 0` is an assertion of the suite.
+
+## R4. Pre-existing lint failure, deliberately not fixed
+
+`pnpm lint` (demo-only) fails with `@typescript-eslint/no-explicit-any` at
+`apps/demo/src/app/dol-system/page.tsx:51:40`, plus an unused-var warning in
+`apps/demo/src/app/AppShellLayout.tsx:17:34`. Both reproduce on a stashed, unmodified tree, are in the
+`dol-system` feature rather than recursive subdivision, and are outside this task's file ownership.
+This cycle's change touches one dashboard test file, which `pnpm lint` does not even read. It is not a
+build error — `pnpm build` is clean — so the build-gate exception to scope discipline does not apply
+and the files were left alone. Flagged here for whoever owns that page.
+
+## R5. Open questions / risks
+
+- **The real gap B1 exposed is structural and outside ownership**: `packages/dashboard/tsconfig.json`
+  scopes `include` to `src`, so nothing type-checks `packages/dashboard/tests/**` in the standing
+  gates. The fix above closes the one instance; it does not close the hole. A `tsconfig.test.json`
+  (or adding `tests` to `include` with `rootDir` widened) would make ts-jest's diagnostics fire and
+  catch the next one. `tsconfig.json` is not in this task's ownership, and it cannot simply be widened
+  without first resolving the four pre-existing `src/components/dol-system/DolProductionComposer.tsx`
+  type errors that the current `include` already surfaces — so this is left as a recommendation.
+- Everything in §6 of the original debrief stands unchanged; this cycle altered no production code.
+
+## R6. Suggested follow-ups (additional)
+
+6. **Type-check the dashboard test tree.** Add a test-scoped tsconfig and point ts-jest at it, so a
+   test that violates a published type contract fails the suite instead of passing by clamp. Fixing
+   the four `DolProductionComposer.tsx` errors is the prerequisite.
