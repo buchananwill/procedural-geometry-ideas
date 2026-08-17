@@ -3,12 +3,15 @@ import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import {
     recursiveTreeToScene,
     RECURSIVE_LEVEL_STYLES,
+    RESIDUE_RING_COLOURS,
+    residueRingStyle,
+    styleForLevel,
 } from '../../src/scene/adapters/recursiveSubdivisionToScene';
 import { ancestorTint } from '../../src/scene/adapters/recursiveTerritoryTint';
 import { leafTerritories } from '../../src/scene/adapters/leafTerritories';
 import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
 import type { SceneGroup, ScenePrimitive } from '../../src/scene/types';
-import { failedNode, node, TREE, TREE_TERRITORY_COUNT } from '../fixtures/recursive-trees';
+import { failedNode, node, RESIDUE_TREE, TREE, TREE_TERRITORY_COUNT } from '../fixtures/recursive-trees';
 
 /**
  * What the recursive subdivision page draws: which cell belongs to which territory, what colour that
@@ -240,6 +243,130 @@ describe('recursiveTreeToScene', () => {
         expect(groupIds(scene).some((id) => id.startsWith('group:recursive-leaf-fill-'))).toBe(false);
         // The failed cell's own patch is the only fill stroke-only rendering has ever had.
         expect(filledShapes(scene)).toHaveLength(1);
+    });
+});
+
+/**
+ * Decision 11: the residue must read as a different kind of thing from the segments around it, at
+ * every level, and its rings must read as several rings where a pinch has separated them.
+ *
+ * Three channels are asserted rather than one, because the page is read on a colour screen, in a
+ * greyscale screenshot, and by someone counting loops — and hue alone survives none of the three.
+ */
+describe('residueRingStyle', () => {
+    it('shares no colour with the segment or skeleton ramps at any level', () => {
+        const segmentColours = new Set(RECURSIVE_LEVEL_STYLES.map((style) => style.segmentColour));
+        const skeletonColours = new Set(RECURSIVE_LEVEL_STYLES.map((style) => style.skeletonColour));
+        for (let level = 0; level < RECURSIVE_LEVEL_STYLES.length; level++) {
+            for (let ring = 0; ring < RESIDUE_RING_COLOURS.length; ring++) {
+                const { colour } = residueRingStyle(level, ring);
+                expect(segmentColours.has(colour)).toBe(false);
+                expect(skeletonColours.has(colour)).toBe(false);
+            }
+        }
+    });
+
+    it('gives the rings of one node different colours and different dashes from each other', () => {
+        const rings = [0, 1, 2, 3].map((index) => residueRingStyle(1, index));
+        expect(new Set(rings.map((style) => style.colour)).size).toBe(rings.length);
+        expect(new Set(rings.map((style) => style.dash.join(','))).size).toBe(rings.length);
+    });
+
+    it('cycles rather than running off the end of its palette', () => {
+        expect(residueRingStyle(0, RESIDUE_RING_COLOURS.length)).toEqual(residueRingStyle(0, 0));
+        expect(residueRingStyle(0, -1).colour).toBeDefined();
+    });
+
+    it('thins with depth in step with the level it belongs to', () => {
+        for (let level = 0; level < RECURSIVE_LEVEL_STYLES.length; level++) {
+            expect(residueRingStyle(level, 0).width).toBe(styleForLevel(level).segmentWidth);
+        }
+    });
+
+    it('is faint enough to be drawn through', () => {
+        expect(residueRingStyle(0, 0).fill.opacity ?? 1).toBeLessThan(0.25);
+        expect(residueRingStyle(0, 0).fill.opacity ?? 0).toBeGreaterThan(0);
+    });
+});
+
+describe('the residue on the canvas', () => {
+    const allLevelsVisible = [true, true, true];
+
+    function residueGroups(scene: ScenePrimitive[]): SceneGroup[] {
+        return scene.filter(isGroup).filter((group) => group.id.startsWith('group:recursive-residue-'));
+    }
+
+    it('draws one ring per residue ring, at the level of the node that holds it', () => {
+        const scene = recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+        const groups = residueGroups(scene);
+
+        expect(groups.map((group) => group.id))
+            .toEqual(['group:recursive-residue-0', 'group:recursive-residue-1']);
+        expect(groups[0].children).toHaveLength(RESIDUE_TREE.residueRings.length);
+        expect(groups[1].children).toHaveLength(1);
+        expect(groups[0].children.every((child) => child.type === 'line' && child.closed === true)).toBe(true);
+    });
+
+    it('draws the residue over every segment stroke, and still under the input polygon', () => {
+        const ids = recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        }).filter(isGroup).map((group) => group.id);
+
+        const lastLevel = ids.map((id) => id.startsWith('group:recursive-level-')).lastIndexOf(true);
+        const firstResidue = ids.findIndex((id) => id.startsWith('group:recursive-residue-'));
+        expect(firstResidue).toBeGreaterThan(lastLevel);
+        expect(ids[ids.length - 1]).toBe('group:recursive-input');
+    });
+
+    it("hides a level's residue with the level whose interior it is", () => {
+        const hidden = recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: [true, false, true],
+            showLeafFills: true,
+        }).filter(isGroup).filter((group) => group.visible === false).map((group) => group.id);
+
+        expect(hidden).toContain('group:recursive-residue-1');
+        expect(hidden).not.toContain('group:recursive-residue-0');
+    });
+
+    it('strokes the rings of one node apart from each other', () => {
+        const [rootResidue] = residueGroups(recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        }));
+        const strokes = rootResidue.children.flatMap((child) =>
+            child.type === 'line' ? [child.stroke] : []);
+
+        expect(strokes).toHaveLength(2);
+        expect(strokes[0].color).not.toBe(strokes[1].color);
+        expect(strokes[0].dash?.join(',')).not.toBe(strokes[1].dash?.join(','));
+        // Dashed at all, which is what separates a residue ring from a segment border in greyscale.
+        expect(strokes.every((stroke) => (stroke.dash?.length ?? 0) > 0)).toBe(true);
+    });
+
+    it('keeps the stroke-only comparison honest: rings outlined, none of them filled', () => {
+        const scene = recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: false,
+        });
+        expect(residueGroups(scene)).toHaveLength(2);
+        expect(residueGroups(scene).flatMap((group) => group.children)
+            .every((child) => child.type === 'line' && child.fill === undefined)).toBe(true);
+
+        // The failure patch keeps its fill either way — it is the one fill this page has always had,
+        // and a hole in the subdivision drawn as an outline reads as one more cell border.
+        expect(filledShapes(scene).every((fill) => fill.stroke.color === '#e64980')).toBe(true);
+    });
+
+    it('has no residue layer at all when nothing was left over', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+        expect(residueGroups(scene)).toEqual([]);
     });
 });
 

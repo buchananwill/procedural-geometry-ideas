@@ -22,6 +22,8 @@ export default function RecursivePage() {
     const fixtureName = useRecursiveSubdivisionStore((s) => s.fixtureName);
     const levels = useRecursiveSubdivisionStore((s) => s.levels);
     const mergeGroupSize = useRecursiveSubdivisionStore((s) => s.mergeGroupSize);
+    const depthFraction = useRecursiveSubdivisionStore((s) => s.depthFraction);
+    const residue = useRecursiveSubdivisionStore((s) => s.residue);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
 
     const [instructionsOpen, setInstructionsOpen] = useState(false);
@@ -31,8 +33,8 @@ export default function RecursivePage() {
     const tree: RecursiveNode = useMemo(() => {
         const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === fixtureName)
             ?? ALL_TEST_POLYGONS[0];
-        return subdivideRecursively(fixture.vertices, { levels, mergeGroupSize });
-    }, [fixtureName, levels, mergeGroupSize]);
+        return subdivideRecursively(fixture.vertices, { levels, mergeGroupSize, depthFraction, residue });
+    }, [fixtureName, levels, mergeGroupSize, depthFraction, residue]);
 
     const panels = (
         <Stack gap="sm">

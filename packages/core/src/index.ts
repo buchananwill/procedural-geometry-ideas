@@ -332,8 +332,10 @@ export type {
 // ── Recursive segment subdivision ────────────────────────────────────────────
 export {
     DEGENERATE_AREA_EPSILON,
+    FULL_DEPTH_FRACTION,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
+    clampDepthFraction,
     clampLevels,
     clampMergeGroupSize,
     flattenRecursiveTree,
@@ -343,6 +345,8 @@ export {
 export type {
     RecursiveNode,
     RecursiveOptions,
+    RecursiveRun,
+    ResidueTreatment,
     SameLogicalStreetPredicate,
     SegmentOutcome,
 } from './straight-skeleton/recursive-subdivision';

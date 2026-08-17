@@ -1,6 +1,6 @@
 import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
 import type { RecursiveNode, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
-import type { SceneGroup, ScenePrimitive } from '../types';
+import type { FillStyle, SceneGroup, ScenePrimitive } from '../types';
 import { leafTerritories } from './leafTerritories';
 import type { LeafTerritoryCell } from './leafTerritories';
 import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
@@ -18,6 +18,12 @@ import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
  * territories each visibly divided into many cells. Which cell belongs to which territory is
  * {@link leafTerritories}'s question and what colour that makes it is {@link ancestorTint}'s; this
  * file only decides what is drawn, and in what order.
+ *
+ * Below full depth a node also carries a RESIDUE: the interior contour its wavefront never reached.
+ * It is drawn in a family of its own — see {@link residueRingStyle} — because it is not a cell of the
+ * subdivision but the part that has not been subdivided yet, and a reader who cannot tell the two
+ * apart is reading the wrong picture. Where a residue has pinched into several rings, the rings are
+ * told apart from each other as well as from the segments.
  *
  * Pure: no React, no canvas lifecycle. The tree→scene mapping changes when the driver's output shape
  * changes, whereas fitting and panning change when the interaction model does, so the two live apart.
@@ -61,6 +67,60 @@ export const RECURSIVE_LEVEL_STYLES: RecursiveLevelStyle[] = [
 
 /** The input polygon, drawn over everything so a lost corner of the region cannot hide. */
 const INPUT_POLYGON_COLOUR = '#4dabf7';
+
+/**
+ * The residue's own colour family: cool green, shared by no other layer on this page.
+ *
+ * The point of the picture below full depth is that the interior the wavefront never reached is a
+ * DIFFERENT KIND OF THING from the ring of segments around it, so it is told apart on three channels
+ * at once rather than one — hue (green against the segments' pure grey and the skeleton's warm
+ * orange), dash (segments are solid), and a fill of its own.
+ *
+ * The list is indexed by the ring's place among its node's rings, which is what makes a residue that
+ * has PINCHED into several loops read as several loops: at a pinch the rings are adjacent on the
+ * canvas and identical in kind, and only a per-ring channel distinguishes them. Lightness varies
+ * within one hue family, so the rings stay recognisably one layer while remaining individually
+ * countable.
+ */
+export const RESIDUE_RING_COLOURS = ['#63e6be', '#12b886', '#a9e34b', '#0b7285'];
+
+/**
+ * Dash patterns per ring, the greyscale half of the same distinction.
+ *
+ * Hue alone dies in a greyscale screenshot, which is how this page is most often looked at, and two
+ * rings of one node then become indistinguishable exactly when it matters most.
+ */
+export const RESIDUE_RING_DASHES = [[8, 4], [3, 3], [12, 4, 3, 4], [2, 5]];
+
+/** Faint enough that the skeleton and the segment borders read straight through a courtyard. */
+const RESIDUE_FILL_OPACITY = 0.18;
+
+/** How one residue ring is drawn: its level sets the weight, its ordinal the hue and the dash. */
+export interface ResidueRingStyle {
+    colour: string;
+    width: number;
+    dash: number[];
+    fill: FillStyle;
+}
+
+/**
+ * The style of the `ringIndex`-th residue ring of a node at `level`.
+ *
+ * The WIDTH is taken from {@link styleForLevel} rather than given a ramp of its own, so a residue
+ * thins with depth in step with everything else drawn at that level and the level ramp stays one
+ * decision in one place.
+ */
+export function residueRingStyle(level: number, ringIndex: number): ResidueRingStyle {
+    const index = ((Math.floor(ringIndex) % RESIDUE_RING_COLOURS.length) + RESIDUE_RING_COLOURS.length)
+        % RESIDUE_RING_COLOURS.length;
+    const colour = RESIDUE_RING_COLOURS[index];
+    return {
+        colour,
+        width: styleForLevel(level).segmentWidth,
+        dash: RESIDUE_RING_DASHES[index % RESIDUE_RING_DASHES.length],
+        fill: { color: colour, opacity: RESIDUE_FILL_OPACITY },
+    };
+}
 
 /**
  * A leaf cell's fill, with no stroke of its own — the cell's borders are drawn by its level's
@@ -200,6 +260,29 @@ function nodePrimitives(node: RecursiveNode, style: RecursiveLevelStyle): SceneP
 }
 
 /**
+ * One node's residue rings: the interior its wavefront never reached.
+ *
+ * Filled only when the page's fills are on, so switching them off is still the honest stroke-only
+ * comparison it has always been — the ring is then a dashed green outline and nothing else.
+ */
+function residuePrimitives(node: RecursiveNode, showFills: boolean): ScenePrimitive[] {
+    if (node.failure !== undefined) return [];
+    return node.residueRings.flatMap<ScenePrimitive>((ring, ringIndex) => {
+        if (ring.length < 3) return [];
+        const style = residueRingStyle(node.level, ringIndex);
+        return [
+            {
+                type: 'line',
+                points: flatten(ring),
+                closed: true,
+                stroke: { color: style.colour, width: style.width, dash: style.dash },
+                ...(showFills ? { fill: style.fill } : {}),
+            },
+        ];
+    });
+}
+
+/**
  * Draws the leaf fills first, then the tree level by level from the deepest up to the root, then the
  * input polygon.
  *
@@ -243,6 +326,22 @@ export function recursiveTreeToScene(tree: RecursiveNode, options: RecursiveScen
             children: nodes
                 .filter((candidate) => candidate.level === level)
                 .flatMap((node) => nodePrimitives(node, style)),
+            visible: levelVisibility[level] ?? true,
+        });
+    }
+
+    // The residue goes on top of every segment stroke, and is hidden with the level whose region it
+    // is the interior of. A ring runs along its own level's cut, so drawn underneath it would be the
+    // one layer the picture exists to show and the one layer buried by the layer above it.
+    for (let level = 0; level <= deepest; level++) {
+        const children = nodes
+            .filter((candidate) => candidate.level === level)
+            .flatMap((node) => residuePrimitives(node, showLeafFills));
+        if (children.length === 0) continue;
+        groups.push({
+            type: 'group',
+            id: `group:recursive-residue-${level}`,
+            children,
             visible: levelVisibility[level] ?? true,
         });
     }

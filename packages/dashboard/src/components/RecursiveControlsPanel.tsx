@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 import {
-    Box, Button, Collapse, Group, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Text,
-    Title, UnstyledButton,
+    Box, Button, Collapse, Group, NumberInput, Paper, SegmentedControl, Select, Slider, Stack,
+    Switch, Text, Title, UnstyledButton,
 } from '@mantine/core';
-import { flattenRecursiveTree, MAX_RECURSION_LEVELS } from '@proc-geo/core';
-import type { RecursiveNode } from '@proc-geo/core';
+import { flattenRecursiveTree, FULL_DEPTH_FRACTION, MAX_RECURSION_LEVELS } from '@proc-geo/core';
+import type { RecursiveNode, ResidueTreatment } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import CollapseChevron from './CollapseChevron';
-import { styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
+import { residueRingStyle, styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
 import {
+    DEPTH_FRACTION_STEP,
     MAX_MERGE_GROUP_SIZE,
+    MIN_PANEL_DEPTH_FRACTION,
     summariseRecursiveTree,
     useRecursiveSubdivisionStore,
 } from '../stores/useRecursiveSubdivisionStore';
@@ -30,6 +32,22 @@ const LEVEL_OPTIONS = Array.from({ length: MAX_RECURSION_LEVELS }, (_, index) =>
 const REASONS_SHOWN = 3;
 
 /**
+ * The two residue treatments, as one click apart as they are in the driver.
+ *
+ * The difference between a subdivided core and a courtyard is the whole boundary-versus-droste
+ * question, and comparing them is what this control is for.
+ */
+const RESIDUE_OPTIONS: { value: ResidueTreatment; label: string }[] = [
+    { value: 'recurse', label: 'Recurse' },
+    { value: 'void', label: 'Void' },
+];
+
+/** Depth as the control shows it: a percentage of each region's own maximum offset. */
+function depthLabel(depthFraction: number): string {
+    return `${Math.round(depthFraction * 100)}%`;
+}
+
+/**
  * Controls and counts for the recursive subdivision.
  *
  * The per-level visibility switches carry more weight than they look: one pass and two are hard to
@@ -46,6 +64,10 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
     const setLevels = useRecursiveSubdivisionStore((s) => s.setLevels);
     const mergeGroupSize = useRecursiveSubdivisionStore((s) => s.mergeGroupSize);
     const setMergeGroupSize = useRecursiveSubdivisionStore((s) => s.setMergeGroupSize);
+    const depthFraction = useRecursiveSubdivisionStore((s) => s.depthFraction);
+    const setDepthFraction = useRecursiveSubdivisionStore((s) => s.setDepthFraction);
+    const residue = useRecursiveSubdivisionStore((s) => s.residue);
+    const setResidue = useRecursiveSubdivisionStore((s) => s.setResidue);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
     const showLeafFills = useRecursiveSubdivisionStore((s) => s.showLeafFills);
     const setShowLeafFills = useRecursiveSubdivisionStore((s) => s.setShowLeafFills);
@@ -105,12 +127,55 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                             onChange={(value) => setMergeGroupSize(typeof value === 'number' ? value : 1)}
                         />
 
+                        <Box>
+                            <Group justify="space-between" mb={4}>
+                                <Text size="xs" fw={500}>
+                                    Depth
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {depthLabel(depthFraction)} of each region&apos;s max offset
+                                </Text>
+                            </Group>
+                            <Slider
+                                size="xs"
+                                min={MIN_PANEL_DEPTH_FRACTION}
+                                max={FULL_DEPTH_FRACTION}
+                                step={DEPTH_FRACTION_STEP}
+                                value={depthFraction}
+                                label={depthLabel}
+                                onChange={setDepthFraction}
+                            />
+                            <Text size="xs" c="dimmed" mt={4}>
+                                {depthFraction >= FULL_DEPTH_FRACTION
+                                    ? 'Full depth: the segments tile the region and there is no residue.'
+                                    : 'Below full depth the wavefront stops short, and what it never reached is the residue.'}
+                            </Text>
+                        </Box>
+
+                        <Box>
+                            <Text size="xs" fw={500} mb={4}>
+                                Residue
+                            </Text>
+                            <SegmentedControl
+                                size="xs"
+                                fullWidth
+                                data={RESIDUE_OPTIONS}
+                                value={residue}
+                                onChange={(value) => setResidue(value as ResidueTreatment)}
+                            />
+                            <Text size="xs" c="dimmed" mt={4}>
+                                {residue === 'recurse'
+                                    ? 'Each residue ring is subdivided in turn — the droste reading.'
+                                    : 'Residue rings are kept whole and undivided — the courtyard reading.'}
+                            </Text>
+                        </Box>
+
                         <Switch
                             size="xs"
                             checked={showLeafFills}
                             onChange={(event) => setShowLeafFills(event.currentTarget.checked)}
-                            label="Leaf fills"
-                            description="Tints each final cell by the level-0 segment it descends from"
+                            label="Fills"
+                            description="Tints each final cell by its level-0 ancestor, and each residue ring by its own colour"
                         />
 
                         <Stack gap={4}>
@@ -148,6 +213,10 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                     <Text size="xs" c="dimmed">
                                         {level.segments} seg / {level.nodes} region
                                         {level.nodes === 1 ? '' : 's'}
+                                        {level.residueRings > 0 ? ` / ${level.residueRings} residue` : ''}
+                                        {level.discardedResidueRings > 0
+                                            ? ` (${level.discardedResidueRings} discarded)`
+                                            : ''}
                                         {level.failures > 0 ? ` / ${level.failures} failed` : ''}
                                     </Text>
                                 </Group>
@@ -159,6 +228,22 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                 {summary.totalSegments} segment{summary.totalSegments === 1 ? '' : 's'} in total
                                 &middot; {summary.leafSegments} leaf cell{summary.leafSegments === 1 ? '' : 's'}
                             </Text>
+                            <Group gap={6} wrap="nowrap">
+                                <Box
+                                    w={12}
+                                    h={12}
+                                    style={{ background: residueRingStyle(0, 0).colour, borderRadius: 2 }}
+                                />
+                                <Text size="xs" c="dimmed">
+                                    {summary.totalResidueRings === 0
+                                        ? 'No residue: the segments tile every region.'
+                                        : `${summary.totalResidueRings} residue ring`
+                                            + `${summary.totalResidueRings === 1 ? '' : 's'}`
+                                            + `${summary.totalDiscardedResidueRings > 0
+                                                ? `, ${summary.totalDiscardedResidueRings} discarded as degenerate`
+                                                : ''}.`}
+                                </Text>
+                            </Group>
                             <Text size="xs" c={summary.totalFailures > 0 ? 'pink' : 'dimmed'}>
                                 {summary.totalFailures === 0
                                     ? 'Every region subdivided.'

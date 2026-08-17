@@ -20,6 +20,16 @@ function strip(): Strip {
     return { supportingEdgeIds: [0], boundary: SQUARE, holes: [], frontage: [] };
 }
 
+/** A ring inside {@link SQUARE}, inset by `inset` — a residue ring's shape without a solve. */
+function ring(inset: number): Vector2[] {
+    return [
+        { x: inset, y: inset },
+        { x: inset, y: 10 - inset },
+        { x: 10 - inset, y: 10 - inset },
+        { x: 10 - inset, y: inset },
+    ];
+}
+
 /** A node with `segments` identical cells, and whatever children it is given. */
 export function node(level: number, segments: number, children: RecursiveNode[] = []): RecursiveNode {
     return {
@@ -27,12 +37,45 @@ export function node(level: number, segments: number, children: RecursiveNode[] 
         boundary: SQUARE,
         segments: Array.from({ length: segments }, strip),
         children,
+        residueRings: [],
+        residueChildren: [],
     };
 }
 
 /** A region that would not subdivide: no segments, no children, a reason. */
 export function failedNode(level: number): RecursiveNode {
-    return { level, boundary: SQUARE, segments: [], children: [], failure: 'Degenerate region: no area.' };
+    return {
+        level,
+        boundary: SQUARE,
+        segments: [],
+        children: [],
+        residueRings: [],
+        residueChildren: [],
+        failure: 'Degenerate region: no area.',
+    };
+}
+
+/**
+ * A node cut short of full depth: `segments` cells around `rings` residue rings.
+ *
+ * `residueChildren` mirrors the rings one for one, exactly as the driver emits them, so a suite can
+ * tell a ring that was recursed on from one that was discarded — the first child subdivides, and any
+ * further child is a failed one, which is how decision 4's discard is recorded.
+ */
+export function nodeWithResidue(
+    level: number,
+    segments: number,
+    rings: number,
+    residueChildren: RecursiveNode[] = [],
+): RecursiveNode {
+    return {
+        level,
+        boundary: SQUARE,
+        segments: Array.from({ length: segments }, strip),
+        children: [],
+        residueRings: Array.from({ length: rings }, (_unused, index) => ring(1 + index)),
+        residueChildren,
+    };
 }
 
 /**
@@ -47,3 +90,14 @@ export const TREE: RecursiveNode = node(0, 3, [
 
 /** How many level-0 segments {@link TREE} has — how many ways its hue wheel is cut. */
 export const TREE_TERRITORY_COUNT = 3;
+
+/**
+ * A partial-depth tree: two rings at the root, one of them recursed on and one discarded.
+ *
+ * Distinct counts again — two rings, one residue child that subdivided, one that did not — so a
+ * summary that confused rings with children, or discards with failures, cannot pass by coincidence.
+ */
+export const RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
+    nodeWithResidue(1, 2, 1),
+    failedNode(1),
+]);
