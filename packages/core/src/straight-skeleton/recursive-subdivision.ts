@@ -1,7 +1,7 @@
 import type {SkeletonSolveResult, Vector2} from './types';
 import {solveSkeleton} from './algorithm-termination-cases';
-import {SKELETON_NOISE_FLOOR} from './canonicalisation';
-import {denormaliseLength, makeSkeletonNormalisation, normaliseLength} from './normalisation';
+import {canonicalisePolygon, REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR} from './canonicalisation';
+import {denormaliseLength, makeSkeletonNormalisation, normaliseLength, normalisePolygon} from './normalisation';
 import {computeMaxOffset, computeOffsetRings} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
 import type {Strip, StripOptions} from './strip-decomposition';
@@ -38,6 +38,15 @@ import {signedArea} from '../random-polygon/geometry-helpers';
  * output. So the root's floor is measured once, in caller space, and each descendant converts it into
  * its own unit space before solving. At the root the conversion is the identity, bit for bit, because
  * both directions are the same power-of-two scale.
+ *
+ * ## The strips tile the polygon they were DERIVED from, not the one handed in
+ *
+ * Because canonicalisation runs inside the solve, the polygon a node was handed and the polygon its
+ * segments came out of are deliberately different — by a floor-times-perimeter sliver, whenever the
+ * stage removed anything. A node therefore carries both: {@link RecursiveNode.boundary} is what was
+ * handed in, {@link RecursiveNode.canonicalBoundary} is what the wavefront ran on, and any tiling
+ * identity is written against the second. The difference between them is not error and is not
+ * hidden: it is reported as {@link RecursiveNode.canonicalAreaDrift}, a quantity of its own.
  *
  * Merging adjacent segments is done by {@link StripOptions.sameLogicalStreet}, *before* any geometry
  * is built: runs of `mergeGroupSize` consecutive exterior edges become one segment, and
@@ -118,8 +127,45 @@ export interface RecursiveOptions {
 export interface RecursiveNode {
     /** Depth in the tree. The root is 0. */
     level: number;
-    /** The polygon solved at this node, clockwise. */
+    /** The polygon handed to this node, clockwise, before canonicalisation. */
     boundary: Vector2[];
+    /**
+     * The polygon the solve actually ran on, after canonicalisation. Segments derive from THIS.
+     *
+     * THE ONLY POLYGON THE STRIPS CAN BE EXPECTED TO TILE, and therefore the one a tiling identity
+     * has to be written against. `solveSkeleton` canonicalises inside the solve — it removes
+     * boundary vertices too small to see, on purpose — so the segments and the residue rings are
+     * both clipped out of a polygon that is smaller than {@link boundary} by a floor-times-perimeter
+     * sliver. Summing them against `boundary` charges that intended removal as tiling error, which
+     * is what closed the canonicalisation floor's usable band down to a single point.
+     *
+     * Carried on the node rather than left to the caller to recompute: recomputing means running
+     * canonicalisation a second time and trusting the two runs to agree, a second derivation of a
+     * quantity that already has a canonical source.
+     *
+     * Equal to {@link boundary}, vertex for vertex and bit for bit, wherever canonicalisation
+     * removed nothing — which is nearly all of the corpus. See {@link canonicalAreaDrift}.
+     */
+    canonicalBoundary: Vector2[];
+    /**
+     * `|area(boundary) − area(canonicalBoundary)| / area(boundary)`: how much of the region
+     * canonicalisation removed before the wavefront ever saw it.
+     *
+     * A SEPARATE, REPORTED QUANTITY, NEVER FOLDED INTO THE TILING IDENTITY. Two different things are
+     * being asserted — that the strips tile what they were built from, and that what they were built
+     * from still resembles what was handed in — and collapsing them into one number is what made an
+     * intended removal look like a gap between strips.
+     *
+     * EXACTLY ZERO, not approximately, wherever canonicalisation removed nothing: the stage deletes
+     * vertices and never perturbs the ones it keeps, and {@link canonicaliseRegion} preserves that
+     * by selecting the survivors from the caller's own coordinates rather than reading them back out
+     * of unit space. A non-zero drift on a node that lost no vertices would mean canonicalisation had
+     * moved a vertex, which is a defect in it rather than here.
+     *
+     * Zero on a node that never solved — degenerate, failed or throwing — because no
+     * canonicalisation happened there to have a drift.
+     */
+    canonicalAreaDrift: number;
     /** Segments this node was divided into, in boundary order. Empty when `failure` is set. */
     segments: Strip[];
     /** One child per merged group, in the same order. Empty at the leaf level. */
@@ -220,7 +266,7 @@ export interface RecursiveRun {
      *
      * Carried in caller space because that is the only space every level shares: each region is
      * normalised to its own unit extent before it is canonicalised, so the unit-space number differs
-     * per region while this one does not. See {@link noiseFloorForRegion}.
+     * per region while this one does not. See {@link canonicaliseRegion}.
      */
     rootNoiseFloor: number;
 }
@@ -274,15 +320,55 @@ function rootNoiseFloor(boundary: Vector2[]): number {
 }
 
 /**
- * The root's floor expressed in the unit space `solveSkeleton` will canonicalise `region` in.
+ * What one region's solve is set up with: the floor it will canonicalise against, and the polygon
+ * that canonicalisation leaves behind.
  *
- * The same physical distance, said in the units the comparison happens in. `makeSkeletonNormalisation`
- * is called on the same vertices `solveSkeleton` is about to call it on, so the two agree by
- * construction rather than by a shared assumption about extents; at the root the round trip is exact,
- * because both directions are the same power-of-two scale.
+ * THE TWO ARE DERIVED TOGETHER FROM ONE NORMALISATION OF THE REGION, because they are two readings of
+ * a single act — the floor is the question and the surviving ring is the answer, and deriving them
+ * from two separately-built normalisations would be two chances for them to describe different
+ * polygons.
  */
-function noiseFloorForRegion(region: Vector2[], rootFloor: number): number {
-    return normaliseLength(makeSkeletonNormalisation(region), rootFloor);
+interface RegionCanonicalisation {
+    /** The root's floor, expressed in the unit space `solveSkeleton` canonicalises the region in. */
+    noiseFloor: number;
+    /** The region minus the vertices that floor removes, in the CALLER'S coordinates. */
+    canonicalBoundary: Vector2[];
+}
+
+/**
+ * The root's floor in the unit space `solveSkeleton` will canonicalise `region` in, and the ring that
+ * floor leaves standing.
+ *
+ * The floor is the same physical distance said in the units the comparison happens in.
+ * `makeSkeletonNormalisation` is called on the same vertices `solveSkeleton` is about to call it on,
+ * so the two agree by construction rather than by a shared assumption about extents; at the root the
+ * round trip is exact, because both directions are the same power-of-two scale.
+ *
+ * THE SURVIVING RING IS SELECTED FROM THE CALLER'S OWN VERTICES THROUGH `indexRemap`, never read back
+ * out of unit space. Canonicalisation deletes vertices and never moves the ones it keeps, and the
+ * remap is what carries that fact across the normalisation seam: taking the surviving coordinates
+ * from `region` itself makes {@link RecursiveNode.canonicalAreaDrift} EXACTLY zero wherever nothing
+ * was removed, which is what decision 7 asks for. Reading the solved graph's exterior ring instead
+ * looks equivalent and is not — measured across the corpus at three depths and four merge groups, it
+ * differs from the input by up to `1.4e-14` on rings that lost no vertex at all, because
+ * normalisation's CENTRING translation is not exactly invertible even though its power-of-two scale
+ * is. That noise is far below the tiling tolerance and would be invisible there; it is not invisible
+ * to an assertion of exact equality, and it would be attributed to canonicalisation, which did not
+ * cause it.
+ *
+ * `canonicalisePolygon` is a pure function of the ring and the floor, and this hands it exactly what
+ * `solveSkeleton` hands it, so the two calls do not need to be trusted to agree — but they are checked
+ * to agree anyway, against the solved graph's own exterior ring, in the suite.
+ */
+function canonicaliseRegion(region: Vector2[], rootFloor: number): RegionCanonicalisation {
+    const normalisation = makeSkeletonNormalisation(region);
+    const noiseFloor = normaliseLength(normalisation, rootFloor);
+    const canonical = canonicalisePolygon(normalisePolygon(region, normalisation), noiseFloor);
+    return {
+        noiseFloor,
+        canonicalBoundary: region.filter(
+            (_vertex, index) => canonical.indexRemap[index] !== REMOVED_VERTEX_INDEX),
+    };
 }
 
 function describe(error: unknown): string {
@@ -297,8 +383,8 @@ function describe(error: unknown): string {
  * second solve would be a second answer to a question already answered.
  */
 export type SegmentOutcome =
-    | {segments: Strip[]; residueRings: Vector2[][]; failure?: undefined}
-    | {segments?: undefined; residueRings?: undefined; failure: string};
+    | {canonicalBoundary: Vector2[]; segments: Strip[]; residueRings: Vector2[][]; failure?: undefined}
+    | {canonicalBoundary?: undefined; segments?: undefined; residueRings?: undefined; failure: string};
 
 /**
  * Decision 5's degeneracy test: why this region has no skeleton, or `undefined` when it has one.
@@ -327,22 +413,35 @@ function degenerateRegionFailure(boundary: Vector2[]): string | undefined {
  * fraction, which is what keeps a level-2 cell cut as shallowly, in proportion, as the root was.
  */
 function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
+    const {noiseFloor, canonicalBoundary} = canonicaliseRegion(boundary, run.rootNoiseFloor);
     try {
-        const result = solveSkeleton(boundary, {
-            noiseFloor: noiseFloorForRegion(boundary, run.rootNoiseFloor),
-        });
+        const result = solveSkeleton(boundary, {noiseFloor});
         if (!result.complete) {
             const detail = result.diagnostics.map(diagnostic => `${diagnostic.kind}: ${diagnostic.detail}`).join('; ');
             return {failure: `Incomplete solve: ${detail === '' ? 'no diagnostics reported.' : detail}`};
         }
         const depth = computeMaxOffset(result) * run.depthFraction;
         return {
+            canonicalBoundary,
             segments: computeStrips(result, {depth, sameLogicalStreet: run.sameLogicalStreet}),
             residueRings: residueAt(result, depth, run.depthFraction),
         };
     } catch (error) {
         return {failure: `Subdivision threw: ${describe(error)}`};
     }
+}
+
+/**
+ * How much area canonicalisation removed, as a fraction of the region it was handed.
+ *
+ * `boundary` has already cleared {@link DEGENERATE_AREA_EPSILON} by the time this is asked — the
+ * degeneracy screen runs before the solve — so the divisor is bounded away from zero and there is no
+ * degenerate case to guard. Zero EXACTLY when the two rings are the same vertices, because the two
+ * shoelace sums are then term for term identical.
+ */
+function canonicalAreaDrift(boundary: Vector2[], canonicalBoundary: Vector2[]): number {
+    const area = Math.abs(signedArea(boundary));
+    return Math.abs(area - Math.abs(signedArea(canonicalBoundary))) / area;
 }
 
 /**
@@ -366,7 +465,8 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     const degeneracy = degenerateRegionFailure(boundary);
     if (degeneracy !== undefined) {
         return {
-            level, boundary, segments: [], children: [], residueRings: [], residueChildren: [],
+            level, boundary, canonicalBoundary: boundary, canonicalAreaDrift: 0,
+            segments: [], children: [], residueRings: [], residueChildren: [],
             failure: degeneracy,
         };
     }
@@ -377,8 +477,11 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     const clockwise = ensureClockwise(boundary);
     const outcome = divideRegion(clockwise, run);
     if (outcome.segments === undefined) {
+        // No solve completed, so no canonicalisation happened either: the region is reported as its
+        // own canonical form rather than as a polygon nothing ever produced.
         return {
-            level, boundary: clockwise, segments: [], children: [], residueRings: [],
+            level, boundary: clockwise, canonicalBoundary: clockwise, canonicalAreaDrift: 0,
+            segments: [], children: [], residueRings: [],
             residueChildren: [], failure: outcome.failure,
         };
     }
@@ -387,6 +490,8 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     return {
         level,
         boundary: clockwise,
+        canonicalBoundary: outcome.canonicalBoundary,
+        canonicalAreaDrift: canonicalAreaDrift(clockwise, outcome.canonicalBoundary),
         segments: outcome.segments,
         // One child per merged group, in the same order — a degenerate or unsolvable segment
         // becomes a child carrying its failure, never a gap in the sequence.

@@ -7,6 +7,10 @@ import type { RecursiveNode, Strip, Vector2 } from '@proc-geo/core';
  * about the tree's shape, not about the geometry in it, and a fixture with no geometry in it cannot
  * quietly change underneath the assertions when a solver does. Both suites read the same tree so
  * that a count and a tint asserted against it are asserted against the same thing.
+ *
+ * Nothing here was canonicalised, so every node's `canonicalBoundary` is the ring it was handed and
+ * its `canonicalAreaDrift` is zero — the state the driver reports for a polygon the noise floor took
+ * nothing from, which is what a hand-built tree is.
  */
 
 const SQUARE: Vector2[] = [
@@ -35,6 +39,8 @@ export function node(level: number, segments: number, children: RecursiveNode[] 
     return {
         level,
         boundary: SQUARE,
+        canonicalBoundary: SQUARE,
+        canonicalAreaDrift: 0,
         segments: Array.from({ length: segments }, strip),
         children,
         residueRings: [],
@@ -47,6 +53,8 @@ export function failedNode(level: number): RecursiveNode {
     return {
         level,
         boundary: SQUARE,
+        canonicalBoundary: SQUARE,
+        canonicalAreaDrift: 0,
         segments: [],
         children: [],
         residueRings: [],
@@ -71,6 +79,8 @@ export function nodeWithResidue(
     return {
         level,
         boundary: SQUARE,
+        canonicalBoundary: SQUARE,
+        canonicalAreaDrift: 0,
         segments: Array.from({ length: segments }, strip),
         children: [],
         residueRings: Array.from({ length: rings }, (_unused, index) => ring(1 + index)),

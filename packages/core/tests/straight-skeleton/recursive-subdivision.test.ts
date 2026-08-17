@@ -25,9 +25,15 @@ import {
  * carries the segments it was divided into or the reason it was not, one child per merged group and
  * one residue child per residue ring, and no node deeper than the requested level count — which is
  * what "failure is data" means when stated as an invariant. Numerical: wherever a node did divide,
- * its segments' areas plus its residue rings' areas must sum to its own area, because the segments
- * and the offset contour tile the region between them. A subdivision that looks right on a canvas
- * and quietly loses a wedge fails only that second check.
+ * its segments' areas plus its residue rings' areas must sum to the area of the polygon THE SOLVE
+ * RAN ON, because the segments and the offset contour tile that polygon between them. A subdivision
+ * that looks right on a canvas and quietly loses a wedge fails only that second check.
+ *
+ * WHICH POLYGON THAT IS, IS THE WHOLE POINT. Canonicalisation runs inside the solve and removes
+ * boundary vertices too small to see, so the polygon handed to a node and the polygon its strips
+ * came out of differ on purpose. The identity is written against `canonicalBoundary`; the difference
+ * between the two is asserted separately, as `canonicalAreaDrift`, and never folded into the
+ * identity.
  *
  * The failure census at the end is a measurement, not a gate: it reports which fixtures stop
  * subdividing and where. That is the first data this project has on how solver *output* behaves as
@@ -43,6 +49,37 @@ import {
  * summation noise.
  */
 const AREA_TOLERANCE_FRACTION = 1e-12;
+
+/**
+ * The bound `canonicalAreaDrift` is held under across the corpus, at the standing noise floor.
+ *
+ * MEASURED, THEN GIVEN HEADROOM, and both numbers belong here. Swept over `ALL_TEST_POLYGONS` at
+ * depth fractions `0.25/0.6/1` and merge groups 1–4 at three levels — 14 404 nodes — exactly 26
+ * nodes lose a vertex to canonicalisation at all, and the largest drift among them is `1.6e-15`.
+ * This bound is a little over six times that. The remaining 14 378 nodes drift by exactly zero, so
+ * the maximum is not a distribution's tail: it is rounding on the two or three rings where the floor
+ * finds an exactly-collinear vertex to delete.
+ *
+ * IT IS A BOUND AT THE STANDING FLOOR OF `1e-6`, NOT A UNIVERSAL ONE. Drift is what the floor
+ * removes, so it scales with the floor: swept at candidate floors the same corpus reaches `3.2e-5`
+ * at `5e-6` and `0.42` at `1e-4`. That is the quantity behaving as specified rather than a failure,
+ * which is precisely why it is reported separately from the tiling identity instead of inside it.
+ */
+const CORPUS_CANONICAL_AREA_DRIFT_BOUND = 1e-14;
+
+/**
+ * How far the driver's canonical ring may sit from the solved graph's own exterior ring, as a
+ * fraction of the region's bounding-box diagonal.
+ *
+ * The two are independently derived — the driver selects the surviving vertices from the caller's
+ * own coordinates through `canonicalisePolygon`'s index remap, while the graph carries its exterior
+ * nodes back out of unit space — so this is what convicts them of agreeing rather than leaving it
+ * assumed. They do not agree bit for bit and are not expected to: normalisation's CENTRING
+ * translation is not exactly invertible, so the graph's ring carries up to one unit in the last
+ * place of round-trip noise. Measured across the corpus at three depths and three levels, the worst
+ * disagreement is `4.03e-17` of the diagonal; this bound is twenty-five times that.
+ */
+const CANONICAL_RING_AGREEMENT_FRACTION = 1e-15;
 
 /**
  * Level counts every fixture is swept at.
@@ -65,6 +102,17 @@ const SWEPT_DEPTH_FRACTIONS = [0.25, 0.6, FULL_DEPTH_FRACTION];
 
 /** Merge group sizes the census measures. One is "no merging"; four merges most fixtures heavily. */
 const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
+
+/**
+ * Merge group sizes the canonical boundary's exactness is swept at.
+ *
+ * TWO RATHER THAN THE CENSUS'S FOUR, because the sweep is over every node of every tree at every
+ * depth and the question is about coordinates rather than about merging. One and two between them
+ * produce both the finest sub-regions in the corpus and the most of them, which is where a
+ * coordinate that had been carried through unit space and back would round differently from the
+ * caller's own.
+ */
+const EXACTNESS_MERGE_GROUP_SIZES = [1, 2];
 
 const DEFAULT_MERGE_GROUP_SIZE = 2;
 
@@ -94,6 +142,13 @@ function options(overrides: Partial<RecursiveOptions> = {}): RecursiveOptions {
  */
 function ringArea(ring: Vector2[]): number {
     return Math.abs(signedArea(ring));
+}
+
+/** A region's own characteristic length, for scaling a coordinate tolerance to the region. */
+function boundingDiagonal(ring: Vector2[]): number {
+    const xs = ring.map(vertex => vertex.x);
+    const ys = ring.map(vertex => vertex.y);
+    return Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
 }
 
 function stripArea(strip: Strip): number {
@@ -208,6 +263,23 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
         if (node.failure !== undefined && node.residueRings.length > 0) {
             problems.push(`${where} failed yet carries ${node.residueRings.length} residue ring(s)`);
         }
+        // Canonicalisation only ever DELETES, so the ring it leaves can never gain a vertex, and it
+        // is never taken below the three a polygon needs.
+        if (node.canonicalBoundary.length > node.boundary.length) {
+            problems.push(
+                `${where} was handed ${node.boundary.length} vertices and came back with `
+                + `${node.canonicalBoundary.length}`);
+        }
+        if (node.failure === undefined && node.canonicalBoundary.length < 3) {
+            problems.push(`${where} divided a canonical ring of ${node.canonicalBoundary.length} vertices`);
+        }
+        // A region that never solved was never canonicalised either, so it is its own canonical form.
+        if (node.failure !== undefined
+            && (node.canonicalBoundary !== node.boundary || node.canonicalAreaDrift !== 0)) {
+            problems.push(
+                `${where} failed yet reports a canonical boundary of `
+                + `${node.canonicalBoundary.length} vertices drifting by ${node.canonicalAreaDrift}`);
+        }
         if (depthFraction >= FULL_DEPTH_FRACTION && node.residueRings.length > 0) {
             problems.push(`${where} carries ${node.residueRings.length} residue ring(s) at full depth`);
         }
@@ -235,9 +307,21 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
     return problems;
 }
 
+/** What a node's segments and residue rings cover between them. */
+function coveredArea(node: RecursiveNode): number {
+    return node.segments.reduce((total, segment) => total + stripArea(segment), 0)
+        + node.residueRings.reduce((total, ring) => total + ringArea(ring), 0);
+}
+
 /**
- * Decision 8's tiling identity at every node that divided: segments plus residue rings equal the
- * node's own area. Returns the problems it found.
+ * The tiling identity at every node that divided: segments plus residue rings equal the area of
+ * `canonicalBoundary`. Returns the problems it found.
+ *
+ * AGAINST `canonicalBoundary`, NEVER `boundary`. The strips are clipped skeleton faces and the rings
+ * are that same skeleton's offset contour, so the polygon they tile is the one the wavefront ran on
+ * — which canonicalisation has already taken the invisible vertices out of. Summing them against the
+ * polygon handed in charges that intended removal as tiling error; see the bulged-square case below
+ * for the shape of the number it produces.
  *
  * At full depth the residue term is zero and this reduces to the check that predates it.
  */
@@ -245,15 +329,36 @@ function tilingProblems(root: RecursiveNode): string[] {
     const problems: string[] = [];
     for (const node of flattenRecursiveTree(root)) {
         if (node.failure !== undefined) continue;
-        const regionArea = Math.abs(signedArea(node.boundary));
-        const covered = node.segments.reduce((total, segment) => total + stripArea(segment), 0)
-            + node.residueRings.reduce((total, ring) => total + ringArea(ring), 0);
+        const regionArea = ringArea(node.canonicalBoundary);
+        const covered = coveredArea(node);
         const error = Math.abs(covered - regionArea) / regionArea;
         if (!(error < AREA_TOLERANCE_FRACTION)) {
             problems.push(
                 `level ${node.level}: ${node.segments.length} segment(s) and `
-                + `${node.residueRings.length} residue ring(s) cover ${covered} of an area of `
+                + `${node.residueRings.length} residue ring(s) cover ${covered} of a canonical area of `
                 + `${regionArea} (out by ${error})`);
+        }
+    }
+    return problems;
+}
+
+/**
+ * The OTHER thing being asserted: that what the strips were built from still resembles what was
+ * handed in. Returns the problems it found.
+ *
+ * Deliberately a second sweep rather than a second clause of {@link tilingProblems}. A node can tile
+ * its canonical polygon perfectly while canonicalisation has taken a visible bite out of the region
+ * — that is a real and separate defect, and reporting it as "the strips do not tile" is what made
+ * the two indistinguishable in the first place.
+ */
+function driftProblems(root: RecursiveNode): string[] {
+    const problems: string[] = [];
+    for (const node of flattenRecursiveTree(root)) {
+        if (!(node.canonicalAreaDrift < CORPUS_CANONICAL_AREA_DRIFT_BOUND)) {
+            problems.push(
+                `level ${node.level}: canonicalisation took ${node.boundary.length} vertices to `
+                + `${node.canonicalBoundary.length} and drifted by ${node.canonicalAreaDrift}, over `
+                + `the ${CORPUS_CANONICAL_AREA_DRIFT_BOUND} bound`);
         }
     }
     return problems;
@@ -455,6 +560,24 @@ describe('recursive segment subdivision', () => {
             expect(differing).toEqual([]);
         });
 
+        it('holds the identity at every full-depth node, with the residue term at zero', () => {
+            // Full-depth behaviour is unchanged and pinned: the residue contributes nothing, so the
+            // only thing that moved is which polygon the segments are summed against.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const root = subdivideRecursively(polygon.vertices, options({
+                    levels: MAX_RECURSION_LEVELS,
+                }));
+                for (const node of flattenRecursiveTree(root)) {
+                    if (node.residueRings.length > 0) {
+                        problems.push(`${polygon.name} level ${node.level}: carries a residue at full depth`);
+                    }
+                }
+                problems.push(...tilingProblems(root).map(problem => `${polygon.name} ${problem}`));
+            }
+            expect(problems).toEqual([]);
+        });
+
         it('grows no residue and no residue children anywhere in the tree', () => {
             for (const polygon of ALL_TEST_POLYGONS) {
                 const nodes = flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
@@ -597,6 +720,156 @@ describe('recursive segment subdivision', () => {
         });
     });
 
+    /**
+     * A square with one extra vertex bulging `CANONICAL_BULGE` off the midpoint of an edge.
+     *
+     * SIZED AGAINST THE FLOOR, not chosen by eye. `makeSkeletonNormalisation` takes the nearest power
+     * of two to the longest side, so a square of side 10 is carried to unit space by a factor of 8,
+     * and a caller-space bulge of `4e-6` is a unit-space deviation of `5e-7` — half the `1e-6` noise
+     * floor, so canonicalisation removes it, and the vertex is at the same time far too large to be
+     * rounding. The area it takes with it is `0.5 · 10 · 4e-6` against a region of 100: a relative
+     * drift of `2e-7`, five orders of magnitude above the tiling tolerance.
+     *
+     * That gap is the entire defect this fixture exists to pin. Against the polygon handed in, the
+     * strips are out by `2e-7` and the identity fails; against the polygon they were derived from
+     * they are out by nothing at all.
+     */
+    const CANONICAL_BULGE = 4e-6;
+    const CANONICAL_BULGE_DRIFT = 2e-7;
+    const BULGED_SQUARE: Vector2[] = [
+        {x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 0}, {x: 5, y: CANONICAL_BULGE},
+    ];
+
+    describe('the strips tile the polygon they were derived from', () => {
+        it('drops the invisible vertex and reports what it cost, without calling it tiling error', () => {
+            const root = subdivideRecursively(BULGED_SQUARE, options());
+
+            expect(root.failure).toBeUndefined();
+            expect(root.boundary).toHaveLength(5);
+            expect(root.canonicalBoundary).toHaveLength(4);
+            // The removal is real geometry, not rounding: five orders of magnitude above the tiling
+            // tolerance, which is what makes the two identities below distinguishable at all.
+            expect(root.canonicalAreaDrift).toBeCloseTo(CANONICAL_BULGE_DRIFT, 12);
+            expect(root.canonicalAreaDrift).toBeGreaterThan(AREA_TOLERANCE_FRACTION * 1e4);
+
+            const covered = coveredArea(root);
+            const againstCanonical = Math.abs(covered - ringArea(root.canonicalBoundary))
+                / ringArea(root.canonicalBoundary);
+            const againstHandedIn = Math.abs(covered - ringArea(root.boundary)) / ringArea(root.boundary);
+
+            expect(againstCanonical).toBeLessThan(AREA_TOLERANCE_FRACTION);
+            // The measurement the whole change exists for: the same strips, scored against the wrong
+            // polygon, are out by exactly the area canonicalisation removed.
+            expect(againstHandedIn).toBeGreaterThan(AREA_TOLERANCE_FRACTION);
+            expect(againstHandedIn).toBeCloseTo(root.canonicalAreaDrift, 12);
+            expect(tilingProblems(root)).toEqual([]);
+        });
+
+        it('still tiles below full depth, where the residue carries part of the region', () => {
+            // The residue rings are projected off the same canonicalised skeleton, so they belong to
+            // the same identity; a partial-depth cut must not reopen the gap the segments closed.
+            const root = subdivideRecursively(BULGED_SQUARE, options({levels: 2, depthFraction: 0.4}));
+            expect(root.residueRings.length).toBeGreaterThan(0);
+            expect(tilingProblems(root)).toEqual([]);
+        });
+
+        it('leaves the corpus untouched where the floor finds nothing to remove', () => {
+            // Decision 7: EXACTLY equal and EXACTLY zero, not approximately. Canonicalisation deletes
+            // vertices and never moves the ones it keeps, so a node that lost none must come back
+            // with the caller's own coordinates.
+            // SWEPT ACROSS DEPTHS AND MERGE GROUPS, not just at the default: the sub-regions a
+            // partial-depth cut and a fine merge produce are where a perturbed coordinate shows up,
+            // because they are the ones whose vertices are furthest from their own bounding-box
+            // centre and so round differently through a normalisation. At the root and at full depth
+            // the question never arises.
+            const problems: string[] = [];
+            let unchanged = 0;
+            let reduced = 0;
+            for (const polygon of ALL_TEST_POLYGONS) {
+                for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
+                    for (const mergeGroupSize of EXACTNESS_MERGE_GROUP_SIZES) {
+                        const where = `${polygon.name} (depth ${depthFraction}, merge group ${mergeGroupSize})`;
+                        for (const node of flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
+                            levels: MAX_RECURSION_LEVELS, depthFraction, mergeGroupSize,
+                        })))) {
+                            if (node.canonicalBoundary.length !== node.boundary.length) {
+                                reduced += 1;
+                                continue;
+                            }
+                            unchanged += 1;
+                            if (JSON.stringify(node.canonicalBoundary) !== JSON.stringify(node.boundary)) {
+                                problems.push(`${where} level ${node.level}: coordinates were perturbed`);
+                            }
+                            if (node.canonicalAreaDrift !== 0) {
+                                problems.push(
+                                    `${where} level ${node.level}: drifted by ${node.canonicalAreaDrift} `
+                                    + `having removed nothing`);
+                            }
+                        }
+                    }
+                }
+            }
+            expect(problems).toEqual([]);
+            expect(unchanged).toBeGreaterThan(0);
+            // And the check is not vacuous: somewhere in the corpus the floor does remove a vertex,
+            // so "removed nothing" is a case rather than the only case.
+            expect(reduced).toBeGreaterThan(0);
+        });
+
+        it('agrees with the solved graph the strips were actually read off', () => {
+            // Decision 2's concern, convicted rather than trusted. The driver selects its ring from
+            // the caller's coordinates through the index remap; the graph carries its exterior nodes
+            // back out of unit space. Same vertex count exactly — and positions to within the round
+            // trip's last place, which is noise from the centring translation, not from the floor.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                for (const node of flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
+                    levels: MAX_RECURSION_LEVELS,
+                })))) {
+                    if (node.failure !== undefined) continue;
+                    const solved = solveSkeleton(node.boundary);
+                    const ring = solved.graph.nodes
+                        .slice(0, solved.graph.numExteriorNodes)
+                        .map(graphNode => graphNode.position);
+                    if (ring.length !== node.canonicalBoundary.length) {
+                        problems.push(
+                            `${polygon.name} level ${node.level}: the solve kept ${ring.length} vertices `
+                            + `where the node reports ${node.canonicalBoundary.length}`);
+                        continue;
+                    }
+                    const tolerance = boundingDiagonal(node.boundary) * CANONICAL_RING_AGREEMENT_FRACTION;
+                    ring.forEach((position, index) => {
+                        const separation = Math.hypot(
+                            position.x - node.canonicalBoundary[index].x,
+                            position.y - node.canonicalBoundary[index].y);
+                        if (!(separation <= tolerance)) {
+                            problems.push(
+                                `${polygon.name} level ${node.level}: vertex ${index} sits ${separation} `
+                                + `from the solved ring, over a tolerance of ${tolerance}`);
+                        }
+                    });
+                }
+            }
+            expect(problems).toEqual([]);
+        });
+
+        it('reports a region that never solved as its own canonical form', () => {
+            // Nothing was canonicalised, so there is no drift to report and no second polygon to
+            // report it against — rather than a null field the caller has to test for.
+            const degenerate = subdivideRecursively([{x: 0, y: 0}, {x: 1, y: 1}], options());
+            expect(degenerate.failure).toMatch(/^Degenerate region/);
+            expect(degenerate.canonicalBoundary).toEqual(degenerate.boundary);
+            expect(degenerate.canonicalAreaDrift).toBe(0);
+
+            const unsolvable = subdivideRecursively(fixtureVertices('Rectangle'), options({
+                levels: 2, mergeGroupSize: 3,
+            })).children.find(child => child.failure !== undefined);
+            expect(unsolvable?.failure).toMatch(/^Incomplete solve/);
+            expect(unsolvable?.canonicalBoundary).toEqual(unsolvable?.boundary);
+            expect(unsolvable?.canonicalAreaDrift).toBe(0);
+        });
+    });
+
     describe('every fixture subdivides without throwing, at every depth', () => {
         it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const vertices = fixtureVertices(name);
@@ -608,7 +881,8 @@ describe('recursive segment subdivision', () => {
                     const root = subdivideRecursively(vertices, swept);
                     problems.push(
                         ...structuralProblems(root, swept).map(problem => `${where}: ${problem}`),
-                        ...tilingProblems(root).map(problem => `${where}: ${problem}`));
+                        ...tilingProblems(root).map(problem => `${where}: ${problem}`),
+                        ...driftProblems(root).map(problem => `${where}: ${problem}`));
 
                     // Depth: a tree in which nothing failed must reach exactly the requested level
                     // count. Where something did fail that branch stops early by design, and the
