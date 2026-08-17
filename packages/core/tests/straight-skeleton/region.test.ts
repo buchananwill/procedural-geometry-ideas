@@ -349,6 +349,34 @@ describe('runs are carried through the index remap, never recomputed', () => {
         expect(remapRuns(runs, remap, 3)).toEqual([run(0, 2, 'perimeter-access')]);
     });
 
+    it('carries a whole-perimeter run even when the vertex it was spelled from is the one removed', () => {
+        // The vertex a seamless run starts at is an arbitrary spelling, not a boundary between two
+        // provenances, so `runBoundaryVertexIndices` pins nothing for it — which means it genuinely
+        // can be culled. The run still covers the entire ring, so demanding its survival would make
+        // a plain `makeRootRegion(boundary)` throw for a reason that means nothing.
+        const remap = [REMOVED_VERTEX_INDEX, 0, 1, 2];
+        const runs = [run(0, 3, 'perimeter-access')];
+
+        expect(() => remapRuns(runs, remap, 3)).not.toThrow();
+        expect(remapRuns(runs, remap, 3)).toEqual([run(0, 2, 'perimeter-access')]);
+    });
+
+    it('carries a whole-perimeter run spelled from a non-zero edge whose vertex was removed', () => {
+        // Same statement for a ring spelled from edge 2 rather than edge 0: both bounds resolve
+        // through vertex 2, and vertex 2 is gone.
+        const remap = [0, 1, REMOVED_VERTEX_INDEX, 2];
+        const runs = [run(2, 1, 'lane')];
+
+        expect(remapRuns(runs, remap, 3)).toEqual([run(0, 2, 'lane')]);
+    });
+
+    it('produces a partition of the shortened ring from a whole-perimeter run too', () => {
+        const remap = [REMOVED_VERTEX_INDEX, 0, 1, 2];
+        const carried = remapRuns([run(0, 3, 'perimeter-access')], remap, 3);
+
+        expect(() => assertRunPartition(carried, 3)).not.toThrow();
+    });
+
     it('throws rather than invent a run whose boundary vertex was removed', () => {
         // The pinning rule's failure mode, made loud. A run whose boundary went has no honest image
         // on the new ring, and guessing one is how a road quietly becomes a fence.

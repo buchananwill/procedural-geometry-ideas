@@ -4,8 +4,10 @@ import {
     CanonicalPolygon,
     canonicalisePolygon,
     FLOATING_POINT_EPSILON,
+    makeRootRegion,
     makeSkeletonNormalisation,
     normalisePolygon,
+    Region,
     remapRuns,
     REMOVED_VERTEX_INDEX,
     runAlgorithmV5,
@@ -661,6 +663,63 @@ describe('a run survives a canonicalisation that actually removes vertices', () 
         expect(after[0]).toEqual(before[0]);
         expect(after[after.length - 1]).toEqual(before[before.length - 1]);
         for (const vertex of before) {
+            expect(distanceToPolyline(vertex, after)).toBeLessThan(SKELETON_NOISE_FLOOR);
+        }
+    });
+});
+
+/** A default root region and the canonicalisation of its own boundary, kept together. */
+interface CanonicalisedRoot {
+    region: Region;
+    canonical: CanonicalPolygon;
+}
+
+describe('a whole-perimeter run survives losing the vertex it was spelled from', () => {
+    /*
+     * The default `makeRootRegion(boundary)` region, which is one run over the entire ring. It pins
+     * nothing — a seamless ring gives way to nothing — so canonicalisation is free to remove the
+     * vertex the run happens to start at, and here it does exactly that: the subdivided square is
+     * rotated by one so that index 0 is a collinear mid-edge vertex rather than a corner.
+     */
+
+    const ROTATED_SUBDIVIDED_SQUARE: Vector2[] = (() => {
+        const subdivided = insertRegularly(UNIT_SQUARE, 4);
+        return [...subdivided.slice(1), subdivided[0]];
+    })();
+
+    function canonicaliseRoot(): CanonicalisedRoot {
+        const region = makeRootRegion(ROTATED_SUBDIVIDED_SQUARE);
+        return {
+            region,
+            canonical: canonicalisePolygon(
+                region.boundary, SKELETON_NOISE_FLOOR, runBoundaryVertexIndices(region.runs)),
+        };
+    }
+
+    it('removes vertex 0 itself, which is what makes this a test', () => {
+        const {region, canonical} = canonicaliseRoot();
+
+        expect(region.runs).toEqual([{startIndex: 0, endIndex: 15, provenance: 'perimeter-access'}]);
+        expect(runBoundaryVertexIndices(region.runs)).toEqual([]);
+        expect(canonical.indexRemap[0]).toBe(REMOVED_VERTEX_INDEX);
+        expect(canonical.vertices).toHaveLength(4);
+    });
+
+    it('carries the run onto the whole shortened ring rather than throwing', () => {
+        const {region, canonical} = canonicaliseRoot();
+
+        const carried = remapRuns(region.runs, canonical.indexRemap, canonical.vertices.length);
+
+        expect(carried).toEqual([{startIndex: 0, endIndex: 3, provenance: 'perimeter-access'}]);
+    });
+
+    it('leaves the carried run covering the same boundary, compared as geometry', () => {
+        const {region, canonical} = canonicaliseRoot();
+
+        const carried = remapRuns(region.runs, canonical.indexRemap, canonical.vertices.length);
+        const after = runPolyline(canonical.vertices, carried[0]);
+
+        for (const vertex of region.boundary) {
             expect(distanceToPolyline(vertex, after)).toBeLessThan(SKELETON_NOISE_FLOOR);
         }
     });

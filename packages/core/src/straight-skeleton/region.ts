@@ -246,18 +246,28 @@ function labelEdges(access: readonly BoundaryRun[], edgeCount: number): Boundary
 
         const span = runEdgeCount(run, edgeCount);
         for (let step = 0; step < span; step++) {
-            const edge = (run.startIndex + step) % edgeCount;
-            if (claimedBy[edge] !== -1) {
-                throw new Error(
-                    `Access runs ${claimedBy[edge]} and ${position} overlap on edge ${edge}: `
-                    + 'a boundary edge belongs to exactly one run.');
-            }
-            claimedBy[edge] = position;
-            labels[edge] = run.provenance;
+            claimEdge(labels, claimedBy, (run.startIndex + step) % edgeCount, position, run.provenance);
         }
     }
 
     return labels;
+}
+
+/** Record one edge as this run's, or report the overlap with whichever run took it first. */
+function claimEdge(
+    labels: BoundaryProvenance[],
+    claimedBy: number[],
+    edge: number,
+    position: number,
+    provenance: BoundaryProvenance,
+): void {
+    if (claimedBy[edge] !== -1) {
+        throw new Error(
+            `Access runs ${claimedBy[edge]} and ${position} overlap on edge ${edge}: `
+            + 'a boundary edge belongs to exactly one run.');
+    }
+    claimedBy[edge] = position;
+    labels[edge] = provenance;
 }
 
 /**
@@ -327,6 +337,14 @@ export function runBoundaryVertexIndices(runs: readonly BoundaryRun[]): number[]
  * which is what pinning {@link runBoundaryVertexIndices} guarantees. THROWS IF EITHER DID NOT,
  * because a run whose boundary was canonicalised away has no honest image on the new ring and
  * inventing one is how a road quietly becomes a fence.
+ *
+ * A WHOLE-PERIMETER RUN IS THE ONE EXEMPTION, and it is the same exemption
+ * {@link runBoundaryVertexIndices} makes: such a run gives way to nothing, so it pins nothing, so the
+ * vertex it happens to be spelled from is free to be culled. Its start and its far bound are the same
+ * vertex and neither carries any meaning — the run covers every edge either way — so it is carried
+ * onto the entire surviving ring without asking whether that vertex survived. Requiring it here would
+ * make a whole-perimeter region, which is exactly what `makeRootRegion(boundary)` builds, throw
+ * whenever canonicalisation happened to take vertex 0.
  */
 export function remapRuns(
     runs: readonly BoundaryRun[],
@@ -335,18 +353,31 @@ export function remapRuns(
 ): BoundaryRun[] {
     const inputCount = indexRemap.length;
 
-    return runs.map((run, position) => {
-        const startVertex = remappedVertex(indexRemap, run.startIndex, position, 'starts on');
-        // The vertex the run's LAST EDGE ENDS ON, which is the far bound of the run and the vertex
-        // the next run starts at. Its image is one edge past the run's new end.
-        const endVertex = remappedVertex(indexRemap, (run.endIndex + 1) % inputCount, position, 'ends at');
+    return runs.map((run, position) => (
+        runEdgeCount(run, inputCount) === inputCount
+            // Spelled from edge 0, which is `groupIntoRuns`'s own spelling of a seamless ring.
+            ? {startIndex: 0, endIndex: survivingCount - 1, provenance: run.provenance}
+            : remapBoundedRun(run, position, indexRemap, survivingCount)));
+}
 
-        return {
-            startIndex: startVertex,
-            endIndex: (endVertex - 1 + survivingCount) % survivingCount,
-            provenance: run.provenance,
-        };
-    });
+/** A run bounded by two distinct vertices, carried onto the images of those two vertices. */
+function remapBoundedRun(
+    run: BoundaryRun,
+    position: number,
+    indexRemap: readonly number[],
+    survivingCount: number,
+): BoundaryRun {
+    const startVertex = remappedVertex(indexRemap, run.startIndex, position, 'starts on');
+    // The vertex the run's LAST EDGE ENDS ON, which is the far bound of the run and the vertex the
+    // next run starts at. Its image is one edge past the run's new end.
+    const endVertex = remappedVertex(
+        indexRemap, (run.endIndex + 1) % indexRemap.length, position, 'ends at');
+
+    return {
+        startIndex: startVertex,
+        endIndex: (endVertex - 1 + survivingCount) % survivingCount,
+        provenance: run.provenance,
+    };
 }
 
 /** The surviving index of a run-bounding vertex, or a report that the pinning rule was not applied. */
