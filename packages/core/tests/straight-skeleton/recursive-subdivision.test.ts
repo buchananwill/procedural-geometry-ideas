@@ -5,13 +5,17 @@ import {
     computeOffsetRings,
     computeStrips,
     DEGENERATE_AREA_EPSILON,
+    denormaliseLength,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
     makeMergeGroupPredicate,
+    makeSkeletonNormalisation,
     MAX_RECURSION_LEVELS,
+    normaliseLength,
     RecursiveNode,
     RecursiveOptions,
     signedArea,
+    SKELETON_NOISE_FLOOR,
     solveSkeleton,
     Strip,
     subdivideRecursively,
@@ -242,6 +246,54 @@ function fixtureVertices(name: string): Vector2[] {
     return fixture.vertices;
 }
 
+/**
+ * Two rings, vertex for vertex and bit for bit.
+ *
+ * BY VALUE, NOT BY REFERENCE. The invariants this file states about `canonicalBoundary` are about
+ * coordinates — "the caller's own vertices came back" — and the driver happens to satisfy several of
+ * them by handing the very same array back. An identity test would pin that incidental fact, and an
+ * equally correct implementation that rebuilt an identical array would fail it for no behavioural
+ * reason. The reference check is kept only as a fast path, where it implies the value check anyway.
+ */
+function sameVertices(ring: Vector2[], other: Vector2[]): boolean {
+    return ring === other || JSON.stringify(ring) === JSON.stringify(other);
+}
+
+/**
+ * The corpus sweep's standard tree: every level the driver will run, at the default dials.
+ *
+ * Written once because three separate properties are asserted over the same tree — the tiling
+ * identity at full depth, the absence of a residue there, and the canonical ring's agreement with
+ * the solved graph — and each of them wants the whole tree rather than a fixture-specific one.
+ */
+function fullDepthTree(vertices: Vector2[]): RecursiveNode {
+    return subdivideRecursively(vertices, options({levels: MAX_RECURSION_LEVELS}));
+}
+
+/**
+ * The floor the driver measures ONCE on the region the caller handed in, as a caller-space length.
+ *
+ * Restated here from the two published primitives it is built out of, rather than reached for
+ * through a hole opened in the driver for the tests' benefit.
+ */
+function rootFloorOf(boundary: Vector2[]): number {
+    return denormaliseLength(makeSkeletonNormalisation(boundary), SKELETON_NOISE_FLOOR);
+}
+
+/**
+ * The floor a given region is actually canonicalised against: the ROOT'S floor, said in the unit
+ * space that region normalises into.
+ *
+ * A DESCENDANT'S FLOOR IS NOT THE STANDING DEFAULT. `SKELETON_NOISE_FLOOR` is a unit-space constant,
+ * so leaving it to default re-derives the floor from whichever sliver is being solved — the
+ * region-local reading the driver exists to prevent — and that is the same floor only at the root.
+ * Any test that re-solves a node's boundary to check what its solve produced has to hand this in, or
+ * it is checking a different canonicalisation than the one that produced the node.
+ */
+function regionNoiseFloor(region: Vector2[], rootFloor: number): number {
+    return normaliseLength(makeSkeletonNormalisation(region), rootFloor);
+}
+
 /** Structural invariants every node of every tree must satisfy. Returns the problems it found. */
 function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOptions): string[] {
     const {levels, depthFraction, residue} = subdivisionOptions;
@@ -273,9 +325,10 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
         if (node.failure === undefined && node.canonicalBoundary.length < 3) {
             problems.push(`${where} divided a canonical ring of ${node.canonicalBoundary.length} vertices`);
         }
-        // A region that never solved was never canonicalised either, so it is its own canonical form.
+        // A region that never solved was never canonicalised either, so it is its own canonical form
+        // — the same vertices, which is a claim about coordinates rather than about array identity.
         if (node.failure !== undefined
-            && (node.canonicalBoundary !== node.boundary || node.canonicalAreaDrift !== 0)) {
+            && (!sameVertices(node.canonicalBoundary, node.boundary) || node.canonicalAreaDrift !== 0)) {
             problems.push(
                 `${where} failed yet reports a canonical boundary of `
                 + `${node.canonicalBoundary.length} vertices drifting by ${node.canonicalAreaDrift}`);
@@ -298,8 +351,7 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
                 + `${expectedResidueChildren} residue ring(s)`);
         }
         node.residueChildren.forEach((child, index) => {
-            if (child.boundary !== node.residueRings[index]
-                && JSON.stringify(child.boundary) !== JSON.stringify(node.residueRings[index])) {
+            if (!sameVertices(child.boundary, node.residueRings[index])) {
                 problems.push(`${where} residue child ${index} does not carry residue ring ${index}`);
             }
         });
@@ -361,6 +413,84 @@ function driftProblems(root: RecursiveNode): string[] {
                 + `the ${CORPUS_CANONICAL_AREA_DRIFT_BOUND} bound`);
         }
     }
+    return problems;
+}
+
+/**
+ * What one node contributed to the exactness sweep: the problems it showed, and which of the two
+ * cases it fell into.
+ *
+ * The count is carried out alongside the problems because the sweep has to convict itself of being
+ * non-vacuous — that both "the floor removed nothing" and "the floor removed something" actually
+ * occur across the corpus — and a collector that returned only problems could not say so.
+ */
+interface CanonicalExactness {
+    /** Ways this node broke decision 7. Empty where it did not. */
+    problems: string[];
+    /** True where the floor removed at least one vertex, so exactness is not the question asked. */
+    reduced: boolean;
+}
+
+/**
+ * Decision 7 at one node: a ring the floor took nothing out of must come back as the caller's own
+ * coordinates, with a drift of EXACTLY zero rather than approximately zero.
+ *
+ * A non-zero drift on a node that lost no vertex would mean canonicalisation had moved a vertex it
+ * kept, which is a defect in that stage rather than in this driver — so it is worth stating as an
+ * exact equality instead of hiding it under the tiling tolerance.
+ */
+function exactnessProblems(node: RecursiveNode, where: string): CanonicalExactness {
+    if (node.canonicalBoundary.length !== node.boundary.length) {
+        return {problems: [], reduced: true};
+    }
+
+    const problems: string[] = [];
+    if (!sameVertices(node.canonicalBoundary, node.boundary)) {
+        problems.push(`${where} level ${node.level}: coordinates were perturbed`);
+    }
+    if (node.canonicalAreaDrift !== 0) {
+        problems.push(
+            `${where} level ${node.level}: drifted by ${node.canonicalAreaDrift} having removed nothing`);
+    }
+    return {problems, reduced: false};
+}
+
+/**
+ * Decision 2 at one node: the ring the driver reports is the ring the solve actually ran on.
+ *
+ * RE-SOLVED AT THE FLOOR THAT NODE WAS REALLY CANONICALISED AGAINST — {@link regionNoiseFloor} of the
+ * root's floor — and never at the standing default. A re-solve that let `SKELETON_NOISE_FLOOR`
+ * default would canonicalise a descendant against its own extent and could keep or drop a vertex the
+ * real solve did not, checking a different canonicalisation than the one under test at every node
+ * below the root.
+ *
+ * The two rings are independently derived — the driver selects the survivors from the caller's own
+ * coordinates through the index remap, while the graph carries its exterior nodes back out of unit
+ * space — so the vertex count must match exactly and the positions to within the round trip's last
+ * place, which is noise from the centring translation rather than from the floor.
+ */
+function solvedRingProblems(node: RecursiveNode, noiseFloor: number, where: string): string[] {
+    const solved = solveSkeleton(node.boundary, {noiseFloor});
+    const ring = solved.graph.nodes
+        .slice(0, solved.graph.numExteriorNodes)
+        .map(graphNode => graphNode.position);
+    if (ring.length !== node.canonicalBoundary.length) {
+        return [`${where} level ${node.level}: the solve kept ${ring.length} vertices where the node `
+            + `reports ${node.canonicalBoundary.length}`];
+    }
+
+    const tolerance = boundingDiagonal(node.boundary) * CANONICAL_RING_AGREEMENT_FRACTION;
+    const problems: string[] = [];
+    ring.forEach((position, index) => {
+        const separation = Math.hypot(
+            position.x - node.canonicalBoundary[index].x,
+            position.y - node.canonicalBoundary[index].y);
+        if (!(separation <= tolerance)) {
+            problems.push(
+                `${where} level ${node.level}: vertex ${index} sits ${separation} from the solved `
+                + `ring, over a tolerance of ${tolerance}`);
+        }
+    });
     return problems;
 }
 
@@ -565,9 +695,7 @@ describe('recursive segment subdivision', () => {
             // only thing that moved is which polygon the segments are summed against.
             const problems: string[] = [];
             for (const polygon of ALL_TEST_POLYGONS) {
-                const root = subdivideRecursively(polygon.vertices, options({
-                    levels: MAX_RECURSION_LEVELS,
-                }));
+                const root = fullDepthTree(polygon.vertices);
                 for (const node of flattenRecursiveTree(root)) {
                     if (node.residueRings.length > 0) {
                         problems.push(`${polygon.name} level ${node.level}: carries a residue at full depth`);
@@ -580,9 +708,7 @@ describe('recursive segment subdivision', () => {
 
         it('grows no residue and no residue children anywhere in the tree', () => {
             for (const polygon of ALL_TEST_POLYGONS) {
-                const nodes = flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
-                    levels: MAX_RECURSION_LEVELS,
-                })));
+                const nodes = flattenRecursiveTree(fullDepthTree(polygon.vertices));
                 expect(nodes.every(node => node.residueRings.length === 0)).toBe(true);
                 expect(nodes.every(node => node.residueChildren.length === 0)).toBe(true);
             }
@@ -789,23 +915,14 @@ describe('recursive segment subdivision', () => {
                 for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
                     for (const mergeGroupSize of EXACTNESS_MERGE_GROUP_SIZES) {
                         const where = `${polygon.name} (depth ${depthFraction}, merge group ${mergeGroupSize})`;
-                        for (const node of flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
+                        const root = subdivideRecursively(polygon.vertices, options({
                             levels: MAX_RECURSION_LEVELS, depthFraction, mergeGroupSize,
-                        })))) {
-                            if (node.canonicalBoundary.length !== node.boundary.length) {
-                                reduced += 1;
-                                continue;
-                            }
-                            unchanged += 1;
-                            if (JSON.stringify(node.canonicalBoundary) !== JSON.stringify(node.boundary)) {
-                                problems.push(`${where} level ${node.level}: coordinates were perturbed`);
-                            }
-                            if (node.canonicalAreaDrift !== 0) {
-                                problems.push(
-                                    `${where} level ${node.level}: drifted by ${node.canonicalAreaDrift} `
-                                    + `having removed nothing`);
-                            }
-                        }
+                        }));
+                        const exactness = flattenRecursiveTree(root)
+                            .map(node => exactnessProblems(node, where));
+                        problems.push(...exactness.flatMap(node => node.problems));
+                        reduced += exactness.filter(node => node.reduced).length;
+                        unchanged += exactness.filter(node => !node.reduced).length;
                     }
                 }
             }
@@ -817,40 +934,30 @@ describe('recursive segment subdivision', () => {
         });
 
         it('agrees with the solved graph the strips were actually read off', () => {
-            // Decision 2's concern, convicted rather than trusted. The driver selects its ring from
-            // the caller's coordinates through the index remap; the graph carries its exterior nodes
-            // back out of unit space. Same vertex count exactly — and positions to within the round
-            // trip's last place, which is noise from the centring translation, not from the floor.
+            // Decision 2's concern, convicted rather than trusted — and convicted at the floor the
+            // driver really used: the ROOT'S, carried into each node's own unit space, exactly as
+            // the driver carries it. Re-solving at the standing default would canonicalise every
+            // descendant against its own extent and check a ring nothing under test produced.
             const problems: string[] = [];
+            let propagatedFloors = 0;
             for (const polygon of ALL_TEST_POLYGONS) {
-                for (const node of flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
-                    levels: MAX_RECURSION_LEVELS,
-                })))) {
+                const rootFloor = rootFloorOf(polygon.vertices);
+                for (const node of flattenRecursiveTree(fullDepthTree(polygon.vertices))) {
                     if (node.failure !== undefined) continue;
-                    const solved = solveSkeleton(node.boundary);
-                    const ring = solved.graph.nodes
-                        .slice(0, solved.graph.numExteriorNodes)
-                        .map(graphNode => graphNode.position);
-                    if (ring.length !== node.canonicalBoundary.length) {
-                        problems.push(
-                            `${polygon.name} level ${node.level}: the solve kept ${ring.length} vertices `
-                            + `where the node reports ${node.canonicalBoundary.length}`);
-                        continue;
+                    const noiseFloor = regionNoiseFloor(node.boundary, rootFloor);
+                    if (noiseFloor !== SKELETON_NOISE_FLOOR) {
+                        propagatedFloors += 1;
                     }
-                    const tolerance = boundingDiagonal(node.boundary) * CANONICAL_RING_AGREEMENT_FRACTION;
-                    ring.forEach((position, index) => {
-                        const separation = Math.hypot(
-                            position.x - node.canonicalBoundary[index].x,
-                            position.y - node.canonicalBoundary[index].y);
-                        if (!(separation <= tolerance)) {
-                            problems.push(
-                                `${polygon.name} level ${node.level}: vertex ${index} sits ${separation} `
-                                + `from the solved ring, over a tolerance of ${tolerance}`);
-                        }
-                    });
+                    problems.push(...solvedRingProblems(node, noiseFloor, polygon.name));
                 }
             }
             expect(problems).toEqual([]);
+            // And the re-solve is not secretly running at the standing default: measured over this
+            // sweep, 663 of the 854 solved nodes carry a floor that differs from
+            // `SKELETON_NOISE_FLOOR`, by up to a factor of 128. A re-solve that dropped the option
+            // would therefore be canonicalising most of the tree differently from the driver, which
+            // is the failure this count exists to catch.
+            expect(propagatedFloors).toBeGreaterThan(0);
         });
 
         it('reports a region that never solved as its own canonical form', () => {
