@@ -1,5 +1,7 @@
 import {ALL_TEST_POLYGONS, SQUARE} from '@proc-geo/test-fixtures';
 import {
+    boundsOfPoints,
+    canonicalisePolygon,
     clampDepthFraction,
     computeMaxOffset,
     computeOffsetRings,
@@ -12,7 +14,9 @@ import {
     makeSkeletonNormalisation,
     MAX_RECURSION_LEVELS,
     normaliseLength,
+    normalisePolygon,
     RecursiveNode,
+    REMOVED_VERTEX_INDEX,
     RecursiveOptions,
     signedArea,
     SKELETON_NOISE_FLOOR,
@@ -58,11 +62,16 @@ const AREA_TOLERANCE_FRACTION = 1e-12;
  * The bound `canonicalAreaDrift` is held under across the corpus, at the standing noise floor.
  *
  * MEASURED, THEN GIVEN HEADROOM, and both numbers belong here. Swept over `ALL_TEST_POLYGONS` at
- * depth fractions `0.25/0.6/1` and merge groups 1–4 at three levels — 14 404 nodes — exactly 26
+ * depth fractions `0.25/0.6/1` and merge groups 1–4 at three levels — 14 404 nodes — exactly 31
  * nodes lose a vertex to canonicalisation at all, and the largest drift among them is `1.6e-15`.
- * This bound is a little over six times that. The remaining 14 378 nodes drift by exactly zero, so
+ * This bound is a little over six times that. The remaining 14 373 nodes drift by exactly zero, so
  * the maximum is not a distribution's tail: it is rounding on the two or three rings where the floor
  * finds an exactly-collinear vertex to delete.
+ *
+ * FIVE OF THOSE 31 ARE NODES THAT WENT ON TO FAIL TO SOLVE, and they are in the count because
+ * canonicalisation ran on them before the wavefront did: the largest drift among them is `2.2e-16`.
+ * They were absent from the earlier reading of this sweep, which reported 26, because the driver
+ * was then zeroing the drift of anything that failed.
  *
  * IT IS A BOUND AT THE STANDING FLOOR OF `1e-6`, NOT A UNIVERSAL ONE. Drift is what the floor
  * removes, so it scales with the floor: swept at candidate floors the same corpus reaches `3.2e-5`
@@ -117,6 +126,16 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  * caller's own.
  */
 const EXACTNESS_MERGE_GROUP_SIZES = [1, 2];
+
+/**
+ * The merge group size the corpus is swept at when the question is about regions that FAILED.
+ *
+ * The largest of the census's four, because a coarse merge is what produces the awkward regions:
+ * every failed node in the corpus that also lost a vertex to the floor — five of them, across three
+ * depths — appears at this group size and at no smaller one. A sweep at the default would examine
+ * the same property against a population that does not contain the case.
+ */
+const FAILING_REGION_MERGE_GROUP_SIZE = 4;
 
 const DEFAULT_MERGE_GROUP_SIZE = 2;
 
@@ -294,6 +313,103 @@ function regionNoiseFloor(region: Vector2[], rootFloor: number): number {
     return normaliseLength(makeSkeletonNormalisation(region), rootFloor);
 }
 
+/**
+ * The ring the floor really leaves standing on `region`, from the published primitives.
+ *
+ * Reached for where a node FAILED to solve and so has no graph to read its surviving ring out of —
+ * which is exactly where the driver used to substitute the polygon it was handed. `canonicalisePolygon`
+ * is a pure function of the ring and the floor, so asking it the same question the driver asked is
+ * what convicts the node of reporting the answer rather than a stand-in.
+ */
+function canonicalRingOf(region: Vector2[], rootFloor: number): Vector2[] {
+    const canonical = canonicalisePolygon(
+        normalisePolygon(region, makeSkeletonNormalisation(region)),
+        regionNoiseFloor(region, rootFloor));
+    return region.filter((_vertex, index) => canonical.indexRemap[index] !== REMOVED_VERTEX_INDEX);
+}
+
+/** `canonicalAreaDrift`'s own formula, restated so a node's reported drift can be checked against it. */
+function relativeAreaDrift(boundary: Vector2[], canonicalBoundary: Vector2[]): number {
+    return Math.abs(ringArea(boundary) - ringArea(canonicalBoundary)) / ringArea(boundary);
+}
+
+/** Two rings enclosing the same axis-aligned box, from the library's own bounds rather than a local one. */
+function sameBoundingBox(ring: Vector2[], other: Vector2[]): boolean {
+    const box = boundsOfPoints(ring);
+    const otherBox = boundsOfPoints(other);
+    return box.minX === otherBox.minX && box.maxX === otherBox.maxX
+        && box.minY === otherBox.minY && box.maxY === otherBox.maxY;
+}
+
+/**
+ * A copy of `ring` carrying one extra vertex, `offset` off the midpoint of its longest edge.
+ *
+ * The insertion is PERPENDICULAR TO THE EDGE and at its midpoint, so the deviation the floor is
+ * asked about is exactly `offset` — and it is put on the longest edge so the sliver it adds is the
+ * largest one this ring can be given at that deviation, which keeps the drift it produces clear of
+ * rounding.
+ *
+ * AND IT IS PUT ON WHICHEVER SIDE LEAVES THE BOUNDING BOX ALONE. `makeSkeletonNormalisation` reads
+ * the box, so a vertex that pushed it out by even a millionth would rescale and re-centre every
+ * coordinate the solve then runs on — and a solve on different numbers is a different solve, not the
+ * same one with a vertex added. Measured: bulging a region outward this way flips one corpus region
+ * from failing to solving, which is the whole property under test evaporating quietly.
+ */
+function bulgeLongestEdge(ring: Vector2[], offset: number): Vector2[] {
+    const edgeLength = (index: number): number => Math.hypot(
+        ring[(index + 1) % ring.length].x - ring[index].x,
+        ring[(index + 1) % ring.length].y - ring[index].y);
+    let longest = 0;
+    ring.forEach((_vertex, index) => {
+        if (edgeLength(index) > edgeLength(longest)) longest = index;
+    });
+
+    const from = ring[longest];
+    const to = ring[(longest + 1) % ring.length];
+    const length = edgeLength(longest);
+    for (const side of [1, -1]) {
+        const bulge: Vector2 = {
+            x: (from.x + to.x) / 2 + (side * offset * (to.y - from.y)) / length,
+            y: (from.y + to.y) / 2 - (side * offset * (to.x - from.x)) / length,
+        };
+        const bulged = [...ring.slice(0, longest + 1), bulge, ...ring.slice(longest + 1)];
+        if (sameBoundingBox(bulged, ring)) {
+            return bulged;
+        }
+    }
+    throw new Error('Neither side of the longest edge takes a bulge without moving the bounding box');
+}
+
+/**
+ * A region THE DRIVER ITSELF PRODUCED and then could not solve, taken from the corpus rather than
+ * hand-authored.
+ *
+ * Hand-authoring one would mean guessing at what defeats this solver, which is a moving target; a
+ * sub-region the recursion cut for itself is the real article, and the census at the end of this file
+ * is the standing evidence that the corpus keeps producing them. Degenerate regions are passed over
+ * because they are turned away before any canonicalisation runs, and the region is checked to fail
+ * AGAIN when it is handed back in as a root of its own — a node's floor is its root's, said in its
+ * own unit space, so a region only reproduces its failure as a root where the two agree.
+ */
+function unsolvableRegion(): Vector2[] {
+    for (const polygon of ALL_TEST_POLYGONS) {
+        for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
+            const root = subdivideRecursively(polygon.vertices, options({
+                levels: MAX_RECURSION_LEVELS,
+                mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
+                depthFraction,
+            }));
+            for (const node of flattenRecursiveTree(root)) {
+                if (node.failure === undefined || failureKind(node.failure) === 'degenerate') continue;
+                if (subdivideRecursively(node.boundary, options()).failure !== undefined) {
+                    return node.boundary;
+                }
+            }
+        }
+    }
+    throw new Error('No corpus region fails to solve when it is handed back in as a root of its own');
+}
+
 /** Structural invariants every node of every tree must satisfy. Returns the problems it found. */
 function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOptions): string[] {
     const {levels, depthFraction, residue} = subdivisionOptions;
@@ -325,12 +441,14 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
         if (node.failure === undefined && node.canonicalBoundary.length < 3) {
             problems.push(`${where} divided a canonical ring of ${node.canonicalBoundary.length} vertices`);
         }
-        // A region that never solved was never canonicalised either, so it is its own canonical form
-        // — the same vertices, which is a claim about coordinates rather than about array identity.
-        if (node.failure !== undefined
+        // A DEGENERATE region — and only a degenerate one — was turned away before anything was
+        // canonicalised, so it is its own canonical form: the same vertices, which is a claim about
+        // coordinates rather than about array identity, and a drift of exactly zero. A region that
+        // failed to SOLVE was canonicalised first and reports whatever the floor really removed.
+        if (node.failure !== undefined && failureKind(node.failure) === 'degenerate'
             && (!sameVertices(node.canonicalBoundary, node.boundary) || node.canonicalAreaDrift !== 0)) {
             problems.push(
-                `${where} failed yet reports a canonical boundary of `
+                `${where} was turned away as degenerate yet reports a canonical boundary of `
                 + `${node.canonicalBoundary.length} vertices drifting by ${node.canonicalAreaDrift}`);
         }
         if (depthFraction >= FULL_DEPTH_FRACTION && node.residueRings.length > 0) {
@@ -772,7 +890,10 @@ describe('recursive segment subdivision', () => {
             const root = subdivideRecursively(fixtureVertices(PINCHING_FIXTURE), options({
                 depthFraction: PINCH_DEPTH_FRACTION,
             }));
-            const regionArea = ringArea(root.boundary);
+            // Against the CANONICAL ring, like every other statement of the identity in this file:
+            // this fixture's root happens to lose no vertex to the floor, so the two are the same
+            // polygon today, and summing against the one handed in would only be right by accident.
+            const regionArea = ringArea(root.canonicalBoundary);
             const segmentArea = root.segments.reduce((total, segment) => total + stripArea(segment), 0);
             const residueArea = root.residueRings.reduce((total, ring) => total + ringArea(ring), 0);
 
@@ -960,20 +1081,99 @@ describe('recursive segment subdivision', () => {
             expect(propagatedFloors).toBeGreaterThan(0);
         });
 
-        it('reports a region that never solved as its own canonical form', () => {
-            // Nothing was canonicalised, so there is no drift to report and no second polygon to
-            // report it against — rather than a null field the caller has to test for.
+        it('reports a region turned away as degenerate as its own canonical form', () => {
+            // The degeneracy screen runs BEFORE anything is canonicalised, so here — and only here —
+            // there really is no drift to report and no second polygon to report it against, rather
+            // than a null field the caller has to test for.
             const degenerate = subdivideRecursively([{x: 0, y: 0}, {x: 1, y: 1}], options());
             expect(degenerate.failure).toMatch(/^Degenerate region/);
             expect(degenerate.canonicalBoundary).toEqual(degenerate.boundary);
             expect(degenerate.canonicalAreaDrift).toBe(0);
+        });
 
+        it('reports a region that failed to solve as unchanged only where the floor took nothing', () => {
+            // Not because the solve failed: canonicalisation runs ahead of the wavefront and does not
+            // depend on it finishing. This region simply has no vertex under its floor, which is the
+            // ordinary case — the test below is what happens when it does.
             const unsolvable = subdivideRecursively(fixtureVertices('Rectangle'), options({
                 levels: 2, mergeGroupSize: 3,
             })).children.find(child => child.failure !== undefined);
             expect(unsolvable?.failure).toMatch(/^Incomplete solve/);
             expect(unsolvable?.canonicalBoundary).toEqual(unsolvable?.boundary);
             expect(unsolvable?.canonicalAreaDrift).toBe(0);
+        });
+
+        it('reports what the floor removed from a region that then failed to solve', () => {
+            // A METAMORPHIC PAIR: one sub-floor vertex inserted into a region the driver cannot
+            // solve. The floor removes it, so the solve runs on the same ring and fails in the same
+            // words — the only thing that changed is what was HANDED IN, and that difference is the
+            // drift. Reporting the region as its own canonical form here, as the driver did while it
+            // treated a failed solve as proof that no canonicalisation had happened, zeroes a
+            // removal that demonstrably did happen.
+            const region = unsolvableRegion();
+            const plain = subdivideRecursively(region, options());
+            const bulged = subdivideRecursively(
+                bulgeLongestEdge(region, rootFloorOf(region) / 2), options());
+
+            const plainFailure = plain.failure ?? '';
+            const bulgedFailure = bulged.failure ?? '';
+            expect(plainFailure).not.toBe('');
+            // The same solve failing in the same words. The bulged run adds one diagnostic to them,
+            // which is canonicalisation reporting the very removal this test is about.
+            expect(failureKind(bulgedFailure)).toBe(failureKind(plainFailure));
+            expect(bulgedFailure).toContain(plainFailure.replace(/^Incomplete solve: /, ''));
+
+            expect(bulged.boundary).toHaveLength(plain.boundary.length + 1);
+            // The invisible vertex, and only it, is gone: the ring the solve ran on is unchanged.
+            expect(sameVertices(bulged.canonicalBoundary, plain.canonicalBoundary)).toBe(true);
+
+            // And the removal is reported at its true size rather than as zero. Real geometry, two
+            // orders of magnitude above the tiling tolerance, on a node carrying a failure.
+            expect(bulged.canonicalAreaDrift).toBeGreaterThan(AREA_TOLERANCE_FRACTION * 1e2);
+            expect(bulged.canonicalAreaDrift)
+                .toBeCloseTo(relativeAreaDrift(bulged.boundary, bulged.canonicalBoundary), 15);
+        });
+
+        it('reports the canonicalisation its own solve was set up with, at every failed node', () => {
+            // The corpus reading of the same thing: every region that failed for a reason other than
+            // degeneracy is asked what the floor left it, and the answer is checked against what
+            // `canonicalisePolygon` says at the floor that node was really solved at.
+            const problems: string[] = [];
+            let reduced = 0;
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const rootFloor = rootFloorOf(polygon.vertices);
+                for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
+                    const where = `${polygon.name} (depth ${depthFraction})`;
+                    const root = subdivideRecursively(polygon.vertices, options({
+                        levels: MAX_RECURSION_LEVELS,
+                        mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
+                        depthFraction,
+                    }));
+                    for (const node of flattenRecursiveTree(root)) {
+                        if (node.failure === undefined || failureKind(node.failure) === 'degenerate') continue;
+                        const expected = canonicalRingOf(node.boundary, rootFloor);
+                        if (!sameVertices(node.canonicalBoundary, expected)) {
+                            problems.push(
+                                `${where} level ${node.level}: the floor leaves ${expected.length} of `
+                                + `${node.boundary.length} vertices, the node reports `
+                                + `${node.canonicalBoundary.length}`);
+                        }
+                        const drift = relativeAreaDrift(node.boundary, expected);
+                        if (node.canonicalAreaDrift !== drift) {
+                            problems.push(
+                                `${where} level ${node.level}: drifted by ${drift}, the node reports `
+                                + `${node.canonicalAreaDrift}`);
+                        }
+                        if (expected.length < node.boundary.length) reduced += 1;
+                    }
+                }
+            }
+            expect(problems).toEqual([]);
+            // Not vacuous: five failed nodes in the corpus lost a vertex to the floor before failing,
+            // which is the population the check exists for. Should the solver ever improve until this
+            // count reaches zero, the metamorphic pair above is what still pins the behaviour — this
+            // sweep would then need a region built for it rather than the assertion being dropped.
+            expect(reduced).toBeGreaterThan(0);
         });
     });
 

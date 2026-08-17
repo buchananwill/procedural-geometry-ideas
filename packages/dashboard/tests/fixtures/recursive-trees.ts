@@ -24,6 +24,17 @@ function strip(): Strip {
     return { supportingEdgeIds: [0], boundary: SQUARE, holes: [], frontage: [] };
 }
 
+/**
+ * What every node here says about canonicalisation: the ring it was handed came back untouched.
+ *
+ * Spread into each factory rather than spelled out in each, so the file states once — in code as
+ * well as in the prose above — that a hand-built tree has nothing for a noise floor to remove.
+ */
+const UNCANONICALISED: Pick<RecursiveNode, 'canonicalBoundary' | 'canonicalAreaDrift'> = {
+    canonicalBoundary: SQUARE,
+    canonicalAreaDrift: 0,
+};
+
 /** A ring inside {@link SQUARE}, inset by `inset` — a residue ring's shape without a solve. */
 function ring(inset: number): Vector2[] {
     return [
@@ -39,8 +50,7 @@ export function node(level: number, segments: number, children: RecursiveNode[] 
     return {
         level,
         boundary: SQUARE,
-        canonicalBoundary: SQUARE,
-        canonicalAreaDrift: 0,
+        ...UNCANONICALISED,
         segments: Array.from({ length: segments }, strip),
         children,
         residueRings: [],
@@ -53,8 +63,7 @@ export function failedNode(level: number): RecursiveNode {
     return {
         level,
         boundary: SQUARE,
-        canonicalBoundary: SQUARE,
-        canonicalAreaDrift: 0,
+        ...UNCANONICALISED,
         segments: [],
         children: [],
         residueRings: [],
@@ -79,8 +88,7 @@ export function nodeWithResidue(
     return {
         level,
         boundary: SQUARE,
-        canonicalBoundary: SQUARE,
-        canonicalAreaDrift: 0,
+        ...UNCANONICALISED,
         segments: Array.from({ length: segments }, strip),
         children: [],
         residueRings: Array.from({ length: rings }, (_unused, index) => ring(1 + index)),

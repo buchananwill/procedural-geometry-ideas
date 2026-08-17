@@ -145,6 +145,10 @@ export interface RecursiveNode {
      *
      * Equal to {@link boundary}, vertex for vertex and bit for bit, wherever canonicalisation
      * removed nothing — which is nearly all of the corpus. See {@link canonicalAreaDrift}.
+     *
+     * Carried on a node whose solve FAILED as well, because canonicalisation ran there too: the
+     * stage runs ahead of the wavefront and does not depend on it finishing. Only a DEGENERATE node
+     * — screened out before any canonicalisation happens — is its own canonical form by default.
      */
     canonicalBoundary: Vector2[];
     /**
@@ -162,8 +166,11 @@ export interface RecursiveNode {
      * of unit space. A non-zero drift on a node that lost no vertices would mean canonicalisation had
      * moved a vertex, which is a defect in it rather than here.
      *
-     * Zero on a node that never solved — degenerate, failed or throwing — because no
-     * canonicalisation happened there to have a drift.
+     * REPORTED ON A NODE THAT FAILED TO SOLVE JUST AS ON ONE THAT SOLVED. Canonicalisation runs
+     * before the wavefront and does not depend on it succeeding, so a region that lost a vertex and
+     * then failed to solve lost it just the same; zeroing the drift there would be reporting a
+     * removal that happened as one that did not. Zero only on a DEGENERATE node, which is screened
+     * out before anything is canonicalised at all and so genuinely has no drift to report.
      */
     canonicalAreaDrift: number;
     /** Segments this node was divided into, in boundary order. Empty when `failure` is set. */
@@ -381,10 +388,15 @@ function describe(error: unknown): string {
  * The two streams come out of ONE solve and are returned together for that reason: the residue is the
  * offset contour of the very same skeleton the segments were clipped out of, and recovering it from a
  * second solve would be a second answer to a question already answered.
+ *
+ * `canonicalBoundary` IS ON BOTH ARMS, INCLUDING THE FAILURE. Canonicalisation happens before the
+ * wavefront and independently of whether it finishes, so a region that failed to solve has still been
+ * canonicalised — and dropping the ring on the failure arm would leave the caller with nothing to
+ * report but the polygon it handed in, which is a removal that happened reported as one that did not.
  */
 export type SegmentOutcome =
     | {canonicalBoundary: Vector2[]; segments: Strip[]; residueRings: Vector2[][]; failure?: undefined}
-    | {canonicalBoundary?: undefined; segments?: undefined; residueRings?: undefined; failure: string};
+    | {canonicalBoundary: Vector2[]; segments?: undefined; residueRings?: undefined; failure: string};
 
 /**
  * Decision 5's degeneracy test: why this region has no skeleton, or `undefined` when it has one.
@@ -411,6 +423,11 @@ function degenerateRegionFailure(boundary: Vector2[]): string | undefined {
  * The caller has already screened for degeneracy, so everything reported here is a solve that was
  * attempted and did not finish. The depth is the region's OWN maximum offset scaled by the run's
  * fraction, which is what keeps a level-2 cell cut as shallowly, in proportion, as the root was.
+ *
+ * EVERY RETURN CARRIES THE CANONICAL RING, the failures included. It is computed before the `try`
+ * because canonicalisation is what the solve is set up with rather than something the solve produces,
+ * so it is just as true of a region that then failed to solve — several fixtures in the corpus lose a
+ * vertex to the floor and go on to report an incomplete solve, and that removal is real.
  */
 function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
     const {noiseFloor, canonicalBoundary} = canonicaliseRegion(boundary, run.rootNoiseFloor);
@@ -418,7 +435,10 @@ function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
         const result = solveSkeleton(boundary, {noiseFloor});
         if (!result.complete) {
             const detail = result.diagnostics.map(diagnostic => `${diagnostic.kind}: ${diagnostic.detail}`).join('; ');
-            return {failure: `Incomplete solve: ${detail === '' ? 'no diagnostics reported.' : detail}`};
+            return {
+                canonicalBoundary,
+                failure: `Incomplete solve: ${detail === '' ? 'no diagnostics reported.' : detail}`,
+            };
         }
         const depth = computeMaxOffset(result) * run.depthFraction;
         return {
@@ -427,7 +447,7 @@ function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
             residueRings: residueAt(result, depth, run.depthFraction),
         };
     } catch (error) {
-        return {failure: `Subdivision threw: ${describe(error)}`};
+        return {canonicalBoundary, failure: `Subdivision threw: ${describe(error)}`};
     }
 }
 
@@ -456,18 +476,39 @@ function residueAt(result: SkeletonSolveResult, depth: number, depthFraction: nu
     return depthFraction >= FULL_DEPTH_FRACTION ? [] : computeOffsetRings(result, depth);
 }
 
+/**
+ * The four streams a node that was not subdivided carries: none of them.
+ *
+ * Derived from {@link RecursiveNode} rather than restated, so a fifth stream added to the node has to
+ * be answered here rather than silently defaulting to whatever the two failure branches were last
+ * written to say.
+ */
+type UnsubdividedStreams = Pick<RecursiveNode, 'segments' | 'children' | 'residueRings' | 'residueChildren'>;
+
+/**
+ * Empty segment, child and residue streams, freshly allocated.
+ *
+ * A FUNCTION RATHER THAN A SHARED CONSTANT: the arrays it returns are handed straight to a caller as
+ * a node's own fields, and one frozen constant would give every failed node in a tree the same four
+ * array instances to alias.
+ */
+function noSubdivision(): UnsubdividedStreams {
+    return {segments: [], children: [], residueRings: [], residueChildren: []};
+}
+
 function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): RecursiveNode {
     // Screened before the winding is touched: a region with no area has no winding to normalise, so
     // it is recorded exactly as it was handed in rather than arbitrarily reversed on the way out.
     // This is also where a residue ring too small or too thin to be a polygon is caught: decision 4
     // discards it from the recursion, and it is recorded here in the same shape a failed segment
     // child is, because to the caller the two are the same event.
+    // A degenerate region is turned away BEFORE anything is canonicalised, which is the one case in
+    // which a node really is its own canonical form with a drift of exactly zero.
     const degeneracy = degenerateRegionFailure(boundary);
     if (degeneracy !== undefined) {
         return {
             level, boundary, canonicalBoundary: boundary, canonicalAreaDrift: 0,
-            segments: [], children: [], residueRings: [], residueChildren: [],
-            failure: degeneracy,
+            ...noSubdivision(), failure: degeneracy,
         };
     }
 
@@ -477,12 +518,14 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     const clockwise = ensureClockwise(boundary);
     const outcome = divideRegion(clockwise, run);
     if (outcome.segments === undefined) {
-        // No solve completed, so no canonicalisation happened either: the region is reported as its
-        // own canonical form rather than as a polygon nothing ever produced.
+        // The solve did not finish, but canonicalisation ran before it and removed whatever the floor
+        // found — so the ring and the drift are reported exactly as they are on a node that solved.
+        // Reporting the region as its own canonical form here would zero a removal that happened.
         return {
-            level, boundary: clockwise, canonicalBoundary: clockwise, canonicalAreaDrift: 0,
-            segments: [], children: [], residueRings: [],
-            residueChildren: [], failure: outcome.failure,
+            level, boundary: clockwise,
+            canonicalBoundary: outcome.canonicalBoundary,
+            canonicalAreaDrift: canonicalAreaDrift(clockwise, outcome.canonicalBoundary),
+            ...noSubdivision(), failure: outcome.failure,
         };
     }
 
