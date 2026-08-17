@@ -3,13 +3,16 @@ import {
     boundsOfPoints,
     canonicalisePolygon,
     clampDepthFraction,
+    clampLevelSpecs,
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
     DEGENERATE_AREA_EPSILON,
     denormaliseLength,
+    FALLBACK_LEVEL_SPEC,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
+    LevelSpec,
     makeMergeGroupPredicate,
     makeSkeletonNormalisation,
     MAX_RECURSION_LEVELS,
@@ -18,11 +21,15 @@ import {
     RecursiveNode,
     REMOVED_VERTEX_INDEX,
     RecursiveOptions,
+    ResidueTreatment,
+    SegmentTreatment,
     signedArea,
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
     Strip,
     subdivideRecursively,
+    uniformLevelSpecs,
+    UniformLevelSpecsInput,
     Vector2,
 } from '@proc-geo/core';
 
@@ -140,19 +147,58 @@ const FAILING_REGION_MERGE_GROUP_SIZE = 4;
 const DEFAULT_MERGE_GROUP_SIZE = 2;
 
 /**
- * Options with the two new dials at the values that reproduce the driver's original behaviour.
+ * The depth the stream-combination trees are cut at.
  *
- * Written once so that a test about merge grouping says only what it is about, and so that the
- * regression gate of decision 2 — full depth, no residue — is what every pre-existing test still
- * runs under unless it says otherwise.
+ * SHORT OF FULL DEPTH, because three of the four combinations say something about the RESIDUE and at
+ * full depth there is none to say it about: a `void` and a `recurse` are indistinguishable on a level
+ * with no rings, so every one of those tests would pass vacuously.
  */
-function options(overrides: Partial<RecursiveOptions> = {}): RecursiveOptions {
+const STREAM_DEPTH_FRACTION = 0.5;
+
+/**
+ * The fixture the stream combinations are asserted on.
+ *
+ * Chosen because it subdivides CLEANLY to three levels at {@link STREAM_DEPTH_FRACTION} — every node
+ * solves, and every node carries both segments and residue rings. The combination tests assert which
+ * children a node ends up with, and a node that failed to solve or that had no rings would land in the
+ * "neither" bucket for reasons that have nothing to do with the spec under test. Each test states that
+ * precondition rather than assuming it.
+ */
+const STREAM_FIXTURE = 'Duck Octagon (passes)';
+
+/**
+ * Options in the UNIFORM reading: one spec repeated at every level, built the way a migrating caller
+ * builds it.
+ *
+ * The scalars this takes are the ones `RecursiveOptions` used to carry, and `uniformLevelSpecs` is the
+ * published constructor that turns them into a spec array — so every property in this file that
+ * predates per-level specs goes on asserting exactly what it asserted before, through the migration
+ * path the spec offers rather than through a hand-built array of its own. Full depth, no residue is
+ * still what a test gets unless it says otherwise.
+ */
+function options(overrides: Partial<UniformLevelSpecsInput> = {}): RecursiveOptions {
     return {
-        levels: 1,
-        mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
-        depthFraction: FULL_DEPTH_FRACTION,
-        residue: 'recurse',
-        ...overrides,
+        levels: uniformLevelSpecs({
+            levels: 1,
+            mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
+            depthFraction: FULL_DEPTH_FRACTION,
+            residue: 'recurse',
+            ...overrides,
+        }),
+    };
+}
+
+/** One level's spec, with the stream treatments the caller cares about and the dials it does not. */
+function levelSpec(
+    segments: SegmentTreatment,
+    residue: ResidueTreatment,
+    dials: Partial<Pick<LevelSpec, 'depthFraction' | 'mergeGroupSize'>> = {},
+): LevelSpec {
+    return {
+        depthFraction: dials.depthFraction ?? STREAM_DEPTH_FRACTION,
+        mergeGroupSize: dials.mergeGroupSize ?? DEFAULT_MERGE_GROUP_SIZE,
+        segments,
+        residue,
     };
 }
 
@@ -455,15 +501,25 @@ function unsolvableRegion(): Vector2[] {
     return region;
 }
 
-/** Structural invariants every node of every tree must satisfy. Returns the problems it found. */
+/**
+ * Structural invariants every node of every tree must satisfy. Returns the problems it found.
+ *
+ * EVERY EXPECTATION IS READ OFF THE SPEC FOR THE NODE'S OWN LEVEL, which is decision 2 stated as an
+ * invariant: `levels[n]` governs the region a node at level `n` was handed. The options are clamped
+ * through `clampLevelSpecs` first, so a sweep may hand in the array it asked for rather than having to
+ * pre-clamp it itself.
+ */
 function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOptions): string[] {
-    const {levels, depthFraction, residue} = subdivisionOptions;
+    const levels = clampLevelSpecs(subdivisionOptions.levels);
     const problems: string[] = [];
     for (const node of flattenRecursiveTree(root)) {
         const where = `level ${node.level}`;
-        if (node.level >= levels) {
-            problems.push(`${where} exists but only ${levels} level(s) were requested`);
+        const spec = levels[node.level];
+        if (spec === undefined) {
+            problems.push(`${where} exists but only ${levels.length} level(s) were specified`);
+            continue;
         }
+        const {depthFraction, residue, segments} = spec;
         if (node.failure === undefined && node.segments.length === 0) {
             problems.push(`${where} has neither segments nor a failure`);
         }
@@ -499,13 +555,16 @@ function structuralProblems(root: RecursiveNode, subdivisionOptions: RecursiveOp
         if (depthFraction >= FULL_DEPTH_FRACTION && node.residueRings.length > 0) {
             problems.push(`${where} carries ${node.residueRings.length} residue ring(s) at full depth`);
         }
-        const expectedChildren = node.failure !== undefined || node.level + 1 >= levels
+        // A stream recurses only where its own level's spec says so AND a next level exists to
+        // receive it: at the last level both streams are terminal whatever the spec says.
+        const isLastLevel = node.level + 1 >= levels.length;
+        const expectedChildren = node.failure !== undefined || isLastLevel || segments !== 'recurse'
             ? 0
             : node.segments.length;
         if (node.children.length !== expectedChildren) {
             problems.push(`${where} has ${node.children.length} children for ${expectedChildren} merged group(s)`);
         }
-        const expectedResidueChildren = residue === 'void' || node.level + 1 >= levels
+        const expectedResidueChildren = residue !== 'recurse' || isLastLevel
             ? 0
             : node.residueRings.length;
         if (node.residueChildren.length !== expectedResidueChildren) {
@@ -694,6 +753,126 @@ function solvedRingProblems(node: RecursiveNode, noiseFloor: number, where: stri
                 + `ring, over a tolerance of ${tolerance}`);
         }
     });
+    return problems;
+}
+
+/** Which of a node's two child streams actually grew children. */
+type ChildStreams = 'both' | 'segments only' | 'residue only' | 'neither';
+
+/**
+ * A node's two child streams reduced to which of them is populated.
+ *
+ * The distinction decision 11 turns on: `residue only` is reachable by no other combination than
+ * `leaf` + `recurse`, so a driver that quietly recursed on segments it was told to leave alone could
+ * not produce it, and one that quietly dropped the residue stream could not either.
+ */
+function childStreams(node: RecursiveNode): ChildStreams {
+    if (node.children.length > 0) {
+        return node.residueChildren.length > 0 ? 'both' : 'segments only';
+    }
+    return node.residueChildren.length > 0 ? 'residue only' : 'neither';
+}
+
+/** One of decision 4's four combinations, and the tree shape a level carrying it must produce. */
+interface StreamCombination {
+    segments: SegmentTreatment;
+    residue: ResidueTreatment;
+    /** What every node at the level carrying this spec must end up with. */
+    streams: ChildStreams;
+}
+
+/**
+ * All four combinations, each paired with the shape it must produce.
+ *
+ * A TABLE RATHER THAN A DERIVATION. Reading the expected shape back out of the combination would be
+ * restating the driver's own conditional, and a test that computes its expectation the way the code
+ * under test computes its answer agrees with it by construction.
+ */
+const STREAM_COMBINATIONS: StreamCombination[] = [
+    {segments: 'recurse', residue: 'recurse', streams: 'both'},
+    {segments: 'recurse', residue: 'void', streams: 'segments only'},
+    {segments: 'leaf', residue: 'recurse', streams: 'residue only'},
+    {segments: 'leaf', residue: 'void', streams: 'neither'},
+];
+
+/**
+ * A spec array carrying `combination` at level `at`, never as the last level.
+ *
+ * The levels above it recurse on both streams, so that level `at` is reached by segment children and
+ * residue children alike and is populated by more than one region. The level below it is terminal, and
+ * it is there so that a `recurse` on the level under test is a request the driver COULD honour — at the
+ * last level both streams are terminal regardless, which would make three of the four combinations
+ * indistinguishable.
+ */
+function combinationLevels(combination: StreamCombination, at: number): LevelSpec[] {
+    return [
+        ...Array.from({length: at}, () => levelSpec('recurse', 'recurse')),
+        levelSpec(combination.segments, combination.residue),
+        levelSpec('leaf', 'void'),
+    ];
+}
+
+/**
+ * What a region divides into under one spec, from the published primitives rather than from the driver.
+ *
+ * `undefined` where the solve does not finish, which is the one case a node has no streams to compare.
+ * THE FLOOR IS THE ROOT'S, carried into this region's own unit space exactly as the driver carries it;
+ * see {@link regionNoiseFloor} for why the standing default is the wrong question.
+ */
+interface DerivedStreams {
+    segments: Vector2[][];
+    residueRings: Vector2[][];
+}
+
+function deriveStreams(region: Vector2[], spec: LevelSpec, rootFloor: number): DerivedStreams | undefined {
+    const result = solveSkeleton(region, {noiseFloor: regionNoiseFloor(region, rootFloor)});
+    if (!result.complete) return undefined;
+    const depth = computeMaxOffset(result) * spec.depthFraction;
+    return {
+        segments: computeStrips(result, {
+            depth, sameLogicalStreet: makeMergeGroupPredicate(spec.mergeGroupSize),
+        }).map(segment => segment.boundary),
+        residueRings: spec.depthFraction >= FULL_DEPTH_FRACTION
+            ? []
+            : computeOffsetRings(result, depth),
+    };
+}
+
+/** A node's own streams in the terms {@link deriveStreams} returns them, for comparison. */
+function nodeStreams(node: RecursiveNode): DerivedStreams {
+    return {
+        segments: node.segments.map(segment => segment.boundary),
+        residueRings: node.residueRings,
+    };
+}
+
+function sameStreams(streams: DerivedStreams, other: DerivedStreams): boolean {
+    return JSON.stringify(streams) === JSON.stringify(other);
+}
+
+/**
+ * Decision 2 at one node: the region was divided by the spec for ITS OWN level, vertex for vertex.
+ *
+ * Re-derived from `solveSkeleton` → `computeStrips`/`computeOffsetRings` at that spec's depth and merge
+ * group, which is the only way to catch a driver that read a neighbouring level's spec: an off-by-one
+ * still produces a well-formed tree of the right shape, and only the coordinates say which spec cut it.
+ */
+function specGovernedProblems(node: RecursiveNode, spec: LevelSpec, rootFloor: number, where: string): string[] {
+    const derived = deriveStreams(node.boundary, spec, rootFloor);
+    if (derived === undefined) {
+        return [`${where} level ${node.level}: re-solving the region did not finish`];
+    }
+    const problems: string[] = [];
+    if (JSON.stringify(nodeStreams(node).segments) !== JSON.stringify(derived.segments)) {
+        problems.push(
+            `${where} level ${node.level}: carries ${node.segments.length} segment(s) where its own `
+            + `level's spec cuts ${derived.segments.length}`);
+    }
+    if (JSON.stringify(node.residueRings) !== JSON.stringify(derived.residueRings)) {
+        problems.push(
+            `${where} level ${node.level}: carries ${node.residueRings.length} residue ring(s) where `
+            + `its own level's spec leaves ${derived.residueRings.length}`);
+    }
     return problems;
 }
 
@@ -1018,6 +1197,265 @@ describe('recursive segment subdivision', () => {
             expect(root.residueRings.length).toBeGreaterThan(0);
             expect(root.residueChildren).toEqual([]);
             expect(root.children).toEqual([]);
+        });
+    });
+
+    describe('the levels array is the depth', () => {
+        it('takes the length of the array as the recursion depth', () => {
+            for (const depth of [1, 2, 3]) {
+                const levels = Array.from({length: depth}, () => levelSpec('recurse', 'recurse'));
+                const nodes = flattenRecursiveTree(subdivideRecursively(SQUARE, {levels}));
+                expect(Math.max(...nodes.map(node => node.level)) + 1).toBe(depth);
+            }
+        });
+
+        it('drops the specs past the maximum rather than folding them into the last one', () => {
+            const asked = Array.from({length: 6}, (_unused, index) =>
+                levelSpec('recurse', 'recurse', {mergeGroupSize: index + 1}));
+            const clamped = clampLevelSpecs(asked);
+
+            expect(clamped).toHaveLength(MAX_RECURSION_LEVELS);
+            // The first three, unaltered: a fourth level's spec has nowhere to apply, and merging it
+            // into the third would run a spec against a region it was not written for.
+            expect(clamped.map(spec => spec.mergeGroupSize)).toEqual([1, 2, 3]);
+        });
+
+        it('falls back on one terminal full-depth level when handed no levels at all', () => {
+            expect(clampLevelSpecs([])).toEqual([FALLBACK_LEVEL_SPEC]);
+            expect(FALLBACK_LEVEL_SPEC.depthFraction).toBe(FULL_DEPTH_FRACTION);
+            // Terminal in both streams, because a single level's streams are terminal anyway.
+            expect(FALLBACK_LEVEL_SPEC.segments).toBe('leaf');
+            expect(FALLBACK_LEVEL_SPEC.residue).toBe('void');
+
+            const root = subdivideRecursively(SQUARE, {levels: []});
+            expect(root.failure).toBeUndefined();
+            expect(root.segments.length).toBeGreaterThan(0);
+            expect(root.children).toEqual([]);
+            expect(root.residueRings).toEqual([]);
+        });
+
+        it('clamps each spec on its own rather than clamping one and copying it', () => {
+            const clamped = clampLevelSpecs([
+                levelSpec('recurse', 'recurse', {depthFraction: 0, mergeGroupSize: 0}),
+                levelSpec('leaf', 'void', {depthFraction: 2.5, mergeGroupSize: 3.9}),
+            ]);
+            expect(clamped[0].depthFraction).toBe(FULL_DEPTH_FRACTION);
+            expect(clamped[0].mergeGroupSize).toBe(1);
+            expect(clamped[1].depthFraction).toBe(FULL_DEPTH_FRACTION);
+            expect(clamped[1].mergeGroupSize).toBe(3);
+            // And the treatments are carried through untouched: they have no range to clamp to.
+            expect(clamped.map(spec => spec.segments)).toEqual(['recurse', 'leaf']);
+            expect(clamped.map(spec => spec.residue)).toEqual(['recurse', 'void']);
+        });
+
+        it('builds a uniform array from the scalars the options used to carry', () => {
+            const levels = uniformLevelSpecs({
+                levels: 2, mergeGroupSize: 3, depthFraction: 0.4, residue: 'void',
+            });
+            expect(levels).toEqual([
+                {depthFraction: 0.4, mergeGroupSize: 3, segments: 'recurse', residue: 'void'},
+                {depthFraction: 0.4, mergeGroupSize: 3, segments: 'recurse', residue: 'void'},
+            ]);
+            // `recurse` on the segments at every level, because that is the only thing the scalar
+            // shape could ever do — which is why three of the four combinations were unreachable.
+            expect(levels.every(level => level.segments === 'recurse')).toBe(true);
+            // And the count goes through the same clamp the array's length does.
+            expect(uniformLevelSpecs({
+                levels: 99, mergeGroupSize: 1, depthFraction: 1, residue: 'void',
+            })).toHaveLength(MAX_RECURSION_LEVELS);
+        });
+
+        it('reads a recurse on the last level as leaf and void, having nowhere to send it', () => {
+            // Decision 3. The rings are still produced and still counted — what is overridden is
+            // whether they become regions, not whether they exist.
+            const root = subdivideRecursively(fixtureVertices(PINCHING_FIXTURE), {
+                levels: [levelSpec('recurse', 'recurse', {depthFraction: PINCH_DEPTH_FRACTION})],
+            });
+            expect(root.failure).toBeUndefined();
+            expect(root.segments.length).toBeGreaterThan(0);
+            expect(root.residueRings.length).toBeGreaterThan(0);
+            expect(childStreams(root)).toBe('neither');
+        });
+
+        it('overrides only the last level, leaving the same spec above it recursing', () => {
+            const spec = levelSpec('recurse', 'recurse', {depthFraction: PINCH_DEPTH_FRACTION});
+            const root = subdivideRecursively(fixtureVertices(PINCHING_FIXTURE), {levels: [spec, spec]});
+
+            expect(childStreams(root)).toBe('both');
+            const deeper = flattenRecursiveTree(root).filter(node => node.level === 1);
+            expect(deeper.length).toBeGreaterThan(1);
+            expect(deeper.every(node => childStreams(node) === 'neither')).toBe(true);
+        });
+    });
+
+    /**
+     * Decision 11: all four combinations, each at the level it is written for and again a level down.
+     *
+     * TWO POSITIONS RATHER THAN ONE, because a driver that read `levels[0]` for every node would pass
+     * every one of these at level 0 and fail all four at level 1 — which is the whole of decision 2
+     * expressed as the cheapest possible test.
+     */
+    describe.each(STREAM_COMBINATIONS)(
+        'segments $segments, residue $residue',
+        (combination: StreamCombination) => {
+            it.each([0, 1])('grows the streams it was told to, at level %i', (at: number) => {
+                const levels = combinationLevels(combination, at);
+                const subdivisionOptions: RecursiveOptions = {levels};
+                const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), subdivisionOptions);
+
+                // The precondition every one of these rests on: the regions at this level all solved,
+                // and all carry both streams. A node that failed, or that had no rings, would land in
+                // the "neither" bucket for reasons that have nothing to do with the spec under test.
+                const carrying = flattenRecursiveTree(root).filter(node => node.level === at);
+                expect(carrying.length).toBeGreaterThan(at);
+                expect(carrying.every(node => node.failure === undefined)).toBe(true);
+                expect(carrying.every(node => node.segments.length > 0)).toBe(true);
+                expect(carrying.every(node => node.residueRings.length > 0)).toBe(true);
+
+                expect(carrying.map(childStreams)).toEqual(carrying.map(() => combination.streams));
+                // One child per member of a recursed stream, and none at all from a terminal one.
+                expect(carrying.map(node => node.children.length)).toEqual(carrying.map(node =>
+                    combination.segments === 'recurse' ? node.segments.length : 0));
+                expect(carrying.map(node => node.residueChildren.length)).toEqual(carrying.map(node =>
+                    combination.residue === 'recurse' ? node.residueRings.length : 0));
+
+                expect(structuralProblems(root, subdivisionOptions)).toEqual([]);
+                expect(tilingProblems(root)).toEqual([]);
+            });
+        },
+    );
+
+    describe('the droste reading: a final ring around a subdivided courtyard', () => {
+        // Decision 11 names `leaf` + `recurse` as the case most likely to be quietly broken, because
+        // it is the only one where a node has residue children and no segment children — so the next
+        // level down is reached exclusively through the residue.
+        const levels: LevelSpec[] = [
+            levelSpec('leaf', 'recurse'),
+            levelSpec('leaf', 'void'),
+        ];
+
+        it('sends the courtyard down and leaves the ring of segments final', () => {
+            const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), {levels});
+
+            expect(root.segments.length).toBeGreaterThan(0);
+            expect(root.children).toEqual([]);
+            expect(root.residueChildren).toHaveLength(root.residueRings.length);
+            expect(root.residueChildren.length).toBeGreaterThan(0);
+        });
+
+        it('makes every level-1 region a residue ring rather than a segment', () => {
+            const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), {levels});
+            const deeper = flattenRecursiveTree(root).filter(node => node.level === 1);
+
+            expect(deeper).toEqual(root.residueChildren);
+            deeper.forEach((node, index) => {
+                expect(node.boundary).toEqual(root.residueRings[index]);
+            });
+        });
+
+        it('still tiles: a final ring of segments accounts for the region with its courtyard', () => {
+            const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), {levels});
+            expect(tilingProblems(root)).toEqual([]);
+        });
+    });
+
+    /**
+     * Decision 12's headline: three levels that differ in every field a spec has.
+     *
+     * Level 0 cuts a shallow rim in coarse groups of three and sends both streams down. Level 1 cuts
+     * much deeper, one segment per edge, and is the droste level — its ring is final and only its
+     * courtyard descends. Level 2 is at full depth, so it has no residue at all, and it asks to recurse
+     * on its segments while being the last level, which decision 3 overrides.
+     *
+     * Every field differs from its neighbours, which is what makes an off-by-one in decision 2 visible:
+     * under a uniform array, reading `levels[level - 1]` or `levels[level + 1]` produces exactly the
+     * same tree.
+     */
+    const HETEROGENEOUS_LEVELS: LevelSpec[] = [
+        {depthFraction: 0.35, mergeGroupSize: 3, segments: 'recurse', residue: 'recurse'},
+        {depthFraction: 0.7, mergeGroupSize: 1, segments: 'leaf', residue: 'recurse'},
+        {depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 2, segments: 'recurse', residue: 'void'},
+    ];
+
+    describe('a heterogeneous tree', () => {
+        const heterogeneous: RecursiveOptions = {levels: HETEROGENEOUS_LEVELS};
+
+        it("divides every node by the spec for the node's own level, vertex for vertex", () => {
+            const problems: string[] = [];
+            const counted = [0, 0, 0];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const rootFloor = rootFloorOf(polygon.vertices);
+                const root = subdivideRecursively(polygon.vertices, heterogeneous);
+                for (const node of flattenRecursiveTree(root)) {
+                    if (node.failure !== undefined) continue;
+                    counted[node.level] += 1;
+                    problems.push(...specGovernedProblems(
+                        node, HETEROGENEOUS_LEVELS[node.level], rootFloor, polygon.name));
+                }
+            }
+            expect(problems).toEqual([]);
+            // Non-vacuous at every level: a sweep that never reached level 2 would be silent about the
+            // level furthest from the root, which is where an off-by-one is most likely to hide.
+            expect(counted.every(nodes => nodes > 0)).toBe(true);
+        });
+
+        it('would notice a level reading its neighbour’s spec', () => {
+            // The sensitivity check for the assertion above. Re-deriving each node under the spec of
+            // the level BELOW it must give a different answer somewhere, or the comparison could not
+            // tell the two apart and the test above would pass on a driver with an off-by-one.
+            let differing = 0;
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const rootFloor = rootFloorOf(polygon.vertices);
+                const root = subdivideRecursively(polygon.vertices, heterogeneous);
+                for (const node of flattenRecursiveTree(root)) {
+                    if (node.failure !== undefined || node.level + 1 >= HETEROGENEOUS_LEVELS.length) continue;
+                    const neighbour = deriveStreams(
+                        node.boundary, HETEROGENEOUS_LEVELS[node.level + 1], rootFloor);
+                    if (neighbour !== undefined && !sameStreams(nodeStreams(node), neighbour)) {
+                        differing += 1;
+                    }
+                }
+            }
+            expect(differing).toBeGreaterThan(0);
+        });
+
+        it('reaches level 2 through the residue alone, as level 1 is the droste level', () => {
+            const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), heterogeneous);
+            const atOne = flattenRecursiveTree(root).filter(node => node.level === 1);
+            const atTwo = flattenRecursiveTree(root).filter(node => node.level === 2);
+
+            expect(atOne.length).toBeGreaterThan(1);
+            expect(atOne.every(node => node.children.length === 0)).toBe(true);
+            expect(atTwo.length).toBeGreaterThan(0);
+            // Every level-2 region is some level-1 node's residue child, and no level-1 node's
+            // segment child, because level 1's segments are leaves.
+            expect(atTwo).toEqual(atOne.flatMap(node => node.residueChildren));
+        });
+
+        it('grows nothing from the last level, whose spec asked to recurse', () => {
+            const root = subdivideRecursively(fixtureVertices(STREAM_FIXTURE), heterogeneous);
+            const atTwo = flattenRecursiveTree(root).filter(node => node.level === 2);
+
+            expect(HETEROGENEOUS_LEVELS[2].segments).toBe('recurse');
+            expect(atTwo.every(node => childStreams(node) === 'neither')).toBe(true);
+            // At full depth there is no residue there either, so nothing is being hidden by the
+            // override: the segments simply have nowhere to go.
+            expect(atTwo.every(node => node.residueRings.length === 0)).toBe(true);
+        });
+
+        it('holds the structure, the tiling identity and the drift at every node of the corpus', () => {
+            // Decision 13: the identity is against `canonicalBoundary`, unchanged, and this change
+            // must not touch it — so it is asserted over a heterogeneous tree of every fixture rather
+            // than only over the uniform sweeps that predate per-level specs.
+            const problems: string[] = [];
+            for (const polygon of ALL_TEST_POLYGONS) {
+                const root = subdivideRecursively(polygon.vertices, heterogeneous);
+                problems.push(
+                    ...structuralProblems(root, heterogeneous).map(problem => `${polygon.name} ${problem}`),
+                    ...tilingProblems(root).map(problem => `${polygon.name} ${problem}`),
+                    ...driftProblems(root).map(problem => `${polygon.name} ${problem}`));
+            }
+            expect(problems).toEqual([]);
         });
     });
 

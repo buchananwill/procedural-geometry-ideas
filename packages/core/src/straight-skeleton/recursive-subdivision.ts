@@ -14,11 +14,25 @@ import {signedArea} from '../random-polygon/geometry-helpers';
  *
  * ## Nothing here is new geometry
  *
- * The whole driver is `solveSkeleton` → `computeStrips` at {@link RecursiveOptions.depthFraction} of
+ * The whole driver is `solveSkeleton` → `computeStrips` at {@link LevelSpec.depthFraction} of
  * `computeMaxOffset` → recurse. At full depth the offset contour has vanished, so the segments tile
  * the region exactly and there is nothing left over. BELOW full depth the same solve yields TWO child
  * streams, and both are carried: the segments, and the RESIDUE — the interior contour the wavefront
  * has not yet reached, read straight off `computeOffsetRings`.
+ *
+ * ## A LEVEL IS ITS OWN SPEC
+ *
+ * {@link RecursiveOptions} is one {@link LevelSpec} per level and NOTHING ELSE: the array's length is
+ * the recursion depth, and `levels[n]` says how a region handed to level `n` is divided — its depth,
+ * its merge grouping, and what becomes of each of its two child streams. A level's spec governs the
+ * region it is HANDED, never the regions it produces, which is the only reading under which
+ * {@link LevelSpec.segments} and {@link LevelSpec.residue} mean the same thing at every level.
+ *
+ * Both streams are independently terminal, so all four combinations are askable and all four work.
+ * `leaf` + `recurse` is the droste reading proper — the ring of segments is final and only the
+ * courtyard subdivides — and it is the only combination in which a node has residue children and no
+ * segment children. The scalar shape this replaced could not express it, or `void` + `leaf`, or
+ * `leaf` + `void`, because segments always recursed.
  *
  * ## The residue is rings, PLURAL
  *
@@ -106,13 +120,27 @@ export const FULL_DEPTH_FRACTION = 1;
  */
 export type ResidueTreatment = 'recurse' | 'void';
 
-export interface RecursiveOptions {
-    /** How many times to subdivide. 1 = one pass, no recursion. Clamped to [1, 3]. */
-    levels: number;
-    /** Adjacent segments per merged group at every level. Clamped to at least 1. */
-    mergeGroupSize: number;
+/**
+ * What becomes of a node's segments.
+ *
+ * Named for the same reason {@link ResidueTreatment} is, and kept a SEPARATE type from it rather than
+ * one union shared by both streams: `void` and `leaf` are different words because they describe
+ * different things — a courtyard that was never cut, against a cell that is final — and a single union
+ * would let a caller ask for a `void` ring of segments, which means nothing.
+ */
+export type SegmentTreatment = 'recurse' | 'leaf';
+
+/**
+ * What one level does to the region it is given.
+ *
+ * A LEVEL IS ITS OWN SPEC. Both of the region's child streams are named here because a level's whole
+ * job is to say what becomes of each of them, and the interesting compositions — a boundary pass whose
+ * courtyard is subdivided differently from its ring — are exactly the ones that cannot be said with
+ * one setting shared by every level.
+ */
+export interface LevelSpec {
     /**
-     * Inward depth as a fraction of each node's OWN maximum offset, in `(0, 1]`. 1 = full depth.
+     * Inward depth as a fraction of this region's OWN maximum offset, in `(0, 1]`. 1 = full depth.
      *
      * A FRACTION, NEVER AN ABSOLUTE LENGTH. A sub-region is smaller than its parent, so a depth that
      * is a shallow rim at level 0 would consume a level-2 cell entirely; and being dimensionless it
@@ -120,8 +148,58 @@ export interface RecursiveOptions {
      * level. Clamped by {@link clampDepthFraction}.
      */
     depthFraction: number;
-    /** What becomes of a node's residue. `void` leaves it whole and undivided. */
+    /** Adjacent exterior edges fused into one segment at this level. Clamped to at least 1. */
+    mergeGroupSize: number;
+    /** Whether this level's segments become regions at the next level. */
+    segments: SegmentTreatment;
+    /** Whether this level's residue rings become regions at the next level. */
     residue: ResidueTreatment;
+}
+
+export interface RecursiveOptions {
+    /**
+     * One spec per level, outermost first. Length 1..{@link MAX_RECURSION_LEVELS}; the length IS the
+     * depth.
+     *
+     * THERE IS NO SEPARATE LEVEL COUNT, deliberately: a count plus one uniform spec cannot say what a
+     * level has to say, and keeping both would let them disagree. `levels[0]` describes how the root
+     * is divided, `levels[1]` how each of the root's children is divided, and so on. Clamped by
+     * {@link clampLevelSpecs}.
+     */
+    levels: LevelSpec[];
+}
+
+/**
+ * The scalars the uniform reading of this driver used to take, for {@link uniformLevelSpecs}.
+ *
+ * Kept as a type of its own rather than as four positional parameters so a call site reads the same
+ * way it did when these were fields on {@link RecursiveOptions} — which is what makes the migration a
+ * one-liner rather than a re-ordering exercise.
+ */
+export interface UniformLevelSpecsInput {
+    /** How many levels to produce. Clamped by {@link clampLevels}. */
+    levels: number;
+    /** The merge group size every level gets. */
+    mergeGroupSize: number;
+    /** The depth fraction every level gets. */
+    depthFraction: number;
+    /** The residue treatment every level gets. */
+    residue: ResidueTreatment;
+}
+
+/**
+ * `levels` copies of one spec: the uniform reading that predates per-level specs.
+ *
+ * A HELPER, NOT A SECOND SOURCE OF TRUTH. The driver reads {@link RecursiveOptions.levels} and nothing
+ * else; this exists so that the behaviour the scalar options described keeps a name and a one-line
+ * migration. `segments` is `recurse` at every level because that is the only thing the old shape could
+ * do — segments always recursed, which is why three of the four stream combinations were unreachable.
+ */
+export function uniformLevelSpecs(input: UniformLevelSpecsInput): LevelSpec[] {
+    const {mergeGroupSize, depthFraction, residue} = input;
+    return Array.from({length: clampLevels(input.levels)}, () => ({
+        depthFraction, mergeGroupSize, segments: 'recurse' as SegmentTreatment, residue,
+    }));
 }
 
 export interface RecursiveNode {
@@ -175,13 +253,20 @@ export interface RecursiveNode {
     canonicalAreaDrift: number;
     /** Segments this node was divided into, in boundary order. Empty when `failure` is set. */
     segments: Strip[];
-    /** One child per merged group, in the same order. Empty at the leaf level. */
+    /**
+     * Children grown from the segments, one per merged group, in the same order.
+     *
+     * Empty at the last level and under {@link SegmentTreatment} `leaf`, which leaves the ring of
+     * segments final. A LEAF SEGMENT AND A SEGMENT THAT MERELY HAS NO CHILDREN ARE DIFFERENT THINGS,
+     * and this field cannot tell them apart on its own — the level's spec is what says which it was.
+     */
     children: RecursiveNode[];
     /**
      * Inner contours at this node's depth — the part of the region the wavefront never reached.
      *
-     * Clockwise, like every other boundary here, and EMPTY AT FULL DEPTH: at `depthFraction` of 1
-     * the wavefront is consumed and the segments tile the region on their own. More than one ring
+     * Clockwise, like every other boundary here, and EMPTY AT FULL DEPTH: at its own level's
+     * `depthFraction` of 1 the wavefront is consumed and the segments tile the region on their own,
+     * which also makes that level's {@link ResidueTreatment} inert. More than one ring
      * means the wavefront pinched into disconnected loops, which is the normal outcome for a
      * non-convex region cut deeply enough; each is a region in its own right.
      */
@@ -189,7 +274,7 @@ export interface RecursiveNode {
     /**
      * Children grown from the residue rings, one per ring, in the same order.
      *
-     * Empty at the leaf level and under {@link ResidueTreatment} `void`, which keeps the rings and
+     * Empty at the last level and under {@link ResidueTreatment} `void`, which keeps the rings and
      * grows nothing from them. A ring too degenerate to recurse on is NOT dropped from
      * {@link residueRings} — it is still part of the region and still counts towards the tiling
      * identity — but its child records why it was not subdivided, exactly as a failed segment child
@@ -219,7 +304,13 @@ export function makeMergeGroupPredicate(mergeGroupSize: number): SameLogicalStre
         Math.floor(edgeIdA / size) === Math.floor(edgeIdB / size);
 }
 
-/** Levels, forced into `[1, 3]`. Anything non-finite is treated as the minimum. */
+/**
+ * A count of levels, forced into `[1, 3]`. Anything non-finite is treated as the minimum.
+ *
+ * Still a count rather than an array, because the depth is bounded in exactly one place and both the
+ * driver's {@link clampLevelSpecs} and a UI counting its own rows have to be bounded by the same
+ * formula. What was retired is the level count as a FIELD ON THE OPTIONS, not the arithmetic.
+ */
 export function clampLevels(levels: number): number {
     if (!Number.isFinite(levels)) {
         return MIN_RECURSION_LEVELS;
@@ -252,22 +343,67 @@ export function clampDepthFraction(depthFraction: number): number {
 }
 
 /**
+ * The spec a run falls back on when it is handed no levels at all.
+ *
+ * An empty array asks for a recursion of no depth, which is not a thing this driver can return — every
+ * call produces a root node. So the length is clamped up to {@link MIN_RECURSION_LEVELS}, and this is
+ * what that one level says: full depth, no merging, and both streams terminal. Terminal because a
+ * single level's streams are terminal anyway — there is no next level for them to reach — so saying
+ * `recurse` here would be a setting the driver immediately overrode. Full depth and a group of one for
+ * the same reason {@link clampDepthFraction} and {@link clampMergeGroupSize} fall back on them: they
+ * are the readings of "nothing usable was asked for" those clamps already publish.
+ */
+export const FALLBACK_LEVEL_SPEC: LevelSpec = {
+    depthFraction: FULL_DEPTH_FRACTION,
+    mergeGroupSize: 1,
+    segments: 'leaf',
+    residue: 'void',
+};
+
+/**
+ * One spec per level, its length forced into `[1, 3]` and every field inside its own range.
+ *
+ * THE LENGTH IS CLAMPED THROUGH {@link clampLevels}, the same function the level count went through
+ * when it was a number, so the depth this driver will run to is bounded by exactly one formula however
+ * it is asked for. Entries past the maximum are dropped rather than folded into the last one: a fourth
+ * level's spec has nowhere to apply, and merging it into the third would be running a spec against a
+ * region it was not written for.
+ */
+export function clampLevelSpecs(levels: LevelSpec[]): LevelSpec[] {
+    const requested = levels.length === 0 ? [FALLBACK_LEVEL_SPEC] : levels;
+    return requested.slice(0, clampLevels(requested.length)).map(spec => ({
+        depthFraction: clampDepthFraction(spec.depthFraction),
+        mergeGroupSize: clampMergeGroupSize(spec.mergeGroupSize),
+        segments: spec.segments,
+        residue: spec.residue,
+    }));
+}
+
+/**
+ * One level's spec with its merge group size already turned into the predicate `computeStrips` takes.
+ *
+ * Derived from {@link LevelSpec} rather than restated, so a fifth field on a spec has to be answered
+ * here. The predicate is built ONCE PER LEVEL, before the first solve, rather than per node: it is a
+ * pure function of the group size, and rebuilding it at every node would be re-deriving a constant
+ * hundreds of times.
+ */
+export type LevelPolicy = Omit<LevelSpec, 'mergeGroupSize'> & {
+    /** The merge policy handed to `computeStrips` at every node of this level. */
+    sameLogicalStreet: SameLogicalStreetPredicate;
+};
+
+/**
  * The policy one call to {@link subdivideRecursively} runs under, fixed before the first solve.
  *
- * Gathered into one value rather than threaded as five parameters because every field is constant
- * for the whole tree: a node that read a different depth or a different floor from its parent would
- * be the defect this arc exists to prevent, and passing one frozen record makes that impossible to
- * write by accident.
+ * Gathered into one value rather than threaded as separate parameters because it is constant for the
+ * whole tree: a node that read a different depth or a different floor from the level it belongs to
+ * would be the defect this arc exists to prevent, and passing one frozen record makes that impossible
+ * to write by accident. WHAT IS CONSTANT IS THE ARRAY, not one spec — the array is indexed by level,
+ * and a node at level `n` may only ever read `levels[n]`.
  */
 export interface RecursiveRun {
-    /** Clamped level count. */
-    levels: number;
-    /** The merge policy handed to `computeStrips` at every node. */
-    sameLogicalStreet: SameLogicalStreetPredicate;
-    /** Clamped depth fraction, applied to each node's own maximum offset. */
-    depthFraction: number;
-    /** What becomes of every node's residue. */
-    residue: ResidueTreatment;
+    /** One clamped policy per level, outermost first. Its length is the recursion depth. */
+    levels: LevelPolicy[];
     /**
      * The ROOT region's canonicalisation floor, as a length in the CALLER'S coordinates.
      *
@@ -278,9 +414,19 @@ export interface RecursiveRun {
     rootNoiseFloor: number;
 }
 
+/** One level's spec as the run holds it: clamped, with its merge predicate already built. */
+function toLevelPolicy(spec: LevelSpec): LevelPolicy {
+    return {
+        depthFraction: spec.depthFraction,
+        segments: spec.segments,
+        residue: spec.residue,
+        sameLogicalStreet: makeMergeGroupPredicate(spec.mergeGroupSize),
+    };
+}
+
 /**
- * Subdivides `boundary` into segments and residue, then subdivides each of those, `levels` times
- * over.
+ * Subdivides `boundary` into segments and residue, then subdivides each of those, once per entry in
+ * `options.levels`.
  *
  * Every node of the returned tree either carries the segments it was divided into or a `failure`
  * saying why it was not — including the root, which is returned as a failed node rather than
@@ -288,10 +434,7 @@ export interface RecursiveRun {
  */
 export function subdivideRecursively(boundary: Vector2[], options: RecursiveOptions): RecursiveNode {
     return subdivideNode(boundary, 0, {
-        levels: clampLevels(options.levels),
-        sameLogicalStreet: makeMergeGroupPredicate(options.mergeGroupSize),
-        depthFraction: clampDepthFraction(options.depthFraction),
-        residue: options.residue,
+        levels: clampLevelSpecs(options.levels).map(toLevelPolicy),
         rootNoiseFloor: rootNoiseFloor(boundary),
     });
 }
@@ -418,19 +561,20 @@ function degenerateRegionFailure(boundary: Vector2[]): string | undefined {
 }
 
 /**
- * Divides one non-degenerate region into its segments and its residue, at the run's depth.
+ * Divides one non-degenerate region into its segments and its residue, at ITS OWN LEVEL'S depth.
  *
  * The caller has already screened for degeneracy, so everything reported here is a solve that was
- * attempted and did not finish. The depth is the region's OWN maximum offset scaled by the run's
- * fraction, which is what keeps a level-2 cell cut as shallowly, in proportion, as the root was.
+ * attempted and did not finish. The depth is the region's OWN maximum offset scaled by the fraction on
+ * the spec for the level this region belongs to — the region it was HANDED, never the ones it produces
+ * — which is what lets a shallow boundary pass at level 0 sit above a full-depth cut at level 1.
  *
  * EVERY RETURN CARRIES THE CANONICAL RING, the failures included. It is computed before the `try`
  * because canonicalisation is what the solve is set up with rather than something the solve produces,
  * so it is just as true of a region that then failed to solve — several fixtures in the corpus lose a
  * vertex to the floor and go on to report an incomplete solve, and that removal is real.
  */
-function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
-    const {noiseFloor, canonicalBoundary} = canonicaliseRegion(boundary, run.rootNoiseFloor);
+function divideRegion(boundary: Vector2[], level: LevelPolicy, rootFloor: number): SegmentOutcome {
+    const {noiseFloor, canonicalBoundary} = canonicaliseRegion(boundary, rootFloor);
     try {
         const result = solveSkeleton(boundary, {noiseFloor});
         if (!result.complete) {
@@ -440,11 +584,11 @@ function divideRegion(boundary: Vector2[], run: RecursiveRun): SegmentOutcome {
                 failure: `Incomplete solve: ${detail === '' ? 'no diagnostics reported.' : detail}`,
             };
         }
-        const depth = computeMaxOffset(result) * run.depthFraction;
+        const depth = computeMaxOffset(result) * level.depthFraction;
         return {
             canonicalBoundary,
-            segments: computeStrips(result, {depth, sameLogicalStreet: run.sameLogicalStreet}),
-            residueRings: residueAt(result, depth, run.depthFraction),
+            segments: computeStrips(result, {depth, sameLogicalStreet: level.sameLogicalStreet}),
+            residueRings: residueAt(result, depth, level.depthFraction),
         };
     } catch (error) {
         return {canonicalBoundary, failure: `Subdivision threw: ${describe(error)}`};
@@ -512,11 +656,15 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
         };
     }
 
+    // A level's spec governs the region it was HANDED, so the spec read here is the one at this
+    // node's own level and never its parent's or its children's.
+    const spec = run.levels[level];
+
     // `ensureClockwise` from `./polygon-decomposition` is this package's one winding-normalisation
     // formula, rather than a third copy of it. A `Strip.boundary` and a `computeOffsetRings` ring both
     // already arrive clockwise, so this only does real work on the root's raw input.
     const clockwise = ensureClockwise(boundary);
-    const outcome = divideRegion(clockwise, run);
+    const outcome = divideRegion(clockwise, spec, run.rootNoiseFloor);
     if (outcome.segments === undefined) {
         // The solve did not finish, but canonicalisation ran before it and removed whatever the floor
         // found — so the ring and the drift are reported exactly as they are on a node that solved.
@@ -529,7 +677,11 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
         };
     }
 
-    const isLeafLevel = level + 1 >= run.levels;
+    // AT THE LAST LEVEL BOTH STREAMS ARE TERMINAL WHATEVER THE SPEC SAYS: a `recurse` there has
+    // nowhere to go, so it is read as `leaf`/`void`. The override is silent HERE and loud in the
+    // caller — a control that appears to do nothing is worse than one that is visibly disabled, which
+    // is the readout's job rather than the driver's.
+    const isLastLevel = level + 1 >= run.levels.length;
     return {
         level,
         boundary: clockwise,
@@ -537,14 +689,16 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
         canonicalAreaDrift: canonicalAreaDrift(clockwise, outcome.canonicalBoundary),
         segments: outcome.segments,
         // One child per merged group, in the same order — a degenerate or unsolvable segment
-        // becomes a child carrying its failure, never a gap in the sequence.
-        children: isLeafLevel
+        // becomes a child carrying its failure, never a gap in the sequence. `leaf` grows none of
+        // them: the ring of cells is final, which is a different thing from a cell that came out
+        // childless because the recursion ran out of levels.
+        children: isLastLevel || spec.segments !== 'recurse'
             ? []
             : outcome.segments.map(segment => subdivideNode(segment.boundary, level + 1, run)),
         residueRings: outcome.residueRings,
         // One child per RING, in the same order, and for the same reason. `void` keeps the rings and
         // grows nothing from them: that is a courtyard, not an absence of residue.
-        residueChildren: isLeafLevel || run.residue !== 'recurse'
+        residueChildren: isLastLevel || spec.residue !== 'recurse'
             ? []
             : outcome.residueRings.map(ring => subdivideNode(ring, level + 1, run)),
     };
