@@ -176,10 +176,11 @@ export interface AlgorithmStepOutput {
 /**
  * Classes of non-fatal problem reported by `solveSkeleton`.
  *
- * - `winding-normalised` — the input was counter-clockwise and was reversed before solving.
- * - `self-intersecting`  — the input crossed itself and was decomposed, solved per sub-polygon, and merged.
- * - `step-failure`       — a sub-polygon threw during a solver step and was skipped.
- * - `unresolved-edges`   — one or more interior edges finished the solve without a target node.
+ * - `winding-normalised`     — the input was counter-clockwise and was reversed before solving.
+ * - `vertices-canonicalised` — vertices too small to see were removed from the boundary before solving.
+ * - `self-intersecting`      — the input crossed itself and was decomposed, solved per sub-polygon, and merged.
+ * - `step-failure`           — a sub-polygon threw during a solver step and was skipped.
+ * - `unresolved-edges`       — one or more interior edges finished the solve without a target node.
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'

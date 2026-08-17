@@ -1,5 +1,7 @@
 import {isClockwise, setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton, Vector2} from '@proc-geo/core';
 
+import {insertIrregularly, insertRegularly} from './subdivision-helpers';
+
 /*
  * ============================================================================
  *  PART SPECIFICATION, PART RECORDED DEFECT. Read the split before editing.
@@ -120,56 +122,8 @@ function clockwise(polygon: Vector2[]): Vector2[] {
     return isClockwise(polygon) ? polygon : [...polygon].reverse();
 }
 
-/** Split every edge into `k` equal pieces, preserving winding and the original corners. */
-function subdivideEdges(polygon: Vector2[], k: number): Vector2[] {
-    const vertices: Vector2[] = [];
-    for (let index = 0; index < polygon.length; index++) {
-        const from = polygon[index];
-        const to = polygon[(index + 1) % polygon.length];
-        for (let step = 0; step < k; step++) {
-            vertices.push({
-                x: from.x + ((to.x - from.x) * step) / k,
-                y: from.y + ((to.y - from.y) * step) / k,
-            });
-        }
-    }
-    return vertices;
-}
-
-/** Deterministic sampler, so an irregular insertion either always reproduces or never appears. */
-function makeRandom(seed: number): () => number {
-    let state = seed >>> 0;
-    return () => {
-        state = (state * 1664525 + 1013904223) >>> 0;
-        return state / 4294967296;
-    };
-}
-
-/**
- * Insert `count` vertices per edge at pseudo-random parameters, preserving winding and the corners.
- *
- * The parameters are sorted along each edge and held away from 0 and 1, so the inserted vertices
- * stay strictly between the corners and in boundary order. An insertion that overshot a corner
- * would be a different silhouette rather than a different spelling of the same one.
- */
-function insertIrregularly(polygon: Vector2[], count: number, seed: number): Vector2[] {
-    const random = makeRandom(seed);
-    const vertices: Vector2[] = [];
-    for (let index = 0; index < polygon.length; index++) {
-        const from = polygon[index];
-        const to = polygon[(index + 1) % polygon.length];
-        vertices.push(from);
-
-        const parameters = Array.from({length: count}, () => 0.05 + random() * 0.9).sort((a, b) => a - b);
-        for (const t of parameters) {
-            vertices.push({x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t});
-        }
-    }
-    return vertices;
-}
-
 function solvesCompletely(polygon: Vector2[], k: number): boolean {
-    return solveSkeleton(subdivideEdges(clockwise(polygon), k)).complete;
+    return solveSkeleton(insertRegularly(clockwise(polygon), k)).complete;
 }
 
 /**
@@ -180,7 +134,7 @@ function solvesCompletely(polygon: Vector2[], k: number): boolean {
  * rather than through a seam in the solver.
  */
 function solvesCompletelyUncanonicalised(polygon: Vector2[], k: number): boolean {
-    return solveSkeleton(subdivideEdges(clockwise(polygon), k), {noiseFloor: 0}).complete;
+    return solveSkeleton(insertRegularly(clockwise(polygon), k), {noiseFloor: 0}).complete;
 }
 
 const ALL_K = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -275,7 +229,7 @@ describe('the emptied lists are the canonicalisation stage\'s doing, and not a w
         // back to the six corners the fixture was authored with. If this stopped holding, the
         // lists above could go empty for some other reason and nothing would say so.
         for (const k of ALL_K) {
-            const result = solveSkeleton(subdivideEdges(clockwise(REFLEX_L), k));
+            const result = solveSkeleton(insertRegularly(clockwise(REFLEX_L), k));
             expect(result.graph.numExteriorNodes).toBe(REFLEX_L.length);
         }
     });
@@ -283,7 +237,7 @@ describe('the emptied lists are the canonicalisation stage\'s doing, and not a w
 
 describe('subdivided edges: the stranded-target signature is fixed', () => {
     it('L at k = 3 — the former minimal case — strands no interior edge', () => {
-        const result = solveSkeleton(subdivideEdges(clockwise(REFLEX_L), 3));
+        const result = solveSkeleton(insertRegularly(clockwise(REFLEX_L), 3));
 
         // The canonicalisation report is the only diagnostic, and it is informational: 12 inserted
         // vertices removed, none of which the silhouette ever had.
@@ -301,9 +255,9 @@ describe('subdivided edges: the stranded-target signature is fixed', () => {
     it('L at k = 6 now resolves, and still fails through span assignment with the stage off', () => {
         // Both halves matter. The first is the new specification; the second pins the failure mode
         // the stage removes, so "k = 6 passes" cannot come to mean "k = 6 stopped being measured".
-        expect(solveSkeleton(subdivideEdges(clockwise(REFLEX_L), 6)).complete).toBe(true);
+        expect(solveSkeleton(insertRegularly(clockwise(REFLEX_L), 6)).complete).toBe(true);
 
-        const uncanonicalised = solveSkeleton(subdivideEdges(clockwise(REFLEX_L), 6), {noiseFloor: 0});
+        const uncanonicalised = solveSkeleton(insertRegularly(clockwise(REFLEX_L), 6), {noiseFloor: 0});
         expect(uncanonicalised.complete).toBe(false);
         expect(uncanonicalised.diagnostics.some(diagnostic => diagnostic.kind === 'step-failure')).toBe(true);
     });

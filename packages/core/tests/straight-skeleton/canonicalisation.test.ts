@@ -5,11 +5,15 @@ import {
     FLOATING_POINT_EPSILON,
     makeSkeletonNormalisation,
     normalisePolygon,
+    runAlgorithmV5,
+    runAlgorithmV5Stepped,
     SKELETON_NOISE_FLOOR,
     setSkeletonLogLevel,
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
+
+import {distanceToSegment} from './wavefront-measurement-helpers';
 
 /**
  * The input canonicalisation stage, tested as the predicate and the contract it is specified as.
@@ -28,20 +32,20 @@ setSkeletonLogLevel('silent');
 
 const UNIT_SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 0, y: 1}];
 
-/** Perpendicular deviation of each ring vertex from the chord between its immediate neighbours. */
+/**
+ * Perpendicular deviation of each ring vertex from the chord between its immediate neighbours.
+ *
+ * The distance comes from the SUITES' shared `distanceToSegment` rather than from the one
+ * `canonicalisation.ts` itself delegates to. That keeps this file's measurement outside the import
+ * graph of the module under test — a test that read its expectation from the same function the
+ * implementation calls could not tell a correct predicate from a predicate and an oracle that are
+ * wrong together — without adding a third copy of the clamped point-to-segment arithmetic.
+ */
 function deviations(ring: readonly Vector2[]): number[] {
-    return ring.map((vertex, index) => {
-        const previous = ring[(index - 1 + ring.length) % ring.length];
-        const next = ring[(index + 1) % ring.length];
-        const dx = next.x - previous.x;
-        const dy = next.y - previous.y;
-        const lengthSquared = dx * dx + dy * dy;
-        const raw = lengthSquared === 0
-            ? 0
-            : ((vertex.x - previous.x) * dx + (vertex.y - previous.y) * dy) / lengthSquared;
-        const t = Math.max(0, Math.min(1, raw));
-        return Math.hypot(vertex.x - (previous.x + dx * t), vertex.y - (previous.y + dy * t));
-    });
+    return ring.map((vertex, index) => distanceToSegment(
+        vertex,
+        ring[(index - 1 + ring.length) % ring.length],
+        ring[(index + 1) % ring.length]));
 }
 
 /**
@@ -275,6 +279,23 @@ describe('the floor', () => {
         expect(canonicalisePolygon(collinear, SKELETON_NOISE_FLOOR).removedCount).toBe(1);
     });
 
+    it('terminates on a NaN floor rather than spinning on it, and removes nothing', () => {
+        // `noiseFloor` is a public option, so a NaN can reach the loop from a caller's arithmetic.
+        // The comparison is negated rather than `>=` precisely so that it breaks the loop instead of
+        // running forever, and this is the assertion that holds that shape in place: every NaN
+        // comparison is false, so `!(deviation < NaN)` is true and the first iteration stops.
+        // A regression to `deviation >= floor` would hang the suite here rather than fail it, which
+        // is itself the report.
+        const collinear = [...UNIT_SQUARE];
+        collinear.splice(1, 0, {x: 0.5, y: 0});
+
+        const canonical = canonicalisePolygon(collinear, Number.NaN);
+
+        expect(canonical.removedCount).toBe(0);
+        expect(canonical.maxDeviation).toBe(0);
+        expect(canonical.vertices).toEqual(collinear);
+    });
+
     it('returns fresh vertices that do not alias the input', () => {
         const input = [...UNIT_SQUARE];
 
@@ -352,15 +373,20 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
     });
 });
 
-describe('canonicalisation is reported, never silent', () => {
-    /** A 300-unit L with an exactly collinear vertex inserted on its longest edge. */
-    function withCollinearVertex(): Vector2[] {
-        return [
-            {x: 100, y: 100}, {x: 100, y: 250}, {x: 100, y: 400}, {x: 250, y: 400},
-            {x: 250, y: 250}, {x: 400, y: 250}, {x: 400, y: 100},
-        ];
-    }
+/**
+ * A 300-unit L with an exactly collinear vertex inserted on its longest edge: seven vertices
+ * spelling the six-cornered silhouette the solver has always handled.
+ *
+ * A factory rather than a shared constant, so no test can reach another's input through it.
+ */
+function withCollinearVertex(): Vector2[] {
+    return [
+        {x: 100, y: 100}, {x: 100, y: 250}, {x: 100, y: 400}, {x: 250, y: 400},
+        {x: 250, y: 250}, {x: 400, y: 250}, {x: 400, y: 100},
+    ];
+}
 
+describe('canonicalisation is reported, never silent', () => {
     it('carries the removed count and the discarded deviation on a diagnostic', () => {
         const result = solveSkeleton(withCollinearVertex());
 
@@ -401,5 +427,31 @@ describe('canonicalisation is reported, never silent', () => {
 
         expect(result.diagnostics.filter(d => d.kind === 'vertices-canonicalised')).toHaveLength(0);
         expect(result.graph.numExteriorNodes).toBe(7);
+    });
+});
+
+describe('the legacy entry points canonicalise too, silently', () => {
+    /*
+     * Both legacy entry points gained the stage, and neither has a diagnostics channel to say so —
+     * which is exactly why the removal has to be asserted here rather than inferred from the rest
+     * of the suite continuing to pass. `solveSkeleton`'s equivalent checks say nothing about these
+     * two: a stage wired into one entry point and not the others would leave the stepped visualiser
+     * walking a different polygon from the one the solver solved.
+     */
+
+    it('runAlgorithmV5 hands back a graph with the invisible vertex gone', () => {
+        const context = runAlgorithmV5(withCollinearVertex());
+
+        expect(context.graph.numExteriorNodes).toBe(6);
+    });
+
+    it('runAlgorithmV5Stepped walks the canonicalised polygon from its very first snapshot', () => {
+        const stepped = runAlgorithmV5Stepped(withCollinearVertex());
+
+        expect(stepped.error).toBeNull();
+        expect(stepped.snapshots.length).toBeGreaterThan(0);
+        for (const snapshot of stepped.snapshots) {
+            expect(snapshot.numExteriorNodes).toBe(6);
+        }
     });
 });

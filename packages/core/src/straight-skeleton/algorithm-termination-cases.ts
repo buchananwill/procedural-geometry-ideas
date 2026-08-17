@@ -495,6 +495,20 @@ function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
  * Prefer {@link solveSkeleton}, which normalises winding, reports every one of those on
  * `diagnostics`, and returns `context: null` instead of a throwing stub for the merged path.
  */
+/**
+ * The boundary stage the two LEGACY entry points share: carry the polygon to unit extent, then
+ * canonicalise it there against the standing noise floor.
+ *
+ * Stated once because it is one decision, not two: both entry points must hand the solver the same
+ * polygon for the stepped snapshots to describe the solve `runAlgorithmV5` performs. Neither has a
+ * diagnostics channel, so the removal is SILENT in both — which is what makes them legacy, and why
+ * `solveSkeleton` keeps its own copy of the sequence: it reports what was removed, and it honours a
+ * caller's floor override, and neither of those belongs here.
+ */
+function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormalisation): Vector2[] {
+    return canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
+}
+
 export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
@@ -503,11 +517,10 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts` for
     // why, for the enumeration of what scales, and for why it must never be re-applied mid-solve.
     // The decomposition runs in UNIT space along with the solve, because its crossing test carries
-    // the same absolute tolerances the solver does.
+    // the same absolute tolerances the solver does. Canonicalisation follows immediately, in unit
+    // space — see {@link canonicaliseInUnitSpace} and `canonicalisation.ts`.
     const normalisation = makeSkeletonNormalisation(nodes);
-    // CANONICALISED IN UNIT SPACE, immediately after. See `canonicalisation.ts`. The removal is
-    // silent here for want of anywhere to report it; `solveSkeleton` reports it.
-    const unitNodes = canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation);
 
     const decomposition = decomposePolygon(unitNodes);
 
@@ -706,8 +719,8 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     // graphs half of which were in unit space would be worse than useless.
     const normalisation = makeSkeletonNormalisation(nodes);
     // CANONICALISED IN UNIT SPACE, immediately after, so the stepped visualiser walks the same
-    // polygon the solving entry points do. See `canonicalisation.ts`.
-    const unitNodes = canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
+    // polygon the solving entry points do. See {@link canonicaliseInUnitSpace}.
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation);
 
     const decomposition = decomposePolygon(unitNodes);
 

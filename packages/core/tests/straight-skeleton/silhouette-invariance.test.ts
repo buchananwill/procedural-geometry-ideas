@@ -13,6 +13,9 @@ import {
     Vector2,
 } from '@proc-geo/core';
 
+import {insertIrregularly, insertRegularly} from './subdivision-helpers';
+import {signedRingArea} from './wavefront-measurement-helpers';
+
 /*
  * ============================================================================
  *  THE OBSERVABLE IS THE TILING AND THE LOT SET. NOTHING ELSE.
@@ -97,18 +100,19 @@ const OBSERVABLE_TOLERANCE = 1e-9;
 /** Fixtures the sweep runs over: every one that solves and yields lots. */
 const SWEPT_FIXTURES = ALL_TEST_POLYGONS.map(polygon => polygon.name);
 
-function signedRingArea(ring: Vector2[]): number {
-    let total = 0;
-    for (let index = 0; index < ring.length; index++) {
-        const a = ring[index];
-        const b = ring[(index + 1) % ring.length];
-        total += a.x * b.y - b.x * a.y;
-    }
-    return total / 2;
-}
-
-/** Area-weighted centroid of a simple ring. */
+/**
+ * Area-weighted centroid of a simple ring, accumulated ABOUT THE RING'S FIRST VERTEX.
+ *
+ * The origin subtraction is the same one `signedRingArea` makes, and for the same reason: the
+ * centroid is derived from that area, so accumulating the moments from absolute coordinates while
+ * the area came from relative ones would state the two halves of one quotient in different
+ * arithmetic. Subtracting the first vertex and adding it back makes the whole quantity independent
+ * of where in the plane the ring sits — which matters here, because this file compares lots
+ * produced by two spellings of one silhouette and a placement-dependent residual would be
+ * indistinguishable from the structural difference it is looking for.
+ */
 function ringCentroid(ring: Vector2[]): Vector2 {
+    const origin = ring[0];
     const area = signedRingArea(ring);
     if (area === 0) {
         return ring.reduce(
@@ -118,13 +122,15 @@ function ringCentroid(ring: Vector2[]): Vector2 {
     let x = 0;
     let y = 0;
     for (let index = 0; index < ring.length; index++) {
-        const a = ring[index];
-        const b = ring[(index + 1) % ring.length];
-        const cross = a.x * b.y - b.x * a.y;
-        x += (a.x + b.x) * cross;
-        y += (a.y + b.y) * cross;
+        const aX = ring[index].x - origin.x;
+        const aY = ring[index].y - origin.y;
+        const bX = ring[(index + 1) % ring.length].x - origin.x;
+        const bY = ring[(index + 1) % ring.length].y - origin.y;
+        const cross = aX * bY - bX * aY;
+        x += (aX + bX) * cross;
+        y += (aY + bY) * cross;
     }
-    return {x: x / (6 * area), y: y / (6 * area)};
+    return {x: origin.x + x / (6 * area), y: origin.y + y / (6 * area)};
 }
 
 function polylineLength(polyline: Vector2[]): number {
@@ -214,54 +220,6 @@ function observe(
         lotCentroids: ordered.map(lot => lot.centroid),
         totalArea: ordered.reduce((total, lot) => total + lot.area, 0),
     };
-}
-
-/** Split every edge into `k` equal pieces. The regular family. */
-function insertRegularly(polygon: Vector2[], k: number): Vector2[] {
-    const vertices: Vector2[] = [];
-    for (let index = 0; index < polygon.length; index++) {
-        const from = polygon[index];
-        const to = polygon[(index + 1) % polygon.length];
-        for (let step = 0; step < k; step++) {
-            vertices.push({
-                x: from.x + ((to.x - from.x) * step) / k,
-                y: from.y + ((to.y - from.y) * step) / k,
-            });
-        }
-    }
-    return vertices;
-}
-
-/** Deterministic sampler, so an irregular insertion either always reproduces or never appears. */
-function makeRandom(seed: number): () => number {
-    let state = seed >>> 0;
-    return () => {
-        state = (state * 1664525 + 1013904223) >>> 0;
-        return state / 4294967296;
-    };
-}
-
-/**
- * Insert `count` vertices per edge at pseudo-random parameters. The irregular family.
- *
- * The parameters are sorted along each edge and pushed off 0 and 1, so the inserted vertices stay
- * strictly between the corners and in boundary order — an insertion that overshot a corner would be
- * a different silhouette, not a different spelling of the same one.
- */
-function insertIrregularly(polygon: Vector2[], count: number, seed: number): Vector2[] {
-    const random = makeRandom(seed);
-    const vertices: Vector2[] = [];
-    for (let index = 0; index < polygon.length; index++) {
-        const from = polygon[index];
-        const to = polygon[(index + 1) % polygon.length];
-        vertices.push(from);
-
-        const parameters = Array.from({length: count}, () => 0.05 + random() * 0.9).sort((a, b) => a - b);
-        for (const t of parameters) {
-            vertices.push({x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t});
-        }
-    }
-    return vertices;
 }
 
 /** Worst relative disagreement between two observables, or `Infinity` if they are not comparable. */
