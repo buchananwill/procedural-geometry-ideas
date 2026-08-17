@@ -318,6 +318,24 @@ Reused unchanged: `solveSkeleton`, `computeStrips`, `computeOffsetRings`, `slice
     reveal whether an axis is interesting at all, and the middle is cheap to fill in afterwards
     precisely because decision 32's substrates already exist.
 
+### Spine strategy selection — ruled 2026-08-17 from the rendered comparison
+
+30a. **`diameter` is the strategy to use wherever inner recursions must be REACHABLE; `whisker-prune`
+    is a tuned alternative that gives good results when its fraction is chosen for the region.**
+    Ruled after rendering all three on the same region, which is how
+    [trunk-with-branches-direction.md](./trunk-with-branches-direction.md) always said this would be
+    settled. The reasoning is connectivity: `diameter` is connected by construction and terminates at
+    two extremities, so every sub-region hanging off it has a route out. `wavefront-time` fragments —
+    measured, 8 of 37 corpus fixtures produce a disconnected spine somewhere in a 0.05-step sweep —
+    and a fragmented spine cannot carry the access guarantee. **`wavefront-time` is not retired**: it
+    is the only one that branches naturally, decision 26 keeps all three, and its fragmentation is
+    exactly the diagnostic that made this ruling possible.
+
+30b. **`whisker-prune` has an upper limit past which it returns nothing, and it is nearer than it
+    looks.** Measured on a 4×2 rectangle: it converges on the ridge only in the band `(0.293, 0.414)`
+    of diameter length, and above that the ridge is itself a whisker and the spine empties. Any tuning
+    UI should make that ceiling visible rather than letting a slider run silently into it.
+
 ### Connectivity and radial promotion
 
 39. **Any level that creates an inner void must promote at least one radial connector to an access
