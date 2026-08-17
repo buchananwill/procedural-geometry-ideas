@@ -191,6 +191,38 @@ export function canonicalisePolygon(
     vertices from most of the corpus is too high**, and this report is how that is caught before the
     value is committed to.
 
+### Amendment — ruled 2026-08-17 after the first attempt measured the floor
+
+19. **`SKELETON_NOISE_FLOOR = 1e-6` is ruled, and the band around it is NARROW rather than a plateau.**
+    Measured: the corpus is insensitive — the only vertex removed anywhere below `1e-3` is one
+    exactly-collinear vertex in a hand-authored fixture, at deviation `7.85e-17`, removed at any
+    non-zero floor. **The binding constraint is the recursive arc, not the corpus.** Its per-level
+    tiling identity holds at `1e-6`, `2e-6` and `3e-6`, and fails at `5e-6` by `1.03e-6` against a
+    `1e-6` tolerance. With decision 6's requirement that the floor clear the epsilon by two orders,
+    the usable band is `[1e-6, 3e-6]` — a factor of three. **Do not describe this as a plateau in the
+    code**; the plateau is real for hand-authored input and is not what binds.
+
+20. **The narrow band is an artefact of decision 7 being unimplemented, and that now makes decision 7
+    the priority it was not.** Sub-regions currently canonicalise against their own extent, so a thin
+    sliver scales up and its floor shrinks in world terms — exactly the failure decision 7 exists to
+    prevent. Once the recursion driver passes the ROOT region's floor down, the arc's upper bound
+    relaxes and the band widens.
+
+21. **The two pinned counts in `offset-event-boundary-regression.test.ts` are UPDATED, not preserved.**
+    Distinct event offsets go 270 → 269 and mutated hand-overs 233 → 232, both because that fixture
+    loses one exterior edge. Decision 12 places exterior edge ids and counts explicitly outside the
+    observable, so these are the pinned numbers doing their job — recording a structural change — not
+    a regression. Update them with a comment citing decision 12.
+
+22. **The parcel-slicing saturation is PINNED AS A NAMED KNOWN CASE, and the fixture is NOT excluded
+    from the assertion.** On `Long Unbroken Side Then Extreme Acute Angle` a smaller `Amax` now buys
+    `37` parcels against `37` rather than strictly more, because two collinear edges merge into one
+    and the strip partition follows edge count. **Excluding the fixture would delete the evidence.**
+    Keep the strict assertion for every other fixture, name this one in a known-saturation list, and
+    add a test that the list is exactly that set — the same shape as `REFLEX_L_KNOWN_FAILURES`, so
+    drift in either direction is loud. This is decision 13's predicted finding arriving where the spec
+    said to look; recording it is in scope and fixing it is not.
+
 ## 3. Deferred (explicitly out of scope)
 
 - **The recursion driver, and passing sub-regions through this stage.** Decision 7 exists so the
