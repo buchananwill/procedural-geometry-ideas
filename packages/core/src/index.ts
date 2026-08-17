@@ -156,6 +156,10 @@ export {
 export { buildSkeletonTree, skeletonTreeDiameter } from './straight-skeleton/skeleton-tree';
 export type { SkeletonTree, SkeletonTreeEdge } from './straight-skeleton/skeleton-tree';
 
+// ── Spine extraction ─────────────────────────────────────────────────────────
+export { extractSpine } from './straight-skeleton/spine';
+export type { Spine, SpineStrategy } from './straight-skeleton/spine';
+
 // ── Graph merge (polygon decomposition) ──────────────────────────────────────
 export { mergeSkeletonGraphs, makeMergedSolverContext } from './straight-skeleton/graph-merge';
 export type { SubPolygonResult, MergedGraphResult } from './straight-skeleton/graph-merge';
