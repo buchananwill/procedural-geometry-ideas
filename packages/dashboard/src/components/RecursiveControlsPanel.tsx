@@ -47,6 +47,8 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
     const mergeGroupSize = useRecursiveSubdivisionStore((s) => s.mergeGroupSize);
     const setMergeGroupSize = useRecursiveSubdivisionStore((s) => s.setMergeGroupSize);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
+    const showLeafFills = useRecursiveSubdivisionStore((s) => s.showLeafFills);
+    const setShowLeafFills = useRecursiveSubdivisionStore((s) => s.setShowLeafFills);
     const toggleLevel = useRecursiveSubdivisionStore((s) => s.toggleLevel);
     const showAllLevels = useRecursiveSubdivisionStore((s) => s.showAllLevels);
 
@@ -101,6 +103,14 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                             step={1}
                             value={mergeGroupSize}
                             onChange={(value) => setMergeGroupSize(typeof value === 'number' ? value : 1)}
+                        />
+
+                        <Switch
+                            size="xs"
+                            checked={showLeafFills}
+                            onChange={(event) => setShowLeafFills(event.currentTarget.checked)}
+                            label="Leaf fills"
+                            description="Tints each final cell by the level-0 segment it descends from"
                         />
 
                         <Stack gap={4}>

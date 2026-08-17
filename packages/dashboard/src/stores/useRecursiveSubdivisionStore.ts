@@ -18,8 +18,21 @@ import type { RecursiveNode } from '@proc-geo/core';
  */
 export const DEFAULT_RECURSIVE_FIXTURE = 'Duck Octagon (passes)';
 
-/** Two levels is the interesting default: one pass shows the mechanism, two shows the recursion. */
-export const DEFAULT_RECURSIVE_LEVELS = 2;
+/**
+ * Three levels is the interesting default.
+ *
+ * Two is legible, but three is where the mechanism is obvious — territories of coarse cells, each
+ * cut again and again — and the counts confirm the fixture still subdivides cleanly there.
+ */
+export const DEFAULT_RECURSIVE_LEVELS = 3;
+
+/**
+ * Leaf cells open tinted by the territory they descend from.
+ *
+ * On, because that is the picture the page exists to show; switchable, because stroke-only is the
+ * honest comparison and the way to check the fills are not hiding anything.
+ */
+export const DEFAULT_SHOW_LEAF_FILLS = true;
 
 /** Pairs of adjacent edges: coarse enough to merge visibly, fine enough to leave several segments. */
 export const DEFAULT_MERGE_GROUP_SIZE = 2;
@@ -47,12 +60,15 @@ export interface RecursiveSubdivisionStoreState {
      * back up does not silently forget which levels were hidden.
      */
     levelVisibility: boolean[];
+    /** Leaf cells are filled with their territory's tint. Off is stroke-only rendering. */
+    showLeafFills: boolean;
 
     setFixtureName: (name: string) => void;
     setLevels: (levels: number) => void;
     setMergeGroupSize: (size: number) => void;
     toggleLevel: (level: number) => void;
     showAllLevels: () => void;
+    setShowLeafFills: (show: boolean) => void;
 }
 
 /** Counts for one level of the tree. */
@@ -111,6 +127,7 @@ export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreStat
         levels: DEFAULT_RECURSIVE_LEVELS,
         mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
         levelVisibility: Array.from({ length: MAX_RECURSION_LEVELS }, () => true),
+        showLeafFills: DEFAULT_SHOW_LEAF_FILLS,
 
         setFixtureName: (name) =>
             set((state) => {
@@ -139,6 +156,11 @@ export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreStat
         showAllLevels: () =>
             set((state) => {
                 state.levelVisibility = state.levelVisibility.map(() => true);
+            }),
+
+        setShowLeafFills: (show) =>
+            set((state) => {
+                state.showLeafFills = show;
             }),
     })),
 );

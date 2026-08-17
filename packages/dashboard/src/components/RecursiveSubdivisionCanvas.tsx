@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RecursiveNode, Vector2 } from '@proc-geo/core';
 import { SceneCanvas } from '../scene/SceneCanvas';
 import { recursiveTreeToScene } from '../scene/adapters/recursiveSubdivisionToScene';
+import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
 
 /**
  * The canvas the recursive subdivision is drawn on: fit, pan and zoom, and nothing else.
@@ -74,9 +75,17 @@ export default function RecursiveSubdivisionCanvas({ tree, levelVisibility }: Re
     const [view, setView] = useState<CanvasView>({ scale: 1, position: { x: 0, y: 0 } });
     const fittedTo = useRef('');
 
+    // Read from the store rather than taken as a prop, so the fills switch reaches the canvas
+    // without every host page having to learn about it. `levelVisibility` predates the switch and
+    // stays a prop; a host that drives visibility itself keeps doing so.
+    const showLeafFills = useRecursiveSubdivisionStore((s) => s.showLeafFills);
+
     const handleResize = useCallback((next: CanvasSize) => setSize(next), []);
 
-    const scene = useMemo(() => recursiveTreeToScene(tree, levelVisibility), [tree, levelVisibility]);
+    const scene = useMemo(
+        () => recursiveTreeToScene(tree, { levelVisibility, showLeafFills }),
+        [tree, levelVisibility, showLeafFills],
+    );
     const bounds = useMemo(() => boundsOf(tree.boundary), [tree]);
 
     // Fits the polygon to the viewport, which is what makes the page draw something on first paint:
