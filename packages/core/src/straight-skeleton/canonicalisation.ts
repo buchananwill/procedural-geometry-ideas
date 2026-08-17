@@ -243,13 +243,25 @@ function countPinnedUnderFloor(
         if (!pinned.has(origins[index])) {
             continue;
         }
-        const previous = ring[(index - 1 + ring.length) % ring.length];
-        const next = ring[(index + 1) % ring.length];
-        if (distanceToSegment(ring[index], previous, next) < noiseFloor) {
+        if (deviationAt(ring, index) < noiseFloor) {
             count += 1;
         }
     }
     return count;
+}
+
+/**
+ * The perpendicular deviation of `ring[index]` from the chord between its cyclic neighbours.
+ *
+ * THE ONE PLACE THIS FORMULA IS SPELLED. Both the removal search and the pinned-under-floor tally ask
+ * the same question of the ring, and the module header's choice of deviation-over-turn-angle is a
+ * decision that was argued once; two hand-written copies of the wraparound arithmetic would be two
+ * things to keep in lockstep every time that decision is revisited.
+ */
+function deviationAt(ring: readonly Vector2[], index: number): number {
+    const previous = ring[(index - 1 + ring.length) % ring.length];
+    const next = ring[(index + 1) % ring.length];
+    return distanceToSegment(ring[index], previous, next);
 }
 
 /** The vertex of a closed ring contributing least to its silhouette, and by how little. */
@@ -281,9 +293,7 @@ function findWeakestVertex(
         if (pinned.has(origins[candidate])) {
             continue;
         }
-        const previous = ring[(candidate - 1 + ring.length) % ring.length];
-        const next = ring[(candidate + 1) % ring.length];
-        const candidateDeviation = distanceToSegment(ring[candidate], previous, next);
+        const candidateDeviation = deviationAt(ring, candidate);
         if (candidateDeviation < deviation) {
             index = candidate;
             deviation = candidateDeviation;
