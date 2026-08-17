@@ -138,6 +138,10 @@ export {
   computeOffsetRings,
 } from './straight-skeleton/offset-projection';
 
+// ── Skeleton tree substrate ──────────────────────────────────────────────────
+export { buildSkeletonTree, skeletonTreeDiameter } from './straight-skeleton/skeleton-tree';
+export type { SkeletonTree, SkeletonTreeEdge } from './straight-skeleton/skeleton-tree';
+
 // ── Graph merge (polygon decomposition) ──────────────────────────────────────
 export { mergeSkeletonGraphs, makeMergedSolverContext } from './straight-skeleton/graph-merge';
 export type { SubPolygonResult, MergedGraphResult } from './straight-skeleton/graph-merge';
