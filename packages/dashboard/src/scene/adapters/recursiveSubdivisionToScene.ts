@@ -1,10 +1,10 @@
-import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
-import type { RecursiveNode, SpineStrategy, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
+import { flattenRecursiveTree } from '@proc-geo/core';
+import type { RecursiveNode, SpineStrategy, Strip, Vector2 } from '@proc-geo/core';
 import type { FillStyle, SceneGroup, ScenePrimitive } from '../types';
 import { leafTerritories } from './leafTerritories';
 import type { LeafTerritoryCell } from './leafTerritories';
 import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
-import { regionSpine } from '../../stores/useRecursiveSubdivisionStore';
+import { regionSpine, trySolveSkeleton } from './regionSpine';
 
 /**
  * The picture: every level of a recursive subdivision, as scene primitives.
@@ -223,24 +223,16 @@ function centroidOf(points: Vector2[]): Vector2 {
 /**
  * The skeleton arcs of one region, for drawing only.
  *
- * `RecursiveNode` carries the segments the solve produced but not the solve itself, so the arcs are
- * recovered by asking `solveSkeleton` the same question again. That is cheap next to the merit of
- * keeping the driver's return type exactly as specified, and it is the same deterministic call on
- * the same boundary — never a second, differently-parameterised solve.
+ * The arcs are recovered by re-solving the region's boundary — see {@link trySolveSkeleton}, which
+ * states once, for every consumer, why that is the same answer the driver already had and what an
+ * unusable solve means. A region with no usable solve draws nothing.
  */
 function skeletonEdges(node: RecursiveNode): ScenePrimitive[] {
-    if (node.failure !== undefined || node.boundary.length < 3) return [];
+    if (node.failure !== undefined) return [];
 
-    let graph: StraightSkeletonGraph;
-    try {
-        const result = solveSkeleton(node.boundary);
-        if (!result.complete) return [];
-        graph = result.graph;
-    } catch {
-        // The same boundary already solved once inside the driver, so this cannot normally fire —
-        // and if it ever does, a missing skeleton layer is the right outcome, not a blank page.
-        return [];
-    }
+    const result = trySolveSkeleton(node.boundary);
+    if (result === undefined) return [];
+    const graph = result.graph;
 
     const style = styleForLevel(node.level);
     const edges: ScenePrimitive[] = [];

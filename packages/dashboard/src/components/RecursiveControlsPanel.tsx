@@ -12,11 +12,8 @@ import RecursiveLevelReadout from './RecursiveLevelReadout';
 import RecursiveLevelRow from './RecursiveLevelRow';
 import { pluralize, residueTotalLine } from './recursive-readout-text';
 import { residueRingStyle } from '../scene/adapters/recursiveSubdivisionToScene';
-import {
-    summariseRecursiveTree,
-    summariseSpines,
-    useRecursiveSubdivisionStore,
-} from '../stores/useRecursiveSubdivisionStore';
+import { summariseSpines } from '../scene/adapters/regionSpine';
+import { summariseRecursiveTree, useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
 
 export interface RecursiveControlsPanelProps {
     /** The tree currently drawn, so the counts reported are the counts on the canvas. */

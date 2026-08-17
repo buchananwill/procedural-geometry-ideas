@@ -1,28 +1,21 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import {
-    buildSkeletonTree,
     clampDepthFraction,
     clampLevelSpecs,
     clampMergeGroupSize,
-    extractSpine,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
     isLastLevel,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
-    solveSkeleton,
 } from '@proc-geo/core';
 import type {
     LevelSpec,
     RecursiveNode,
     ResidueTreatment,
     SegmentTreatment,
-    SkeletonSolveResult,
-    SkeletonTree,
-    Spine,
     SpineStrategy,
-    Vector2,
 } from '@proc-geo/core';
 
 /**
@@ -410,131 +403,6 @@ export function summariseRecursiveTree(root: RecursiveNode, specs: LevelSpec[]):
         totalResidueRings: sumOver(nodes, (node) => node.residueRings.length),
         totalUnsubdividedResidueRings: sumOver(nodes, unsubdividedResidueRings),
     };
-}
-
-/**
- * One region's spine, with what a caller needs to draw and to measure it.
- *
- * The tree comes back beside the spine because the number decision 12 asks for — how much of the
- * skeleton a strategy kept — is a RATIO, and a ratio whose denominator was measured somewhere else
- * is a ratio of two different regions. The positions come back for the same reason: a caller drawing
- * the spine would otherwise solve the same boundary a third time to find out where its nodes are.
- */
-export interface RegionSpine {
-    tree: SkeletonTree;
-    spine: Spine;
-    /** Total length of every arc in the tree — the denominator of decision 12's fraction. */
-    treeLength: number;
-    /** Node id to position, for the nodes the tree carries. */
-    positions: Map<number, Vector2>;
-}
-
-/**
- * The spine of one region of a subdivision tree, or `undefined` where there is none to extract.
- *
- * `RecursiveNode` carries the segments a solve produced but not the solve itself, so the boundary is
- * put back through `solveSkeleton` — the same deterministic call on the same boundary the driver
- * already made, which is the precedent the scene adapter's skeleton layer set.
- *
- * `undefined` means NO SPINE WAS EXTRACTABLE, and it covers exactly three cases: the region did not
- * subdivide, its solve did not complete, or its skeleton is not a tree and the strategy needs the
- * longest path through one. It does NOT cover a spine that came back empty or in pieces — both of
- * those are answers, and burying them here would hide the very thing the page exists to show.
- */
-export function regionSpine(node: RecursiveNode, strategy: SpineStrategy): RegionSpine | undefined {
-    if (node.failure !== undefined || node.boundary.length < 3) return undefined;
-
-    let result: SkeletonSolveResult;
-    try {
-        result = solveSkeleton(node.boundary);
-    } catch {
-        // The same boundary already solved once inside the driver, so this cannot normally fire —
-        // and a level reporting one region short is a better outcome than a blank page.
-        return undefined;
-    }
-    if (!result.complete || result.context === null) return undefined;
-
-    const tree = buildSkeletonTree(result);
-    // `diameter` and `whisker-prune` both need the weighted longest path, which does not exist on a
-    // graph carrying a cycle. Asked for anyway they throw, and a throw here would be a page crash
-    // rather than a report; a strategy that severed a tree it CAN read still throws, which is where
-    // that defect is meant to surface.
-    if (!tree.isTree && strategy.kind !== 'wavefront-time') return undefined;
-
-    const positions = new Map<number, Vector2>();
-    for (const nodeId of tree.nodeIds) {
-        const graphNode = result.graph.nodes[nodeId];
-        if (graphNode !== undefined) positions.set(nodeId, graphNode.position);
-    }
-
-    return {
-        tree,
-        spine: extractSpine(tree, strategy),
-        treeLength: tree.edges.reduce((total, edge) => total + edge.length, 0),
-        positions,
-    };
-}
-
-/** What one level's spines came to: how much of the skeleton they kept, and whether they hold together. */
-export interface SpineLevelSummary {
-    level: number;
-    /** The definition this level's spines were extracted under. */
-    strategy: SpineStrategy;
-    /** Regions at this level a spine was extracted from. */
-    regions: number;
-    /** Regions at this level with no extractable spine at all — see {@link regionSpine}. */
-    unavailable: number;
-    /** Spines that retained no arc: the threshold stood above everything in the region. */
-    empty: number;
-    /**
-     * Spines that came back in more than one piece.
-     *
-     * REPORTED RATHER THAN REPAIRED, and reported per region rather than as a yes or no, because one
-     * lobed cell among twenty connected ones is exactly the evidence that judges a strategy.
-     */
-    disconnected: number;
-    /** The most pieces any one spine at this level came back in; 1 where every spine is whole. */
-    maxComponentCount: number;
-    /** Summed length of the retained arcs. */
-    spineLength: number;
-    /** Summed length of every arc in this level's skeletons — the denominator below. */
-    treeLength: number;
-    /** How much of the skeleton this level's spines kept, in `[0, 1]`. Zero where there is no tree. */
-    lengthFraction: number;
-}
-
-/**
- * One row per strategy handed in: what that level's spines kept and whether they hold together.
- *
- * THE STRATEGIES ARE A PARAMETER for the same reason the level specs are: a tree does not carry the
- * setting it was read under, and a row has to name the definition its numbers came from or the
- * comparison the page exists for cannot be made.
- */
-export function summariseSpines(root: RecursiveNode, strategies: SpineStrategy[]): SpineLevelSummary[] {
-    const nodes = flattenRecursiveTree(root);
-
-    return strategies.map((strategy, level) => {
-        const extracted = nodes
-            .filter((node) => node.level === level)
-            .map((node) => regionSpine(node, strategy));
-        const spines = extracted.filter((region): region is RegionSpine => region !== undefined);
-
-        const spineLength = spines.reduce((total, { spine }) => total + spine.length, 0);
-        const treeLength = spines.reduce((total, region) => total + region.treeLength, 0);
-
-        return {
-            level,
-            strategy,
-            regions: spines.length,
-            unavailable: extracted.length - spines.length,
-            empty: spines.filter(({ spine }) => spine.edges.length === 0).length,
-            disconnected: spines.filter(({ spine }) => spine.componentCount > 1).length,
-            maxComponentCount: spines.reduce((most, { spine }) => Math.max(most, spine.componentCount), 0),
-            spineLength,
-            treeLength,
-            lengthFraction: treeLength > 0 ? spineLength / treeLength : 0,
-        };
-    });
 }
 
 /** One level's spec with the fields of `patch` applied, each clamped the way the driver clamps it. */

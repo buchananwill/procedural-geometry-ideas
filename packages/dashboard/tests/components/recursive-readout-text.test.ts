@@ -6,11 +6,9 @@ import {
     spineStrategyLabel,
     streamLine,
 } from '../../src/components/recursive-readout-text';
+import type { SpineLevelSummary } from '../../src/scene/adapters/regionSpine';
 import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
-import type {
-    RecursiveLevelSummary,
-    SpineLevelSummary,
-} from '../../src/stores/useRecursiveSubdivisionStore';
+import type { RecursiveLevelSummary } from '../../src/stores/useRecursiveSubdivisionStore';
 import {
     RESIDUE_TREE,
     RESIDUE_TREE_LEVELS,

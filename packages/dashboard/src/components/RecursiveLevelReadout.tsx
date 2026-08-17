@@ -1,7 +1,8 @@
 import { Box, Group, Stack, Switch, Text } from '@mantine/core';
 import { SPINE_COLOUR, styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
+import type { SpineLevelSummary } from '../scene/adapters/regionSpine';
 import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
-import type { RecursiveLevelSummary, SpineLevelSummary } from '../stores/useRecursiveSubdivisionStore';
+import type { RecursiveLevelSummary } from '../stores/useRecursiveSubdivisionStore';
 import { pluralize, residueLine, spineLine, streamLine } from './recursive-readout-text';
 
 export interface RecursiveLevelReadoutProps {

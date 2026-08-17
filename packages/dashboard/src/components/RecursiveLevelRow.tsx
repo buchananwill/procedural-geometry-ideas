@@ -77,13 +77,15 @@ const SPINE_DESCRIPTIONS: Record<SpineStrategyKind, string> = {
     'whisker-prune': 'Short leaf arcs removed, and removed again, to a fixed point.',
 };
 
-/** Depth as the control shows it: a percentage of each region's own maximum offset. */
-function depthLabel(depthFraction: number): string {
-    return `${Math.round(depthFraction * 100)}%`;
-}
-
-/** A spine threshold as the control shows it: a percentage of the region's OWN scale. */
-function spineFractionLabel(fraction: number): string {
+/**
+ * A dimensionless fraction as every slider on this row shows it: a whole percentage.
+ *
+ * ONE FORMATTER FOR BOTH CONTROLS, because every threshold this row sets is a fraction of the
+ * region's OWN scale — that is the rule the depth control and both spine thresholds share, and the
+ * only thing that differs between them is which scale, which is said in the text beside the slider
+ * rather than in the number on it.
+ */
+function percentLabel(fraction: number): string {
     return `${Math.round(fraction * 100)}%`;
 }
 
@@ -159,7 +161,7 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                             Depth
                         </Text>
                         <Text size="xs" c="dimmed">
-                            {depthLabel(spec.depthFraction)} of this region&apos;s max offset
+                            {percentLabel(spec.depthFraction)} of this region&apos;s max offset
                         </Text>
                     </Group>
                     <Slider
@@ -168,7 +170,7 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                         max={FULL_DEPTH_FRACTION}
                         step={DEPTH_FRACTION_STEP}
                         value={spec.depthFraction}
-                        label={depthLabel}
+                        label={percentLabel}
                         onChange={(depthFraction) => updateLevel(level, { depthFraction })}
                     />
                 </Box>
@@ -253,7 +255,7 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                                     Threshold
                                 </Text>
                                 <Text size="xs" c="dimmed">
-                                    {spineFractionLabel(spineFraction)} {spineFractionDescription(spine.kind)}
+                                    {percentLabel(spineFraction)} {spineFractionDescription(spine.kind)}
                                 </Text>
                             </Group>
                             <Slider
@@ -262,7 +264,7 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                                 max={1}
                                 step={SPINE_FRACTION_STEP}
                                 value={spineFraction}
-                                label={spineFractionLabel}
+                                label={percentLabel}
                                 onChange={(fraction) =>
                                     setSpineStrategy(level, withSpineFraction(spine, fraction))}
                             />

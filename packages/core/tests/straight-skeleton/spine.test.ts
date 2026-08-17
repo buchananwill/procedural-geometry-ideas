@@ -81,6 +81,36 @@ function withReversedEdges(tree: SkeletonTree): SkeletonTree {
     return {...tree, edges: [...tree.edges].reverse()};
 }
 
+/**
+ * The same graph with one arc added between two of its leaves, closing a cycle.
+ *
+ * `isTree` goes false to match, which is what `buildSkeletonTree` computes for a graph carrying a
+ * cycle and is the flag every strategy reads. Built by hand rather than solved for, because no
+ * fixture in the corpus produces a cyclic skeleton — the same mutation approach `skeleton-tree.test`
+ * uses to convict `isTree` of being a check rather than a constant.
+ */
+function withCycleAdded(tree: SkeletonTree): SkeletonTree {
+    const [first, second] = tree.leafIds;
+    const extra: SkeletonTreeEdge = {
+        a: Math.min(first, second),
+        b: Math.max(first, second),
+        interiorEdgeId: -1,
+        length: 1,
+    };
+
+    const adjacency = new Map([...tree.adjacency].map(([id, neighbours]) => [id, [...neighbours]]));
+    adjacency.set(first, [...(adjacency.get(first) ?? []), second].sort((left, right) => left - right));
+    adjacency.set(second, [...(adjacency.get(second) ?? []), first].sort((left, right) => left - right));
+
+    return {
+        ...tree,
+        edges: [...tree.edges, extra],
+        adjacency,
+        leafIds: tree.leafIds.filter(id => id !== first && id !== second),
+        isTree: false,
+    };
+}
+
 /** Every fixture that solves and whose skeleton really is a tree, built once for the sweeps. */
 function corpusTrees(): {name: string; tree: SkeletonTree}[] {
     return ALL_TEST_POLYGONS
@@ -212,6 +242,33 @@ describe('extractSpine connectivity', () => {
                     .toEqual({name, components: spine.edges.length === 0 ? 0 : 1});
             }
         }
+    });
+});
+
+describe('extractSpine on a graph that is not a tree', () => {
+    const cyclic = withCycleAdded(treeOf(RECTANGLE));
+
+    /**
+     * The documented `@throws`, asserted at the PUBLIC entry point rather than one layer down.
+     *
+     * `skeletonTreeDiameter` has its own test for refusing a cyclic graph, but that says nothing
+     * about `extractSpine` still routing through it: a branch that stopped calling for the longest
+     * path would silently start answering a question the longest-path argument does not hold for.
+     */
+    it('refuses the two strategies that need the longest path', () => {
+        expect(() => extractSpine(cyclic, {kind: 'diameter'})).toThrow(/requires a tree/);
+        expect(() => extractSpine(cyclic, {kind: 'whisker-prune', fraction: 0.2}))
+            .toThrow(/requires a tree/);
+    });
+
+    it('still answers under wavefront-time, which reads only offsets and lengths', () => {
+        // The contrast the docstring draws: one strategy is a filter over per-node offsets and needs
+        // no global structure at all, so a cyclic graph is nothing to it.
+        const spine = extractSpine(cyclic, {kind: 'wavefront-time', fraction: MID_RANGE_FRACTION});
+
+        expect(spine.nodeIds).toEqual([...RIDGE]);
+        expect(edgePairs(spine)).toEqual([`${RIDGE[0]}-${RIDGE[1]}`]);
+        expect(spine.componentCount).toBe(1);
     });
 });
 

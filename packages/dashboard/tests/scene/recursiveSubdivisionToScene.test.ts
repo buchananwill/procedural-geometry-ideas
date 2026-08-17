@@ -13,7 +13,8 @@ import {
 } from '../../src/scene/adapters/recursiveSubdivisionToScene';
 import { ancestorTint, FAILURE_COLOUR } from '../../src/scene/adapters/recursiveTerritoryTint';
 import { leafTerritories } from '../../src/scene/adapters/leafTerritories';
-import { regionSpine, summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
+import { regionSpine } from '../../src/scene/adapters/regionSpine';
+import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
 import type { SceneGroup, ScenePrimitive } from '../../src/scene/types';
 import {
     failedNode,

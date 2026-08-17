@@ -60,12 +60,16 @@ export default function RecursiveSubdivisionCanvas({ tree, levelVisibility }: Re
     // without every host page having to learn about it. `levelVisibility` predates the switch and
     // stays a prop; a host that drives visibility itself keeps doing so.
     const showLeafFills = useRecursiveSubdivisionStore((s) => s.showLeafFills);
+    // The per-level spine definitions, read the same way and for the same reason: the panel writes
+    // them, the picture is where the three definitions are actually compared, and a page that had to
+    // thread them through as a prop would leave the readout describing a spine nothing had drawn.
+    const spineStrategies = useRecursiveSubdivisionStore((s) => s.spineStrategies);
 
     const handleResize = useCallback((next: CanvasSize) => setSize(next), []);
 
     const scene = useMemo(
-        () => recursiveTreeToScene(tree, { levelVisibility, showLeafFills }),
-        [tree, levelVisibility, showLeafFills],
+        () => recursiveTreeToScene(tree, { levelVisibility, showLeafFills, spineStrategies }),
+        [tree, levelVisibility, showLeafFills, spineStrategies],
     );
     const bounds = useMemo(() => boundsOfPoints(tree.boundary), [tree]);
 

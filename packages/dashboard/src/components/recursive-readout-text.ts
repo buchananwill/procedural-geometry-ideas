@@ -1,9 +1,9 @@
 import type { SpineStrategy } from '@proc-geo/core';
+import type { SpineLevelSummary } from '../scene/adapters/regionSpine';
 import type {
     RecursiveLevelSummary,
     RecursiveStreamReport,
     RecursiveTreeSummary,
-    SpineLevelSummary,
 } from '../stores/useRecursiveSubdivisionStore';
 
 /**
