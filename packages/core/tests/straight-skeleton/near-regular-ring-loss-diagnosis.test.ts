@@ -17,11 +17,13 @@ import {
 import {
     eventOffsets,
     isContinuous,
-    MUTATION_DISPLACEMENT,
+    measureMutationReport,
     rawOffsetsOfNode,
     signedRingArea,
+    SIMULTANEITY_RELATIVE_BAND,
+    TERMINAL_BAND,
     totalRingArea,
-    withNodeOffsetDelayed,
+    ulpSeparatedPairs,
 } from './wavefront-measurement-helpers';
 
 /*
@@ -130,19 +132,6 @@ const LOST_RINGS_BEFORE_THE_FIX: Record<string, number> = {
 };
 
 /**
- * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
- * solve's own maximum offset. Femtometres, not slack: nothing in the projection compares against
- * this, and this file only measures with it.
- *
- * RELATIVE, BECAUSE THE GUARANTEE IT RESTATES IS. `computeNodeOffsets` partitions against this
- * fraction of the solve's maximum offset, so an absolute band states a different guarantee at every
- * magnitude — and on these fixtures, whose maximum offsets are 88.7 to 106.9, an absolute 1e-12
- * asked for roughly a hundredth of what production actually delivers. `offset-projection.test.ts`
- * scales its own band by the same quantity, so the two suites now measure the same thing.
- */
-const SIMULTANEITY_RELATIVE_BAND = 1e-12;
-
-/**
  * The widest one instant's re-derived offsets are measured to spread, as a fraction of the solve's
  * maximum offset.
  *
@@ -160,13 +149,6 @@ const WITHIN_INSTANT_RELATIVE_SPREAD = 1e-14;
 
 /** Below this separation two nodes are a coincident cluster rather than mirror images. */
 const MIRROR_SEPARATION = 1;
-
-/**
- * How close to the maximum offset a ring stops having distinguishable vertices, and an empty
- * projection becomes the documented answer rather than a loss. The same band, for the same reason,
- * as the sweep over `ALL_TEST_POLYGONS`.
- */
-const TERMINAL_BAND = 1e-6;
 
 /** How far either side of an event the area is sampled to check it is continuous through it. */
 const NEIGHBOURHOOD = 1e-6;
@@ -334,18 +316,17 @@ describe('the near-regular simultaneous mirror events', () => {
         });
 
         it('leaves no ulp-separated pair of event offsets anywhere in the table', () => {
+            // Distinct offsets are now distinct EVENTS: no two of them are within one instant's worth
+            // of each other, which is the entire content of the fix. The check itself is
+            // `ulpSeparatedPairs`, shared with `offset-projection.test.ts`, which makes it of the
+            // whole table over `ALL_TEST_POLYGONS` where this file makes it of the event offsets of
+            // the four fixtures that used to fail it.
             const problems: string[] = [];
             for (const fixture of NEAR_REGULAR_FIXTURES) {
                 const result = solvedHeldOutFixture(fixture);
-                const separation = computeMaxOffset(result) * SIMULTANEITY_RELATIVE_BAND;
-                const offsets = eventOffsets(result);
-                for (let i = 1; i < offsets.length; i++) {
-                    // Distinct offsets are now distinct EVENTS: no two of them are within one
-                    // instant's worth of each other, which is the entire content of the fix.
-                    if (offsets[i] - offsets[i - 1] <= separation) {
-                        problems.push(
-                            `${fixture.name}: ${offsets[i - 1]} and ${offsets[i]} are one instant, two entries`);
-                    }
+                const band = computeMaxOffset(result) * SIMULTANEITY_RELATIVE_BAND;
+                for (const pair of ulpSeparatedPairs(eventOffsets(result), band)) {
+                    problems.push(`${fixture.name}: ${pair}`);
                 }
             }
             expect(problems.join('; ')).toBe('');
@@ -442,42 +423,17 @@ describe('the near-regular simultaneous mirror events', () => {
         it('fires when a hand-over on these fixtures is broken by hand', () => {
             // The counts above are worth nothing if `unclosedChains` can no longer be non-empty on
             // these fixtures — a suppressed report would pass them just as well as a fix. So the
-            // report is convicted here the same way the `ALL_TEST_POLYGONS` sweep convicts it: push
-            // one node's offset a micrometre later than the rest of the solve dates it, which is six
-            // orders of magnitude outside the canonicalisation band and so survives it, and query
-            // the original offset again. Every such mutation must be REPORTED or HARMLESS; silently
-            // returning smaller rings is the outcome the whole module exists to prevent.
-            const silentLosses: string[] = [];
-            let fired = 0;
-            let mutated = 0;
-            for (const fixture of NEAR_REGULAR_FIXTURES) {
-                const result = solvedHeldOutFixture(fixture);
-                const maxOffset = computeMaxOffset(result);
-                for (const [nodeId, event] of nodeOffsetsOf(result)) {
-                    if (!(event > 0) || maxOffset - event <= TERMINAL_BAND) {
-                        continue;
-                    }
-                    const before = projectOffsetWavefront(result, event);
-                    if (before.unclosedChains.length > 0 || before.rings.length === 0) {
-                        continue;
-                    }
-                    mutated += 1;
-
-                    const broken = withNodeOffsetDelayed(result, nodeId, MUTATION_DISPLACEMENT);
-                    if (projectOffsetWavefront(broken, event).unclosedChains.length > 0) {
-                        fired += 1;
-                        continue;
-                    }
-
-                    const area = totalRingArea(computeOffsetRings(result, event));
-                    const afterArea = totalRingArea(computeOffsetRings(broken, event));
-                    if (!isContinuous(area, afterArea, area)) {
-                        silentLosses.push(
-                            `${fixture.name} @${event.toFixed(6)} n${nodeId}: ${area} -> ${afterArea} `
-                            + `with nothing reported`);
-                    }
-                }
-            }
+            // report is convicted here by exactly the mutation the `ALL_TEST_POLYGONS` sweep convicts
+            // it with, `measureMutationReport`, run over these four fixtures instead of that corpus:
+            // one node's offset is pushed a micrometre later than the rest of the solve dates it,
+            // which is six orders of magnitude outside the canonicalisation band and so survives it,
+            // and the original offset is queried again. Every such mutation must be REPORTED or
+            // HARMLESS; silently returning smaller rings is what the whole module exists to prevent.
+            const {silentLosses, fired, mutated} = measureMutationReport(
+                NEAR_REGULAR_FIXTURES.map(fixture => ({
+                    name: fixture.name,
+                    result: solvedHeldOutFixture(fixture),
+                })));
             expect(silentLosses.join('; ')).toBe('');
 
             // Pinned rather than bounded, for the same reason the sibling suite pins its pair: a

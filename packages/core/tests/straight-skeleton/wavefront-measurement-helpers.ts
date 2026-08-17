@@ -1,4 +1,11 @@
-import {computeMaxOffset, computeNodeOffsets, SkeletonSolveResult, Vector2} from '@proc-geo/core';
+import {
+    computeMaxOffset,
+    computeNodeOffsets,
+    computeOffsetRings,
+    projectOffsetWavefront,
+    SkeletonSolveResult,
+    Vector2,
+} from '@proc-geo/core';
 
 /*
  * ============================================================================
@@ -20,6 +27,14 @@ import {computeMaxOffset, computeNodeOffsets, SkeletonSolveResult, Vector2} from
  * before accumulating so the value does not depend on where in the plane the ring sits. A
  * copy that drifted on either point would silently re-aim one suite at a different
  * population.
+ *
+ * That applies to the sweeps as much as to the quantities they take, so the whole mutation
+ * report — `measureMutationReport`, the band of events it considers mutable, the
+ * displacement it breaks a hand-over with, and its verdict of reported-or-harmless — lives
+ * here as one function that both suites call with their own fixtures and pin their own
+ * counts against. The "no two entries within one instant" check is here for the same
+ * reason, as `ulpSeparatedPairs`: three suites make it, of three different populations, and
+ * its edge behaviour at exactly one band's separation has to be one decision.
  *
  * `distanceToSegment` and `distanceToSupportingLine` live here for the same reason. They are
  * the two distances every offset suite states its properties in — how far a wavefront vertex
@@ -62,11 +77,21 @@ export function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
     return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-/** Perpendicular distance from p to the infinite line through a and b. */
+/**
+ * Perpendicular distance from p to the infinite line through a and b.
+ *
+ * An edge of no length has no supporting line to be perpendicular to, and the distance to it is the
+ * distance to the point — the same fallback `offset-projection.ts`'s own copy takes. Without it the
+ * quotient is 0/0, and a NaN distance compares false against every threshold, so a suite asserting
+ * `drift > band` would silently pass rather than report the degeneracy.
+ */
 export function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const length = Math.hypot(dx, dy);
+    if (length === 0) {
+        return Math.hypot(p.x - a.x, p.y - a.y);
+    }
     return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
 }
 
@@ -107,6 +132,52 @@ export function rawOffsetsOfNode(result: SkeletonSolveResult, nodeId: number): n
     return distances;
 }
 
+/**
+ * How close to the maximum offset a ring stops having distinguishable vertices.
+ *
+ * Within this band of the maximum, the surviving ring is finer than the coordinate-equality
+ * tolerance the projection works to, so its vertices are indistinguishable and `makeRing` drops it:
+ * an empty projection there is the documented answer rather than a loss. Every suite that samples at
+ * an event has to steer around the same band, and a copy that widened it in one suite alone would
+ * quietly stop asserting over that suite's last events.
+ */
+export const TERMINAL_BAND = 1e-6;
+
+/**
+ * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
+ * solve's own maximum offset. Femtometres, not slack: nothing in the projection compares against
+ * this, and the suites only ever measure with it.
+ *
+ * RELATIVE, BECAUSE THE GUARANTEE IT RESTATES IS. `computeNodeOffsets` partitions against this
+ * fraction of the solve's maximum offset, so an absolute band states a different guarantee at every
+ * magnitude — and on fixtures whose maximum offsets run from 1e-3 to 1e8 an absolute figure asks for
+ * a different multiple of what production delivers at each of them.
+ *
+ * It is stated here rather than imported: production's `SIMULTANEITY_RELATIVE_TOLERANCE` is module
+ * private, and a suite reading the constant under test could not tell a changed tolerance from a
+ * satisfied guarantee.
+ */
+export const SIMULTANEITY_RELATIVE_BAND = 1e-12;
+
+/**
+ * The pairs of offsets that sit closer together than one instant is wide, as lines to report.
+ *
+ * Two entries within `tolerance` of one another are one instant recorded twice — exactly what
+ * canonicalisation removes — so this is the "no two entries within one instant" check itself, stated
+ * once for every suite that makes it of a different population. The input is deduplicated and sorted
+ * here rather than assumed ordered, because adjacency in VALUE is what the check is about.
+ */
+export function ulpSeparatedPairs(offsets: number[], tolerance: number): string[] {
+    const ascending = [...new Set(offsets)].sort((a, b) => a - b);
+    const found: string[] = [];
+    for (let i = 1; i < ascending.length; i++) {
+        if (ascending[i] - ascending[i - 1] <= tolerance) {
+            found.push(`${ascending[i - 1]} and ${ascending[i]} are one instant, two entries`);
+        }
+    }
+    return found;
+}
+
 /** The distinct offsets at which the wavefront has an event: the interior nodes' own offsets. */
 export function eventOffsets(result: SkeletonSolveResult): number[] {
     const maxOffset = computeMaxOffset(result);
@@ -136,7 +207,7 @@ export function isContinuous(before: number, at: number, after: number): boolean
  * within, so the mutated node leaves its own simultaneous set rather than being absorbed back into
  * it.
  */
-export const MUTATION_DISPLACEMENT = 1e-6;
+const MUTATION_DISPLACEMENT = 1e-6;
 
 /** A copy of `result` with one node displaced, and nothing else about the solve touched. */
 function withNodeMoved(result: SkeletonSolveResult, nodeId: number, displacement: Vector2): SkeletonSolveResult {
@@ -161,7 +232,7 @@ function withNodeMoved(result: SkeletonSolveResult, nodeId: number, displacement
  * route to a quantity the projection module owns, which is the fault the suites this serves exist
  * to record.
  */
-export function withNodeOffsetDelayed(result: SkeletonSolveResult, nodeId: number, by: number): SkeletonSolveResult {
+function withNodeOffsetDelayed(result: SkeletonSolveResult, nodeId: number, by: number): SkeletonSolveResult {
     const step = by * 2;
     const displacements: Vector2[] = [{x: step, y: 0}, {x: -step, y: 0}, {x: 0, y: step}, {x: 0, y: -step}];
 
@@ -176,4 +247,79 @@ export function withNodeOffsetDelayed(result: SkeletonSolveResult, nodeId: numbe
         }
     }
     return latest;
+}
+
+/** One solve a sweep measures over, with the name any problem found in it is reported against. */
+export interface SolvedFixture {
+    name: string;
+    result: SkeletonSolveResult;
+}
+
+/** What one sweep of the mutation report measured over a list of solves. */
+export interface MutationReportMeasurement {
+    /** A line per mutation that cost ring area with nothing reported. Empty is the requirement. */
+    silentLosses: string[];
+    /** How many of the mutations the unclosed-chain report fired on. */
+    fired: number;
+    /** How many clean mid-solve events were mutated at all — the sweep's own non-vacuity. */
+    mutated: number;
+}
+
+/**
+ * Break every clean hand-over in turn, and record whether the projection reported it or absorbed it.
+ *
+ * A sweep asserting that `unclosedChains` is always empty is only worth something if the report can
+ * still be non-empty: a suppressed report — or a projection that quietly returned whatever rings it
+ * could assemble — would satisfy it just as well as a fix does. So the report is convicted by
+ * mutation. Take an event the projection handles cleanly, push the offset of the node whose event it
+ * is a micrometre later, and query the ORIGINAL offset again: the bisectors meeting at that node are
+ * now alive past their own meeting point and the bisector born there is not alive yet, so the
+ * hand-over `collectAliveBisectors` guarantees by reading one table for both ends has been broken
+ * from outside.
+ *
+ * Every such mutation must be either REPORTED or HARMLESS. Silently returning fewer or smaller rings
+ * is the outcome the whole module exists to prevent, and it is the one `silentLosses` records.
+ * Harmlessness is judged with {@link isContinuous} on a reading bracketed by itself — the same slack
+ * the area sweeps are made on rather than a second one.
+ *
+ * This is a formula, not a loop shape, and both offset suites run it over their own corpus: which
+ * events count as mutable ({@link TERMINAL_BAND}), how far the node is pushed
+ * ({@link MUTATION_DISPLACEMENT}) and what counts as a silent loss are the measurement itself, and a
+ * copy that drifted on any of them would aim one suite at a different population while both went on
+ * pinning counts as though they were comparable. Each caller supplies only its own fixtures and
+ * asserts its own pinned counts.
+ */
+export function measureMutationReport(fixtures: SolvedFixture[]): MutationReportMeasurement {
+    const silentLosses: string[] = [];
+    let fired = 0;
+    let mutated = 0;
+
+    for (const {name, result} of fixtures) {
+        const maxOffset = computeMaxOffset(result);
+        for (const [nodeId, event] of computeNodeOffsets(result)) {
+            if (!(event > 0) || maxOffset - event <= TERMINAL_BAND) {
+                continue;
+            }
+            const before = projectOffsetWavefront(result, event);
+            if (before.unclosedChains.length > 0 || before.rings.length === 0) {
+                continue;
+            }
+            mutated += 1;
+
+            const broken = withNodeOffsetDelayed(result, nodeId, MUTATION_DISPLACEMENT);
+            if (projectOffsetWavefront(broken, event).unclosedChains.length > 0) {
+                fired += 1;
+                continue;
+            }
+
+            const area = totalRingArea(computeOffsetRings(result, event));
+            const afterArea = totalRingArea(computeOffsetRings(broken, event));
+            if (!isContinuous(area, afterArea, area)) {
+                silentLosses.push(
+                    `${name} @${event.toFixed(6)} n${nodeId}: ${area} -> ${afterArea} with nothing reported`);
+            }
+        }
+    }
+
+    return {silentLosses, fired, mutated};
 }

@@ -13,9 +13,9 @@ import {
 import {
     eventOffsets,
     isContinuous,
-    MUTATION_DISPLACEMENT,
+    measureMutationReport,
+    TERMINAL_BAND,
     totalRingArea,
-    withNodeOffsetDelayed,
 } from './wavefront-measurement-helpers';
 
 /*
@@ -111,9 +111,6 @@ import {
 setSkeletonLogLevel('silent');
 
 const NEIGHBOURHOOD = 1e-6;
-
-/** How close to the maximum offset a ring stops having distinguishable vertices. */
-const TERMINAL_BAND = 1e-6;
 
 function solvedFixture(name: string): SkeletonSolveResult {
     const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
@@ -316,52 +313,17 @@ describe('offset projection at event boundaries', () => {
         });
 
         it('is a live report: breaking a hand-over by hand either fires it or costs no area', () => {
-            // The sweep above is only worth anything if `unclosedChains` can still be non-empty.
-            // A suite that suppressed the report — or a projection that quietly returned whatever
-            // rings it could assemble — would pass it just as well, so the report is convicted here
-            // by mutation: take an event the projection handles cleanly, push the offset of the node
-            // whose event it is a micrometre later, and query the original offset again. The
-            // bisectors meeting at that node are now alive past their own meeting point and the
-            // bisector born there is not alive yet: the hand-over `collectAliveBisectors` guarantees
-            // by reading one table for both ends has been broken from outside.
+            // The sweep above is only worth anything if `unclosedChains` can still be non-empty. A
+            // suite that suppressed the report — or a projection that quietly returned whatever rings
+            // it could assemble — would pass it just as well, so the report is convicted here by
+            // mutation. `measureMutationReport` is that mutation, defined once and run here over
+            // `ALL_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
+            // held-out fixtures, so the conviction the two suites claim is the same conviction.
             //
-            // Every such mutation must be either REPORTED or HARMLESS. Silently returning fewer or
-            // smaller rings is the outcome this whole module exists to prevent, and it is the one
-            // this assertion forbids. Measured at this commit: 233 clean events across the corpus,
-            // 103 of which the report fires on and 130 of which cost no area at all.
-            const silentLosses: string[] = [];
-            let fired = 0;
-            let mutated = 0;
-            for (const name of SWEPT_FIXTURES) {
-                const result = solvedFixture(name);
-                const maxOffset = computeMaxOffset(result);
-                for (const [nodeId, event] of computeNodeOffsets(result)) {
-                    if (!(event > 0) || maxOffset - event <= TERMINAL_BAND) {
-                        continue;
-                    }
-                    const before = projectOffsetWavefront(result, event);
-                    if (before.unclosedChains.length > 0 || before.rings.length === 0) {
-                        continue;
-                    }
-                    mutated += 1;
-
-                    const broken = withNodeOffsetDelayed(result, nodeId, MUTATION_DISPLACEMENT);
-                    if (projectOffsetWavefront(broken, event).unclosedChains.length > 0) {
-                        fired += 1;
-                        continue;
-                    }
-
-                    // Nothing was reported, so the area has to be exactly where it was. Asking
-                    // `isContinuous` for a reading bracketed by itself is that comparison, made on
-                    // the same slack the area sweeps above are made on rather than a second one.
-                    const area = totalRingArea(computeOffsetRings(result, event));
-                    const afterArea = totalRingArea(computeOffsetRings(broken, event));
-                    if (!isContinuous(area, afterArea, area)) {
-                        silentLosses.push(
-                            `${name} @${event.toFixed(6)} n${nodeId}: ${area} -> ${afterArea} with nothing reported`);
-                    }
-                }
-            }
+            // Measured at this commit: 233 clean events across the corpus, 103 of which the report
+            // fires on and 130 of which cost no area at all.
+            const {silentLosses, fired, mutated} = measureMutationReport(
+                SWEPT_FIXTURES.map(name => ({name, result: solvedFixture(name)})));
             expect(silentLosses.join('; ')).toBe('');
 
             // Non-vacuity, pinned rather than bounded. A share-of-corpus bound would still pass if

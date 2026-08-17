@@ -12,7 +12,9 @@ import {
     distanceToSupportingLine,
     rawOffsetsOfNode,
     signedRingArea,
+    SIMULTANEITY_RELATIVE_BAND,
     totalRingArea,
+    ulpSeparatedPairs,
 } from './wavefront-measurement-helpers';
 import {place} from './placement-helpers';
 
@@ -35,13 +37,6 @@ import {place} from './placement-helpers';
  */
 
 const TOLERANCE = 1e-6;
-
-/**
- * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
- * solve's maximum offset. Stated here as a measurement to assert against, not as slack: nothing in
- * the projection compares against a tolerance, and this suite only measures with it.
- */
-const SIMULTANEITY_BAND = 1e-12;
 
 /** The polygon the solver actually worked on, after any winding normalisation. */
 function boundaryOf(result: SkeletonSolveResult): Vector2[] {
@@ -196,6 +191,20 @@ describe('offset projection', () => {
         });
     });
 
+    describe('the distance the canonicalisation properties are measured in', () => {
+        it('stays finite for an edge of no length, rather than reporting NaN', () => {
+            // `rawOffsetsOfNode` dates a node against the supporting line of each of its parent
+            // edges, and the assertions below compare that distance against a band. NaN compares
+            // false against every threshold, so a degenerate parent edge yielding 0/0 would make
+            // `drift > band` silently false and retire the guarantee instead of failing it. The
+            // fallback is the same one the projection's own copy of this distance takes: with no
+            // line to be perpendicular to, the distance to the line is the distance to the point.
+            const degenerate = distanceToSupportingLine({x: 3, y: 4}, {x: 0, y: 0}, {x: 0, y: 0});
+            expect(Number.isFinite(degenerate)).toBe(true);
+            expect(degenerate).toBeCloseTo(5, 12);
+        });
+    });
+
     /*
      * The table is canonicalised: nodes belonging to one simultaneous event are given one identical
      * offset, because mirror nodes re-derive that one instant from different parent edges and get
@@ -223,7 +232,7 @@ describe('offset projection', () => {
                         continue;
                     }
                     const drift = Math.min(...raw.map(candidate => Math.abs(candidate - offset)));
-                    if (drift > maxOffset * SIMULTANEITY_BAND) {
+                    if (drift > maxOffset * SIMULTANEITY_RELATIVE_BAND) {
                         problems.push(
                             `${polygon.name} n${nodeId}: offset ${offset} is ${drift.toExponential(3)} `
                             + `from every distance its own parent edges give it`);
@@ -238,17 +247,16 @@ describe('offset projection', () => {
             // same instant must compare equal on the BIT, because the lifetime comparison that
             // reads them is exact and is given no slack. Grouping by value and then checking the
             // groups are separated by far more than the band is the same statement from the other
-            // side — no two distinct entries of the table are one instant's worth apart.
+            // side — no two distinct entries of the table are one instant's worth apart. That check
+            // is `ulpSeparatedPairs`, shared with the near-regular suite, which makes it of the
+            // event offsets of the four fixtures whose mirror sets used to defeat it.
             const problems: string[] = [];
             for (const polygon of ALL_TEST_POLYGONS) {
                 const result = solvedFixture(polygon.name);
-                const maxOffset = computeMaxOffset(result);
-                const distinct = [...new Set(computeNodeOffsets(result).values())].sort((a, b) => a - b);
-                for (let i = 1; i < distinct.length; i++) {
-                    if (distinct[i] - distinct[i - 1] <= maxOffset * SIMULTANEITY_BAND) {
-                        problems.push(
-                            `${polygon.name}: ${distinct[i - 1]} and ${distinct[i]} are one instant, two entries`);
-                    }
+                const band = computeMaxOffset(result) * SIMULTANEITY_RELATIVE_BAND;
+                const table = [...computeNodeOffsets(result).values()];
+                for (const pair of ulpSeparatedPairs(table, band)) {
+                    problems.push(`${polygon.name}: ${pair}`);
                 }
             }
             expect(problems.join('; ')).toBe('');
