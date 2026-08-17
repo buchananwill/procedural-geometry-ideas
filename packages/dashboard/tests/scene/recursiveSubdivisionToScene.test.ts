@@ -1,6 +1,8 @@
-import { FULL_DEPTH_FRACTION, subdivideRecursively } from '@proc-geo/core';
+import { FULL_DEPTH_FRACTION, subdivideRecursively, uniformLevelSpecs } from '@proc-geo/core';
+import type { LevelSpec } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import {
+    RECURSED_SEGMENT_OPACITY,
     recursiveTreeToScene,
     RECURSIVE_LEVEL_STYLES,
     RESIDUE_RING_COLOURS,
@@ -11,7 +13,15 @@ import { ancestorTint } from '../../src/scene/adapters/recursiveTerritoryTint';
 import { leafTerritories } from '../../src/scene/adapters/leafTerritories';
 import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
 import type { SceneGroup, ScenePrimitive } from '../../src/scene/types';
-import { failedNode, node, RESIDUE_TREE, TREE, TREE_TERRITORY_COUNT } from '../fixtures/recursive-trees';
+import {
+    failedNode,
+    node,
+    RESIDUE_TREE,
+    RESIDUE_TREE_LEVELS,
+    TREE,
+    TREE_LEVELS,
+    TREE_TERRITORY_COUNT,
+} from '../fixtures/recursive-trees';
 
 /**
  * What the recursive subdivision page draws: which cell belongs to which territory, what colour that
@@ -98,7 +108,7 @@ describe('leafTerritories', () => {
     });
 
     it('finds exactly the cells the panel counts as leaves', () => {
-        expect(leafTerritories(TREE).cells).toHaveLength(summariseRecursiveTree(TREE).leafSegments);
+        expect(leafTerritories(TREE).cells).toHaveLength(summariseRecursiveTree(TREE, TREE_LEVELS).leafSegments);
     });
 
     it('makes each of a childless root own segments its own territory', () => {
@@ -214,7 +224,7 @@ describe('recursiveTreeToScene', () => {
         // Everything filled but the failed cell's own patch, which is dashed and keeps its own hue.
         const tints = filledShapes(scene).filter((fill) => fill.stroke.dash === undefined);
 
-        expect(tints).toHaveLength(summariseRecursiveTree(TREE).leafSegments);
+        expect(tints).toHaveLength(summariseRecursiveTree(TREE, TREE_LEVELS).leafSegments);
         const hues = tints.map((fill) => toHsl(fill.fill?.color ?? '').hue);
         // Two territories among four leaves: the pair from child 0 and the pair under child 2.
         expect(hueDistance(hues[0], hues[1])).toBeLessThan(HUE_QUANTISATION_DEGREES);
@@ -243,6 +253,83 @@ describe('recursiveTreeToScene', () => {
         expect(groupIds(scene).some((id) => id.startsWith('group:recursive-leaf-fill-'))).toBe(false);
         // The failed cell's own patch is the only fill stroke-only rendering has ever had.
         expect(filledShapes(scene)).toHaveLength(1);
+    });
+});
+
+/**
+ * Decision 10: a cell that was subdivided and a cell that is final must not be drawn identically.
+ *
+ * The distinction is per NODE rather than per level, because a level can hold both: one region's
+ * segments recursed and its sibling's did not. And it has to survive the droste reading, where a
+ * node's own ring of cells is final while its courtyard goes on subdividing — which is the case that
+ * makes "has no children" the wrong question to draw from.
+ */
+describe('a subdivided cell against a final one', () => {
+    const allLevelsVisible = [true, true, true];
+
+    /** The segment outlines drawn for one level, told from its skeleton arcs by their colour. */
+    function segmentOpacities(scene: ScenePrimitive[], level: number): (number | undefined)[] {
+        const group = scene.filter(isGroup).find((g) => g.id === `group:recursive-level-${level}`);
+        return (group?.children ?? []).flatMap((child) =>
+            child.type === 'line' && child.stroke.color === styleForLevel(level).segmentColour
+                ? [child.stroke.opacity]
+                : []);
+    }
+
+    it('is a real distinction rather than an invisible one', () => {
+        expect(RECURSED_SEGMENT_OPACITY).toBeGreaterThan(0);
+        expect(RECURSED_SEGMENT_OPACITY).toBeLessThan(1);
+    });
+
+    it('draws a subdivided cell fainter than a final one', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+
+        // The root's three cells all became regions, so all three are hints.
+        expect(segmentOpacities(scene, 0)).toEqual([
+            RECURSED_SEGMENT_OPACITY, RECURSED_SEGMENT_OPACITY, RECURSED_SEGMENT_OPACITY,
+        ]);
+        // The deepest level's cells are the last word, so they are drawn at full strength — which is
+        // the absence of an opacity rather than an opacity of one.
+        expect(segmentOpacities(scene, 2)).toEqual([undefined, undefined]);
+    });
+
+    it('tells two nodes of one level apart, since one recursed and its sibling did not', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+        const atOne = segmentOpacities(scene, 1);
+
+        // Level 1 holds a childless node of two cells and a subdivided node of four; a distinction
+        // drawn per level rather than per node would give all six the same stroke.
+        expect(atOne.filter((opacity) => opacity === undefined)).toHaveLength(2);
+        expect(atOne.filter((opacity) => opacity === RECURSED_SEGMENT_OPACITY)).toHaveLength(4);
+    });
+
+    it('draws a droste node’s ring at full strength, courtyard or no courtyard', () => {
+        // The case the old reading got wrong: the root's segments are leaves, and the recursion went
+        // down the RESIDUE. Drawing its ring as a hint would say the cells were subdivided when the
+        // level's spec said they were final.
+        const scene = recursiveTreeToScene(RESIDUE_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+        expect(RESIDUE_TREE.children).toEqual([]);
+        expect(RESIDUE_TREE.residueChildren.length).toBeGreaterThan(0);
+        expect(segmentOpacities(scene, 0)).toEqual([undefined, undefined, undefined]);
+    });
+
+    it('keeps the distinction with the fills off, where it is the only one left', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: false,
+        });
+        expect(segmentOpacities(scene, 0).every((opacity) => opacity === RECURSED_SEGMENT_OPACITY))
+            .toBe(true);
+        expect(segmentOpacities(scene, 2).every((opacity) => opacity === undefined)).toBe(true);
     });
 });
 
@@ -383,16 +470,17 @@ describe('the residue on the canvas', () => {
  */
 describe('a failed cell among tinted ones', () => {
     const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === 'Pentagon House');
-    const tree = subdivideRecursively(fixture?.vertices ?? [], {
+    const levels: LevelSpec[] = uniformLevelSpecs({
         levels: 3,
         mergeGroupSize: 3,
         depthFraction: FULL_DEPTH_FRACTION,
         residue: 'void',
     });
+    const tree = subdivideRecursively(fixture?.vertices ?? [], { levels });
 
     it('is a fixture that really does fail, or this proves nothing', () => {
         expect(fixture).toBeDefined();
-        expect(summariseRecursiveTree(tree).totalFailures).toBeGreaterThan(0);
+        expect(summariseRecursiveTree(tree, levels).totalFailures).toBeGreaterThan(0);
     });
 
     it('keeps the failure patch distinguishable from every territory around it', () => {
@@ -402,7 +490,7 @@ describe('a failed cell among tinted ones', () => {
         }));
 
         const failurePatches = fills.filter((fill) => fill.stroke.dash !== undefined);
-        expect(failurePatches).toHaveLength(summariseRecursiveTree(tree).totalFailures);
+        expect(failurePatches).toHaveLength(summariseRecursiveTree(tree, levels).totalFailures);
 
         const failureHue = toHsl(failurePatches[0].fill?.color ?? '').hue;
         const tints = fills.filter((fill) => fill.stroke.dash === undefined);

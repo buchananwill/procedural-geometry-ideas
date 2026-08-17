@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import {
     clampDepthFraction,
-    clampLevels,
+    clampLevelSpecs,
     clampMergeGroupSize,
     flattenRecursiveTree,
+    FULL_DEPTH_FRACTION,
     MAX_RECURSION_LEVELS,
     MIN_RECURSION_LEVELS,
 } from '@proc-geo/core';
-import type { RecursiveNode, ResidueTreatment } from '@proc-geo/core';
+import type { LevelSpec, RecursiveNode, ResidueTreatment, SegmentTreatment } from '@proc-geo/core';
 
 /**
  * The fixture the page opens on.
@@ -18,14 +19,6 @@ import type { RecursiveNode, ResidueTreatment } from '@proc-geo/core';
  * square subdivides correctly and looks like nothing has happened.
  */
 export const DEFAULT_RECURSIVE_FIXTURE = 'Duck Octagon (passes)';
-
-/**
- * Three levels is the interesting default.
- *
- * Two is legible, but three is where the mechanism is obvious — territories of coarse cells, each
- * cut again and again — and the counts confirm the fixture still subdivides cleanly there.
- */
-export const DEFAULT_RECURSIVE_LEVELS = 3;
 
 /**
  * Leaf cells open tinted by the territory they descend from.
@@ -39,13 +32,11 @@ export const DEFAULT_SHOW_LEAF_FILLS = true;
 export const DEFAULT_MERGE_GROUP_SIZE = 2;
 
 /**
- * The page opens at half depth, where there IS a residue — and, on the default fixture, two of them.
+ * The depth a level opens at, and the depth a level added by hand starts at.
  *
- * Full depth is the behaviour that predates this control and shows no residue at all, so a page
- * opening at 1.0 would demonstrate nothing new. Measured on `Duck Octagon (passes)`: at half its
- * maximum offset the residue is a quarter of the region's area and has already pinched into two
- * separate rings, so the default view shows both that the interior is a different kind of thing and
- * that it is rings plural.
+ * Short of full depth, where there IS a residue. Full depth is the behaviour that predates the residue
+ * stream and shows none at all, so a level opening at 1.0 would demonstrate nothing new and would
+ * leave its own residue control inert.
  */
 export const DEFAULT_DEPTH_FRACTION = 0.5;
 
@@ -63,6 +54,46 @@ export const DEPTH_FRACTION_STEP = 0.05;
 
 /** Residue recursion is on by default: the droste reading is what the second stream is for. */
 export const DEFAULT_RESIDUE_TREATMENT: ResidueTreatment = 'recurse';
+
+/** Segments recurse by default, which is the one thing the retired scalar shape could always do. */
+export const DEFAULT_SEGMENT_TREATMENT: SegmentTreatment = 'recurse';
+
+/**
+ * The spec a level added by hand starts on: both streams recursing at the default dials.
+ *
+ * Both streams rather than one, because a new row lands at the BOTTOM of the list where decision 3
+ * makes it terminal anyway — so what these two settings describe is what the row will do once another
+ * is added below it, and a row that arrived already terminal would read as a row that does nothing.
+ */
+export const DEFAULT_LEVEL_SPEC: LevelSpec = {
+    depthFraction: DEFAULT_DEPTH_FRACTION,
+    mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
+    segments: DEFAULT_SEGMENT_TREATMENT,
+    residue: DEFAULT_RESIDUE_TREATMENT,
+};
+
+/**
+ * The three levels the page opens on — DELIBERATELY UNLIKE EACH OTHER.
+ *
+ * The whole point of a level being its own spec is invisible in a homogeneous tree: three identical
+ * rows produce exactly the picture the retired scalar options produced, and a reader could not tell the
+ * change had happened. So the default composition differs in every field a spec has:
+ *
+ * - **Level 0** cuts a shallow rim in merged pairs and sends both streams down, so the first thing on
+ *   screen is a ring of coarse cells around a courtyard, each of which is a region in its own right.
+ * - **Level 1** cuts deeper, one segment per edge, and is the DROSTE level: its ring of cells is final
+ *   and only its courtyard descends. That is the reading the retired shape could not ask for at all.
+ * - **Level 2** runs at full depth, so it has no residue and the segments tile it — the terminal level,
+ *   said in the two settings rather than left to decision 3 to override.
+ *
+ * Measured on {@link DEFAULT_RECURSIVE_FIXTURE}: every region solves, and the tree reaches all three
+ * levels with residue rings at the two levels that have a depth short of full.
+ */
+export const DEFAULT_RECURSIVE_LEVELS: LevelSpec[] = [
+    { depthFraction: 0.5, mergeGroupSize: 2, segments: 'recurse', residue: 'recurse' },
+    { depthFraction: 0.65, mergeGroupSize: 1, segments: 'leaf', residue: 'recurse' },
+    { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'leaf', residue: 'void' },
+];
 
 /**
  * Depth fraction as the panel means it: inside `[MIN_PANEL_DEPTH_FRACTION, 1]`.
@@ -89,38 +120,73 @@ export function clampPanelDepthFraction(depthFraction: number): number {
  */
 export const MAX_MERGE_GROUP_SIZE = 8;
 
+/**
+ * A change to one level's spec: any subset of its fields.
+ *
+ * Derived from {@link LevelSpec} rather than listed again, so a fifth field on a spec is editable the
+ * moment it exists rather than the moment somebody remembers to add a setter for it.
+ */
+export type LevelSpecPatch = Partial<LevelSpec>;
+
 export interface RecursiveSubdivisionStoreState {
     /** Name of the `ALL_TEST_POLYGONS` entry being subdivided. */
     fixtureName: string;
-    /** Passes of subdivision, in `[1, 3]`. */
-    levels: number;
-    /** Adjacent segments merged into one group at every level. */
-    mergeGroupSize: number;
-    /** Inward cut as a fraction of each region's own maximum offset. 1 = full depth, no residue. */
-    depthFraction: number;
-    /** Whether each region's residue is subdivided in turn or left whole as a courtyard. */
-    residue: ResidueTreatment;
+    /**
+     * One spec per level, outermost first. Its LENGTH is the recursion depth.
+     *
+     * There is no separate level count: the panel adds and removes rows, and the driver reads the
+     * array. Kept inside `[1, 3]` entries by {@link clampLevelSpecs}, which is the same clamp the
+     * driver applies, so the panel cannot report a level the solver will not run.
+     */
+    levels: LevelSpec[];
     /**
      * Which levels are drawn, indexed by level.
      *
-     * Always `MAX_RECURSION_LEVELS` long regardless of `levels`, so turning the level count down and
-     * back up does not silently forget which levels were hidden.
+     * Always `MAX_RECURSION_LEVELS` long regardless of how many levels are specified, so removing a
+     * row and adding one back does not silently forget which levels were hidden.
      */
     levelVisibility: boolean[];
     /** Leaf cells are filled with their territory's tint. Off is stroke-only rendering. */
     showLeafFills: boolean;
 
     setFixtureName: (name: string) => void;
-    setLevels: (levels: number) => void;
-    setMergeGroupSize: (size: number) => void;
-    setDepthFraction: (depthFraction: number) => void;
-    setResidue: (residue: ResidueTreatment) => void;
+    /** Changes some of one level's fields, clamping whatever it was handed. */
+    updateLevel: (level: number, patch: LevelSpecPatch) => void;
+    /** Appends a level at the deepest end, up to `MAX_RECURSION_LEVELS`. */
+    addLevel: () => void;
+    /** Removes one level, keeping at least `MIN_RECURSION_LEVELS`. */
+    removeLevel: (level: number) => void;
     toggleLevel: (level: number) => void;
     showAllLevels: () => void;
     setShowLeafFills: (show: boolean) => void;
 }
 
-/** Counts for one level of the tree. */
+/**
+ * What one of a level's two child streams asked for, and what it actually did.
+ *
+ * GENERIC OVER THE TREATMENT because the two streams answer different questions — `leaf` against
+ * `void` — while everything else about the report is the same, and two hand-copied interfaces would be
+ * two places for a fourth field to be added to one of them.
+ */
+export interface RecursiveStreamReport<TTreatment extends string> {
+    /** What this level's spec asked for. */
+    requested: TTreatment;
+    /** Whether regions at this level actually grew children from this stream. */
+    recursed: boolean;
+    /**
+     * The spec asked to recurse and the level had nowhere to send it.
+     *
+     * A SPEC THAT SAYS `recurse` AND A TREE THAT SHOWS LEAVES IS EXACTLY THE DISAGREEMENT A READOUT
+     * EXISTS TO CATCH, so it is reported rather than quietly resolved: at the last level both streams
+     * are terminal whatever the spec says.
+     */
+    overridden: boolean;
+}
+
+export type SegmentStreamReport = RecursiveStreamReport<SegmentTreatment>;
+export type ResidueStreamReport = RecursiveStreamReport<ResidueTreatment>;
+
+/** Counts for one level of the tree, and what each of its two streams did. */
 export interface RecursiveLevelSummary {
     level: number;
     /** Regions solved (or attempted) at this level. */
@@ -140,15 +206,26 @@ export interface RecursiveLevelSummary {
      * zero under the `void` treatment, where no ring was a candidate for recursion in the first place.
      */
     discardedResidueRings: number;
+    /** What became of the segments this level produced. */
+    segmentStream: SegmentStreamReport;
+    /** What became of the residue rings this level produced. */
+    residueStream: ResidueStreamReport;
+    /**
+     * This level's residue setting cannot apply: at full depth the wavefront is consumed and there is
+     * no residue for it to describe.
+     */
+    residueInert: boolean;
 }
 
 export interface RecursiveTreeSummary {
     levels: RecursiveLevelSummary[];
     /**
-     * Segments belonging to a node with no children of either kind — the finest cells in the picture.
+     * Segments belonging to a node that grew no segment children — the finest cells in the picture.
      *
-     * Reported because a subdivision that looks deep while producing one leaf is a bug the eye does
-     * not catch, and the per-level counts alone do not say which cells are final.
+     * NO SEGMENT CHILDREN, RATHER THAN NO CHILDREN OF EITHER KIND. A node whose segments are leaves
+     * and whose courtyard recurses — the droste reading — has a ring of cells that really is final,
+     * and counting it as unfinished because the residue went deeper is the one miscount this shape
+     * makes easy. It is also the count the canvas fills, so panel and picture agree.
      */
     leafSegments: number;
     totalSegments: number;
@@ -166,28 +243,52 @@ function sumOver(nodes: RecursiveNode[], count: (node: RecursiveNode) => number)
     return nodes.reduce((total, node) => total + count(node), 0);
 }
 
-/** Per-level, residue and leaf counts for a subdivision tree. */
-export function summariseRecursiveTree(root: RecursiveNode): RecursiveTreeSummary {
-    const nodes = flattenRecursiveTree(root);
-    const deepest = nodes.reduce((deepestSoFar, node) => Math.max(deepestSoFar, node.level), 0);
+/** One stream's report: what was asked, what happened, and whether the two disagree. */
+function streamReport<TTreatment extends string>(
+    requested: TTreatment,
+    recursed: boolean,
+    isLastLevel: boolean,
+): RecursiveStreamReport<TTreatment> {
+    return { requested, recursed, overridden: requested === 'recurse' && isLastLevel };
+}
 
-    const levels: RecursiveLevelSummary[] = [];
-    for (let level = 0; level <= deepest; level++) {
+/**
+ * Per-level, residue and leaf counts for a subdivision tree, against the specs it was grown from.
+ *
+ * THE SPECS ARE A PARAMETER, not read back out of the tree, because half of what decision 9 asks for
+ * cannot be recovered from a tree at all: a level whose `recurse` was overridden looks exactly like a
+ * level that asked to stop. One row per spec, which is one row per level the driver can produce.
+ */
+export function summariseRecursiveTree(root: RecursiveNode, specs: LevelSpec[]): RecursiveTreeSummary {
+    const nodes = flattenRecursiveTree(root);
+    const levelSpecs = clampLevelSpecs(specs);
+
+    const levels: RecursiveLevelSummary[] = levelSpecs.map((spec, level) => {
         const atLevel = nodes.filter((node) => node.level === level);
-        levels.push({
+        const isLastLevel = level + 1 >= levelSpecs.length;
+        return {
             level,
             nodes: atLevel.length,
             segments: sumOver(atLevel, (node) => node.segments.length),
             failures: atLevel.filter((node) => node.failure !== undefined).length,
             residueRings: sumOver(atLevel, (node) => node.residueRings.length),
             discardedResidueRings: sumOver(atLevel, discardedResidueRings),
-        });
-    }
+            segmentStream: streamReport(
+                spec.segments,
+                atLevel.some((node) => node.children.length > 0),
+                isLastLevel),
+            residueStream: streamReport(
+                spec.residue,
+                atLevel.some((node) => node.residueChildren.length > 0),
+                isLastLevel),
+            residueInert: spec.depthFraction >= FULL_DEPTH_FRACTION,
+        };
+    });
 
     return {
         levels,
         leafSegments: sumOver(
-            nodes.filter((node) => node.children.length === 0 && node.residueChildren.length === 0),
+            nodes.filter((node) => node.children.length === 0),
             (node) => node.segments.length),
         totalSegments: sumOver(nodes, (node) => node.segments.length),
         totalFailures: nodes.filter((node) => node.failure !== undefined).length,
@@ -196,13 +297,26 @@ export function summariseRecursiveTree(root: RecursiveNode): RecursiveTreeSummar
     };
 }
 
+/** One level's spec with the fields of `patch` applied, each clamped the way the driver clamps it. */
+function patchedLevel(spec: LevelSpec, patch: LevelSpecPatch): LevelSpec {
+    return {
+        depthFraction: patch.depthFraction === undefined
+            ? spec.depthFraction
+            : clampPanelDepthFraction(patch.depthFraction),
+        mergeGroupSize: patch.mergeGroupSize === undefined
+            ? spec.mergeGroupSize
+            : Math.min(MAX_MERGE_GROUP_SIZE, clampMergeGroupSize(patch.mergeGroupSize)),
+        segments: patch.segments ?? spec.segments,
+        residue: patch.residue ?? spec.residue,
+    };
+}
+
 export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreState>()(
     immer((set) => ({
         fixtureName: DEFAULT_RECURSIVE_FIXTURE,
-        levels: DEFAULT_RECURSIVE_LEVELS,
-        mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
-        depthFraction: DEFAULT_DEPTH_FRACTION,
-        residue: DEFAULT_RESIDUE_TREATMENT,
+        // Copied rather than shared: the store's array is edited in place by `updateLevel`, and the
+        // exported default is a constant several suites assert against.
+        levels: DEFAULT_RECURSIVE_LEVELS.map((spec) => ({ ...spec })),
         levelVisibility: Array.from({ length: MAX_RECURSION_LEVELS }, () => true),
         showLeafFills: DEFAULT_SHOW_LEAF_FILLS,
 
@@ -212,26 +326,26 @@ export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreStat
             }),
 
         // Clamped by the core driver's own clamps rather than by numbers restated here: the store
-        // and the solver must agree about what level 4 means, and the only way to guarantee that is
-        // to ask the same function.
-        setLevels: (levels) =>
+        // and the solver must agree about what a merge group of 500 or a depth of 4 means, and the
+        // only way to guarantee that is to ask the same functions.
+        updateLevel: (level, patch) =>
             set((state) => {
-                state.levels = clampLevels(levels);
+                const spec = state.levels[level];
+                if (spec === undefined) return;
+                state.levels[level] = patchedLevel(spec, patch);
             }),
 
-        setMergeGroupSize: (size) =>
+        addLevel: () =>
             set((state) => {
-                state.mergeGroupSize = Math.min(MAX_MERGE_GROUP_SIZE, clampMergeGroupSize(size));
+                if (state.levels.length >= MAX_RECURSION_LEVELS) return;
+                state.levels.push({ ...DEFAULT_LEVEL_SPEC });
             }),
 
-        setDepthFraction: (depthFraction) =>
+        removeLevel: (level) =>
             set((state) => {
-                state.depthFraction = clampPanelDepthFraction(depthFraction);
-            }),
-
-        setResidue: (residue) =>
-            set((state) => {
-                state.residue = residue;
+                if (state.levels.length <= MIN_RECURSION_LEVELS) return;
+                if (level < 0 || level >= state.levels.length) return;
+                state.levels.splice(level, 1);
             }),
 
         toggleLevel: (level) =>

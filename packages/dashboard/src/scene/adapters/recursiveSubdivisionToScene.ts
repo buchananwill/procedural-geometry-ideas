@@ -19,6 +19,12 @@ import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
  * {@link leafTerritories}'s question and what colour that makes it is {@link ancestorTint}'s; this
  * file only decides what is drawn, and in what order.
  *
+ * A level can declare its segments FINAL while its courtyard goes on subdividing, so the picture also
+ * has to say whether a cell was subdivided or is the last word: see {@link RECURSED_SEGMENT_OPACITY}.
+ * A leaf cell and a cell that merely came out childless are different things, and drawing them
+ * identically would make the droste reading — a final ring around a subdivided courtyard — look like a
+ * recursion that had failed.
+ *
  * Below full depth a node also carries a RESIDUE: the interior contour its wavefront never reached.
  * It is drawn in a family of its own — see {@link residueRingStyle} — because it is not a cell of the
  * subdivision but the part that has not been subdivided yet, and a reader who cannot tell the two
@@ -94,6 +100,22 @@ export const RESIDUE_RING_DASHES = [[8, 4], [3, 3], [12, 4, 3, 4], [2, 5]];
 
 /** Faint enough that the skeleton and the segment borders read straight through a courtyard. */
 const RESIDUE_FILL_OPACITY = 0.18;
+
+/**
+ * Opacity of a segment boundary whose cell was SUBDIVIDED, against the full strength of a final one.
+ *
+ * A LEAF SEGMENT AND A SEGMENT THAT MERELY HAS NO CHILDREN ARE DIFFERENT THINGS, and now that a level
+ * can declare its segments final while its courtyard goes on subdividing, the picture has to say which
+ * it is looking at. A cell that was subdivided is a container rather than a cell — the real cells are
+ * the strokes inside it — so it is drawn as a hint and the cells that are final are drawn at full
+ * strength.
+ *
+ * OPACITY RATHER THAN HUE OR DASH, because both of those channels are already spoken for: hue is the
+ * layer (grey segments, warm skeleton, green residue) and dash is "this ring is not the outside of a
+ * cell" (holes, residue rings). Opacity is a lightness channel, so unlike hue it survives the greyscale
+ * screenshot this page is most often read in.
+ */
+export const RECURSED_SEGMENT_OPACITY = 0.5;
 
 /** How one residue ring is drawn: its level sets the weight, its ordinal the hue and the dash. */
 export interface ResidueRingStyle {
@@ -229,15 +251,24 @@ function failedCell(node: RecursiveNode): ScenePrimitive[] {
  *
  * Holes are dashed rather than solid because a segment that wraps an island has two rings of equal
  * standing on the canvas, and only the dash says which of them is the outside of the cell.
+ *
+ * `recursed` carries decision 10's distinction into the stroke — see
+ * {@link RECURSED_SEGMENT_OPACITY} — and it applies to a segment's holes as well as its outline,
+ * because a hole is part of the same cell and would otherwise contradict it.
  */
-function segmentPrimitives(segment: Strip, style: RecursiveLevelStyle): ScenePrimitive[] {
+function segmentPrimitives(segment: Strip, style: RecursiveLevelStyle, recursed: boolean): ScenePrimitive[] {
     if (segment.boundary.length < 3) return [];
+    const stroke = {
+        color: style.segmentColour,
+        width: style.segmentWidth,
+        ...(recursed ? { opacity: RECURSED_SEGMENT_OPACITY } : {}),
+    };
     return [
         {
             type: 'line',
             points: flatten(segment.boundary),
             closed: true,
-            stroke: { color: style.segmentColour, width: style.segmentWidth },
+            stroke,
         },
         ...segment.holes
             .filter((hole) => hole.length >= 3)
@@ -245,17 +276,24 @@ function segmentPrimitives(segment: Strip, style: RecursiveLevelStyle): ScenePri
                 type: 'line',
                 points: flatten(hole),
                 closed: true,
-                stroke: { color: style.segmentColour, width: style.segmentWidth, dash: [4, 4] },
+                stroke: { ...stroke, dash: [4, 4] },
             })),
     ];
 }
 
-/** Everything drawn for one region: its failure patch, or its skeleton arcs under its segments. */
+/**
+ * Everything drawn for one region: its failure patch, or its skeleton arcs under its segments.
+ *
+ * A node's segments either all recursed or none did — the driver emits one child per merged group —
+ * so whether this level's cells are final is a fact about the NODE, read once here rather than
+ * guessed at per segment.
+ */
 function nodePrimitives(node: RecursiveNode, style: RecursiveLevelStyle): ScenePrimitive[] {
     if (node.failure !== undefined) return failedCell(node);
+    const recursed = node.children.length > 0;
     return [
         ...skeletonEdges(node),
-        ...node.segments.flatMap((segment) => segmentPrimitives(segment, style)),
+        ...node.segments.flatMap((segment) => segmentPrimitives(segment, style, recursed)),
     ];
 }
 

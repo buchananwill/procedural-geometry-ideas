@@ -21,20 +21,18 @@ const RecursiveSubdivisionCanvas = dynamic(
 export default function RecursivePage() {
     const fixtureName = useRecursiveSubdivisionStore((s) => s.fixtureName);
     const levels = useRecursiveSubdivisionStore((s) => s.levels);
-    const mergeGroupSize = useRecursiveSubdivisionStore((s) => s.mergeGroupSize);
-    const depthFraction = useRecursiveSubdivisionStore((s) => s.depthFraction);
-    const residue = useRecursiveSubdivisionStore((s) => s.residue);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
 
     const [instructionsOpen, setInstructionsOpen] = useState(false);
 
-    // The store's defaults are a real fixture at two levels, so the page draws a recursive
-    // subdivision on first paint — there is nothing to click before something appears.
+    // The store's defaults are a real fixture at three levels that do not resemble each other, so the
+    // page draws a heterogeneous recursive subdivision on first paint — there is nothing to click
+    // before something appears, and what appears shows what a per-level spec is for.
     const tree: RecursiveNode = useMemo(() => {
         const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === fixtureName)
             ?? ALL_TEST_POLYGONS[0];
-        return subdivideRecursively(fixture.vertices, { levels, mergeGroupSize, depthFraction, residue });
-    }, [fixtureName, levels, mergeGroupSize, depthFraction, residue]);
+        return subdivideRecursively(fixture.vertices, { levels });
+    }, [fixtureName, levels]);
 
     const panels = (
         <Stack gap="sm">
@@ -49,11 +47,18 @@ export default function RecursivePage() {
                     <Collapse in={instructionsOpen}>
                         <Stack gap="xs">
                             <Text size="sm" c="dimmed">
-                                The polygon is solved, cut at full depth into segments — adjacent
-                                boundary edges fused in groups — and then each of those segments is
-                                solved again as a polygon in its own right. Every level is drawn at
-                                once: the root heaviest and whitest, each level below it thinner and
-                                greyer.
+                                The polygon is solved and cut into segments — adjacent boundary edges
+                                fused in groups — at a fraction of its own maximum offset. What the
+                                wavefront never reached is the residue. Each level is its own spec:
+                                its own depth, its own merge grouping, and its own answer for each of
+                                its two child streams, so a level can send its segments deeper while
+                                leaving its courtyard whole, or the other way about.
+                            </Text>
+                            <Text size="sm" c="dimmed">
+                                Add and remove level rows to change the depth of the recursion — the
+                                number of rows IS the depth. Every level is drawn at once: the root
+                                heaviest and whitest, each level below it thinner and greyer, and a
+                                cell that was subdivided drawn fainter than one that is final.
                             </Text>
                             <Text size="sm" c="dimmed">
                                 Turn a level off to check the one below it is real. Any region that

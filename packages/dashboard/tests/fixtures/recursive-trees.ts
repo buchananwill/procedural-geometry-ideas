@@ -1,4 +1,5 @@
-import type { RecursiveNode, Strip, Vector2 } from '@proc-geo/core';
+import { FULL_DEPTH_FRACTION } from '@proc-geo/core';
+import type { LevelSpec, RecursiveNode, Strip, Vector2 } from '@proc-geo/core';
 
 /**
  * Hand-built subdivision trees, shared by the suites that read a tree's shape.
@@ -110,12 +111,36 @@ export const TREE: RecursiveNode = node(0, 3, [
 export const TREE_TERRITORY_COUNT = 3;
 
 /**
+ * The spec array {@link TREE} is the tree of.
+ *
+ * Written out beside the tree because half of what a readout has to say cannot be recovered from a
+ * tree at all — a level whose `recurse` was overridden looks exactly like a level that asked to stop —
+ * so the suites that read the summary need both. Full depth at every level, which is why no node here
+ * carries a residue ring, and segments recursing until the terminal third level.
+ */
+export const TREE_LEVELS: LevelSpec[] = [
+    { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'recurse', residue: 'void' },
+    { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'recurse', residue: 'void' },
+    { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'leaf', residue: 'void' },
+];
+
+/**
  * A partial-depth tree: two rings at the root, one of them recursed on and one discarded.
  *
  * Distinct counts again — two rings, one residue child that subdivided, one that did not — so a
  * summary that confused rings with children, or discards with failures, cannot pass by coincidence.
+ *
+ * ALSO THE DROSTE SHAPE, and deliberately so: the root has residue children and no segment children,
+ * which is the one shape only `leaf` + `recurse` can produce. Its own segments are therefore FINAL,
+ * and a summary that treats a node with residue children as unfinished undercounts them.
  */
 export const RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
     nodeWithResidue(1, 2, 1),
     failedNode(1),
 ]);
+
+/** The spec array {@link RESIDUE_TREE} is the tree of: the droste reading, then a terminal level. */
+export const RESIDUE_TREE_LEVELS: LevelSpec[] = [
+    { depthFraction: 0.5, mergeGroupSize: 1, segments: 'leaf', residue: 'recurse' },
+    { depthFraction: 0.5, mergeGroupSize: 1, segments: 'leaf', residue: 'void' },
+];

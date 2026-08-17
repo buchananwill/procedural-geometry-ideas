@@ -1,37 +1,53 @@
-import { FULL_DEPTH_FRACTION, MAX_RECURSION_LEVELS, subdivideRecursively } from '@proc-geo/core';
+import {
+    FULL_DEPTH_FRACTION,
+    MAX_RECURSION_LEVELS,
+    MIN_RECURSION_LEVELS,
+    subdivideRecursively,
+} from '@proc-geo/core';
+import type { LevelSpec } from '@proc-geo/core';
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import {
     DEFAULT_DEPTH_FRACTION,
+    DEFAULT_LEVEL_SPEC,
     DEFAULT_MERGE_GROUP_SIZE,
     DEFAULT_RECURSIVE_FIXTURE,
     DEFAULT_RECURSIVE_LEVELS,
     DEFAULT_RESIDUE_TREATMENT,
+    DEFAULT_SEGMENT_TREATMENT,
     DEFAULT_SHOW_LEAF_FILLS,
     MAX_MERGE_GROUP_SIZE,
     MIN_PANEL_DEPTH_FRACTION,
     summariseRecursiveTree,
     useRecursiveSubdivisionStore,
 } from '../../src/stores/useRecursiveSubdivisionStore';
-import { failedNode, RESIDUE_TREE, TREE } from '../fixtures/recursive-trees';
+import type {
+    RecursiveLevelSummary,
+    RecursiveTreeSummary,
+} from '../../src/stores/useRecursiveSubdivisionStore';
+import {
+    failedNode,
+    RESIDUE_TREE,
+    RESIDUE_TREE_LEVELS,
+    TREE,
+    TREE_LEVELS,
+} from '../fixtures/recursive-trees';
 
 /**
  * What the recursive subdivision page reports, and what it opens showing.
  *
  * These numbers exist to catch a subdivision that looks right on the canvas but is not — a picture
- * that reads as deeply cut while producing a single leaf cell, say. A count that drifted silently
- * would take the only check on that with it, so the summary is tested on a tree whose shape is
- * written out rather than solved for. What the adapter makes of that same tree is tested beside the
- * adapter, in `tests/scene/recursiveSubdivisionToScene.test.ts`.
+ * that reads as deeply cut while producing a single leaf cell, say, or a level whose setting the
+ * driver overrode while the panel went on reporting the setting. A count that drifted silently would
+ * take the only check on that with it, so the summary is tested on a tree whose shape is written out
+ * rather than solved for, alongside the spec array that tree is the tree OF. What the adapter makes of
+ * the same tree is tested beside the adapter, in `tests/scene/recursiveSubdivisionToScene.test.ts`.
  */
 
 // Zustand stores are singletons, so restore the slices these tests write to.
 const resetStore = () => {
     useRecursiveSubdivisionStore.setState({
         fixtureName: DEFAULT_RECURSIVE_FIXTURE,
-        levels: DEFAULT_RECURSIVE_LEVELS,
-        mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
-        depthFraction: DEFAULT_DEPTH_FRACTION,
-        residue: DEFAULT_RESIDUE_TREATMENT,
+        levels: DEFAULT_RECURSIVE_LEVELS.map((spec) => ({ ...spec })),
         levelVisibility: Array.from({ length: MAX_RECURSION_LEVELS }, () => true),
         showLeafFills: DEFAULT_SHOW_LEAF_FILLS,
     });
@@ -39,29 +55,52 @@ const resetStore = () => {
 
 beforeEach(resetStore);
 
+/**
+ * The counts half of a level summary — everything but what the two streams did.
+ *
+ * Derived from {@link RecursiveLevelSummary} rather than listed again, so a new count has to be
+ * answered here rather than silently escaping every assertion in this file.
+ */
+type RecursiveLevelCounts = Omit<
+    RecursiveLevelSummary,
+    'segmentStream' | 'residueStream' | 'residueInert'
+>;
+
+/** A summary reduced to its counts, so a test about counts is not restating stream reports. */
+function levelCounts(summary: RecursiveTreeSummary): RecursiveLevelCounts[] {
+    return summary.levels.map((level) => ({
+        level: level.level,
+        nodes: level.nodes,
+        segments: level.segments,
+        failures: level.failures,
+        residueRings: level.residueRings,
+        discardedResidueRings: level.discardedResidueRings,
+    }));
+}
+
 describe('summariseRecursiveTree', () => {
     it('counts nodes, segments and failures at each level', () => {
-        expect(summariseRecursiveTree(TREE).levels).toEqual([
+        expect(levelCounts(summariseRecursiveTree(TREE, TREE_LEVELS))).toEqual([
             { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 0, discardedResidueRings: 0 },
             { level: 1, nodes: 3, segments: 6, failures: 1, residueRings: 0, discardedResidueRings: 0 },
             { level: 2, nodes: 1, segments: 2, failures: 0, residueRings: 0, discardedResidueRings: 0 },
         ]);
     });
 
-    it('counts only the segments of childless nodes as leaf cells', () => {
+    it('counts only the segments of nodes with no segment children as leaf cells', () => {
         // The level-1 node with a child contributes nothing; its child's two segments are the leaves.
-        expect(summariseRecursiveTree(TREE).leafSegments).toBe(4);
+        expect(summariseRecursiveTree(TREE, TREE_LEVELS).leafSegments).toBe(4);
     });
 
     it('totals the segments and failures over the whole tree', () => {
-        const summary = summariseRecursiveTree(TREE);
+        const summary = summariseRecursiveTree(TREE, TREE_LEVELS);
         expect(summary.totalSegments).toBe(11);
         expect(summary.totalFailures).toBe(1);
     });
 
     it('reports a root that failed as one level with no segments', () => {
-        const summary = summariseRecursiveTree(failedNode(0));
-        expect(summary.levels).toEqual([
+        const summary = summariseRecursiveTree(failedNode(0), [DEFAULT_LEVEL_SPEC]);
+        expect(levelCounts(summary)).toEqual([
             { level: 0, nodes: 1, segments: 0, failures: 1, residueRings: 0, discardedResidueRings: 0 },
         ]);
         expect(summary.leafSegments).toBe(0);
@@ -69,6 +108,59 @@ describe('summariseRecursiveTree', () => {
         expect(summary.totalFailures).toBe(1);
         expect(summary.totalResidueRings).toBe(0);
         expect(summary.totalDiscardedResidueRings).toBe(0);
+    });
+
+    it('reports one row per specified level, even where the level grew no regions', () => {
+        // A level below a terminal one is reached by nothing, and a row of zeroes is how the readout
+        // says so — dropping the row would leave a control with no readout beside it.
+        const levels: LevelSpec[] = [
+            { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'leaf', residue: 'void' },
+            { depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1, segments: 'leaf', residue: 'void' },
+        ];
+        const summary = summariseRecursiveTree(TREE, levels);
+        expect(summary.levels).toHaveLength(2);
+        expect(summary.levels[1].nodes).toBe(3);
+    });
+});
+
+/**
+ * Decision 9: the readout says what each stream ASKED FOR and what it actually DID.
+ *
+ * A spec that says `recurse` and a tree that shows leaves is exactly the disagreement a readout exists
+ * to catch, and it is unrecoverable from the tree alone — an overridden level is shaped exactly like a
+ * level that asked to stop. So the summary is handed both, and these are the assertions that the two
+ * are reported apart rather than reconciled.
+ */
+describe('what each stream did, per level', () => {
+    it('reports a recursed stream as recursed and a terminal one by the word it asked for', () => {
+        const summary = summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS);
+
+        expect(summary.levels[0].segmentStream)
+            .toEqual({ requested: 'leaf', recursed: false, overridden: false });
+        expect(summary.levels[0].residueStream)
+            .toEqual({ requested: 'recurse', recursed: true, overridden: false });
+        expect(summary.levels[1].residueStream)
+            .toEqual({ requested: 'void', recursed: false, overridden: false });
+    });
+
+    it('flags a level whose recurse the last level overrode, rather than reporting it as asked', () => {
+        const levels: LevelSpec[] = [
+            { depthFraction: 0.5, mergeGroupSize: 1, segments: 'recurse', residue: 'recurse' },
+        ];
+        const [level] = summariseRecursiveTree(RESIDUE_TREE, levels).levels;
+
+        expect(level.segmentStream).toEqual({ requested: 'recurse', recursed: false, overridden: true });
+        expect(level.residueStream.requested).toBe('recurse');
+        expect(level.residueStream.overridden).toBe(true);
+    });
+
+    it('calls a residue setting inert at full depth, where there is nothing for it to treat', () => {
+        // Decision 5's validity rule showing up where it can: at full depth the wavefront is consumed,
+        // so a `recurse` and a `void` describe the same empty stream.
+        const summary = summariseRecursiveTree(TREE, TREE_LEVELS);
+        expect(summary.levels.every((level) => level.residueInert)).toBe(true);
+        expect(summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS).levels
+            .every((level) => level.residueInert)).toBe(false);
     });
 });
 
@@ -81,36 +173,40 @@ describe('summariseRecursiveTree', () => {
  */
 describe('summariseRecursiveTree below full depth', () => {
     it('counts residue rings and discarded rings level by level', () => {
-        expect(summariseRecursiveTree(RESIDUE_TREE).levels).toEqual([
+        expect(levelCounts(summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS))).toEqual([
             { level: 0, nodes: 1, segments: 3, failures: 0, residueRings: 2, discardedResidueRings: 1 },
             { level: 1, nodes: 2, segments: 2, failures: 1, residueRings: 1, discardedResidueRings: 0 },
         ]);
     });
 
     it('totals the rings over the whole tree, discards among them', () => {
-        const summary = summariseRecursiveTree(RESIDUE_TREE);
+        const summary = summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS);
         expect(summary.totalResidueRings).toBe(3);
         expect(summary.totalDiscardedResidueRings).toBe(1);
         // A discarded ring is a child that recorded a reason, so it is a failure as well as a discard.
         expect(summary.totalFailures).toBe(1);
     });
 
-    it('counts a node with residue children as no leaf, since the picture goes deeper there', () => {
-        // Level 0 has residue children, so its own segments are not the finest cells; the level-1
-        // residue child has neither kind of child, so its two segments are.
-        expect(summariseRecursiveTree(RESIDUE_TREE).leafSegments).toBe(2);
+    it('counts the final ring of a droste node as leaf cells, courtyard or no courtyard', () => {
+        // The miscount decision 11 warns about. Under `leaf` + `recurse` the root's own segments ARE
+        // the finest cells at that level — the recursion went down the residue, not through them — so
+        // treating a node with residue children as unfinished loses three cells here.
+        const summary = summariseRecursiveTree(RESIDUE_TREE, RESIDUE_TREE_LEVELS);
+        expect(RESIDUE_TREE.children).toEqual([]);
+        expect(RESIDUE_TREE.residueChildren.length).toBeGreaterThan(0);
+        // Three at the root, two in the residue child that subdivided, none in the failed one.
+        expect(summary.leafSegments).toBe(5);
     });
 
     it('sees the residue subtrees of a real solve, not just the segment ones', () => {
         const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
-        const tree = subdivideRecursively(fixture?.vertices ?? [], {
-            levels: 2,
-            mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
-            depthFraction: DEFAULT_DEPTH_FRACTION,
-            residue: 'recurse',
-        });
+        const levels: LevelSpec[] = [
+            { depthFraction: DEFAULT_DEPTH_FRACTION, mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE, segments: 'recurse', residue: 'recurse' },
+            { depthFraction: DEFAULT_DEPTH_FRACTION, mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE, segments: 'leaf', residue: 'void' },
+        ];
+        const tree = subdivideRecursively(fixture?.vertices ?? [], { levels });
 
-        const summary = summariseRecursiveTree(tree);
+        const summary = summariseRecursiveTree(tree, levels);
         expect(summary.totalResidueRings).toBeGreaterThan(0);
         // The residue children are level-1 regions in their own right, so they must be counted there.
         expect(summary.levels[1].nodes).toBe(tree.children.length + tree.residueChildren.length);
@@ -119,30 +215,52 @@ describe('summariseRecursiveTree below full depth', () => {
 
 describe('page defaults', () => {
     it('opens at three levels, where the mechanism is obvious rather than merely present', () => {
-        expect(DEFAULT_RECURSIVE_LEVELS).toBe(3);
-        expect(useRecursiveSubdivisionStore.getState().levels).toBe(3);
+        expect(DEFAULT_RECURSIVE_LEVELS).toHaveLength(MAX_RECURSION_LEVELS);
+        expect(useRecursiveSubdivisionStore.getState().levels).toEqual(DEFAULT_RECURSIVE_LEVELS);
     });
 
-    it('opens short of full depth, so the residue the page exists to show is on screen', () => {
-        // Decision 10: at full depth there is no residue at all, so a page opening at 1.0 would
-        // demonstrate nothing new. Measured on the default fixture rather than asserted in the
-        // abstract — the default must actually produce rings, and here it produces two of them.
-        expect(DEFAULT_DEPTH_FRACTION).toBeLessThan(FULL_DEPTH_FRACTION);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(DEFAULT_DEPTH_FRACTION);
+    it('opens on levels that differ from each other, which is the whole point of the change', () => {
+        // Decision 7 prefers defaults that show the levels DIFFERING: three identical rows produce
+        // exactly the picture the retired scalar options produced, and a reader could not tell.
+        const depths = new Set(DEFAULT_RECURSIVE_LEVELS.map((level) => level.depthFraction));
+        const groups = new Set(DEFAULT_RECURSIVE_LEVELS.map((level) => level.mergeGroupSize));
+        const segments = new Set(DEFAULT_RECURSIVE_LEVELS.map((level) => level.segments));
 
+        expect(depths.size).toBeGreaterThan(1);
+        expect(groups.size).toBeGreaterThan(1);
+        expect(segments.size).toBeGreaterThan(1);
+    });
+
+    it('opens on a tree that really is recursive, and heterogeneous, on the default fixture', () => {
+        // Decision 7: a recursive picture on first paint, measured rather than asserted in the
+        // abstract. Every region solves, the tree reaches all three levels, and there is a residue to
+        // see at the levels cut short of full depth.
         const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
-        const tree = subdivideRecursively(fixture?.vertices ?? [], {
-            levels: DEFAULT_RECURSIVE_LEVELS,
-            mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
+        const tree = subdivideRecursively(fixture?.vertices ?? [], { levels: DEFAULT_RECURSIVE_LEVELS });
+        const summary = summariseRecursiveTree(tree, DEFAULT_RECURSIVE_LEVELS);
+
+        expect(summary.totalFailures).toBe(0);
+        expect(summary.levels).toHaveLength(MAX_RECURSION_LEVELS);
+        expect(summary.levels.every((level) => level.nodes > 0)).toBe(true);
+        expect(tree.residueRings.length).toBeGreaterThan(1);
+        // Level 1 is the droste level: its ring is final and only its courtyard descends.
+        expect(summary.levels[1].segmentStream.requested).toBe('leaf');
+        expect(summary.levels[1].residueStream.recursed).toBe(true);
+        // And nothing the default asks for is quietly overridden.
+        expect(summary.levels.every((level) => !level.segmentStream.overridden)).toBe(true);
+        expect(summary.levels.every((level) => !level.residueStream.overridden)).toBe(true);
+    });
+
+    it('opens with a level added by hand recursing both streams at the default dials', () => {
+        expect(DEFAULT_LEVEL_SPEC).toEqual({
             depthFraction: DEFAULT_DEPTH_FRACTION,
+            mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE,
+            segments: DEFAULT_SEGMENT_TREATMENT,
             residue: DEFAULT_RESIDUE_TREATMENT,
         });
-        expect(tree.residueRings.length).toBeGreaterThan(1);
-    });
-
-    it('opens with the residue recursed rather than voided', () => {
+        expect(DEFAULT_DEPTH_FRACTION).toBeLessThan(FULL_DEPTH_FRACTION);
         expect(DEFAULT_RESIDUE_TREATMENT).toBe('recurse');
-        expect(useRecursiveSubdivisionStore.getState().residue).toBe('recurse');
+        expect(DEFAULT_SEGMENT_TREATMENT).toBe('recurse');
     });
 
     it('opens with the leaf fills on, and switches them off and back without touching anything else', () => {
@@ -161,7 +279,7 @@ describe('page defaults', () => {
 /**
  * The controls the page drives the solver with.
  *
- * Every one of these is a number handed straight to `subdivideRecursively`, so a control that lets an
+ * Every one of these is a field handed straight to `subdivideRecursively`, so a control that lets an
  * out-of-range value through does not produce a wrong picture — it produces a solver run the driver
  * then silently clamps, and the panel goes on reporting the number the user typed. These assert that
  * the store settles on the value the solver will actually see.
@@ -172,70 +290,119 @@ describe('subdivision controls', () => {
         expect(useRecursiveSubdivisionStore.getState().fixtureName).toBe('Square');
     });
 
-    it('holds levels inside the range the driver recurses over', () => {
-        const { setLevels } = useRecursiveSubdivisionStore.getState();
+    it('edits one level and leaves its neighbours exactly as they were', () => {
+        const { updateLevel } = useRecursiveSubdivisionStore.getState();
+        updateLevel(1, { segments: 'recurse', mergeGroupSize: 4 });
 
-        setLevels(0);
-        expect(useRecursiveSubdivisionStore.getState().levels).toBe(1);
-
-        setLevels(99);
-        expect(useRecursiveSubdivisionStore.getState().levels).toBe(MAX_RECURSION_LEVELS);
-
-        // A slider mid-drag can read fractional; the driver counts whole passes.
-        setLevels(2.7);
-        expect(useRecursiveSubdivisionStore.getState().levels).toBe(2);
-
-        setLevels(Number.NaN);
-        expect(useRecursiveSubdivisionStore.getState().levels).toBe(1);
+        const { levels } = useRecursiveSubdivisionStore.getState();
+        expect(levels[1].segments).toBe('recurse');
+        expect(levels[1].mergeGroupSize).toBe(4);
+        // The fields it was not handed keep their values, and the other rows are untouched.
+        expect(levels[1].depthFraction).toBe(DEFAULT_RECURSIVE_LEVELS[1].depthFraction);
+        expect(levels[0]).toEqual(DEFAULT_RECURSIVE_LEVELS[0]);
+        expect(levels[2]).toEqual(DEFAULT_RECURSIVE_LEVELS[2]);
     });
 
-    it('holds the merge group between one edge and the panel ceiling', () => {
-        const { setMergeGroupSize } = useRecursiveSubdivisionStore.getState();
-
-        setMergeGroupSize(0);
-        expect(useRecursiveSubdivisionStore.getState().mergeGroupSize).toBe(1);
-
-        setMergeGroupSize(500);
-        expect(useRecursiveSubdivisionStore.getState().mergeGroupSize).toBe(MAX_MERGE_GROUP_SIZE);
-
-        setMergeGroupSize(3.9);
-        expect(useRecursiveSubdivisionStore.getState().mergeGroupSize).toBe(3);
-
-        setMergeGroupSize(Number.NaN);
-        expect(useRecursiveSubdivisionStore.getState().mergeGroupSize).toBe(1);
+    it('ignores an edit to a level that does not exist', () => {
+        const { updateLevel } = useRecursiveSubdivisionStore.getState();
+        updateLevel(7, { mergeGroupSize: 4 });
+        updateLevel(-1, { mergeGroupSize: 4 });
+        expect(useRecursiveSubdivisionStore.getState().levels).toEqual(DEFAULT_RECURSIVE_LEVELS);
     });
 
-    it('holds the depth between the panel floor and full depth', () => {
-        const { setDepthFraction } = useRecursiveSubdivisionStore.getState();
+    it('holds a level’s merge group between one edge and the panel ceiling', () => {
+        const { updateLevel } = useRecursiveSubdivisionStore.getState();
+        const mergeGroupOf = (level: number) =>
+            useRecursiveSubdivisionStore.getState().levels[level].mergeGroupSize;
 
-        setDepthFraction(0.35);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(0.35);
+        updateLevel(0, { mergeGroupSize: 0 });
+        expect(mergeGroupOf(0)).toBe(1);
 
-        setDepthFraction(2);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(FULL_DEPTH_FRACTION);
+        updateLevel(0, { mergeGroupSize: 500 });
+        expect(mergeGroupOf(0)).toBe(MAX_MERGE_GROUP_SIZE);
+
+        updateLevel(0, { mergeGroupSize: 3.9 });
+        expect(mergeGroupOf(0)).toBe(3);
+
+        updateLevel(0, { mergeGroupSize: Number.NaN });
+        expect(mergeGroupOf(0)).toBe(1);
+    });
+
+    it('holds a level’s depth between the panel floor and full depth', () => {
+        const { updateLevel } = useRecursiveSubdivisionStore.getState();
+        const depthOf = (level: number) =>
+            useRecursiveSubdivisionStore.getState().levels[level].depthFraction;
+
+        updateLevel(0, { depthFraction: 0.35 });
+        expect(depthOf(0)).toBe(0.35);
+
+        updateLevel(0, { depthFraction: 2 });
+        expect(depthOf(0)).toBe(FULL_DEPTH_FRACTION);
 
         // The core clamp reads a zero as full depth, which is right for a library caller and wrong
         // for a slider: dragging to the left stop must not land on the deepest cut there is.
-        setDepthFraction(0);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(MIN_PANEL_DEPTH_FRACTION);
+        updateLevel(0, { depthFraction: 0 });
+        expect(depthOf(0)).toBe(MIN_PANEL_DEPTH_FRACTION);
 
-        setDepthFraction(-1);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(MIN_PANEL_DEPTH_FRACTION);
+        updateLevel(0, { depthFraction: -1 });
+        expect(depthOf(0)).toBe(MIN_PANEL_DEPTH_FRACTION);
 
-        setDepthFraction(Number.NaN);
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(DEFAULT_DEPTH_FRACTION);
+        updateLevel(0, { depthFraction: Number.NaN });
+        expect(depthOf(0)).toBe(DEFAULT_DEPTH_FRACTION);
     });
 
-    it('switches the residue treatment both ways and leaves the depth where it was', () => {
-        const { setResidue, setDepthFraction } = useRecursiveSubdivisionStore.getState();
-        setDepthFraction(0.4);
+    it('switches a level’s stream treatments both ways and leaves its depth where it was', () => {
+        const { updateLevel } = useRecursiveSubdivisionStore.getState();
+        updateLevel(0, { depthFraction: 0.4 });
 
-        setResidue('void');
-        expect(useRecursiveSubdivisionStore.getState().residue).toBe('void');
-        expect(useRecursiveSubdivisionStore.getState().depthFraction).toBe(0.4);
+        updateLevel(0, { residue: 'void', segments: 'leaf' });
+        expect(useRecursiveSubdivisionStore.getState().levels[0].residue).toBe('void');
+        expect(useRecursiveSubdivisionStore.getState().levels[0].segments).toBe('leaf');
+        expect(useRecursiveSubdivisionStore.getState().levels[0].depthFraction).toBe(0.4);
 
-        setResidue('recurse');
-        expect(useRecursiveSubdivisionStore.getState().residue).toBe('recurse');
+        updateLevel(0, { residue: 'recurse', segments: 'recurse' });
+        expect(useRecursiveSubdivisionStore.getState().levels[0].residue).toBe('recurse');
+        expect(useRecursiveSubdivisionStore.getState().levels[0].segments).toBe('recurse');
+    });
+
+    it('adds and removes rows, which is the only way the depth changes', () => {
+        const { addLevel, removeLevel } = useRecursiveSubdivisionStore.getState();
+        const depth = () => useRecursiveSubdivisionStore.getState().levels.length;
+
+        removeLevel(1);
+        expect(depth()).toBe(2);
+        // The row that was level 2 has moved up, so the array is the composition minus one level
+        // rather than a gap in it.
+        expect(useRecursiveSubdivisionStore.getState().levels)
+            .toEqual([DEFAULT_RECURSIVE_LEVELS[0], DEFAULT_RECURSIVE_LEVELS[2]]);
+
+        addLevel();
+        expect(depth()).toBe(3);
+        expect(useRecursiveSubdivisionStore.getState().levels[2]).toEqual(DEFAULT_LEVEL_SPEC);
+    });
+
+    it('stops adding at the maximum and removing at the minimum', () => {
+        const { addLevel, removeLevel } = useRecursiveSubdivisionStore.getState();
+        const levels = () => useRecursiveSubdivisionStore.getState().levels;
+
+        addLevel();
+        addLevel();
+        expect(levels()).toHaveLength(MAX_RECURSION_LEVELS);
+
+        removeLevel(0);
+        removeLevel(0);
+        removeLevel(0);
+        removeLevel(0);
+        expect(levels()).toHaveLength(MIN_RECURSION_LEVELS);
+        // The one row left is a real spec rather than whatever the last removal left behind.
+        expect(levels()[0]).toEqual(DEFAULT_RECURSIVE_LEVELS[MAX_RECURSION_LEVELS - 1]);
+    });
+
+    it('ignores a removal of a row that does not exist', () => {
+        const { removeLevel } = useRecursiveSubdivisionStore.getState();
+        removeLevel(9);
+        removeLevel(-1);
+        expect(useRecursiveSubdivisionStore.getState().levels).toEqual(DEFAULT_RECURSIVE_LEVELS);
     });
 
     it('toggles one level at a time and leaves its neighbours alone', () => {
@@ -271,14 +438,15 @@ describe('subdivision controls', () => {
         expect(useRecursiveSubdivisionStore.getState().levelVisibility).toEqual([true, true, true]);
     });
 
-    it('keeps a hidden level hidden when the level count is turned down and back up', () => {
-        const { setLevels, toggleLevel } = useRecursiveSubdivisionStore.getState();
+    it('keeps a hidden level hidden when a row is removed and added back', () => {
+        const { addLevel, removeLevel, toggleLevel } = useRecursiveSubdivisionStore.getState();
 
         toggleLevel(2);
-        setLevels(1);
-        setLevels(MAX_RECURSION_LEVELS);
+        removeLevel(2);
+        addLevel();
 
-        // The array is sized by MAX_RECURSION_LEVELS, not by `levels`, so level 2 is still hidden.
+        // The array is sized by MAX_RECURSION_LEVELS, not by the number of rows, so level 2 is
+        // still hidden.
         expect(useRecursiveSubdivisionStore.getState().levelVisibility).toEqual([true, true, false]);
     });
 });
