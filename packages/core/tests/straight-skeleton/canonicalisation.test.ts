@@ -1,6 +1,10 @@
+import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
+    CanonicalPolygon,
     canonicalisePolygon,
     FLOATING_POINT_EPSILON,
+    makeSkeletonNormalisation,
+    normalisePolygon,
     SKELETON_NOISE_FLOOR,
     setSkeletonLogLevel,
     solveSkeleton,
@@ -278,6 +282,73 @@ describe('the floor', () => {
         canonical.vertices[0].x = 99;
 
         expect(input[0].x).toBe(0);
+    });
+});
+
+describe('what the ruled floor actually does to the fixture corpus', () => {
+    /*
+     * Decision 18: report which fixtures are canonicalised at all, and by how much. A hand-authored
+     * fixture rarely carries invisible vertices, so MOST OF THE CORPUS MUST BE UNTOUCHED — a floor
+     * that removes vertices from most of it is too high, and this block is how that is caught rather
+     * than discovered later.
+     *
+     * Pinned as a named set with a set-equality assertion, the same shape as the subdivision failure
+     * lists in `reflex-subdivision.test.ts`, so drift in either direction is loud.
+     */
+
+    /** Every `ALL_TEST_POLYGONS` fixture the ruled floor removes a vertex from. Exactly one. */
+    const CANONICALISED_FIXTURES = ['Long Unbroken Side Then Extreme Acute Angle'];
+
+    /** What the stage does to one fixture, in unit space, where the floor lives. */
+    function canonicaliseFixture(vertices: Vector2[], floor: number): CanonicalPolygon {
+        const normalisation = makeSkeletonNormalisation(vertices);
+        return canonicalisePolygon(normalisePolygon(vertices, normalisation), floor);
+    }
+
+    it('touches exactly one of the 37 fixtures, and removes exactly one vertex from it', () => {
+        const touched = ALL_TEST_POLYGONS
+            .filter(fixture => canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR).removedCount > 0)
+            .map(fixture => fixture.name);
+
+        expect(touched).toEqual(CANONICALISED_FIXTURES);
+
+        const fixture = ALL_TEST_POLYGONS.find(p => p.name === CANONICALISED_FIXTURES[0])!;
+        const canonical = canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR);
+        expect(fixture.vertices).toHaveLength(32);
+        expect(canonical.vertices).toHaveLength(31);
+        // An exactly-collinear vertex, at the noise floor of the arithmetic rather than of the eye.
+        expect(canonical.maxDeviation).toBeLessThan(1e-16);
+    });
+
+    it('is insensitive across four decades, and the sweep says where that stops', () => {
+        // The measured sweep, as an assertion rather than a note. Between 1e-12 and 1e-4 the corpus
+        // does not move at all: the single vertex above is the only one anywhere below 1e-3, and it
+        // goes at any non-zero floor. THE CORPUS IS NOT WHAT BINDS THE FLOOR — the recursive
+        // subdivision arc is, and its per-level tiling identity fails above 3e-6. See
+        // `canonicalisation.ts` for why that band is narrow rather than a plateau.
+        const touchedAt = (floor: number): number => ALL_TEST_POLYGONS
+            .filter(fixture => canonicaliseFixture(fixture.vertices, floor).removedCount > 0).length;
+
+        for (const floor of [1e-12, 1e-10, 1e-8, 1e-7, SKELETON_NOISE_FLOOR, 3e-6, 1e-5, 1e-4]) {
+            expect(touchedAt(floor)).toBe(1);
+        }
+
+        // And the direction decision 18 exists to catch. At 1e-2 the floor is eating real geometry
+        // from over a quarter of the corpus, which is what "too high" looks like from here.
+        expect(touchedAt(1e-3)).toBe(2);
+        expect(touchedAt(1e-2)).toBe(10);
+    });
+
+    it('leaves every fixture solving completely, at the ruled floor and either side of it', () => {
+        const problems: string[] = [];
+        for (const floor of [0, SKELETON_NOISE_FLOOR, 3e-6]) {
+            for (const fixture of ALL_TEST_POLYGONS) {
+                if (!solveSkeleton(fixture.vertices, {noiseFloor: floor}).complete) {
+                    problems.push(`${fixture.name} @ floor ${floor}`);
+                }
+            }
+        }
+        expect(problems.join('; ')).toBe('');
     });
 });
 

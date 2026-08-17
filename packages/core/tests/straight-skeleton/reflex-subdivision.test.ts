@@ -1,4 +1,4 @@
-import {isClockwise, setSkeletonLogLevel, solveSkeleton, Vector2} from '@proc-geo/core';
+import {isClockwise, setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton, Vector2} from '@proc-geo/core';
 
 /*
  * ============================================================================
@@ -136,6 +136,38 @@ function subdivideEdges(polygon: Vector2[], k: number): Vector2[] {
     return vertices;
 }
 
+/** Deterministic sampler, so an irregular insertion either always reproduces or never appears. */
+function makeRandom(seed: number): () => number {
+    let state = seed >>> 0;
+    return () => {
+        state = (state * 1664525 + 1013904223) >>> 0;
+        return state / 4294967296;
+    };
+}
+
+/**
+ * Insert `count` vertices per edge at pseudo-random parameters, preserving winding and the corners.
+ *
+ * The parameters are sorted along each edge and held away from 0 and 1, so the inserted vertices
+ * stay strictly between the corners and in boundary order. An insertion that overshot a corner
+ * would be a different silhouette rather than a different spelling of the same one.
+ */
+function insertIrregularly(polygon: Vector2[], count: number, seed: number): Vector2[] {
+    const random = makeRandom(seed);
+    const vertices: Vector2[] = [];
+    for (let index = 0; index < polygon.length; index++) {
+        const from = polygon[index];
+        const to = polygon[(index + 1) % polygon.length];
+        vertices.push(from);
+
+        const parameters = Array.from({length: count}, () => 0.05 + random() * 0.9).sort((a, b) => a - b);
+        for (const t of parameters) {
+            vertices.push({x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t});
+        }
+    }
+    return vertices;
+}
+
 function solvesCompletely(polygon: Vector2[], k: number): boolean {
     return solveSkeleton(subdivideEdges(clockwise(polygon), k)).complete;
 }
@@ -210,6 +242,32 @@ describe('the emptied lists are the canonicalisation stage\'s doing, and not a w
     it('reproduces the plus\'s recorded regression exactly when the stage is off', () => {
         expect(ALL_K.filter(k => !solvesCompletelyUncanonicalised(DOUBLE_REFLEX_PLUS, k)))
             .toEqual(PLUS_FAILURES_WITHOUT_CANONICALISATION);
+    });
+
+    it('holds for irregularly inserted vertices too, which is a different failure set', () => {
+        /*
+         * Decision 11: probe irregular insertion parameters as well as equal ones, because equal
+         * subdivision is a special input — it manufactures exact simultaneity and exactly equal
+         * spacing that irregular insertion never produces.
+         *
+         * PROBING BOTH IS LOAD-BEARING RATHER THAN THOROUGH, and this is the measurement that shows
+         * it. With the stage switched off the two families catch DIFFERENT failures: the reflex L
+         * fails 4 of 10 regular counts and 0 of 10 irregular seeds, while the double-reflex plus is
+         * the other way round at 1 of 10 regular and 4 of 10 irregular. A suite probing either
+         * family alone would have declared one of these two shapes clean. With the stage on, both
+         * are 0 of 10 either way.
+         */
+        const seeds = Array.from({length: 10}, (_unused, index) => (index + 1) * 7919);
+        const fails = (polygon: Vector2[], floor: number): number =>
+            seeds.filter(seed => !solveSkeleton(
+                insertIrregularly(clockwise(polygon), 2, seed), {noiseFloor: floor}).complete).length;
+
+        expect(fails(REFLEX_L, SKELETON_NOISE_FLOOR)).toBe(0);
+        expect(fails(DOUBLE_REFLEX_PLUS, SKELETON_NOISE_FLOOR)).toBe(0);
+
+        // The conviction, and the asymmetry that makes probing both families necessary.
+        expect(fails(REFLEX_L, 0)).toBe(0);
+        expect(fails(DOUBLE_REFLEX_PLUS, 0)).toBe(4);
     });
 
     it('removes only the inserted vertices, restoring the fixture the solver always handled', () => {
