@@ -31,13 +31,19 @@ const LEVEL_OPTIONS = Array.from({ length: MAX_RECURSION_LEVELS }, (_, index) =>
 /** How many distinct failure reasons to spell out before falling back to a count. */
 const REASONS_SHOWN = 3;
 
+/** One choice of {@link ResidueTreatment}, as the segmented control lists it. */
+export interface ResidueOption {
+    value: ResidueTreatment;
+    label: string;
+}
+
 /**
  * The two residue treatments, as one click apart as they are in the driver.
  *
  * The difference between a subdivided core and a courtyard is the whole boundary-versus-droste
  * question, and comparing them is what this control is for.
  */
-const RESIDUE_OPTIONS: { value: ResidueTreatment; label: string }[] = [
+const RESIDUE_OPTIONS: ResidueOption[] = [
     { value: 'recurse', label: 'Recurse' },
     { value: 'void', label: 'Void' },
 ];
@@ -45,6 +51,16 @@ const RESIDUE_OPTIONS: { value: ResidueTreatment; label: string }[] = [
 /** Depth as the control shows it: a percentage of each region's own maximum offset. */
 function depthLabel(depthFraction: number): string {
     return `${Math.round(depthFraction * 100)}%`;
+}
+
+/**
+ * `n` followed by `word`, given an -s plural.
+ *
+ * Every count this panel reports is a count of something the canvas drew, so they all read the
+ * same way; saying that once keeps "1 regions" from creeping into whichever line is edited next.
+ */
+function pluralize(n: number, word: string): string {
+    return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 /**
@@ -211,8 +227,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                         />
                                     </Group>
                                     <Text size="xs" c="dimmed">
-                                        {level.segments} seg / {level.nodes} region
-                                        {level.nodes === 1 ? '' : 's'}
+                                        {level.segments} seg / {pluralize(level.nodes, 'region')}
                                         {level.residueRings > 0 ? ` / ${level.residueRings} residue` : ''}
                                         {level.discardedResidueRings > 0
                                             ? ` (${level.discardedResidueRings} discarded)`
@@ -225,8 +240,8 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
 
                         <Stack gap={2}>
                             <Text size="xs" c="dimmed">
-                                {summary.totalSegments} segment{summary.totalSegments === 1 ? '' : 's'} in total
-                                &middot; {summary.leafSegments} leaf cell{summary.leafSegments === 1 ? '' : 's'}
+                                {pluralize(summary.totalSegments, 'segment')} in total
+                                &middot; {pluralize(summary.leafSegments, 'leaf cell')}
                             </Text>
                             <Group gap={6} wrap="nowrap">
                                 <Box
@@ -237,8 +252,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                 <Text size="xs" c="dimmed">
                                     {summary.totalResidueRings === 0
                                         ? 'No residue: the segments tile every region.'
-                                        : `${summary.totalResidueRings} residue ring`
-                                            + `${summary.totalResidueRings === 1 ? '' : 's'}`
+                                        : `${pluralize(summary.totalResidueRings, 'residue ring')}`
                                             + `${summary.totalDiscardedResidueRings > 0
                                                 ? `, ${summary.totalDiscardedResidueRings} discarded as degenerate`
                                                 : ''}.`}
@@ -247,7 +261,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                             <Text size="xs" c={summary.totalFailures > 0 ? 'pink' : 'dimmed'}>
                                 {summary.totalFailures === 0
                                     ? 'Every region subdivided.'
-                                    : `${summary.totalFailures} region${summary.totalFailures === 1 ? '' : 's'} did not subdivide.`}
+                                    : `${pluralize(summary.totalFailures, 'region')} did not subdivide.`}
                             </Text>
                             {reasons.slice(0, REASONS_SHOWN).map((reason) => (
                                 <Text key={reason} size="xs" c="pink" lineClamp={3}>
@@ -256,8 +270,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                             ))}
                             {reasons.length > REASONS_SHOWN && (
                                 <Text size="xs" c="pink">
-                                    …and {reasons.length - REASONS_SHOWN} more distinct reason
-                                    {reasons.length - REASONS_SHOWN === 1 ? '' : 's'}.
+                                    …and {pluralize(reasons.length - REASONS_SHOWN, 'more distinct reason')}.
                                 </Text>
                             )}
                         </Stack>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { RecursiveNode, Vector2 } from '@proc-geo/core';
+import { boundsOfPoints } from '@proc-geo/core';
+import type { Bounds2, RecursiveNode } from '@proc-geo/core';
 import { SceneCanvas } from '../scene/SceneCanvas';
 import { recursiveTreeToScene } from '../scene/adapters/recursiveSubdivisionToScene';
 import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
@@ -14,14 +15,6 @@ import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionS
 
 /** Fraction of the viewport the fitted polygon fills, leaving a margin for the heaviest strokes. */
 const FIT_MARGIN_FRACTION = 0.9;
-
-/** Axis-aligned extent of a point set, in polygon units. */
-export interface Bounds {
-    minX: number;
-    minY: number;
-    maxX: number;
-    maxY: number;
-}
 
 /** Viewport extent, in pixels. */
 export interface CanvasSize {
@@ -41,20 +34,8 @@ export interface RecursiveSubdivisionCanvasProps {
     levelVisibility: boolean[];
 }
 
-function boundsOf(points: Vector2[]): Bounds {
-    return points.reduce<Bounds>(
-        (box, p) => ({
-            minX: Math.min(box.minX, p.x),
-            minY: Math.min(box.minY, p.y),
-            maxX: Math.max(box.maxX, p.x),
-            maxY: Math.max(box.maxY, p.y),
-        }),
-        { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity },
-    );
-}
-
 /** Scale and offset that put `bounds` in the middle of a viewport of `size`. */
-export function fitView(bounds: Bounds, size: CanvasSize): CanvasView {
+export function fitView(bounds: Bounds2, size: CanvasSize): CanvasView {
     const width = bounds.maxX - bounds.minX;
     const height = bounds.maxY - bounds.minY;
     if (!(width > 0) || !(height > 0) || size.width <= 0 || size.height <= 0) {
@@ -86,7 +67,7 @@ export default function RecursiveSubdivisionCanvas({ tree, levelVisibility }: Re
         () => recursiveTreeToScene(tree, { levelVisibility, showLeafFills }),
         [tree, levelVisibility, showLeafFills],
     );
-    const bounds = useMemo(() => boundsOf(tree.boundary), [tree]);
+    const bounds = useMemo(() => boundsOfPoints(tree.boundary), [tree]);
 
     // Fits the polygon to the viewport, which is what makes the page draw something on first paint:
     // the fixtures sit at a few hundred units from the origin, so the identity transform would open

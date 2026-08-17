@@ -84,7 +84,6 @@ export {
     fitView,
 } from './components/RecursiveSubdivisionCanvas';
 export type {
-    Bounds,
     CanvasSize,
     CanvasView,
     RecursiveSubdivisionCanvasProps,
