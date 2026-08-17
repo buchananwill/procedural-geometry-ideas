@@ -381,33 +381,78 @@ function bulgeLongestEdge(ring: Vector2[], offset: number): Vector2[] {
 }
 
 /**
- * A region THE DRIVER ITSELF PRODUCED and then could not solve, taken from the corpus rather than
- * hand-authored.
+ * One region THE DRIVER ITSELF PRODUCED and then could not solve, with everything a check of it
+ * needs: the node, the floor its own solve was set up with, and where it came from.
  *
- * Hand-authoring one would mean guessing at what defeats this solver, which is a moving target; a
- * sub-region the recursion cut for itself is the real article, and the census at the end of this file
- * is the standing evidence that the corpus keeps producing them. Degenerate regions are passed over
- * because they are turned away before any canonicalisation runs, and the region is checked to fail
- * AGAIN when it is handed back in as a root of its own — a node's floor is its root's, said in its
- * own unit space, so a region only reproduces its failure as a root where the two agree.
+ * The floor is the ROOT'S, in caller space, because that is the one the driver measured once and
+ * carried down — a node's canonicalisation is only reproducible against it.
  */
-function unsolvableRegion(): Vector2[] {
+interface FailedRegion {
+    /** The node itself. Its `failure` is set, and is not degeneracy. */
+    node: RecursiveNode;
+    /** The caller-space floor the whole tree, and so this node, was canonicalised against. */
+    rootFloor: number;
+    /** Which fixture and depth produced it, for a problem message. */
+    where: string;
+}
+
+/**
+ * The failed nodes of one tree, minus the degenerate ones.
+ *
+ * Degenerate regions are passed over everywhere this file asks about canonicalisation because they
+ * are turned away BEFORE any canonicalisation runs, so they are their own canonical form by
+ * construction rather than by measurement.
+ */
+function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
+    return flattenRecursiveTree(root)
+        .filter(node => node.failure !== undefined && failureKind(node.failure) !== 'degenerate');
+}
+
+/**
+ * Every region the recursion cut for itself and then could not solve, across the whole corpus.
+ *
+ * The one place the `fixture × depth → tree → failed node` traversal is written, so that the two
+ * properties asked of these regions — that at least one of them still fails as a root of its own,
+ * and that every one of them reports the canonicalisation it was solved with — differ only in what
+ * they do with a region rather than in how they find one.
+ *
+ * SWEPT AT `FAILING_REGION_MERGE_GROUP_SIZE`, which is where the interesting population lives; see
+ * that constant for the measurement.
+ */
+function failedRegions(): FailedRegion[] {
+    const regions: FailedRegion[] = [];
     for (const polygon of ALL_TEST_POLYGONS) {
+        const rootFloor = rootFloorOf(polygon.vertices);
         for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
             const root = subdivideRecursively(polygon.vertices, options({
                 levels: MAX_RECURSION_LEVELS,
                 mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
                 depthFraction,
             }));
-            for (const node of flattenRecursiveTree(root)) {
-                if (node.failure === undefined || failureKind(node.failure) === 'degenerate') continue;
-                if (subdivideRecursively(node.boundary, options()).failure !== undefined) {
-                    return node.boundary;
-                }
-            }
+            const where = `${polygon.name} (depth ${depthFraction})`;
+            regions.push(...failedNodesOf(root).map(node => ({node, rootFloor, where})));
         }
     }
-    throw new Error('No corpus region fails to solve when it is handed back in as a root of its own');
+    return regions;
+}
+
+/**
+ * A region the driver produced and could not solve, taken from the corpus rather than hand-authored.
+ *
+ * Hand-authoring one would mean guessing at what defeats this solver, which is a moving target; a
+ * sub-region the recursion cut for itself is the real article, and the census at the end of this file
+ * is the standing evidence that the corpus keeps producing them. The region is checked to fail AGAIN
+ * when it is handed back in as a root of its own — a node's floor is its root's, said in its own unit
+ * space, so a region only reproduces its failure as a root where the two agree.
+ */
+function unsolvableRegion(): Vector2[] {
+    const region = failedRegions()
+        .map(failed => failed.node.boundary)
+        .find(boundary => subdivideRecursively(boundary, options()).failure !== undefined);
+    if (region === undefined) {
+        throw new Error('No corpus region fails to solve when it is handed back in as a root of its own');
+    }
+    return region;
 }
 
 /** Structural invariants every node of every tree must satisfy. Returns the problems it found. */
@@ -571,6 +616,46 @@ function exactnessProblems(node: RecursiveNode, where: string): CanonicalExactne
             `${where} level ${node.level}: drifted by ${node.canonicalAreaDrift} having removed nothing`);
     }
     return {problems, reduced: false};
+}
+
+/**
+ * What one failed region contributed to the sweep over {@link failedRegions}: the problems it showed,
+ * and whether the floor really took anything out of it.
+ *
+ * Carried together for the same reason {@link CanonicalExactness} carries them: the sweep has to
+ * convict itself of being non-vacuous — that failed nodes which LOST a vertex before failing actually
+ * occur — and a collector that returned only problems could not say so.
+ */
+interface FailedCanonicalisation {
+    /** Ways this node misreports the canonicalisation its own solve was set up with. Empty where it does not. */
+    problems: string[];
+    /** True where the floor removed at least one vertex before the solve went on to fail. */
+    reduced: boolean;
+}
+
+/**
+ * A failed node at the corpus scale: what the floor leaves standing on the region it was handed,
+ * asked of `canonicalisePolygon` directly, against what the node reports.
+ *
+ * Reached for where the node has no graph to read a surviving ring out of — which is exactly where
+ * the driver used to substitute the polygon it was handed, zeroing a removal that had happened.
+ */
+function failedCanonicalisation(failed: FailedRegion): FailedCanonicalisation {
+    const {node, rootFloor, where} = failed;
+    const expected = canonicalRingOf(node.boundary, rootFloor);
+    const problems: string[] = [];
+    if (!sameVertices(node.canonicalBoundary, expected)) {
+        problems.push(
+            `${where} level ${node.level}: the floor leaves ${expected.length} of `
+            + `${node.boundary.length} vertices, the node reports ${node.canonicalBoundary.length}`);
+    }
+    const drift = relativeAreaDrift(node.boundary, expected);
+    if (node.canonicalAreaDrift !== drift) {
+        problems.push(
+            `${where} level ${node.level}: drifted by ${drift}, the node reports `
+            + `${node.canonicalAreaDrift}`);
+    }
+    return {problems, reduced: expected.length < node.boundary.length};
 }
 
 /**
@@ -1138,37 +1223,9 @@ describe('recursive segment subdivision', () => {
             // The corpus reading of the same thing: every region that failed for a reason other than
             // degeneracy is asked what the floor left it, and the answer is checked against what
             // `canonicalisePolygon` says at the floor that node was really solved at.
-            const problems: string[] = [];
-            let reduced = 0;
-            for (const polygon of ALL_TEST_POLYGONS) {
-                const rootFloor = rootFloorOf(polygon.vertices);
-                for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
-                    const where = `${polygon.name} (depth ${depthFraction})`;
-                    const root = subdivideRecursively(polygon.vertices, options({
-                        levels: MAX_RECURSION_LEVELS,
-                        mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
-                        depthFraction,
-                    }));
-                    for (const node of flattenRecursiveTree(root)) {
-                        if (node.failure === undefined || failureKind(node.failure) === 'degenerate') continue;
-                        const expected = canonicalRingOf(node.boundary, rootFloor);
-                        if (!sameVertices(node.canonicalBoundary, expected)) {
-                            problems.push(
-                                `${where} level ${node.level}: the floor leaves ${expected.length} of `
-                                + `${node.boundary.length} vertices, the node reports `
-                                + `${node.canonicalBoundary.length}`);
-                        }
-                        const drift = relativeAreaDrift(node.boundary, expected);
-                        if (node.canonicalAreaDrift !== drift) {
-                            problems.push(
-                                `${where} level ${node.level}: drifted by ${drift}, the node reports `
-                                + `${node.canonicalAreaDrift}`);
-                        }
-                        if (expected.length < node.boundary.length) reduced += 1;
-                    }
-                }
-            }
-            expect(problems).toEqual([]);
+            const canonicalisations = failedRegions().map(failedCanonicalisation);
+            expect(canonicalisations.flatMap(failed => failed.problems)).toEqual([]);
+            const reduced = canonicalisations.filter(failed => failed.reduced).length;
             // Not vacuous: five failed nodes in the corpus lost a vertex to the floor before failing,
             // which is the population the check exists for. Should the solver ever improve until this
             // count reaches zero, the metamorphic pair above is what still pins the behaviour — this
