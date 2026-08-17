@@ -1,18 +1,23 @@
 import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
+    BoundaryRun,
     CanonicalPolygon,
     canonicalisePolygon,
     FLOATING_POINT_EPSILON,
     makeSkeletonNormalisation,
     normalisePolygon,
+    remapRuns,
+    REMOVED_VERTEX_INDEX,
     runAlgorithmV5,
     runAlgorithmV5Stepped,
+    runBoundaryVertexIndices,
     SKELETON_NOISE_FLOOR,
     setSkeletonLogLevel,
     solveSkeleton,
     Vector2,
 } from '@proc-geo/core';
 
+import {insertRegularly} from './subdivision-helpers';
 import {distanceToSegment} from './wavefront-measurement-helpers';
 
 /**
@@ -427,6 +432,292 @@ describe('canonicalisation is reported, never silent', () => {
 
         expect(result.diagnostics.filter(d => d.kind === 'vertices-canonicalised')).toHaveLength(0);
         expect(result.graph.numExteriorNodes).toBe(7);
+    });
+});
+
+describe('the index remap says where every input vertex went', () => {
+    /*
+     * Decision 6. Removing a vertex renumbers every index after it, so anything recorded against the
+     * input ring — a boundary run above all — refers to the wrong geometry afterwards. The remap is
+     * how such a record is CARRIED rather than recomputed from the surviving geometry, which would
+     * be a proximity test standing in for a topological fact.
+     */
+
+    it('is the identity when nothing was removed', () => {
+        const canonical = canonicalisePolygon(UNIT_SQUARE, SKELETON_NOISE_FLOOR);
+
+        expect(canonical.indexRemap).toEqual([0, 1, 2, 3]);
+    });
+
+    it('marks removed vertices and renumbers the survivors after them', () => {
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR);
+
+        expect(canonical.indexRemap).toEqual([
+            0, REMOVED_VERTEX_INDEX, REMOVED_VERTEX_INDEX, REMOVED_VERTEX_INDEX, 1, 2, 3,
+        ]);
+    });
+
+    it('is as long as the input, and points every survivor at its own vertex', () => {
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR);
+
+        expect(canonical.indexRemap).toHaveLength(RIPPLED_EDGE.length);
+        expect(canonical.indexRemap.filter(index => index !== REMOVED_VERTEX_INDEX))
+            .toHaveLength(canonical.vertices.length);
+
+        canonical.indexRemap.forEach((survivingIndex, inputIndex) => {
+            if (survivingIndex === REMOVED_VERTEX_INDEX) {
+                return;
+            }
+            expect(canonical.vertices[survivingIndex]).toEqual(RIPPLED_EDGE[inputIndex]);
+        });
+    });
+});
+
+describe('a pinned vertex is never removed', () => {
+    /*
+     * Decision 7. A run boundary is where access changes to non-access — semantically significant
+     * however small its deviation happens to be. Pinning a handful of vertices costs nothing and
+     * removes the whole class of failure where a canonicalisation silently fuses a road run into the
+     * fence beside it.
+     */
+
+    it('keeps a vertex the floor would otherwise have taken', () => {
+        const unpinned = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR);
+        const pinned = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [1]);
+
+        // The mutation that convicts the rule: the same input, the same floor, one pin.
+        expect(unpinned.removedCount).toBe(3);
+        expect(unpinned.indexRemap[1]).toBe(REMOVED_VERTEX_INDEX);
+        expect(pinned.indexRemap[1]).not.toBe(REMOVED_VERTEX_INDEX);
+        expect(pinned.vertices).toContainEqual(RIPPLED_EDGE[1]);
+    });
+
+    it('protects a vertex rather than the stage, and the rest is measured against what remains', () => {
+        const pinned = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [1]);
+
+        // Vertex 3 still goes: the pin is a pin and not a switch. Vertex 2 then STAYS, because the
+        // dip at vertex 1 that held it above the floor is still there — the fixed point is measured
+        // against the ring that remains, so a pin changes what its neighbours are measured against.
+        expect(pinned.removedCount).toBe(1);
+        expect(pinned.indexRemap[3]).toBe(REMOVED_VERTEX_INDEX);
+        expect(pinned.indexRemap[2]).not.toBe(REMOVED_VERTEX_INDEX);
+    });
+
+    it('removes nothing at all when every vertex is pinned', () => {
+        const everything = RIPPLED_EDGE.map((_unused, index) => index);
+
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, everything);
+
+        expect(canonical.removedCount).toBe(0);
+        expect(canonical.maxDeviation).toBe(0);
+        expect(canonical.vertices).toEqual(RIPPLED_EDGE);
+    });
+
+    it('leaves an unpinned call behaving exactly as it did before pins existed', () => {
+        const withoutArgument = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR);
+        const withEmptyPins = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, []);
+
+        expect(withEmptyPins).toEqual(withoutArgument);
+        expect(withoutArgument.pinnedCount).toBe(0);
+        expect(withoutArgument.pinnedUnderFloorCount).toBe(0);
+    });
+
+    it('still never reduces a ring below three vertices', () => {
+        const ring = Array.from({length: 20}, (_unused, index) => {
+            const angle = (2 * Math.PI * index) / 20;
+            return {x: 1e-12 * Math.cos(angle), y: 1e-12 * Math.sin(angle)};
+        });
+
+        const canonical = canonicalisePolygon(ring, SKELETON_NOISE_FLOOR, [0, 5]);
+
+        expect(canonical.vertices).toHaveLength(3);
+        expect(canonical.indexRemap[0]).not.toBe(REMOVED_VERTEX_INDEX);
+        expect(canonical.indexRemap[5]).not.toBe(REMOVED_VERTEX_INDEX);
+    });
+
+    it('rejects a pin that is not a vertex of the polygon it was handed', () => {
+        // A pin silently dropped is precisely the failure pinning exists to prevent, so an index the
+        // ring does not have is a disagreement about which polygon this is, not a no-op.
+        expect(() => canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [7])).toThrow(/pin/i);
+        expect(() => canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [-1])).toThrow(/pin/i);
+        expect(() => canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [1.5])).toThrow(/pin/i);
+    });
+});
+
+describe('pinning is reported, and distinguished from removal', () => {
+    /*
+     * Decision 8. A polygon whose vertices are mostly pinned is a signal that its runs are
+     * fragmented, and that is worth seeing here rather than inferring later from a strange-looking
+     * slice. `pinnedUnderFloorCount` is the sharper half: a ring that came back carrying geometry
+     * the floor calls invisible, BY DECISION rather than because the stage failed to fire.
+     */
+
+    it('counts the pins it honoured, deduplicated', () => {
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [1, 1, 4]);
+
+        expect(canonical.pinnedCount).toBe(2);
+    });
+
+    it('counts separately the pins that are what kept their vertex', () => {
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [1, 4]);
+
+        // Vertex 1 is under the floor in the ring that came back; vertex 4 is a corner of the square
+        // and stands well clear of it. Both are pinned; only one was kept by its pin.
+        expect(canonical.pinnedCount).toBe(2);
+        expect(canonical.pinnedUnderFloorCount).toBe(1);
+        expect(canonical.removedCount).toBe(1);
+    });
+
+    it('says nothing was kept by a pin when no pin was load-bearing', () => {
+        const canonical = canonicalisePolygon(RIPPLED_EDGE, SKELETON_NOISE_FLOOR, [0, 4, 5]);
+
+        expect(canonical.pinnedCount).toBe(3);
+        expect(canonical.pinnedUnderFloorCount).toBe(0);
+        expect(canonical.removedCount).toBe(3);
+    });
+});
+
+/** The polyline a run covers: its edges' vertices, in boundary order, `endIndex + 1` inclusive. */
+function runPolyline(boundary: readonly Vector2[], run: BoundaryRun): Vector2[] {
+    const polyline: Vector2[] = [];
+    for (let step = 0; ; step++) {
+        const index = (run.startIndex + step) % boundary.length;
+        polyline.push(boundary[index]);
+        if (index === run.endIndex) {
+            polyline.push(boundary[(index + 1) % boundary.length]);
+            return polyline;
+        }
+    }
+}
+
+/** How far `point` lies from the polyline `chain`, measured segment by segment. */
+function distanceToPolyline(point: Vector2, chain: readonly Vector2[]): number {
+    let distance = Infinity;
+    for (let index = 0; index + 1 < chain.length; index++) {
+        distance = Math.min(distance, distanceToSegment(point, chain[index], chain[index + 1]));
+    }
+    return distance;
+}
+
+describe('a run survives a canonicalisation that actually removes vertices', () => {
+    /*
+     * Decision 12. The remap is tested against a stage that MOVES, not against a hand-authored
+     * fixture it happens to be a no-op on: a unit square with every edge cut into four, so twelve
+     * exactly-collinear vertices go, three of them from inside the tagged run. What is compared is
+     * POSITIONS, since the indices are exactly what changed.
+     */
+
+    /** The unit square, each edge cut into four. Sixteen vertices; the four corners are the first of each. */
+    const SUBDIVIDED_SQUARE: Vector2[] = insertRegularly(UNIT_SQUARE, 4);
+
+    /** Edges 0–3 are the bottom of the square: one access run, spanning the subdivided stretch. */
+    const SUBDIVIDED_RUNS: BoundaryRun[] = [
+        {startIndex: 0, endIndex: 3, provenance: 'perimeter-access'},
+        {startIndex: 4, endIndex: 15, provenance: 'perimeter-plain'},
+    ];
+
+    it('removes vertices from inside the run, which is what makes this a test', () => {
+        const canonical = canonicalisePolygon(
+            SUBDIVIDED_SQUARE, SKELETON_NOISE_FLOOR, runBoundaryVertexIndices(SUBDIVIDED_RUNS));
+
+        expect(SUBDIVIDED_SQUARE).toHaveLength(16);
+        expect(canonical.removedCount).toBe(12);
+        expect(canonical.vertices).toEqual(UNIT_SQUARE);
+        for (const inside of [1, 2, 3]) {
+            expect(canonical.indexRemap[inside]).toBe(REMOVED_VERTEX_INDEX);
+        }
+    });
+
+    it('carries the run onto the same stretch of boundary, compared as geometry', () => {
+        const canonical = canonicalisePolygon(
+            SUBDIVIDED_SQUARE, SKELETON_NOISE_FLOOR, runBoundaryVertexIndices(SUBDIVIDED_RUNS));
+
+        const carried = remapRuns(SUBDIVIDED_RUNS, canonical.indexRemap, canonical.vertices.length);
+
+        expect(carried).toHaveLength(2);
+        expect(carried.map(run => run.provenance)).toEqual(['perimeter-access', 'perimeter-plain']);
+
+        const before = runPolyline(SUBDIVIDED_SQUARE, SUBDIVIDED_RUNS[0]);
+        const after = runPolyline(canonical.vertices, carried[0]);
+
+        // Same endpoints, to the bit.
+        expect(after[0]).toEqual(before[0]);
+        expect(after[after.length - 1]).toEqual(before[before.length - 1]);
+        // And everything the run used to pass through still lies on it.
+        for (const vertex of before) {
+            expect(distanceToPolyline(vertex, after)).toBeLessThan(SKELETON_NOISE_FLOOR);
+        }
+    });
+
+    it('carries the OTHER run just as exactly, so nothing was double-counted', () => {
+        const canonical = canonicalisePolygon(
+            SUBDIVIDED_SQUARE, SKELETON_NOISE_FLOOR, runBoundaryVertexIndices(SUBDIVIDED_RUNS));
+
+        const carried = remapRuns(SUBDIVIDED_RUNS, canonical.indexRemap, canonical.vertices.length);
+
+        const before = runPolyline(SUBDIVIDED_SQUARE, SUBDIVIDED_RUNS[1]);
+        const after = runPolyline(canonical.vertices, carried[1]);
+
+        expect(after[0]).toEqual(before[0]);
+        expect(after[after.length - 1]).toEqual(before[before.length - 1]);
+        for (const vertex of before) {
+            expect(distanceToPolyline(vertex, after)).toBeLessThan(SKELETON_NOISE_FLOOR);
+        }
+    });
+});
+
+describe('the pinning rule at its hard case: a lane mouth meeting a frontage tangentially', () => {
+    /*
+     * Decision 13, and without this test decision 7 is a comment. The vertex where a lane gives way
+     * to the frontage beside it deviates by three tenths of the floor — genuinely invisible, and
+     * genuinely the place where a road stops being a road.
+     */
+
+    /** A unit square whose bottom edge carries a lane mouth 0.3 of the floor off the chord. */
+    const LANE_MOUTH: Vector2[] = [
+        {x: 0, y: 0},
+        {x: 0.5, y: -0.3 * SKELETON_NOISE_FLOOR},
+        {x: 1, y: 0},
+        {x: 1, y: 1},
+        {x: 0, y: 1},
+    ];
+
+    /** Edge 0 is the lane; edges 1–4 are the frontage it opens onto. Vertex 1 is the seam. */
+    const LANE_RUNS: BoundaryRun[] = [
+        {startIndex: 0, endIndex: 0, provenance: 'lane'},
+        {startIndex: 1, endIndex: 4, provenance: 'perimeter-access'},
+    ];
+
+    it('is genuinely under the floor, which is the premise', () => {
+        expect(deviations(LANE_MOUTH)[1]).toBeLessThan(SKELETON_NOISE_FLOOR);
+        expect(deviations(LANE_MOUTH)[1]).toBeGreaterThan(0);
+        expect(runBoundaryVertexIndices(LANE_RUNS)).toEqual([0, 1]);
+    });
+
+    it('loses the seam entirely without the pin, and the run cannot be carried across', () => {
+        // The mutation. Unpinned, the stage does exactly what it is for — and takes the boundary
+        // between the lane and the frontage with it, which is the failure decision 7 names.
+        const unpinned = canonicalisePolygon(LANE_MOUTH, SKELETON_NOISE_FLOOR);
+
+        expect(unpinned.removedCount).toBe(1);
+        expect(unpinned.indexRemap[1]).toBe(REMOVED_VERTEX_INDEX);
+        expect(() => remapRuns(LANE_RUNS, unpinned.indexRemap, unpinned.vertices.length))
+            .toThrow(/removed|pin/i);
+    });
+
+    it('keeps the seam when the run boundaries are pinned, and the runs stay distinct', () => {
+        const canonical = canonicalisePolygon(
+            LANE_MOUTH, SKELETON_NOISE_FLOOR, runBoundaryVertexIndices(LANE_RUNS));
+
+        expect(canonical.removedCount).toBe(0);
+        expect(canonical.vertices).toEqual(LANE_MOUTH);
+        expect(canonical.pinnedCount).toBe(2);
+        expect(canonical.pinnedUnderFloorCount).toBe(1);
+
+        const carried = remapRuns(LANE_RUNS, canonical.indexRemap, canonical.vertices.length);
+
+        expect(carried).toEqual(LANE_RUNS);
+        expect(runPolyline(canonical.vertices, carried[0])).toEqual([LANE_MOUTH[0], LANE_MOUTH[1]]);
     });
 });
 

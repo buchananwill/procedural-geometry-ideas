@@ -57,7 +57,39 @@ export interface CanonicalPolygon {
     removedCount: number;
     /** The largest perpendicular deviation actually discarded. Zero when nothing was removed. */
     maxDeviation: number;
+    /**
+     * Input vertex index to surviving vertex index, {@link REMOVED_VERTEX_INDEX} where the vertex
+     * did not survive. Always as long as the input.
+     *
+     * WHAT MAKES A BOUNDARY RUN SURVIVE THIS STAGE. Removing a vertex renumbers every index after
+     * it, so anything recorded against the input ring — a `BoundaryRun`, an entrance, a supporting
+     * edge — refers to the wrong geometry afterwards. Recomputing such a record from the surviving
+     * geometry would be a proximity test standing in for a topological fact, which is the one thing
+     * the region vocabulary exists to avoid; the record is carried through this remap instead. See
+     * `remapRuns` in `region.ts`, and the stroke pipeline's `inputToDeduped` for the precedent.
+     */
+    indexRemap: number[];
+    /**
+     * How many distinct input vertices were pinned, and therefore exempt from removal.
+     *
+     * REPORTED BECAUSE IT IS A SIGNAL, not because the caller cannot count its own argument: a
+     * polygon whose vertices are mostly pinned is a polygon whose runs are fragmented, and that is
+     * worth seeing here rather than inferring later from a strange-looking slice.
+     */
+    pinnedCount: number;
+    /**
+     * How many of those pinned vertices are STILL under the floor in the returned ring — the ones
+     * the pin, and only the pin, kept.
+     *
+     * This is what distinguishes a pinned vertex from a removed one in the report. A non-zero count
+     * says the ring came back carrying geometry the floor calls invisible, which is a deliberate
+     * outcome of decision 7 rather than a stage that failed to fire.
+     */
+    pinnedUnderFloorCount: number;
 }
+
+/** {@link CanonicalPolygon.indexRemap} entry for an input vertex that was removed. */
+export const REMOVED_VERTEX_INDEX = -1;
 
 /**
  * The unit-space deviation below which a vertex is invisible and is removed.
@@ -113,31 +145,111 @@ const MINIMUM_RING_SIZE = 3;
  * which is what lets the metamorphic gate be convicted by mutation through the public option rather
  * than through a test seam in this module.
  *
+ * A PINNED VERTEX IS NEVER REMOVED, whatever its deviation. `pinnedIndices` are indices into
+ * `vertices`, and the caller that has them is the one holding boundary runs: a run boundary is where
+ * access changes to non-access, semantically significant however small its deviation happens to be,
+ * and a lane mouth meeting a frontage almost tangentially genuinely can fall under the floor. See
+ * `runBoundaryVertexIndices` in `region.ts` for which vertices those are. An index that is not an
+ * integer inside the ring is REJECTED rather than ignored, because a pin silently dropped is exactly
+ * the failure the pinning exists to prevent. Pinning nothing — the default — leaves this stage
+ * behaving precisely as it did before pins existed.
+ *
  * Returns fresh vertex objects and never aliases the input, matching `vertex-budget.ts`, so a caller
  * mutating the result cannot reach back into the polygon it passed in.
  */
 export function canonicalisePolygon(
     vertices: readonly Vector2[],
     noiseFloor: number,
+    pinnedIndices: readonly number[] = [],
 ): CanonicalPolygon {
+    const pinned = validatePinnedIndices(pinnedIndices, vertices.length);
     const surviving: Vector2[] = vertices.map(vertex => ({x: vertex.x, y: vertex.y}));
+    // The input index each surviving vertex came from, kept alongside the ring rather than searched
+    // for afterwards: it is what makes a pin follow its vertex through every renumbering, and it is
+    // the remap itself, read the other way round.
+    const origins: number[] = vertices.map((_unused, index) => index);
 
     let removedCount = 0;
     let maxDeviation = 0;
 
     while (surviving.length > MINIMUM_RING_SIZE) {
-        const weakest = findWeakestVertex(surviving);
+        const weakest = findWeakestVertex(surviving, origins, pinned);
         // NEGATED RATHER THAN `>=`, so a `NaN` floor breaks the loop instead of spinning on it.
-        if (!(weakest.deviation < noiseFloor)) {
+        if (weakest === null || !(weakest.deviation < noiseFloor)) {
             break;
         }
 
         surviving.splice(weakest.index, 1);
+        origins.splice(weakest.index, 1);
         removedCount += 1;
         maxDeviation = Math.max(maxDeviation, weakest.deviation);
     }
 
-    return {vertices: surviving, removedCount, maxDeviation};
+    const indexRemap: number[] = new Array(vertices.length).fill(REMOVED_VERTEX_INDEX);
+    origins.forEach((origin, index) => {
+        indexRemap[origin] = index;
+    });
+
+    return {
+        vertices: surviving,
+        removedCount,
+        maxDeviation,
+        indexRemap,
+        pinnedCount: pinned.size,
+        pinnedUnderFloorCount: countPinnedUnderFloor(surviving, origins, pinned, noiseFloor),
+    };
+}
+
+/**
+ * The pins, deduplicated, having rejected anything that is not an index of `vertices`.
+ *
+ * Loud rather than lenient: a pin outside the ring means the caller's runs and the caller's polygon
+ * disagree about which polygon they are, and continuing would canonicalise a run boundary away while
+ * reporting that it was protected.
+ */
+function validatePinnedIndices(pinnedIndices: readonly number[], vertexCount: number): ReadonlySet<number> {
+    const pinned = new Set<number>();
+    for (const index of pinnedIndices) {
+        if (!Number.isInteger(index) || index < 0 || index >= vertexCount) {
+            throw new Error(
+                `Pinned index ${index} is not a vertex of a ${vertexCount}-vertex polygon; `
+                + `pins must be integers in [0, ${vertexCount}).`);
+        }
+        pinned.add(index);
+    }
+    return pinned;
+}
+
+/**
+ * How many pinned vertices are still under `noiseFloor` in the ring that came back.
+ *
+ * Measured on the RESULT rather than tallied as the loop passes them over, so it answers the
+ * question the report is about — what the caller is holding — rather than the question of how many
+ * times the search happened to look at a pin. A `NaN` floor counts nothing, by the same negated
+ * comparison the loop uses.
+ */
+function countPinnedUnderFloor(
+    ring: readonly Vector2[],
+    origins: readonly number[],
+    pinned: ReadonlySet<number>,
+    noiseFloor: number,
+): number {
+    if (pinned.size === 0) {
+        return 0;
+    }
+
+    let count = 0;
+    for (let index = 0; index < ring.length; index++) {
+        if (!pinned.has(origins[index])) {
+            continue;
+        }
+        const previous = ring[(index - 1 + ring.length) % ring.length];
+        const next = ring[(index + 1) % ring.length];
+        if (distanceToSegment(ring[index], previous, next) < noiseFloor) {
+            count += 1;
+        }
+    }
+    return count;
 }
 
 /** The vertex of a closed ring contributing least to its silhouette, and by how little. */
@@ -147,17 +259,28 @@ interface WeakestVertex {
 }
 
 /**
- * The ring vertex with the smallest perpendicular deviation from the chord between its neighbours.
+ * The removable ring vertex with the smallest perpendicular deviation from the chord between its
+ * neighbours, or `null` when every remaining vertex is pinned.
  *
  * Ties resolve to the LOWEST INDEX, which is what keeps the fixed point deterministic: an exactly
  * subdivided edge produces runs of vertices whose deviations are bit-identical, and an arbitrary
  * tie-break would make the surviving ring depend on the scan direction.
+ *
+ * A pinned vertex is skipped as a CANDIDATE but still contributes its position: it remains a
+ * neighbour, so the chords either side of it are the chords the surviving ring actually has.
  */
-function findWeakestVertex(ring: readonly Vector2[]): WeakestVertex {
-    let index = 0;
+function findWeakestVertex(
+    ring: readonly Vector2[],
+    origins: readonly number[],
+    pinned: ReadonlySet<number>,
+): WeakestVertex | null {
+    let index = -1;
     let deviation = Infinity;
 
     for (let candidate = 0; candidate < ring.length; candidate++) {
+        if (pinned.has(origins[candidate])) {
+            continue;
+        }
         const previous = ring[(candidate - 1 + ring.length) % ring.length];
         const next = ring[(candidate + 1) % ring.length];
         const candidateDeviation = distanceToSegment(ring[candidate], previous, next);
@@ -167,5 +290,5 @@ function findWeakestVertex(ring: readonly Vector2[]): WeakestVertex {
         }
     }
 
-    return {index, deviation};
+    return index === -1 ? null : {index, deviation};
 }

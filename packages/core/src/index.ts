@@ -44,7 +44,21 @@ export {
 
 // ── Input canonicalisation (the render-scale noise floor) ────────────────────
 export type { CanonicalPolygon } from './straight-skeleton/canonicalisation';
-export { SKELETON_NOISE_FLOOR, canonicalisePolygon } from './straight-skeleton/canonicalisation';
+export { REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR, canonicalisePolygon } from './straight-skeleton/canonicalisation';
+
+// ── Regions and boundary provenance ──────────────────────────────────────────
+export type { BoundaryProvenance, BoundaryRun, Region } from './straight-skeleton/region';
+export {
+  ACCESS_PROVENANCES,
+  accessRuns,
+  assertBoundaryPartition,
+  assertRunPartition,
+  isAccessProvenance,
+  makeRootRegion,
+  remapRuns,
+  runBoundaryVertexIndices,
+  runEdgeCount,
+} from './straight-skeleton/region';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 export { FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
