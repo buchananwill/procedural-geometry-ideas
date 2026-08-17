@@ -183,6 +183,7 @@ export interface AlgorithmStepOutput {
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
+    | 'vertices-canonicalised'
     | 'self-intersecting'
     | 'step-failure'
     | 'unresolved-edges';
@@ -205,8 +206,9 @@ export interface SkeletonSolveResult {
     context: StraightSkeletonSolverContext | null;
     /**
      * True when the skeleton is fully resolved: no `step-failure` and no `unresolved-edges`
-     * diagnostics, and the graph has at least one interior edge. A `winding-normalised` or
-     * `self-intersecting` diagnostic on its own does not make a result incomplete.
+     * diagnostics, and the graph has at least one interior edge. A `winding-normalised`,
+     * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
+     * incomplete — all three are informational reports of what the boundary stage did to the input.
      */
     complete: boolean;
     diagnostics: SkeletonDiagnostic[];

@@ -38,6 +38,7 @@ import {
     makeSkeletonNormalisation,
     normalisePolygon,
 } from "./normalisation";
+import {SKELETON_NOISE_FLOOR, canonicalisePolygon} from "./canonicalisation";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -481,15 +482,18 @@ function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
 /**
  * Legacy entry point, preserved verbatim for existing callers.
  *
- * It reports nothing about how well the solve went, and retains three silent-failure modes:
+ * It reports nothing about how well the solve went, and retains four silent-failure modes:
  * 1. Counter-clockwise input does not throw — it yields a graph with only the boundary and no
  *    resolved interior edges.
  * 2. Per-sub-polygon exceptions are swallowed by `stepAlgorithm`, so a partially-resolved
  *    skeleton is indistinguishable from a complete one.
  * 3. Self-intersecting input returns the merged solver context, whose helpers throw when called.
+ * 4. Input canonicalisation can remove vertices, so the returned graph may carry fewer exterior
+ *    nodes than the caller passed in, with nothing said about it. There is no diagnostics channel
+ *    here to say it on — which is the whole reason this entry point is legacy.
  *
- * Prefer {@link solveSkeleton}, which normalises winding, reports diagnostics, and returns
- * `context: null` instead of a throwing stub for the merged path.
+ * Prefer {@link solveSkeleton}, which normalises winding, reports every one of those on
+ * `diagnostics`, and returns `context: null` instead of a throwing stub for the merged path.
  */
 export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
@@ -501,7 +505,9 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     // The decomposition runs in UNIT space along with the solve, because its crossing test carries
     // the same absolute tolerances the solver does.
     const normalisation = makeSkeletonNormalisation(nodes);
-    const unitNodes = normalisePolygon(nodes, normalisation);
+    // CANONICALISED IN UNIT SPACE, immediately after. See `canonicalisation.ts`. The removal is
+    // silent here for want of anywhere to report it; `solveSkeleton` reports it.
+    const unitNodes = canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 
@@ -534,6 +540,24 @@ export interface SolveSkeletonOptions {
      * Defaults to `true`.
      */
     normaliseWinding?: boolean;
+    /**
+     * Override the deviation below which an input vertex is treated as invisible and removed.
+     * Defaults to {@link SKELETON_NOISE_FLOOR}.
+     *
+     * IN UNIT SPACE, NOT THE CALLER'S. Canonicalisation runs after the polygon has been carried to
+     * unit extent, so this value does NOT go through `normaliseLength` — it is compared directly
+     * against unit-space deviations, which is what makes it relative by construction. See
+     * `canonicalisation.ts`.
+     *
+     * THE FLOOR BELONGS TO THE ROOT REGION, which is why it is accepted here rather than derived from
+     * the polygon. For a direct call the two coincide. The recursion driver will pass a sub-region's
+     * root floor down through this option, because normalising a thin sliver to its own extent would
+     * scale it up enormously and leave it holding every degenerate vertex it has.
+     *
+     * Zero is an exact identity — nothing is removed — which is the supported way to turn the stage
+     * off and measure what it is buying.
+     */
+    noiseFloor?: number;
 }
 
 /** Collect the interior edges of a solved graph that never acquired a target node. */
@@ -565,6 +589,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     }
 
     const normaliseWinding = options?.normaliseWinding ?? true;
+    const noiseFloor = options?.noiseFloor ?? SKELETON_NOISE_FLOOR;
     const diagnostics: SkeletonDiagnostic[] = [];
 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts`. The
@@ -572,13 +597,29 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     // carry the same absolute tolerances and both would otherwise change meaning with the caller's
     // coordinates. Everything on the returned result is carried back before it is handed over.
     const normalisation = makeSkeletonNormalisation(vertices);
-    let workingVertices = normalisePolygon(vertices, normalisation);
+    const unitVertices = normalisePolygon(vertices, normalisation);
+
+    // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
+    // which is what makes it relative by construction rather than a second tolerance system living
+    // alongside the first. See `canonicalisation.ts` for what the stage removes and why removing the
+    // input beats handling it.
+    const canonical = canonicalisePolygon(unitVertices, noiseFloor);
+    let workingVertices = canonical.vertices;
+
+    if (canonical.removedCount > 0) {
+        diagnostics.push({
+            kind: 'vertices-canonicalised',
+            detail: `${canonical.removedCount} vertex(es) removed before solving as invisible at the `
+                + `${noiseFloor} unit-space noise floor; largest discarded deviation `
+                + `${canonical.maxDeviation}. ${workingVertices.length} vertices remain.`,
+        });
+    }
 
     if (normaliseWinding && !isClockwise(workingVertices)) {
         workingVertices = [...workingVertices].reverse();
         diagnostics.push({
             kind: 'winding-normalised',
-            detail: `Input was counter-clockwise; ${vertices.length} vertices reversed to clockwise winding before solving.`,
+            detail: `Input was counter-clockwise; ${workingVertices.length} vertices reversed to clockwise winding before solving.`,
         });
     }
 
@@ -664,7 +705,9 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     // not just the last: they are what a debug visualiser draws, and scrubbing through a sequence of
     // graphs half of which were in unit space would be worse than useless.
     const normalisation = makeSkeletonNormalisation(nodes);
-    const unitNodes = normalisePolygon(nodes, normalisation);
+    // CANONICALISED IN UNIT SPACE, immediately after, so the stepped visualiser walks the same
+    // polygon the solving entry points do. See `canonicalisation.ts`.
+    const unitNodes = canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 

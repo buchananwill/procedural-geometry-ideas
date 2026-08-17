@@ -42,6 +42,10 @@ export {
   denormaliseCollisionCache,
 } from './straight-skeleton/normalisation';
 
+// ── Input canonicalisation (the render-scale noise floor) ────────────────────
+export type { CanonicalPolygon } from './straight-skeleton/canonicalisation';
+export { SKELETON_NOISE_FLOOR, canonicalisePolygon } from './straight-skeleton/canonicalisation';
+
 // ── Constants ────────────────────────────────────────────────────────────────
 export { FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
 
