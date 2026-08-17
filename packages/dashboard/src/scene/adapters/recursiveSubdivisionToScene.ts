@@ -1,6 +1,9 @@
 import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
 import type { RecursiveNode, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
-import type { FillStyle, SceneGroup, ScenePrimitive } from '../types';
+import type { SceneGroup, ScenePrimitive } from '../types';
+import { leafTerritories } from './leafTerritories';
+import type { LeafTerritoryCell } from './leafTerritories';
+import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
 
 /**
  * The picture: every level of a recursive subdivision, as scene primitives.
@@ -11,8 +14,10 @@ import type { FillStyle, SceneGroup, ScenePrimitive } from '../types';
  * is how this picture is most often looked at.
  *
  * Strokes alone add line density rather than structure, so the leaf cells are also filled — tinted
- * by the level-0 segment they descend from ({@link ancestorTint}), which is what turns a tangle of
- * strokes into a few large territories each visibly divided into many cells.
+ * by the level-0 segment they descend from, which is what turns a tangle of strokes into a few large
+ * territories each visibly divided into many cells. Which cell belongs to which territory is
+ * {@link leafTerritories}'s question and what colour that makes it is {@link ancestorTint}'s; this
+ * file only decides what is drawn, and in what order.
  *
  * Pure: no React, no canvas lifecycle. The tree→scene mapping changes when the driver's output shape
  * changes, whereas fitting and panning change when the interaction model does, so the two live apart.
@@ -54,151 +59,8 @@ export const RECURSIVE_LEVEL_STYLES: RecursiveLevelStyle[] = [
     { segmentColour: '#6c757d', segmentWidth: 0.8, skeletonColour: '#a04a06', skeletonWidth: 1.0 },
 ];
 
-/**
- * Reserved for cells that did not subdivide, and used for nothing else on this page.
- *
- * A failed cell is filled as well as outlined: an outline alone reads as one more cell border in a
- * picture already full of them, whereas a filled patch reads as a hole in the subdivision, which is
- * what it is.
- */
-const FAILURE_COLOUR = '#e64980';
-
 /** The input polygon, drawn over everything so a lost corner of the region cannot hide. */
 const INPUT_POLYGON_COLOUR = '#4dabf7';
-
-/**
- * Hue of {@link FAILURE_COLOUR}, and the arc either side of it that no territory may be given.
- *
- * A failed cell is the one thing on this page that must never be mistaken for an ordinary cell, and
- * once leaves are tinted, "pink" alone no longer says so — with enough territories one of them would
- * eventually land on pink. Reserving the arc makes the collision impossible rather than unlikely.
- */
-const FAILURE_HUE_DEGREES = 340;
-const RESERVED_HUE_HALF_ARC_DEGREES = 30;
-
-/**
- * Territory tint: strong enough in hue to group, weak enough in alpha to be drawn through.
- *
- * The lightness cycle is decision 4 — cells of one territory must stay individually countable rather
- * than merging into a single blob — and it varies lightness only, because hue is what encodes
- * ancestry and a cell whose hue drifted would read as a different territory. The cycle is not
- * monotonic so that two cells adjacent in traversal order are never merely one step apart.
- */
-const LEAF_FILL_SATURATION = 0.65;
-const LEAF_FILL_LIGHTNESSES = [0.5, 0.64, 0.57, 0.71];
-const LEAF_FILL_OPACITY = 0.2;
-
-/**
- * Colours are emitted as hex, not `hsl(...)`, because `SceneCanvas` applies a fill's opacity by
- * rewriting the colour string and only understands hex and `rgb()`. An `hsl()` fill would silently
- * render fully opaque and bury the skeleton under it.
- */
-function hslHex(hueDegrees: number, saturation: number, lightness: number): string {
-    const h = ((hueDegrees % 360) + 360) % 360;
-    const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-    const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
-    const m = lightness - chroma / 2;
-
-    let rgb: [number, number, number];
-    if (h < 60) rgb = [chroma, x, 0];
-    else if (h < 120) rgb = [x, chroma, 0];
-    else if (h < 180) rgb = [0, chroma, x];
-    else if (h < 240) rgb = [0, x, chroma];
-    else if (h < 300) rgb = [x, 0, chroma];
-    else rgb = [chroma, 0, x];
-
-    const channel = (value: number) =>
-        Math.round(Math.min(255, Math.max(0, (value + m) * 255)))
-            .toString(16)
-            .padStart(2, '0');
-    return `#${channel(rgb[0])}${channel(rgb[1])}${channel(rgb[2])}`;
-}
-
-/**
- * The fill a leaf cell is given: hue from its level-0 ancestor, lightness from its place in that
- * ancestor's brood. The companion to {@link styleForLevel} — level says how a cell is drawn, this
- * says which territory it belongs to.
- *
- * Hues are cut evenly from the wheel by root index, so neighbouring territories land far apart in
- * hue rather than next to each other, and the cut starts clear of the arc reserved for failures.
- *
- * @param rootIndex   index of the level-0 segment the cell descends from
- * @param rootCount   how many level-0 segments there are — the wheel is cut into this many
- * @param ordinal     the cell's place among the leaves of its own territory
- */
-export function ancestorTint(rootIndex: number, rootCount: number, ordinal: number): FillStyle {
-    const count = Math.max(1, Math.floor(rootCount));
-    const index = ((Math.floor(rootIndex) % count) + count) % count;
-    const available = 360 - 2 * RESERVED_HUE_HALF_ARC_DEGREES;
-    const hue = FAILURE_HUE_DEGREES + RESERVED_HUE_HALF_ARC_DEGREES + (index / count) * available;
-
-    const steps = LEAF_FILL_LIGHTNESSES.length;
-    const lightness = LEAF_FILL_LIGHTNESSES[((Math.floor(ordinal) % steps) + steps) % steps];
-
-    return { color: hslHex(hue, LEAF_FILL_SATURATION, lightness), opacity: LEAF_FILL_OPACITY };
-}
-
-/** One leaf cell, and the level-0 territory it belongs to. */
-export interface LeafTerritoryCell {
-    /** The cell itself — a segment of a node with no children. */
-    segment: Strip;
-    /** Level of the node the cell belongs to, so it can be hidden with that level. */
-    level: number;
-    /** Index of the level-0 segment this cell descends from. Its hue. */
-    rootIndex: number;
-    /** The cell's place among the leaves of its own territory. Its lightness. */
-    ordinal: number;
-}
-
-/** The leaf cells of a tree, grouped implicitly by the level-0 segment each descends from. */
-export interface LeafTerritories {
-    /** How many level-0 segments the region was divided into — how many ways the wheel is cut. */
-    rootCount: number;
-    /** Every leaf cell, in traversal order. */
-    cells: LeafTerritoryCell[];
-}
-
-/** A cell before its place among its siblings has been counted. */
-type UncountedLeafCell = Omit<LeafTerritoryCell, 'ordinal'>;
-
-/**
- * Leaf cells of one subtree, all of them credited to the level-0 segment `rootIndex` at its head.
- *
- * A node that failed contributes nothing: it has no segments to fill, and it is drawn as a failure
- * patch instead — which is the point of decision 7.
- */
-function collectLeafCells(node: RecursiveNode, rootIndex: number): UncountedLeafCell[] {
-    if (node.children.length > 0) {
-        return node.children.flatMap((child) => collectLeafCells(child, rootIndex));
-    }
-    if (node.failure !== undefined) return [];
-    return node.segments.map((segment) => ({ segment, level: node.level, rootIndex }));
-}
-
-/**
- * Every leaf cell of the tree, tagged with the level-0 segment it descends from.
- *
- * Ancestry is the tree's own child order: the driver emits one child per merged group in segment
- * order, so child `i` of the root *is* level-0 segment `i` re-solved, and everything under it is
- * that segment subdivided. At one level the root has no children and its own segments are the
- * leaves, each its own territory.
- */
-export function leafTerritories(tree: RecursiveNode): LeafTerritories {
-    const rootCount = Math.max(1, tree.children.length, tree.segments.length);
-
-    const uncounted: UncountedLeafCell[] = tree.children.length > 0
-        ? tree.children.flatMap((child, index) => collectLeafCells(child, index))
-        : collectLeafCells(tree, 0).map((cell, index) => ({ ...cell, rootIndex: index }));
-
-    const countPerTerritory = new Map<number, number>();
-    const cells = uncounted.map((cell) => {
-        const ordinal = countPerTerritory.get(cell.rootIndex) ?? 0;
-        countPerTerritory.set(cell.rootIndex, ordinal + 1);
-        return { ...cell, ordinal };
-    });
-
-    return { rootCount, cells };
-}
 
 /**
  * A leaf cell's fill, with no stroke of its own — the cell's borders are drawn by its level's
