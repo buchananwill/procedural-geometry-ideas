@@ -203,7 +203,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 270 distinct event offsets across them', () => {
+        it('is every fixture, and 269 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -211,9 +211,18 @@ describe('offset projection at event boundaries', () => {
             // Was 271. Pentagon House's two apex nodes read 2.9999999999999996 and 3 — one instant
             // re-derived twice, one ulp apart — and `computeNodeOffsets` now collapses a
             // simultaneous set onto a single member, so those two offsets are one event rather than
-            // two. That is the only pair in this corpus within the canonicalisation band; every
-            // other event offset here is unmoved.
-            expect(events).toBe(270);
+            // two. That is the only pair in this corpus within the node-offset canonicalisation
+            // band.
+            //
+            // THEN 270 BECAME 269, AND THAT IS A PINNED NUMBER DOING ITS JOB RATHER THAN A
+            // REGRESSION. Input canonicalisation removes one exactly-collinear vertex from `Long
+            // Unbroken Side Then Extreme Acute Angle` — 32 vertices to 31, at a discarded deviation
+            // of 7.85e-17 — so that fixture is expressed in one fewer exterior edge and carries one
+            // fewer event. Decision 12 of the input-canonicalisation brief places exterior edge ids
+            // and counts explicitly OUTSIDE the observable the stage is required to preserve, so a
+            // structural count moving here is exactly what should happen. Measured per fixture: the
+            // other 36 are unmoved, and this one goes 30 events to 29.
+            expect(events).toBe(269);
         });
     });
 
@@ -320,8 +329,8 @@ describe('offset projection at event boundaries', () => {
             // `ALL_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
             // held-out fixtures, so the conviction the two suites claim is the same conviction.
             //
-            // Measured at this commit: 233 clean events across the corpus, 103 of which the report
-            // fires on and 130 of which cost no area at all.
+            // Measured at this commit: 232 clean events across the corpus, 101 of which the report
+            // fires on and 131 of which cost no area at all.
             const {silentLosses, fired, mutated} = measureMutationReport(
                 SWEPT_FIXTURES.map(name => ({name, result: solvedFixture(name)})));
             expect(silentLosses.join('; ')).toBe('');
@@ -329,11 +338,23 @@ describe('offset projection at event boundaries', () => {
             // Non-vacuity, pinned rather than bounded. A share-of-corpus bound would still pass if
             // the report's sensitivity quietly halved, and how loudly the mutation bites is exactly
             // what the assertion above depends on. These two counts are a measurement of this
-            // corpus at this commit, so a change in either is drift to be re-measured and explained
-            // — a wider corpus moves `mutated`, and only a change in what the projection reports
-            // moves `fired`.
-            expect(mutated).toBe(233);
-            expect(fired).toBe(103);
+            // corpus at this commit, so a change in either is drift to be re-measured and explained.
+            //
+            // BOTH MOVED WHEN INPUT CANONICALISATION LANDED — 233 to 232 and 103 to 101 — AND BOTH
+            // HAVE THE SAME SINGLE CAUSE. `Long Unbroken Side Then Extreme Acute Angle` loses one
+            // exactly-collinear vertex to the stage, so it is expressed in one fewer exterior edge
+            // and its event structure is genuinely different geometry rather than the same events
+            // minus one. Decision 12 of the input-canonicalisation brief places exterior edge
+            // counts outside the observable, so this is the pinned numbers recording a structural
+            // change. Attributed per fixture before repinning: 36 of the 37 are bit-unmoved on all
+            // three counts, and that one goes mutated 29 to 28 and fired 14 to 12.
+            //
+            // The note this replaces said only a change in what the projection reports could move
+            // `fired`. That held while the corpus geometry was fixed; a fixture whose boundary is
+            // re-expressed moves both counts at once, and the per-fixture attribution above is what
+            // tells the two causes apart.
+            expect(mutated).toBe(232);
+            expect(fired).toBe(101);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

@@ -424,36 +424,44 @@ describe('stroke-derived polygons', () => {
             expect(failingSubdivisions(IRREGULAR_HEXAGON)).toEqual([]);
         });
 
-        it('still loses the reflex L-shape at some subdivisions (known defect)', () => {
-            // NOT DESIRED BEHAVIOUR. What is left of the original defect, and the one shape in
-            // this file that the coincident-event fix does not rescue outright.
+        it('now solves the reflex L-shape at every subdivision too', () => {
+            // THIS LIST WAS [4, 6, 7, 8, 9, 10] AND IS NOW EMPTY. The defect underneath is not
+            // fixed; the input that triggered it no longer reaches the solver.
             //
-            // Subdividing the L makes both arms collapse onto their own ridge in a single
-            // offset layer: every perpendicular bisector from one long side meets the opposite
-            // side's bisector at the same offset, at a different point each. The two ridge
-            // bisectors therefore appear in several coincident groups at once, which is a whole
-            // strip closing rather than a set of independent vertex events, and
-            // `handleInteriorNGon` falls back to pairwise handling for that layer.
+            // Subdividing the L makes both arms collapse onto their own ridge in a single offset
+            // layer: every perpendicular bisector from one long side meets the opposite side's
+            // bisector at the same offset, at a different point each. The two ridge bisectors
+            // therefore appear in several coincident groups at once, which is a whole strip closing
+            // rather than a set of independent vertex events, and `handleInteriorNGon` falls back
+            // to pairwise handling for that layer. That is still true and still unfixed.
             //
-            // Measured before the coincident-event fix: k = 2, 4, 5, 6, 7, 8, 9, 10 failed. After
-            // it: 4, 6, 7, 8, 9, 10. Unit-extent normalisation then recovered k = 6 as well —
-            // incidentally, not by addressing this defect, which is a whole strip closing in one
-            // offset layer and not a tolerance-against-magnitude problem.
+            // What changed is upstream of it. Subdividing an edge into k equal pieces adds vertices
+            // that are collinear with their neighbours and nothing else, so they stand around 1e-16
+            // off the chord between those neighbours in unit space — far below the 1e-6 noise
+            // floor. Input canonicalisation removes them and the solver is handed back the
+            // unsubdivided L, which always solved.
             //
-            // k = 6 HAS SINCE GONE BACK, and by the same incidental route it arrived by. Task 236
-            // made the normalisation scale the power of two NEAREST the longest bounding-box side
-            // rather than the side itself, so that normalise/denormalise round-trips on the bit.
-            // This fixture spans exactly 300 units, so the old scale was exactly its span — and
-            // dividing by exactly the span is what put a uniformly subdivided edge on exact
-            // fractions in unit space, which is what let k = 6's coincident group land as one
-            // group. No power of two divides 300, so it no longer does. Confirmed to be the scale
-            // and not the tolerance band: taking the exponent by Math.ceil (normalised extent <= 1,
-            // epsilon relatively LOOSER) and by Math.floor both reproduce this exact list.
-            //
-            // So k = 6 is back where the coincident-event fix left it, and the underlying defect —
-            // a whole strip closing in one offset layer — is untouched and still the thing to fix.
-            // Now:
-            expect(failingSubdivisions(L_SHAPE)).toEqual([4, 6, 7, 8, 9, 10]);
+            // The history is worth keeping because it is what makes the stage's case: measured
+            // before the coincident-event fix, k = 2, 4, 5, 6, 7, 8, 9, 10 failed; after it,
+            // 4, 6, 7, 8, 9, 10. Unit-extent normalisation then recovered k = 6 incidentally,
+            // because this fixture spans exactly 300 and the old scale was exactly its span, which
+            // put a uniformly subdivided edge on exact fractions in unit space. Task 236 made the
+            // scale a power of two for bit-exact round-tripping, no power of two divides 300, and
+            // k = 6 went straight back. THE OLD SCALE WAS CANONICALISING THIS INPUT BY ACCIDENT.
+            // It is now canonicalised on purpose, which is why the recovery is stable this time
+            // rather than a property of the fixture's span.
+            expect(failingSubdivisions(L_SHAPE)).toEqual([]);
+        });
+
+        it('still loses the reflex L-shape at those subdivisions with canonicalisation off', () => {
+            // The conviction for the empty list above. A zero noise floor is an exact identity in
+            // the stage, so this is the solver as it behaved before it existed, and the historical
+            // set reproduces on the nose. Deleting the assertions would have emptied the list just
+            // as well; this is how the difference is told.
+            const withoutCanonicalisation = subdivisions.filter(
+                k => !solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0}).complete);
+
+            expect(withoutCanonicalisation).toEqual([4, 6, 7, 8, 9, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {
