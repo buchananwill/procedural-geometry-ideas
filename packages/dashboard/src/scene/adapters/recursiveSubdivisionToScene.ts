@@ -1,9 +1,10 @@
 import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
-import type { RecursiveNode, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
+import type { RecursiveNode, SpineStrategy, StraightSkeletonGraph, Strip, Vector2 } from '@proc-geo/core';
 import type { FillStyle, SceneGroup, ScenePrimitive } from '../types';
 import { leafTerritories } from './leafTerritories';
 import type { LeafTerritoryCell } from './leafTerritories';
 import { ancestorTint, FAILURE_COLOUR } from './recursiveTerritoryTint';
+import { regionSpine } from '../../stores/useRecursiveSubdivisionStore';
 
 /**
  * The picture: every level of a recursive subdivision, as scene primitives.
@@ -41,6 +42,15 @@ export interface RecursiveSceneOptions {
     levelVisibility: boolean[];
     /** Leaf cells carry their territory tint. Off restores stroke-only rendering exactly. */
     showLeafFills: boolean;
+    /**
+     * Which spine definition to draw at each level, indexed by level.
+     *
+     * OPTIONAL, and a level with no entry gets no spine layer at all. A spine is a SELECTION from
+     * arcs already on the canvas, so a host that has not adopted the control is not missing geometry
+     * — it is looking at the same picture without the emphasis, which is exactly what it drew
+     * before.
+     */
+    spineStrategies?: SpineStrategy[];
 }
 
 /** How one level of the tree is drawn. Root first. */
@@ -116,6 +126,29 @@ const RESIDUE_FILL_OPACITY = 0.18;
  * screenshot this page is most often read in.
  */
 export const RECURSED_SEGMENT_OPACITY = 0.5;
+
+/**
+ * The spine's own colour: violet, shared by no other layer on this page.
+ *
+ * A spine is a SELECTION from arcs already drawn, not new geometry, so it has to read as emphasis on
+ * the skeleton rather than as another layer over it. Two channels say so at once: this hue, which
+ * belongs to nothing else here, and {@link SPINE_WIDTH_MULTIPLIER}'s weight — and the weight is the
+ * half that survives the greyscale screenshot this page is most often read in, where a hue alone
+ * would leave the spine indistinguishable from the skeleton it was chosen out of.
+ *
+ * Violet rather than a brighter warm tone, because the skeleton ramp is already warm and an emphasis
+ * one step along the same ramp would read as "the next level down" instead of "these arcs, not those".
+ */
+export const SPINE_COLOUR = '#845ef7';
+
+/**
+ * How much heavier a spine arc is drawn than the skeleton arc it lies on top of.
+ *
+ * Taken from the LEVEL'S OWN skeleton width rather than given a ramp of its own, so a spine thins
+ * with depth in step with everything else at that level and the level ramp stays one decision in one
+ * place — the same rule {@link residueRingStyle} follows.
+ */
+export const SPINE_WIDTH_MULTIPLIER = 2.2;
 
 /** How one residue ring is drawn: its level sets the weight, its ordinal the hue and the dash. */
 export interface ResidueRingStyle {
@@ -223,6 +256,36 @@ function skeletonEdges(node: RecursiveNode): ScenePrimitive[] {
         });
     }
     return edges;
+}
+
+/**
+ * One region's spine: the arcs `strategy` retained, and nothing joining them.
+ *
+ * A DISCONNECTED SPINE IS DRAWN DISCONNECTED. One primitive per retained arc and none between them,
+ * so where a threshold has severed a region's spine the gap is visible on the canvas as well as
+ * counted in the readout — the single most important thing this picture has to communicate, being
+ * the difference between a definition that is usable on a region and one that is not.
+ *
+ * A region with no extractable spine draws nothing, which is the same silence the skeleton layer
+ * keeps for a region that did not solve.
+ */
+function spineEdges(node: RecursiveNode, strategy: SpineStrategy): ScenePrimitive[] {
+    const region = regionSpine(node, strategy);
+    if (region === undefined) return [];
+
+    const style = styleForLevel(node.level);
+    return region.spine.edges.flatMap<ScenePrimitive>((edge) => {
+        const from = region.positions.get(edge.a);
+        const to = region.positions.get(edge.b);
+        if (from === undefined || to === undefined) return [];
+        return [
+            {
+                type: 'line',
+                points: [from.x, from.y, to.x, to.y],
+                stroke: { color: SPINE_COLOUR, width: style.skeletonWidth * SPINE_WIDTH_MULTIPLIER },
+            },
+        ];
+    });
 }
 
 function failedCell(node: RecursiveNode): ScenePrimitive[] {
@@ -335,7 +398,7 @@ function residuePrimitives(node: RecursiveNode, showFills: boolean): ScenePrimit
  * stroke-only rendering.
  */
 export function recursiveTreeToScene(tree: RecursiveNode, options: RecursiveSceneOptions): ScenePrimitive[] {
-    const { levelVisibility, showLeafFills } = options;
+    const { levelVisibility, showLeafFills, spineStrategies = [] } = options;
     const nodes = flattenRecursiveTree(tree);
     const deepest = nodes.reduce((deepestSoFar, node) => Math.max(deepestSoFar, node.level), 0);
     const groups: SceneGroup[] = [];
@@ -379,6 +442,24 @@ export function recursiveTreeToScene(tree: RecursiveNode, options: RecursiveScen
         groups.push({
             type: 'group',
             id: `group:recursive-residue-${level}`,
+            children,
+            visible: levelVisibility[level] ?? true,
+        });
+    }
+
+    // The spine goes over everything the level drew, because it is an EMPHASIS on arcs already in
+    // the picture: drawn underneath its own level's skeleton, the layer it selects from would cover
+    // the selection. Hidden with the level whose region it is the spine of, like every other layer.
+    for (let level = 0; level <= deepest; level++) {
+        const strategy = spineStrategies[level];
+        if (strategy === undefined) continue;
+        const children = nodes
+            .filter((candidate) => candidate.level === level)
+            .flatMap((node) => spineEdges(node, strategy));
+        if (children.length === 0) continue;
+        groups.push({
+            type: 'group',
+            id: `group:recursive-spine-${level}`,
             children,
             visible: levelVisibility[level] ?? true,
         });

@@ -2,14 +2,20 @@ import {
     Box, Button, Group, NumberInput, Paper, SegmentedControl, Slider, Stack, Text,
 } from '@mantine/core';
 import { FULL_DEPTH_FRACTION } from '@proc-geo/core';
-import type { LevelSpec, ResidueTreatment, SegmentTreatment } from '@proc-geo/core';
-import { styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
+import type { LevelSpec, ResidueTreatment, SegmentTreatment, SpineStrategy } from '@proc-geo/core';
+import { SPINE_COLOUR, styleForLevel } from '../scene/adapters/recursiveSubdivisionToScene';
 import {
+    DEFAULT_SPINE_STRATEGY,
     DEPTH_FRACTION_STEP,
     MAX_MERGE_GROUP_SIZE,
     MIN_PANEL_DEPTH_FRACTION,
+    SPINE_FRACTION_STEP,
+    spineFractionOf,
     useRecursiveSubdivisionStore,
+    withSpineFraction,
+    withSpineKind,
 } from '../stores/useRecursiveSubdivisionStore';
+import type { SpineStrategyKind } from '../stores/useRecursiveSubdivisionStore';
 
 /** One choice of {@link ResidueTreatment}, as the segmented control lists it. */
 export interface ResidueOption {
@@ -45,9 +51,47 @@ const SEGMENT_OPTIONS: SegmentOption[] = [
     { value: 'leaf', label: 'Leaf' },
 ];
 
+/** One choice of spine definition, as the segmented control lists it. */
+export interface SpineOption {
+    value: SpineStrategyKind;
+    label: string;
+}
+
+/**
+ * The three spine definitions, one click apart.
+ *
+ * All three are kept and none is privileged: which of them is the right definition of "the part that
+ * carries a road" is the judgement this control exists to support, and it is not one the geometry
+ * can make for itself.
+ */
+const SPINE_OPTIONS: SpineOption[] = [
+    { value: 'diameter', label: 'Diameter' },
+    { value: 'wavefront-time', label: 'Wavefront' },
+    { value: 'whisker-prune', label: 'Whisker' },
+];
+
+/** What each definition keeps, in the one sentence there is room for under the control. */
+const SPINE_DESCRIPTIONS: Record<SpineStrategyKind, string> = {
+    'diameter': 'The longest leaf-to-leaf path: a through-route, always connected.',
+    'wavefront-time': 'Arcs whose ends are deep in the region. May come back in pieces.',
+    'whisker-prune': 'Short leaf arcs removed, and removed again, to a fixed point.',
+};
+
 /** Depth as the control shows it: a percentage of each region's own maximum offset. */
 function depthLabel(depthFraction: number): string {
     return `${Math.round(depthFraction * 100)}%`;
+}
+
+/** A spine threshold as the control shows it: a percentage of the region's OWN scale. */
+function spineFractionLabel(fraction: number): string {
+    return `${Math.round(fraction * 100)}%`;
+}
+
+/** What a level's spine threshold is a fraction OF, which differs by definition. */
+function spineFractionDescription(kind: SpineStrategyKind): string {
+    return kind === 'wavefront-time'
+        ? 'of this region’s maximum offset'
+        : 'of this region’s diameter length';
 }
 
 /** Why a level's residue control cannot do anything, or `undefined` when it can. */
@@ -78,7 +122,11 @@ export interface RecursiveLevelRowProps {
 export default function RecursiveLevelRow({ level, spec, isLastLevel, removable }: RecursiveLevelRowProps) {
     const updateLevel = useRecursiveSubdivisionStore((s) => s.updateLevel);
     const removeLevel = useRecursiveSubdivisionStore((s) => s.removeLevel);
+    const setSpineStrategy = useRecursiveSubdivisionStore((s) => s.setSpineStrategy);
+    const spine: SpineStrategy = useRecursiveSubdivisionStore(
+        (s) => s.spineStrategies[level]) ?? DEFAULT_SPINE_STRATEGY;
     const residueDisabled = residueDisabledReason(spec, isLastLevel);
+    const spineFraction = spineFractionOf(spine);
 
     return (
         <Paper p="xs" withBorder>
@@ -175,6 +223,51 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                             ? 'Each residue ring is subdivided in turn — the droste reading.'
                             : 'Residue rings are kept whole and undivided — the courtyard reading.')}
                     </Text>
+                </Box>
+
+                <Box>
+                    <Group gap={6} wrap="nowrap" mb={4}>
+                        <Box w={12} h={12} style={{ background: SPINE_COLOUR, borderRadius: 2 }} />
+                        <Text size="xs" fw={500}>
+                            Spine
+                        </Text>
+                    </Group>
+                    <SegmentedControl
+                        size="xs"
+                        fullWidth
+                        data={SPINE_OPTIONS}
+                        value={spine.kind}
+                        onChange={(value) =>
+                            setSpineStrategy(level, withSpineKind(spine, value as SpineStrategyKind))}
+                    />
+                    <Text size="xs" c="dimmed" mt={4}>
+                        {SPINE_DESCRIPTIONS[spine.kind]}
+                    </Text>
+                    {/* Shown only for the definitions that HAVE a threshold: `diameter` takes no
+                        parameter, and a dead slider beside it would invite a reader to set one and
+                        believe it had done something. */}
+                    {spineFraction !== undefined && (
+                        <Box mt={6}>
+                            <Group justify="space-between" mb={4}>
+                                <Text size="xs" fw={500}>
+                                    Threshold
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                    {spineFractionLabel(spineFraction)} {spineFractionDescription(spine.kind)}
+                                </Text>
+                            </Group>
+                            <Slider
+                                size="xs"
+                                min={0}
+                                max={1}
+                                step={SPINE_FRACTION_STEP}
+                                value={spineFraction}
+                                label={spineFractionLabel}
+                                onChange={(fraction) =>
+                                    setSpineStrategy(level, withSpineFraction(spine, fraction))}
+                            />
+                        </Box>
+                    )}
                 </Box>
             </Stack>
         </Paper>

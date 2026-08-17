@@ -2,10 +2,15 @@ import {
     pluralize,
     residueLine,
     residueTotalLine,
+    spineLine,
+    spineStrategyLabel,
     streamLine,
 } from '../../src/components/recursive-readout-text';
 import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
-import type { RecursiveLevelSummary } from '../../src/stores/useRecursiveSubdivisionStore';
+import type {
+    RecursiveLevelSummary,
+    SpineLevelSummary,
+} from '../../src/stores/useRecursiveSubdivisionStore';
 import {
     RESIDUE_TREE,
     RESIDUE_TREE_LEVELS,
@@ -93,5 +98,90 @@ describe('residueTotalLine', () => {
         expect(degenerate).toBe('3 residue rings, 1 not subdivided.');
         expect(unsolved).toBe(degenerate);
         expect(unsolved).not.toMatch(/degenerate/i);
+    });
+});
+
+/**
+ * The spine sentences.
+ *
+ * Decision 11 makes one of these load-bearing in a way none of the others are: a disconnected spine
+ * is the difference between a definition that works on a region and one that does not, and it is the
+ * fact the picture exists to communicate. So it is asserted that the line SAYS SO in words, rather
+ * than leaving a reader to infer it from a gap between two strokes.
+ */
+
+/** A spine summary with everything at its quiet value, so each test names only what it is about. */
+function spineSummary(overrides: Partial<SpineLevelSummary> = {}): SpineLevelSummary {
+    return {
+        level: 0,
+        strategy: { kind: 'diameter' },
+        regions: 1,
+        unavailable: 0,
+        empty: 0,
+        disconnected: 0,
+        maxComponentCount: 1,
+        spineLength: 5,
+        treeLength: 10,
+        lengthFraction: 0.5,
+        ...overrides,
+    };
+}
+
+describe('spineStrategyLabel', () => {
+    it('names the definition, and its threshold where it has one', () => {
+        expect(spineStrategyLabel({ kind: 'diameter' })).toBe('diameter');
+        expect(spineStrategyLabel({ kind: 'wavefront-time', fraction: 0.55 })).toBe('wavefront-time at 55%');
+        expect(spineStrategyLabel({ kind: 'whisker-prune', fraction: 0.2 })).toBe('whisker-prune at 20%');
+    });
+
+    it('tells one threshold from another, since they are different answers', () => {
+        expect(spineStrategyLabel({ kind: 'wavefront-time', fraction: 0.2 }))
+            .not.toBe(spineStrategyLabel({ kind: 'wavefront-time', fraction: 0.8 }));
+    });
+});
+
+describe('spineLine', () => {
+    it('says which definition, how much of the skeleton it kept, and that it is whole', () => {
+        expect(spineLine(spineSummary()))
+            .toBe('spine: diameter → 50% of the skeleton, connected');
+    });
+
+    it('says out loud that a spine came apart, and in how many pieces', () => {
+        // The claim under test, and the one thing in this readout a reader must not scroll past.
+        const line = spineLine(spineSummary({
+            strategy: { kind: 'wavefront-time', fraction: 0.55 },
+            regions: 3,
+            disconnected: 1,
+            maxComponentCount: 2,
+            lengthFraction: 0.22,
+        }));
+
+        expect(line).toContain('wavefront-time at 55%');
+        expect(line).toContain('22% of the skeleton');
+        expect(line).toContain('1 of 3 spines disconnected');
+        expect(line).toContain('2 pieces');
+    });
+
+    it('says a threshold above everything retained nothing, rather than calling it connected', () => {
+        // Retaining nothing and retaining one whole piece are different answers about a setting, and
+        // a line that called the empty spine "connected" would report the first as the second.
+        const line = spineLine(spineSummary({
+            strategy: { kind: 'whisker-prune', fraction: 0.9 },
+            empty: 1,
+            spineLength: 0,
+            lengthFraction: 0,
+        }));
+
+        expect(line).toBe('spine: whisker-prune at 90% → 0% of the skeleton, nothing retained at this threshold');
+    });
+
+    it('reports regions it could extract no spine from, apart from the ones it could', () => {
+        const line = spineLine(spineSummary({ regions: 2, unavailable: 1 }));
+        expect(line).toContain('1 region with no spine');
+    });
+
+    it('says there was no spine to extract where a level had no region it could read', () => {
+        expect(spineLine(spineSummary({ regions: 0, lengthFraction: 0 })))
+            .toContain('no spine to extract');
     });
 });

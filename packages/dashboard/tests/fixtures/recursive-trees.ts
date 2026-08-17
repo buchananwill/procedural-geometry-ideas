@@ -1,5 +1,6 @@
 import { FULL_DEPTH_FRACTION } from '@proc-geo/core';
-import type { LevelSpec, RecursiveNode, Strip, Vector2 } from '@proc-geo/core';
+import type { LevelSpec, RecursiveNode, SpineStrategy, Strip, Vector2 } from '@proc-geo/core';
+import { CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS } from '@proc-geo/test-fixtures';
 
 /**
  * Hand-built subdivision trees, shared by the suites that read a tree's shape.
@@ -167,6 +168,37 @@ export const UNSOLVED_RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
     nodeWithResidue(1, 2, 1),
     failedNode(1, INCOMPLETE_SOLVE_FAILURE),
 ]);
+
+/**
+ * A one-node tree over a LOBED region: two lobes joined by a thin neck.
+ *
+ * The one fixture here whose geometry matters. Everything else in this file is a shape with a square
+ * standing in for a region, because what a readout counts is a fact about the tree; a spine is a fact
+ * about the geometry, and the disconnection case cannot be built out of squares — a square's skeleton
+ * is a fan and no threshold can sever it into two pieces.
+ *
+ * Its segments are left empty: what this fixture is for is the skeleton inside the boundary, and a
+ * ring of cells around it would only add strokes to sift out of the scene under test.
+ */
+export const LOBED_TREE: RecursiveNode = {
+    level: 0,
+    boundary: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
+    canonicalBoundary: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
+    canonicalAreaDrift: 0,
+    segments: [],
+    children: [],
+    residueRings: [],
+    residueChildren: [],
+};
+
+/**
+ * The setting at which {@link LOBED_TREE}'s spine comes apart: two pieces, measured.
+ *
+ * Both lobe centres stand above 55% of the region's maximum offset and the neck between them does
+ * not, which is the disconnection the `wavefront-time` definition is judged on. A step either side
+ * of it the spine is whole again, so the number is the fixture's rather than a round one.
+ */
+export const LOBED_SPLIT_STRATEGY: SpineStrategy = { kind: 'wavefront-time', fraction: 0.55 };
 
 /** The spec array {@link RESIDUE_TREE} is the tree of: the droste reading, then a terminal level. */
 export const RESIDUE_TREE_LEVELS: LevelSpec[] = [

@@ -14,6 +14,7 @@ import { pluralize, residueTotalLine } from './recursive-readout-text';
 import { residueRingStyle } from '../scene/adapters/recursiveSubdivisionToScene';
 import {
     summariseRecursiveTree,
+    summariseSpines,
     useRecursiveSubdivisionStore,
 } from '../stores/useRecursiveSubdivisionStore';
 
@@ -48,7 +49,15 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
     const setShowLeafFills = useRecursiveSubdivisionStore((s) => s.setShowLeafFills);
     const showAllLevels = useRecursiveSubdivisionStore((s) => s.showAllLevels);
 
+    const spineStrategies = useRecursiveSubdivisionStore((s) => s.spineStrategies);
+
     const summary = useMemo(() => summariseRecursiveTree(tree, levels), [tree, levels]);
+    // One row per level the composition actually has, so a spine row and a level row are the same
+    // level. Memoised because each row re-solves every region at its level to extract a spine.
+    const spines = useMemo(
+        () => summariseSpines(tree, spineStrategies.slice(0, levels.length)),
+        [tree, spineStrategies, levels.length],
+    );
     const reasons = useMemo(() => {
         const failures = flattenRecursiveTree(tree)
             .map((node) => node.failure)
@@ -131,6 +140,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                     key={level.level}
                                     summary={level}
                                     visible={levelVisibility[level.level] ?? true}
+                                    spine={spines[level.level]}
                                 />
                             ))}
                         </Stack>

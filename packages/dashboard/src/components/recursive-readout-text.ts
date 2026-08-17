@@ -1,7 +1,9 @@
+import type { SpineStrategy } from '@proc-geo/core';
 import type {
     RecursiveLevelSummary,
     RecursiveStreamReport,
     RecursiveTreeSummary,
+    SpineLevelSummary,
 } from '../stores/useRecursiveSubdivisionStore';
 
 /**
@@ -53,6 +55,50 @@ export function residueLine(summary: RecursiveLevelSummary): string {
     return summary.unsubdividedResidueRings > 0
         ? `${produced} (${summary.unsubdividedResidueRings} not subdivided)`
         : produced;
+}
+
+/**
+ * A spine definition as the readout names it, threshold included.
+ *
+ * The threshold is part of the name rather than a separate field: `wavefront-time` at 0.2 and at 0.8
+ * are different answers to the question the page asks, and a row that reported only the kind would
+ * make two of them indistinguishable in a screenshot.
+ */
+export function spineStrategyLabel(strategy: SpineStrategy): string {
+    return strategy.kind === 'diameter'
+        ? 'diameter'
+        : `${strategy.kind} at ${Math.round(strategy.fraction * 100)}%`;
+}
+
+/**
+ * Whether one level's spines hold together — decision 11's sentence.
+ *
+ * A DISCONNECTED SPINE IS THE MOST IMPORTANT THING THE READOUT HAS TO SAY, being the difference
+ * between a definition that is usable on a region and one that is not, so it is said in words and
+ * counted, rather than left for a reader to notice as a gap in the drawing.
+ */
+function spineConnectivity(summary: SpineLevelSummary): string {
+    if (summary.regions === 0) return 'no spine to extract';
+    if (summary.empty === summary.regions) return 'nothing retained at this threshold';
+    if (summary.disconnected === 0) return 'connected';
+    return `${summary.disconnected} of ${pluralize(summary.regions, 'spine')} disconnected`
+        + ` — up to ${pluralize(summary.maxComponentCount, 'piece')}`;
+}
+
+/**
+ * One level's spine line: which definition, how much of the skeleton it kept, and whether it holds
+ * together.
+ *
+ * The FRACTION rather than a length, per decision 12. Three strategies compared by eye across levels
+ * of wildly different size need one number that means the same thing on all of them, and "how much
+ * of the skeleton did this keep" is that number.
+ */
+export function spineLine(summary: SpineLevelSummary): string {
+    const kept = `${Math.round(summary.lengthFraction * 100)}% of the skeleton`;
+    const unavailable = summary.unavailable > 0
+        ? ` (${pluralize(summary.unavailable, 'region')} with no spine)`
+        : '';
+    return `spine: ${spineStrategyLabel(summary.strategy)} → ${kept}, ${spineConnectivity(summary)}${unavailable}`;
 }
 
 /** The whole tree's residue line, reason-agnostic for the same reason {@link residueLine} is. */

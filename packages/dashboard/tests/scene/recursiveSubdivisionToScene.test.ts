@@ -7,14 +7,18 @@ import {
     RECURSIVE_LEVEL_STYLES,
     RESIDUE_RING_COLOURS,
     residueRingStyle,
+    SPINE_COLOUR,
+    SPINE_WIDTH_MULTIPLIER,
     styleForLevel,
 } from '../../src/scene/adapters/recursiveSubdivisionToScene';
-import { ancestorTint } from '../../src/scene/adapters/recursiveTerritoryTint';
+import { ancestorTint, FAILURE_COLOUR } from '../../src/scene/adapters/recursiveTerritoryTint';
 import { leafTerritories } from '../../src/scene/adapters/leafTerritories';
-import { summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
+import { regionSpine, summariseRecursiveTree } from '../../src/stores/useRecursiveSubdivisionStore';
 import type { SceneGroup, ScenePrimitive } from '../../src/scene/types';
 import {
     failedNode,
+    LOBED_SPLIT_STRATEGY,
+    LOBED_TREE,
     node,
     RESIDUE_TREE,
     RESIDUE_TREE_LEVELS,
@@ -500,5 +504,153 @@ describe('a failed cell among tinted ones', () => {
             // Denser than any territory as well as differently hued, so it reads as a hole.
             expect(tint.fill?.opacity ?? 1).toBeLessThan(failurePatches[0].fill?.opacity ?? 0);
         }
+    });
+});
+
+/**
+ * The spine layer: a SELECTION from arcs already on the canvas.
+ *
+ * Two things have to be true of it and are asserted here rather than left to the eye. It has to read
+ * as emphasis rather than as new geometry, which is a claim about colour and weight against the
+ * layers it sits over. And a spine that came apart has to be DRAWN apart — decision 11's single most
+ * important thing — which means one primitive per retained arc and nothing joining them, so the gap
+ * in a lobed region is visible as well as counted.
+ */
+
+/** Every line primitive drawn in the spine group for a level. */
+function spineLines(scene: ScenePrimitive[], level: number): Extract<ScenePrimitive, { type: 'line' }>[] {
+    const group = scene.filter(isGroup).find((g) => g.id === `group:recursive-spine-${level}`);
+    return (group?.children ?? []).flatMap((child) => (child.type === 'line' ? [child] : []));
+}
+
+/** The scene's groups in draw order, which is what a layering claim is made against. */
+function sceneGroupIds(scene: ScenePrimitive[]): string[] {
+    return scene.filter(isGroup).map((group) => group.id);
+}
+
+describe('the spine on the canvas', () => {
+    const allLevelsVisible = [true, true, true];
+
+    it('draws nothing at all where no strategy is set for a level', () => {
+        // A host that has not adopted the control is looking at the picture it always drew, not at a
+        // picture with geometry missing from it.
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+        });
+        expect(sceneGroupIds(scene).some((id) => id.startsWith('group:recursive-spine-'))).toBe(false);
+    });
+
+    it('draws one arc per arc the strategy retained, in the spine colour', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }],
+        });
+        const drawn = spineLines(scene, 0);
+        const retained = regionSpine(TREE, { kind: 'diameter' })?.spine.edges ?? [];
+
+        expect(drawn).toHaveLength(retained.length);
+        expect(drawn.every((line) => line.stroke.color === SPINE_COLOUR)).toBe(true);
+        // Segments, not rings: an arc runs between two nodes and closing it would invent geometry.
+        expect(drawn.every((line) => line.points.length === 4)).toBe(true);
+        expect(drawn.every((line) => line.closed !== true)).toBe(true);
+    });
+
+    it('reads as emphasis: heavier than the skeleton arcs it is chosen out of', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }],
+        });
+
+        // The weight channel is the half that survives the greyscale screenshot this page is most
+        // often read in, where the hue below says nothing.
+        expect(SPINE_WIDTH_MULTIPLIER).toBeGreaterThan(1);
+        for (const line of spineLines(scene, 0)) {
+            expect(line.stroke.width).toBeGreaterThan(styleForLevel(0).skeletonWidth);
+        }
+    });
+
+    it('shares its colour with no other layer on the page', () => {
+        const others = new Set([
+            ...RECURSIVE_LEVEL_STYLES.map((style) => style.segmentColour),
+            ...RECURSIVE_LEVEL_STYLES.map((style) => style.skeletonColour),
+            ...RESIDUE_RING_COLOURS,
+            FAILURE_COLOUR,
+        ]);
+        expect(others.has(SPINE_COLOUR)).toBe(false);
+    });
+
+    it('thins with depth in step with the level it belongs to', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }, { kind: 'diameter' }, { kind: 'diameter' }],
+        });
+
+        const widths = [0, 1, 2].map((level) => spineLines(scene, level)[0]?.stroke.width);
+        expect(widths[0]).toBeGreaterThan(widths[1] as number);
+        expect(widths[1]).toBeGreaterThan(widths[2] as number);
+    });
+
+    it('is hidden with the level whose region it is the spine of', () => {
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: [true, true, false],
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }, { kind: 'diameter' }, { kind: 'diameter' }],
+        });
+        const hidden = scene.filter(isGroup).filter((group) => group.visible === false).map((g) => g.id);
+
+        expect(hidden).toContain('group:recursive-spine-2');
+        expect(hidden).not.toContain('group:recursive-spine-1');
+    });
+
+    it('is drawn over the level it emphasises rather than under it', () => {
+        // Drawn underneath, the layer a spine selects FROM would cover the selection.
+        const scene = recursiveTreeToScene(TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }],
+        });
+        const ids = sceneGroupIds(scene);
+
+        expect(ids.indexOf('group:recursive-spine-0')).toBeGreaterThan(ids.indexOf('group:recursive-level-0'));
+    });
+
+    it('draws a severed spine severed, with nothing bridging the gap', () => {
+        // The lobed region at the threshold that splits it: two arcs, two components, and no third
+        // primitive joining them. A bridge here would be the adapter repairing what decision 6 says
+        // must be reported.
+        const scene = recursiveTreeToScene(LOBED_TREE, {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [LOBED_SPLIT_STRATEGY],
+        });
+        const region = regionSpine(LOBED_TREE, LOBED_SPLIT_STRATEGY);
+        const drawn = spineLines(scene, 0);
+
+        expect(region?.spine.componentCount).toBe(2);
+        expect(drawn).toHaveLength(region?.spine.edges.length ?? 0);
+
+        // Every arc drawn is an arc the strategy retained: the endpoints match a retained edge's,
+        // so no primitive here spans two components.
+        const retained = new Set((region?.spine.edges ?? []).map((edge) => {
+            const from = region?.positions.get(edge.a);
+            const to = region?.positions.get(edge.b);
+            return `${from?.x},${from?.y},${to?.x},${to?.y}`;
+        }));
+        for (const line of drawn) {
+            expect(retained.has(line.points.join(','))).toBe(true);
+        }
+    });
+
+    it('draws no spine for a region that did not subdivide', () => {
+        const scene = recursiveTreeToScene(failedNode(0), {
+            levelVisibility: allLevelsVisible,
+            showLeafFills: true,
+            spineStrategies: [{ kind: 'diameter' }],
+        });
+        expect(spineLines(scene, 0)).toEqual([]);
     });
 });
