@@ -203,7 +203,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 269 distinct event offsets across them', () => {
+        it('is every fixture, and 270 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -222,7 +222,12 @@ describe('offset projection at event boundaries', () => {
             // and counts explicitly OUTSIDE the observable the stage is required to preserve, so a
             // structural count moving here is exactly what should happen. Measured per fixture: the
             // other 36 are unmoved, and this one goes 30 events to 29.
-            expect(events).toBe(269);
+            //
+            // 269 BECAME 270 when the rectilinear Cross fixture joined the corpus: its four arms
+            // are congruent, so every collision on one arm has a mirror on the other three at the
+            // same offset, and `computeNodeOffsets` canonicalises those onto one shared event —
+            // the whole shape resolves through a single distinct offset.
+            expect(events).toBe(270);
         });
     });
 

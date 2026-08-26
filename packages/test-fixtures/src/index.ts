@@ -156,6 +156,13 @@ export {
     NEAR_REGULAR_ROSETTE5_40,
 } from './near-regular-polygons';
 
+// rectilinear-shapes.ts
+export {CROSS} from './rectilinear-shapes';
+import {CROSS} from './rectilinear-shapes';
+
+export {T_SHAPE} from './rectilinear-shapes';
+import {T_SHAPE} from './rectilinear-shapes';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];
@@ -219,4 +226,8 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     // Premature-bisector split (premature-bisector-split.ts)
     {name: 'Premature Bisector Split (fails)', vertices: PREMATURE_BISECTOR_SPLIT_FAILS},
     {name: 'Premature Bisector Split (passes)', vertices: PREMATURE_BISECTOR_SPLIT_PASSES},
+
+    // Rectilinear shapes (rectilinear-shapes.ts)
+    {name: 'Cross', vertices: CROSS},
+    {name: 'T-Shape (fails)', vertices: T_SHAPE},
 ];

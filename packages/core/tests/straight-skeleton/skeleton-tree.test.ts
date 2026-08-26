@@ -294,7 +294,7 @@ describe('the shape of the tree, over the whole corpus', () => {
     it('builds a tree from every fixture', () => {
         const notTrees = trees.filter(entry => !entry.tree.isTree).map(entry => entry.name);
         expect(notTrees).toEqual([]);
-        expect(trees).toHaveLength(37);
+        expect(trees).toHaveLength(38);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
