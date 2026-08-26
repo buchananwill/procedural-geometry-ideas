@@ -229,5 +229,5 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
 
     // Rectilinear shapes (rectilinear-shapes.ts)
     {name: 'Cross', vertices: CROSS},
-    {name: 'T-Shape (fails)', vertices: T_SHAPE},
+    {name: 'T-Shape', vertices: T_SHAPE},
 ];

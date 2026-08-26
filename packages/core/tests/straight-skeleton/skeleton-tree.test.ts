@@ -294,7 +294,10 @@ describe('the shape of the tree, over the whole corpus', () => {
     it('builds a tree from every fixture', () => {
         const notTrees = trees.filter(entry => !entry.tree.isTree).map(entry => entry.name);
         expect(notTrees).toEqual([]);
-        expect(trees).toHaveLength(38);
+        // 38 became 39 when the T-Shape started solving completely (the degenerate-closure path)
+        // and joined the buildable corpus. Its two culled self-loop bisectors are excluded from the
+        // tree by `InteriorEdge.culled`, which is what keeps it a tree here.
+        expect(trees).toHaveLength(39);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -470,15 +473,18 @@ describe('skeletonTreeDiameter over the corpus', () => {
     });
 
     /**
-     * And the distinction is not academic on this corpus: on 22 of the 37 fixtures the longest
+     * And the distinction is not academic on this corpus: on 23 of the 39 fixtures the longest
      * hop-count path is STRICTLY shorter than the diameter. `Mid-case Failure End` is the widest
      * margin measured — 532.52 against 350.42, a third of the length lost — so a hop-count
      * implementation would fail this file rather than pass it quietly.
+     *
+     * 22 became 23 when the T-Shape joined the buildable corpus, with its longest hop-count path
+     * strictly shorter than its weighted diameter.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>
             pathLength(tree, longestLeafPathByHops(tree)) < pathLength(tree, skeletonTreeDiameter(tree)) - 1e-9);
-        expect(shorter).toHaveLength(22);
+        expect(shorter).toHaveLength(23);
 
         const midCase = trees.find(entry => entry.name === 'Mid-case Failure End') as typeof trees[number];
         expect(pathLength(midCase.tree, skeletonTreeDiameter(midCase.tree))).toBeCloseTo(532.5233, 3);

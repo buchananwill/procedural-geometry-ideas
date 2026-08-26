@@ -143,12 +143,22 @@ describe('handleInteriorEdgeTriangle: the guards, and what they fall through to'
         expect(loggedMessages(fallThroughLog)).toMatch(/negative.*falling through/s);
     });
 
-    it('falls through when the system is singular', () => {
+    it('falls through when the system is singular, and resolves by degenerate closure', () => {
+        // Three collinear vertices leave the pairwise path nothing either: the endpoint bisectors
+        // run along the shared line and the middle one is perpendicular to it, so no pairing
+        // converges. What remains is the degenerate closure — every bisector reaches the middle
+        // vertex at offset zero — so the triangle terminates there instead of throwing, with the
+        // middle bisector culled as a zero-length self-loop.
         const {context, interiorEdgeIds} = initialisedContext(COLLINEAR_TRIPLE);
 
-        expect(() => handleInteriorEdgeTriangle(context, {interiorEdges: interiorEdgeIds}))
-            .toThrow(/Failed to collide interior edges in triangle/);
+        handleInteriorEdgeTriangle(context, {interiorEdges: interiorEdgeIds});
+
         expect(loggedMessages(fallThroughLog)).toMatch(/determinant.*falling through/s);
+        const middleVertex = context.graph.nodes[1].position;
+        for (const edgeId of interiorEdgeIds) {
+            expect(targetPositionOf(context, edgeId)).toEqual(middleVertex);
+        }
+        expect(context.getInteriorWithId(interiorEdgeIds[1]).culled).toBe(true);
     });
 
     it('falls through when the three edges do not have exactly three distinct parents', () => {
@@ -223,6 +233,90 @@ describe('handleInteriorEdgePair: a shared source is a terminal state, not a fai
 
         expect(context.getEdgeWithId(first).target).toBeDefined();
         expect(context.getEdgeWithId(second).target).toBeDefined();
+    });
+});
+
+/**
+ * Two collinear bisectors pointing the same way, the leading one listed first.
+ *
+ * `intersectRays` classifies this ordering 'co-linear-from-2' and `collideInteriorEdges` returns
+ * nothing for it — "will be handled by other edge" — a deferral that is only honoured where both
+ * orderings are generated. The two-edge base case runs one ordering, so it has to retry the
+ * reverse itself. The parents here are NOT parallel (offsets disagree along the line), so the
+ * degenerate closure correctly declines and the reverse ordering is what resolves the pair.
+ */
+function collinearLeadingFirstPair(): InitialisedContext {
+    const initialised = initialisedContext(SQUARE);
+    const {context, interiorEdgeIds} = initialised;
+    const pair = interiorEdgeIds.slice(0, 2);
+
+    const leading = context.getEdgeWithId(pair[0]);
+    leading.source = context.findOrAddNode({x: 1.5, y: 1}).id;
+    leading.basisVector = {x: 1, y: 0};
+
+    const trailing = context.getEdgeWithId(pair[1]);
+    trailing.source = context.findOrAddNode({x: 0.5, y: 1}).id;
+    trailing.basisVector = {x: 1, y: 0};
+
+    return {context, interiorEdgeIds: pair};
+}
+
+describe('handleInteriorEdgePair: collinear same-direction pairs resolve in either ordering', () => {
+    it('cross-wires when the leading edge is listed first', () => {
+        const {context, interiorEdgeIds} = collinearLeadingFirstPair();
+        const [leadingId, trailingId] = interiorEdgeIds;
+        const leadingSource = context.getEdgeWithId(leadingId).source;
+        const trailingSource = context.getEdgeWithId(trailingId).source;
+
+        const output = handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
+
+        expect(output.childSteps).toEqual([]);
+        expect(context.getEdgeWithId(trailingId).target).toBe(leadingSource);
+        expect(context.getEdgeWithId(leadingId).target).toBe(trailingSource);
+        for (const edgeId of interiorEdgeIds) {
+            expect(context.isAccepted(edgeId)).toBe(true);
+        }
+    });
+});
+
+describe('the degenerate closure, end to end: the rectilinear T-Shape', () => {
+    // After the four simultaneous initial collisions, both remaining sub-polygons of the T's head
+    // have all-parallel exterior parents: the pairwise machinery finds no collision, and the whole
+    // head closes at a single offset onto the node at the top of the stem. That node anchors the
+    // closure for both the two-edge and the three-edge base case, and the surplus bisectors the
+    // n-gon partition emitted there are retired as culled zero-length self-loops.
+    const T_SHAPE: Vector2[] = [
+        {x: 0, y: 600}, {x: 600, y: 600}, {x: 600, y: 400}, {x: 400, y: 400},
+        {x: 400, y: 0}, {x: 200, y: 0}, {x: 200, y: 400}, {x: 0, y: 400},
+    ];
+
+    it('solves completely, closing the head onto the stem-top node', () => {
+        const context = runAlgorithmV5(T_SHAPE);
+        const {graph} = context;
+
+        expect(context.acceptedEdges.every(Boolean)).toBe(true);
+
+        const interiorNodes = graph.nodes.slice(graph.numExteriorNodes);
+        expect(interiorNodes.map(node => node.position)).toEqual([
+            {x: 100, y: 500},
+            {x: 500, y: 500},
+            {x: 300, y: 500},
+            {x: 300, y: 100},
+        ]);
+    });
+
+    it('culls exactly the self-loop bisectors, and nothing else', () => {
+        const context = runAlgorithmV5(T_SHAPE);
+        const {graph} = context;
+
+        for (const interiorEdge of graph.interiorEdges) {
+            const polygonEdge = graph.edges[interiorEdge.id];
+            const isSelfLoop = polygonEdge.target === polygonEdge.source;
+            expect(interiorEdge.culled === true).toBe(isSelfLoop);
+        }
+
+        const culled = graph.interiorEdges.filter(interiorEdge => interiorEdge.culled);
+        expect(culled).toHaveLength(2);
     });
 });
 

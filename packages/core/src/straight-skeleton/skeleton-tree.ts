@@ -61,8 +61,10 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * representation and two edges are the same edge exactly when both ids match. There is one edge per
  * node pair: the arc a collapse writes down from both of its ends appears here once, keyed by the
  * lower of the two interior edge ids. The only input that cannot be ordered `a < b` is a degenerate
- * arc whose two ends are the same node; it is kept, with `a === b`, because dropping it would hide
- * it, and it forces {@link SkeletonTree.isTree} false.
+ * arc whose two ends are the same node. When the solver marked it `culled` — its deliberate
+ * representation of a surplus bisector retired at a degenerate closure — it contributes no geometry
+ * and is excluded here. An UNMARKED self-loop is a solver defect, and is kept, with `a === b`,
+ * because dropping it would hide it; it forces {@link SkeletonTree.isTree} false.
  */
 export interface SkeletonTreeEdge {
     /** The two node ids this edge joins. Undirected; `a < b` by construction. */
@@ -219,6 +221,10 @@ export function skeletonTreeDiameter(tree: SkeletonTree): number[] {
  * contributes no edge; its source is left short of a neighbour, which surfaces as a broken structure
  * on {@link SkeletonTree.isTree} rather than as a guess here.
  *
+ * A `culled` interior edge is the opposite of unresolved: the solver deliberately retired it as a
+ * zero-length self-loop at a degenerate closure. It carries no geometry and is skipped, and its
+ * closure node remains connected through the edges that genuinely arrive there.
+ *
  * Sorted by `(a, b)`, so the list is a pure function of the solve and not of the order the solver
  * happened to create its arcs in.
  */
@@ -228,7 +234,7 @@ function collectTreeEdges(result: SkeletonSolveResult): SkeletonTreeEdge[] {
     const edgesByNodePair = new Map<string, SkeletonTreeEdge>();
     for (const interiorEdge of graph.interiorEdges) {
         const polygonEdge = graph.edges[interiorEdge.id];
-        if (polygonEdge === undefined || polygonEdge.target === undefined) {
+        if (polygonEdge === undefined || polygonEdge.target === undefined || interiorEdge.culled) {
             continue;
         }
 

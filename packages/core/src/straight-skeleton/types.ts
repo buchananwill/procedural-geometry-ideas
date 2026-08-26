@@ -36,6 +36,14 @@ export interface InteriorEdge {
     widdershinsExteriorEdgeIndex: number;
     length: number;
     maxOffset?: number;
+    /**
+     * True when the solver deliberately retired this edge as a zero-length self-loop
+     * (`target === source`) during a degenerate closure: the sub-polygon it belonged to closed
+     * entirely at a single offset, and this bisector was surplus at the closure node. Edge ids are
+     * array indices, so removal is not representable; the flag lets consumers distinguish a culled
+     * edge from a self-loop that would indicate a solver defect.
+     */
+    culled?: boolean;
 }
 
 export interface StraightSkeletonGraph {

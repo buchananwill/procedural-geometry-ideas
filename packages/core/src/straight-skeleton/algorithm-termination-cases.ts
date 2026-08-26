@@ -163,6 +163,98 @@ function resolveEdgesPointingAtNodes(context: StraightSkeletonSolverContext, edg
     return unresolved;
 }
 
+/**
+ * Commit a degenerate closure: terminate the sub-polygon's edges at the closure point and accept
+ * them all.
+ *
+ * Only edges without a target are terminated — the snap pre-pass can resolve one edge of a
+ * sub-polygon before the collision path runs, and re-terminating it would duplicate its entry in
+ * the target node's `inEdges`. An edge that closes onto its own source becomes a zero-length
+ * self-loop and is marked `culled`, so consumers can tell this deliberate retirement apart from a
+ * self-loop that would indicate a solver defect.
+ */
+function applyDegenerateClosure(context: StraightSkeletonSolverContext, edgeIds: number[], position: Vector2): void {
+    const unresolved = edgeIds.filter(id => context.getEdgeWithId(id).target === undefined);
+    if (unresolved.length > 0) {
+        context.terminateEdgesAtPoint(unresolved, position);
+    }
+
+    for (const id of edgeIds) {
+        const edge = context.getEdgeWithId(id);
+        if (edge.target === edge.source) {
+            context.getInteriorWithId(id).culled = true;
+        }
+    }
+
+    context.acceptAll(edgeIds);
+}
+
+/**
+ * The single point at which a degenerate sub-polygon closes, or `undefined` if it is not one.
+ *
+ * A sub-polygon whose exterior parents are all parallel has no offset gradient along the shared
+ * axis: every remaining collision happens at one offset, and the pairwise machinery finds nothing —
+ * head-on rates cancel (`meetHeadOn` returns null), collinear same-direction pairs meet at a
+ * source rather than between sources, and the three-line terminal solve is singular. The closure
+ * point in that regime is always the SOURCE of one of the surviving edges: the node the wavefront
+ * had already fully converged on when those edges were born.
+ *
+ * Each edge's source is auditioned as that anchor. The candidate stands only if every other edge's
+ * ray passes through it travelling forward, no edge would arrive before its own birth offset (the
+ * same causality rule as `tryAttachEdgeToNode` and `notYetBorn`), and all edges agree on the
+ * arrival offset — simultaneity is what makes this a terminal closure rather than an ordinary
+ * collision that upstream machinery should have found.
+ *
+ * An anchor edge terminated at its own source becomes a zero-length self-loop: the deliberate
+ * representation of a culled surplus bisector, since edge ids are array indices and removal is not
+ * representable. Downstream consumers already account for this (`spine.ts` counts a self-loop as
+ * degree two, never a leaf).
+ */
+function solveDegenerateClosure(context: StraightSkeletonSolverContext, interiorEdgeIds: number[]): Vector2 | undefined {
+    for (const anchorId of interiorEdgeIds) {
+        const anchorPosition = context.sourcePosition(anchorId);
+        const arrivalOffsets: number[] = [];
+        let valid = true;
+
+        for (const edgeId of interiorEdgeIds) {
+            const interior = context.getInteriorWithId(edgeId);
+            const ray = context.projectRayInterior(interior);
+            const birthOffset = sourceOffsetDistance(interior, context);
+            const [direction, distance] = normalize(subtractVectors(anchorPosition, ray.sourceVector));
+
+            // The anchor itself, and any edge already sourced at the anchor, arrives without travel.
+            if (edgeId === anchorId || areEqual(distance, 0)) {
+                arrivalOffsets.push(birthOffset);
+                continue;
+            }
+
+            if (!vectorsAreEqual(direction, ray.basisVector)) {
+                valid = false;
+                break;
+            }
+
+            const arrivalOffset = makeOffsetDistance(interior, context, ray, distance);
+            const localOffset = arrivalOffset - birthOffset;
+            if (localOffset < 0 && !areEqual(localOffset, 0)) {
+                valid = false;
+                break;
+            }
+
+            arrivalOffsets.push(arrivalOffset);
+        }
+
+        if (!valid) {
+            continue;
+        }
+
+        if (arrivalOffsets.every(offset => areEqual(offset, arrivalOffsets[0]))) {
+            return anchorPosition;
+        }
+    }
+
+    return undefined;
+}
+
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
         throw new Error("Invalid call: expecting two interior edges");
@@ -219,6 +311,24 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1));
     } else {
         const collisions = collideInteriorEdges(interior1, interior2, context);
+
+        if (collisions.length === 0) {
+            // A collinear same-direction pair in a fully degenerate closure (all exterior parents
+            // parallel, zero offset delta) produces no pairwise collision in either ordering:
+            // the meeting point is the leading edge's source, not a point between sources. Close
+            // it there, culling the leading edge as a self-loop.
+            const closure = solveDegenerateClosure(context, input.interiorEdges);
+            if (closure !== undefined) {
+                applyDegenerateClosure(context, input.interiorEdges, closure);
+                return {childSteps: []};
+            }
+
+            // 'co-linear-from-2' defers to "the other edge's" pass, which only exists where both
+            // orderings are generated (the n-gon path). This base case runs one ordering, so the
+            // deferral has to be honoured here by trying the reverse ordering explicitly.
+            collisions.push(...collideInteriorEdges(interior2, interior1, context));
+        }
+
         if (collisions.length === 0) {
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
@@ -394,7 +504,18 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     const best = bestNonPhantomCollision(allCollisions);
 
     if (!best) {
-        throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
+        // A triangle whose exterior parents are all parallel defeats every pairwise generator:
+        // the terminal solve is singular, head-on rates cancel, and perpendicular arrivals meet
+        // at an existing source with zero travel ('diverging'). If the whole triangle closes on
+        // one edge's source at a single shared offset, terminate it there — the anchor edge
+        // becomes a culled self-loop.
+        const closure = solveDegenerateClosure(context, input.interiorEdges);
+        if (closure === undefined) {
+            throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
+        }
+
+        applyDegenerateClosure(context, input.interiorEdges, closure);
+        return {childSteps: []};
     }
 
     context.terminateEdgesAtPoint(input.interiorEdges, best.position);

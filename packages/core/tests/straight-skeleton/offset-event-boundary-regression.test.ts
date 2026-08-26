@@ -227,7 +227,12 @@ describe('offset projection at event boundaries', () => {
             // are congruent, so every collision on one arm has a mirror on the other three at the
             // same offset, and `computeNodeOffsets` canonicalises those onto one shared event —
             // the whole shape resolves through a single distinct offset.
-            expect(events).toBe(270);
+            //
+            // 270 BECAME 271 when the T-Shape started solving completely (the degenerate-closure
+            // path): like the Cross, everything in it collapses at one canonicalised offset —
+            // stem spine, bar ridge and culled surplus bisectors all at half the stem width — so
+            // the fixture contributes exactly one distinct event.
+            expect(events).toBe(271);
         });
     });
 
