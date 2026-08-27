@@ -12,6 +12,22 @@ import {
 } from "./algorithm-helpers";
 import {bisectionsForMerge, clusterCoincidentMerges, mergesShareAnEdge, ringsOfSubPolygon} from "./coincident-events";
 
+/**
+ * Lexicographic over two edge-id lists, a shorter prefix first.
+ *
+ * The canonical tie-break for events that a floating-point offset cannot separate. `collidingEdges`
+ * identifies an event by the edges taking part in it, which is a property of the polygon's own
+ * topology, so two distinct events at one offset are ordered by something no placement can move.
+ */
+function compareEdgeIdLists(first: number[], second: number[]): number {
+    for (let index = 0; index < Math.min(first.length, second.length); index++) {
+        if (first[index] !== second[index]) {
+            return first[index] - second[index];
+        }
+    }
+    return first.length - second.length;
+}
+
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
         throw new Error("Different instigators! Invalid comparison.")
@@ -89,8 +105,21 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         }
     };
 
-    const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) =>
-        CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
+    // Priority first, then the colliding edge ids, so a layer is processed in an order that is a
+    // function of the events themselves. `toSorted` is stable, so priority alone left equal-priority
+    // events in the order the offset sort delivered them — and offsets that are equal in exact
+    // arithmetic differ by an ulp once the input is placed elsewhere in the plane. Each event
+    // handled here CREATES A NODE, so that made node identity turn on an ulp: `Golf Cart`'s two
+    // simultaneous splits of its top edge (journal F12) swapped ids under a translation of 1e3,
+    // the same defect decision 65 records for the ellipses' mirror pair. Edge ids are integers
+    // taken from the polygon's own vertex order and carry no arithmetic at all.
+    const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
+        const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
+        if (priority !== 0) {
+            return priority;
+        }
+        return compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
+    };
 
     // Every interior-to-interior collision at this offset that shares a collision point is one
     // vertex event, not several. Resolve each such event whole — terminate all its arrivals on

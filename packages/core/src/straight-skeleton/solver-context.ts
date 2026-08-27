@@ -8,7 +8,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2
 } from "./types";
-import {initBoundingPolygon} from "./graph-helpers";
+import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
     areEqual,
@@ -272,7 +272,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         },
         terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode {
             const node = findOrAddNode(position);
-            node.inEdges.push(...edgeIds);
+            addInEdges(node, edgeIds);
             edgeIds.forEach(id => {
                 getEdgeWithId(id).target = node.id;
             });
@@ -283,8 +283,8 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
             const edge2 = getEdgeWithId(id2);
             edge1.target = edge2.source;
             edge2.target = edge1.source;
-            graph.nodes[edge1.source].inEdges.push(id2);
-            graph.nodes[edge2.source].inEdges.push(id1);
+            addInEdges(graph.nodes[edge1.source], [id2]);
+            addInEdges(graph.nodes[edge2.source], [id1]);
         },
         parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge } {
             const interior = getInteriorWithId(interiorEdgeId);

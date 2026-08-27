@@ -18,7 +18,7 @@ import {addVectors, areEqual, makeBisectedBasis, sizeOfVector, vectorsAreEqual} 
  */
 export interface CoincidentMerge {
     position: Vector2;
-    /** Interior edge ids arriving at `position`, in first-seen order. */
+    /** Interior edge ids arriving at `position`, ascending. */
     edgeIds: number[];
 }
 
@@ -44,16 +44,29 @@ export interface CoincidentMerge {
  * lie apart. On this corpus that is the wanted behaviour — it is what reunites a fan whose
  * extremes are measured 1.95e-08 apart. The alternative not taken is gap-based partitioning,
  * which bounds a group's diameter at the price of a second threshold nothing has measured.
+ *
+ * THE RESULT IS A CANONICAL FUNCTION OF THE EVENT SET, not of the order it arrived in: each
+ * merge's `edgeIds` ascending, and the merges themselves ordered by their smallest edge id. The
+ * caller resolves them in this order and therefore NUMBERS THE NODES it creates in this order.
+ * Arrival order is the offset sort's order, and offsets that are equal in exact arithmetic differ
+ * by an ulp once the input is scaled, so numbering from arrival made node identity turn on an ulp:
+ * the two interior nodes of an exact mirror pair swapped ids between a polygon and the same polygon
+ * scaled by 7 (`NEAR_REGULAR_ELLIPSE_16/32`, journal decision 65). Edge ids are integers assigned
+ * from the polygon's own vertex order, so the key carries no arithmetic at all.
+ *
+ * THE KEY NEEDS NO TIE-BREAK. A merge is one vertex event and a bisector arrives at one point, so
+ * the caller only resolves a set of merges that share no edge — `mergesShareAnEdge` is its guard —
+ * and disjoint non-empty sets have distinct minima.
  */
 export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMerge[] {
     const merges = coincidentComponents(events).map(component => ({
         position: medoidPosition(component.map(index => events[index].position)),
-        edgeIds: distinctEdgeIds(component.map(index => events[index])),
+        edgeIds: distinctEdgeIds(component.map(index => events[index])).sort((a, b) => a - b),
     }));
 
     assertMergePositionsAreDistinct(merges);
 
-    return merges;
+    return merges.sort((a, b) => a.edgeIds[0] - b.edgeIds[0]);
 }
 
 /**
@@ -92,7 +105,8 @@ export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void
  * lists of indices into `events`.
  *
  * Components appear in the order their first member arrived, and members within a component in
- * arrival order, so `edgeIds` keeps the first-seen ordering the type documents.
+ * arrival order. Neither ordering survives into the returned merges — `clusterCoincidentMerges`
+ * replaces both with the canonical one — so nothing downstream may reason from it.
  */
 function coincidentComponents(events: CollisionEvent[]): number[][] {
     const parent = events.map((_, index) => index);
@@ -190,7 +204,7 @@ function precedesLexicographically(candidate: Vector2, incumbent: Vector2): bool
     return candidate.x < incumbent.x || (candidate.x === incumbent.x && candidate.y < incumbent.y);
 }
 
-/** Every edge id reported by these events, deduplicated, in first-seen order. */
+/** Every edge id reported by these events, deduplicated; the caller imposes the order. */
 function distinctEdgeIds(events: CollisionEvent[]): number[] {
     const edgeIds: number[] = [];
     for (const event of events) {

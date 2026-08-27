@@ -80,12 +80,12 @@ import {
  *
  * The projection used to lose rings on the near-regular fixtures; the simultaneous-mirror-event
  * work has since fixed that, and `near-regular-ring-loss-diagnosis.test.ts` carries both the
- * diagnosis and the guarantee for those four. Two of the seven — `NEAR_REGULAR_CIRCLE_16` and
- * `NEAR_REGULAR_CIRCLE_32` — were promoted into `ALL_TEST_POLYGONS` on 2026-08-27 and are swept
- * here as ordinary corpus members; the other five stay out on their own pinned failures
- * (`large-coordinate-known-failures.test.ts`, `corpus-enrolment-blockers.test.ts`). Promotion
- * moves the counts this file pins, which is why it is done as its own change with the move
- * attributed per fixture at each pin. The two suites share their measurements through
+ * diagnosis and the guarantee for them. Five of the seven — the two circles on 2026-08-27, the
+ * peanut and both ellipses by 2026-08-28 — were promoted into `ALL_TEST_POLYGONS` and are swept
+ * here as ordinary corpus members; `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` stay
+ * out on their own pinned failures (`large-coordinate-known-failures.test.ts`). Promotion moves
+ * the counts this file pins, which is why it is done as its own change with the move attributed
+ * per fixture at each pin. The two suites share their measurements through
  * `wavefront-measurement-helpers.ts` so that the guarantee and the diagnosis are stated over the
  * same quantities.
  *
@@ -205,7 +205,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 298 distinct event offsets across them', () => {
+        it('is every fixture, and 310 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -250,7 +250,14 @@ describe('offset projection at event boundaries', () => {
             // congruent shape, so neither collapses the way the circles and the Cross do: the
             // promontory's short eastern edges each carry their own event, and the peanut's
             // four-fold symmetry leaves 8 distinct offsets out of 32 vertices.
-            expect(events).toBe(298);
+            //
+            // 298 BECAME 310 on 2026-08-28, when `Near Regular Ellipse 16` and `Near Regular
+            // Ellipse 32` were promoted under journal decision 65. Attributed per fixture before
+            // repinning: Ellipse 16 contributes 4 and Ellipse 32 contributes 8, and the other 44
+            // are unmoved — re-running this reduction over the 44 alone still gives 298. An
+            // ellipse is mirror-symmetric about both axes rather than congruent under rotation, so
+            // it collapses onto a handful of offsets rather than the circles' single one.
+            expect(events).toBe(310);
         });
     });
 
@@ -399,8 +406,28 @@ describe('offset projection at event boundaries', () => {
             // mutated 13 and fired 9; the peanut mutated 13 and fired 12. Both are dense shapes
             // whose events sit clear of the terminal band, which is why they contribute heavily
             // where the circles contributed nothing. `silentLosses` is still empty over all 44.
-            expect(mutated).toBe(263);
-            expect(fired).toBe(124);
+            //
+            // `fired` MOVED ALONE ON 2026-08-28 — 124 to 133 — for a FOURTH cause, and one the
+            // note above says cannot move it alone: a change in what the projection reports. The
+            // corpus and its geometry are untouched here, which is why `mutated` is bit-unmoved at
+            // 263 and every event count above is unmoved. `inEdges` is now kept in ascending
+            // edge-id order at construction rather than in push order (`addInEdges`,
+            // `graph-helpers.ts`), and `firstIncidentParentEdge` dates a node from the FIRST
+            // bisector incident to it — so sorting changes which of a node's incident parents its
+            // offset is re-derived against. Those parents are equidistant in exact arithmetic and
+            // disagree only in the last bits, so this moves offsets within the canonicalisation
+            // band and moves nothing a caller can see. It is the report getting MORE sensitive,
+            // not less: 9 mutations that used to be absorbed harmlessly are now reported, and
+            // `silentLosses` is still empty. Attributed per fixture: 14 of the 44 move, none by
+            // more than 3, and `Moorhen (fails)` carries the widest at 1 to 4.
+            //
+            // BOTH MOVED ON 2026-08-28 — 263 to 283 and 133 to 150 — for the third cause again,
+            // the corpus growing: `Near Regular Ellipse 16` and `Near Regular Ellipse 32` were
+            // promoted under journal decision 65. Attributed per fixture before repinning; the
+            // other 44 are bit-unmoved on all three counts. Ellipse 16 carries mutated 6 and fired
+            // 5; Ellipse 32 mutated 14 and fired 12. `silentLosses` is still empty over all 46.
+            expect(mutated).toBe(283);
+            expect(fired).toBe(150);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

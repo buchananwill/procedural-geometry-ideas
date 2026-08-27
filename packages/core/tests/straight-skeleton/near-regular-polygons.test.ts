@@ -84,35 +84,27 @@ import {
  * the last bits of the mantissa, so there is nothing left to hedge about.
  *
  * ----------------------------------------------------------------------------
- * WHY THESE FIXTURES ARE STILL OUT OF `ALL_TEST_POLYGONS`
+ * FIVE OF THE SEVEN ARE NOW IN `ALL_TEST_POLYGONS` — re-recorded 2026-08-28
  * ----------------------------------------------------------------------------
  *
- * Solving is not the only thing that list asserts. All seven now solve completely, so promotion
- * was re-measured with all seven temporarily added to the list. Every sweep passes except two,
- * and between them they still block six of the seven:
+ * Solving is not the only thing that list asserts, and this section used to record two sweeps that
+ * between them blocked six of the seven. BOTH OF THOSE BLOCKERS ARE DEAD AS STATED, re-measured
+ * 2026-08-27 (journal F14): the many-way-event offset projection no longer reproduces on any of
+ * the four fixtures it named — the simultaneous-mirror-event work closed it, and
+ * `near-regular-ring-loss-diagnosis.test.ts` carries the diagnosis and the guarantee — and unit-
+ * extent normalisation carries all seven through the translation envelope out to 1e9, so being
+ * 300-unit shapes no longer costs them anything.
  *
- *   - `offset-event-boundary-regression.test.ts` — at the exact offset of a many-way event the
- *     wavefront ring passes through the single node that event created, and
- *     `projectOffsetWavefront` cannot close it. Blocks `NEAR_REGULAR_ELLIPSE_16` (72.361834),
- *     `NEAR_REGULAR_ELLIPSE_32` (68.277064), `NEAR_REGULAR_ROSETTE5_40` (37.456461, 55.672712)
- *     and `NEAR_REGULAR_PEANUT_32` (106.597832). This is pre-existing and not caused by any
- *     solver fix: `NEAR_REGULAR_ELLIPSE_16` reports the identical unclosed chain on both sides
- *     of every change made here. It is the same class as the Pentagon House exception that file
- *     already documents. The peanut's instance is the two-ring form of it: the lobes' events sit
- *     one ULP apart, so at either offset one lobe's ring closes and the other does not, and the
- *     projected area reads 8.534 -> 4.267 -> 8.534 rather than dropping to zero.
- *   - `large-coordinate-failures.test.ts` — these are 300-unit shapes, so they leave the
- *     translation envelope earlier than the corpus's smaller fixtures. Blocks
- *     `NEAR_REGULAR_CIRCLE_32`, `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40`.
+ * Promoted since: `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` on 2026-08-27,
+ * `NEAR_REGULAR_PEANUT_32` the same day under journal decision 64, and `NEAR_REGULAR_ELLIPSE_16`
+ * and `NEAR_REGULAR_ELLIPSE_32` on 2026-08-28 under decision 65 — the last two held out on node
+ * LABELLING rather than geometry, until simultaneous events stopped being numbered in arrival
+ * order. Each promotion moved the pinned counts in `offset-event-boundary-regression.test.ts`,
+ * `skeleton-tree.test.ts` and `canonicalisation.test.ts`, attributed per fixture at each pin.
  *
- * `NEAR_REGULAR_CIRCLE_16` is now blocked by neither and is promotable on its own; doing so also
- * means updating the hard-coded event-offset count in `offset-event-boundary-regression.test.ts`,
- * which is 271 for the present list. The rest need the projection to close a many-way event, the
- * envelope to reach 300-unit shapes, or both.
- *
- * The peanut in particular is no longer a solver problem. It solves complete with no
- * diagnostics, both causality invariants hold on it non-vacuously, and its strip tiling is
- * 3.1e-15 of the polygon area at worst across every depth and corner policy.
+ * The two still out are `NEAR_REGULAR_CIRCLE_48` (translation 1e10 only, non-monotonically) and
+ * `NEAR_REGULAR_ROSETTE5_40` (1e11 only), each pinned as a failing test in
+ * `large-coordinate-known-failures.test.ts` rather than asserted in prose here.
  */
 
 setSkeletonLogLevel('silent');

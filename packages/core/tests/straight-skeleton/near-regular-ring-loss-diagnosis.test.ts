@@ -34,11 +34,16 @@ import {
  *
  * WHAT THIS FILE RECORDS, AND WHY IT IS NOT IN `offset-event-boundary-regression.test.ts`
  *
- * That file sweeps `ALL_TEST_POLYGONS`. These four fixtures are deliberately held out of that
- * corpus and are not promoted into it here: promoting them moves the hard-coded event count that
- * file pins and would make any regression unattributable. So the guarantee for these four — that
- * the projection survives every one of their events — is asserted here instead, over the same
- * measurements, imported from `wavefront-measurement-helpers.ts`.
+ * That file sweeps `ALL_TEST_POLYGONS`. These four fixtures were all held out of that corpus when
+ * this file was written, and three have since been promoted into it — `Near Regular Peanut 32` on
+ * 2026-08-27 under journal decision 64, both ellipses on 2026-08-28 under decision 65. They stay
+ * enumerated here anyway. THIS LIST IS THE POPULATION THE DIAGNOSIS WAS MEASURED OVER, not the
+ * held-out set: the lost-ring counts below and the 48/40 mutation pin are readings taken across
+ * exactly these four, and dropping a member as it is promoted would silently change what those
+ * numbers describe. `Near Regular Rosette5 40` is the one still out of the corpus, on a
+ * translation-envelope failure at 1e11 pinned in `large-coordinate-known-failures.test.ts`.
+ * The guarantee for all four — that the projection survives every one of their events — is
+ * asserted here, over measurements imported from `wavefront-measurement-helpers.ts`.
  *
  * WHAT WAS WRONG
  *
@@ -84,7 +89,11 @@ import {
 
 setSkeletonLogLevel('silent');
 
-/** A fixture that is exported individually and deliberately kept out of `ALL_TEST_POLYGONS`. */
+/**
+ * One member of the population this file's diagnosis was measured over. Every one was out of
+ * `ALL_TEST_POLYGONS` when it was written; three have since been promoted and stay listed, because
+ * the counts here describe these four fixtures and no other set.
+ */
 export interface HeldOutFixture {
     name: string;
     vertices: Vector2[];

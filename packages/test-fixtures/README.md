@@ -12,7 +12,7 @@ npm install --save-dev @proc-geo/test-fixtures
 
 ## The polygon list
 
-`ALL_TEST_POLYGONS` is the canonical set — **44 named polygons**, ranging from a triangle to a 32-gon:
+`ALL_TEST_POLYGONS` is the canonical set — **46 named polygons**, ranging from a triangle to a 32-gon:
 
 ```ts
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
@@ -54,7 +54,7 @@ All vertices are wound **clockwise**, which is what `runAlgorithmV5` expects.
 | Premature bisector split | `PREMATURE_BISECTOR_SPLIT_FAILS`, `PREMATURE_BISECTOR_SPLIT_PASSES` |
 | Rectilinear | `CROSS`, `T_SHAPE`, `GOLF_CART` |
 | Short-edge promontory | `SHORT_EDGE_PROMONTORY` |
-| Near-regular controls | `NEAR_REGULAR_CIRCLE_16`, `NEAR_REGULAR_CIRCLE_32`, `NEAR_REGULAR_PEANUT_32` |
+| Near-regular controls | `NEAR_REGULAR_CIRCLE_16`, `NEAR_REGULAR_CIRCLE_32`, `NEAR_REGULAR_PEANUT_32`, `NEAR_REGULAR_ELLIPSE_16`, `NEAR_REGULAR_ELLIPSE_32` |
 
 The `(fails)` / `(passes)` naming is deliberate and worth understanding: these are **near-identical pairs** that
 bracket a failure. `MOORHEN_FAILS` and `MOORHEN_PASSES` differ by a small perturbation, as do the isthmus and mid-case
@@ -76,9 +76,8 @@ weight: `SYMMETRICAL_OCTAGON`, `CRAB_TEST_CASE`, `CRAB_TEST_CASE_2`, `CRAB_TEST_
 
 Held out on a **recorded defect**, each pinned by a characterisation test in `@proc-geo/core` that fires if the
 behaviour changes in either direction — never as a quiet route to a green suite: `COLLINEAR_DUMBBELL` (strips overlap
-while the solve reports success), `NEAR_REGULAR_ELLIPSE_16` and `NEAR_REGULAR_ELLIPSE_32` (node ids swap within a
-mirror pair under scaling), `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` (one large-coordinate translation
-cell each).
+while the solve reports success), `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` (one large-coordinate
+translation cell each).
 Each fixture file states its own case.
 
 ## Test helpers

@@ -28,7 +28,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 44 named polygon fixtures + test helpers. Optional for consumers.                               | Yes          |
+| `@proc-geo/test-fixtures` | 46 named polygon fixtures + test helpers. Optional for consumers.                               | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 
@@ -142,7 +142,7 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-44 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
+46 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
 `test-constants.ts`. Further polygons are exported individually but excluded from that list -- several suites
 sweep `ALL_TEST_POLYGONS` asserting far more than that every entry solves, so a fixture that fails one of those
 assertions must stay out of it. An exclusion is legitimate only as a **visible, pinned characterisation test** of

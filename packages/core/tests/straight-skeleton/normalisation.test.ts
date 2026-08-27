@@ -464,7 +464,9 @@ describe('unit-extent normalisation', () => {
          * UNEXPLAINED movement, and this movement is explained, attributed and ruled.
          *
          * THE ERROR BAR IS NOW STATED AGAINST THE POLYGON'S EXTENT, which is decision 64's other
-         * half and the option `corpus-enrolment-blockers.test.ts` named before it was deleted. The
+         * half and the option `corpus-enrolment-blockers.test.ts` named before that file was
+         * deleted on 2026-08-28 — its last defect promoted its fixtures out, and its history is in
+         * the git log rather than in a stub kept for the reference's sake. The
          * centring error is bounded by the representation of the SPAN, not of the coordinate, so a
          * coordinate that sits near the centre of a large polygon is small beside the quantity that
          * actually bounds its error. `SHORT_EDGE_PROMONTORY` has exactly such a coordinate: its

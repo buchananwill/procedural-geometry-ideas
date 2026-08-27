@@ -7,6 +7,7 @@ import {
     InteriorEdge,
 } from "./types";
 import {vectorsAreEqual} from "./core-functions";
+import {addInEdges} from "./graph-helpers";
 
 export interface SubPolygonResult {
     graph: StraightSkeletonGraph;
@@ -129,7 +130,7 @@ export function mergeSkeletonGraphs(
             // Merge edge lists from duplicate into canonical
             const canonicalNode = allNodes[canonical];
             const dupNode = allNodes[duplicate];
-            canonicalNode.inEdges.push(...dupNode.inEdges);
+            addInEdges(canonicalNode, dupNode.inEdges);
             canonicalNode.outEdges.push(...dupNode.outEdges);
         }
     }

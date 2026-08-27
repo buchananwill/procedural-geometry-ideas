@@ -142,12 +142,12 @@ export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 import {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 
 // near-regular-polygons.ts
-// `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` joined ALL_TEST_POLYGONS on 2026-08-27,
-// and `NEAR_REGULAR_PEANUT_32` joined them later the same day under journal decision 64, which
-// ruled the normalisation exact-cell table corpus-scoped bookkeeping rather than an invariant.
-// The other four stay out, each on one measured, pinned failure rather than on a claim:
-// Circle 48 and Rosette5 40 in large-coordinate-known-failures.test.ts, Ellipse 16 and Ellipse 32
-// in corpus-enrolment-blockers.test.ts. See the file header.
+// Five of the seven are in ALL_TEST_POLYGONS: `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32`
+// joined on 2026-08-27, `NEAR_REGULAR_PEANUT_32` later the same day under journal decision 64, and
+// `NEAR_REGULAR_ELLIPSE_16` / `NEAR_REGULAR_ELLIPSE_32` on 2026-08-28 under journal decision 65,
+// once simultaneous events were resolved in a canonical order and their node ids stopped depending
+// on scale. The other two stay out on one measured, pinned failure each — Circle 48 at translation
+// 1e10 and Rosette5 40 at 1e11, in large-coordinate-known-failures.test.ts. See the file header.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
@@ -160,6 +160,8 @@ export {
 import {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_ELLIPSE_16,
+    NEAR_REGULAR_ELLIPSE_32,
     NEAR_REGULAR_PEANUT_32,
 } from './near-regular-polygons';
 
@@ -245,9 +247,12 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'T-Shape', vertices: T_SHAPE},
     {name: 'Golf Cart', vertices: GOLF_CART},
 
-    // Near-regular control shapes (near-regular-polygons.ts). The other four are deliberately
+    // Near-regular control shapes (near-regular-polygons.ts). The other two are deliberately
     // absent, each on a pinned failure; see the note above this list's imports.
     {name: 'Near Regular Circle 16', vertices: NEAR_REGULAR_CIRCLE_16},
     {name: 'Near Regular Circle 32', vertices: NEAR_REGULAR_CIRCLE_32},
     {name: 'Near Regular Peanut 32', vertices: NEAR_REGULAR_PEANUT_32},
+    // Promoted 2026-08-28, decision 65.
+    {name: 'Near Regular Ellipse 16', vertices: NEAR_REGULAR_ELLIPSE_16},
+    {name: 'Near Regular Ellipse 32', vertices: NEAR_REGULAR_ELLIPSE_32},
 ];

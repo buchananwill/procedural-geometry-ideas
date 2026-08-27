@@ -1,5 +1,5 @@
 import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
-import {isClockwise, solveSkeleton, Vector2} from '@proc-geo/core';
+import {isClockwise, runAlgorithmV5, runAlgorithmV5Stepped, solveSkeleton, Vector2} from '@proc-geo/core';
 
 /** Clockwise convex quad — the happy path. */
 const CLOCKWISE_SQUARE: Vector2[] = [
@@ -76,6 +76,66 @@ describe('solveSkeleton', () => {
         it('throws for fewer than three vertices', () => {
             expect(() => solveSkeleton([{x: 0, y: 0}, {x: 100, y: 0}])).toThrow();
             expect(() => solveSkeleton([])).toThrow();
+        });
+    });
+
+    /*
+     * A non-finite coordinate is invisible to the bounding-box scan that opens normalisation —
+     * every comparison against NaN is false — so before this validation existed it travelled the
+     * whole pipeline and surfaced as `findOrAddNode`'s "non-finite position", naming a UNIT-SPACE
+     * point and no vertex. These pin the rejection AT THE DOOR and pin the CALLER'S index in the
+     * message, which is the whole content of the fix: an error that says which vertex.
+     */
+    describe('non-finite input', () => {
+        const NON_FINITE_COORDINATES: readonly (readonly [string, number])[] = [
+            ['NaN', NaN],
+            ['Infinity', Infinity],
+            ['-Infinity', -Infinity],
+        ];
+
+        const squareWith = (index: number, coordinate: 'x' | 'y', value: number): Vector2[] => {
+            const vertices = CLOCKWISE_SQUARE.map(vertex => ({...vertex}));
+            vertices[index][coordinate] = value;
+            return vertices;
+        };
+
+        it.each(NON_FINITE_COORDINATES)('solveSkeleton rejects %s in x, naming the vertex', (_label, value) => {
+            expect(() => solveSkeleton(squareWith(2, 'x', value)))
+                .toThrow(`Vertex 2 is not finite: (${value}, 100).`);
+        });
+
+        it.each(NON_FINITE_COORDINATES)('solveSkeleton rejects %s in y, naming the vertex', (_label, value) => {
+            expect(() => solveSkeleton(squareWith(1, 'y', value)))
+                .toThrow(`Vertex 1 is not finite: (0, ${value}).`);
+        });
+
+        it('names the FIRST offending vertex when several are non-finite', () => {
+            const vertices = CLOCKWISE_SQUARE.map(vertex => ({...vertex}));
+            vertices[1].y = NaN;
+            vertices[3].x = Infinity;
+
+            expect(() => solveSkeleton(vertices)).toThrow('Vertex 1 is not finite');
+        });
+
+        it.each(NON_FINITE_COORDINATES)('runAlgorithmV5 rejects %s, naming the vertex', (_label, value) => {
+            expect(() => runAlgorithmV5(squareWith(0, 'x', value)))
+                .toThrow(`Vertex 0 is not finite: (${value}, 0).`);
+        });
+
+        it.each(NON_FINITE_COORDINATES)('runAlgorithmV5Stepped reports %s on error, naming the vertex', (_label, value) => {
+            const result = runAlgorithmV5Stepped(squareWith(3, 'y', value));
+
+            expect(result.snapshots).toEqual([]);
+            expect(result.error).toContain(`Vertex 3 is not finite: (100, ${value}).`);
+        });
+
+        it('leaves a finite polygon untouched at all three entry points', () => {
+            const result = solveSkeleton(CLOCKWISE_SQUARE);
+            expect(result.complete).toBe(true);
+            expect(result.diagnostics).toEqual([]);
+
+            expect(runAlgorithmV5(CLOCKWISE_SQUARE).graph.nodes.length).toBeGreaterThan(4);
+            expect(runAlgorithmV5Stepped(CLOCKWISE_SQUARE).error).toBeNull();
         });
     });
 

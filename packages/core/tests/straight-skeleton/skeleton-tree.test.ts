@@ -305,7 +305,11 @@ describe('the shape of the tree, over the whole corpus', () => {
         // 42 became 44 later the same day: `Short Edge Promontory` and `Near Regular Peanut 32`
         // were promoted under journal decision 64. Both build trees, so `notTrees` above is still
         // empty.
-        expect(trees).toHaveLength(44);
+        //
+        // 44 became 46 on 2026-08-28: `Near Regular Ellipse 16` and `Near Regular Ellipse 32` were
+        // promoted under journal decision 65, once simultaneous events stopped being numbered in
+        // arrival order. Both build trees, so `notTrees` is still empty.
+        expect(trees).toHaveLength(46);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -481,7 +485,7 @@ describe('skeletonTreeDiameter over the corpus', () => {
     });
 
     /**
-     * And the distinction is not academic on this corpus: on 26 of the 44 fixtures the longest
+     * And the distinction is not academic on this corpus: on 28 of the 46 fixtures the longest
      * hop-count path is STRICTLY shorter than the diameter. `Mid-case Failure End` is the widest
      * margin measured — 532.52 against 350.42, a third of the length lost — so a hop-count
      * implementation would fail this file rather than pass it quietly.
@@ -500,11 +504,18 @@ describe('skeletonTreeDiameter over the corpus', () => {
      * Neither is a regular n-gon: the promontory has a long western body reached over few hops
      * past its short eastern edges, and the peanut's waist gives it a spine whose lobes are
      * densely sampled, so in both the hop-count path leaves the long way round unwalked.
+     *
+     * 26 became 28 on 2026-08-28 with the decision-65 promotions. Attributed per fixture: BOTH
+     * `Near Regular Ellipse 16` and `Near Regular Ellipse 32` join the offenders, and the 26
+     * already there are unchanged — re-running the filter over the 44 alone still gives 26. An
+     * ellipse is not a regular n-gon: it resolves to a ridge along the major axis rather than to a
+     * single hub, 23 tree nodes for the 16-gon and 47 for the 32-gon, so the long way round is a
+     * genuinely longer walk than the hop count finds.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>
             pathLength(tree, longestLeafPathByHops(tree)) < pathLength(tree, skeletonTreeDiameter(tree)) - 1e-9);
-        expect(shorter).toHaveLength(26);
+        expect(shorter).toHaveLength(28);
 
         const midCase = trees.find(entry => entry.name === 'Mid-case Failure End') as typeof trees[number];
         expect(pathLength(midCase.tree, skeletonTreeDiameter(midCase.tree))).toBeCloseTo(532.5233, 3);

@@ -1,6 +1,7 @@
 import type {SkeletonSolveResult, Vector2} from './types';
 import {solveSkeleton} from './algorithm-termination-cases';
 import {canonicalisePolygon, REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR} from './canonicalisation';
+import {DEGENERATE_AREA_EPSILON} from './constants';
 import {denormaliseLength, makeSkeletonNormalisation, normaliseLength, normalisePolygon} from './normalisation';
 import {computeMaxOffset, computeOffsetRings} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
@@ -88,19 +89,6 @@ export const MIN_RECURSION_LEVELS = 1;
  * segment per level, so a mis-typed level count is expensive rather than merely wrong.
  */
 export const MAX_RECURSION_LEVELS = 3;
-
-/**
- * Area below which a region counts as degenerate for decision 5.
- *
- * A floor rather than an exact zero, because the regions this driver recurses on are *computed*:
- * a segment boundary comes back from `computeStrips` as intersections of offset rays, so a sliver
- * that is geometrically collinear arrives with an area of `1e-13` and never with an exact `0`.
- * Testing `=== 0` would therefore only ever catch hand-authored collinear input and would hand every
- * real near-degenerate cell to the solver. The value matches the `AREA_EPSILON` that
- * `polygon-decomposition.ts` already uses for the same "is this sub-polygon degenerate" question;
- * it is an absolute area in the polygon's own units, which is the same footing that constant is on.
- */
-export const DEGENERATE_AREA_EPSILON = 1e-6;
 
 /**
  * The depth fraction at which the wavefront is fully consumed and there is no residue.

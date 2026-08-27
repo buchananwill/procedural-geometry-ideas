@@ -1,8 +1,8 @@
 import {Vector2} from "./types";
 import {segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
+import {DEGENERATE_AREA_EPSILON} from "./constants";
 
 const ENDPOINT_EPSILON = 1e-8;
-const AREA_EPSILON = 1e-6;
 
 export interface CrossingPoint {
     point: Vector2;
@@ -97,7 +97,7 @@ export function splitAtCrossing(vertices: Vector2[], crossing: CrossingPoint): V
 function isValidSubPolygon(vertices: Vector2[]): boolean {
     if (vertices.length < 3) return false;
     const area = signedArea(vertices);
-    if (Math.abs(area) < AREA_EPSILON) return false;
+    if (Math.abs(area) < DEGENERATE_AREA_EPSILON) return false;
     // Clockwise winding has negative signed area in this codebase's convention
     return area < 0;
 }

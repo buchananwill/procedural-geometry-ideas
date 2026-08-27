@@ -61,7 +61,7 @@ export {
 } from './straight-skeleton/region';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-export { FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
+export { DEGENERATE_AREA_EPSILON, FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
 
 // ── Core math ────────────────────────────────────────────────────────────────
 export {
@@ -335,7 +335,6 @@ export type {
 
 // ── Recursive segment subdivision ────────────────────────────────────────────
 export {
-    DEGENERATE_AREA_EPSILON,
     FALLBACK_LEVEL_SPEC,
     FULL_DEPTH_FRACTION,
     MAX_RECURSION_LEVELS,

@@ -10,7 +10,7 @@ you can take the maths without the UI — or drop a ready-made explorer into an 
 | Package | npm | Description |
 |---------|-----|-------------|
 | [`@proc-geo/core`](./packages/core) | [![npm](https://img.shields.io/npm/v/@proc-geo/core.svg)](https://www.npmjs.com/package/@proc-geo/core) | The algorithms. Pure TypeScript, no React or browser APIs. |
-| [`@proc-geo/test-fixtures`](./packages/test-fixtures) | [![npm](https://img.shields.io/npm/v/@proc-geo/test-fixtures.svg)](https://www.npmjs.com/package/@proc-geo/test-fixtures) | 44 named polygon fixtures and solver test helpers, for regression testing and benchmarking. |
+| [`@proc-geo/test-fixtures`](./packages/test-fixtures) | [![npm](https://img.shields.io/npm/v/@proc-geo/test-fixtures.svg)](https://www.npmjs.com/package/@proc-geo/test-fixtures) | 46 named polygon fixtures and solver test helpers, for regression testing and benchmarking. |
 | [`@proc-geo/dashboard`](./packages/dashboard) | [![npm](https://img.shields.io/npm/v/@proc-geo/dashboard.svg)](https://www.npmjs.com/package/@proc-geo/dashboard) | React components (Mantine + Konva) that visualise every algorithm. |
 | [`@proc-geo/demo`](./apps/demo) | — | Next.js app wiring the components together. Not published. |
 

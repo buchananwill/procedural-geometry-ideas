@@ -26,6 +26,7 @@ import {
 } from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
+import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
@@ -144,7 +145,7 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
     }
 
     edgeData.target = nearest.id;
-    nearest.inEdges.push(edgeId);
+    addInEdges(nearest, [edgeId]);
     return true;
 }
 
@@ -630,10 +631,41 @@ function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormal
     return canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
 }
 
+/**
+ * The complaint about the first non-finite input vertex, or `undefined` when every coordinate is
+ * finite.
+ *
+ * REJECTED AT THE DOOR, NOT DOWNSTREAM. A NaN coordinate is invisible to the bounding-box scan that
+ * opens `makeSkeletonNormalisation` — every comparison against NaN is false, so the extent is
+ * computed as though the vertex were not there — and it then travels through normalisation,
+ * canonicalisation and the decomposition before `findOrAddNode` finally refuses it, by which point
+ * nothing names the vertex the caller actually passed. An infinity is worse: it survives the scan,
+ * takes the extent to infinity, and normalises every other vertex to zero.
+ *
+ * The index is the caller's own, taken before canonicalisation can renumber anything.
+ */
+function nonFiniteVertexComplaint(vertices: Vector2[]): string | undefined {
+    for (let index = 0; index < vertices.length; index++) {
+        const {x, y} = vertices[index];
+        if (!Number.isFinite(x) || !Number.isFinite(y)) {
+            return `Vertex ${index} is not finite: (${x}, ${y}). Every input vertex coordinate must be a finite number.`;
+        }
+    }
+    return undefined;
+}
+
+function assertVerticesAreFinite(vertices: Vector2[]): void {
+    const complaint = nonFiniteVertexComplaint(vertices);
+    if (complaint !== undefined) {
+        throw new Error(complaint);
+    }
+}
+
 export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
     }
+    assertVerticesAreFinite(nodes);
 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts` for
     // why, for the enumeration of what scales, and for why it must never be re-applied mid-solve.
@@ -721,6 +753,10 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     if (vertices.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
     }
+    // THROWN, NOT DIAGNOSED. `diagnostics` reports a solve that ran and came back degraded; a
+    // non-finite vertex is input this entry point cannot solve at all, which is the same class as
+    // the vertex-count check above and gets the same answer.
+    assertVerticesAreFinite(vertices);
 
     const normaliseWinding = options?.normaliseWinding ?? true;
     const noiseFloor = options?.noiseFloor ?? SKELETON_NOISE_FLOOR;
@@ -833,6 +869,11 @@ function denormaliseSnapshots(snapshots: StraightSkeletonGraph[], normalisation:
 export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult {
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
+    }
+    // REPORTED ON `error`, not thrown: this entry point already answers a rejected polygon that way.
+    const complaint = nonFiniteVertexComplaint(nodes);
+    if (complaint !== undefined) {
+        return {snapshots: [], error: complaint};
     }
 
     // NORMALISED ONCE, HERE. See `normalisation.ts`. EVERY SNAPSHOT is denormalised on the way out,

@@ -308,8 +308,33 @@ coordinate-relative maximum still pinned loud at 3.469e-16 — the delegate's in
 ratified: it is the form decision 64's own figures use. Translation cells 0…1e11 unmoved at 0
 inexact. Pins moved per their own rules (events 276→298, mutated 237→263, fired 103→124, corpus
 42→44, offenders 24→26, `touchedAt(1e-2)` 10→12); census 44 fixtures / 19136 nodes / **0
-failures**. Delegate: core 3835/3835, dashboard 257/257, mutation conviction 10/10. Lead
-verification recorded below.
+failures**. Delegate: core 3835/3835, dashboard 257/257, mutation conviction 10/10. Lead verification:
+core **3835/3835 (71 suites)**, build clean, dashboard **257/257**, all re-run by the lead.
+**Package 2b committed: `fdf864e`.**
+
+**F18 — The determinism package landed all four items; simultaneity tie-breaks needed TWO sites,
+and the second was caught by the new stability test, not the acceptance test.** Mechanism:
+canonical ordering of the simultaneous event set before processing — label-only by construction
+(merges in a layer are edge-disjoint, so order changes names, never results; verified bit-unmoved
+counts under three-way toggles). Site 1: `clusterCoincidentMerges` orders merges by smallest
+interior-edge id. Site 2: `byEventPriority` gains a lexicographic edge-id-list tie-break — without
+it, **Golf Cart's own double-split nodes still swapped ids under a translation of 1e3**. The
+ellipses promoted (corpus 44 → 46 — every original candidate is now enrolled);
+`corpus-enrolment-blockers.test.ts` emptied and deleted. `inEdges` now sorted ascending-edge-id at
+construction via `addInEdges` (five push sites routed); the reader audit found exactly one
+order-dependent consumer, `firstIncidentParentEdge` (`offset-projection.ts:355`), and the sort
+moved `fired` 124→133 through it — more mutations reported, `silentLosses` still empty,
+`mutated` bit-unmoved. Degeneracy floor unified as `DEGENERATE_AREA_EPSILON` in `constants.ts` —
+the delegate correctly flagged that my brief's "relative area floor" was wrong: both call sites
+compare **absolute** signed area in the polygon's own units, and the comment now says so
+(ratified). NaN validation at all three public doors (throw for the two solve entries, `error`
+for stepped — matching each door's existing idiom), vertex index named pre-canonicalisation.
+Delegate figures: core 4081/4081 (71 suites), dashboard 257/257, census 46 fixtures / 20906 nodes
+/ 0 failures; mutation convictions 4/1/2/13, with the honest note that the placement sweeps now
+convict the tie-breaks, not the `inEdges` sort — recorded in the test header. The delegate's
+session died mid-run on an API error and was resumed with context intact; the resume re-audited
+the tree before continuing. Lead verification: core **4081/4081 (71 suites)**, build clean,
+dashboard **257/257**, all re-run by the lead. **Package 3 committed: see below.**
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted

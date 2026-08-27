@@ -157,8 +157,22 @@ promotion moved: event offsets 276 → 298, `mutated` 237 → 263, `fired` 103 �
 42 → 44 and hop-count offenders 24 → 26; the canonicalisation decade sweep's `touchedAt(1e-2)`
 10 → 12. All attributed per fixture at each pin.
 
-**Four remain out — the two ellipses, Circle 48 and Rosette5 40 — each as a pinned failing test
-rather than a claim in prose**, journal decision 53 permitting an exclusion only in that form:
+**THEN BOTH ELLIPSES FOLLOWED ON 2026-08-28, under journal decision 65 — by a solver fix, not a
+ruling.** The scale sweep's blocker was node LABELLING: their geometry is bit-stable under a scale
+of 7 while the two interior nodes of a mirror pair swapped ids, against `skeleton-tree.test.ts`.
+Exact mirror symmetry makes those two events simultaneous, and the solver numbered the nodes it
+created in the order the offset sort delivered them — an order that turns on an ulp once the input
+is scaled. `clusterCoincidentMerges` now returns one offset layer's vertex events in a canonical
+order taken from their interior-edge ids. Counts this third promotion moved: event offsets
+298 → 310, `mutated` 263 → 283, `fired` 133 → 150; corpus size 44 → 46 and hop-count offenders
+26 → 28. All attributed per fixture at each pin. `fired` had separately moved 124 → 133 in the same
+package, with the corpus untouched, for a different cause: `inEdges` is now kept sorted at
+construction, which changes which incident parent `offset-projection.ts` dates a node from, and the
+report fires on 9 more mutations than it did. `corpus-enrolment-blockers.test.ts` recorded no
+further defect and was deleted; its history is in the git log.
+
+**Two remain out — Circle 48 and Rosette5 40 — each as a pinned failing test rather than a claim in
+prose**, journal decision 53 permitting an exclusion only in that form:
 
 - **The large-coordinate envelope is down to two cells**, both signalled step failures rather than
   silent wrong answers, both in
@@ -167,13 +181,6 @@ rather than a claim in prose**, journal decision 53 permitting an exclusion only
   `NEAR_REGULAR_ROSETTE5_40` at 1e11 only, dying in a two-edge base case with its two source nodes
   6e-8 apart on the terminal ring. The second is the terminal-ring-finer-than-tolerance regime
   journal decision 54 leaves open.
-- **One blocker survives of the two found by the scale sweeps** the 2026-08-27 re-measurement did
-  not cover, in `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`:
-  `NEAR_REGULAR_ELLIPSE_16` and `NEAR_REGULAR_ELLIPSE_32` keep their geometry bit-stable under a
-  scale of 7 but swap the node ids of a mirror pair, against `skeleton-tree.test.ts`. Journal
-  decision 65 assigns that to the determinism package — simultaneous-event tie-breaks must be
-  canonical, not creation-ordered — with ellipse promotion as its acceptance test. The other,
-  the normalisation round trip, is closed by decision 64 above.
 
 ---
 
