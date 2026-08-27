@@ -135,11 +135,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
 
-    const partitionSpan = (params: BisectionParams) => {
-        return (params.clockwiseExteriorEdgeIndex - params.widdershinsExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
-    }
     // Collapse/partition into child
-    // How do we resolve precedence/priority of conflicting partition splits? Take the smallest?
     /* Clover Leaf Example:
 
     Partition Pair 1:  [[0,4], [4,0]]
@@ -148,33 +144,46 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     Outcome we want is: [[0,4], [4,8], [8,0]]
 
-    Rule is: sort by clockwise bisection first, then span of bisection.
+    Rule is: sort by span of bisection, then clockwise bisection.
     Span of bisection = (end - start + length) % length
 
      * */
+    const partitionSpan = (params: BisectionParams) => {
+        return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
+    }
     partitionEvents = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
         .toSorted((params1, params2) => {
-            if (params1.clockwiseExteriorEdgeIndex !== params2.clockwiseExteriorEdgeIndex) {
-                return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
+            const spanDelta = partitionSpan(params1) - partitionSpan(params2);
+            if (spanDelta !== 0) {
+                return spanDelta;
             }
 
-            return partitionSpan(params1) - partitionSpan(params2);
+            return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
         });
 
-    let currentPartitionStart = -1;
-    let currentPartitionEnd = -1;
+    // Same-start events are nested re-reports of ONE split only when they share the split node:
+    // each re-report widens the widdershins claim past a parent it cannot see, so the smallest
+    // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
+    // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
+    // different points in one layer — and every one of them partitions the polygon, so all
+    // survive. A survivor's span may then nest inside a sibling's (the middle child of a double
+    // split has no exact circular range, only a tightest one that covers an outer child whole),
+    // which the span-ascending order above resolves: the assignment below gives an edge to the
+    // FIRST child span containing both its parents, so the narrowest claim always wins.
+    const keptSourcesByStart = new Map<number, Set<number>>();
     const finalPartitionEvents: BisectionParams[] = [];
     for (const partitionEvent of partitionEvents) {
-        if (currentPartitionStart === partitionEvent.clockwiseExteriorEdgeIndex) {
-            if (partitionEvent.widdershinsExteriorEdgeIndex < currentPartitionEnd) {
-                throw new Error(`Partition sorting failure: start: ${currentPartitionStart}, end: ${currentPartitionEnd}, event end: ${partitionEvent.widdershinsExteriorEdgeIndex}`)
-            }
+        const start = partitionEvent.clockwiseExteriorEdgeIndex;
+        let sources = keptSourcesByStart.get(start);
+        if (sources === undefined) {
+            sources = new Set();
+            keptSourcesByStart.set(start, sources);
+        }
+        if (sources.has(partitionEvent.source)) {
             continue;
         }
 
-        currentPartitionStart = partitionEvent.clockwiseExteriorEdgeIndex;
-        currentPartitionEnd = partitionEvent.widdershinsExteriorEdgeIndex;
-
+        sources.add(partitionEvent.source);
         finalPartitionEvents.push(partitionEvent)
     }
 

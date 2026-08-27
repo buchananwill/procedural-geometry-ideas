@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS, SQUARE} from '@proc-geo/test-fixtures';
+import {ALL_TEST_POLYGONS, COLLINEAR_DUMBBELL, SQUARE} from '@proc-geo/test-fixtures';
 import {
     boundsOfPoints,
     canonicalisePolygon,
@@ -136,14 +136,15 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
 const EXACTNESS_MERGE_GROUP_SIZES = [1, 2];
 
 /**
- * The merge group size the corpus is swept at when the question is about regions that FAILED.
+ * The merge group size the failing-region harvest is swept at.
  *
- * The largest of the census's four, because a coarse merge is what produces the awkward regions:
- * every failed node in the corpus that also lost a vertex to the floor — five of them, across three
- * depths — appears at this group size and at no smaller one. A sweep at the default would examine
- * the same property against a population that does not contain the case.
+ * RE-MEASURED 2026-08-27: the decision-56 double-split partition fix emptied the corpus's failure
+ * census outright — `ALL_TEST_POLYGONS` produces no failed region at any merge group any more, so
+ * the group-4 population the earlier reading of this constant described is extinct. The only
+ * remaining producer is `COLLINEAR_DUMBBELL` (see {@link failedRegions}), whose failed regions
+ * appear at this group size and at no other.
  */
-const FAILING_REGION_MERGE_GROUP_SIZE = 4;
+const FAILING_REGION_MERGE_GROUP_SIZE = 3;
 
 const DEFAULT_MERGE_GROUP_SIZE = 2;
 
@@ -469,12 +470,20 @@ function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
  * and that every one of them reports the canonicalisation it was solved with — differ only in what
  * they do with a region rather than in how they find one.
  *
- * SWEPT AT `FAILING_REGION_MERGE_GROUP_SIZE`, which is where the interesting population lives; see
- * that constant for the measurement.
+ * `COLLINEAR_DUMBBELL` IS IN THE POPULATION, AND SINCE 2026-08-27 IT IS THE POPULATION. The
+ * decision-56 double-split partition fix emptied the corpus's failure census, so `ALL_TEST_POLYGONS`
+ * no longer yields a failed region anywhere in this sweep; the dumbbell's recorded defect — strips
+ * that silently overlap, pinned in `collinear-dumbbell.test.ts` — still hands the recursion
+ * self-intersecting sub-regions that fail. The corpus stays in the sweep so a fixture that starts
+ * failing again is harvested rather than missed.
  */
 function failedRegions(): FailedRegion[] {
     const regions: FailedRegion[] = [];
-    for (const polygon of ALL_TEST_POLYGONS) {
+    const population = [
+        ...ALL_TEST_POLYGONS,
+        {name: 'Collinear Dumbbell', vertices: COLLINEAR_DUMBBELL},
+    ];
+    for (const polygon of population) {
         const rootFloor = rootFloorOf(polygon.vertices);
         for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
             const root = subdivideRecursively(polygon.vertices, options({
@@ -490,22 +499,40 @@ function failedRegions(): FailedRegion[] {
 }
 
 /**
- * A region the driver produced and could not solve, taken from the corpus rather than hand-authored.
+ * A region the driver produced and could not solve, taken from the harvest rather than hand-authored.
  *
  * Hand-authoring one would mean guessing at what defeats this solver, which is a moving target; a
- * sub-region the recursion cut for itself is the real article, and the census at the end of this file
- * is the standing evidence that the corpus keeps producing them. The region is checked to fail AGAIN
- * when it is handed back in as a root of its own — a node's floor is its root's, said in its own unit
- * space, so a region only reproduces its failure as a root where the two agree.
+ * sub-region the recursion cut for itself is the real article. Since decision 56 emptied the corpus's
+ * failure census, {@link failedRegions} is the standing evidence that the dumbbell keeps producing
+ * them. The region is checked to fail AGAIN when it is handed back in as a root of its own — a node's
+ * floor is its root's, said in its own unit space, so a region only reproduces its failure as a root
+ * where the two agree.
  */
 function unsolvableRegion(): Vector2[] {
     const region = failedRegions()
         .map(failed => failed.node.boundary)
         .find(boundary => subdivideRecursively(boundary, options()).failure !== undefined);
     if (region === undefined) {
-        throw new Error('No corpus region fails to solve when it is handed back in as a root of its own');
+        throw new Error('No harvested region fails to solve when it is handed back in as a root of its own');
     }
     return region;
+}
+
+/**
+ * A failing region that LOST a vertex to the floor before failing — built, because none occurs
+ * naturally any more: the five corpus nodes the earlier reading of this sweep counted disappeared
+ * when decision 56 emptied the failure census. The construction is the metamorphic pair's — one
+ * sub-floor vertex bulged into a region that fails either way — packaged as a {@link FailedRegion}
+ * so the canonicalisation sweep below keeps a member whose `reduced` is true.
+ */
+function builtReducedRegion(): FailedRegion {
+    const region = unsolvableRegion();
+    const boundary = bulgeLongestEdge(region, rootFloorOf(region) / 2);
+    return {
+        node: subdivideRecursively(boundary, options()),
+        rootFloor: rootFloorOf(boundary),
+        where: 'built: unsolvable region with one sub-floor vertex bulged in',
+    };
 }
 
 /**
@@ -1044,19 +1071,30 @@ describe('recursive segment subdivision', () => {
         });
 
         it('keeps subdividing the siblings of a segment that fails', () => {
-            // A measured case, not a constructed one: at a merge group of three the rectangle's
-            // four edges become a run of three and a run of one, and the three-edge segment does
-            // not re-solve. Its sibling must still be subdivided — that is the whole of decision 6.
-            const root = subdivideRecursively(fixtureVertices('Rectangle'), options({levels: 2, mergeGroupSize: 3}));
-            expect(root.children).toHaveLength(root.segments.length);
+            // A measured case, not a constructed one — re-measured 2026-08-27 after the decision-56
+            // partition fix took the previous specimen (the rectangle at merge group three) by
+            // making its three-edge segment re-solve. The dumbbell's silently overlapping strips
+            // (`collinear-dumbbell.test.ts`) hand two level-1 nodes self-intersecting child regions
+            // that fail; their siblings must still be subdivided — that is the whole of decision 6.
+            const root = subdivideRecursively(COLLINEAR_DUMBBELL, options({
+                levels: MAX_RECURSION_LEVELS, depthFraction: 0.25, mergeGroupSize: 3,
+            }));
+            const parents = flattenRecursiveTree(root)
+                .filter(node => node.children.some(child => child.failure !== undefined));
+            expect(parents.length).toBeGreaterThan(0);
 
-            const failed = root.children.filter(child => child.failure !== undefined);
-            const solved = root.children.filter(child => child.failure === undefined);
-            expect(failed).toHaveLength(1);
-            expect(failed[0].failure).toMatch(/^Incomplete solve/);
-            expect(failed[0].segments).toEqual([]);
-            expect(solved.length).toBeGreaterThan(0);
-            expect(solved.every(child => child.segments.length > 0)).toBe(true);
+            for (const parent of parents) {
+                expect(parent.children).toHaveLength(parent.segments.length);
+
+                const failed = parent.children.filter(child => child.failure !== undefined);
+                const solved = parent.children.filter(child => child.failure === undefined);
+                for (const child of failed) {
+                    expect(child.failure).toMatch(/^Subdivision threw/);
+                    expect(child.segments).toEqual([]);
+                }
+                expect(solved.length).toBeGreaterThan(0);
+                expect(solved.every(child => child.segments.length > 0)).toBe(true);
+            }
         });
     });
 
@@ -1644,11 +1682,12 @@ describe('recursive segment subdivision', () => {
         it('reports a region that failed to solve as unchanged only where the floor took nothing', () => {
             // Not because the solve failed: canonicalisation runs ahead of the wavefront and does not
             // depend on it finishing. This region simply has no vertex under its floor, which is the
-            // ordinary case — the test below is what happens when it does.
-            const unsolvable = subdivideRecursively(fixtureVertices('Rectangle'), options({
-                levels: 2, mergeGroupSize: 3,
-            })).children.find(child => child.failure !== undefined);
-            expect(unsolvable?.failure).toMatch(/^Incomplete solve/);
+            // ordinary case — the test below is what happens when it does. The specimen is the
+            // dumbbell's, the rectangle's having been cured by the decision-56 partition fix.
+            const unsolvable = flattenRecursiveTree(subdivideRecursively(COLLINEAR_DUMBBELL, options({
+                levels: MAX_RECURSION_LEVELS, depthFraction: 0.25, mergeGroupSize: 3,
+            }))).find(node => node.failure !== undefined);
+            expect(unsolvable?.failure).toMatch(/^Subdivision threw/);
             expect(unsolvable?.canonicalBoundary).toEqual(unsolvable?.boundary);
             expect(unsolvable?.canonicalAreaDrift).toBe(0);
         });
@@ -1668,8 +1707,8 @@ describe('recursive segment subdivision', () => {
             const plainFailure = plain.failure ?? '';
             const bulgedFailure = bulged.failure ?? '';
             expect(plainFailure).not.toBe('');
-            // The same solve failing in the same words. The bulged run adds one diagnostic to them,
-            // which is canonicalisation reporting the very removal this test is about.
+            // The same solve failing in the same words — canonicalisation removed the inserted
+            // vertex before the failure, so the failure itself cannot tell the two runs apart.
             expect(failureKind(bulgedFailure)).toBe(failureKind(plainFailure));
             expect(bulgedFailure).toContain(plainFailure.replace(/^Incomplete solve: /, ''));
 
@@ -1685,16 +1724,20 @@ describe('recursive segment subdivision', () => {
         });
 
         it('reports the canonicalisation its own solve was set up with, at every failed node', () => {
-            // The corpus reading of the same thing: every region that failed for a reason other than
+            // The sweep reading of the same thing: every region that failed for a reason other than
             // degeneracy is asked what the floor left it, and the answer is checked against what
             // `canonicalisePolygon` says at the floor that node was really solved at.
-            const canonicalisations = failedRegions().map(failedCanonicalisation);
+            //
+            // A BUILT MEMBER KEEPS THE `reduced` HALF NON-VACUOUS. The earlier reading counted five
+            // corpus nodes that lost a vertex before failing; decision 56 removed the last of them,
+            // and this sweep's own comment ruled that when that happened the region would be built
+            // for it rather than the assertion dropped. {@link builtReducedRegion} is that region.
+            const built = builtReducedRegion();
+            expect(built.node.failure).toBeDefined();
+
+            const canonicalisations = [...failedRegions(), built].map(failedCanonicalisation);
             expect(canonicalisations.flatMap(failed => failed.problems)).toEqual([]);
             const reduced = canonicalisations.filter(failed => failed.reduced).length;
-            // Not vacuous: five failed nodes in the corpus lost a vertex to the floor before failing,
-            // which is the population the check exists for. Should the solver ever improve until this
-            // count reaches zero, the metamorphic pair above is what still pins the behaviour — this
-            // sweep would then need a region built for it rather than the assertion being dropped.
             expect(reduced).toBeGreaterThan(0);
         });
     });

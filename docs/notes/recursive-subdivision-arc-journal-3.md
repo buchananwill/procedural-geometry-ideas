@@ -1,0 +1,265 @@
+---
+title: "Recursive Subdivision Arc: Session 3 Journal"
+type: workflow
+status: active
+---
+
+# Recursive subdivision arc — session 3 journal
+
+**This is the head of the thread**, continuing
+[the session-1 journal](./recursive-subdivision-arc-journal.md). Session 2 (2026-08-26) terminated
+prematurely on token budget and **left no journal**; its record is commits `e618735..1ab785c` and is
+reconstructed in §2 below. Decisions continue at **53** (1–52 live in
+[recursive-skeleton-subdivision.md](./recursive-skeleton-subdivision.md)); findings continue at
+**F10** (F1–F9 in the session-1 journal).
+
+## Reading order for a fresh context
+
+Read §2 (state), §4 (next work) and the Findings below. For solver-degeneracy background read the
+session-1 journal's §2 findings and §4 outstanding items only. **Do not read the session-1 journal,
+the design doc, or the decisions files end to end.**
+
+## 1. The arc's charter
+
+Unchanged from session 1: recursive skeleton subdivision on branch
+`feature/recursive-skeleton-subdivision`. This session's mandate from the user (2026-08-27):
+investigate the cause of the new failing `GOLF_CART` fixture in
+[rectilinear-shapes.ts](../../packages/test-fixtures/src/rectilinear-shapes.ts), plus outstanding
+numerical-tolerance issues.
+
+## 2. State as at bootstrap
+
+- Branch `feature/recursive-skeleton-subdivision`, tip `1ab785c`, working tree clean at bootstrap.
+- Core: **3567 tests, 68 suites, all green** — measured by re-running, not inherited.
+- Session 2 (unjournaled, from commits): added `packages/test-fixtures/src/rectilinear-shapes.ts`
+  (`CROSS`, `T_SHAPE` — both in `ALL_TEST_POLYGONS` and solving); fixed the all-parallel-parent
+  degenerate-closure class in `algorithm-termination-cases.ts` (`solveDegenerateClosure` /
+  `applyDegenerateClosure`, `InteriorEdge.culled`, self-loops counted degree-two in the tree);
+  pinned T-Shape end-to-end in `terminal-cases.test.ts`. Final commit added `GOLF_CART`, failing,
+  **not exported from the fixtures index and with no characterisation test**.
+- `GOLF_CART` failure reproduced this session: `runAlgorithmV5` leaves 5+ edges unaccepted with
+  `Partition sorting failure: start: 0, end: 5, event end: 2` (the >3-edge partition path in
+  `algorithm-complex-cases.ts`).
+
+## 3. Operational manual
+
+Carried by reference from the session-1 journal §"Process learnings" (P3 build-before-dashboard, P4
+orphan port 3000, P8 debrief relocation). Additions this session:
+
+- `pnpm --filter @proc-geo/core test -- --testPathPatterns=x` passes the literal `--` through to
+  jest and matches nothing; drop the inner `--`: `pnpm --filter @proc-geo/core test
+  --testPathPatterns=x`.
+- The full-suite console block listing per-fixture level-2 subdivision failures is a **logged
+  diagnostic** from `recursive-subdivision.test.ts`, not a failure — the suite is green around it.
+- (user, 2026-08-27) **Playwright against the demo dashboard is a standing verification tool for
+  visualising skeleton solutions** — build first (P3), check port 3000 for an orphan server (P4),
+  then screenshot. Use it to eyeball a fixed fixture's skeleton, not only its test verdict.
+
+## 4. Next work
+
+1. ~~Root-cause the `GOLF_CART` partition sorting failure~~ **Done — F12.** Fix not yet mandated;
+   any fix needs a design ruling on representing a double-split layer (a child sub-polygon bounded
+   by bisectors from two source nodes — beyond one `BisectionParams`).
+2. ~~Enumerate the outstanding numerical-tolerance issues~~ **Done — F10** (verified F11 → F14).
+3. Pin `GOLF_CART` with a characterisation test kept out of `ALL_TEST_POLYGONS` (the backlog-item-7
+   dumbbell precedent). The untracked `golf-cart-debug.test.ts` / `golf-cart-variants-debug.test.ts`
+   are raw material, not yet the pinned form.
+4. Fix the `partitionSpan` inversion (F13) alongside — never alone, since alone it converts the
+   `GOLF_CART` throw into a silent wrong skeleton.
+5. Promote per F14: `SHORT_EDGE_PROMONTORY` and five near-regulars are unblocked (run the
+   out-of-scope scale/strip sweeps first); rewrite the two stale exclusion headers and mark backlog
+   items 1/3/4 closed in `solver-hardening-backlog.md`.
+6. Rule on the F10 tail: the root-floor pass-down reconciliation (decisions 19–20 vs F4/F5), the
+   `inEdges` sort, the duplicated 1e-6 floors, and whether to fixture the along-edge-jitter class.
+
+## 5. Open items
+
+Carried unchanged from session-1 journal §4 (C++-team correction, radial promotion, leaf slicing,
+merge heuristic, collinear dumbbell, size ladder).
+
+## Decisions
+
+**53 — (user, 2026-08-27) A failing fixture is never laundered out of the corpus; the production
+code gets fixed.** The user's words: "I'm not happy that any fixtures were ever laundered out from
+the tests. The production code should have been fixed." Standing policy: exclusion from
+`ALL_TEST_POLYGONS` is legitimate only as a *visible, pinned* characterisation of a defect awaiting
+its fix (the dumbbell precedent), never as a quiet route to a green suite. Consequences: the F14
+promotions rise to mandated work, both stale exclusion headers are rewritten as defect records or
+retired, and `GOLF_CART`'s endpoint is a solver fix plus promotion — not a permanent exclusion.
+
+**54 — (user, 2026-08-27) `FLOATING_POINT_EPSILON = 1e-8` is a deliberate choice — the Unreal
+Engine "small number" constant — and the precision bar is pragmatic, not analytic.** The criterion
+in the user's words: "can you see this on a screen?" This is a practical solver for practical
+geometry; an infinitely small roof section can no more be built than rendered. F10's "the absolute
+epsilon has never been revisited" item is hereby re-ruled: revisiting it is **not** an open
+obligation. What remains open from that item is only the specific measured regime where the
+terminal ring becomes finer than the tolerance — to be judged against visibility, not first
+principles. *(F10 amended in place below.)*
+
+**55 — (user, 2026-08-27, restating a prior ruling) A vertex collinear with the direct edge
+between its two neighbours contributes nothing and is normalised out of the input.** The core
+recursive actions are finding the medial line and dropping chords to it from the perimeter (chords
+possibly repositioned after segment merging); a collinear vertex changes neither. This is the
+rationale already embodied in input canonicalisation (design-doc decisions 1–9, perpendicular
+deviation against the pragmatic floor). Recorded limit, so it is not over-read: the predicate is
+**vertex-local by design**, and therefore does not and cannot address the collinear dumbbell
+(F10 item), whose degeneracy is *non-adjacent* edges sharing a supporting line with no removable
+vertex — that one stays a solver defect under decision 53.
+
+**56 — The partition layer must represent multiple simultaneous splits of one exterior edge; the
+one-split-per-start dedupe is replaced, not patched.** Two same-start partition events whose spans
+cross (F12) are distinct simultaneous splits, and the layer's correct output partitions the polygon
+at *every* split point, with a child sub-polygon legitimately bounded by split bisectors from two
+different source nodes. Same-start events at the *same* split point remain nested re-reports and
+keep the smallest-span dedupe. The crossing-throw at `algorithm-complex-cases.ts:170` becomes the
+double-split path, not an error.
+
+**57 — The `partitionSpan` inversion (F13) is corrected only inside the decision-56 change, never
+in isolation.** Corrected alone it converts `GOLF_CART`'s loud failure into a silent wrong
+skeleton.
+
+**58 — `GOLF_CART`'s endpoint: exported from the fixtures index, pinned end-to-end as solving, and
+promoted into `ALL_TEST_POLYGONS`, with the variant matrix converted from logging to asserting.**
+The variants that solve today (perturbation-only, tilted-edge d2/d3) are asserted solving now so
+the fix cannot regress them; the failing variants (slant-only, mild-slant) assert solving after
+decision 56 lands.
+
+**59 — (user, 2026-08-27) Delegate model policy: split by difficulty.** Mechanical, verifiable
+work (fixture promotions, header rewrites, hygiene fixes) is dispatched on **Opus**; design-heavy
+solver work (e.g. the decision-56 double-split fix) inherits the session model. Motivated by the
+session-2 token-budget termination. The in-flight decision-56 task, already launched on the
+session model, stands — it is the design-heavy kind the split assigns there anyway.
+
+**60 — (user, 2026-08-27) No multiple-choice question prompts.** Questions to the user are asked
+in plain prose; where something is merely undecided rather than genuinely ambiguous, the lead
+rules, records, and moves on.
+
+**61 — (user, 2026-08-27, overnight handoff) The lead steers the remainder of the arc
+autonomously toward production-hardening the solver, budget-conservative.** Two other sessions run
+concurrently on the same token budget. **Amends decision 59:** Opus is now the default for ALL
+delegated work, not just mechanical work; the session model is reserved for the absolutely
+critical — nothing currently queued qualifies. The in-flight decision-56 task (already on the
+session model) is the last of its kind tonight.
+
+**62 — Landed work is committed locally per work package, never pushed.** An overnight multi-task
+run without commits would leave an unreviewable blob and successive tasks would trample each
+other's diffs. Each verified arrival gets one local commit with a plain message; pushing and PRs
+wait for the user. The four pre-existing untracked debug/journal files ride with the package that
+subsumes them.
+
+**63 — The overnight queue, in order, each gated on my own verification of the previous:**
+(1) decision-56 fix lands → verify → commit; (2) promotions + honest exclusion headers + backlog
+corrections per decisions 53/F14 (Opus); (3) hygiene: `inEdges` sort-or-prove-unread, unify the
+duplicated 1e-6 floors, NaN validation at the entry points (Opus); (4) investigation-only (Opus):
+the two surviving narrow large-coordinate failures (Circle-48 @1e10, Rosette5-40 @1e11) and the
+along-edge-jitter reflex class (backlog item 2 — fixture it, characterise it, no fix without a
+design ruling). The collinear dumbbell fix and any double-split-scale design work are OUT of
+overnight scope: they are critical-tier and wait for a ruling with the user awake.
+
+## Findings
+
+**F10 — The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
+Swept 2026-08-27 from the backlog, journal, decisions files, debriefs and source. With known failing
+cases: near-degenerate reflex shapes with jitter *along* the edge line (48/80 and 25/80 fail,
+[backlog item 2](./solver-hardening-backlog.md), no fixture in repo yet); the collinear dumbbell
+(item 7, pinned in `collinear-dumbbell.test.ts`); `inEdges` ordering instability (21/37 fixtures,
+no order assertion anywhere). Documented-risk only: caller-space debug recomputation
+(`debug-helpers.ts:20`, dashboard sweep overlay); unit-space assert text; unfuzzed corner-correction
+guards (item 8); NaN vertices invisible to the bounding-box scan; the un-revisited absolute
+`FLOATING_POINT_EPSILON = 1e-8` itself (four defect classes implicate it); duplicated 1e-6 area
+floors (`polygon-decomposition.ts:5` vs `recursive-subdivision.ts:103`, review-flagged twice).
+*AMENDED 2026-08-27: the "un-revisited absolute epsilon" entry is re-ruled by decision 54 — the
+constant is a deliberate pragmatic choice (UE small number) and revisiting it is not an
+obligation; only the terminal-ring-finer-than-tolerance regime stays open, judged by visibility.*
+Communication, not code: F9's structural-identity-below-1e-13 correction still hasn't travelled
+upstream. Needs a ruling: decision 19–20 of
+[input-canonicalisation-decisions.md](./input-canonicalisation-decisions.md) (root floor pass-down)
+is unreconciled with F4/F5's measurement that the band reopened the other way.
+
+**F11 — Two fixture-exclusion headers carry stale evidence.** `SHORT_EDGE_PROMONTORY` and the three
+near-regular fixtures are held out of `ALL_TEST_POLYGONS` for large-coordinate failures written
+2026-08-08/09 — before unit-extent normalisation, which now asserts 37/37 out to 1e11, and before
+mirror-event canonicalisation closed the many-way-event blocker the near-regular header also cites.
+Neither exclusion has been re-measured since. The backlog file itself (dated 2026-08-09) still lists
+items 1, 3 and 4 as open though the arc closed them.
+
+**F12 — `GOLF_CART` fails on a structural gap in the n-gon partition, not on tolerance: two
+simultaneous split events at distinct points on the same exterior edge are unrepresentable.** The
+dedupe loop in `algorithm-complex-cases.ts:164-179` assumes all partition events sharing a
+`clockwiseExteriorEdgeIndex` in one layer are nested re-reports of a single split (the clover-leaf
+comment); it keeps the smallest and throws when a same-start event *crosses* the kept one — the
+observed `start: 0, end: 5, event end: 2`. In `GOLF_CART`, both reflex bisectors (from vertices 3
+and 6) split top edge 0 at the same offset (forced exactly, because edges 2 and 6 lie on y=400,
+parallel to edge 0 at distance 200) but at *different points*, because the slanted stem side tilts
+vertex 3's bisector. The correct partition — three children, the middle bounded by bisectors from
+two different source nodes — is inexpressible in a single `BisectionParams`. The clean `T_SHAPE`
+survives because its mirror-symmetric bisectors meet *at* the shared split point and the
+`interiorNonAdjacent` collision outranks the splits; the slant pushes that intersection past
+`maxOffset` (`outOfBounds`, `collision-helpers.ts:212-217`), so nothing pre-empts the two splits.
+Tolerance is ruled out by the variant matrix, **re-run and confirmed by the lead**: slant-only with
+exact y=400 fails, mild slant (500,400) with bit-exact coordinates fails, perturbation-only
+(400, 399.99999999999994) solves, and tilting edge 2 off y=400 (380 or 420) solves by separating
+the splits into different layers. The 6e-14 perturbation in the committed fixture is inert — neither
+necessary nor sufficient. Matrix lives in `golf-cart-variants-debug.test.ts` (logs verdicts, does
+not assert); reproduction in `golf-cart-debug.test.ts` (asserts, fails).
+
+**F13 — `partitionSpan` is inverted against its own specification, verified by the lead reading the
+code.** `algorithm-complex-cases.ts:139` computes `(cw − ws + N) % N` while the governing comment
+(line 152) and the dedupe loop's own variable roles (`cw` = start, `ws` = end) require
+`(ws − cw + N) % N`. On `GOLF_CART` the inversion sorted (0,5) ahead of (0,2) and hit the throw;
+under the documented formula the loop would instead **silently** keep a crossing set with spans
+totalling more than the polygon — overlapping children, wrong skeleton. The inversion only chooses
+between loud and silent failure; it is not the root cause, but it is a latent defect to fix
+alongside any partition rework.
+
+**F14 — Both stale exclusion blockers are dead as stated, re-measured 2026-08-27.** Replicating the
+two sweeping suites' own assertions against the eight excluded fixtures
+(`stale-exclusions-debug.test.ts`, 17 tests): the event-boundary projection blocker no longer
+reproduces on *any* of the four fixtures blamed on it — including `NEAR_REGULAR_ELLIPSE_16`, whose
+header claims an unclosed chain that survived every fix; and the translation-to-1e9 blocker no
+longer reproduces on *any* of the eight, so `SHORT_EDGE_PROMONTORY`'s "promote once that envelope
+is fixed" condition is met. What survives is narrower and different: `NEAR_REGULAR_CIRCLE_48` fails
+at translation 1e10 only (non-monotonically — 1e9 and 1e11 pass) and `NEAR_REGULAR_ROSETTE5_40` at
+1e11 only, both as signalled step-failures, not silent wrong answers. Promotion bookkeeping: the
+pinned event-offset count 271 in `offset-event-boundary-regression.test.ts` moves +1 for Circle 16
+alone, to 312 for all eight; the scale sweeps and strip-face sweeps were out of measurement scope
+and should be run before an actual promotion.
+
+**F15 — The double-split defect was the entire remaining recursive-subdivision failure class.**
+Decision 56/57 landed (2026-08-27, uncommitted at first verification) without type changes: the
+dedupe key became (start edge, split-source node), sort span-ascending so the narrowest claim wins,
+shadowed wide spans become empty children the existing filter drops. Collateral cure, verified by
+the lead re-running the full suite on the merged tree (**3594 tests, 3592 green; only the two F14
+baseline pins in the scratch stale-exclusions file fail, byte-identical names**): the
+recursive-subdivision corpus census went **156 recorded failures → 0** (15266 nodes subdivided,
+zero residue rings unsubdivided), and with canonicalisation off the reflex L's failure set
+[5,6,8,10] and the plus's [9] are now empty — the solver handles the collinear-subdivision regime
+itself. The plus still fails 4/10 irregular seeds with the stage off (F3's measurement stands; the
+canonicalisation stage retains that conviction). Mutation-convicted both ways by the implementer
+(span inversion re-introduced → 7 tests fail; throw path restored → exactly the four historically
+failing variants fail while the four passing ones stay green).
+
+**F15a — Specimen debt created knowingly:** four recursive-subdivision tests that needed a failing
+region lost their specimens to the cure and were re-specimened on `COLLINEAR_DUMBBELL`'s still-open
+silent-overlap defect (plus one *built* unsolvable region). When decision 53 eventually fixes the
+dumbbell, those tests lose their specimen again — flagged in their comments, carried here as an
+open item.
+
+**F15b — Rosette5-40 @1e11's failure mode shifted under the fix** (still failing, as pinned):
+now dies in a two-edge base case with two source nodes 6e-8 apart at (-0.032224,0) — direct
+evidence for F10's terminal-ring-finer-than-tolerance regime, to feed the investigation task.
+
+**F15d — Visual verification passed.** Golf Cart rendered on the `/straight-skeleton` page
+(0.75-scaled to fit the fixed canvas; clipboard paste stubbed via `readText` override — the real
+clipboard read is permission-blocked under Playwright). Both double-split junctions land at the
+F12-predicted positions ((300,500)/(493.4,500) unscaled), the head ridge lies on the medial line,
+the slanted stem's spine drifts with the narrowing, no crossings or disconnected spokes.
+Screenshot delivered to the user; dev server left running for the near-regular visual pass after
+promotion.
+
+**F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
+dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
+ones" block fails 2 tests because its specimen fixture now solves. Its own conviction gate ("is a
+fixture that really does fail, or this proves nothing") is what fired — P2 vindicated. Dashboard
+otherwise green: 255/257. Re-specimened by Opus delegate on the core precedent (dumbbell / built
+region) before commit 1.

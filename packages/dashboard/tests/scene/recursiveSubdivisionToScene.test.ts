@@ -465,19 +465,31 @@ describe('the residue on the canvas', () => {
 /**
  * Decision 7, checked on geometry that actually fails.
  *
- * Duck Octagon subdivides cleanly at three levels, so it cannot show that a failure still reads as a
- * failure once its neighbours are tinted. The driver's own census names Pentagon House in groups of
- * three as a fixture that stops subdividing, which is what this uses.
+ * A fixture that subdivides cleanly cannot show that a failure still reads as a failure once its
+ * neighbours are tinted, so the specimen has to be one the driver really does stop subdividing.
+ *
+ * RE-SPECIMENED 2026-08-27: the decision-56 double-split partition fix cured Pentagon House in
+ * groups of three — the census this suite used to quote is empty at that setting now, and the gate
+ * below reported the dead specimen exactly as it was meant to. Swept afresh over the whole fixture
+ * corpus at full depth: Broken Polygon in groups of FIVE is the specimen that remains, and it is the
+ * shape this suite needs rather than merely a failing one — the failure is a level-2 node of
+ * thirteen boundary vertices ("Incomplete solve: step-failure ... unresolved-edges"), so it draws a
+ * patch with real area, and seven leaf segments elsewhere in the tree stay solved and tinted around
+ * it. THIS SPECIMEN IS ALSO PERISHABLE: an incomplete solve is a solver defect, not a designed
+ * outcome, and a later fix will empty this census the way decision 56 emptied the last one. The gate
+ * below is what says so out loud; sweep the corpus again when it fires.
  *
  * Solved at FULL depth with the residue voided, so the only fills in the scene are territories and
  * failure patches: at `FULL_DEPTH_FRACTION` the wavefront is fully consumed and no residue ring is
- * produced at all, which keeps this suite's fill census about the failure and nothing else.
+ * produced at all, which keeps this suite's fill census about the failure and nothing else. A
+ * specimen that only fails BELOW full depth would not do: its residue rings are dashed fills too,
+ * and the census below could no longer tell a hole from a courtyard.
  */
 describe('a failed cell among tinted ones', () => {
-    const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === 'Pentagon House');
+    const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === 'Broken Polygon');
     const levels: LevelSpec[] = uniformLevelSpecs({
         levels: 3,
-        mergeGroupSize: 3,
+        mergeGroupSize: 5,
         depthFraction: FULL_DEPTH_FRACTION,
         residue: 'void',
     });

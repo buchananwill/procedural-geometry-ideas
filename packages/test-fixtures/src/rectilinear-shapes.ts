@@ -40,7 +40,16 @@ export const T_SHAPE: Vector2[] = [
 ];
 
 /**
- * Currently fails in the solver 26/8/26
+ * The T-shape with its right stem wall slanted: vertex 3 moves from (400,400) to
+ * (560.97, 400−6e-14). Edges 2 and 6 both lie on y=400, parallel to top edge 0 at distance 200,
+ * so the reflex bisectors from vertices 3 and 6 split edge 0 at the same offset — forced exactly —
+ * but at different points, because the slant tilts vertex 3's bisector. That double split of one
+ * exterior edge defeated the partition dedupe's one-split-per-start assumption
+ * (`Partition sorting failure`, recorded 2026-08-26) until the layer learned to partition at every
+ * split point (journal decision 56, 2026-08-27). Solves completely; pinned end-to-end with its
+ * variant matrix in `packages/core/tests/straight-skeleton/golf-cart.test.ts`. The 6e-14
+ * perturbation on vertex 3's y is inert — measured neither necessary nor sufficient — and is kept
+ * because this is the coordinate set the failure was recorded with.
  * */
 export const GOLF_CART: Vector2[] = [
         {

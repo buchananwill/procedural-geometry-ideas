@@ -32,43 +32,43 @@ import {insertIrregularly, insertRegularly} from './subdivision-helpers';
  * `REFLEX_L_KNOWN_FAILURES` was [5, 6, 8, 10] and `DOUBLE_REFLEX_PLUS_KNOWN_FAILURES` was [9].
  * Both are empty. The reflex L and the double-reflex plus solve at every k from 1 to 10.
  *
- * THE DEFECT UNDERNEATH IS UNTOUCHED. Nothing was fixed in `handleInteriorNGon`; the input class
- * that triggered it no longer reaches the solver. Subdividing an edge into k pieces adds vertices
- * that are collinear with their neighbours and nothing else, so they deviate from the chord
- * between those neighbours by around 1e-16 in unit space — invisible against a 1e-6 noise floor.
- * The canonicalisation stage removes them and hands the solver back the unsubdivided fixture,
- * which always passed. The failing input is gone rather than handled, which is the whole argument
- * of the stage: removing an input class beat the several hundred lines the structural fix cost.
+ * Subdividing an edge into k pieces adds vertices that are collinear with their neighbours and
+ * nothing else, so they deviate from the chord between those neighbours by around 1e-16 in unit
+ * space — invisible against a 1e-6 noise floor. The canonicalisation stage removes them and hands
+ * the solver back the unsubdivided fixture, which always passed. The failing input is gone rather
+ * than handled.
  *
- * The failing sets are NOT deleted here, they are repinned against the stage turned off, where
- * they still reproduce exactly. That does two jobs at once. It preserves the evidence, and it
- * convicts the gate: an empty list means nothing unless the same list is non-empty when the thing
- * that empties it is switched off.
+ * AMENDED 2026-08-27: the defect underneath is no longer untouched. The double-split partition fix
+ * (`GOLF_CART`, journal decision 56) taught `handleInteriorNGon` to partition a layer at every
+ * simultaneous split rather than deduping same-start events down to one, and that turned out to be
+ * exactly the regime these fixtures manufacture. Re-measured with the stage off: BOTH regular-
+ * insertion failure sets are now empty too, and the L at k = 6 resolves uncanonicalised. The
+ * historical sets are recorded on the constants below, and the tests now pin the re-measured empty
+ * sets so a regression in either direction stays loud. What still convicts the stage of doing real
+ * work is the irregular-insertion family, which the structural fix does not reach: the plus still
+ * fails 4 of 10 irregular seeds with the stage off.
  *
  * ----------------------------------------------------------------------------
- * WHAT THE UNDERLYING DEFECT WAS, KEPT BECAUSE IT IS STILL THERE
+ * WHAT THE UNDERLYING DEFECT WAS, KEPT AS HISTORY OF ITS FIX
  * ----------------------------------------------------------------------------
  *
  * The L failures came from several ring-partitioning events landing in one offset layer.
- * `handleInteriorNGon` resolves each against the whole unmodified ring, so their surviving-arc
- * calculations overlap and contradict. A partitioning event is one whose participants are
+ * `handleInteriorNGon` resolved each against the whole unmodified ring, so their surviving-arc
+ * calculations overlapped and contradicted. A partitioning event is one whose participants are
  * non-contiguous on the ring — opposite stretches of wavefront meeting. A convex polygon produces
  * at most one, at the very end; a reflex notch creates facing walls, and on this fixture the arms
  * are of equal width, so several pinches happen at *exactly* the same offset. Instrumented over
  * the sweep, that count was 0 for the convex hexagon at every k, 0 or 1 for every configuration
  * that passed, and 3, 5, 9, 13 or 17 for every one that failed.
  *
- * A structural fix for it was written, landed, measured and then **reverted**. It worked — both
- * reflex shapes reached 10 of 10, out to k = 16 — but it bought nothing for any input this
- * project actually produces, and cost real complexity in the most delicate part of the solver. It
- * remains recoverable from git history, and remains the answer if a future input ever reaches this
- * regime while carrying vertices that are genuinely visible.
- *
- * The measurement that settled it: hand-drawn strokes tracing an L and a cross, with per-axis
- * tremor at 0.5, 1.5 and 3.0 units, through three realistic stage combinations, budgeted and
- * solved — **288 of 288 before the structural fix, and 288 of 288 after**. Identical. Smoothing,
- * RDP and Schneider fitting all destroy the exact collinearity and exact even spacing this
- * defect requires, so no drawn region reaches the failing regime.
+ * An earlier structural fix for it was written, landed, measured and then **reverted** as buying
+ * nothing for real inputs at real complexity cost. The measurement that settled that reversion:
+ * hand-drawn strokes tracing an L and a cross, with per-axis tremor at 0.5, 1.5 and 3.0 units,
+ * through three realistic stage combinations, budgeted and solved — **288 of 288 before the
+ * structural fix, and 288 of 288 after**. Identical. Smoothing, RDP and Schneider fitting all
+ * destroy the exact collinearity and exact even spacing this defect requires, so no drawn region
+ * reaches the failing regime. The defect was then re-fixed for its own sake when `GOLF_CART`
+ * failed on the same structure at a visible scale — see the amendment above.
  *
  * ----------------------------------------------------------------------------
  * THE PLUS'S k = 9 WAS AN OPEN REGRESSION. IT IS CLOSED, AND HERE IS THE CHAIN.
@@ -140,16 +140,19 @@ function solvesCompletelyUncanonicalised(polygon: Vector2[], k: number): boolean
 const ALL_K = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 /**
- * Subdivision counts at which the reflex L failed BEFORE input canonicalisation, and still fails
- * with the stage switched off. Kept, rather than deleted, so the empty set below means something.
+ * Subdivision counts at which the reflex L fails with the canonicalisation stage switched off.
+ *
+ * Was [5, 6, 8, 10] until 2026-08-27, when the double-split partition fix (journal decision 56)
+ * emptied it — the solver now resolves these layers itself. Pinned so movement in either
+ * direction stays loud.
  */
-const REFLEX_L_FAILURES_WITHOUT_CANONICALISATION = [5, 6, 8, 10];
+const REFLEX_L_FAILURES_WITHOUT_CANONICALISATION: number[] = [];
 
 /**
- * The same for the double-reflex plus. This was the OPEN regression the power-of-two normalisation
- * scale introduced — see the header for why the stage closes it rather than papering over it.
+ * The same for the double-reflex plus. Was [9] — the OPEN regression the power-of-two
+ * normalisation scale introduced — until the same fix emptied it.
  */
-const PLUS_FAILURES_WITHOUT_CANONICALISATION = [9];
+const PLUS_FAILURES_WITHOUT_CANONICALISATION: number[] = [];
 
 describe('subdivided edges: convex control (specification)', () => {
     it.each(ALL_K)('solves the square subdivided %i times per edge', k => {
@@ -181,11 +184,13 @@ describe('subdivided edges: reflex L (specification)', () => {
     });
 });
 
-describe('the emptied lists are the canonicalisation stage\'s doing, and not a weakened gate', () => {
+describe('the regular-insertion failures are gone even with the stage off, since decision 56', () => {
     /*
-     * An empty failure list is worth nothing on its own — deleting the assertions would produce
-     * one just as well. These two reproduce the exact historical sets with the stage switched off,
-     * so the lists above are convicted by mutation rather than trusted.
+     * These two used to reproduce the historical failure sets with the stage switched off, which
+     * was what convicted the stage of emptying the lists above. Since the double-split partition
+     * fix they reproduce EMPTY sets with the stage off too: the solver now handles the regular-
+     * insertion regime itself. The stage's own conviction now rests on the irregular-insertion
+     * measurement below, which the structural fix does not reach.
      */
 
     it('reproduces the reflex L\'s recorded failures exactly when the stage is off', () => {
@@ -252,13 +257,15 @@ describe('subdivided edges: the stranded-target signature is fixed', () => {
         expect(stranded).toEqual([]);
     });
 
-    it('L at k = 6 now resolves, and still fails through span assignment with the stage off', () => {
-        // Both halves matter. The first is the new specification; the second pins the failure mode
-        // the stage removes, so "k = 6 passes" cannot come to mean "k = 6 stopped being measured".
+    it('L at k = 6 resolves with the stage on and, since decision 56, with it off as well', () => {
+        // This used to pin the span-assignment failure the stage removed, so "k = 6 passes" could
+        // not come to mean "k = 6 stopped being measured". The double-split partition fix resolved
+        // the uncanonicalised solve too; both halves are pinned as complete so a regression in the
+        // structural fix shows up here even while the stage keeps the canonicalised half green.
         expect(solveSkeleton(insertRegularly(clockwise(REFLEX_L), 6)).complete).toBe(true);
 
         const uncanonicalised = solveSkeleton(insertRegularly(clockwise(REFLEX_L), 6), {noiseFloor: 0});
-        expect(uncanonicalised.complete).toBe(false);
-        expect(uncanonicalised.diagnostics.some(diagnostic => diagnostic.kind === 'step-failure')).toBe(true);
+        expect(uncanonicalised.complete).toBe(true);
+        expect(uncanonicalised.diagnostics.some(diagnostic => diagnostic.kind === 'step-failure')).toBe(false);
     });
 });
