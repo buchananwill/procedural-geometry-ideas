@@ -134,17 +134,20 @@ export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from '.
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
 // short-edge-promontory.ts
-// Exported individually and left out of ALL_TEST_POLYGONS, re-recorded 2026-08-27: its original
-// blocker (the translation-to-1e9 envelope) is dead, but promoting it breaks the bit-exact
-// normalisation round trip at four scale cells that suite currently asserts exact. Pinned as it
-// stands by corpus-enrolment-blockers.test.ts; details in the fixture file.
+// PROMOTED into ALL_TEST_POLYGONS on 2026-08-27 under journal decision 64. Both of its recorded
+// blockers are dead: the translation-to-1e9 envelope (re-measured dead, F14) and the bit-exact
+// normalisation round trip, which decision 64 ruled is corpus-scoped bookkeeping to be re-measured
+// rather than a designed invariant. Its centring drift is sub-ulp of the polygon's extent.
 export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
+import {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 
 // near-regular-polygons.ts
-// `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` joined ALL_TEST_POLYGONS on 2026-08-27.
-// The other five stay out, each on one measured, pinned failure rather than on a claim:
-// Circle 48 and Rosette5 40 in large-coordinate-known-failures.test.ts, Ellipse 16, Ellipse 32
-// and Peanut 32 in corpus-enrolment-blockers.test.ts. See the file header.
+// `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` joined ALL_TEST_POLYGONS on 2026-08-27,
+// and `NEAR_REGULAR_PEANUT_32` joined them later the same day under journal decision 64, which
+// ruled the normalisation exact-cell table corpus-scoped bookkeeping rather than an invariant.
+// The other four stay out, each on one measured, pinned failure rather than on a claim:
+// Circle 48 and Rosette5 40 in large-coordinate-known-failures.test.ts, Ellipse 16 and Ellipse 32
+// in corpus-enrolment-blockers.test.ts. See the file header.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
@@ -157,6 +160,7 @@ export {
 import {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_PEANUT_32,
 } from './near-regular-polygons';
 
 // rectilinear-shapes.ts
@@ -233,13 +237,17 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Premature Bisector Split (fails)', vertices: PREMATURE_BISECTOR_SPLIT_FAILS},
     {name: 'Premature Bisector Split (passes)', vertices: PREMATURE_BISECTOR_SPLIT_PASSES},
 
+    // Short-edge promontory (short-edge-promontory.ts). Promoted 2026-08-27, decision 64.
+    {name: 'Short Edge Promontory', vertices: SHORT_EDGE_PROMONTORY},
+
     // Rectilinear shapes (rectilinear-shapes.ts)
     {name: 'Cross', vertices: CROSS},
     {name: 'T-Shape', vertices: T_SHAPE},
     {name: 'Golf Cart', vertices: GOLF_CART},
 
-    // Near-regular control shapes (near-regular-polygons.ts). The other five are deliberately
+    // Near-regular control shapes (near-regular-polygons.ts). The other four are deliberately
     // absent, each on a pinned failure; see the note above this list's imports.
     {name: 'Near Regular Circle 16', vertices: NEAR_REGULAR_CIRCLE_16},
     {name: 'Near Regular Circle 32', vertices: NEAR_REGULAR_CIRCLE_32},
+    {name: 'Near Regular Peanut 32', vertices: NEAR_REGULAR_PEANUT_32},
 ];

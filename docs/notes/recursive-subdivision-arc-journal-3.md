@@ -293,8 +293,23 @@ moved honestly per their own rules (event offsets 271→276, mutated 232→237, 
 unified at 42 (they had disagreed with each other, 35 vs 37, before this). Backlog items 1/3/4
 annotated CLOSED; item 5 rewritten to two remaining cells. Delegate figures: core 3747/3747,
 dashboard 257/257, census 42 fixtures / 17302 nodes / **0 failures** — the cure holds over the
-grown corpus. Mutation conviction: 18/18 inverted assertions failed. Lead verification of the
-merged tree recorded below.
+grown corpus. Mutation conviction: 18/18 inverted assertions failed. Lead verification of the merged tree:
+core **3747/3747 (71 suites)**, build clean, dashboard **257/257** — all re-run by the lead.
+Visual pass on the promoted `NEAR_REGULAR_CIRCLE_32`: 32 spokes to a single central hub, the
+32-way simultaneous event resolving cleanly. **Package 2 committed: `98bbeb4`.**
+
+**F17 — Decision 64 executed: corpus 42 → 44, and the exact-scale list collapsed to `[1]` with
+every moved cell attributed.** `SHORT_EDGE_PROMONTORY` and `NEAR_REGULAR_PEANUT_32` promoted. The
+normalisation table re-measured over 946 coordinates/cell: four cells (1e-2, 1e2, 1e6, 1e8) left
+the exact list, all owned by the two new fixtures — the old 42 re-run alone reproduces the prior
+row bit-exactly, and the authored "exact in the SCALING everywhere" invariant measured 0 violations
+independently. The sub-ulp bar was restated against polygon EXTENT (worst 5.17e-17) with the
+coordinate-relative maximum still pinned loud at 3.469e-16 — the delegate's interpretation,
+ratified: it is the form decision 64's own figures use. Translation cells 0…1e11 unmoved at 0
+inexact. Pins moved per their own rules (events 276→298, mutated 237→263, fired 103→124, corpus
+42→44, offenders 24→26, `touchedAt(1e-2)` 10→12); census 44 fixtures / 19136 nodes / **0
+failures**. Delegate: core 3835/3835, dashboard 257/257, mutation conviction 10/10. Lead
+verification recorded below.
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted

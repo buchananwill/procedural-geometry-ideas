@@ -333,7 +333,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         return canonicalisePolygon(normalisePolygon(vertices, normalisation), floor);
     }
 
-    it('touches exactly one of the 37 fixtures, and removes exactly one vertex from it', () => {
+    it('touches exactly one of the 44 fixtures, and removes exactly one vertex from it', () => {
         const touched = ALL_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR).removedCount > 0)
             .map(fixture => fixture.name);
@@ -363,8 +363,15 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
 
         // And the direction decision 18 exists to catch. At 1e-2 the floor is eating real geometry
         // from over a quarter of the corpus, which is what "too high" looks like from here.
+        //
+        // 10 BECAME 12 ON 2026-08-27, when `SHORT_EDGE_PROMONTORY` and `NEAR_REGULAR_PEANUT_32`
+        // were promoted into `ALL_TEST_POLYGONS` under journal decision 64. Attributed per
+        // fixture before repinning: both new fixtures are touched at 1e-2 and neither is touched
+        // at any smaller floor in this sweep, and the other 42 are unmoved at every floor — so
+        // this is the corpus growing, not the floor's sensitivity changing. The ruled floor still
+        // touches exactly one fixture, which is the assertion above and the one that binds.
         expect(touchedAt(1e-3)).toBe(2);
-        expect(touchedAt(1e-2)).toBe(10);
+        expect(touchedAt(1e-2)).toBe(12);
     });
 
     it('leaves every fixture solving completely, at the ruled floor and either side of it', () => {

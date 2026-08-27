@@ -9,19 +9,25 @@ import {Vector2} from '@proc-geo/core';
  * repro case for `StripOptions.minEdgeLength`: with that bound active the short edges merge into
  * their straightest neighbouring run instead of standing as strips of their own.
  *
- * NOT in `ALL_TEST_POLYGONS`. The 2026-08-09 record — that it fails
- * `large-coordinate-failures.test.ts`'s "every fixture survives translation to 1000000000 at its
- * native span" — is DEAD, re-measured 2026-08-27 (journal F14): it now survives that sweep out to
- * 1e11, and every scale cell from 1e-6 to 1e8, and the event-boundary projection sweeps.
+ * PROMOTED INTO `ALL_TEST_POLYGONS` ON 2026-08-27, under journal decision 64. Both of the records
+ * that held it out are closed:
  *
- * What holds it out instead, measured 2026-08-27 and pinned in
- * `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`: it breaks the
- * bit-exact normalisation round trip in four scale cells — 1e-2, 1e2, 1e6 and 1e8 — that
- * `normalisation.test.ts` records as exact over the corpus, and at 1e-2 and 1e2 its error relative
- * to the coordinate reaches 3.47e-16, above that suite's designed sub-`Number.EPSILON` bar. The
- * error is entirely in the centring subtraction and is under half an ulp of the polygon's own
- * extent; the offending coordinates are the ones near the centre, small beside the extent.
- * Promoting it therefore needs a ruling on how that bar is stated, not a fixture change.
+ *   - The 2026-08-09 record — that it fails `large-coordinate-failures.test.ts`'s "every fixture
+ *     survives translation to 1000000000 at its native span" — is DEAD, re-measured 2026-08-27
+ *     (journal F14): it survives that sweep out to 1e11, every scale cell from 1e-6 to 1e8, and
+ *     the event-boundary projection sweeps.
+ *   - The bit-exact normalisation round trip, which replaced it briefly, was settled by decision
+ *     64 as a ruling rather than a code change. Enrolling this fixture moves four cells out of
+ *     `normalisation.test.ts`'s exact-scale list (1e-2, 1e2, 1e6, 1e8), and that table is
+ *     corpus-scoped bookkeeping — a measured record of which placements this corpus happens to
+ *     round-trip bit-exactly in the CENTRING subtraction — not a designed invariant. Decision 4 of
+ *     the normalisation brief declines to claim exactness there at all; the designed invariant is
+ *     exactness in the SCALING, which this fixture never touched. Its error is entirely in the
+ *     centring subtraction: 3.47e-16 relative to the coordinate at 1e-2 and 1e2 (the offending
+ *     coordinates sit near the polygon's centre, small beside its extent) but 3.01e-17 relative to
+ *     the polygon's EXTENT, which is the quantity that actually bounds it. The table was
+ *     re-measured with the moved cells attributed per fixture and its sub-ulp bar restated against
+ *     the extent.
  */
 export const SHORT_EDGE_PROMONTORY: Vector2[] = [
     {x: 755.7095794766699, y: 86.07079347753358},

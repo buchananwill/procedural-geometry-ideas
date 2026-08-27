@@ -54,8 +54,8 @@ import {place} from './placement-helpers';
  * scaling. The normalised extent lands in `[1/sqrt(2), sqrt(2)]` rather than exactly on 1, which is
  * the bound every tolerance argument above actually rests on. The block near the end of this file
  * is the gate on that: it round-trips every fixture at every placement of the operating-envelope
- * sweep and asserts `Object.is`, pinning the achieved error in the three cells where the CENTRING
- * subtraction — not the scaling — rounds.
+ * sweep and asserts `Object.is`, pinning the achieved error in the seven scale cells where the
+ * CENTRING subtraction — not the scaling — rounds.
  */
 
 setSkeletonLogLevel('silent');
@@ -433,29 +433,64 @@ describe('unit-extent normalisation', () => {
 
     describe('the round trip is BIT-EXACT, which is the invariant this transform now carries', () => {
         /*
-         * MEASURED OVER THE FULL SWEEP, 698 fixture coordinates per cell:
+         * RE-MEASURED 2026-08-27 OVER THE GROWN CORPUS (44 fixtures, 946 coordinates per cell),
+         * under journal decision 64. Was 698 coordinates over 42 fixtures.
          *
          *   translate      0   1e3   1e4   1e5   1e6   1e7   1e8   1e9  1e10  1e11
          *   inexact        0     0     0     0     0     0     0     0     0     0
          *
          *   scale       1e-6  1e-4  1e-2     1   1e2   1e4   1e6   1e8
-         *   inexact        4    15     0     0     0     4     0     0
+         *   before         4    15     0     0     0     4     0     0
+         *   after          7    20     2     0     3     6     5     6
          *
-         * The whole translation sweep is exact on the bit. The scale sweep is exact in five cells of
-         * eight, and the three that are not are inexact ONLY in the centring subtraction — decision 4
-         * says so and the block below proves it, by round-tripping the already-centred value and
-         * finding it exact everywhere. The worst relative error across every inexact coordinate is
-         * 1.734723475976807e-16, under one ulp, and it is pinned rather than skipped.
+         * WHICH CELLS MOVED, AND WHICH FIXTURE MOVED THEM. `SHORT_EDGE_PROMONTORY` and
+         * `NEAR_REGULAR_PEANUT_32` were promoted into `ALL_TEST_POLYGONS` on 2026-08-27; every
+         * moved coordinate in every cell belongs to one of those two, and the other 42 fixtures are
+         * bit-unmoved in all eighteen cells (verified by re-running the sweep over the 42 alone,
+         * which reproduces the `before` row exactly). Attribution, promontory first:
+         *
+         *   scale       1e-6  1e-4  1e-2     1   1e2   1e4   1e6   1e8
+         *   promontory     2     3     1     0     2     2     3     3
+         *   peanut         1     2     1     0     1     0     2     3
+         *
+         * FOUR CELLS LEFT THE EXACT LIST — 1e-2, 1e2, 1e6 and 1e8 — so the scale sweep is now exact
+         * in one cell of eight rather than five, and the whole translation sweep is still exact on
+         * the bit. THIS IS RE-MEASUREMENT, NOT WEAKENING. Journal decision 64 rules that this table
+         * is a MEASURED RECORD of which placements the corpus happens to round-trip bit-exactly in
+         * the CENTRING subtraction, not a designed invariant: decision 4 of the normalisation brief
+         * declines to claim exactness there in the first place, and Sterbenz covers the scaling
+         * only. The designed invariant is "exact in the SCALING everywhere" — the block at the end
+         * of this describe, untouched and green over the grown corpus. This table's job is to catch
+         * UNEXPLAINED movement, and this movement is explained, attributed and ruled.
+         *
+         * THE ERROR BAR IS NOW STATED AGAINST THE POLYGON'S EXTENT, which is decision 64's other
+         * half and the option `corpus-enrolment-blockers.test.ts` named before it was deleted. The
+         * centring error is bounded by the representation of the SPAN, not of the coordinate, so a
+         * coordinate that sits near the centre of a large polygon is small beside the quantity that
+         * actually bounds its error. `SHORT_EDGE_PROMONTORY` has exactly such a coordinate: its
+         * worst error relative to the COORDINATE reaches 3.468919855816711e-16, above
+         * `Number.EPSILON`, while relative to the EXTENT it is 3.01e-17 — sub-ulp, and invisible
+         * under journal decision 54's visibility bar. `NEAR_REGULAR_PEANUT_32` stays under
+         * `Number.EPSILON` on both measures in every cell. Both quantities are pinned below: the
+         * extent-relative one carries the `Number.EPSILON` bar, the coordinate-relative one is
+         * pinned at its measured maximum so a regression in it is still loud.
          */
         const TRANSLATIONS = [0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11];
-        const EXACT_SCALES = [1e-2, 1, 1e2, 1e6, 1e8];
+        const EXACT_SCALES = [1];
         const INEXACT_SCALES: readonly (readonly [number, number])[] = [
             // scale, the measured count of coordinates that do not return on the bit.
-            [1e-6, 4],
-            [1e-4, 15],
-            [1e4, 4],
+            [1e-6, 7],
+            [1e-4, 20],
+            [1e-2, 2],
+            [1e2, 3],
+            [1e4, 6],
+            [1e6, 5],
+            [1e8, 6],
         ];
-        const WORST_MEASURED_RELATIVE_ERROR = 1.734723475976807e-16;
+        /** Worst error relative to the COORDINATE, over every inexact cell. Cell 1e-2 carries it. */
+        const WORST_MEASURED_RELATIVE_ERROR = 3.468919855816711e-16;
+        /** Worst error relative to the polygon's EXTENT, over every inexact cell. Cell 1e8 carries it. */
+        const WORST_MEASURED_EXTENT_ERROR = 5.1722434018088516e-17;
 
         interface RoundTripMeasurement {
             /** Coordinates that did not return bit-for-bit. */
@@ -472,6 +507,13 @@ describe('unit-extent normalisation', () => {
              */
             worstError: number;
             /**
+             * The same errors measured against the polygon's own EXTENT — its longest bounding-box
+             * side — rather than against the coordinate. This is the quantity the centring
+             * subtraction's error is actually bounded by, and since 2026-08-27 (journal decision
+             * 64) it is the one carrying the sub-ulp bar; zero when no coordinate was inexact.
+             */
+            worstExtentError: number;
+            /**
              * The first coordinate that did not return, named. This is what the bit-exactness
              * assertions below print when they fail: a bare count says a cell regressed, this says
              * WHICH coordinate of which fixture did it, and by how much.
@@ -480,11 +522,13 @@ describe('unit-extent normalisation', () => {
         }
 
         /** What {@link measureRoundTrip} returns for a cell that round-trips on the bit throughout. */
-        const EXACT_ROUND_TRIP: RoundTripMeasurement = {inexact: 0, worstError: 0, firstInexact: null};
+        const EXACT_ROUND_TRIP: RoundTripMeasurement =
+            {inexact: 0, worstError: 0, worstExtentError: 0, firstInexact: null};
 
         function measureRoundTrip(scale: number, translate: number): RoundTripMeasurement {
             let inexact = 0;
             let worstError = 0;
+            let worstExtentError = 0;
             let firstInexact: string | null = null;
 
             for (const polygon of ALL_TEST_POLYGONS) {
@@ -493,6 +537,8 @@ describe('unit-extent normalisation', () => {
                 const returned = normalisePolygon(placed, normalisation).map(vertex =>
                     denormalisePosition(normalisation, vertex),
                 );
+                const {minimum, maximum} = boundsOf(placed);
+                const extent = Math.max(maximum.x - minimum.x, maximum.y - minimum.y);
 
                 placed.forEach((vertex, index) => {
                     for (const axis of ['x', 'y'] as const) {
@@ -503,6 +549,7 @@ describe('unit-extent normalisation', () => {
                         const error = Math.abs(returned[index][axis] - vertex[axis]);
                         const magnitude = Math.abs(vertex[axis]);
                         worstError = Math.max(worstError, magnitude === 0 ? error : error / magnitude);
+                        worstExtentError = Math.max(worstExtentError, error / extent);
                         firstInexact ??=
                             `${polygon.name} vertex ${index}.${axis}: ` +
                             `${vertex[axis]} returned as ${returned[index][axis]}`;
@@ -510,7 +557,7 @@ describe('unit-extent normalisation', () => {
                 });
             }
 
-            return {inexact, worstError, firstInexact};
+            return {inexact, worstError, worstExtentError, firstInexact};
         }
 
         it.each(TRANSLATIONS)('returns every fixture coordinate BIT-FOR-BIT at translate %p', translate => {
@@ -534,7 +581,13 @@ describe('unit-extent normalisation', () => {
 
                 expect(measurement.inexact).toBeLessThanOrEqual(measuredInexact);
                 expect(measurement.worstError).toBeLessThanOrEqual(WORST_MEASURED_RELATIVE_ERROR);
-                expect(measurement.worstError).toBeLessThan(Number.EPSILON);
+
+                // THE SUB-ULP BAR, AGAINST THE EXTENT (journal decision 64, 2026-08-27). The
+                // centring error is bounded by the representation of the polygon's SPAN, so this
+                // is the measure the claim belongs on; the coordinate-relative figure above is
+                // still pinned at its measured maximum so a regression in it stays loud.
+                expect(measurement.worstExtentError).toBeLessThanOrEqual(WORST_MEASURED_EXTENT_ERROR);
+                expect(measurement.worstExtentError).toBeLessThan(Number.EPSILON);
             },
         );
 

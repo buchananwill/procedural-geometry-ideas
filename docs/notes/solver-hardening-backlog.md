@@ -138,15 +138,27 @@ fixtures into `ALL_TEST_POLYGONS`.
 
 ## 5. Promoting the near-regular fixtures
 
-**PARTLY DONE, RE-STATED 2026-08-27.** `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` are in
-`ALL_TEST_POLYGONS`, alongside `GOLF_CART`. Both blockers named below are dead: item 4 closed, and
-the translation envelope now carries every one of the seven out to 1e9. The pinned counts the
-promotion moved: event offsets 271 → 276, mutation `mutated` 232 → 237 and `fired` 101 → 103 in
-`offset-event-boundary-regression.test.ts`; corpus size 39 → 42 and the hop-count offender count
-23 → 24 in `skeleton-tree.test.ts`. All attributed per fixture at each pin.
+**PARTLY DONE, RE-STATED TWICE ON 2026-08-27.** `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32`
+are in `ALL_TEST_POLYGONS`, alongside `GOLF_CART`. Both blockers named in the original item are
+dead: item 4 closed, and the translation envelope now carries every one of the seven out to 1e9.
+The pinned counts that promotion moved: event offsets 271 → 276, mutation `mutated` 232 → 237 and
+`fired` 101 → 103 in `offset-event-boundary-regression.test.ts`; corpus size 39 → 42 and the
+hop-count offender count 23 → 24 in `skeleton-tree.test.ts`. All attributed per fixture at each pin.
 
-**Five remain out, each as a pinned failing test rather than a claim in prose** — journal decision
-53 permits an exclusion only in that form:
+**THEN `NEAR_REGULAR_PEANUT_32` AND `SHORT_EDGE_PROMONTORY` FOLLOWED, under journal decision 64.**
+What held them out was the bit-exact normalisation round trip, and decision 64 ruled that
+`normalisation.test.ts`'s exact-scale list is corpus-scoped bookkeeping — a measured record of
+which placements the corpus happens to round-trip bit-exactly in the CENTRING subtraction, which
+decision 4 of the normalisation brief never claimed — rather than a designed invariant. The
+designed invariant, exactness in the SCALING everywhere, is untouched and green. That table was
+re-measured over the grown corpus with the moved cells attributed per fixture, and its sub-ulp bar
+restated against the polygon's EXTENT rather than against the coordinate. Counts this second
+promotion moved: event offsets 276 → 298, `mutated` 237 → 263, `fired` 103 → 124; corpus size
+42 → 44 and hop-count offenders 24 → 26; the canonicalisation decade sweep's `touchedAt(1e-2)`
+10 → 12. All attributed per fixture at each pin.
+
+**Four remain out — the two ellipses, Circle 48 and Rosette5 40 — each as a pinned failing test
+rather than a claim in prose**, journal decision 53 permitting an exclusion only in that form:
 
 - **The large-coordinate envelope is down to two cells**, both signalled step failures rather than
   silent wrong answers, both in
@@ -155,14 +167,13 @@ promotion moved: event offsets 271 → 276, mutation `mutated` 232 → 237 and `
   `NEAR_REGULAR_ROSETTE5_40` at 1e11 only, dying in a two-edge base case with its two source nodes
   6e-8 apart on the terminal ring. The second is the terminal-ring-finer-than-tolerance regime
   journal decision 54 leaves open.
-- **Two new blockers, found by the scale sweeps the 2026-08-27 re-measurement did not cover**, both
-  in `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`:
+- **One blocker survives of the two found by the scale sweeps** the 2026-08-27 re-measurement did
+  not cover, in `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`:
   `NEAR_REGULAR_ELLIPSE_16` and `NEAR_REGULAR_ELLIPSE_32` keep their geometry bit-stable under a
-  scale of 7 but swap the node ids of a mirror pair, against `skeleton-tree.test.ts`;
-  `NEAR_REGULAR_PEANUT_32` (with `SHORT_EDGE_PROMONTORY`) breaks the bit-exact normalisation round
-  trip in four scale cells `normalisation.test.ts` records as exact, by under half an ulp of the
-  polygon's extent, in the centring subtraction alone. The second of those needs a ruling on how
-  that suite states its error bar, not a code change.
+  scale of 7 but swap the node ids of a mirror pair, against `skeleton-tree.test.ts`. Journal
+  decision 65 assigns that to the determinism package — simultaneous-event tie-breaks must be
+  canonical, not creation-ordered — with ellipse promotion as its acceptance test. The other,
+  the normalisation round trip, is closed by decision 64 above.
 
 ---
 

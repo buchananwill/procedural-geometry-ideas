@@ -205,7 +205,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 276 distinct event offsets across them', () => {
+        it('is every fixture, and 298 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -242,7 +242,15 @@ describe('offset projection at event boundaries', () => {
             // one offset. `Near Regular Circle 16` and `Near Regular Circle 32` contribute 1 each,
             // for the Cross's reason rather than a new one: a regular n-gon's collisions are all
             // congruent, so `computeNodeOffsets` canonicalises the whole solve onto one offset.
-            expect(events).toBe(276);
+            //
+            // 276 BECAME 298 LATER ON 2026-08-27, when `Short Edge Promontory` and `Near Regular
+            // Peanut 32` were promoted under journal decision 64. Attributed per fixture before
+            // repinning: the promontory contributes 14 and the peanut 8, and the other 42 are
+            // unmoved — re-running this reduction over the 42 alone still gives 276. Neither is a
+            // congruent shape, so neither collapses the way the circles and the Cross do: the
+            // promontory's short eastern edges each carry their own event, and the peanut's
+            // four-fold symmetry leaves 8 distinct offsets out of 32 vertices.
+            expect(events).toBe(298);
         });
     });
 
@@ -349,8 +357,8 @@ describe('offset projection at event boundaries', () => {
             // `ALL_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
             // held-out fixtures, so the conviction the two suites claim is the same conviction.
             //
-            // Measured at this commit: 237 clean events across the corpus, 103 of which the report
-            // fires on and 134 of which cost no area at all.
+            // Measured at this commit: 263 clean events across the corpus, 124 of which the report
+            // fires on and 139 of which cost no area at all.
             const {silentLosses, fired, mutated} = measureMutationReport(
                 SWEPT_FIXTURES.map(name => ({name, result: solvedFixture(name)})));
             expect(silentLosses.join('; ')).toBe('');
@@ -383,8 +391,16 @@ describe('offset projection at event boundaries', () => {
             // and `Near Regular Circle 32` contribute 0 to both: each resolves through a single
             // canonicalised offset inside the terminal band, so there is no clean mid-solve event
             // to mutate.
-            expect(mutated).toBe(237);
-            expect(fired).toBe(103);
+            //
+            // BOTH MOVED AGAIN LATER ON 2026-08-27 — 237 to 263 and 103 to 124 — for the same
+            // third cause, the corpus growing: `Short Edge Promontory` and `Near Regular Peanut
+            // 32` were promoted under journal decision 64. Attributed per fixture before
+            // repinning; the other 42 are bit-unmoved on all three counts. The promontory carries
+            // mutated 13 and fired 9; the peanut mutated 13 and fired 12. Both are dense shapes
+            // whose events sit clear of the terminal band, which is why they contribute heavily
+            // where the circles contributed nothing. `silentLosses` is still empty over all 44.
+            expect(mutated).toBe(263);
+            expect(fired).toBe(124);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

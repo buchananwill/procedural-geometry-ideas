@@ -301,7 +301,11 @@ describe('the shape of the tree, over the whole corpus', () => {
         // 39 became 42 on 2026-08-27: `Golf Cart`, `Near Regular Circle 16` and
         // `Near Regular Circle 32` were promoted into `ALL_TEST_POLYGONS` under journal decision
         // 53. This is the corpus size, so it tracks the list.
-        expect(trees).toHaveLength(42);
+        //
+        // 42 became 44 later the same day: `Short Edge Promontory` and `Near Regular Peanut 32`
+        // were promoted under journal decision 64. Both build trees, so `notTrees` above is still
+        // empty.
+        expect(trees).toHaveLength(44);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -477,7 +481,7 @@ describe('skeletonTreeDiameter over the corpus', () => {
     });
 
     /**
-     * And the distinction is not academic on this corpus: on 24 of the 42 fixtures the longest
+     * And the distinction is not academic on this corpus: on 26 of the 44 fixtures the longest
      * hop-count path is STRICTLY shorter than the diameter. `Mid-case Failure End` is the widest
      * margin measured — 532.52 against 350.42, a third of the length lost — so a hop-count
      * implementation would fail this file rather than pass it quietly.
@@ -489,11 +493,18 @@ describe('skeletonTreeDiameter over the corpus', () => {
      * `Golf Cart` alone joins the offenders, for the T-Shape's reason — a long stem spine reached
      * over few hops. `Near Regular Circle 16` and `Near Regular Circle 32` do not: a regular n-gon
      * resolves to a single interior node, so every leaf path is one hop and the two measures tie.
+     *
+     * 24 became 26 later on 2026-08-27 with the decision-64 promotions. Attributed per fixture:
+     * BOTH `Short Edge Promontory` and `Near Regular Peanut 32` join the offenders, and the 24
+     * already there are unchanged — re-running the filter over the 42 alone still gives 24.
+     * Neither is a regular n-gon: the promontory has a long western body reached over few hops
+     * past its short eastern edges, and the peanut's waist gives it a spine whose lobes are
+     * densely sampled, so in both the hop-count path leaves the long way round unwalked.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>
             pathLength(tree, longestLeafPathByHops(tree)) < pathLength(tree, skeletonTreeDiameter(tree)) - 1e-9);
-        expect(shorter).toHaveLength(24);
+        expect(shorter).toHaveLength(26);
 
         const midCase = trees.find(entry => entry.name === 'Mid-case Failure End') as typeof trees[number];
         expect(pathLength(midCase.tree, skeletonTreeDiameter(midCase.tree))).toBeCloseTo(532.5233, 3);
