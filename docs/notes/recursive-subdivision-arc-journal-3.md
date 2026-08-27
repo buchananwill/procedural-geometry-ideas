@@ -156,6 +156,28 @@ along-edge-jitter reflex class (backlog item 2 — fixture it, characterise it, 
 design ruling). The collinear dumbbell fix and any double-split-scale design work are OUT of
 overnight scope: they are critical-tier and wait for a ruling with the user awake.
 
+**64 — The normalisation exact-cell table is corpus-scoped bookkeeping, not a designed invariant;
+`SHORT_EDGE_PROMONTORY` and `NEAR_REGULAR_PEANUT_32` promote.** The package-2 delegate correctly
+escalated this instead of ruling it. The authored invariant in `normalisation.test.ts` is "exact in
+the SCALING everywhere" — untouched and green. The five-exact-cells list is a *measured record* of
+which scales the corpus happens to round-trip bit-exactly in the **centring** subtraction, which F6
+already established is not exactly invertible in general (Sterbenz covers scaling only). Both
+fixtures' drift is sub-ulp of extent (worst 3.47e-16 absolute, 3e-17 relative to extent; the peanut
+under `Number.EPSILON` in every cell) — invisible under decision 54's bar. Re-measure the table
+over the grown corpus, date the update, attribute the moved cells per fixture, promote both, and
+delete the corresponding blocker block from `corpus-enrolment-blockers.test.ts`. This is
+re-measurement, not weakening: the tripwire's job is to catch *unexplained* movement, and this
+movement is explained, attributed, and ruled.
+
+**65 — The ellipse hold-out blocker joins the determinism package (queue item 3), which is
+promoted from "hygiene" to "determinism": simultaneous-event tie-breaks must be canonical, not
+creation-ordered.** `NEAR_REGULAR_ELLIPSE_16/32` fail only scale-invariance of node *ids*: exact
+mirror symmetry makes two events simultaneous, and which node is created first turns on an ulp —
+same defect family as the `inEdges` ordering instability (F10). The package therefore owns:
+canonical ordering for simultaneous event sets (node-id assignment), the `inEdges` sort (or proof
+nothing reads the order), the duplicated 1e-6 floors, and NaN entry validation. Ellipse promotion
+is that package's acceptance test.
+
 ## Findings
 
 **F10 — The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
@@ -257,9 +279,29 @@ the slanted stem's spine drifts with the narrowing, no crossings or disconnected
 Screenshot delivered to the user; dev server left running for the near-regular visual pass after
 promotion.
 
+**F16 — Package 2 (promotions) landed 3 of 7, and the four hold-outs are two new measured defect
+classes, both invisible to F14's scoped replication.** Promoted: `GOLF_CART` (+ index export),
+`NEAR_REGULAR_CIRCLE_16`, `NEAR_REGULAR_CIRCLE_32` — corpus 39 → 42. Held out and pinned in
+`corpus-enrolment-blockers.test.ts`: (a) `NEAR_REGULAR_ELLIPSE_16/32` — geometry bit-identical
+under scale 7 but the two interior nodes of an exact mirror pair **swap ids** (simultaneity
+resolved by creation order on an ulp; decision 65); (b) `SHORT_EDGE_PROMONTORY` /
+`NEAR_REGULAR_PEANUT_32` — centring subtraction breaks bit-exactness in 4 of 5 recorded
+exact-scale cells, sub-ulp of extent (decision 64 promotes them). The two mandated hold-outs
+pinned in `large-coordinate-known-failures.test.ts` exactly as F14/F15b measured. Pinned counts
+moved honestly per their own rules (event offsets 271→276, mutated 232→237, fired 101→103, corpus
+39→42, hop-count offenders 23→24 — Golf Cart joining for the T-Shape's reason); doc counts
+unified at 42 (they had disagreed with each other, 35 vs 37, before this). Backlog items 1/3/4
+annotated CLOSED; item 5 rewritten to two remaining cells. Delegate figures: core 3747/3747,
+dashboard 257/257, census 42 fixtures / 17302 nodes / **0 failures** — the cure holds over the
+grown corpus. Mutation conviction: 18/18 inverted assertions failed. Lead verification of the
+merged tree recorded below.
+
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
 ones" block fails 2 tests because its specimen fixture now solves. Its own conviction gate ("is a
 fixture that really does fail, or this proves nothing") is what fired — P2 vindicated. Dashboard
 otherwise green: 255/257. Re-specimened by Opus delegate on the core precedent (dumbbell / built
-region) before commit 1.
+region) before commit 1. **Resolved:** specimen is now `Broken Polygon` at merge group 5, full
+depth (the dumbbell only fails below full depth, where residue rings render as dashed fills and
+would poison the block's fill census — a constraint the core precedent didn't face). Dashboard
+verified by the lead: 257/257. **Package 1 committed: `b7d5b63`.**

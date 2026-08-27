@@ -16,6 +16,11 @@ characterisation test exists it is the live record; this file is the map.
 
 ## 1. `complete: true` with a wrong skeleton at extreme translation
 
+**CLOSED (annotated 2026-08-27).** Unit-extent normalisation closed it: `solveSkeleton` normalises
+to unit extent before solving and denormalises on the way out, which makes the absolute
+`FLOATING_POINT_EPSILON` relative by construction. `Broken Polygon` at 1e8 now reports 126.630159636
+against a native 126.63015964243034. The record below is kept as the diagnosis, not as open work.
+
 **Where:** `packages/core/tests/straight-skeleton/large-coordinate-failures.test.ts`
 
 At translation 1e8, `Broken Polygon` returns `complete: true` with **empty diagnostics** and a
@@ -70,6 +75,13 @@ collinearity this needs.
 
 ## 3. Exactly-subdivided reflex polygons
 
+**CLOSED (annotated 2026-08-27), twice over.** Input canonicalisation removed the failing input —
+the inserted vertices deviate ~1e-16 from the chord and are normalised out — and the double-split
+partition fix (`GOLF_CART`, journal decision 56) then fixed the defect underneath: re-measured with
+the canonicalisation stage OFF, both regular-insertion failure sets are empty. What remains open is
+narrower and is item 2's regime, not this one: the plus still fails 4 of 10 irregular seeds with the
+stage off.
+
 **Where:** `packages/core/tests/straight-skeleton/reflex-subdivision.test.ts` — records the
 failing counts exactly, with a test pinning the set so drift in either direction is loud.
 
@@ -100,6 +112,12 @@ times** across the corpus. Fix it if anything ever lands there.
 
 ## 4. Terminal many-way events cannot be projected
 
+**CLOSED (annotated 2026-08-27).** Simultaneous mirror-event canonicalisation closed it. Re-measured
+2026-08-27 over all eight historically excluded fixtures (journal F14): the unclosed-chain sweep,
+the ring-presence sweep and the area-continuity sweep all come back clean on every one of them,
+including `NEAR_REGULAR_ELLIPSE_16`, whose chain the note below reports as surviving every fix. It
+is no longer a blocker on item 5.
+
 **Where:** `packages/core/tests/straight-skeleton/offset-event-boundary-regression.test.ts`
 
 At the exact offset of a terminal many-way event, the wavefront projection reports an unclosed
@@ -120,17 +138,31 @@ fixtures into `ALL_TEST_POLYGONS`.
 
 ## 5. Promoting the near-regular fixtures
 
-`NEAR_REGULAR_CIRCLE_16/32/48`, `ELLIPSE_16/32`, `PEANUT_32`, `ROSETTE5_40` are exported
-individually and deliberately kept **out** of `ALL_TEST_POLYGONS`, because several suites sweep
-that list asserting every entry solves completely.
+**PARTLY DONE, RE-STATED 2026-08-27.** `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` are in
+`ALL_TEST_POLYGONS`, alongside `GOLF_CART`. Both blockers named below are dead: item 4 closed, and
+the translation envelope now carries every one of the seven out to 1e9. The pinned counts the
+promotion moved: event offsets 271 → 276, mutation `mutated` 232 → 237 and `fired` 101 → 103 in
+`offset-event-boundary-regression.test.ts`; corpus size 39 → 42 and the hop-count offender count
+23 → 24 in `skeleton-tree.test.ts`. All attributed per fixture at each pin.
 
-**No solver blocker remains.** `wavefront-causality` and `strip-decomposition` accept all seven.
-The two blockers are item 4 above, and the large-coordinate envelope — these are 300-unit shapes
-and leave it earlier than the corpus's smaller fixtures.
+**Five remain out, each as a pinned failing test rather than a claim in prose** — journal decision
+53 permits an exclusion only in that form:
 
-**`NEAR_REGULAR_CIRCLE_16` is blocked by neither and is promotable on its own.** The only extra
-cost is updating the hard-coded event-offset count in
-`offset-event-boundary-regression.test.ts` (271 for the present list, 325 with all seven).
+- **The large-coordinate envelope is down to two cells**, both signalled step failures rather than
+  silent wrong answers, both in
+  `packages/core/tests/straight-skeleton/large-coordinate-known-failures.test.ts`:
+  `NEAR_REGULAR_CIRCLE_48` at translation 1e10 ONLY (non-monotonic — 1e9 and 1e11 pass), and
+  `NEAR_REGULAR_ROSETTE5_40` at 1e11 only, dying in a two-edge base case with its two source nodes
+  6e-8 apart on the terminal ring. The second is the terminal-ring-finer-than-tolerance regime
+  journal decision 54 leaves open.
+- **Two new blockers, found by the scale sweeps the 2026-08-27 re-measurement did not cover**, both
+  in `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`:
+  `NEAR_REGULAR_ELLIPSE_16` and `NEAR_REGULAR_ELLIPSE_32` keep their geometry bit-stable under a
+  scale of 7 but swap the node ids of a mirror pair, against `skeleton-tree.test.ts`;
+  `NEAR_REGULAR_PEANUT_32` (with `SHORT_EDGE_PROMONTORY`) breaks the bit-exact normalisation round
+  trip in four scale cells `normalisation.test.ts` records as exact, by under half an ulp of the
+  polygon's extent, in the centring subtraction alone. The second of those needs a ruling on how
+  that suite states its error bar, not a code change.
 
 ---
 

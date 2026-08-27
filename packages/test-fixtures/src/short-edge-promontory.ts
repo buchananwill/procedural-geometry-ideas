@@ -9,13 +9,19 @@ import {Vector2} from '@proc-geo/core';
  * repro case for `StripOptions.minEdgeLength`: with that bound active the short edges merge into
  * their straightest neighbouring run instead of standing as strips of their own.
  *
- * NOT in `ALL_TEST_POLYGONS`, recorded 2026-08-09: enrolment requires every sweeping suite to
- * pass, and this polygon fails exactly one of them — `large-coordinate-failures.test.ts`,
- * "every fixture survives translation to 1000000000 at its native span". It passes the same
- * sweep at 1e5/1e6/1e7, the 50×-scale envelope at every distance up to 1e8, and the 1e4 scale-up,
- * and every strip/slicing sweep at its native placement. The 1e9 failure is the known
- * large-coordinate envelope limitation (see the near-regular-polygons exclusion note in
- * `index.ts`), not a property of this shape's short edges. Promote once that envelope is fixed.
+ * NOT in `ALL_TEST_POLYGONS`. The 2026-08-09 record — that it fails
+ * `large-coordinate-failures.test.ts`'s "every fixture survives translation to 1000000000 at its
+ * native span" — is DEAD, re-measured 2026-08-27 (journal F14): it now survives that sweep out to
+ * 1e11, and every scale cell from 1e-6 to 1e8, and the event-boundary projection sweeps.
+ *
+ * What holds it out instead, measured 2026-08-27 and pinned in
+ * `packages/core/tests/straight-skeleton/corpus-enrolment-blockers.test.ts`: it breaks the
+ * bit-exact normalisation round trip in four scale cells — 1e-2, 1e2, 1e6 and 1e8 — that
+ * `normalisation.test.ts` records as exact over the corpus, and at 1e-2 and 1e2 its error relative
+ * to the coordinate reaches 3.47e-16, above that suite's designed sub-`Number.EPSILON` bar. The
+ * error is entirely in the centring subtraction and is under half an ulp of the polygon's own
+ * extent; the offending coordinates are the ones near the centre, small beside the extent.
+ * Promoting it therefore needs a ruling on how that bar is stated, not a fixture change.
  */
 export const SHORT_EDGE_PROMONTORY: Vector2[] = [
     {x: 755.7095794766699, y: 86.07079347753358},

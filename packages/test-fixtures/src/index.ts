@@ -134,18 +134,17 @@ export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from '.
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
 // short-edge-promontory.ts
-// Exported individually and left out of ALL_TEST_POLYGONS: it solves, strips, and slices cleanly
-// at its native placement and survives translation to 1e7 and the scale sweeps, but fails the
-// translation-to-1e9 envelope sweep in large-coordinate-failures.test.ts — the same blocker that
-// holds six of the seven near-regular fixtures out (see below). Details in the fixture file.
+// Exported individually and left out of ALL_TEST_POLYGONS, re-recorded 2026-08-27: its original
+// blocker (the translation-to-1e9 envelope) is dead, but promoting it breaks the bit-exact
+// normalisation round trip at four scale cells that suite currently asserts exact. Pinned as it
+// stands by corpus-enrolment-blockers.test.ts; details in the fixture file.
 export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 
 // near-regular-polygons.ts
-// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: these analytic
-// control shapes all solve, but the sweeps over that list assert more than completeness, and
-// two of those wider assertions still fail on six of the seven. Both remaining blockers are
-// downstream of the solver — the offset projection at a many-way event, and the large-coordinate
-// envelope. See the file header for which fixture each one blocks.
+// `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32` joined ALL_TEST_POLYGONS on 2026-08-27.
+// The other five stay out, each on one measured, pinned failure rather than on a claim:
+// Circle 48 and Rosette5 40 in large-coordinate-known-failures.test.ts, Ellipse 16, Ellipse 32
+// and Peanut 32 in corpus-enrolment-blockers.test.ts. See the file header.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
@@ -155,6 +154,10 @@ export {
     NEAR_REGULAR_PEANUT_32,
     NEAR_REGULAR_ROSETTE5_40,
 } from './near-regular-polygons';
+import {
+    NEAR_REGULAR_CIRCLE_16,
+    NEAR_REGULAR_CIRCLE_32,
+} from './near-regular-polygons';
 
 // rectilinear-shapes.ts
 export {CROSS} from './rectilinear-shapes';
@@ -162,6 +165,9 @@ import {CROSS} from './rectilinear-shapes';
 
 export {T_SHAPE} from './rectilinear-shapes';
 import {T_SHAPE} from './rectilinear-shapes';
+
+export {GOLF_CART} from './rectilinear-shapes';
+import {GOLF_CART} from './rectilinear-shapes';
 
 export interface NamedTestPolygon {
     name: string;
@@ -230,4 +236,10 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     // Rectilinear shapes (rectilinear-shapes.ts)
     {name: 'Cross', vertices: CROSS},
     {name: 'T-Shape', vertices: T_SHAPE},
+    {name: 'Golf Cart', vertices: GOLF_CART},
+
+    // Near-regular control shapes (near-regular-polygons.ts). The other five are deliberately
+    // absent, each on a pinned failure; see the note above this list's imports.
+    {name: 'Near Regular Circle 16', vertices: NEAR_REGULAR_CIRCLE_16},
+    {name: 'Near Regular Circle 32', vertices: NEAR_REGULAR_CIRCLE_32},
 ];

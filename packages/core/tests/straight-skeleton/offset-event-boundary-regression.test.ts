@@ -78,12 +78,14 @@ import {
  * WHAT THIS FILE IS NOT
  * ----------------------------------------------------------------------------
  *
- * The near-regular fixtures are held out of `ALL_TEST_POLYGONS`, so nothing here sweeps them. The
- * projection used to lose rings on them; the simultaneous-mirror-event work has since fixed that,
- * and `near-regular-ring-loss-diagnosis.test.ts` carries both the diagnosis and the guarantee for
- * those four. They stay held out until they are promoted deliberately, which is a separate change:
- * promoting them moves the event count this file pins, and bundling the two would make any
- * regression unattributable. The two suites share their measurements through
+ * The projection used to lose rings on the near-regular fixtures; the simultaneous-mirror-event
+ * work has since fixed that, and `near-regular-ring-loss-diagnosis.test.ts` carries both the
+ * diagnosis and the guarantee for those four. Two of the seven — `NEAR_REGULAR_CIRCLE_16` and
+ * `NEAR_REGULAR_CIRCLE_32` — were promoted into `ALL_TEST_POLYGONS` on 2026-08-27 and are swept
+ * here as ordinary corpus members; the other five stay out on their own pinned failures
+ * (`large-coordinate-known-failures.test.ts`, `corpus-enrolment-blockers.test.ts`). Promotion
+ * moves the counts this file pins, which is why it is done as its own change with the move
+ * attributed per fixture at each pin. The two suites share their measurements through
  * `wavefront-measurement-helpers.ts` so that the guarantee and the diagnosis are stated over the
  * same quantities.
  *
@@ -203,7 +205,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 270 distinct event offsets across them', () => {
+        it('is every fixture, and 276 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -232,7 +234,15 @@ describe('offset projection at event boundaries', () => {
             // path): like the Cross, everything in it collapses at one canonicalised offset —
             // stem spine, bar ridge and culled surplus bisectors all at half the stem width — so
             // the fixture contributes exactly one distinct event.
-            expect(events).toBe(271);
+            //
+            // 271 BECAME 276 on 2026-08-27, when three fixtures were promoted into
+            // `ALL_TEST_POLYGONS` under journal decision 53. Attributed per fixture before
+            // repinning; the other 37 are unmoved. `Golf Cart` contributes 3 — it is the T-Shape
+            // with one stem wall slanted, and the slant separates what the T-Shape collapses into
+            // one offset. `Near Regular Circle 16` and `Near Regular Circle 32` contribute 1 each,
+            // for the Cross's reason rather than a new one: a regular n-gon's collisions are all
+            // congruent, so `computeNodeOffsets` canonicalises the whole solve onto one offset.
+            expect(events).toBe(276);
         });
     });
 
@@ -339,8 +349,8 @@ describe('offset projection at event boundaries', () => {
             // `ALL_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
             // held-out fixtures, so the conviction the two suites claim is the same conviction.
             //
-            // Measured at this commit: 232 clean events across the corpus, 101 of which the report
-            // fires on and 131 of which cost no area at all.
+            // Measured at this commit: 237 clean events across the corpus, 103 of which the report
+            // fires on and 134 of which cost no area at all.
             const {silentLosses, fired, mutated} = measureMutationReport(
                 SWEPT_FIXTURES.map(name => ({name, result: solvedFixture(name)})));
             expect(silentLosses.join('; ')).toBe('');
@@ -363,8 +373,18 @@ describe('offset projection at event boundaries', () => {
             // `fired`. That held while the corpus geometry was fixed; a fixture whose boundary is
             // re-expressed moves both counts at once, and the per-fixture attribution above is what
             // tells the two causes apart.
-            expect(mutated).toBe(232);
-            expect(fired).toBe(101);
+            //
+            // BOTH MOVED AGAIN ON 2026-08-27 — 232 to 237 and 101 to 103 — for the third cause,
+            // the corpus growing: three fixtures were promoted under journal decision 53.
+            // Attributed per fixture before repinning; the other 37 are bit-unmoved on all three
+            // counts. `Golf Cart` carries the whole move, mutated 5 and fired 2 — 5 rather than 3
+            // because this count walks NODES clear of the terminal band, not distinct offsets, and
+            // its double-split layer puts several nodes on one offset. `Near Regular Circle 16`
+            // and `Near Regular Circle 32` contribute 0 to both: each resolves through a single
+            // canonicalised offset inside the terminal band, so there is no clean mid-solve event
+            // to mutate.
+            expect(mutated).toBe(237);
+            expect(fired).toBe(103);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {
