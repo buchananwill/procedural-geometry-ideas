@@ -9,6 +9,7 @@ import {
 } from '@proc-geo/test-fixtures';
 import {
     FLOATING_POINT_EPSILON,
+    SKELETON_NOISE_FLOOR,
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
@@ -307,11 +308,31 @@ describe('near-regular polygons', () => {
         // respectively, 3x fails {5,18} in both, 5x fails {3,4,6,11,17} in both, 15x fails {11} in
         // both, and 30x and above are clean in both. Normalisation moved the band by the span and
         // changed nothing else about it.
+        //
+        // THE RUNG MOVED AGAIN ON 2026-08-28, TO THE BAR THAT NOW DECIDES COINCIDENCE. Journal
+        // decision 78 resolves two events closer than `SKELETON_NOISE_FLOOR` in unit space into one,
+        // so that — not `FLOATING_POINT_EPSILON` — is the tolerance a jitter has to clear to be
+        // "barely above" anything. Fifteen epsilons is 0.15 of it: below the bar, inside the
+        // ambiguous band, saying nothing about symmetry. Same idea, same multiple, new bar.
+        //
+        // AND THE BAND MOVED WITH IT, WHICH IS THE EVIDENCE THAT NOTHING ELSE CHANGED. Re-measured
+        // over 25 seeds at multiples of the FLOOR: 0.15x fails 10 of 25, 0.5x fails 6, 1x and 2x
+        // fail 1 (seed 23), 3x fails 0, 5x fails 1 (seed 16), and 10x, 15x and 30x are clean. The
+        // shape of the ladder — noisy below the bar, clean a few multiples above it — is exactly
+        // what it was against the epsilon, one hundred times further out.
         const spanOf = (vertices: Vector2[]): number => Math.max(
             Math.max(...vertices.map(v => v.x)) - Math.min(...vertices.map(v => v.x)),
             Math.max(...vertices.map(v => v.y)) - Math.min(...vertices.map(v => v.y)),
         );
-        const barelyAboveTolerance = 15 * FLOATING_POINT_EPSILON * spanOf(NEAR_REGULAR_CIRCLE_32);
+        const barelyAboveTolerance = 15 * SKELETON_NOISE_FLOOR * spanOf(NEAR_REGULAR_CIRCLE_32);
+
+        /**
+         * A displacement INSIDE the ambiguous band rather than clear of it: 0.15 of the coincidence
+         * floor, which is bit-for-bit the amplitude the rung above used to carry when it was written
+         * against fifteen epsilons. The band is where the near-degenerate regime of journal decision
+         * 67 lives, and what is asserted there is that a failure is SIGNALLED.
+         */
+        const insideTheBand = 0.15 * SKELETON_NOISE_FLOOR * spanOf(NEAR_REGULAR_CIRCLE_32);
 
         it('solves the exactly symmetric 32-vertex circle', () => {
             expect(solveSkeleton(NEAR_REGULAR_CIRCLE_32).complete).toBe(true);
@@ -325,7 +346,7 @@ describe('near-regular polygons', () => {
             expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, 0.15, seed)).complete).toBe(true);
         });
 
-        it.each([1, 3, 4, 5])('solves it jittered barely above FLOATING_POINT_EPSILON (seed %i)', seed => {
+        it.each([1, 3, 4, 5])('solves it jittered barely above the coincidence floor (seed %i)', seed => {
             expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, barelyAboveTolerance, seed)).complete).toBe(true);
         });
 
@@ -354,9 +375,17 @@ describe('near-regular polygons', () => {
          * bisector; not one cell that was clean before fails now. The band is the near-degenerate
          * regime of journal decision 67 and F19, and the failures in it are SIGNALLED — which is
          * the property pinned here, because the alternative was a wrong skeleton reporting success.
+         *
+         * THE RUNG THIS CELL STANDS ON WAS RENAMED, NOT MOVED, on 2026-08-28. Decision 78 took the
+         * rung above out to fifteen FLOORS, where the ladder is clean at 0 of 25; seed 2 rides the
+         * same amplitude it always did — fifteen epsilons, which is 0.15 of a floor — now spelled
+         * `insideTheBand`. Re-measured there under decision 78: 10 of 25 fail (seeds 2, 3, 5, 9, 13,
+         * 14, 18, 20, 23, 24) where 4 failed before, EVERY ONE of them signalled with a step failure
+         * and unresolved edges, and not one silent. The coincidence rule changes which cells of the
+         * band resolve; it does not change that a cell which does not resolve says so.
          */
         it('reports the seed-2 cell as a signalled failure rather than a backwards-bisector pass', () => {
-            const result = solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, barelyAboveTolerance, 2));
+            const result = solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, insideTheBand, 2));
 
             expect(result.complete).toBe(false);
             expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toContain('step-failure');

@@ -4,7 +4,42 @@ import {
     StraightSkeletonSolverContext,
     Vector2,
 } from "./types";
-import {addVectors, areEqual, makeBisectedBasis, sizeOfVector, vectorsAreEqual} from "./core-functions";
+import {addVectors, areEqual, makeBisectedBasis, sizeOfVector} from "./core-functions";
+import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
+
+/**
+ * Are these two arrivals the same vertex event, as far as anything that will ever look at the
+ * skeleton is concerned?
+ *
+ * THE BAR IS THE RENDER-SCALE FLOOR, NOT THE ARITHMETIC EPSILON — journal decision 78. Two events
+ * closer together than {@link SKELETON_NOISE_FLOOR} in unit space are one event: the same constant,
+ * and the same argument, that `canonicalisation.ts` removes an input vertex on. An input
+ * perturbation the boundary stage would have erased must not survive as two skeleton nodes it did
+ * not erase, and one tolerance system is the point.
+ *
+ * WHAT THE EPSILON BAR LEFT BEHIND, MEASURED. On `OFF_EDGE_JITTER_L_SEED_15838` the wavefront
+ * reaches a ridge where four walls are equidistant, and resolved it as two events 3.13e-7 apart in
+ * unit space — correctly distinct at 31 times the epsilon, and 2.7e-7 of the polygon's extent, so a
+ * **7480x** zoom would be needed to put two pixels between the nodes they produced. The pair then
+ * carried a bisector leaving one of them 5.2e-6 radians from its neighbour, which is a distinction
+ * no downstream planar consumer can act on.
+ *
+ * A DISTANCE, NOT A BOUNDING BOX. `vectorsAreEqual` compares components, which at the epsilon scale
+ * is indistinguishable from a distance and at this scale is a square up to sqrt(2) wider on the
+ * diagonal than on the axes. The floor is a statement about how far apart two points are.
+ *
+ * RESOLVED HERE, BEFORE ANY NODE EXISTS, AND THAT IS THE WHOLE MECHANISM. The rejected first
+ * attempt widened `findOrAddNode` instead, so a later arrival was absorbed into a node already
+ * placed and already carrying edges: the arriving edge was re-pointed at a target its own wavefront
+ * vertex never travelled to, which put an edge on `OFF_EDGE_JITTER_L_SEED_15838` running BACKWARDS
+ * in the wavefront clock, took its census from 0 failed regions to 4, cost the strips their exact
+ * tiling, and stopped two CLEAN fixtures solving under translation. Merged at the event layer the
+ * hub is computed from its whole arrival set at once — the path a regular n-gon's k-way hub already
+ * takes — and none of that arises. See F27.
+ */
+function isOneEvent(a: Vector2, b: Vector2): boolean {
+    return Math.hypot(a.x - b.x, a.y - b.y) < SKELETON_NOISE_FLOOR;
+}
 
 /**
  * One wavefront vertex event: every interior edge that arrives at the same point at the
@@ -70,17 +105,21 @@ export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMer
 }
 
 /**
- * No two merges of one layer may carry positions comparing equal under `vectorsAreEqual`.
+ * No two merges of one layer may carry positions inside {@link SKELETON_NOISE_FLOOR} of each other.
  *
  * First-match clustering gave this for free by construction. Components plus a member
  * representative restore it by an argument about the partition — distinct components contain no
  * pair within tolerance of each other, and a medoid is a member — so it is checked rather than
- * trusted. `CoincidentMerge.position` feeds `terminateEdgesAtPoint` and thence `findOrAddNode`,
- * which matches existing nodes by *the same* tolerance this module clusters by, so two merges
- * whose positions compare equal there would collapse onto one graph node and fuse two
- * independent vertex events into one junction. That skeleton is causally consistent, so the
- * causality, clearance and direction audits all pass it: the failure mode is silent, which is
- * why it is asserted here rather than left to a downstream check.
+ * trusted. `CoincidentMerge.position` feeds `terminateEdgesAtPoint` and thence `findOrAddNode`, so
+ * two merges within the floor of each other would be two vertex events the picture cannot tell
+ * apart, fused or not fused according to a tolerance further down. That skeleton is causally
+ * consistent, so the causality, clearance and direction audits all pass it: the failure mode is
+ * silent, which is why it is asserted here rather than left to a downstream check.
+ *
+ * STATED AT THE CLUSTERING'S OWN BAR, which since journal decision 78 is the render-scale floor
+ * rather than `findOrAddNode`'s epsilon. It is therefore stronger than what the node lookup needs:
+ * it asserts the postcondition this module is responsible for, not the precondition of the next
+ * one.
  *
  * Internal to the solver — deliberately not re-exported from the package index. It is exported
  * from this module only so the suite can convict it against a centroid representative, the
@@ -89,7 +128,7 @@ export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMer
 export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void {
     for (let i = 0; i < merges.length; i++) {
         for (let j = i + 1; j < merges.length; j++) {
-            if (vectorsAreEqual(merges[i].position, merges[j].position)) {
+            if (isOneEvent(merges[i].position, merges[j].position)) {
                 throw new Error(
                     `Coincidence clustering produced two merges at the same position: `
                     + `[${merges[i].edgeIds.join(', ')}] and [${merges[j].edgeIds.join(', ')}] `
@@ -129,7 +168,7 @@ function coincidentComponents(events: CollisionEvent[]): number[][] {
             if (find(i) === find(j)) {
                 continue;
             }
-            if (vectorsAreEqual(events[i].position, events[j].position)) {
+            if (isOneEvent(events[i].position, events[j].position)) {
                 parent[find(j)] = find(i);
             }
         }

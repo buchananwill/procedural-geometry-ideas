@@ -125,18 +125,87 @@ function diagnosticKinds(polygon: Vector2[]): string[] {
 }
 
 describe('off-edge jitter just above the noise floor: the recorded defect', () => {
-    it('fails 1 of 80 cells on the reflex L, at the default noise floor', () => {
-        // Was 22 of 80 on counts [3,5,6,7,8,9,10] before journal decision 70. See the header.
+    /*
+     * BOTH COUNTS FELL AGAIN ON 2026-08-28, UNDER JOURNAL DECISION 78, and this is the third
+     * consecutive reading of the same class: 22 and 46 of 80 before decision 70, then 1 and 13, and
+     * now 0 and 11. The render-floor coincidence bar is the cause — these are shapes whose facing
+     * walls put many arrivals within a whisker of one point, which is exactly the configuration the
+     * floor resolves into a single event instead of a scatter of near-misses.
+     *
+     * A CURE, NOT A SOFTENING, AND ATTRIBUTED AS ONE. The reflex L's last failing cell is gone and
+     * the plus keeps eleven; the plus's failing counts moved from [2,4,6,7,8,9,10] to
+     * [2,3,4,5,6,8,9,10] — count 7 cured, counts 3 and 5 newly failing — which is a different SET
+     * rather than a subset, so this is re-measured per cell and not inferred from the totals.
+     */
+
+    it('fails no cell at all on the reflex L, at the default noise floor', () => {
+        // Was 22 of 80 on counts [3,5,6,7,8,9,10] before journal decision 70, then 1 of 80 on
+        // count [2] until decision 78 took the last one. The sweep is kept rather than deleted: a
+        // zero that is asserted is what makes this class's return loud.
         expect(jitterSweep(JITTER_REFLEX_L, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 1, failingCounts: [2]});
+            .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 13 of 80 cells on the double-reflex plus, at the default noise floor', () => {
-        // Was 46 of 80 on counts [2,3,4,5,6,7,8,9,10] before journal decision 70. The plus keeps
-        // more of the class than the L because its facing walls are exactly parallel whatever the
-        // jitter does, which is a degeneracy the direction rule does not address.
+    it('fails 11 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+        // Was 46 of 80 before decision 70 and 13 of 80 after it. The plus keeps more of the class
+        // than the L because its facing walls are exactly parallel whatever the jitter does, which
+        // is a degeneracy neither the direction rule nor the coincidence floor addresses.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 13, failingCounts: [2, 4, 6, 7, 8, 9, 10]});
+            .toEqual({failed: 11, failingCounts: [2, 3, 4, 5, 6, 8, 9, 10]});
+    });
+});
+
+describe('OFF_EDGE_JITTER_L_SEED_15838: the two clusters the user circled', () => {
+    /*
+     * THE SHAPE IN `examples/several things wrong with first solve.png` AND ITS SEQUEL, pinned by
+     * POSITION rather than by node id so that a renumbering cannot quietly move what is asserted.
+     *
+     * The reflex L's corridor and its band each end in a place where four walls are equidistant, and
+     * the wavefront reaches each of them as two events a fraction of a pixel apart: 8.0e-5 caller
+     * units at (175, 300) and 1.9e-4 at (175, 175), on a 300-unit shape — a 7480x and a 3209x zoom
+     * respectively to put two pixels between the nodes they produced. A dashboard inspection saw two
+     * node labels printed on top of each other and called it a failure to merge; it was right.
+     *
+     * ONE OF THE TWO IS NOW ONE NODE (journal decision 78). At (175, 300) both events land in one
+     * offset layer, so the render-floor coincidence rule resolves them into a single terminal node
+     * carrying the union of their arrivals — the four bisectors [2,1], [7,6], [1,7] and [6,2], which
+     * is what the geometry has. At (175, 175) the two events are 52 epsilons apart in time and fall
+     * in different layers, so the clustering never sees them together and the pair stands. Both are
+     * asserted here, the resolved one and the unresolved one, because the second is the measurement
+     * that says what decision 83's withdrawn half was for.
+     */
+
+    /** Nodes of the solved graph within `radius` of a caller-space point. */
+    function nodesNear(x: number, y: number, radius: number) {
+        const {graph} = solveSkeleton(OFF_EDGE_JITTER_L_SEED_15838);
+        return graph.nodes.filter(node =>
+            Math.hypot(node.position.x - x, node.position.y - y) < radius);
+    }
+
+    it('resolves the corridor cluster at (175, 300) into ONE node of the four arrivals', () => {
+        const cluster = nodesNear(175, 300, 0.5);
+
+        expect(cluster).toHaveLength(1);
+        // Terminal, and carrying every bisector that reaches the point: the two wall bisectors
+        // travelling towards each other across the corridor, and the two spine segments arriving
+        // along it. Nothing leaves, because this is where the corridor closes.
+        expect(cluster[0].outEdges).toEqual([]);
+        expect(cluster[0].inEdges).toHaveLength(4);
+        expect([...cluster[0].inEdges].sort((a, b) => a - b)).toEqual([17, 22, 36, 38]);
+    });
+
+    it('leaves the band cluster at (175, 175) as two nodes, 1.9e-4 apart', () => {
+        // NOT A DEFECT OF THE CLUSTERING BUT THE LIMIT OF ITS REACH, and pinned as the measurement
+        // that a fix has to move. `graph-index-invariants.test.ts` carries this pair as one of the
+        // five the corpus still has under the floor.
+        const cluster = nodesNear(175, 175, 0.5);
+
+        expect(cluster).toHaveLength(2);
+        const separation = Math.hypot(
+            cluster[0].position.x - cluster[1].position.x,
+            cluster[0].position.y - cluster[1].position.y);
+        expect(separation).toBeGreaterThan(1e-4);
+        expect(separation).toBeLessThan(2e-4);
     });
 });
 

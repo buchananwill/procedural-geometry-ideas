@@ -348,7 +348,18 @@ pairs total), so clean-corpus results cannot move. F5-style exact coincidence is
 here (the separation is input geometry, not accounting), so the widened bar is the only fix. The
 I2 distinctness invariant is restated at the same floor. Implementation follows as its own
 package with the standing bar: clean corpus green, every moved pin attributed, STOP if any solve
-result moves in a way the floor argument cannot justify.
+result moves in a way the floor argument cannot justify. *AMENDED 2026-08-28 (F27): the STOP
+fired. The criterion stands unchanged; the MECHANISM is re-ruled. Merging by absorption in
+`findOrAddNode` is **rejected on measurement** — it moves established geometry after the fact:
+two clean fixtures stop solving under translation, backwards-running edges reappear (the
+decision-70 class), the face-walk cure regresses (census 26 → 42), and the tiling identity drops
+from ~1e-16 to ~1e-7 (inherent: merging nodes 8e-5 apart moves the skeleton 8e-5). The ruled
+mechanism is **event-level clustering in `coincident-events.ts`**: resolve render-floor-coincident
+arrivals into one event before any node is placed, so the merged hub is computed from the event
+set — the same path a native many-way hub already takes. The rejected implementation's four cost
+axes are the new package's falsification set: clean roster bit-identical including the
+translation sweep, zero backwards edges, tiling stays at machine precision, census does not
+regress.*
 
 **79 — `OFF_EDGE_JITTER_L_SEED_15838`'s promotion is gated on the root-floor package, joining
 its acceptance set.** Cured on the census grid (5 → 0) but blocked from the clean roster by the
@@ -360,7 +371,112 @@ root-floor package now closes on three acceptance criteria: the near-flat rectan
 (76), this promotion, and the reconciliation itself. Until then the fixture stays
 defect-rostered, census signature 0, reason pinned — visible, not laundered.
 
+**80 — (user, 2026-08-28) The mandate continues down the defect roster: the fixes so far
+"fixed a few more cases, but Off-edge jitter plus (seed 7919), and a few of the other fixtures,
+are still exhibiting similar defects."** Queue: when the decision-78 merge-bar package lands and
+verifies, the next package is the plus's ROOT solve failure — the decision-67 residual (13/80 of
+its family; the one fixture reporting `complete: false`) — swept together with a fresh
+whole-roster re-measure of every defect signature on the post-merge-bar solver, so "a few of the
+other fixtures" resolves to named, measured residuals rather than an impression. End state per
+decisions 53/72: every roster member either cures (promote) or carries a signalled, pinned,
+mechanism-named signature; silent anything is a defect.
+
+**81 — The near-regular circles' ≥1e10 translation cells under the event-floor are accepted by
+construction — a decision-66 extension, structured as attributed exceptions, not a demotion.**
+The event-floor clustering breaks Circle 32 at 1e10/1e11 (and shifts Circle 16's node count at
+1e11) because the centring quantisation (~1.1e-6 caller units) compresses genuine 17-node fine
+structure below the floor. That structure spans ≤2e-6 of the shape's extent at those placements —
+invisible under decision 54 at any plausible zoom, and *below the input's own quantisation noise
+there*; the failures are loud step-failures, never silent. Ruling: the circles stay in the clean
+roster; the translation sweep gains a per-fixture attributed-exception table (the census
+pattern), each cell cited to 54/66 with the measured group diameters. The refinement path if this
+is ever revisited: the degeneracy-vs-fine-structure gate the delegate declined to invent
+(group-diameter / combinatorial coherence), recorded as the alternative, not chosen.
+
+**82 — The tiling bar stays 1e-14 for the clean roster; seed 15838's 7.36e-13 residual becomes
+part of its per-fixture defect signature.** No global bar moves: the clean corpus's measured
+worst is unchanged at 8.5e-16, and the decision-72 structure already provides the right home for
+a defect fixture's own tiling number — pinned exactly, attributed to the floor-merge of cluster
+B moving the skeleton by the merged pair's separation.
+
+**83 — The remaining five sub-floor pairs are closed by two measured, invention-free changes:
+the coincidence window widens to the floor in TIME as well as space (offset is a length; one
+floor governs both axes), and the routing gap is fixed so the simultaneous k4 pair reaches the
+clustering at all** (it currently falls to pairwise handling via the `rings === null` /
+shared-edge fallback paths). The delegate's table shows every surviving pair under the floor on
+both axes — the feared "close in space, separated in time" case does not occur in the corpus, so
+no new design axis is needed. I2 restates at the render floor once the pairs resolve.
+
+**84 — The gated time-window is authorized as the next iteration of decision 83's time half:
+widen the layer window to the floor ONLY where the spatial clustering already has something to
+join.** The ungated version was implemented, measured, and withdrawn under its own STOP: it cures
+the ENTIRE large-coordinate class (Circle 48 @1e10 and Rosette5 @1e11 both go complete, the
+scatter closes) but regresses two clean fixtures in the recursion census and manufactures
+causality violations. The delegate's proposed gate — time widening conditional on
+spatially-sub-floor events being present in the layer — needs no new threshold and was not
+tried. Same falsification set as decision 78's amendment (clean bit-identical incl. translations,
+zero causality, tiling exact, census ≥ 26), with the prize named: if it holds, the decision-66
+accept-by-construction class and the decision-81 exceptions dissolve entirely.
+
+**85 — The split/partition event path never reaches coincidence clustering, and bringing it in
+is a ruled restructure deferred to its own package, folded into the decision-80 plus-root work.**
+The delegate's earlier "routing gap" diagnosis was wrong and is corrected: cluster A and the k4
+simultaneous pair are split/partition events resolved by `handleCollisionEvent` in a separate
+pass that builds its own nodes (`algorithm-complex-cases.ts:169-173`). Unifying event handling so
+splits participate in clustering is the same event-layer ground the plus's root failure lives
+on — one package, dispatched after decision 84's iteration reports.
+
 ## Findings
+
+**F29 — The event-floor package closed green with the space half landed and four of six
+sub-floor pairs surviving as pinned measurements.** Final: cluster B is one terminal four-arrival
+node; the four survivors are under the floor on both axes but split across layers or on the
+split-event path (the "near in space, far in time" case does not exist in the corpus). I2
+restated at the render floor with the survivors pinned per fixture. Reflex-L off-edge sweep
+reached **0/80** (the cure kept asserted); the plus moved 13 → 11 with a different failing set
+([2,3,4,5,6,8,9,10] — counts 3 and 5 newly failing, 7 cured), re-measured and pinned. Circle 48's
+scatter, re-measured under the floor predicate, went 3 → 29 cells and its envelope is now
+*monotonic* (closes at 1e9); Rosette5 10 → 18 — all accepted per 54/66/81 with the note that the
+withdrawn time-window cures every one. The decision-54 disputed-gap figures re-measured
+(2.5e-5 / 7.9e-5; ulp ratios restated at measured values and flagged as the assertion a future
+argument must move). Delegate figures: core 4710/4710 (78 suites), dashboard 268/268, census 26
+attributed. Convictions: floor→epsilon kills 22 tests across 6 suites; time window applied kills
+32 (withdrawn). Process note, delegate-reported: a `git checkout --` during mutation testing
+discarded the implementation along with the mutation; it was re-applied from the delegate's own
+record and re-verified — an honest self-report, and the reason mutation rounds should stash, not
+checkout.
+
+**F28 — Event-layer render-floor clustering: right mechanism, one narrow blocker, and the
+five-pair remainder fully mapped.** One predicate (`isOneEvent`, Euclidean floor) at the two
+event-identity sites; merged position stays the machinery's medoid convention; `findOrAddNode`
+untouched. Results: clean roster bit-identical at native placement and 1e9 (the only moving
+fixture is seed 15838 — the intended cure); causality suite fully green (the absorption
+attempt's manufactured violations do not appear); census 26 bit-unmoved; cluster B is one
+terminal node with four incident edges and the degenerate `[2,7]/[7,2]` pair gone. Costs:
+Circle 32 loses 1e10/1e11 (ruled in 81); 15838's tiling residual 7.36e-13 (ruled in 82);
+Rosette5's scatter is NOT cured this time (the absorption cure of it was an artifact of the
+rejected mechanism; decision 66 stands). The five unresolved pairs are all under the floor in
+both space and time — four reachable by the time-window widening, the fifth blocked by event
+routing, not tolerance (ruled in 83). Mutation conviction: reverting the one file restores
+4706/4706 exactly.
+
+**F27 — The absorption merge failed on four independent axes, and the failure pattern itself
+located the right mechanism.** Implemented exactly as ruled (Euclidean floor at `findOrAddNode`,
+first-established wins), it delivered the promised half — clean roster bit-identical at native
+placement (digest lines 1–2063 unchanged), both user clusters one node each (cluster B: terminal
+node, four incident edges, the degenerate `[2,7]`/`[7,2]` pair gone), Rosette5's 10 scatter cells
+cured — and broke everything that depends on geometry not moving after establishment: Circle
+16/32 (CLEAN) stop solving at 1e10/1e11 (centring perturbation ~1.1e-6 scatters an
+ill-conditioned hub's events, and the floor then absorbs them one at a time); Circle 48's scatter
+went 3 → 28 cells; seed 15838 regrew an offset+direction causality violation (edge terminating
+behind its own source, dot = −1); census 26 → 42; tiling exact → ~1e-7. The decisive
+observation: **Circle 48 natively solves a single 48-way hub through the coincidence machinery —
+the solver already handles high-degree hubs when the EVENT layer builds them, and fails only when
+node-level absorption assembles the same hub incrementally.** Hence the D78 amendment. Mutation
+conviction of the diagnosis: reverting the one file restores 4706/4706 exactly; every failure was
+the merge floor and nothing else. The specimen debt fired for the fifth time (dashboard gate,
+correctly) and was left un-repinned since the implementation was rejected. Revert verified by the
+lead on the restored tree.
 
 **F26 — The user's circled clusters led to a silent 160%-of-area tiling defect in face tracing,
 invisible to every prior invariant.** `traceFace` walked faces by sharpest-turn geometry; at the

@@ -2,7 +2,7 @@ import {FULL_CORPUS} from '@proc-geo/test-fixtures';
 import {
     normalisePosition,
     solveSkeleton,
-    vectorsAreEqual,
+    SKELETON_NOISE_FLOOR,
     StraightSkeletonGraph,
     SkeletonNormalisation,
     Vector2,
@@ -39,22 +39,37 @@ import {
  * that it cannot happen quietly.
  *
  * ----------------------------------------------------------------------------
- * I2 — NO TWO NODES SIT INSIDE THE SOLVER'S OWN MERGE TOLERANCE
+ * I2 — NO TWO NODES SIT INSIDE THE COINCIDENCE FLOOR OF EACH OTHER
  * ----------------------------------------------------------------------------
  *
- * `findOrAddNode` returns an existing node when `vectorsAreEqual` accepts the position, so two
- * distinct nodes closer than that tolerance mean the lookup missed one it should have found — a
- * skeleton with a doubled node, and a graph whose degree counts are wrong wherever it happened.
+ * Two skeleton nodes closer together than a viewer could ever distinguish are two nodes the picture
+ * does not have, and journal decision 78 ruled that the bar for "the same point" is the render-scale
+ * floor rather than the arithmetic epsilon. `clusterCoincidentMerges` resolves arrivals inside that
+ * floor into one event before any node is placed; `findOrAddNode`'s epsilon remains as the
+ * exact-coincidence backstop beneath it. So the invariant is stated at the floor: a pair closer than
+ * that is either a merge the clustering should have made, or a doubled node whose degree counts are
+ * wrong wherever it happened.
  *
- * MEASURED IN UNIT SPACE, WHICH IS WHERE THE TOLERANCE LIVES. The solver's epsilon is absolute and
- * the polygon is solved at unit extent, so a caller-space distance means nothing until it is carried
- * back through the solve's own normalisation. This asks `vectorsAreEqual` the same question
- * `findOrAddNode` asked, about the same pair of points, in the same space.
+ * MEASURED IN UNIT SPACE, WHICH IS WHERE THE FLOOR LIVES — the polygon is solved at unit extent, so
+ * a caller-space distance means nothing until it is carried back through the solve's own
+ * normalisation — and as a DISTANCE rather than `vectorsAreEqual`'s component box, which is what the
+ * clustering itself compares.
  *
- * NODES A FRACTION OF A PIXEL APART ARE NOT THIS. A near-degenerate boundary genuinely resolves to
- * several distinct nodes in a cluster far tighter than a screen pixel — `INVISIBLE_VERTEX_RECTANGLE`
- * carries four within 0.05 of a 175-unit shape — and they are correct geometry, not a missed merge.
- * The bar is the tolerance the solver merges at and nothing wider.
+ * ----------------------------------------------------------------------------
+ * FIVE PAIRS SURVIVE, ALL ON THE THREE JITTER L FIXTURES, AND THEY ARE PINNED
+ * ----------------------------------------------------------------------------
+ *
+ * Decision 78's clustering resolves an event pair only where both arrivals land in ONE offset layer,
+ * and the layer window is still epsilon-wide. Four of these five are separated in time by 13 to 52
+ * epsilons — near-coincident in a way only the epsilon can see — so they fall in different layers
+ * and never meet the clustering; the fifth is simultaneous to 4e-12 but reaches the graph through
+ * the split/partition path, which builds its own nodes outside the merge. Every one of them is
+ * under the floor on BOTH axes, so no new rule is needed to describe them, only a wider reach.
+ *
+ * The measurement is in F28 and the reach is decision 83's, withdrawn on its own STOP clause after
+ * widening the layer window was shown to cost two CLEAN fixtures failed regions in the recursion
+ * census. Until that lands, these five are a defect signature like any other: pinned exactly, per
+ * fixture, so that one appearing anywhere else — or one of these disappearing — is loud.
  */
 
 function primaryParentProblems(graph: StraightSkeletonGraph): string[] {
@@ -90,21 +105,36 @@ function primaryParentProblems(graph: StraightSkeletonGraph): string[] {
     return problems;
 }
 
-function mergedNodeProblems(graph: StraightSkeletonGraph, normalisation: SkeletonNormalisation): string[] {
-    const problems: string[] = [];
+/** The node pairs a viewer could not tell apart, as `[lower, higher]` id pairs in ascending order. */
+function subFloorPairs(graph: StraightSkeletonGraph, normalisation: SkeletonNormalisation): number[][] {
+    const pairs: number[][] = [];
     const unit: Vector2[] = graph.nodes.map(node => normalisePosition(normalisation, node.position));
 
     for (let first = 0; first < unit.length; first++) {
         for (let second = first + 1; second < unit.length; second++) {
-            if (vectorsAreEqual(unit[first], unit[second])) {
-                problems.push(`nodes ${first} and ${second} are one node to findOrAddNode, at `
-                    + `(${graph.nodes[first].position.x}, ${graph.nodes[first].position.y})`);
+            const separation = Math.hypot(
+                unit[first].x - unit[second].x, unit[first].y - unit[second].y);
+            if (separation < SKELETON_NOISE_FLOOR) {
+                pairs.push([first, second]);
             }
         }
     }
 
-    return problems;
+    return pairs;
 }
+
+/**
+ * The sub-floor node pairs each defect fixture is allowed, MEASURED 2026-08-28. See this file's
+ * header for what leaves them standing and what would resolve them.
+ *
+ * A fixture absent from this table is allowed none, which is every clean fixture and four of the
+ * seven defect ones.
+ */
+const PINNED_SUB_FLOOR_PAIRS: Record<string, number[][]> = {
+    'Off-edge Jitter Reflex L (seed 15838)': [[19, 21]],
+    'Off-edge Jitter Reflex L (seed 55433)': [[19, 20], [24, 26]],
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': [[25, 26], [28, 30]],
+};
 
 describe('I1: every primary bisector carries its own vertex\'s two exterior edges', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
@@ -115,12 +145,24 @@ describe('I1: every primary bisector carries its own vertex\'s two exterior edge
     );
 });
 
-describe('I2: no two graph nodes lie inside the solver\'s merge tolerance', () => {
+describe('I2: no two graph nodes lie inside the coincidence floor of each other', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
-        (_name, vertices) => {
+        (name, vertices) => {
             const {graph, normalisation} = solveSkeleton(vertices);
-            expect(mergedNodeProblems(graph, normalisation)).toEqual([]);
+            expect(subFloorPairs(graph, normalisation)).toEqual(PINNED_SUB_FLOOR_PAIRS[name] ?? []);
         },
     );
+
+    it('is not vacuous: exactly three fixtures carry a pinned pair, and 54 carry none', () => {
+        // The guard on the table itself. A pin naming a fixture that is not in the corpus, or a
+        // table that quietly grew to cover a regression, would leave the sweep above asserting
+        // nothing — so the shape of the table is asserted here rather than trusted.
+        const pinned = Object.keys(PINNED_SUB_FLOOR_PAIRS);
+
+        expect(pinned).toHaveLength(3);
+        expect(pinned.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
+        expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(5);
+        expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(54);
+    });
 });

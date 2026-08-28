@@ -64,6 +64,14 @@ const TILING_TOLERANCE = 1e-14;
  */
 const PINNED_TILING_ERRORS: Record<string, number> = {
     'Collinear Dumbbell': 0.1,
+    // Journal decision 82, 2026-08-28. NOT a strip defect and not a bar that was widened to admit
+    // one: the render-floor coincidence rule of decision 78 resolves this fixture's cluster B — two
+    // events 3.13e-7 apart in unit space, 2.7e-7 of its extent — into one node, and the merged node
+    // sits at the medoid of its own event set rather than at either of the two points the epsilon
+    // bar used to place. The skeleton therefore MOVES by the pair separation, and the strips carry
+    // that displacement into their areas. 7.36e-13 is what a 3.13e-7 unit-space move costs an area
+    // identity; the global bar stays at 1e-14, where the other 55 fixtures still sit.
+    'Off-edge Jitter Reflex L (seed 15838)': 7.36e-13,
 };
 
 /**
@@ -128,7 +136,9 @@ describe('the strips and the residue account for the polygon they were cut from'
                 expect(worstTilingError(vertices)).toBeLessThan(TILING_TOLERANCE);
                 return;
             }
-            expect(worstTilingError(vertices)).toBeCloseTo(pinned, 6);
+            // Relative, because these two are eleven orders of magnitude apart and an absolute
+            // `toBeCloseTo` would be vacuous on one of them and unsatisfiable on the other.
+            expect(worstTilingError(vertices) / pinned).toBeCloseTo(1, 2);
         },
     );
 
@@ -144,14 +154,18 @@ describe('the strips and the residue account for the polygon they were cut from'
         expect(computeStrips(result, {depth: computeMaxOffset(result) * 0.2}).length).toBeGreaterThan(0);
     });
 
-    it('the dumbbell is the only fixture that fails it, which is why the bar can be this tight', () => {
-        // Measured rather than assumed, and asserted as a SET so that a second fixture starting to
-        // overlap is caught here rather than absorbed into a tolerance.
+    it('only the two pinned fixtures miss the bar, which is why it can be this tight', () => {
+        // Measured rather than assumed, and asserted as a SET so that a third fixture starting to
+        // miss is caught here rather than absorbed into a tolerance. The two are of completely
+        // different kinds and the set says so: the dumbbell's strips OVERLAP by a tenth of its area,
+        // a silent wrong answer, while seed 15838 misses by 7.36e-13 because decision 78 moved one
+        // of its nodes to the medoid of a merged event set. See {@link PINNED_TILING_ERRORS}.
         const failing = FULL_CORPUS
             .filter(polygon => !UNMEASURABLE.includes(polygon.name))
             .filter(polygon => worstTilingError(polygon.vertices) >= TILING_TOLERANCE)
-            .map(polygon => polygon.name);
+            .map(polygon => polygon.name)
+            .sort();
 
-        expect(failing).toEqual(Object.keys(PINNED_TILING_ERRORS));
+        expect(failing).toEqual(Object.keys(PINNED_TILING_ERRORS).sort());
     });
 });

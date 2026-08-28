@@ -5,6 +5,7 @@ import {
     CoincidentMerge,
 } from '../../src/straight-skeleton/coincident-events';
 import {vectorsAreEqual} from '../../src/straight-skeleton/core-functions';
+import {SKELETON_NOISE_FLOOR} from '../../src/straight-skeleton/canonicalisation';
 
 /*
  * ============================================================================
@@ -22,8 +23,17 @@ import {vectorsAreEqual} from '../../src/straight-skeleton/core-functions';
  * always one of that group's own members — and convict the invariant gate that protects the third.
  */
 
-/** The default tolerance the clustering predicate carries. Never varied here; see decision 2. */
-const EPSILON = 1e-8;
+/**
+ * The default tolerance the clustering predicate carries. Never varied here; see decision 2.
+ *
+ * SINCE JOURNAL DECISION 78 THIS IS THE RENDER-SCALE FLOOR, not the arithmetic epsilon: two events
+ * closer together than a viewer could ever see are one event. Every construction below is written
+ * as a RATIO of this bar and so carries its meaning across the change — a chain whose neighbours sit
+ * at 0.6 of the bar and whose extremes sit at 1.8 of it still requires transitive closure to become
+ * one group, which is the property these tests exist for. Left at 1e-8 the same constructions would
+ * all fall inside a single bar and pass without asking anything.
+ */
+const CLUSTERING_BAR = SKELETON_NOISE_FLOOR;
 
 /**
  * A step small enough to chain under the tolerance and exactly representable, so the medoid tie in
@@ -67,7 +77,11 @@ function clusterByCentroid(events: CollisionEvent[]): CoincidentMerge[] {
             labels[i] = nextLabel++;
         }
         for (let j = i + 1; j < events.length; j++) {
-            if (!vectorsAreEqual(events[i].position, events[j].position)) {
+            // The SAME relation production clusters by, at the same bar — decision 78's render
+            // floor, not `vectorsAreEqual`'s epsilon. Only the representative may differ, or the
+            // mutation stops being a mutation of one decision and becomes a different partition.
+            if (Math.hypot(events[i].position.x - events[j].position.x,
+                events[i].position.y - events[j].position.y) >= CLUSTERING_BAR) {
                 continue;
             }
             if (labels[j] === -1) {
@@ -108,9 +122,9 @@ function clusterByCentroid(events: CollisionEvent[]): CoincidentMerge[] {
 
 describe('clusterCoincidentMerges: the partition is the transitive closure', () => {
     it('chains a run of events into one group, however far its extremes lie apart', () => {
-        // Neighbours are 0.6 epsilon apart and the extremes 1.8 epsilon: first-match grouping split
+        // Neighbours are 0.6 of the bar apart and the extremes 1.8 of it: first-match grouping split
         // exactly this shape in two, because event 2 was compared against event 0's position.
-        const positions = chainPositions(4, 0.6 * EPSILON);
+        const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => eventAt(position, [10 + index]));
 
         const merges = clusterCoincidentMerges(events);
@@ -138,7 +152,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
     });
 
     it('does not depend on arrival order', () => {
-        const positions = chainPositions(5, 0.6 * EPSILON);
+        const positions = chainPositions(5, 0.6 * CLUSTERING_BAR);
         const forward = positions.map((position, index) => eventAt(position, [20 + index]));
         const reversed = [...forward].reverse();
         const interleaved = [forward[2], forward[0], forward[4], forward[1], forward[3]];
@@ -163,7 +177,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
 
 describe('clusterCoincidentMerges: the representative is a medoid', () => {
     it('is always one of the grouped events own positions', () => {
-        const positions = chainPositions(4, 0.6 * EPSILON);
+        const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => eventAt(position, [40 + index]));
 
         expect(isOneOf(clusterCoincidentMerges(events)[0].position, positions)).toBe(true);
@@ -205,12 +219,19 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
 });
 
 /**
- * A ring of radius 2 epsilon about the origin, its members ordered as exact negation pairs so the
- * centroid sums to exactly (0, 0). Neighbours are 0.78 epsilon apart, so the ring is one component;
- * every member is 2 epsilon from the origin, so none of them is within tolerance of it.
+ * A ring of radius 2 floors about the origin, its members ordered as exact negation pairs so the
+ * centroid sums to exactly (0, 0). Neighbours are 0.78 of a floor apart, so the ring is one
+ * component; every member is 2 floors from the origin, so none of them is within tolerance of it.
+ *
+ * SCALED TO THE CLUSTERING'S OWN BAR, which since journal decision 78 is `SKELETON_NOISE_FLOOR`
+ * rather than the arithmetic epsilon. The construction is unchanged in every ratio that carries its
+ * meaning — one component, a centroid at the exact centre, no member within tolerance of that centre
+ * — and only the unit it is expressed in has moved. Left at the epsilon scale the whole ring plus
+ * its centre would fall inside one bar, the two components would be one, and both tests below would
+ * pass vacuously on a layer that no longer poses the question they exist to ask.
  */
 function ringPositions(): Vector2[] {
-    const radius = 2 * EPSILON;
+    const radius = 2 * CLUSTERING_BAR;
     const positions: Vector2[] = [];
     for (let half = 0; half < 8; half++) {
         const angle = (half * Math.PI) / 8;
