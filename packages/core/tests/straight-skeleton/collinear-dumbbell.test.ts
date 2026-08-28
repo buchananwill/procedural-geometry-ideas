@@ -1,4 +1,4 @@
-import {COLLINEAR_DUMBBELL} from '@proc-geo/test-fixtures';
+import {ASYMMETRIC_DUMBBELL, COLLINEAR_DUMBBELL, THREE_GLOBE_CHAIN} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeOffsetRings,
@@ -11,33 +11,37 @@ import {
 
 /*
  * ============================================================================
- *  A RECORDED DEFECT, PINNED AS IT STANDS. Read this before "fixing" a failure here.
+ *  THE CORRIDOR MIDLINE, SPECIFIED. This file used to pin the wrong answer.
  * ============================================================================
  *
- * `COLLINEAR_DUMBBELL` tiles with a 1.0e-1 relative error — strips overlapping strips by about 22
- * of its 220 area units — while the solve reports `complete: true` with empty diagnostics and the
- * ring accounting is innocent. That combination is the worst failure mode a result type has: a
- * wrong answer that says it is right. `result.complete` is therefore **not** a sufficient
- * precondition for the tiling identity.
+ * `COLLINEAR_DUMBBELL` spent most of the recursive-subdivision arc as the only known SILENT wrong
+ * answer in the corpus: `complete: true`, empty diagnostics, innocent ring accounting, every
+ * causality and containment invariant satisfied — and strips overlapping strips by 22 of its 220 area
+ * units, a tenth of the shape. What was missing was the whole skeleton of its bar. Each end of the
+ * bar closes into a pinch node, and each pinch emits the bar's midline bisector; both were born
+ * pointing OUT of the bar, into the globe behind them, where they duplicated that globe's own ridge.
+ * The shaft had no skeleton at all and the two globes' faces covered it twice.
  *
- * These tests assert the CURRENT WRONG BEHAVIOUR, exactly. They are a tripwire in both directions:
- * if the overlap is fixed they fail and should be rewritten as a specification; if it worsens they
- * fail and something regressed. Neither drift is allowed to be silent.
+ * THE CAUSE WAS A DIRECTION HINT, not a partition or an acceptance rule. `addBisectionEdge` derives a
+ * bisector's basis from its two exterior parents and used to let a caller-supplied
+ * `approximateDirection` flip it wherever the offset rate is zero. A zero rate means anti-parallel
+ * parents and nothing else — which is exactly what a corridor's two walls are — and there the
+ * parent-derived basis is already determinate, because the parent PAIR IS ORDERED and a corridor
+ * opens the way its clockwise wall points. The hint `bisectionsForMerge` supplied was the bisection
+ * of the two arrivals bracketing the gap, which is symmetric in them, so both gaps of a two-run
+ * vertex event received the same hint while facing opposite ways. Journal decision 90; the hint is
+ * gone and `BisectionParams` no longer carries one.
  *
- * THE FIXTURE IS IN `KNOWN_DEFECT_POLYGONS`, NOT HELD OUT (journal decision 72), and this file is
- * the only sweep that catches it: the recursive-subdivision census scores it zero, it strands no
- * edge, escapes nowhere and holds every wavefront-causality invariant. THE OVERLAP IS ITS WHOLE
- * SIGNATURE, and it is invisible to every other measurement the suite makes.
+ * WHAT THIS FILE ASSERTS NOW is the right answer, and it keeps the perturbed control that convicted
+ * the diagnosis in the first place: the same topology with every shared supporting line broken, which
+ * always tiled cleanly and is BIT-UNMOVED by the fix. Two variants of the class ride along —
+ * `ASYMMETRIC_DUMBBELL` removes the mirror symmetry, `THREE_GLOBE_CHAIN` puts two corridors in series
+ * — because a fix convicted only on the shape it was written for is not convicted.
  *
- * WHAT IS DEGENERATE ABOUT IT is not redundant vertices — every turn is 90 degrees, so nothing is
- * collinear at a vertex and no vertex-local test can see it. It is that *non-adjacent* edges share
- * supporting lines, which makes wall-to-wall distances exactly equal so the pinches land in one
- * offset layer. The perturbed control below has the identical topology with those coincidences
- * broken, and tiles cleanly, which is what convicts that diagnosis rather than merely asserting it.
- *
- * Whether the overlap is downstream fallout of the reverted layer-partitioning defect
- * (`docs/notes/solver-hardening-backlog.md` item 3) or independent of it is the open question this
- * fixture exists to make answerable. Fixing it is out of scope here.
+ * WHAT IS DEGENERATE ABOUT THE FIXTURE is not redundant vertices — every turn is 90 degrees, so
+ * nothing is collinear at a vertex and no vertex-local test can see it. It is that *non-adjacent*
+ * edges share supporting lines, which makes wall-to-wall distances exactly equal so the pinches land
+ * in one offset layer.
  */
 
 /** The same dumbbell with every shared supporting line broken, and nothing else changed. */
@@ -101,18 +105,38 @@ function makeRandom(seed: number): () => number {
     };
 }
 
-/** Monte-Carlo estimate, in area units, of how much strip overlaps strip within the bounding box. */
-function overlapArea(strips: Strip[]): number {
+/** Monte-Carlo estimate, in area units, of how much strip overlaps strip within a bounding box. */
+function overlapArea(strips: Strip[], width: number, height: number): number {
     const random = makeRandom(20120402);
     const samples = 20000;
     let doubleCovered = 0;
     for (let i = 0; i < samples; i++) {
-        const point: Vector2 = {x: random() * 30, y: random() * 10};
+        const point: Vector2 = {x: random() * width, y: random() * height};
         if (strips.filter(strip => isInsideStrip(point, strip)).length > 1) {
             doubleCovered++;
         }
     }
-    return (doubleCovered / samples) * 300;
+    return (doubleCovered / samples) * width * height;
+}
+
+/** The interior edges whose two exterior parents are exactly anti-parallel: corridor midlines. */
+function corridorMidlines(result: SkeletonSolveResult): {from: Vector2; to: Vector2; parents: number[]}[] {
+    const {graph} = result;
+    return graph.interiorEdges.flatMap(interior => {
+        const clockwise = graph.edges[interior.clockwiseExteriorEdgeIndex].basisVector;
+        const widdershins = graph.edges[interior.widdershinsExteriorEdgeIndex].basisVector;
+        const antiParallel = Math.abs(
+            clockwise.x * widdershins.x + clockwise.y * widdershins.y + 1) < 1e-12;
+        const edge = graph.edges[interior.id];
+        if (!antiParallel || edge.target === undefined) {
+            return [];
+        }
+        return [{
+            from: graph.nodes[edge.source].position,
+            to: graph.nodes[edge.target].position,
+            parents: [interior.clockwiseExteriorEdgeIndex, interior.widdershinsExteriorEdgeIndex],
+        }];
+    });
 }
 
 describe('COLLINEAR_DUMBBELL: the shape (specification)', () => {
@@ -147,7 +171,7 @@ describe('COLLINEAR_DUMBBELL: the shape (specification)', () => {
     });
 });
 
-describe('COLLINEAR_DUMBBELL: the recorded defect', () => {
+describe('COLLINEAR_DUMBBELL: the bar carries a midline (specification)', () => {
     it('reports a complete solve with no diagnostics at all', () => {
         const result = solveSkeleton(COLLINEAR_DUMBBELL);
 
@@ -157,23 +181,51 @@ describe('COLLINEAR_DUMBBELL: the recorded defect', () => {
         expect(Math.abs(signedRingArea(COLLINEAR_DUMBBELL))).toBe(AREA);
     });
 
-    it.each([0.2, 0.5])('fails the tiling identity by a tenth of its area at depth %p of max offset', fraction => {
+    it('runs a midline down the centre of the bar, parented by the bar\'s own two walls', () => {
+        /*
+         * THE HEADLINE ASSERTION OF THIS FILE. The bar is `y in [4, 6]` between `x = 10` and
+         * `x = 20`, so its midline is `y = 5`, and it reaches one unit into each globe because that
+         * is where each end's two reflex bisectors pinch: `(9, 5)` and `(21, 5)`, both at offset 1.
+         *
+         * TWO EDGES, NOT ONE, AND THAT IS THE REPRESENTATION RATHER THAN A DUPLICATE. Both ends of a
+         * corridor are born at the same offset — the bar's half-width — and each emits its own
+         * midline bisector; the two meet head-on and are cross-wired, which is the solver's standing
+         * treatment of a co-linear head-on pair. Exterior edge 3 is the bar's top and edge 9 its
+         * bottom, so both edges name `[3, 9]` in one order or the other and nothing else does.
+         */
+        const midlines = corridorMidlines(solveSkeleton(COLLINEAR_DUMBBELL));
+
+        expect(midlines).toHaveLength(2);
+        expect(midlines.map(midline => midline.parents)).toEqual([[3, 9], [9, 3]]);
+        expect(midlines[0].from).toEqual({x: 9, y: 5});
+        expect(midlines[0].to).toEqual({x: 21, y: 5});
+        expect(midlines[1].from).toEqual({x: 21, y: 5});
+        expect(midlines[1].to).toEqual({x: 9, y: 5});
+    });
+
+    it.each([0.2, 0.4, 0.5, 1])('tiles exactly at depth %p of max offset', fraction => {
         const result = solveSkeleton(COLLINEAR_DUMBBELL);
         const depth = computeMaxOffset(result) * fraction;
 
-        expect(tilingError(result, COLLINEAR_DUMBBELL, depth)).toBeCloseTo(0.1, 6);
+        expect(tilingError(result, COLLINEAR_DUMBBELL, depth)).toBeLessThan(1e-12);
     });
 
-    it('overlaps strip with strip by about 22 area units, which is the excess exactly', () => {
+    it('overlaps nowhere, where it used to overlap by about 22 area units', () => {
         const result = solveSkeleton(COLLINEAR_DUMBBELL);
         const strips = computeStrips(result, {depth: computeMaxOffset(result) * 0.4});
 
-        expect(overlapArea(strips)).toBeCloseTo(22, 0);
+        expect(overlapArea(strips, 30, 10)).toBe(0);
     });
 
-    it('fuses four skeleton nodes that the perturbed shape keeps apart', () => {
-        // The pinches land in one offset layer and are resolved as fewer events than there are
-        // pinches. Same topology, same strip count, four fewer nodes and edges.
+    it('resolves its four simultaneous pinches into four nodes, where the perturbed shape gets eight', () => {
+        /*
+         * NOT A DEFECT, AND THIS IS WHERE THAT WAS SETTLED. The node counts differ because the
+         * shapes differ: the collinear dumbbell's four pinches land in ONE offset layer and produce
+         * two shared nodes (one per bar end), while the perturbed control's land in four layers and
+         * produce four. The fix did not move either count — it moved where two of the collinear
+         * shape's edges POINT — so the old reading of this gap as "four fused nodes" was wrong
+         * about the mechanism while right about the numbers.
+         */
         const collinear = solveSkeleton(COLLINEAR_DUMBBELL).graph;
         const perturbed = solveSkeleton(PERTURBED_DUMBBELL).graph;
 
@@ -197,6 +249,41 @@ describe('the perturbed control: identical topology, no shared supporting lines'
         const result = solveSkeleton(PERTURBED_DUMBBELL);
         const strips = computeStrips(result, {depth: computeMaxOffset(result) * 0.4});
 
-        expect(overlapArea(strips)).toBe(0);
+        expect(overlapArea(strips, 30, 10)).toBe(0);
+    });
+});
+
+describe('the class, not just the fixture', () => {
+    it('gives the asymmetric dumbbell a midline too, though its globes finish at different offsets', () => {
+        // Same bar, globes of 10x10 and 14x14. The corridor's two ends still pinch together — that
+        // is forced by the bar's width — but nothing else about the solve is symmetric. It tiled at
+        // 6.96e-2 before the fix.
+        const result = solveSkeleton(ASYMMETRIC_DUMBBELL);
+        const midlines = corridorMidlines(result);
+
+        expect(result.complete).toBe(true);
+        expect(midlines.map(midline => [midline.from, midline.to])).toEqual([
+            [{x: 9, y: 5}, {x: 21, y: 5}],
+            [{x: 21, y: 5}, {x: 9, y: 5}],
+        ]);
+        expect(tilingError(result, ASYMMETRIC_DUMBBELL, computeMaxOffset(result) * 0.4)).toBeLessThan(1e-12);
+    });
+
+    it('gives both bars of the three-globe chain their own midline', () => {
+        // Two corridors in series: four simultaneous pinches, four midline bisectors, and the
+        // failure the single-corridor fixture cannot show — before the fix the middle bar's two
+        // midlines were wired to each other ACROSS the middle globe. It tiled at 1.29e-1.
+        const result = solveSkeleton(THREE_GLOBE_CHAIN);
+        const midlines = corridorMidlines(result);
+
+        expect(result.complete).toBe(true);
+        expect(midlines.map(midline => [midline.from, midline.to]).sort(
+            (first, second) => first[0].x - second[0].x || first[1].x - second[1].x)).toEqual([
+            [{x: 9, y: 5}, {x: 21, y: 5}],
+            [{x: 21, y: 5}, {x: 9, y: 5}],
+            [{x: 29, y: 5}, {x: 41, y: 5}],
+            [{x: 41, y: 5}, {x: 29, y: 5}],
+        ]);
+        expect(tilingError(result, THREE_GLOBE_CHAIN, computeMaxOffset(result) * 0.4)).toBeLessThan(1e-12);
     });
 });

@@ -506,7 +506,10 @@ describe('wavefront causality', () => {
         // split nodes 5.4e-7 apart, and with the pair resolved into one node the edge is a
         // zero-length self-loop with no direction to disagree with.
         'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 0},
-        'Collinear Dumbbell': {offset: 0, clearance: 0, direction: 0},
+        // `Collinear Dumbbell` was here at {0, 0, 0} and left this table with the roster on
+        // 2026-08-28 (journal decision 90). Its row is worth remembering: all three counts were
+        // zero the whole time it was the corpus's one silent wrong answer, which is what
+        // `strip-tiling.test.ts` and I4 exist for — causality never saw it.
         'Near Regular Circle 48': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Rosette5 40': {offset: 0, clearance: 0, direction: 0},
     };

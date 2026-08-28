@@ -40,6 +40,41 @@ export const T_SHAPE: Vector2[] = [
 ];
 
 /**
+ * A dumbbell whose two globes are DIFFERENT SIZES, joined by the same two-unit bar.
+ *
+ * The `COLLINEAR_DUMBBELL` class with its mirror symmetry removed. The bar is still a corridor of
+ * anti-parallel walls (`y = 4` and `y = 6`) whose two ends pinch at the same offset — that is forced
+ * by the bar's width and cannot be broken while the bar stays parallel — but the two globes now
+ * finish at different offsets, so nothing else about the solve is symmetric. It exists so the
+ * corridor-midline fix is convicted on a shape that is not the fixture rescaled: measured before it,
+ * this tiled at 6.96e-2 while reporting `complete: true`, with the bar's midline drawn out of the bar
+ * into each globe.
+ */
+export const ASYMMETRIC_DUMBBELL: Vector2[] = [
+    {x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 6},
+    {x: 20, y: 6}, {x: 20, y: 12}, {x: 34, y: 12}, {x: 34, y: -2},
+    {x: 20, y: -2}, {x: 20, y: 4}, {x: 10, y: 4}, {x: 10, y: 0},
+];
+
+/**
+ * Three globes in a row, joined by TWO bars — two corridors in series, in one offset layer.
+ *
+ * The `COLLINEAR_DUMBBELL` class with more than one corridor. Both bars are two units wide, so all
+ * four of their end pinches land at the same offset and the layer has to resolve four simultaneous
+ * closure nodes and emit four corridor midlines. Measured before the corridor-midline fix, this
+ * tiled at 1.29e-1 while reporting `complete: true`, and the middle bar's two midlines were wired to
+ * each other ACROSS the middle globe rather than along their own bar — the failure the dumbbell's
+ * single corridor cannot exhibit.
+ */
+export const THREE_GLOBE_CHAIN: Vector2[] = [
+    {x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 6},
+    {x: 20, y: 6}, {x: 20, y: 10}, {x: 30, y: 10}, {x: 30, y: 6},
+    {x: 40, y: 6}, {x: 40, y: 10}, {x: 50, y: 10}, {x: 50, y: 0},
+    {x: 40, y: 0}, {x: 40, y: 4}, {x: 30, y: 4}, {x: 30, y: 0},
+    {x: 20, y: 0}, {x: 20, y: 4}, {x: 10, y: 4}, {x: 10, y: 0},
+];
+
+/**
  * The T-shape with its right stem wall slanted: vertex 3 moves from (400,400) to
  * (560.97, 400−6e-14). Edges 2 and 6 both lie on y=400, parallel to top edge 0 at distance 200,
  * so the reflex bisectors from vertices 3 and 6 split edge 0 at the same offset — forced exactly —

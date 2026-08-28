@@ -280,7 +280,17 @@ describe('offset projection at event boundaries', () => {
             // convex ring looks like here: nothing about it is congruent, so almost every collision
             // stands at its own offset, and the count is 13 rather than 15 because the fixture's one
             // exactly-collinear vertex is not in the solve at all.
-            expect(events).toBe(349);
+            //
+            // 349 BECAME 356 ON 2026-08-28, when journal decision 90's corridor-midline fix promoted
+            // `Collinear Dumbbell` into the clean roster and enrolled `Asymmetric Dumbbell` and
+            // `Three Globe Chain` beside it. Attributed per fixture before repinning: the dumbbell
+            // contributes 2, the asymmetric dumbbell 3 and the chain 2, and the other 50 are
+            // BIT-UNMOVED — re-running this reduction over the 50 alone still gives 349, which is
+            // also the evidence that the fix itself moved no existing fixture's event structure.
+            // Two is what a shape whose bar and globes share their offsets has: one event for the
+            // bar's pinch at half the bar's width, one for the globes' hubs. The asymmetric one
+            // gets a third because its two globes finish at different offsets.
+            expect(events).toBe(356);
         });
     });
 
@@ -472,7 +482,17 @@ describe('offset projection at event boundaries', () => {
             // all three counts. It carries mutated 12 and fired 4 — 12 of its 13 events sit clear of
             // the terminal band, and 4 of those mutations cost area the report catches.
             // `silentLosses` is still empty over all 50.
-            expect(mutated).toBe(332);
+            //
+            // `mutated` MOVED ALONE ON 2026-08-28 — 332 to 341, `fired` bit-unmoved at 179 — under
+            // journal decision 90: `Collinear Dumbbell` promoted into the clean roster and
+            // `Asymmetric Dumbbell` and `Three Globe Chain` enrolled beside it. Attributed per
+            // fixture before repinning; the other 50 are bit-unmoved on all three counts, which is
+            // also the evidence that the corridor-midline fix moved nothing that was already here.
+            // The three carry mutated 2, 3 and 4 — and fired ZERO between them, which is what a
+            // shape made of parallel corridors and square globes looks like here: every one of its
+            // events is a whole hub or a whole pinch, so breaking a hand-over at one costs no area
+            // rather than stranding a sliver. `silentLosses` is still empty over all 53.
+            expect(mutated).toBe(341);
             expect(fired).toBe(179);
         });
 

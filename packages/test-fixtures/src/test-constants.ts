@@ -98,14 +98,18 @@ export const CRAZY_POLYGON: Vector2[] = [
  * line — two on `y = 0`, two on `y = 10`, two on `x = 10` and two on `x = 20` — which makes
  * wall-to-wall distances exactly equal, so the pinches all land in a single offset layer.
  *
- * The measured repro from `docs/notes/solver-hardening-backlog.md` item 7: it tiles with a 1.0e-1
- * relative error — strips overlapping strips by about 22 of its 220 area units — while the solve
- * reports `complete: true` with empty diagnostics. `computeMaxOffset` is 5. A perturbed dumbbell of
- * identical topology, with those coincidences broken, tiles to ~1e-16 at every depth.
+ * WHAT IT COST, AND WHAT FIXED IT (2026-08-28, journal decision 90; `solver-hardening-backlog.md`
+ * item 7). For most of this arc it tiled with a 1.0e-1 relative error — strips overlapping strips by
+ * about 22 of its 220 area units — while the solve reported `complete: true` with empty diagnostics.
+ * The bar had NO SKELETON: its midline was born at each end pointing OUT of the bar, into the globe
+ * behind it, so each globe was drawn as though the bar were not there and their faces overlapped
+ * along the shaft. The cause was a direction hint that overruled the parent-derived basis wherever
+ * the offset rate is zero, which is exactly the anti-parallel-parent case a corridor midline is.
+ * With the hint gone the two midline bisectors meet head-on along `y = 5` and the shape tiles
+ * exactly. `computeMaxOffset` is 5.
  *
- * DELIBERATELY NOT IN `CLEAN_TEST_POLYGONS`: several suites sweep that list asserting every entry
- * solves *and* tiles, and this shape does not tile. Its behaviour is pinned exactly, wrongness and
- * all, by `packages/core/tests/straight-skeleton/collinear-dumbbell.test.ts`.
+ * IN `CLEAN_TEST_POLYGONS` SINCE THAT FIX. `packages/core/tests/straight-skeleton/collinear-dumbbell.test.ts`
+ * is now a specification of the right answer; it was a tripwire pinning the wrong one.
  */
 export const COLLINEAR_DUMBBELL: Vector2[] = [
     {x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 6},

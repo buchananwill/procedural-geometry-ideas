@@ -28,7 +28,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 56 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
+| `@proc-geo/test-fixtures` | 59 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 
@@ -142,9 +142,9 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-**Two rosters, one corpus.** `CLEAN_TEST_POLYGONS` is the **clean** roster -- 49 named polygon fixtures that solve,
+**Two rosters, one corpus.** `CLEAN_TEST_POLYGONS` is the **clean** roster -- 53 named polygon fixtures that solve,
 tile and subdivide, and the dozens of sweeps written against it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the
-same `{name, vertices}` shape for the 7 fixtures with a measured defect. `FULL_CORPUS` is the two concatenated.
+same `{name, vertices}` shape for the 6 fixtures with a measured defect. `FULL_CORPUS` is the two concatenated.
 All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
 
 **There is no `ALL_TEST_POLYGONS`** (journal decision 74). The name is retired, not re-pointed: a roster called ALL

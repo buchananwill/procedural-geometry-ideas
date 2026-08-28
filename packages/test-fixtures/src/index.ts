@@ -14,11 +14,10 @@ export {
     getAcceptedExteriorEdges,
 } from './test-constants';
 
-// In KNOWN_DEFECT_POLYGONS below, not CLEAN_TEST_POLYGONS: it solves — reporting `complete: true`
-// with empty diagnostics — while its strips overlap by a tenth of its area, so it fails the tiling
-// half of what the clean roster's sweeps assert. Its mechanism is pinned by
-// collinear-dumbbell.test.ts; see the fixture for why its degeneracy is shared supporting lines
-// rather than redundant vertices.
+// In CLEAN_TEST_POLYGONS since 2026-08-28. It spent the arc in KNOWN_DEFECT_POLYGONS because its
+// strips overlapped by a tenth of its area while the solve reported `complete: true`; the corridor
+// midline of its bar now exists and it tiles exactly. See the fixture header, and
+// collinear-dumbbell.test.ts, which is now a specification rather than a tripwire.
 export {COLLINEAR_DUMBBELL} from './test-constants';
 export type { DiagnosticStepResult } from './test-constants';
 import {
@@ -188,6 +187,9 @@ import {T_SHAPE} from './rectilinear-shapes';
 export {GOLF_CART} from './rectilinear-shapes';
 import {GOLF_CART} from './rectilinear-shapes';
 
+export {ASYMMETRIC_DUMBBELL, THREE_GLOBE_CHAIN} from './rectilinear-shapes';
+import {ASYMMETRIC_DUMBBELL, THREE_GLOBE_CHAIN} from './rectilinear-shapes';
+
 // invisible-vertex-rectangle.ts
 // In CLEAN_TEST_POLYGONS: it solves clean, and its property is not a defect but a boundary-stage
 // removal — one vertex sits exactly on its own edge, so the solve runs at 15 exterior nodes for 16
@@ -324,6 +326,14 @@ export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'T-Shape', vertices: T_SHAPE},
     {name: 'Golf Cart', vertices: GOLF_CART},
 
+    // The corridor-midline class (rectilinear-shapes.ts and test-constants.ts). Added and promoted
+    // 2026-08-28, journal decision 90, with the fix that stopped a corridor's midline being born
+    // pointing out of the corridor. All three were silent wrong answers before it — `complete: true`,
+    // empty diagnostics, strips overlapping strips by 7 to 13 per cent of their own area.
+    {name: 'Collinear Dumbbell', vertices: COLLINEAR_DUMBBELL},
+    {name: 'Asymmetric Dumbbell', vertices: ASYMMETRIC_DUMBBELL},
+    {name: 'Three Globe Chain', vertices: THREE_GLOBE_CHAIN},
+
     // Near-regular control shapes (near-regular-polygons.ts). The other two are in
     // KNOWN_DEFECT_POLYGONS, each on a pinned failure; see the note above this list's imports.
     {name: 'Near Regular Circle 16', vertices: NEAR_REGULAR_CIRCLE_16},
@@ -380,9 +390,11 @@ export const KNOWN_DEFECT_POLYGONS: NamedTestPolygon[] = [
     {name: 'Off-edge Jitter Plus (seed 7919)', vertices: OFF_EDGE_JITTER_PLUS_SEED_7919},
     {name: 'Off-edge Jitter Reflex L (seed 55433, k=4)', vertices: OFF_EDGE_JITTER_L_SEED_55433_K4},
 
-    // Shared supporting lines (test-constants.ts). Solves and reports nothing while its strips
-    // overlap by a tenth of its area — the silent wrong answer this roster exists to keep visible.
-    {name: 'Collinear Dumbbell', vertices: COLLINEAR_DUMBBELL},
+    // `COLLINEAR_DUMBBELL` LEFT THIS ROSTER 2026-08-28 (journal decision 90), by being fixed rather
+    // than by having its number softened — the route this roster's header names. Its bar's midline
+    // was born pointing out of the bar, so the shaft carried no skeleton at all and the two globes'
+    // faces overlapped; the tiling error went from 0.1 to zero. It is now in CLEAN_TEST_POLYGONS
+    // alongside two variants of its class added with the fix.
 
     // Large-coordinate envelope (near-regular-polygons.ts). Clean where they sit; each fails a
     // scatter of translations far from the origin.

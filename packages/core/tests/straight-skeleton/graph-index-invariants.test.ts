@@ -1,4 +1,6 @@
-import {CLEAN_TEST_POLYGONS, FULL_CORPUS, KNOWN_DEFECT_POLYGONS} from '@proc-geo/test-fixtures';
+import {
+    CLEAN_TEST_POLYGONS, COLLINEAR_DUMBBELL, FULL_CORPUS, KNOWN_DEFECT_POLYGONS,
+} from '@proc-geo/test-fixtures';
 import {
     normalisePosition,
     solveSkeleton,
@@ -10,7 +12,7 @@ import {
 
 /*
  * ============================================================================
- *  THREE INVARIANTS ON THE GRAPH'S OWN INDICES AND PARENTAGE.
+ *  FOUR INVARIANTS ON THE GRAPH'S OWN INDICES, PARENTAGE AND FACE CLOSURE.
  * ============================================================================
  *
  * WHY THEY EXIST. On 2026-08-28 a dashboard inspection reported a run of primary bisectors each
@@ -163,7 +165,7 @@ describe('I2: no two graph nodes lie inside the coincidence floor of each other'
         },
     );
 
-    it('is not vacuous: exactly three fixtures carry a pinned pair, and 54 carry none', () => {
+    it('is not vacuous: exactly three fixtures carry a pinned pair, and 56 carry none', () => {
         // The guard on the table itself. A pin naming a fixture that is not in the corpus, or a
         // table that quietly grew to cover a regression, would leave the sweep above asserting
         // nothing — so the shape of the table is asserted here rather than trusted.
@@ -172,7 +174,7 @@ describe('I2: no two graph nodes lie inside the coincidence floor of each other'
         expect(pinned).toHaveLength(3);
         expect(pinned.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
         expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(4);
-        expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(54);
+        expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(56);
     });
 });
 
@@ -314,5 +316,171 @@ describe('I3: every bisector is equidistant from the two parents it names', () =
 
         expect(leaning).toEqual(['Off-edge Jitter Reflex L (seed 55433, k=4)']);
         expect(worstEquidistance(KNOWN_DEFECT_POLYGONS) / 8.34e-12).toBeCloseTo(1, 2);
+    });
+});
+
+/*
+ * ----------------------------------------------------------------------------
+ * I4 — EVERY EXTERIOR EDGE'S FACE CLOSES: ITS TWO ENDS ARE JOINED BY A WALK
+ *      ACROSS ITS OWN BISECTORS
+ * ----------------------------------------------------------------------------
+ *
+ * The user's formulation, 2026-08-28 (journal decision 93): from either end of any perimeter edge it
+ * must be possible to walk along INTERIOR edges only and arrive at the other end. Equivalently, and
+ * this is the intuition it was stated from: no perimeter edge should be able to "see" a
+ * non-neighbouring perimeter edge without an interior edge in between. The walk is the quantifiable
+ * form of that.
+ *
+ * WHAT IT IS ABOUT. An exterior edge's FACE — the region the wavefront of that edge sweeps — is
+ * bounded by the edge itself and by a chain of skeleton edges, and in a straight skeleton every one
+ * of those chain edges is the bisector of that edge with one of its neighbours. So the face closes
+ * exactly when the edge's own bisectors form a connected walk from one endpoint of the edge to the
+ * other, and an edge whose walk does not close has a face with a hole in its boundary — a region the
+ * solver has left to some other edge's face to cover, which is how strips come to overlap.
+ *
+ * THE STRONG FORM IS WHAT IS ASSERTED, and it was chosen by measurement rather than by preference.
+ * Two readings were swept over the whole corpus: the STRONG one restricts the walk to interior edges
+ * naming the starting exterior edge as a parent (the face path), and the WEAK one allows any interior
+ * edge at all. Both hold on every fixture, and both fail on exactly the same edges of exactly the
+ * same fixtures when the corridor-midline fix is reverted — so the strong form costs nothing and says
+ * more. The weak form is measured alongside it below rather than dropped, so that a future divergence
+ * between them is visible instead of silent.
+ *
+ * WHAT IT CAUGHT, MEASURED 2026-08-28 AGAINST THE PRE-FIX SOLVER. `COLLINEAR_DUMBBELL` fails on
+ * exactly its two shaft edges (e3, the bar's top, and e9, its bottom) and nothing else; the shaft
+ * carried no skeleton at all, so neither wall could reach its own far end without crossing to the
+ * opposite wall. `THREE_GLOBE_CHAIN` fails on all four of its shaft edges, `ASYMMETRIC_DUMBBELL` on
+ * both of its. No other fixture in the corpus violates either form, before the fix or after it —
+ * which makes this the sharpest instrument the suite has for the class, and F26's independent
+ * corroboration reads the same defect from the strip layer: the parentage face walk found the
+ * dumbbell's face 3 could not close, and returned two disjoint chains.
+ *
+ * CONVENTIONS, STATED BECAUSE THEY DECIDE CASES:
+ *
+ *  - INTERIOR EDGES WALK IN EITHER DIRECTION. A face boundary is a cycle, not a directed path, and
+ *    which way a bisector's basis points is a statement about the wavefront rather than about the
+ *    face.
+ *  - A CULLED SELF-LOOP CONTRIBUTES NOTHING AND NEEDS NO SPECIAL CASE. It joins a node to itself, so
+ *    it adds no reachability; the existing degree-two convention (`spine.ts`) is about degree, not
+ *    connectivity, and does not bear on the walk.
+ *  - A FACE CLOSED THROUGH ONE SHARED NODE PASSES, and that is correct rather than a loophole. On a
+ *    triangle the two bisectors standing on an edge's endpoints both terminate at the incentre, so
+ *    the walk is two edges long through that single node — the face is a triangle and its boundary
+ *    chain is two edges. Nothing here requires the walk to be longer than one node.
+ *  - AN UNRESOLVED INTERIOR EDGE (no target) IS NOT WALKABLE, so an incomplete solve fails this. That
+ *    is deliberate: the invariant is about the finished graph, and every fixture swept here solves.
+ */
+
+/**
+ * The exterior edges whose two endpoints are NOT joined by a walk across interior edges.
+ *
+ * `strong` restricts the walk to interior edges that name the starting exterior edge as a parent —
+ * the face path. See this file's I4 header for why that is the form asserted.
+ */
+function faceWalkFailures(graph: StraightSkeletonGraph, strong: boolean): string[] {
+    const exteriorCount = graph.numExteriorNodes;
+    const failures: string[] = [];
+
+    for (let exteriorEdge = 0; exteriorEdge < exteriorCount; exteriorEdge++) {
+        const adjacency = new Map<number, number[]>();
+        const link = (from: number, to: number) => {
+            const neighbours = adjacency.get(from);
+            if (neighbours === undefined) {
+                adjacency.set(from, [to]);
+            } else {
+                neighbours.push(to);
+            }
+        };
+
+        for (const interior of graph.interiorEdges) {
+            const onThisFace = interior.clockwiseExteriorEdgeIndex === exteriorEdge
+                || interior.widdershinsExteriorEdgeIndex === exteriorEdge;
+            if (strong && !onThisFace) {
+                continue;
+            }
+            const edge = graph.edges[interior.id];
+            if (edge === undefined || edge.target === undefined) {
+                continue;
+            }
+            link(edge.source, edge.target);
+            link(edge.target, edge.source);
+        }
+
+        const goal = (exteriorEdge + 1) % exteriorCount;
+        const seen = new Set<number>([exteriorEdge]);
+        const queue = [exteriorEdge];
+        let reached = false;
+        while (queue.length > 0 && !reached) {
+            const node = queue.pop()!;
+            for (const next of adjacency.get(node) ?? []) {
+                if (next === goal) {
+                    reached = true;
+                    break;
+                }
+                if (!seen.has(next)) {
+                    seen.add(next);
+                    queue.push(next);
+                }
+            }
+        }
+
+        if (!reached) {
+            failures.push(`e${exteriorEdge}: no interior walk from n${exteriorEdge} to n${goal}`);
+        }
+    }
+
+    return failures;
+}
+
+describe('I4: every exterior edge\'s face closes across its own bisectors', () => {
+    it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
+        '%s',
+        (_name, vertices) => {
+            expect(faceWalkFailures(solveSkeleton(vertices).graph, true)).toEqual([]);
+        },
+    );
+
+    it('holds in the weak form too, so the two readings have not diverged', () => {
+        // Measured, not assumed (journal decision 93). The strong form implies the weak one, so this
+        // can only fail if the sweep above stops running — which is the point of keeping it.
+        const violating = FULL_CORPUS
+            .filter(polygon => faceWalkFailures(solveSkeleton(polygon.vertices).graph, false).length > 0)
+            .map(polygon => polygon.name);
+
+        expect(violating).toEqual([]);
+    });
+
+    it('is not vacuous: deleting a shaft midline reproduces the dumbbell\'s recorded signature', () => {
+        /*
+         * THE MUTATION, BUILT IN. Before the corridor-midline fix the dumbbell's bar carried no
+         * skeleton, and this invariant reported exactly `e3` and `e9` — its two shaft walls. Removing
+         * the two midline edges from a solved graph reconstructs that graph, so the assertion below
+         * is the pre-fix measurement replayed rather than a description of it. Without this, an
+         * `faceWalkFailures` that always returned `[]` would pass every test above.
+         */
+        const {graph} = solveSkeleton(COLLINEAR_DUMBBELL);
+        const shaftMidlines = graph.interiorEdges.filter(interior =>
+            (interior.clockwiseExteriorEdgeIndex === 3 && interior.widdershinsExteriorEdgeIndex === 9)
+            || (interior.clockwiseExteriorEdgeIndex === 9 && interior.widdershinsExteriorEdgeIndex === 3));
+
+        expect(shaftMidlines).toHaveLength(2);
+        expect(faceWalkFailures(graph, true)).toEqual([]);
+
+        const withoutShaft: StraightSkeletonGraph = {
+            ...graph,
+            edges: graph.edges.map(edge =>
+                shaftMidlines.some(interior => interior.id === edge.id)
+                    ? {...edge, target: undefined}
+                    : edge),
+        };
+
+        expect(faceWalkFailures(withoutShaft, true)).toEqual([
+            'e3: no interior walk from n3 to n4',
+            'e9: no interior walk from n9 to n10',
+        ]);
+        expect(faceWalkFailures(withoutShaft, false)).toEqual([
+            'e3: no interior walk from n3 to n4',
+            'e9: no interior walk from n9 to n10',
+        ]);
     });
 });

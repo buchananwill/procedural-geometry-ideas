@@ -495,14 +495,33 @@ describe('unit-extent normalisation', () => {
          * bit, so this is a count of coordinates growing with the corpus in cells decision 4 never
          * claimed. Both error bars below are UNMOVED — neither new fixture reaches either maximum —
          * and both stay under `Number.EPSILON` on the extent-relative measure.
+         *
+         * RE-MEASURED AGAIN 2026-08-28 OVER 53 FIXTURES (1306 coordinates per cell), under journal
+         * decision 90, when the corridor-midline fix promoted `COLLINEAR_DUMBBELL` into the clean
+         * roster and enrolled `ASYMMETRIC_DUMBBELL` and `THREE_GLOBE_CHAIN` beside it:
+         *
+         *   scale       1e-6  1e-4  1e-2     1   1e2   1e4   1e6   1e8
+         *   before         9    24     4     0     5     6     9    12
+         *   after         11    26     6     0     5     6     9    12
+         *   asymmetric     2     2     2     0     0     0     0     0
+         *
+         * ONE FIXTURE CARRIES EVERY MOVED COORDINATE and the other 52 are bit-unmoved in all
+         * eighteen cells — re-running the sweep over the 52 alone reproduces the `before` row
+         * exactly. `COLLINEAR_DUMBBELL` and `THREE_GLOBE_CHAIN` contribute NOTHING anywhere: their
+         * coordinates are small integers and multiples of ten. `ASYMMETRIC_DUMBBELL` has the
+         * off-grid pair `y = -2` and `y = 12`, which is what a globe hung asymmetrically off a bar
+         * costs, and only in the three cells where the shape is small enough for the centring to
+         * fall outside Sterbenz. NO CELL LEFT THE EXACT LIST, both error bars are UNMOVED — neither
+         * maximum is reached by any of the three — and both stay under `Number.EPSILON` on the
+         * extent-relative measure.
          */
         const TRANSLATIONS = [0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11];
         const EXACT_SCALES = [1];
         const INEXACT_SCALES: readonly (readonly [number, number])[] = [
             // scale, the measured count of coordinates that do not return on the bit.
-            [1e-6, 9],
-            [1e-4, 24],
-            [1e-2, 4],
+            [1e-6, 11],
+            [1e-4, 26],
+            [1e-2, 6],
             [1e2, 5],
             [1e4, 6],
             [1e6, 9],

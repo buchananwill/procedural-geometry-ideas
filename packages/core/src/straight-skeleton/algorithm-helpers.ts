@@ -9,7 +9,7 @@ import {complexLog, solverLog} from "./logger";
 import {
     areEqual,
     assertIsNumber,
-    crossProduct, dotProduct,
+    crossProduct,
     makeBisectedBasis,
     makeRay,
     negateVector
@@ -32,8 +32,11 @@ import {makeOffsetDistance} from "./collision-helpers";
  *
  * SUPERSEDED FOR NEW BISECTORS by {@link bisectorOffsetRate}, which says the same thing in the
  * quantity the solver actually measures and stays determinate over a wider band — see
- * {@link addBisectionEdge}. Kept because it is the exported spelling of the rule and is still
- * what decides the ambiguous case there.
+ * {@link addBisectionEdge}. Kept because it is the exported spelling of the rule and because the
+ * two tolerances do not coincide exactly: the rate divides the cross product by `|c + w|`, which is
+ * close to 2 for the anti-parallel parents that reach the other branch, so a cross product between
+ * one and two epsilons reads as a zero rate and a non-zero turn. This decides that sliver the same
+ * way the rate branch would have.
  */
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
 ) {
@@ -66,8 +69,8 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
 /**
  * returns index of just-added edge
  *
- * THE DIRECTION IS DECIDED BY THE OFFSET RATE, and only where the rate cannot decide does anything
- * else get a say. A straight-skeleton bisector traces a wavefront vertex, and the wavefront clock
+ * THE DIRECTION IS DECIDED BY THE OFFSET RATE, and where the rate is zero it is decided by the
+ * PARENT ORDERING. A straight-skeleton bisector traces a wavefront vertex, and the wavefront clock
  * runs one way, so the rate against the clockwise parent ({@link bisectorOffsetRate}) is
  * non-negative for every bisector that can exist. That is not a new rule: for the bisected basis
  * `normalize(c - w)` the rate is `cross(c, w) / |c - w|`, so its sign IS
@@ -75,15 +78,32 @@ export function ensureDirectionNotReversed(basis: Vector2, approximateDirection:
  * determinate over a wider band, because the `1 / |c - w|` keeps near-parallel parents (where the
  * turn is tiny but the bisector's direction is not in doubt) out of the tolerance hole.
  *
- * `approximateDirection` is a TIE-BREAK, not an override. It used to be applied unconditionally and
- * could therefore flip a determinate bisector to run backwards in time — it is a guess at the
- * direction, derived by rotating the instigating bisector ninety degrees, and that guess is wrong
- * whenever the split edge is near anti-parallel to the parent being paired with it. The genuinely
- * ambiguous case is exactly the anti-parallel one: with `w = -c` the bisected basis is `c` itself,
- * the rate is zero, both directions are equally forward, and the caller's guess is the only
- * information there is.
+ * A ZERO RATE MEANS ANTI-PARALLEL PARENTS, AND NOTHING ELSE. The rate is `cross(cw, ws) / |c + w|`
+ * and `|c + w|` is never zero on the path that reaches it, so the rate vanishes exactly when the two
+ * parents are parallel. Parents pointing the SAME way make `c + w` zero, `makeBisectedBasis` returns
+ * the inward perpendicular, and the rate is then ±1 — determinate. So only the anti-parallel pair
+ * arrives here: the two walls of a corridor, whose bisector is the corridor's midline, at constant
+ * offset along its whole length. `makeBisectedBasis` returns `c` for it, the clockwise parent's own
+ * basis.
+ *
+ * AND `c` IS THE ANSWER, NOT A COIN TOSS. The parent pair is ORDERED by the ring: walking the
+ * sub-polygon clockwise you traverse the widdershins parent, turn at this bisector's source, and
+ * leave along the clockwise parent. Anti-parallel walls make that turn a U-turn — the CLOSED end of
+ * the corridor — and the corridor extends the way the departing wall points, which is `c`. The other
+ * end of the same corridor is a bisector whose parents are the same two walls in the opposite roles,
+ * so its `c` is the other direction, and the two midlines meet head-on. Nothing about the offset can
+ * say this, which is why it was mistaken for a genuine ambiguity.
+ *
+ * WHAT USED TO DECIDE IT, AND WHY IT COULD NOT. Callers passed an `approximateDirection` hint and
+ * this branch flipped `c` to agree with it. `bisectionsForMerge`'s hint is the bisection of the two
+ * ARRIVALS bracketing a gap, which is symmetric in them — so a two-run vertex event handed the same
+ * hint to BOTH of its gaps, which face opposite ways, and the hint was therefore wrong for at least
+ * one of them by construction. Measured, it was wrong for the corridor gap every time it mattered:
+ * `COLLINEAR_DUMBBELL`'s bar midline was born pointing out of the bar into a globe (both ends), the
+ * `CROSS` drew each arm's midline along the OPPOSITE arm, and `T_SHAPE`'s stem midline pointed up
+ * into the head and was retired as a zero-length self-loop — the stem had no ridge at all.
  */
-export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number, approximateDirection?: Vector2): number {
+export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwiseExteriorEdgeIndex: number, widdershinsExteriorEdgeIndex: number, source: number): number {
 
     const {graph} = context;
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
@@ -136,10 +156,6 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
         finalBasis = offsetRate < 0 ? negateVector(bisectedBasis) : bisectedBasis;
     } else {
         finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
-
-        if (approximateDirection && dotProduct(approximateDirection, finalBasis) < 0) {
-            finalBasis = negateVector(finalBasis)
-        }
     }
 
     graph.edges.push({id, source, basisVector: finalBasis})
@@ -153,9 +169,9 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
  * Creates a new bisection interior edge and extends acceptedEdges to cover it.
  * Returns the edge index. Does NOT evaluate intersections or push to heap.
  */
-export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number, approximateDirection?: Vector2): number {
+export function createBisectionInteriorEdge(context: StraightSkeletonSolverContext, clockwiseParent: number, widdershinsParent: number, source: number): number {
     const {acceptedEdges, graph} = context;
-    const edgeIndex = addBisectionEdge(context, clockwiseParent, widdershinsParent, source, approximateDirection);
+    const edgeIndex = addBisectionEdge(context, clockwiseParent, widdershinsParent, source);
 
     while (acceptedEdges.length <= edgeIndex) {
         acceptedEdges.push(false);
@@ -189,7 +205,7 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
 }
 
 export function bisectWithParams(context: StraightSkeletonSolverContext, params: BisectionParams) {
-    return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source, params.approximateDirection ?? undefined);
+    return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source);
 }
 
 export function initInteriorEdges(context: StraightSkeletonSolverContext) {

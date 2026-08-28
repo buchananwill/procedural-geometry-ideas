@@ -74,10 +74,13 @@ describe('no skeleton node escapes the polygon it was solved from', () => {
         // The guard on the sweep's own reach, and it is ABSOLUTE rather than relative on purpose:
         // `FULL_CORPUS` is built by concatenation, so a roster that lost a fixture upstream would
         // shrink this file's coverage while a `clean + defect` identity went on passing. The sizes
-        // are the two rosters as ruled — 50 clean, being the 49 of decision 73 plus
-        // `Invisible Vertex Rectangle` added under decision 75, and 7 known-defect under decision 72.
-        expect(CLEAN_TEST_POLYGONS).toHaveLength(50);
-        expect(KNOWN_DEFECT_POLYGONS).toHaveLength(7);
+        // are the two rosters as ruled — 53 clean and 6 known-defect since 2026-08-28, when journal
+        // decision 90's corridor-midline fix promoted `Collinear Dumbbell` out of the defect roster
+        // and enrolled `Asymmetric Dumbbell` and `Three Globe Chain` beside it. Before that the
+        // split was 50 and 7: the 49 of decision 73, plus `Invisible Vertex Rectangle` added under
+        // decision 75, against the 7 known-defect of decision 72.
+        expect(CLEAN_TEST_POLYGONS).toHaveLength(53);
+        expect(KNOWN_DEFECT_POLYGONS).toHaveLength(6);
         expect(FULL_CORPUS).toHaveLength(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
     });
 });

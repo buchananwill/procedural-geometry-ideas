@@ -520,7 +520,58 @@ floor is genuine structure: edges shorter than anyone can see. The decision-54-h
 is a POST-SOLVE simplification pass (contract sub-floor edges for presentation and downstream
 consumers that opt in), leaving solve semantics exact — parked in next-work, after the dumbbell.
 
+**93 — (user, 2026-08-28) New test-only invariant I4, face-closure walkability: from any
+perimeter node it must be possible to walk along only interior edges and reach the node at the
+other end of the starting perimeter edge.** The user's formulation, near-verbatim; their
+equivalent visual statement — no perimeter edge should "see" a non-neighbouring perimeter edge
+without crossing an interior edge — is noted as the intuition, with the walk as the quantifiable
+form. The dumbbell violates it exactly as they describe: neither shaft edge can walk end-to-end
+via interior edges (the bar contains none). Corroboration already in the record: F26's parentage
+face-walk found the dumbbell's face 3 unclosable — two disjoint chains — the same violation seen
+from the strip layer. Implementation rulings delegated with the dumbbell package: measure BOTH
+the strong form (walk restricted to interior edges parented by the starting exterior edge — the
+face path, closest to the "seeing" intuition) and the weak form (any interior path) corpus-wide;
+pin the strongest form that holds on the 56 non-dumbbell fixtures, with culled self-loops handled
+per their degree-two convention; the dumbbell is the pinned violator pre-fix and I4 becomes the
+fix's conviction post-fix. **Test-only is a hard boundary, stated by the user with its reason:
+the walk costs too much for production solve paths. I4 lives exclusively in the test suite as a
+robustness quantifier — no runtime assertion, no debug-mode hook, no solver-side plumbing.**
+
+**94 — The dumbbell package's two flagged interpretations are RATIFIED.** (a) The stage-off
+`REFLEX_L` k=4 loud→silent-different cell is accepted with the flag preserved in the test record:
+that regime exists precisely so canonicalisation makes such input unreachable, the stage-on
+corpus is fully clean, and across the whole stage-off census the fix removes all three stray
+self-loops while the flagged cell is one of two tiling violators — a known-and-recorded trade in
+a regime the pipeline never ships. (b) `reflex-subdivision.test.ts` retiring as the
+canonicalisation stage's conviction is accepted: the conviction demonstrably relocated
+(`stroke-derived-polygons.test.ts`, `along-edge-jitter.test.ts` still carry non-zero stage-off
+failures), the four-row history is recorded in the file, and assertions remain as specification.
+
 ## Findings
+
+**F34 — Backlog item 7 is CLOSED: the collinear dumbbell is fixed, promoted to the clean roster,
+and the fix was a 29-line DELETION.** The user's mechanism (decision 90) verified with one
+correction that improves the story: nothing was lost in acceptance or partition — the corridor
+child already existed (decision 56's middle-child machinery emitted it correctly, both bar edges
+parenting the medial bisectors exactly as the user predicted) — but `addBisectionEdge` let the
+`approximateDirection` hint flip zero-rate bisectors, and the hint (`approximateDirectionForArrivals`)
+was symmetric in its two arrivals while a two-run vertex event's two gaps face opposite ways:
+wrong for one gap by construction. The zero-rate case is reached exactly by anti-parallel parents
+— a corridor's walls — so every corridor midline in the corpus was at risk. Fix: the hint, its
+helper, and the `BisectionParams` field are deleted; the parent-derived basis (already correct)
+decides. **Two more clean fixtures were silently wrong the same way**: `CROSS` drew each arm's
+midline along the OPPOSITE arm, and `T_SHAPE` culled its stem midline as a self-loop — all node
+positions bit-identical, pure wiring. Dumbbell tiling 0.1 → **exactly 0**; the perturbed control
+bit-unmoved; six corridor-class variants all cure; `ASYMMETRIC_DUMBBELL` and `THREE_GLOBE_CHAIN`
+enrolled clean. **I4 (decision 93, user's invariant) landed test-only in strong form and
+convicted precisely**: pre-fix it fails exactly the corridor fixtures on exactly their shaft
+edges — strong and weak forms agreeing, no other violator either side of the fix — and post-fix
+it is empty across all 59; fix-reverted it fires with the exact pre-fix signature (73 tests / 12
+suites die in total). Corpus 59 = 53 clean + 6 defect; the defect roster's other signatures
+bit-unmoved; F26's geometric fallback kept, honestly re-specimened onto the decision-67 jitter
+sub-regions with throw-measurements. Docs corrected including a pre-existing count drift.
+Delegate figures: core 5008/5008 (78 suites), dashboard 268/268. A repeat of F29's
+checkout-not-stash process hazard occurred and was self-reported and recovered.
 
 **F33 — The plus's root cure exposed that its failure was the collinear-dumbbell class,
 manufactured by canonicalisation.** Removing caller vertices 1 and 9 (legitimately sub-floor)

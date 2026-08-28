@@ -431,13 +431,21 @@ function nextByAngle(
  * walk did here too.
  *
  * WHEN PARENTAGE DOES NOT DESCRIBE A CLOSED FACE, THE SKELETON IS WRONG THERE, and the walk falls
- * back to {@link traceFaceByGeometry} rather than throwing. `COLLINEAR_DUMBBELL` is the specimen:
- * its shared supporting lines leave the face of edge 3 bounded by two disjoint chains — one ending
- * at the node at the far LEFT of the shape, one at the far RIGHT — so no ordering of those edges
- * closes. That is its pinned silent-overlap defect seen from a new angle, not a new one, and the
- * fallback keeps its measured signature exactly what `collinear-dumbbell.test.ts` records instead of
- * turning a known wrong answer into an exception thrown at every consumer of it. What makes such a
- * face visible is the corpus-wide tiling identity in `strip-tiling.test.ts`.
+ * back to {@link traceFaceByGeometry} rather than throwing — turning a known wrong answer into an
+ * exception thrown at every consumer of it helps nobody. What makes such a face visible is the
+ * corpus-wide tiling identity in `strip-tiling.test.ts`, and now also I4 in
+ * `graph-index-invariants.test.ts`, which asks the same question of the graph directly: can the two
+ * ends of this exterior edge be joined by a walk across its own bisectors?
+ *
+ * RE-SPECIMENED 2026-08-28 (journal decision 90). `COLLINEAR_DUMBBELL` was the specimen — its
+ * shared supporting lines left the face of edge 3 bounded by two disjoint chains, one ending at the
+ * far LEFT of the shape and one at the far RIGHT, because the bar had no midline for either chain to
+ * reach. That is fixed and the dumbbell no longer reaches this branch. THE BRANCH IS STILL LIVE, and
+ * measured rather than assumed: replacing it with a throw fails three tests across
+ * `recursive-subdivision.test.ts` and `silhouette-invariance.test.ts`, on SUB-REGIONS cut from the
+ * near-floor off-edge jitter fixtures — seed 15838 at merge group 4, seed 55433 at merge group 3,
+ * and the k=4 seed at two depths. Those are the live defect of journal decision 67, and they are
+ * this branch's specimen now.
  */
 function traceFace(
     graph: StraightSkeletonGraph,

@@ -4,7 +4,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2,
 } from "./types";
-import {addVectors, areEqual, makeBisectedBasis, sizeOfVector, vectorsAreEqual} from "./core-functions";
+import {vectorsAreEqual} from "./core-functions";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
 /**
@@ -424,6 +424,15 @@ export function contiguousRuns(ring: number[], members: ReadonlySet<number>): nu
  * - one run, a proper subset — a collapse, one new bisector (the two-edge case of which is
  *   the classic edge-collapse event);
  * - two or more runs — a partition, one new bisector per resulting sub-polygon.
+ *
+ * PARENTS AND SOURCE ONLY: THE DIRECTION IS NOT THIS FUNCTION'S TO GUESS. Each gap used to be
+ * handed an `approximateDirection` — the bisection of the two arrivals bracketing it — for
+ * `addBisectionEdge` to flip its parent-derived basis with. That construction is SYMMETRIC in the
+ * two arrivals, so a two-run event gave both of its gaps the same hint while the gaps face opposite
+ * ways: it was wrong for one of them by construction. It only ever reached the basis where the
+ * offset rate is zero, which is the anti-parallel-parent case, and there the ordered parent pair
+ * already says which way the corridor runs. Three fixtures were being drawn wrong on the strength
+ * of it — see `addBisectionEdge`.
  */
 export function bisectionsForMerge(
     ring: number[],
@@ -442,53 +451,10 @@ export function bisectionsForMerge(
         const lastArrival = precedingRun[precedingRun.length - 1];
         const firstDeparture = followingRun[0];
 
-        const params: BisectionParams = {
+        return {
             clockwiseExteriorEdgeIndex: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
             widdershinsExteriorEdgeIndex: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
             source: sourceNodeId,
         };
-
-        const approximateDirection = approximateDirectionForArrivals(
-            context.getEdgeWithId(lastArrival).basisVector,
-            context.getEdgeWithId(firstDeparture).basisVector,
-        );
-        if (approximateDirection !== undefined) {
-            params.approximateDirection = approximateDirection;
-        }
-
-        return params;
     });
-}
-
-/**
- * The hint `addBisectionEdge` uses to decide whether to flip the bisector it derived from the
- * new edge's two exterior parents — or `undefined` when no honest hint exists.
- *
- * The hint is normally the bisection of the two arrivals that bracket the gap, which points
- * into the arc the new bisector has to sweep. That construction fails outright when the two
- * arrivals are exactly anti-parallel, as they are at a waist pinch: their sum is zero, so
- * `makeBisectedBasis` takes its degenerate branch and returns `rotateCw90` of whichever
- * argument came first — a perpendicular chosen by rotation convention alone, with no reference
- * to the geometry. The two gaps of such an event therefore receive opposite perpendiculars for
- * no reason but argument order, and `addBisectionEdge` flips the parent-derived bisector on the
- * strength of it.
- *
- * On `NEAR_REGULAR_PEANUT_32` that inverted both bisectors born at the neck: e64, bounded by the
- * two *left*-hand neck edges, was flipped to point right, and e65, bounded by the two right-hand
- * ones, was flipped to point left. The parent-derived bisector was correct in both cases.
- *
- * So when the sum degenerates, no hint is supplied and the parent derivation stands unmodified.
- * The check is made here rather than in `makeBisectedBasis` because that function's fallback is
- * meaningful to its other callers — it is the inward perpendicular at a *collinear* vertex, where
- * the two bases point the same way and the perpendicular is the genuine bisection.
- */
-function approximateDirectionForArrivals(
-    lastArrivalBasis: Vector2,
-    firstDepartureBasis: Vector2,
-): Vector2 | undefined {
-    const sum = addVectors(lastArrivalBasis, firstDepartureBasis);
-    if (areEqual(sizeOfVector(sum), 0)) {
-        return undefined;
-    }
-    return makeBisectedBasis(lastArrivalBasis, firstDepartureBasis);
 }

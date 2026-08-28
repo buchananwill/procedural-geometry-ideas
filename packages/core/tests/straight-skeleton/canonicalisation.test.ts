@@ -421,6 +421,12 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // touched at 1e-3 because its non-corner vertices stand only 1 to 4 units clear of their
         // chords on a 410-unit extent — deliberately far enough from the ruled floor to be real
         // geometry, and not far enough to survive a floor three decades above it.
+        //
+        // NEITHER MOVED AGAIN ON 2026-08-28, when journal decision 90 promoted `COLLINEAR_DUMBBELL`
+        // and enrolled `ASYMMETRIC_DUMBBELL` and `THREE_GLOBE_CHAIN`, and the zero is attributed:
+        // NONE of the three is touched at any floor in this sweep, including 1e-2. Every turn in
+        // all three is a right angle on a shape whose smallest feature is a two-unit bar across a
+        // thirty-unit extent, so no vertex is anywhere near the chord between its neighbours.
         expect(touchedAt(1e-3)).toBe(4);
         expect(touchedAt(1e-2)).toBe(16);
     });

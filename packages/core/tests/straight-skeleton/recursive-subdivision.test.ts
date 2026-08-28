@@ -193,7 +193,9 @@ const CENSUS_SIGNATURES: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 55433)': 3,
     'Off-edge Jitter Plus (seed 7919)': 15,
     'Off-edge Jitter Reflex L (seed 55433, k=4)': 11,
-    'Collinear Dumbbell': 0,
+    // `Collinear Dumbbell` left this table with the roster on 2026-08-28 (journal decision 90). Its
+    // census signature was zero throughout — this grid never saw its defect, which was in the strip
+    // layer — and it is now swept as a clean fixture, still at zero.
     'Near Regular Circle 48': 0,
     'Near Regular Rosette5 40': 0,
 };
@@ -569,10 +571,10 @@ function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
  * `OFF_EDGE_JITTER_L_SEED_55433_K4` CARRIES THE POPULATION AS OF 2026-08-28. The corpus has yielded
  * no failed region since the decision-56 double-split fix emptied its census, and the
  * `COLLINEAR_DUMBBELL` regions that replaced it were themselves cured by the split-at-the-vertex
- * correction in `generateSplitEventFromTheEdgeItself` — the dumbbell's own defect (strips that
- * silently overlap, pinned in `collinear-dumbbell.test.ts`) is untouched, but it no longer hands
- * the recursion a sub-region that fails to solve, at any depth or merge group size measured here.
- * Both stay in the sweep so a fixture that starts failing again is harvested rather than missed.
+ * correction in `generateSplitEventFromTheEdgeItself`. It was listed here by name while it sat
+ * outside the clean roster; since the corridor-midline fix promoted it (journal decision 90) it
+ * arrives with `CLEAN_TEST_POLYGONS` like any other clean fixture, and still yields no failed
+ * region at any depth or merge group size measured here.
  *
  * The specimen is swept at ITS OWN merge group rather than the harvest's, because the merge group
  * is what decides where the cuts fall and only one of the five sizes measured hands it a region it
@@ -583,11 +585,6 @@ function failedRegions(): FailedRegion[] {
     const regions: FailedRegion[] = [];
     const population = [
         ...CLEAN_TEST_POLYGONS.map(polygon => ({...polygon, mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE})),
-        {
-            name: 'Collinear Dumbbell',
-            vertices: COLLINEAR_DUMBBELL,
-            mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
-        },
         {
             name: 'Near-floor jittered reflex L',
             vertices: OFF_EDGE_JITTER_L_SEED_55433_K4,

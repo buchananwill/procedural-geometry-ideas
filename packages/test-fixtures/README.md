@@ -12,12 +12,12 @@ npm install --save-dev @proc-geo/test-fixtures
 
 ## The polygon lists
 
-There are **two rosters and 56 named polygons**, ranging from a triangle to a 48-gon.
+There are **two rosters and 59 named polygons**, ranging from a triangle to a 48-gon.
 
 | Export | Contents | What a sweep over it should assert |
 |--------|----------|------------------------------------|
-| `CLEAN_TEST_POLYGONS` | 49 clean fixtures | Every entry solves, tiles and subdivides. |
-| `KNOWN_DEFECT_POLYGONS` | 7 fixtures with a measured defect | Each entry's **pinned signature**, exactly. |
+| `CLEAN_TEST_POLYGONS` | 53 clean fixtures | Every entry solves, tiles and subdivides. |
+| `KNOWN_DEFECT_POLYGONS` | 6 fixtures with a measured defect | Each entry's **pinned signature**, exactly. |
 | `FULL_CORPUS` | the two concatenated, clean first | Whichever bar applies per entry. |
 
 All three share the `NamedTestPolygon` shape, so a sweep can move between them without changing how it iterates.
@@ -90,7 +90,6 @@ softened number.
 | `OFF_EDGE_JITTER_L_SEED_55433` | Solves silently wrong: 10 failed regions, two edges terminating behind their source. |
 | `OFF_EDGE_JITTER_PLUS_SEED_7919` | Does not solve — the one fixture in either roster that reports `complete: false`. |
 | `OFF_EDGE_JITTER_L_SEED_55433_K4` | Solves silently wrong: 14 failed regions, the heaviest driver-level residue. |
-| `COLLINEAR_DUMBBELL` | Reports success with empty diagnostics while its strips overlap by a tenth of its area. |
 | `NEAR_REGULAR_CIRCLE_48` | Clean where it sits; fails at three large translations. |
 | `NEAR_REGULAR_ROSETTE5_40` | Clean where it sits; fails at ten large translations. |
 
@@ -106,6 +105,12 @@ recorded solver graph rather than a polygon.
 
 `SYMMETRICAL_OCTAGON` was among them until 2026-08-28. It sat out on a "does not terminate in fuzz test" note that
 re-measurement found dead, and it is now an ordinary member of `CLEAN_TEST_POLYGONS`.
+
+`COLLINEAR_DUMBBELL` left `KNOWN_DEFECT_POLYGONS` on 2026-08-28, the way that list says a fixture leaves it: by being
+fixed. It reported success with empty diagnostics while its strips overlapped by a tenth of its area, because the
+midline of its bar was born at each end pointing OUT of the bar and the shaft carried no skeleton at all. It now
+tiles exactly, and `ASYMMETRIC_DUMBBELL` and `THREE_GLOBE_CHAIN` joined the clean roster beside it as the other two
+shapes of that class.
 
 ## Test helpers
 

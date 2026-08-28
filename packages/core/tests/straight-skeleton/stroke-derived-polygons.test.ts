@@ -459,14 +459,26 @@ describe('stroke-derived polygons', () => {
             // assertions would have emptied the list just as well; this is how the difference is
             // told.
             //
-            // THE SET IS NO LONGER THE HISTORICAL ONE, AND THE DIFFERENCE IS ATTRIBUTED: the
+            // THE SET IS NO LONGER THE HISTORICAL ONE, AND EVERY MOVE IS ATTRIBUTED. The
             // parallel-vertex closure in `algorithm-termination-cases.ts` cured k = 4, 6 and 9,
             // which died in terminal sub-polygons whose wavefront vertices all travelled the same
-            // way and so could never meet. Three of the six survive, and the conviction with them.
+            // way and so could never meet.
+            //
+            // K = 4 THEN CAME BACK, 2026-08-28, and it is a loud step failure rather than a wrong
+            // answer. The corridor-midline fix (journal decision 90) makes an L's arm midline point
+            // along its own arm instead of out of it, and at k = 4 the arm's ridge is cut into
+            // several bisectors by the subdivided walls; the sub-polygon they leave has no closure
+            // the pairwise machinery can find, so four interior edges finish without a target and
+            // the solve reports `unresolved-edges`. What it replaced was a graph the same cell used
+            // to report `complete: true` for while carrying a bisector wired to a node BEHIND its
+            // own source and a zero-length self-loop the solver had not culled. Silent to loud is
+            // the direction this arc trades in (journal decision 71a), and the whole regime here is
+            // the stage-off one the canonicalisation stage exists to make unreachable — with the
+            // stage on, the list above is empty.
             const withoutCanonicalisation = subdivisions.filter(
                 k => !solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0}).complete);
 
-            expect(withoutCanonicalisation).toEqual([7, 8, 10]);
+            expect(withoutCanonicalisation).toEqual([4, 7, 8, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {

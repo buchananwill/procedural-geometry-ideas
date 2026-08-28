@@ -272,6 +272,29 @@ consumer genuinely needs hundreds of vertices.
 
 ## 7. Strip overlap on exactly-collinear input, with `complete: true` and empty diagnostics
 
+> **CLOSED 2026-08-28** (journal decision 90). The cause was not the strip decomposition and not
+> the item-3 layer partitioning: it was the DIRECTION a corridor's midline bisector was born with.
+> `addBisectionEdge` derived the basis from the two exterior parents and then let a caller-supplied
+> `approximateDirection` flip it wherever the offset rate is zero — which is exactly the
+> anti-parallel-parent case, and exactly what a corridor's two walls are. The hint
+> `bisectionsForMerge` supplied was the bisection of the two arrivals bracketing the gap, symmetric
+> in them, so a two-run vertex event handed the same hint to both of its gaps while the gaps face
+> opposite ways. Both of the dumbbell's bar midlines were therefore born pointing OUT of the bar,
+> into the globe behind them, where each duplicated that globe's own ridge: the shaft carried no
+> skeleton and the two globes' faces covered it twice. The hint is removed and `BisectionParams` no
+> longer carries one; the parent ORDERING decides the direction, because a corridor opens the way
+> its clockwise wall points.
+>
+> Measured after: the dumbbell tiles at **zero** at every depth and overlaps nowhere, and it is in
+> `CLEAN_TEST_POLYGONS`. The class went with it — `Cross` had each arm's midline drawn along the
+> OPPOSITE arm, and `T_SHAPE`'s stem midline was born pointing up into the head and retired as a
+> zero-length self-loop. `ASYMMETRIC_DUMBBELL` (6.96e-2 before) and `THREE_GLOBE_CHAIN` (1.29e-1
+> before) are enrolled as regression fixtures, and `collinear-dumbbell.test.ts` is now a
+> specification rather than a tripwire. A new test-only invariant, **I4** in
+> `graph-index-invariants.test.ts`, catches the whole class directly: every exterior edge's two ends
+> must be joined by a walk across that edge's own bisectors, which the dumbbell's two shaft walls
+> could not do.
+
 **Where:** found 2026-08-09 by adversarial review during the parcel-quality work; **no fixture in
 the repo yet** — coordinates below are the measured repro.
 

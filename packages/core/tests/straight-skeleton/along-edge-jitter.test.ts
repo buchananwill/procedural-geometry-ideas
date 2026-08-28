@@ -219,9 +219,16 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
             .toEqual({failed: 1, failingCounts: [4]});
     });
 
-    it('fails 2 of 6 on the double-reflex plus, on the other one', () => {
+    it('fails 2 of 6 on the double-reflex plus, on the same count as the L', () => {
+        /*
+         * THE COUNT MOVED FROM 7 TO 4 ON 2026-08-28 AND THE TOTAL DID NOT (journal decision 90).
+         * The corridor-midline fix stopped a corridor's midline being born pointing out of the
+         * corridor, which changes which sub-polygons this shape's arms hand back at k = 4 and k = 7
+         * with the stage off. Both cells are loud step failures either way, and the class this file
+         * convicts canonicalisation of handling is alive at exactly the same strength.
+         */
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, HEADLINE_MAGNITUDE, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [7]});
+            .toEqual({failed: 2, failingCounts: [4]});
     });
 
     it('gives the SAME counts at 1e-3, three decades down — the plateau, measured', () => {
@@ -232,7 +239,7 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
         expect(jitterSweep(JITTER_REFLEX_L, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
             .toEqual({failed: 1, failingCounts: [4]});
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [7]});
+            .toEqual({failed: 2, failingCounts: [4]});
     });
 
     it('goes quiet at 1e-9, where the displacement is below the solver\'s own epsilon', () => {

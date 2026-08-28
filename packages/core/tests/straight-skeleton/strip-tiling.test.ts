@@ -39,11 +39,12 @@ import {
  * THE BAR IS MACHINE PRECISION, BECAUSE THAT IS WHAT THE CORPUS ACHIEVES
  * ----------------------------------------------------------------------------
  *
- * Measured 2026-08-28 over all 56 fixtures at both depths: the worst error anywhere outside the
- * dumbbell is 8.52e-16, on `Convergence Towards Isthmus (succeeds)`. A bar of 1e-14 is therefore ten
- * times the measured maximum and still eleven orders below the failure it was written for. It is
- * headroom against arithmetic, not slack bought to make a fixture pass, and it must not be widened
- * to admit one.
+ * Re-measured 2026-08-28 over all 59 fixtures at both depths, after the corridor-midline fix and the
+ * three fixtures it enrolled: the worst error anywhere outside the two pinned cells is 8.52e-16, on
+ * `Convergence Towards Isthmus (succeeds)`, unmoved. A bar of 1e-14 is therefore ten times the
+ * measured maximum and still eleven orders below the failure it was written for. It is headroom
+ * against arithmetic, not slack bought to make a fixture pass, and it must not be widened to admit
+ * one.
  */
 
 /** Depth fractions of the maximum offset the identity is asserted at. */
@@ -55,15 +56,18 @@ const TILING_TOLERANCE = 1e-14;
 /**
  * Fixtures whose tiling error is pinned rather than asserted clean, and what it measures.
  *
- * ONE ENTRY, AND IT IS THE DUMBBELL. Journal decision 72 requires each known-defect fixture to be
- * swept and pinned at whatever actually holds; measured here, six of the seven tile to machine
- * precision and only `COLLINEAR_DUMBBELL` does not. Its strips overlap strips by 22 of its 220 area
- * units, which is the silent wrong answer it is enrolled for, and the same tenth
- * `collinear-dumbbell.test.ts` measures against the caller's ring — the two agree because nothing is
- * removed from that fixture by the floor.
+ * TWO ENTRIES, BOTH THE SAME MECHANISM. Journal decision 72 requires each known-defect fixture to be
+ * swept and pinned at whatever actually holds; measured here, four of the six tile to machine
+ * precision and the two that do not miss by a merged event set having moved one of their nodes to
+ * its medoid. Neither is a strip defect.
  */
 const PINNED_TILING_ERRORS: Record<string, number> = {
-    'Collinear Dumbbell': 0.1,
+    // `Collinear Dumbbell` WAS PINNED HERE AT 0.1 AND LEFT BY BEING FIXED, 2026-08-28, journal
+    // decision 90 — the route this file's own rule names, not a softened number. Its bar had no
+    // skeleton: the midline of a corridor was born at each end pointing out of the corridor, so the
+    // two globes' faces each covered the shaft and the strips overlapped by 22 of its 220 area
+    // units. It now tiles at zero and is in the clean roster, swept above with everything else.
+    //
     // Journal decision 82, 2026-08-28. NOT a strip defect and not a bar that was widened to admit
     // one: the render-floor coincidence rule of decision 78 resolves this fixture's cluster B — two
     // events 3.13e-7 apart in unit space, 2.7e-7 of its extent — into one node, and the merged node
@@ -167,13 +171,13 @@ describe('the strips and the residue account for the polygon they were cut from'
         expect(computeStrips(result, {depth: computeMaxOffset(result) * 0.2}).length).toBeGreaterThan(0);
     });
 
-    it('only the three pinned fixtures miss the bar, which is why it can be this tight', () => {
-        // Measured rather than assumed, and asserted as a SET so that a fourth fixture starting to
-        // miss is caught here rather than absorbed into a tolerance. The three are of two completely
-        // different kinds and the set says so: the dumbbell's strips OVERLAP by a tenth of its area,
-        // a silent wrong answer, while seed 15838 and (seed 55433, k=4) miss by 7.36e-13 and
-        // 1.78e-12 because a merged event set moved one of their nodes to its medoid. See
-        // {@link PINNED_TILING_ERRORS}.
+    it('only the two pinned fixtures miss the bar, which is why it can be this tight', () => {
+        // Measured rather than assumed, and asserted as a SET so that a third fixture starting to
+        // miss is caught here rather than absorbed into a tolerance. Both survivors are of one kind
+        // — seed 15838 and (seed 55433, k=4) miss by 7.36e-13 and 1.78e-12 because a merged event
+        // set moved one of their nodes to its medoid. The kind that is GONE is the one worth naming:
+        // the dumbbell's strips overlapped by a tenth of its area, a silent wrong answer, and it was
+        // fixed rather than re-pinned. See {@link PINNED_TILING_ERRORS}.
         const failing = FULL_CORPUS
             .filter(polygon => !UNMEASURABLE.includes(polygon.name))
             .filter(polygon => worstTilingError(polygon.vertices) >= TILING_TOLERANCE)

@@ -324,7 +324,13 @@ describe('the shape of the tree, over the whole corpus', () => {
         // 75, the reconstruction of a shape whose ONE exactly-collinear vertex the boundary stage
         // removes. It builds a tree, so `notTrees` is still empty — and the tree it builds is the
         // 15-vertex ring's, not the caller's 16-vertex one.
-        expect(trees).toHaveLength(50);
+        //
+        // 50 became 53 on 2026-08-28 under journal decision 90: `Collinear Dumbbell` promoted out
+        // of the defect roster when its bar gained a midline, and `Asymmetric Dumbbell` and
+        // `Three Globe Chain` were enrolled as the class's other two shapes. All three build trees,
+        // so `notTrees` is still empty — including across the head-on midline PAIR each corridor
+        // carries, which the tree builder reads as one undirected edge between its two endpoints.
+        expect(trees).toHaveLength(53);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -541,6 +547,14 @@ describe('skeletonTreeDiameter over the corpus', () => {
      * boundary vertex one hop off it, so the hop-count path and the weighted diameter pick the same
      * walk. The 30 already there are unchanged — re-running the filter over the 48 alone still
      * gives 30 — so this count is evidence that a corpus can grow without this measure moving.
+     *
+     * 30 STAYED 30 AGAIN on 2026-08-28, through journal decision 90's promotion of
+     * `Collinear Dumbbell` and the enrolment of `Asymmetric Dumbbell` and `Three Globe Chain`, and
+     * again the zero is attributed: NONE of the three joins the offenders. A dumbbell's skeleton is
+     * a straight spine with every boundary vertex one or two hops off it, so the hop-count path and
+     * the weighted diameter pick the same walk — the same reason the regular n-gon does not join.
+     * The chain's longer spine does not change that, because its extra hops lie along the spine
+     * rather than off it.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>

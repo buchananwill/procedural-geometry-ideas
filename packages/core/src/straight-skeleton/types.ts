@@ -152,11 +152,19 @@ export type CollisionCacheEntry = CollisionEvent[] | typeof NO_COLLISION_SENTINE
  */
 export type CollisionCache = Map<number, Map<number, CollisionCacheEntry>>;
 
+/**
+ * A bisector to be born: which two exterior parents bound it, and which node it leaves from.
+ *
+ * NO DIRECTION HINT, AND THAT IS DELIBERATE. This carried an `approximateDirection` that
+ * `addBisectionEdge` used to flip the parent-derived basis with. The basis is never in doubt — the
+ * offset rate decides it, and where the rate is zero the parents are anti-parallel and their
+ * ORDERING decides it — so the hint could only ever overrule a correct answer, and measurably did:
+ * see `addBisectionEdge`.
+ */
 export interface BisectionParams {
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
     source: number;
-    approximateDirection?: Vector2
 }
 
 /*

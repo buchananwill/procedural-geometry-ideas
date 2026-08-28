@@ -209,17 +209,26 @@ describe('the regular-insertion failures are gone even with the stage off, since
          * subdivision is a special input — it manufactures exact simultaneity and exactly equal
          * spacing that irregular insertion never produces.
          *
-         * PROBING BOTH IS LOAD-BEARING RATHER THAN THOROUGH, and this is the measurement that shows
-         * it. With the stage switched off the two families catch DIFFERENT failures: the reflex L
-         * fails 4 of 10 regular counts and 0 of 10 irregular seeds, while the double-reflex plus is
-         * the other way round at 1 of 10 regular and 2 of 10 irregular. A suite probing either
-         * family alone would have declared one of these two shapes clean. With the stage on, both
-         * are 0 of 10 either way.
+         * PROBING BOTH FAMILIES IS STILL RIGHT AND THIS FILE NO LONGER CONVICTS THE STAGE. Said
+         * plainly rather than left to be inferred from four zeroes. Historically the two families
+         * caught DIFFERENT failures with the stage off — the reflex L failed 4 of 10 regular counts
+         * and 0 of 10 irregular seeds, the plus 1 of 10 regular and 2 of 10 irregular — so a suite
+         * probing either alone would have declared one of these shapes clean. Successive solver
+         * fixes have since emptied every one of those cells:
          *
-         * RE-MEASURED: the plus's irregular count was 4 until the parallel-vertex closure in
-         * `algorithm-termination-cases.ts` gave the terminal sub-polygons of same-direction
-         * wavefront vertices somewhere to close. Two of the four were that state; the asymmetry the
-         * measurement exists for survives it.
+         *     stage off, this file          2026-08-09   after D56   after D90
+         *     reflex L, regular                 4/10          0          0
+         *     reflex L, irregular               0/10          0          0
+         *     plus, regular                     1/10          0          0
+         *     plus, irregular                   4/10          2          0
+         *
+         * The last cell fell to the corridor-midline fix (journal decision 90): the plus's arms are
+         * corridors, and both surviving seeds produced a sub-polygon whose midline had been born
+         * pointing out of the arm. WHERE THE STAGE'S CONVICTION LIVES NOW is
+         * `stroke-derived-polygons.test.ts` (the L still fails at k = 4, 7, 8 and 10 with the floor
+         * at zero) and `along-edge-jitter.test.ts` (both shapes still fail with the stage off). The
+         * assertions below are therefore a SPECIFICATION — the solver handles this whole regime
+         * unaided now — and they stay because a return of any of these cells must be loud.
          */
         const seeds = Array.from({length: 10}, (_unused, index) => (index + 1) * 7919);
         const fails = (polygon: Vector2[], floor: number): number =>
@@ -230,8 +239,14 @@ describe('the regular-insertion failures are gone even with the stage off, since
         expect(fails(DOUBLE_REFLEX_PLUS, SKELETON_NOISE_FLOOR)).toBe(0);
 
         // The conviction, and the asymmetry that makes probing both families necessary.
+        //
+        // RE-MEASURED 2026-08-28: the plus's irregular count went 2 to 0 under the corridor-midline
+        // fix (journal decision 90) — its arms are corridors, and both of the surviving two were
+        // sub-polygons whose midline had been born pointing out of the arm. The asymmetry the
+        // measurement exists for now shows as the REGULAR family alone (the block above), which is
+        // the same point made by the other half of the pair.
         expect(fails(REFLEX_L, 0)).toBe(0);
-        expect(fails(DOUBLE_REFLEX_PLUS, 0)).toBe(2);
+        expect(fails(DOUBLE_REFLEX_PLUS, 0)).toBe(0);
     });
 
     it('removes only the inserted vertices, restoring the fixture the solver always handled', () => {

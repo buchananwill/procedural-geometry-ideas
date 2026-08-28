@@ -315,8 +315,44 @@ describe('the degenerate closure, end to end: the rectilinear T-Shape', () => {
             expect(interiorEdge.culled === true).toBe(isSelfLoop);
         }
 
+        /*
+         * ONE, AND IT WAS TWO UNTIL THE CORRIDOR-MIDLINE FIX (journal decision 90, 2026-08-28).
+         * The one that survives is `[6, 2]`, the bisector of the head's two collinear `y = 400`
+         * pieces: above their shared line every point is equidistant from both, so there is no
+         * midline for it to be, and retiring it is right.
+         *
+         * THE ONE THAT LEFT IS THE STEM'S OWN MIDLINE, `[3, 5]`, and losing it was the same defect
+         * the dumbbell was enrolled for. The stem is a corridor of anti-parallel walls; its midline
+         * was born at `(300, 500)` pointing UP into the head instead of down the stem, found nothing
+         * there, and was culled at its own source. The stem's ridge existed only because the
+         * bisector born at the far end, `[5, 3]`, happened to point the right way. Both ends of a
+         * corridor emit a midline and the two meet head-on, so the T-Shape now carries the pair —
+         * the same representation `COLLINEAR_DUMBBELL` carries along its bar.
+         */
         const culled = graph.interiorEdges.filter(interiorEdge => interiorEdge.culled);
-        expect(culled).toHaveLength(2);
+        expect(culled).toHaveLength(1);
+        expect(culled.map(interiorEdge => [
+            interiorEdge.clockwiseExteriorEdgeIndex, interiorEdge.widdershinsExteriorEdgeIndex,
+        ])).toEqual([[6, 2]]);
+    });
+
+    it('runs a midline down the stem in both directions, meeting head-on', () => {
+        // The other half of the culling change above, asserted positively so that the stem's ridge
+        // cannot quietly go back to being a single edge beside a retired self-loop.
+        const {graph} = runAlgorithmV5(T_SHAPE);
+
+        const stemMidlines = graph.interiorEdges.filter(interiorEdge =>
+            (interiorEdge.clockwiseExteriorEdgeIndex === 3 && interiorEdge.widdershinsExteriorEdgeIndex === 5)
+            || (interiorEdge.clockwiseExteriorEdgeIndex === 5 && interiorEdge.widdershinsExteriorEdgeIndex === 3));
+
+        expect(stemMidlines).toHaveLength(2);
+        expect(stemMidlines.map(interiorEdge => {
+            const edge = graph.edges[interiorEdge.id];
+            return [graph.nodes[edge.source].position, graph.nodes[edge.target!].position];
+        })).toEqual([
+            [{x: 300, y: 500}, {x: 300, y: 100}],
+            [{x: 300, y: 100}, {x: 300, y: 500}],
+        ]);
     });
 });
 
