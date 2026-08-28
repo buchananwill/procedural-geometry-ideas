@@ -455,13 +455,18 @@ describe('stroke-derived polygons', () => {
 
         it('still loses the reflex L-shape at those subdivisions with canonicalisation off', () => {
             // The conviction for the empty list above. A zero noise floor is an exact identity in
-            // the stage, so this is the solver as it behaved before it existed, and the historical
-            // set reproduces on the nose. Deleting the assertions would have emptied the list just
-            // as well; this is how the difference is told.
+            // the stage, so this is the solver as it behaved before it existed. Deleting the
+            // assertions would have emptied the list just as well; this is how the difference is
+            // told.
+            //
+            // THE SET IS NO LONGER THE HISTORICAL ONE, AND THE DIFFERENCE IS ATTRIBUTED: the
+            // parallel-vertex closure in `algorithm-termination-cases.ts` cured k = 4, 6 and 9,
+            // which died in terminal sub-polygons whose wavefront vertices all travelled the same
+            // way and so could never meet. Three of the six survive, and the conviction with them.
             const withoutCanonicalisation = subdivisions.filter(
                 k => !solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0}).complete);
 
-            expect(withoutCanonicalisation).toEqual([4, 6, 7, 8, 9, 10]);
+            expect(withoutCanonicalisation).toEqual([7, 8, 10]);
         });
 
         it('is not caused by collinearity by itself', () => {

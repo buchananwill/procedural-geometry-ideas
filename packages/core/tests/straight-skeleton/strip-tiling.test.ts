@@ -70,19 +70,32 @@ const PINNED_TILING_ERRORS: Record<string, number> = {
     // sits at the medoid of its own event set rather than at either of the two points the epsilon
     // bar used to place. The skeleton therefore MOVES by the pair separation, and the strips carry
     // that displacement into their areas. 7.36e-13 is what a 3.13e-7 unit-space move costs an area
-    // identity; the global bar stays at 1e-14, where the other 55 fixtures still sit.
+    // identity; the global bar stays at 1e-14, where the other 54 fixtures still sit.
     'Off-edge Jitter Reflex L (seed 15838)': 7.36e-13,
+    // The same mechanism one step further out, and the same ruling. Giving the split/partition pass
+    // render-floor position identity (journal decision 85) resolves this fixture's two simultaneous
+    // splits — 5.4e-7 apart in unit space, which no zoom separates — into one node at the medoid of
+    // their two positions, so the skeleton moves by that separation and the strips carry it into
+    // their areas. 1.78e-12 is what a 5.4e-7 unit-space move costs an area identity. The cure it
+    // bought is in `graph-index-invariants.test.ts` (a sub-floor pair gone) and in
+    // `wavefront-causality.test.ts` (this fixture's direction violation gone).
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': 1.78e-12,
 };
 
 /**
  * Fixtures the identity cannot be measured on at all, and why.
  *
- * `computeMaxOffset` refuses an incomplete solve, so there is no depth to sweep. That is the plus
- * seed's own pinned failure (`along-edge-jitter-known-failures.test.ts`) rather than a gap here, and
- * naming it keeps the sweep's reach honest: a fixture that started solving would fall out of this
- * list and into the sweep, loudly.
+ * `computeMaxOffset` refuses an incomplete solve, so there is no depth to sweep. THE LIST IS NOW
+ * EMPTY: `Off-edge Jitter Plus (seed 7919)` was its only member and the parallel-vertex closure in
+ * `algorithm-termination-cases.ts` cured its root, so it falls into the sweep — and measures 1.46e-16
+ * at every swept depth, which is the clean-roster band and evidence that the closure produced a
+ * skeleton whose strips genuinely tile the polygon.
+ *
+ * The list is kept rather than deleted because a static exclusion that outlives its reason is exactly
+ * the laundering journal decision 72 retired: an empty one asserts, in the reach test below, that
+ * every fixture in the corpus is measured here.
  */
-const UNMEASURABLE = ['Off-edge Jitter Plus (seed 7919)'];
+const UNMEASURABLE: string[] = [];
 
 function signedRingArea(ring: Vector2[]): number {
     let total = 0;
@@ -142,24 +155,25 @@ describe('the strips and the residue account for the polygon they were cut from'
         },
     );
 
-    it('is not vacuous: the sweep reaches every fixture but the one that cannot be measured', () => {
+    it('is not vacuous: the sweep reaches every fixture in the corpus', () => {
         // The guard on its own reach. A depth that stopped producing strips, or a roster that lost a
         // fixture, would leave every assertion above passing over nothing.
         const measured = FULL_CORPUS.filter(polygon => !UNMEASURABLE.includes(polygon.name));
 
-        expect(measured).toHaveLength(FULL_CORPUS.length - 1);
+        expect(measured).toHaveLength(FULL_CORPUS.length);
         expect(UNMEASURABLE.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
 
         const result = solveSkeleton(CLEAN_TEST_POLYGONS[0].vertices);
         expect(computeStrips(result, {depth: computeMaxOffset(result) * 0.2}).length).toBeGreaterThan(0);
     });
 
-    it('only the two pinned fixtures miss the bar, which is why it can be this tight', () => {
-        // Measured rather than assumed, and asserted as a SET so that a third fixture starting to
-        // miss is caught here rather than absorbed into a tolerance. The two are of completely
+    it('only the three pinned fixtures miss the bar, which is why it can be this tight', () => {
+        // Measured rather than assumed, and asserted as a SET so that a fourth fixture starting to
+        // miss is caught here rather than absorbed into a tolerance. The three are of two completely
         // different kinds and the set says so: the dumbbell's strips OVERLAP by a tenth of its area,
-        // a silent wrong answer, while seed 15838 misses by 7.36e-13 because decision 78 moved one
-        // of its nodes to the medoid of a merged event set. See {@link PINNED_TILING_ERRORS}.
+        // a silent wrong answer, while seed 15838 and (seed 55433, k=4) miss by 7.36e-13 and
+        // 1.78e-12 because a merged event set moved one of their nodes to its medoid. See
+        // {@link PINNED_TILING_ERRORS}.
         const failing = FULL_CORPUS
             .filter(polygon => !UNMEASURABLE.includes(polygon.name))
             .filter(polygon => worstTilingError(polygon.vertices) >= TILING_TOLERANCE)

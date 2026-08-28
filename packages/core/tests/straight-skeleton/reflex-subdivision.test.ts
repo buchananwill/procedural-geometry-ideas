@@ -212,9 +212,14 @@ describe('the regular-insertion failures are gone even with the stage off, since
          * PROBING BOTH IS LOAD-BEARING RATHER THAN THOROUGH, and this is the measurement that shows
          * it. With the stage switched off the two families catch DIFFERENT failures: the reflex L
          * fails 4 of 10 regular counts and 0 of 10 irregular seeds, while the double-reflex plus is
-         * the other way round at 1 of 10 regular and 4 of 10 irregular. A suite probing either
+         * the other way round at 1 of 10 regular and 2 of 10 irregular. A suite probing either
          * family alone would have declared one of these two shapes clean. With the stage on, both
          * are 0 of 10 either way.
+         *
+         * RE-MEASURED: the plus's irregular count was 4 until the parallel-vertex closure in
+         * `algorithm-termination-cases.ts` gave the terminal sub-polygons of same-direction
+         * wavefront vertices somewhere to close. Two of the four were that state; the asymmetry the
+         * measurement exists for survives it.
          */
         const seeds = Array.from({length: 10}, (_unused, index) => (index + 1) * 7919);
         const fails = (polygon: Vector2[], floor: number): number =>
@@ -226,7 +231,7 @@ describe('the regular-insertion failures are gone even with the stage off, since
 
         // The conviction, and the asymmetry that makes probing both families necessary.
         expect(fails(REFLEX_L, 0)).toBe(0);
-        expect(fails(DOUBLE_REFLEX_PLUS, 0)).toBe(4);
+        expect(fails(DOUBLE_REFLEX_PLUS, 0)).toBe(2);
     });
 
     it('removes only the inserted vertices, restoring the fixture the solver always handled', () => {

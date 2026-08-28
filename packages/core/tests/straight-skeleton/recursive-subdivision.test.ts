@@ -177,11 +177,21 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  *   - the plus seed: 12, BIT-UNMOVED — its root does not solve at all, so no downstream correction
  *     can reach it, and its unmoved count is the evidence that this cure is the face walk's rather
  *     than something that quietly touched the solver.
+ *
+ * RE-MEASURED AGAIN when the parallel-vertex closure cured the plus seed's ROOT. Its 12 is now 15,
+ * and the number is worse while the fixture is better, so the CHARACTER of the count is what has to
+ * be read rather than its size. Before, every one of the twelve was the same thing: `Incomplete
+ * solve` at LEVEL 0, one per cell of the 3 x 4 grid — the root refusing, so the driver never
+ * recursed and the grid measured one defect twelve times. Now the root solves, the driver reaches
+ * level 2, and the fifteen are all `Degenerate region`: sub-regions of 3 to 5 boundary vertices
+ * enclosing 5e-8 to 8.5e-7 of area against the 1e-6 degeneracy floor. That is the driver declining a
+ * sliver it cannot see, not a solve that failed. The other three jitter counts are bit-unmoved,
+ * which is the evidence that the closure reached this fixture and nothing else.
  */
 const CENSUS_SIGNATURES: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 15838)': 0,
     'Off-edge Jitter Reflex L (seed 55433)': 3,
-    'Off-edge Jitter Plus (seed 7919)': 12,
+    'Off-edge Jitter Plus (seed 7919)': 15,
     'Off-edge Jitter Reflex L (seed 55433, k=4)': 11,
     'Collinear Dumbbell': 0,
     'Near Regular Circle 48': 0,

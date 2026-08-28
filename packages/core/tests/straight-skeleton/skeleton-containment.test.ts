@@ -119,14 +119,26 @@ describe('a complete solve strands nothing', () => {
         },
     );
 
-    it('is not vacuous: most of the corpus reports complete, and one fixture does not', () => {
-        // Both halves matter. If every fixture were incomplete the sweep above would assert nothing
-        // at all; if every fixture were complete, the `!complete` early return would be dead code
-        // and a change that made it wrong would never be exercised.
+    it('is not vacuous: every fixture in the corpus now reports complete', () => {
+        // If every fixture were incomplete the sweep above would assert nothing at all. Since the
+        // parallel-vertex closure cured `Off-edge Jitter Plus (seed 7919)`, the corpus's last
+        // incomplete root, the whole of FULL_CORPUS reaches the assertion.
         const complete = FULL_CORPUS.filter(polygon => solveSkeleton(polygon.vertices).complete);
-        expect(complete.length).toBe(FULL_CORPUS.length - 1);
-        expect(FULL_CORPUS.filter(polygon => !solveSkeleton(polygon.vertices).complete)
-            .map(polygon => polygon.name))
-            .toEqual(['Off-edge Jitter Plus (seed 7919)']);
+        expect(complete.length).toBe(FULL_CORPUS.length);
+    });
+
+    it('still exercises the incomplete branch, on a BUILT specimen', () => {
+        // SPECIMEN DEBT, PAID THE WAY THE CORE PRECEDENT PAYS IT (journal F15a/F15c): the early
+        // return above needs an incomplete solve to be more than dead code, and the corpus no longer
+        // has one. A counter-clockwise ring solved with winding normalisation off is the smallest
+        // construction that produces one — `runAlgorithmV5`'s own documented silent-failure mode —
+        // and unlike a fixture it cannot be cured out from under this test.
+        const counterClockwiseSquare = [{x: 0, y: 0}, {x: 10, y: 0}, {x: 10, y: 10}, {x: 0, y: 10}];
+        const {graph, complete} = solveSkeleton(counterClockwiseSquare, {normaliseWinding: false});
+
+        expect(complete).toBe(false);
+        expect(graph.interiorEdges
+            .filter(interiorEdge => graph.edges[interiorEdge.id]?.target === undefined))
+            .not.toEqual([]);
     });
 });

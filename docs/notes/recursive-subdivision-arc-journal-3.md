@@ -480,7 +480,66 @@ under decisions 66/81, while the arc's live user-facing defects (the plus root, 
 pairs, the dumbbell) are unserved. The user can override; the design is recorded here so no
 future session re-derives it.
 
+**90 — (user, 2026-08-28) The collinear dumbbell is taken on, with the user's mechanism as the
+starting hypothesis: simultaneous closure of both bar-end nodes closes both ends of both primary
+edges, which the solver reads as a clean disconnection into two well-formed sub-polygons — and
+the bar's medial line is never generated because its would-be parents are no longer available.**
+The user's words, near-verbatim: the two nodes at either end of the narrow bar form at the exact
+same offset; in doing so they close both ends of both primary edges; the solver interprets this
+as cleanly disconnecting the globes; neither edge is then available to parent the medial line
+(which should be parented by the two parallel bar edges that collide first); and the solver sees
+no problem, because it has two well-formed sub-polygons to finish with. Intuitively the bar
+should carry a clean medial line along its centre. Lead's observation for the implementer, a
+candidate shape rather than a prescription: the missing piece resembles F12's double-split
+**middle child** — a corridor sub-polygon bounded by the two closure nodes with the two parallel
+bar edges as its exterior parents, whose own solve IS the medial line; the defect would then be
+in whatever acceptance/partition step consumes the bar edges endpoint-wise without noticing
+their unswept mid-span (the edge-level analogue of the vertex-local blindness that has always
+hidden this fixture). Dispatches immediately after the in-flight decision-80/85 package lands —
+same solver files, sequential by commit discipline.
+
+**91 — Both of the plus-root package's escalated judgement calls are RATIFIED.** (a) Census
+26 → 29 with the character change accepted: the twelve level-0 root refusals (one defect counted
+twelve times) became fifteen level-2 `Degenerate region` declines of 5e-8…8.5e-7-area slivers
+against the 1e-6 floor — the driver correctly declining regions it cannot see, downstream of a
+root that now solves. Attribution is complete and the count's meaning improved. (b) Half B's
+landing with I3's machine-precision criterion failed-but-bounded is accepted: k4's 8.34e-12 sits
+two orders inside the 1e-9 bar, confined to one defect fixture, pinned per decision 72's own
+structure rather than softened globally — a small, visible, deliberate spend of the I3 budget,
+purchasing the k4 pair merge, its causality cure, and three of Rosette5's scatter cells
+(structurally native, not flag-flips).
+
+**92 — Decision 85's premise is corrected by measurement, and the surviving sub-floor pairs are
+re-understood as REAL micro-structure; the honest route to the user's visual criterion is a
+presentation-layer contraction, recorded as future work, not a solver change.** Three of the four
+surviving pinned pairs are joined by real skeleton edges — one event creates the bisector the
+next terminates; they are causally ordered and in different layers by construction, so no event
+identity rule can merge them, and node-level absorption is the F27-rejected mechanism. Only k4's
+one-layer split 2-cycle was genuinely mergeable, and it merged. What remains below the render
+floor is genuine structure: edges shorter than anyone can see. The decision-54-honest resolution
+is a POST-SOLVE simplification pass (contract sub-floor edges for presentation and downstream
+consumers that opt in), leaving solve semantics exact — parked in next-work, after the dumbbell.
+
 ## Findings
+
+**F33 — The plus's root cure exposed that its failure was the collinear-dumbbell class,
+manufactured by canonicalisation.** Removing caller vertices 1 and 9 (legitimately sub-floor)
+rejoins exterior edges 0 and 7 onto ONE exactly-shared supporting line; the solve then reduces to
+a zero-area two-edge sub-polygon with parallel same-direction wavefronts — no future event at any
+offset. Fix: `solveParallelClosure` at the two throw sites, closing at the leading source via the
+existing degenerate-closure machinery — **no node moves**, and the gate on
+`solveDegenerateClosure`'s all-parallel precondition is load-bearing: ungated it converted 39
+loud large-coordinate failures into complete-but-wrong graphs (shattered hubs, backwards edges),
+measured before gating. The plus now solves and tiles at 1.46e-16, joining the tiling sweep; its
+80-cell family failure 11 → 10 cells (the remaining ten are near-parallel/near-head-on/partition
+mechanisms, measured per cell into the test headers, stage-off family total 90/160 → 59/160).
+Half B landed split-event position identity (component medoid before node placement, epsilon
+components untouched — the restraint is mutation-load-bearing). Clean roster bit-identical to
+`2210e51` except the two attributed cures. Delegate figures: core 4774/4774 (78 suites),
+dashboard 268/268; convictions 11/17/6/2 across the four mutations, all restorations
+md5-verified. Final roster signature table lives in the package report; headline residuals: k4
+census 11 / tiling 1.78e-12 / I3 8.34e-12, 55433 census 3 / direction 2, plus census 15
+(slivers) / direction 3, dumbbell 0.1 tiling (decision 90 queued).
 
 **F32 — I3 reformulated to the definition and landed at machine precision; the duplicate
 bisector traced to its true cause; the gate's cost has one mechanism.** As first specified

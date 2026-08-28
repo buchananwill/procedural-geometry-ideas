@@ -482,6 +482,10 @@ describe('wavefront causality', () => {
      * WHAT SURVIVES OF THE SILENT-WRONG-ANSWER FINDING. `(seed 55433)` and `(seed 55433, k=4)` do
      * report `complete: true` while terminating edges behind their own source, so the family journal
      * decision 71a ruled was never a pass is still represented — by the direction check alone.
+     * `Off-edge Jitter Plus (seed 7919)` JOINED THEM when the parallel-vertex closure cured its root:
+     * its three direction violations are bit-unmoved — they are on edges the closure never touched —
+     * but the solve that carries them now reports `complete: true`, so this table is one of only two
+     * sweeps that still see it.
      *
      * THE NUMBERS FIRE IN BOTH DIRECTIONS. A count that grows is a regression; a count that shrinks
      * is a partial cure that must be re-measured and, at zero across a fixture's whole signature —
@@ -497,7 +501,11 @@ describe('wavefront causality', () => {
         'Off-edge Jitter Reflex L (seed 15838)': {offset: 0, clearance: 0, direction: 0},
         'Off-edge Jitter Reflex L (seed 55433)': {offset: 0, clearance: 0, direction: 2},
         'Off-edge Jitter Plus (seed 7919)': {offset: 0, clearance: 0, direction: 3},
-        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 1},
+        // Direction was 1 until the split/partition pass gained render-floor position identity
+        // (journal decision 85): the violating edge was one half of the degenerate pair joining two
+        // split nodes 5.4e-7 apart, and with the pair resolved into one node the edge is a
+        // zero-length self-loop with no direction to disagree with.
+        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 0},
         'Collinear Dumbbell': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Circle 48': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Rosette5 40': {offset: 0, clearance: 0, direction: 0},

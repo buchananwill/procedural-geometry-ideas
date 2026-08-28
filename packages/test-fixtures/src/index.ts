@@ -199,10 +199,9 @@ import {INVISIBLE_VERTEX_RECTANGLE} from './invisible-vertex-rectangle';
 
 // near-floor-jitter.ts
 // Three of the four are in KNOWN_DEFECT_POLYGONS below: each defeats the recursive driver on the
-// census grid, and the plus seed does not solve as a root either. They are the live near-floor
-// off-edge jitter defect of journal decision 67; the mechanism and the magnitude sweep are in
-// along-edge-jitter-known-failures.test.ts, and the fixture file header carries the generator and
-// why the failing band sits just above the noise floor.
+// census grid. They are the live near-floor off-edge jitter defect of journal decision 67; the
+// mechanism and the magnitude sweep are in along-edge-jitter-known-failures.test.ts, and the fixture
+// file header carries the generator and why the failing band sits just above the noise floor.
 //
 // `OFF_EDGE_JITTER_L_SEED_15838` was CURED ON THE CENSUS GRID on 2026-08-28 under journal decision
 // 77 — 5 failed regions to 0 — and stays here on the canonical-area drift bound instead. See its
@@ -364,8 +363,8 @@ export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
 export const KNOWN_DEFECT_POLYGONS: NamedTestPolygon[] = [
     // Near-floor off-edge jitter (near-floor-jitter.ts). What is left of journal decision 67's live
     // solver defect after decision 77's face-walk correction: two seeds still hand the recursive
-    // driver regions it cannot subdivide (counts fell 10 to 3 and 14 to 11), and the plus seed does
-    // not solve as a root at all.
+    // driver regions it cannot subdivide (counts fell 10 to 3 and 14 to 11), and the plus seed hands
+    // it fifteen sub-visible slivers now that the parallel-vertex closure has cured its root.
     //
     // SEED 15838 IS CURED ON THIS GRID — 5 failed regions to 0 — AND STILL DOES NOT PROMOTE, which
     // is a measurement rather than a hedge. The clean roster carries a second bar it fails: the

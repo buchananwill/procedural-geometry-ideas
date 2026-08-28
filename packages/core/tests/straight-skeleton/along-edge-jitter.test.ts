@@ -71,24 +71,49 @@ import {
  *     plus along-edge     0      15      56      56      56      (recorded 2026-08-09: 25)
  *     plus off-edge       0      69      53       1       0      (recorded 2026-08-09:  0)
  *
+ * ----------------------------------------------------------------------------
+ * RE-MEASURED IN FULL, LATER ON 2026-08-28: BOTH TABLES MOVED, ALL OF IT DOWNWARDS
+ * ----------------------------------------------------------------------------
+ *
+ * The block above is kept as it was written. What follows is the same eighty cells per column,
+ * re-measured on the solver with journal decision 78's event-floor clustering, the parallel-vertex
+ * closure in `algorithm-termination-cases.ts` and the split-path position identity in
+ * `coincident-events.ts` all in place — the reason the subset assertions below moved. Stage ON:
+ *
+ *     magnitude          1e-9    1e-6    1e-3    0.1     1.0
+ *     L   along-edge      0       0       0       0       0
+ *     L   off-edge        0       0       0       0       0     (was 22 at 1e-3, 1 at 0.1)
+ *     plus along-edge     0       0       0       0       0
+ *     plus off-edge       0       0      10       1       0     (was 46 at 1e-3)
+ *
+ * Stage OFF:
+ *
+ *     magnitude          1e-9    1e-6    1e-3    0.1     1.0
+ *     L   along-edge      0       0      19      19      19     (was 0, 2, 34, 34, 34)
+ *     L   off-edge       10      16       2       0       0     (was 10, 20, 30, 1, 0)
+ *     plus along-edge     0       0      40      40      40     (was 0, 15, 56, 56, 56)
+ *     plus off-edge       0      54      10       1       0     (was 0, 69, 53, 1, 0)
+ *
  * TWO THINGS THAT TABLE SAYS, AND BOTH MATTER MORE THAN THE ZEROES.
  *
- * FIRST: with the stage off the class is ALIVE and slightly worse — 90 of 160 today against 73 of
- * 160 then, redistributed between the two shapes. Nothing that has landed since removed the defect.
- * Canonicalisation removed the INPUT.
+ * FIRST: with the stage off the class is STILL ALIVE, and no longer worse than the record — 59 of
+ * 160 against the 90 of 160 measured earlier today and the 73 of 160 recorded in 2026-08-09,
+ * redistributed between the two shapes. Nothing that has landed removes the defect; canonicalisation
+ * removes the INPUT, and the solver work since has taken about a third of what is left.
  *
  * SECOND: the off-edge column, which the backlog uses as its CONTROL, is only clean far from the
- * noise floor. At 1e-3 with the stage ON it fails 22/80 and 46/80 — a live defect at default
- * options, pinned in `along-edge-jitter-known-failures.test.ts`, which keeps the FULL eighty-cell
- * grid because it is measuring something that is still broken.
+ * noise floor. At 1e-3 with the stage ON the L is now clean and the plus fails 10/80 — a live defect
+ * at default options, pinned in `along-edge-jitter-known-failures.test.ts`, which keeps the FULL
+ * eighty-cell grid because it is measuring something that is still broken.
  *
  * WHY 1.0 IS THE HEADLINE MAGNITUDE FOR THE CONTROL BELOW, AND WHY THE CHOICE BARELY MATTERS. The
  * backlog gives two anchors: along-edge fails about half its cells, and off-edge passes all eighty.
  * 1.0 is the only magnitude at which the second anchor reproduces, with the stage on and off alike.
- * The choice is nearly free, because the along-edge count SATURATES: 34/80 and 56/80 at 1e-3, at 0.1
- * and at 1.0, on the same insertion counts each time. Once the jitter is large enough to break exact
- * even spacing at all, which insertion counts fail is a property of the shape's offset layers rather
- * than of how hard it was pushed. The subset below reproduces that plateau at both ends.
+ * The choice is nearly free, because the along-edge count SATURATES: 19/80 and 40/80 at 1e-3, at 0.1
+ * and at 1.0, on the same insertion counts each time — the plateau survived every cure, only its
+ * height fell. Once the jitter is large enough to break exact even spacing at all, which insertion
+ * counts fail is a property of the shape's offset layers rather than of how hard it was pushed. The
+ * subset below reproduces that plateau at both ends.
  *
  * ----------------------------------------------------------------------------
  * WHAT TO DO WHEN A NUMBER HERE MOVES
@@ -124,10 +149,12 @@ const STAGE_OFF = 0;
  * seconds instead of minutes.
  *
  * NOT AN ARBITRARY SIX. The counts are chosen so the subset can still SEE the recorded defect: with
- * the stage off, the full grid's along-edge failures land on counts [4, 6, 7, 8, 9, 10] for the L and
- * [4, 5, 6, 7, 8, 9, 10] for the plus, and 4 and 7 are in both. `k = 2` is carried as the cheap
- * control that must stay clean. A subset drawn only from the passing counts would assert zero for the
- * wrong reason and would go on passing through a total regression of the stage-off regime.
+ * the stage off, the full grid's along-edge failures land on counts [4, 6, 8, 9, 10] for the L and
+ * [6, 7, 8, 9, 10] for the plus, so 4 catches the L and 7 catches the plus. (They were in both until
+ * the parallel-vertex closure re-measurement; the subset is unchanged and still sees each shape.)
+ * `k = 2` is carried as the cheap control that must stay clean. A subset drawn only from the passing
+ * counts would assert zero for the wrong reason and would go on passing through a total regression
+ * of the stage-off regime.
  *
  * `failed` counts below are therefore OUT OF SIX. The eighty-cell figures are in the header.
  */
@@ -183,17 +210,18 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
     /*
      * This is what convicts canonicalisation of doing the work. If these went to zero without the
      * table in the header being re-measured, the specification above would be passing for an unknown
-     * reason. Sampled six cells of eighty; the eighty-cell figures are 34 and 56.
+     * reason. Sampled six cells of eighty; the eighty-cell figures are 19 and 40, re-measured with
+     * the parallel-vertex closure in place — see the second table in the header.
      */
 
-    it('fails 2 of 6 on the reflex L, on the counts the full grid fails', () => {
+    it('fails 1 of 6 on the reflex L, on a count the full grid fails', () => {
         expect(jitterSweep(JITTER_REFLEX_L, HEADLINE_MAGNITUDE, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [4, 7]});
+            .toEqual({failed: 1, failingCounts: [4]});
     });
 
-    it('fails 4 of 6 on the double-reflex plus, on the same counts', () => {
+    it('fails 2 of 6 on the double-reflex plus, on the other one', () => {
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, HEADLINE_MAGNITUDE, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 4, failingCounts: [4, 7]});
+            .toEqual({failed: 2, failingCounts: [7]});
     });
 
     it('gives the SAME counts at 1e-3, three decades down — the plateau, measured', () => {
@@ -202,9 +230,9 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
         // and started being a property of how hard the samples were pushed, which is a different
         // defect and needs a different account.
         expect(jitterSweep(JITTER_REFLEX_L, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [4, 7]});
+            .toEqual({failed: 1, failingCounts: [4]});
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 4, failingCounts: [4, 7]});
+            .toEqual({failed: 2, failingCounts: [7]});
     });
 
     it('goes quiet at 1e-9, where the displacement is below the solver\'s own epsilon', () => {

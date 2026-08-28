@@ -344,7 +344,7 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         ]);
     });
 
-    it('Rosette5 40 fails at ten, spread over two decades that do not touch', () => {
+    it('Rosette5 40 fails at fifteen, spread over two decades that do not touch', () => {
         // 3e12 and 4e12 are the point: there is no upper threshold past which the fixture is safe,
         // because the failure turns on the rounding pattern of the particular translation and not
         // on how large it is.
@@ -356,18 +356,27 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         // negative offset rate. A solve that only closes by running part of itself backwards in
         // time was never a pass, so this list growing here is the envelope being reported honestly
         // rather than regressing. Every other cell is bit-unmoved, and Circle 48's three are too.
+        //
+        // EIGHTEEN BECAME FIFTEEN when the split/partition pass gained render-floor position
+        // identity (journal decision 85): 4e10, 5e10 and 6e10 lost two split events a fraction of
+        // the floor apart to one node each, and with that pair resolved the solve closes. THE CURE
+        // IS STRUCTURAL, NOT A FLAG FLIPPING — all three come out with the fixture's native shape,
+        // 56 nodes and 55 interior edges, no culled edge, no escaped node and no bisector running
+        // backwards (minimum direction dot 1.0), which is what separates this from a completion
+        // bought by closing over a corrupted graph. Circle 48's list is bit-unmoved, and so is every
+        // Rosette5 cell from 7e10 up: those die on the LAYER window, which this does not touch.
         const failing = FINE_TRANSLATIONS.filter(
             translate => !solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, translate)).complete);
 
         expect(failing).toEqual([
-            4e10, 5e10, 6e10, 7e10, 8e10, 9e10,
+            7e10, 8e10, 9e10,
             1e11, 2e11, 3e11, 4e11, 5e11, 6e11, 7e11, 8e11, 9e11,
             1e12, 3e12, 4e12,
         ]);
     });
 
     it('every failing cell is signalled, and none of them is a silent wrong answer', () => {
-        // WHAT "SIGNALLED" MEANS HERE IS `complete: false`, and every one of the 47 cells has it.
+        // WHAT "SIGNALLED" MEANS HERE IS `complete: false`, and every one of the 44 cells has it.
         // The exact diagnostic SHAPE is asserted separately below, because three of Rosette5's
         // cells now reach incompleteness by a different route and the two claims are not the same
         // claim: a caller is protected by the flag, not by which sentence follows it.

@@ -4,7 +4,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2,
 } from "./types";
-import {addVectors, areEqual, makeBisectedBasis, sizeOfVector} from "./core-functions";
+import {addVectors, areEqual, makeBisectedBasis, sizeOfVector, vectorsAreEqual} from "./core-functions";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
 /**
@@ -137,6 +137,50 @@ export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void
             }
         }
     }
+}
+
+/**
+ * The position each of these events resolves to once render-floor-coincident arrivals are one event:
+ * the medoid of the event's own coincidence component, or its own position when it has no company.
+ *
+ * FOR THE EVENTS THAT NEVER REACH {@link clusterCoincidentMerges} — the split/partition arrivals,
+ * which `handleCollisionEvent` resolves in a pass of its own and which therefore built a node each,
+ * however close together they landed (journal decision 85). Two splits of one layer at one point are
+ * one vertex event by exactly the argument decision 78 makes about every other kind, and this gives
+ * that pass the same identity without giving it the merge machinery: the caller re-points the event
+ * at the resolved position and `findOrAddNode` then hands both arrivals the same node.
+ *
+ * POSITION ONLY, DELIBERATELY. A split's own bisections are computed from its instigator and the
+ * exterior edge it splits, and remain each event's own; nothing here decides what is emitted, only
+ * where from. The same medoid convention as the merge path, for the same reason — a member of the
+ * set, never a centroid that no arrival visited.
+ *
+ * A COMPONENT THE EPSILON ALREADY UNIFIES IS LEFT EXACTLY ALONE, and that restraint is what keeps
+ * this change to the pairs it is for. Where every member is within `vectorsAreEqual` of the
+ * representative, `findOrAddNode` already hands them one node at the first-established member's
+ * position; re-pointing them at the medoid would move that node by whichever member the centroid
+ * happens to favour. Measured, that is not hypothetical: it moves one coordinate by one ulp on four
+ * CLEAN fixtures, for no gain at all — they were one node before and one node after. The defect is
+ * the component the epsilon does NOT unify, and only that component is touched.
+ */
+export function coincidentEventPositions(events: CollisionEvent[]): Vector2[] {
+    const resolved = events.map(event => event.position);
+
+    for (const component of coincidentComponents(events)) {
+        if (component.length < 2) {
+            continue;
+        }
+        const positions = component.map(index => events[index].position);
+        const position = medoidPosition(positions);
+        if (positions.every(member => vectorsAreEqual(member, position))) {
+            continue;
+        }
+        for (const index of component) {
+            resolved[index] = position;
+        }
+    }
+
+    return resolved;
 }
 
 /**

@@ -1,4 +1,4 @@
-import {FULL_CORPUS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, FULL_CORPUS, KNOWN_DEFECT_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     normalisePosition,
     solveSkeleton,
@@ -56,20 +56,27 @@ import {
  * clustering itself compares.
  *
  * ----------------------------------------------------------------------------
- * FIVE PAIRS SURVIVE, ALL ON THE THREE JITTER L FIXTURES, AND THEY ARE PINNED
+ * FOUR PAIRS SURVIVE, ALL ON THE THREE JITTER L FIXTURES, AND THEY ARE PINNED
  * ----------------------------------------------------------------------------
  *
  * Decision 78's clustering resolves an event pair only where both arrivals land in ONE offset layer,
- * and the layer window is still epsilon-wide. Four of these five are separated in time by 13 to 52
- * epsilons — near-coincident in a way only the epsilon can see — so they fall in different layers
- * and never meet the clustering; the fifth is simultaneous to 4e-12 but reaches the graph through
- * the split/partition path, which builds its own nodes outside the merge. Every one of them is
- * under the floor on BOTH axes, so no new rule is needed to describe them, only a wider reach.
+ * and the layer window is still epsilon-wide. There were five. The fifth — `(seed 55433, k=4)`'s
+ * `[25, 26]`, simultaneous to 4e-12 — was TWO SPLIT EVENTS of one layer, which reached the graph
+ * through the split/partition pass and built a node each because that pass never saw the clustering
+ * (journal decision 85). `coincidentEventPositions` now gives that pass the same position identity,
+ * and the pair is one node.
  *
- * The measurement is in F28 and the reach is decision 83's, withdrawn on its own STOP clause after
- * widening the layer window was shown to cost two CLEAN fixtures failed regions in the recursion
- * census. Until that lands, these five are a defect signature like any other: pinned exactly, per
- * fixture, so that one appearing anywhere else — or one of these disappearing — is loud.
+ * WHAT THE REMAINING FOUR ARE, MEASURED, AND WHY NO CLUSTERING REACHES THEM. Each is a pair joined
+ * by a real skeleton edge running from one to the other — `[19,21]` by e35, `[19,20]` by e37,
+ * `[24,26]` by e43, `[28,30]` by e50 — so one node is strictly DOWNSTREAM of the other: one event
+ * creates the bisector the next event terminates, and the edge's own length (7.3e-7, 1.9e-7, 2.8e-7
+ * and 6.7e-7 in unit space) IS the pair's separation. They are causally ordered, not simultaneous.
+ * No event-layer rule can call them one event, because they are not in one layer and could not be;
+ * merging them means collapsing an edge that exists, which is node-level absorption — the mechanism
+ * decision 78's amendment rejected on measurement (F27).
+ *
+ * So they stand as a defect signature like any other: pinned exactly, per fixture, so that one
+ * appearing anywhere else — or one of these disappearing — is loud.
  */
 
 function primaryParentProblems(graph: StraightSkeletonGraph): string[] {
@@ -133,7 +140,9 @@ function subFloorPairs(graph: StraightSkeletonGraph, normalisation: SkeletonNorm
 const PINNED_SUB_FLOOR_PAIRS: Record<string, number[][]> = {
     'Off-edge Jitter Reflex L (seed 15838)': [[19, 21]],
     'Off-edge Jitter Reflex L (seed 55433)': [[19, 20], [24, 26]],
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': [[25, 26], [28, 30]],
+    // Was [[25, 26], [28, 30]]. The split-path pair resolved into one node, which renumbers every
+    // node after it: the surviving pair is the same geometry that was [28, 30].
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': [[27, 29]],
 };
 
 describe('I1: every primary bisector carries its own vertex\'s two exterior edges', () => {
@@ -162,7 +171,7 @@ describe('I2: no two graph nodes lie inside the coincidence floor of each other'
 
         expect(pinned).toHaveLength(3);
         expect(pinned.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
-        expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(5);
+        expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(4);
         expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(54);
     });
 });
@@ -257,6 +266,18 @@ function equidistanceProblems(
 /** Six orders above the corpus's measured worst, three below the render floor. See above. */
 const EQUIDISTANCE_BAR = 1e-9;
 
+/** The largest equidistance discrepancy anywhere in these fixtures' solves, in unit space. */
+function worstEquidistance(polygons: readonly {vertices: Vector2[]}[]): number {
+    let worst = 0;
+    for (const {vertices} of polygons) {
+        const {graph, normalisation} = solveSkeleton(vertices);
+        for (const problem of equidistanceProblems(graph, normalisation, 0)) {
+            worst = Math.max(worst, Number(/([\d.e-]+) from equidistant/.exec(problem)?.[1] ?? 0));
+        }
+    }
+    return worst;
+}
+
 describe('I3: every bisector is equidistant from the two parents it names', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
@@ -266,17 +287,32 @@ describe('I3: every bisector is equidistant from the two parents it names', () =
         },
     );
 
-    it('holds to machine precision, not merely to the bar', () => {
-        // The bar is headroom, and this is the statement that nothing is leaning on it. A fixture
-        // drifting into the six orders between the two is a change worth seeing before it becomes a
-        // failure.
-        let worst = 0;
-        for (const {vertices} of FULL_CORPUS) {
-            const {graph, normalisation} = solveSkeleton(vertices);
-            for (const problem of equidistanceProblems(graph, normalisation, 0)) {
-                worst = Math.max(worst, Number(/([\d.e-]+) from equidistant/.exec(problem)?.[1] ?? 0));
-            }
-        }
-        expect(worst).toBeLessThan(1e-15);
+    it('holds to machine precision on the CLEAN roster', () => {
+        // The bar is headroom, and this is the statement that nothing clean is leaning on it. A
+        // fixture drifting into the six orders between the two is a change worth seeing before it
+        // becomes a failure.
+        expect(worstEquidistance(CLEAN_TEST_POLYGONS)).toBeLessThan(1e-15);
+    });
+
+    it('leans on the headroom exactly once, and that one is pinned', () => {
+        /*
+         * THE COST OF GIVING THE SPLIT PASS POSITION IDENTITY, MEASURED, and journal F32's terminal
+         * finding reproduced in miniature: the merged node stands at the medoid, which is one of the
+         * two event positions, so the OTHER split's bisectors are emitted from a point 5.4e-7 from
+         * where that split happened and are not exactly equidistant from the parents they name. On
+         * `(seed 55433, k=4)` that costs 8.34e-12 — two orders inside the 1e-9 bar, and the price
+         * paid for resolving the pair the user could not distinguish at maximum zoom (decision 78's
+         * criterion) and for the direction violation that went with it, which is now zero.
+         *
+         * PINNED RATHER THAN ABSORBED, and pinned as a SET, so that a second fixture leaning on the
+         * headroom is a failure here rather than a number quietly growing. The clean roster is
+         * asserted separately above and is bit-unmoved at 6.11e-16.
+         */
+        const leaning = KNOWN_DEFECT_POLYGONS
+            .filter(polygon => worstEquidistance([polygon]) >= 1e-15)
+            .map(polygon => polygon.name);
+
+        expect(leaning).toEqual(['Off-edge Jitter Reflex L (seed 55433, k=4)']);
+        expect(worstEquidistance(KNOWN_DEFECT_POLYGONS) / 8.34e-12).toBeCloseTo(1, 2);
     });
 });

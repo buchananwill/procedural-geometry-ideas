@@ -93,6 +93,15 @@ import {JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitterSweep} from './jitter-
  *    behind their own source — pinned per fixture in `wavefront-causality.test.ts`. Only the plus
  *    seed reports a diagnostic while doing it. The rest are silent wrong answers.
  *
+ * ALL FOUR ARE SILENT NOW, and the change that made the fourth one so is recorded rather than
+ * glossed: the parallel-vertex closure cures the plus seed's ROOT, so it reports `complete: true`
+ * with no diagnostic beyond canonicalisation while its three direction violations stand unmoved. Its
+ * root failure was the loud half of the class, and closing it is a strict improvement in the answer
+ * — the graph is bit-identical apart from the two edges that had no target, and its strips now tile
+ * to 1.5e-16 — but the last loud signature in this family is gone. What still records a defect for
+ * these four is the attributed census, the causality table and the sub-floor pair pins, and nothing
+ * a `complete` flag can carry.
+ *
  * ----------------------------------------------------------------------------
  * WHERE THE REST OF THIS CLASS IS PINNED — journal decision 72, 2026-08-28
  * ----------------------------------------------------------------------------
@@ -128,14 +137,27 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
     /*
      * BOTH COUNTS FELL AGAIN ON 2026-08-28, UNDER JOURNAL DECISION 78, and this is the third
      * consecutive reading of the same class: 22 and 46 of 80 before decision 70, then 1 and 13, and
-     * now 0 and 11. The render-floor coincidence bar is the cause — these are shapes whose facing
+     * then 0 and 11. The render-floor coincidence bar was the cause — these are shapes whose facing
      * walls put many arrivals within a whisker of one point, which is exactly the configuration the
      * floor resolves into a single event instead of a scatter of near-misses.
      *
-     * A CURE, NOT A SOFTENING, AND ATTRIBUTED AS ONE. The reflex L's last failing cell is gone and
-     * the plus keeps eleven; the plus's failing counts moved from [2,4,6,7,8,9,10] to
+     * A CURE, NOT A SOFTENING, AND ATTRIBUTED AS ONE. The reflex L's last failing cell went at that
+     * reading and the plus kept eleven; the plus's failing counts moved from [2,4,6,7,8,9,10] to
      * [2,3,4,5,6,8,9,10] — count 7 cured, counts 3 and 5 newly failing — which is a different SET
      * rather than a subset, so this is re-measured per cell and not inferred from the totals.
+     *
+     * THE FOURTH READING, and the one that took the fixture cell: the parallel-vertex closure in
+     * `algorithm-termination-cases.ts` gives a terminal sub-polygon whose wavefront vertices all
+     * travel the same way somewhere to close, which is what the plus's k = 2 cell — the fixture
+     * `OFF_EDGE_JITTER_PLUS_SEED_7919` — died in. 11 of 80 becomes 10, count 2 leaving the set.
+     *
+     * WHY ONLY ONE CELL, when the same terminal shape was measured on five of the eleven. The
+     * closure is gated on the sub-polygon's exterior parents being PARALLEL, which is the regime it
+     * is a closure for rather than a cover-up (see the gate's own comment). The plus's k = 2 cell has
+     * two walls on ONE supporting line, exactly parallel; the other four have walls a few times
+     * epsilon off parallel — 1.7e-7 to 1.1e-4 in cross product — and are refused. The remaining ten
+     * are that near-parallel case, plus near-head-on pairs missing each other laterally and failures
+     * in the n-gon partition rather than in a base case.
      */
 
     it('fails no cell at all on the reflex L, at the default noise floor', () => {
@@ -146,12 +168,14 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 11 of 80 cells on the double-reflex plus, at the default noise floor', () => {
-        // Was 46 of 80 before decision 70 and 13 of 80 after it. The plus keeps more of the class
-        // than the L because its facing walls are exactly parallel whatever the jitter does, which
-        // is a degeneracy neither the direction rule nor the coincidence floor addresses.
+    it('fails 10 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+        // Was 46 of 80 before decision 70, 13 of 80 after it, and 11 under decision 78. The plus
+        // keeps more of the class than the L because its facing walls are exactly parallel whatever
+        // the jitter does, which is a degeneracy neither the direction rule nor the coincidence
+        // floor addresses — and which the parallel-vertex closure now resolves where it reaches a
+        // terminal sub-polygon, taking count 2 with it.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 11, failingCounts: [2, 3, 4, 5, 6, 8, 9, 10]});
+            .toEqual({failed: 10, failingCounts: [3, 4, 5, 6, 8, 9, 10]});
     });
 });
 
@@ -255,16 +279,22 @@ describe('the two fixtures canonicalisation reaches', () => {
         expect(diagnosticKinds(OFF_EDGE_JITTER_L_SEED_15838)).toEqual(['vertices-canonicalised']);
     });
 
-    it('OFF_EDGE_JITTER_PLUS_SEED_7919 loses four samples and then fails', () => {
+    it('OFF_EDGE_JITTER_PLUS_SEED_7919 loses four samples and now solves', () => {
+        // IT USED TO FAIL HERE, leaving interior edges 44 and 58 without a target node, and the
+        // mechanism is worth keeping because it is what the removal CAUSES. Both discarded samples
+        // on the plus's left wall sat on the segments x = 200; removing them rejoins exterior edges
+        // 0 and 7 onto ONE supporting line, which is the non-adjacent shared-line degeneracy. The
+        // solve then reduces to a two-edge sub-polygon over that single line — zero enclosed area,
+        // both wavefront vertices travelling +x side by side, no collision possible at any offset —
+        // and the parallel-vertex closure in `algorithm-termination-cases.ts` terminates it at the
+        // leading source. The fixture stays on the defect roster: its census and causality
+        // signatures are not zero.
         const result = solveSkeleton(OFF_EDGE_JITTER_PLUS_SEED_7919);
 
         expect(OFF_EDGE_JITTER_PLUS_SEED_7919).toHaveLength(24);
         expect(result.graph.numExteriorNodes).toBe(20);
-        expect(result.complete).toBe(false);
-        expect(diagnosticKinds(OFF_EDGE_JITTER_PLUS_SEED_7919))
-            .toEqual(['vertices-canonicalised', 'step-failure', 'unresolved-edges']);
-        expect(result.diagnostics.at(-1)?.detail)
-            .toBe('2 interior edge(s) finished without a target node: 44, 58.');
+        expect(result.complete).toBe(true);
+        expect(diagnosticKinds(OFF_EDGE_JITTER_PLUS_SEED_7919)).toEqual(['vertices-canonicalised']);
     });
 
     it('discards deviations just UNDER the floor, which is what makes these near-degenerate', () => {

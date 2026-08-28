@@ -11,6 +11,7 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
+    crossProduct,
     dotProduct,
     normalize,
     rotateCw90,
@@ -256,6 +257,77 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
     return undefined;
 }
 
+/**
+ * Where a sub-polygon whose wavefront vertices all travel in the SAME direction closes, or
+ * `undefined` when it is not one.
+ *
+ * PARALLEL RAYS POINTING THE SAME WAY NEVER MEET, at any offset, so this sub-polygon has no future
+ * event at all: every pair of its vertices holds its separation forever, and the ring they bound
+ * keeps whatever area it has. That is a terminal state rather than a collision the generators failed
+ * to find, which is why it is decided here instead of priced. It is what the near-floor off-edge
+ * jitter class leaves behind: an exactly-collinear pair of non-adjacent walls — the plus's left wall,
+ * rejoined into one supporting line when canonicalisation removes the sample that broke it — reduces
+ * the ring to a slit whose two ends run side by side.
+ *
+ * THE SAME-DIRECTION TEST IS `intersectRays`' OWN, `areEqual(dot, 1)`: parallel and pointing the same
+ * way in one predicate, at the standing tolerance, so the anti-parallel pair that shares the
+ * 'parallel' verdict — two vertices retreating from each other — is excluded rather than closed.
+ *
+ * THE ANCHOR IS THE LEADING SOURCE, and it has to be: every other edge terminated there travels
+ * forward along its own basis, while any earlier anchor wires an edge to a point behind its own
+ * source — the backwards-running edge journal decision 70 exists to prevent. The anchor edge closes
+ * onto its own source as a culled self-loop, the representation {@link applyDegenerateClosure}
+ * already uses for a surplus bisector. NO NODE MOVES: the leading source is an existing node, and
+ * the other edges' targets are the only thing assigned.
+ *
+ * A set with no strictly-leading source — two vertices exactly level across the ray — is left to the
+ * throw, because either choice would wire an edge across its own wavefront rather than along it. The
+ * corpus contains no such set.
+ *
+ * GATED ON {@link solveDegenerateClosure}'S OWN PRECONDITION — all exterior parents parallel — and
+ * that gate is what keeps this a closure rather than a cover-up. Parallel walls are the regime where
+ * one offset governs the whole sub-polygon and a leading source is the point the wavefront reached;
+ * where the walls are not parallel, parallel bisectors are evidence of a solve already corrupted
+ * upstream, and closing them would convert a signalled failure into a complete answer with the
+ * corruption still in it. Measured: without the gate this closes every large-coordinate cell of
+ * journal decisions 66 and 81 — whose graphs have shattered a 48-way hub into ten nodes and carry
+ * backwards-running edges — and reports them complete.
+ */
+function solveParallelClosure(
+    context: StraightSkeletonSolverContext,
+    interiorEdgeIds: number[],
+): Vector2 | undefined {
+    const parents = distinctExteriorParents(context, interiorEdgeIds)
+        .map(parentId => context.getEdgeWithId(parentId).basisVector);
+    for (let i = 0; i < parents.length; i++) {
+        for (let j = i + 1; j < parents.length; j++) {
+            if (!areEqual(crossProduct(parents[i], parents[j]), 0)) {
+                return undefined;
+            }
+        }
+    }
+
+    const bases = interiorEdgeIds.map(id => context.getEdgeWithId(id).basisVector);
+    for (let i = 0; i < bases.length; i++) {
+        for (let j = i + 1; j < bases.length; j++) {
+            if (!areEqual(dotProduct(bases[i], bases[j]), 1)) {
+                return undefined;
+            }
+        }
+    }
+
+    for (const anchorId of interiorEdgeIds) {
+        const anchorPosition = context.sourcePosition(anchorId);
+        const leads = interiorEdgeIds.every((edgeId, index) => edgeId === anchorId
+            || dotProduct(subtractVectors(anchorPosition, context.sourcePosition(edgeId)), bases[index]) > 0);
+        if (leads) {
+            return anchorPosition;
+        }
+    }
+
+    return undefined;
+}
+
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
         throw new Error("Invalid call: expecting two interior edges");
@@ -331,6 +403,15 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         }
 
         if (collisions.length === 0) {
+            // Nothing collided in either ordering and no anchor closes the pair, so the last
+            // question is whether a collision was ever possible. Same-direction parallel rays are
+            // the case where it was not.
+            const parallelClosure = solveParallelClosure(context, input.interiorEdges);
+            if (parallelClosure !== undefined) {
+                applyDegenerateClosure(context, input.interiorEdges, parallelClosure);
+                return {childSteps: []};
+            }
+
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
         }
 
@@ -509,8 +590,11 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
         // the terminal solve is singular, head-on rates cancel, and perpendicular arrivals meet
         // at an existing source with zero travel ('diverging'). If the whole triangle closes on
         // one edge's source at a single shared offset, terminate it there — the anchor edge
-        // becomes a culled self-loop.
-        const closure = solveDegenerateClosure(context, input.interiorEdges);
+        // becomes a culled self-loop. Failing that, and as in the two-edge base case, a triangle
+        // whose three vertices all travel the same way has no future event either, and closes at
+        // its leading source rather than throwing.
+        const closure = solveDegenerateClosure(context, input.interiorEdges)
+            ?? solveParallelClosure(context, input.interiorEdges);
         if (closure === undefined) {
             throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
         }

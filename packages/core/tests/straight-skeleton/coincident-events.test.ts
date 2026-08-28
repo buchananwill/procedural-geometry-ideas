@@ -2,6 +2,7 @@ import type {CollisionEvent, Vector2} from '../../src/straight-skeleton/types';
 import {
     assertMergePositionsAreDistinct,
     clusterCoincidentMerges,
+    coincidentEventPositions,
     CoincidentMerge,
 } from '../../src/straight-skeleton/coincident-events';
 import {vectorsAreEqual} from '../../src/straight-skeleton/core-functions';
@@ -278,5 +279,53 @@ describe('the invariant gate: no two merges of one layer share a position', () =
         ];
 
         expect(() => assertMergePositionsAreDistinct(merges)).not.toThrow();
+    });
+});
+
+describe('coincidentEventPositions: identity for the events the merge path never sees', () => {
+    /*
+     * The split/partition pass resolves its events one at a time and builds a node each, so two
+     * splits of one layer at one point used to become two nodes joined by a degenerate pair of
+     * bisectors — journal decision 85, measured on `OFF_EDGE_JITTER_L_SEED_55433_K4`. This function
+     * gives that pass the same position identity the merge path has, and no more: it decides where,
+     * never what is emitted.
+     */
+
+    function splitAt(position: Vector2, collidingEdges: number[]): CollisionEvent {
+        return {...eventAt(position, collidingEdges), eventType: 'interiorAgainstExterior'};
+    }
+
+    it('re-points a sub-floor pair at one position, and it is one of the two', () => {
+        const first = {x: 0, y: 0};
+        const second = {x: CLUSTERING_BAR * 0.5, y: 0};
+
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+
+        expect(resolved[0]).toBe(resolved[1]);
+        expect(isOneOf(resolved[0], [first, second])).toBe(true);
+    });
+
+    it('leaves events further apart than the floor exactly where they were', () => {
+        const first = {x: 0, y: 0};
+        const second = {x: CLUSTERING_BAR * 1.5, y: 0};
+
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+
+        expect(resolved[0]).toBe(first);
+        expect(resolved[1]).toBe(second);
+    });
+
+    it('leaves a pair the node lookup already unifies exactly where it was', () => {
+        // THE RESTRAINT THAT KEEPS THE CLEAN ROSTER BIT-IDENTICAL. Inside `vectorsAreEqual`,
+        // `findOrAddNode` already returns one node at the first-established position; re-pointing
+        // the pair at its medoid would move that node for no gain, which is measured to cost one ulp
+        // on four clean fixtures.
+        const first = {x: 0, y: 0};
+        const second = {x: 2 ** -40, y: 0};
+
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+
+        expect(resolved[0]).toBe(first);
+        expect(resolved[1]).toBe(second);
     });
 });

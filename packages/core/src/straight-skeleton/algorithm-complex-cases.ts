@@ -10,7 +10,13 @@ import {
     bisectWithParams,
     tryToAcceptExteriorEdge
 } from "./algorithm-helpers";
-import {bisectionsForMerge, clusterCoincidentMerges, mergesShareAnEdge, ringsOfSubPolygon} from "./coincident-events";
+import {
+    bisectionsForMerge,
+    clusterCoincidentMerges,
+    coincidentEventPositions,
+    mergesShareAnEdge,
+    ringsOfSubPolygon
+} from "./coincident-events";
 
 /**
  * Lexicographic over two edge-id lists, a shorter prefix first.
@@ -155,10 +161,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             recordBisections(bisectionsForMerge(ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context))
         })
 
-        collisionsToHandle
+        // Splits of one layer landing on one point are ONE vertex event, and this is where they are
+        // told so. `handleCollisionEvent` places a node at whatever position it is handed, so two
+        // simultaneous splits a fraction of the render floor apart used to build two nodes joined by
+        // a degenerate pair of bisectors. Only the POSITION is resolved here; each split still emits
+        // its own bisections, and `findOrAddNode` does the joining.
+        const splitEvents = collisionsToHandle
             .filter(event => event.eventType === 'interiorAgainstExterior')
-            .toSorted(byEventPriority)
-            .map(event => handleCollisionEvent(event, context))
+            .toSorted(byEventPriority);
+        const splitPositions = coincidentEventPositions(splitEvents);
+
+        splitEvents
+            .map((event, index) => handleCollisionEvent({...event, position: splitPositions[index]}, context))
             .forEach(recordBisections)
     }
 

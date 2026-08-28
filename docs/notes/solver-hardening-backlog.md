@@ -106,6 +106,28 @@ real hand-drawn L or cross falls into. The "**But:** the pipeline does not reach
 still stands — 288/288 on simulated strokes — so this remains a bound on the solver rather than a
 broken feature.
 
+### SECOND CORRECTION, later on 2026-08-28 — both columns re-measured, both fell
+
+Three solver changes landed after the reading above: journal decision 78's event-floor clustering,
+the parallel-vertex closure in `algorithm-termination-cases.ts` (a terminal sub-polygon whose
+wavefront vertices all travel the same way can never meet, so it closes at its leading source
+instead of throwing), and render-floor position identity for the split/partition pass in
+`coincident-events.ts`. The full 8 seeds x k = 1..10 grid, re-measured on that solver:
+
+- **Stage ON.** The near-floor off-edge band is down again: the reflex L is **0/80** at every
+  magnitude, and the plus **10/80** at 1e-3 (was 46/80, then 13/80, then 11/80). The plus's failing
+  counts are [3, 4, 5, 6, 8, 9, 10]; k = 2 — the fixture `OFF_EDGE_JITTER_PLUS_SEED_7919` — is the
+  cell that left, and it left because its two exterior walls at x = 200 are EXACTLY collinear once
+  canonicalisation removes the two samples that broke them.
+- **Stage OFF.** The along-edge class is alive but smaller: L **19/80** (was 34/80) and plus
+  **40/80** (was 56/80), 59 of 160 against 90 of 160 earlier that day and 73 of 160 in the
+  2026-08-09 record. The plateau across 1e-3 / 0.1 / 1.0 is unchanged in shape; only its height fell.
+
+The item's verdict is unchanged: canonicalisation removed the INPUT, and the class survives with the
+stage off. What is new is that the near-floor off-edge half now has a named mechanism for part of it
+— the exactly-collinear non-adjacent wall pair, which is item 7's degeneracy arriving by a different
+road — and a solver-side answer for the terminal case of it.
+
 **Where it now lives, instead of in scratchpad scripts:**
 
 - [along-edge-jitter.test.ts](../../packages/core/tests/straight-skeleton/along-edge-jitter.test.ts)

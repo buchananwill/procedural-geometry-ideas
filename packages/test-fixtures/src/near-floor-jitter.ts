@@ -118,10 +118,14 @@ export const OFF_EDGE_JITTER_L_SEED_55433: Vector2[] = [
  * sample per edge, the smallest possible perturbation of this shape, and the smallest failing plus
  * cell in the sweep.
  *
- * Canonicalisation removes four of the twelve samples (largest discarded deviation 6.51e-7) and the
- * remaining twenty-vertex ring fails with interior edges 44 and 58 unresolved. Both of those edges
- * have basis vector exactly (1, 0): the plus's facing walls are still exactly parallel, which is the
- * degeneracy this shape carries and the jitter does not remove.
+ * Canonicalisation removes four of the twelve samples (largest discarded deviation 6.51e-7), and the
+ * remaining twenty-vertex ring used to fail with interior edges 44 and 58 unresolved. Both of those
+ * edges have basis vector exactly (1, 0): the plus's facing walls are still exactly parallel, which
+ * is the degeneracy this shape carries and the jitter does not remove — and two of the four removed
+ * samples sat on the left wall's two segments, so the removal rejoins exterior edges 0 and 7 onto ONE
+ * supporting line and the solve ends in a zero-area sub-polygon over it. IT NOW SOLVES: the
+ * parallel-vertex closure in `algorithm-termination-cases.ts` terminates that sub-polygon at its
+ * leading source. It stays on the defect roster for its census and causality signatures.
  */
 export const OFF_EDGE_JITTER_PLUS_SEED_7919: Vector2[] = [
     {x: 200, y: 100},
