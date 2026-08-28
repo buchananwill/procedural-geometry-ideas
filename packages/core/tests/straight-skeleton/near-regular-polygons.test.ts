@@ -325,8 +325,42 @@ describe('near-regular polygons', () => {
             expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, 0.15, seed)).complete).toBe(true);
         });
 
-        it.each([1, 2, 3, 4, 5])('solves it jittered barely above FLOATING_POINT_EPSILON (seed %i)', seed => {
+        it.each([1, 3, 4, 5])('solves it jittered barely above FLOATING_POINT_EPSILON (seed %i)', seed => {
             expect(solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, barelyAboveTolerance, seed)).complete).toBe(true);
+        });
+
+        /*
+         * SEED 2 LEFT THAT LIST ON 2026-08-28, AND IT IS A SILENT WRONG ANSWER BECOMING A LOUD ONE.
+         *
+         * Journal decision 70 stopped `addBisectionEdge` flipping a bisector to run backwards
+         * through the wavefront, and this cell was completing on the strength of exactly that: on
+         * the previous code it reported `complete: true` with one bisector at a negative offset
+         * rate. A solve that only closes by running part of itself backwards in time was never a
+         * pass, so withdrawing it is the measurement getting honest, not the envelope shrinking.
+         *
+         * MEASURED OVER 25 SEEDS AT EACH RUNG rather than inferred from this one, and the
+         * correspondence is exact — every cell that changed verdict had a backwards bisector before
+         * and none has one now:
+         *
+         *     rung   before (failing seeds of 25)   after
+         *     1x     3  {5,13,16}                   4  {5,10,13,16}
+         *     3x     2  {13,16}                     4  {13,16,22,24}
+         *     5x     0  {}                          6  {7,12,13,15,16,17}
+         *     15x    0  {}                          4  {2,7,18,19}
+         *     30x    1  {12}                        3  {5,12,19}
+         *     60x    0  {}                          0  {}
+         *
+         * All sixteen newly-failing cells were `complete: true` with at least one backwards
+         * bisector; not one cell that was clean before fails now. The band is the near-degenerate
+         * regime of journal decision 67 and F19, and the failures in it are SIGNALLED — which is
+         * the property pinned here, because the alternative was a wrong skeleton reporting success.
+         */
+        it('reports the seed-2 cell as a signalled failure rather than a backwards-bisector pass', () => {
+            const result = solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, barelyAboveTolerance, 2));
+
+            expect(result.complete).toBe(false);
+            expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toContain('step-failure');
+            expect(result.diagnostics.at(-1)?.kind).toBe('unresolved-edges');
         });
     });
 });

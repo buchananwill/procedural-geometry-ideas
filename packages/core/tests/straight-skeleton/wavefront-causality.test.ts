@@ -10,7 +10,14 @@ import {
     PREMATURE_BISECTOR_SPLIT_FAILS,
     PREMATURE_BISECTOR_SPLIT_PASSES,
 } from '@proc-geo/test-fixtures';
-import {runAlgorithmV5, StraightSkeletonGraph, Vector2} from '@proc-geo/core';
+import {
+    areEqual,
+    crossProduct,
+    FLOATING_POINT_EPSILON,
+    runAlgorithmV5,
+    StraightSkeletonGraph,
+    Vector2,
+} from '@proc-geo/core';
 import {distanceToSegment, distanceToSupportingLine} from './wavefront-measurement-helpers';
 
 /**
@@ -128,6 +135,72 @@ function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
         }
     }
     return violations;
+}
+
+/**
+ * The same law read off the bisector's DIRECTION rather than off its endpoints.
+ *
+ * `findOffsetViolations` can only speak about an edge that reached a target, and it re-derives its
+ * verdict from node positions. This asks the prior question, of every bisector whether it ever
+ * arrived anywhere: does travelling along it move the wavefront clock FORWARD? The rate is
+ * `cross(basis, clockwiseParent.basis)` — the very factor `makeOffsetDistance` multiplies travel by
+ * to price a collision — so a negative one means every offset computed for that bisector decreases
+ * as it advances. The layer's lowest-offset selection then reaches its far end before its near end
+ * and steps over whatever was waiting there.
+ *
+ * NOT A RESTATEMENT OF HOW THE BISECTOR IS BUILT, even though `addBisectionEdge` now chooses the
+ * direction by this rate. Three other things assign a basis or a target that this sweep still
+ * audits — `bisectionsForMerge`'s hint, `crossWireEdges`, and `tryAttachEdgeToNode`'s direct snap —
+ * and the fixtures reach all of them. It caught nothing when it was written, which is the point: it
+ * is the tripwire under a latent defect that had already shipped one silent wrong answer.
+ *
+ * ZERO IS ALLOWED AND IS NOT A LOOPHOLE. Two exactly anti-parallel parents give a bisector that
+ * runs along a corridor at constant offset — a real ridge, not a violation — and 22 of the corpus's
+ * 923 bisectors sit in that band. Only a rate that is negative BY MORE THAN the solver's own
+ * tolerance is a violation.
+ */
+function findBackwardsRateViolations(vertices: Vector2[]): string[] {
+    const {graph} = runAlgorithmV5(vertices);
+    const violations: string[] = [];
+
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (!edge) continue;
+        const clockwiseParent = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex];
+        const rate = crossProduct(edge.basisVector, clockwiseParent.basisVector);
+        if (rate < 0 && !areEqual(rate, 0)) {
+            violations.push(
+                `e${interiorEdge.id} advances at offset rate ${rate} against its clockwise parent `
+                + `${interiorEdge.clockwiseExteriorEdgeIndex}: it runs backwards through the wavefront`);
+        }
+    }
+
+    return violations;
+}
+
+/**
+ * One cell of `near-regular-polygons.test.ts`'s jitter ladder: `multiple` times the solver's
+ * tolerance, expressed in caller units against the polygon's own span, at a fixed seed.
+ */
+function jitterCell(vertices: Vector2[], multiple: number, seed: number): Vector2[] {
+    const span = Math.max(
+        Math.max(...vertices.map(v => v.x)) - Math.min(...vertices.map(v => v.x)),
+        Math.max(...vertices.map(v => v.y)) - Math.min(...vertices.map(v => v.y)),
+    );
+    const amplitude = multiple * FLOATING_POINT_EPSILON * span;
+
+    let state = seed >>> 0;
+    const random = () => {
+        state = (state + 0x6d2b79f5) | 0;
+        let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+        mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+        return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+    };
+
+    return vertices.map(vertex => ({
+        x: vertex.x + (random() * 2 - 1) * amplitude,
+        y: vertex.y + (random() * 2 - 1) * amplitude,
+    }));
 }
 
 /**
@@ -295,6 +368,10 @@ describe('wavefront causality', () => {
             expect(describeViolations(violations)).toBe('');
         });
 
+        it('never points a bisector backwards through the wavefront', () => {
+            expect(findBackwardsRateViolations(vertices).join('; ')).toBe('');
+        });
+
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(vertices).join('; ')).toBe('');
         });
@@ -339,8 +416,16 @@ describe('wavefront causality', () => {
      * — a perpendicular with no reference to the geometry — and `addBisectionEdge` flipped the
      * correct parent-derived basis on the strength of it. e64 pointed right into the wrong lobe
      * and e65 pointed left into the other. Anti-parallel arrivals now supply no hint, the parent
-     * derivation stands, e64 runs left to node 33 and e65 runs right to node 34, and all three
+     * derivation stands, e64 runs left to node 33 and e65 runs right to node 34, and all four
      * checks below hold on the peanut with every edge targeted.
+     *
+     * THAT SECOND DEFECT WAS FIXED AT THE CALLER AND IS NOW FIXED AT THE SOURCE TOO (journal
+     * decision 70, 2026-08-28). Withholding the hint stopped `bisectionsForMerge` from flipping a
+     * bisector, but `addBisectionEdge` still applied ANY hint it was given over a direction the
+     * parents had already determined — so the same flip was available to every other caller, and a
+     * deformed peanut waist duly found it. The direction is now decided by the bisector's offset
+     * rate wherever that rate is determinate, and the hint breaks the anti-parallel tie only. The
+     * rate check added below is the standing tripwire for it.
      */
     const CAUSAL_NEAR_REGULAR_FIXTURES: [string, Vector2[]][] = [
         ['NEAR_REGULAR_CIRCLE_16', NEAR_REGULAR_CIRCLE_16],
@@ -358,6 +443,10 @@ describe('wavefront causality', () => {
             expect(describeViolations(violations)).toBe('');
         });
 
+        it('never points a bisector backwards through the wavefront', () => {
+            expect(findBackwardsRateViolations(vertices).join('; ')).toBe('');
+        });
+
         it('never places a node beyond its own clearance', () => {
             expect(findClearanceViolations(vertices).join('; ')).toBe('');
         });
@@ -365,5 +454,34 @@ describe('wavefront causality', () => {
         it('never terminates an edge behind its own source', () => {
             expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
         });
+    });
+
+    /**
+     * The cells where the rate rule is a DISCRIMINATOR rather than a tripwire.
+     *
+     * The sweeps above are clean either way: no fixture at its native placement produced a backwards
+     * bisector even before journal decision 70, which is why the defect stayed latent long enough to
+     * ship a silent wrong answer. These three placements are where the previous code actually broke
+     * the invariant, and each one reported `complete: true` while doing it — so without this block
+     * the rate check would pass whatever `addBisectionEdge` did, and could not convict its own rule.
+     *
+     * Measured on the previous code: the jittered circle carries one backwards bisector at each of
+     * these two rungs and the translated rosette carries three. All three now solve to a SIGNALLED
+     * failure instead, which the suites that own those regimes assert
+     * (`near-regular-polygons.test.ts`, `large-coordinate-known-failures.test.ts`); what is asserted
+     * here is the narrower and more durable thing — that however the solve ends, no bisector in it
+     * points backwards through the wavefront.
+     *
+     * The generator is `near-regular-polygons.test.ts`'s, repeated rather than shared because it is
+     * six lines and importing it would make one suite's fixtures depend on another's helpers.
+     */
+    const BACKWARDS_BISECTOR_CELLS: [string, Vector2[]][] = [
+        ['circle 32 jittered at 5x the tolerance, seed 12', jitterCell(NEAR_REGULAR_CIRCLE_32, 5, 12)],
+        ['circle 32 jittered at 15x the tolerance, seed 2', jitterCell(NEAR_REGULAR_CIRCLE_32, 15, 2)],
+        ['rosette5 40 translated to 2e11', NEAR_REGULAR_ROSETTE5_40.map(v => ({x: v.x + 2e11, y: v.y + 2e11}))],
+    ];
+
+    it.each(BACKWARDS_BISECTOR_CELLS)('%s points no bisector backwards', (_name, vertices) => {
+        expect(findBackwardsRateViolations(vertices).join('; ')).toBe('');
     });
 });

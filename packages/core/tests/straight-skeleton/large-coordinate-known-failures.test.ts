@@ -159,32 +159,45 @@ describe('NEAR_REGULAR_ROSETTE5_40: the recorded defect at translation 1e11', ()
         }
     });
 
-    it('fails at 1e11 LOUDLY, in two two-edge base cases, leaving four edges unresolved', () => {
+    it('fails at 1e11 LOUDLY, in one two-edge base case, leaving two edges unresolved', () => {
+        // WAS TWO BASE CASES AND FOUR EDGES until journal decision 70. The cell still fails and
+        // still fails loudly; what changed is that half the damage is gone, because the bisectors
+        // reaching the terminal ring are no longer allowed to point backwards through the
+        // wavefront on the way. The failure that remains is the F19 regime and nothing else: a
+        // terminal ring finer than the absolute tolerance.
         const result = solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, 1e11));
 
         expect(result.complete).toBe(false);
         expect(diagnosticKinds(NEAR_REGULAR_ROSETTE5_40, 1e11))
-            .toEqual(['step-failure', 'step-failure', 'unresolved-edges']);
+            .toEqual(['step-failure', 'unresolved-edges']);
         expect(result.diagnostics.at(-1)?.detail)
-            .toContain('4 interior edge(s) finished without a target node');
+            .toContain('2 interior edge(s) finished without a target node');
     });
 
-    it('dies with its two source nodes 6e-8 apart on the terminal ring', () => {
+    it('dies with its two source nodes 4.7e-9 apart on the terminal ring', () => {
         // Journal F15b, pinned as the number rather than the story: this is the
         // terminal-ring-finer-than-tolerance regime, and the separation is what a fix has to move.
-        // Both nodes sit on y = 0 in unit space, at x ~= -0.032224.
+        //
+        // RE-MEASURED 2026-08-28 (journal decision 70). The separation moved 6e-8 -> 4.7e-9 and the
+        // pair moved off y = 0 to (0.0218378, -0.1663852) in unit space. THAT IS THE SEPARATION
+        // CROSSING THE TOLERANCE THE WRONG WAY, and it is worth being precise about: F19 recorded
+        // the failure as node scatter landing at 1.7x to 6x the absolute 1e-8, so the terminal
+        // `identical-source` close could not fire. The scatter is now a FIFTH of that epsilon —
+        // under it, not over — so these two nodes are numerically the same point and the close
+        // still does not fire. The regime is unchanged and the ruling on it (decision 66) stands;
+        // only the number moved, and it moved toward the answer rather than away from it.
         const detail = solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, 1e11)).diagnostics[0].detail;
         const positions = [...detail.matchAll(/"position":\{"x":(-?[\d.e-]+),"y":(-?[\d.e-]+)\}/g)]
             .map(match => ({x: Number(match[1]), y: Number(match[2])}));
 
         expect(positions.length).toBeGreaterThanOrEqual(2);
         for (const position of positions) {
-            expect(position.x).toBeCloseTo(-0.032224, 6);
-            expect(Math.abs(position.y)).toBeLessThan(1e-15);
+            expect(position.x).toBeCloseTo(0.0218378, 6);
+            expect(position.y).toBeCloseTo(-0.1663852, 6);
         }
         const separation = Math.abs(positions[0].x - positions[1].x);
-        expect(separation).toBeGreaterThan(1e-8);
-        expect(separation).toBeLessThan(1e-7);
+        expect(separation).toBeGreaterThan(1e-9);
+        expect(separation).toBeLessThan(1e-8);
     });
 });
 
@@ -272,14 +285,22 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         expect(failing).toEqual([2e9, 9e9, 1e10]);
     });
 
-    it('Rosette5 40 fails at nine, spread over two decades that do not touch', () => {
+    it('Rosette5 40 fails at ten, spread over two decades that do not touch', () => {
         // 3e12 and 4e12 are the point: there is no upper threshold past which the fixture is safe,
         // because the failure turns on the rounding pattern of the particular translation and not
         // on how large it is.
+        //
+        // NINE BECAME TEN ON 2026-08-28 (journal decision 70), and the added cell is a silent wrong
+        // answer becoming a loud one. `addBisectionEdge` may no longer flip a bisector to run
+        // backwards through the wavefront, and 2e11 completed on the strength of exactly that:
+        // measured on the previous code it reported `complete: true` with THREE bisectors at a
+        // negative offset rate. A solve that only closes by running part of itself backwards in
+        // time was never a pass, so this list growing here is the envelope being reported honestly
+        // rather than regressing. Every other cell is bit-unmoved, and Circle 48's three are too.
         const failing = FINE_TRANSLATIONS.filter(
             translate => !solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, translate)).complete);
 
-        expect(failing).toEqual([4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 3e12, 4e12]);
+        expect(failing).toEqual([4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 2e11, 3e12, 4e12]);
     });
 
     it('every failing cell is a signalled step failure, never a silent wrong answer', () => {
@@ -288,7 +309,7 @@ describe('the defect is a scatter of translations, not the one cell the decade s
             expect(kinds).toContain('step-failure');
             expect(kinds.at(-1)).toBe('unresolved-edges');
         }
-        for (const translate of [4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 3e12, 4e12]) {
+        for (const translate of [4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 2e11, 3e12, 4e12]) {
             const kinds = diagnosticKinds(NEAR_REGULAR_ROSETTE5_40, translate);
             expect(kinds).toContain('step-failure');
             expect(kinds.at(-1)).toBe('unresolved-edges');
@@ -367,11 +388,16 @@ describe('journal decision 54: the disputed geometry is far below anything rende
         expect(pixelsAt4K(NEAR_REGULAR_CIRCLE_48, 1e10)).toBeLessThan(1e-4);
     });
 
-    it('Rosette5 40 at 1e11 disputes 3.1e-5 world units on a 371-unit shape', () => {
+    it('Rosette5 40 at 1e11 disputes 8.0e-6 world units on a 371-unit shape', () => {
+        // WAS 3.1e-5, RE-MEASURED 2026-08-28 under journal decision 70: the disputed gap shrank
+        // by a factor of four when the bisectors reaching this terminal ring stopped being allowed
+        // to run backwards through the wavefront. Decision 54's argument is only strengthened —
+        // less geometry is in dispute than when the decision was taken, not more — so the bar is
+        // re-measured downward and the ruling stands.
         const gap = disputedWorldGap(NEAR_REGULAR_ROSETTE5_40, 1e11);
 
-        expect(gap).toBeGreaterThan(3e-5);
-        expect(gap).toBeLessThan(4e-5);
+        expect(gap).toBeGreaterThan(8e-6);
+        expect(gap).toBeLessThan(9e-6);
         expect(gap / extentOf(NEAR_REGULAR_ROSETTE5_40)).toBeLessThan(1e-7);
         expect(pixelsAt4K(NEAR_REGULAR_ROSETTE5_40, 1e11)).toBeLessThan(1e-3);
     });

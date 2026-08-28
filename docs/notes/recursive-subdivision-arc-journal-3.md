@@ -229,7 +229,11 @@ anti-parallel ambiguity.** The peanut trace exposed it: `addBisectionEdge`
 (`algorithm-helpers.ts:84-88`) computes the correct interior direction and then lets
 `approximateDirection` override it, which on variant 2 pre-fix created a bisector with **negative
 offset rate** (−0.0737) — running backwards in the wavefront clock, which is geometrically
-impossible. There is also a param-order inversion when `parentsInverted` is true. The delegate
+impossible. ~~There is also a param-order inversion when `parentsInverted` is true.~~ *AMENDED
+2026-08-28: the inversion does not exist — both branches used shorthand property names and
+assigned identical values; the delegate withdrew its own finding and convicted the correction
+both ways (collapse reverted: 0 deaths; an actual swap introduced: 559 tests die, census 0 → 298
+— the branch is live and load-bearing, and "do not swap" is correct). See F23.* The delegate
 correctly stopped rather than choosing: a new invariant at bisector creation can alter results
 corpus-wide. Ruling: the invariant is not a taste question — a wavefront bisector's offset rate is
 non-negative by definition — so the correction proceeds, with the hard bar that the corpus stays
@@ -237,6 +241,18 @@ green and any moved pin is attributed per fixture; results moving in a way whose
 cannot be argued from the invariant itself is a STOP. Currently latent, guarded by
 `wavefront-causality.test.ts` on all 48 fixtures — the fix converts a standing hazard into a
 non-property.
+
+**71 — Two rulings on the decision-70 outcome.** (a) The 17 silent→signalled withdrawals are
+**ratified**: every flipped cell carried at least one negative-rate bisector on the baseline, so
+`complete: true` there was never a true pass — the rate invariant is strictly sharper than
+containment (which caught none of them), and converting silent to loud is the direction decision
+53 exists for. (b) The two `OFF_EDGE_JITTER_L` fixtures, which now solve as roots, **stay held
+out of `ALL_TEST_POLYGONS`**: on the census's own grid they still yield 5 and 10 failed regions
+in the recursive driver, and the census-0 invariant is the corpus's strongest property. They
+remain visibly pinned with the measured hold-out reason asserted (nothing laundered); they
+promote when the driver-level residue of decision 67 is fixed. The known-failures file's
+"promote when it solves" rule is amended to "promote when it solves AND survives the census
+grid".
 
 ## Findings
 
@@ -456,7 +472,9 @@ offenders 28→30, `touchedAt` 13→15 / 2→3, normalisation inexact cells +1..
 unmoved). Mutation conviction: reverting the predicate killed **76 tests across 11 suites** and
 drove the census to 57 failures — including the causality sweep, independently confirming the
 mechanism. Delegate figures: core 4284/4284 (75 suites, 57 s), dashboard 257/257, census 48
-fixtures / 23285 nodes / 0 failures.
+fixtures / 23285 nodes / 0 failures. Lead verification: core **4284/4284 (75 suites)**, build
+clean, dashboard **257/257**, all re-run by the lead. **Package 5 committed: `f442249`.**
+User visually confirmed the fixed peanut on the dev server, 2026-08-28: "looking very promising."
 
 **F22a — The peanut fix also cured the collinear dumbbell's self-intersecting sub-regions, and
 the specimen debt fired for the second time in two days.** The dumbbell's own silent-overlap
@@ -466,6 +484,27 @@ dashboard scene test died again, caught by their own gates, and were re-specimen
 decision-67 live defect: new export-only fixture `OFF_EDGE_JITTER_L_SEED_55433_K4`, the one
 polygon whose root solves while the driver still cuts an invalid region from it. Perishable like
 its predecessors and headed as such — when decision 67's defect is fixed, this specimen dies too.
+
+**F23 — The rate-decides-direction fix landed with the corpus bit-identical, and it cured most
+of the decision-67 live defect while converting 17 silent wrong answers to signalled failures.**
+`bisectorOffsetRate` (the same cross-product `makeOffsetDistance` prices collisions with, read
+from the edge's stored parent) now decides direction whenever it clears the standing tolerance;
+`approximateDirection` survives only as the anti-parallel tie-break. Corpus verified bit-identical
+by a 1931-line full-graph digest diff; baseline had 0 negative-rate bisectors among the corpus's
+923 (why it was latent). Outside the corpus it was live: off-edge jitter cures L 22/80 → **1/80**
+and plus 46/80 → **13/80** — most of F20's class; both pinned `OFF_EDGE_JITTER_L` fixtures now
+solve as roots with zero escaped nodes (held out per decision 71b — they still defeat the
+recursive driver). The 17 flipped cells (16 in the circle-32 jitter band + Rosette5 @2e11) each
+had negative-rate bisectors before — ruled never-a-pass, decision 71a. New pins: the rate
+invariant sweeps corpus + hold-outs plus three discriminator cells where the old code actually
+broke it. **The parentsInverted-inversion finding is withdrawn** (see the D70 amendment) — the
+delegate corrected its own record and convicted the correction both ways. **F19 wrinkle for the
+record:** Rosette5 @1e11's terminal-ring separation moved from 6e-8 (1.7–6× epsilon, too wide for
+the `identical-source` close) to **4.7e-9 — under the epsilon — and the close still does not
+fire**, so F19's mechanism account is now incomplete for that cell; decision 66's
+accept-by-construction stands, but any future fixer starts there. Delegate figures: core
+4345/4345 (75 suites, 57 s), dashboard 257/257, census 0 → 0. Mutation convictions: direction
+rule off → 15 tests / 4 suites die; collapse reverted → 0 die; actual swap → 559 die.
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted

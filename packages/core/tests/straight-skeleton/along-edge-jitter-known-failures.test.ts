@@ -1,4 +1,14 @@
-import {setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton, Vector2} from '@proc-geo/core';
+import {
+    flattenRecursiveTree,
+    FULL_DEPTH_FRACTION,
+    MAX_RECURSION_LEVELS,
+    setSkeletonLogLevel,
+    SKELETON_NOISE_FLOOR,
+    solveSkeleton,
+    subdivideRecursively,
+    uniformLevelSpecs,
+    Vector2,
+} from '@proc-geo/core';
 import {
     OFF_EDGE_JITTER_L_SEED_15838,
     OFF_EDGE_JITTER_L_SEED_55433,
@@ -6,6 +16,7 @@ import {
 } from '@proc-geo/test-fixtures';
 
 import {JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitterSweep} from './jitter-helpers';
+import {escapedNodes} from './containment-helpers';
 
 /*
  * ============================================================================
@@ -67,13 +78,39 @@ import {JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitterSweep} from './jitter-
  * WHAT TO DO WHEN A CELL STARTS PASSING
  * ----------------------------------------------------------------------------
  *
- * These assertions are the CURRENT WRONG BEHAVIOUR, asserted exactly, and they fire in both
+ * These assertions are the CURRENT behaviour, asserted exactly, and they fire in both
  * directions. If a fixture starts solving: promote it into `ALL_TEST_POLYGONS` in
  * `packages/test-fixtures/src/index.ts`, delete its block here, rewrite the fixture's header as a
  * passing record, and re-measure the two sweep counts — a fix that reaches one of these three
  * almost certainly moves 22/80 and 46/80 as well. If a count SHRINKS without a fixture flipping,
  * something helped and the account above needs re-measuring. If anything GROWS, the regime
  * regressed. Do not adjust a number here to make the suite green.
+ *
+ * ----------------------------------------------------------------------------
+ * 2026-08-28: MOST OF THE CLASS IS CURED, AND THE PROMOTION RULE ABOVE IS BLOCKED, NOT IGNORED
+ * ----------------------------------------------------------------------------
+ *
+ * Journal decision 70 made `addBisectionEdge` choose a bisector's direction by its OFFSET RATE and
+ * demoted `approximateDirection` to an anti-parallel tie-break, so a bisector can no longer be
+ * flipped to run backwards through the wavefront. Re-measured, all three counts moved the good way,
+ * and the two reflex-L fixtures now SOLVE:
+ *
+ *     magnitude 1e-3, stage on   before   after
+ *     reflex L                    22/80    1/80
+ *     double-reflex plus          46/80   13/80
+ *
+ * The rule above says to promote a fixture that starts solving, and BOTH L FIXTURES MEET THAT
+ * CRITERION — they solve completely, and no node of either escapes its polygon. They are still not
+ * promoted, and the reason is measured rather than preferred: the recursive-subdivision census over
+ * `ALL_TEST_POLYGONS` must stand at zero recorded failures, and across its own grid (three depths ×
+ * four merge groups × three levels) `OFF_EDGE_JITTER_L_SEED_15838` yields 5 failed nodes and
+ * `OFF_EDGE_JITTER_L_SEED_55433` yields 10. They solve as ROOTS and still defeat the driver as
+ * REGIONS, which is the half of decision 67's class that survives. Enrolling them would take the
+ * census from 0 to 15 and turn a live defect into corpus noise.
+ *
+ * So they stay here, visibly pinned, with their blocks rewritten to assert the BETTER behaviour
+ * exactly — nothing is laundered out under journal decision 53, and a regression back to a failing
+ * root fires here. The promotion needs the lead's ruling, not this file's.
  */
 
 setSkeletonLogLevel('silent');
@@ -94,39 +131,73 @@ function diagnosticKinds(polygon: Vector2[]): string[] {
     return solveSkeleton(polygon).diagnostics.map(diagnostic => diagnostic.kind);
 }
 
+/**
+ * How many regions the recursive driver cuts out of this polygon and then cannot solve.
+ *
+ * THE MEASUREMENT THAT HOLDS THESE FIXTURES OUT OF THE CORPUS now that they solve as roots, so it
+ * is asserted rather than described. Swept over the grid the corpus census itself uses — the three
+ * depth fractions and the four merge group sizes of `recursive-subdivision.test.ts` — because that
+ * census is the bar the promotion would have to clear, and a count measured on any other grid would
+ * not be about it.
+ */
+function subdivisionFailures(polygon: Vector2[]): number {
+    let failures = 0;
+    for (const depthFraction of [0.25, 0.6, FULL_DEPTH_FRACTION]) {
+        for (const mergeGroupSize of [1, 2, 3, 4]) {
+            const levels = uniformLevelSpecs({
+                levels: MAX_RECURSION_LEVELS, mergeGroupSize, depthFraction, residue: 'recurse',
+            });
+            const tree = subdivideRecursively(polygon, {levels});
+            failures += flattenRecursiveTree(tree).filter(node => node.failure !== undefined).length;
+        }
+    }
+    return failures;
+}
+
 describe('off-edge jitter just above the noise floor: the recorded defect', () => {
-    it('fails 22 of 80 cells on the reflex L, at the default noise floor', () => {
+    it('fails 1 of 80 cells on the reflex L, at the default noise floor', () => {
+        // Was 22 of 80 on counts [3,5,6,7,8,9,10] before journal decision 70. See the header.
         expect(jitterSweep(JITTER_REFLEX_L, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 22, failingCounts: [3, 5, 6, 7, 8, 9, 10]});
+            .toEqual({failed: 1, failingCounts: [2]});
     });
 
-    it('fails 46 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+    it('fails 13 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+        // Was 46 of 80 on counts [2,3,4,5,6,7,8,9,10] before journal decision 70. The plus keeps
+        // more of the class than the L because its facing walls are exactly parallel whatever the
+        // jitter does, which is a degeneracy the direction rule does not address.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 46, failingCounts: [2, 3, 4, 5, 6, 7, 8, 9, 10]});
+            .toEqual({failed: 13, failingCounts: [2, 4, 6, 7, 8, 9, 10]});
     });
 });
 
 describe('OFF_EDGE_JITTER_L_SEED_55433: the specimen of the class', () => {
     /*
-     * The one fixture canonicalisation does not touch. Its value is that it forecloses the easy
-     * misreading of the other two — that what fails is a ring left ragged by partial removal. Here
-     * nothing is removed: all eighteen vertices are above the floor, and the solve dies anyway.
+     * The one fixture canonicalisation does not touch. Its value WAS that it foreclosed the easy
+     * misreading of the other two — that what fails is a ring left ragged by partial removal.
+     * Nothing is removed here: all eighteen vertices are above the floor.
+     *
+     * IT NOW SOLVES (journal decision 70), and it is pinned solving so that it cannot quietly stop.
+     * What it still cannot do is survive being SUBDIVIDED, which is why it is not in the corpus;
+     * see the header.
      */
 
-    it('loses no vertex to canonicalisation, and still does not solve', () => {
+    it('loses no vertex to canonicalisation, and now solves completely', () => {
         const result = solveSkeleton(OFF_EDGE_JITTER_L_SEED_55433);
 
         expect(OFF_EDGE_JITTER_L_SEED_55433).toHaveLength(18);
         expect(result.graph.numExteriorNodes).toBe(18);
-        expect(result.complete).toBe(false);
-        expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toEqual(['step-failure', 'unresolved-edges']);
+        expect(result.complete).toBe(true);
+        expect(result.diagnostics).toEqual([]);
     });
 
-    it('dies in a two-edge base case, stranding interior edges 48 and 49', () => {
-        const diagnostics = solveSkeleton(OFF_EDGE_JITTER_L_SEED_55433).diagnostics;
+    it('keeps every skeleton node inside its polygon', () => {
+        // The solve completing is only half the claim, and the deformed peanuts are why the other
+        // half is asserted: a bisector that escapes the boundary reports `complete: true` too.
+        expect(escapedNodes(OFF_EDGE_JITTER_L_SEED_55433)).toEqual([]);
+    });
 
-        expect(diagnostics[0].detail).toContain('Unable to generate any collision from last two edges');
-        expect(diagnostics[1].detail).toBe('2 interior edge(s) finished without a target node: 48, 49.');
+    it('still defeats the recursive driver as a region, which is what holds it out of the corpus', () => {
+        expect(subdivisionFailures(OFF_EDGE_JITTER_L_SEED_55433)).toBe(10);
     });
 
     it('is still the reflex L to within a thousandth of a unit', () => {
@@ -142,17 +213,24 @@ describe('OFF_EDGE_JITTER_L_SEED_55433: the specimen of the class', () => {
     });
 });
 
-describe('the two fixtures canonicalisation reaches but cannot rescue', () => {
-    it('OFF_EDGE_JITTER_L_SEED_15838 loses three samples and then fails', () => {
+describe('the two fixtures canonicalisation reaches', () => {
+    it('OFF_EDGE_JITTER_L_SEED_15838 loses three samples and now solves', () => {
         const result = solveSkeleton(OFF_EDGE_JITTER_L_SEED_15838);
 
         expect(OFF_EDGE_JITTER_L_SEED_15838).toHaveLength(18);
         expect(result.graph.numExteriorNodes).toBe(15);
-        expect(result.complete).toBe(false);
-        expect(diagnosticKinds(OFF_EDGE_JITTER_L_SEED_15838))
-            .toEqual(['vertices-canonicalised', 'step-failure', 'unresolved-edges']);
-        expect(result.diagnostics.at(-1)?.detail)
-            .toBe('2 interior edge(s) finished without a target node: 40, 41.');
+        // Solves since journal decision 70; the canonicalisation diagnostic is the only one left,
+        // and it reports a removal rather than a failure. See the header for why it stays here.
+        expect(result.complete).toBe(true);
+        expect(diagnosticKinds(OFF_EDGE_JITTER_L_SEED_15838)).toEqual(['vertices-canonicalised']);
+    });
+
+    it('OFF_EDGE_JITTER_L_SEED_15838 keeps every skeleton node inside its polygon', () => {
+        expect(escapedNodes(OFF_EDGE_JITTER_L_SEED_15838)).toEqual([]);
+    });
+
+    it('OFF_EDGE_JITTER_L_SEED_15838 still defeats the recursive driver as a region', () => {
+        expect(subdivisionFailures(OFF_EDGE_JITTER_L_SEED_15838)).toBe(5);
     });
 
     it('OFF_EDGE_JITTER_PLUS_SEED_7919 loses four samples and then fails', () => {
