@@ -175,6 +175,19 @@ import {T_SHAPE} from './rectilinear-shapes';
 export {GOLF_CART} from './rectilinear-shapes';
 import {GOLF_CART} from './rectilinear-shapes';
 
+// near-floor-jitter.ts
+// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: none of the three
+// solves completely, and the sweeps over that list assert that every entry does. Journal decision 53
+// permits an exclusion only as a visible, pinned characterisation of a defect awaiting its fix, and
+// that pin is along-edge-jitter-known-failures.test.ts. Added 2026-08-28 when backlog item 2 was
+// re-measured; see the fixture file header for the generator, the magnitude and why the failing band
+// sits just above the noise floor.
+export {
+    OFF_EDGE_JITTER_L_SEED_15838,
+    OFF_EDGE_JITTER_L_SEED_55433,
+    OFF_EDGE_JITTER_PLUS_SEED_7919,
+} from './near-floor-jitter';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];

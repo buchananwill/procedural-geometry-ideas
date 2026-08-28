@@ -2,6 +2,9 @@ import {
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
+    FLOATING_POINT_EPSILON,
+    makeSkeletonNormalisation,
+    normalisePosition,
     setSkeletonLogLevel,
     solveSkeleton,
     Vector2,
@@ -40,6 +43,44 @@ import {place} from './placement-helpers';
  * regime journal decision 54 leaves open, and it is the evidence this fixture exists to carry: the
  * failure mode SHIFTED into it when the double-split partition fix landed (journal F15b), so a
  * change here is a change in that regime rather than in the partition layer.
+ *
+ * ----------------------------------------------------------------------------
+ * ROOT-CAUSED 2026-08-28, AND THE TWO CELLS ARE ONE DEFECT, NOT TWO
+ * ----------------------------------------------------------------------------
+ *
+ * Both fixtures now die at the SAME site and by the same comparison, so the two blocks below are
+ * two samples of one class rather than two defects. The proximate failure is
+ * `handleInteriorEdgePair` (`algorithm-termination-cases.ts:259`): the two-edge base case asks
+ * `intersectRays` to classify the pair, and the terminal close it wants is the `identical-source`
+ * branch at `intersection-edges.ts:46`, whose test is `areEqual(distanceToRay2, 0)` — an ABSOLUTE
+ * `FLOATING_POINT_EPSILON` of `1e-8` against the separation of the two source nodes. Circle 48 at
+ * 1e10 misses it by 1.72x (separation 1.718e-8 in unit space); Rosette5 40 at 1e11 misses it by
+ * 5.99x (5.992e-8). Having missed it, Circle 48's residual pair carries BIT-IDENTICAL basis
+ * vectors and is classified `parallel` (`intersection-edges.ts:62`) while the rosette's is
+ * classified `diverging` (`intersection-edges.ts:90`); either way no collision exists and
+ * `algorithm-termination-cases.ts:334` throws.
+ *
+ * WHY THERE ARE TWO NODES WHERE THERE SHOULD BE ONE. Translation quantises the input: at 1e10 a
+ * double's ulp is 1.907e-6 caller units, which the unit-extent scale of 256 carries to 7.451e-9 in
+ * unit space — 0.75 of the epsilon. The fixture is NEAR-regular, so its 48 terminal arrivals are
+ * congruent to within the last bits; that quantisation scatters them by an appreciable fraction of
+ * the tolerance, and the solver then merges SOME of them and not others. The offset layer is
+ * selected by an absolute window (`algorithm-complex-cases.ts:80-90`) and the arrivals inside one
+ * layer are clustered by connected components under `vectorsAreEqual`
+ * (`coincident-events.ts:132`); the clustering is transitive, the layer window is not, so a
+ * convergence whose offsets straddle the window is cut across successive layers and each layer
+ * merges only the part it can see. The measured signature, pinned below: natively and at 1e9 the
+ * 48-way convergence is ONE node of in-degree 48; at 1e10 it is FOURTEEN nodes with in-degrees
+ * 2,2,2,2,2,2,2,2,8,8,8,8,13,3 — the half-merged state — and at 2e10 it is thirty-three nodes of
+ * in-degree 2 and 3, an ordinary sequence of small events, which SOLVES.
+ *
+ * THAT IS THE NON-MONOTONICITY, AND IT IS A LOTTERY RATHER THAN A BAND. Three regimes: scatter far
+ * below the tolerance (one clean many-way merge, passes), scatter comparable to it (partial merge,
+ * fails), scatter far above it (cleanly separated ordinary events, passes). Which side of the
+ * middle regime a given translation lands on is a property of that translation's rounding pattern,
+ * so the decade-spaced enrolment sweep sees one cell per fixture by sampling luck. A finer grid
+ * does not: the block at the bottom of this file pins it, and 1e10 is NOT the only failing
+ * translation for Circle 48.
  */
 
 setSkeletonLogLevel('silent');
@@ -144,5 +185,205 @@ describe('NEAR_REGULAR_ROSETTE5_40: the recorded defect at translation 1e11', ()
         const separation = Math.abs(positions[0].x - positions[1].x);
         expect(separation).toBeGreaterThan(1e-8);
         expect(separation).toBeLessThan(1e-7);
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE ROOT CAUSE, MEASURED AND PINNED — 2026-08-28
+ * ============================================================================
+ *
+ * Everything below was added when the two cells above were root-caused. It exists so that the
+ * story in this file's header is a MEASUREMENT rather than a claim, and so that the two things the
+ * header asserts which the sweep above cannot see — that 1e10 is not Circle 48's only failing
+ * translation, and that the geometry in dispute is far below anything renderable — are both loud
+ * if they ever stop being true.
+ */
+
+/** Unit-space nodes within `radius` of the polygon centre, with their in-degrees and spread. */
+function terminalCluster(fixture: Vector2[], translate: number, radius: number) {
+    const placed = place(fixture, 1, translate);
+    const normalisation = makeSkeletonNormalisation(placed);
+    const result = solveSkeleton(placed);
+
+    const positions: Vector2[] = [];
+    const inDegrees: number[] = [];
+    for (const node of result.graph.nodes) {
+        const unit = normalisePosition(normalisation, node.position);
+        if (Math.hypot(unit.x, unit.y) < radius) {
+            positions.push(unit);
+            inDegrees.push(node.inEdges.length);
+        }
+    }
+
+    let spread = 0;
+    for (let i = 0; i < positions.length; i++) {
+        for (let j = i + 1; j < positions.length; j++) {
+            spread = Math.max(spread, Math.hypot(positions[i].x - positions[j].x, positions[i].y - positions[j].y));
+        }
+    }
+
+    return {count: positions.length, inDegrees: inDegrees.toSorted((a, b) => a - b), spread};
+}
+
+/** The world-space separation of the two source nodes the failing base case could not close. */
+function disputedWorldGap(fixture: Vector2[], translate: number): number {
+    const placed = place(fixture, 1, translate);
+    const normalisation = makeSkeletonNormalisation(placed);
+    const detail = solveSkeleton(placed).diagnostics[0].detail;
+    const positions = [...detail.matchAll(/"position":\{"x":(-?[\d.e+-]+),"y":(-?[\d.e+-]+)\}/g)]
+        .map(match => ({x: Number(match[1]), y: Number(match[2])}));
+
+    return Math.hypot(positions[0].x - positions[1].x, positions[0].y - positions[1].y)
+        * normalisation.fromUnitScale;
+}
+
+/** The fixture's longest bounding-box side, in caller units at scale 1. */
+function extentOf(fixture: Vector2[]): number {
+    const xs = fixture.map(vertex => vertex.x);
+    const ys = fixture.map(vertex => vertex.y);
+    return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+}
+
+/**
+ * Translations at 1..9 times each decade from 1e8 to 1e12, plus 1e13. Forty-six cells, every one
+ * an exact integer double, so the grid itself introduces no rounding of its own.
+ */
+const FINE_TRANSLATIONS: number[] = [];
+for (const decade of [1e8, 1e9, 1e10, 1e11, 1e12]) {
+    for (let multiple = 1; multiple <= 9; multiple++) {
+        FINE_TRANSLATIONS.push(multiple * decade);
+    }
+}
+FINE_TRANSLATIONS.push(1e13);
+
+describe('the defect is a scatter of translations, not the one cell the decade sweep samples', () => {
+    /*
+     * WHAT THIS CHANGES ABOUT THE RECORD ABOVE. "Fails at 1e10 ONLY" is true of the enrolment
+     * sweep and false of the fixture. A fix is therefore not verified by 1e10 turning green; it is
+     * verified by these two lists emptying. If a list SHRINKS, something helped and the header's
+     * account of why needs re-measuring; if it grows, the envelope regressed.
+     */
+
+    it('Circle 48 fails at three translations in the grid, and 1e10 is only one of them', () => {
+        const failing = FINE_TRANSLATIONS.filter(
+            translate => !solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, translate)).complete);
+
+        expect(failing).toEqual([2e9, 9e9, 1e10]);
+    });
+
+    it('Rosette5 40 fails at nine, spread over two decades that do not touch', () => {
+        // 3e12 and 4e12 are the point: there is no upper threshold past which the fixture is safe,
+        // because the failure turns on the rounding pattern of the particular translation and not
+        // on how large it is.
+        const failing = FINE_TRANSLATIONS.filter(
+            translate => !solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, translate)).complete);
+
+        expect(failing).toEqual([4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 3e12, 4e12]);
+    });
+
+    it('every failing cell is a signalled step failure, never a silent wrong answer', () => {
+        for (const translate of [2e9, 9e9, 1e10]) {
+            const kinds = diagnosticKinds(NEAR_REGULAR_CIRCLE_48, translate);
+            expect(kinds).toContain('step-failure');
+            expect(kinds.at(-1)).toBe('unresolved-edges');
+        }
+        for (const translate of [4e10, 5e10, 6e10, 7e10, 8e10, 9e10, 1e11, 3e12, 4e12]) {
+            const kinds = diagnosticKinds(NEAR_REGULAR_ROSETTE5_40, translate);
+            expect(kinds).toContain('step-failure');
+            expect(kinds.at(-1)).toBe('unresolved-edges');
+        }
+    });
+});
+
+describe('the mechanism: a 48-way convergence half-merged by an absolute tolerance', () => {
+    /*
+     * The three regimes, measured on the one fixture that shows all of them cleanly. Circle 48's
+     * terminal event is a single 48-way convergence at the centre, so the cluster of graph nodes
+     * near the centre IS the resolution of that event and nothing else lands there.
+     */
+
+    it('resolves to ONE node of in-degree 48 natively and at 1e9 — the clean many-way merge', () => {
+        for (const translate of [0, 1e9]) {
+            const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, translate, 1e-4);
+            expect(cluster.count).toBe(1);
+            expect(cluster.inDegrees).toEqual([48]);
+            expect(cluster.spread).toBe(0);
+        }
+    });
+
+    it('half-merges into two hubs at 2e9, 1.24e-8 apart — just past the 1e-8 tolerance', () => {
+        const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 2e9, 1e-4);
+
+        expect(cluster.count).toBe(2);
+        expect(cluster.inDegrees).toEqual([12, 40]);
+        // The whole defect in one number: had these two been 1e-8 apart rather than 1.24e-8, the
+        // `identical-source` branch of `intersectRays` would have closed the pair and the solve
+        // would have completed.
+        expect(cluster.spread).toBeGreaterThan(FLOATING_POINT_EPSILON);
+        expect(cluster.spread).toBeLessThan(2 * FLOATING_POINT_EPSILON);
+    });
+
+    it('shatters into fourteen at 1e10, with hubs of 8, 8, 8, 8 and 13 — the same half-merge', () => {
+        const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 1e10, 1e-4);
+
+        expect(cluster.count).toBe(14);
+        expect(cluster.inDegrees).toEqual([2, 2, 2, 2, 2, 2, 2, 2, 3, 8, 8, 8, 8, 13]);
+    });
+
+    it('shatters FURTHER at 2e10 into ordinary 2- and 3-way events, and therefore SOLVES', () => {
+        // The third regime, and the reason a bigger translation can be safer than a smaller one.
+        // Nothing here is a hub: every node is an ordinary vertex event the solver has always
+        // handled, so the scatter that broke 1e10 is what rescues 2e10.
+        const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 2e10, 1e-4);
+
+        expect(solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, 2e10)).complete).toBe(true);
+        expect(cluster.count).toBe(33);
+        expect(Math.max(...cluster.inDegrees)).toBe(8);
+        expect(cluster.inDegrees.filter(degree => degree > 3)).toEqual([8]);
+    });
+});
+
+describe('journal decision 54: the disputed geometry is far below anything renderable', () => {
+    /*
+     * Decision 54 sets the precision bar at "can you see this on a screen?". These assertions are
+     * that question answered in numbers, so that any future argument for spending on this defect
+     * has to move them rather than restate the story.
+     *
+     * A 4K display is 3840 pixels across. `px` below is what the disputed separation would measure
+     * if the WHOLE fixture were rendered across that display — the most generous framing available,
+     * since any real view shows more than the polygon.
+     */
+
+    const pixelsAt4K = (fixture: Vector2[], translate: number) =>
+        3840 * disputedWorldGap(fixture, translate) / extentOf(fixture);
+
+    it('Circle 48 at 1e10 disputes 4.4e-6 world units on a 300-unit shape', () => {
+        const gap = disputedWorldGap(NEAR_REGULAR_CIRCLE_48, 1e10);
+
+        expect(gap).toBeGreaterThan(4e-6);
+        expect(gap).toBeLessThan(5e-6);
+        expect(gap / extentOf(NEAR_REGULAR_CIRCLE_48)).toBeLessThan(2e-8);
+        expect(pixelsAt4K(NEAR_REGULAR_CIRCLE_48, 1e10)).toBeLessThan(1e-4);
+    });
+
+    it('Rosette5 40 at 1e11 disputes 3.1e-5 world units on a 371-unit shape', () => {
+        const gap = disputedWorldGap(NEAR_REGULAR_ROSETTE5_40, 1e11);
+
+        expect(gap).toBeGreaterThan(3e-5);
+        expect(gap).toBeLessThan(4e-5);
+        expect(gap / extentOf(NEAR_REGULAR_ROSETTE5_40)).toBeLessThan(1e-7);
+        expect(pixelsAt4K(NEAR_REGULAR_ROSETTE5_40, 1e11)).toBeLessThan(1e-3);
+    });
+
+    it('and is the same order as the input\'s OWN resolution at that placement', () => {
+        // The argument that closes it. At 1e10 a double's ulp is 1.9e-6 caller units, so the
+        // fixture's vertices are not specified more finely than that; the disputed gap is a couple
+        // of ulps of the coordinates it was derived from. There is no better answer being lost,
+        // because at this placement the input does not carry one.
+        const ulpAt = (translate: number) => translate * 2 ** -52;
+
+        expect(disputedWorldGap(NEAR_REGULAR_CIRCLE_48, 1e10) / ulpAt(1e10)).toBeLessThan(3);
+        expect(disputedWorldGap(NEAR_REGULAR_ROSETTE5_40, 1e11) / ulpAt(1e11)).toBeLessThan(3);
     });
 });

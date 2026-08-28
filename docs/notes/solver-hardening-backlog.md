@@ -71,6 +71,55 @@ collinearity this needs.
 
 **First step if resumed:** add a fixture, so it stops being invisible.
 
+### CORRECTION, 2026-08-28 — re-measured, and the item above is wrong in two places
+
+The history above is kept as written. What follows corrects it against a re-measurement over the
+same construction: 8 seeds x k = 1..10, on the same two shapes, at five jitter magnitudes
+(1e-9, 1e-6, 1e-3, 0.1, 1.0 caller units on shapes spanning 300 — the magnitude is the one
+parameter the record above does not state). Fixtures now exist: the "first step if resumed" is done.
+
+**1. The along-edge class is DEAD in the default configuration, and dead BY CONSTRUCTION.** 48/80
+and 25/80 are now **0/80 and 0/80**, at every magnitude. A sample displaced along its own edge stays
+on the chord between its neighbours, so its perpendicular deviation is float noise — worst 1.3e-13
+caller units, about 5e-16 in unit space, ten orders below the 1e-6 canonicalisation floor. The stage
+removes every jittered sample whatever the magnitude and hands the solver back the bare six- or
+twelve-vertex fixture. There is no magnitude at which this family reaches the solver.
+
+Stated at the strength it holds, no higher: canonicalisation removed the **input**, not the defect.
+With the stage off (`{noiseFloor: 0}`, the like-for-like comparison since the record above predates
+the stage) the class is alive and slightly **worse** — the L fails 34/80 against its recorded 48/80
+and the plus 56/80 against its recorded 25/80, 90 of 160 today against 73 of 160 then, redistributed
+between the two shapes.
+
+**2. "Jitter with an off-edge component ... every configuration passes (80/80)" is FALSE near the
+noise floor.** It is true far from it. At an off-edge magnitude of **1e-3** caller units — about
+3.9e-6 in unit space, a few times the 1e-6 floor: large enough to survive canonicalisation, small
+enough that the shape is still near-degenerate — the reflex L fails **22/80** and the double-reflex
+plus **46/80**, **with default solver options**. A decade either side is quiet (1e-6: 0/80 both;
+0.1: 1/80 both). So the control this item rests on is a band, not a threshold, and the failing band
+sits just above the floor. Every failure is signalled — `complete: false`, `step-failure` then
+`unresolved-edges` — never a silent wrong answer.
+
+That off-edge band is now the live half of this item, and the "why it matters more than its
+measurements suggest" paragraph above transfers to it unchanged: it is the near-degenerate regime a
+real hand-drawn L or cross falls into. The "**But:** the pipeline does not reach it" paragraph also
+still stands — 288/288 on simulated strokes — so this remains a bound on the solver rather than a
+broken feature.
+
+**Where it now lives, instead of in scratchpad scripts:**
+
+- [along-edge-jitter.test.ts](../../packages/core/tests/straight-skeleton/along-edge-jitter.test.ts)
+  — the closed along-edge class. Carries the full 40-cell measured table above as dated prose and
+  runs a representative subset as the standing regression (journal decision 68; the eighty-cell form
+  cost 222 s and became the critical path of the core suite).
+- [along-edge-jitter-known-failures.test.ts](../../packages/core/tests/straight-skeleton/along-edge-jitter-known-failures.test.ts)
+  — the live off-edge near-floor defect, pinned per journal decision 53, keeping the **full**
+  eighty-cell grid because it is measuring something still broken.
+- [near-floor-jitter.ts](../../packages/test-fixtures/src/near-floor-jitter.ts) — three literal
+  failing fixtures, exported individually and deliberately **not** in `ALL_TEST_POLYGONS`.
+- [jitter-helpers.ts](../../packages/core/tests/straight-skeleton/jitter-helpers.ts) — the
+  generator, with every constant documented.
+
 ---
 
 ## 3. Exactly-subdivided reflex polygons

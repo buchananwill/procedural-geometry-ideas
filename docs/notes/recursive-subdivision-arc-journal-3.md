@@ -55,22 +55,37 @@ orphan port 3000, P8 debrief relocation). Additions this session:
   visualising skeleton solutions** — build first (P3), check port 3000 for an orphan server (P4),
   then screenshot. Use it to eyeball a fixed fixture's skeleton, not only its test verdict.
 
-## 4. Next work
+## 4. Next work — morning handoff, 2026-08-28
 
-1. ~~Root-cause the `GOLF_CART` partition sorting failure~~ **Done — F12.** Fix not yet mandated;
-   any fix needs a design ruling on representing a double-split layer (a child sub-polygon bounded
-   by bisectors from two source nodes — beyond one `BisectionParams`).
-2. ~~Enumerate the outstanding numerical-tolerance issues~~ **Done — F10** (verified F11 → F14).
-3. Pin `GOLF_CART` with a characterisation test kept out of `ALL_TEST_POLYGONS` (the backlog-item-7
-   dumbbell precedent). The untracked `golf-cart-debug.test.ts` / `golf-cart-variants-debug.test.ts`
-   are raw material, not yet the pinned form.
-4. Fix the `partitionSpan` inversion (F13) alongside — never alone, since alone it converts the
-   `GOLF_CART` throw into a silent wrong skeleton.
-5. Promote per F14: `SHORT_EDGE_PROMONTORY` and five near-regulars are unblocked (run the
-   out-of-scope scale/strip sweeps first); rewrite the two stale exclusion headers and mark backlog
-   items 1/3/4 closed in `solver-hardening-backlog.md`.
-6. Rule on the F10 tail: the root-floor pass-down reconciliation (decisions 19–20 vs F4/F5), the
-   `inEdges` sort, the duplicated 1e-6 floors, and whether to fixture the along-edge-jitter class.
+The overnight queue (decision 63) completed in full: five commits, every item verified by the lead
+on the merged tree. Read the night in the Findings (F12–F21) and Decisions (56–68).
+
+**State at close: corpus 46 (every historical exclusion promoted or pinned), core 4119/4119
+across 73 suites in 73 s, dashboard 257/257, recursive-subdivision census 0 failures throughout,
+branch un-pushed.**
+
+What needs the user:
+
+1. **The two live solver defects, both pinned, both awaiting a design ruling** (decision 67):
+   the collinear dumbbell (non-adjacent supporting-line degeneracy, silent overlap — the only
+   silent-wrong-answer defect known) and the near-floor off-edge jitter class (22/80 L, 46/80
+   plus at jitter a few × the noise floor — the hand-drawn regime; F20). These are the
+   production-hardening frontier now.
+2. **Decision 66's accept-by-construction** for the two translation cells — review if the
+   operating envelope ever approaches 2e9 units.
+3. **The root-floor pass-down reconciliation** (decisions 19–20 vs F4/F5) — still the one F10
+   item unruled.
+4. **The C++-team correction** (session-1 outstanding item 1, F9) — still unsent, still
+   cheap-now-expensive-later.
+5. Push/PR when the user is ready — nothing has left this machine.
+
+## 5. Open items
+
+Carried from session 1: C++-team correction (above), radial promotion, leaf slicing, merge
+heuristic, size ladder. Added this session: F15a specimen debt (recursive-subdivision tests and
+the dashboard scene test lean on the dumbbell and Broken Polygon as failing specimens — both lose
+their specimen when their defect is fixed); the caller-space debug overlay and unit-space assert
+text (F10, documented-risk tier); corner-correction fuzzing (parked unless symptoms).
 
 ## 5. Open items
 
@@ -177,6 +192,29 @@ same defect family as the `inEdges` ordering instability (F10). The package ther
 canonical ordering for simultaneous event sets (node-id assignment), the `inEdges` sort (or proof
 nothing reads the order), the duplicated 1e-6 floors, and NaN entry validation. Ellipse promotion
 is that package's acceptance test.
+
+**66 — The two surviving translation failures are accepted by construction; the pinned records
+stand, widened.** Ratifies the package-4 recommendation on the decision-54 bar: the disputed
+geometry is 5.6e-5 px (Circle 48 @1e10) and 3.2e-4 px (Rosette5 40 @1e11) on a 4K render of the
+whole shape, and **under two ulps of the quantised input itself** — no better answer exists to
+lose. All 12 failing cells across the widened grid are signalled, never silent. The measured
+candidate fix (absolute-units lateral test in `solveDegenerateClosure`) flips one cell of twelve
+and is not landed.
+
+**67 — The near-floor off-edge jitter class is the standing live solver defect, joining the
+collinear dumbbell; both await a design ruling with the user awake.** Package 4's re-measurement
+found the backlog's along-edge class dead by construction under default config, but its "off-edge
+passes 80/80" control false near the noise floor: at jitter ≈ a few × the 1e-6 floor, the reflex L
+fails 22/80 and the double-reflex plus 46/80 with default options — the genuinely hand-drawn
+regime. Pinned per decision 53; no fix without a ruling.
+
+**68 — The closed-class jitter sweep is slimmed to a representative regression gate; the 80-cell
+record lives in prose, not in CI.** The full sweep (222 s) made the core suite 223 s — a 4× tax to
+re-prove a number already recorded. The historical-comparability measurement is done and written
+down (F20, test headers); the regression gate's job is detection, and the class when alive failed
+34–56/80, so a reduced sweep (~2 seeds × 3 k-values per cell, target well under 30 s) detects any
+revival with near-certainty. The known-failures pins (live defect) keep running in full. The full
+sweep is preserved in the file as documented construction, not deleted history.
 
 ## Findings
 
@@ -334,7 +372,46 @@ Delegate figures: core 4081/4081 (71 suites), dashboard 257/257, census 46 fixtu
 convict the tie-breaks, not the `inEdges` sort — recorded in the test header. The delegate's
 session died mid-run on an API error and was resumed with context intact; the resume re-audited
 the tree before continuing. Lead verification: core **4081/4081 (71 suites)**, build clean,
-dashboard **257/257**, all re-run by the lead. **Package 3 committed: see below.**
+dashboard **257/257**, all re-run by the lead. **Package 3 committed: `898538e`.**
+
+**F19 — The two pinned translation failures are ONE defect class: sub-epsilon node scatter from a
+non-transitive layer window, and the brief's "edge 109" symptom was stale.** Both die in the
+two-edge base case (`intersection-edges.ts:46`): the terminal `identical-source` close needs node
+separation under the absolute 1e-8, and translation-quantisation scatter lands at 1.7×/6× that.
+Upstream, the offset-layer window (`algorithm-complex-cases.ts:80-90`) is not transitive while the
+in-layer clustering is, so a convergence straddling the window is cut across layers and partially
+merged — Circle 48 @1e10 resolves its 48-way centre as 14 nodes (hubs of 8 and 13 beside pairs).
+Non-monotonicity is a rounding lottery, not a band: the widened grid shows Circle 48 failing
+{2e9, 9e9, 1e10} and Rosette5 40 failing 9 cells including 3e12/4e12 — **no safe upper threshold
+exists**. `solveDegenerateClosure`'s direction test (`algorithm-termination-cases.ts:232`)
+normalises a sub-tolerance separation — the exact flaw `sourceLiesAhead` was fixed for. Caveat on
+the record: mid-band the *symptom* can be macroscopic (Rosette @5e10: two nodes 22% of extent
+apart) though the root mis-merge is sub-epsilon and everything is signalled. Ruled in decision 66.
+
+**F20 — Backlog item 2 re-measured: the along-edge class is dead by construction; the live defect
+moved to just above the noise floor.** Under default config every on-line jittered sample deviates
+from its chord by ~5e-16 unit space — ten orders under the 1e-6 floor — so canonicalisation
+removes the jitter at any magnitude and the class cannot reach the solver (0/80 everywhere; with
+the stage off it is alive and slightly worse than 2026-08-09: 90/160 vs 73/160). The new finding:
+off-edge jitter at ~a few × the floor fails 22/80 (L) and 46/80 (plus) with default options — the
+backlog's control claim is false near the floor. Three literal fixtures pinned
+(`OFF_EDGE_JITTER_*`, out of `ALL_TEST_POLYGONS`), with the middle specimen constructed so nothing
+sits under the floor — foreclosing the partial-canonicalisation-debris reading. Reconstruction
+caveats recorded by the delegate: no 2026-08-09 script survives; magnitude was unrecorded and 1.0
+chosen as the only value reproducing the record's control anchor; along-edge counts saturate
+across three decades so both plateau ends are pinned. Ruled in decisions 67/68.
+
+**F21 — Decision 68 executed: the closed-class sweep runs in 7.5 s (suite 223 s → 74 s) without
+losing conviction.** The subset's k-values `[2,4,7]` are drawn from the counts the full grid
+actually fails on with the stage off, and stage-off sampled cells still assert non-zero failures —
+so the canonicalisation conviction cannot lapse silently, and a subset drifting off the recorded
+grid is caught by a membership guard. The full 80-cell tables live as dated header prose with
+`jitterSweep` accepting the full grid as optional parameters for re-measurement. Backlog item 2
+annotated with the dated two-point correction (history preserved above it). Delegate: 4119/4119,
+mutation conviction 18/18. Two delegate flags ruled: the 7.5 s headroom is declined (coverage
+argument suffices; speed is the point), and the one recorded-but-not-run cell (plus off-edge
+stage-on m=1.0, measured 0/6, slowest column) is accepted as flagged. Lead verification: core **4119/4119 (73 suites, 73 s)**, build clean,
+dashboard **257/257**, all re-run by the lead. **Package 4 committed: see commit log.**
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
