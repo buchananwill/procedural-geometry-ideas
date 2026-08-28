@@ -504,7 +504,9 @@ the `identical-source` close) to **4.7e-9 — under the epsilon — and the clos
 fire**, so F19's mechanism account is now incomplete for that cell; decision 66's
 accept-by-construction stands, but any future fixer starts there. Delegate figures: core
 4345/4345 (75 suites, 57 s), dashboard 257/257, census 0 → 0. Mutation convictions: direction
-rule off → 15 tests / 4 suites die; collapse reverted → 0 die; actual swap → 559 die.
+rule off → 15 tests / 4 suites die; collapse reverted → 0 die; actual swap → 559 die. Lead
+verification: core **4345/4345 (75 suites)**, build clean, dashboard **257/257**, all re-run by
+the lead. **Package 6 committed: `5bf7bda`.**
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
