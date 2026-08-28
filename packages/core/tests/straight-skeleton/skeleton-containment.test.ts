@@ -74,9 +74,9 @@ describe('no skeleton node escapes the polygon it was solved from', () => {
         // The guard on the sweep's own reach, and it is ABSOLUTE rather than relative on purpose:
         // `FULL_CORPUS` is built by concatenation, so a roster that lost a fixture upstream would
         // shrink this file's coverage while a `clean + defect` identity went on passing. The sizes
-        // are the two rosters as ruled — 49 clean after the decision-73 promotion of `Symmetrical
-        // Octagon`, 7 known-defect under decision 72.
-        expect(CLEAN_TEST_POLYGONS).toHaveLength(49);
+        // are the two rosters as ruled — 50 clean, being the 49 of decision 73 plus
+        // `Invisible Vertex Rectangle` added under decision 75, and 7 known-defect under decision 72.
+        expect(CLEAN_TEST_POLYGONS).toHaveLength(50);
         expect(KNOWN_DEFECT_POLYGONS).toHaveLength(7);
         expect(FULL_CORPUS).toHaveLength(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
     });

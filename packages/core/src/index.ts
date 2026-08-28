@@ -140,6 +140,7 @@ export {
   runAlgorithmV5,
   runAlgorithmV5Stepped,
   solveSkeleton,
+  canonicaliseForSolve,
 } from './straight-skeleton/algorithm-termination-cases';
 export type { SteppedAlgorithmResult, SolveSkeletonOptions } from './straight-skeleton/algorithm-termination-cases';
 

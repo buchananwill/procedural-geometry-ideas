@@ -69,6 +69,15 @@ interface OffsetViolation {
  * drifted on any of those would leave the two checks auditing subtly different quantities while
  * appearing to agree.
  *
+ * THE POLYGON EDGE IS READ OFF THE SOLVED GRAPH, NOT OFF THE CALLER'S RING, and that is a
+ * correction rather than a preference (journal decision 75, 2026-08-28). A parent index names an
+ * exterior edge of the polygon the SOLVER saw, and the boundary stage removes vertices the caller
+ * still has — `LONG_SIDE_ACUTE_VERTEX` loses one, `INVISIBLE_VERTEX_RECTANGLE` loses one — so
+ * indexing the caller's array with it names a different edge from the vertex after the removal
+ * onward, and the oracle then measures every offset against the wrong line. It cost this suite a
+ * fabricated 1% clearance violation before it was found. The exterior nodes of the graph are the
+ * same geometry in the caller's units, in the index space the parent is written in.
+ *
  * It stays deliberately independent of `computeNodeOffsets` in `offset-projection.ts`, which
  * computes the same thing for production: the point of this file is to trust nothing the solver
  * recorded, and sharing the derivation with the code under audit would give that up. What *is*
@@ -77,8 +86,8 @@ interface OffsetViolation {
  * away from the audit while keeping this suite's notion of a distance identical to the offset
  * suites' one.
  */
-function deriveNodeOffsets(vertices: Vector2[], graph: StraightSkeletonGraph): Map<number, number> {
-    const edgeCount = vertices.length;
+function deriveNodeOffsets(graph: StraightSkeletonGraph): Map<number, number> {
+    const edgeCount = graph.numExteriorNodes;
 
     // Which original polygon edges define each interior edge. The solver records
     // this; the *positions* it produced are what we are auditing.
@@ -99,7 +108,10 @@ function deriveNodeOffsets(vertices: Vector2[], graph: StraightSkeletonGraph): M
         const parent = parentEdges.get(incident[0])!;
         offsetOf.set(
             i,
-            distanceToSupportingLine(node.position, vertices[parent], vertices[(parent + 1) % edgeCount]),
+            distanceToSupportingLine(
+                node.position,
+                graph.nodes[parent].position,
+                graph.nodes[(parent + 1) % edgeCount].position),
         );
     }
 
@@ -112,7 +124,7 @@ function deriveNodeOffsets(vertices: Vector2[], graph: StraightSkeletonGraph): M
 function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
     const context = runAlgorithmV5(vertices);
     const {graph} = context;
-    const offsetOf = deriveNodeOffsets(vertices, graph);
+    const offsetOf = deriveNodeOffsets(graph);
 
     const violations: OffsetViolation[] = [];
     for (const interiorEdge of graph.interiorEdges) {
@@ -214,8 +226,12 @@ function jitterCell(vertices: Vector2[], multiple: number, seed: number): Vector
 function findClearanceViolations(vertices: Vector2[]): string[] {
     const context = runAlgorithmV5(vertices);
     const {graph} = context;
-    const edgeCount = vertices.length;
-    const offsetOf = deriveNodeOffsets(vertices, graph);
+    // The boundary the SOLVER was given, for the same reason `deriveNodeOffsets` reads it: the two
+    // rings differ by whatever the boundary stage removed, and a clearance measured against a
+    // boundary the solver never saw is not a statement about the solver.
+    const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
+    const edgeCount = boundary.length;
+    const offsetOf = deriveNodeOffsets(graph);
 
     const violations: string[] = [];
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
@@ -229,7 +245,7 @@ function findClearanceViolations(vertices: Vector2[]): string[] {
         for (let k = 0; k < edgeCount; k++) {
             clearance = Math.min(
                 clearance,
-                distanceToSegment(node.position, vertices[k], vertices[(k + 1) % edgeCount]));
+                distanceToSegment(node.position, boundary[k], boundary[(k + 1) % edgeCount]));
         }
         if (offset > clearance + TOLERANCE) {
             violations.push(
@@ -435,36 +451,53 @@ describe('wavefront causality', () => {
      *    the whole corpus shares. That is the invariant journal decision 70 installed, holding
      *    everywhere including on shapes the solver otherwise gets wrong.
      *
-     *  - OFFSET, CLEARANCE AND DIRECTION ARE NOT. The four near-floor jitter fixtures break them,
-     *    and their counts are pinned per fixture in {@link DEFECT_CAUSALITY_SIGNATURES}.
+     *  - DIRECTION IS NOT. Two of the four near-floor jitter fixtures terminate edges behind their
+     *    own source, and their counts are pinned per fixture in {@link DEFECT_CAUSALITY_SIGNATURES}.
+     *
+     *  - OFFSET AND CLEARANCE ARE UNIVERSAL AS OF 2026-08-28, and were not before. See below: they
+     *    were never broken; the oracle that measured them was.
      *
      * ------------------------------------------------------------------------
-     * THREE OF THE FOUR ARE SILENT ABOUT IT, AND THAT IS THE POINT OF PINNING IT
+     * SIX OF THE PINNED VIOLATIONS WERE THE ORACLE'S OWN, AND ARE WITHDRAWN
      * ------------------------------------------------------------------------
      *
-     * `Off-edge Jitter Reflex L (seed 15838)`, `(seed 55433)` and `(seed 55433, k=4)` all report
-     * `complete: true` and strand no edge; `skeleton-containment.test.ts` finds no node of any of
-     * them outside its polygon. They are nonetheless carrying nodes the wavefront had already swept
-     * and edges terminating behind their own source. That is a WRONG SKELETON THAT SAYS IT IS RIGHT,
-     * of exactly the family journal decision 71a ruled was never a pass — and until this block
-     * existed, nothing in the suite said so, because the fixtures were held out of every sweep.
+     * Measured 2026-08-28 under journal decision 75. `deriveNodeOffsets` used to name the polygon
+     * edge a node is dated against by indexing the CALLER'S vertex array with a parent index written
+     * in the SOLVER'S. Those two index spaces are the same array only while the boundary stage
+     * removes nothing — and it removes 3, 4 and 4 vertices respectively from
+     * `Off-edge Jitter Reflex L (seed 15838)`, `Off-edge Jitter Plus (seed 7919)` and
+     * `(seed 55433, k=4)`, whose jitter sits at the noise floor by construction. Every offset past
+     * the first removal was therefore measured against the wrong supporting line, and the offset and
+     * clearance counts those three carried — 1/2, 6/10 and 3/5 — were fabricated by the measurement.
+     * They are zero against the polygon the solver actually solved.
      *
-     * Only `Off-edge Jitter Plus (seed 7919)` fails loudly, and it carries the most damage of the
-     * four. The counts below are therefore the sharpest statement the suite makes about what the
-     * decision-67 defect actually does — sharper than "some regions do not subdivide", which is what
-     * the census grid can see.
+     * THE ATTRIBUTION IS EXACT, WHICH IS WHY THIS IS A WITHDRAWAL AND NOT A WEAKENING. Precisely the
+     * three renumbered fixtures carried non-zero offset and clearance counts, and precisely the
+     * un-renumbered fourth — `(seed 55433)` — carried none. Its two DIRECTION violations survive the
+     * correction untouched, as do the plus seed's three: direction is measured from basis vectors and
+     * never went through the mis-indexed oracle. So the check is not blinded, the decision-67 defect
+     * is still visible here, and the three fixtures stay in `KNOWN_DEFECT_POLYGONS` on the census-grid
+     * signatures that put them there.
+     *
+     * WHAT SURVIVES OF THE SILENT-WRONG-ANSWER FINDING. `(seed 55433)` and `(seed 55433, k=4)` do
+     * report `complete: true` while terminating edges behind their own source, so the family journal
+     * decision 71a ruled was never a pass is still represented — by the direction check alone.
      *
      * THE NUMBERS FIRE IN BOTH DIRECTIONS. A count that grows is a regression; a count that shrinks
-     * is a partial cure that must be re-measured and, at zero across a fixture's whole signature,
-     * promoted. Do not adjust one to make the suite green.
+     * is a partial cure that must be re-measured and, at zero across a fixture's whole signature —
+     * the census grid included, not this table alone — promoted. Do not adjust one to make the suite
+     * green.
      */
 
-    /** Offset, clearance and direction violation counts per defect fixture. Measured 2026-08-28. */
+    /**
+     * Offset, clearance and direction violation counts per defect fixture. Direction measured
+     * 2026-08-28; offset and clearance re-measured the same day against the corrected oracle.
+     */
     const DEFECT_CAUSALITY_SIGNATURES: Record<string, {offset: number; clearance: number; direction: number}> = {
-        'Off-edge Jitter Reflex L (seed 15838)': {offset: 1, clearance: 2, direction: 0},
+        'Off-edge Jitter Reflex L (seed 15838)': {offset: 0, clearance: 0, direction: 0},
         'Off-edge Jitter Reflex L (seed 55433)': {offset: 0, clearance: 0, direction: 2},
-        'Off-edge Jitter Plus (seed 7919)': {offset: 6, clearance: 10, direction: 3},
-        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 3, clearance: 5, direction: 1},
+        'Off-edge Jitter Plus (seed 7919)': {offset: 0, clearance: 0, direction: 3},
+        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 1},
         'Collinear Dumbbell': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Circle 48': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Rosette5 40': {offset: 0, clearance: 0, direction: 0},

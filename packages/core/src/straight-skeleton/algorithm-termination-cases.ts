@@ -39,7 +39,7 @@ import {
     makeSkeletonNormalisation,
     normalisePolygon,
 } from "./normalisation";
-import {SKELETON_NOISE_FLOOR, canonicalisePolygon} from "./canonicalisation";
+import {CanonicalPolygon, SKELETON_NOISE_FLOOR, canonicalisePolygon} from "./canonicalisation";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -627,8 +627,30 @@ function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
  * `solveSkeleton` keeps its own copy of the sequence: it reports what was removed, and it honours a
  * caller's floor override, and neither of those belongs here.
  */
-function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormalisation): Vector2[] {
-    return canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR).vertices;
+function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormalisation): CanonicalPolygon {
+    return canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR);
+}
+
+/**
+ * What the boundary stage does to a caller's ring: the surviving vertices and, on `indexRemap`,
+ * where each input vertex ended up.
+ *
+ * THIS EXISTS FOR CALLERS THAT LABEL THE SOLVED GRAPH AGAINST THEIR OWN INPUT. A removed vertex
+ * renumbers every exterior node and every exterior edge after it, so an overlay drawing input
+ * indices beside solver indices is showing two index spaces in one picture and reads as a
+ * corrupted solve: the bisector of exterior node 5 appears at the caller's vertex 6, carrying the
+ * parents [5,4] that belong to it. That is what a dashboard inspection reported on 2026-08-28, and
+ * the graph was right every time. `indexRemap[i]` is the exterior node the caller's vertex `i`
+ * became, or {@link REMOVED_VERTEX_INDEX} where it was removed as invisible.
+ *
+ * ONE SPELLING WITH THE SOLVE ITSELF — {@link canonicaliseInUnitSpace} is this function's
+ * `vertices`, so a caller's remap cannot describe a different boundary from the one the solver
+ * saw. It DOES NOT describe the self-intersecting path: `decomposePolygon` rebuilds the rings and
+ * `mergeSkeletonGraphs` renumbers again, so a caller must check the survivor count against the
+ * graph's `numExteriorNodes` before trusting the mapping.
+ */
+export function canonicaliseForSolve(vertices: Vector2[]): CanonicalPolygon {
+    return canonicaliseInUnitSpace(vertices, makeSkeletonNormalisation(vertices));
 }
 
 /**
@@ -673,7 +695,7 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     // the same absolute tolerances the solver does. Canonicalisation follows immediately, in unit
     // space — see {@link canonicaliseInUnitSpace} and `canonicalisation.ts`.
     const normalisation = makeSkeletonNormalisation(nodes);
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation);
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 
@@ -882,7 +904,7 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     const normalisation = makeSkeletonNormalisation(nodes);
     // CANONICALISED IN UNIT SPACE, immediately after, so the stepped visualiser walks the same
     // polygon the solving entry points do. See {@link canonicaliseInUnitSpace}.
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation);
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 

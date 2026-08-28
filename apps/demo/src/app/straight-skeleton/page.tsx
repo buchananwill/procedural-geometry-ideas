@@ -87,6 +87,7 @@ export default function StraightSkeletonPage() {
         nodeOffsetDistances: sweep.nodeOffsetDistances,
         selectedDebugNodes: sweep.selectedDebugNodes,
         invScale,
+        solverVertexRemap: animation.solverVertexRemap,
     });
 
     const onStageClick = useSkeletonStageClick({ vertices, invScale });
@@ -139,6 +140,7 @@ export default function StraightSkeletonPage() {
                 toggleDebug={toggleDebug}
                 showSkeleton={animation.showSkeleton}
                 solverContext={animation.solverContext}
+                solverVertexRemap={animation.solverVertexRemap}
                 collisionSweepLines={sweep.collisionSweepLines}
                 onClearSweep={() => sweep.setCollisionSweepLines(null)}
                 onSweepPrimaryInit={sweep.sweepAllPrimaryInit}

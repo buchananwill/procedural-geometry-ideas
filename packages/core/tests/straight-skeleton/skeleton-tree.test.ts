@@ -319,7 +319,12 @@ describe('the shape of the tree, over the whole corpus', () => {
         // 48 became 49 later on 2026-08-28: `Symmetrical Octagon` was promoted under journal
         // decision 73, its "DOES NOT TERMINATE IN FUZZ TEST" exclusion re-measured and found dead.
         // It builds a tree of 13 nodes, so `notTrees` above is still empty.
-        expect(trees).toHaveLength(49);
+        //
+        // 49 became 50 on 2026-08-28: `Invisible Vertex Rectangle` was added under journal decision
+        // 75, the reconstruction of a shape whose ONE exactly-collinear vertex the boundary stage
+        // removes. It builds a tree, so `notTrees` is still empty — and the tree it builds is the
+        // 15-vertex ring's, not the caller's 16-vertex one.
+        expect(trees).toHaveLength(50);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {

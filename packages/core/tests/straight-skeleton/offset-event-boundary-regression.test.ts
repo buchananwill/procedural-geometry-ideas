@@ -272,7 +272,15 @@ describe('offset projection at event boundaries', () => {
             // found dead. Attributed per fixture before repinning: the octagon contributes 2 and the
             // other 48 are unmoved — re-running this reduction over the 48 alone still gives 334.
             // Two offsets is what a shape with one interior hub and one ring of edge events has.
-            expect(events).toBe(336);
+            //
+            // 336 BECAME 349 LATER ON 2026-08-28, when `Invisible Vertex Rectangle` joined the
+            // corpus under journal decision 75. Attributed per fixture before repinning: it
+            // contributes 13 and the other 49 are unmoved — re-running this reduction over the 49
+            // alone still gives 336. Thirteen out of fifteen exterior nodes is what an ASYMMETRIC
+            // convex ring looks like here: nothing about it is congruent, so almost every collision
+            // stands at its own offset, and the count is 13 rather than 15 because the fixture's one
+            // exactly-collinear vertex is not in the solve at all.
+            expect(events).toBe(349);
         });
     });
 
@@ -457,8 +465,15 @@ describe('offset projection at event boundaries', () => {
             // counts. The octagon carries mutated 4 and fired 4 — every one of its clean events
             // fires, which is what a shape with no terminal-band crowding looks like.
             // `silentLosses` is still empty over all 49.
-            expect(mutated).toBe(320);
-            expect(fired).toBe(175);
+            //
+            // BOTH MOVED AGAIN LATER ON 2026-08-28 — 320 to 332 and 175 to 179 — for the third
+            // cause again, the corpus growing: `Invisible Vertex Rectangle` joined under journal
+            // decision 75. Attributed per fixture before repinning; the other 49 are bit-unmoved on
+            // all three counts. It carries mutated 12 and fired 4 — 12 of its 13 events sit clear of
+            // the terminal band, and 4 of those mutations cost area the report catches.
+            // `silentLosses` is still empty over all 50.
+            expect(mutated).toBe(332);
+            expect(fired).toBe(179);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

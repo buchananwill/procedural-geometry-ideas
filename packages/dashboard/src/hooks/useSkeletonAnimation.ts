@@ -8,6 +8,7 @@ import type {
 import {
     runAlgorithmV5,
     runAlgorithmV5Stepped,
+    canonicaliseForSolve,
     computePrimaryInteriorEdges,
     computePrimaryEdgeIntersections,
 } from "@proc-geo/core";
@@ -33,6 +34,14 @@ export interface SkeletonAnimationState {
 
     solverContext: StraightSkeletonSolverContext | null;
     skeleton: StraightSkeletonGraph | null;
+    /**
+     * Input vertex index to solver exterior node, `REMOVED_VERTEX_INDEX` where the boundary stage
+     * dropped the vertex as invisible; null for a polygon the solver would refuse.
+     *
+     * EVERY CONSUMER THAT DRAWS AN INPUT INDEX NEXT TO A SOLVER INDEX NEEDS THIS. The two agree
+     * only while nothing is removed, and a vertex clicked onto an edge is removed every time.
+     */
+    solverVertexRemap: number[] | null;
     primaryEdges: PrimaryInteriorEdge[];
     primaryEdgeIntersections: Vector2[];
 
@@ -75,6 +84,17 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
         if (!showSkeleton) return null;
         return solverContext?.graph ?? null;
     }, [showSkeleton, animationMode, steppedResult, currentFrame, solverContext]);
+
+    // Computed whether or not the skeleton is showing, and from the polygon rather than from the
+    // solve: it is the boundary stage alone, so it stays valid for the stepped snapshots too.
+    const solverVertexRemap = useMemo<number[] | null>(() => {
+        if (vertices.length < 3) return null;
+        try {
+            return canonicaliseForSolve(vertices).indexRemap;
+        } catch {
+            return null;
+        }
+    }, [vertices]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -197,6 +217,7 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
         errorMessage,
         solverContext,
         skeleton,
+        solverVertexRemap,
         primaryEdges,
         primaryEdgeIntersections,
         startAnimation,

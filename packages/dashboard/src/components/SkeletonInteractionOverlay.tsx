@@ -5,6 +5,8 @@ import { usePolygonStore, Vertex } from '../stores/usePolygonStore';
 
 const VERTEX_RADIUS = 8;
 const EDGE_HIT_DISTANCE = 15;
+const SKELETON_NODE_RADIUS = 4;
+const SELECTED_NODE_RADIUS = 7;
 
 function distanceToSegment(
     px: number,
@@ -30,6 +32,28 @@ function distanceToSegment(
         distance: Math.sqrt(distX * distX + distY * distY),
         point: { x: closestX, y: closestY },
     };
+}
+
+/**
+ * The nodes drawn on top of each other at `origin`, in ascending id — the origin included.
+ *
+ * A near-degenerate boundary genuinely resolves to several distinct nodes inside a fraction of a
+ * pixel; a rectangle whose walls almost meet at a point puts four there. They are correct geometry
+ * rather than a solver defect (`graph-index-invariants.test.ts` in the core package is what asserts
+ * the solver merges everything it should), but only the last one drawn can be clicked, so without
+ * this the ones underneath are unreachable and the user cannot inspect what the picture is showing.
+ *
+ * THE RADIUS IS THE DRAWN ONE, so the cluster is exactly the set a click cannot tell apart.
+ */
+function stackedNodeIds(
+    positions: Array<{ id: number; x: number; y: number }>,
+    origin: { x: number; y: number },
+    radius: number,
+): number[] {
+    return positions
+        .filter(node => Math.hypot(node.x - origin.x, node.y - origin.y) <= radius)
+        .map(node => node.id)
+        .sort((first, second) => first - second);
 }
 
 export interface SkeletonInteractionOverlayProps {
@@ -60,6 +84,35 @@ export function SkeletonInteractionOverlay({
         [moveVertex]
     );
 
+    /**
+     * Advance the selection through the nodes stacked where the click landed.
+     *
+     * The cycle has one more stop than the cluster has nodes: first click takes the lowest id, each
+     * further click hands the selection to the next, and the click after the last clears it. A
+     * cluster of one is therefore the plain toggle this used to be, unchanged.
+     */
+    const handleSkeletonNodeClick = useCallback(
+        (clicked: { id: number; x: number; y: number }) => {
+            const cluster = stackedNodeIds(skeletonNodePositions, clicked, SKELETON_NODE_RADIUS * invScale);
+            if (cluster.length <= 1) {
+                onToggleDebugNode(clicked.id);
+                return;
+            }
+
+            const selectedAt = cluster.findIndex(id => selectedDebugNodes.has(id));
+            if (selectedAt === -1) {
+                onToggleDebugNode(cluster[0]);
+                return;
+            }
+
+            onToggleDebugNode(cluster[selectedAt]);
+            if (selectedAt + 1 < cluster.length) {
+                onToggleDebugNode(cluster[selectedAt + 1]);
+            }
+        },
+        [skeletonNodePositions, invScale, selectedDebugNodes, onToggleDebugNode]
+    );
+
     return (
         <>
             {/* Clickable skeleton node circles */}
@@ -70,13 +123,13 @@ export function SkeletonInteractionOverlay({
                         key={`sn-${id}`}
                         x={x}
                         y={y}
-                        radius={(isSelected ? 7 : 4) * invScale}
+                        radius={(isSelected ? SELECTED_NODE_RADIUS : SKELETON_NODE_RADIUS) * invScale}
                         fill={isSelected ? '#ff6b6b' : '#fab005'}
                         stroke={isSelected ? '#fff' : undefined}
                         strokeWidth={isSelected ? 1.5 * invScale : 0}
                         onClick={(e) => {
                             e.cancelBubble = true;
-                            onToggleDebugNode(id);
+                            handleSkeletonNodeClick({ id, x, y });
                         }}
                         onMouseEnter={(e) => {
                             const stage = e.target.getStage();

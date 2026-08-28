@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
     Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse, Switch,
 } from "@mantine/core";
+import { REMOVED_VERTEX_INDEX } from "@proc-geo/core";
 import type { StraightSkeletonSolverContext } from "@proc-geo/core";
 import type { DebugDisplayOptions, CollisionSweepLine } from "../types";
 import CollapseChevron from "./CollapseChevron";
@@ -11,6 +12,12 @@ interface DebugPanelProps {
     toggleDebug: (key: keyof DebugDisplayOptions) => void;
     showSkeleton: boolean;
     solverContext: StraightSkeletonSolverContext | null;
+    /**
+     * `useSkeletonAnimation`'s remap, where the caller has it. Its only use here is the notice
+     * below: a vertex the boundary stage removed is invisible to the algorithm, and a user who
+     * placed it deliberately has no other way to find that out.
+     */
+    solverVertexRemap?: number[] | null;
     collisionSweepLines: CollisionSweepLine[] | null;
     onClearSweep: () => void;
     onSweepPrimaryInit: () => void;
@@ -22,12 +29,15 @@ export default function DebugPanel({
     toggleDebug,
     showSkeleton,
     solverContext,
+    solverVertexRemap,
     collisionSweepLines,
     onClearSweep,
     onSweepPrimaryInit,
     onSweepPrimaryFull,
 }: DebugPanelProps) {
     const [debugOpen, setDebugOpen] = useState(false);
+
+    const removedVertices = solverVertexRemap?.filter(index => index === REMOVED_VERTEX_INDEX).length ?? 0;
 
     return (
         <Paper p="md" withBorder>
@@ -38,6 +48,16 @@ export default function DebugPanel({
                         <CollapseChevron opened={debugOpen} />
                     </Group>
                 </UnstyledButton>
+                {removedVertices > 0 && (
+                    <Text size="xs" c="red.5">
+                        {removedVertices === 1
+                            ? 'The solver removed 1 vertex'
+                            : `The solver removed ${removedVertices} vertices`}
+                        {' '}as invisible: it lies on the edge between its neighbours and adds nothing
+                        to the outline. It is marked <b>x</b> on the canvas, has no skeleton index,
+                        and every index shown is the solver&apos;s.
+                    </Text>
+                )}
                 <Collapse in={debugOpen}>
                     <Stack gap="xs">
 

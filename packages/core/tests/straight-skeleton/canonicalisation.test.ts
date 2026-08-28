@@ -324,8 +324,19 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
      * lists in `reflex-subdivision.test.ts`, so drift in either direction is loud.
      */
 
-    /** Every `CLEAN_TEST_POLYGONS` fixture the ruled floor removes a vertex from. Exactly one of 49. */
-    const CANONICALISED_FIXTURES = ['Long Unbroken Side Then Extreme Acute Angle'];
+    /**
+     * Every `CLEAN_TEST_POLYGONS` fixture the ruled floor removes a vertex from. Two of 50.
+     *
+     * THE SECOND ARRIVED DELIBERATELY, WHICH THE FIRST DID NOT. `Long Unbroken Side Then Extreme
+     * Acute Angle` is a hand-authored fixture that happens to carry an exactly-collinear vertex;
+     * `Invisible Vertex Rectangle` was built around one, under journal decision 75, because a
+     * removed vertex renumbers the graph and that renumbering is what a dashboard inspection read
+     * as a corrupted solve. The set is in roster order.
+     */
+    const CANONICALISED_FIXTURES = [
+        'Long Unbroken Side Then Extreme Acute Angle',
+        'Invisible Vertex Rectangle',
+    ];
 
     /** What the stage does to one fixture, in unit space, where the floor lives. */
     function canonicaliseFixture(vertices: Vector2[], floor: number): CanonicalPolygon {
@@ -333,32 +344,43 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         return canonicalisePolygon(normalisePolygon(vertices, normalisation), floor);
     }
 
-    it('touches exactly one of the 49 fixtures, and removes exactly one vertex from it', () => {
+    it('touches exactly two of the 50 fixtures, and removes exactly one vertex from each', () => {
         const touched = CLEAN_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR).removedCount > 0)
             .map(fixture => fixture.name);
 
         expect(touched).toEqual(CANONICALISED_FIXTURES);
 
-        const fixture = CLEAN_TEST_POLYGONS.find(p => p.name === CANONICALISED_FIXTURES[0])!;
-        const canonical = canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR);
-        expect(fixture.vertices).toHaveLength(32);
-        expect(canonical.vertices).toHaveLength(31);
-        // An exactly-collinear vertex, at the noise floor of the arithmetic rather than of the eye.
-        expect(canonical.maxDeviation).toBeLessThan(1e-16);
+        // Both lose exactly one vertex, and both lose it at the noise floor of the arithmetic rather
+        // than of the eye.
+        const sizes: Record<string, readonly [number, number]> = {
+            'Long Unbroken Side Then Extreme Acute Angle': [32, 31],
+            'Invisible Vertex Rectangle': [16, 15],
+        };
+        for (const name of CANONICALISED_FIXTURES) {
+            const fixture = CLEAN_TEST_POLYGONS.find(p => p.name === name)!;
+            const canonical = canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR);
+            expect([fixture.vertices.length, canonical.vertices.length]).toEqual([...sizes[name]]);
+            expect(canonical.maxDeviation).toBeLessThan(1e-16);
+        }
     });
 
     it('is insensitive across four decades, and the sweep says where that stops', () => {
         // The measured sweep, as an assertion rather than a note. Between 1e-12 and 1e-4 the corpus
-        // does not move at all: the single vertex above is the only one anywhere below 1e-3, and it
-        // goes at any non-zero floor. THE CORPUS IS NOT WHAT BINDS THE FLOOR — the recursive
+        // does not move at all: the two vertices above are the only ones anywhere below 1e-3, and
+        // both go at any non-zero floor. THE CORPUS IS NOT WHAT BINDS THE FLOOR — the recursive
         // subdivision arc is, and its per-level tiling identity fails above 3e-6. See
         // `canonicalisation.ts` for why that band is narrow rather than a plateau.
         const touchedAt = (floor: number): number => CLEAN_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, floor).removedCount > 0).length;
 
+        // 1 BECAME 2 ON 2026-08-28, when `INVISIBLE_VERTEX_RECTANGLE` joined the corpus under
+        // journal decision 75 carrying a deliberately exactly-collinear vertex. The insensitivity
+        // this asserts is unchanged: the count is flat across all eight floors, which is the claim,
+        // and it is 2 at every one of them because both fixtures' vertices are exactly collinear and
+        // go at any non-zero floor.
         for (const floor of [1e-12, 1e-10, 1e-8, 1e-7, SKELETON_NOISE_FLOOR, 3e-6, 1e-5, 1e-4]) {
-            expect(touchedAt(floor)).toBe(1);
+            expect(touchedAt(floor)).toBe(2);
         }
 
         // And the direction decision 18 exists to catch. At 1e-2 the floor is eating real geometry
@@ -392,8 +414,15 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // there is no vertex anywhere near the chord between its neighbours — a corpus growing by a
         // fixture the stage cannot reach, which is the ordinary case these counts exist to
         // distinguish from a floor becoming more aggressive.
-        expect(touchedAt(1e-3)).toBe(3);
-        expect(touchedAt(1e-2)).toBe(15);
+        //
+        // 15 BECAME 16, AND `touchedAt(1e-3)` 3 BECAME 4, ON 2026-08-28, when
+        // `INVISIBLE_VERTEX_RECTANGLE` joined the corpus under journal decision 75. Attributed:
+        // the new fixture is touched at both, and the other 49 are unmoved at every floor. It is
+        // touched at 1e-3 because its non-corner vertices stand only 1 to 4 units clear of their
+        // chords on a 410-unit extent — deliberately far enough from the ruled floor to be real
+        // geometry, and not far enough to survive a floor three decades above it.
+        expect(touchedAt(1e-3)).toBe(4);
+        expect(touchedAt(1e-2)).toBe(16);
     });
 
     it('leaves every fixture solving completely, at the ruled floor and either side of it', () => {

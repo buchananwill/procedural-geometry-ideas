@@ -1,3 +1,4 @@
+import {REMOVED_VERTEX_INDEX} from "@proc-geo/core";
 import type {PrimaryInteriorEdge, StraightSkeletonGraph, Vector2} from "@proc-geo/core";
 import type {Vertex} from "../../stores/usePolygonStore";
 import type {DebugDisplayOptions, CollisionSweepLine} from "../../types";
@@ -53,6 +54,55 @@ const UNRESOLVED_RAY_LENGTH = 100;
 const SWEEP_FONT = 14;
 const OFFSET_DIST_FONT = 15;
 
+/** One labelled position on the boundary the debug overlay is numbering. */
+interface LabelledBoundaryVertex {
+    position: Vector2;
+    index: number;
+}
+
+/**
+ * The boundary the debug labels are numbered against, and the input vertices missing from it.
+ *
+ * ONE INDEX SPACE PER PICTURE (journal decision 75, 2026-08-28). Every skeleton label on this
+ * canvas — interior edge ids, parent pairs, skeleton node ids — is written in the SOLVER'S indices,
+ * and the solver's boundary is not always the caller's: the boundary stage removes vertices that sit
+ * on their own edge, which is exactly what this canvas's click-to-insert produces, and every
+ * exterior node and edge after the removal is then numbered one lower. Drawing input indices beside
+ * solver indices made a correct solve read as a corrupted one — a run of bisectors each apparently
+ * carrying the parents of the vertex before it — and cost a dashboard inspection and a day's
+ * investigation before the graph was found to be right throughout.
+ *
+ * So the exterior labels come off the SOLVED GRAPH whenever there is one. A vertex the solve does
+ * not contain gets no number, because it has none; it is marked instead, so that a vertex which
+ * vanished from the algorithm cannot look like one the algorithm ignored.
+ *
+ * THE REMAP IS TRUSTED ONLY WHERE IT DESCRIBES THIS GRAPH. It comes from `canonicaliseForSolve`,
+ * which is the boundary stage alone; the self-intersecting path decomposes and re-merges and
+ * renumbers again, so a survivor count that disagrees with `numExteriorNodes` means the mapping is
+ * about a different graph and nothing is marked.
+ */
+function labelledBoundary(
+    vertices: Vertex[],
+    skeleton: StraightSkeletonGraph | null,
+    solverVertexRemap: number[] | null | undefined,
+): { ring: LabelledBoundaryVertex[]; removed: Vertex[] } {
+    if (!skeleton) {
+        return {ring: vertices.map((vertex, index) => ({position: vertex, index})), removed: []};
+    }
+
+    const ring = skeleton.nodes
+        .slice(0, skeleton.numExteriorNodes)
+        .map((node, index) => ({position: node.position, index}));
+
+    const survivors = solverVertexRemap?.filter(index => index !== REMOVED_VERTEX_INDEX).length;
+    const removed = solverVertexRemap !== null && solverVertexRemap !== undefined
+        && survivors === skeleton.numExteriorNodes
+        ? vertices.filter((_vertex, index) => solverVertexRemap[index] === REMOVED_VERTEX_INDEX)
+        : [];
+
+    return {ring, removed};
+}
+
 // TODO 14/3/26: This long function should be split into it's already labelled constituent parts,
 //  for readability at least.
 export function skeletonToScene(params: {
@@ -65,6 +115,13 @@ export function skeletonToScene(params: {
     nodeOffsetDistances: Map<number, number> | null;
     selectedDebugNodes: Set<number>;
     invScale: number;
+    /**
+     * `canonicaliseForSolve(vertices).indexRemap` for the polygon being solved, where the caller has
+     * it: input vertex index to solver exterior node, `REMOVED_VERTEX_INDEX` where the boundary
+     * stage dropped it. Omitting it costs only the marking of dropped vertices — see
+     * {@link labelledBoundary} for why the numbering itself never depends on it.
+     */
+    solverVertexRemap?: number[] | null;
 }): ScenePrimitive[] {
     const {
         vertices,
@@ -76,7 +133,10 @@ export function skeletonToScene(params: {
         nodeOffsetDistances,
         selectedDebugNodes,
         invScale,
+        solverVertexRemap,
     } = params;
+
+    const boundary = labelledBoundary(vertices, skeleton, solverVertexRemap);
 
     const groups: SceneGroup[] = [];
 
@@ -303,12 +363,12 @@ export function skeletonToScene(params: {
             debug.showInteriorEdgeLengths || debug.showParentEdges || debug.showSelectedNodeEdgeLengths;
 
         if (showAnyLabel) {
-            // Exterior edge data
-            const exteriorEdgeData = vertices.map((v, i) => {
-                const next = vertices[(i + 1) % vertices.length];
-                const mid_ = midpoint(v.x, v.y, next.x, next.y);
-                const len = segmentLength(v.x, v.y, next.x, next.y);
-                return {mid: mid_, len, index: i};
+            // Exterior edge data, numbered as the SOLVER numbers it — see `labelledBoundary`.
+            const exteriorEdgeData = boundary.ring.map(({position, index}) => {
+                const next = boundary.ring[(index + 1) % boundary.ring.length].position;
+                const mid_ = midpoint(position.x, position.y, next.x, next.y);
+                const len = segmentLength(position.x, position.y, next.x, next.y);
+                return {mid: mid_, len, index};
             });
 
             // Exterior edge lengths
@@ -442,16 +502,28 @@ export function skeletonToScene(params: {
 
         // Node index labels for polygon vertices
         if (debug.showNodeIndices) {
-            for (let i = 0; i < vertices.length; i++) {
-                const v = vertices[i];
+            for (const {position, index} of boundary.ring) {
                 children.push({
                     type: 'label',
-                    x: v.x,
-                    y: v.y,
+                    x: position.x,
+                    y: position.y,
                     offsetX: -12,
                     offsetY: 12,
-                    text: `${i}`,
+                    text: `${index}`,
                     style: {fontSize: 11, color: '#ffffff', bold: true},
+                });
+            }
+            // A vertex the solve does not contain. It has no index to show, and showing the next
+            // one's would be the very confusion this numbering exists to end.
+            for (const vertex of boundary.removed) {
+                children.push({
+                    type: 'label',
+                    x: vertex.x,
+                    y: vertex.y,
+                    offsetX: -12,
+                    offsetY: 12,
+                    text: 'x',
+                    style: {fontSize: 11, color: '#ff6b6b', bold: true},
                 });
             }
         }

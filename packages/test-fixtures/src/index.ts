@@ -188,6 +188,15 @@ import {T_SHAPE} from './rectilinear-shapes';
 export {GOLF_CART} from './rectilinear-shapes';
 import {GOLF_CART} from './rectilinear-shapes';
 
+// invisible-vertex-rectangle.ts
+// In CLEAN_TEST_POLYGONS: it solves clean, and its property is not a defect but a boundary-stage
+// removal — one vertex sits exactly on its own edge, so the solve runs at 15 exterior nodes for 16
+// input vertices. Added 2026-08-28 under journal decision 75 as the reconstruction of the shape a
+// dashboard inspection read as a corrupted solve; see the fixture file and
+// `invisible-vertex-renumbering.test.ts`.
+export {INVISIBLE_VERTEX_RECTANGLE, INVISIBLE_VERTEX_INDEX} from './invisible-vertex-rectangle';
+import {INVISIBLE_VERTEX_RECTANGLE} from './invisible-vertex-rectangle';
+
 // near-floor-jitter.ts
 // All four are in KNOWN_DEFECT_POLYGONS below: each one defeats the recursive driver on the census
 // grid, and the plus seed does not solve as a root either. They are the live near-floor off-edge
@@ -320,6 +329,9 @@ export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
     // Promoted 2026-08-28, decision 65.
     {name: 'Near Regular Ellipse 16', vertices: NEAR_REGULAR_ELLIPSE_16},
     {name: 'Near Regular Ellipse 32', vertices: NEAR_REGULAR_ELLIPSE_32},
+
+    // Boundary-stage renumbering (invisible-vertex-rectangle.ts). Added 2026-08-28, decision 75.
+    {name: 'Invisible Vertex Rectangle', vertices: INVISIBLE_VERTEX_RECTANGLE},
 
     // Deformed peanut waists (slightly-deformed-peanut.ts). Added and promoted 2026-08-28,
     // decision 69, with the solver fix that stopped their waist bisectors escaping the polygon.

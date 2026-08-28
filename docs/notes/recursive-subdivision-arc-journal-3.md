@@ -289,9 +289,56 @@ roster whose name claims totality, and the only one that has it). *User ratified
 2026-08-28: "I approve of hav[ing] a named constant of clean polygons. It was the laundering that
 I disapproved of."*
 
+**75 — (user, 2026-08-28) Six-point defect observation set from dashboard inspection of a first
+solve; investigate-and-fix mandated, pointed by these.** Screenshot at
+`examples/several things wrong with first solve.png` (rectangle-like shape, subdivided edges,
+exterior vertices 2–8 visible). The user's notes, condensed: (1) vertex 5's bisector failed to
+join the 3-way collision at node 17 (offset 50) with vertices 6 and 7's bisectors; (2) e32
+carries parents [6,4], a downstream corruption — should be [7,4]; (3) two overlapping nodes where
+e17 and e22 meet — label 25 overwrites another (24?), and the node underneath is unselectable in
+the UI; (4) **e22 carries parents [7,6], strictly impossible for a bisector originating at vertex
+8 — must be [8,7]** — "a very serious defect to allow a primary bisector to be accepted with the
+wrong pair of parent edges"; (5) e21 carries [6,5], should be [6,7]; (6) e20 carries [5,4],
+should be [6,5]. Points 4–6 form a systematic down-by-one parent shift on consecutive primary
+bisectors. Two new sweepable invariants fall out: **I1 — every initial bisector's stored parent
+pair equals its source vertex's two adjacent exterior edges** (points 4–6); **I2 — no two
+distinct graph nodes lie within merge tolerance of each other** (point 3's solver half; the UI
+unselectability of coincident nodes is the dashboard half).
+
+**76 — The near-flat rectangle variant becomes the acceptance fixture of the root-floor
+reconciliation package; it is not enrolled today.** F25's faithful near-flat reconstruction
+(vertices 0.01 off their chords) is degenerate five unrelated ways — headline:
+`canonicalAreaDrift` 2.3e-10 against the 1e-14 bound at level 1, fresh direct evidence for the
+one still-unruled F10 item (decisions 19–20 vs F4/F5: sub-regions canonicalise against their own
+extent, and a near-flat boundary is where that bites). Ruling: that package, when dispatched,
+adds the variant to `KNOWN_DEFECT_POLYGONS` with its measured signature and must move it to the
+clean roster to close — the ellipse-promotion pattern from decision 65. Recording rather than
+enrolling now keeps decision 72 honest (the shape is not yet a fixture) without losing the
+evidence.
+
 ## Findings
 
-**F10 — The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
+**F25 — All six of the user's observations trace to ONE defect, and it was not in the solver:
+the dashboard overlay drew two index spaces at once.** Both new invariants (I1 parentage, I2
+distinctness) sweep FULL_CORPUS clean *before* any fix — the solver graph was consistent all
+along. The screenshot's own geometry proves it: e20's drawn 45° diagonal matches its *stored*
+parents, not the caller's numbering. Cause: the user's click-inserted vertex is projected exactly
+onto the segment (~1e-16 deviation), `canonicalisePolygon` removes it silently at the 1e-6 floor,
+and every exterior index downstream shifts by one — while `skeletonToScene` drew caller-space
+labels beside graph-space parents. Reproduced and pinned as `INVISIBLE_VERTEX_RECTANGLE` (clean
+roster; with `noiseFloor: 0` the same polygon produces exactly the labels the user expected).
+The user's note-3 "overlapping nodes" are genuinely distinct geometry (four nodes over 0.04 units
+on a 175-unit shape — correct, sub-pixel); the UI now cycles through stacked nodes on repeated
+click. **A test oracle had the same defect class**: `deriveNodeOffsets` indexed the caller array
+with solver indices, fabricating the offset/clearance halves of three jitter signatures — F24
+amended in place; the direction violations survive on two fixtures, so the silent-wrong family
+still stands. Fixes: `canonicaliseForSolve` exported (one shared spelling + remap);
+scene labels off the solved graph with removed vertices marked `x`; `DebugPanel` red notice
+naming removals; oracle re-indexed. Deprecated `PolygonCanvas` carries the same pattern,
+flagged not fixed (unused, slated for removal). Delegate figures: core 4648/4648 (77 suites),
+dashboard 268/268, census 57 fixtures (50 clean + 7 defect) / 41 attributed / 0 unattributed
+either way; five-way mutation conviction including the noise-floor exhibit. Pins moved only for
+the new fixture and the withdrawn oracle fabrications, all attributed. The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
 Swept 2026-08-27 from the backlog, journal, decisions files, debriefs and source. With known failing
 cases: near-degenerate reflex shapes with jitter *along* the edge line (48/80 and 25/80 fail,
 [backlog item 2](./solver-hardening-backlog.md), no fixture in repo yet); the collinear dumbbell
@@ -551,8 +598,12 @@ defects `KNOWN_DEFECT_POLYGONS` with per-fixture pinned signatures, union `FULL_
 census sweeps everything: 41 attributed failures, an unattributed failure OR cure fails the suite
 (cure says PROMOTE IT). Universal invariants measured over the defect roster, not assumed:
 containment, rate, and signalled-not-silent all hold and are widened to FULL_CORPUS — but the
-**causality signature table shows three of four jitter fixtures are silent wrong answers**
-(`complete: true` with swept-past nodes and edges ending behind their sources), which every sweep
+~~**causality signature table shows three of four jitter fixtures are silent wrong answers**
+(`complete: true` with swept-past nodes and edges ending behind their sources)~~ *PART-WITHDRAWN
+2026-08-28 (F25): the offset/clearance halves of those signatures were fabricated by a
+caller-indexed test oracle — the same index-space defect class F25 fixed. What survives:
+direction violations on two jitter fixtures, both still `complete: true`, so the
+silent-wrong-answer family remains represented* — which every sweep
 missed while they were held out — the user's anti-laundering ruling was materially, not just
 philosophically, right. The dumbbell's headers now state its own test is the only sweep that sees
 its defect. Dashboard: grouped picker (`Corpus` / `Known defects`, ⚠-labelled) on both pages, demo
@@ -560,7 +611,8 @@ page resolution fixed (it would have silently drawn Triangle for a defect fixtur
 `SYMMETRICAL_OCTAGON` promoted (stale non-termination comment re-measured dead). Delegate figures:
 core 4463/4463 (75 suites), dashboard 263/263, census 41 attributed / 0 unattributed; mutation
 convictions include the laundering move itself (removing a defect fixture from its roster: two
-suites die).
+suites die). Lead verification: core **4463/4463 (75 suites)**, build clean, dashboard
+**263/263**, all re-run by the lead. **Package 7 committed: `f5039ea`.**
 
 **F24a — Two pre-existing prose drifts and a typecheck gap surfaced by the re-measurement,
 carried as open items.** (1) `CORPUS_CANONICAL_AREA_DRIFT_BOUND`'s narrative was three corpus
