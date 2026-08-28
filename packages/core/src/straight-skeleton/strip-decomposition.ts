@@ -162,12 +162,6 @@ export interface StripOptions {
     classifyCorner?: (context: CornerContext) => CornerAssignment;
 }
 
-/** A neighbour in the skeleton's planar embedding, with the direction to reach it. */
-interface Neighbour {
-    node: number;
-    angle: number;
-}
-
 /** A vertex of an unclipped skeleton face. */
 interface FacePoint {
     node: number;
@@ -234,6 +228,12 @@ function dropRepeatedVertices(ring: Vector2[]): Vector2[] {
     return kept;
 }
 
+/** A neighbour in the skeleton's planar embedding, with the direction to reach it. */
+interface Neighbour {
+    node: number;
+    angle: number;
+}
+
 /**
  * The skeleton as an undirected planar graph: every node mapped to its neighbours, sorted by the
  * angle of the direction that reaches them.
@@ -242,6 +242,8 @@ function dropRepeatedVertices(ring: Vector2[]): Vector2[] {
  * terminated has no target and cannot bound a face, so it is left out; a duplicate connection
  * between the same pair of nodes is kept once, since the second copy would only add a zero-area
  * sliver and would break the angular ordering the face walk depends on.
+ *
+ * ONLY THE FALLBACK USES THIS NOW — see {@link traceFace}.
  */
 function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> {
     const adjacency = new Map<number, Neighbour[]>();
@@ -288,14 +290,18 @@ function buildAdjacency(graph: StraightSkeletonGraph): Map<number, Neighbour[]> 
 }
 
 /**
- * Walk the face lying to the right of the directed edge `start -> second`.
+ * Walk the face lying to the right of the directed edge `start -> second`, by geometry alone.
  *
  * At every node the walk takes the next neighbour counter-clockwise from the direction it came in
  * on, which is the sharpest available clockwise turn and therefore hugs the face on the right. The
  * polygon is stored clockwise, so seeding with an exterior edge in boundary order yields that edge's
  * skeleton face, traced clockwise.
+ *
+ * THE FALLBACK, NOT THE RULE — see {@link traceFace} for what replaced it and why.
  */
-function traceFace(adjacency: Map<number, Neighbour[]>, start: number, second: number, limit: number): number[] {
+function traceFaceByGeometry(
+    adjacency: Map<number, Neighbour[]>, start: number, second: number, limit: number,
+): number[] {
     const face = [start];
     let previous = start;
     let current = second;
@@ -318,6 +324,153 @@ function traceFace(adjacency: Map<number, Neighbour[]>, start: number, second: n
             throw new Error(
                 `computeStrips could not trace a skeleton face: the walk from node ${start} visited ` +
                 `more than ${limit} nodes without closing.`);
+        }
+    }
+
+    return face;
+}
+
+/**
+ * The interior edges bounding the face of `edgeId`, indexed by the node each one touches.
+ *
+ * A SKELETON FACE IS DEFINED BY PARENTAGE, NOT BY GEOMETRY. The face of an exterior edge is the set
+ * of points the wavefront of that edge sweeps, and its inward boundary is exactly the bisectors that
+ * name it as a parent — that is what a parent pair means. So the face's edge set is known
+ * combinatorially, before any position is looked at, and the walk below only has to put those edges
+ * in order.
+ *
+ * An interior edge the solver never terminated has no target and cannot bound anything, so it is
+ * left out. So is a self-loop: the degenerate-closure path deliberately retires a surplus bisector
+ * as an arc from a node to itself (see `algorithm-termination-cases.ts`), which bounds no area and
+ * would only stall the walk.
+ */
+function faceIncidence(graph: StraightSkeletonGraph, edgeId: number): Map<number, number[]> {
+    const incidence = new Map<number, number[]>();
+
+    const add = (node: number, id: number): void => {
+        const incident = incidence.get(node) ?? [];
+        incident.push(id);
+        incidence.set(node, incident);
+    };
+
+    for (const interiorEdge of graph.interiorEdges) {
+        if (interiorEdge.clockwiseExteriorEdgeIndex !== edgeId
+            && interiorEdge.widdershinsExteriorEdgeIndex !== edgeId) {
+            continue;
+        }
+        const edge = graph.edges[interiorEdge.id];
+        if (edge?.target === undefined || edge.target === edge.source) {
+            continue;
+        }
+        add(edge.source, interiorEdge.id);
+        add(edge.target, interiorEdge.id);
+    }
+
+    return incidence;
+}
+
+/** The end of `edgeId` that is not `node`. */
+function otherEnd(graph: StraightSkeletonGraph, edgeId: number, node: number): number {
+    const edge = graph.edges[edgeId];
+    return edge.source === node ? edge.target! : edge.source;
+}
+
+/**
+ * Of several edges leaving `node`, the one reached by the smallest counter-clockwise turn from the
+ * direction the walk arrived from.
+ *
+ * The tie-break, and only the tie-break: parentage decides the face wherever it can, and this is
+ * what settles a node where two of the face's own edges leave together.
+ */
+function nextByAngle(
+    graph: StraightSkeletonGraph,
+    node: number,
+    previous: number,
+    candidates: number[],
+): number {
+    const from = graph.nodes[node].position;
+    const angleTo = (other: number): number => {
+        const to = graph.nodes[other].position;
+        return Math.atan2(to.y - from.y, to.x - from.x);
+    };
+
+    const arrival = angleTo(previous);
+    let best = candidates[0];
+    let bestTurn = Infinity;
+    for (const candidate of candidates) {
+        let turn = angleTo(otherEnd(graph, candidate, node)) - arrival;
+        while (turn <= 0) {
+            turn += 2 * Math.PI;
+        }
+        if (turn < bestTurn) {
+            bestTurn = turn;
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+/**
+ * The face of exterior edge `edgeId`, as the node ids around it starting from the edge's own source.
+ *
+ * ORDERED BY PARENTAGE FIRST, GEOMETRY ONLY WHERE PARENTAGE TIES (journal decision 77, 2026-08-28).
+ * This used to walk the whole skeleton as a planar graph, taking the sharpest clockwise turn
+ * available at every node, and that is a question the arithmetic cannot always answer: on
+ * `OFF_EDGE_JITTER_L_SEED_15838` a corridor whose two walls are each split by a near-floor jittered
+ * vertex produces a `[2,7]` bisector leaving node 24 **5.2e-6 radians** from the `[1,7]` spine
+ * leaving the same node — a three-ten-thousandths-of-a-degree wedge whose side is decided at the
+ * eleventh decimal place. The walk took the wrong branch, the faces of the two opposing walls fused
+ * into one ring, that ring was reported once for each of them, and the strips overlapped the polygon
+ * by 60% of its own area while every existing invariant held. Restricting each step to the edges
+ * that name this face's exterior edge as a parent removes the question: at that node exactly one of
+ * the two branches bounds this face, and which one is a fact about the parent pairs rather than
+ * about an angle.
+ *
+ * A NODE WITH NO ONWARD FACE EDGE IS A BRIDGE END, not a failure: the walk turns back down the edge
+ * it arrived on, which is what a face traversal of a graph with a bridge does, and what the angular
+ * walk did here too.
+ *
+ * WHEN PARENTAGE DOES NOT DESCRIBE A CLOSED FACE, THE SKELETON IS WRONG THERE, and the walk falls
+ * back to {@link traceFaceByGeometry} rather than throwing. `COLLINEAR_DUMBBELL` is the specimen:
+ * its shared supporting lines leave the face of edge 3 bounded by two disjoint chains — one ending
+ * at the node at the far LEFT of the shape, one at the far RIGHT — so no ordering of those edges
+ * closes. That is its pinned silent-overlap defect seen from a new angle, not a new one, and the
+ * fallback keeps its measured signature exactly what `collinear-dumbbell.test.ts` records instead of
+ * turning a known wrong answer into an exception thrown at every consumer of it. What makes such a
+ * face visible is the corpus-wide tiling identity in `strip-tiling.test.ts`.
+ */
+function traceFace(
+    graph: StraightSkeletonGraph,
+    edgeId: number,
+    limit: number,
+    fallbackAdjacency: Map<number, Neighbour[]>,
+): number[] {
+    const exterior = graph.edges[edgeId];
+    if (exterior?.target === undefined) {
+        throw new Error(`computeStrips could not trace a skeleton face: exterior edge ${edgeId} has no target.`);
+    }
+
+    const incidence = faceIncidence(graph, edgeId);
+    const start = exterior.source;
+    const face = [start];
+    let previous = start;
+    let current = exterior.target;
+    let arrivedOn = edgeId;
+
+    while (current !== start) {
+        face.push(current);
+        const candidates = (incidence.get(current) ?? []).filter(id => id !== arrivedOn);
+        const next = candidates.length === 1 ? candidates[0]
+            : candidates.length === 0 ? arrivedOn
+                : nextByAngle(graph, current, previous, candidates);
+
+        previous = current;
+        current = otherEnd(graph, next, current);
+        arrivedOn = next;
+
+        if (face.length > limit) {
+            return traceFaceByGeometry(
+                fallbackAdjacency, start, exterior.target, limit);
         }
     }
 
@@ -714,7 +867,7 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
 
     const clippedFaces: Vector2[][] = [];
     for (let edgeId = 0; edgeId < edgeCount; edgeId++) {
-        const faceNodes = traceFace(adjacency, edgeId, (edgeId + 1) % edgeCount, walkLimit);
+        const faceNodes = traceFace(graph, edgeId, walkLimit, adjacency);
         const face: FacePoint[] = faceNodes.map(node => ({
             node,
             position: graph.nodes[node].position,

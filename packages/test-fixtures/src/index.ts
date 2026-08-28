@@ -198,11 +198,15 @@ export {INVISIBLE_VERTEX_RECTANGLE, INVISIBLE_VERTEX_INDEX} from './invisible-ve
 import {INVISIBLE_VERTEX_RECTANGLE} from './invisible-vertex-rectangle';
 
 // near-floor-jitter.ts
-// All four are in KNOWN_DEFECT_POLYGONS below: each one defeats the recursive driver on the census
-// grid, and the plus seed does not solve as a root either. They are the live near-floor off-edge
-// jitter defect of journal decision 67; the mechanism and the magnitude sweep are in
+// Three of the four are in KNOWN_DEFECT_POLYGONS below: each defeats the recursive driver on the
+// census grid, and the plus seed does not solve as a root either. They are the live near-floor
+// off-edge jitter defect of journal decision 67; the mechanism and the magnitude sweep are in
 // along-edge-jitter-known-failures.test.ts, and the fixture file header carries the generator and
 // why the failing band sits just above the noise floor.
+//
+// `OFF_EDGE_JITTER_L_SEED_15838` was CURED ON THE CENSUS GRID on 2026-08-28 under journal decision
+// 77 — 5 failed regions to 0 — and stays here on the canonical-area drift bound instead. See its
+// entry in the roster below for the measurement and for the ruling that promotion waits on.
 export {
     OFF_EDGE_JITTER_L_SEED_15838,
     OFF_EDGE_JITTER_L_SEED_55433,
@@ -333,6 +337,7 @@ export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
     // Boundary-stage renumbering (invisible-vertex-rectangle.ts). Added 2026-08-28, decision 75.
     {name: 'Invisible Vertex Rectangle', vertices: INVISIBLE_VERTEX_RECTANGLE},
 
+
     // Deformed peanut waists (slightly-deformed-peanut.ts). Added and promoted 2026-08-28,
     // decision 69, with the solver fix that stopped their waist bisectors escaping the polygon.
     {name: 'Slightly Deformed Peanut 1', vertices: SLIGHTLY_DEFORMED_PEANUT_1},
@@ -357,9 +362,20 @@ export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
  * pins, never to soften a number.
  */
 export const KNOWN_DEFECT_POLYGONS: NamedTestPolygon[] = [
-    // Near-floor off-edge jitter (near-floor-jitter.ts). Journal decision 67's live solver defect:
-    // three of the four solve as roots and all four hand the recursive driver regions it cannot
-    // subdivide.
+    // Near-floor off-edge jitter (near-floor-jitter.ts). What is left of journal decision 67's live
+    // solver defect after decision 77's face-walk correction: two seeds still hand the recursive
+    // driver regions it cannot subdivide (counts fell 10 to 3 and 14 to 11), and the plus seed does
+    // not solve as a root at all.
+    //
+    // SEED 15838 IS CURED ON THIS GRID — 5 failed regions to 0 — AND STILL DOES NOT PROMOTE, which
+    // is a measurement rather than a hedge. The clean roster carries a second bar it fails: the
+    // recursion's canonical-area drift, pinned at 1e-14, and canonicalisation legitimately removes
+    // three near-floor samples from this fixture, moving its area by 5.17e-7. Every other
+    // floor-touched fixture in the corpus loses only EXACTLY collinear vertices, which cost no area
+    // at all. Promoting it needs a ruling on whether that bound admits a near-floor exemption — the
+    // root-floor pass-down question — so its census signature is pinned at zero here, alongside the
+    // dumbbell's and the two large-coordinate fixtures', all of which are enrolled on defects this
+    // grid cannot see.
     {name: 'Off-edge Jitter Reflex L (seed 15838)', vertices: OFF_EDGE_JITTER_L_SEED_15838},
     {name: 'Off-edge Jitter Reflex L (seed 55433)', vertices: OFF_EDGE_JITTER_L_SEED_55433},
     {name: 'Off-edge Jitter Plus (seed 7919)', vertices: OFF_EDGE_JITTER_PLUS_SEED_7919},

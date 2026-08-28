@@ -316,15 +316,94 @@ clean roster to close — the ellipse-promotion pattern from decision 65. Record
 enrolling now keeps decision 72 honest (the shape is not yet a fixture) without losing the
 evidence.
 
+**77 — (user, 2026-08-28) The F25 provenance story is corrected and the solver question
+reopened: the screenshot was `OFF_EDGE_JITTER_L_SEED_15838` exactly as loaded, unedited.** The
+user's words: "This doesn't fix the solver defect... I hadn't made any edits to the polygon...
+Keep working." Mandate continues with the corrected premise. The live questions, to be resolved
+by measurement: (a) which of the fixture's own vertices canonicalisation removes and their true
+perpendicular deviations against the floor — an above-floor removal is a canonicalisation defect;
+(b) whether the solve of the canonicalised polygon is itself geometrically correct — the user's
+offset-50 three-way expectation and the e32 parentage, re-evaluated against the shape the solver
+actually solved; (c) whether e22's geometry — an interior bisector lying along the exterior top
+edge — is legitimate; (d) node-for-node comparison of the true fixture's solve against the
+screenshot, which the F25 reconstruction only approximated; (e) *(added same day)* second user
+screenshot, `examples/solver fails to merge overlapping nodes.png`: two red-circled node clusters
+(around ids 29 and 25/22) that "by eye should have been merged by the solver" — the user's
+hypothesis: narrow tolerance escape, structural degeneracy, or both. This challenges F25's
+"distinct nodes are correct geometry" verdict: nodes that close may be a single true skeleton
+node split by unclustered simultaneous events, even when each half is internally consistent. To
+be settled against the true skeleton of the canonicalised polygon, not against internal
+consistency alone. *(Same day, user):* at maximum UI zoom the two nodes cannot be discerned
+separating — under decision 54's own criterion ("can you see this on a screen?") an
+indistinguishable-at-max-zoom pair is one point, so the split is a defect by the arc's standing
+bar whichever gate caused it.
+
+**78 — The node-merge bar is restated at the render-scale floor: two skeleton nodes within
+`SKELETON_NOISE_FLOOR` (1e-6 unit space) of each other are one node.** Ruled on the user's own
+criterion, twice stated: decision 54's "can you see this on a screen?", and their 2026-08-28
+observation that maximum UI zoom cannot separate the circled pair (measured: 3209× / 7480× zoom
+would be needed). The delegate's sizing makes the change safe to rule: the clean roster contains
+**zero** node pairs inside that floor — only the three jitter-L defect fixtures carry any (6
+pairs total), so clean-corpus results cannot move. F5-style exact coincidence is not achievable
+here (the separation is input geometry, not accounting), so the widened bar is the only fix. The
+I2 distinctness invariant is restated at the same floor. Implementation follows as its own
+package with the standing bar: clean corpus green, every moved pin attributed, STOP if any solve
+result moves in a way the floor argument cannot justify.
+
+**79 — `OFF_EDGE_JITTER_L_SEED_15838`'s promotion is gated on the root-floor package, joining
+its acceptance set.** Cured on the census grid (5 → 0) but blocked from the clean roster by the
+recursion's `canonicalAreaDrift < 1e-14` bound: canonicalisation removes three *jittered* (not
+exactly-collinear) samples, costing 5.17e-7 of area — every other floor-touched fixture loses
+only zero-area vertices. Whether that bound admits a near-floor exemption IS the still-unruled
+root-floor question (decisions 19–20 vs F4/F5; decision 76). Ruling: not decided ad hoc — the
+root-floor package now closes on three acceptance criteria: the near-flat rectangle enrolment
+(76), this promotion, and the reconciliation itself. Until then the fixture stays
+defect-rostered, census signature 0, reason pinned — visible, not laundered.
+
 ## Findings
+
+**F26 — The user's circled clusters led to a silent 160%-of-area tiling defect in face tracing,
+invisible to every prior invariant.** `traceFace` walked faces by sharpest-turn geometry; at the
+circled node the two candidate branches leave 5.2e-6 radians apart (4.8e-10 transversely — not
+decidable in doubles), the walk took the wrong branch, and the faces of two opposing walls fused:
+`OFF_EDGE_JITTER_L_SEED_15838`'s strips covered **160% of its own area** while reporting
+`complete: true`, zero causality violations, zero escaped nodes, every node within 1e-11 of
+truth. Three fixtures failed the tiling identity by 50–67%. Fix: **faces are ordered by
+parentage — combinatorial and exact — with geometry only a tie-break**; the dumbbell (whose face
+genuinely cannot close under parentage — its shared-supporting-line defect from a new angle)
+falls back to the geometric walk, keeping its pinned signature bit-exact. Post-fix tiling error
+on all three: machine precision, with the residual **exactly** the canonicalisation area drift
+(5.174571e-7 vs 5.174570653682168e-7). New corpus-wide invariant `strip-tiling.test.ts` (bar
+1e-14, 10× the measured worst 8.52e-16; dumbbell pinned at 0.1). Census 41 → 26 (15838 5→0,
+55433 10→3, k4 14→11; the plus bit-unmoved — its root never solves, isolating the cure to the
+face walk). Mutation: parentage off → 129 tests die; fallback off → exactly the dumbbell's 5.
+
+**F26a — Verdicts on the reopened questions.** The canonicalisation removals are **legitimate**:
+every removed vertex was below the floor in the original ring (the ~3.9e-6 figure is the jitter
+*amplitude*; realised chord deviations straddle the floor, ~¼ under). Notes 1/2/4/5/6 were label
+artifacts or legitimate-removal effects (fixed in package 8); note 3 was real with the real
+downstream consequence above; e22 is a legitimate corridor bisector (the "rectangle top edge"
+reading in F25 was wrong — the frame is the L's lower-left); "[2,2]" and "29" are stacked labels
+([2,7]/[7,2] and 19/21). **The circled pairs measured**: true separations 1.87e-4 and 8.02e-5
+(6.2e-7 and 2.7e-7 of extent; 3209× and 7480× zoom to separate) — sub-visible, and **no
+tolerance gate split them**: the events are truly 31–73× epsilon apart in space (one pair even
+shares an offset layer at Δt = 5e-5 of epsilon), a property of the input geometry. Hence
+decision 78. Both nodes sit equidistant from four walls within 2e-9 — a near-degenerate ridge
+from the nearly-collinear jittered walls.
 
 **F25 — All six of the user's observations trace to ONE defect, and it was not in the solver:
 the dashboard overlay drew two index spaces at once.** Both new invariants (I1 parentage, I2
 distinctness) sweep FULL_CORPUS clean *before* any fix — the solver graph was consistent all
 along. The screenshot's own geometry proves it: e20's drawn 45° diagonal matches its *stored*
-parents, not the caller's numbering. Cause: the user's click-inserted vertex is projected exactly
-onto the segment (~1e-16 deviation), `canonicalisePolygon` removes it silently at the 1e-6 floor,
-and every exterior index downstream shifts by one — while `skeletonToScene` drew caller-space
+parents, not the caller's numbering. ~~Cause: the user's click-inserted vertex is projected exactly
+onto the segment (~1e-16 deviation), `canonicalisePolygon` removes it silently at the 1e-6 floor~~
+*CORRECTED 2026-08-28 (user): no edit was made — the polygon was `OFF_EDGE_JITTER_L_SEED_15838`
+exactly as loaded from the dropdown, so the removed vertices were the fixture's own, eaten by
+canonicalisation. The click-insertion account was a wrong provenance reconstruction; the
+index-shift mechanism and every fix stand, but whether those removals were legitimate (the
+fixture's jitter is nominally above the floor) and whether the canonicalised polygon's solve is
+itself correct are reopened as live solver questions — decision 77.* The index shift means
+every exterior index downstream moves by one — while `skeletonToScene` drew caller-space
 labels beside graph-space parents. Reproduced and pinned as `INVISIBLE_VERTEX_RECTANGLE` (clean
 roster; with `noiseFloor: 0` the same polygon produces exactly the labels the user expected).
 The user's note-3 "overlapping nodes" are genuinely distinct geometry (four nodes over 0.04 units
@@ -338,7 +417,10 @@ naming removals; oracle re-indexed. Deprecated `PolygonCanvas` carries the same 
 flagged not fixed (unused, slated for removal). Delegate figures: core 4648/4648 (77 suites),
 dashboard 268/268, census 57 fixtures (50 clean + 7 defect) / 41 attributed / 0 unattributed
 either way; five-way mutation conviction including the noise-floor exhibit. Pins moved only for
-the new fixture and the withdrawn oracle fabrications, all attributed. The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
+the new fixture and the withdrawn oracle fabrications, all attributed. Lead verification: core
+**4648/4648 (77 suites)**, build clean, dashboard **268/268**, all re-run by the lead.
+**Package 8 committed: `9008495`** (includes the user's screenshot under `examples/` as the
+referenced evidence). The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
 Swept 2026-08-27 from the backlog, journal, decisions files, debriefs and source. With known failing
 cases: near-degenerate reflex shapes with jitter *along* the edge line (48/80 and 25/80 fail,
 [backlog item 2](./solver-hardening-backlog.md), no fixture in repo yet); the collinear dumbbell
