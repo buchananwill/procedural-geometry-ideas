@@ -7,7 +7,7 @@ import { makeVertexRun, serialiseGeometryPayload } from "@proc-geo/core";
 import { usePolygonStore } from "../stores/usePolygonStore";
 import CollapseChevron from "./CollapseChevron";
 import { interpretGeometryPaste } from "./geometry-clipboard";
-import { ALL_TEST_POLYGONS } from "@proc-geo/test-fixtures";
+import { fixtureByName, FIXTURE_OPTION_GROUPS } from "./fixture-options";
 
 interface ControlsPanelProps {
     onResetView: () => void;
@@ -114,10 +114,10 @@ export default function ControlsPanel({ onResetView }: ControlsPanelProps) {
                             size="xs"
                             label="Load test polygon"
                             placeholder="Select..."
-                            data={ALL_TEST_POLYGONS.map((p) => p.name)}
+                            data={FIXTURE_OPTION_GROUPS}
                             value={null}
                             onChange={(name) => {
-                                const poly = ALL_TEST_POLYGONS.find((p) => p.name === name);
+                                const poly = fixtureByName(name);
                                 if (poly) setVertices(poly.vertices);
                             }}
                             searchable

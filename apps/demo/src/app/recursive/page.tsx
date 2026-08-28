@@ -5,9 +5,10 @@ import dynamic from "next/dynamic";
 import { Collapse, Group, Paper, Stack, Text, Title, UnstyledButton } from "@mantine/core";
 import { subdivideRecursively } from "@proc-geo/core";
 import type { RecursiveNode } from "@proc-geo/core";
-import { ALL_TEST_POLYGONS } from "@proc-geo/test-fixtures";
+import { FULL_CORPUS } from "@proc-geo/test-fixtures";
 import {
     CollapseChevron,
+    fixtureByName,
     RecursiveControlsPanel,
     useRecursiveSubdivisionStore,
 } from "@proc-geo/dashboard";
@@ -28,9 +29,10 @@ export default function RecursivePage() {
     // The store's defaults are a real fixture at three levels that do not resemble each other, so the
     // page draws a heterogeneous recursive subdivision on first paint — there is nothing to click
     // before something appears, and what appears shows what a per-level spec is for.
+    // The lookup is over the FULL corpus, defect fixtures included: the panel offers them, so a
+    // selection that could not be resolved here would silently redraw the first clean fixture.
     const tree: RecursiveNode = useMemo(() => {
-        const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === fixtureName)
-            ?? ALL_TEST_POLYGONS[0];
+        const fixture = fixtureByName(fixtureName) ?? FULL_CORPUS[0];
         return subdivideRecursively(fixture.vertices, { levels });
     }, [fixtureName, levels]);
 

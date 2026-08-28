@@ -29,6 +29,10 @@ export { SkeletonInteractionOverlay, useSkeletonStageClick } from './components/
 export type { SkeletonInteractionOverlayProps } from './components/SkeletonInteractionOverlay';
 export { default as RandomPolygonPanel } from './components/RandomPolygonPanel';
 export { default as ControlsPanel } from './components/ControlsPanel';
+export {
+    CLEAN_GROUP_LABEL, DEFECT_GROUP_LABEL, DEFECT_OPTION_PREFIX, fixtureByName, FIXTURE_OPTION_GROUPS,
+} from './components/fixture-options';
+export type { FixtureOption, FixtureOptionGroup } from './components/fixture-options';
 export { interpretGeometryPaste, MIN_POLYGON_VERTICES } from './components/geometry-clipboard';
 export type { GeometryPasteAccepted, GeometryPasteOutcome, GeometryPasteRejected } from './components/geometry-clipboard';
 export { default as AlgorithmPanel } from './components/AlgorithmPanel';

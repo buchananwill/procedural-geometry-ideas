@@ -254,6 +254,41 @@ promote when the driver-level residue of decision 67 is fixed. The known-failure
 "promote when it solves" rule is amended to "promote when it solves AND survives the census
 grid".
 
+**72 — (user, 2026-08-28) Exclusion is retired as a mechanism entirely; every fixture enrolls,
+and known defects become expected-failure pins inside the sweeps. SUPERSEDES the exclusion half
+of decision 71b and the exclusion-as-pinned-record form of decision 53.** The user's words: "That's
+still laundering though" — a held-out fixture, however visibly pinned, still shapes the corpus
+around the defect, and it is invisible to the dashboard, blocking the user's own inspection loop.
+New structure: (a) a second exported roster, `KNOWN_DEFECT_POLYGONS`, carrying every currently
+held-out fixture with its measured defect signature; (b) sweeping suites run the full corpus —
+clean fixtures assert clean, defect fixtures assert **exactly their pinned signature**, so the
+census bar becomes "no unattributed failure and no unattributed cure" (a cure is loud and triggers
+promotion to the clean roster); (c) which invariants are universal (containment, rate,
+signalled-not-silent) versus clean-only is **measured, not assumed** — swept over the defect
+roster and pinned at whatever actually holds; (d) the dashboard's fixture loader lists the full
+corpus with defect fixtures labelled, so the user can load and inspect them. Applies to the whole
+held-out roster: both `OFF_EDGE_JITTER_L` seeds, the plus seed, the K4 specimen,
+`COLLINEAR_DUMBBELL`, `NEAR_REGULAR_CIRCLE_48`, `NEAR_REGULAR_ROSETTE5_40`.
+
+**73 — `SYMMETRICAL_OCTAGON` promotes to the clean roster; the other seven strays stay
+unenrolled as historical debugging specimens.** The enrolment package found eight
+individually-exported polygons in neither roster, all measuring clean today. The octagon's
+`DOES NOT TERMINATE IN FUZZ TEST` comment is stale — it solves with empty diagnostics and
+censuses 0 — so it enrolls clean with the comment corrected. The seven named-historical-bug
+specimens (crabs, reflex cases) remain as they are: clean today, no defect signature to pin,
+enrolment would only widen sweep cost without adding conviction.
+
+**74 — (user, 2026-08-28) `ALL_TEST_POLYGONS` is retired as a name: a roster called ALL that
+excludes the defect fixtures launders the meaning of the word.** The user's words: "you're still
+laundering the meaning of 'ALL' in that name." The name is **removed, not re-pointed** — silently
+making it mean the full corpus would flip the semantics under every existing reference, including
+any stale branch and the downstream C++ port; a compile error at every site forces a conscious
+choice instead. New names: `CLEAN_TEST_POLYGONS` (solves clean, sweeps assert clean),
+`KNOWN_DEFECT_POLYGONS` (enrolled with pinned signatures), `FULL_CORPUS` (their union — the only
+roster whose name claims totality, and the only one that has it). *User ratified the structure
+2026-08-28: "I approve of hav[ing] a named constant of clean polygons. It was the laundering that
+I disapproved of."*
+
 ## Findings
 
 **F10 — The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
@@ -507,6 +542,33 @@ accept-by-construction stands, but any future fixer starts there. Delegate figur
 rule off → 15 tests / 4 suites die; collapse reverted → 0 die; actual swap → 559 die. Lead
 verification: core **4345/4345 (75 suites)**, build clean, dashboard **257/257**, all re-run by
 the lead. **Package 6 committed: `5bf7bda`.**
+
+**F24 — Enrolment restructure landed (decisions 72–74): the full corpus is 56 (49 clean + 7
+known-defect), nothing is outside the sweeps, and enrolment immediately exposed three more silent
+wrong answers.** `ALL_TEST_POLYGONS` removed at 164 sites across 33 files (grep-zero outside
+history notes and two deliberate migration notices); clean roster is `CLEAN_TEST_POLYGONS`,
+defects `KNOWN_DEFECT_POLYGONS` with per-fixture pinned signatures, union `FULL_CORPUS`. The
+census sweeps everything: 41 attributed failures, an unattributed failure OR cure fails the suite
+(cure says PROMOTE IT). Universal invariants measured over the defect roster, not assumed:
+containment, rate, and signalled-not-silent all hold and are widened to FULL_CORPUS — but the
+**causality signature table shows three of four jitter fixtures are silent wrong answers**
+(`complete: true` with swept-past nodes and edges ending behind their sources), which every sweep
+missed while they were held out — the user's anti-laundering ruling was materially, not just
+philosophically, right. The dumbbell's headers now state its own test is the only sweep that sees
+its defect. Dashboard: grouped picker (`Corpus` / `Known defects`, ⚠-labelled) on both pages, demo
+page resolution fixed (it would have silently drawn Triangle for a defect fixture).
+`SYMMETRICAL_OCTAGON` promoted (stale non-termination comment re-measured dead). Delegate figures:
+core 4463/4463 (75 suites), dashboard 263/263, census 41 attributed / 0 unattributed; mutation
+convictions include the laundering move itself (removing a defect fixture from its roster: two
+suites die).
+
+**F24a — Two pre-existing prose drifts and a typecheck gap surfaced by the re-measurement,
+carried as open items.** (1) `CORPUS_CANONICAL_AREA_DRIFT_BOUND`'s narrative was three corpus
+growths stale; re-measured 17120 nodes / 110 reduced / max drift 5.19e-15 — **the 1e-14 bound is
+under 2× the measured maximum**, thin for a bound written as headroom. (2) `propagatedFloors`
+prose likewise re-measured (1111 of 1339). (3) **No pipeline typechecks `packages/core/tests`**
+(`tsconfig include: ["src"]`, ts-jest without diagnostics) — the decision-74 loudness guarantee is
+build-enforced for src but only runtime-enforced for tests; a candidate ruling for next session.
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted

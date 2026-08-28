@@ -84,7 +84,7 @@ import {
  * the last bits of the mantissa, so there is nothing left to hedge about.
  *
  * ----------------------------------------------------------------------------
- * FIVE OF THE SEVEN ARE NOW IN `ALL_TEST_POLYGONS` — re-recorded 2026-08-28
+ * FIVE OF THE SEVEN ARE NOW IN `CLEAN_TEST_POLYGONS` — re-recorded 2026-08-28
  * ----------------------------------------------------------------------------
  *
  * Solving is not the only thing that list asserts, and this section used to record two sweeps that
@@ -235,7 +235,7 @@ describe('near-regular polygons', () => {
         });
 
         /**
-         * `strip-decomposition.test.ts` sweeps `ALL_TEST_POLYGONS` and so cannot see the peanut,
+         * `strip-decomposition.test.ts` sweeps `CLEAN_TEST_POLYGONS` and so cannot see the peanut,
          * and while the waist was unresolved `computeStrips` refused the solve outright. The
          * peanut is the corpus's only two-lobed shape, so its tiling is worth one assertion here
          * until it is promoted: the strips plus the offset rings must account for the polygon

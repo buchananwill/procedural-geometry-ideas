@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeNodeOffsets,
@@ -81,7 +81,7 @@ import {
  * The projection used to lose rings on the near-regular fixtures; the simultaneous-mirror-event
  * work has since fixed that, and `near-regular-ring-loss-diagnosis.test.ts` carries both the
  * diagnosis and the guarantee for them. Five of the seven — the two circles on 2026-08-27, the
- * peanut and both ellipses by 2026-08-28 — were promoted into `ALL_TEST_POLYGONS` and are swept
+ * peanut and both ellipses by 2026-08-28 — were promoted into `CLEAN_TEST_POLYGONS` and are swept
  * here as ordinary corpus members; `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` stay
  * out on their own pinned failures (`large-coordinate-known-failures.test.ts`). Promotion moves
  * the counts this file pins, which is why it is done as its own change with the move attributed
@@ -115,9 +115,9 @@ setSkeletonLogLevel('silent');
 const NEIGHBOURHOOD = 1e-6;
 
 function solvedFixture(name: string): SkeletonSolveResult {
-    const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (fixture === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     const result = solveSkeleton(fixture.vertices);
     if (!result.complete || result.context === null) {
@@ -145,7 +145,7 @@ function hasRepeatedVertex(ring: Vector2[], tolerance: number): boolean {
     return false;
 }
 
-const SWEPT_FIXTURES = ALL_TEST_POLYGONS
+const SWEPT_FIXTURES = CLEAN_TEST_POLYGONS
     .filter(polygon => {
         const result = solveSkeleton(polygon.vertices);
         return result.complete && result.context !== null;
@@ -205,8 +205,8 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 334 distinct event offsets across them', () => {
-            expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
+        it('is every fixture, and 336 distinct event offsets across them', () => {
+            expect(SWEPT_FIXTURES).toHaveLength(CLEAN_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
                 (total, name) => total + eventOffsets(solvedFixture(name)).length, 0);
@@ -236,7 +236,7 @@ describe('offset projection at event boundaries', () => {
             // the fixture contributes exactly one distinct event.
             //
             // 271 BECAME 276 on 2026-08-27, when three fixtures were promoted into
-            // `ALL_TEST_POLYGONS` under journal decision 53. Attributed per fixture before
+            // `CLEAN_TEST_POLYGONS` under journal decision 53. Attributed per fixture before
             // repinning; the other 37 are unmoved. `Golf Cart` contributes 3 — it is the T-Shape
             // with one stem wall slanted, and the slant separates what the T-Shape collapses into
             // one offset. `Near Regular Circle 16` and `Near Regular Circle 32` contribute 1 each,
@@ -266,7 +266,13 @@ describe('offset projection at event boundaries', () => {
             // which is also the evidence that the split-event fix moved no existing fixture's
             // event structure. Deforming the waist breaks the symmetric peanut's four-fold
             // symmetry, so the 8 offsets it collapsed to become 11 and 13.
-            expect(events).toBe(334);
+            //
+            // 334 BECAME 336 LATER ON 2026-08-28, when `Symmetrical Octagon` was promoted under
+            // journal decision 73 — its "DOES NOT TERMINATE IN FUZZ TEST" exclusion re-measured and
+            // found dead. Attributed per fixture before repinning: the octagon contributes 2 and the
+            // other 48 are unmoved — re-running this reduction over the 48 alone still gives 334.
+            // Two offsets is what a shape with one interior hub and one ring of edge events has.
+            expect(events).toBe(336);
         });
     });
 
@@ -370,7 +376,7 @@ describe('offset projection at event boundaries', () => {
             // suite that suppressed the report — or a projection that quietly returned whatever rings
             // it could assemble — would pass it just as well, so the report is convicted here by
             // mutation. `measureMutationReport` is that mutation, defined once and run here over
-            // `ALL_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
+            // `CLEAN_TEST_POLYGONS` and in `near-regular-ring-loss-diagnosis.test.ts` over the four
             // held-out fixtures, so the conviction the two suites claim is the same conviction.
             //
             // Measured at this commit: 263 clean events across the corpus, 124 of which the report
@@ -443,8 +449,16 @@ describe('offset projection at event boundaries', () => {
             // the split-event fix landed with them moved nothing that was already here. Variant 1
             // carries mutated 16 and fired 12; variant 2 mutated 17 and fired 9. `silentLosses` is
             // still empty over all 48.
-            expect(mutated).toBe(316);
-            expect(fired).toBe(171);
+            //
+            // BOTH MOVED AGAIN ON 2026-08-28 — 316 to 320 and 171 to 175 — for the third cause
+            // again, the corpus growing: `Symmetrical Octagon` was promoted under journal decision
+            // 73, its "DOES NOT TERMINATE IN FUZZ TEST" exclusion re-measured and found dead.
+            // Attributed per fixture before repinning; the other 48 are bit-unmoved on all three
+            // counts. The octagon carries mutated 4 and fired 4 — every one of its clean events
+            // fires, which is what a shape with no terminal-band crowding looks like.
+            // `silentLosses` is still empty over all 49.
+            expect(mutated).toBe(320);
+            expect(fired).toBe(175);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

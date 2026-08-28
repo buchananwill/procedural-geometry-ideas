@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeOffsetRings,
@@ -43,7 +43,7 @@ import {place} from './placement-helpers';
  * translation-invariant as well.
  *
  * ----------------------------------------------------------------------------
- * MEASURED — all 37 ALL_TEST_POLYGONS fixtures, solve + offset rings at 50% of max
+ * MEASURED — all 37 CLEAN_TEST_POLYGONS fixtures, solve + offset rings at 50% of max
  * + strips at depth 50% of max. Cell shows how many of the 37 came through all three.
  * ----------------------------------------------------------------------------
  *
@@ -133,9 +133,9 @@ import {place} from './placement-helpers';
 setSkeletonLogLevel('silent');
 
 function fixture(name: string): Vector2[] {
-    const found = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const found = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (found === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     return found.vertices;
 }
@@ -170,7 +170,7 @@ function survives(vertices: Vector2[], scale: number, translate: number): boolea
 }
 
 function survivorCount(scale: number, translate: number): number {
-    return ALL_TEST_POLYGONS.filter(polygon => survives(polygon.vertices, scale, translate)).length;
+    return CLEAN_TEST_POLYGONS.filter(polygon => survives(polygon.vertices, scale, translate)).length;
 }
 
 describe('large coordinates', () => {
@@ -178,7 +178,7 @@ describe('large coordinates', () => {
         it.each([0, 1e4, 1e5, 1e6, 1e7, 1e8])(
             'solves, offsets and strips every fixture as a 15-40 km-of-centimetres region at distance %p',
             translate => {
-                expect(survivorCount(50, translate)).toBe(ALL_TEST_POLYGONS.length);
+                expect(survivorCount(50, translate)).toBe(CLEAN_TEST_POLYGONS.length);
             },
         );
     });
@@ -188,7 +188,7 @@ describe('large coordinates', () => {
         it.each([1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11])(
             'every fixture survives translation to %p at its native span',
             translate => {
-                expect(survivorCount(1, translate)).toBe(ALL_TEST_POLYGONS.length);
+                expect(survivorCount(1, translate)).toBe(CLEAN_TEST_POLYGONS.length);
             },
         );
 
@@ -197,7 +197,7 @@ describe('large coordinates', () => {
         it.each([1e-6, 1e-4, 1e-2, 1e2, 1e4, 1e6, 1e8])(
             'every fixture survives being scaled by %p about the origin',
             scale => {
-                expect(survivorCount(scale, 0)).toBe(ALL_TEST_POLYGONS.length);
+                expect(survivorCount(scale, 0)).toBe(CLEAN_TEST_POLYGONS.length);
             },
         );
     });
@@ -207,7 +207,7 @@ describe('large coordinates', () => {
             'never loses or miscounts a strip face at translation %p, wherever solve and offset are sound',
             translate => {
                 const checked: string[] = [];
-                for (const polygon of ALL_TEST_POLYGONS) {
+                for (const polygon of CLEAN_TEST_POLYGONS) {
                     const result = solveSkeleton(place(polygon.vertices, 1, translate));
                     if (!result.complete || result.context === null) {
                         continue;
@@ -288,7 +288,7 @@ describe('large coordinates', () => {
             const translations = [0, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7];
             let compared = 0;
 
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const clockwiseAtOrigin = isClockwise(polygon.vertices);
                 for (const scale of scales) {
                     for (const translate of translations) {
@@ -306,7 +306,7 @@ describe('large coordinates', () => {
                 }
             }
 
-            expect(compared).toBe(ALL_TEST_POLYGONS.length * scales.length * translations.length * 2);
+            expect(compared).toBe(CLEAN_TEST_POLYGONS.length * scales.length * translations.length * 2);
         });
     });
 

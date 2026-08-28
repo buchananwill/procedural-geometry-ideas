@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeStrips,
@@ -83,9 +83,9 @@ function boundaryOf(result: SkeletonSolveResult): Vector2[] {
 }
 
 function solvedFixture(name: string): SkeletonSolveResult {
-    const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (fixture === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     return solveSkeleton(fixture.vertices);
 }
@@ -910,7 +910,7 @@ describe('parcel slicing', () => {
 
         describe('the short-edge repro polygon', () => {
             // Export-only fixture: it fails the translation-to-1e9 envelope sweep, so it stays out
-            // of ALL_TEST_POLYGONS — see the fixture file. Everything at native placement passes.
+            // of CLEAN_TEST_POLYGONS — see the fixture file. Everything at native placement passes.
             const solved = (): SkeletonSolveResult => solveSkeleton(SHORT_EDGE_PROMONTORY);
 
             it('spawns short-frontage strips by default, and merging removes every one', () => {
@@ -969,7 +969,7 @@ describe('parcel slicing', () => {
             let parcelCount = 0;
             let stripCount = 0;
 
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 for (const fraction of [0.25, 0.5, 0.75, 1]) {
                     const {strips, options} = scaledFixture(polygon.name, fraction);
                     for (const [index, strip] of strips.entries()) {

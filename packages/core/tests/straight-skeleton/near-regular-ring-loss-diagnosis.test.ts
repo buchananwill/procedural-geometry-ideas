@@ -34,7 +34,7 @@ import {
  *
  * WHAT THIS FILE RECORDS, AND WHY IT IS NOT IN `offset-event-boundary-regression.test.ts`
  *
- * That file sweeps `ALL_TEST_POLYGONS`. These four fixtures were all held out of that corpus when
+ * That file sweeps `CLEAN_TEST_POLYGONS`. These four fixtures were all held out of that corpus when
  * this file was written, and three have since been promoted into it — `Near Regular Peanut 32` on
  * 2026-08-27 under journal decision 64, both ellipses on 2026-08-28 under decision 65. They stay
  * enumerated here anyway. THIS LIST IS THE POPULATION THE DIAGNOSIS WAS MEASURED OVER, not the
@@ -91,7 +91,7 @@ setSkeletonLogLevel('silent');
 
 /**
  * One member of the population this file's diagnosis was measured over. Every one was out of
- * `ALL_TEST_POLYGONS` when it was written; three have since been promoted and stay listed, because
+ * `CLEAN_TEST_POLYGONS` when it was written; three have since been promoted and stay listed, because
  * the counts here describe these four fixtures and no other set.
  */
 export interface HeldOutFixture {
@@ -328,7 +328,7 @@ describe('the near-regular simultaneous mirror events', () => {
             // Distinct offsets are now distinct EVENTS: no two of them are within one instant's worth
             // of each other, which is the entire content of the fix. The check itself is
             // `ulpSeparatedPairs`, shared with `offset-projection.test.ts`, which makes it of the
-            // whole table over `ALL_TEST_POLYGONS` where this file makes it of the event offsets of
+            // whole table over `CLEAN_TEST_POLYGONS` where this file makes it of the event offsets of
             // the four fixtures that used to fail it.
             const problems: string[] = [];
             for (const fixture of NEAR_REGULAR_FIXTURES) {
@@ -365,7 +365,7 @@ describe('the near-regular simultaneous mirror events', () => {
             // table. Below an event by less than a nanometre — which is where those raw members now
             // sit — the reconstruction of a bisector's position is itself noisier than the distance
             // to the event, and a span can still sort the wrong way round. That is a property of an
-            // exact lifetime comparison and not of mirror events: measured on `ALL_TEST_POLYGONS`,
+            // exact lifetime comparison and not of mirror events: measured on `CLEAN_TEST_POLYGONS`,
             // which has no mirror sets in it at all, 101 of 810 probes at 1e-13, 1e-14 and 1e-15
             // below an event report an unclosed chain. It is unchanged by this work, in either
             // direction, and is a finding to report rather than a defect this file pins.
@@ -411,7 +411,7 @@ describe('the near-regular simultaneous mirror events', () => {
         it('encloses the area the limit either side of the event encloses', () => {
             // A ring that closes while enclosing the wrong area is worse than one that fails to
             // close, because nothing downstream would report it. Same continuity test, same slack,
-            // as the sweep over `ALL_TEST_POLYGONS`.
+            // as the sweep over `CLEAN_TEST_POLYGONS`.
             const problems: string[] = [];
             for (const fixture of NEAR_REGULAR_FIXTURES) {
                 const result = solvedHeldOutFixture(fixture);
@@ -432,7 +432,7 @@ describe('the near-regular simultaneous mirror events', () => {
         it('fires when a hand-over on these fixtures is broken by hand', () => {
             // The counts above are worth nothing if `unclosedChains` can no longer be non-empty on
             // these fixtures — a suppressed report would pass them just as well as a fix. So the
-            // report is convicted here by exactly the mutation the `ALL_TEST_POLYGONS` sweep convicts
+            // report is convicted here by exactly the mutation the `CLEAN_TEST_POLYGONS` sweep convicts
             // it with, `measureMutationReport`, run over these four fixtures instead of that corpus:
             // one node's offset is pushed a micrometre later than the rest of the solve dates it,
             // which is six orders of magnitude outside the canonicalisation band and so survives it,

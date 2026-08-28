@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     CollisionCache,
     CollisionEvent,
@@ -34,7 +34,7 @@ import {place} from './placement-helpers';
  * construction. See `normalisation.ts` for the full argument and for the enumeration of what
  * scales — this file guards that enumeration item by item.
  *
- * MEASURED IN THIS REPO WHEN THE TRANSFORM LANDED, over all 37 `ALL_TEST_POLYGONS` (solve +
+ * MEASURED IN THIS REPO WHEN THE TRANSFORM LANDED, over all 37 `CLEAN_TEST_POLYGONS` (solve +
  * offset ring at 50% of max + strips at the same depth):
  *
  *     translate      0   1e3   1e4   1e5   1e6   1e7   1e8   1e9  1e10  1e11
@@ -142,7 +142,7 @@ describe('unit-extent normalisation', () => {
             // extent lands in [1/sqrt(2), sqrt(2)] instead of exactly on 1. The one-ulp slack is the
             // subtract-then-multiply rounding, not slack in the rule.
             const bound = Math.SQRT1_2 + Number.EPSILON;
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const normalisation = makeSkeletonNormalisation(polygon.vertices);
                 for (const vertex of normalisePolygon(polygon.vertices, normalisation)) {
                     expect(Math.abs(vertex.x)).toBeLessThanOrEqual(bound);
@@ -341,7 +341,7 @@ describe('unit-extent normalisation', () => {
         });
 
         it('makes the two scales EXACT reciprocals, in both orders', () => {
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const normalisation = makeSkeletonNormalisation(polygon.vertices);
 
                 expect(normalisation.toUnitScale * normalisation.fromUnitScale).toBe(1);
@@ -351,7 +351,7 @@ describe('unit-extent normalisation', () => {
         });
 
         it('emits scales that are exact powers of two in both directions', () => {
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const normalisation = makeSkeletonNormalisation(polygon.vertices);
                 const exponent = Math.log2(normalisation.fromUnitScale);
 
@@ -368,7 +368,7 @@ describe('unit-extent normalisation', () => {
             const spans = [1, 1.1, 1.9, 3, 5, 7, 10, 100, 300, 1000, 12345.678, 1e-5, 6.02e23];
             const measured: number[] = [];
 
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const {minimum, maximum} = boundsOf(polygon.vertices);
                 measured.push(Math.max(maximum.x - minimum.x, maximum.y - minimum.y) * makeSkeletonNormalisation(polygon.vertices).toUnitScale);
             }
@@ -444,7 +444,7 @@ describe('unit-extent normalisation', () => {
          *   after          7    20     2     0     3     6     5     6
          *
          * WHICH CELLS MOVED, AND WHICH FIXTURE MOVED THEM. `SHORT_EDGE_PROMONTORY` and
-         * `NEAR_REGULAR_PEANUT_32` were promoted into `ALL_TEST_POLYGONS` on 2026-08-27; every
+         * `NEAR_REGULAR_PEANUT_32` were promoted into `CLEAN_TEST_POLYGONS` on 2026-08-27; every
          * moved coordinate in every cell belongs to one of those two, and the other 42 fixtures are
          * bit-unmoved in all eighteen cells (verified by re-running the sweep over the 42 alone,
          * which reproduces the `before` row exactly). Attribution, promontory first:
@@ -552,7 +552,7 @@ describe('unit-extent normalisation', () => {
             let worstExtentError = 0;
             let firstInexact: string | null = null;
 
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const placed = place(polygon.vertices, scale, translate);
                 const normalisation = makeSkeletonNormalisation(placed);
                 const returned = normalisePolygon(placed, normalisation).map(vertex =>
@@ -624,7 +624,7 @@ describe('unit-extent normalisation', () => {
             ];
 
             for (const [scale, translate] of placements) {
-                for (const polygon of ALL_TEST_POLYGONS) {
+                for (const polygon of CLEAN_TEST_POLYGONS) {
                     const placed = place(polygon.vertices, scale, translate);
                     const {toUnitScale, fromUnitScale} = makeSkeletonNormalisation(placed);
 
@@ -803,7 +803,7 @@ describe('unit-extent normalisation', () => {
             // The decisive form of the direction rule, end to end. Every exterior basis vector in a
             // returned graph must be the one derived from the UNIT-SPACE boundary, unchanged — not a
             // version of it multiplied by the extent on the way out. Compared with Object.is.
-            const placed = ALL_TEST_POLYGONS[0].vertices.map(vertex => ({x: vertex.x * 250 + 1e6, y: vertex.y * 250 + 1e6}));
+            const placed = CLEAN_TEST_POLYGONS[0].vertices.map(vertex => ({x: vertex.x * 250 + 1e6, y: vertex.y * 250 + 1e6}));
             const result = solveSkeleton(placed);
 
             const unit = normalisePolygon(placed, makeSkeletonNormalisation(placed));

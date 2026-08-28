@@ -271,7 +271,7 @@ function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
  * unit-extent normalisation exists to remove. The scale comes from the solved geometry rather than
  * from a world constant.
  *
- * STATED AND MEASURED, NOT CHOSEN. Over `ALL_TEST_POLYGONS` plus the four near-regular fixtures,
+ * STATED AND MEASURED, NOT CHOSEN. Over `CLEAN_TEST_POLYGONS` plus the four near-regular fixtures,
  * with offsets taken relative to each solve's maximum:
  *
  * - the widest gap *within* one instant is **1.42e-15** (Near Regular Ellipse 32: 1.42e-13 absolute

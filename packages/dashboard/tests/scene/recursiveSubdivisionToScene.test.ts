@@ -471,7 +471,7 @@ describe('the residue on the canvas', () => {
  * RE-SPECIMENED 2026-08-28, the second time: the split-at-the-vertex correction in
  * `generateSplitEventFromTheEdgeItself` cured Broken Polygon in groups of five, as the decision-56
  * partition fix had cured Pentagon House in groups of three before it, and the gate below reported
- * each dead specimen exactly as it was meant to. Swept afresh: `ALL_TEST_POLYGONS` no longer yields
+ * each dead specimen exactly as it was meant to. Swept afresh: `CLEAN_TEST_POLYGONS` no longer yields
  * a failed region at ANY merge group from two to eight at full depth, and neither does the collinear
  * dumbbell, so the specimen now comes from `OFF_EDGE_JITTER_L_SEED_55433_K4` — the one fixture in
  * the repo whose root solves while the driver still cuts a region out of it that does not. In groups

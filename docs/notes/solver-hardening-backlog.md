@@ -115,8 +115,9 @@ broken feature.
 - [along-edge-jitter-known-failures.test.ts](../../packages/core/tests/straight-skeleton/along-edge-jitter-known-failures.test.ts)
   — the live off-edge near-floor defect, pinned per journal decision 53, keeping the **full**
   eighty-cell grid because it is measuring something still broken.
-- [near-floor-jitter.ts](../../packages/test-fixtures/src/near-floor-jitter.ts) — three literal
-  failing fixtures, exported individually and deliberately **not** in `ALL_TEST_POLYGONS`.
+- [near-floor-jitter.ts](../../packages/test-fixtures/src/near-floor-jitter.ts) — four literal
+  fixtures, enrolled in `KNOWN_DEFECT_POLYGONS` under journal decision 72 and swept against their
+  measured signatures rather than held out.
 - [jitter-helpers.ts](../../packages/core/tests/straight-skeleton/jitter-helpers.ts) — the
   generator, with every constant documented.
 
@@ -181,14 +182,15 @@ either exact offset one lobe's ring closes and the other reports `no-successor`.
 returning a bare empty list.
 
 **Consequence:** this is one of the two remaining blockers on promoting the near-regular
-fixtures into `ALL_TEST_POLYGONS`.
+fixtures into `CLEAN_TEST_POLYGONS` (the roster named `ALL_TEST_POLYGONS` when this was written;
+renamed under journal decision 74).
 
 ---
 
 ## 5. Promoting the near-regular fixtures
 
 **PARTLY DONE, RE-STATED TWICE ON 2026-08-27.** `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32`
-are in `ALL_TEST_POLYGONS`, alongside `GOLF_CART`. Both blockers named in the original item are
+are in `CLEAN_TEST_POLYGONS`, alongside `GOLF_CART`. Both blockers named in the original item are
 dead: item 4 closed, and the translation envelope now carries every one of the seven out to 1e9.
 The pinned counts that promotion moved: event offsets 271 → 276, mutation `mutated` 232 → 237 and
 `fired` 101 → 103 in `offset-event-boundary-regression.test.ts`; corpus size 39 → 42 and the

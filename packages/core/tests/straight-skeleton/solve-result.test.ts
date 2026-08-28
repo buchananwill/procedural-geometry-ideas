@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {isClockwise, runAlgorithmV5, runAlgorithmV5Stepped, solveSkeleton, Vector2} from '@proc-geo/core';
 
 /** Clockwise convex quad — the happy path. */
@@ -140,7 +140,7 @@ describe('solveSkeleton', () => {
     });
 
     describe('fixture sweep', () => {
-        it.each(ALL_TEST_POLYGONS)('$name solves completely', ({vertices}) => {
+        it.each(CLEAN_TEST_POLYGONS)('$name solves completely', ({vertices}) => {
             const result = solveSkeleton(vertices);
 
             expect(result.diagnostics.filter(d => d.kind === 'step-failure')).toEqual([]);

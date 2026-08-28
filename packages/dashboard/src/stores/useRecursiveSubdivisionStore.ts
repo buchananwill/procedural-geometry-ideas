@@ -219,7 +219,7 @@ function clampedSpineStrategy(strategy: SpineStrategy): SpineStrategy {
 }
 
 export interface RecursiveSubdivisionStoreState {
-    /** Name of the `ALL_TEST_POLYGONS` entry being subdivided. */
+    /** Name of the `FULL_CORPUS` entry being subdivided — known-defect fixtures included. */
     fixtureName: string;
     /**
      * One spec per level, outermost first. Its LENGTH is the recursion depth.

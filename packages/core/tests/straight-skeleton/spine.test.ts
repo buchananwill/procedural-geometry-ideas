@@ -1,5 +1,5 @@
 import {
-    ALL_TEST_POLYGONS,
+    CLEAN_TEST_POLYGONS,
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     PREMATURE_BISECTOR_SPLIT_PASSES,
     RECTANGLE,
@@ -113,7 +113,7 @@ function withCycleAdded(tree: SkeletonTree): SkeletonTree {
 
 /** Every fixture that solves and whose skeleton really is a tree, built once for the sweeps. */
 function corpusTrees(): {name: string; tree: SkeletonTree}[] {
-    return ALL_TEST_POLYGONS
+    return CLEAN_TEST_POLYGONS
         .map(polygon => ({name: polygon.name, result: solveSkeleton(polygon.vertices)}))
         .filter(({result}) => result.complete && result.context !== null)
         .map(({name, result}) => ({name, tree: buildSkeletonTree(result)}))
@@ -315,7 +315,7 @@ describe('extractSpine invariants', () => {
     });
 
     it('gives the same spine on a second solve of the same polygon', () => {
-        for (const polygon of ALL_TEST_POLYGONS.slice(0, 8)) {
+        for (const polygon of CLEAN_TEST_POLYGONS.slice(0, 8)) {
             const result = solveSkeleton(polygon.vertices);
             if (!result.complete || result.context === null) continue;
             const first = buildSkeletonTree(result);

@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS, RECTANGLE, SQUARE} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, RECTANGLE, SQUARE} from '@proc-geo/test-fixtures';
 import {
     buildSkeletonTree,
     computeNodeOffsets,
@@ -280,7 +280,7 @@ describe('a skeleton with a genuine internal edge', () => {
 });
 
 describe('the shape of the tree, over the whole corpus', () => {
-    const trees = ALL_TEST_POLYGONS.map(polygon => ({
+    const trees = CLEAN_TEST_POLYGONS.map(polygon => ({
         name: polygon.name,
         result: solved(polygon.vertices),
         tree: buildSkeletonTree(solveSkeleton(polygon.vertices)),
@@ -299,7 +299,7 @@ describe('the shape of the tree, over the whole corpus', () => {
         // tree by `InteriorEdge.culled`, which is what keeps it a tree here.
         //
         // 39 became 42 on 2026-08-27: `Golf Cart`, `Near Regular Circle 16` and
-        // `Near Regular Circle 32` were promoted into `ALL_TEST_POLYGONS` under journal decision
+        // `Near Regular Circle 32` were promoted into `CLEAN_TEST_POLYGONS` under journal decision
         // 53. This is the corpus size, so it tracks the list.
         //
         // 42 became 44 later the same day: `Short Edge Promontory` and `Near Regular Peanut 32`
@@ -315,7 +315,11 @@ describe('the shape of the tree, over the whole corpus', () => {
         // their waist bisectors escaping the polygon. Both build trees — which is a statement
         // worth having here, because before that fix variant 1's waist bisector ended at a node
         // with nothing else incident to it and variant 2's ended outside the polygon entirely.
-        expect(trees).toHaveLength(48);
+        //
+        // 48 became 49 later on 2026-08-28: `Symmetrical Octagon` was promoted under journal
+        // decision 73, its "DOES NOT TERMINATE IN FUZZ TEST" exclusion re-measured and found dead.
+        // It builds a tree of 13 nodes, so `notTrees` above is still empty.
+        expect(trees).toHaveLength(49);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -364,7 +368,7 @@ describe('the shape of the tree, over the whole corpus', () => {
 });
 
 describe('offsets', () => {
-    const trees = ALL_TEST_POLYGONS.map(polygon => ({
+    const trees = CLEAN_TEST_POLYGONS.map(polygon => ({
         name: polygon.name,
         result: solved(polygon.vertices),
     }));
@@ -397,7 +401,7 @@ describe('offsets', () => {
 });
 
 describe('edge length', () => {
-    const fixtures = ALL_TEST_POLYGONS.map(polygon => ({name: polygon.name, vertices: polygon.vertices}));
+    const fixtures = CLEAN_TEST_POLYGONS.map(polygon => ({name: polygon.name, vertices: polygon.vertices}));
 
     /**
      * DECISION 4: the Euclidean distance between the two node positions, in caller space — not the
@@ -456,7 +460,7 @@ describe('edge length', () => {
 });
 
 describe('skeletonTreeDiameter over the corpus', () => {
-    const trees = ALL_TEST_POLYGONS.map(polygon => ({
+    const trees = CLEAN_TEST_POLYGONS.map(polygon => ({
         name: polygon.name,
         tree: buildSkeletonTree(solveSkeleton(polygon.vertices)),
     }));
@@ -525,6 +529,13 @@ describe('skeletonTreeDiameter over the corpus', () => {
      * where the hop count leaves the long way round unwalked. The margin is thin — 410.79 against
      * 410.55 for variant 1, 411.11 against 410.86 for variant 2 — but it is three orders above the
      * 1e-9 the filter demands.
+     *
+     * 30 STAYED 30 later on 2026-08-28, through the decision-73 promotion of `Symmetrical Octagon`,
+     * and the zero is attributed rather than assumed: the octagon does NOT join the offenders, for
+     * the regular n-gon's reason. Its skeleton is a short ridge between two hubs with every
+     * boundary vertex one hop off it, so the hop-count path and the weighted diameter pick the same
+     * walk. The 30 already there are unchanged — re-running the filter over the 48 alone still
+     * gives 30 — so this count is evidence that a corpus can grow without this measure moving.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>

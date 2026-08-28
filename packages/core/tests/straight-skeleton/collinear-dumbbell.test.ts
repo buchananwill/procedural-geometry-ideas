@@ -24,6 +24,11 @@ import {
  * if the overlap is fixed they fail and should be rewritten as a specification; if it worsens they
  * fail and something regressed. Neither drift is allowed to be silent.
  *
+ * THE FIXTURE IS IN `KNOWN_DEFECT_POLYGONS`, NOT HELD OUT (journal decision 72), and this file is
+ * the only sweep that catches it: the recursive-subdivision census scores it zero, it strands no
+ * edge, escapes nowhere and holds every wavefront-causality invariant. THE OVERLAP IS ITS WHOLE
+ * SIGNATURE, and it is invisible to every other measurement the suite makes.
+ *
  * WHAT IS DEGENERATE ABOUT IT is not redundant vertices — every turn is 90 degrees, so nothing is
  * collinear at a vertex and no vertex-local test can see it. It is that *non-adjacent* edges share
  * supporting lines, which makes wall-to-wall distances exactly equal so the pinches land in one

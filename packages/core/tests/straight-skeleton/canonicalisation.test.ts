@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     BoundaryRun,
     CanonicalPolygon,
@@ -324,7 +324,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
      * lists in `reflex-subdivision.test.ts`, so drift in either direction is loud.
      */
 
-    /** Every `ALL_TEST_POLYGONS` fixture the ruled floor removes a vertex from. Exactly one. */
+    /** Every `CLEAN_TEST_POLYGONS` fixture the ruled floor removes a vertex from. Exactly one of 49. */
     const CANONICALISED_FIXTURES = ['Long Unbroken Side Then Extreme Acute Angle'];
 
     /** What the stage does to one fixture, in unit space, where the floor lives. */
@@ -333,14 +333,14 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         return canonicalisePolygon(normalisePolygon(vertices, normalisation), floor);
     }
 
-    it('touches exactly one of the 48 fixtures, and removes exactly one vertex from it', () => {
-        const touched = ALL_TEST_POLYGONS
+    it('touches exactly one of the 49 fixtures, and removes exactly one vertex from it', () => {
+        const touched = CLEAN_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR).removedCount > 0)
             .map(fixture => fixture.name);
 
         expect(touched).toEqual(CANONICALISED_FIXTURES);
 
-        const fixture = ALL_TEST_POLYGONS.find(p => p.name === CANONICALISED_FIXTURES[0])!;
+        const fixture = CLEAN_TEST_POLYGONS.find(p => p.name === CANONICALISED_FIXTURES[0])!;
         const canonical = canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR);
         expect(fixture.vertices).toHaveLength(32);
         expect(canonical.vertices).toHaveLength(31);
@@ -354,7 +354,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // goes at any non-zero floor. THE CORPUS IS NOT WHAT BINDS THE FLOOR — the recursive
         // subdivision arc is, and its per-level tiling identity fails above 3e-6. See
         // `canonicalisation.ts` for why that band is narrow rather than a plateau.
-        const touchedAt = (floor: number): number => ALL_TEST_POLYGONS
+        const touchedAt = (floor: number): number => CLEAN_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, floor).removedCount > 0).length;
 
         for (const floor of [1e-12, 1e-10, 1e-8, 1e-7, SKELETON_NOISE_FLOOR, 3e-6, 1e-5, 1e-4]) {
@@ -365,7 +365,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // from over a quarter of the corpus, which is what "too high" looks like from here.
         //
         // 10 BECAME 12 ON 2026-08-27, when `SHORT_EDGE_PROMONTORY` and `NEAR_REGULAR_PEANUT_32`
-        // were promoted into `ALL_TEST_POLYGONS` under journal decision 64. Attributed per
+        // were promoted into `CLEAN_TEST_POLYGONS` under journal decision 64. Attributed per
         // fixture before repinning: both new fixtures are touched at 1e-2 and neither is touched
         // at any smaller floor in this sweep, and the other 42 are unmoved at every floor — so
         // this is the corpus growing, not the floor's sensitivity changing. The ruled floor still
@@ -385,6 +385,13 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // its neighbours than variant 1's does — and neither is touched at any smaller floor in
         // this sweep. The other 46 are unmoved at every floor, so the ruled floor still touches
         // exactly one fixture.
+        //
+        // NEITHER MOVED ON 2026-08-28 when `SYMMETRICAL_OCTAGON` was promoted under journal
+        // decision 73, and the zero is attributed rather than assumed: the octagon is touched at NO
+        // floor in this sweep, including 1e-2. Its eight sides are all a third of its extent, so
+        // there is no vertex anywhere near the chord between its neighbours — a corpus growing by a
+        // fixture the stage cannot reach, which is the ordinary case these counts exist to
+        // distinguish from a floor becoming more aggressive.
         expect(touchedAt(1e-3)).toBe(3);
         expect(touchedAt(1e-2)).toBe(15);
     });
@@ -392,7 +399,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
     it('leaves every fixture solving completely, at the ruled floor and either side of it', () => {
         const problems: string[] = [];
         for (const floor of [0, SKELETON_NOISE_FLOOR, 3e-6]) {
-            for (const fixture of ALL_TEST_POLYGONS) {
+            for (const fixture of CLEAN_TEST_POLYGONS) {
                 if (!solveSkeleton(fixture.vertices, {noiseFloor: floor}).complete) {
                     problems.push(`${fixture.name} @ floor ${floor}`);
                 }

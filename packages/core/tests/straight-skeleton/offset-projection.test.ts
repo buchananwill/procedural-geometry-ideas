@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeNodeOffsets,
@@ -124,9 +124,9 @@ function selfIntersections(ring: Vector2[]): string[] {
 }
 
 function solvedFixture(name: string): SkeletonSolveResult {
-    const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (fixture === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     return solveSkeleton(fixture.vertices);
 }
@@ -220,7 +220,7 @@ describe('offset projection', () => {
             // canonicalisation that merged two genuinely distinct events would show up here as a
             // node whose offset is nowhere near any line it lies between.
             const problems: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const result = solvedFixture(polygon.name);
                 const maxOffset = computeMaxOffset(result);
                 for (const [nodeId, offset] of computeNodeOffsets(result)) {
@@ -251,7 +251,7 @@ describe('offset projection', () => {
             // is `ulpSeparatedPairs`, shared with the near-regular suite, which makes it of the
             // event offsets of the four fixtures whose mirror sets used to defeat it.
             const problems: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const result = solvedFixture(polygon.name);
                 const band = computeMaxOffset(result) * SIMULTANEITY_RELATIVE_BAND;
                 const table = [...computeNodeOffsets(result).values()];
@@ -270,7 +270,7 @@ describe('offset projection', () => {
             // therefore merge everything at 2^-30 and nothing at 2^30, and this comparison is what
             // catches that.
             const problems: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const native = partitionSignature(solveSkeleton(polygon.vertices));
                 for (const scale of [2 ** -30, 2 ** -10, 2 ** 10, 2 ** 30]) {
                     const scaled = solveSkeleton(place(polygon.vertices, scale, 0));
@@ -289,7 +289,7 @@ describe('offset projection', () => {
     });
 
     describe('offset zero reproduces the input', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const boundary = boundaryOf(result);
             const rings = computeOffsetRings(result, 0);
@@ -310,7 +310,7 @@ describe('offset projection', () => {
     });
 
     describe('emptiness past the maximum offset', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
             expect(computeOffsetRings(result, maxOffset)).toEqual([]);
@@ -319,7 +319,7 @@ describe('offset projection', () => {
     });
 
     describe('total area decreases monotonically', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
             const samples = 24;
@@ -341,7 +341,7 @@ describe('offset projection', () => {
     });
 
     describe('clearance from the boundary', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const boundary = boundaryOf(result);
             const maxOffset = computeMaxOffset(result);
@@ -376,7 +376,7 @@ describe('offset projection', () => {
     });
 
     describe('later wavefronts lie inside earlier ones', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
             const fractions = [0.05, 0.25, 0.5, 0.75, 0.9];
@@ -400,7 +400,7 @@ describe('offset projection', () => {
     });
 
     describe('ring shape across the fixture sweep', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
 
@@ -450,7 +450,7 @@ describe('offset projection', () => {
         });
 
         it('is not a quirk of three hand-picked fixtures', () => {
-            const splitting = ALL_TEST_POLYGONS.filter(({vertices}) => {
+            const splitting = CLEAN_TEST_POLYGONS.filter(({vertices}) => {
                 const result = solveSkeleton(vertices);
                 if (!result.complete || result.context === null) {
                     return false;

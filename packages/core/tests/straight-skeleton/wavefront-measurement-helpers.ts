@@ -13,7 +13,7 @@ import {
  * ============================================================================
  *
  * `offset-event-boundary-regression.test.ts` asserts that the projection survives an
- * event over `ALL_TEST_POLYGONS`, and `near-regular-ring-loss-diagnosis.test.ts` asserts
+ * event over `CLEAN_TEST_POLYGONS`, and `near-regular-ring-loss-diagnosis.test.ts` asserts
  * the same of the four held-out fixtures whose simultaneous mirror events used to defeat
  * it. Both have to ask the same questions of a solve — *where are its events*, *how much
  * area does the wavefront enclose there*, *is that area continuous through the event*, and

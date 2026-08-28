@@ -1,6 +1,8 @@
 import {
-    ALL_TEST_POLYGONS,
+    CLEAN_TEST_POLYGONS,
     COLLINEAR_DUMBBELL,
+    FULL_CORPUS,
+    KNOWN_DEFECT_POLYGONS,
     OFF_EDGE_JITTER_L_SEED_55433_K4,
     SQUARE,
 } from '@proc-geo/test-fixtures';
@@ -56,10 +58,12 @@ import {
  * between the two is asserted separately, as `canonicalAreaDrift`, and never folded into the
  * identity.
  *
- * The failure census at the end is a measurement, not a gate: it reports which fixtures stop
- * subdividing and where. That is the first data this project has on how solver *output* behaves as
- * solver *input*, so it is printed rather than encoded as an expectation that would have to be
- * re-pinned every time the solver improves.
+ * The failure census at the end is an ATTRIBUTED GATE over the full corpus, not a printout. Journal
+ * decision 72 retired fixture exclusion: every fixture in the repo is swept, clean ones must
+ * contribute no failed region at all, and each known-defect fixture must contribute EXACTLY the
+ * count recorded against its name. A failure nobody claimed and a cure nobody claimed both break the
+ * suite, because the second is the promotion signal and a promotion that happens quietly is the
+ * laundering the decision exists to stop.
  */
 
 /**
@@ -74,7 +78,7 @@ const AREA_TOLERANCE_FRACTION = 1e-12;
 /**
  * The bound `canonicalAreaDrift` is held under across the corpus, at the standing noise floor.
  *
- * MEASURED, THEN GIVEN HEADROOM, and both numbers belong here. Swept over `ALL_TEST_POLYGONS` at
+ * MEASURED, THEN GIVEN HEADROOM, and both numbers belong here. Swept over `CLEAN_TEST_POLYGONS` at
  * depth fractions `0.25/0.6/1` and merge groups 1–4 at three levels — 14 404 nodes — exactly 31
  * nodes lose a vertex to canonicalisation at all, and the largest drift among them is `1.6e-15`.
  * This bound is a little over six times that. The remaining 14 373 nodes drift by exactly zero, so
@@ -90,6 +94,18 @@ const AREA_TOLERANCE_FRACTION = 1e-12;
  * removes, so it scales with the floor: swept at candidate floors the same corpus reaches `3.2e-5`
  * at `5e-6` and `0.42` at `1e-4`. That is the quantity behaving as specified rather than a failure,
  * which is precisely why it is reported separately from the tiling identity instead of inside it.
+ *
+ * RE-MEASURED 2026-08-28, and the paragraphs above are HISTORY rather than the current reading. The
+ * same sweep over the clean roster is now 17 120 nodes, 110 of which lose a vertex, and the largest
+ * drift among them is `5.2e-15` — so the bound is under two times the maximum rather than six, and
+ * NONE of the 110 is a node that went on to fail. The corpus grew several times over the interval
+ * and nobody re-ran the distribution; the bound itself never moved and still holds.
+ *
+ * THE HEADROOM IS THE FINDING. Two times is thin for a bound written as headroom, and it is a
+ * standing item rather than a passing one: a fixture whose floor finds a slightly larger collinear
+ * sliver would break this without anything being wrong. Attributed for decision 73: `Symmetrical
+ * Octagon` contributes 230 nodes, ZERO of them reduced, and moves neither the maximum nor the
+ * reduced count — re-running over the other 48 alone gives the same `5.2e-15` and the same 110.
  */
 const CORPUS_CANONICAL_AREA_DRIFT_BOUND = 1e-14;
 
@@ -111,7 +127,7 @@ const CANONICAL_RING_AGREEMENT_FRACTION = 1e-15;
  * Level counts every fixture is swept at.
  *
  * Decision 16 allows a reduced fixture set if the deep sweep is slow. Measured, it is not: the whole
- * of `ALL_TEST_POLYGONS` at all three level counts runs in about a second and a half, because the
+ * of `CLEAN_TEST_POLYGONS` at all three level counts runs in about a second and a half, because the
  * regions handed back down are small and the solver's cubic cost is paid on ever-fewer vertices. So
  * nothing is excluded.
  */
@@ -130,6 +146,33 @@ const SWEPT_DEPTH_FRACTIONS = [0.25, 0.6, FULL_DEPTH_FRACTION];
 const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
 
 /**
+ * How many failed regions each known-defect fixture contributes to the census grid, MEASURED.
+ *
+ * The grid is the whole of {@link SWEPT_DEPTH_FRACTIONS} × {@link CENSUS_MERGE_GROUP_SIZES} at
+ * `MAX_RECURSION_LEVELS`, and the count is every node of every tree that recorded a failure of any
+ * kind — degenerate, incomplete or thrown. A fixture absent from this table is a CLEAN fixture and
+ * its pinned count is zero; the guard below refuses a defect fixture that is absent, so silence here
+ * can never be mistaken for a measurement.
+ *
+ * MEASURED 2026-08-28, under journal decision 72. The four jitter fixtures are the live defect of
+ * decision 67 — three of them solve as roots and still hand the driver regions it cannot subdivide,
+ * which is the half of that class the rate-decides-direction fix left standing. The other three
+ * contribute NOTHING here and are enrolled on defects this grid cannot see: the dumbbell's strips
+ * overlap while it subdivides cleanly, and Circle 48 / Rosette5 40 fail only at translations far
+ * from the origin. Their zeroes are load-bearing — each is the statement that this grid is not the
+ * sweep that convicts them.
+ */
+const CENSUS_SIGNATURES: Record<string, number> = {
+    'Off-edge Jitter Reflex L (seed 15838)': 5,
+    'Off-edge Jitter Reflex L (seed 55433)': 10,
+    'Off-edge Jitter Plus (seed 7919)': 12,
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': 14,
+    'Collinear Dumbbell': 0,
+    'Near Regular Circle 48': 0,
+    'Near Regular Rosette5 40': 0,
+};
+
+/**
  * Merge group sizes the canonical boundary's exactness is swept at.
  *
  * TWO RATHER THAN THE CENSUS'S FOUR, because the sweep is over every node of every tree at every
@@ -144,7 +187,7 @@ const EXACTNESS_MERGE_GROUP_SIZES = [1, 2];
  * The merge group size the failing-region harvest is swept at.
  *
  * RE-MEASURED 2026-08-27: the decision-56 double-split partition fix emptied the corpus's failure
- * census outright — `ALL_TEST_POLYGONS` produces no failed region at any merge group any more, so
+ * census outright — `CLEAN_TEST_POLYGONS` produces no failed region at any merge group any more, so
  * the group-4 population the earlier reading of this constant described is extinct. The only
  * remaining producer is `COLLINEAR_DUMBBELL` (see {@link failedRegions}), whose failed regions
  * appear at this group size and at no other.
@@ -317,9 +360,9 @@ function fullDepthReference(
 }
 
 function fixtureVertices(name: string): Vector2[] {
-    const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (fixture === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     return fixture.vertices;
 }
@@ -510,7 +553,7 @@ function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
 function failedRegions(): FailedRegion[] {
     const regions: FailedRegion[] = [];
     const population = [
-        ...ALL_TEST_POLYGONS.map(polygon => ({...polygon, mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE})),
+        ...CLEAN_TEST_POLYGONS.map(polygon => ({...polygon, mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE})),
         {
             name: 'Collinear Dumbbell',
             vertices: COLLINEAR_DUMBBELL,
@@ -1151,7 +1194,7 @@ describe('recursive segment subdivision', () => {
         // no tolerance, because the two paths perform the same arithmetic on the same input.
         it.each([2, 3])('reproduces the pre-residue tree at merge group %i', mergeGroupSize => {
             const differing: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const tree = subdivideRecursively(polygon.vertices, options({
                     levels: MAX_RECURSION_LEVELS,
                     mergeGroupSize,
@@ -1168,7 +1211,7 @@ describe('recursive segment subdivision', () => {
             // Full-depth behaviour is unchanged and pinned: the residue contributes nothing, so the
             // only thing that moved is which polygon the segments are summed against.
             const problems: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const root = fullDepthTree(polygon.vertices);
                 for (const node of flattenRecursiveTree(root)) {
                     if (node.residueRings.length > 0) {
@@ -1181,7 +1224,7 @@ describe('recursive segment subdivision', () => {
         });
 
         it('grows no residue and no residue children anywhere in the tree', () => {
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const nodes = flattenRecursiveTree(fullDepthTree(polygon.vertices));
                 expect(nodes.every(node => node.residueRings.length === 0)).toBe(true);
                 expect(nodes.every(node => node.residueChildren.length === 0)).toBe(true);
@@ -1495,7 +1538,7 @@ describe('recursive segment subdivision', () => {
         it("divides every node by the spec for the node's own level, vertex for vertex", () => {
             const problems: string[] = [];
             const counted = [0, 0, 0];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const rootFloor = rootFloorOf(polygon.vertices);
                 const root = subdivideRecursively(polygon.vertices, heterogeneous);
                 for (const node of flattenRecursiveTree(root)) {
@@ -1516,7 +1559,7 @@ describe('recursive segment subdivision', () => {
             // the level BELOW it must give a different answer somewhere, or the comparison could not
             // tell the two apart and the test above would pass on a driver with an off-by-one.
             let differing = 0;
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const rootFloor = rootFloorOf(polygon.vertices);
                 const root = subdivideRecursively(polygon.vertices, heterogeneous);
                 for (const node of flattenRecursiveTree(root)) {
@@ -1560,7 +1603,7 @@ describe('recursive segment subdivision', () => {
             // must not touch it — so it is asserted over a heterogeneous tree of every fixture rather
             // than only over the uniform sweeps that predate per-level specs.
             const problems: string[] = [];
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const root = subdivideRecursively(polygon.vertices, heterogeneous);
                 problems.push(
                     ...structuralProblems(root, heterogeneous).map(problem => `${polygon.name} ${problem}`),
@@ -1667,7 +1710,7 @@ describe('recursive segment subdivision', () => {
             const problems: string[] = [];
             let unchanged = 0;
             let reduced = 0;
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
                     for (const mergeGroupSize of EXACTNESS_MERGE_GROUP_SIZES) {
                         const where = `${polygon.name} (depth ${depthFraction}, merge group ${mergeGroupSize})`;
@@ -1696,7 +1739,7 @@ describe('recursive segment subdivision', () => {
             // descendant against its own extent and check a ring nothing under test produced.
             const problems: string[] = [];
             let propagatedFloors = 0;
-            for (const polygon of ALL_TEST_POLYGONS) {
+            for (const polygon of CLEAN_TEST_POLYGONS) {
                 const rootFloor = rootFloorOf(polygon.vertices);
                 for (const node of flattenRecursiveTree(fullDepthTree(polygon.vertices))) {
                     if (node.failure !== undefined) continue;
@@ -1709,10 +1752,13 @@ describe('recursive segment subdivision', () => {
             }
             expect(problems).toEqual([]);
             // And the re-solve is not secretly running at the standing default: measured over this
-            // sweep, 663 of the 854 solved nodes carry a floor that differs from
-            // `SKELETON_NOISE_FLOOR`, by up to a factor of 128. A re-solve that dropped the option
-            // would therefore be canonicalising most of the tree differently from the driver, which
-            // is the failure this count exists to catch.
+            // sweep, 1111 of the 1339 solved nodes carry a floor that differs from
+            // `SKELETON_NOISE_FLOOR`. A re-solve that dropped the option would therefore be
+            // canonicalising most of the tree differently from the driver, which is the failure
+            // this count exists to catch. Re-measured 2026-08-28 with the decision-73 promotion —
+            // the reading it replaces, 663 of 854, was several corpus growths out of date;
+            // `Symmetrical Octagon` accounts for 17 of the solved nodes and 8 of the propagated
+            // floors.
             expect(propagatedFloors).toBeGreaterThan(0);
         });
 
@@ -1791,7 +1837,7 @@ describe('recursive segment subdivision', () => {
     });
 
     describe('every fixture subdivides without throwing, at every depth', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const vertices = fixtureVertices(name);
             const problems: string[] = [];
             for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
@@ -1818,10 +1864,11 @@ describe('recursive segment subdivision', () => {
         });
     });
 
-    describe('census: which fixtures stop subdividing, and where', () => {
-        it('reports the failures rather than excluding the fixtures that produce them', () => {
+    describe('census: every fixture, every failure attributed', () => {
+        it('holds each fixture to its own signature — no unattributed failure, no unattributed cure', () => {
             const rows: string[] = [];
             const unexplained: string[] = [];
+            const measured = new Map<string, number>();
             let subdivided = 0;
             let failed = 0;
             let residueRings = 0;
@@ -1829,7 +1876,7 @@ describe('recursive segment subdivision', () => {
 
             for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
                 for (const mergeGroupSize of CENSUS_MERGE_GROUP_SIZES) {
-                    for (const polygon of ALL_TEST_POLYGONS) {
+                    for (const polygon of FULL_CORPUS) {
                         const nodes = flattenRecursiveTree(subdivideRecursively(polygon.vertices, options({
                             levels: MAX_RECURSION_LEVELS,
                             mergeGroupSize,
@@ -1842,6 +1889,7 @@ describe('recursive segment subdivision', () => {
 
                         const failures = nodes.filter(node => node.failure !== undefined);
                         failed += failures.length;
+                        measured.set(polygon.name, (measured.get(polygon.name) ?? 0) + failures.length);
                         unexplained.push(...failures
                             .map(node => node.failure ?? '')
                             .filter(failure => !/^(Degenerate region|Incomplete solve|Subdivision threw)/.test(failure)));
@@ -1855,12 +1903,12 @@ describe('recursive segment subdivision', () => {
                 }
             }
 
-            // Printed, not pinned. Which regions fail when a solver's own output is fed back in is a
-            // measurement of the solver, and encoding today's answer as an expectation would turn
-            // every future solver improvement into a test failure.
+            // Printed as well as pinned: the counts below say WHETHER the grid moved, and this says
+            // WHERE, which is what a fixer reads first.
             // eslint-disable-next-line no-console
             console.log(
-                `Recursive subdivision census: ${ALL_TEST_POLYGONS.length} fixtures at ` +
+                `Recursive subdivision census: ${FULL_CORPUS.length} fixtures ` +
+                `(${CLEAN_TEST_POLYGONS.length} clean, ${KNOWN_DEFECT_POLYGONS.length} known-defect) at ` +
                 `${MAX_RECURSION_LEVELS} levels, depths ${SWEPT_DEPTH_FRACTIONS.join('/')}, ` +
                 `merge groups ${CENSUS_MERGE_GROUP_SIZES.join('/')} — ` +
                 `${subdivided} node(s) subdivided, ${failed} recorded a failure; ` +
@@ -1870,6 +1918,33 @@ describe('recursive segment subdivision', () => {
             // Every recorded failure must say one of the things this driver can actually report; an
             // empty or unrecognised reason would make the census above worthless.
             expect(unexplained).toEqual([]);
+
+            const problems: string[] = [];
+            for (const polygon of FULL_CORPUS) {
+                const expected = CENSUS_SIGNATURES[polygon.name] ?? 0;
+                const actual = measured.get(polygon.name) ?? 0;
+                if (actual > expected) {
+                    problems.push(
+                        `UNATTRIBUTED FAILURE — ${polygon.name} contributed ${actual} failed region(s) `
+                        + `where ${expected} is pinned. Something regressed, or a defect grew.`);
+                }
+                if (actual < expected) {
+                    problems.push(
+                        `UNATTRIBUTED CURE — ${polygon.name} contributed ${actual} failed region(s) `
+                        + `where ${expected} is pinned. PROMOTE IT: if the count is now zero, move the `
+                        + `fixture from KNOWN_DEFECT_POLYGONS into CLEAN_TEST_POLYGONS and delete its `
+                        + `pins; otherwise re-measure its signature here. Do not soften the number.`);
+                }
+            }
+            expect(problems).toEqual([]);
+        });
+
+        it('attributes a signature to every known-defect fixture, and to no one else', () => {
+            // The guard on the table itself. A defect fixture added without a measured signature
+            // would default to zero and be asserted CLEAN — which is the sweep silently going quiet
+            // on the very fixture it was enrolled to watch.
+            expect(Object.keys(CENSUS_SIGNATURES).toSorted())
+                .toEqual(KNOWN_DEFECT_POLYGONS.map(polygon => polygon.name).toSorted());
         });
     });
 });

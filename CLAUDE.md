@@ -28,7 +28,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 48 named polygon fixtures + test helpers. Optional for consumers.                               | Yes          |
+| `@proc-geo/test-fixtures` | 56 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 
@@ -142,12 +142,25 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-48 named polygon fixtures (`ALL_TEST_POLYGONS`) exported from `src/index.ts`, plus `test-helpers.ts` and
-`test-constants.ts`. Further polygons are exported individually but excluded from that list -- several suites
-sweep `ALL_TEST_POLYGONS` asserting far more than that every entry solves, so a fixture that fails one of those
-assertions must stay out of it. An exclusion is legitimate only as a **visible, pinned characterisation test** of
-the defect it is waiting on, never as a quiet route to a green suite. Depends on
-`@proc-geo/core`. Consumers can install this package for benchmarking or testing against known polygon shapes.
+**Two rosters, one corpus.** `CLEAN_TEST_POLYGONS` is the **clean** roster -- 49 named polygon fixtures that solve,
+tile and subdivide, and the dozens of sweeps written against it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the
+same `{name, vertices}` shape for the 7 fixtures with a measured defect. `FULL_CORPUS` is the two concatenated.
+All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
+
+**There is no `ALL_TEST_POLYGONS`** (journal decision 74). The name is retired, not re-pointed: a roster called ALL
+that leaves the defect fixtures out launders the word, and keeping the old export alive would turn every stale
+reference into a silent semantic flip rather than a compile error. Use `CLEAN_TEST_POLYGONS` or `FULL_CORPUS` and
+say which bar you are applying.
+
+**Exclusion is retired as a mechanism** (journal decision 72). A fixture with a defect is *enrolled*, never held
+out: the sweeps run the full corpus, clean fixtures assert clean, and each defect fixture asserts **exactly its
+pinned signature**, so an unattributed failure and an unattributed cure both break the suite. A fixture leaves
+`KNOWN_DEFECT_POLYGONS` by being fixed and promoted, never by a softened number. Which invariants are universal is
+**measured**: containment, the bisector rate rule and signalled-not-silent sweep `FULL_CORPUS`; wavefront causality,
+clearance and edge direction do not hold over the defect roster and their violation counts are part of the
+signatures. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
+inspected. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
+polygon shapes.
 
 ### `@proc-geo/dashboard` (`packages/dashboard/`)
 

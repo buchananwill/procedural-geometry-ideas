@@ -5,12 +5,12 @@ import type {Vector2} from '@proc-geo/core';
  *  THREE RECORDED FAILURES FROM THE 2026-08-28 JITTER SWEEP. Export-only.
  * ============================================================================
  *
- * DELIBERATELY OUT OF `ALL_TEST_POLYGONS`. Several suites sweep that list asserting every entry
+ * DELIBERATELY OUT OF `CLEAN_TEST_POLYGONS`. Several suites sweep that list asserting every entry
  * solves completely; these three do not, and journal decision 53 permits an exclusion only as a
  * visible, pinned characterisation of a defect awaiting its fix. That pin is
  * `packages/core/tests/straight-skeleton/along-edge-jitter-known-failures.test.ts`, which asserts
  * the current failing behaviour exactly and says what to do when a cell starts passing. Promote a
- * fixture into `ALL_TEST_POLYGONS` and delete its block there when its solve completes.
+ * fixture into `CLEAN_TEST_POLYGONS` and delete its block there when its solve completes.
  *
  * ----------------------------------------------------------------------------
  * WHERE THEY CAME FROM — the construction, so the numbers below are reproducible rather than magic

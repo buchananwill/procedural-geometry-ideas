@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {setSkeletonLogLevel, SkeletonSolveResult, solveSkeleton, Vector2} from '@proc-geo/core';
 import {place} from './placement-helpers';
 
@@ -69,15 +69,15 @@ function isAscending(sequence: number[]): boolean {
 }
 
 describe('inEdges ordering', () => {
-    it.each(ALL_TEST_POLYGONS)('$name stores the same sequences at scale 1 and scale 7', ({vertices}) => {
+    it.each(CLEAN_TEST_POLYGONS)('$name stores the same sequences at scale 1 and scale 7', ({vertices}) => {
         expect(inEdgeSequences(vertices, SCALE_FACTOR, 0)).toEqual(inEdgeSequences(vertices, 1, 0));
     });
 
-    it.each(ALL_TEST_POLYGONS)('$name stores the same sequences translated by 1e3', ({vertices}) => {
+    it.each(CLEAN_TEST_POLYGONS)('$name stores the same sequences translated by 1e3', ({vertices}) => {
         expect(inEdgeSequences(vertices, 1, TRANSLATION)).toEqual(inEdgeSequences(vertices, 1, 0));
     });
 
-    it.each(ALL_TEST_POLYGONS)('$name stores every node ascending by edge id', ({vertices}) => {
+    it.each(CLEAN_TEST_POLYGONS)('$name stores every node ascending by edge id', ({vertices}) => {
         const offenders = inEdgeSequences(vertices, 1, 0)
             .map((sequence, nodeId) => ({nodeId, sequence}))
             .filter(({sequence}) => !isAscending(sequence))
@@ -90,7 +90,7 @@ describe('inEdges ordering', () => {
         // Without this the sweeps above would pass on a solver that returned no nodes at all, or on
         // a comparison that had been softened to a set. Reversing one stored order must break the
         // exact equality they assert.
-        const {vertices} = ALL_TEST_POLYGONS.find(polygon => polygon.name === 'Awkward Hexagon')!;
+        const {vertices} = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === 'Awkward Hexagon')!;
         const shuffled = inEdgeSequences(vertices, 1, 0);
         const shuffledNode = shuffled.findIndex(sequence => sequence.length > 1);
         expect(shuffledNode).toBeGreaterThanOrEqual(0);

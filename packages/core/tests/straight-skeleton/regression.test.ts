@@ -1,8 +1,8 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {runAlgorithmV5} from '@proc-geo/core';
 
 describe('V5 algorithm regression suite', () => {
-    describe.each(ALL_TEST_POLYGONS)('$name', ({name, vertices}) => {
+    describe.each(CLEAN_TEST_POLYGONS)('$name', ({name, vertices}) => {
         it('completes without throwing', () => {
             expect(() => runAlgorithmV5(vertices)).not.toThrow();
         });

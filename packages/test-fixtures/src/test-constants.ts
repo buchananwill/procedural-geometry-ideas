@@ -103,7 +103,7 @@ export const CRAZY_POLYGON: Vector2[] = [
  * reports `complete: true` with empty diagnostics. `computeMaxOffset` is 5. A perturbed dumbbell of
  * identical topology, with those coincidences broken, tiles to ~1e-16 at every depth.
  *
- * DELIBERATELY NOT IN `ALL_TEST_POLYGONS`: several suites sweep that list asserting every entry
+ * DELIBERATELY NOT IN `CLEAN_TEST_POLYGONS`: several suites sweep that list asserting every entry
  * solves *and* tiles, and this shape does not tile. Its behaviour is pinned exactly, wrongness and
  * all, by `packages/core/tests/straight-skeleton/collinear-dumbbell.test.ts`.
  */

@@ -17,11 +17,12 @@ import {place} from './placement-helpers';
  *  TWO RECORDED DEFECTS, PINNED AS THEY STAND. Read this before "fixing" a failure here.
  * ============================================================================
  *
- * `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` are the last two fixtures kept out of
- * `ALL_TEST_POLYGONS` on the large-coordinate envelope. Journal decision 53 allows an exclusion
- * only as a visible, pinned characterisation of a defect awaiting its fix, and this file is that
- * pin: it asserts the CURRENT FAILING BEHAVIOUR, exactly, and fires in both directions. If a cell
- * starts passing, promote that fixture into `ALL_TEST_POLYGONS` — see the near-regular fixture
+ * `NEAR_REGULAR_CIRCLE_48` and `NEAR_REGULAR_ROSETTE5_40` are in `KNOWN_DEFECT_POLYGONS` on the
+ * large-coordinate envelope, and this file is the only sweep that separates them from the clean
+ * roster: both are clean at their native placement, both contribute zero to the recursive-subdivision
+ * census, and both hold every wavefront invariant. THE TRANSLATION CELLS BELOW ARE THEIR WHOLE
+ * SIGNATURE. It asserts the CURRENT FAILING BEHAVIOUR, exactly, and fires in both directions. If a
+ * cell starts passing, promote that fixture into `CLEAN_TEST_POLYGONS` — see the near-regular fixture
  * header for the count pins the promotion moves — and delete its block here. If a passing cell
  * starts failing, the envelope regressed.
  *

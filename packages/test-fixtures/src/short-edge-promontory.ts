@@ -9,7 +9,7 @@ import {Vector2} from '@proc-geo/core';
  * repro case for `StripOptions.minEdgeLength`: with that bound active the short edges merge into
  * their straightest neighbouring run instead of standing as strips of their own.
  *
- * PROMOTED INTO `ALL_TEST_POLYGONS` ON 2026-08-27, under journal decision 64. Both of the records
+ * PROMOTED INTO `CLEAN_TEST_POLYGONS` ON 2026-08-27, under journal decision 64. Both of the records
  * that held it out are closed:
  *
  *   - The 2026-08-09 record — that it fails `large-coordinate-failures.test.ts`'s "every fixture

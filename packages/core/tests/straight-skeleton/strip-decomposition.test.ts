@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeOffsetRings,
@@ -135,9 +135,9 @@ function makeRandom(seed: number): () => number {
 }
 
 function solvedFixture(name: string): SkeletonSolveResult {
-    const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name);
+    const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name);
     if (fixture === undefined) {
-        throw new Error(`No fixture named "${name}" in ALL_TEST_POLYGONS`);
+        throw new Error(`No fixture named "${name}" in CLEAN_TEST_POLYGONS`);
     }
     return solveSkeleton(fixture.vertices);
 }
@@ -201,7 +201,7 @@ describe('strip decomposition', () => {
     });
 
     describe('tiling: strips plus offset rings account for the polygon', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
 
@@ -216,7 +216,7 @@ describe('strip decomposition', () => {
             expect(failures.join('; ')).toBe('');
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: and neither side of it is empty', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: and neither side of it is empty', name => {
             // Guards the equation above against passing vacuously: at half the maximum offset the
             // strips must be a real part of the polygon and the offset contour must still exist.
             const result = solvedFixture(name);
@@ -229,7 +229,7 @@ describe('strip decomposition', () => {
             expect(totalRingArea(computeOffsetRings(result, depth))).toBeGreaterThan(0);
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: every strip is wound clockwise', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: every strip is wound clockwise', name => {
             const result = solvedFixture(name);
             const strips = computeStrips(result, {depth: computeMaxOffset(result) * 0.4});
             const wrongWinding = strips
@@ -240,7 +240,7 @@ describe('strip decomposition', () => {
     });
 
     describe('a depth past the maximum offset leaves the strips tiling the polygon alone', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 1.5;
             const strips = computeStrips(result, {depth});
@@ -267,7 +267,7 @@ describe('strip decomposition', () => {
     });
 
     describe('frontage', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const boundary = boundaryOf(result);
             const maxOffset = computeMaxOffset(result);
@@ -316,7 +316,7 @@ describe('strip decomposition', () => {
     });
 
     describe('the default corner policy is a genuine no-op', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 0.4;
             expect(computeStrips(result, {depth, classifyCorner: () => 'none'}))
@@ -325,7 +325,7 @@ describe('strip decomposition', () => {
     });
 
     describe('logical street grouping', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: merging nothing gives one strip per edge', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: merging nothing gives one strip per edge', name => {
             const result = solvedFixture(name);
             const strips = computeStrips(result, {
                 depth: computeMaxOffset(result) * 0.4,
@@ -337,7 +337,7 @@ describe('strip decomposition', () => {
                 .toEqual([...Array(result.graph.numExteriorNodes).keys()].map(edgeId => [edgeId]));
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: merging everything gives one strip', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: merging everything gives one strip', name => {
             const result = solvedFixture(name);
             const boundary = boundaryOf(result);
             const strips = computeStrips(result, {
@@ -370,21 +370,21 @@ describe('strip decomposition', () => {
     });
 
     describe('beta-strip corner correction', () => {
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: still tiles when every corner goes to the previous strip', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: still tiles when every corner goes to the previous strip', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 0.4;
             const strips = computeStrips(result, {depth, classifyCorner: () => 'previous'});
             expect(tilingError(result, strips, depth)).toBeLessThan(AREA_TOLERANCE_FRACTION);
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: still tiles when every corner goes to the next strip', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: still tiles when every corner goes to the next strip', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 0.4;
             const strips = computeStrips(result, {depth, classifyCorner: () => 'next'});
             expect(tilingError(result, strips, depth)).toBeLessThan(AREA_TOLERANCE_FRACTION);
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: reshapes real corners, not none of them', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: reshapes real corners, not none of them', name => {
             // The two tiling assertions above would also pass if the correction silently declined
             // every corner, so the sweep has to show that it does not.
             const result = solvedFixture(name);
@@ -611,7 +611,7 @@ describe('strip decomposition', () => {
             expect(tilingError(result, strips, depth)).toBeLessThan(AREA_TOLERANCE_FRACTION);
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with merging active at every depth', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with merging active at every depth', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
             const minEdgeLength = perimeterOf(result) / 26;
@@ -628,7 +628,7 @@ describe('strip decomposition', () => {
             expect(failures.join('; ')).toBe('');
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: every exterior edge appears in exactly one strip', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: every exterior edge appears in exactly one strip', name => {
             const result = solvedFixture(name);
             const edgeCount = result.graph.numExteriorNodes;
             const strips = computeStrips(result, {
@@ -643,7 +643,7 @@ describe('strip decomposition', () => {
             }
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: every strip frontage reaches minEdgeLength, two-strip floor aside', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: every strip frontage reaches minEdgeLength, two-strip floor aside', name => {
             const result = solvedFixture(name);
             const minEdgeLength = perimeterOf(result) / 26;
             const strips = computeStrips(result, {
@@ -746,7 +746,7 @@ describe('strip decomposition', () => {
             expect(declined).toEqual(computeStrips(result, {depth}));
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with the 120-degree correction at every depth', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with the 120-degree correction at every depth', name => {
             const result = solvedFixture(name);
             const maxOffset = computeMaxOffset(result);
 
@@ -762,7 +762,7 @@ describe('strip decomposition', () => {
             expect(failures.join('; ')).toBe('');
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with merging and correction both active', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: tiling holds with merging and correction both active', name => {
             const result = solvedFixture(name);
             const boundary = boundaryOf(result);
             let perimeter = 0;
@@ -1037,7 +1037,7 @@ describe('strip decomposition', () => {
             }
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: forcing transfers at every reflex junction refuses them all and keeps the tiling exact', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: forcing transfers at every reflex junction refuses them all and keeps the tiling exact', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 0.4;
             const untouched = computeStrips(result, {depth});
@@ -1103,7 +1103,7 @@ describe('strip decomposition', () => {
             }
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: interior angles are in (0, 2pi) and sum to (n - 2) pi', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: interior angles are in (0, 2pi) and sum to (n - 2) pi', name => {
             const result = solvedFixture(name);
             const corners = observeCorners(result, computeMaxOffset(result) * 0.4);
             const n = result.graph.numExteriorNodes;
@@ -1118,7 +1118,7 @@ describe('strip decomposition', () => {
             expect(total).toBeCloseTo((n - 2) * Math.PI, 6);
         });
 
-        it.each(ALL_TEST_POLYGONS.map(polygon => polygon.name))('%s: the correction conserves total strip area', name => {
+        it.each(CLEAN_TEST_POLYGONS.map(polygon => polygon.name))('%s: the correction conserves total strip area', name => {
             const result = solvedFixture(name);
             const depth = computeMaxOffset(result) * 0.4;
             const untouched = totalStripArea(computeStrips(result, {depth}));

@@ -1,12 +1,7 @@
 import {
-    flattenRecursiveTree,
-    FULL_DEPTH_FRACTION,
-    MAX_RECURSION_LEVELS,
     setSkeletonLogLevel,
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
-    subdivideRecursively,
-    uniformLevelSpecs,
     Vector2,
 } from '@proc-geo/core';
 import {
@@ -16,7 +11,6 @@ import {
 } from '@proc-geo/test-fixtures';
 
 import {JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitterSweep} from './jitter-helpers';
-import {escapedNodes} from './containment-helpers';
 
 /*
  * ============================================================================
@@ -67,27 +61,18 @@ import {escapedNodes} from './containment-helpers';
  * score 288/288 — so this is a bound on the solver, not a broken feature.
  *
  * ----------------------------------------------------------------------------
- * EVERY FAILURE HERE IS SIGNALLED, NEVER A SILENT WRONG ANSWER
- * ----------------------------------------------------------------------------
- *
- * All three fixtures come back `complete: false` with `step-failure` followed by `unresolved-edges`.
- * That matters more than the count: the worst failure mode a result type has is a wrong skeleton
- * that reports success, and this class is not it. A consumer checking `complete` sees the problem.
- *
- * ----------------------------------------------------------------------------
  * WHAT TO DO WHEN A CELL STARTS PASSING
  * ----------------------------------------------------------------------------
  *
  * These assertions are the CURRENT behaviour, asserted exactly, and they fire in both
- * directions. If a fixture starts solving: promote it into `ALL_TEST_POLYGONS` in
- * `packages/test-fixtures/src/index.ts`, delete its block here, rewrite the fixture's header as a
- * passing record, and re-measure the two sweep counts — a fix that reaches one of these three
- * almost certainly moves 22/80 and 46/80 as well. If a count SHRINKS without a fixture flipping,
- * something helped and the account above needs re-measuring. If anything GROWS, the regime
- * regressed. Do not adjust a number here to make the suite green.
+ * directions. If a count SHRINKS without a fixture flipping, something helped and the account above
+ * needs re-measuring. If anything GROWS, the regime regressed. Do not adjust a number here to make
+ * the suite green. Promotion out of `KNOWN_DEFECT_POLYGONS` is not this file's call: it is the
+ * attributed census in `recursive-subdivision.test.ts` that reports a cure, and a fixture promotes
+ * when its whole signature — census grid, causality counts, root diagnostics — reaches zero.
  *
  * ----------------------------------------------------------------------------
- * 2026-08-28: MOST OF THE CLASS IS CURED, AND THE PROMOTION RULE ABOVE IS BLOCKED, NOT IGNORED
+ * 2026-08-28: MOST OF THE CLASS IS CURED, AND WHAT SURVIVES IS SILENT
  * ----------------------------------------------------------------------------
  *
  * Journal decision 70 made `addBisectionEdge` choose a bisector's direction by its OFFSET RATE and
@@ -99,18 +84,26 @@ import {escapedNodes} from './containment-helpers';
  *     reflex L                    22/80    1/80
  *     double-reflex plus          46/80   13/80
  *
- * The rule above says to promote a fixture that starts solving, and BOTH L FIXTURES MEET THAT
- * CRITERION — they solve completely, and no node of either escapes its polygon. They are still not
- * promoted, and the reason is measured rather than preferred: the recursive-subdivision census over
- * `ALL_TEST_POLYGONS` must stand at zero recorded failures, and across its own grid (three depths ×
- * four merge groups × three levels) `OFF_EDGE_JITTER_L_SEED_15838` yields 5 failed nodes and
- * `OFF_EDGE_JITTER_L_SEED_55433` yields 10. They solve as ROOTS and still defeat the driver as
- * REGIONS, which is the half of decision 67's class that survives. Enrolling them would take the
- * census from 0 to 15 and turn a live defect into corpus noise.
+ * THEY SOLVE AND THEY ARE STILL WRONG, which is why they are enrolled as known defects rather than
+ * as clean fixtures. Two things survive the cure, and neither is visible on `complete`:
  *
- * So they stay here, visibly pinned, with their blocks rewritten to assert the BETTER behaviour
- * exactly — nothing is laundered out under journal decision 53, and a regression back to a failing
- * root fires here. The promotion needs the lead's ruling, not this file's.
+ *  - the recursive driver still cuts regions out of them that will not solve — 5, 10, 12 and 14
+ *    failed regions on the census grid, pinned per fixture in `recursive-subdivision.test.ts`;
+ *  - their skeletons break wavefront causality — nodes past their own clearance, edges terminating
+ *    behind their own source — pinned per fixture in `wavefront-causality.test.ts`. Only the plus
+ *    seed reports a diagnostic while doing it. The rest are silent wrong answers.
+ *
+ * ----------------------------------------------------------------------------
+ * WHERE THE REST OF THIS CLASS IS PINNED — journal decision 72, 2026-08-28
+ * ----------------------------------------------------------------------------
+ *
+ * Exclusion is retired: all four `OFF_EDGE_JITTER_*` fixtures are in `KNOWN_DEFECT_POLYGONS` and are
+ * swept alongside the clean roster. What remains HERE is what only this file measures — the
+ * magnitude band, the two sweep counts, the canonicalisation arithmetic and the geometric premise
+ * that these are resamplings of the reflex L rather than different shapes. The per-fixture
+ * subdivision-failure counts that used to sit here moved into the attributed census, which is the
+ * grid they were always measured on; containment moved into `skeleton-containment.test.ts`, which
+ * now sweeps the full corpus.
  */
 
 setSkeletonLogLevel('silent');
@@ -129,29 +122,6 @@ const OFF_EDGE = true;
 
 function diagnosticKinds(polygon: Vector2[]): string[] {
     return solveSkeleton(polygon).diagnostics.map(diagnostic => diagnostic.kind);
-}
-
-/**
- * How many regions the recursive driver cuts out of this polygon and then cannot solve.
- *
- * THE MEASUREMENT THAT HOLDS THESE FIXTURES OUT OF THE CORPUS now that they solve as roots, so it
- * is asserted rather than described. Swept over the grid the corpus census itself uses — the three
- * depth fractions and the four merge group sizes of `recursive-subdivision.test.ts` — because that
- * census is the bar the promotion would have to clear, and a count measured on any other grid would
- * not be about it.
- */
-function subdivisionFailures(polygon: Vector2[]): number {
-    let failures = 0;
-    for (const depthFraction of [0.25, 0.6, FULL_DEPTH_FRACTION]) {
-        for (const mergeGroupSize of [1, 2, 3, 4]) {
-            const levels = uniformLevelSpecs({
-                levels: MAX_RECURSION_LEVELS, mergeGroupSize, depthFraction, residue: 'recurse',
-            });
-            const tree = subdivideRecursively(polygon, {levels});
-            failures += flattenRecursiveTree(tree).filter(node => node.failure !== undefined).length;
-        }
-    }
-    return failures;
 }
 
 describe('off-edge jitter just above the noise floor: the recorded defect', () => {
@@ -177,8 +147,9 @@ describe('OFF_EDGE_JITTER_L_SEED_55433: the specimen of the class', () => {
      * Nothing is removed here: all eighteen vertices are above the floor.
      *
      * IT NOW SOLVES (journal decision 70), and it is pinned solving so that it cannot quietly stop.
-     * What it still cannot do is survive being SUBDIVIDED, which is why it is not in the corpus;
-     * see the header.
+     * What it still cannot do is survive being SUBDIVIDED, and its own skeleton terminates two edges
+     * behind their source while reporting nothing — the two measurements that keep it on the defect
+     * roster, pinned in `recursive-subdivision.test.ts` and `wavefront-causality.test.ts`.
      */
 
     it('loses no vertex to canonicalisation, and now solves completely', () => {
@@ -188,16 +159,6 @@ describe('OFF_EDGE_JITTER_L_SEED_55433: the specimen of the class', () => {
         expect(result.graph.numExteriorNodes).toBe(18);
         expect(result.complete).toBe(true);
         expect(result.diagnostics).toEqual([]);
-    });
-
-    it('keeps every skeleton node inside its polygon', () => {
-        // The solve completing is only half the claim, and the deformed peanuts are why the other
-        // half is asserted: a bisector that escapes the boundary reports `complete: true` too.
-        expect(escapedNodes(OFF_EDGE_JITTER_L_SEED_55433)).toEqual([]);
-    });
-
-    it('still defeats the recursive driver as a region, which is what holds it out of the corpus', () => {
-        expect(subdivisionFailures(OFF_EDGE_JITTER_L_SEED_55433)).toBe(10);
     });
 
     it('is still the reflex L to within a thousandth of a unit', () => {
@@ -223,14 +184,6 @@ describe('the two fixtures canonicalisation reaches', () => {
         // and it reports a removal rather than a failure. See the header for why it stays here.
         expect(result.complete).toBe(true);
         expect(diagnosticKinds(OFF_EDGE_JITTER_L_SEED_15838)).toEqual(['vertices-canonicalised']);
-    });
-
-    it('OFF_EDGE_JITTER_L_SEED_15838 keeps every skeleton node inside its polygon', () => {
-        expect(escapedNodes(OFF_EDGE_JITTER_L_SEED_15838)).toEqual([]);
-    });
-
-    it('OFF_EDGE_JITTER_L_SEED_15838 still defeats the recursive driver as a region', () => {
-        expect(subdivisionFailures(OFF_EDGE_JITTER_L_SEED_15838)).toBe(5);
     });
 
     it('OFF_EDGE_JITTER_PLUS_SEED_7919 loses four samples and then fails', () => {

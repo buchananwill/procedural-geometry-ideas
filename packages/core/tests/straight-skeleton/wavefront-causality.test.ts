@@ -1,11 +1,8 @@
 import {
-    ALL_TEST_POLYGONS,
-    NEAR_REGULAR_CIRCLE_16,
+    CLEAN_TEST_POLYGONS,
+    FULL_CORPUS,
+    KNOWN_DEFECT_POLYGONS,
     NEAR_REGULAR_CIRCLE_32,
-    NEAR_REGULAR_CIRCLE_48,
-    NEAR_REGULAR_ELLIPSE_16,
-    NEAR_REGULAR_ELLIPSE_32,
-    NEAR_REGULAR_PEANUT_32,
     NEAR_REGULAR_ROSETTE5_40,
     PREMATURE_BISECTOR_SPLIT_FAILS,
     PREMATURE_BISECTOR_SPLIT_PASSES,
@@ -362,7 +359,51 @@ describe('wavefront causality', () => {
         });
     });
 
-    describe.each(ALL_TEST_POLYGONS)('$name', ({vertices}) => {
+    /**
+     * The clean roster at the full bar: all four checks, no violations of any of them.
+     *
+     * THE NEAR-REGULAR FIXTURES ARE WHY THIS SWEEP MATTERS MOST, and they are ordinary members of
+     * the roster now rather than a block of their own. They are the corpus's densest, most
+     * symmetric shapes, the ones that put many events on one point at one offset.
+     * `NEAR_REGULAR_PEANUT_32` solved `complete` with no diagnostics while one of its interior
+     * edges ran from offset 98.60 back to an *original polygon vertex* at offset 0, because
+     * `tryAttachEdgeToNode` assigned that target directly and was therefore invisible to every
+     * runtime causality check the solver had. Nothing in the suite noticed until a sweep covered
+     * them.
+     *
+     * The peanut's waist is the reason the direction check exists at all, so the account stays
+     * here. It pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck before
+     * it reaches anywhere wider — and the solver records that as node 32. The event emits one
+     * bisector per lobe: e64, bounded by the two left-hand neck edges 7 and 22, and e65, bounded
+     * by the two right-hand ones 6 and 23.
+     *
+     * Two successive defects lived there. First, each was cross-wired to the bisector born at
+     * 98.60 in the *other* lobe on nothing better than `dot(basis1, basis2) === -1`.
+     * Anti-parallel is not head-on: those pairs point directly away from each other, and the
+     * cross-wire made all four run backwards along their own basis while, in two cases, still
+     * running *forwards* in offset — which is why the offset check scored that damage at only
+     * 4.25 and the direction check scored it as a clean reversal. Refusing the bogus cross-wire
+     * made the checks pass vacuously instead: all four edges were left with no target, and an
+     * edge without a target is audited by neither.
+     *
+     * Second, and the actual cause: `bisectionsForMerge` gave both new bisectors an
+     * `approximateDirection` derived from the two annihilating arrivals, which are exactly
+     * anti-parallel, so `makeBisectedBasis` fell through to `rotateCw90` of its first argument
+     * — a perpendicular with no reference to the geometry — and `addBisectionEdge` flipped the
+     * correct parent-derived basis on the strength of it. e64 pointed right into the wrong lobe
+     * and e65 pointed left into the other. Anti-parallel arrivals now supply no hint, the parent
+     * derivation stands, e64 runs left to node 33 and e65 runs right to node 34, and all four
+     * checks hold on the peanut with every edge targeted.
+     *
+     * THAT SECOND DEFECT WAS FIXED AT THE CALLER AND IS NOW FIXED AT THE SOURCE TOO (journal
+     * decision 70, 2026-08-28). Withholding the hint stopped `bisectionsForMerge` from flipping a
+     * bisector, but `addBisectionEdge` still applied ANY hint it was given over a direction the
+     * parents had already determined — so the same flip was available to every other caller, and a
+     * deformed peanut waist duly found it. The direction is now decided by the bisector's offset
+     * rate wherever that rate is determinate, and the hint breaks the anti-parallel tie only. The
+     * rate check is the standing tripwire for it.
+     */
+    describe.each(CLEAN_TEST_POLYGONS)('$name', ({vertices}) => {
         it('never runs backwards in time along a skeleton edge', () => {
             const violations = findOffsetViolations(vertices);
             expect(describeViolations(violations)).toBe('');
@@ -381,79 +422,90 @@ describe('wavefront causality', () => {
         });
     });
 
-    /**
-     * The near-regular fixtures are exported individually rather than through
-     * `ALL_TEST_POLYGONS`, so the sweep above never reaches them — yet they are the corpus's
-     * densest, most symmetric shapes, the ones that put many events on one point at one offset.
-     * `NEAR_REGULAR_PEANUT_32` solved `complete` with no diagnostics while one of its interior
-     * edges ran from offset 98.60 back to an *original polygon vertex* at offset 0, because
-     * `tryAttachEdgeToNode` assigned that target directly and was therefore invisible to every
-     * runtime causality check the solver had. Nothing in the suite noticed until this sweep
-     * covered them, which is why it stays whatever the promotion status of the fixtures.
+    /*
+     * ========================================================================
+     *  THE DEFECT ROSTER — journal decision 72. WHICH OF THESE FOUR IS UNIVERSAL, MEASURED.
+     * ========================================================================
      *
-     * `NEAR_REGULAR_PEANUT_32` had its own block here for as long as its waist was unresolved,
-     * because the checks held on it only vacuously. It is now an ordinary member of this list,
-     * and the history is worth keeping next to it because that waist is the reason the direction
-     * check exists at all.
+     * Decision 72 enrolled the seven known-defect fixtures and required each invariant to be swept
+     * over them and pinned at whatever really holds. Measured 2026-08-28, the four checks split:
      *
-     * The waist pinches shut at (300, 300) at offset 94.35 — the wavefront reaches the neck
-     * before it reaches anywhere wider — and the solver records that as node 32. The event emits
-     * one bisector per lobe: e64, bounded by the two left-hand neck edges 7 and 22, and e65,
-     * bounded by the two right-hand ones 6 and 23.
+     *  - THE RATE CHECK IS UNIVERSAL. Not one bisector on any of the seven points backwards through
+     *    the wavefront, so it is asserted at the clean bar below and is the one causality property
+     *    the whole corpus shares. That is the invariant journal decision 70 installed, holding
+     *    everywhere including on shapes the solver otherwise gets wrong.
      *
-     * Two successive defects lived there. First, each was cross-wired to the bisector born at
-     * 98.60 in the *other* lobe on nothing better than `dot(basis1, basis2) === -1`.
-     * Anti-parallel is not head-on: those pairs point directly away from each other, and the
-     * cross-wire made all four run backwards along their own basis while, in two cases, still
-     * running *forwards* in offset — which is why the offset check scored that damage at only
-     * 4.25 and the direction check scored it as a clean reversal. Refusing the bogus cross-wire
-     * made the checks pass vacuously instead: all four edges were left with no target, and an
-     * edge without a target is audited by neither.
+     *  - OFFSET, CLEARANCE AND DIRECTION ARE NOT. The four near-floor jitter fixtures break them,
+     *    and their counts are pinned per fixture in {@link DEFECT_CAUSALITY_SIGNATURES}.
      *
-     * Second, and the actual cause: `bisectionsForMerge` gave both new bisectors an
-     * `approximateDirection` derived from the two annihilating arrivals, which are exactly
-     * anti-parallel, so `makeBisectedBasis` fell through to `rotateCw90` of its first argument
-     * — a perpendicular with no reference to the geometry — and `addBisectionEdge` flipped the
-     * correct parent-derived basis on the strength of it. e64 pointed right into the wrong lobe
-     * and e65 pointed left into the other. Anti-parallel arrivals now supply no hint, the parent
-     * derivation stands, e64 runs left to node 33 and e65 runs right to node 34, and all four
-     * checks below hold on the peanut with every edge targeted.
+     * ------------------------------------------------------------------------
+     * THREE OF THE FOUR ARE SILENT ABOUT IT, AND THAT IS THE POINT OF PINNING IT
+     * ------------------------------------------------------------------------
      *
-     * THAT SECOND DEFECT WAS FIXED AT THE CALLER AND IS NOW FIXED AT THE SOURCE TOO (journal
-     * decision 70, 2026-08-28). Withholding the hint stopped `bisectionsForMerge` from flipping a
-     * bisector, but `addBisectionEdge` still applied ANY hint it was given over a direction the
-     * parents had already determined — so the same flip was available to every other caller, and a
-     * deformed peanut waist duly found it. The direction is now decided by the bisector's offset
-     * rate wherever that rate is determinate, and the hint breaks the anti-parallel tie only. The
-     * rate check added below is the standing tripwire for it.
+     * `Off-edge Jitter Reflex L (seed 15838)`, `(seed 55433)` and `(seed 55433, k=4)` all report
+     * `complete: true` and strand no edge; `skeleton-containment.test.ts` finds no node of any of
+     * them outside its polygon. They are nonetheless carrying nodes the wavefront had already swept
+     * and edges terminating behind their own source. That is a WRONG SKELETON THAT SAYS IT IS RIGHT,
+     * of exactly the family journal decision 71a ruled was never a pass — and until this block
+     * existed, nothing in the suite said so, because the fixtures were held out of every sweep.
+     *
+     * Only `Off-edge Jitter Plus (seed 7919)` fails loudly, and it carries the most damage of the
+     * four. The counts below are therefore the sharpest statement the suite makes about what the
+     * decision-67 defect actually does — sharper than "some regions do not subdivide", which is what
+     * the census grid can see.
+     *
+     * THE NUMBERS FIRE IN BOTH DIRECTIONS. A count that grows is a regression; a count that shrinks
+     * is a partial cure that must be re-measured and, at zero across a fixture's whole signature,
+     * promoted. Do not adjust one to make the suite green.
      */
-    const CAUSAL_NEAR_REGULAR_FIXTURES: [string, Vector2[]][] = [
-        ['NEAR_REGULAR_CIRCLE_16', NEAR_REGULAR_CIRCLE_16],
-        ['NEAR_REGULAR_CIRCLE_32', NEAR_REGULAR_CIRCLE_32],
-        ['NEAR_REGULAR_CIRCLE_48', NEAR_REGULAR_CIRCLE_48],
-        ['NEAR_REGULAR_ELLIPSE_16', NEAR_REGULAR_ELLIPSE_16],
-        ['NEAR_REGULAR_ELLIPSE_32', NEAR_REGULAR_ELLIPSE_32],
-        ['NEAR_REGULAR_PEANUT_32', NEAR_REGULAR_PEANUT_32],
-        ['NEAR_REGULAR_ROSETTE5_40', NEAR_REGULAR_ROSETTE5_40],
-    ];
 
-    describe.each(CAUSAL_NEAR_REGULAR_FIXTURES)('%s', (_name, vertices) => {
-        it('never runs backwards in time along a skeleton edge', () => {
-            const violations = findOffsetViolations(vertices);
-            expect(describeViolations(violations)).toBe('');
-        });
+    /** Offset, clearance and direction violation counts per defect fixture. Measured 2026-08-28. */
+    const DEFECT_CAUSALITY_SIGNATURES: Record<string, {offset: number; clearance: number; direction: number}> = {
+        'Off-edge Jitter Reflex L (seed 15838)': {offset: 1, clearance: 2, direction: 0},
+        'Off-edge Jitter Reflex L (seed 55433)': {offset: 0, clearance: 0, direction: 2},
+        'Off-edge Jitter Plus (seed 7919)': {offset: 6, clearance: 10, direction: 3},
+        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 3, clearance: 5, direction: 1},
+        'Collinear Dumbbell': {offset: 0, clearance: 0, direction: 0},
+        'Near Regular Circle 48': {offset: 0, clearance: 0, direction: 0},
+        'Near Regular Rosette5 40': {offset: 0, clearance: 0, direction: 0},
+    };
 
-        it('never points a bisector backwards through the wavefront', () => {
+    describe.each(KNOWN_DEFECT_POLYGONS)('$name (known defect)', ({name, vertices}) => {
+        const signature = DEFECT_CAUSALITY_SIGNATURES[name];
+
+        it('never points a bisector backwards through the wavefront — the universal one', () => {
             expect(findBackwardsRateViolations(vertices).join('; ')).toBe('');
         });
 
-        it('never places a node beyond its own clearance', () => {
-            expect(findClearanceViolations(vertices).join('; ')).toBe('');
+        it('runs backwards in time along exactly its pinned number of skeleton edges', () => {
+            expect(findOffsetViolations(vertices)).toHaveLength(signature.offset);
         });
 
-        it('never terminates an edge behind its own source', () => {
-            expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
+        it('places exactly its pinned number of nodes beyond their own clearance', () => {
+            expect(findClearanceViolations(vertices)).toHaveLength(signature.clearance);
         });
+
+        it('terminates exactly its pinned number of edges behind their own source', () => {
+            expect(findDirectionViolations(vertices)).toHaveLength(signature.direction);
+        });
+    });
+
+    it('attributes a causality signature to every known-defect fixture, and to no one else', () => {
+        // Without this, a fixture enrolled after today would have no entry, `signature` would be
+        // undefined and its three pinned tests would throw rather than measure — or worse, a
+        // defaulted zero would assert it CLEAN on invariants nobody had swept it against.
+        expect(Object.keys(DEFECT_CAUSALITY_SIGNATURES).toSorted())
+            .toEqual(KNOWN_DEFECT_POLYGONS.map(polygon => polygon.name).toSorted());
+    });
+
+    it('holds the rate invariant over the whole corpus, both rosters', () => {
+        // The sweeps above take the two rosters separately, at different bars. This one states the
+        // universal claim in one place, over the concatenation, so that a roster which stopped
+        // being swept cannot take the rate check quietly with it.
+        const violations = FULL_CORPUS.flatMap(polygon =>
+            findBackwardsRateViolations(polygon.vertices).map(violation => `${polygon.name}: ${violation}`));
+        expect(violations).toEqual([]);
+        expect(FULL_CORPUS.length).toBe(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
     });
 
     /**

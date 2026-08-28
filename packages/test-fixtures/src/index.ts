@@ -14,16 +14,17 @@ export {
     getAcceptedExteriorEdges,
 } from './test-constants';
 
-// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: the sweeps over that
-// list assert that every entry both solves and tiles, and this one solves — reporting
-// `complete: true` with empty diagnostics — while its strips overlap by a tenth of its area. The
-// failure is pinned as it stands by collinear-dumbbell.test.ts; see the fixture for why its
-// degeneracy is shared supporting lines rather than redundant vertices.
+// In KNOWN_DEFECT_POLYGONS below, not CLEAN_TEST_POLYGONS: it solves — reporting `complete: true`
+// with empty diagnostics — while its strips overlap by a tenth of its area, so it fails the tiling
+// half of what the clean roster's sweeps assert. Its mechanism is pinned by
+// collinear-dumbbell.test.ts; see the fixture for why its degeneracy is shared supporting lines
+// rather than redundant vertices.
 export {COLLINEAR_DUMBBELL} from './test-constants';
 export type { DiagnosticStepResult } from './test-constants';
 import {
     TRIANGLE, SQUARE, RECTANGLE, PENTAGON_HOUSE, SYMMETRICAL_OCTAGON,
-    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON, CRAZY_POLYGON
+    DEFAULT_PENTAGON, AWKWARD_HEXAGON, AWKWARD_HEPTAGON, IMPOSSIBLE_OCTAGON, BROKEN_POLYGON,
+    CRAZY_POLYGON, COLLINEAR_DUMBBELL
 } from './test-constants';
 
 // duck-octagon.ts
@@ -134,7 +135,7 @@ export {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from '.
 import {PREMATURE_BISECTOR_SPLIT_FAILS, PREMATURE_BISECTOR_SPLIT_PASSES} from './premature-bisector-split';
 
 // short-edge-promontory.ts
-// PROMOTED into ALL_TEST_POLYGONS on 2026-08-27 under journal decision 64. Both of its recorded
+// PROMOTED into CLEAN_TEST_POLYGONS on 2026-08-27 under journal decision 64. Both of its recorded
 // blockers are dead: the translation-to-1e9 envelope (re-measured dead, F14) and the bit-exact
 // normalisation round trip, which decision 64 ruled is corpus-scoped bookkeeping to be re-measured
 // rather than a designed invariant. Its centring drift is sub-ulp of the polygon's extent.
@@ -142,12 +143,14 @@ export {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 import {SHORT_EDGE_PROMONTORY} from './short-edge-promontory';
 
 // near-regular-polygons.ts
-// Five of the seven are in ALL_TEST_POLYGONS: `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32`
+// Five of the seven are in CLEAN_TEST_POLYGONS: `NEAR_REGULAR_CIRCLE_16` and `NEAR_REGULAR_CIRCLE_32`
 // joined on 2026-08-27, `NEAR_REGULAR_PEANUT_32` later the same day under journal decision 64, and
 // `NEAR_REGULAR_ELLIPSE_16` / `NEAR_REGULAR_ELLIPSE_32` on 2026-08-28 under journal decision 65,
 // once simultaneous events were resolved in a canonical order and their node ids stopped depending
-// on scale. The other two stay out on one measured, pinned failure each — Circle 48 at translation
-// 1e10 and Rosette5 40 at 1e11, in large-coordinate-known-failures.test.ts. See the file header.
+// on scale. The other two are in KNOWN_DEFECT_POLYGONS on one measured, pinned failure each —
+// Circle 48 at translation 1e10 and Rosette5 40 at 1e11, in large-coordinate-known-failures.test.ts.
+// Both are clean at their native placement, which is why their defect signatures below are zero:
+// the translation envelope is the only sweep that separates them from the clean roster.
 export {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
@@ -160,13 +163,15 @@ export {
 import {
     NEAR_REGULAR_CIRCLE_16,
     NEAR_REGULAR_CIRCLE_32,
+    NEAR_REGULAR_CIRCLE_48,
     NEAR_REGULAR_ELLIPSE_16,
     NEAR_REGULAR_ELLIPSE_32,
     NEAR_REGULAR_PEANUT_32,
+    NEAR_REGULAR_ROSETTE5_40,
 } from './near-regular-polygons';
 
 // slightly-deformed-peanut.ts
-// Added and promoted into ALL_TEST_POLYGONS on 2026-08-28 under journal decision 69. Both were
+// Added and promoted into CLEAN_TEST_POLYGONS on 2026-08-28 under journal decision 69. Both were
 // silent wrong answers when they arrived — `complete: true`, empty diagnostics, and a waist bisector
 // outside the polygon — and both solve after the split-at-the-vertex correction in
 // `generateSplitEventFromTheEdgeItself`. See the fixture file for the deformation and the mechanism.
@@ -184,18 +189,18 @@ export {GOLF_CART} from './rectilinear-shapes';
 import {GOLF_CART} from './rectilinear-shapes';
 
 // near-floor-jitter.ts
-// Exported individually and DELIBERATELY left out of ALL_TEST_POLYGONS below: none of the three
-// solves completely, and the sweeps over that list assert that every entry does. Journal decision 53
-// permits an exclusion only as a visible, pinned characterisation of a defect awaiting its fix, and
-// that pin is along-edge-jitter-known-failures.test.ts. Added 2026-08-28 when backlog item 2 was
-// re-measured; see the fixture file header for the generator, the magnitude and why the failing band
-// sits just above the noise floor.
-// `OFF_EDGE_JITTER_L_SEED_55433_K4` is out of the list for a different reason: it SOLVES, and would
-// pass those sweeps, but it is a specimen rather than a shape worth regression-testing — the one
-// polygon in the repo whose root solves while the recursive driver still cuts a region out of it
-// that does not. Added 2026-08-28 when the split-at-the-vertex fix cured the specimen the driver's
-// own tests had been using; see the fixture file.
+// All four are in KNOWN_DEFECT_POLYGONS below: each one defeats the recursive driver on the census
+// grid, and the plus seed does not solve as a root either. They are the live near-floor off-edge
+// jitter defect of journal decision 67; the mechanism and the magnitude sweep are in
+// along-edge-jitter-known-failures.test.ts, and the fixture file header carries the generator and
+// why the failing band sits just above the noise floor.
 export {
+    OFF_EDGE_JITTER_L_SEED_15838,
+    OFF_EDGE_JITTER_L_SEED_55433,
+    OFF_EDGE_JITTER_L_SEED_55433_K4,
+    OFF_EDGE_JITTER_PLUS_SEED_7919,
+} from './near-floor-jitter';
+import {
     OFF_EDGE_JITTER_L_SEED_15838,
     OFF_EDGE_JITTER_L_SEED_55433,
     OFF_EDGE_JITTER_L_SEED_55433_K4,
@@ -207,14 +212,47 @@ export interface NamedTestPolygon {
     vertices: Vector2[];
 }
 
-export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
+/*
+ * ============================================================================
+ *  TWO ROSTERS, ONE CORPUS. Journal decisions 72 and 74, 2026-08-28.
+ * ============================================================================
+ *
+ * EXCLUSION IS RETIRED AS A MECHANISM. Every polygon fixture that carries a defect is enrolled here
+ * rather than held out of the lists, because a held-out fixture — however visibly its defect is
+ * pinned elsewhere — still shapes the corpus around the defect and is invisible to the dashboard,
+ * which is where the user inspects it.
+ *
+ * THERE IS NO `ALL_TEST_POLYGONS` (decision 74). The name is retired rather than re-pointed: a
+ * roster called ALL that leaves the defect fixtures out launders the word, and a rename that left
+ * the old export standing would turn every stale reference into a silent semantic flip instead of a
+ * compile error. {@link CLEAN_TEST_POLYGONS} is that roster under an honest name, and its meaning is
+ * unchanged: every entry solves, tiles and subdivides, and the dozens of sweeps written against it go
+ * on asserting exactly that. {@link KNOWN_DEFECT_POLYGONS} is the same shape of list for fixtures
+ * with a measured defect, and {@link FULL_CORPUS} is the two concatenated.
+ *
+ * A DEFECT FIXTURE IS NOT "THE ONES THAT FAIL". Each carries a measured signature — pinned in
+ * `recursive-subdivision.test.ts` for the census grid and in its own known-failures suite for
+ * everything else — and a sweep over the full corpus asserts that signature EXACTLY. A fixture doing
+ * better than its pin fails the suite as loudly as one doing worse, and the cure is promotion into
+ * the clean roster rather than an adjusted number.
+ *
+ * WHICH INVARIANTS ARE UNIVERSAL IS MEASURED, NOT ASSUMED. Containment, the bisector rate rule and
+ * signalled-not-silent hold over the defect roster too and are swept over the full corpus; wavefront
+ * causality, clearance and edge direction do NOT, and their violations are part of the signatures.
+ */
+export const CLEAN_TEST_POLYGONS: NamedTestPolygon[] = [
     // Basic shapes (test-constants.ts)
     {name: 'Triangle', vertices: TRIANGLE},
     {name: 'Square', vertices: SQUARE},
     {name: 'Rectangle', vertices: RECTANGLE},
     {name: 'Pentagon House', vertices: PENTAGON_HOUSE},
     {name: 'Default Pentagon', vertices: DEFAULT_PENTAGON},
-    // {name: 'Symmetrical Octagon', vertices: SYMMETRICAL_OCTAGON}, // DOES NOT TERMINATE IN FUZZ TEST,
+    // PROMOTED 2026-08-28 under journal decision 73. The "DOES NOT TERMINATE IN FUZZ TEST" note it
+    // carried for as long as it was commented out is DEAD: re-measured, it solves with empty
+    // diagnostics, escapes nothing, holds every wavefront invariant and records no failed region
+    // anywhere on the census grid. It was found by the decision-72 sweep for fixtures in neither
+    // roster — a stale exclusion rather than a defect.
+    {name: 'Symmetrical Octagon', vertices: SYMMETRICAL_OCTAGON},
     {name: 'Awkward Hexagon', vertices: AWKWARD_HEXAGON},
     {name: 'Awkward Heptagon', vertices: AWKWARD_HEPTAGON},
     {name: 'Impossible Octagon', vertices: IMPOSSIBLE_OCTAGON},
@@ -274,8 +312,8 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'T-Shape', vertices: T_SHAPE},
     {name: 'Golf Cart', vertices: GOLF_CART},
 
-    // Near-regular control shapes (near-regular-polygons.ts). The other two are deliberately
-    // absent, each on a pinned failure; see the note above this list's imports.
+    // Near-regular control shapes (near-regular-polygons.ts). The other two are in
+    // KNOWN_DEFECT_POLYGONS, each on a pinned failure; see the note above this list's imports.
     {name: 'Near Regular Circle 16', vertices: NEAR_REGULAR_CIRCLE_16},
     {name: 'Near Regular Circle 32', vertices: NEAR_REGULAR_CIRCLE_32},
     {name: 'Near Regular Peanut 32', vertices: NEAR_REGULAR_PEANUT_32},
@@ -288,3 +326,53 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     {name: 'Slightly Deformed Peanut 1', vertices: SLIGHTLY_DEFORMED_PEANUT_1},
     {name: 'Slightly Deformed Peanut 2', vertices: SLIGHTLY_DEFORMED_PEANUT_2},
 ];
+
+/**
+ * Fixtures with a measured, pinned defect. Same shape as {@link CLEAN_TEST_POLYGONS}; different bar.
+ *
+ * ENROLLED, NOT EXCLUDED (journal decision 72). Every entry is swept alongside the clean roster and
+ * asserted against its own recorded signature rather than against zero. The signatures live with the
+ * suites that measure them:
+ *
+ *  - the recursive-subdivision census grid, per fixture, in `recursive-subdivision.test.ts`;
+ *  - the near-floor jitter class — root solves, diagnostics, causality violations — in
+ *    `along-edge-jitter-known-failures.test.ts`;
+ *  - the strip overlap in `collinear-dumbbell.test.ts`;
+ *  - the large-coordinate translation cells in `large-coordinate-known-failures.test.ts`.
+ *
+ * A FIXTURE LEAVES THIS LIST BY BEING FIXED. When its signature goes to zero the attributed sweeps
+ * fail on the cure and say so; the answer is to move it into {@link CLEAN_TEST_POLYGONS} and delete its
+ * pins, never to soften a number.
+ */
+export const KNOWN_DEFECT_POLYGONS: NamedTestPolygon[] = [
+    // Near-floor off-edge jitter (near-floor-jitter.ts). Journal decision 67's live solver defect:
+    // three of the four solve as roots and all four hand the recursive driver regions it cannot
+    // subdivide.
+    {name: 'Off-edge Jitter Reflex L (seed 15838)', vertices: OFF_EDGE_JITTER_L_SEED_15838},
+    {name: 'Off-edge Jitter Reflex L (seed 55433)', vertices: OFF_EDGE_JITTER_L_SEED_55433},
+    {name: 'Off-edge Jitter Plus (seed 7919)', vertices: OFF_EDGE_JITTER_PLUS_SEED_7919},
+    {name: 'Off-edge Jitter Reflex L (seed 55433, k=4)', vertices: OFF_EDGE_JITTER_L_SEED_55433_K4},
+
+    // Shared supporting lines (test-constants.ts). Solves and reports nothing while its strips
+    // overlap by a tenth of its area — the silent wrong answer this roster exists to keep visible.
+    {name: 'Collinear Dumbbell', vertices: COLLINEAR_DUMBBELL},
+
+    // Large-coordinate envelope (near-regular-polygons.ts). Clean where they sit; each fails a
+    // scatter of translations far from the origin.
+    {name: 'Near Regular Circle 48', vertices: NEAR_REGULAR_CIRCLE_48},
+    {name: 'Near Regular Rosette5 40', vertices: NEAR_REGULAR_ROSETTE5_40},
+];
+
+/**
+ * Every polygon fixture the sweeps run, clean roster first.
+ *
+ * What a sweep over this list asserts differs per entry — clean fixtures assert clean, defect
+ * fixtures assert their signature — so a suite reaching for it must say which bar it is applying.
+ * The dashboard's fixture loaders list it whole, so every fixture in the repo can be inspected.
+ */
+export const FULL_CORPUS: NamedTestPolygon[] = [...CLEAN_TEST_POLYGONS, ...KNOWN_DEFECT_POLYGONS];
+
+/** True where `name` belongs to {@link KNOWN_DEFECT_POLYGONS}, for labelling a corpus-wide list. */
+export function isKnownDefectPolygon(name: string): boolean {
+    return KNOWN_DEFECT_POLYGONS.some(polygon => polygon.name === name);
+}

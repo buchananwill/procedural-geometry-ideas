@@ -1,4 +1,4 @@
-import {ALL_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
     computeStrips,
@@ -98,7 +98,7 @@ interface PipelineObservable {
 const OBSERVABLE_TOLERANCE = 1e-9;
 
 /** Fixtures the sweep runs over: every one that solves and yields lots. */
-const SWEPT_FIXTURES = ALL_TEST_POLYGONS.map(polygon => polygon.name);
+const SWEPT_FIXTURES = CLEAN_TEST_POLYGONS.map(polygon => polygon.name);
 
 /**
  * Area-weighted centroid of a simple ring, accumulated ABOUT THE RING'S FIRST VERTEX.
@@ -255,7 +255,7 @@ describe('pipeline output is invariant under silhouette-preserving vertex insert
         'strips cut with %s',
         (_unusedName, configuration) => {
             it.each(SWEPT_FIXTURES)('%s', name => {
-                const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name)!;
+                const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name)!;
                 const base = observe(fixture.vertices, configuration);
                 if (base === null || base.lotAreas.length === 0) {
                     return;
@@ -294,7 +294,7 @@ describe('the invariant is a live gate, convicted by mutation', () => {
         const broken: string[] = [];
 
         for (const name of SWEPT_FIXTURES) {
-            const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name)!;
+            const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name)!;
             const base = observe(fixture.vertices, CONFIGURATION, 0);
             if (base === null || base.lotAreas.length === 0) {
                 continue;
@@ -329,7 +329,7 @@ describe('the agreement the sweep actually achieves', () => {
         // summation noise in the lot areas and nothing structural.
         let worst = 0;
         for (const name of SWEPT_FIXTURES) {
-            const fixture = ALL_TEST_POLYGONS.find(polygon => polygon.name === name)!;
+            const fixture = CLEAN_TEST_POLYGONS.find(polygon => polygon.name === name)!;
             const base = observe(fixture.vertices, STRIP_CONFIGURATIONS[0]);
             if (base === null || base.lotAreas.length === 0) {
                 continue;

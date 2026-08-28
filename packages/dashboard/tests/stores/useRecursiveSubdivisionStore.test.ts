@@ -5,7 +5,7 @@ import {
     subdivideRecursively,
 } from '@proc-geo/core';
 import type { LevelSpec } from '@proc-geo/core';
-import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
+import { CLEAN_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import {
     clampSpineFraction,
     DEFAULT_DEPTH_FRACTION,
@@ -226,7 +226,7 @@ describe('summariseRecursiveTree below full depth', () => {
     });
 
     it('sees the residue subtrees of a real solve, not just the segment ones', () => {
-        const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
+        const fixture = CLEAN_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
         const levels: LevelSpec[] = [
             { depthFraction: DEFAULT_DEPTH_FRACTION, mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE, segments: 'recurse', residue: 'recurse' },
             { depthFraction: DEFAULT_DEPTH_FRACTION, mergeGroupSize: DEFAULT_MERGE_GROUP_SIZE, segments: 'leaf', residue: 'void' },
@@ -262,7 +262,7 @@ describe('page defaults', () => {
         // Decision 7: a recursive picture on first paint, measured rather than asserted in the
         // abstract. Every region solves, the tree reaches all three levels, and there is a residue to
         // see at the levels cut short of full depth.
-        const fixture = ALL_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
+        const fixture = CLEAN_TEST_POLYGONS.find((polygon) => polygon.name === DEFAULT_RECURSIVE_FIXTURE);
         const tree = subdivideRecursively(fixture?.vertices ?? [], { levels: DEFAULT_RECURSIVE_LEVELS });
         const summary = summariseRecursiveTree(tree, DEFAULT_RECURSIVE_LEVELS);
 

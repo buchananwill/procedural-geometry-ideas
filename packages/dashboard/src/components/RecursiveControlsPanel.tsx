@@ -6,7 +6,7 @@ import {
     flattenRecursiveTree, isLastLevel, MAX_RECURSION_LEVELS, MIN_RECURSION_LEVELS,
 } from '@proc-geo/core';
 import type { RecursiveNode } from '@proc-geo/core';
-import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
+import { FIXTURE_OPTION_GROUPS } from './fixture-options';
 import CollapseChevron from './CollapseChevron';
 import RecursiveLevelReadout from './RecursiveLevelReadout';
 import RecursiveLevelRow from './RecursiveLevelRow';
@@ -19,8 +19,6 @@ export interface RecursiveControlsPanelProps {
     /** The tree currently drawn, so the counts reported are the counts on the canvas. */
     tree: RecursiveNode;
 }
-
-const FIXTURE_OPTIONS = ALL_TEST_POLYGONS.map((polygon) => polygon.name);
 
 /** How many distinct failure reasons to spell out before falling back to a count. */
 const REASONS_SHOWN = 3;
@@ -76,7 +74,7 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                         <Select
                             size="xs"
                             label="Fixture"
-                            data={FIXTURE_OPTIONS}
+                            data={FIXTURE_OPTION_GROUPS}
                             value={fixtureName}
                             searchable
                             allowDeselect={false}
