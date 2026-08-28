@@ -208,6 +208,24 @@ export function generateSplitEventViaBisector(
     return generateSplitEvent(instigatorData, edgeToSplit, context);
 }
 
+/**
+ * Does the instigator's ray reach the split edge's supporting line, travelling forward?
+ *
+ * `intersectRays` reports 'converging' only when BOTH ray parameters are strictly positive. The
+ * forward and reversed edge rays share one origin — the split edge's source vertex — so between
+ * them they cover the whole supporting line EXCEPT that single point, where both parameters are
+ * exactly zero and both tests read 'diverging'. A bisector aimed straight at the split edge's own
+ * source vertex is a strike on that line like any other, and discarding it is the strict
+ * inequality speaking, not the geometry.
+ *
+ * The zero is tested with the standing `areEqual` tolerance rather than exact equality, because
+ * the vertex the bisector points at is reached through a normalisation and a bisection and lands
+ * on the line to within the same absolute epsilon everything else here is measured against.
+ */
+function reachesSupportingLine([alongInstigator, alongEdge, resultType]: IntersectionResult): boolean {
+    return resultType === 'converging' || (alongInstigator > 0 && areEqual(alongEdge, 0));
+}
+
 export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
@@ -218,7 +236,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay);
     const initialIntersectionTest2 = intersectRays(instigatorRay, backwardsEdgeSplitRay);
-    if (initialIntersectionTest[2] !== 'converging' && initialIntersectionTest2[2] !== 'converging') {
+    if (!reachesSupportingLine(initialIntersectionTest) && !reachesSupportingLine(initialIntersectionTest2)) {
         // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
         return null;
     }

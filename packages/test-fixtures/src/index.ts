@@ -165,6 +165,14 @@ import {
     NEAR_REGULAR_PEANUT_32,
 } from './near-regular-polygons';
 
+// slightly-deformed-peanut.ts
+// Added and promoted into ALL_TEST_POLYGONS on 2026-08-28 under journal decision 69. Both were
+// silent wrong answers when they arrived — `complete: true`, empty diagnostics, and a waist bisector
+// outside the polygon — and both solve after the split-at-the-vertex correction in
+// `generateSplitEventFromTheEdgeItself`. See the fixture file for the deformation and the mechanism.
+export {SLIGHTLY_DEFORMED_PEANUT_1, SLIGHTLY_DEFORMED_PEANUT_2} from './slightly-deformed-peanut';
+import {SLIGHTLY_DEFORMED_PEANUT_1, SLIGHTLY_DEFORMED_PEANUT_2} from './slightly-deformed-peanut';
+
 // rectilinear-shapes.ts
 export {CROSS} from './rectilinear-shapes';
 import {CROSS} from './rectilinear-shapes';
@@ -182,9 +190,15 @@ import {GOLF_CART} from './rectilinear-shapes';
 // that pin is along-edge-jitter-known-failures.test.ts. Added 2026-08-28 when backlog item 2 was
 // re-measured; see the fixture file header for the generator, the magnitude and why the failing band
 // sits just above the noise floor.
+// `OFF_EDGE_JITTER_L_SEED_55433_K4` is out of the list for a different reason: it SOLVES, and would
+// pass those sweeps, but it is a specimen rather than a shape worth regression-testing — the one
+// polygon in the repo whose root solves while the recursive driver still cuts a region out of it
+// that does not. Added 2026-08-28 when the split-at-the-vertex fix cured the specimen the driver's
+// own tests had been using; see the fixture file.
 export {
     OFF_EDGE_JITTER_L_SEED_15838,
     OFF_EDGE_JITTER_L_SEED_55433,
+    OFF_EDGE_JITTER_L_SEED_55433_K4,
     OFF_EDGE_JITTER_PLUS_SEED_7919,
 } from './near-floor-jitter';
 
@@ -268,4 +282,9 @@ export const ALL_TEST_POLYGONS: NamedTestPolygon[] = [
     // Promoted 2026-08-28, decision 65.
     {name: 'Near Regular Ellipse 16', vertices: NEAR_REGULAR_ELLIPSE_16},
     {name: 'Near Regular Ellipse 32', vertices: NEAR_REGULAR_ELLIPSE_32},
+
+    // Deformed peanut waists (slightly-deformed-peanut.ts). Added and promoted 2026-08-28,
+    // decision 69, with the solver fix that stopped their waist bisectors escaping the polygon.
+    {name: 'Slightly Deformed Peanut 1', vertices: SLIGHTLY_DEFORMED_PEANUT_1},
+    {name: 'Slightly Deformed Peanut 2', vertices: SLIGHTLY_DEFORMED_PEANUT_2},
 ];

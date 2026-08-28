@@ -205,7 +205,7 @@ function* eventSamples(deltas: number[], keep: EventFilter): Generator<EventSamp
 
 describe('offset projection at event boundaries', () => {
     describe('the corpus this sweeps', () => {
-        it('is every fixture, and 310 distinct event offsets across them', () => {
+        it('is every fixture, and 334 distinct event offsets across them', () => {
             expect(SWEPT_FIXTURES).toHaveLength(ALL_TEST_POLYGONS.length);
 
             const events = SWEPT_FIXTURES.reduce(
@@ -257,7 +257,16 @@ describe('offset projection at event boundaries', () => {
             // are unmoved — re-running this reduction over the 44 alone still gives 298. An
             // ellipse is mirror-symmetric about both axes rather than congruent under rotation, so
             // it collapses onto a handful of offsets rather than the circles' single one.
-            expect(events).toBe(310);
+            //
+            // 310 BECAME 334 LATER ON 2026-08-28, when `Slightly Deformed Peanut 1` and `Slightly
+            // Deformed Peanut 2` joined the corpus under journal decision 69, with the solver fix
+            // that stopped their waist bisectors escaping the polygon. Attributed per fixture
+            // before repinning: variant 1 contributes 11 and variant 2 contributes 13, and the
+            // other 46 are unmoved — re-running this reduction over the 46 alone still gives 310,
+            // which is also the evidence that the split-event fix moved no existing fixture's
+            // event structure. Deforming the waist breaks the symmetric peanut's four-fold
+            // symmetry, so the 8 offsets it collapsed to become 11 and 13.
+            expect(events).toBe(334);
         });
     });
 
@@ -426,8 +435,16 @@ describe('offset projection at event boundaries', () => {
             // promoted under journal decision 65. Attributed per fixture before repinning; the
             // other 44 are bit-unmoved on all three counts. Ellipse 16 carries mutated 6 and fired
             // 5; Ellipse 32 mutated 14 and fired 12. `silentLosses` is still empty over all 46.
-            expect(mutated).toBe(283);
-            expect(fired).toBe(150);
+            //
+            // BOTH MOVED LATER ON 2026-08-28 — 283 to 316 and 150 to 171 — for the third cause
+            // again, the corpus growing: `Slightly Deformed Peanut 1` and `Slightly Deformed
+            // Peanut 2` joined under journal decision 69. Attributed per fixture before repinning;
+            // the other 46 are bit-unmoved on all three counts, which is also the evidence that
+            // the split-event fix landed with them moved nothing that was already here. Variant 1
+            // carries mutated 16 and fired 12; variant 2 mutated 17 and fired 9. `silentLosses` is
+            // still empty over all 48.
+            expect(mutated).toBe(316);
+            expect(fired).toBe(171);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

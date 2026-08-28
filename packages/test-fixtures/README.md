@@ -12,7 +12,7 @@ npm install --save-dev @proc-geo/test-fixtures
 
 ## The polygon list
 
-`ALL_TEST_POLYGONS` is the canonical set — **46 named polygons**, ranging from a triangle to a 32-gon:
+`ALL_TEST_POLYGONS` is the canonical set — **48 named polygons**, ranging from a triangle to a 32-gon:
 
 ```ts
 import { ALL_TEST_POLYGONS } from '@proc-geo/test-fixtures';
@@ -55,6 +55,7 @@ All vertices are wound **clockwise**, which is what `runAlgorithmV5` expects.
 | Rectilinear | `CROSS`, `T_SHAPE`, `GOLF_CART` |
 | Short-edge promontory | `SHORT_EDGE_PROMONTORY` |
 | Near-regular controls | `NEAR_REGULAR_CIRCLE_16`, `NEAR_REGULAR_CIRCLE_32`, `NEAR_REGULAR_PEANUT_32`, `NEAR_REGULAR_ELLIPSE_16`, `NEAR_REGULAR_ELLIPSE_32` |
+| Deformed peanut waists | `SLIGHTLY_DEFORMED_PEANUT_1`, `SLIGHTLY_DEFORMED_PEANUT_2` |
 
 The `(fails)` / `(passes)` naming is deliberate and worth understanding: these are **near-identical pairs** that
 bracket a failure. `MOORHEN_FAILS` and `MOORHEN_PASSES` differ by a small perturbation, as do the isthmus and mid-case

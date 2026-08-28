@@ -476,18 +476,37 @@ describe('unit-extent normalisation', () => {
          * `Number.EPSILON` on both measures in every cell. Both quantities are pinned below: the
          * extent-relative one carries the `Number.EPSILON` bar, the coordinate-relative one is
          * pinned at its measured maximum so a regression in it is still loud.
+         *
+         * RE-MEASURED AGAIN 2026-08-28 OVER 48 FIXTURES (1170 coordinates per cell), under journal
+         * decision 69, when `SLIGHTLY_DEFORMED_PEANUT_1` and `SLIGHTLY_DEFORMED_PEANUT_2` were
+         * promoted. Same story as decision 64's, one corpus larger:
+         *
+         *   scale       1e-6  1e-4  1e-2     1   1e2   1e4   1e6   1e8
+         *   before         7    20     2     0     3     6     5     6
+         *   after          9    24     4     0     5     6     9    12
+         *   variant 1      1     2     1     0     1     0     2     3
+         *   variant 2      1     2     1     0     1     0     2     3
+         *
+         * Every moved coordinate belongs to one of the two new fixtures, and the other 46 are
+         * bit-unmoved in all eighteen cells — re-running the sweep over the 46 alone reproduces the
+         * `before` row exactly. That is also the evidence that the split-event fix which landed
+         * with these fixtures moved nothing that was already here. NO CELL LEFT THE EXACT LIST: the
+         * scale sweep is still exact at 1 and the whole translation sweep is still exact on the
+         * bit, so this is a count of coordinates growing with the corpus in cells decision 4 never
+         * claimed. Both error bars below are UNMOVED — neither new fixture reaches either maximum —
+         * and both stay under `Number.EPSILON` on the extent-relative measure.
          */
         const TRANSLATIONS = [0, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11];
         const EXACT_SCALES = [1];
         const INEXACT_SCALES: readonly (readonly [number, number])[] = [
             // scale, the measured count of coordinates that do not return on the bit.
-            [1e-6, 7],
-            [1e-4, 20],
-            [1e-2, 2],
-            [1e2, 3],
+            [1e-6, 9],
+            [1e-4, 24],
+            [1e-2, 4],
+            [1e2, 5],
             [1e4, 6],
-            [1e6, 5],
-            [1e8, 6],
+            [1e6, 9],
+            [1e8, 12],
         ];
         /** Worst error relative to the COORDINATE, over every inexact cell. Cell 1e-2 carries it. */
         const WORST_MEASURED_RELATIVE_ERROR = 3.468919855816711e-16;

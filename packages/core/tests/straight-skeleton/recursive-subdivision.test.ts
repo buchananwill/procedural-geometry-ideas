@@ -1,4 +1,9 @@
-import {ALL_TEST_POLYGONS, COLLINEAR_DUMBBELL, SQUARE} from '@proc-geo/test-fixtures';
+import {
+    ALL_TEST_POLYGONS,
+    COLLINEAR_DUMBBELL,
+    OFF_EDGE_JITTER_L_SEED_55433_K4,
+    SQUARE,
+} from '@proc-geo/test-fixtures';
 import {
     boundsOfPoints,
     canonicalisePolygon,
@@ -435,6 +440,25 @@ function bulgeLongestEdge(ring: Vector2[], offset: number): Vector2[] {
 }
 
 /**
+ * The dials at which `OFF_EDGE_JITTER_L_SEED_55433_K4` produces exactly one region it cannot
+ * subdivide.
+ *
+ * THAT FIXTURE IS THE SPECIMEN THE FAILING-REGION TESTS BELOW NEED, re-measured 2026-08-28. Their
+ * previous one — the collinear dumbbell's self-intersecting children — was cured by the
+ * split-at-the-vertex correction in `generateSplitEventFromTheEdgeItself`, the second solver fix in
+ * two days to take a specimen away from this file; the corpus and the dumbbell between them now
+ * produce no failed region at any depth or merge group size measured here. Its ROOT solves, which
+ * is what makes every failed node under it a region THE DRIVER CUT rather than the polygon handed
+ * in, and its failure is the pinned live defect of journal decision 67 rather than a shape invented
+ * to defeat the solver.
+ *
+ * Measured across depths `0.25/0.6/1` and merge groups 1–5: this is the only cell of the fifteen
+ * whose single failed node THREW rather than reporting an incomplete solve, and whose floor took
+ * nothing from that node — both of which the two tests below assert directly.
+ */
+const JITTERED_L_FAILING_DIALS = {depthFraction: 0.6, mergeGroupSize: 4} as const;
+
+/**
  * One region THE DRIVER ITSELF PRODUCED and then could not solve, with everything a check of it
  * needs: the node, the floor its own solve was set up with, and where it came from.
  *
@@ -470,25 +494,40 @@ function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
  * and that every one of them reports the canonicalisation it was solved with — differ only in what
  * they do with a region rather than in how they find one.
  *
- * `COLLINEAR_DUMBBELL` IS IN THE POPULATION, AND SINCE 2026-08-27 IT IS THE POPULATION. The
- * decision-56 double-split partition fix emptied the corpus's failure census, so `ALL_TEST_POLYGONS`
- * no longer yields a failed region anywhere in this sweep; the dumbbell's recorded defect — strips
- * that silently overlap, pinned in `collinear-dumbbell.test.ts` — still hands the recursion
- * self-intersecting sub-regions that fail. The corpus stays in the sweep so a fixture that starts
- * failing again is harvested rather than missed.
+ * `OFF_EDGE_JITTER_L_SEED_55433_K4` CARRIES THE POPULATION AS OF 2026-08-28. The corpus has yielded
+ * no failed region since the decision-56 double-split fix emptied its census, and the
+ * `COLLINEAR_DUMBBELL` regions that replaced it were themselves cured by the split-at-the-vertex
+ * correction in `generateSplitEventFromTheEdgeItself` — the dumbbell's own defect (strips that
+ * silently overlap, pinned in `collinear-dumbbell.test.ts`) is untouched, but it no longer hands
+ * the recursion a sub-region that fails to solve, at any depth or merge group size measured here.
+ * Both stay in the sweep so a fixture that starts failing again is harvested rather than missed.
+ *
+ * The specimen is swept at ITS OWN merge group rather than the harvest's, because the merge group
+ * is what decides where the cuts fall and only one of the five sizes measured hands it a region it
+ * cannot subdivide. Sweeping the whole population at both sizes would double the harvest's cost to
+ * re-prove that the corpus and the dumbbell fail nowhere, which is already measured.
  */
 function failedRegions(): FailedRegion[] {
     const regions: FailedRegion[] = [];
     const population = [
-        ...ALL_TEST_POLYGONS,
-        {name: 'Collinear Dumbbell', vertices: COLLINEAR_DUMBBELL},
+        ...ALL_TEST_POLYGONS.map(polygon => ({...polygon, mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE})),
+        {
+            name: 'Collinear Dumbbell',
+            vertices: COLLINEAR_DUMBBELL,
+            mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
+        },
+        {
+            name: 'Near-floor jittered reflex L',
+            vertices: OFF_EDGE_JITTER_L_SEED_55433_K4,
+            mergeGroupSize: JITTERED_L_FAILING_DIALS.mergeGroupSize,
+        },
     ];
     for (const polygon of population) {
         const rootFloor = rootFloorOf(polygon.vertices);
         for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
             const root = subdivideRecursively(polygon.vertices, options({
                 levels: MAX_RECURSION_LEVELS,
-                mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
+                mergeGroupSize: polygon.mergeGroupSize,
                 depthFraction,
             }));
             const where = `${polygon.name} (depth ${depthFraction})`;
@@ -503,17 +542,24 @@ function failedRegions(): FailedRegion[] {
  *
  * Hand-authoring one would mean guessing at what defeats this solver, which is a moving target; a
  * sub-region the recursion cut for itself is the real article. Since decision 56 emptied the corpus's
- * failure census, {@link failedRegions} is the standing evidence that the dumbbell keeps producing
- * them. The region is checked to fail AGAIN when it is handed back in as a root of its own — a node's
+ * failure census, {@link failedRegions} is the standing evidence that the pinned off-edge jitter
+ * fixtures keep producing them. The region is checked to fail AGAIN when it is handed back in as a root of its own — a node's
  * floor is its root's, said in its own unit space, so a region only reproduces its failure as a root
  * where the two agree.
  */
 function unsolvableRegion(): Vector2[] {
     const region = failedRegions()
         .map(failed => failed.node.boundary)
-        .find(boundary => subdivideRecursively(boundary, options()).failure !== undefined);
+        .find(boundary => {
+            const root = subdivideRecursively(boundary, options());
+            // AND ITS OWN FLOOR MUST TAKE NOTHING FROM IT. The metamorphic pair below inserts one
+            // sub-floor vertex and requires the two runs to fail in the same words; a region that
+            // already loses vertices to the floor reports a different count once the inserted one
+            // joins them, which would fail the pair on the diagnostic rather than on the geometry.
+            return root.failure !== undefined && root.canonicalAreaDrift === 0;
+        });
     if (region === undefined) {
-        throw new Error('No harvested region fails to solve when it is handed back in as a root of its own');
+        throw new Error('No harvested region fails to solve, with nothing removed by its own floor, when it is handed back in as a root of its own');
     }
     return region;
 }
@@ -1071,13 +1117,14 @@ describe('recursive segment subdivision', () => {
         });
 
         it('keeps subdividing the siblings of a segment that fails', () => {
-            // A measured case, not a constructed one — re-measured 2026-08-27 after the decision-56
-            // partition fix took the previous specimen (the rectangle at merge group three) by
-            // making its three-edge segment re-solve. The dumbbell's silently overlapping strips
-            // (`collinear-dumbbell.test.ts`) hand two level-1 nodes self-intersecting child regions
-            // that fail; their siblings must still be subdivided — that is the whole of decision 6.
-            const root = subdivideRecursively(COLLINEAR_DUMBBELL, options({
-                levels: MAX_RECURSION_LEVELS, depthFraction: 0.25, mergeGroupSize: 3,
+            // A measured case, not a constructed one — re-measured 2026-08-28 after the
+            // split-at-the-vertex correction took the previous specimen (the dumbbell's
+            // self-intersecting children) by making those regions solve, as the decision-56
+            // partition fix had taken the one before it. `OFF_EDGE_JITTER_L_SEED_55433_K4` hands one
+            // level-1 node a child region the driver cannot subdivide; its siblings must still be
+            // subdivided — that is the whole of decision 6.
+            const root = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433_K4, options({
+                levels: MAX_RECURSION_LEVELS, ...JITTERED_L_FAILING_DIALS,
             }));
             const parents = flattenRecursiveTree(root)
                 .filter(node => node.children.some(child => child.failure !== undefined));
@@ -1682,10 +1729,11 @@ describe('recursive segment subdivision', () => {
         it('reports a region that failed to solve as unchanged only where the floor took nothing', () => {
             // Not because the solve failed: canonicalisation runs ahead of the wavefront and does not
             // depend on it finishing. This region simply has no vertex under its floor, which is the
-            // ordinary case — the test below is what happens when it does. The specimen is the
-            // dumbbell's, the rectangle's having been cured by the decision-56 partition fix.
-            const unsolvable = flattenRecursiveTree(subdivideRecursively(COLLINEAR_DUMBBELL, options({
-                levels: MAX_RECURSION_LEVELS, depthFraction: 0.25, mergeGroupSize: 3,
+            // ordinary case — the test below is what happens when it does. The specimen is
+            // `OFF_EDGE_JITTER_L_SEED_55433_K4`'s, the dumbbell's having been cured by the
+            // split-at-the-vertex correction as the rectangle's was by the decision-56 partition fix.
+            const unsolvable = flattenRecursiveTree(subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433_K4, options({
+                levels: MAX_RECURSION_LEVELS, ...JITTERED_L_FAILING_DIALS,
             }))).find(node => node.failure !== undefined);
             expect(unsolvable?.failure).toMatch(/^Subdivision threw/);
             expect(unsolvable?.canonicalBoundary).toEqual(unsolvable?.boundary);

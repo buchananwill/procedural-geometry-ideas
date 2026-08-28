@@ -309,7 +309,13 @@ describe('the shape of the tree, over the whole corpus', () => {
         // 44 became 46 on 2026-08-28: `Near Regular Ellipse 16` and `Near Regular Ellipse 32` were
         // promoted under journal decision 65, once simultaneous events stopped being numbered in
         // arrival order. Both build trees, so `notTrees` is still empty.
-        expect(trees).toHaveLength(46);
+        //
+        // 46 became 48 later on 2026-08-28: `Slightly Deformed Peanut 1` and `Slightly Deformed
+        // Peanut 2` were promoted under journal decision 69, with the solver fix that stopped
+        // their waist bisectors escaping the polygon. Both build trees — which is a statement
+        // worth having here, because before that fix variant 1's waist bisector ended at a node
+        // with nothing else incident to it and variant 2's ended outside the polygon entirely.
+        expect(trees).toHaveLength(48);
     });
 
     it.each(trees)('$name keys every edge with a < b, once per node pair', ({tree}) => {
@@ -511,11 +517,19 @@ describe('skeletonTreeDiameter over the corpus', () => {
      * ellipse is not a regular n-gon: it resolves to a ridge along the major axis rather than to a
      * single hub, 23 tree nodes for the 16-gon and 47 for the 32-gon, so the long way round is a
      * genuinely longer walk than the hop count finds.
+     *
+     * 28 became 30 later on 2026-08-28 with the decision-69 promotions. Attributed per fixture:
+     * BOTH `Slightly Deformed Peanut 1` and `Slightly Deformed Peanut 2` join the offenders, and
+     * the 28 already there are unchanged — re-running the filter over the 46 alone still gives 28.
+     * They join for the symmetric peanut's reason: a waist spine between two densely sampled lobes,
+     * where the hop count leaves the long way round unwalked. The margin is thin — 410.79 against
+     * 410.55 for variant 1, 411.11 against 410.86 for variant 2 — but it is three orders above the
+     * 1e-9 the filter demands.
      */
     it('reports how many fixtures a hop-count diameter would get wrong', () => {
         const shorter = trees.filter(({tree}) =>
             pathLength(tree, longestLeafPathByHops(tree)) < pathLength(tree, skeletonTreeDiameter(tree)) - 1e-9);
-        expect(shorter).toHaveLength(28);
+        expect(shorter).toHaveLength(30);
 
         const midCase = trees.find(entry => entry.name === 'Mid-case Failure End') as typeof trees[number];
         expect(pathLength(midCase.tree, skeletonTreeDiameter(midCase.tree))).toBeCloseTo(532.5233, 3);

@@ -333,7 +333,7 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         return canonicalisePolygon(normalisePolygon(vertices, normalisation), floor);
     }
 
-    it('touches exactly one of the 46 fixtures, and removes exactly one vertex from it', () => {
+    it('touches exactly one of the 48 fixtures, and removes exactly one vertex from it', () => {
         const touched = ALL_TEST_POLYGONS
             .filter(fixture => canonicaliseFixture(fixture.vertices, SKELETON_NOISE_FLOOR).removedCount > 0)
             .map(fixture => fixture.name);
@@ -377,8 +377,16 @@ describe('what the ruled floor actually does to the fixture corpus', () => {
         // densely enough that consecutive vertices deviate by less than a hundredth of the extent —
         // and the 16-gon is touched at no floor in this sweep. The other 44 are unmoved at every
         // floor, and `touchedAt(1e-3)` does not move at all.
-        expect(touchedAt(1e-3)).toBe(2);
-        expect(touchedAt(1e-2)).toBe(13);
+        //
+        // 13 BECAME 15, AND `touchedAt(1e-3)` 2 BECAME 3, LATER ON 2026-08-28, when
+        // `SLIGHTLY_DEFORMED_PEANUT_1` and `SLIGHTLY_DEFORMED_PEANUT_2` were promoted under journal
+        // decision 69. Attributed per fixture before repinning: both are touched at 1e-2 and only
+        // variant 2 at 1e-3 — the vertex it draws into the waist sits closer to the chord between
+        // its neighbours than variant 1's does — and neither is touched at any smaller floor in
+        // this sweep. The other 46 are unmoved at every floor, so the ruled floor still touches
+        // exactly one fixture.
+        expect(touchedAt(1e-3)).toBe(3);
+        expect(touchedAt(1e-2)).toBe(15);
     });
 
     it('leaves every fixture solving completely, at the ruled floor and either side of it', () => {

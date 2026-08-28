@@ -149,3 +149,52 @@ export const OFF_EDGE_JITTER_PLUS_SEED_7919: Vector2[] = [
     {x: 300, y: 100},
     {x: 249.9990539987348, y: 100.00077191036614},
 ];
+
+/**
+ * Reflex L, k = 4, seed 55433, off-edge jitter at 1e-3. Twenty-four vertices. THE ONE OF THIS FILE'S
+ * FOUR THAT SOLVES.
+ *
+ * Same generator, same magnitude, same band as the three above — and its whole point is that the
+ * ROOT solves completely while the recursive driver still cuts sub-regions out of it that do not.
+ * That combination is what a test of the driver needs and cannot get anywhere else since 2026-08-28:
+ * the corpus's failure census has been empty since journal decision 56, and the `COLLINEAR_DUMBBELL`
+ * regions that stood in for it were cured by the split-at-the-vertex correction in
+ * `generateSplitEventFromTheEdgeItself`. The three fixtures above cannot serve, because they fail at
+ * the root and so produce no tree to find a failing region in.
+ *
+ * Measured 2026-08-28 at three levels and full depth with the residue voided: in merge groups of
+ * FOUR it produces exactly one failed region, of thirteen boundary vertices and real area, with
+ * seventeen solved leaf segments around it. It is used by
+ * `packages/core/tests/straight-skeleton/recursive-subdivision.test.ts` and by the dashboard's
+ * `recursiveSubdivisionToScene.test.ts`.
+ *
+ * PERISHABLE, like the three above and for the same reason: the region fails because of a solver
+ * defect (journal decision 67), not by design, and a later fix will cure it. Both consumers gate on
+ * the failure still being there and say so when it is not.
+ */
+export const OFF_EDGE_JITTER_L_SEED_55433_K4: Vector2[] = [
+    {x: 100, y: 100},
+    {x: 100.00047923759976, y: 175.00043852333167},
+    {x: 99.99980784323206, y: 249.99950638874154},
+    {x: 100.00004339462193, y: 325.0002162884213},
+    {x: 100, y: 400},
+    {x: 137.49903907242137, y: 400.00049433247045},
+    {x: 174.9992275374513, y: 399.9992482809625},
+    {x: 212.49934118045027, y: 400.0008611432412},
+    {x: 250, y: 400},
+    {x: 250.0009827838014, y: 362.4990743542388},
+    {x: 250.00014263380737, y: 324.99932085870114},
+    {x: 250.00082109078159, y: 287.49998963527196},
+    {x: 250, y: 250},
+    {x: 287.5006053712917, y: 250.00012153474847},
+    {x: 325.00009933055566, y: 250.00066527528642},
+    {x: 362.4998182599591, y: 249.99963057206617},
+    {x: 400, y: 250},
+    {x: 399.99935882457856, y: 212.4995594113115},
+    {x: 400.00078110487993, y: 175.00004620398676},
+    {x: 400.000201410308, y: 137.5009276161492},
+    {x: 400, y: 100},
+    {x: 324.9990349160498, y: 99.9991656587529},
+    {x: 249.99966353428923, y: 99.99994063785533},
+    {x: 174.9997539987238, y: 100.00025361789157},
+];

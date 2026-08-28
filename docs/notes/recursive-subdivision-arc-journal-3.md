@@ -87,11 +87,6 @@ the dashboard scene test lean on the dumbbell and Broken Polygon as failing spec
 their specimen when their defect is fixed); the caller-space debug overlay and unit-space assert
 text (F10, documented-risk tier); corner-correction fuzzing (parked unless symptoms).
 
-## 5. Open items
-
-Carried unchanged from session-1 journal §4 (C++-team correction, radial promotion, leaf slicing,
-merge heuristic, collinear dumbbell, size ladder).
-
 ## Decisions
 
 **53 — (user, 2026-08-27) A failing fixture is never laundered out of the corpus; the production
@@ -215,6 +210,33 @@ down (F20, test headers); the regression gate's job is detection, and the class 
 34–56/80, so a reduced sweep (~2 seeds × 3 k-values per cell, target well under 30 s) detects any
 revival with near-certainty. The known-failures pins (live defect) keep running in full. The full
 sweep is preserved in the file as documented construction, not deleted history.
+
+**69 — (user, 2026-08-28) New mandate: investigate AND fix the escaping-bisector defect shown by
+the two `SlightlyDeformedPeanut` fixtures.** User-added file
+[slightly-deformed-peanut.ts](../../packages/test-fixtures/src/slightly-deformed-peanut.ts), two
+32-vertex variants deforming the regular peanut's waist (vertex 6 moved to (317.35, 189.72) in
+both; vertex 23 additionally moved in variant 2). User's observed mechanism: the translated
+vertex 6 creates an early collision (node 32) and the bisectors of vertices 7 and 23 no longer
+point at each other; vertex 23's bisector (edge 55) then finds no collision in the waist and
+**escapes the perimeter, forming a skeleton node outside the polygon** — a
+silent-wrong-geometry symptom. User relates it to the same defect family as the prior head-on /
+near-miss collision classification work. Fix mandated, not just diagnosis — the first fix mandate
+since the overnight queue closed.
+
+**70 — The latent backwards-bisector defect is fixed now, as its own package: the offset rate
+decides a bisector's direction; `approximateDirection` is demoted to a tie-break for the
+anti-parallel ambiguity.** The peanut trace exposed it: `addBisectionEdge`
+(`algorithm-helpers.ts:84-88`) computes the correct interior direction and then lets
+`approximateDirection` override it, which on variant 2 pre-fix created a bisector with **negative
+offset rate** (−0.0737) — running backwards in the wavefront clock, which is geometrically
+impossible. There is also a param-order inversion when `parentsInverted` is true. The delegate
+correctly stopped rather than choosing: a new invariant at bisector creation can alter results
+corpus-wide. Ruling: the invariant is not a taste question — a wavefront bisector's offset rate is
+non-negative by definition — so the correction proceeds, with the hard bar that the corpus stays
+green and any moved pin is attributed per fixture; results moving in a way whose correctness
+cannot be argued from the invariant itself is a STOP. Currently latent, guarded by
+`wavefront-causality.test.ts` on all 48 fixtures — the fix converts a standing hazard into a
+non-property.
 
 ## Findings
 
@@ -412,6 +434,38 @@ mutation conviction 18/18. Two delegate flags ruled: the 7.5 s headroom is decli
 argument suffices; speed is the point), and the one recorded-but-not-run cell (plus off-edge
 stage-on m=1.0, measured 0/6, slowest column) is accepted as flagged. Lead verification: core **4119/4119 (73 suites, 73 s)**, build clean,
 dashboard **257/257**, all re-run by the lead. **Package 4 committed: `9011260`.**
+
+**F22 — The deformed-peanut defect was a SILENT wrong answer in split-event generation: the
+strict `'converging'` guard excluded exactly one point of the split edge's supporting line — its
+own source vertex.** Both variants returned `complete: true`, empty diagnostics, with a skeleton
+node 29.5 / 40.2 units outside a 410-unit polygon. Mechanism (user's account confirmed in outline,
+corrected in detail — the loss is in *split generation*, upstream of collision selection): edge
+55's ray runs exactly through vertex 7, the shared endpoint of the forward/reversed test rays in
+`generate-split-event.ts:221-224`; both classify `'diverging'` with `alongEdge` exactly 0, so the
+legitimate split at t = 91.545 was never generated. The wavefront then reached a later event
+(t = 93.85) that should have been shadowed, which emitted a bisector with **negative offset rate**
+via the `approximateDirection` override (see decision 70), consumed the waist crossing backwards,
+and left edge 55 to walk the polygon and terminate outside. Fix: `reachesSupportingLine` — accept
+`alongInstigator > 0` with `areEqual(alongEdge, 0)` — the standing epsilon, no new tolerance;
+same defect family as F12's `outOfBounds` discard (a legitimate event lost at a guard boundary
+nobody meant to draw). **The fix moved nothing in the pre-existing corpus** (all pins bit-unmoved
+at 46, verified by reduction). Corpus 46 → 48; a **containment invariant** landed corpus-wide
+(zero interior nodes outside, strictly, no tolerance needed — `skeleton-containment.test.ts`);
+pins moved only for the two new fixtures (events 310→334, mutated 283→316, fired 150→171,
+offenders 28→30, `touchedAt` 13→15 / 2→3, normalisation inexact cells +1..+3, error bars
+unmoved). Mutation conviction: reverting the predicate killed **76 tests across 11 suites** and
+drove the census to 57 failures — including the causality sweep, independently confirming the
+mechanism. Delegate figures: core 4284/4284 (75 suites, 57 s), dashboard 257/257, census 48
+fixtures / 23285 nodes / 0 failures.
+
+**F22a — The peanut fix also cured the collinear dumbbell's self-intersecting sub-regions, and
+the specimen debt fired for the second time in two days.** The dumbbell's own silent-overlap
+defect is untouched and still pinned, but it no longer yields failed regions at any measured
+depth/merge-group — so the failing-region specimens in `recursive-subdivision.test.ts` and the
+dashboard scene test died again, caught by their own gates, and were re-specimened on the
+decision-67 live defect: new export-only fixture `OFF_EDGE_JITTER_L_SEED_55433_K4`, the one
+polygon whose root solves while the driver still cuts an invalid region from it. Perishable like
+its predecessors and headed as such — when decision 67's defect is fixed, this specimen dies too.
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
