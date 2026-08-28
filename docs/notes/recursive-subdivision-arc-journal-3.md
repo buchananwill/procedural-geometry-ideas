@@ -411,7 +411,7 @@ annotated with the dated two-point correction (history preserved above it). Dele
 mutation conviction 18/18. Two delegate flags ruled: the 7.5 s headroom is declined (coverage
 argument suffices; speed is the point), and the one recorded-but-not-run cell (plus off-edge
 stage-on m=1.0, measured 0/6, slowest column) is accepted as flagged. Lead verification: core **4119/4119 (73 suites, 73 s)**, build clean,
-dashboard **257/257**, all re-run by the lead. **Package 4 committed: see commit log.**
+dashboard **257/257**, all re-run by the lead. **Package 4 committed: `9011260`.**
 
 **F15c — The specimen debt reached the dashboard.** Arrival routine (core sweep → build →
 dashboard sweep) caught it: `recursiveSubdivisionToScene.test.ts`'s "a failed cell among tinted
