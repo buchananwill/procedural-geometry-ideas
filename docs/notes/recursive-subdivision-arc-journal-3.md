@@ -547,7 +547,35 @@ canonicalisation stage's conviction is accepted: the conviction demonstrably rel
 (`stroke-derived-polygons.test.ts`, `along-edge-jitter.test.ts` still carry non-zero stage-off
 failures), the four-row history is recorded in the file, and assertions remain as specification.
 
+**95 — (user, 2026-08-28) The C++ team has built NOTHING on the pending upstream hardening — the
+cheap-now-expensive-later worry is relieved, not retired.** Their steadfast hold means the erratum
+(decision-99 correction, F9, and this week's fixes) is owed at leisure rather than urgently; it
+stays on the frontier list as documentation debt, no longer as compounding risk. Same message:
+the user wants eyes on the six remaining defect-roster fixtures — a visual defect tour is
+commissioned, showing each fixture where its defect actually manifests (root page, /recursive
+failure tinting) and reporting "nothing visible, pinned numerically" where that is the honest
+answer (15838's residuals and both translation-only fixtures).
+
 ## Findings
+
+**F35 — The visual defect tour reproduced every pinned census count through the UI, and
+concentrated the live class: every failure in the whole census grid sits at depth 1.0.** Depths
+0.25 and 0.6 are entirely clean corpus-wide — the recursion residuals are a full-depth
+phenomenon. Per fixture: 55433 shows the clearest visible defect (one large unsolved patch in
+the upper-right arm, diagnostics verbatim: 4 interior edges without targets); k4 shows one large
+patch plus sub-pixel labelled ones (8 regions at merge 1 of its pinned 11); the plus's 13-of-15
+are ALL sub-pixel slivers, visible only as unsolved labels at the centre and arm junctions;
+15838's recursion is fully clean ("Every region subdivided") — its residuals are numerical only,
+and its legible enrolment reason is the Debug panel's 3-invisible-vertices note (the 5.17e-7
+area drift, decision 79). Circles/rosette: no translation control exists anywhere in the UI and
+zoom clamps at 0.1, so their 1e10+ defect is structurally unreachable by eye — the numeric pins
+are the record, as ruled. Operational discoveries for the manual: (1) the /recursive page's
+level-1 Segments control defaults to Leaf, silently starving level 2 — "Every region subdivided"
+can be vacuous unless levels 0/1 are set to Recurse; (2) on the skeleton canvas, a left-drag
+starting on a vertex is captured by the vertex's drag handler before Alt-pan sees it — scripts
+must pan with middle-drag; (3) /recursive is reachable only by direct URL, absent from the nav;
+(4) depth sliders need focus()+End, not click, to reach 100%. Ten captures delivered to the
+user, 2026-08-28.
 
 **F34 — Backlog item 7 is CLOSED: the collinear dumbbell is fixed, promoted to the clean roster,
 and the fix was a 29-line DELETION.** The user's mechanism (decision 90) verified with one
