@@ -426,7 +426,103 @@ pass that builds its own nodes (`algorithm-complex-cases.ts:169-173`). Unifying 
 splits participate in clustering is the same event-layer ground the plus's root failure lives
 on — one package, dispatched after decision 84's iteration reports.
 
+**86 — The root's render floor is threaded into the coincidence rule: a sub-region inherits the
+ROOT's sense of "invisible", via `SolveSkeletonOptions`, completing decision 84's package.** The
+gated window's residual cost is entirely recursive (F30): sub-regions carry near-coincidences
+inherited at the parent's scale while the coincidence floor is evaluated in each region's own
+unit space. The driver already passes a root floor down for canonicalisation — this is plumbing
+with precedent, not a new tolerance. **F4's measured surprise is quoted as the standing caution:
+when the canonicalisation root floor was threaded down, the band NARROWED against prediction,
+because a sub-region's own floor is smaller in world terms than the root's.** The delegate must
+state the world-to-region-unit transform explicitly, measure its effect per currently-failing
+region before asserting the cure, and hold the same falsification set (clean bit-identical at
+root native; zero causality; tiling exact/pinned; census 26 with attribution). The gate stays in
+the tree for this iteration; if the threading fails the set, both revert together. Three threads
+now converge on root-floor reconciliation (76's drift, 79's promotion gate, this) — the full
+reconciliation package (drift-bound ruling, near-flat enrolment, 15838 promotion) follows this
+iteration with whatever mechanism it proves.
+
+**87 — Decision 86 is STRUCK: root-floor inheritance for the coincidence rule is falsified by
+measurement, before implementation.** The delegate worked the direction first (inherited floor =
+`1e-6 × E_root / E_child` — always coarser, F4's asymmetry checked rather than assumed), then
+measured every failing region's extent ratio: the one blocking clean region (Crazy Polygon d1/m4)
+has ratio **1.000** — inheritance moves its floor by nothing — and k4's failing set includes five
+slivers at ratios up to **496,939**, where the inherited floor is half the region and only a cap
+(a forbidden new threshold) could contain it. Either alone is fatal. The ratio table carries
+forward as evidence for the root-floor reconciliation package: the sliver pathology is what any
+future pass-down design must survive, and canonicalisation only survives it via
+`MINIMUM_RING_SIZE`.
+
+**88 — The next package is the targeted trace of the duplicate-bisector birth, with the gate's
+five-cell cure gated on it; a new sweepable invariant is named.** The Crazy Polygon residual is a
+wavefront-consistency defect upstream of every tolerance: two interior edges with the same parent
+pair (`[3,2]`/`[2,3]`), bit-identical basis vectors, on parallel lines 1.944e-5 apart laterally
+(19.4× the floor) — a valid wavefront admits one bisector per parent pair, or two meeting
+head-on, never two parallel displaced lines. `solveDegenerateClosure` declines it CORRECTLY
+(anchor direction differs from the basis by 3.9e-4 — parallel rays displaced sideways never
+meet). The trace hunts where the second bisector is born, on the single reproducible 13-vertex
+boundary. Implied invariant **I3 — at most one interior bisector per unordered parent pair,
+head-on meets excepted**: measure corpus-wide, land if clean, and it becomes the conviction for
+whatever fix emerges. If the fix yields, the decision-84 gate lands with it and the five
+accept-by-construction cells (66/81 tables) retire at once. The plus-root package (decisions
+80/85 — split-path clustering now binding on three pairs) follows it.
+
+**89 — The "placed, not chosen" merged node is recorded as the sole viable route to the
+large-coordinate cure — and PARKED.** F32's terminal diagnosis: any coincidence rule that merges
+spatially-separated events displaces the merged node by up to the floor, and a displaced node
+emits bisectors that are not bisectors (I3 catches this at machine precision). The only
+mechanism that keeps I3 true by construction is solving the merged node as the point equidistant
+from the arrival set's parents instead of taking the medoid member — new event semantics, with
+the three-edge closed-form solve (decision 22) as precedent and real overdetermination questions
+beyond it. Parked on cost-benefit: every cell the cure retires is sub-visible geometry at
+translations ≥1e10 — four-plus orders past the operating envelope — already honestly pinned
+under decisions 66/81, while the arc's live user-facing defects (the plus root, the split-path
+pairs, the dumbbell) are unserved. The user can override; the design is recorded here so no
+future session re-derives it.
+
 ## Findings
+
+**F32 — I3 reformulated to the definition and landed at machine precision; the duplicate
+bisector traced to its true cause; the gate's cost has one mechanism.** As first specified
+("one bisector per parent pair, head-on excepted") I3 is false on the corpus — thirteen
+fixtures, six clean, legitimately carry same-direction parallel-parent bisector pairs (one
+mid-line, two disjoint segments; the Cross does it four times and is exact). Reformulated:
+**every interior bisector's source is equidistant from the supporting lines of the two parents
+it names** — worst corpus discrepancy 6.1e-16, landed at a 1e-9 bar with a no-leaning guard.
+Correction to F30/F31's record: the 13-vertex boundary is CLEAN at baseline (the "fails on its
+own" measurement was gate-contaminated); under the gate, `bisectionsForMerge` computes correct
+parents for a corrupted input — a merged node 1.03e-6 off the `{2,3}` locus — and I3 flags that
+edge as the solve's only violator. The single mechanism behind every gate cost reported
+piecemeal (tiling, causality, the pinned 7.36e-13 on 15838 under landed decision 78, the
+duplicate bisector): merge displacement. Mutation: with the gate reintroduced, I3 fires on a
+corpus fixture (k4, edge 50, 9.4e-7 off-locus) — the instrument catches the class, not just the
+specimen. Delegate figures: core 4768/4768 (78 suites), dashboard 268/268, census 26.
+
+**F31 — The gated-window arc closed with a measurement-first falsification and a bounded third
+mechanism.** Full record: the gate cures all five large-coordinate cells with the clean roster
+bit-identical at native placement; its recursion cost (census 26 → 52, k4 causality, tiling
+regressions) traces to regions the gate cuts whose defects predate it; the threading that was to
+absorb that cost died on the ratio table (decision 87); and the residual is the named
+duplicate-bisector defect (decision 88). Of the four surviving sub-floor pairs, the gate merges
+two; the other two are split-path (decision 85 binds on three pairs). Tree verified clean at
+`825ad19` post-revert — every gate/threading artifact removed, 4710/4710 restored and
+delegate-verified, lead-confirmed via git status against the already-verified commit.
+
+**F30 — The gated time-window wins the entire large-coordinate prize at the root and costs only
+the recursion.** All five cells cure (Circle 32 @1e10/1e11, Circle 48 @1e10/1e11, Rosette5
+@1e11); Circle 48 resolves its native single 48-way hub at 1e10; both the decision-81 exception
+rows and the decision-66 accept-by-construction pair would dissolve; no clean fixture moves at
+root native placement across 57 × 6 placements. The gate is structurally chain-proof (snapshot
+gating, reach measured from `bestOffset`) and introduces no new threshold. Costs, all recursive:
+Crazy Polygon (clean) 0 → 1 failed region — measured to be the parallel-parent degenerate-closure
+class reached through a region the gate cut, whose bisector pair sits 7.8e-7 apart in time but
+0.05 apart in space (correctly refused); census 26 → 52 across the jitter fixtures; k4 gains
+causality violations; tiling k4 1e-16 → 1.67e-7. Root-cause of the cost: the coincidence floor
+lacks the root-floor pass-down that canonicalisation already has (ruled in 86). Also mapped: the
+gate merges two of the four surviving pairs; cluster A and 55433 [24,26] are SPLIT-path events
+admitted to the layer but routed past clustering — decision 85's boundary now binds on three
+pairs, not one. Convictions: gate removed → 32 tests/9 suites die and clean casualties double;
+window reverted → 4710/4710 exactly.
 
 **F29 — The event-floor package closed green with the space half landed and four of six
 sub-floor pairs surviving as pinned measurements.** Final: cluster B is one terminal four-arrival

@@ -10,7 +10,7 @@ import {
 
 /*
  * ============================================================================
- *  TWO INVARIANTS ON THE GRAPH'S OWN INDICES.
+ *  THREE INVARIANTS ON THE GRAPH'S OWN INDICES AND PARENTAGE.
  * ============================================================================
  *
  * WHY THEY EXIST. On 2026-08-28 a dashboard inspection reported a run of primary bisectors each
@@ -164,5 +164,119 @@ describe('I2: no two graph nodes lie inside the coincidence floor of each other'
         expect(pinned.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
         expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(5);
         expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(54);
+    });
+});
+
+/*
+ * ----------------------------------------------------------------------------
+ * I3 — A BISECTOR'S SOURCE IS EQUIDISTANT FROM ITS TWO PARENTS
+ * ----------------------------------------------------------------------------
+ *
+ * This is what a bisector IS. An interior edge names two exterior edges as its parents and claims to
+ * trace the wavefront vertex between them, so every point of it — its source first of all — is the
+ * same distance from both. Nothing else in the suite says so: parentage was audited for INDEX
+ * correctness by I1 and for nothing else, and a bisector born at a point off its own parents' locus
+ * satisfies containment, causality, clearance and the rate rule while being no bisector at all.
+ *
+ * THE COUNTING FORM THIS REPLACES IS FALSE ON THE CORPUS, and the measurement is worth keeping.
+ * Journal decision 88 proposed "at most one bisector per unordered parent pair, head-on excepted".
+ * Thirteen fixtures carry a pair with two bisectors, and SIX of them are clean: `Rectangle` and
+ * `Pentagon House` carry a head-on pair, which the exception covers, but `Cross` carries FOUR pairs
+ * whose two bisectors travel in the SAME direction, and `Golf Cart`, `T-Shape` and
+ * `Slightly Deformed Peanut 1` carry more. They are legitimate: where the two parents are parallel
+ * the equidistant locus is a single mid-line, and one arm of a plus-shaped polygon can put two
+ * disjoint segments of that one line into the same solve. Counting cannot tell those from a defect;
+ * equidistance can, because two bisectors of parallel parents that do NOT share the mid-line are
+ * exactly what a wrong one looks like.
+ *
+ * MEASURED OVER ALL 57 FIXTURES: the worst discrepancy anywhere is 6.1e-16 in unit space, which is
+ * machine precision on a quantity of order one. The bar below is 1e-9 — six orders of headroom
+ * against arithmetic, and still three orders tighter than the render floor, so it cannot be
+ * satisfied by a bisector that is merely close to belonging to its parents.
+ *
+ * WHAT IT CAUGHT. Journal decision 84's gated layer window, on the one clean fixture it regressed:
+ * a merged node emitted a bisector labelled `[2,3]` whose source was **1.03e-6** from being
+ * equidistant from edges 2 and 3 — the only violating edge in that solve, and the reason its
+ * two-edge base case could not close. See F31.
+ */
+
+/** Perpendicular distance from `point` to the supporting LINE of exterior edge `edgeId`. */
+function distanceToParentLine(graph: StraightSkeletonGraph, edgeId: number, point: Vector2): number {
+    const edge = graph.edges[edgeId];
+    if (edge?.target === undefined) {
+        return Number.NaN;
+    }
+    const from = graph.nodes[edge.source].position;
+    const to = graph.nodes[edge.target].position;
+    const along = {x: to.x - from.x, y: to.y - from.y};
+    const length = Math.hypot(along.x, along.y);
+    if (length === 0) {
+        return Number.NaN;
+    }
+    return Math.abs((point.x - from.x) * along.y - (point.y - from.y) * along.x) / length;
+}
+
+/**
+ * How far each interior edge's source is from being equidistant from its two parents, in unit space.
+ *
+ * Measured against the parents' supporting LINES rather than their segments: a bisector runs between
+ * two lines and is equidistant from them however far past a segment's end it travels. Unit space
+ * because that is where the solver's tolerances live, and a caller-space figure would say different
+ * things about the same skeleton at two placements.
+ */
+function equidistanceProblems(
+    graph: StraightSkeletonGraph,
+    normalisation: SkeletonNormalisation,
+    bar: number,
+): string[] {
+    const problems: string[] = [];
+
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (edge === undefined) {
+            continue;
+        }
+        const source = graph.nodes[edge.source].position;
+        const toClockwise = distanceToParentLine(graph, interiorEdge.clockwiseExteriorEdgeIndex, source);
+        const toWiddershins = distanceToParentLine(graph, interiorEdge.widdershinsExteriorEdgeIndex, source);
+        if (Number.isNaN(toClockwise) || Number.isNaN(toWiddershins)) {
+            continue;
+        }
+
+        const discrepancy = Math.abs(toClockwise - toWiddershins) * normalisation.toUnitScale;
+        if (discrepancy > bar) {
+            problems.push(`edge ${interiorEdge.id} claims parents `
+                + `[${interiorEdge.clockwiseExteriorEdgeIndex},${interiorEdge.widdershinsExteriorEdgeIndex}] `
+                + `but its source is ${discrepancy.toExponential(3)} from equidistant between them`);
+        }
+    }
+
+    return problems;
+}
+
+/** Six orders above the corpus's measured worst, three below the render floor. See above. */
+const EQUIDISTANCE_BAR = 1e-9;
+
+describe('I3: every bisector is equidistant from the two parents it names', () => {
+    it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
+        '%s',
+        (_name, vertices) => {
+            const {graph, normalisation} = solveSkeleton(vertices);
+            expect(equidistanceProblems(graph, normalisation, EQUIDISTANCE_BAR)).toEqual([]);
+        },
+    );
+
+    it('holds to machine precision, not merely to the bar', () => {
+        // The bar is headroom, and this is the statement that nothing is leaning on it. A fixture
+        // drifting into the six orders between the two is a change worth seeing before it becomes a
+        // failure.
+        let worst = 0;
+        for (const {vertices} of FULL_CORPUS) {
+            const {graph, normalisation} = solveSkeleton(vertices);
+            for (const problem of equidistanceProblems(graph, normalisation, 0)) {
+                worst = Math.max(worst, Number(/([\d.e-]+) from equidistant/.exec(problem)?.[1] ?? 0));
+            }
+        }
+        expect(worst).toBeLessThan(1e-15);
     });
 });
