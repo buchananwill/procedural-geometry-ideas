@@ -61,12 +61,21 @@ export {
 } from './straight-skeleton/region';
 
 // ── Constants ────────────────────────────────────────────────────────────────
-export { DEGENERATE_AREA_EPSILON, FLOATING_POINT_EPSILON, NO_COLLISION_RESULTS, TRIANGLE_INTERSECT_PAIRINGS } from './straight-skeleton/constants';
+export {
+  DEGENERATE_AREA_EPSILON,
+  DIRECTION_SINE_BAR,
+  FLOATING_POINT_EPSILON,
+  NO_COLLISION_RESULTS,
+  PARALLEL_GATE_SINE_BAR,
+  TRIANGLE_INTERSECT_PAIRINGS,
+} from './straight-skeleton/constants';
 
 // ── Core math ────────────────────────────────────────────────────────────────
 export {
   areEqual,
   vectorsAreEqual,
+  sineIsBelow,
+  directionsAreSame,
   assertIsNumber,
   fp_compare,
   addVectors,

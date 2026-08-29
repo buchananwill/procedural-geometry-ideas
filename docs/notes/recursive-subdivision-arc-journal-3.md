@@ -678,7 +678,72 @@ either side. The convergence is now total: the pairwise fallback for render-floo
 arrival sets, the placed-node scope, and the five OPEN audit items are ONE ruling session —
 decision 101's spec, with the user.
 
+**104 — (user, 2026-08-29, on reading the audit) Magic numbers: every inline arbitrary tolerance
+is parameterized and unified.** The audit's inventory is the worklist — the nine uncommented
+`parcel-slicing.ts` literals, the strip `EPSILON` used in three spaces, the scale-relative
+strays, the absolute caller-space area floor. Each either derives from one of the two ruled
+constants (epsilon, floor) with its derivation stated, or is promoted to a named, commented
+constant whose signal-vs-noise claim is written where it lives.
+
+**105 — (user, 2026-08-29) One predicate basis: a single value must never receive different
+verdicts depending on which code path reached the predicate.** The user's words, near-verbatim:
+"Regardless of what threshold is chosen, the solver needs a unified and consistent predicate
+basis that does not allow a single value to return true and false arbitrarily, from historical
+fact of when code was added and what reference was chosen." Mechanism, ruled from the corollary
+analysis: every tolerance comparison is restated in **division-free relative form** — polynomial
+sign tests scaled by operand magnitudes (`|cross(a,b)| < ε·|a|·|b|`, never normalized-then-
+compared) — which makes one ε mean one thing at every site and dissolves the six-space problem
+without choosing a new number. The user's grounding insight, recorded: vector equality is
+subtraction (benign), while normalized-orthogonality requires division that explodes
+zero-tending inputs — the language's precision is uniform, the OPERATIONS are not. Exact sign
+predicates (Shewchuk expansions, `robust-predicates`) held in reserve for any site the refactor
+proves genuinely sign-critical; exact construction rejected (sqrt → algebraic numbers, and the
+inputs are already float-quantized — constructed-point identity belongs to the floor).
+
+**106 — (user, 2026-08-29) The unified threshold becomes client-configurable, analytically
+derived from the client's rendering limits; the solver must not create geometry the client will
+throw away.** The current floor is excessively precise for the demo explorer at its zoom cap —
+wasteful at minimum. The floor's default is DERIVED, not chosen: measure the UI's maximum zoom
+and reference viewport, compute the smallest world-space separation a viewer could ever resolve,
+and that is the demo's floor, passed through `SolveSkeletonOptions`; the library default stays
+conservative for headless consumers, with the derivation documented so any client can compute
+its own. Sequenced after 104/105 (the parameter must exist and mean one thing before it is
+exposed).
+
+**107 — Rulings on the predicate-basis package's two reported unconvicted choices.** (a)
+`solveParallelClosure`'s two parallelism bars (parent gate 1e-8, bisector same-direction
+1.4142e-4, four orders apart in one function): the delegate measured convergence onto the tight
+bar as FREE — digest bit-identical across all 59, suite green — so decision 105's one-question-
+one-bar principle applies at zero measured cost. Ruled: converge it, in the decision-106 package,
+under the same digest guard. (b) The D14 tolerance hole (`ensureBisectionIsInterior` vs the rate
+branch disagreeing on crosses in [ε, 2ε)): measured EMPTY on this corpus — no bisector carries a
+rate between 1e-8 and 1e-2, so no conviction is constructible from existing fixtures. Ruled: the
+disagreement stays documented at the site as a non-property of the corpus; constructing the
+discriminating fixture (near-anti-parallel walls turning by a few epsilons) is recorded as a
+low-priority hardening item, not blocking. Also ratified: the delegate's conditioning-guard
+reading of the parallel gate (two bars surviving because they answer different questions — one
+identity, one division-safety), and `sourceLiesAhead`'s `max(1,d)` hybrid as a measured
+counter-case to the pure relative form, both argued at their sites.
+
 ## Findings
+
+**F41 — Decisions 104/105 landed bit-identical: every inline tolerance named or derived, the
+angular predicates unified on a division-free basis, and the D9 problem was FOUR bars, not
+three.** No value changed anywhere; full-graph digest identical on all 59 fixtures; determinism
+sweeps explicitly green (1335/1335); census 22 bit-unmoved. New primitives `sineIsBelow` /
+`directionsAreSame` take raw vectors (no normalisation anywhere in a predicate);
+`PARALLEL_GATE_SINE_BAR = sqrt(ε(2−ε))` is the EXACT sine-space restatement of the old
+`areEqual(|dot|,1)` — a derivation, not a new number. The flagship find: `intersectRays`' two
+collinearity exits were mirror images of one question asked at 1e-4 and 1e-8 — a separation
+could be collinear from one end and not the other, decided by argument order — now one bar.
+Full convergence onto a single number was attempted BOTH directions and refused by measurement
+(gate→1e-8 breaks the pinned large-coordinate signatures; identity→1.41e-4 stops k4 solving):
+the two bars survive as different QUESTIONS (identity vs division-conditioning), each derived
+from epsilon, each stated. Twelve parcel/strip literals named with signal-vs-noise claims;
+`findOrAddNode` frozen per C1 with F27's evidence at the site; the caller-space positional
+epsilon in `graph-merge.ts:110` classified and flagged. New `angular-predicate-basis.test.ts`
+(32 tests) pins the derivation, scale-freedom, isotropy, and mirror symmetry, with six mutation
+convictions. Delegate figures: core 5123/5123 (82 suites), dashboard 283/283.
 
 **F40 — Decision 102 landed: strict linear causality restored, a real upstream offset asymmetry
 found and fixed, and BOTH of the user's predictions confirmed to the letter.** Implementation:

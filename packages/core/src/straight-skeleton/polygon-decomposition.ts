@@ -2,7 +2,23 @@ import {Vector2} from "./types";
 import {segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
 import {DEGENERATE_AREA_EPSILON} from "./constants";
 
-const ENDPOINT_EPSILON = 1e-8;
+/**
+ * How close to a segment's end a crossing must be before it counts as an endpoint touch instead.
+ *
+ * A DIMENSIONLESS PARAMETRIC BAR on `t ∈ [0, 1]`, and its space is the point: it carries the same
+ * value as {@link FLOATING_POINT_EPSILON} but is NOT that constant and must not be re-pointed at it,
+ * because `t` has already been divided by the segment's own length. A `t` of 1e-8 is 1e-8 of a
+ * length on every segment — so this bar is relative by construction where the solver's epsilon is
+ * absolute, and the two agreeing on a number is a coincidence of history rather than a shared
+ * meaning. Claim: two edges meeting within a hundred-millionth of a segment's length of a shared
+ * vertex are meeting AT that vertex, and a polygon is not self-intersecting for touching itself
+ * where it is already joined.
+ *
+ * NAMED AND CLASSIFIED, NOT RE-VALUED, under journal decision 104. The audit's own proposal — to
+ * restate it as an absolute length against the segment's length — is a value change on every
+ * segment whose length is not one, and nothing has measured what it would move.
+ */
+const ENDPOINT_PARAMETER_EPSILON = 1e-8;
 
 export interface CrossingPoint {
     point: Vector2;
@@ -47,8 +63,10 @@ export function findFirstCrossing(vertices: Vector2[]): CrossingPoint | null {
             if (result === null) continue;
 
             // Skip endpoint-only touches (shared vertices, not true crossings)
-            if (result.tA < ENDPOINT_EPSILON || result.tA > 1 - ENDPOINT_EPSILON) continue;
-            if (result.tB < ENDPOINT_EPSILON || result.tB > 1 - ENDPOINT_EPSILON) continue;
+            if (result.tA < ENDPOINT_PARAMETER_EPSILON
+                || result.tA > 1 - ENDPOINT_PARAMETER_EPSILON) continue;
+            if (result.tB < ENDPOINT_PARAMETER_EPSILON
+                || result.tB > 1 - ENDPOINT_PARAMETER_EPSILON) continue;
 
             return {
                 point: result.point,

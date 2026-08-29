@@ -59,11 +59,125 @@ import type {Strip} from './strip-decomposition';
  * construction and cannot drift as post-processing rearranges things.
  */
 
-/** Relative slack for "these two points are the same" and "this root is positive". */
+/*
+ * ----------------------------------------------------------------------------
+ * THE PARCEL LAYER'S TOLERANCES — EVERY ONE NAMED, WITH ITS SPACE AND ITS CLAIM
+ * ----------------------------------------------------------------------------
+ *
+ * NONE OF THESE IS THE SOLVER'S EPSILON OR THE RENDER FLOOR, and that is deliberate rather than
+ * accidental. This file runs on the CALLER's coordinates, after the solve, on a strip whose scale
+ * the caller chose; the solver's two constants live in root unit space and mean nothing here. Every
+ * bar below is therefore either a FRACTION of a scale the strip itself produced (`arena.scale`, the
+ * strip's bounding diagonal) or a bar on a genuinely dimensionless quantity — a ring parameter, a
+ * unit-normal determinant, a dot product. That is the construction journal decision 105 asks for:
+ * one number means one thing because the quantity it judges has been divided by its own scale
+ * first, at the site, in the open.
+ *
+ * They were nine anonymous inline literals until journal decision 104. The values are UNCHANGED —
+ * naming them is not re-ruling them — and the two that carry no measurement are flagged as such
+ * where they live rather than left to look considered.
+ */
+
+/**
+ * Relative slack for "these two points are the same" and "this root is positive".
+ *
+ * A dimensionless fraction of `arena.scale`, materialised once in {@link castRay} and threaded down.
+ * Claim: a separation under a billionth of the strip's own diagonal is residue from the ray march's
+ * arithmetic, not two places a parcel boundary could distinguish.
+ */
 const RELATIVE_EPSILON = 1e-9;
 
-/** Relative slack for collinearity when deciding whether a parcel is a triangle. */
+/**
+ * Relative slack for collinearity when deciding whether a parcel is a triangle.
+ *
+ * Applied as `scale² × ε` because the quantity is a CROSS PRODUCT of two boundary runs — an area,
+ * so it scales as the square of a length, and dividing it by `scale²` is what makes the one number
+ * mean one thing at every strip size. Claim: a corner turning by less than this is a vertex the
+ * ring walk manufactured, not a corner a parcel has.
+ */
 const COLLINEAR_EPSILON = 1e-9;
+
+/**
+ * How close a boundary vertex must be to the frontage's first point to BE it, as a fraction of the
+ * strip's bounding scale.
+ *
+ * UNEXPLAINED AND UNMEASURED, flagged rather than fixed under journal decision 104: at 1e-7 it is
+ * two orders looser than every other bar in this file, and nothing in the record says why. It is a
+ * lookup — "which index of the boundary is this frontage point?" — so its failure mode is a `null`
+ * arena and a one-parcel strip rather than a wrong parcel, which is presumably how it survived
+ * unexamined. TODO: measure the distribution of `distance(boundary[i], frontage[0])` over the
+ * corpus and either tighten it onto {@link RELATIVE_EPSILON} or write down what needs the slack.
+ */
+const FRONTAGE_VERTEX_FRACTION = 1e-7;
+
+/**
+ * Slack on a RING SCALAR — `index + t`, the position of a point around the arena ring.
+ *
+ * Dimensionless by construction: it is an array index plus a parametric fraction, so it does not
+ * transform with the strip's size and no scaling belongs on it. Claim: two ring positions closer
+ * than this in parameter are the same position, and the strict orderings this file enforces
+ * (a cut ends behind the frontage, and before the cut to its left) are not decided by residue in
+ * the last bits of a `t`.
+ */
+const RING_SCALAR_EPSILON = 1e-12;
+
+/**
+ * Slack on the determinant of two INWARD UNIT NORMALS — the sine of the angle between two faces.
+ *
+ * Already the division-free relative form: both operands are unit vectors, so `|det| ≤ ε` IS
+ * `|cross(a,b)| ≤ ε·|a|·|b|`. Claim: two faces whose normals differ by less than this sine have no
+ * bisector to march along, and the walk must follow one of them instead of a direction that would
+ * be `1/sin` long.
+ */
+const NORMAL_DETERMINANT_EPSILON = 1e-12;
+
+/**
+ * Slack on `dot(direction, normal) ≤ 1` — whether a face left behind overtakes the marching ray.
+ *
+ * Dimensionless: `direction` is a bisector of unit normals and `normal` is unit, so the dot is a
+ * cosine-like quantity of order one and an absolute bar on it is already relative. Claim: a face
+ * gaining on the wavefront by less than this is not gaining.
+ */
+const OVERTAKE_DOT_EPSILON = 1e-9;
+
+/**
+ * Slack on the determinant of a march direction against a ring EDGE VECTOR.
+ *
+ * THE ONE BAR IN THIS FILE THAT IS NOT SCALE-FREE, flagged under journal decision 104: the edge
+ * vector carries the strip's units, so this determinant is a length and 1e-15 means different
+ * things on a strip of 1 and a strip of 1e6. It survives because it is a DEGENERACY guard — it only
+ * decides whether to attempt the division below it — and the ray/segment pairs it rejects are the
+ * exactly-parallel ones. TODO: restate as `ε × |direction| × |edge|`, the same division-free
+ * relative form {@link NORMAL_DETERMINANT_EPSILON} already has, and measure.
+ */
+const RAY_SEGMENT_DETERMINANT_EPSILON = 1e-15;
+
+/**
+ * Slack on a PARAMETRIC fraction along one segment, `t ∈ [0, 1]`.
+ *
+ * Dimensionless and therefore already relative — `t` has been divided by the segment's own length
+ * at the site that produced it. Claim, in both its uses: a crossing this close to a segment's end
+ * is at that end, and a ray origin is kept this far off a ring vertex so the face it starts in is
+ * unambiguous.
+ */
+const SEGMENT_PARAMETER_EPSILON = 1e-9;
+
+/**
+ * Slack on the closing rate `1 − dot(direction, normal)` between the marching ray and a face.
+ *
+ * Dimensionless, and a DIVISOR: the meeting distance is `(competitor − wavefront) / closingRate`,
+ * so this bar is what stops a face that never closes from pricing a meeting at infinity. Claim: a
+ * face closing slower than this does not close.
+ */
+const CLOSING_RATE_EPSILON = 1e-9;
+
+/**
+ * How close two consecutive points must be to be one point, as a fraction of the strip's scale.
+ *
+ * Claim: the ray march and the ring walk both land repeatedly on the same corner by construction,
+ * and a step shorter than a trillionth of the strip is that, not a parcel boundary segment.
+ */
+const DUPLICATE_POINT_FRACTION = 1e-12;
 
 /** Iteration caps. Every loop below terminates on its own; these only bound pathological input. */
 const MAX_RAY_STEPS = 32;
@@ -273,7 +387,7 @@ function makeArena(strip: Strip): Arena | null {
     }
 
     const scale = boundingScale(boundary);
-    const tolerance = scale * 1e-7;
+    const tolerance = scale * FRONTAGE_VERTEX_FRACTION;
 
     const start = boundary.findIndex(point => distance(point, strip.frontage[0]) <= tolerance);
     if (start < 0) {
@@ -343,12 +457,12 @@ function ringWalk(arena: Arena, from: RingPosition, to: RingPosition): Vector2[]
     const {ring} = arena;
     const startScalar = ringScalar(from);
     let endScalar = ringScalar(to);
-    if (endScalar < startScalar - 1e-12) {
+    if (endScalar < startScalar - RING_SCALAR_EPSILON) {
         endScalar += ring.length;
     }
 
     const walked = [ringPoint(arena, from)];
-    for (let vertex = Math.floor(startScalar) + 1; vertex < endScalar - 1e-12; vertex++) {
+    for (let vertex = Math.floor(startScalar) + 1; vertex < endScalar - RING_SCALAR_EPSILON; vertex++) {
         walked.push(ring[vertex % ring.length]);
     }
     walked.push(ringPoint(arena, to));
@@ -374,7 +488,7 @@ function marchDirection(edges: FaceEdge[], active: number[]): Vector2 | null {
     const a = edges[active[0]].normal;
     const b = edges[active[1]].normal;
     const determinant = a.x * b.y - a.y * b.x;
-    if (Math.abs(determinant) < 1e-12) {
+    if (Math.abs(determinant) < NORMAL_DETERMINANT_EPSILON) {
         return dot(a, b) > 0 ? a : null;
     }
     return {x: (b.y - a.y) / determinant, y: (a.x - b.x) / determinant};
@@ -397,7 +511,7 @@ function nextActive(edges: FaceEdge[], active: number[], entrant: number): numbe
             continue;
         }
         const others = active.filter(index => !pair.includes(index));
-        if (others.every(index => dot(direction, edges[index].normal) <= 1 + 1e-9)) {
+        if (others.every(index => dot(direction, edges[index].normal) <= 1 + OVERTAKE_DOT_EPSILON)) {
             return pair;
         }
     }
@@ -420,14 +534,16 @@ function firstRingExit(
         const edgeX = to.x - from.x;
         const edgeY = to.y - from.y;
         const determinant = direction.x * -edgeY - direction.y * -edgeX;
-        if (Math.abs(determinant) < 1e-15) {
+        if (Math.abs(determinant) < RAY_SEGMENT_DETERMINANT_EPSILON) {
             continue;
         }
         const offsetX = from.x - point.x;
         const offsetY = from.y - point.y;
         const along = (offsetX * -edgeY - offsetY * -edgeX) / determinant;
         const across = (direction.x * offsetY - direction.y * offsetX) / determinant;
-        if (along <= epsilon || across < -1e-9 || across > 1 + 1e-9) {
+        if (along <= epsilon
+            || across < -SEGMENT_PARAMETER_EPSILON
+            || across > 1 + SEGMENT_PARAMETER_EPSILON) {
             continue;
         }
         if (best === null || along < best.distance) {
@@ -476,7 +592,7 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
                 continue;
             }
             const closingRate = 1 - dot(direction, arena.edges[index].normal);
-            if (closingRate <= 1e-9) {
+            if (closingRate <= CLOSING_RATE_EPSILON) {
                 continue;
             }
             const meeting = (competitor - wavefront) / closingRate;
@@ -503,7 +619,7 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
 function finishCut(origin: RingPosition, points: Vector2[], end: RingPosition, arena: Arena): Cut {
     const cleaned = [points[0]];
     for (let i = 1; i < points.length; i++) {
-        if (distance(cleaned[cleaned.length - 1], points[i]) > arena.scale * 1e-12) {
+        if (distance(cleaned[cleaned.length - 1], points[i]) > arena.scale * DUPLICATE_POINT_FRACTION) {
             cleaned.push(points[i]);
         }
     }
@@ -526,7 +642,13 @@ function frontagePosition(arena: Arena, alongFrontage: number): RingPosition {
         const edge = arena.edges[index];
         if (alongFrontage >= edge.startDistance || index === 0) {
             const raw = (alongFrontage - edge.startDistance) / edge.length;
-            return {index, t: Math.min(Math.max(raw, 1e-9), 1 - 1e-9)};
+            return {
+                index,
+                t: Math.min(
+                    Math.max(raw, SEGMENT_PARAMETER_EPSILON),
+                    1 - SEGMENT_PARAMETER_EPSILON,
+                ),
+            };
         }
     }
     return {index: 0, t: 0.5};
@@ -599,7 +721,8 @@ function orderedCuts(arena: Arena, candidates: Cut[]): Cut[] {
 
     for (const cut of candidates) {
         const exit = ringScalar(cut.end);
-        if (!(exit > arena.frontageEnd + 1e-12) || !(exit < previousExit - 1e-12)) {
+        if (!(exit > arena.frontageEnd + RING_SCALAR_EPSILON)
+            || !(exit < previousExit - RING_SCALAR_EPSILON)) {
             continue;
         }
         kept.push(cut);
@@ -609,7 +732,7 @@ function orderedCuts(arena: Arena, candidates: Cut[]): Cut[] {
 }
 
 function buildParcel(arena: Arena, left: Cut, right: Cut): Parcel {
-    const tolerance = arena.scale * 1e-12;
+    const tolerance = arena.scale * DUPLICATE_POINT_FRACTION;
     const frontage = dropOpenRepeats(ringWalk(arena, left.origin, right.origin), tolerance);
 
     const boundary = [...frontage];

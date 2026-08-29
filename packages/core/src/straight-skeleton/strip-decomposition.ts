@@ -29,8 +29,65 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * α-strip decomposition and the β-strips equal the α-strips.
  */
 
-/** Slack for comparing an offset against the clip depth. */
-const EPSILON = 1e-9;
+/*
+ * ----------------------------------------------------------------------------
+ * THE STRIP LAYER'S TOLERANCES — ONE PER ROLE, NOT ONE NUMBER FOR FOUR SPACES
+ * ----------------------------------------------------------------------------
+ *
+ * These were a single `EPSILON = 1e-9` documented as "slack for comparing an offset against the
+ * clip depth" and applied, additionally, to a scale-relative length, to a parametric fraction and
+ * to a cross product. Four quantities in four spaces sharing one name is exactly the confusion
+ * journal decision 105 rules out: the number could not be moved for one role without silently
+ * moving three others, and the comment described only the first. Split under decision 104, VALUES
+ * UNCHANGED — the split is of the name, not of the bar.
+ *
+ * {@link SEGMENT_CROSS_SINE_EPSILON} is the form the ruling asks the rest of the solver to reach:
+ * a polynomial sign test scaled by its operands' magnitudes, so no normalisation and no division
+ * stands between the geometry and the verdict.
+ */
+
+/**
+ * Slack for comparing a face point's OFFSET against the clip depth.
+ *
+ * ABSOLUTE, IN THE CALLER'S UNITS, and therefore the one bar in this file that is not scale-free:
+ * `clipFaceToDepth` runs on the solved graph's own coordinates. It survives because it is applied
+ * to a comparison whose two sides are both offsets of the same solve, on a corpus normalised to
+ * order one; on a block spanning 1e6 it is 1e-15 relative and on a block spanning 1e-3 it is 1e-6
+ * relative. Claim: a face point within this of the clip depth is ON the clip contour, and admitting
+ * it is what stops the clip manufacturing a zero-length edge out of rounding residue.
+ */
+const CLIP_DEPTH_EPSILON = 1e-9;
+
+/**
+ * The frontage length, as a fraction of the exterior boundary's own diagonal, below which a
+ * frontage is numerically nothing and may not be transferred away.
+ *
+ * Relative by construction — it is materialised as `exteriorScale(graph) × ε` at its one site — and
+ * it is only the fallback for a caller who configured no `minEdgeLength`. Claim: a corner transfer
+ * that would leave a donor with less than a billionth of the block's diagonal has taken all of it.
+ */
+const FRONTAGE_SCALE_FRACTION = 1e-9;
+
+/**
+ * Slack on a PARAMETRIC fraction along the corner-cut chord, `t ∈ [0, 1]`.
+ *
+ * Dimensionless: the fraction has already been divided by the run's own squared length at the site
+ * that produced it, so this is a relative bar written in its natural space. Claim: a cut point this
+ * close to either end of the run is at that end, and a mitre chord of zero length is not a cut.
+ */
+const CUT_FRACTION_EPSILON = 1e-9;
+
+/**
+ * Slack on the CROSS PRODUCT of two segments, applied as `ε × |a| × |b|` — a sine bar written
+ * without a division.
+ *
+ * THE EXEMPLAR OF THE RULED FORM (journal decision 105). Scaling the polynomial by both operands'
+ * magnitudes, instead of normalising the operands and comparing, makes the one number mean one
+ * angle at every segment length, and it does so without the division that amplifies float noise
+ * without bound as either operand tends to zero. See {@link segmentsProperlyCross} for the measured
+ * reason it had to be a tolerance at all rather than an exact sign test.
+ */
+const SEGMENT_CROSS_SINE_EPSILON = 1e-9;
 
 /** A strip of the block: one logical street's frontage and the land behind it. */
 export interface Strip {
@@ -536,8 +593,8 @@ function clipFaceToDepth(
     for (let i = 0; i < face.length; i++) {
         const current = face[i];
         const next = face[(i + 1) % face.length];
-        const currentInside = current.offset <= depth + EPSILON;
-        const nextInside = next.offset <= depth + EPSILON;
+        const currentInside = current.offset <= depth + CLIP_DEPTH_EPSILON;
+        const nextInside = next.offset <= depth + CLIP_DEPTH_EPSILON;
         if (currentInside) {
             clipped.push(current.position);
         }
@@ -996,7 +1053,7 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
     // that would collapse a frontage to (numerically) nothing.
     const minFrontage = options.minEdgeLength !== undefined && options.minEdgeLength > 0
         ? options.minEdgeLength
-        : exteriorScale(graph) * EPSILON;
+        : exteriorScale(graph) * FRONTAGE_SCALE_FRACTION;
 
     for (const corner of cornersBetweenStrips(strips, edgeCount)) {
         const previous = strips[corner.previousStripIndex];
@@ -1082,7 +1139,7 @@ function cutPointOnEdge(anchor: Vector2, far: Vector2, apex: Vector2): Vector2 |
     }
 
     const fraction = ((apex.x - anchor.x) * runX + (apex.y - anchor.y) * runY) / lengthSquared;
-    if (!(fraction > EPSILON) || !(fraction < 1 - EPSILON)) {
+    if (!(fraction > CUT_FRACTION_EPSILON) || !(fraction < 1 - CUT_FRACTION_EPSILON)) {
         return null;
     }
     return {x: anchor.x + fraction * runX, y: anchor.y + fraction * runY};
@@ -1106,7 +1163,8 @@ function segmentsProperlyCross(a1: Vector2, a2: Vector2, b1: Vector2, b2: Vector
     const d2 = cross(b1, b2, a2);
     const d3 = cross(a1, a2, b1);
     const d4 = cross(a1, a2, b2);
-    const tolerance = EPSILON * Math.hypot(a2.x - a1.x, a2.y - a1.y) * Math.hypot(b2.x - b1.x, b2.y - b1.y);
+    const tolerance = SEGMENT_CROSS_SINE_EPSILON
+        * Math.hypot(a2.x - a1.x, a2.y - a1.y) * Math.hypot(b2.x - b1.x, b2.y - b1.y);
     const positive = (d: number): boolean => d > tolerance;
     const negative = (d: number): boolean => d < -tolerance;
     return ((positive(d1) && negative(d2)) || (negative(d1) && positive(d2)))

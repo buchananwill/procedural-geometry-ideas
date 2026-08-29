@@ -11,12 +11,12 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
-    crossProduct,
+    directionsAreSame,
     dotProduct,
-    normalize,
     rotateCw90,
-    subtractVectors,
-    vectorsAreEqual
+    sineIsBelow,
+    sizeOfVector,
+    subtractVectors
 } from "./core-functions";
 import {intersectRays} from "./intersection-edges";
 import {
@@ -29,7 +29,7 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
+import {DIRECTION_SINE_BAR, PARALLEL_GATE_SINE_BAR, TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
@@ -105,8 +105,15 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
     for (let i = 0; i < context.graph.nodes.length; i++) {
         if (i === edgeData.source) continue;
         const candidate = context.graph.nodes[i];
-        const [direction, distance] = normalize(subtractVectors(candidate.position, source.position));
-        if (!(distance > 0 && distance < nearestDistance && vectorsAreEqual(direction, edgeData.basisVector))) {
+        const separation = subtractVectors(candidate.position, source.position);
+        const distance = sizeOfVector(separation);
+        // POINT-ON-RAY, ASKED OF THE RAW SEPARATION (journal decision 105). This was
+        // `vectorsAreEqual(normalize(separation), basis)` — a component box on a normalised vector,
+        // which is the form the ruling removes: the division by `distance` is unbounded as the
+        // candidate approaches the source, so the nearest nodes — exactly the ones this loop is
+        // looking for — were judged on the noisiest reading of their own direction.
+        if (!(distance > 0 && distance < nearestDistance
+            && directionsAreSame(separation, edgeData.basisVector, DIRECTION_SINE_BAR))) {
             continue;
         }
 
@@ -222,7 +229,8 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
             const interior = context.getInteriorWithId(edgeId);
             const ray = context.projectRayInterior(interior);
             const birthOffset = sourceOffsetDistance(interior, context);
-            const [direction, distance] = normalize(subtractVectors(anchorPosition, ray.sourceVector));
+            const separation = subtractVectors(anchorPosition, ray.sourceVector);
+            const distance = sizeOfVector(separation);
 
             // The anchor itself, and any edge already sourced at the anchor, arrives without travel.
             if (edgeId === anchorId || areEqual(distance, 0)) {
@@ -230,7 +238,9 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
                 continue;
             }
 
-            if (!vectorsAreEqual(direction, ray.basisVector)) {
+            // Same point-on-ray predicate as `tryAttachEdgeToNode`, on the raw separation — see
+            // there for why normalising first was the defect rather than the convenience.
+            if (!directionsAreSame(separation, ray.basisVector, DIRECTION_SINE_BAR)) {
                 valid = false;
                 break;
             }
@@ -269,9 +279,25 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * rejoined into one supporting line when canonicalisation removes the sample that broke it — reduces
  * the ring to a slit whose two ends run side by side.
  *
- * THE SAME-DIRECTION TEST IS `intersectRays`' OWN, `areEqual(dot, 1)`: parallel and pointing the same
- * way in one predicate, at the standing tolerance, so the anti-parallel pair that shares the
- * 'parallel' verdict — two vertices retreating from each other — is excluded rather than closed.
+ * THE SAME-DIRECTION TEST IS `intersectRays`' OWN: parallel and pointing the same way in one
+ * predicate, at the same bar, so the anti-parallel pair that shares the 'parallel' verdict — two
+ * vertices retreating from each other — is excluded rather than closed. It was written as
+ * `areEqual(dot, 1)` and is now `directionsAreSame(..., PARALLEL_GATE_SINE_BAR)`, which is the same
+ * bar restated in sine space — see {@link PARALLEL_GATE_SINE_BAR} for the derivation.
+ *
+ * THIS FUNCTION ASKS PARALLELISM TWICE, AT BARS FOUR ORDERS APART, AND THAT IS NOT YET RULED
+ * (journal decision 105). The parent gate below uses {@link DIRECTION_SINE_BAR} (1e-8, a cross
+ * product against zero from the start); this bisector test uses the gate bar (1.4142e-4, inherited
+ * from `areEqual(dot, 1)`). MEASURED 2026-08-29: the two bars are NOT symmetric in what they hold up.
+ *   - Loosening the PARENT gate to the gate bar is caught — the plus's pinned 4-of-80 off-edge
+ *     jitter cells move (`along-edge-jitter-known-failures.test.ts`). It is load-bearing at 1e-8.
+ *   - Tightening THIS test to `DIRECTION_SINE_BAR` is caught by NOTHING: the corpus digest is
+ *     bit-identical across all 59 fixtures and the whole suite passes 5124/5124.
+ * So the four orders here are unconvicted headroom on this corpus, not a measured requirement. The
+ * value is left standing because journal decision 104 forbids changing one on an unforced judgement
+ * — but a value no instrument can see is the class the audit flagged (canonicalisation's
+ * segment-vs-line stood unconvicted for years), and converging it onto the parent gate's bar would
+ * make this function ask one question at one bar. It needs a ruling, not a refactor.
  *
  * THE ANCHOR IS THE LEADING SOURCE, and it has to be: every other edge terminated there travels
  * forward along its own basis, while any earlier anchor wires an edge to a point behind its own
@@ -301,7 +327,7 @@ function solveParallelClosure(
         .map(parentId => context.getEdgeWithId(parentId).basisVector);
     for (let i = 0; i < parents.length; i++) {
         for (let j = i + 1; j < parents.length; j++) {
-            if (!areEqual(crossProduct(parents[i], parents[j]), 0)) {
+            if (!sineIsBelow(parents[i], parents[j], DIRECTION_SINE_BAR)) {
                 return undefined;
             }
         }
@@ -310,7 +336,7 @@ function solveParallelClosure(
     const bases = interiorEdgeIds.map(id => context.getEdgeWithId(id).basisVector);
     for (let i = 0; i < bases.length; i++) {
         for (let j = i + 1; j < bases.length; j++) {
-            if (!areEqual(dotProduct(bases[i], bases[j]), 1)) {
+            if (!directionsAreSame(bases[i], bases[j], PARALLEL_GATE_SINE_BAR)) {
                 return undefined;
             }
         }

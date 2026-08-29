@@ -12,8 +12,10 @@ import {
     crossProduct,
     makeBisectedBasis,
     makeRay,
-    negateVector
+    negateVector,
+    sineIsBelow
 } from "./core-functions";
+import {DIRECTION_SINE_BAR} from "./constants";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
 import {makeOffsetDistance} from "./collision-helpers";
@@ -37,11 +39,33 @@ import {makeOffsetDistance} from "./collision-helpers";
  * close to 2 for the anti-parallel parents that reach the other branch, so a cross product between
  * one and two epsilons reads as a zero rate and a non-zero turn. This decides that sliver the same
  * way the rate branch would have.
+ *
+ * THE NON-COINCIDENCE ABOVE IS AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105, and it is written
+ * here rather than closed because closing it is a value change nothing has measured. Both sites now
+ * ask `sineIsBelow` at {@link DIRECTION_SINE_BAR}, so the EXPRESSION is unified — but they ask it of
+ * different operands: this one of `(cw, ws)` directly, the rate of `(bisectedBasis, cw)`, which is
+ * the same cross product divided by `|cw − ws|`. Where the parents are anti-parallel that divisor is
+ * ≈2, so a turn between one and two epsilons is still "no turn" to one predicate and "a turn" to the
+ * other.
+ *
+ * MEASURED, AND THE CORPUS SAYS THE SLIVER IS EMPTY IN BOTH DIRECTIONS. Widening the rate's zero
+ * test from 1e-8 to 1e-6 leaves the full-graph digest of all 59 fixtures bit-identical; widening it
+ * to 1e-2 — six orders — leaves the digest bit-identical AND the whole suite green at 5124/5124. So
+ * no bisector anywhere in the corpus carries a rate between 1e-8 and 1e-2: the quantity is either
+ * machine-zero or of order one, with nothing in between, and the acknowledged hole is a hole nothing
+ * has ever fallen into. TODO nonetheless, because that is a property of THIS corpus rather than of
+ * the construction: the discriminating fixture would be a pair of near-anti-parallel walls at a turn
+ * of a few epsilons, and none exists to build the conviction on.
  */
 export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
 ) {
     const cross = crossProduct(clockwiseEdge.basisVector, widdershinsEdge.basisVector);
-    return cross < 0 && !areEqual(cross, 0) ? negateVector(bisectedBasis) : bisectedBasis;
+    // The zero test is `sineIsBelow`, the one angular basis (journal decision 105), rather than an
+    // `areEqual` on the cross: the two are the same bar on unit bases and the same number, but only
+    // one of them says which space it is in.
+    const straight = sineIsBelow(clockwiseEdge.basisVector, widdershinsEdge.basisVector,
+        DIRECTION_SINE_BAR);
+    return cross < 0 && !straight ? negateVector(bisectedBasis) : bisectedBasis;
 }
 
 /**
@@ -152,7 +176,13 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     const offsetRate = bisectorOffsetRate(context, newEdge, bisectedBasis);
     let finalBasis: Vector2;
 
-    if (!areEqual(offsetRate, 0)) {
+    // THE ZERO TEST IS THE ONE ANGULAR BASIS; ONLY THE SIGN COMES FROM THE RATE ITSELF. The rate is
+    // `cross(bisectedBasis, clockwiseParent)` and both operands are unit, so `sineIsBelow` is the
+    // same bar and the same number as the `areEqual(offsetRate, 0)` this replaces — but it names the
+    // space, which `areEqual` on a cross product never did (journal decision 105).
+    const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
+        DIRECTION_SINE_BAR);
+    if (!zeroRate) {
         finalBasis = offsetRate < 0 ? negateVector(bisectedBasis) : bisectedBasis;
     } else {
         finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)

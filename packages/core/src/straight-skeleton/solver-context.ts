@@ -118,6 +118,20 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
     /**
      * The node at `position`, created if no existing node is within tolerance of it.
      *
+     * THE EPSILON HERE IS FROZEN, AND THE COMPONENT-WISE BOX WITH IT (journal decisions 104/105,
+     * audit constraint C1). It is the one positional comparison in the solver deliberately left out
+     * of the tolerance unification, and the reason is a falsified experiment rather than an
+     * oversight: widening it to the render floor — merge by absorption, first-established wins —
+     * delivered every promised cure and broke four independent axes at once, taking Circle 16/32
+     * from clean to unsolvable at 1e10/1e11, Circle 48's scatter from 3 to 28 cells, the recursion
+     * census from 26 to 42, and the tiling identity from exact to ~1e-7. Reverting the one file
+     * restored the suite exactly (journal F27).
+     *
+     * ITS ROLE IS ARITHMETIC EQUALITY, NOT GEOMETRIC MERGING. It exists to recognise a position two
+     * code paths computed by different arithmetic, and nothing more. If a position arriving here
+     * needs a GEOMETRIC merge, the defect is that its path bypassed event resolution — which is a
+     * question about the event layer, not about this number.
+     *
      * PRECONDITION: `position` is finite. A NaN coordinate never compares equal to itself under an
      * absolute tolerance — the difference is NaN and every comparison against it is false — so the
      * lookup below misses and appends **a fresh node on every call**. An infinite one is no better.

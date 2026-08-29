@@ -1,5 +1,5 @@
 import {RayProjection, Vector2} from "./types";
-import {FLOATING_POINT_EPSILON} from "./constants";
+import {DIRECTION_SINE_BAR, FLOATING_POINT_EPSILON} from "./constants";
 
 export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
     return Math.abs(a - b) < epsilon;
@@ -98,6 +98,52 @@ export function crossProduct(a: Vector2, b: Vector2): number {
 
 export function dotProduct(a: Vector2, b: Vector2): number {
     return a.x * b.x + a.y * b.y
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * THE ANGULAR PREDICATES — ONE BASIS FOR EVERY "SAME DIRECTION" QUESTION
+ * ----------------------------------------------------------------------------
+ *
+ * Journal decision 105. Before these existed the solver asked "are these two directions the same?"
+ * in three different spellings — a component-wise box on two unit vectors, an `areEqual` on their
+ * dot product, and a box at a bare `1e-4` — which answered at ≈1e-8, 1.41e-4 and ≈1.41e-4 radians
+ * respectively. The value under test could therefore be judged parallel by one caller and
+ * non-parallel by the next, decided by nothing but which spelling that caller reached for.
+ *
+ * These two functions are the whole of the replacement. Both work on RAW vectors: the operand
+ * magnitudes appear on the right-hand side instead of being divided out on the left, so a caller
+ * with a raw separation vector no longer has to normalise before asking, and the amplification that
+ * normalising a near-zero separation causes never happens. See {@link DIRECTION_SINE_BAR} for why
+ * the form matters as much as the number.
+ */
+
+/**
+ * Is the sine of the angle between `a` and `b` below `bar`?
+ *
+ * `|cross(a, b)| < bar · |a| · |b|`, evaluated in that order and never as a division. Answers
+ * PARALLELISM only — it is blind to orientation, so anti-parallel vectors pass. Use
+ * {@link directionsAreSame} where the two must also point the same way.
+ *
+ * A zero-length operand fails: the angle to a vector with no direction is not below anything.
+ */
+export function sineIsBelow(a: Vector2, b: Vector2, bar: number = DIRECTION_SINE_BAR): boolean {
+    return Math.abs(crossProduct(a, b)) < bar * sizeOfVector(a) * sizeOfVector(b);
+}
+
+/**
+ * Do `a` and `b` point the same way, to within `bar` of sine?
+ *
+ * The orientation half is an EXACT sign test on the dot product and carries no tolerance, because
+ * the tolerance belongs to the angle and a pair inside the sine bar with a negative dot is
+ * anti-parallel rather than nearly-same — a full half-turn away, which is not a near miss.
+ *
+ * This is also the point-on-ray predicate. "Does `point` lie ahead on the ray `(source, basis)`?"
+ * is `directionsAreSame(subtractVectors(point, source), basis)`, with no normalisation of the
+ * separation anywhere in it.
+ */
+export function directionsAreSame(a: Vector2, b: Vector2, bar: number = DIRECTION_SINE_BAR): boolean {
+    return dotProduct(a, b) > 0 && sineIsBelow(a, b, bar);
 }
 
 /**

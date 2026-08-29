@@ -16,8 +16,10 @@ import {
     findPositionAlongRay,
     normalize,
     projectToPerpendicular,
+    sineIsBelow,
     subtractVectors
 } from "./core-functions";
+import {DIRECTION_SINE_BAR} from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
@@ -72,8 +74,12 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
 export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
     const sourceOffset = sourceOffsetDistance(edge, context);
-    const crossWithParent = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
-    const deltaOffset = areEqual((crossWithParent), 0) ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
+    // "There is no offset gradient against this parent" — the one angular basis (journal decision
+    // 105), stated as a sine rather than as an `areEqual` on a cross product whose space the call
+    // did not name. Both operands are unit bases, so the bar and the number are unchanged.
+    const noGradient = sineIsBelow(ray.basisVector, context.clockwiseParent(edge).basisVector,
+        DIRECTION_SINE_BAR);
+    const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
     return sourceOffset + deltaOffset;
 
 }
