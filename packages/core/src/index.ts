@@ -43,8 +43,8 @@ export {
 } from './straight-skeleton/normalisation';
 
 // ── Input canonicalisation (the render-scale noise floor) ────────────────────
-export type { CanonicalPolygon } from './straight-skeleton/canonicalisation';
-export { REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR, canonicalisePolygon } from './straight-skeleton/canonicalisation';
+export type { CanonicalPolygon, PerceptualFloorOptions } from './straight-skeleton/canonicalisation';
+export { REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR, canonicalisePolygon, resolvePerceptualFloor } from './straight-skeleton/canonicalisation';
 
 // ── Regions and boundary provenance ──────────────────────────────────────────
 export type { BoundaryProvenance, BoundaryRun, Region } from './straight-skeleton/region';

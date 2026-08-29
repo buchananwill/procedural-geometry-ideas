@@ -725,7 +725,40 @@ reading of the parallel gate (two bars surviving because they answer different q
 identity, one division-safety), and `sourceLiesAhead`'s `max(1,d)` hybrid as a measured
 counter-case to the pure relative form, both argued at their sites.
 
+**108 — Rulings on the floor package's two escalations.** (a) The unified threading STANDS
+(coincidence bar follows the client floor, not canonicalisation alone): threading only
+canonicalisation would give a cleaner demo-floor census at the price of two tolerance systems —
+the exact disease decisions 101/105/106 exist to cure. The one demo-floor failure it costs
+(`Incorrect Ordering e38-e30`'s region r0.1.3 — an exactly anti-parallel pair with maxOffsets
+3.5e-7 apart) is signalled, is decision-101-class, and is not a committed gate (committed suites
+run at the library floor). (b) The dashboard's floor is unified in a follow-up package: ALL
+dashboard solve paths (region inspector `standaloneSolve`, `regionSpine`, `useParcelPipeline`)
+take the explorer's derived floor — one client, one floor — accepting the specimen debt this
+calls due: the inspector's live-defect specimen solves at 1e-5 (the second independent
+confirmation of decision 106's thesis) and re-points to the ONE region that fails at the demo
+floor, the same r0.1.3 from (a) — the natural successor by construction. `regionSpine`'s
+"never a second differently-parameterised solve" header becomes true again. The SceneCanvas
+tiny-fixture fit wrinkle (fit scale above the zoom cap) rides along as a minor UI fix.
+
 ## Findings
+
+**F42 — Decision 106 landed: one client-set perceptual floor, the demo's derived at 1e-5, and
+the jitter class measured invisible at it.** `PerceptualFloorOptions`/`resolvePerceptualFloor`
+threading exactly two production bars (canonicalisation deviation, coincidence identity — the
+context carries it; the cluster functions take it as a REQUIRED parameter so a missed call site
+cannot become a second tolerance system); everything else stays a module constant for a stated
+reason; `noiseFloor` remains the region-space pass-down, now defaulting to the perceptual floor
+— only where the number comes from changed, never what it means. The derivation chain lives in
+dashboard code the canvas itself imports (2 CSS px ÷ zoom cap 100 over a corpus-bounding 2000-
+unit reference extent → 1e-5), with the reference extent flagged as the one link measured from
+the corpus rather than the UI. At 1e-5: vertices removed 13 → 56 corpus-wide, all four jitter
+fixtures collapse to their underlying clean shapes, census 22 → 1, every root still complete.
+Library default digest bit-identical across all 59; monotonicity measured at zero violations
+over a five-rung floor ladder. The 107(a) convergence rider landed digest-clean. Delegate
+figures: core 5248/5248 (83 suites), dashboard 291/291 (19 suites); convictions 5/4/4 plus the
+demo-floor coincidence conviction. The dashboard-side disagreement it creates (three re-solve
+paths still at 1e-6) was written, measured (it kills the inspector's defect-specimen pins —
+correctly escalated as F15a debt), reverted, and ruled in decision 108(b).
 
 **F41 — Decisions 104/105 landed bit-identical: every inline tolerance named or derived, the
 angular predicates unified on a division-free basis, and the D9 problem was FOUR bars, not

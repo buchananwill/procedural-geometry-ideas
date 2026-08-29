@@ -62,6 +62,15 @@ export interface StandaloneSolve {
  * standalone solve is a solve of the same polygon under the floor it would get as a root. Where the
  * two answers differ, that difference is itself the finding — and it is reported rather than hidden,
  * because the panel prints this verdict beside the driver's.
+ *
+ * ON THE LIBRARY FLOOR, NOT the explorer's derived one, AND THAT IS AN OPEN DISAGREEMENT
+ * rather than a decision. Journal decision 106 made the perceptual floor the client's and the demo's
+ * two solver pages now hand the driver this package's derived floor, so this re-solve answers about a
+ * boundary at a finer floor than the tree it is inspecting was built at. Passing the explorer's floor
+ * here was written and MEASURED on 2026-08-29: it makes the inspector's live defect region SOLVE —
+ * the defect is genuinely invisible at a canvas that caps at 100x — which kills two pins in
+ * `regionInspector.test.ts` that use that region as their failing specimen (the F15a specimen debt).
+ * Reverted rather than absorbed: re-pointing a defect specimen is a ruling, not a refactor.
  */
 export function standaloneSolve(boundary: Vector2[]): StandaloneSolve {
     if (boundary.length < 3) {

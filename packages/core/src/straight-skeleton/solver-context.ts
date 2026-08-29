@@ -22,8 +22,17 @@ import {
 import {intersectRays} from "./intersection-edges";
 import {sourceOffsetDistance} from "./collision-helpers";
 import {complexLog, splitLog} from "./logger";
+import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
-export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSkeletonSolverContext {
+/**
+ * `perceptualFloor` is the client's floor for this solve, in the unit space `nodes` are given in. It
+ * defaults to the library floor so the many test call sites that build a context directly get the
+ * standing behaviour; every production entry point passes the resolved option explicitly.
+ */
+export function makeStraightSkeletonSolverContext(
+    nodes: Vector2[],
+    perceptualFloor: number = SKELETON_NOISE_FLOOR,
+): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes);
     const acceptedEdges = nodes.map(() => false);
 
@@ -213,6 +222,7 @@ export function makeStraightSkeletonSolverContext(nodes: Vector2[]): StraightSke
         graph,
         acceptedEdges: acceptedEdges,
         collisionCache: new Map() as CollisionCache,
+        perceptualFloor,
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
             return idList.map(getEdgeWithId)

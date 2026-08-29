@@ -17,6 +17,7 @@ import {
     DebugPanel,
     PlaybackController,
     CollapseChevron,
+    EXPLORER_PERCEPTUAL_FLOOR,
 } from "@proc-geo/dashboard";
 import type { DebugDisplayOptions } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -58,7 +59,14 @@ export default function StraightSkeletonPage() {
         setDebug((prev) => ({ ...prev, [key]: !prev[key] }));
     }
 
-    const animation = useSkeletonAnimation(vertices);
+    // THE FLOOR THIS PAGE CAN ACTUALLY SEE, not the library's conservative default (journal
+    // decision 106). The chain is: 2 CSS px of separation ÷ SceneCanvas' zoom cap of 100 = 0.02
+    // world units, the smallest world separation this canvas can ever resolve; over a reference
+    // world extent of 2000 units — larger than any fixture the demo draws — that is 1e-5 of the
+    // shape's extent, ten times coarser than SKELETON_NOISE_FLOOR. Below it the solver would be
+    // computing structure this page throws away in the renderer. Derived and pinned in the
+    // dashboard's `perceptual-floor.ts`, which shares the zoom cap with the canvas itself.
+    const animation = useSkeletonAnimation(vertices, EXPLORER_PERCEPTUAL_FLOOR);
     const sweep = useCollisionSweep(vertices, animation.solverContext, animation.skeleton, debug);
 
     function resetView() {

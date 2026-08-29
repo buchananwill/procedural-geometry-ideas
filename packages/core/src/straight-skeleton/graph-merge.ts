@@ -8,6 +8,7 @@ import {
 } from "./types";
 import {vectorsAreEqual} from "./core-functions";
 import {addInEdges} from "./graph-helpers";
+import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
 export interface SubPolygonResult {
     graph: StraightSkeletonGraph;
@@ -218,7 +219,10 @@ export function mergeSkeletonGraphs(
  * Helper methods that are only needed during algorithm execution throw errors.
  * The context is only used post-algorithm for rendering.
  */
-export function makeMergedSolverContext(merged: MergedGraphResult): StraightSkeletonSolverContext {
+export function makeMergedSolverContext(
+    merged: MergedGraphResult,
+    perceptualFloor: number = SKELETON_NOISE_FLOOR,
+): StraightSkeletonSolverContext {
     const {graph} = merged;
 
     // All edges are accepted in a completed merge
@@ -232,6 +236,10 @@ export function makeMergedSolverContext(merged: MergedGraphResult): StraightSkel
         graph,
         acceptedEdges,
         collisionCache: new Map(),
+        // Carried for shape only: this context is post-algorithm and the event layer never runs
+        // against it, so nothing here reads the floor. Defaulted rather than required so a caller
+        // merging a finished pair of graphs is not asked for a tolerance it has no use for.
+        perceptualFloor,
         getEdgeWithId: (id: number) => graph.edges[id],
         getEdges: (ids: number[]) => ids.map(id => graph.edges[id]),
         getEdgeWithInterior: notSupported('getEdgeWithInterior'),

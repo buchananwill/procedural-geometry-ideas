@@ -19,6 +19,14 @@ export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
 export type { StrokeStyle, FillStyle, TextStyle, SceneLine, ScenePoint, SceneLabel, SceneGroup, ScenePrimitive } from './scene/types';
 export { SceneCanvas } from './scene/SceneCanvas';
 export type { SceneCanvasProps } from './scene/SceneCanvas';
+export {
+    EXPLORER_PERCEPTUAL_FLOOR,
+    PERCEPTUAL_SEPARATION_PIXELS,
+    REFERENCE_WORLD_EXTENT,
+    SCENE_ZOOM_CAP,
+    SCENE_ZOOM_MINIMUM,
+    SMALLEST_RESOLVABLE_WORLD_SEPARATION,
+} from './scene/perceptual-floor';
 export { skeletonToScene, turtleToScene, muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour, recursiveTreeToScene, styleForLevel, RECURSIVE_LEVEL_STYLES } from './scene/adapters';
 export type { ParcelsSceneTerrain, ParcelsToSceneParams, RecursiveLevelStyle } from './scene/adapters';
 

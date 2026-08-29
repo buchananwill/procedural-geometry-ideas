@@ -8,6 +8,7 @@ import type { RecursiveNode } from "@proc-geo/core";
 import { FULL_CORPUS } from "@proc-geo/test-fixtures";
 import {
     CollapseChevron,
+    EXPLORER_PERCEPTUAL_FLOOR,
     fixtureByName,
     RecursiveControlsPanel,
     RecursivePolygonPanel,
@@ -42,9 +43,20 @@ export default function RecursivePage() {
     // A PASTED OR EDITED POLYGON WINS OVER THE FIXTURE, and goes through this same call: journal
     // decision 97 asks for the page to accept one, and it is only worth accepting if it reaches the
     // driver by the route every fixture takes.
+    // THE FLOOR THIS PAGE CAN ACTUALLY SEE, not the library's conservative default (journal
+    // decision 106). The chain is: 2 CSS px of separation ÷ SceneCanvas' zoom cap of 100 = 0.02
+    // world units, the smallest world separation this canvas can ever resolve; over a reference
+    // world extent of 2000 units — larger than any fixture the demo draws — that is 1e-5 of the
+    // shape's extent, ten times coarser than SKELETON_NOISE_FLOOR. It matters more here than on the
+    // single-solve page: the driver measures the floor once on the ROOT and passes it down, so every
+    // sub-region at every level is screened against what THIS canvas can show. Derived and pinned in
+    // the dashboard's `perceptual-floor.ts`, which shares the zoom cap with the canvas itself.
     const tree: RecursiveNode = useMemo(() => {
         const vertices = customVertices ?? (fixtureByName(fixtureName) ?? FULL_CORPUS[0]).vertices;
-        return subdivideRecursively(vertices, { levels });
+        return subdivideRecursively(vertices, {
+            levels,
+            perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR,
+        });
     }, [customVertices, fixtureName, levels]);
 
     const panels = (

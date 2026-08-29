@@ -1,6 +1,11 @@
 import type {SkeletonSolveResult, Vector2} from './types';
 import {solveSkeleton} from './algorithm-termination-cases';
-import {canonicalisePolygon, REMOVED_VERTEX_INDEX, SKELETON_NOISE_FLOOR} from './canonicalisation';
+import {
+    canonicalisePolygon,
+    PerceptualFloorOptions,
+    REMOVED_VERTEX_INDEX,
+    resolvePerceptualFloor,
+} from './canonicalisation';
 import {DEGENERATE_AREA_EPSILON} from './constants';
 import {denormaliseLength, makeSkeletonNormalisation, normaliseLength, normalisePolygon} from './normalisation';
 import {computeMaxOffset, computeOffsetRings} from './offset-projection';
@@ -144,7 +149,7 @@ export interface LevelSpec {
     residue: ResidueTreatment;
 }
 
-export interface RecursiveOptions {
+export interface RecursiveOptions extends PerceptualFloorOptions {
     /**
      * One spec per level, outermost first. Length 1..{@link MAX_RECURSION_LEVELS}; the length IS the
      * depth.
@@ -505,6 +510,17 @@ export interface RecursiveRun {
      * per region while this one does not. See {@link canonicaliseRegion}.
      */
     rootNoiseFloor: number;
+    /**
+     * The client's perceptual floor, unit-space and scale-free, exactly as it was handed in.
+     *
+     * BOTH ARE CARRIED BECAUSE THEY LIVE IN DIFFERENT SPACES AND ANSWER AT DIFFERENT SITES.
+     * {@link rootNoiseFloor} is this value in caller units, restated per region for canonicalisation;
+     * this one goes to each region's solve untouched, because the coincidence bar it reaches is
+     * evaluated in whatever unit space that region has — which is precisely what it did when it was
+     * a module constant. Journal decision 106 moves where the number comes from and nothing else; the
+     * asymmetry between the two is audit §7.2 decision 9 and is still OPEN.
+     */
+    perceptualFloor: number;
 }
 
 /** One level's spec as the run holds it: clamped, with its merge predicate already built. */
@@ -526,9 +542,11 @@ function toLevelPolicy(spec: LevelSpec): LevelPolicy {
  * throwing, so a caller always has something to draw.
  */
 export function subdivideRecursively(boundary: Vector2[], options: RecursiveOptions): RecursiveNode {
+    const perceptualFloor = resolvePerceptualFloor(options);
     return subdivideNode(boundary, 0, {id: ROOT_REGION_ID, provenance: {kind: 'root'}}, {
         levels: clampLevelSpecs(options.levels).map(toLevelPolicy),
-        rootNoiseFloor: rootNoiseFloor(boundary),
+        rootNoiseFloor: rootNoiseFloor(boundary, perceptualFloor),
+        perceptualFloor,
     });
 }
 
@@ -565,13 +583,16 @@ export function flattenRecursiveTree(node: RecursiveNode): RecursiveNode[] {
 /**
  * The standing noise floor as a length in the caller's coordinates, measured on the ROOT region.
  *
- * `SKELETON_NOISE_FLOOR` is a UNIT-SPACE constant, so what it means as a world length depends on the
+ * The perceptual floor is a UNIT-SPACE value, so what it means as a world length depends on the
  * extent it was normalised against. Measuring it once here against the root's extent is decision 7 of
  * the canonicalisation spec: the floor is a property of the region the caller handed in, not of
  * whichever sliver the recursion is currently holding.
+ *
+ * `perceptualFloor` IS THE CLIENT'S (journal decision 106), defaulting to `SKELETON_NOISE_FLOOR`.
+ * Only the source of the number changes; what it means here does not.
  */
-function rootNoiseFloor(boundary: Vector2[]): number {
-    return denormaliseLength(makeSkeletonNormalisation(boundary), SKELETON_NOISE_FLOOR);
+function rootNoiseFloor(boundary: Vector2[], perceptualFloor: number): number {
+    return denormaliseLength(makeSkeletonNormalisation(boundary), perceptualFloor);
 }
 
 /**
@@ -687,10 +708,15 @@ function degenerateRegionFailure(boundary: Vector2[]): Extract<RegionOutcome, {k
  * so it is just as true of a region that then failed to solve — several fixtures in the corpus lose a
  * vertex to the floor and go on to report an incomplete solve, and that removal is real.
  */
-function divideRegion(boundary: Vector2[], level: LevelPolicy, rootFloor: number): SegmentOutcome {
+function divideRegion(
+    boundary: Vector2[],
+    level: LevelPolicy,
+    rootFloor: number,
+    perceptualFloor: number,
+): SegmentOutcome {
     const {noiseFloor, canonicalBoundary} = canonicaliseRegion(boundary, rootFloor);
     try {
-        const result = solveSkeleton(boundary, {noiseFloor});
+        const result = solveSkeleton(boundary, {noiseFloor, perceptualFloor});
         if (!result.complete) {
             const detail = result.diagnostics.map(diagnostic => `${diagnostic.kind}: ${diagnostic.detail}`).join('; ');
             return {
@@ -805,7 +831,7 @@ function subdivideNode(
     // formula, rather than a third copy of it. A `Strip.boundary` and a `computeOffsetRings` ring both
     // already arrive clockwise, so this only does real work on the root's raw input.
     const clockwise = ensureClockwise(boundary);
-    const outcome = divideRegion(clockwise, spec, run.rootNoiseFloor);
+    const outcome = divideRegion(clockwise, spec, run.rootNoiseFloor, run.perceptualFloor);
     if (outcome.segments === undefined) {
         // The solve did not finish, but canonicalisation ran before it and removed whatever the floor
         // found — so the ring and the drift are reported exactly as they are on a node that solved.

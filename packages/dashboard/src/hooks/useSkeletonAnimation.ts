@@ -49,7 +49,20 @@ export interface SkeletonAnimationState {
     exitAnimation: () => void;
 }
 
-export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState {
+/**
+ * `perceptualFloor` is the host page's own rendering limit, in unit space, and it reaches all three
+ * solver calls below — the direct solve, the stepped solve, and the boundary stage the vertex remap
+ * is read from. All three must agree, because the overlay draws input indices against solver indices
+ * and a remap computed at a different floor would describe a different polygon.
+ *
+ * A SCALAR, NOT AN OPTIONS OBJECT, so the memo dependency is a number the caller can hold constant.
+ * Omitted, the library default stands and this hook behaves exactly as it did before the option
+ * existed. See `PerceptualFloorOptions` in `@proc-geo/core`.
+ */
+export function useSkeletonAnimation(
+    vertices: Vertex[],
+    perceptualFloor?: number,
+): SkeletonAnimationState {
     const [showSkeleton, setShowSkeleton] = useState(false);
     const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
 
@@ -70,12 +83,12 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
     const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
         if (!showSkeleton) return null;
         try {
-            return runAlgorithmV5(vertices);
+            return runAlgorithmV5(vertices, { perceptualFloor });
         } catch (e) {
             console.log(e);
             return null;
         }
-    }, [showSkeleton, vertices]);
+    }, [showSkeleton, vertices, perceptualFloor]);
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
@@ -90,11 +103,11 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
     const solverVertexRemap = useMemo<number[] | null>(() => {
         if (vertices.length < 3) return null;
         try {
-            return canonicaliseForSolve(vertices).indexRemap;
+            return canonicaliseForSolve(vertices, { perceptualFloor }).indexRemap;
         } catch {
             return null;
         }
-    }, [vertices]);
+    }, [vertices, perceptualFloor]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -134,7 +147,7 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
     }, [setIsPlaying]);
 
     const startAnimation = useCallback(() => {
-        const result = runAlgorithmV5Stepped(vertices);
+        const result = runAlgorithmV5Stepped(vertices, { perceptualFloor });
         setSteppedResult(result);
         resetPlayback();
         setAnimationMode(true);
@@ -142,7 +155,7 @@ export function useSkeletonAnimation(vertices: Vertex[]): SkeletonAnimationState
         if (result.error) {
             setErrorModalOpen(true);
         }
-    }, [vertices, resetPlayback]);
+    }, [vertices, resetPlayback, perceptualFloor]);
 
     const togglePlayPause = useCallback(() => {
         if (!steppedResult) {

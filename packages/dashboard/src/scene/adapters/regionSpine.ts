@@ -37,6 +37,13 @@ import type {
  *
  * A caller that needs more than the graph — the solver context, for instance — checks for that
  * itself; this promises only that the call returned and the solve completed.
+ *
+ * ON THE LIBRARY FLOOR, WHICH SINCE JOURNAL DECISION 106 IS NO LONGER THE DEMO'S. The demo's two
+ * solver pages hand the driver this package's derived `EXPLORER_PERCEPTUAL_FLOOR` (1e-5), so this
+ * re-solve is now a second differently-parameterised solve — the one thing the paragraph above says
+ * it must not be. Passing the explorer's floor here is the fix and it belongs with the region
+ * inspector's identical case, which is where the cost was measured: see `standaloneSolve` in
+ * `regionInspector.ts` for why that pair was left for a ruling rather than landed.
  */
 export function trySolveSkeleton(boundary: Vector2[]): SkeletonSolveResult | undefined {
     if (boundary.length < 3) return undefined;

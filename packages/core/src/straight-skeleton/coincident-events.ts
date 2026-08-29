@@ -5,15 +5,14 @@ import {
     Vector2,
 } from "./types";
 import {vectorsAreEqual} from "./core-functions";
-import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
  * skeleton is concerned?
  *
  * THE BAR IS THE RENDER-SCALE FLOOR, NOT THE ARITHMETIC EPSILON — journal decision 78. Two events
- * closer together than {@link SKELETON_NOISE_FLOOR} in unit space are one event: the same constant,
- * and the same argument, that `canonicalisation.ts` removes an input vertex on. An input
+ * closer together than the perceptual floor in unit space are one event: the same value, and the
+ * same argument, that `canonicalisation.ts` removes an input vertex on. An input
  * perturbation the boundary stage would have erased must not survive as two skeleton nodes it did
  * not erase, and one tolerance system is the point.
  *
@@ -36,9 +35,15 @@ import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
  * tiling, and stopped two CLEAN fixtures solving under translation. Merged at the event layer the
  * hub is computed from its whole arrival set at once — the path a regular n-gon's k-way hub already
  * takes — and none of that arises. See F27.
+ *
+ * `floor` IS THE CLIENT'S, NOT A MODULE CONSTANT — journal decision 106. It arrives on the solver
+ * context, defaulting to `SKELETON_NOISE_FLOOR`, and it is the SAME question the canonicalisation
+ * bar asks about an input vertex, which is why one value answers both. There is deliberately no
+ * default here: a floor omitted at a call site would be a silent second tolerance system, which is
+ * the defect the unification exists to remove.
  */
-function isOneEvent(a: Vector2, b: Vector2): boolean {
-    return Math.hypot(a.x - b.x, a.y - b.y) < SKELETON_NOISE_FLOOR;
+function isOneEvent(a: Vector2, b: Vector2, floor: number): boolean {
+    return Math.hypot(a.x - b.x, a.y - b.y) < floor;
 }
 
 /**
@@ -93,19 +98,19 @@ export interface CoincidentMerge {
  * the caller only resolves a set of merges that share no edge — `mergesShareAnEdge` is its guard —
  * and disjoint non-empty sets have distinct minima.
  */
-export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMerge[] {
-    const merges = coincidentComponents(events).map(component => ({
+export function clusterCoincidentMerges(events: CollisionEvent[], floor: number): CoincidentMerge[] {
+    const merges = coincidentComponents(events, floor).map(component => ({
         position: medoidPosition(component.map(index => events[index].position)),
         edgeIds: distinctEdgeIds(component.map(index => events[index])).sort((a, b) => a - b),
     }));
 
-    assertMergePositionsAreDistinct(merges);
+    assertMergePositionsAreDistinct(merges, floor);
 
     return merges.sort((a, b) => a.edgeIds[0] - b.edgeIds[0]);
 }
 
 /**
- * No two merges of one layer may carry positions inside {@link SKELETON_NOISE_FLOOR} of each other.
+ * No two merges of one layer may carry positions inside the perceptual floor of each other.
  *
  * First-match clustering gave this for free by construction. Components plus a member
  * representative restore it by an argument about the partition — distinct components contain no
@@ -125,10 +130,10 @@ export function clusterCoincidentMerges(events: CollisionEvent[]): CoincidentMer
  * from this module only so the suite can convict it against a centroid representative, the
  * mutation it exists to catch.
  */
-export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void {
+export function assertMergePositionsAreDistinct(merges: CoincidentMerge[], floor: number): void {
     for (let i = 0; i < merges.length; i++) {
         for (let j = i + 1; j < merges.length; j++) {
-            if (isOneEvent(merges[i].position, merges[j].position)) {
+            if (isOneEvent(merges[i].position, merges[j].position, floor)) {
                 throw new Error(
                     `Coincidence clustering produced two merges at the same position: `
                     + `[${merges[i].edgeIds.join(', ')}] and [${merges[j].edgeIds.join(', ')}] `
@@ -163,10 +168,10 @@ export function assertMergePositionsAreDistinct(merges: CoincidentMerge[]): void
  * CLEAN fixtures, for no gain at all — they were one node before and one node after. The defect is
  * the component the epsilon does NOT unify, and only that component is touched.
  */
-export function coincidentEventPositions(events: CollisionEvent[]): Vector2[] {
+export function coincidentEventPositions(events: CollisionEvent[], floor: number): Vector2[] {
     const resolved = events.map(event => event.position);
 
-    for (const component of coincidentComponents(events)) {
+    for (const component of coincidentComponents(events, floor)) {
         if (component.length < 2) {
             continue;
         }
@@ -191,7 +196,7 @@ export function coincidentEventPositions(events: CollisionEvent[]): Vector2[] {
  * arrival order. Neither ordering survives into the returned merges — `clusterCoincidentMerges`
  * replaces both with the canonical one — so nothing downstream may reason from it.
  */
-function coincidentComponents(events: CollisionEvent[]): number[][] {
+function coincidentComponents(events: CollisionEvent[], floor: number): number[][] {
     const parent = events.map((_, index) => index);
 
     const find = (index: number): number => {
@@ -212,7 +217,7 @@ function coincidentComponents(events: CollisionEvent[]): number[][] {
             if (find(i) === find(j)) {
                 continue;
             }
-            if (isOneEvent(events[i].position, events[j].position)) {
+            if (isOneEvent(events[i].position, events[j].position, floor)) {
                 parent[find(j)] = find(i);
             }
         }

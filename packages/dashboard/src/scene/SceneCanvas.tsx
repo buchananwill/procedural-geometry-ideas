@@ -3,6 +3,7 @@ import type { ReactNode, RefObject } from 'react';
 import { Stage, Layer, Line, Circle, Text, Arrow } from "react-konva";
 import { KonvaEventObject } from "konva/lib/Node";
 import type { ScenePrimitive } from "./types";
+import { SCENE_ZOOM_CAP, SCENE_ZOOM_MINIMUM } from "./perceptual-floor";
 
 export interface SceneCanvasProps {
     scene: ScenePrimitive[];
@@ -208,9 +209,12 @@ export function SceneCanvas({
 
             const scaleBy = 1.1;
             const oldScale = stageScale;
+            // The cap is shared with the perceptual-floor derivation rather than written here: the
+            // floor the demo hands the solver is computed FROM this number, so the two must be one
+            // declaration. See `perceptual-floor.ts`.
             const newScale = e.evt.deltaY < 0
-                ? Math.min(oldScale * scaleBy, 100)
-                : Math.max(oldScale / scaleBy, 0.01);
+                ? Math.min(oldScale * scaleBy, SCENE_ZOOM_CAP)
+                : Math.max(oldScale / scaleBy, SCENE_ZOOM_MINIMUM);
 
             const mousePointTo = {
                 x: (pointer.x - stagePosition.x) / oldScale,

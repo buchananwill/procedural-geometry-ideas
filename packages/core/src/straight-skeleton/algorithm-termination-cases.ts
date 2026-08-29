@@ -29,7 +29,7 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {DIRECTION_SINE_BAR, PARALLEL_GATE_SINE_BAR, TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
+import {DIRECTION_SINE_BAR, TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
@@ -40,7 +40,13 @@ import {
     makeSkeletonNormalisation,
     normalisePolygon,
 } from "./normalisation";
-import {CanonicalPolygon, SKELETON_NOISE_FLOOR, canonicalisePolygon} from "./canonicalisation";
+import {
+    CanonicalPolygon,
+    PerceptualFloorOptions,
+    SKELETON_NOISE_FLOOR,
+    canonicalisePolygon,
+    resolvePerceptualFloor,
+} from "./canonicalisation";
 
 function stringifyFinalData(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): string {
     return `{"polygonEdges" :${JSON.stringify(context.getEdges(input.interiorEdges))}, "interiorEdges": ${JSON.stringify(context.getInteriorEdges(input.interiorEdges))}, "sourceNodes": ${JSON.stringify(input.interiorEdges.map(e => context.graph.nodes[context.getEdgeWithId(e).source]))}}`
@@ -280,24 +286,22 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * the ring to a slit whose two ends run side by side.
  *
  * THE SAME-DIRECTION TEST IS `intersectRays`' OWN: parallel and pointing the same way in one
- * predicate, at the same bar, so the anti-parallel pair that shares the 'parallel' verdict — two
- * vertices retreating from each other — is excluded rather than closed. It was written as
- * `areEqual(dot, 1)` and is now `directionsAreSame(..., PARALLEL_GATE_SINE_BAR)`, which is the same
- * bar restated in sine space — see {@link PARALLEL_GATE_SINE_BAR} for the derivation.
+ * predicate, so the anti-parallel pair that shares the 'parallel' verdict — two vertices retreating
+ * from each other — is excluded rather than closed. It was written as `areEqual(dot, 1)`.
  *
- * THIS FUNCTION ASKS PARALLELISM TWICE, AT BARS FOUR ORDERS APART, AND THAT IS NOT YET RULED
- * (journal decision 105). The parent gate below uses {@link DIRECTION_SINE_BAR} (1e-8, a cross
- * product against zero from the start); this bisector test uses the gate bar (1.4142e-4, inherited
- * from `areEqual(dot, 1)`). MEASURED 2026-08-29: the two bars are NOT symmetric in what they hold up.
+ * ONE QUESTION, ONE BAR — journal decision 107(a). This function used to ask parallelism twice, four
+ * orders apart: the parent gate below at {@link DIRECTION_SINE_BAR} (1e-8, a cross product against
+ * zero from the start) and this bisector test at `PARALLEL_GATE_SINE_BAR` (1.4142e-4, inherited from
+ * `areEqual(dot, 1)`). MEASURED 2026-08-29, and the two bars are NOT symmetric in what they hold up:
  *   - Loosening the PARENT gate to the gate bar is caught — the plus's pinned 4-of-80 off-edge
  *     jitter cells move (`along-edge-jitter-known-failures.test.ts`). It is load-bearing at 1e-8.
  *   - Tightening THIS test to `DIRECTION_SINE_BAR` is caught by NOTHING: the corpus digest is
- *     bit-identical across all 59 fixtures and the whole suite passes 5124/5124.
- * So the four orders here are unconvicted headroom on this corpus, not a measured requirement. The
- * value is left standing because journal decision 104 forbids changing one on an unforced judgement
- * — but a value no instrument can see is the class the audit flagged (canonicalisation's
- * segment-vs-line stood unconvicted for years), and converging it onto the parent gate's bar would
- * make this function ask one question at one bar. It needs a ruling, not a refactor.
+ *     bit-identical across all 59 fixtures and the whole suite passes.
+ * The four orders were unconvicted headroom on this corpus rather than a measured requirement, and
+ * a value no instrument can see is the class the tolerance audit flagged (canonicalisation's
+ * segment-vs-line stood unconvicted for years). Both readings of "these directions agree" now sit at
+ * `DIRECTION_SINE_BAR`, so a bisector set and its parent set are held to the same standard of
+ * parallelism, which is what makes the gate's argument about the two apply.
  *
  * THE ANCHOR IS THE LEADING SOURCE, and it has to be: every other edge terminated there travels
  * forward along its own basis, while any earlier anchor wires an edge to a point behind its own
@@ -336,7 +340,7 @@ function solveParallelClosure(
     const bases = interiorEdgeIds.map(id => context.getEdgeWithId(id).basisVector);
     for (let i = 0; i < bases.length; i++) {
         for (let j = i + 1; j < bases.length; j++) {
-            if (!directionsAreSame(bases[i], bases[j], PARALLEL_GATE_SINE_BAR)) {
+            if (!directionsAreSame(bases[i], bases[j], DIRECTION_SINE_BAR)) {
                 return undefined;
             }
         }
@@ -693,8 +697,8 @@ interface SimplePolygonRun {
 }
 
 /** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
-function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
-    const context = makeStraightSkeletonSolverContext(nodes);
+function runSimplePolygon(nodes: Vector2[], perceptualFloor: number): SimplePolygonRun {
+    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor);
     const exteriorEdges = [...context.graph.edges]
     const errors: string[] = [];
 
@@ -735,10 +739,18 @@ function runSimplePolygon(nodes: Vector2[]): SimplePolygonRun {
  * polygon for the stepped snapshots to describe the solve `runAlgorithmV5` performs. Neither has a
  * diagnostics channel, so the removal is SILENT in both — which is what makes them legacy, and why
  * `solveSkeleton` keeps its own copy of the sequence: it reports what was removed, and it honours a
- * caller's floor override, and neither of those belongs here.
+ * region-space `noiseFloor` override, and neither of those belongs here.
+ *
+ * THE PERCEPTUAL FLOOR IS THE ONE OPTION THESE TWO DO HONOUR (journal decision 106), because the
+ * dashboard explorer drives them and the whole point of the option is that a client's renderer, not
+ * this module, decides what can be seen. It is a single scale-free value, not a region pass-down.
  */
-function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormalisation): CanonicalPolygon {
-    return canonicalisePolygon(normalisePolygon(nodes, normalisation), SKELETON_NOISE_FLOOR);
+function canonicaliseInUnitSpace(
+    nodes: Vector2[],
+    normalisation: SkeletonNormalisation,
+    perceptualFloor: number,
+): CanonicalPolygon {
+    return canonicalisePolygon(normalisePolygon(nodes, normalisation), perceptualFloor);
 }
 
 /**
@@ -759,8 +771,12 @@ function canonicaliseInUnitSpace(nodes: Vector2[], normalisation: SkeletonNormal
  * `mergeSkeletonGraphs` renumbers again, so a caller must check the survivor count against the
  * graph's `numExteriorNodes` before trusting the mapping.
  */
-export function canonicaliseForSolve(vertices: Vector2[]): CanonicalPolygon {
-    return canonicaliseInUnitSpace(vertices, makeSkeletonNormalisation(vertices));
+export function canonicaliseForSolve(
+    vertices: Vector2[],
+    options?: PerceptualFloorOptions,
+): CanonicalPolygon {
+    return canonicaliseInUnitSpace(
+        vertices, makeSkeletonNormalisation(vertices), resolvePerceptualFloor(options));
 }
 
 /**
@@ -793,11 +809,15 @@ function assertVerticesAreFinite(vertices: Vector2[]): void {
     }
 }
 
-export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext {
+export function runAlgorithmV5(
+    nodes: Vector2[],
+    options?: PerceptualFloorOptions,
+): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
     }
     assertVerticesAreFinite(nodes);
+    const perceptualFloor = resolvePerceptualFloor(options);
 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts` for
     // why, for the enumeration of what scales, and for why it must never be re-applied mid-solve.
@@ -805,12 +825,12 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     // the same absolute tolerances the solver does. Canonicalisation follows immediately, in unit
     // space — see {@link canonicaliseInUnitSpace} and `canonicalisation.ts`.
     const normalisation = makeSkeletonNormalisation(nodes);
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation).vertices;
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation, perceptualFloor).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        const context = runSimplePolygon(unitNodes).context;
+        const context = runSimplePolygon(unitNodes, perceptualFloor).context;
         // BOTH HALVES OF THE CONTEXT, because both are handed to the caller and a cache left in unit
         // space would answer in the wrong units about edges that are still perfectly valid.
         denormaliseGraph(context.graph, normalisation);
@@ -819,19 +839,19 @@ export function runAlgorithmV5(nodes: Vector2[]): StraightSkeletonSolverContext 
     }
 
     const subResults = decomposition.subPolygons.map(subPoly => ({
-        graph: runSimplePolygon(subPoly).context.graph,
+        graph: runSimplePolygon(subPoly, perceptualFloor).context.graph,
     }));
 
     // MERGED IN UNIT SPACE, then denormalised. The merge deduplicates crossing-point nodes with
     // `vectorsAreEqual`, which is the same absolute tolerance, so it has to see unit coordinates too.
     const merged = mergeSkeletonGraphs(subResults, decomposition.crossingPoints);
-    const mergedContext = makeMergedSolverContext(merged);
+    const mergedContext = makeMergedSolverContext(merged, perceptualFloor);
     denormaliseGraph(mergedContext.graph, normalisation);
     denormaliseCollisionCache(mergedContext.collisionCache, normalisation);
     return mergedContext;
 }
 
-export interface SolveSkeletonOptions {
+export interface SolveSkeletonOptions extends PerceptualFloorOptions {
     /**
      * Reverse counter-clockwise input before solving. The solver only handles clockwise
      * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
@@ -840,7 +860,14 @@ export interface SolveSkeletonOptions {
     normaliseWinding?: boolean;
     /**
      * Override the deviation below which an input vertex is treated as invisible and removed.
-     * Defaults to {@link SKELETON_NOISE_FLOOR}.
+     * Defaults to {@link PerceptualFloorOptions.perceptualFloor}, and thence to
+     * {@link SKELETON_NOISE_FLOOR}.
+     *
+     * NOT A SECOND PERCEPTUAL FLOOR — it is the region pass-down, and it exists because it lives in a
+     * DIFFERENT SPACE. `perceptualFloor` is the client's one scale-free value; this is that value
+     * carried into one sub-region's unit space by the recursion driver, so that a sliver
+     * canonicalises against the root's idea of invisible rather than its own. A direct caller who
+     * wants a coarser floor sets `perceptualFloor` and leaves this alone.
      *
      * IN UNIT SPACE, NOT THE CALLER'S. Canonicalisation runs after the polygon has been carried to
      * unit extent, so this value does NOT go through `normaliseLength` — it is compared directly
@@ -891,7 +918,12 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     assertVerticesAreFinite(vertices);
 
     const normaliseWinding = options?.normaliseWinding ?? true;
-    const noiseFloor = options?.noiseFloor ?? SKELETON_NOISE_FLOOR;
+    // ONE FLOOR, TWO READINGS OF IT. `perceptualFloor` is the client's value and governs the
+    // coincidence bar inside the solve; `noiseFloor` is the canonicalisation bar, which defaults to
+    // the same value and is overridden ONLY by the recursion driver, which has already restated the
+    // root's floor in this region's units. See `PerceptualFloorOptions`.
+    const perceptualFloor = resolvePerceptualFloor(options);
+    const noiseFloor = options?.noiseFloor ?? perceptualFloor;
     const diagnostics: SkeletonDiagnostic[] = [];
 
     // NORMALISED ONCE, HERE, BEFORE ANYTHING ELSE LOOKS AT THE POLYGON. See `normalisation.ts`. The
@@ -937,7 +969,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         });
 
         const subResults = decomposition.subPolygons.map(subPolygon => {
-            const run = runSimplePolygon(subPolygon);
+            const run = runSimplePolygon(subPolygon, perceptualFloor);
             pushStepFailures(diagnostics, run.errors);
             return {graph: run.context.graph};
         });
@@ -945,7 +977,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
         context = null;
     } else {
-        const run = runSimplePolygon(workingVertices);
+        const run = runSimplePolygon(workingVertices, perceptualFloor);
         pushStepFailures(diagnostics, run.errors);
         graph = run.context.graph;
         context = run.context;
@@ -998,7 +1030,10 @@ function denormaliseSnapshots(snapshots: StraightSkeletonGraph[], normalisation:
     }
 }
 
-export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult {
+export function runAlgorithmV5Stepped(
+    nodes: Vector2[],
+    options?: PerceptualFloorOptions,
+): SteppedAlgorithmResult {
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
     }
@@ -1011,15 +1046,16 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     // NORMALISED ONCE, HERE. See `normalisation.ts`. EVERY SNAPSHOT is denormalised on the way out,
     // not just the last: they are what a debug visualiser draws, and scrubbing through a sequence of
     // graphs half of which were in unit space would be worse than useless.
+    const perceptualFloor = resolvePerceptualFloor(options);
     const normalisation = makeSkeletonNormalisation(nodes);
     // CANONICALISED IN UNIT SPACE, immediately after, so the stepped visualiser walks the same
     // polygon the solving entry points do. See {@link canonicaliseInUnitSpace}.
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation).vertices;
+    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation, perceptualFloor).vertices;
 
     const decomposition = decomposePolygon(unitNodes);
 
     if (!decomposition.wasSelfIntersecting) {
-        const result = runSimplePolygonStepped(unitNodes);
+        const result = runSimplePolygonStepped(unitNodes, perceptualFloor);
         denormaliseSnapshots(result.snapshots, normalisation);
         return result;
     }
@@ -1031,7 +1067,7 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     let lastError: string | null = null;
 
     for (const subPoly of decomposition.subPolygons) {
-        const result = runSimplePolygonStepped(subPoly);
+        const result = runSimplePolygonStepped(subPoly, perceptualFloor);
         allSnapshots.push(...result.snapshots);
         if (result.error) lastError = result.error;
         if (result.snapshots.length > 0) {
@@ -1052,8 +1088,8 @@ export function runAlgorithmV5Stepped(nodes: Vector2[]): SteppedAlgorithmResult 
     return {snapshots: allSnapshots, error: lastError};
 }
 
-function runSimplePolygonStepped(nodes: Vector2[]): SteppedAlgorithmResult {
-    const context = makeStraightSkeletonSolverContext(nodes);
+function runSimplePolygonStepped(nodes: Vector2[], perceptualFloor: number): SteppedAlgorithmResult {
+    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor);
     const exteriorEdges = [...context.graph.edges];
 
     initInteriorEdges(context);

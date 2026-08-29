@@ -214,6 +214,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const rings = ringsOfSubPolygon(input.interiorEdges, context);
     const merges = rings === null ? [] : clusterCoincidentMerges(
         collisionsToHandle.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'),
+        context.perceptualFloor,
     );
 
     // A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring.
@@ -250,7 +251,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         const splitEvents = collisionsToHandle
             .filter(event => event.eventType === 'interiorAgainstExterior')
             .toSorted(byEventPriority);
-        const splitPositions = coincidentEventPositions(splitEvents);
+        const splitPositions = coincidentEventPositions(splitEvents, context.perceptualFloor);
 
         splitEvents
             .map((event, index) => handleCollisionEvent({...event, position: splitPositions[index]}, context))

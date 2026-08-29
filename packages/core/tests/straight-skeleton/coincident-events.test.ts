@@ -25,7 +25,13 @@ import {SKELETON_NOISE_FLOOR} from '../../src/straight-skeleton/canonicalisation
  */
 
 /**
- * The default tolerance the clustering predicate carries. Never varied here; see decision 2.
+ * The tolerance the clustering predicate is given. Never varied here; see decision 2.
+ *
+ * PASSED IN RATHER THAN READ FROM THE MODULE since journal decision 106 made the perceptual floor
+ * the client's: the production call site takes it from the solver context, and this suite states the
+ * library default so its constructions keep meaning what they meant. That the floor is now a
+ * parameter is what `perceptual-floor-option.test.ts` holds; what varying it does is not this
+ * suite's question.
  *
  * SINCE JOURNAL DECISION 78 THIS IS THE RENDER-SCALE FLOOR, not the arithmetic epsilon: two events
  * closer together than a viewer could ever see are one event. Every construction below is written
@@ -128,7 +134,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
         const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => eventAt(position, [10 + index]));
 
-        const merges = clusterCoincidentMerges(events);
+        const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
         expect(merges).toHaveLength(1);
         expect(merges[0].edgeIds).toEqual([10, 11, 12, 13]);
@@ -141,7 +147,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
             eventAt({x: 0, y: 0}, [11, 14]),
         ];
 
-        const merges = clusterCoincidentMerges(events);
+        const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
         expect(merges).toHaveLength(2);
         expect(merges[0].edgeIds).toEqual([10, 11, 14]);
@@ -149,7 +155,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
     });
 
     it('returns nothing for an empty layer', () => {
-        expect(clusterCoincidentMerges([])).toEqual([]);
+        expect(clusterCoincidentMerges([], CLUSTERING_BAR)).toEqual([]);
     });
 
     it('does not depend on arrival order', () => {
@@ -159,7 +165,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
         const interleaved = [forward[2], forward[0], forward[4], forward[1], forward[3]];
 
         const partitions = [forward, reversed, interleaved].map(events =>
-            clusterCoincidentMerges(events).map(merge => [...merge.edgeIds].sort((a, b) => a - b)));
+            clusterCoincidentMerges(events, CLUSTERING_BAR).map(merge => [...merge.edgeIds].sort((a, b) => a - b)));
 
         expect(partitions[0]).toEqual([[20, 21, 22, 23, 24]]);
         expect(partitions[1]).toEqual(partitions[0]);
@@ -171,8 +177,8 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
         const forward = positions.map((position, index) => eventAt(position, [30 + index]));
         const reversed = [...forward].reverse();
 
-        expect(clusterCoincidentMerges(reversed)[0].position)
-            .toEqual(clusterCoincidentMerges(forward)[0].position);
+        expect(clusterCoincidentMerges(reversed, CLUSTERING_BAR)[0].position)
+            .toEqual(clusterCoincidentMerges(forward, CLUSTERING_BAR)[0].position);
     });
 });
 
@@ -181,7 +187,7 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
         const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => eventAt(position, [40 + index]));
 
-        expect(isOneOf(clusterCoincidentMerges(events)[0].position, positions)).toBe(true);
+        expect(isOneOf(clusterCoincidentMerges(events, CLUSTERING_BAR)[0].position, positions)).toBe(true);
     });
 
     it('breaks an exact tie on position rather than on arrival index', () => {
@@ -191,8 +197,8 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
         const forward = positions.map((position, index) => eventAt(position, [50 + index]));
         const reversed = [...forward].reverse();
 
-        expect(clusterCoincidentMerges(forward)[0].position).toEqual({x: STEP, y: 0});
-        expect(clusterCoincidentMerges(reversed)[0].position).toEqual({x: STEP, y: 0});
+        expect(clusterCoincidentMerges(forward, CLUSTERING_BAR)[0].position).toEqual({x: STEP, y: 0});
+        expect(clusterCoincidentMerges(reversed, CLUSTERING_BAR)[0].position).toEqual({x: STEP, y: 0});
     });
 
     it('breaks a tie on y when x is equal', () => {
@@ -202,7 +208,7 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
         ];
         const events = positions.map((position, index) => eventAt(position, [60 + index]));
 
-        expect(clusterCoincidentMerges(events)[0].position).toEqual({x: 0, y: -STEP});
+        expect(clusterCoincidentMerges(events, CLUSTERING_BAR)[0].position).toEqual({x: 0, y: -STEP});
     });
 
     it('never answers with the centroid when no member sits there', () => {
@@ -211,7 +217,7 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
         const ring = ringPositions();
         const events = ring.map((position, index) => eventAt(position, [70 + index]));
 
-        const merges = clusterCoincidentMerges(events);
+        const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
         expect(merges).toHaveLength(1);
         expect(isOneOf(merges[0].position, ring)).toBe(true);
@@ -250,10 +256,10 @@ describe('the invariant gate: no two merges of one layer share a position', () =
             eventAt({x: 0, y: 0}, [200]),
         ];
 
-        const merges = clusterCoincidentMerges(events);
+        const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
         expect(merges).toHaveLength(2);
-        expect(() => assertMergePositionsAreDistinct(merges)).not.toThrow();
+        expect(() => assertMergePositionsAreDistinct(merges, CLUSTERING_BAR)).not.toThrow();
     });
 
     it('fires on the centroid partition of that same layer', () => {
@@ -269,7 +275,7 @@ describe('the invariant gate: no two merges of one layer share a position', () =
 
         expect(mutant).toHaveLength(2);
         expect(vectorsAreEqual(mutant[0].position, mutant[1].position)).toBe(true);
-        expect(() => assertMergePositionsAreDistinct(mutant)).toThrow(/same position/);
+        expect(() => assertMergePositionsAreDistinct(mutant, CLUSTERING_BAR)).toThrow(/same position/);
     });
 
     it('accepts a layer whose merges are distinct', () => {
@@ -278,7 +284,7 @@ describe('the invariant gate: no two merges of one layer share a position', () =
             {position: {x: 1, y: 0}, edgeIds: [11]},
         ];
 
-        expect(() => assertMergePositionsAreDistinct(merges)).not.toThrow();
+        expect(() => assertMergePositionsAreDistinct(merges, CLUSTERING_BAR)).not.toThrow();
     });
 });
 
@@ -299,7 +305,7 @@ describe('coincidentEventPositions: identity for the events the merge path never
         const first = {x: 0, y: 0};
         const second = {x: CLUSTERING_BAR * 0.5, y: 0};
 
-        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])], CLUSTERING_BAR);
 
         expect(resolved[0]).toBe(resolved[1]);
         expect(isOneOf(resolved[0], [first, second])).toBe(true);
@@ -309,7 +315,7 @@ describe('coincidentEventPositions: identity for the events the merge path never
         const first = {x: 0, y: 0};
         const second = {x: CLUSTERING_BAR * 1.5, y: 0};
 
-        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])], CLUSTERING_BAR);
 
         expect(resolved[0]).toBe(first);
         expect(resolved[1]).toBe(second);
@@ -323,7 +329,7 @@ describe('coincidentEventPositions: identity for the events the merge path never
         const first = {x: 0, y: 0};
         const second = {x: 2 ** -40, y: 0};
 
-        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])]);
+        const resolved = coincidentEventPositions([splitAt(first, [30, 4]), splitAt(second, [31, 9])], CLUSTERING_BAR);
 
         expect(resolved[0]).toBe(first);
         expect(resolved[1]).toBe(second);

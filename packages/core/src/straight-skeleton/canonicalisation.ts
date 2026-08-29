@@ -140,6 +140,59 @@ export const REMOVED_VERTEX_INDEX = -1;
  */
 export const SKELETON_NOISE_FLOOR = 1e-6;
 
+/**
+ * The client's perceptual floor, taken once and applied to every floor-derived bar in the solve.
+ *
+ * ONE FLOOR, SET ONCE, IN UNIT SPACE. Journal decision 106: the solver must not create geometry the
+ * client will throw away in its renderer, so the value that decides "can this be seen?" belongs to
+ * the client, not to this module. {@link SKELETON_NOISE_FLOOR} is the library DEFAULT — conservative,
+ * for a headless consumer with no rendering limits to measure — and a client with a known zoom cap
+ * derives its own and passes it here. Omitting the option is byte-identical to the behaviour before
+ * the option existed.
+ *
+ * EXACTLY TWO PRODUCTION BARS ARE FLOOR-DERIVED AT SOLVE TIME, and both are perceptual-identity
+ * questions in the sense of the tolerance audit's §7.1 decision 2:
+ *
+ *   1. {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
+ *      solver never sees it either". Reached as the default for `SolveSkeletonOptions.noiseFloor`,
+ *      which the recursion driver overrides with the root floor restated in region units.
+ *   2. `coincident-events.ts`'s `isOneEvent` bar — "these two arrivals are one vertex event, as far
+ *      as anything that will ever look at the skeleton is concerned". Reached through
+ *      {@link StraightSkeletonSolverContext.perceptualFloor}.
+ *
+ * EVERYTHING ELSE STAYS A MODULE CONSTANT, deliberately, and each for a reason already ruled:
+ * `FLOATING_POINT_EPSILON` and every bar derived from it answer "can the arithmetic tell these
+ * apart?", which is a property of doubles and not of a viewport (audit §7.1 decision 3);
+ * `findOrAddNode`'s epsilon is frozen by measurement (audit constraint C1); `DEGENERATE_AREA_EPSILON`
+ * is an absolute caller-space area whose space is an OPEN audit item (§7.2 decision 10) and moves
+ * only under a ruling; the strip and parcel tolerances are relative to quantities the solve itself
+ * produced and are correct as they are (§7.1 decision 6); and the test-side bars are instruments,
+ * held tighter than any floor on purpose (§7.1 decision 5).
+ *
+ * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each of the two bars
+ * above keeps its own space and its own predicate exactly as it had them; only the number substituted
+ * for {@link SKELETON_NOISE_FLOOR} is the client's. In particular the recursion driver's root-floor
+ * pass-down is untouched: the canonicalisation bar is still the ROOT's floor restated in the region's
+ * units while the coincidence bar is still the raw floor in whatever unit space the region has. That
+ * asymmetry is audit §7.2 decision 9, still OPEN, and this option does not settle it.
+ */
+export interface PerceptualFloorOptions {
+    /**
+     * The smallest separation the client can render as two things rather than one, IN UNIT SPACE —
+     * a fraction of the polygon's own extent, because the solve is normalised to unit extent before
+     * anything looks at it. Defaults to {@link SKELETON_NOISE_FLOOR}.
+     *
+     * Derive it, do not pick it: viewport pixels ÷ (zoom cap × the reference world extent) is the
+     * chain, and `apps/demo` carries a worked example at its two solver pages.
+     */
+    perceptualFloor?: number;
+}
+
+/** The client's floor, or the library default where the client did not state one. */
+export function resolvePerceptualFloor(options?: PerceptualFloorOptions): number {
+    return options?.perceptualFloor ?? SKELETON_NOISE_FLOOR;
+}
+
 /** Below this a ring is not a polygon, and no floor is allowed to take it there. */
 const MINIMUM_RING_SIZE = 3;
 

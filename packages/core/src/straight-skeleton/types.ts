@@ -98,6 +98,16 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
     collisionCache: CollisionCache;
+    /**
+     * The client's perceptual floor for this solve, in the unit space the graph is being solved in.
+     *
+     * ON THE CONTEXT BECAUSE THE EVENT LAYER NEEDS IT AND NOTHING BETWEEN THEM DOES. The only
+     * production consumer is `coincident-events.ts`'s "are these two arrivals one vertex event?" bar,
+     * which sits four call hops below the entry point that was handed the option; carrying it as a
+     * parameter through `stepAlgorithm` and the per-arity handlers would put a floor in the signature
+     * of three functions that have no opinion about one. See `PerceptualFloorOptions`.
+     */
+    perceptualFloor: number;
 }
 
 export type IntersectionType =
