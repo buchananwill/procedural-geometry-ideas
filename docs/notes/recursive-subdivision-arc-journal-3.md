@@ -51,6 +51,9 @@ orphan port 3000, P8 debrief relocation). Additions this session:
   --testPathPatterns=x`.
 - The full-suite console block listing per-fixture level-2 subdivision failures is a **logged
   diagnostic** from `recursive-subdivision.test.ts`, not a failure — the suite is green around it.
+- **Never pipe the dev server through `head`** — head exits after N lines and the server wedges
+  on its next write to the dead pipe (hung port 3000, 2026-08-29). Launch `pnpm dev` in the
+  background with no output pipe.
 - (user, 2026-08-27) **Playwright against the demo dashboard is a standing verification tool for
   visualising skeleton solutions** — build first (P3), check port 3000 for an orphan server (P4),
   then screenshot. Use it to eyeball a fixed fixture's skeleton, not only its test verdict.
@@ -632,7 +635,58 @@ open as root-correctness work. *(Process note: the lead announced this dispatch 
 execute it for two turns — caught by the user; the ruling was journaled and dispatched
 together, late.)*
 
+**101 — (user, 2026-08-29, after stepping through the site) The tolerance system is the
+first-class defect: nodes 29/30 should be impossible REGARDLESS of pairing.** The user's words,
+near-verbatim: "The measure of a tolerance's value is whether it normalizes
+minimum-perceptual-difference for the system it serves. It isn't doing that here. The nodes do
+not visibly separate at any zoom level. That's a first-class numerical precision defect, and the
+fact that it causes downstream defects is a pure artifact of having differen[t] tolerance
+thresholds that aren't conceptually agreeing on what is signal and what is noise. Picking the
+right winner wouldn't fix this defect — it would just give us a different degenerate-level
+edge." Consequences: decision 89's parked placed-node design is REVIVED as the mechanism
+candidate (one node from the event set, no displacement of established geometry — the F32
+constraint stands), and the prerequisite is a **tolerance audit**: every threshold in the solver
+and recursion pipeline (epsilon, render floor, coincidence bar, layer window, area floors,
+canonicalisation floors, their spaces and pass-downs), its conceptual signal-vs-noise role, and
+every site where two thresholds disagree about the same quantity — F27/F28/F32's measured
+failures as the constraint set. Audit produces a decision spec for ruling; no code until then.
+
+**102 — (user, 2026-08-29) Linear causality is the solver's basic invariant: the pairing winner
+is the lower offset, within tolerance, always.** The user's words, near-verbatim: "The model of
+this implementation of the SS algorithm is that collision events are handled with a strict
+linear causality (within the appropriate tolerance). Breaking that is a first-class bug. Any
+defect that appears from adhering to this invariant is a numerical bug implying something
+upstream — e.g. an offset has been miscalculated (previously a problem from not handling
+projection chains correctly)." This RESOLVES decision 98: earliest arrival wins; the
+lexicographic ordering survives only as the determinism tie-break WITHIN the tolerance window
+(decision 65's purpose, restored to its proper scope). F38's falsified experiment is re-read
+under this ruling: k4's catastrophic result under earliest-arrival (tiling 6.411, backwards
+edges) is not a counter-argument but **evidence of an upstream mis-computed offset in k4's
+solve** — to be traced, with projection-chain offset derivation as the user's named suspect.
+
 ## Findings
+
+**F39 — The tolerance audit is delivered
+([tolerance-unification-audit.md](./tolerance-unification-audit.md), 1120 lines), and its
+central measurement FALSIFIES decision 89's design as stated: a coincidence component can be
+resolved to one node without violating I3 iff its parent set is CONCURRENT — and the audited
+pairs mostly are not.** Inventory: exactly two production geometric constants (epsilon 1e-8,
+floor 1e-6) but epsilon applied at 22 sites across SIX different spaces (lengths, offsets,
+dots, crosses, rates, parameters), an absolute caller-space area floor, scale-relative strays,
+and nine uncommented inline literals in `parcel-slicing.ts`. Fourteen mapped disagreements —
+headline D3: nodes 29/30 at 3.880× the floor pass every invariant while the floor's own
+measured admissible band [1e-6, 3e-6] cannot reach them; and the 29/30 pair, the F37 fold, and
+one of I5's crossed ridges are ONE object (derived, then confirmed by measurement). Placed-node
+measurements: ≥4 distinct parents is the MAIN path (21.4% of interior nodes; all five audited
+pairs are |P|=4); two of five pairs are rank-2 (parents collapse to antiparallel normals — the
+equidistant locus is a line, no point to place, 29/30 among them), two are full-rank
+inconsistent (no exact equidistant point; least-squares lands 100× the I3 bar), one behaves.
+The draft spec (§7, 28 numbered decisions) scopes the placed node to concurrent parent sets
+with loud refusal otherwise, makes the floor the sole perceptual-identity bar and epsilon the
+sole arithmetic-equality bar, prefers combinatorial guards where metric bars cannot be
+scale-safe, and leaves FIVE OPEN items with settling measurements for the user and lead to rule
+jointly. Also surfaced: **F10's body had been destroyed** by the commit-9008495 anchor accident
+and was cited everywhere while existing nowhere — restored above with provenance.
 
 **F38 — The fold fix landed with the root defect pinned loud (I5), and decision 100's own marker
 was falsified en route: the true discriminator of a crossed-pairing pair is that its parents are
@@ -920,6 +974,28 @@ the new fixture and the withdrawn oracle fabrications, all attributed. Lead veri
 **4648/4648 (77 suites)**, build clean, dashboard **268/268**, all re-run by the lead.
 **Package 8 committed: `9008495`** (includes the user's screenshot under `examples/` as the
 referenced evidence). The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
+Swept 2026-08-27 from the backlog, journal, decisions files, debriefs and source. With known failing
+cases: near-degenerate reflex shapes with jitter *along* the edge line (48/80 and 25/80 fail,
+[backlog item 2](./solver-hardening-backlog.md), no fixture in repo yet); the collinear dumbbell
+(item 7, pinned in `collinear-dumbbell.test.ts`); `inEdges` ordering instability (21/37 fixtures,
+no order assertion anywhere). Documented-risk only: caller-space debug recomputation
+(`debug-helpers.ts:20`, dashboard sweep overlay); unit-space assert text; unfuzzed corner-correction
+guards (item 8); NaN vertices invisible to the bounding-box scan; the un-revisited absolute
+`FLOATING_POINT_EPSILON = 1e-8` itself (four defect classes implicate it); duplicated 1e-6 area
+floors (`polygon-decomposition.ts:5` vs `recursive-subdivision.ts:103`, review-flagged twice).
+*AMENDED 2026-08-27: the "un-revisited absolute epsilon" entry is re-ruled by decision 54 — the
+constant is a deliberate pragmatic choice (UE small number) and revisiting it is not an
+obligation; only the terminal-ring-finer-than-tolerance regime stays open, judged by visibility.*
+Communication, not code: F9's structural-identity-below-1e-13 correction still hasn't travelled
+upstream. Needs a ruling: decision 19–20 of
+[input-canonicalisation-decisions.md](./input-canonicalisation-decisions.md) (root floor pass-down)
+is unreconciled with F4/F5's measurement that the band reopened the other way.
+
+**F10 — The outstanding numerical-tolerance surface is twelve distinct items, not a vague cloud.**
+*(RESTORED 2026-08-29: this entry's body was destroyed by an anchor-edit accident in the commit
+`9008495` journal update — the same insert-before-heading mistake the arc has now made three
+times — and went unnoticed until the tolerance audit found F10 cited everywhere but present
+nowhere. Recovered verbatim from `9008495^`.)*
 Swept 2026-08-27 from the backlog, journal, decisions files, debriefs and source. With known failing
 cases: near-degenerate reflex shapes with jitter *along* the edge line (48/80 and 25/80 fail,
 [backlog item 2](./solver-hardening-backlog.md), no fixture in repo yet); the collinear dumbbell
