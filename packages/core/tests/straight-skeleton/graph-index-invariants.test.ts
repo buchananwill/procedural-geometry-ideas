@@ -490,19 +490,43 @@ describe('I4: every exterior edge\'s face closes across its own bisectors', () =
  * I5 — NO TWO BISECTORS SPAN THE SAME NODE PAIR UNLESS THEIR PARENTS ARE PARALLEL
  * ----------------------------------------------------------------------------
  *
- * THIS IS THE LOUD RECORD OF AN OPEN DEFECT, journal decision 98, and it FIRES UNTIL THE
- * RING-COLLAPSE PAIRING IS FIXED. It is not a passing invariant with a couple of grandfathered
- * exceptions: the two pins below are wrong answers the solver is currently producing, silently, on
- * fixtures whose roots report a complete solve. When decision 98's pairing rule lands, both pins go
- * to zero and this whole block retires through the attributed-cure flow — the pins are re-measured
- * and deleted, never softened.
+ * THIS WAS THE LOUD RECORD OF AN OPEN DEFECT, journal decision 98, AND ITS PINS ARE NOW DELETED —
+ * both went to zero on 2026-08-29 and were re-measured rather than softened, which is the
+ * attributed-cure flow the block was written to end in. It asserts zero on every fixture of the
+ * corpus now, clean and known-defect alike. It is kept whole, with its measurements, because it is
+ * the instrument that found the class and the one that will see it come back: the two mechanisms
+ * that emptied it are named below and each is convicted by reverting it.
  *
- * WHAT THE DEFECT IS (F36/F37). On `(seed 55433)` an arm of the L collapses as a near-degenerate
+ * WHAT THE DEFECT WAS (F36/F37). On `(seed 55433)` an arm of the L collapses as a near-degenerate
  * 4-ring: all eight arrival events land inside one epsilon layer, 7e-11 apart, and because both
- * merges share edges the clustering falls through to the pairwise fallback, which orders by priority
- * and then by lexicographic edge id — deliberately, for placement determinism. A geometrically
- * impossible pairing wins. What it leaves behind is a `{10,16}` bisector pair where the single
- * `{9,15}` ridge belongs, and `ie46 [15,10]` / `ie44 [9,16]` holding crossed targets.
+ * merges share edges the clustering fell through to the pairwise fallback, which resolved the WHOLE
+ * layer — so both ends of the corridor closed in one step and each emitted its own bisector into it.
+ * What that left behind is a `{9,15}` ridge spanned by two bisectors where a ridge admits one.
+ *
+ * WHAT REMOVED IT, AND WHY IT IS A CURE RATHER THAN A SILENCE. Two changes, neither of them a
+ * tolerance, both of them journal decision 102's linear causality said about a different step:
+ *
+ *  - `handleInteriorNGon` now narrows a layer the whole-event resolution REFUSES down to its
+ *    earliest arrival moment (`earliestArrivalMoment`, decision 102 applied to what an event
+ *    CONSUMES rather than only to the order events are read in). The corridor's two closures are
+ *    2.5e-11 apart on offsets of 2.9e-1 — a million ulps, four orders outside the simultaneity bar —
+ *    so the earlier one resolves alone and the later is recomputed against the wavefront it left.
+ *  - `handleInteriorEdgePair` closes a collinear SAME-DIRECTION pair on its leading source, culling
+ *    the surplus bisector, instead of cross-wiring it. Cross-wiring two rays that run the same way
+ *    along one line necessarily sends one of them backwards, and the pair it leaves is a duplicate
+ *    ridge by construction.
+ *
+ * ATTRIBUTED BY MUTATION, BECAUSE THE TWO OVERLAP AND SAYING SO IS THE POINT. Reverting the
+ * narrowing alone leaves BOTH fixtures at zero here — `(seed 55433)`'s corridor still reaches the
+ * two-edge base case, where the leading-source closure catches it. Reverting the closure alone
+ * leaves `(seed 55433)` at zero (the narrowing removes its second bisector upstream) and puts
+ * `Off-edge Jitter Plus (seed 7919)` back to 2. So this invariant convicts the CLOSURE and not the
+ * narrowing; the narrowing's own convictions are the direction counts in
+ * `wavefront-causality.test.ts` and the jitter cell in `along-edge-jitter-known-failures.test.ts`.
+ *
+ * The two nodes are still two nodes, 3.9e-6 and 1.5e-3 apart in their own spaces. That was never
+ * this invariant's claim (journal decision 92 / F26a: sub-floor separation that is real, causally
+ * ordered structure is not a solver problem), and nothing here merged them.
  *
  * WHY NOTHING ELSE SEES IT. I3 is satisfied by the WRONG parents to 1.4e-14, because the arm is
  * near-symmetric top to bottom and the wrong pair defines the same locus as the right one; I4 passes
@@ -541,9 +565,9 @@ describe('I4: every exterior edge\'s face closes across its own bisectors', () =
  * worst legitimate reading and three below the smallest defect one, which is the same shape of
  * headroom {@link EQUIDISTANCE_BAR} takes and for the same reason.
  *
- * THE LENGTHS CORROBORATE IT INDEPENDENTLY and are recorded because they say what the defect COSTS.
+ * THE LENGTHS CORROBORATE IT INDEPENDENTLY and are recorded because they say what the defect COST.
  * In unit space the fifteen legitimate mid-lines run from 1.29e-2 to 7.81e-1 — visible skeleton. The
- * four defect pairs run 1.60e-6, 1.79e-6, 3.88e-6 and 6.05e-6: between 1.6 and 6.1 times the render
+ * four defect pairs ran 1.60e-6, 1.79e-6, 3.88e-6 and 6.05e-6: between 1.6 and 6.1 times the render
  * floor, sub-visible ridges that no picture shows and no eye-pass could have found. That is why this
  * defect needed an instrument rather than a look.
  *
@@ -634,59 +658,54 @@ function crossedPairingProblems(graph: StraightSkeletonGraph): string[] {
 }
 
 /**
- * How many crossed-pairing ridges each fixture currently carries, MEASURED 2026-08-29.
+ * WHAT THE PIN TABLE HELD, AND WHY THERE IS NO TABLE ANY MORE.
  *
- * NOT A TOLERANCE AND NOT AN EXEMPTION — a defect signature in the sense of journal decision 72. Each
- * entry is a wrong answer standing in a solve that reports itself complete. A fixture absent from
- * this table carries none, which is every clean fixture and two of the four known-defect ones.
+ * Until 2026-08-29 this file carried `PINNED_CROSSED_PAIRINGS`, two rows deep, in the sense of
+ * journal decision 72: each entry a wrong answer standing in a solve that reported itself complete.
+ * Both rows read 2 — `Off-edge Jitter Reflex L (seed 55433)` and `Off-edge Jitter Plus (seed 7919)`
+ * — and both are now 0, so the table is DELETED rather than zeroed. A table of zeroes is a place for
+ * the next regression to be absorbed into; a sweep asserting zero everywhere is not.
  *
- * `(seed 55433, k=4)` IS ABSENT, AND THAT IS A RESULT RATHER THAN AN OVERSIGHT. F36 read its arm
- * patch as the same class as `(seed 55433)`'s, and this marker does not see it: its collapse leaves
- * no two bisectors on one ridge. Either its defect is a different one, or the same pairing error
- * expressed without the duplicate — an open question this table records instead of papering over.
+ * `(seed 55433, k=4)` WAS ALWAYS ABSENT, AND THAT WAS A RESULT RATHER THAN AN OVERSIGHT. F36 read
+ * its arm patch as the same class as `(seed 55433)`'s and this marker never saw it. The question
+ * that left open is now answered: its defect WAS the same class, expressed as a direction violation
+ * instead of a duplicate — a three-way vertex event resolved two edges at a time — and the same
+ * narrowing that emptied `(seed 55433)` here took k=4's direction count to zero in
+ * `wavefront-causality.test.ts`. One class, three fixtures, two shapes, two mechanisms.
  *
- * ITS ZERO IS NOW LOAD-BEARING TWICE OVER. Under the arrival ordering (journal decision 102) the
- * pairwise fallback resolves this fixture's five-edge ring by offset, and three of that ring's
- * arrivals land on ONE point with pairwise offsets spread over 9.03e-11 because a pair's event used
- * to carry the offset of whichever edge REPORTED it rather than the offset by which both had
- * arrived. Order those asymmetric readings and the ring pairs on an arrival that had not happened:
- * this row goes to 1. `arrivalOffsetOfPair` in `collision-helpers.ts` is what keeps it at 0, and
- * mutating that function to return `offsetFromA` is the conviction of it.
+ * ITS ZERO WAS LOAD-BEARING BEFORE THAT AND STILL IS. Three of k=4's five-edge ring's arrivals land
+ * on ONE point with pairwise offsets spread over 9.03e-11 because a pair's event used to carry the
+ * offset of whichever edge REPORTED it rather than the offset by which both had arrived. Order those
+ * asymmetric readings and the ring pairs on an arrival that had not happened. `arrivalOffsetOfPair`
+ * in `collision-helpers.ts` is what keeps that from happening, and mutating it to return
+ * `offsetFromA` is the conviction of it.
  *
- * THE TABLE DID NOT MOVE UNDER THAT ORDERING, AND WHAT DID MOVE IS RECORDED HERE RATHER THAN LOST.
- * `(seed 55433)`'s first pair is now `ie48 [9,15]` / `ie49 [15,9]` at a parent skew of 1.300e-5,
- * where it was `[10,16]` / `[16,10]` at 6.456e-6: the arm ring is paired on the walls that vanish
- * first, so the surviving ridge belongs to the walls F36 named, and the ridge is still DOUBLE. That
- * is the measured limit of this marker — it reads the duplication, which the correct pairing also
- * produces here, and not the label swap. What is left is journal decision 101's defect: the two
- * collapse nodes are 3.9e-6 apart in unit space and should not both exist. See
- * `arrival-ordering.test.ts` for the parents, pinned so that reverting the ordering fires there.
+ * THE HISTORY OF (seed 55433)'S FIRST PAIR, kept because it is the evidence that pairing and
+ * duplication are different questions. It was `[10,16]` / `[16,10]` at a parent skew of 6.456e-6;
+ * under the arrival ordering (journal decision 102) it became `ie48 [9,15]` / `ie49 [15,9]` at
+ * 1.300e-5 — the arm ring paired on the walls that vanish first, so the surviving ridge belonged to
+ * the walls F36 named, and the ridge was still DOUBLE. Pairing decided which walls owned the ridge;
+ * it could not decide whether the ridge should carry one bisector or two. The narrowing decided
+ * that. See `arrival-ordering.test.ts` for the parents, pinned so that reverting the ordering fires
+ * there.
  */
-const PINNED_CROSSED_PAIRINGS: Record<string, number> = {
-    'Off-edge Jitter Reflex L (seed 55433)': 2,
-    'Off-edge Jitter Plus (seed 7919)': 2,
-};
 
 describe('I5: two bisectors share a ridge only where their parents are parallel', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
         (name, vertices) => {
-            expect(crossedPairingProblems(solveSkeleton(vertices).graph))
-                .toHaveLength(PINNED_CROSSED_PAIRINGS[name] ?? 0);
+            expect(crossedPairingProblems(solveSkeleton(vertices).graph)).toEqual([]);
         },
     );
 
-    it('names the two fixtures it fires on, and no clean fixture is among them', () => {
-        // The guard on the table. A pin naming a fixture outside the corpus, or a table that grew to
-        // absorb a regression, would leave the sweep above asserting nothing.
-        const pinned = Object.keys(PINNED_CROSSED_PAIRINGS);
-
-        expect(pinned).toEqual([
-            'Off-edge Jitter Reflex L (seed 55433)',
-            'Off-edge Jitter Plus (seed 7919)',
-        ]);
-        expect(pinned.every(name => KNOWN_DEFECT_POLYGONS.some(polygon => polygon.name === name))).toBe(true);
-        expect(CLEAN_TEST_POLYGONS.filter(polygon => pinned.includes(polygon.name))).toEqual([]);
+    it('sweeps both populations, with nothing excused and nothing outside the sweep', () => {
+        // The guard the deleted pin table used to need, restated for a sweep with no exemptions: a
+        // `FULL_CORPUS` that quietly stopped carrying the known-defect fixtures would leave this
+        // invariant passing on the only shapes that ever broke it.
+        for (const polygon of [...CLEAN_TEST_POLYGONS, ...KNOWN_DEFECT_POLYGONS]) {
+            expect(FULL_CORPUS.some(entry => entry.name === polygon.name)).toBe(true);
+        }
+        expect(FULL_CORPUS).toHaveLength(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
     });
 
     it('sees the legitimate head-on population too, so the pins are a filter and not a blindness', () => {

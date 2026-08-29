@@ -448,10 +448,42 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // Pick the best (lowest offset, non-phantom) collision
         const best = bestNonPhantomCollision(collisions)!;
 
-        // Co-linear collapse: cross-wire sources
+        // A COLLINEAR SAME-DIRECTION PAIR CLOSES ON ITS LEADING SOURCE. It is not a head-on pair and
+        // must not be cross-wired: both rays run the SAME way along one line, so wiring each to the
+        // other's source sends the leading one BACKWARDS along its own basis — journal decision 70's
+        // defect — and leaves two bisectors spanning one node pair where the ridge admits one (I5).
+        //
+        // This is the near-anti-parallel corridor, and the exactly-anti-parallel one is a different
+        // case that does not reach here. Where the two walls are exactly parallel the bisector offset
+        // rate is zero, `addBisectionEdge` takes its direction from the ordered parent pair, and the
+        // two mid-lines are born pointing at each other — `intersectRays` calls that 'head-on' and
+        // the mid-line legitimately carries two half-edges, one per face. Where the walls are skewed
+        // by even a few parts in 1e5 the rate is non-zero and decides both directions, so both
+        // mid-lines point the SAME way — up the widening corridor, the direction the wavefront clock
+        // runs — and the trailing one simply reaches the leading one's source. The leading bisector
+        // has no wavefront left to trace and retires as a culled self-loop.
+        //
+        // THE CLOSURE IS `solveParallelClosure`'S ANCHOR RULE, applied where the geometry has already
+        // been decided rather than guessed: that function's header states this argument in full and
+        // is gated to the exactly-parallel regime because it is reached with NO collision at all, so
+        // it must first establish that a collision was impossible. Here `intersectRays` has already
+        // classified the pair as collinear and same-direction; the only remaining question is which
+        // source leads, and the raw separation answers it with no tolerance. NO NODE MOVES — the
+        // leading source is an existing node and only the other edge's target is assigned.
+        //
+        // MEASURED: at native placement this branch is reached exactly twice across the 59-fixture
+        // corpus, both on `OFF_EDGE_JITTER_PLUS_SEED_7919`, and both were I5 crossed-pairing pins
+        // carrying a direction violation apiece. It is reached again on the large-coordinate cells
+        // journal decisions 66/81 accept, where it retires a bisector that used to be wired back to
+        // an EXTERIOR node; those cells still fail as pinned and their hub in-degrees moved with it
+        // (`large-coordinate-known-failures.test.ts`). Taking `id1` instead of the leading source is
+        // convicted by seven tests across five suites.
         const intersectionType = best.intersectionData[2];
         if (intersectionType === 'co-linear-from-1') {
-            context.crossWireEdges(id1, id2);
+            const separation = subtractVectors(context.sourcePosition(id2), context.sourcePosition(id1));
+            const leadingId = dotProduct(separation, context.getEdgeWithId(id1).basisVector) > 0 ? id2 : id1;
+            applyDegenerateClosure(context, input.interiorEdges, context.sourcePosition(leadingId));
+            return {childSteps: []};
         } else {
             // Standard convergence — wire both edges to the collision point
             context.terminateEdgesAtPoint([id1, id2], best.position);

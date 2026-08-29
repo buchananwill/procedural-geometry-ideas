@@ -262,20 +262,56 @@ function collinearLeadingFirstPair(): InitialisedContext {
 }
 
 describe('handleInteriorEdgePair: collinear same-direction pairs resolve in either ordering', () => {
-    it('cross-wires when the leading edge is listed first', () => {
+    /*
+     * THE CLOSURE IS ON THE LEADING SOURCE, AND IT USED TO BE A CROSS-WIRE — corrected 2026-08-29.
+     *
+     * Two rays running the SAME way along one line are not a head-on pair, and wiring each to the
+     * other's source is wrong for the leading one by construction: its target sits behind its own
+     * basis, which is journal decision 70's backwards edge, and the two edges then span one node
+     * pair, which is I5's duplicate ridge. Both symptoms were live — the plus seed carried two of
+     * each — and both were this one closure.
+     *
+     * WHAT IT IS INSTEAD is `solveParallelClosure`'s anchor rule, applied where the geometry is
+     * already decided: the trailing edge travels forward to the leading source, and the leading one
+     * has no wavefront left to trace and retires as a culled zero-length self-loop — the same
+     * representation `applyDegenerateClosure` uses for every surplus bisector.
+     *
+     * THE ORDERING CLAIM IN THIS BLOCK'S TITLE IS UNCHANGED and is what the fixture above exists
+     * for: `intersectRays` classifies this ordering 'co-linear-from-2' and `collideInteriorEdges`
+     * returns nothing for it, so the base case has to retry the reverse ordering itself before it
+     * can reach any closure at all.
+     */
+    it('closes on the leading source, culling the leading edge, when it is listed first', () => {
         const {context, interiorEdgeIds} = collinearLeadingFirstPair();
         const [leadingId, trailingId] = interiorEdgeIds;
         const leadingSource = context.getEdgeWithId(leadingId).source;
-        const trailingSource = context.getEdgeWithId(trailingId).source;
 
         const output = handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
 
         expect(output.childSteps).toEqual([]);
         expect(context.getEdgeWithId(trailingId).target).toBe(leadingSource);
-        expect(context.getEdgeWithId(leadingId).target).toBe(trailingSource);
+        expect(context.getEdgeWithId(leadingId).target).toBe(leadingSource);
+        expect(context.getInteriorWithId(leadingId).culled).toBe(true);
+        expect(context.getInteriorWithId(trailingId).culled).toBeUndefined();
         for (const edgeId of interiorEdgeIds) {
             expect(context.isAccepted(edgeId)).toBe(true);
         }
+    });
+
+    it('picks the same leading source when the trailing edge is listed first', () => {
+        // The closure reads which source LEADS from the raw separation, so it cannot depend on the
+        // order the pair arrived in. Without this, the rule could be satisfied by taking `id1` and
+        // the whole point of it — that no edge is wired behind its own basis — would hold only half
+        // the time.
+        const {context, interiorEdgeIds} = collinearLeadingFirstPair();
+        const [leadingId, trailingId] = interiorEdgeIds;
+        const leadingSource = context.getEdgeWithId(leadingId).source;
+
+        handleInteriorEdgePair(context, {interiorEdges: [trailingId, leadingId]});
+
+        expect(context.getEdgeWithId(trailingId).target).toBe(leadingSource);
+        expect(context.getEdgeWithId(leadingId).target).toBe(leadingSource);
+        expect(context.getInteriorWithId(leadingId).culled).toBe(true);
     });
 });
 

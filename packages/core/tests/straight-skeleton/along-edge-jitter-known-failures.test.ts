@@ -168,7 +168,7 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 4 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+    it('fails 3 of 80 cells on the double-reflex plus, at the default noise floor', () => {
         // Was 46 of 80 before decision 70, 13 of 80 after it, 11 under decision 78 and 10 once the
         // parallel-vertex closure took count 2. The plus keeps more of the class than the L because
         // its facing walls are exactly parallel whatever the jitter does, which is a degeneracy
@@ -180,8 +180,16 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
         // from the totals. The mechanism is the same one the fold population records: the pairwise
         // fallback in `handleInteriorNGon` used to pair a collapsing ring by edge id, and pairing it
         // by arrival instead removes the sub-visible duplicate ridges that these cells died on.
+        //
+        // THE SIXTH READING, 2026-08-29, ATTRIBUTED TO THE EARLIEST-ARRIVAL NARROWING of that same
+        // fallback: 4 of 80 becomes 3, and the set moves from [3,7,8,10] to [3,8,10] — count 7,
+        // which the fifth reading had newly broken, is cured and nothing new fails, so this reading
+        // is a strict subset and the attribution needs no per-cell reconciliation. The mechanism is
+        // the next step of the same argument: ordering a refused layer by arrival was not enough
+        // while the whole layer was still CONSUMED in one step, and narrowing it to one arrival
+        // moment is what makes the ordering load-bearing.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 4, failingCounts: [3, 7, 8, 10]});
+            .toEqual({failed: 3, failingCounts: [3, 8, 10]});
     });
 });
 

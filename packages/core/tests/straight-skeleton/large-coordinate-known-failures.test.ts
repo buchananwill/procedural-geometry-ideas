@@ -451,7 +451,18 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // which shards of the scatter arrive together and so which of them the smaller hub collects.
         // The mechanism this test names is untouched — still two hubs, still 1.24e-8 apart, still
         // just past the tolerance — and that is the claim the two assertions below carry.
-        expect(cluster.inDegrees).toEqual([10, 40]);
+        //
+        // RE-MEASURED AGAIN THE SAME DAY, [10, 40] -> [10, 44]. The 2026-08-29 causality package has
+        // two mechanisms — the earliest-arrival narrowing of `handleInteriorNGon`'s refused layer,
+        // and the leading-source closure of a collinear same-direction pair in
+        // `handleInteriorEdgePair` — and EITHER ONE ALONE produces this split, measured by mutation,
+        // so the attribution is to the package rather than to one of them. Both stop four shards of
+        // a scatter being stranded outside the hubs by a resolution that consumed a whole layer at
+        // once. THE COUNT IS THE CLAIM AND THE COUNT IS UNMOVED — still two hubs — and the cell
+        // still fails, which is the pinned behaviour of journal decisions 66/81. Movement in the
+        // in-degree split is movement WITHIN an accepted failure, and it is recorded here rather
+        // than absorbed.
+        expect(cluster.inDegrees).toEqual([10, 44]);
         // The whole defect in one number: had these two been 1e-8 apart rather than 1.24e-8, the
         // `identical-source` branch of `intersectRays` would have closed the pair and the solve
         // would have completed.
@@ -467,8 +478,13 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
     it('shatters into ten at 1e10, with a hub of 16 — the same half-merge, coarser', () => {
         const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 1e10, 1e-4);
 
+        // Ten shards, one hub of 16: unmoved. The 2026-08-29 causality package moved one shard's
+        // in-degree from 4 to 6 — two arrivals that used to be stranded by a whole-layer resolution
+        // now reach the shard they belong to — and moved nothing else. Same accepted failure, same
+        // shape. See the cell above for why the attribution is to the package and not to one of its
+        // two mechanisms.
         expect(cluster.count).toBe(10);
-        expect(cluster.inDegrees).toEqual([2, 3, 3, 3, 4, 6, 6, 6, 6, 16]);
+        expect(cluster.inDegrees).toEqual([2, 3, 3, 3, 6, 6, 6, 6, 6, 16]);
     });
 
     it('does NOT shatter free at 2e10 any more, which is why the envelope now closes at 1e9', () => {
@@ -481,9 +497,13 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // rather than in a list of translations.
         const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 2e10, 1e-4);
 
+        // The hub's in-degree was 20 until the 2026-08-29 causality package and is 24 after it, for
+        // the same reason as the two cells above: fewer arrivals stranded outside the hub by a layer
+        // resolved whole. The count of 11 and the failing verdict — the two claims this test makes —
+        // are unmoved.
         expect(solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, 2e10)).complete).toBe(false);
         expect(cluster.count).toBe(11);
-        expect(Math.max(...cluster.inDegrees)).toBe(20);
+        expect(Math.max(...cluster.inDegrees)).toBe(24);
     });
 });
 

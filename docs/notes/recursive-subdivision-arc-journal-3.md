@@ -755,7 +755,42 @@ MONOTONICITY rather than clamp (the clamp would have broken decision 97's fit-ti
 affordance, and the derivation argument for it was shown false — the floor is relative, the cap
 absolute).
 
+**110 — Rulings on the placed-node package's two calls.** (a) The Circle 16 @scale-1e-3/
+translate-1e9 digest movement is RATIFIED as an attributed cure inside an accepted failure: the
+fixture fails identically (same verdict, same diagnostic, byte-identical positions); the sole
+change is a backwards-wired edge becoming a culled self-loop — strictly better wrongness, at a
+placement ratio of 1e12 in the decision-66/81 class. (b) NOT building the ruled concurrency
+gate / placed node is RATIFIED on the delegate's measurement and decision 107(b)'s own
+precedent: across the 346 merges the whole-event branch resolves, the worst concurrency residual
+is 5.56e-12 (three orders inside the bar, 344 of 346 machine-zero), the ONE rank-deficient set
+is a case a rank refusal would have rejected WRONGLY, and the audit's rank-2 pairs never reach
+the branch as one set — causality's narrowing separates them into two arrival moments that
+resolve as two nodes joined by one ridge, which is exactly what audit §7-18 prescribes. A gate
+with no constructible conviction does not land. The design stays recorded in the audit for the
+day a corpus case demands it.
+
 ## Findings
+
+**F44 — Known-wrong root graphs at the library floor: ZERO. The residual register for the C++
+handoff is empty, and it emptied by causality, not by new machinery.** Two mechanisms, no new
+tolerance: (1) earliest-arrival narrowing — the fp_compare layer (~1e8 ulps wide) consumed
+arrivals a million ulps apart as simultaneous; the whole-event resolution now runs on the full
+layer first and, on refusal (an edge claimed twice), narrows to the earliest 64-ulp arrival
+moment and retries — at all four corpus refusal sites the narrowed set is one clean vertex
+event and the pairwise fallback is never entered; (2) the `co-linear-from-1` cross-wiring
+corrected to the leading-source closure (same-direction rays are not head-on; cross-wiring sent
+the leader backwards by construction). Results: k4's direction violation 0 (F40's STOP site —
+the three-way resolves across two causally-ordered steps); I5 = 0 on every fixture, pin table
+DELETED through the cure flow with the detector's validity tests kept; all direction violations
+0; the 55433 corridor measured as the correct rank-2 two-node form with ONE ridge edge (closures
+2.5e-11 apart in the wavefront clock — real causally-ordered structure, decision 92's
+presentation-contraction territory); plus jitter 4/80 → 3/80. Unmoved, honestly: census 22, the
+sub-floor pairs, k4's 8.34e-12 I3 lean (it lives at the split-pass medoid, untouched), the
+folds' 4, the large-coordinate verdicts (three hub signatures moved WITHIN accepted cells,
+attributed). Convictions: narrowing 3/2, leading-source 7/5, and the restraint gate ("narrow
+only on refusal") 30+/10 including Circle 48's native hub — F27 restated as a load-bearing
+guard. `crossWireEdges` retains only its synthetic conviction (no corpus hit at native).
+Delegate figures: core 5249/5249 (83 suites), dashboard 308/308.
 
 **F43 — One client, one floor: every dashboard solve path now runs at the derived 1e-5, and the
 parcels page measured strictly improved.** The three remaining paths (inspector standaloneSolve,

@@ -451,8 +451,11 @@ describe('wavefront causality', () => {
      *    the whole corpus shares. That is the invariant journal decision 70 installed, holding
      *    everywhere including on shapes the solver otherwise gets wrong.
      *
-     *  - DIRECTION IS NOT. Two of the four near-floor jitter fixtures terminate edges behind their
-     *    own source, and their counts are pinned per fixture in {@link DEFECT_CAUSALITY_SIGNATURES}.
+     *  - DIRECTION WAS NOT, AND IS AS OF 2026-08-29. Two of the four near-floor jitter fixtures
+     *    terminated edges behind their own source; every one of those counts is now zero and the
+     *    table below is all zeroes. It is kept, with its per-fixture rows, because it is the
+     *    instrument that measured the cure and the one that will see a relapse — see
+     *    {@link DEFECT_CAUSALITY_SIGNATURES} for what each row cost and what removed it.
      *
      *  - OFFSET AND CLEARANCE ARE UNIVERSAL AS OF 2026-08-28, and were not before. See below: they
      *    were never broken; the oracle that measured them was.
@@ -479,13 +482,14 @@ describe('wavefront causality', () => {
      * is still visible here, and the three fixtures stay in `KNOWN_DEFECT_POLYGONS` on the census-grid
      * signatures that put them there.
      *
-     * WHAT SURVIVES OF THE SILENT-WRONG-ANSWER FINDING. `(seed 55433)` and `(seed 55433, k=4)` do
-     * report `complete: true` while terminating edges behind their own source, so the family journal
-     * decision 71a ruled was never a pass is still represented — by the direction check alone.
-     * `Off-edge Jitter Plus (seed 7919)` JOINED THEM when the parallel-vertex closure cured its root:
-     * its three direction violations are bit-unmoved — they are on edges the closure never touched —
-     * but the solve that carries them now reports `complete: true`, so this table is one of only two
-     * sweeps that still see it.
+     * WHAT SURVIVED OF THE SILENT-WRONG-ANSWER FINDING, AND WHAT IS LEFT OF IT NOW. `(seed 55433)`,
+     * `(seed 55433, k=4)` and `Off-edge Jitter Plus (seed 7919)` all reported `complete: true` while
+     * terminating edges behind their own source, and this table was the only sweep besides I5 that
+     * saw it. On 2026-08-29 all three went to zero here and to zero on I5 together — the two
+     * instruments were reading ONE class from two directions, and the same two changes emptied both:
+     * the earliest-arrival narrowing of `handleInteriorNGon`'s refused layer, and the leading-source
+     * closure of a collinear same-direction pair in `handleInteriorEdgePair`. These three fixtures
+     * stay enrolled on their census-grid signatures, which are decision-96 sliver declines.
      *
      * THE NUMBERS FIRE IN BOTH DIRECTIONS. A count that grows is a regression; a count that shrinks
      * is a partial cure that must be re-measured and, at zero across a fixture's whole signature —
@@ -499,8 +503,20 @@ describe('wavefront causality', () => {
      */
     const DEFECT_CAUSALITY_SIGNATURES: Record<string, {offset: number; clearance: number; direction: number}> = {
         'Off-edge Jitter Reflex L (seed 15838)': {offset: 0, clearance: 0, direction: 0},
-        'Off-edge Jitter Reflex L (seed 55433)': {offset: 0, clearance: 0, direction: 2},
-        'Off-edge Jitter Plus (seed 7919)': {offset: 0, clearance: 0, direction: 3},
+        // Direction was 2, and both violations were the second bisector of a duplicate ridge: the
+        // arm's collapsing 4-ring closed at BOTH ends in one step, 2.5e-11 apart in the wavefront
+        // clock, and the later closure's bisector was wired back to the earlier node. Either of the
+        // 2026-08-29 changes takes this row to zero on its own — the narrowing of
+        // `handleInteriorNGon`'s refused layer stops the second closure firing in the same step at
+        // all, and the leading-source closure in `handleInteriorEdgePair` refuses to cross-wire the
+        // collinear pair it leaves behind. Measured both ways by mutation.
+        'Off-edge Jitter Reflex L (seed 55433)': {offset: 0, clearance: 0, direction: 0},
+        // Direction was 3, and this row needs BOTH changes: reverting the leading-source closure
+        // alone puts it back to 1, reverting the narrowing alone puts it back to 2. Two of the three
+        // were the leading half of a collinear same-direction pair cross-wired by
+        // `handleInteriorEdgePair` — a closure that always sends one of the two edges backwards
+        // along its own basis. The third is the narrowing's.
+        'Off-edge Jitter Plus (seed 7919)': {offset: 0, clearance: 0, direction: 0},
         // Direction was 1 until the split/partition pass gained render-floor position identity
         // (journal decision 85): the violating edge was one half of the degenerate pair joining two
         // split nodes 5.4e-7 apart, and with the pair resolved into one node the edge was a
@@ -513,19 +529,23 @@ describe('wavefront causality', () => {
         //   fixture's 300-unit extent, so 1.69 times the render floor and 0.0065 px on a 4K render
         //   of the whole shape.
         //
-        // WHAT PUTS IT THERE, TRACED. The root's five-edge ring `[32,42,54,38,52]` has three of its
-        // arrivals — 42, 52 and 54 — at ONE point, agreeing to 4e-12, with pairwise offsets spread
-        // over 9e-11. `mergesShareAnEdge` sends the layer to the pairwise fallback, so that
-        // three-way vertex event is resolved two edges at a time however it is ordered; by arrival
-        // it becomes 42+54, leaving 52 to pair with 38 at a genuinely later offset (1.6e-11 later,
-        // and BOTH parents agree that reading to 3.3e-16 — there is no mis-computed offset in that
-        // decision). The near-degenerate triangle that follows puts n36 1.69 floors behind n34.
+        // WHAT PUT IT THERE, TRACED, AND WHAT REMOVED IT. The root's five-edge ring
+        // `[32,42,54,38,52]` has three of its arrivals — 42, 52 and 54 — at ONE point, agreeing to
+        // 4e-12, with pairwise offsets spread over 9e-11. `mergesShareAnEdge` sent the whole layer
+        // to the pairwise fallback, so that three-way vertex event was resolved two edges at a time
+        // however it was ordered; by arrival it became 42+54, leaving 52 to pair with 38 at a
+        // genuinely later offset (1.6e-11 later, and BOTH parents agree that reading to 3.3e-16 —
+        // there was no mis-computed offset in that decision). The near-degenerate triangle that
+        // followed put n36 1.69 floors behind n34.
         //
-        // NOT AN OFFSET DEFECT, AND SO NOT FIXED HERE. The offsets that choose the pairing are
-        // sound; what is unsound is resolving a three-way coincident arrival pairwise at all, and
-        // the node placement that follows it — journal decision 101's tolerance defect and decision
-        // 89's parked placed-node design. Curing it is event semantics, not arithmetic.
-        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 1},
+        // IT WAS NEVER AN OFFSET DEFECT. The offsets that chose the pairing were sound; what was
+        // unsound was resolving as ONE layer a set of arrivals the offsets separate by a million
+        // ulps. `handleInteriorNGon` now narrows a refused layer to its earliest arrival moment, so
+        // 42+54 resolve alone as a whole vertex event and 52 arrives at the node they built on the
+        // next step instead of being paired away from it. Direction 1 -> 0, and this row is the
+        // NARROWING'S OWN conviction: reverting it puts the row back to 1 with the leading-source
+        // closure still in place.
+        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 0},
         // `Collinear Dumbbell` was here at {0, 0, 0} and left this table with the roster on
         // 2026-08-28 (journal decision 90). Its row is worth remembering: all three counts were
         // zero the whole time it was the corpus's one silent wrong answer, which is what
