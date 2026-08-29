@@ -48,6 +48,12 @@ export default function AppShellLayout({ children }: AppShellLayoutProps) {
                 />
                 <NavLink
                     component={Link}
+                    href="/recursive"
+                    label="Recursive Subdivision"
+                    active={pathname === "/recursive"}
+                />
+                <NavLink
+                    component={Link}
                     href="/dol-system"
                     label="L-System (D0L)"
                     active={pathname === "/dol-system"}

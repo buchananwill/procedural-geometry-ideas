@@ -1,5 +1,7 @@
-import { FULL_DEPTH_FRACTION } from '@proc-geo/core';
-import type { LevelSpec, RecursiveNode, SpineStrategy, Strip, Vector2 } from '@proc-geo/core';
+import { childRegionId, FULL_DEPTH_FRACTION, ROOT_REGION_ID } from '@proc-geo/core';
+import type {
+    LevelSpec, RecursiveNode, RegionOutcome, RegionProvenance, SpineStrategy, Strip, Vector2,
+} from '@proc-geo/core';
 import { CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS } from '@proc-geo/test-fixtures';
 
 /**
@@ -37,6 +39,52 @@ const UNCANONICALISED: Pick<RecursiveNode, 'canonicalBoundary' | 'canonicalAreaD
     canonicalAreaDrift: 0,
 };
 
+/**
+ * The identity every factory here stamps, before {@link stamped} walks the finished tree.
+ *
+ * A tree is built leaves-first, so a node cannot know its own path when it is made: the factories
+ * emit the root's identity as a placeholder and one post-pass replaces it with the real one. Which
+ * is why every exported tree below goes through {@link stamped} — an unstamped subtree would carry
+ * duplicate ids and no parent links.
+ */
+const UNSTAMPED: Pick<RecursiveNode, 'id' | 'provenance'> = {
+    id: ROOT_REGION_ID,
+    provenance: { kind: 'root' },
+};
+
+/** What a failure sentence says the outcome was, in the two flavours these fixtures carry. */
+function outcomeOf(failure: string): RegionOutcome {
+    return failure.startsWith('Degenerate region')
+        ? { kind: 'declined-degenerate', failure, vertexCount: SQUARE.length, area: 0 }
+        : { kind: 'failed', failure };
+}
+
+/**
+ * The same tree with real path-based ids, parent links and provenance throughout.
+ *
+ * The id formula is `childRegionId`, the driver's own, rather than a template string restated here:
+ * a fixture that numbered its regions differently from the production tree would let an assertion
+ * about ids pass against a scheme nothing ships.
+ */
+function stamped(
+    root: RecursiveNode,
+    identity: Pick<RecursiveNode, 'id' | 'provenance'> & { parentId?: string } = UNSTAMPED,
+): RecursiveNode {
+    const childAt = (childIndex: number, provenance: RegionProvenance) => ({
+        id: childRegionId(identity.id, childIndex),
+        parentId: identity.id,
+        provenance,
+    });
+    return {
+        ...root,
+        ...identity,
+        children: root.children.map((child, index) =>
+            stamped(child, childAt(index, { kind: 'segment', index }))),
+        residueChildren: root.residueChildren.map((child, ringIndex) =>
+            stamped(child, childAt(root.children.length + ringIndex, { kind: 'residue', ringIndex }))),
+    };
+}
+
 /** A ring inside {@link SQUARE}, inset by `inset` — a residue ring's shape without a solve. */
 function ring(inset: number): Vector2[] {
     return [
@@ -50,6 +98,8 @@ function ring(inset: number): Vector2[] {
 /** A node with `segments` identical cells, and whatever children it is given. */
 export function node(level: number, segments: number, children: RecursiveNode[] = []): RecursiveNode {
     return {
+        ...UNSTAMPED,
+        outcome: { kind: 'solved' },
         level,
         boundary: SQUARE,
         ...UNCANONICALISED,
@@ -80,6 +130,8 @@ export const INCOMPLETE_SOLVE_FAILURE = 'Incomplete solve: unresolved-collision:
 /** A region that would not subdivide: no segments, no children, and the reason it gives. */
 export function failedNode(level: number, failure: string = DEGENERATE_FAILURE): RecursiveNode {
     return {
+        ...UNSTAMPED,
+        outcome: outcomeOf(failure),
         level,
         boundary: SQUARE,
         ...UNCANONICALISED,
@@ -105,6 +157,8 @@ export function nodeWithResidue(
     residueChildren: RecursiveNode[] = [],
 ): RecursiveNode {
     return {
+        ...UNSTAMPED,
+        outcome: { kind: 'solved' },
         level,
         boundary: SQUARE,
         ...UNCANONICALISED,
@@ -119,11 +173,11 @@ export function nodeWithResidue(
  * Three levels, one failed cell, and one branch that stops a level early — so a level's node count,
  * its segment count and its failure count are all distinct numbers rather than coincidentally equal.
  */
-export const TREE: RecursiveNode = node(0, 3, [
+export const TREE: RecursiveNode = stamped(node(0, 3, [
     node(1, 2),
     failedNode(1),
     node(1, 4, [node(2, 2)]),
-]);
+]));
 
 /** How many level-0 segments {@link TREE} has — how many ways its hue wheel is cut. */
 export const TREE_TERRITORY_COUNT = 3;
@@ -152,10 +206,10 @@ export const TREE_LEVELS: LevelSpec[] = [
  * which is the one shape only `leaf` + `recurse` can produce. Its own segments are therefore FINAL,
  * and a summary that treats a node with residue children as unfinished undercounts them.
  */
-export const RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
+export const RESIDUE_TREE: RecursiveNode = stamped(nodeWithResidue(0, 3, 2, [
     nodeWithResidue(1, 2, 1),
     failedNode(1),
-]);
+]));
 
 /**
  * {@link RESIDUE_TREE} with its unrecursed ring stopped by an INCOMPLETE SOLVE rather than degeneracy.
@@ -164,10 +218,10 @@ export const RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
  * cannot tell these two trees apart, so a readout that names degeneracy is asserting a cause it has
  * not checked. The corpus produces this variant far more often than the degenerate one.
  */
-export const UNSOLVED_RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
+export const UNSOLVED_RESIDUE_TREE: RecursiveNode = stamped(nodeWithResidue(0, 3, 2, [
     nodeWithResidue(1, 2, 1),
     failedNode(1, INCOMPLETE_SOLVE_FAILURE),
-]);
+]));
 
 /**
  * A one-node tree over a LOBED region: two lobes joined by a thin neck.
@@ -181,6 +235,8 @@ export const UNSOLVED_RESIDUE_TREE: RecursiveNode = nodeWithResidue(0, 3, 2, [
  * ring of cells around it would only add strokes to sift out of the scene under test.
  */
 export const LOBED_TREE: RecursiveNode = {
+    ...UNSTAMPED,
+    outcome: { kind: 'solved' },
     level: 0,
     boundary: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     canonicalBoundary: CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,

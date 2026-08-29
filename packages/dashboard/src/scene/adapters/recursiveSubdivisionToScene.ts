@@ -295,7 +295,12 @@ function failedCell(node: RecursiveNode): ScenePrimitive[] {
             type: 'label',
             x: centre.x,
             y: centre.y,
-            text: 'unsolved',
+            // NAMED, not just marked (journal decision 97). A pink patch says a region failed; its
+            // id says WHICH region, which is the handle the census row, the inspector list and a
+            // defect report all take. Without it a reader looking at a patch on the canvas and a
+            // reader reading a failure sentence in the panel cannot tell they are talking about the
+            // same region.
+            text: `unsolved ${node.id}`,
             style: { fontSize: 11, color: FAILURE_COLOUR, bold: true },
         },
     ];

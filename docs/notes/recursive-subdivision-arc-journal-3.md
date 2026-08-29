@@ -556,7 +556,69 @@ commissioned, showing each fixture where its defect actually manifests (root pag
 failure tinting) and reporting "nothing visible, pinned numerically" where that is the honest
 answer (15838's residuals and both translation-only fixtures).
 
+**96 — (user, 2026-08-29) The sliver-declines are ACCEPTED as correct behaviour, in the user's
+words: "exactly the sort of pragmatically null escape hatch that is a strong mirror of reality —
+a sensible tiler knows not to try and slice a tile narrower than a certain size."** The plus's 15
+census declines (and every other tending-degenerate refusal) are no longer carried as defects;
+their pins remain as behavioural specification. What remains live in the recursion class is
+exactly the two valid-looking rejected sub-polygons (55433's arm patch, k4's arm patch — F35).
+
+**97 — (user, 2026-08-29) The region tree becomes a first-class data structure of the recursive
+pipeline, with per-region identity and focused inspection; then the two live recursion defects
+are traced with it.** The user's design, near-verbatim: capture sub-polygons as they are fed to
+the next layer down; assign each an ID; allow each to be inspected as a separate, focused render
+— the recursive skeleton conceptually produces a tree of regions, so make that tree first-class
+so each region node's polyline can be shown in isolation, which may reveal e.g. a missing vertex
+that is invisible when drawn among siblings. Ruled additions: region IDs are stable and
+deterministic (path-based — parent id + child index — so the same input yields the same ids
+across runs and the census can cite them); the focused inspector shows the region's boundary
+polyline, its own standalone solve, and its failure diagnostics; the instrument is
+production-pipeline data (the tree), with the inspector UI in the dashboard. Also mandated, same
+message: **the /recursive page must accept an edited/pasted polygon, not only fixtures** — the
+editing omission is corrected with the same affordances the skeleton page has (paste at
+minimum, vertex editing if the panel composes cleanly).
+
+**98 — The near-degenerate ring-collapse pairing question goes to the user with the full trace;
+the defect stands pinned meanwhile.** The delegate's candidate fix (keep only collisions that are
+the earliest arrival for both edges) was built, measured, and falsified: it cures 55433
+completely (census 3 → 0, the reflex-L sweep to 0/80) and breaks k4 catastrophically (tiling
+1.0 → 6.411 — the F26 silent class — plus three causality violations) and regresses the plus.
+The decision it exposes: whether the pairwise fallback for layers whose merges share edges
+(`algorithm-complex-cases.ts:154-159`) may consult arrival OFFSETS at all, which reverses the
+lexicographic determinism ordering ruled for placement (F12 / decision 65 territory, cited in the
+code's own comment). The delegate's reading, endorsed as the frame: the real fix is a PAIRING
+rule for a collapsing near-degenerate ring — which arrivals belong to which vanishing wavefront
+side — not an ordering tweak; the falsified experiment shows ordering alone trades one fixture's
+defect for another's. Not decision-89 territory: no node moves; positions are right and only the
+pairing is wrong. Ruled to the user because two consecutive delegates have stopped at "new
+event-selection semantics" here and the user's geometric readings have repeatedly been the
+unlock.
+
 ## Findings
+
+**F36 — The region tree landed and its first use found a root-solve silent wrong answer that
+evades every instrument, for a measured reason — an I3 blind spot.** Part 1: `RecursiveNode`
+WAS the tree; promoted with path-based ids (`r0` / `childRegionId`), `parentId`, `provenance`,
+and a three-way `outcome` separating decision-96 declines from live failures; diagnostics now
+lead with the id; 10 new tests including determinism pins. Part 2: region inspector (list +
+focused fitted render with numbered vertex dots + the region's OWN standalone solve — the
+malformed-vs-solver discriminator), paste/copy/bridge editing on /recursive (full in-canvas
+editing does not compose — the interaction overlay belongs to the skeleton canvas; bridged
+instead), leaf-trap warning (default kept: the droste demo depends on it), nav link, slider
+aria-labels. Part 3, the trace: 55433's failing region `r0.10` carries a zero-area needle (v5
+~1e-8 off its neighbours' segment) because the ROOT solve is silently wrong — `ie46 [15,10]` and
+`ie44 [9,16]` have crossed targets and a duplicate anti-parallel `{10,16}` pair sits where the
+single `{9,15}` ridge belongs. Mechanism: the arm collapses as a 4-ring; all eight events land
+in one epsilon layer (7e-11 apart); both merges share edges so clustering falls to the pairwise
+path, which orders by priority then lexicographic edge ids (deliberately, for placement
+determinism) — and the geometrically impossible pairing wins. k4's arm patch is the same class.
+**Why nothing fired: I3 is satisfied by the WRONG parents to 1.4e-14 — the arm is near-symmetric
+top/bottom, so the wrong pair defines the same locus as the right one; I4 passes because the
+face closes; tiling passes because the needle is a fold with cancelling area.** Recorded as
+I3's known blind spot: equidistance cannot discriminate label-swaps between loci that coincide
+by symmetry. Delegate figures: core 5018/5018 (79 suites), dashboard 283/283 (18 suites), census
+bit-identical with ids added, convictions per landed change. Flagged not done: the Playwright
+eye-pass of /recursive (an orphan dev server from 08-28 holds port 3000 — the P4 trap, again).
 
 **F35 — The visual defect tour reproduced every pinned census count through the UI, and
 concentrated the live class: every failure in the whole census grid sits at depth 1.0.** Depths

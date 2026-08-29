@@ -10,6 +10,7 @@ import {
     CollapseChevron,
     fixtureByName,
     RecursiveControlsPanel,
+    RecursivePolygonPanel,
     useRecursiveSubdivisionStore,
 } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -19,8 +20,15 @@ const RecursiveSubdivisionCanvas = dynamic(
     { ssr: false },
 );
 
+// Client-only for the same reason the canvas is: the inspector draws a Konva stage of its own.
+const RegionInspectorPanel = dynamic(
+    () => import("@proc-geo/dashboard").then((m) => ({ default: m.RegionInspectorPanel })),
+    { ssr: false },
+);
+
 export default function RecursivePage() {
     const fixtureName = useRecursiveSubdivisionStore((s) => s.fixtureName);
+    const customVertices = useRecursiveSubdivisionStore((s) => s.customVertices);
     const levels = useRecursiveSubdivisionStore((s) => s.levels);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
 
@@ -31,10 +39,13 @@ export default function RecursivePage() {
     // before something appears, and what appears shows what a per-level spec is for.
     // The lookup is over the FULL corpus, defect fixtures included: the panel offers them, so a
     // selection that could not be resolved here would silently redraw the first clean fixture.
+    // A PASTED OR EDITED POLYGON WINS OVER THE FIXTURE, and goes through this same call: journal
+    // decision 97 asks for the page to accept one, and it is only worth accepting if it reaches the
+    // driver by the route every fixture takes.
     const tree: RecursiveNode = useMemo(() => {
-        const fixture = fixtureByName(fixtureName) ?? FULL_CORPUS[0];
-        return subdivideRecursively(fixture.vertices, { levels });
-    }, [fixtureName, levels]);
+        const vertices = customVertices ?? (fixtureByName(fixtureName) ?? FULL_CORPUS[0]).vertices;
+        return subdivideRecursively(vertices, { levels });
+    }, [customVertices, fixtureName, levels]);
 
     const panels = (
         <Stack gap="sm">
@@ -68,6 +79,13 @@ export default function RecursivePage() {
                                 a gap, and its reason is reported under the controls.
                             </Text>
                             <Text size="sm" c="dimmed">
+                                Every region carries a stable id — r0, r0.3, r0.3.1 — shown on any
+                                patch that would not solve. The Region Inspector lists them all and
+                                draws any one of them alone, fitted, with its vertices numbered and
+                                its own standalone solve underneath, so a malformed boundary and a
+                                solver failure on a good boundary look different.
+                            </Text>
+                            <Text size="sm" c="dimmed">
                                 Scroll to zoom. Middle-click or Alt+drag to pan. Changing the fixture
                                 refits the view.
                             </Text>
@@ -76,7 +94,9 @@ export default function RecursivePage() {
                 </Stack>
             </Paper>
 
+            <RecursivePolygonPanel />
             <RecursiveControlsPanel tree={tree} />
+            <RegionInspectorPanel tree={tree} />
         </Stack>
     );
 

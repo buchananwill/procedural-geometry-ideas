@@ -16,6 +16,7 @@ import type {
     ResidueTreatment,
     SegmentTreatment,
     SpineStrategy,
+    Vector2,
 } from '@proc-geo/core';
 
 /**
@@ -222,6 +223,30 @@ export interface RecursiveSubdivisionStoreState {
     /** Name of the `FULL_CORPUS` entry being subdivided — known-defect fixtures included. */
     fixtureName: string;
     /**
+     * A polygon pasted or edited on the page, which OVERRIDES {@link fixtureName} while it is set.
+     *
+     * TWO SOURCES AND ONE WINNER, rather than a mode switch. The page was fixtures-only (journal
+     * decision 97 calls that the omission being corrected), and the cheapest honest correction is a
+     * second source that takes precedence: pasting shows the pasted polygon at once, and choosing a
+     * fixture from the dropdown clears this, so the control that was last used is the one in effect.
+     * A mode enum would let the page display one polygon while a dropdown named another.
+     *
+     * The override runs through EXACTLY the same pipeline as a fixture — `subdivideRecursively` on
+     * these vertices — because a page whose editing affordance took a different route through the
+     * driver would be showing something the corpus never sees.
+     */
+    customVertices: Vector2[] | null;
+    /**
+     * Which region the inspector is focused on, by its `RecursiveNode.id`, or `null` for none.
+     *
+     * BY ID RATHER THAN BY NODE, because the tree is rebuilt on every settings change and a stored
+     * node would be a snapshot of a tree that no longer exists. An id survives a re-solve of the same
+     * polygon and points at the same region afterwards — which is what journal decision 97's
+     * path-based ids are for — and an id that no longer resolves is simply an empty inspector rather
+     * than a stale picture presented as a current one.
+     */
+    selectedRegionId: string | null;
+    /**
      * One spec per level, outermost first. Its LENGTH is the recursion depth.
      *
      * There is no separate level count: the panel adds and removes rows, and the driver reads the
@@ -249,7 +274,14 @@ export interface RecursiveSubdivisionStoreState {
      */
     spineStrategies: SpineStrategy[];
 
+    /** Selects a corpus fixture, and drops any pasted or edited polygon standing in front of it. */
     setFixtureName: (name: string) => void;
+    /** Puts a pasted or edited polygon in front of the fixture. Fewer than three vertices is ignored. */
+    setCustomVertices: (vertices: Vector2[]) => void;
+    /** Drops the pasted polygon, so the named fixture is drawn again. */
+    clearCustomVertices: () => void;
+    /** Focuses the inspector on one region, by id, or clears it with `null`. */
+    setSelectedRegionId: (id: string | null) => void;
     /** Changes some of one level's fields, clamping whatever it was handed. */
     updateLevel: (level: number, patch: LevelSpecPatch) => void;
     /** Appends a level at the deepest end, up to `MAX_RECURSION_LEVELS`. */
@@ -422,6 +454,8 @@ function patchedLevel(spec: LevelSpec, patch: LevelSpecPatch): LevelSpec {
 export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreState>()(
     immer((set) => ({
         fixtureName: DEFAULT_RECURSIVE_FIXTURE,
+        customVertices: null,
+        selectedRegionId: null,
         // Copied rather than shared: the store's array is edited in place by `updateLevel`, and the
         // exported default is a constant several suites assert against.
         levels: DEFAULT_RECURSIVE_LEVELS.map((spec) => ({ ...spec })),
@@ -434,9 +468,35 @@ export const useRecursiveSubdivisionStore = create<RecursiveSubdivisionStoreStat
             (_unused, level) => ({ ...(DEFAULT_SPINE_STRATEGIES[level] ?? DEFAULT_SPINE_STRATEGY) }),
         ),
 
+        // Choosing a fixture drops the pasted polygon and the selection together: the tree the
+        // inspector was pointed into no longer exists, and a selection carried across would point at
+        // whichever region of a DIFFERENT polygon happened to take the same path.
         setFixtureName: (name) =>
             set((state) => {
                 state.fixtureName = name;
+                state.customVertices = null;
+                state.selectedRegionId = null;
+            }),
+
+        // Below three vertices there is no polygon to subdivide, so the paste is refused rather than
+        // accepted into a page that would then draw nothing. `interpretGeometryPaste` already
+        // enforces this upstream; the store does not trust its callers to have asked.
+        setCustomVertices: (vertices) =>
+            set((state) => {
+                if (vertices.length < 3) return;
+                state.customVertices = vertices.map((vertex) => ({ x: vertex.x, y: vertex.y }));
+                state.selectedRegionId = null;
+            }),
+
+        clearCustomVertices: () =>
+            set((state) => {
+                state.customVertices = null;
+                state.selectedRegionId = null;
+            }),
+
+        setSelectedRegionId: (id) =>
+            set((state) => {
+                state.selectedRegionId = id;
             }),
 
         // Clamped by the core driver's own clamps rather than by numbers restated here: the store

@@ -61,6 +61,8 @@ const resetStore = () => {
         levelVisibility: Array.from({ length: MAX_RECURSION_LEVELS }, () => true),
         showLeafFills: DEFAULT_SHOW_LEAF_FILLS,
         spineStrategies: DEFAULT_SPINE_STRATEGIES.map((strategy) => ({ ...strategy })),
+        customVertices: null,
+        selectedRegionId: null,
     });
 };
 
@@ -570,5 +572,86 @@ describe('setSpineStrategy', () => {
 
         expect(useRecursiveSubdivisionStore.getState().spineStrategies[2])
             .toEqual({ kind: 'wavefront-time', fraction: 0.25 });
+    });
+});
+
+/**
+ * The polygon source and the inspector's selection: the two pieces of page state journal decision 97
+ * added.
+ *
+ * What is asserted is the precedence rule and what it drags with it. The page was fixtures-only, so
+ * the correction is a SECOND source that wins while it is set — and a selection made against one
+ * polygon's tree must not survive into another's, where the same path names a different region.
+ */
+describe('the polygon source', () => {
+    it('opens on a fixture, with nothing pasted and nothing selected', () => {
+        const state = useRecursiveSubdivisionStore.getState();
+
+        expect(state.fixtureName).toBe(DEFAULT_RECURSIVE_FIXTURE);
+        expect(state.customVertices).toBeNull();
+        expect(state.selectedRegionId).toBeNull();
+    });
+
+    it('puts a pasted polygon in front of the fixture, and takes it away again', () => {
+        const { setCustomVertices, clearCustomVertices } = useRecursiveSubdivisionStore.getState();
+        const triangle = [{ x: 0, y: 0 }, { x: 0, y: 4 }, { x: 4, y: 0 }];
+
+        setCustomVertices(triangle);
+        expect(useRecursiveSubdivisionStore.getState().customVertices).toEqual(triangle);
+
+        clearCustomVertices();
+        expect(useRecursiveSubdivisionStore.getState().customVertices).toBeNull();
+    });
+
+    it('copies the vertices rather than aliasing the caller\'s array', () => {
+        const { setCustomVertices } = useRecursiveSubdivisionStore.getState();
+        const triangle = [{ x: 0, y: 0 }, { x: 0, y: 4 }, { x: 4, y: 0 }];
+
+        setCustomVertices(triangle);
+        triangle[0].x = 99;
+
+        expect(useRecursiveSubdivisionStore.getState().customVertices?.[0]).toEqual({ x: 0, y: 0 });
+    });
+
+    it('refuses a paste that is no polygon at all', () => {
+        const { setCustomVertices } = useRecursiveSubdivisionStore.getState();
+
+        setCustomVertices([{ x: 0, y: 0 }, { x: 1, y: 1 }]);
+
+        expect(useRecursiveSubdivisionStore.getState().customVertices).toBeNull();
+    });
+
+    it('drops the pasted polygon and the selection when a fixture is chosen', () => {
+        const { setCustomVertices, setSelectedRegionId, setFixtureName } =
+            useRecursiveSubdivisionStore.getState();
+
+        setCustomVertices([{ x: 0, y: 0 }, { x: 0, y: 4 }, { x: 4, y: 0 }]);
+        setSelectedRegionId('r0.2');
+        setFixtureName(CLEAN_TEST_POLYGONS[0].name);
+
+        const state = useRecursiveSubdivisionStore.getState();
+        expect(state.customVertices).toBeNull();
+        expect(state.selectedRegionId).toBeNull();
+        expect(state.fixtureName).toBe(CLEAN_TEST_POLYGONS[0].name);
+    });
+
+    it('drops a selection made against a tree the paste replaces', () => {
+        // An id is a path, and the same path names a different region in a different polygon's tree.
+        // Carrying the selection across would show a reader one region under another's name.
+        const { setSelectedRegionId, setCustomVertices } = useRecursiveSubdivisionStore.getState();
+
+        setSelectedRegionId('r0.10');
+        setCustomVertices([{ x: 0, y: 0 }, { x: 0, y: 4 }, { x: 4, y: 0 }]);
+
+        expect(useRecursiveSubdivisionStore.getState().selectedRegionId).toBeNull();
+    });
+
+    it('keeps a selection across a level change, which re-solves the same polygon', () => {
+        const { setSelectedRegionId, updateLevel } = useRecursiveSubdivisionStore.getState();
+
+        setSelectedRegionId('r0.1');
+        updateLevel(0, { mergeGroupSize: 3 });
+
+        expect(useRecursiveSubdivisionStore.getState().selectedRegionId).toBe('r0.1');
     });
 });

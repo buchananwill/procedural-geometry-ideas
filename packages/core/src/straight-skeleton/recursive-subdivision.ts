@@ -190,7 +190,99 @@ export function uniformLevelSpecs(input: UniformLevelSpecsInput): LevelSpec[] {
     }));
 }
 
+/**
+ * The id the root of every subdivision tree carries.
+ *
+ * A CONSTANT RATHER THAN A LITERAL AT THE ONE CALL SITE, because a diagnostic that cites a region id
+ * and a test that pins one both have to spell the root the same way, and the driver is not the only
+ * thing that builds a tree — the dashboard's hand-built fixtures stamp identity through
+ * {@link childRegionId} too.
+ */
+export const ROOT_REGION_ID = 'r0';
+
+/**
+ * The id of the `childIndex`-th child of the region `parentId`.
+ *
+ * PATH-BASED AND NOTHING ELSE (journal decision 97): the id is the route from the root, so it is a
+ * pure function of the tree's shape and identical input yields identical ids across runs and across
+ * machines. No counter, no hash of geometry, nothing that could renumber when an unrelated branch
+ * changes — a census row citing `r0.3.1` names the same region tomorrow.
+ *
+ * THE INDEX IS INTO THE CONCATENATED CHILD ORDER — segment children first, then residue children —
+ * which is the order {@link flattenRecursiveTree} walks, so a reader following ids down a printed
+ * traversal never has to know which stream a child came from. Which stream it DID come from is
+ * {@link RecursiveNode.provenance}'s question, and it answers it with the index into that stream's
+ * own array.
+ */
+export function childRegionId(parentId: string, childIndex: number): string {
+    return `${parentId}.${childIndex}`;
+}
+
+/**
+ * Where a region's boundary came from: which of its parent's two child streams, and which member.
+ *
+ * CARRIED, NEVER RECOVERED. A child's boundary is new geometry — a clipped skeleton face or an offset
+ * contour — and asking afterwards which of the parent's strips or rings it matches would be a
+ * proximity test on machine-generated coordinates, which is exactly the class of question this
+ * codebase has been bitten by. The driver knows the answer at the moment it hands the polygon down,
+ * and the cost of keeping it is one small record.
+ *
+ * The index is into the parent's OWN array — {@link RecursiveNode.segments} or
+ * {@link RecursiveNode.residueRings} — rather than into the concatenated child order, so a region can
+ * be shown beside the strip it was cut from without arithmetic.
+ */
+export type RegionProvenance =
+    | {kind: 'root'}
+    | {kind: 'segment'; index: number}
+    | {kind: 'residue'; ringIndex: number};
+
+/**
+ * What became of a region: solved, refused as too small to be a polygon, or attempted and failed.
+ *
+ * THREE ARMS RATHER THAN A STRING, because the three are acted on differently and journal decision 96
+ * settled that only one of them is a defect. A `declined-degenerate` region is the driver correctly
+ * refusing to slice a tile narrower than it can see — accepted behaviour, and it carries the measured
+ * area that made the call so a reader can check it against the floor without re-deriving it. A
+ * `failed` region is a polygon of real area whose solve did not finish, which is the live defect
+ * class. Telling them apart by matching the prefix of a sentence is what this replaces.
+ *
+ * {@link RecursiveNode.failure} carries the same sentence on both failing arms and stays the thing a
+ * readout prints; this is the thing a census counts by kind.
+ */
+export type RegionOutcome =
+    | {kind: 'solved'}
+    | {kind: 'failed'; failure: string}
+    | {
+        kind: 'declined-degenerate';
+        failure: string;
+        /** Boundary vertices the region was handed. Fewer than three is one of the two reasons. */
+        vertexCount: number;
+        /** `|signedArea|` of the region as measured, against {@link DEGENERATE_AREA_EPSILON}. */
+        area: number;
+    };
+
 export interface RecursiveNode {
+    /**
+     * This region's stable, path-based id — see {@link childRegionId}.
+     *
+     * FIRST-CLASS IDENTITY (journal decision 97). The tree the driver returns is the instrument the
+     * recursion is debugged with, and an instrument whose readings cannot be cited is half an
+     * instrument: the census names the region that failed, the inspector is pointed at one region by
+     * name, and the two are talking about the same thing because the name is a function of the input.
+     */
+    id: string;
+    /** The id of the region this one was cut from, or `undefined` at the root. */
+    parentId?: string;
+    /** Which of the parent's strips or residue rings this region's boundary is. */
+    provenance: RegionProvenance;
+    /**
+     * Solved, declined as degenerate, or attempted and failed — see {@link RegionOutcome}.
+     *
+     * AGREES WITH {@link failure} BY CONSTRUCTION: both are written at the same return, and the two
+     * failing arms carry the identical sentence. The string is what a panel prints; this is what a
+     * census counts and what a test pins.
+     */
+    outcome: RegionOutcome;
     /** Depth in the tree. The root is 0. */
     level: number;
     /** The polygon handed to this node, clockwise, before canonicalisation. */
@@ -434,10 +526,22 @@ function toLevelPolicy(spec: LevelSpec): LevelPolicy {
  * throwing, so a caller always has something to draw.
  */
 export function subdivideRecursively(boundary: Vector2[], options: RecursiveOptions): RecursiveNode {
-    return subdivideNode(boundary, 0, {
+    return subdivideNode(boundary, 0, {id: ROOT_REGION_ID, provenance: {kind: 'root'}}, {
         levels: clampLevelSpecs(options.levels).map(toLevelPolicy),
         rootNoiseFloor: rootNoiseFloor(boundary),
     });
+}
+
+/**
+ * One region of a subdivision tree, by id, or `undefined` where the tree has no such region.
+ *
+ * A LINEAR SCAN OVER {@link flattenRecursiveTree}, not a parse of the id's path. The id says where a
+ * region sits, but reading it as a route would be a second implementation of the tree's own shape,
+ * and it would answer confidently for a path that does not exist. Trees here are hundreds of nodes,
+ * not millions, and the caller is a human pointing at one region.
+ */
+export function findRegionById(root: RecursiveNode, id: string): RecursiveNode | undefined {
+    return flattenRecursiveTree(root).find(node => node.id === id);
 }
 
 /**
@@ -549,14 +653,23 @@ export type SegmentOutcome =
  * both are reported the same way as a solve that merely failed, because to the caller they are the
  * same event — this cell was not subdivided.
  */
-function degenerateRegionFailure(boundary: Vector2[]): string | undefined {
+function degenerateRegionFailure(boundary: Vector2[]): Extract<RegionOutcome, {kind: 'declined-degenerate'}> | undefined {
+    // Reported with the area it was measured at, not just the sentence that quotes it: journal
+    // decision 96 accepts the decline as correct behaviour, so the number that made the call is a
+    // measurement a reader checks against the floor rather than a fragment to parse back out.
+    const area = boundary.length < 3 ? 0 : Math.abs(signedArea(boundary));
     if (boundary.length < 3) {
-        return `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`;
+        return {
+            kind: 'declined-degenerate', vertexCount: boundary.length, area,
+            failure: `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`,
+        };
     }
-    const area = Math.abs(signedArea(boundary));
     if (area < DEGENERATE_AREA_EPSILON) {
-        return `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
-            + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`;
+        return {
+            kind: 'declined-degenerate', vertexCount: boundary.length, area,
+            failure: `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
+                + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`,
+        };
     }
     return undefined;
 }
@@ -641,7 +754,33 @@ function noSubdivision(): UnsubdividedStreams {
     return {segments: [], children: [], residueRings: [], residueChildren: []};
 }
 
-function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): RecursiveNode {
+/**
+ * Who a region is, decided by its parent before it is subdivided.
+ *
+ * PASSED IN RATHER THAN DERIVED, because a path-based id is a fact about where the recursion is, and
+ * only the caller knows that. A node that worked its own id out would need the tree it is still being
+ * built into.
+ */
+interface RegionIdentity {
+    id: string;
+    parentId?: string;
+    provenance: RegionProvenance;
+}
+
+/**
+ * The identity of the child at `childIndex` of `parent`, cut from `provenance`.
+ *
+ * The two streams are numbered in ONE sequence — segment children then residue children — which is
+ * the order {@link flattenRecursiveTree} walks, so the caller offsets the residue index by the number
+ * of segment children rather than restarting it.
+ */
+function childIdentity(parent: RegionIdentity, childIndex: number, provenance: RegionProvenance): RegionIdentity {
+    return {id: childRegionId(parent.id, childIndex), parentId: parent.id, provenance};
+}
+
+function subdivideNode(
+    boundary: Vector2[], level: number, identity: RegionIdentity, run: RecursiveRun,
+): RecursiveNode {
     // Screened before the winding is touched: a region with no area has no winding to normalise, so
     // it is recorded exactly as it was handed in rather than arbitrarily reversed on the way out.
     // This is also where a residue ring too small or too thin to be a polygon is caught: decision 4
@@ -652,8 +791,9 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     const degeneracy = degenerateRegionFailure(boundary);
     if (degeneracy !== undefined) {
         return {
+            ...identity, outcome: degeneracy,
             level, boundary, canonicalBoundary: boundary, canonicalAreaDrift: 0,
-            ...noSubdivision(), failure: degeneracy,
+            ...noSubdivision(), failure: degeneracy.failure,
         };
     }
 
@@ -671,6 +811,7 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
         // found — so the ring and the drift are reported exactly as they are on a node that solved.
         // Reporting the region as its own canonical form here would zero a removal that happened.
         return {
+            ...identity, outcome: {kind: 'failed', failure: outcome.failure},
             level, boundary: clockwise,
             canonicalBoundary: outcome.canonicalBoundary,
             canonicalAreaDrift: canonicalAreaDrift(clockwise, outcome.canonicalBoundary),
@@ -683,24 +824,30 @@ function subdivideNode(boundary: Vector2[], level: number, run: RecursiveRun): R
     // caller — a control that appears to do nothing is worse than one that is visibly disabled, which
     // is the readout's job rather than the driver's.
     const terminal = isLastLevel(level, run.levels);
+    const children = terminal || spec.segments !== 'recurse'
+        ? []
+        // One child per merged group, in the same order — a degenerate or unsolvable segment
+        // becomes a child carrying its failure, never a gap in the sequence. `leaf` grows none of
+        // them: the ring of cells is final, which is a different thing from a cell that came out
+        // childless because the recursion ran out of levels.
+        : outcome.segments.map((segment, index) => subdivideNode(
+            segment.boundary, level + 1, childIdentity(identity, index, {kind: 'segment', index}), run));
     return {
+        ...identity, outcome: {kind: 'solved'},
         level,
         boundary: clockwise,
         canonicalBoundary: outcome.canonicalBoundary,
         canonicalAreaDrift: canonicalAreaDrift(clockwise, outcome.canonicalBoundary),
         segments: outcome.segments,
-        // One child per merged group, in the same order — a degenerate or unsolvable segment
-        // becomes a child carrying its failure, never a gap in the sequence. `leaf` grows none of
-        // them: the ring of cells is final, which is a different thing from a cell that came out
-        // childless because the recursion ran out of levels.
-        children: terminal || spec.segments !== 'recurse'
-            ? []
-            : outcome.segments.map(segment => subdivideNode(segment.boundary, level + 1, run)),
+        children,
         residueRings: outcome.residueRings,
         // One child per RING, in the same order, and for the same reason. `void` keeps the rings and
         // grows nothing from them: that is a courtyard, not an absence of residue.
         residueChildren: terminal || spec.residue !== 'recurse'
             ? []
-            : outcome.residueRings.map(ring => subdivideNode(ring, level + 1, run)),
+            : outcome.residueRings.map((ring, ringIndex) => subdivideNode(
+                ring, level + 1,
+                childIdentity(identity, children.length + ringIndex, {kind: 'residue', ringIndex}),
+                run)),
     };
 }

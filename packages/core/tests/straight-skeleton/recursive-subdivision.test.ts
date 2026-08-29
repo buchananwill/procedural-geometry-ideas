@@ -1939,8 +1939,11 @@ describe('recursive segment subdivision', () => {
                             .filter(failure => !/^(Degenerate region|Incomplete solve|Subdivision threw)/.test(failure)));
                         if (failures.length === 0) continue;
 
+                        // The region id leads the row (journal decision 97): a census that says WHERE
+                        // without saying WHICH leaves a fixer re-deriving the region by eye from a
+                        // level number, and the id is the handle the inspector takes.
                         const detail = [...new Set(failures.map(node =>
-                            `level ${node.level}: ${(node.failure ?? '').replace(/\s+/g, ' ').slice(0, 110)}`))].join(' | ');
+                            `${node.id} (level ${node.level}): ${(node.failure ?? '').replace(/\s+/g, ' ').slice(0, 110)}`))].join(' | ');
                         rows.push(
                             `${polygon.name} (depth ${depthFraction}, merge group ${mergeGroupSize}) — ${detail}`);
                     }

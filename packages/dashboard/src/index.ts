@@ -94,6 +94,18 @@ export type {
 } from './components/RecursiveSubdivisionCanvas';
 export { default as RecursiveControlsPanel } from './components/RecursiveControlsPanel';
 export type { RecursiveControlsPanelProps } from './components/RecursiveControlsPanel';
+export { default as RecursivePolygonPanel } from './components/RecursivePolygonPanel';
+export { default as RegionInspectorPanel } from './components/RegionInspectorPanel';
+export type { RegionInspectorPanelProps } from './components/RegionInspectorPanel';
+export { default as RegionFocusCanvas } from './components/RegionFocusCanvas';
+export type { RegionFocusCanvasProps } from './components/RegionFocusCanvas';
+export {
+    describeProvenance,
+    focusedRegionToScene,
+    regionListRows,
+    standaloneSolve,
+} from './scene/adapters/regionInspector';
+export type { RegionListRow, StandaloneSolve } from './scene/adapters/regionInspector';
 
 // Articulation constraint solver
 export { useArticulationStore } from './stores/useArticulationStore';

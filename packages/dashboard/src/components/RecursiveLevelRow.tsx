@@ -164,8 +164,13 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                             {percentLabel(spec.depthFraction)} of this region&apos;s max offset
                         </Text>
                     </Group>
+                    {/* NAMED FOR THE ACCESSIBILITY TREE, not only for the eye: the heading above
+                        the slider is a sibling, not a label, so without this the control reaches a
+                        screen reader — and any script driving the page — as an anonymous slider,
+                        indistinguishable from the spine threshold below it (journal finding F35). */}
                     <Slider
                         size="xs"
+                        aria-label={`Level ${level} depth fraction`}
                         min={MIN_PANEL_DEPTH_FRACTION}
                         max={FULL_DEPTH_FRACTION}
                         step={DEPTH_FRACTION_STEP}
@@ -206,6 +211,20 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                                 ? 'Each segment becomes a region at the next level.'
                                 : 'The ring of segments is final — only the residue can go deeper.'}
                     </Text>
+                    {/* WARNED RATHER THAN DEFAULTED AWAY (journal finding F35, trap 1). A
+                        non-terminal level whose segments are leaves sends the next level nothing but
+                        its residue rings — so a clean "Every region subdivided" downstream can be
+                        vacuous, and a reader who has not noticed reads a starved recursion as a
+                        healthy one. The default composition keeps `leaf` here on purpose: it is the
+                        droste reading, the one setting the retired scalar options could not ask for,
+                        and silently changing it would delete the demonstration this page opens on.
+                        So the trap is made VISIBLE instead of removed. */}
+                    {!isLastLevel && spec.segments === 'leaf' && (
+                        <Text size="xs" c="yellow" mt={4}>
+                            Level {level + 1} therefore sees only this level&apos;s residue rings —
+                            no cell of this ring is subdivided further.
+                        </Text>
+                    )}
                 </Box>
 
                 <Box>
@@ -260,6 +279,7 @@ export default function RecursiveLevelRow({ level, spec, isLastLevel, removable 
                             </Group>
                             <Slider
                                 size="xs"
+                                aria-label={`Level ${level} spine threshold`}
                                 min={0}
                                 max={1}
                                 step={SPINE_FRACTION_STEP}

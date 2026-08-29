@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import {
-    Box, Button, Collapse, Divider, Group, Paper, Select, Stack, Switch, Text, Title, UnstyledButton,
+    Box, Button, Collapse, Divider, Group, Paper, Stack, Switch, Text, Title, UnstyledButton,
 } from '@mantine/core';
 import {
     flattenRecursiveTree, isLastLevel, MAX_RECURSION_LEVELS, MIN_RECURSION_LEVELS,
 } from '@proc-geo/core';
 import type { RecursiveNode } from '@proc-geo/core';
-import { FIXTURE_OPTION_GROUPS } from './fixture-options';
 import CollapseChevron from './CollapseChevron';
 import RecursiveLevelReadout from './RecursiveLevelReadout';
 import RecursiveLevelRow from './RecursiveLevelRow';
@@ -35,8 +34,6 @@ const REASONS_SHOWN = 3;
 export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelProps) {
     const [opened, setOpened] = useState(true);
 
-    const fixtureName = useRecursiveSubdivisionStore((s) => s.fixtureName);
-    const setFixtureName = useRecursiveSubdivisionStore((s) => s.setFixtureName);
     const levels = useRecursiveSubdivisionStore((s) => s.levels);
     const addLevel = useRecursiveSubdivisionStore((s) => s.addLevel);
     const levelVisibility = useRecursiveSubdivisionStore((s) => s.levelVisibility);
@@ -53,11 +50,17 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
         () => summariseSpines(tree, spineStrategies.slice(0, levels.length)),
         [tree, spineStrategies, levels.length],
     );
+    // Each distinct reason carries the ids of the regions that gave it (journal decision 97): the
+    // sentence says WHAT went wrong and the ids say WHERE, which is what the inspector list below is
+    // then pointed at. Deduplicated on the sentence, because one defect reported by nine slivers is
+    // one line with nine names rather than nine lines.
     const reasons = useMemo(() => {
-        const failures = flattenRecursiveTree(tree)
-            .map((node) => node.failure)
-            .filter((failure): failure is string => failure !== undefined);
-        return [...new Set(failures)];
+        const byReason = new Map<string, string[]>();
+        for (const node of flattenRecursiveTree(tree)) {
+            if (node.failure === undefined) continue;
+            byReason.set(node.failure, [...(byReason.get(node.failure) ?? []), node.id]);
+        }
+        return [...byReason].map(([reason, ids]) => ({ reason, ids }));
     }, [tree]);
 
     return (
@@ -71,16 +74,10 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                 </UnstyledButton>
                 <Collapse in={opened}>
                     <Stack gap="sm">
-                        <Select
-                            size="xs"
-                            label="Fixture"
-                            data={FIXTURE_OPTION_GROUPS}
-                            value={fixtureName}
-                            searchable
-                            allowDeselect={false}
-                            onChange={(value) => setFixtureName(value ?? fixtureName)}
-                        />
-
+                        {/* The fixture control moved to `RecursivePolygonPanel`, which owns every
+                            source the page can be pointed at — a fixture, the clipboard, or the
+                            skeleton editor. Two controls over one polygon would let the page name a
+                            fixture while drawing a pasted ring. */}
                         <Stack gap="xs">
                             <Group justify="space-between">
                                 <Text size="xs" fw={500}>
@@ -160,9 +157,9 @@ export default function RecursiveControlsPanel({ tree }: RecursiveControlsPanelP
                                     ? 'Every region subdivided.'
                                     : `${pluralize(summary.totalFailures, 'region')} did not subdivide.`}
                             </Text>
-                            {reasons.slice(0, REASONS_SHOWN).map((reason) => (
-                                <Text key={reason} size="xs" c="pink" lineClamp={3}>
-                                    {reason}
+                            {reasons.slice(0, REASONS_SHOWN).map(({ reason, ids }) => (
+                                <Text key={reason} size="xs" c="pink" lineClamp={4}>
+                                    {ids.join(', ')} — {reason}
                                 </Text>
                             ))}
                             {reasons.length > REASONS_SHOWN && (
