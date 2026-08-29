@@ -172,8 +172,12 @@ describe('the region tree is first-class', () => {
             // vertex before the solve, and the solve then left two bisectors without a target.
             expect(region!.failure).toMatch(
                 /^Incomplete solve: vertices-canonicalised: 1 vertex\(es\) removed before solving/);
+            // The two stranded ids moved from 29/32 to 28/31 on 2026-08-29 with the arrival ordering
+            // (journal decision 102): the region's own solve is a different solve, one bisector
+            // earlier in the numbering. The region still fails, still on this id, still on the same
+            // two diagnostics — the specimen is re-pointed, not weakened.
             expect(region!.failure).toMatch(
-                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 29, 32\.$/);
+                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 28, 31\.$/);
             expect(region!.outcome).toEqual({kind: 'failed', failure: region!.failure});
         });
 

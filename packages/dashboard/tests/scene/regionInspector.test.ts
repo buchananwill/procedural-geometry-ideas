@@ -96,7 +96,10 @@ describe('the standalone solve', () => {
 
         const solve = standaloneSolve(region.boundary);
         expect(solve.status).toBe('incomplete');
-        expect(solve.detail).toContain('2 interior edge(s) finished without a target node: 29, 32');
+        // The two stranded ids moved from 29/32 to 28/31 on 2026-08-29 with the arrival ordering
+        // (journal decision 102), which gives this region a different — still incomplete — solve.
+        // Re-pointed alongside the same pin in core's `region-tree.test.ts`.
+        expect(solve.detail).toContain('2 interior edge(s) finished without a target node: 28, 31');
         expect(region.failure).toContain(solve.detail);
     });
 });

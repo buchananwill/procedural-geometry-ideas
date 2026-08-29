@@ -446,7 +446,12 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         const cluster = terminalCluster(NEAR_REGULAR_CIRCLE_48, 2e9, 1e-4);
 
         expect(cluster.count).toBe(2);
-        expect(cluster.inDegrees).toEqual([12, 40]);
+        // The SPLIT of the 48 across the two hubs, re-measured 2026-08-29: [12, 40] became [10, 40]
+        // under `arrivalOffsetOfPair` in `collision-helpers.ts` (journal decision 102), which changes
+        // which shards of the scatter arrive together and so which of them the smaller hub collects.
+        // The mechanism this test names is untouched — still two hubs, still 1.24e-8 apart, still
+        // just past the tolerance — and that is the claim the two assertions below carry.
+        expect(cluster.inDegrees).toEqual([10, 40]);
         // The whole defect in one number: had these two been 1e-8 apart rather than 1.24e-8, the
         // `identical-source` branch of `intersectRays` would have closed the pair and the solve
         // would have completed.

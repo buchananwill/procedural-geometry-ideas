@@ -116,6 +116,45 @@ function meetHeadOn(
 }
 
 /**
+ * When this pair of arrivals has HAPPENED — the offset by which both participants have reached the
+ * meeting point, not the offset at which whichever of them reported the event got there.
+ *
+ * ONE EVENT MUST CARRY ONE TIME, and until this existed it did not. `offsetDistance` is measured
+ * from `edgeA`'s clockwise parent and `offsetTarget` from `edgeB`'s, and `createCollisions` reports
+ * every pair from both directions, so one physical arrival reached the solver as two events with two
+ * different offsets. Measured on `OFF_EDGE_JITTER_L_SEED_55433_K4`: `ie42 x ie52` is reported at
+ * 2.929716788515e-1 by `ie42` and 2.929716789418e-1 by `ie52` — 9.03e-11 apart, on an offset of
+ * 2.93e-1 — while `ie42 x ie54` at the same point agrees to one ulp. With linear causality as the
+ * solver's model (journal decision 102) that asymmetry is not cosmetic: it decides pairings, and it
+ * let the LATEST arrival of a five-edge ring present itself as the earliest by naming the faster
+ * participant's clock.
+ *
+ * NOT ROUNDING — THE WALLS ARE NOT CONCURRENT, and this was measured before the correction was
+ * written. At that meeting point the perpendicular distance to `ie42`'s two parents is
+ * 2.929716788515e-1 and to `ie52`'s is 2.929716789418e-1: each ray sits on its own equidistant locus
+ * to within 3e-19, and the loci genuinely cross 9.03e-11 out of step. So there is no single true
+ * offset to recover by computing more carefully — there is only the question of when the pair may be
+ * treated as met, and the answer is when the slower of the two has arrived. The
+ * `phantomDivergentOffset` test above already says the two readings must agree, at
+ * `FLOATING_POINT_EPSILON`; this decides what to do inside that tolerance instead of picking the
+ * instigator's reading and calling it the event's.
+ *
+ * WHAT IT COSTS THE CORPUS, MEASURED AGAINST A FULL-GRAPH DIGEST OF ALL 59 FIXTURES. Five of them —
+ * `Near Regular Peanut 32`, `Near Regular Ellipse 32`, `Slightly Deformed Peanut 1` and `2`, and
+ * `Near Regular Rosette5 40` — move by a node COORDINATE and nothing else: same nodes, same in and
+ * out edges, same parents, worst movement 1.17e-13 in caller units on a 500-unit extent, which is
+ * 2.3e-16 of extent and so under an ulp of the shape. The layer window and the coincidence medoid
+ * both read this offset, and a member set at the window's edge is what shifts. The other 54 are
+ * bit-identical. Three instrument counters move with it and are re-pinned where they live:
+ * `near-regular-ring-loss-diagnosis` 40 to 33 fired, `offset-event-boundary-regression` 179 to 176
+ * fired — both with `silentLosses` still empty, so those mutations became HARMLESS rather than
+ * unreported — and `large-coordinate-known-failures`' half-merge split, [12,40] to [10,40].
+ */
+function arrivalOffsetOfPair(offsetFromA: number, offsetFromB: number): number {
+    return Math.max(offsetFromA, offsetFromB);
+}
+
+/**
  * */
 export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent[] {
     const ray1 = context.projectRayInterior(edgeA);
@@ -147,6 +186,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
     const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
 
+
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
     const eventType: CollisionType = !areEqual(offsetDistance, offsetTarget) || offsetDistance <= 0
@@ -176,7 +216,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     }
 
     events.push({
-        offsetDistance: offsetDistance,
+        offsetDistance: arrivalOffsetOfPair(offsetDistance, offsetTarget),
         collidingEdges: [edgeA.id, edgeB.id],
         position: findPositionAlongRay(ray1, alongRay1),
         intersectionData,

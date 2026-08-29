@@ -503,9 +503,29 @@ describe('wavefront causality', () => {
         'Off-edge Jitter Plus (seed 7919)': {offset: 0, clearance: 0, direction: 3},
         // Direction was 1 until the split/partition pass gained render-floor position identity
         // (journal decision 85): the violating edge was one half of the degenerate pair joining two
-        // split nodes 5.4e-7 apart, and with the pair resolved into one node the edge is a
-        // zero-length self-loop with no direction to disagree with.
-        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 0},
+        // split nodes 5.4e-7 apart, and with the pair resolved into one node the edge was a
+        // zero-length self-loop with no direction to disagree with. It returned as a DIFFERENT edge
+        // on 2026-08-29 under the arrival ordering (journal decision 102), and that cost is recorded
+        // here in full rather than absorbed:
+        //
+        //   `ie57 [11,17]`, n34 (324.99888973985594, 174.99991546169252) -> n36
+        //   (324.9993972498838, 174.99991546676625) — 5.08e-4 in caller units, 1.69e-6 of the
+        //   fixture's 300-unit extent, so 1.69 times the render floor and 0.0065 px on a 4K render
+        //   of the whole shape.
+        //
+        // WHAT PUTS IT THERE, TRACED. The root's five-edge ring `[32,42,54,38,52]` has three of its
+        // arrivals — 42, 52 and 54 — at ONE point, agreeing to 4e-12, with pairwise offsets spread
+        // over 9e-11. `mergesShareAnEdge` sends the layer to the pairwise fallback, so that
+        // three-way vertex event is resolved two edges at a time however it is ordered; by arrival
+        // it becomes 42+54, leaving 52 to pair with 38 at a genuinely later offset (1.6e-11 later,
+        // and BOTH parents agree that reading to 3.3e-16 — there is no mis-computed offset in that
+        // decision). The near-degenerate triangle that follows puts n36 1.69 floors behind n34.
+        //
+        // NOT AN OFFSET DEFECT, AND SO NOT FIXED HERE. The offsets that choose the pairing are
+        // sound; what is unsound is resolving a three-way coincident arrival pairwise at all, and
+        // the node placement that follows it — journal decision 101's tolerance defect and decision
+        // 89's parked placed-node design. Curing it is event semantics, not arithmetic.
+        'Off-edge Jitter Reflex L (seed 55433, k=4)': {offset: 0, clearance: 0, direction: 1},
         // `Collinear Dumbbell` was here at {0, 0, 0} and left this table with the roster on
         // 2026-08-28 (journal decision 90). Its row is worth remembering: all three counts were
         // zero the whole time it was the corpus's one silent wrong answer, which is what

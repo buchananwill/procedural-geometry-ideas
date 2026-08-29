@@ -664,7 +664,41 @@ under this ruling: k4's catastrophic result under earliest-arrival (tiling 6.411
 edges) is not a counter-argument but **evidence of an upstream mis-computed offset in k4's
 solve** — to be traced, with projection-chain offset derivation as the user's named suspect.
 
+**103 — The decision-102 package's two flagged trades are RATIFIED, and its STOP converges on
+decision 101's unification.** (a) Census 20 → 22 accepted: both additions are 5e-8–8.5e-7
+sliver declines, the census is now 100% decision-96 accepted behaviour, and the bar that
+matters — no unattributed movement — held. (b) k4's single new direction violation (1.69× the
+render floor, 0.0065 px at 4K) accepted and pinned loud with its full trace: it is decision
+101's defect surfacing at a three-way vertex event that the pairwise fallback cannot resolve
+correctly in ANY order — the correctly-named STOP site — and it was traded for the fold
+population falling 24 → 4 and the plus's jitter class 10/80 → 4/80. Also ratified: the
+delegate's ulp-scale simultaneity window (64 ulps) over the brief's fp_compare window, which
+would have made the acceptance site provably unreachable — measured populations sit 4 orders
+either side. The convergence is now total: the pairwise fallback for render-floor-coincident
+arrival sets, the placed-node scope, and the five OPEN audit items are ONE ruling session —
+decision 101's spec, with the user.
+
 ## Findings
+
+**F40 — Decision 102 landed: strict linear causality restored, a real upstream offset asymmetry
+found and fixed, and BOTH of the user's predictions confirmed to the letter.** Implementation:
+arrival ordering with single-linkage ulp-moments (lexicographic demoted to within-moment
+tie-break); and `arrivalOffsetOfPair` — an event's offset was **the instigator's reading**, so
+the same collision reported 9.03e-11 apart depending on which edge reported it, letting a ring's
+latest arrival present as earliest; the fix takes `max` of both participants ("the pair has met
+when the slower one arrives"), and the wrong diagnosis was falsified first: the walls are
+genuinely non-concurrent, there is no truer offset to recover. **User prediction 1 confirmed
+literally**: the correctly-paired ring still leaves two bisectors on the (now correct) `[9,15]`
+ridge 3.9e-6 apart — "picking the right winner wouldn't fix this defect, it would just give us a
+different degenerate-level edge" — I5 stays 2 on 55433, now measuring decision 101's defect
+instead of a wrong pairing. **Prediction 2 confirmed**: k4's breakage under the invariant traced
+to exactly "an offset has been miscalculated" upstream. Correction to F36: the "crossed targets"
+were ie28/ie34 (moved), not ie44/ie46 (bit-unmoved). Cures: folds 24 → 4 (both reflex Ls leave
+the fold population), plus jitter 10/80 → 4/80. Costs pinned: k4 direction 0 → 1 (the three-way
+pairwise-resolution residual, STOP'd to decision 101). Clean roster bit-identical under the
+ordering; the offset fix moves five fixtures by ≤ 2.3e-16 of extent (sub-ulp). Determinism
+sweeps explicitly green (1335/1335) — the ulp window did not reintroduce ulp-sensitive naming.
+Delegate figures: core 5091/5091 (81 suites), dashboard 283/283; convictions 6+6 both mutations.
 
 **F39 — The tolerance audit is delivered
 ([tolerance-unification-audit.md](./tolerance-unification-audit.md), 1120 lines), and its

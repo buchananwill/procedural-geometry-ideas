@@ -34,6 +34,81 @@ function compareEdgeIdLists(first: number[], second: number[]): number {
     return first.length - second.length;
 }
 
+/**
+ * Ulps of the larger offset within which two arrivals are ONE moment of the wavefront clock.
+ *
+ * A REPRESENTATION BAR, NOT A GEOMETRIC TOLERANCE. Its only job is to stop the arithmetic's own
+ * rounding from being read as causal order: two arrivals that are equal in exact arithmetic are
+ * computed through different intersections and land a few ulps apart, and the two reciprocal reports
+ * of ONE arrival ({@link createCollisions} reports every pair from both directions) agree to within
+ * an ulp. Anything wider would be a claim about geometry, and every such claim in this package
+ * belongs to a constant with a measurement behind it.
+ *
+ * SIXTY-FOUR, with the corpus's two live populations on either side of it. On
+ * `OFF_EDGE_JITTER_L_SEED_55433`'s collapsing 4-ring the four candidate pairings arrive 2.52e-11 to
+ * 7.07e-11 apart on offsets of 2.93e-1 — between 3.9e5 and 1.1e6 ulps, four orders above this bar.
+ * The rounding noise it exists to absorb sits at one to a few ulps, six orders below it. Both
+ * populations are asserted as ratios in `arrival-ordering.test.ts`.
+ */
+const SIMULTANEOUS_ARRIVAL_ULPS = 64;
+
+/**
+ * Order one layer's events by ARRIVAL, breaking exact simultaneity with `tieBreak`.
+ *
+ * STRICT LINEAR CAUSALITY IS THE SOLVER'S MODEL (journal decision 102): where two arrivals are
+ * separated at all, the earlier one is resolved first, and the wavefront it terminates cannot be
+ * consumed by an event that had not happened yet. The fallback below used to sort a whole layer by
+ * priority and edge id alone, which threw the offsets away — and because each event here CONSUMES
+ * its edges, that was a PAIRING rule, not a display order: on `(seed 55433)` a collapsing 4-ring
+ * whose true pairing arrives 2.52e-11 ahead of its rival was paired by edge id instead, so the arm
+ * tip closed on the wrong two of its four walls and left its surviving ridge between the wrong
+ * parents. What that cost downstream is the fold population — 24 region-boundary folds across three
+ * fixtures before this ordering, 4 on one fixture after it, with both reflex Ls leaving it outright
+ * (`region-boundary-folds.test.ts`) — and six of the plus's ten failing near-floor jitter cells.
+ *
+ * IT DOES NOT CURE THE DUPLICATE RIDGE, and saying so is the point. Both pairings leave TWO
+ * bisectors spanning that ridge, so I5's count on this fixture is unmoved; the two collapse nodes
+ * are 3.9e-6 apart in unit space and should not both exist, which is journal decision 101's
+ * tolerance defect and not this one. Pairing decides which walls the ridge belongs to; it cannot
+ * decide whether the ridge should have been a point.
+ *
+ * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
+ *
+ * THE TIE-BREAK KEEPS ITS PROPER SCOPE. Decision 65's lexicographic ordering exists so that events
+ * a floating-point offset CANNOT separate are still resolved in an order no placement can move —
+ * node identity must not turn on an ulp. That argument is about genuine simultaneity, so it applies
+ * within {@link SIMULTANEOUS_ARRIVAL_ULPS} and nowhere else.
+ *
+ * MOMENTS BY SINGLE LINKAGE, over an already offset-ascending list, so the result is a total order
+ * rather than a sort under a non-transitive "close enough" predicate. The same convention, and the
+ * same accepted cost, as the coincidence clustering in `coincident-events.ts`.
+ */
+export function inArrivalOrder(
+    events: CollisionEvent[],
+    tieBreak: (first: CollisionEvent, second: CollisionEvent) => number,
+): CollisionEvent[] {
+    const byOffset = events.toSorted((e1, e2) => e1.offsetDistance - e2.offsetDistance);
+
+    const moments: number[] = [];
+    let moment = 0;
+    for (let index = 0; index < byOffset.length; index++) {
+        if (index > 0 && !areSimultaneousArrivals(byOffset[index - 1].offsetDistance, byOffset[index].offsetDistance)) {
+            moment++;
+        }
+        moments.push(moment);
+    }
+
+    return byOffset
+        .map((event, index) => ({event, moment: moments[index]}))
+        .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event))
+        .map(entry => entry.event);
+}
+
+function areSimultaneousArrivals(first: number, second: number): boolean {
+    const magnitude = Math.max(Math.abs(first), Math.abs(second));
+    return Math.abs(first - second) <= SIMULTANEOUS_ARRIVAL_ULPS * Number.EPSILON * magnitude;
+}
+
 function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
     if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
         throw new Error("Different instigators! Invalid comparison.")
@@ -111,14 +186,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         }
     };
 
-    // Priority first, then the colliding edge ids, so a layer is processed in an order that is a
-    // function of the events themselves. `toSorted` is stable, so priority alone left equal-priority
-    // events in the order the offset sort delivered them — and offsets that are equal in exact
-    // arithmetic differ by an ulp once the input is placed elsewhere in the plane. Each event
-    // handled here CREATES A NODE, so that made node identity turn on an ulp: `Golf Cart`'s two
-    // simultaneous splits of its top edge (journal F12) swapped ids under a translation of 1e3,
-    // the same defect decision 65 records for the ellipses' mirror pair. Edge ids are integers
-    // taken from the polygon's own vertex order and carry no arithmetic at all.
+    // THE TIE-BREAK FOR SIMULTANEOUS ARRIVALS, and only for those: priority, then the colliding edge
+    // ids, so events an offset cannot separate are still resolved in an order that is a function of
+    // the events themselves. `toSorted` is stable, so priority alone left equal-priority events in
+    // the order the offset sort delivered them — and offsets that are equal in exact arithmetic
+    // differ by an ulp once the input is placed elsewhere in the plane. Each event handled here
+    // CREATES A NODE, so that made node identity turn on an ulp: `Golf Cart`'s two simultaneous
+    // splits of its top edge (journal F12) swapped ids under a translation of 1e3, the same defect
+    // decision 65 records for the ellipses' mirror pair. Edge ids are integers taken from the
+    // polygon's own vertex order and carry no arithmetic at all.
+    //
+    // It is NOT a layer ordering. Passed to `inArrivalOrder`, it decides only within one moment of
+    // the wavefront clock; separated arrivals are ordered by their offsets (decision 102).
     const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
         const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
         if (priority !== 0) {
@@ -143,10 +222,12 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const ringOfMerge = rings === null ? null : merges.map(merge =>
         rings.find(ring => merge.edgeIds.every(edgeId => ring.includes(edgeId))));
 
+    // THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
+    // reported pair is handled first is the pair the ring collapses on and every rival report of
+    // those edges returns empty. That makes arrival order load-bearing, not cosmetic.
     if (rings === null || ringOfMerge === null || ringOfMerge.some(ring => ring === undefined)
         || mergesShareAnEdge(merges)) {
-        collisionsToHandle
-            .toSorted(byEventPriority)
+        inArrivalOrder(collisionsToHandle, byEventPriority)
             .map(event => handleCollisionEvent(event, context))
             .forEach(recordBisections)
     } else {

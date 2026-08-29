@@ -448,9 +448,16 @@ describe('the near-regular simultaneous mirror events', () => {
             // Pinned rather than bounded, for the same reason the sibling suite pins its pair: a
             // share-of-corpus bound would still pass if the report's sensitivity quietly halved.
             // Measured at this commit: 48 mid-solve events across the four fixtures that project
-            // cleanly, 40 of which the report fires on and 8 of which cost no area at all.
+            // cleanly, 33 of which the report fires on and 15 of which cost no area at all.
+            //
+            // FIRED WAS 40 UNTIL 2026-08-29, and the seven that stopped firing moved into the
+            // HARMLESS column, not into `silentLosses` — which is empty here and asserted above. The
+            // cause is `arrivalOffsetOfPair` in `collision-helpers.ts`: a pair's event now carries
+            // the offset by which BOTH participants have arrived rather than the instigator's, so
+            // seven of these hand-broken hand-overs no longer move a ring boundary at all. The
+            // mutation count of 48 is unmoved, so the harness still exercises the same events.
             expect(mutated).toBe(48);
-            expect(fired).toBe(40);
+            expect(fired).toBe(33);
         });
     });
 

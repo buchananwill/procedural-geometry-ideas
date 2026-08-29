@@ -168,14 +168,20 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 10 of 80 cells on the double-reflex plus, at the default noise floor', () => {
-        // Was 46 of 80 before decision 70, 13 of 80 after it, and 11 under decision 78. The plus
-        // keeps more of the class than the L because its facing walls are exactly parallel whatever
-        // the jitter does, which is a degeneracy neither the direction rule nor the coincidence
-        // floor addresses — and which the parallel-vertex closure now resolves where it reaches a
-        // terminal sub-polygon, taking count 2 with it.
+    it('fails 4 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+        // Was 46 of 80 before decision 70, 13 of 80 after it, 11 under decision 78 and 10 once the
+        // parallel-vertex closure took count 2. The plus keeps more of the class than the L because
+        // its facing walls are exactly parallel whatever the jitter does, which is a degeneracy
+        // neither the direction rule nor the coincidence floor addresses.
+        //
+        // THE FIFTH READING, 2026-08-29, ATTRIBUTED TO THE ARRIVAL ORDERING (journal decision 102):
+        // 10 of 80 becomes 4, and the set moves from [3,4,5,6,8,9,10] to [3,7,8,10] — counts 4, 5,
+        // 6 and 9 cured, count 7 newly failing, so this is re-measured per cell rather than inferred
+        // from the totals. The mechanism is the same one the fold population records: the pairwise
+        // fallback in `handleInteriorNGon` used to pair a collapsing ring by edge id, and pairing it
+        // by arrival instead removes the sub-visible duplicate ridges that these cells died on.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 10, failingCounts: [3, 4, 5, 6, 8, 9, 10]});
+            .toEqual({failed: 4, failingCounts: [3, 7, 8, 10]});
     });
 });
 

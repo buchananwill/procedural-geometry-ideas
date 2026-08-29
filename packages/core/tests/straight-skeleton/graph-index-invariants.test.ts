@@ -644,6 +644,23 @@ function crossedPairingProblems(graph: StraightSkeletonGraph): string[] {
  * patch as the same class as `(seed 55433)`'s, and this marker does not see it: its collapse leaves
  * no two bisectors on one ridge. Either its defect is a different one, or the same pairing error
  * expressed without the duplicate — an open question this table records instead of papering over.
+ *
+ * ITS ZERO IS NOW LOAD-BEARING TWICE OVER. Under the arrival ordering (journal decision 102) the
+ * pairwise fallback resolves this fixture's five-edge ring by offset, and three of that ring's
+ * arrivals land on ONE point with pairwise offsets spread over 9.03e-11 because a pair's event used
+ * to carry the offset of whichever edge REPORTED it rather than the offset by which both had
+ * arrived. Order those asymmetric readings and the ring pairs on an arrival that had not happened:
+ * this row goes to 1. `arrivalOffsetOfPair` in `collision-helpers.ts` is what keeps it at 0, and
+ * mutating that function to return `offsetFromA` is the conviction of it.
+ *
+ * THE TABLE DID NOT MOVE UNDER THAT ORDERING, AND WHAT DID MOVE IS RECORDED HERE RATHER THAN LOST.
+ * `(seed 55433)`'s first pair is now `ie48 [9,15]` / `ie49 [15,9]` at a parent skew of 1.300e-5,
+ * where it was `[10,16]` / `[16,10]` at 6.456e-6: the arm ring is paired on the walls that vanish
+ * first, so the surviving ridge belongs to the walls F36 named, and the ridge is still DOUBLE. That
+ * is the measured limit of this marker — it reads the duplication, which the correct pairing also
+ * produces here, and not the label swap. What is left is journal decision 101's defect: the two
+ * collapse nodes are 3.9e-6 apart in unit space and should not both exist. See
+ * `arrival-ordering.test.ts` for the parents, pinned so that reverting the ordering fires there.
  */
 const PINNED_CROSSED_PAIRINGS: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 55433)': 2,

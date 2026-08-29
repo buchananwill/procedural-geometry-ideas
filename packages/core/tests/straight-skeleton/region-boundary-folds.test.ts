@@ -64,10 +64,14 @@ import {distanceToSegment, distanceToSupportingLine} from './wavefront-measureme
  * again in the child region that inherits it. Post-fix: zero. (F37's figure of 12 is the merge group
  * 3 column of that same grid, which is the group the failing-region harvest uses.)
  *
- * THE FOLD COUNT MOVES TOO, 41 pre-fix to {@link FOLDS_HANDED_IN} post-fix, and that is not a
- * contradiction: the folds are counted on regions the CUTTER produced, and once the spikes stop
- * reaching solves those solves succeed, so the trees below them are different trees. The pre-fix
- * reading is 20 / 14 / 7 across the same three fixtures.
+ * THE FOLD COUNT MOVES TOO, 41 pre-fix to 24 post-fix, and that is not a contradiction: the folds
+ * are counted on regions the CUTTER produced, and once the spikes stop reaching solves those solves
+ * succeed, so the trees below them are different trees. The pre-fix reading is 20 / 14 / 7 across
+ * the same three fixtures.
+ *
+ * THE ARRIVAL ORDERING THEN TOOK 24 TO {@link FOLDS_HANDED_IN} — see that constant. The predicate
+ * measurement above is unaffected by it: reverting the predicate today still fires the sweep, and
+ * that mutation is what convicts this file.
  */
 
 setSkeletonLogLevel('silent');
@@ -83,10 +87,18 @@ const SWEPT_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  * could have been non-empty, and after the fix no fold survives anywhere — so the evidence that the
  * predicate is load-bearing has to be counted on the input side. These are vertices of a region's
  * `boundary` that the clamped predicate would have KEPT and the unclamped one removes: deviation
- * under the floor to the chord's line, at or above it to the chord's segment. Twenty-four of them,
- * all at full depth, all on the three jitter fixtures.
+ * under the floor to the chord's line, at or above it to the chord's segment. Four of them, all at
+ * full depth, all on `(seed 7919)` — one per merge group, on four different regions.
+ *
+ * TWENTY-FOUR UNTIL 2026-08-29, ON THREE FIXTURES, AND THE ARRIVAL ORDERING TOOK TWENTY OF THEM
+ * (journal decision 102). A fold in a region boundary is a fold in the ROOT skeleton the cutter
+ * transcribes, and the sub-visible duplicate ridges the pairwise fallback used to build by ordering a
+ * collapsing ring on edge id are where they came from: pairing that ring by arrival instead empties
+ * `(seed 55433)` and `(seed 55433, k=4)` of folds entirely — 20 and 14 pre-predicate-fix, then 24
+ * between the three of them, now 4 on one fixture. This count is therefore a reading of the ROOT's
+ * cleanliness as much as of this stage's workload, and it is expected to fall further, not rise.
  */
-const FOLDS_HANDED_IN = 24;
+const FOLDS_HANDED_IN = 4;
 
 /** One region as this sweep needs it: the ring solved, the ring cut, and the floor both were judged at. */
 interface SweptRegion {
@@ -193,10 +205,14 @@ describe('no region reaches a solve carrying a vertex its own floor calls invisi
         expect(folds).toHaveLength(FOLDS_HANDED_IN);
     });
 
-    it('confines the folds to the three jitter fixtures, at full depth', () => {
+    it('confines the folds to one jitter fixture, at full depth', () => {
         // The character of the population rather than its size, and the statement that the fold class
         // is the jitter class: no other fixture in the corpus produces one, and none is produced at a
         // partial depth. F35 read the same confinement from the failure census.
+        //
+        // IT WAS ALL THREE JITTER FIXTURES UNTIL 2026-08-29. The arrival ordering (journal decision
+        // 102) removed both reflex Ls from this population outright — the assertion is written as the
+        // exact list rather than a subset so that either of them returning is a failure here.
         const fixtures = new Set<string>();
         const depths = new Set<string>();
 
@@ -212,8 +228,6 @@ describe('no region reaches a solve carrying a vertex its own floor calls invisi
 
         expect([...fixtures].toSorted()).toEqual([
             'Off-edge Jitter Plus (seed 7919)',
-            'Off-edge Jitter Reflex L (seed 55433)',
-            'Off-edge Jitter Reflex L (seed 55433, k=4)',
         ]);
         expect([...depths]).toEqual(['1']);
     });

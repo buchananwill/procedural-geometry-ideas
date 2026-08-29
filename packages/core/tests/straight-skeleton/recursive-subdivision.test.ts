@@ -209,13 +209,23 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  *   - seed 15838, the dumbbell, the circle and the rosette: BIT-UNMOVED at zero, which is the
  *     evidence that the fix reached the fold class and nothing else. The clean roster's 55 solves are
  *     bit-identical, graph for graph, node for node.
+ *
+ * RE-MEASURED 2026-08-29 UNDER THE ARRIVAL ORDERING (journal decision 102), and only the plus moves:
+ * 13 to 15. Both additions — `r0.0.4` and `r0.7.3` at merge group 1, and their counterparts in the
+ * other groups — are `Degenerate region` declines of the same 5e-8-to-8.5e-7 kind the rest of that
+ * fixture's count already is, so the grid's whole remaining population is still decision-96 declines
+ * and NOT ONE of the 22 is a failed solve. The count grew because the root skeleton changed and the
+ * cutter therefore produced different sub-regions, two more of which fall under the degeneracy floor;
+ * read against the fold population, which fell 24 to 4 over the same change, the direction of travel
+ * is the opposite of what this number alone suggests. Every other row is bit-unmoved, the clean
+ * roster included.
  */
 const CENSUS_SIGNATURES: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 15838)': 0,
     // Zero, and STILL ENROLLED — see the fold-fix paragraph above and I5 in
     // `graph-index-invariants.test.ts`. Promotion waits on decision 98's pairing rule.
     'Off-edge Jitter Reflex L (seed 55433)': 0,
-    'Off-edge Jitter Plus (seed 7919)': 13,
+    'Off-edge Jitter Plus (seed 7919)': 15,
     'Off-edge Jitter Reflex L (seed 55433, k=4)': 7,
     // `Collinear Dumbbell` left this table with the roster on 2026-08-28 (journal decision 90). Its
     // census signature was zero throughout — this grid never saw its defect, which was in the strip

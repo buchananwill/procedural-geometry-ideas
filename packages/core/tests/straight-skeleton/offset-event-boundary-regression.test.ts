@@ -492,8 +492,16 @@ describe('offset projection at event boundaries', () => {
             // shape made of parallel corridors and square globes looks like here: every one of its
             // events is a whole hub or a whole pinch, so breaking a hand-over at one costs no area
             // rather than stranding a sliver. `silentLosses` is still empty over all 53.
+            //
+            // `fired` MOVED ALONE ON 2026-08-29 — 179 to 176, `mutated` bit-unmoved at 341 — under
+            // `arrivalOffsetOfPair` in `collision-helpers.ts` (journal decision 102): a pair's event
+            // carries the offset by which BOTH participants have arrived rather than whichever of
+            // them reported it. Three hand-broken hand-overs moved from the REPORTED column to the
+            // HARMLESS one; `silentLosses` is still empty over all 53, which is the assertion this
+            // pin exists to keep honest. Same movement, same cause, as the sibling pin in
+            // `near-regular-ring-loss-diagnosis.test.ts`.
             expect(mutated).toBe(341);
-            expect(fired).toBe(179);
+            expect(fired).toBe(176);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {
