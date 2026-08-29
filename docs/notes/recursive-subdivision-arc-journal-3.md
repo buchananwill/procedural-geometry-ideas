@@ -740,7 +740,33 @@ floor, the same r0.1.3 from (a) — the natural successor by construction. `regi
 "never a second differently-parameterised solve" header becomes true again. The SceneCanvas
 tiny-fixture fit wrinkle (fit scale above the zoom cap) rides along as a minor UI fix.
 
+**109 — The 108(b) closer's substitution is RATIFIED: the inspector's defect pins carry
+`canonicalBoundary` — the ring the failing wavefront actually ran on — because the ruled
+specimen was falsified by measurement.** `r0.1.3`'s RAW boundary solves standalone at the demo
+floor; its driver failure is manufactured by the `noiseFloor` pass-down removing a 2.17e-5
+vertex at the region's restated 4e-5 floor — F38a's inversion, now its third independent
+exhibit, and further evidence for the root-floor reconciliation package. Corpus-wide at the demo
+floor (36 grid cells × 59 fixtures): ONE driver failure, ZERO standalone-reproducing failures —
+the harvestable specimen population is extinct there, and the pins' perishability note says the
+next successor must be constructed, not harvested. Also ratified: the parcel-pipeline extraction
+(the solve sat in an unreachable useMemo — zero conviction possible without it), the id-based
+region lookup (the ordinal path silently mis-points past residue children), and the zoom fix by
+MONOTONICITY rather than clamp (the clamp would have broken decision 97's fit-tiny-regions
+affordance, and the derivation argument for it was shown false — the floor is relative, the cap
+absolute).
+
 ## Findings
+
+**F43 — One client, one floor: every dashboard solve path now runs at the derived 1e-5, and the
+parcels page measured strictly improved.** The three remaining paths (inspector standaloneSolve,
+regionSpine, the parcels pipeline) pass the explorer floor; `regionSpine`'s header claim is true
+again, with the window in which it was false documented. Parcels at 1e-5 vs 1e-6: 55/59
+bit-identical; the four jitter fixtures collapse onto EXACT clean-shape values (maxOffset
+75.00082 → 75, parcel area 45900.469 → 45900) — the client stops paying for geometry it cannot
+see, decision 106's waste argument realised as round numbers. Tiny-fixture zoom fixed as
+`zoomIn` monotone non-decreasing (9 tests). Spine's zero-conviction gap closed with jitter-
+fixture tests after the mutation trial exposed it. Delegate figures: core 5248/5248 untouched,
+dashboard 291 → 308/308 (21 suites); convictions 3/1/2/3 per path after gap-closing.
 
 **F42 — Decision 106 landed: one client-set perceptual floor, the demo's derived at 1e-5, and
 the jitter class measured invisible at it.** `PerceptualFloorOptions`/`resolvePerceptualFloor`

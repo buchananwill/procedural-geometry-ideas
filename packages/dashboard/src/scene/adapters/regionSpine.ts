@@ -1,4 +1,5 @@
 import { buildSkeletonTree, extractSpine, flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
+import { EXPLORER_PERCEPTUAL_FLOOR } from '../perceptual-floor';
 import type {
     RecursiveNode,
     SkeletonSolveResult,
@@ -38,19 +39,20 @@ import type {
  * A caller that needs more than the graph — the solver context, for instance — checks for that
  * itself; this promises only that the call returned and the solve completed.
  *
- * ON THE LIBRARY FLOOR, WHICH SINCE JOURNAL DECISION 106 IS NO LONGER THE DEMO'S. The demo's two
- * solver pages hand the driver this package's derived `EXPLORER_PERCEPTUAL_FLOOR` (1e-5), so this
- * re-solve is now a second differently-parameterised solve — the one thing the paragraph above says
- * it must not be. Passing the explorer's floor here is the fix and it belongs with the region
- * inspector's identical case, which is where the cost was measured: see `standaloneSolve` in
- * `regionInspector.ts` for why that pair was left for a ruling rather than landed.
+ * ON {@link EXPLORER_PERCEPTUAL_FLOOR}, WHICH IS WHAT MAKES "never a second differently-parameterised
+ * solve" TRUE. Journal decision 106 made the perceptual floor the client's and the demo's two solver
+ * pages hand the driver this package's derived 1e-5; for the window between that and decision 108(b)
+ * this call sat on the library's 1e-6 and the sentence above was false — the driver's tree and this
+ * re-solve of one of its regions were parameterised differently, so a spine could be extracted from a
+ * skeleton the tree never had. 108(b) unified every dashboard solve path onto the one derived floor
+ * and the guarantee is a guarantee again.
  */
 export function trySolveSkeleton(boundary: Vector2[]): SkeletonSolveResult | undefined {
     if (boundary.length < 3) return undefined;
 
     let result: SkeletonSolveResult;
     try {
-        result = solveSkeleton(boundary);
+        result = solveSkeleton(boundary, {perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR});
     } catch {
         return undefined;
     }

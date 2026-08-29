@@ -1,6 +1,7 @@
 import { flattenRecursiveTree, solveSkeleton } from '@proc-geo/core';
 import type { RecursiveNode, SkeletonSolveResult, Vector2 } from '@proc-geo/core';
 import type { ScenePrimitive } from '../types';
+import { EXPLORER_PERCEPTUAL_FLOOR } from '../perceptual-floor';
 import { FAILURE_COLOUR } from './recursiveTerritoryTint';
 
 /**
@@ -63,14 +64,18 @@ export interface StandaloneSolve {
  * two answers differ, that difference is itself the finding — and it is reported rather than hidden,
  * because the panel prints this verdict beside the driver's.
  *
- * ON THE LIBRARY FLOOR, NOT the explorer's derived one, AND THAT IS AN OPEN DISAGREEMENT
- * rather than a decision. Journal decision 106 made the perceptual floor the client's and the demo's
- * two solver pages now hand the driver this package's derived floor, so this re-solve answers about a
- * boundary at a finer floor than the tree it is inspecting was built at. Passing the explorer's floor
- * here was written and MEASURED on 2026-08-29: it makes the inspector's live defect region SOLVE —
- * the defect is genuinely invisible at a canvas that caps at 100x — which kills two pins in
- * `regionInspector.test.ts` that use that region as their failing specimen (the F15a specimen debt).
- * Reverted rather than absorbed: re-pointing a defect specimen is a ruling, not a refactor.
+ * ON THE EXPLORER'S DERIVED FLOOR, which since journal decision 108(b) is the ONLY floor any solve in
+ * this package runs at. Decision 106 made the perceptual floor the client's; 108(b) ruled that the
+ * client is the whole dashboard rather than the two demo pages that happened to pass it first, so this
+ * re-solve, `trySolveSkeleton` and `useParcelPipeline` all take {@link EXPLORER_PERCEPTUAL_FLOOR}. A
+ * re-solve at the library's 1e-6 would have answered about the boundary at a finer floor than the tree
+ * it is inspecting was built at — two tolerance systems inside one client, which is the exact disease
+ * decisions 101/105/106 exist to cure.
+ *
+ * WHAT THIS COSTS, MEASURED AND KEPT VISIBLE: at 1e-5 no region in the corpus fails a standalone solve
+ * of its HANDED-IN boundary — see `regionInspector.test.ts` for the sweep and for the one specimen that
+ * still shows a real solver failure. That is not this function going quiet; it is the difference above
+ * getting larger, and the difference is the finding.
  */
 export function standaloneSolve(boundary: Vector2[]): StandaloneSolve {
     if (boundary.length < 3) {
@@ -79,7 +84,7 @@ export function standaloneSolve(boundary: Vector2[]): StandaloneSolve {
 
     let result: SkeletonSolveResult;
     try {
-        result = solveSkeleton(boundary);
+        result = solveSkeleton(boundary, {perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR});
     } catch (error) {
         return {status: 'threw', detail: error instanceof Error ? error.message : String(error)};
     }

@@ -111,6 +111,31 @@ export function node(level: number, segments: number, children: RecursiveNode[] 
 }
 
 /**
+ * A solved node carrying whatever boundary it is handed, for suites whose subject is the GEOMETRY
+ * rather than the tree shape.
+ *
+ * Every other factory here builds from {@link SQUARE}, which is deliberate — a hand-built tree should
+ * carry a ring with nothing in it for a floor to remove. This one exists for the opposite case: a
+ * boundary chosen precisely because a floor DOES have something to say about it. It reports no
+ * canonicalisation of its own (the caller's boundary, zero drift), since it never went through a
+ * driver; anything reading `canonicalBoundary` off this node is reading what it was handed.
+ */
+export function nodeWithBoundary(boundary: Vector2[], level = 0): RecursiveNode {
+    return {
+        ...UNSTAMPED,
+        outcome: { kind: 'solved' },
+        level,
+        boundary,
+        canonicalBoundary: boundary,
+        canonicalAreaDrift: 0,
+        segments: [],
+        children: [],
+        residueRings: [],
+        residueChildren: [],
+    };
+}
+
+/**
  * The reason {@link failedNode} gives when it is not told one: a region that was no polygon at all.
  *
  * One of the three sentences the driver can report, and the one a residue ring hits least often —

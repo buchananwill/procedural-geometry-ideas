@@ -27,6 +27,7 @@ export {
     SCENE_ZOOM_MINIMUM,
     SMALLEST_RESOLVABLE_WORLD_SEPARATION,
 } from './scene/perceptual-floor';
+export { ZOOM_STEP, zoomIn, zoomOut } from './scene/zoom';
 export { skeletonToScene, turtleToScene, muteOntoCanvas, parcelColour, parcelsToScene, slopeColour, stripColour, recursiveTreeToScene, styleForLevel, RECURSIVE_LEVEL_STYLES } from './scene/adapters';
 export type { ParcelsSceneTerrain, ParcelsToSceneParams, RecursiveLevelStyle } from './scene/adapters';
 
@@ -67,7 +68,13 @@ export { DolConfigPanel, DolGenerateButton, DolGenerationPanel, DolInstructionsP
 export { useParcelStore, deriveSliceDefaults, effectiveSliceOptions, polygonArea, polygonPerimeter } from './stores/useParcelStore';
 export type { DerivableSliceKey, DerivedSliceOptions, ParcelLayerVisibility, ParcelStoreState, SliceOptionSources } from './stores/useParcelStore';
 export { useParcelPipeline } from './hooks/useParcelPipeline';
-export type { ParcelPipelineFailure, ParcelPipelineResult, ParcelPipelineStage } from './hooks/useParcelPipeline';
+export { runParcelPipeline } from './hooks/parcel-pipeline';
+export type {
+    ParcelPipelineFailure,
+    ParcelPipelineResult,
+    ParcelPipelineStage,
+    PipelineParams,
+} from './hooks/parcel-pipeline';
 export { ParcelControlsPanel, ParcelLayerPanel, ParcelReportPanel, TerrainPanel } from './components/parcels';
 export type { ParcelControlsPanelProps, ParcelReportPanelProps, TerrainPanelProps } from './components/parcels';
 

@@ -3,6 +3,7 @@ import { boundsOfPoints } from '@proc-geo/core';
 import type { Bounds2, RecursiveNode } from '@proc-geo/core';
 import { SceneCanvas } from '../scene/SceneCanvas';
 import { recursiveTreeToScene } from '../scene/adapters/recursiveSubdivisionToScene';
+import { SCENE_ZOOM_CAP } from '../scene/perceptual-floor';
 import { useRecursiveSubdivisionStore } from '../stores/useRecursiveSubdivisionStore';
 
 /**
@@ -34,7 +35,26 @@ export interface RecursiveSubdivisionCanvasProps {
     levelVisibility: boolean[];
 }
 
-/** Scale and offset that put `bounds` in the middle of a viewport of `size`. */
+/**
+ * Scale and offset that put `bounds` in the middle of a viewport of `size`.
+ *
+ * DELIBERATELY UNCLAMPED, even though a tiny shape fits above {@link SCENE_ZOOM_CAP} — the Square
+ * spans 2 world units and fits an 800px viewport at 270x, and a deep region in the inspector is
+ * routinely smaller than that. Fitting is the affordance (journal decision 97: a region drawn alone
+ * and filling the frame is what makes a malformed boundary the first thing a reader sees), and
+ * clamping the fit would open those pictures at a fifth of the frame.
+ *
+ * A fit above the cap does NOT break the perceptual-floor derivation, which is worth writing down
+ * because it looks as though it should. The floor is RELATIVE — 1e-5 of the shape's own extent — while
+ * the cap is absolute in world→px, so the condition the derivation actually needs is
+ * `1e-5 * extent <= 2 / scale`, i.e. `scale <= 200000 / extent`. At the reference extent of 2000 that
+ * is exactly 100, which is where the cap comes from: the cap is the WORST CASE, taken at the largest
+ * shape the demo draws. A 2-unit shape may be magnified 100000x before its own floor becomes visible,
+ * so the 270x fit has three orders of headroom.
+ *
+ * What the cap-above-fit combination did break was the wheel, and that is fixed where it lives — see
+ * {@link zoomIn} in `scene/zoom.ts`.
+ */
 export function fitView(bounds: Bounds2, size: CanvasSize): CanvasView {
     const width = bounds.maxX - bounds.minX;
     const height = bounds.maxY - bounds.minY;

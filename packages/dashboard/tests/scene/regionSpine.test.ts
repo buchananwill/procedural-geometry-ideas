@@ -3,11 +3,13 @@ import {
     DEFAULT_WAVEFRONT_TIME_FRACTION,
     DEFAULT_WHISKER_PRUNE_FRACTION,
 } from '../../src/stores/useRecursiveSubdivisionStore';
+import { OFF_EDGE_JITTER_L_SEED_55433 } from '@proc-geo/test-fixtures';
 import { regionSpine, summariseSpines, trySolveSkeleton } from '../../src/scene/adapters/regionSpine';
 import {
     failedNode,
     LOBED_SPLIT_STRATEGY,
     LOBED_TREE,
+    nodeWithBoundary,
     TREE,
 } from '../fixtures/recursive-trees';
 
@@ -28,6 +30,21 @@ import {
 /** The tree's own scale, so a fraction asserted below is a fraction of something written down here. */
 const SQUARE_SKELETON_LENGTH = 4 * Math.hypot(5, 5);
 
+/**
+ * The clean shape underneath `OFF_EDGE_JITTER_L_SEED_55433`, which is not itself a published fixture:
+ * `near-floor-jitter.ts`' header names these six corners, in clockwise winding, as the base its
+ * generator perturbed. The jittered fixture adds samples along each edge and displaces them by about
+ * 1e-3 units; the corners were never moved.
+ */
+const REFLEX_L = [
+    { x: 100, y: 100 },
+    { x: 100, y: 400 },
+    { x: 250, y: 400 },
+    { x: 250, y: 250 },
+    { x: 400, y: 250 },
+    { x: 400, y: 100 },
+];
+
 describe('trySolveSkeleton', () => {
     it('re-solves a region boundary and reports the solve complete', () => {
         const result = trySolveSkeleton(TREE.boundary);
@@ -42,6 +59,41 @@ describe('trySolveSkeleton', () => {
         // question worth the throw it would produce.
         expect(trySolveSkeleton([])).toBeUndefined();
         expect(trySolveSkeleton([{ x: 0, y: 0 }, { x: 1, y: 1 }])).toBeUndefined();
+    });
+
+    /**
+     * THE "NEVER A SECOND DIFFERENTLY-PARAMETERISED SOLVE" GUARANTEE, MADE ASSERTABLE.
+     *
+     * `trySolveSkeleton`'s contract is that it asks the solver the SAME question the driver already
+     * asked when it built the node — same boundary, same parameters. Journal decision 106 made the
+     * perceptual floor a parameter and the demo's pages hand the driver 1e-5, so for a window this
+     * call sat on the library's 1e-6 and the guarantee was false: a spine could be extracted from a
+     * skeleton the tree it belongs to never had. Decision 108(b) closed it.
+     *
+     * The sub-perceptual jitter fixture is what makes the two floors distinguishable. It is the L
+     * below with about 1e-3 units of displacement on inserted edge samples — invisible at any zoom
+     * this canvas permits — so at the explorer's floor it must yield the clean L's skeleton exactly.
+     * At 1e-6 the jitter survives and the skeleton is several times larger.
+     */
+    it('solves a sub-perceptually jittered boundary into the clean shape\'s skeleton', () => {
+        const clean = trySolveSkeleton(REFLEX_L);
+        const jittered = trySolveSkeleton(OFF_EDGE_JITTER_L_SEED_55433);
+
+        expect(clean).toBeDefined();
+        expect(jittered).toBeDefined();
+        expect(jittered?.graph.nodes).toHaveLength(clean?.graph.nodes.length ?? -1);
+        expect(jittered?.graph.interiorEdges).toHaveLength(clean?.graph.interiorEdges.length ?? -1);
+    });
+
+    it('extracts the same spine from the jittered boundary as from the clean one', () => {
+        // The consequence that matters to this file: the page compares spine definitions, and a
+        // definition judged on a skeleton carrying invisible jitter is judged on the wrong skeleton.
+        const clean = regionSpine(nodeWithBoundary(REFLEX_L), { kind: 'diameter' });
+        const jittered = regionSpine(nodeWithBoundary(OFF_EDGE_JITTER_L_SEED_55433), { kind: 'diameter' });
+
+        expect(jittered?.spine.edges).toHaveLength(clean?.spine.edges.length ?? -1);
+        expect(jittered?.spine.length).toBeCloseTo(clean?.spine.length ?? -1, 6);
+        expect(jittered?.treeLength).toBeCloseTo(clean?.treeLength ?? -1, 6);
     });
 });
 
