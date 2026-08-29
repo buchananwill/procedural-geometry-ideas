@@ -20,11 +20,24 @@ import { OFF_EDGE_JITTER_L_SEED_55433 } from '@proc-geo/test-fixtures';
  * defect, and neither is visible on the whole-tree canvas.
  */
 
-/** The census grid's own composition, so the defect region found here is the census's region. */
-const CENSUS_LEVELS = uniformLevelSpecs({
+/**
+ * The dials the core suite's failing-region specimen is taken at, so the region inspected here is
+ * the one `region-tree.test.ts` and `recursive-subdivision.test.ts` pin.
+ *
+ * RE-SPECIMENED 2026-08-29. This was the census grid's own composition and the region was `r0.10` of
+ * the seed-55433 L — F35's large arm patch — until journal decision 100's fold fix cured it: it was
+ * carrying an invisible spike that canonicalisation's clamped predicate had screened above the floor,
+ * and removing the spike makes the region solve. That fixture's whole census count went 3 to 0.
+ *
+ * `r0.2.1` at depth 0.5, merge group 6 replaces it, and it was chosen for THIS suite's requirement
+ * above all: of the five regions left anywhere in the corpus that still fail a solve, it is one of
+ * only two whose captured boundary reproduces the same failure when the inspector solves it standing
+ * alone. A region whose standalone solve SUCCEEDS would leave the test below asserting nothing.
+ */
+const DEFECT_LEVELS = uniformLevelSpecs({
     levels: MAX_RECURSION_LEVELS,
-    mergeGroupSize: 1,
-    depthFraction: FULL_DEPTH_FRACTION,
+    mergeGroupSize: 6,
+    depthFraction: 0.5,
     residue: 'recurse',
 });
 
@@ -71,19 +84,19 @@ describe('the standalone solve', () => {
     });
 
     it('reports the solver\'s own diagnostics for the live defect region, verbatim', () => {
-        // THE WHOLE AFFORDANCE, ON THE REGION IT WAS BUILT FOR. `r0.10` of the seed-55433 L is the
-        // large arm patch of journal finding F35: the inspector solves its captured boundary again
-        // and gets the same incomplete solve the driver got, which is what puts the driver's verdict
-        // and a fresh one in the same frame.
-        const tree = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, { levels: CENSUS_LEVELS });
-        const region = tree.children[10];
+        // THE WHOLE AFFORDANCE, ON THE REGION IT WAS BUILT FOR. `r0.2.1` of the seed-55433 L is one
+        // of the five sub-polygons the driver still cannot solve: the inspector solves its captured
+        // boundary again and gets the same incomplete solve the driver got, which is what puts the
+        // driver's verdict and a fresh one in the same frame.
+        const tree = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, { levels: DEFECT_LEVELS });
+        const region = tree.children[2].children[1];
 
-        expect(region.id).toBe('r0.10');
+        expect(region.id).toBe('r0.2.1');
         expect(region.failure).toBeDefined();
 
         const solve = standaloneSolve(region.boundary);
         expect(solve.status).toBe('incomplete');
-        expect(solve.detail).toContain('4 interior edge(s) finished without a target node: 10, 11, 12, 13');
+        expect(solve.detail).toContain('2 interior edge(s) finished without a target node: 29, 32');
         expect(region.failure).toContain(solve.detail);
     });
 });
@@ -109,8 +122,8 @@ describe('the focused picture', () => {
     it('draws the boundary of a region that will not solve, and no skeleton at all', () => {
         // The distinguishing picture: a ring with no arcs under it is a solver failure, a ring with
         // a visible kink is a cutter failure, and the reader is looking at both facts at once.
-        const tree = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, { levels: CENSUS_LEVELS });
-        const region = tree.children[10];
+        const tree = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, { levels: DEFECT_LEVELS });
+        const region = tree.children[2].children[1];
         const scene = focusedRegionToScene(region.boundary, standaloneSolve(region.boundary));
 
         expect(groupIds(scene)).toEqual(['group:focus-boundary', 'group:focus-vertices']);

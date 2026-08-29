@@ -5,6 +5,7 @@ import {
     KNOWN_DEFECT_POLYGONS,
     OFF_EDGE_JITTER_L_SEED_55433,
     OFF_EDGE_JITTER_L_SEED_55433_K4,
+    OFF_EDGE_JITTER_PLUS_SEED_7919,
     SQUARE,
 } from '@proc-geo/test-fixtures';
 import {
@@ -187,12 +188,35 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  * enclosing 5e-8 to 8.5e-7 of area against the 1e-6 degeneracy floor. That is the driver declining a
  * sliver it cannot see, not a solve that failed. The other three jitter counts are bit-unmoved,
  * which is the evidence that the closure reached this fixture and nothing else.
+ *
+ * RE-MEASURED 2026-08-29 UNDER THE FOLD FIX (journal decision 100). `canonicalisation.ts` measured
+ * chord deviation to the chord's SEGMENT, whose clamp reports a fold's length where the stage's own
+ * charter asks for its width, so zero-area spikes travelled into sub-region solves. Measuring to the
+ * chord's LINE removes them, and the grid moves by nine, every movement on a jitter fixture:
+ *
+ *   - seed 55433: 3 to **0**. Its three failures were all the same region under three sets of dials,
+ *     and each was the fold F37 traced: dropping the spike makes the region solve. IT DOES NOT
+ *     PROMOTE. Its root still carries the crossed pairing of decision 98 — two of the corpus's four
+ *     crossed-pairing ridges are its, pinned in `graph-index-invariants.test.ts` under I5 — plus two
+ *     sub-floor node pairs pinned under I2, and the spike this fix removes is the SYMPTOM of that
+ *     pairing rather than its cause. A census of zero on a fixture whose root solve is knowingly
+ *     wrong is exactly the silence decision 100 ordered the I5 sweep built to prevent;
+ *   - seed 55433 k=4: 11 to 7. The remaining seven are all `Degenerate region` declines at merge
+ *     group 1, which journal decision 96 accepts as correct behaviour — so what is left of this
+ *     fixture's census is no longer a defect count at all, and the four that went were solves;
+ *   - the plus seed: 15 to 13, both of the two that went being solves; the thirteen that remain are
+ *     the decision-96 sliver declines its earlier reading already characterised;
+ *   - seed 15838, the dumbbell, the circle and the rosette: BIT-UNMOVED at zero, which is the
+ *     evidence that the fix reached the fold class and nothing else. The clean roster's 55 solves are
+ *     bit-identical, graph for graph, node for node.
  */
 const CENSUS_SIGNATURES: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 15838)': 0,
-    'Off-edge Jitter Reflex L (seed 55433)': 3,
-    'Off-edge Jitter Plus (seed 7919)': 15,
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': 11,
+    // Zero, and STILL ENROLLED — see the fold-fix paragraph above and I5 in
+    // `graph-index-invariants.test.ts`. Promotion waits on decision 98's pairing rule.
+    'Off-edge Jitter Reflex L (seed 55433)': 0,
+    'Off-edge Jitter Plus (seed 7919)': 13,
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': 7,
     // `Collinear Dumbbell` left this table with the roster on 2026-08-28 (journal decision 90). Its
     // census signature was zero throughout — this grid never saw its defect, which was in the strip
     // layer — and it is now swept as a clean fixture, still at zero.
@@ -513,24 +537,37 @@ function bulgeLongestEdge(ring: Vector2[], offset: number): Vector2[] {
 /**
  * The dials at which `OFF_EDGE_JITTER_L_SEED_55433` produces regions it cannot subdivide.
  *
- * THAT FIXTURE IS THE SPECIMEN THE FAILING-REGION TESTS BELOW NEED, re-measured 2026-08-28 for the
- * SECOND time in a day and the fourth in three days. Each previous specimen was taken by a fix: the
- * dumbbell's self-intersecting children by the split-at-the-vertex correction, then
- * `OFF_EDGE_JITTER_L_SEED_55433_K4` at depth 0.6 / merge group 4 by decision 77's face-walk
- * correction, which cured that cell outright. This is the perishability the specimen debt is made
- * of, and it is the right kind of loss every time.
+ * THAT FIXTURE IS THE SPECIMEN THE FAILING-REGION TESTS BELOW NEED, re-measured 2026-08-29 for the
+ * FIFTH time. Each previous specimen was taken by a fix: the dumbbell's self-intersecting children by
+ * the split-at-the-vertex correction, then `OFF_EDGE_JITTER_L_SEED_55433_K4` at depth 0.6 / merge
+ * group 4 by decision 77's face-walk correction, then this fixture's own full-depth / merge-group-1
+ * cell by decision 100's fold fix, which cured its whole census count from 3 to 0. This is the
+ * perishability the specimen debt is made of, and it is the right kind of loss every time.
  *
  * Its ROOT solves, which is what makes every failed node under it a region THE DRIVER CUT rather
  * than the polygon handed in, and its failure is the pinned live defect of journal decision 67
  * rather than a shape invented to defeat the solver.
  *
- * Measured across depths `0.25/0.6/1` and merge groups 1–5 after the correction: NOTHING IN THE
- * CORPUS THROWS ANY MORE, so the tests below assert an incomplete solve where they used to assert a
- * thrown one. This cell has two failed nodes, one of them an incomplete solve whose floor took
- * nothing — which is what the canonical-form test needs — and both have solved siblings, which is
- * what the sibling test needs.
+ * THE SEARCH THAT FOUND THESE DIALS, because the population is now thin enough that the search is
+ * part of the record. Swept over the whole corpus at depths `0.25/0.5/0.6/0.75/0.9/1` and merge
+ * groups 1 to 6, exactly FIVE regions anywhere still fail a solve for a reason other than
+ * degeneracy: two on this fixture, three on `OFF_EDGE_JITTER_PLUS_SEED_7919`, and NONE AT ANY OF
+ * {@link SWEPT_DEPTH_FRACTIONS} — which is why the harvest below now sweeps this depth explicitly
+ * rather than inheriting the census grid's. Nothing in the corpus throws.
+ *
+ * This cell has one failed node, `r0.2.1`, with two solved siblings — which is what the sibling test
+ * needs — and its floor removes one vertex before the solve fails, which is what the reduced half of
+ * the canonicalisation sweep needs. It was chosen over the other four for a third property the
+ * dashboard's region inspector depends on: HANDED BACK IN AS A ROOT OF ITS OWN IT FAILS IN THE SAME
+ * WORDS. Three of the five do not — including the nearest alternative, `r0.3.1` at merge group 4,
+ * whose boundary SOLVES standing alone because its own floor, measured against its own extent,
+ * removes nothing where the root's floor removed a vertex. That is a real and separate observation
+ * about this defect class and it is why the specimen is this cell rather than that one.
+ *
+ * What no cell anywhere has any more is a failed node whose floor took NOTHING; see
+ * {@link unsolvableRegion} for what stands in for it and why that is faithful.
  */
-const JITTERED_L_FAILING_DIALS = {depthFraction: FULL_DEPTH_FRACTION, mergeGroupSize: 1} as const;
+const JITTERED_L_FAILING_DIALS = {depthFraction: 0.5, mergeGroupSize: 6} as const;
 
 /**
  * One region THE DRIVER ITSELF PRODUCED and then could not solve, with everything a check of it
@@ -584,25 +621,41 @@ function failedNodesOf(root: RecursiveNode): RecursiveNode[] {
 function failedRegions(): FailedRegion[] {
     const regions: FailedRegion[] = [];
     const population = [
-        ...CLEAN_TEST_POLYGONS.map(polygon => ({...polygon, mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE})),
-        {
-            name: 'Near-floor jittered reflex L',
-            vertices: OFF_EDGE_JITTER_L_SEED_55433_K4,
-            mergeGroupSize: JITTERED_L_FAILING_DIALS.mergeGroupSize,
-        },
-        // The second seed joined the population on 2026-08-28 under journal decision 77. The k=4
-        // specimen's failures are now all at full depth and every one of them either loses vertices
-        // to its own floor or is turned away by the degeneracy screen, and the harvest needs a
-        // region that fails the SOLVE with nothing removed — which this seed still produces.
+        ...CLEAN_TEST_POLYGONS.map(polygon => ({
+            ...polygon,
+            mergeGroupSize: FAILING_REGION_MERGE_GROUP_SIZE,
+            depthFractions: SWEPT_DEPTH_FRACTIONS,
+        })),
+        // THE JITTER SEEDS CARRY THEIR OWN DEPTH AS WELL AS THEIR OWN MERGE GROUP, since 2026-08-29.
+        // The fold fix emptied every cell of the census grid of non-degenerate failures, so a harvest
+        // that inherited the grid's depths would come back empty and the sweeps below would have no
+        // population at all. Both seeds still yield a failed region at the specimen's depth.
         {
             name: 'Near-floor jittered reflex L (seed 55433)',
             vertices: OFF_EDGE_JITTER_L_SEED_55433,
             mergeGroupSize: JITTERED_L_FAILING_DIALS.mergeGroupSize,
+            depthFractions: [...SWEPT_DEPTH_FRACTIONS, JITTERED_L_FAILING_DIALS.depthFraction],
+        },
+        {
+            name: 'Near-floor jittered plus (seed 7919)',
+            vertices: OFF_EDGE_JITTER_PLUS_SEED_7919,
+            mergeGroupSize: JITTERED_L_FAILING_DIALS.mergeGroupSize,
+            depthFractions: [...SWEPT_DEPTH_FRACTIONS, JITTERED_L_FAILING_DIALS.depthFraction],
+        },
+        // The k=4 seed stays in the harvest at the census grid's depths as a NEGATIVE member: it is
+        // the fixture with the largest surviving census count and it yields no failed region here at
+        // all any more, every one of its seven being a decision-96 degenerate decline. Dropping it
+        // would lose that statement.
+        {
+            name: 'Near-floor jittered reflex L (k=4)',
+            vertices: OFF_EDGE_JITTER_L_SEED_55433_K4,
+            mergeGroupSize: JITTERED_L_FAILING_DIALS.mergeGroupSize,
+            depthFractions: SWEPT_DEPTH_FRACTIONS,
         },
     ];
     for (const polygon of population) {
         const rootFloor = rootFloorOf(polygon.vertices);
-        for (const depthFraction of SWEPT_DEPTH_FRACTIONS) {
+        for (const depthFraction of polygon.depthFractions) {
             const root = subdivideRecursively(polygon.vertices, options({
                 levels: MAX_RECURSION_LEVELS,
                 mergeGroupSize: polygon.mergeGroupSize,
@@ -624,10 +677,21 @@ function failedRegions(): FailedRegion[] {
  * fixtures keep producing them. The region is checked to fail AGAIN when it is handed back in as a root of its own — a node's
  * floor is its root's, said in its own unit space, so a region only reproduces its failure as a root
  * where the two agree.
+ *
+ * IT IS THE NODE'S `canonicalBoundary`, NOT ITS `boundary`, AND THAT IS THE FAITHFUL CHOICE RATHER
+ * THAN A CONVENIENT ONE. Since the fold fix (journal decision 100) every surviving failed region in
+ * the corpus loses a vertex to the root's floor before it fails, so none of their raw boundaries
+ * satisfies the drift-free condition below — and three of the five do not even reproduce their
+ * failure as a root, because a region re-solved standing alone measures its floor against its own
+ * extent rather than the root's and the two no longer agree. `canonicalBoundary` IS THE RING THE
+ * DRIVER'S SOLVE ACTUALLY RAN ON. Handing that back in makes the two floors agree by construction,
+ * and all five of them reproduce their failure exactly, with nothing left for a floor to take. What
+ * this returns is therefore still a region the driver produced and could not solve — quoted at the
+ * moment the solver saw it rather than at the moment the cutter emitted it.
  */
 function unsolvableRegion(): Vector2[] {
     const region = failedRegions()
-        .map(failed => failed.node.boundary)
+        .map(failed => failed.node.canonicalBoundary)
         .find(boundary => {
             const root = subdivideRecursively(boundary, options());
             // AND ITS OWN FLOOR MUST TAKE NOTHING FROM IT. The metamorphic pair below inserts one
@@ -1812,22 +1876,24 @@ describe('recursive segment subdivision', () => {
 
         it('reports a region that failed to solve as unchanged only where the floor took nothing', () => {
             // Not because the solve failed: canonicalisation runs ahead of the wavefront and does not
-            // depend on it finishing. This region simply has no vertex under its floor, which is the
-            // ordinary case — the test below is what happens when it does.
+            // depend on it finishing. The region here simply has no vertex under its floor, which is
+            // the ordinary case — the test below is what happens when it does.
             //
-            // THE SPECIMEN CHANGED AGAIN on 2026-08-28, for the fourth time in three days and for the
-            // usual reason: decision 77's face-walk correction cured the cell it stood on. The
-            // previous specimen was `OFF_EDGE_JITTER_L_SEED_55433_K4` at depth 0.6 / merge group 4,
-            // which now records no failed node at all, and no region anywhere in the corpus THROWS
-            // any more — so the failure asserted here is now an incomplete solve rather than a
-            // thrown one. What the test is about is unchanged: a region that failed to solve, whose
-            // floor took nothing, is reported as its own canonical form.
-            const unsolvable = flattenRecursiveTree(subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, options({
-                levels: MAX_RECURSION_LEVELS, ...JITTERED_L_FAILING_DIALS,
-            }))).find(node => node.failure?.startsWith('Incomplete solve'));
-            expect(unsolvable?.failure).toMatch(/^Incomplete solve/);
-            expect(unsolvable?.canonicalBoundary).toEqual(unsolvable?.boundary);
-            expect(unsolvable?.canonicalAreaDrift).toBe(0);
+            // THE SPECIMEN CHANGED AGAIN on 2026-08-29, for the fifth time, and this time the
+            // NATURAL POPULATION FOR THIS HALF OF THE PAIR WENT EXTINCT. Every one of the five
+            // regions the corpus still fails to solve now loses a vertex to the floor first, so no
+            // node of any tree at any dials satisfies both halves of this test. What stands in is the
+            // harvest's own region taken at the ring its solve ran on — {@link unsolvableRegion},
+            // which is a `canonicalBoundary` and so has nothing left for a floor to take by
+            // construction, and which is checked to still fail. That is the `builtReducedRegion`
+            // precedent applied to the other side: when a member of the population disappears, it is
+            // constructed from a real one and said to be constructed, rather than the assertion being
+            // dropped.
+            const unsolvable = subdivideRecursively(unsolvableRegion(), options());
+
+            expect(unsolvable.failure).toMatch(/^Incomplete solve/);
+            expect(unsolvable.canonicalBoundary).toEqual(unsolvable.boundary);
+            expect(unsolvable.canonicalAreaDrift).toBe(0);
         });
 
         it('reports what the floor removed from a region that then failed to solve', () => {

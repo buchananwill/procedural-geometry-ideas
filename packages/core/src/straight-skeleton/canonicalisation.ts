@@ -1,4 +1,4 @@
-import {distanceToSegment} from '../stroke-spline/vertex-budget';
+import {distanceToSupportingLine} from '../stroke-spline/vertex-budget';
 import {Vector2} from './types';
 
 /**
@@ -22,9 +22,27 @@ import {Vector2} from './types';
  * THE PREDICATE IS PERPENDICULAR DEVIATION FROM THE CHORD, NEVER TURN ANGLE. The two disagree in
  * both directions and deviation is the one that means "cannot be seen": a needle spike has an
  * invisible deviation and a turn angle approaching π, while a gently curving run of nearly-collinear
- * vertices has tiny turn angles and can bow visibly far off its chord. `distanceToSegment` is reused
- * from `vertex-budget.ts` rather than reimplemented — it is already the predicate this codebase's RDP
- * simplification is built on, and a second copy would be a second thing to keep correct.
+ * vertices has tiny turn angles and can bow visibly far off its chord.
+ *
+ * AND THE CHORD IS AN INFINITE LINE, NOT A SEGMENT — `distanceToSupportingLine`, not
+ * `distanceToSegment`. This stage shipped for months on the clamped form and was wrong for the one
+ * shape the paragraph above names as its motivating case. A FOLD is a vertex whose perpendicular foot
+ * overshoots the END of the chord between its neighbours: the ring doubles back on itself, the apex
+ * lies beyond `next`, and the clamped distance stops measuring the perpendicular and starts measuring
+ * the distance to the endpoint — which is the fold's LENGTH along the boundary rather than its WIDTH
+ * across it. Measured on the corpus (journal F37): a fold in one of the jitter fixtures' sub-regions
+ * has a width of 8.4e-9 and a length of 9.9e-4, so the clamped form screened it at 3.88x the floor
+ * while the shape it describes is a zero-area spike that a viewer cannot see and the solver cannot
+ * resolve. The line distance is never larger than the segment distance, so this can only ever remove
+ * MORE, and everything the clamped form removed it still removes.
+ *
+ * The primitive is reused from `vertex-budget.ts` rather than reimplemented, as its clamped sibling
+ * was — a second copy of the chord arithmetic would be a second thing to keep correct — but WHICH of
+ * the two is used is this stage's own decision and not RDP's. RDP genuinely wants the clamped one,
+ * because its error bound is about distance to the reduced POLYLINE; this stage is asking a different
+ * question of the same two points. See `canonicalisation.test.ts` for the fold and bump pair that
+ * convicts the choice in both directions, and `region-boundary-folds.test.ts` for the sweep that
+ * holds it over the whole recursion corpus.
  *
  * REMOVAL IS ITERATIVE TO A FIXED POINT, NOT A SINGLE PASS. Removing a vertex changes both
  * neighbours' chords, which can bring a previously-surviving vertex under the floor; a single pass
@@ -251,17 +269,17 @@ function countPinnedUnderFloor(
 }
 
 /**
- * The perpendicular deviation of `ring[index]` from the chord between its cyclic neighbours.
+ * The perpendicular deviation of `ring[index]` from the chord LINE between its cyclic neighbours.
  *
  * THE ONE PLACE THIS FORMULA IS SPELLED. Both the removal search and the pinned-under-floor tally ask
- * the same question of the ring, and the module header's choice of deviation-over-turn-angle is a
- * decision that was argued once; two hand-written copies of the wraparound arithmetic would be two
- * things to keep in lockstep every time that decision is revisited.
+ * the same question of the ring, and the module header's two choices — deviation over turn angle, and
+ * the chord's line over its segment — were each argued once; two hand-written copies of the wraparound
+ * arithmetic would be two things to keep in lockstep every time either is revisited.
  */
 function deviationAt(ring: readonly Vector2[], index: number): number {
     const previous = ring[(index - 1 + ring.length) % ring.length];
     const next = ring[(index + 1) % ring.length];
-    return distanceToSegment(ring[index], previous, next);
+    return distanceToSupportingLine(ring[index], previous, next);
 }
 
 /** The vertex of a closed ring contributing least to its silhouette, and by how little. */

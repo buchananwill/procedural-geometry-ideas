@@ -1,6 +1,7 @@
 import {
     childRegionId,
     DEGENERATE_AREA_EPSILON,
+    setSkeletonLogLevel,
     findRegionById,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
@@ -11,7 +12,9 @@ import {
     uniformLevelSpecs,
 } from '@proc-geo/core';
 import type {LevelSpec, RecursiveNode} from '@proc-geo/core';
-import {AWKWARD_HEPTAGON, FULL_CORPUS, OFF_EDGE_JITTER_L_SEED_55433} from '@proc-geo/test-fixtures';
+import {
+    AWKWARD_HEPTAGON, FULL_CORPUS, OFF_EDGE_JITTER_L_SEED_55433, OFF_EDGE_JITTER_L_SEED_55433_K4,
+} from '@proc-geo/test-fixtures';
 
 /**
  * The region tree as a FIRST-CLASS, CITABLE DATA STRUCTURE — journal decision 97.
@@ -32,6 +35,10 @@ import {AWKWARD_HEPTAGON, FULL_CORPUS, OFF_EDGE_JITTER_L_SEED_55433} from '@proc
  * The two pinned trees are one clean fixture and one defect fixture, because the shape assertions
  * and the diagnostics assertion fail for different reasons and neither fixture can carry both.
  */
+
+// The defect specimen below solves a malformed region on purpose, and the solver narrates the
+// attempt. The narration is not what this suite is measuring.
+setSkeletonLogLevel('silent');
 
 /** Both streams alive at level 0, so the pinned tree exercises segment AND residue provenance. */
 const MIXED_STREAM_LEVELS: LevelSpec[] = [
@@ -112,28 +119,62 @@ describe('the region tree is first-class', () => {
         });
     });
 
-    describe('a pinned tree: the defect fixture, id and diagnostics', () => {
-        // The live recursion defect of journal decisions 96/97 and finding F35: one large,
-        // real-area sub-polygon of the L's upper-right arm that will not re-solve. Pinned by ID as
-        // well as by sentence, so a report, a census row and an inspector all name one region.
-        const DEFECT_REGION_ID = 'r0.10';
-        const DEFECT_FAILURE =
-            'Incomplete solve: step-failure: Unable to generate any collisions from graph context. '
-            + 'Skeleton remains incomplete.; unresolved-edges: 4 interior edge(s) finished without a '
-            + 'target node: 10, 11, 12, 13.';
+    describe('a pinned tree: the defect fixtures, id and diagnostics', () => {
+        /*
+         * RE-SPECIMENED 2026-08-29, and the two halves now come from two fixtures because no single
+         * tree carries both any more.
+         *
+         * The failed pin was `r0.10` on `(seed 55433)` at the census levels: one sub-polygon of the
+         * L's upper-right arm that would not re-solve, and F37 traced why — it carried a zero-area
+         * FOLD that canonicalisation screened at 3.88 times the floor because the predicate clamped
+         * its chord to a segment and so measured the fold's length instead of its width. Journal
+         * decision 100's fix removes the spike and that region solves; `(seed 55433)`'s whole census
+         * count went 3 to 0 with it. This is the fifth specimen this arc has lost to a fix and the
+         * loss is the right kind every time.
+         *
+         * WHAT REPLACES IT, and the search that found it. Swept over the corpus at six depths and six
+         * merge group sizes, exactly five regions anywhere still fail a solve for a reason other than
+         * degeneracy — two on `(seed 55433)`, three on `(seed 7919)`, none at any of the census
+         * grid's own depths. `r0.2.1` at depth 0.5, merge group 6 is the same fixture and the same
+         * class of arm sub-polygon, and it is the specimen the whole suite now shares: see
+         * `recursive-subdivision.test.ts`'s `JITTERED_L_FAILING_DIALS` for why this cell rather than
+         * one of the other four, and the dashboard's `regionInspector.test.ts` for the affordance it
+         * was chosen to keep working.
+         *
+         * THE DECLINE PIN MOVED TO `(seed 55433, k=4)`, because the new specimen tree contains no
+         * decline at all and decision 96's distinction still needs asserting on a tree that has one.
+         * That fixture is the census grid's largest remaining decline population — seven of them, all
+         * three-vertex slivers — and its census count of 7 is now entirely declines.
+         */
+        const DEFECT_LEVELS: LevelSpec[] = uniformLevelSpecs({
+            levels: MAX_RECURSION_LEVELS,
+            mergeGroupSize: 6,
+            depthFraction: 0.5,
+            residue: 'recurse',
+        });
+        const DEFECT_REGION_ID = 'r0.2.1';
 
         function defectTree(): RecursiveNode {
-            return subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, {levels: CENSUS_LEVELS});
+            return subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, {levels: DEFECT_LEVELS});
         }
 
-        it('carries the failure on the region the census counts, under its own id', () => {
+        it('carries the failure on the region the harvest counts, under its own id', () => {
             const region = findRegionById(defectTree(), DEFECT_REGION_ID);
             expect(region).toBeDefined();
-            expect(region!.level).toBe(1);
-            expect(region!.provenance).toEqual({kind: 'segment', index: 10});
-            expect(region!.outcome).toEqual({kind: 'failed', failure: DEFECT_FAILURE});
-            expect(region!.failure).toBe(DEFECT_FAILURE);
-            expect(region!.boundary).toHaveLength(6);
+            expect(region!.level).toBe(2);
+            expect(region!.provenance).toEqual({kind: 'segment', index: 1});
+            expect(region!.boundary).toHaveLength(14);
+
+            // PINNED BY ITS ENDS RATHER THAN VERBATIM. This region's diagnostic embeds the solver's
+            // serialised edge dump — two kilobytes of coordinates — and a literal copy of it here
+            // would be a wall of numbers that no future reader could check a change against. Both
+            // ends are quoted instead, which is what the sentence actually claims: the floor took one
+            // vertex before the solve, and the solve then left two bisectors without a target.
+            expect(region!.failure).toMatch(
+                /^Incomplete solve: vertices-canonicalised: 1 vertex\(es\) removed before solving/);
+            expect(region!.failure).toMatch(
+                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 29, 32\.$/);
+            expect(region!.outcome).toEqual({kind: 'failed', failure: region!.failure});
         });
 
         it('hands the inspector the same polygon the driver failed on', () => {
@@ -141,23 +182,37 @@ describe('the region tree is first-class', () => {
             // against in the dashboard's region inspector, so if the cutter ever stops emitting it
             // this assertion is the thing that says so.
             const root = defectTree();
+            const parent = findRegionById(root, 'r0.2')!;
             const region = findRegionById(root, DEFECT_REGION_ID)!;
-            expect(region.boundary).toEqual(root.segments[10].boundary);
-            expect(region.canonicalBoundary).toEqual(region.boundary);
+            expect(region.boundary).toEqual(parent.segments[1].boundary);
+
+            // AND THE TWO BOUNDARIES DIFFER, which the previous specimen's did not: this region's own
+            // floor removes one vertex before the solve, so the inspector's standalone solve of
+            // `boundary` and the driver's solve of `canonicalBoundary` are running on different rings
+            // — the region is malformed AND unsolved, and the inspector shows both.
+            expect(region.canonicalBoundary).toHaveLength(region.boundary.length - 1);
+            expect(region.canonicalAreaDrift).toBeGreaterThan(0);
         });
 
         it('tells a degenerate decline apart from a failure, and says what it measured', () => {
             // Journal decision 96: a decline is accepted behaviour, a failure is the defect class,
             // and a reader must not have to match the prefix of a sentence to know which is which.
-            const declines = flattenRecursiveTree(defectTree())
+            const declines = flattenRecursiveTree(
+                subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433_K4, {levels: CENSUS_LEVELS}))
                 .filter(node => node.outcome.kind === 'declined-degenerate');
-            expect(declines).toHaveLength(1);
+
+            expect(declines.map(node => node.id))
+                .toEqual(['r0.0.2', 'r0.5.3', 'r0.9.3', 'r0.11.3', 'r0.12.3', 'r0.15.2', 'r0.17.2']);
             expect(declines[0].outcome).toEqual({
                 kind: 'declined-degenerate',
-                vertexCount: 0,
-                area: 0,
-                failure: 'Degenerate region: 0 boundary vertices, fewer than the three a polygon needs.',
+                vertexCount: 3,
+                area: 2.556309138623965e-7,
+                failure: 'Degenerate region: 3 boundary vertices enclosing an area of '
+                    + '2.556309138623965e-7, under the 0.000001 degeneracy floor.',
             });
+            // Every one of them is a sliver rather than a solve that failed: three vertices, and an
+            // area between a fifth and a quarter of the floor.
+            expect(declines.every(node => node.boundary.length === 3)).toBe(true);
         });
     });
 

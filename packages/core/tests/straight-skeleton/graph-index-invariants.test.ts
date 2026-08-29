@@ -484,3 +484,234 @@ describe('I4: every exterior edge\'s face closes across its own bisectors', () =
         ]);
     });
 });
+
+/*
+ * ----------------------------------------------------------------------------
+ * I5 — NO TWO BISECTORS SPAN THE SAME NODE PAIR UNLESS THEIR PARENTS ARE PARALLEL
+ * ----------------------------------------------------------------------------
+ *
+ * THIS IS THE LOUD RECORD OF AN OPEN DEFECT, journal decision 98, and it FIRES UNTIL THE
+ * RING-COLLAPSE PAIRING IS FIXED. It is not a passing invariant with a couple of grandfathered
+ * exceptions: the two pins below are wrong answers the solver is currently producing, silently, on
+ * fixtures whose roots report a complete solve. When decision 98's pairing rule lands, both pins go
+ * to zero and this whole block retires through the attributed-cure flow — the pins are re-measured
+ * and deleted, never softened.
+ *
+ * WHAT THE DEFECT IS (F36/F37). On `(seed 55433)` an arm of the L collapses as a near-degenerate
+ * 4-ring: all eight arrival events land inside one epsilon layer, 7e-11 apart, and because both
+ * merges share edges the clustering falls through to the pairwise fallback, which orders by priority
+ * and then by lexicographic edge id — deliberately, for placement determinism. A geometrically
+ * impossible pairing wins. What it leaves behind is a `{10,16}` bisector pair where the single
+ * `{9,15}` ridge belongs, and `ie46 [15,10]` / `ie44 [9,16]` holding crossed targets.
+ *
+ * WHY NOTHING ELSE SEES IT. I3 is satisfied by the WRONG parents to 1.4e-14, because the arm is
+ * near-symmetric top to bottom and the wrong pair defines the same locus as the right one; I4 passes
+ * because the face still closes; the tiling identity passes because the resulting needle is a fold
+ * with cancelling area. Equidistance cannot discriminate a label swap between two loci that coincide
+ * by symmetry — recorded as I3's blind spot — so the marker has to be structural.
+ *
+ * ----------------------------------------------------------------------------
+ * THE DISCRIMINATOR IS THE PARENTS' PARALLELISM, AND IT WAS MEASURED RATHER THAN ASSUMED
+ * ----------------------------------------------------------------------------
+ *
+ * The obvious marker — "two interior edges spanning one node pair in opposite directions, with the
+ * same parents swapped" — IS FALSE ON THIS CORPUS, and the measurement that says so is worth more
+ * than the marker would have been. Nineteen such pairs exist across the 59 fixtures. Every single
+ * one of them, defect and legitimate alike, is anti-parallel with its parents swapped: the marker
+ * convicts `Rectangle`, `Pentagon House`, `Cross` (four of them), `T-Shape`, `Golf Cart`,
+ * `Collinear Dumbbell`, `Asymmetric Dumbbell`, `Three Globe Chain` and
+ * `Slightly Deformed Peanut 1` — nine clean fixtures, fifteen pairs — alongside the four that are
+ * wrong. Nor does the equidistance reading separate them: extending I3 to the TARGET node as well as
+ * the source leaves `(seed 55433)` at 2.22e-16, machine precision, exactly like the clean roster.
+ *
+ * WHAT DOES SEPARATE THEM IS WHETHER THE TWO PARENTS ARE PARALLEL. Where they are, their equidistant
+ * locus is a single MID-LINE, and a mid-line legitimately carries two bisectors — one for each of the
+ * two faces it separates, running in opposite directions. That is the head-on closure, and it is what
+ * every one of the fifteen is: the dumbbell's shaft midline `i26 n12→n13 {3,9}` / `i27 n13→n12
+ * {9,3}` is the canonical example, and `Cross` puts four of them on one node. Where the parents are
+ * NOT parallel their locus is a single ridge meeting at a point, and a ridge admits ONE bisector; two
+ * of them spanning it in opposite directions is the crossed pairing and nothing else.
+ *
+ * THE NUMBERS, in |sin| of the angle between the two parents' supporting lines, measured 2026-08-29:
+ *
+ *   legitimate (15 pairs)   0, and at worst 1.46e-15 — machine zero on unit-length bases
+ *   defect (4 pairs)        6.46e-6, 6.85e-6, 1.53e-5, 1.76e-5
+ *
+ * Nine orders of magnitude of gap. {@link PARALLEL_PARENTS_BAR} sits at 1e-9, six orders above the
+ * worst legitimate reading and three below the smallest defect one, which is the same shape of
+ * headroom {@link EQUIDISTANCE_BAR} takes and for the same reason.
+ *
+ * THE LENGTHS CORROBORATE IT INDEPENDENTLY and are recorded because they say what the defect COSTS.
+ * In unit space the fifteen legitimate mid-lines run from 1.29e-2 to 7.81e-1 — visible skeleton. The
+ * four defect pairs run 1.60e-6, 1.79e-6, 3.88e-6 and 6.05e-6: between 1.6 and 6.1 times the render
+ * floor, sub-visible ridges that no picture shows and no eye-pass could have found. That is why this
+ * defect needed an instrument rather than a look.
+ *
+ * CONVENTIONS:
+ *
+ *  - A CULLED SELF-LOOP IS EXCLUDED, by excluding every edge whose target is its own source. A
+ *    self-loop spans no node pair, so two of them on one node are not two bisectors on one ridge;
+ *    `culled` is not tested for directly because the geometric condition is the one that matters and
+ *    an uncalled self-loop would be a defect of a different kind, which I1 and I2 are the instruments
+ *    for.
+ *  - AN UNRESOLVED INTERIOR EDGE IS EXCLUDED. Without a target it spans nothing. Every fixture swept
+ *    here solves completely, so this excludes nothing in practice.
+ *  - SAME-DIRECTION DUPLICATES WOULD BE REPORTED TOO, and there are none: swept over the corpus, every
+ *    pair of interior edges sharing a node pair is anti-parallel. The condition below is written on
+ *    the unordered node pair so that a same-direction duplicate could not appear without being seen.
+ */
+
+/** Six orders above the corpus's worst legitimate reading, three below its smallest defect one. */
+const PARALLEL_PARENTS_BAR = 1e-9;
+
+/**
+ * |sin| of the angle between two exterior edges' supporting lines: exactly zero when they are
+ * parallel, however they are oriented.
+ *
+ * The cross product of the two bases, normalised — rather than an `acos` of the dot — because the
+ * question is about parallelism and near-parallel is precisely where `acos` loses its precision.
+ */
+function parentSkew(graph: StraightSkeletonGraph, first: number, second: number): number {
+    const a = graph.edges[first]?.basisVector;
+    const b = graph.edges[second]?.basisVector;
+    if (a === undefined || b === undefined) {
+        return Number.NaN;
+    }
+    const lengths = Math.hypot(a.x, a.y) * Math.hypot(b.x, b.y);
+    return lengths === 0 ? Number.NaN : Math.abs(a.x * b.y - a.y * b.x) / lengths;
+}
+
+/** One node pair carrying two bisectors, and whether the parents that would license it are parallel. */
+interface DuplicateRidge {
+    description: string;
+    parentsParallel: boolean;
+}
+
+/**
+ * Every pair of resolved interior edges spanning the same unordered node pair.
+ *
+ * Reported whole — legitimate mid-lines included — so that the sweeps below can pin the defect class
+ * and separately assert that the legitimate population is still being SEEN. A finder that quietly
+ * stopped returning anything would otherwise satisfy the defect pin.
+ */
+function duplicateRidges(graph: StraightSkeletonGraph): DuplicateRidge[] {
+    const spanning = graph.interiorEdges
+        .map(interior => ({interior, edge: graph.edges[interior.id]}))
+        .filter(entry => entry.edge !== undefined
+            && entry.edge.target !== undefined
+            && entry.edge.target !== entry.edge.source);
+
+    const ridges: DuplicateRidge[] = [];
+    for (let first = 0; first < spanning.length; first++) {
+        for (let second = first + 1; second < spanning.length; second++) {
+            const a = spanning[first];
+            const b = spanning[second];
+            const sameNodes = (a.edge.source === b.edge.source && a.edge.target === b.edge.target)
+                || (a.edge.source === b.edge.target && a.edge.target === b.edge.source);
+            if (!sameNodes) {
+                continue;
+            }
+            const skew = parentSkew(
+                graph, a.interior.clockwiseExteriorEdgeIndex, a.interior.widdershinsExteriorEdgeIndex);
+            ridges.push({
+                parentsParallel: skew < PARALLEL_PARENTS_BAR,
+                description: `ie${a.interior.id} n${a.edge.source}->n${a.edge.target} `
+                    + `[${a.interior.clockwiseExteriorEdgeIndex},${a.interior.widdershinsExteriorEdgeIndex}]`
+                    + ` and ie${b.interior.id} n${b.edge.source}->n${b.edge.target} `
+                    + `[${b.interior.clockwiseExteriorEdgeIndex},${b.interior.widdershinsExteriorEdgeIndex}]`
+                    + ` span one ridge, parents skewed by ${skew.toExponential(3)}`,
+            });
+        }
+    }
+    return ridges;
+}
+
+/** The pairs whose parents are not parallel: two bisectors on a ridge that admits one. */
+function crossedPairingProblems(graph: StraightSkeletonGraph): string[] {
+    return duplicateRidges(graph)
+        .filter(ridge => !ridge.parentsParallel)
+        .map(ridge => ridge.description);
+}
+
+/**
+ * How many crossed-pairing ridges each fixture currently carries, MEASURED 2026-08-29.
+ *
+ * NOT A TOLERANCE AND NOT AN EXEMPTION — a defect signature in the sense of journal decision 72. Each
+ * entry is a wrong answer standing in a solve that reports itself complete. A fixture absent from
+ * this table carries none, which is every clean fixture and two of the four known-defect ones.
+ *
+ * `(seed 55433, k=4)` IS ABSENT, AND THAT IS A RESULT RATHER THAN AN OVERSIGHT. F36 read its arm
+ * patch as the same class as `(seed 55433)`'s, and this marker does not see it: its collapse leaves
+ * no two bisectors on one ridge. Either its defect is a different one, or the same pairing error
+ * expressed without the duplicate — an open question this table records instead of papering over.
+ */
+const PINNED_CROSSED_PAIRINGS: Record<string, number> = {
+    'Off-edge Jitter Reflex L (seed 55433)': 2,
+    'Off-edge Jitter Plus (seed 7919)': 2,
+};
+
+describe('I5: two bisectors share a ridge only where their parents are parallel', () => {
+    it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
+        '%s',
+        (name, vertices) => {
+            expect(crossedPairingProblems(solveSkeleton(vertices).graph))
+                .toHaveLength(PINNED_CROSSED_PAIRINGS[name] ?? 0);
+        },
+    );
+
+    it('names the two fixtures it fires on, and no clean fixture is among them', () => {
+        // The guard on the table. A pin naming a fixture outside the corpus, or a table that grew to
+        // absorb a regression, would leave the sweep above asserting nothing.
+        const pinned = Object.keys(PINNED_CROSSED_PAIRINGS);
+
+        expect(pinned).toEqual([
+            'Off-edge Jitter Reflex L (seed 55433)',
+            'Off-edge Jitter Plus (seed 7919)',
+        ]);
+        expect(pinned.every(name => KNOWN_DEFECT_POLYGONS.some(polygon => polygon.name === name))).toBe(true);
+        expect(CLEAN_TEST_POLYGONS.filter(polygon => pinned.includes(polygon.name))).toEqual([]);
+    });
+
+    it('sees the legitimate head-on population too, so the pins are a filter and not a blindness', () => {
+        // Fifteen mid-line pairs across nine fixtures. If `duplicateRidges` stopped finding pairs at
+        // all, the defect pins above would still pass — this is what makes them mean something.
+        const legitimate = FULL_CORPUS.flatMap(polygon =>
+            duplicateRidges(solveSkeleton(polygon.vertices).graph).filter(ridge => ridge.parentsParallel));
+
+        expect(legitimate).toHaveLength(15);
+    });
+
+    it('is not vacuous: skewing one shaft wall turns the dumbbell\'s mid-line into a crossed pair', () => {
+        /*
+         * THE MUTATION, BUILT IN, on the pair the file's I4 block already names as legitimate: the
+         * dumbbell's shaft midline, `ie26 n12->n13 {3,9}` and `ie27 n13->n12 {9,3}`. It is exactly
+         * the defect's structure — one node pair, two bisectors, parents swapped — and it passes only
+         * because e3 and e9 are parallel. Rotating one of them off parallel, without touching the
+         * interior edges at all, must flip the verdict; if it does not, the sweep is reading
+         * something other than the parents' parallelism and the whole discriminator is unwarranted.
+         */
+        const {graph} = solveSkeleton(COLLINEAR_DUMBBELL);
+        expect(crossedPairingProblems(graph)).toEqual([]);
+        expect(duplicateRidges(graph)).toHaveLength(1);
+
+        // A rotation rather than a nudge, so the skew introduced is 1e-6 whatever length the basis
+        // happens to carry — three orders clear of the bar, five below the real defects' readings.
+        const sine = 1e-6;
+        const cosine = Math.sqrt(1 - sine * sine);
+        const skewed: StraightSkeletonGraph = {
+            ...graph,
+            edges: graph.edges.map(edge => edge.id === 3
+                ? {
+                    ...edge,
+                    basisVector: {
+                        x: edge.basisVector.x * cosine - edge.basisVector.y * sine,
+                        y: edge.basisVector.x * sine + edge.basisVector.y * cosine,
+                    },
+                }
+                : edge),
+        };
+
+        expect(crossedPairingProblems(skewed)).toHaveLength(1);
+        expect(crossedPairingProblems(skewed)[0]).toContain('ie26 n12->n13 [3,9]');
+    });
+});

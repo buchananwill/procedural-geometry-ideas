@@ -594,7 +594,94 @@ pairing is wrong. Ruled to the user because two consecutive delegates have stopp
 event-selection semantics" here and the user's geometric readings have repeatedly been the
 unlock.
 
+**99 — (user, 2026-08-29) The full-depth boundary hypothesis: the needle is an artifact of
+treating 100% offset depth as CONTINUOUS output of the offsetting/void function, which generates
+degenerate geometry at its singular limit that is then mis-categorised; the cleaner design is
+100% as a DISCRETE case, since at full depth a segment's inner boundary IS the skeleton's medial
+edge chain.** The user's words, near-verbatim: "The sixth vertex shouldn't have existed to be
+wrongly attached, then it wouldn't evade canonicalization/normalization." Their correction to
+the F36 capture caption stands: the stacked vertex pair in r0.10 is [4,5], not [0,5]. Lead's
+assessment, recorded: this is the layer ABOVE the lexicographic mis-pairing, not a rival to it —
+the pairing defect creates the duplicate ridge structure at the root (real, silent, worth fixing
+on its own), and the continuous-at-1.0 boundary construction is what amplifies any such
+sub-visible root noise into a malformed child polygon; it also explains F35's measurement that
+every census failure is a full-depth phenomenon. The discrete derivation is the robustness fix.
+Investigation dispatched before surgery: (a) confirm the boundary-construction codepath at depth
+1.0 (continuous offset projection vs anything discrete); (b) test whether a discrete
+medial-chain boundary eliminates the needle GIVEN the current crossed root wiring; (c) measure
+why v5 survived the region's canonicalisation (deviation in region unit space vs the floor —
+the F4 asymmetry is the suspect); (d) design implications, no production change without a
+ruling. Decision 98's pairing question remains open in parallel.
+
+**100 — The fold fix: canonicalisation's deviation predicate measures perpendicular distance to
+the chord LINE, unclamped — with the root pairing defect pinned loudly FIRST so the cure cannot
+re-silence it.** F37's investigation grounds it: the clamped `distanceToSegment` measures a
+fold's LENGTH (9.9e-4) where the stage's own charter requires its WIDTH (8.4e-9) — the clamp
+betrays the documented intent for exactly the fold/hairpin shape, so this is a bug fix against
+the charter, not new semantics. Measured before ruling: census 55433 3 → 0, k4 11 → 7, plus
+15 → 13, nothing else moves, and the segment-vs-line choice was never convicted by any test.
+Package contents, ordered: (1) pin the ROOT defect visibly before curing its reporter — a corpus
+sweep for duplicate anti-parallel interior-edge pairs (same node pair, swapped parents — the
+structural marker of decision 98's crossed pairing), pinned as the defect fixtures' signature so
+the crossed pairing stays loud until 98 lands; (2) the predicate fix; (3) a conviction test
+closing the segment-vs-line gap; (4) the missing FOLD INVARIANT as a test-only sweep: no region
+boundary handed to a solve retains a vertex whose unclamped chord-line deviation is below the
+root floor (the 12 corpus spikes are its pre-fix violators, 0 post-fix); (5) attributed-cure
+flow for the census movements and specimen re-pointing as the debt fires. Decision 98 stays
+open as root-correctness work. *(Process note: the lead announced this dispatch and failed to
+execute it for two turns — caught by the user; the ruling was journaled and dispatched
+together, late.)*
+
 ## Findings
+
+**F38 — The fold fix landed with the root defect pinned loud (I5), and decision 100's own marker
+was falsified en route: the true discriminator of a crossed-pairing pair is that its parents are
+NOT parallel.** The ruling's "duplicate anti-parallel pair with swapped parents" convicts 15
+legitimate mid-line pairs on 9 clean fixtures; target-equidistance and locus-redundancy also fail
+to discriminate. What works, measured with a nine-order gap: |sin| between the two parents'
+supporting lines — legitimate mid-line pairs have exactly parallel parents (worst 1.5e-15), the
+four defect pairs sit at 6.5e-6…1.8e-5 (non-parallel parents admit ONE ridge bisector; two is
+the crossed pairing). Landed as **I5** at a 1e-9 bar. Corrections to our own record: **k4
+carries ZERO crossed pairings** — F36's "k4 is the same class" is uncorroborated by the
+instrument and stands as an open question; **the plus carries TWO**, previously unnamed; F37's
+"12 spikes" was one merge-group column of a 39-spike grid; and the lead's brief mis-added the
+census expectation (29 − 3 − 4 − 2 = 20, not 22). Census **29 → 20**, with every remaining
+failure on k4 and the plus being a decision-96 decline — **the fold fix emptied the census of
+non-degenerate failures at full depth entirely**. 55433 reaches census 0 and correctly stays
+enrolled: I5 = 2 keeps its silently-wrong root loud until decision 98 lands — the part-1-first
+ordering did its job. Fold invariant landed (24 folds handed in, 0 survive; predicate reverted
+→ 39 spikes fire). Segment-vs-line now convicted both directions. Delegate figures: core
+5085/5085 (80 suites), dashboard 283/283, clean roster bit-identical by full-graph diff.
+
+**F38a — The re-specimening surfaced the sharpest root-floor evidence yet: a region can be made
+unsolvable BY the pass-down.** `r0.3.1` (55433, d0.5/m4) solves standing alone with zero drift
+and fails inside the tree, where the root's floor removes one vertex — removing an invisible
+vertex turned a solvable region into an unsolvable one, inverting the canonicalisation charter's
+assumption. Corpus-wide only FIVE regions still fail a solve anywhere on the 6×6 grid (all
+d0.5/0.75, m4–6, all losing a vertex to the floor first); the "failed with nothing removed"
+population is extinct, so `unsolvableRegion()` now hands tests the `canonicalBoundary` the solve
+actually ran on. The dashboard's failed-cell specimen moved to a decision-96 decline — durable
+by construction. This item joins decisions 76/79/F27 as the root-floor reconciliation package's
+evidence set; that package is now the arc's clear next frontier.
+
+**F37 — The full-depth boundary is ALREADY discrete, the F4 asymmetry is exonerated, and the
+needle's evasion is the clamp: decision 99's diagnosis vindicated, mechanism falsified.**
+Corpus-wide at full depth: 1024 strips, 5224 boundary vertices, zero not bit-exactly a graph
+node — nothing is manufactured at d = 1.0; the clip is a provable no-op there and residue is
+doubly-guarded vacuous. r0.10's vertices 4/5 are nodes 30/29, transcribed faithfully from the
+root's duplicate ridge pair (a second such pair exists in the same graph without a failing
+region; face 16 carries the mirror needle and also does not fail). Canonicalisation screened v4
+at 3.88× the floor — identically in both spaces to 17 digits (power-of-two scales), with the
+root-floor pass-down protective (4× stricter) — because `distanceToSegment` clamps: a fold's
+apex overshoots its chord, so the clamp returns the overshoot (length) instead of the
+perpendicular (width, 3.3e-5 × the floor). The discrete-case experiment: the combinatorial
+chain traverses BOTH stacked nodes (they are 3.88× the floor apart — no render-floor contraction
+reaches them), so decision 99's proposed derivation changes nothing — it is already the
+derivation in use. Dropping either fold vertex makes both failing regions solve (all variants
+measured). Screen-ordering note: no feature-level degeneracy screen exists anywhere — a region
+can be arbitrarily large and carry a zero-area feature unexamined; canonicalisation is the
+correctly-positioned local screen and was simply fold-blind. Exactly 12 spike vertices exist in
+the corpus, all on the three jitter fixtures. Tree verified restored, 5018/5018.
 
 **F36 — The region tree landed and its first use found a root-solve silent wrong answer that
 evades every instrument, for a measured reason — an I3 blind spot.** Part 1: `RecursiveNode`

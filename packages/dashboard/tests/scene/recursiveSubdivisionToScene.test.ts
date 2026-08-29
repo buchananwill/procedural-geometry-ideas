@@ -1,6 +1,6 @@
 import { FULL_DEPTH_FRACTION, subdivideRecursively, uniformLevelSpecs } from '@proc-geo/core';
 import type { LevelSpec } from '@proc-geo/core';
-import { OFF_EDGE_JITTER_L_SEED_55433_K4 } from '@proc-geo/test-fixtures';
+import { OFF_EDGE_JITTER_PLUS_SEED_7919 } from '@proc-geo/test-fixtures';
 import {
     RECURSED_SEGMENT_OPACITY,
     recursiveTreeToScene,
@@ -471,16 +471,24 @@ describe('the residue on the canvas', () => {
  * RE-SPECIMENED 2026-08-28, the second time: the split-at-the-vertex correction in
  * `generateSplitEventFromTheEdgeItself` cured Broken Polygon in groups of five, as the decision-56
  * partition fix had cured Pentagon House in groups of three before it, and the gate below reported
- * each dead specimen exactly as it was meant to. Swept afresh: `CLEAN_TEST_POLYGONS` no longer yields
- * a failed region at ANY merge group from two to eight at full depth, and neither does the collinear
- * dumbbell, so the specimen now comes from `OFF_EDGE_JITTER_L_SEED_55433_K4` — the one fixture in
- * the repo whose root solves while the driver still cuts a region out of it that does not. In groups
- * of FOUR it is the shape this suite needs rather than merely a failing one: the failure is a node
- * of thirteen boundary vertices ("Incomplete solve: step-failure ... unresolved-edges"), so it draws
- * a patch with real area, and seventeen leaf segments elsewhere in the tree stay solved and tinted
- * around it. THIS SPECIMEN IS ALSO PERISHABLE: an incomplete solve is a solver defect (journal
- * decision 67), not a designed outcome, and a later fix will empty this census the way the last two
- * were emptied. The gate below is what says so out loud; sweep again when it fires.
+ * each dead specimen exactly as it was meant to. `OFF_EDGE_JITTER_L_SEED_55433_K4` in groups of four
+ * took over then, and the gate fired on it in turn.
+ *
+ * RE-SPECIMENED 2026-08-29, the third time, by journal decision 100's fold fix: the k=4 seed's
+ * thirteen-vertex incomplete solve was a region carrying an invisible spike that canonicalisation
+ * had been screening above the floor, and it solves now. Swept afresh over the WHOLE corpus at every
+ * merge group from two to eight, at full depth with the residue voided, EXACTLY ONE failed cell is
+ * left anywhere: `r0.0.2` of `OFF_EDGE_JITTER_PLUS_SEED_7919` in groups of two, with thirty-one
+ * solved leaves tinted around it.
+ *
+ * ITS CHARACTER HAS CHANGED AND THE CHANGE IS WORTH READING. Every previous specimen was an
+ * incomplete solve — a solver defect, journal decision 67. This one is a `Degenerate region`: a
+ * five-vertex sliver enclosing 6.08e-7 against the 1e-6 degeneracy floor, which journal decision 96
+ * ruled to be CORRECT behaviour rather than a defect. What this suite needs of it is unchanged, since
+ * what is asserted here is about DRAWING — a cell the driver did not subdivide has to read as a hole
+ * rather than as another territory, and the reason it was not subdivided does not enter into it. It
+ * is also a far more durable specimen for exactly that reason: a decision-96 decline is a designed
+ * outcome and no fix is coming for it, where the previous three were all defects awaiting one.
  *
  * Solved at FULL depth with the residue voided, so the only fills in the scene are territories and
  * failure patches: at `FULL_DEPTH_FRACTION` the wavefront is fully consumed and no residue ring is
@@ -491,14 +499,14 @@ describe('the residue on the canvas', () => {
 describe('a failed cell among tinted ones', () => {
     const levels: LevelSpec[] = uniformLevelSpecs({
         levels: 3,
-        mergeGroupSize: 4,
+        mergeGroupSize: 2,
         depthFraction: FULL_DEPTH_FRACTION,
         residue: 'void',
     });
-    const tree = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433_K4, { levels });
+    const tree = subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, { levels });
 
     it('is a fixture that really does fail, or this proves nothing', () => {
-        expect(OFF_EDGE_JITTER_L_SEED_55433_K4.length).toBeGreaterThan(0);
+        expect(OFF_EDGE_JITTER_PLUS_SEED_7919.length).toBeGreaterThan(0);
         expect(summariseRecursiveTree(tree, levels).totalFailures).toBeGreaterThan(0);
     });
 

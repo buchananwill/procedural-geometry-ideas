@@ -20,7 +20,7 @@ import {
 } from '@proc-geo/core';
 
 import {insertRegularly} from './subdivision-helpers';
-import {distanceToSegment} from './wavefront-measurement-helpers';
+import {distanceToSegment, distanceToSupportingLine} from './wavefront-measurement-helpers';
 
 /**
  * The input canonicalisation stage, tested as the predicate and the contract it is specified as.
@@ -40,15 +40,29 @@ setSkeletonLogLevel('silent');
 const UNIT_SQUARE: Vector2[] = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 0, y: 1}];
 
 /**
- * Perpendicular deviation of each ring vertex from the chord between its immediate neighbours.
+ * Perpendicular deviation of each ring vertex from the chord LINE through its immediate neighbours.
  *
- * The distance comes from the SUITES' shared `distanceToSegment` rather than from the one
+ * The distance comes from the SUITES' shared `distanceToSupportingLine` rather than from the one
  * `canonicalisation.ts` itself delegates to. That keeps this file's measurement outside the import
  * graph of the module under test — a test that read its expectation from the same function the
  * implementation calls could not tell a correct predicate from a predicate and an oracle that are
- * wrong together — without adding a third copy of the clamped point-to-segment arithmetic.
+ * wrong together — without adding a third copy of the point-to-chord arithmetic.
+ *
+ * THE LINE, NOT THE SEGMENT, and that is the whole of the fold correction stated as an oracle. The
+ * two agree on every fixture in this file whose chord foot lands between its neighbours, which is
+ * every fixture that predates the fold block below; they disagree without bound on a fold, and
+ * {@link segmentDeviations} is kept beside this one so that disagreement can be asserted rather than
+ * described.
  */
 function deviations(ring: readonly Vector2[]): number[] {
+    return ring.map((vertex, index) => distanceToSupportingLine(
+        vertex,
+        ring[(index - 1 + ring.length) % ring.length],
+        ring[(index + 1) % ring.length]));
+}
+
+/** The same measurement under the CLAMPED predicate — what this stage used before the fold fix. */
+function segmentDeviations(ring: readonly Vector2[]): number[] {
     return ring.map((vertex, index) => distanceToSegment(
         vertex,
         ring[(index - 1 + ring.length) % ring.length],
@@ -119,6 +133,87 @@ const RIPPLED_EDGE: Vector2[] = [
     {x: 1, y: 1},
     {x: 0, y: 1},
 ];
+
+/**
+ * A unit square whose bottom edge FOLDS: the boundary runs out to `x = 0.5`, doubles back to
+ * `x = 0.3` while rising 8e-9, then goes on to `x = 1`.
+ *
+ * THE APEX OVERSHOOTS ITS OWN CHORD, which is the shape the two candidate predicates disagree on. Its
+ * chord is `(0.5, 0)` to `(1, 0)`; its perpendicular foot lands at `x = 0.3`, outside that segment
+ * entirely. So the clamped distance is the distance to the nearer ENDPOINT — 0.2, a fifth of the
+ * polygon, five orders above the floor — while the perpendicular distance to the chord's line is
+ * 8e-9, a hundredth of the floor. The fold is 0.2 long and 8e-9 wide, and only one of those two
+ * numbers answers "can this be seen".
+ */
+const BOTTOM_EDGE_FOLD: Vector2[] = [
+    {x: 0, y: 0},
+    {x: 0.5, y: 0},
+    {x: 0.3, y: 8e-9},
+    {x: 1, y: 0},
+    {x: 1, y: 1},
+    {x: 0, y: 1},
+];
+
+/**
+ * The same fold at a width the floor can see: 1e-3, a thousand times the floor.
+ *
+ * THE OVERCORRECTION GUARD. Measuring to the line rather than to the segment can only ever remove
+ * MORE, so the risk the change carries is a real feature deleted for standing past the end of its
+ * chord — and a boundary that doubles back by a visible amount is real geometry, however awkward.
+ * Identical in shape to {@link BOTTOM_EDGE_FOLD}, different only in the one number that decides.
+ */
+const VISIBLE_FOLD: Vector2[] = [
+    {x: 0, y: 0},
+    {x: 0.5, y: 0},
+    {x: 0.3, y: 1e-3},
+    {x: 1, y: 0},
+    {x: 1, y: 1},
+    {x: 0, y: 1},
+];
+
+describe('the chord is an infinite line, never a segment', () => {
+    /*
+     * THE GAP THIS CLOSES, MEASURED (journal F37, decision 100). Every assertion in this file passed
+     * under BOTH predicates: the fixtures above are all bumps and needles whose perpendicular foot
+     * lands between their neighbours, where the clamped and unclamped forms are the same number. So
+     * the choice between them was never convicted by anything, and the stage shipped for months
+     * measuring a fold's LENGTH where its own charter asks for its WIDTH. These two tests fail in
+     * opposite directions: the first fails under the clamped predicate, the second would fail under
+     * any predicate that over-removed to satisfy the first.
+     */
+
+    it('removes a fold whose width is invisible but whose length is a fifth of the polygon', () => {
+        // The premise as measurements. The two predicates disagree by seven orders on this vertex,
+        // and they fall on opposite sides of the floor — which is what makes it a decision rather
+        // than a rounding difference.
+        expect(deviations(BOTTOM_EDGE_FOLD)[2]).toBeCloseTo(8e-9, 15);
+        expect(segmentDeviations(BOTTOM_EDGE_FOLD)[2]).toBeCloseTo(0.2, 8);
+        expect(deviations(BOTTOM_EDGE_FOLD)[2]).toBeLessThan(SKELETON_NOISE_FLOOR);
+        expect(segmentDeviations(BOTTOM_EDGE_FOLD)[2]).toBeGreaterThan(SKELETON_NOISE_FLOOR);
+
+        const canonical = canonicalisePolygon(BOTTOM_EDGE_FOLD, SKELETON_NOISE_FLOOR);
+
+        // The apex goes, and `(0.5, 0)` goes with it: once the fold is gone that vertex sits exactly
+        // on the bottom edge, which is the fixed point doing its job rather than a second decision.
+        expect(canonical.indexRemap[2]).toBe(REMOVED_VERTEX_INDEX);
+        expect(canonical.vertices).toEqual(UNIT_SQUARE);
+        expect(canonical.removedCount).toBe(2);
+    });
+
+    it('keeps a fold of the same shape whose width the floor can see', () => {
+        // Same overshoot, same clamped distance, width above the floor: nothing is removed. Without
+        // this, a predicate that simply deleted every vertex whose foot left its chord would pass the
+        // test above.
+        expect(deviations(VISIBLE_FOLD)[2]).toBeCloseTo(1e-3, 12);
+        expect(segmentDeviations(VISIBLE_FOLD)[2]).toBeGreaterThan(SKELETON_NOISE_FLOOR);
+
+        const canonical = canonicalisePolygon(VISIBLE_FOLD, SKELETON_NOISE_FLOOR);
+
+        expect(canonical.removedCount).toBe(0);
+        expect(canonical.maxDeviation).toBe(0);
+        expect(canonical.vertices).toEqual(VISIBLE_FOLD);
+    });
+});
 
 describe('the predicate is perpendicular deviation, never turn angle', () => {
     it('removes a needle whose deviation is invisible but whose turn angle is nearly π', () => {
