@@ -97,6 +97,20 @@ perceptual floor derived from the renderer (106, demo at 1e-5). The next session
    this machine); and the anchor-edit caution — THREE findings-heading accidents this session
    (F10 destroyed and restored) — when inserting before a heading, re-append the heading in
    new_string, always.
+5. **Weighted offsets, assessed at session close (user question, lead's verdict: well-defined
+   needle, not deep conflict).** Positive per-edge weights are a systematic substitution, not a
+   rewrite: (a) offset becomes TIME (`distance/weight`) — decision 102's single causality scalar
+   and decision 70's rate function are the spine to follow; (b) weights enter predicates
+   division-free by cross-multiplication (`d₁·w₂` vs `d₂·w₁`) — decision 105's one-basis
+   discipline localises this to one pattern; (c) bisector construction and the terminal solves
+   have closed weighted forms; every invariant has a stated equi-time generalisation, and unit
+   weights must reproduce today's corpus BIT-IDENTICALLY (the digest is the extension's first
+   falsification bar). The real work is the degenerate machinery, which encodes speed symmetry:
+   `solveParallelClosure`'s no-future-event premise is FALSE under unequal weights (parallel
+   walls at different speeds meet), I5's static-midline discriminator gains a weight condition,
+   mirror symmetries weaken — a definable third of this session's effort. The one genuine
+   conflict is fenced by contract: zero/infinite weights (gables) are non-unique in the
+   literature — strictly positive bounded-ratio weights in the solver, gables as post-process.
 
 ## 4-old. Next work — morning handoff, 2026-08-28
 
