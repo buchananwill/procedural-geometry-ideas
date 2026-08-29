@@ -58,7 +58,47 @@ orphan port 3000, P8 debrief relocation). Additions this session:
   visualising skeleton solutions** — build first (P3), check port 3000 for an orphan server (P4),
   then screenshot. Use it to eyeball a fixed fixture's skeleton, not only its test verdict.
 
-## 4. Next work — morning handoff, 2026-08-28
+## 4. Next work — SESSION CLOSE HANDOFF, 2026-08-29 (supersedes the 08-28 handoff below)
+
+**State at close, all lead-verified:** tip `ae59a5f` + this journal commit, branch un-pushed.
+Core **5249/5249 (83 suites)**, dashboard **308/308 (21 suites)**, corpus **59** (53 clean + 6
+defect-rostered). Census **22, 100% decision-96 accepted declines** at the library floor; **1**
+signalled region at the demo floor (r0.1.3, a pass-down artifact). **Known-wrong root graphs:
+ZERO** (F44). Every threshold named (F41), one predicate basis (105), one client-configurable
+perceptual floor derived from the renderer (106, demo at 1e-5). The next session opens
+`recursive-subdivision-arc-journal-4.md`, continuing decisions at **111** and findings at
+**F45**; read THIS section, §2's figures, and F39–F44 — do not read this journal end to end
+(it is ~1500 lines and three days deep).
+
+**The remaining issues, in priority order:**
+
+1. **The root-floor reconciliation package** — the last STRUCTURAL open item. Four exhibits
+   demand it: the F38a inversion (a floor-removed vertex making a solvable region unsolvable —
+   now seen three independent times, incl. r0.1.3 at the demo floor), decision 76's near-flat
+   rectangle (drift 2.3e-10 vs the 1e-14 bound), decision 79's gate on seed 15838's promotion
+   (5.17e-7 area drift vs the same bound), and F27's sliver-ratio table (any pass-down design
+   must survive ratios to 5e5). Acceptance criteria, pre-ruled: the near-flat rectangle enrolls,
+   15838 promotes, r0.1.3 resolves at the demo floor, and the drift bound gets a ruled space
+   (decisions 19–20 vs F4/F5 finally reconciled).
+2. **The C++ handoff document** — green-lit in principle by the user's readiness question
+   (F45-to-be); awaiting their explicit word to draft. Contents ruled: the decision-99/F9
+   corrections, the divergence contract (structural identity ≤1e-13), the invariant conformance
+   kit (I1–I5, containment, causality, tiling, folds, walkability + the 59-fixture pinned
+   signatures) with porting notes, the tolerance model (decisions 101/104–106) as the
+   port-first design, and the now-empty residual register. The user assesses rooflines as
+   send-ready; deep recursion waits on item 1.
+3. **Decision 92, presentation contraction** (optional polish): contract sub-floor micro-edges
+   at the presentation layer for downstream consumers that opt in — the honest home for the
+   pinned sub-floor pairs' invisibility.
+4. **Small and standing:** decision 107(b)'s discriminating fixture (near-anti-parallel walls
+   turning by a few epsilons — low priority); `graph-merge.ts:110`'s flagged caller-space
+   epsilon (measure the residue); the F42-noted `FRONTAGE_VERTEX_FRACTION` /
+   `RAY_SEGMENT_DETERMINANT_EPSILON` unmeasured bars; push/PR (user's call, nothing has left
+   this machine); and the anchor-edit caution — THREE findings-heading accidents this session
+   (F10 destroyed and restored) — when inserting before a heading, re-append the heading in
+   new_string, always.
+
+## 4-old. Next work — morning handoff, 2026-08-28
 
 The overnight queue (decision 63) completed in full: five commits, every item verified by the lead
 on the merged tree. Read the night in the Findings (F12–F21) and Decisions (56–68).
