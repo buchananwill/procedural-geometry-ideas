@@ -111,6 +111,14 @@ perceptual floor derived from the renderer (106, demo at 1e-5). The next session
    mirror symmetries weaken — a definable third of this session's effort. The one genuine
    conflict is fenced by contract: zero/infinite weights (gables) are non-unique in the
    literature — strictly positive bounded-ratio weights in the solver, gables as post-process.
+   *(Closing addendum, user's mental model confirmed and sharpened: the vertex trace is the
+   iso-ARRIVAL-TIME line, sin α₁/sin α₂ = w₁/w₂ replacing the 50/50 split; the
+   implementation-ready kernel is the vertex velocity as the solution of `v·n₁ = w₁`,
+   `v·n₂ = w₂` — which also derives the gable fence from first principles: w → 0 collapses the
+   trace onto the edge's own line and well-posedness dies. The user's fast-beside-slow reflex
+   reading — the fast edge pulling the vertex out along the slow edge's basis, the slow edge's
+   wavefront segment growing rapidly per unit time — is correct and is the conditioning hazard
+   to fixture first.)*
 
 ## 4-old. Next work — morning handoff, 2026-08-28
 
