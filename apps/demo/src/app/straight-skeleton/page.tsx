@@ -13,6 +13,7 @@ import {
     SkeletonInteractionOverlay,
     useSkeletonStageClick,
     ControlsPanel,
+    EdgeWeightsPanel,
     AlgorithmPanel,
     DebugPanel,
     PlaybackController,
@@ -33,6 +34,10 @@ const RandomPolygonPanel = dynamic(
 
 export default function StraightSkeletonPage() {
     const vertices = usePolygonStore((s) => s.vertices);
+    // Per-edge wavefront speeds, parallel to the vertices (arc decision 130). All ones until the
+    // Edge Weights panel is used, and all ones again after every fixture load — at which point every
+    // solve below is bit-for-bit the unweighted one.
+    const weights = usePolygonStore((s) => s.weights);
 
     const [stageScale, setStageScale] = useState(1);
     const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -66,7 +71,7 @@ export default function StraightSkeletonPage() {
     // shape's extent, ten times coarser than SKELETON_NOISE_FLOOR. Below it the solver would be
     // computing structure this page throws away in the renderer. Derived and pinned in the
     // dashboard's `perceptual-floor.ts`, which shares the zoom cap with the canvas itself.
-    const animation = useSkeletonAnimation(vertices, EXPLORER_PERCEPTUAL_FLOOR);
+    const animation = useSkeletonAnimation(vertices, EXPLORER_PERCEPTUAL_FLOOR, weights);
     const sweep = useCollisionSweep(vertices, animation.solverContext, animation.skeleton, debug);
 
     function resetView() {
@@ -138,6 +143,8 @@ export default function StraightSkeletonPage() {
             </Paper>
 
             <ControlsPanel onResetView={resetView} />
+
+            <EdgeWeightsPanel solveError={animation.solveError} />
 
             <AlgorithmPanel animation={animation} />
 

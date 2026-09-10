@@ -11,6 +11,18 @@ export type { PlaybackStoreState } from './stores/usePlaybackStore';
 // Hooks
 export { useSkeletonAnimation } from './hooks/useSkeletonAnimation';
 export type { SkeletonAnimationState } from './hooks/useSkeletonAnimation';
+export {
+    describeSolverRefusal,
+    solveSkeletonBoundary,
+    solveSkeletonGuarded,
+    solveSkeletonSteppedGuarded,
+} from './hooks/skeleton-solve-boundary';
+export type {
+    SkeletonBoundaryOutcome,
+    SkeletonSolveOptions,
+    SkeletonSolveOutcome,
+    SteppedSolveOutcome,
+} from './hooks/skeleton-solve-boundary';
 export { useCollisionSweep } from './hooks/useCollisionSweep';
 export type { CollisionSweepState } from './hooks/useCollisionSweep';
 export type { PlaybackControllerState } from './hooks/PlaybackControllerState';
@@ -44,6 +56,8 @@ export {
 export type { FixtureOption, FixtureOptionGroup } from './components/fixture-options';
 export { interpretGeometryPaste, MIN_POLYGON_VERTICES } from './components/geometry-clipboard';
 export type { GeometryPasteAccepted, GeometryPasteOutcome, GeometryPasteRejected } from './components/geometry-clipboard';
+export { default as EdgeWeightsPanel, MIN_EDGE_WEIGHT } from './components/EdgeWeightsPanel';
+export type { EdgeWeightsPanelProps } from './components/EdgeWeightsPanel';
 export { default as AlgorithmPanel } from './components/AlgorithmPanel';
 export { default as DebugPanel } from './components/DebugPanel';
 export { default as PlaybackController } from './components/PlaybackController';

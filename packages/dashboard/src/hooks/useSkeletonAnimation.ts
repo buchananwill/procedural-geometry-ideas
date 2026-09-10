@@ -6,9 +6,6 @@ import type {
     Vector2,
 } from "@proc-geo/core";
 import {
-    runAlgorithmV5,
-    runAlgorithmV5Stepped,
-    canonicaliseForSolve,
     computePrimaryInteriorEdges,
     computePrimaryEdgeIntersections,
 } from "@proc-geo/core";
@@ -16,6 +13,11 @@ import type { SteppedAlgorithmResult } from "@proc-geo/core";
 import type { Vertex } from "../stores/usePolygonStore";
 import { usePlaybackStore } from "../stores/usePlaybackStore";
 import type { PlaybackControllerState } from "./PlaybackControllerState";
+import {
+    solveSkeletonBoundary,
+    solveSkeletonGuarded,
+    solveSkeletonSteppedGuarded,
+} from "./skeleton-solve-boundary";
 
 export interface SkeletonAnimationState {
     showSkeleton: boolean;
@@ -31,6 +33,20 @@ export interface SkeletonAnimationState {
     playback: PlaybackControllerState;
     hasError: boolean;
     errorMessage: string | null;
+
+    /**
+     * The solver's own message when it REFUSED this input, else `null` (arc decision 130).
+     *
+     * Distinct from {@link SkeletonAnimationState.errorMessage}, which is a stepped run that started
+     * and then failed. A refusal is the door: the weight ratio is out of contract, or a weight
+     * changes at a vertex with no visible corner. The message names the offending edge or vertex and
+     * is shown verbatim, because that index is what the user has to go and fix.
+     *
+     * WHILE THIS IS SET, THE LAST GOOD SOLUTION STAYS ON THE CANVAS. A blanked canvas would tell the
+     * user only that something broke; the last picture that solved, beside the refusal's words, tells
+     * them what they broke it from.
+     */
+    solveError: string | null;
 
     solverContext: StraightSkeletonSolverContext | null;
     skeleton: StraightSkeletonGraph | null;
@@ -84,6 +100,9 @@ export function useSkeletonAnimation(
     const [animationMode, setAnimationMode] = useState(false);
     const [steppedResult, setSteppedResult] = useState<SteppedAlgorithmResult | null>(null);
     const [errorModalOpen, setErrorModalOpen] = useState(false);
+    // A door refusal met while STARTING a stepped run. The direct solve and the boundary stage below
+    // reach the same refusal on their own, so this only has to keep the click from throwing.
+    const [startRefusal, setStartRefusal] = useState<string | null>(null);
 
     const currentFrame = usePlaybackStore((s) => s.currentFrame);
     const isPlaying = usePlaybackStore((s) => s.isPlaying);
@@ -95,15 +114,22 @@ export function useSkeletonAnimation(
 
     const maxStep = steppedResult ? steppedResult.snapshots.length - 1 : 0;
 
-    const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
-        if (!showSkeleton) return null;
-        try {
-            return runAlgorithmV5(vertices, { perceptualFloor, weights });
-        } catch (e) {
-            console.log(e);
-            return null;
-        }
+    const solve = useMemo(() => {
+        if (!showSkeleton) return { context: null, error: null };
+        return solveSkeletonGuarded(vertices, { perceptualFloor, weights });
     }, [showSkeleton, vertices, perceptualFloor, weights]);
+
+    // THE LAST SOLUTION THAT SOLVED, kept so a refusal leaves a picture on the canvas rather than a
+    // blank one (arc decision 130). Held in state and written from an effect, never during render.
+    const [lastGoodContext, setLastGoodContext] =
+        useState<StraightSkeletonSolverContext | null>(null);
+    useEffect(() => {
+        if (solve.context !== null) setLastGoodContext(solve.context);
+    }, [solve.context]);
+
+    // On a refusal the last good context stands in; with no error it does not, so hiding the
+    // skeleton still hides it.
+    const solverContext = solve.error !== null ? lastGoodContext : solve.context;
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
@@ -115,14 +141,12 @@ export function useSkeletonAnimation(
 
     // Computed whether or not the skeleton is showing, and from the polygon rather than from the
     // solve: it is the boundary stage alone, so it stays valid for the stepped snapshots too.
-    const solverVertexRemap = useMemo<number[] | null>(() => {
-        if (vertices.length < 3) return null;
-        try {
-            return canonicaliseForSolve(vertices, { perceptualFloor, weights }).indexRemap;
-        } catch {
-            return null;
-        }
-    }, [vertices, perceptualFloor, weights]);
+    // It also runs the WEIGHT DOOR (W-spec W49 runs before canonicalisation), so both refusals are
+    // caught here whether or not the skeleton is showing — a bad weight is refused as it is typed.
+    const boundary = useMemo(
+        () => solveSkeletonBoundary(vertices, { perceptualFloor, weights }),
+        [vertices, perceptualFloor, weights]);
+    const solverVertexRemap = boundary.indexRemap;
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
@@ -141,12 +165,13 @@ export function useSkeletonAnimation(
         return computePrimaryEdgeIntersections(primaryEdges);
     }, [primaryEdges]);
 
-    // Clear animation state when vertices change
+    // Clear animation state when the polygon or its weights change
     useEffect(() => {
         setAnimationMode(false);
         setSteppedResult(null);
+        setStartRefusal(null);
         resetPlayback();
-    }, [vertices, resetPlayback]);
+    }, [vertices, weights, resetPlayback]);
 
     // Auto-advance playback timer
     useEffect(() => {
@@ -169,12 +194,19 @@ export function useSkeletonAnimation(
     }, [setIsPlaying]);
 
     const startAnimation = useCallback(() => {
-        const result = runAlgorithmV5Stepped(vertices, { perceptualFloor, weights });
-        setSteppedResult(result);
+        const outcome = solveSkeletonSteppedGuarded(vertices, { perceptualFloor, weights });
+        if (outcome.result === null) {
+            // The door refused before a single step ran. There is nothing to step through, so the
+            // run does not start; the refusal is reported through `solveError` like any other.
+            setStartRefusal(outcome.error);
+            return;
+        }
+        setStartRefusal(null);
+        setSteppedResult(outcome.result);
         resetPlayback();
         setAnimationMode(true);
         setShowSkeleton(true);
-        if (result.error) {
+        if (outcome.result.error) {
             setErrorModalOpen(true);
         }
     }, [vertices, resetPlayback, perceptualFloor, weights]);
@@ -211,6 +243,10 @@ export function useSkeletonAnimation(
 
     const hasError = steppedResult?.error != null;
     const errorMessage = steppedResult?.error ?? null;
+
+    // ONE REFUSAL, WHICHEVER BOUNDARY MET IT FIRST. The boundary stage runs on every keystroke, so
+    // it is the one that normally speaks; the direct solve and the stepped start are behind it.
+    const solveError = boundary.error ?? solve.error ?? startRefusal;
 
     const play = useCallback(() => {
         if (currentFrame >= maxStep) {
@@ -250,6 +286,7 @@ export function useSkeletonAnimation(
         playback,
         hasError,
         errorMessage,
+        solveError,
         solverContext,
         skeleton,
         solverVertexRemap,
