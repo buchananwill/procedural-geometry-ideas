@@ -13,10 +13,25 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  *
  * Every exterior edge of a straight skeleton owns exactly one face: the region swept by that edge as
  * the boundary marches inward. Those faces tile the polygon exactly. Inside the face of edge `e`,
- * a point's skeleton offset is simply its perpendicular distance from the supporting line of `e`, so
- * "clip the face at depth `d`" is a half-plane clip parallel to `e` — no contour intersection
- * required. A strip is the union of the clipped faces of the exterior edges it is supported by, and
- * the tiling property survives the clip: the strips plus the offset rings tile the polygon.
+ * a point's skeleton TIME is its perpendicular distance from the supporting line of `e` divided by
+ * `e`'s own speed, so "clip the face at depth `d`" is still a half-plane clip parallel to `e` — the
+ * level sets of a time within one face are the level sets of the distance, only relabelled — and no
+ * contour intersection is required. A strip is the union of the clipped faces of the exterior edges
+ * it is supported by, and the tiling property survives the clip: the strips plus the offset rings
+ * tile the polygon.
+ *
+ * ## `depth` is a TIME (W-spec W5, W41)
+ *
+ * The clip is unchanged in form and every number in it moved together: the face-point "offsets" are
+ * the times {@link computeNodeOffsets} now returns, `offset <= depth` compares two times, and the
+ * crossing interpolation stays linear because a wavefront vertex moves along its bisector at a
+ * constant velocity, so its time is an affine function of the distance travelled.
+ *
+ * WHAT THE CALLER MUST READ DIFFERENTLY UNDER WEIGHTS: the physical setback the strip cuts on edge
+ * `e` is `w_e · depth`, not `depth`. A four-metre road on a unit-weight edge is
+ * `normaliseLength(normalisation, 4) / 1`; the same `depth` on an edge at speed 3 cuts twelve
+ * metres. That is what asking for weights asks for. At unit weights the two readings are one number
+ * and no existing caller changes.
  *
  * ## Policy is injected, never inferred
  *
@@ -47,14 +62,20 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  */
 
 /**
- * Slack for comparing a face point's OFFSET against the clip depth.
+ * Slack for comparing a face point's TIME against the clip depth.
  *
  * ABSOLUTE, IN THE CALLER'S UNITS, and therefore the one bar in this file that is not scale-free:
  * `clipFaceToDepth` runs on the solved graph's own coordinates. It survives because it is applied
- * to a comparison whose two sides are both offsets of the same solve, on a corpus normalised to
+ * to a comparison whose two sides are both times of the same solve, on a corpus normalised to
  * order one; on a block spanning 1e6 it is 1e-15 relative and on a block spanning 1e-3 it is 1e-6
  * relative. Claim: a face point within this of the clip depth is ON the clip contour, and admitting
  * it is what stops the clip manufacturing a zero-length edge out of rounding residue.
+ *
+ * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IT WAS (W-spec W4, W41). Weights are
+ * normalised to minimum one, so a time is at most the distance it came from and this window covers
+ * at least `CLIP_DEPTH_EPSILON` of caller-space distance on every edge — on the fastest edge, up to
+ * `MAX_WEIGHT_RATIO` times more. It is a degeneracy admission, not a decision, so widening it that
+ * far admits residue and nothing else; it is stated here rather than re-derived per weight.
  */
 const CLIP_DEPTH_EPSILON = 1e-9;
 
@@ -93,6 +114,18 @@ const SEGMENT_CROSS_SINE_EPSILON = 1e-9;
 export interface Strip {
     /** Exterior edge ids forming this strip's logical street, in boundary order. */
     supportingEdgeIds: number[];
+    /**
+     * The wavefront SPEED of each entry of {@link supportingEdgeIds}, in the same order (W-spec
+     * W42): `supportingEdgeWeights[k]` is `graph.exteriorWeights[supportingEdgeIds[k]]`.
+     *
+     * COPIED ONTO THE STRIP RATHER THAN LOOKED UP LATER, because a `Strip` is the whole of what
+     * `sliceStrip` is given — it carries no graph and no solve — and the parcel march has to solve
+     * `v · n = w` per face to follow the same seams the skeleton drew. Without it the slicer would
+     * march an unweighted skeleton across a weighted strip and put its cuts on arcs that are not
+     * there. All ones for an unweighted solve, which is every solve the recursion driver makes
+     * (arc decision 118).
+     */
+    supportingEdgeWeights: number[];
     /**
      * Closed polygon of the strip, clockwise, no duplicated closing vertex.
      *
@@ -156,7 +189,14 @@ export interface CornerContext {
 export type CornerAssignment = 'previous' | 'next' | 'none';
 
 export interface StripOptions {
-    /** Inward depth, `d_offset` in the paper. */
+    /**
+     * Inward depth, `d_offset` in the paper — a wavefront TIME (W-spec W5, W41).
+     *
+     * The setback it cuts on exterior edge `e` is `w_e · depth`, so a caller who wants a fixed
+     * physical setback on a particular edge passes that length divided by that edge's weight. At
+     * unit weights — every solve the recursion driver makes, and every unweighted caller — a time
+     * and a distance are the same double and this is `d_offset` unchanged.
+     */
     depth: number;
     /**
      * Shortest frontage, in world units, a strip may be left standing with. `undefined` = off.
@@ -223,6 +263,7 @@ export interface StripOptions {
 interface FacePoint {
     node: number;
     position: Vector2;
+    /** The node's wavefront TIME, read from `computeNodeOffsets` and never re-derived (W-spec W41). */
     offset: number;
 }
 
@@ -543,7 +584,13 @@ function traceFace(
 }
 
 /**
- * The point at skeleton offset `depth` on the arc between two face vertices.
+ * The point at skeleton TIME `depth` on the arc between two face vertices.
+ *
+ * LINEAR IN TIME, WHICH IS WHY THE INTERPOLATION IS UNCHANGED (W-spec W41). The arc between two
+ * face vertices is one bisector, and a wavefront vertex travels along its bisector at a constant
+ * velocity, so its position is an affine function of the clock. Fractions of a time span therefore
+ * land exactly where fractions of a distance span used to, and at unit weights they are the same
+ * fractions of the same numbers.
  *
  * Cached per node pair, in a canonical order, so that the two faces either side of an arc are handed
  * the identical object. That identity is what lets adjacent clipped faces be unioned by cancelling
@@ -578,9 +625,10 @@ function makeCrossingLookup(depth: number): (a: FacePoint, b: FacePoint) => Vect
 /**
  * Clip one skeleton face to the band within `depth` of its own supporting edge.
  *
- * Sutherland–Hodgman against the half-plane `offset <= depth`. Within a skeleton face the offset is
- * the perpendicular distance to the supporting line of the face's edge, so the half-plane is a
- * straight line parallel to that edge and the clip is exact. The face is monotone away from its edge
+ * Sutherland–Hodgman against the half-plane `time <= depth`. Within a skeleton face the time is the
+ * perpendicular distance to the supporting line of the face's edge divided by that edge's own
+ * constant speed, so the level set is still a straight line parallel to that edge — at
+ * `w_e · depth` from it rather than at `depth` — and the clip is exact. The face is monotone away from its edge
  * — the swept region above every point of the edge is one interval — so the clipped result is a
  * single simple polygon even where the face has been notched by a split event.
  */
@@ -959,6 +1007,8 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
         // failure in the suites should look this way first.
         return {
             supportingEdgeIds: run,
+            // W-spec W42: carried on the strip because `sliceStrip` is handed the strip alone.
+            supportingEdgeWeights: run.map(edgeId => graph.exteriorWeights[edgeId]),
             boundary: outer[0] ?? [],
             holes,
             frontage: frontageOf(graph, run),

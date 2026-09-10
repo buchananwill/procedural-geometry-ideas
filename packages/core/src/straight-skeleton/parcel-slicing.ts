@@ -21,19 +21,21 @@ import type {Strip} from './strip-decomposition';
  * ### How the face structure is recovered
  *
  * A `Strip` carries no skeleton arcs, so the faces are reconstructed from the only thing that defines
- * them: the supporting edges themselves. Inside the skeleton face of an edge `e` the offset of a
- * point is its perpendicular distance to the supporting *line* of `e` — that is what makes the strip
- * clip in `computeStrips` a plain half-plane cut. So over the strip's own supporting edges the face
- * of edge `i` is exactly
+ * them: the supporting edges themselves. Inside the skeleton face of an edge `e` the TIME of a point
+ * is its perpendicular distance to the supporting *line* of `e` divided by `e`'s own speed — that is
+ * what makes the strip clip in `computeStrips` a plain half-plane cut. So over the strip's own
+ * supporting edges the face of edge `i` is exactly
  *
  * ```
- * { p in strip : f_i(p) <= f_j(p) for every supporting edge j }, f_i(p) = (p - a_i) . n_i
+ * { p in strip : t_i(p) <= t_j(p) for every supporting edge j }, t_i(p) = (p - a_i) . n_i / w_i
  * ```
  *
- * with `n_i` the inward unit normal. The seams between those cells are the skeleton arcs interior to
- * the strip, and `f_i = f_j` is precisely the angle bisector the skeleton emits at the vertex the two
- * edges share — so the reconstruction is the skeleton, not an approximation of it, for every arc the
- * strip's own edges generate.
+ * with `n_i` the inward unit normal and `w_i` the edge's weight (W-spec W42). The seams between those
+ * cells are the skeleton arcs interior to the strip, and `t_i = t_j` is precisely the WEIGHTED
+ * bisector the skeleton emits at the vertex the two edges share — so the reconstruction is the
+ * skeleton, not an approximation of it, for every arc the strip's own edges generate. At unit weights
+ * every `w` is `1.0`, the equi-time cells are the equidistant ones, and this is the face model the
+ * module has always had.
  *
  * Two consequences are worth stating plainly:
  *
@@ -221,11 +223,23 @@ export interface Parcel {
 interface FaceEdge {
     start: Vector2;
     end: Vector2;
-    /** Inward unit normal. `(p - start) . normal` is the skeleton offset within this edge's face. */
+    /**
+     * Inward unit normal. `(p - start) . normal` is the perpendicular DISTANCE of `p` from this
+     * edge's supporting line; the skeleton TIME within this edge's face is that divided by
+     * {@link weight}.
+     */
     normal: Vector2;
     length: number;
     /** Arc length from the start of the frontage to {@link start}. */
     startDistance: number;
+    /**
+     * This frontage edge's wavefront SPEED, from `Strip.supportingEdgeWeights` (W-spec W42).
+     *
+     * The march solves `v · n = w` per active face, so the weight is what makes the reconstructed
+     * seams the skeleton's own seams rather than the unweighted bisectors of the same lines. One
+     * for every unweighted solve, where every product below is by exactly `1.0`.
+     */
+    weight: number;
 }
 
 /** A point on the strip boundary: `lerp(ring[index], ring[index + 1], t)`. */
@@ -394,6 +408,11 @@ function makeArena(strip: Strip): Arena | null {
         return null;
     }
 
+    // Which supporting edge each surviving frontage SEGMENT came from (W-spec W42). Frontage vertex
+    // `j` closes frontage edge `j - 1`, which is `supportingEdgeIds[j - 1]`; a frontage edge the
+    // boundary collapsed to nothing contributes no ring segment and so no entry here, which is why
+    // this is recorded as the walk goes rather than assumed to be the identity.
+    const supportOfSegment: number[] = [];
     let steps = 0;
     for (let j = 1; j < strip.frontage.length; j++) {
         const target = strip.frontage[j];
@@ -406,6 +425,7 @@ function makeArena(strip: Strip): Arena | null {
         if (distance(boundary[(start + steps + 1) % length], target) > tolerance) {
             return null;
         }
+        supportOfSegment.push(j - 1);
         steps += 1;
     }
     if (steps < 1 || steps >= length) {
@@ -434,6 +454,9 @@ function makeArena(strip: Strip): Arena | null {
             normal: {x: run.y / edgeLength, y: -run.x / edgeLength},
             length: edgeLength,
             startDistance: frontageLength,
+            // A strip built by hand, with no weights on it, reads as unit — which is what every
+            // strip was before W-spec W42 and what every unweighted solve still produces.
+            weight: strip.supportingEdgeWeights?.[supportOfSegment[i]] ?? 1,
         });
         frontageLength += edgeLength;
     }
@@ -469,37 +492,66 @@ function ringWalk(arena: Arena, from: RingPosition, to: RingPosition): Vector2[]
     return walked;
 }
 
-/** Skeleton offset of `point` within the face of `edge`: its perpendicular distance to that line. */
+/**
+ * Perpendicular DISTANCE of `point` from the supporting line of `edge`.
+ *
+ * Divided by `edge.weight` it is the skeleton TIME within that edge's face (W-spec W42); the callers
+ * below take that division where they need a clock and leave it where they only need a side.
+ */
 function offsetWithinFace(edge: FaceEdge, point: Vector2): number {
     return dot(subtract(point, edge.start), edge.normal);
 }
 
 /**
- * The direction that advances the wavefront at unit rate away from every edge in `active`.
+ * The direction that advances each face in `active` away from its own edge at that edge's own SPEED.
  *
- * One edge gives its inward normal — a plain perpendicular ray. Two edges give the skeleton bisector
- * between their faces, the solution of `v . n_a = v . n_b = 1`, which is the arc the ray must follow
+ * One edge gives its inward normal scaled by its weight — a plain perpendicular ray at that face's
+ * speed. Two edges give the skeleton seam between their faces, the solution of `v . n_a = w_a`,
+ * `v . n_b = w_b` — the vertex-velocity kernel of W-spec W9, which is the arc the ray must follow
  * rather than cross.
+ *
+ * THE RESULT IS A VELOCITY, NOT A UNIT VECTOR, and it always was: at unit weights the two-face
+ * solution already had magnitude `1 / cos(half-angle)`. So the ray parameter every caller measures
+ * along it is a TIME, and the meeting and exit tests below are all in that one clock.
+ *
+ * AT UNIT WEIGHTS EVERY PRODUCT IS BY `1.0` and this is the expression it replaces, operand for
+ * operand: `w_a · b.y − w_b · a.y` is `b.y − a.y`, and `a.x · w_b − b.x · w_a` is `a.x − b.x`.
  */
 function marchDirection(edges: FaceEdge[], active: number[]): Vector2 | null {
     if (active.length === 1) {
-        return edges[active[0]].normal;
+        const only = edges[active[0]];
+        return {x: only.normal.x * only.weight, y: only.normal.y * only.weight};
     }
     const a = edges[active[0]].normal;
     const b = edges[active[1]].normal;
+    const wA = edges[active[0]].weight;
+    const wB = edges[active[1]].weight;
     const determinant = a.x * b.y - a.y * b.x;
     if (Math.abs(determinant) < NORMAL_DETERMINANT_EPSILON) {
-        return dot(a, b) > 0 ? a : null;
+        // Parallel normals: no seam to solve for. Same-facing, the two faces advance together and
+        // the walk follows the first one's own velocity; anti-facing, there is no inward direction
+        // at all. Under unequal weights a same-facing pair has no common velocity either (W-spec
+        // W10) — the first face's is taken, exactly as at unit weights, because this branch is a
+        // degeneracy fallback and not a solve.
+        return dot(a, b) > 0 ? {x: a.x * wA, y: a.y * wA} : null;
     }
-    return {x: (b.y - a.y) / determinant, y: (a.x - b.x) / determinant};
+    return {
+        x: (wA * b.y - wB * a.y) / determinant,
+        y: (a.x * wB - b.x * wA) / determinant,
+    };
 }
 
 /**
  * The pair of faces whose seam the walk continues along after meeting `entrant` at a skeleton node.
  *
  * Three faces meet at a node and only one of the outgoing seams keeps the walk moving inward. The
- * test is that no face left behind may overtake: along the chosen seam its offset must not grow
- * faster than the wavefront does.
+ * test is that no face left behind may overtake: along the chosen seam its own wavefront must not
+ * gain on the marching one.
+ *
+ * WEIGHTED, AND THE BAR MOVES WITH THE FACE (W-spec W42). A face left behind gains on the walk when
+ * `dot(direction, n_i)` exceeds `w_i` — the rate its own wall advances — so the comparison is
+ * against that face's speed and the slack is the same fraction of it. At `w_i = 1` this is the
+ * `1 + OVERTAKE_DOT_EPSILON` it replaces.
  */
 function nextActive(edges: FaceEdge[], active: number[], entrant: number): number[] {
     if (active.length === 1) {
@@ -511,7 +563,10 @@ function nextActive(edges: FaceEdge[], active: number[], entrant: number): numbe
             continue;
         }
         const others = active.filter(index => !pair.includes(index));
-        if (others.every(index => dot(direction, edges[index].normal) <= 1 + OVERTAKE_DOT_EPSILON)) {
+        if (others.every(index => {
+            const weight = edges[index].weight;
+            return dot(direction, edges[index].normal) <= weight + OVERTAKE_DOT_EPSILON * weight;
+        })) {
             return pair;
         }
     }
@@ -560,6 +615,16 @@ function firstRingExit(
  * The ray leaves perpendicular to the frontage edge it starts on. At every step the next event is
  * either the strip boundary — where the cut ends — or a skeleton seam, where the ray turns and
  * follows the seam onward instead of crossing into the neighbouring face.
+ *
+ * EVERY RAY PARAMETER HERE IS A TIME, because `marchDirection` returns a velocity rather than a unit
+ * vector (W-spec W42): `exit.distance` and `nearest` are both "how long until", and they are only
+ * ever compared with each other, which is what keeps the walk in one clock. `epsilon` is the
+ * exception and is stated rather than converted — it is a fraction of the strip's own diagonal, a
+ * LENGTH, used as the degeneracy floor on those parameters. Weights are normalised to minimum one,
+ * so a time is never longer than the distance it came from and this floor rejects at least as much
+ * as it did unweighted; it admits nothing new. It has always been an approximation in this space —
+ * at unit weights a two-face velocity is already `1 / cos(half-angle)` long — and this does not
+ * make it a different kind of number.
  */
 function castRay(arena: Arena, origin: RingPosition): Cut | null {
     const epsilon = arena.scale * RELATIVE_EPSILON;
@@ -578,7 +643,12 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
             return null;
         }
 
-        const wavefront = offsetWithinFace(arena.edges[active[0]], point);
+        // The walk's own clock: the distance it stands from the active face's line, divided by that
+        // face's speed (W-spec W42). At unit weights `τ` IS `wavefront` and every line below is the
+        // unweighted one it replaces.
+        const activeEdge = arena.edges[active[0]];
+        const wavefront = offsetWithinFace(activeEdge, point);
+        const tau = wavefront / activeEdge.weight;
         let nearest = Infinity;
         let entrant = -1;
         for (let index = 0; index < arena.edges.length; index++) {
@@ -587,15 +657,22 @@ function castRay(arena: Arena, origin: RingPosition): Cut | null {
             }
             const competitor = offsetWithinFace(arena.edges[index], point);
             // A supporting edge whose line already puts this point on its outer side is a reflex
-            // neighbour: its face is elsewhere, and it may not claim territory here.
+            // neighbour: its face is elsewhere, and it may not claim territory here. A SIDE, NOT A
+            // CLOCK — the weights are positive and cannot change which side of a line a point is on.
             if (competitor < wavefront - epsilon) {
                 continue;
             }
-            const closingRate = 1 - dot(direction, arena.edges[index].normal);
+            const weight = arena.edges[index].weight;
+            // `w_i − dot(direction, n_i)`: how fast this face's wall closes on the marching point,
+            // its own advance less the point's advance towards it.
+            const closingRate = weight - dot(direction, arena.edges[index].normal);
             if (closingRate <= CLOSING_RATE_EPSILON) {
                 continue;
             }
-            const meeting = (competitor - wavefront) / closingRate;
+            // `(D_i − w_i · τ) / (w_i − dot(direction, n_i))`: the time at which this face's wall
+            // reaches the marching point. At unit weights `D_i − 1.0 · wavefront` is today's
+            // `competitor − wavefront`.
+            const meeting = (competitor - weight * tau) / closingRate;
             if (meeting > epsilon && meeting < nearest) {
                 nearest = meeting;
                 entrant = index;

@@ -1,7 +1,7 @@
 import type {CollisionEvent, PrimaryInteriorEdge, RayProjection, StraightSkeletonSolverContext, Vector2} from './types';
 import {collideEdges} from './collision-helpers';
-import {sourceOffsetDistance} from './collision-helpers';
-import {addVectors, makeBasis, makeBisectedBasis, scaleVector} from "./core-functions";
+import {birthArrivalOf, timeOf} from './collision-helpers';
+import {addVectors, makeBasis, makeWeightedBisectedBasis, scaleVector} from "./core-functions";
 import {intersectRays} from "./intersection-edges";
 
 export interface CollisionSweepEvent {
@@ -47,9 +47,18 @@ export function generateCollisionSweep(
 }
 
 /**
- * Compute offset distance for each interior node.
- * For each node with id >= numExteriorNodes, picks any outgoing interior edge
- * and returns sourceOffsetDistance(edge, context).
+ * Compute the wavefront TIME of each interior node (W-spec W5, W40).
+ *
+ * For each node with id >= numExteriorNodes, picks any outgoing interior edge and returns that
+ * edge's BIRTH ARRIVAL as a time — the source's perpendicular distance from its clockwise parent's
+ * supporting line, divided by that parent's weight. The distance half is `sourceOffsetDistance`,
+ * unchanged (W-spec W6); the division is by exactly `1.0` at unit weights, so the readout the
+ * dashboard has always drawn is untouched.
+ *
+ * A SIBLING OF `computeNodeOffsets`, NOT A SECOND SOURCE OF TRUTH. This one reads the solver
+ * context mid-solve and dates a node from the bisector leaving it; the projection's table re-derives
+ * from the finished graph and canonicalises simultaneous sets. They agree on a completed solve and
+ * only this one is available while stepping, which is why the debug overlay has its own.
  */
 export function computeNodeOffsetDistances(
     context: StraightSkeletonSolverContext
@@ -63,7 +72,7 @@ export function computeNodeOffsetDistances(
         for (const edgeId of node.outEdges) {
             if (context.edgeRank(edgeId) !== 'exterior') {
                 const edge = context.getInteriorWithId(edgeId);
-                result.set(i, sourceOffsetDistance(edge, context));
+                result.set(i, timeOf(birthArrivalOf(edge, context)));
                 break;
             }
         }
@@ -73,13 +82,36 @@ export function computeNodeOffsetDistances(
 }
 
 /**
- * Computes the initial interior angle bisectors at each polygon vertex,
- * extended until they hit the nearest non-adjacent exterior edge.
+ * Computes the initial interior bisectors at each polygon vertex, extended until they hit the
+ * nearest non-adjacent exterior edge.
+ *
+ * WEIGHTED, BECAUSE AN UNWEIGHTED OVERLAY DRAWN OVER A WEIGHTED SOLVE IS A WRONG PICTURE (W-spec
+ * W15, arc decision 114(ii)). `weights[i]` is the speed of the edge LEAVING vertex `i`, parallel to
+ * `vertices` exactly as the solver's own input is, and the direction drawn is the kernel's —
+ * `normalize(w_ws · c − w_cw · b)`, the same spelling `addBisectionEdge` uses — so the overlay and
+ * the solve's primary bisectors are one construction and not two. The direction is invariant under
+ * a common scaling of all weights, so this needs no normalisation of its own: the caller may pass
+ * the raw array or the solve's normalised one and get the same picture.
+ *
+ * Absent or empty weights mean all ones, and the answer is then bit-for-bit the unweighted overlay
+ * this function has always drawn. A weights array of the wrong length is REFUSED rather than padded,
+ * for the reason W-spec W1 refuses it at the solver's door: a short array silently draws a different
+ * polygon's bisectors.
  */
-export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInteriorEdge[] {
+export function computePrimaryInteriorEdges(
+    vertices: Vector2[],
+    weights?: readonly number[],
+): PrimaryInteriorEdge[] {
     if (vertices.length < 3) return [];
 
     const n = vertices.length;
+    if (weights !== undefined && weights.length > 0 && weights.length !== n) {
+        throw new Error(
+            `computePrimaryInteriorEdges received ${weights.length} weights for ${n} vertices; `
+            + `a weight array must be parallel to the vertices, one speed per edge.`);
+    }
+    const weightOf = (index: number): number =>
+        weights === undefined || weights.length === 0 ? 1 : weights[index];
     const result: PrimaryInteriorEdge[] = [];
 
     for (let i = 0; i < n; i++) {
@@ -90,9 +122,10 @@ export function computePrimaryInteriorEdges(vertices: Vector2[]): PrimaryInterio
         // WS edge: from vertex i-1 to vertex i
         const wsBasis = makeBasis(vertices[(i - 1 + n) % n], vertices[i]);
 
-        // Bisect: CW basis and reversed WS basis
+        // Bisect: CW basis and reversed WS basis, at the two parents' speeds (W-spec W12).
         const fromNodeWS = scaleVector(wsBasis, -1);
-        const bisected = makeBisectedBasis(cwBasis, fromNodeWS);
+        const bisected = makeWeightedBisectedBasis(
+            cwBasis, fromNodeWS, weightOf(i), weightOf((i - 1 + n) % n));
 
         // Determine correct direction via cross product (same as addBisectionEdge initial logic)
         const cross = cwBasis.x * wsBasis.y - cwBasis.y * wsBasis.x;

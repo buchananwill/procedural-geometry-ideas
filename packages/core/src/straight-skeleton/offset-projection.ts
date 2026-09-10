@@ -4,9 +4,23 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
 /**
  * Projection of a solved straight skeleton back into wavefront positions.
  *
- * The skeleton is the trace of the polygon boundary moving inward at unit speed. This module
- * runs that trace backwards: given a solved skeleton and an offset distance `t`, it reconstructs
- * where the wavefront was at time `t`.
+ * The skeleton is the trace of the polygon boundary moving inward, each exterior edge at its own
+ * speed. This module runs that trace backwards: given a solved skeleton and a TIME `t`, it
+ * reconstructs where the wavefront was at `t`.
+ *
+ * ## Every "offset" in this module is a TIME (W-spec W5, W40)
+ *
+ * A weight is a per-exterior-edge speed, so the wavefront of edge `e` stands at perpendicular
+ * distance `w_e · t` from its supporting line at time `t`. The two quantities are the same number
+ * only when every weight is one, which is why the names here still read "offset": at unit weights a
+ * time and a distance ARE the same double, and every product and quotient with a weight below is by
+ * exactly `1.0` and therefore the identity. Under weights they come apart, and the answer this
+ * module owes its callers is the equi-time front — every wall advanced for the same duration at its
+ * own speed — because that is the only front whose pieces still meet at the skeleton's own nodes.
+ *
+ * The consequence for a caller who wants a physical setback: asking for a four-metre road on edge
+ * `e` is asking for time `4 / w_e`, and one time gives different setbacks on differently-weighted
+ * edges by construction. That is the point of weights, not a defect in the projection.
  *
  * ## Why rings, plural
  *
@@ -45,11 +59,12 @@ import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAr
  * of an event and duplicates a vertex, and shifting it — which is what a tolerance subtracted from
  * both ends does — reintroduces exactly the dropout it was meant to guard against.
  *
- * ## Offsets are re-derived, not read back
+ * ## Times are re-derived, not read back
  *
- * A node's offset is computed from raw geometry — the perpendicular distance from the node to the
- * supporting line of one of the original polygon edges that defines it — rather than from anything
- * the solver recorded about timing. Exterior nodes lie on the boundary, so their offset is zero.
+ * A node's time is computed from raw geometry — the perpendicular distance from the node to the
+ * supporting line of one of the original polygon edges that defines it, DIVIDED BY THAT EDGE'S OWN
+ * WEIGHT — rather than from anything the solver recorded about timing. Exterior nodes lie on the
+ * boundary, so their time is zero.
  *
  * ## Where one instant is several numbers, and how the table is made to say so
  *
@@ -214,7 +229,7 @@ export interface DegenerateCycle {
  * that was genuinely empty. A projection is sound exactly when `unclosedChains` is empty.
  */
 export interface OffsetProjection {
-    /** The offset projected to, echoed back. */
+    /** The TIME projected to, echoed back (W-spec W5). */
     offset: number;
     /** The closed rings — the same value {@link computeOffsetRingsDetailed} returns. */
     rings: OffsetRing[];
@@ -263,8 +278,13 @@ function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
 }
 
 /**
- * How far apart two re-derived offsets of one simultaneous event may lie, as a fraction of the
- * skeleton's own maximum offset.
+ * How far apart two re-derived TIMES of one simultaneous event may lie, as a fraction of the
+ * skeleton's own maximum time.
+ *
+ * UNCHANGED UNDER WEIGHTS, AND BEING RELATIVE IS WHY (W-spec W40). The quantity it partitions is
+ * now a time rather than a distance, and both it and the scale it is taken against moved by the
+ * same division, so the fraction means what it always did. An absolute bar here would have had to
+ * be re-derived per weight.
  *
  * RELATIVE, NEVER ABSOLUTE. Node offsets are caller-space lengths, so an absolute tolerance would
  * mean a different thing on a polygon spanning 1e-3 and one spanning 1e8 — the precise defect
@@ -301,11 +321,13 @@ interface SimultaneousOffsetSet {
 }
 
 /**
- * Offset distance of every node in the solved skeleton, keyed by node id.
+ * Wavefront TIME of every node in the solved skeleton, keyed by node id (W-spec W5, W40).
  *
  * Exterior nodes lie on the original boundary and are mapped to zero. Every other node is mapped to
  * the perpendicular distance from its position to the supporting line of one of the original polygon
- * edges that defines it, found via the `clockwiseExteriorEdgeIndex` of an incident interior edge.
+ * edges that defines it — found via the `clockwiseExteriorEdgeIndex` of an incident interior edge —
+ * DIVIDED BY THAT EDGE'S WEIGHT. At unit weights the divisor is exactly `1.0`, so this is the same
+ * table the unweighted solver has always produced, to the bit.
  *
  * Nodes that belong to one simultaneous event receive one identical value: the re-derived distances
  * are partitioned into simultaneous sets and each set is collapsed onto one of its own members. Two
@@ -333,12 +355,23 @@ export function computeNodeOffsets(result: SkeletonSolveResult): Map<number, num
 }
 
 /**
- * The raw perpendicular distance re-derived for every interior node, before canonicalisation.
+ * The raw wavefront TIME re-derived for every interior node, before canonicalisation.
  *
- * Exterior nodes are excluded and stay out of the partition entirely. Their offset is zero by
+ * THE DIVISION BY THE PARENT'S WEIGHT IS THE WHOLE OF W-SPEC W40. The wavefront of exterior edge
+ * `e` stands at perpendicular distance `w_e · t` from its supporting line at time `t`, so the
+ * distance this function measures is that edge's clock reading only once divided by that edge's own
+ * speed. The edge divided by is the one the node is dated against — the clockwise parent of the
+ * first incident bisector — so numerator and denominator name the same wall, which is what makes the
+ * answer the same number from any wall the node touches (the equi-time property, W-spec W39(i)).
+ *
+ * AT UNIT WEIGHTS THE DIVISOR IS EXACTLY `1.0` AND THE QUOTIENT IS THE DIVIDEND, bit for bit, for
+ * every finite double. So the table this returns, everything downstream reads from it, and the
+ * whole 59-fixture corpus are untouched by weights they do not use.
+ *
+ * Exterior nodes are excluded and stay out of the partition entirely. Their time is zero by
  * construction rather than by re-derivation, so it carries none of the last-bit disagreement the
  * partition exists to reconcile, and letting a set straddle the boundary could move it off zero —
- * which would take the original polygon away from `offset === 0`.
+ * which would take the original polygon away from `time === 0`.
  */
 function rederiveInteriorNodeOffsets(result: SkeletonSolveResult): Map<number, number> {
     const {graph} = result;
@@ -362,7 +395,7 @@ function rederiveInteriorNodeOffsets(result: SkeletonSolveResult): Map<number, n
                 node.position,
                 graph.nodes[parentEdgeId].position,
                 graph.nodes[(parentEdgeId + 1) % exteriorEdgeCount].position,
-            ),
+            ) / graph.exteriorWeights[parentEdgeId],
         );
     }
 
@@ -391,9 +424,9 @@ function firstIncidentParentEdge(
 /**
  * The largest of `offsets`, and zero when there are none.
  *
- * An offset is a distance and never negative, so the zero floor is only ever the empty case: a solve
- * with nothing to measure spans no distance. Every "how far does this wavefront travel" in the
- * module reads this rather than restating the loop, so the three of them cannot drift apart.
+ * A time is never negative, so the zero floor is only ever the empty case: a solve with nothing to
+ * measure spans no time. Every "how long does this wavefront run" in the module reads this rather
+ * than restating the loop, so the three of them cannot drift apart.
  */
 function largestOffset(offsets: Iterable<number>): number {
     let largest = 0;
@@ -497,8 +530,13 @@ function representativeOffset(offsets: number[]): number {
 }
 
 /**
- * The largest node offset in the solved skeleton: how far the wavefront travels before it is
- * entirely consumed. Callers use it to normalise an offset into the range the skeleton spans.
+ * The largest node TIME in the solved skeleton: how long the wavefront runs before it is entirely
+ * consumed. Callers use it to normalise a time into the range the skeleton spans.
+ *
+ * A TIME, NOT A DISTANCE (W-spec W5, W40). Under weights the fastest wall has covered
+ * `w_max · computeMaxOffset(result)` by then and the slowest `1 · computeMaxOffset(result)`, so a
+ * caller reading this as "how far the wavefront travelled" is reading the slowest wall's distance
+ * and no other's. At unit weights the two readings coincide and every existing caller is unaffected.
  *
  * @throws if the solve is incomplete or has no solver context.
  */
@@ -509,7 +547,7 @@ export function computeMaxOffset(result: SkeletonSolveResult): number {
 }
 
 /**
- * Bisectors alive at `offset`, with the wavefront position each one occupies there.
+ * Bisectors alive at TIME `offset`, with the wavefront position each one occupies there.
  *
  * Both ends of the lifetime are read from `nodeOffsets`, so at an event the bisector dying there
  * and the bisector born there compare against the identical number and the hand-over is exact. See
@@ -560,17 +598,27 @@ export function collectAliveBisectors(
 }
 
 /**
- * Where a bisector's wavefront vertex sits `localOffset` past its own birth.
+ * Where a bisector's wavefront vertex sits `localTime` past its own birth.
  *
- * The bisector advances away from its parent edge at a rate given by the cross product of its basis
- * with that edge's basis, so converting a perpendicular offset into a distance along the ray is the
- * inverse of the projection the solver uses when it dates a collision.
+ * TWO CONVERSIONS, IN THIS ORDER (W-spec W40). A local TIME becomes the perpendicular distance the
+ * clockwise parent's wavefront has covered in it, `localTime · w_cw` — that is what a weight IS —
+ * and that perpendicular distance becomes travel along the bisector's own ray by the cross product
+ * of the two bases, which is the inverse of the projection the solver uses when it dates a
+ * collision. Multiplying by exactly `1.0` at unit weights leaves the operand and therefore every
+ * ring vertex of the corpus untouched.
+ *
+ * THE RING THIS PLACES IS THE EQUI-TIME FRONT, NOT AN EQUIDISTANT ONE. Each vertex is priced
+ * against its own clockwise parent, so at time `t` the wavefront of edge `e` sits at `w_e · t` from
+ * `e` and at `w_f · t` from every other edge `f` it meets — a front whose walls have each moved for
+ * the same duration at their own speed, which is the only reading under which the pieces still join
+ * up.
  */
-function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: InteriorEdge, localOffset: number): Vector2 {
+function bisectorPositionAtOffset(result: SkeletonSolveResult, interiorEdge: InteriorEdge, localTime: number): Vector2 {
     const {graph} = result;
     const polygonEdge = graph.edges[interiorEdge.id];
     const clockwiseParent = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex];
-    const alongRay = projectFromPerpendicular(polygonEdge.basisVector, clockwiseParent.basisVector, localOffset);
+    const perpendicular = localTime * graph.exteriorWeights[interiorEdge.clockwiseExteriorEdgeIndex];
+    const alongRay = projectFromPerpendicular(polygonEdge.basisVector, clockwiseParent.basisVector, perpendicular);
     return addVectors(graph.nodes[polygonEdge.source].position, scaleVector(polygonEdge.basisVector, alongRay));
 }
 
@@ -830,7 +878,11 @@ export function projectOffsetWavefront(result: SkeletonSolveResult, offset: numb
 }
 
 /**
- * The inward-moving wavefront of a solved straight skeleton at offset distance `offset`.
+ * The inward-moving wavefront of a solved straight skeleton at TIME `offset` (W-spec W5, W40).
+ *
+ * The ring is the equi-time front: the offset of exterior edge `e` on it lies at perpendicular
+ * distance `w_e · offset` from `e`, so differently-weighted edges are set back by different amounts
+ * at one call. At unit weights every setback is `offset` and this is the contour it always was.
  *
  * Returns zero or more closed rings. Each ring is an ordered vertex list in the same winding as the
  * graph's boundary — clockwise — with no duplicated closing vertex. More than one ring means the

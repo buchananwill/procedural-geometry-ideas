@@ -25,7 +25,14 @@ const SQUARE: Vector2[] = [
 ];
 
 function strip(): Strip {
-    return { supportingEdgeIds: [0], boundary: SQUARE, holes: [], frontage: [] };
+    return {
+        supportingEdgeIds: [0],
+        // Unit weight: these trees are hand-built and never came from a weighted solve (W-spec W42).
+        supportingEdgeWeights: [1],
+        boundary: SQUARE,
+        holes: [],
+        frontage: [],
+    };
 }
 
 /**

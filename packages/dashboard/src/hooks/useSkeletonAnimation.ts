@@ -58,10 +58,25 @@ export interface SkeletonAnimationState {
  * A SCALAR, NOT AN OPTIONS OBJECT, so the memo dependency is a number the caller can hold constant.
  * Omitted, the library default stands and this hook behaves exactly as it did before the option
  * existed. See `PerceptualFloorOptions` in `@proc-geo/core`.
+ *
+ * `weights` is the per-edge wavefront SPEED array of the weighted-offsets extension, `weights[i]`
+ * the speed of the edge leaving vertex `i` (W-spec W1). IT REACHES ALL FOUR DERIVATIONS BELOW, and
+ * that is the point of the parameter rather than an implementation detail (W-spec W15, arc decision
+ * 114(ii)):
+ *
+ *  - the direct solve and the stepped solve, because they are what the weights are for;
+ *  - the boundary stage the vertex remap is read from, because a weight change at a near-collinear
+ *    vertex PINS that vertex (W-spec W44) and a remap computed without the weights would describe a
+ *    ring the weighted solve never saw;
+ *  - the primary-bisector overlay, because an unweighted overlay drawn over a weighted solve draws
+ *    bisectors the solve does not have. That is a wrong picture, not a simplified one.
+ *
+ * Omitted or empty, everything here is bit-for-bit what it was before weights existed.
  */
 export function useSkeletonAnimation(
     vertices: Vertex[],
     perceptualFloor?: number,
+    weights?: readonly number[],
 ): SkeletonAnimationState {
     const [showSkeleton, setShowSkeleton] = useState(false);
     const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
@@ -83,12 +98,12 @@ export function useSkeletonAnimation(
     const solverContext = useMemo<StraightSkeletonSolverContext | null>(() => {
         if (!showSkeleton) return null;
         try {
-            return runAlgorithmV5(vertices, { perceptualFloor });
+            return runAlgorithmV5(vertices, { perceptualFloor, weights });
         } catch (e) {
             console.log(e);
             return null;
         }
-    }, [showSkeleton, vertices, perceptualFloor]);
+    }, [showSkeleton, vertices, perceptualFloor, weights]);
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
@@ -103,16 +118,23 @@ export function useSkeletonAnimation(
     const solverVertexRemap = useMemo<number[] | null>(() => {
         if (vertices.length < 3) return null;
         try {
-            return canonicaliseForSolve(vertices, { perceptualFloor }).indexRemap;
+            return canonicaliseForSolve(vertices, { perceptualFloor, weights }).indexRemap;
         } catch {
             return null;
         }
-    }, [vertices, perceptualFloor]);
+    }, [vertices, perceptualFloor, weights]);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
-        return computePrimaryInteriorEdges(vertices);
-    }, [showPrimaryEdges, vertices]);
+        try {
+            // W-spec W15 / arc decision 114(ii): the overlay is drawn at the SOLVE's weights.
+            return computePrimaryInteriorEdges(vertices, weights);
+        } catch {
+            // A weights array of the wrong length is refused rather than padded; the overlay is a
+            // drawing, so it goes away rather than taking the canvas down with it.
+            return [];
+        }
+    }, [showPrimaryEdges, vertices, weights]);
 
     const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
         if (primaryEdges.length === 0) return [];
@@ -147,7 +169,7 @@ export function useSkeletonAnimation(
     }, [setIsPlaying]);
 
     const startAnimation = useCallback(() => {
-        const result = runAlgorithmV5Stepped(vertices, { perceptualFloor });
+        const result = runAlgorithmV5Stepped(vertices, { perceptualFloor, weights });
         setSteppedResult(result);
         resetPlayback();
         setAnimationMode(true);
@@ -155,7 +177,7 @@ export function useSkeletonAnimation(
         if (result.error) {
             setErrorModalOpen(true);
         }
-    }, [vertices, resetPlayback, perceptualFloor]);
+    }, [vertices, resetPlayback, perceptualFloor, weights]);
 
     const togglePlayPause = useCallback(() => {
         if (!steppedResult) {

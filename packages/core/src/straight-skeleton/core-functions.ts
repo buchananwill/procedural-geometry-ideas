@@ -80,6 +80,40 @@ export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
     return bisection;
 }
 
+/**
+ * The WEIGHTED bisected basis: `normalize(w_ws · c − w_cw · b)` (W-spec W12).
+ *
+ * `iBasis` is the clockwise parent's basis `c` and `jBasis` is the widdershins parent's basis
+ * ALREADY NEGATED — the same two vectors {@link makeBisectedBasis} is handed at the one call site,
+ * `addBisectionEdge` — so the sum below IS the spec's difference. `wCw` and `wWs` are those two
+ * parents' weights, and the numerator is the vertex-velocity kernel's numerator (W-spec W9), so the
+ * direction this returns is the kernel's direction.
+ *
+ * AT UNIT WEIGHTS IT IS BIT-IDENTICAL TO {@link makeBisectedBasis} BY CONSTRUCTION. `x * 1.0` is `x`
+ * for every finite double, so the two scalings are the identity on their operands and the addition,
+ * the normalisation and the zero-length fallback are the ones the unweighted solver performed, in
+ * the order it performed them. That is what arc decision 112(d)'s bit-identity bar rests on, and it
+ * is why the Cramer spelling — divide by the determinant, then normalise — is NOT used: it is 0–3
+ * ulps off today's bits.
+ *
+ * The zero-length fallback is today's, unchanged: where the scaled difference cancels there is no
+ * direction to normalise and the inward perpendicular of the clockwise parent stands in.
+ */
+export function makeWeightedBisectedBasis(
+    iBasis: Vector2,
+    jBasis: Vector2,
+    wCw: number,
+    wWs: number,
+): Vector2 {
+    const added = addVectors(scaleVector(iBasis, wWs), scaleVector(jBasis, wCw));
+    const [bisection, size] = normalize(added);
+    if (areEqual(size, 0)) {
+        // noinspection JSSuspiciousNameCombination Matrix rotation
+        return rotateCw90(iBasis)
+    }
+    return bisection;
+}
+
 export function negateVector(v: Vector2): Vector2 {
     return {x: -v.x, y: -v.y};
 }

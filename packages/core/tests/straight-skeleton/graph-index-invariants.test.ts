@@ -605,10 +605,79 @@ function parentSkew(graph: StraightSkeletonGraph, first: number, second: number)
     return lengths === 0 ? Number.NaN : Math.abs(a.x * b.y - a.y * b.x) / lengths;
 }
 
+/*
+ * ----------------------------------------------------------------------------
+ * THE LICENCE UNDER WEIGHTS — PARALLEL IS NECESSARY AND NO LONGER SUFFICIENT
+ * ----------------------------------------------------------------------------
+ *
+ * W-spec W37. The licence above rests on parallel parents having a single equidistant mid-line, and
+ * under weights that premise splits in two:
+ *
+ *  - ANTI-FACING parallel parents — the two walls of a corridor — still share one equi-time line at
+ *    any weights. It sits at `w₁ / (w₁ + w₂)` of the corridor's width instead of at half, but it is
+ *    one line and it carries two bisectors exactly as it always did (W-spec W14, W39(ii)).
+ *  - SAME-FACING parallel parents share a locus only when their weights are EQUAL. At unequal
+ *    weights the faster wall's wavefront simply overtakes the slower one's; there is no locus at all
+ *    to carry two bisectors, and a pair spanning one node pair there is the crossed pairing this
+ *    invariant exists to catch (W-spec W10, W29).
+ *
+ * So the licence is `parallel && (antiFacing || weightsEqual)`, and each licensed pair is then
+ * additionally checked on the thing the licence CLAIMS — that both its nodes really do lie on one
+ * equi-time locus, `d₁ · w₂ = d₂ · w₁` to `EQUIDISTANCE_BAR · w₁ · w₂`. That second half is what
+ * stops the licence being a label: a pair could satisfy the parallelism test and still sit off the
+ * locus, and before weights there was no reading of "off the locus" that did not simply restate I3.
+ *
+ * NOTHING ON THIS CORPUS MOVES. `solveSkeleton(vertices)` with no weights gives every edge weight
+ * `1`, so `weightsEqual` is true everywhere, the cross-multiplied equi-time reading is the
+ * equidistance reading, and the fifteen legitimate pairs and four defect readings are the same
+ * fifteen and four. The condition is here for the input that has not been swept yet, and it is
+ * convicted by the built-in mutation below on a weighted corpus fixture.
+ */
+
 /** One node pair carrying two bisectors, and whether the parents that would license it are parallel. */
 interface DuplicateRidge {
     description: string;
-    parentsParallel: boolean;
+    /**
+     * Whether this pair is LICENSED: parents parallel, facing or weighted so that they share a
+     * locus at all, and both nodes actually on it (W-spec W37).
+     */
+    licensed: boolean;
+}
+
+/** Do these two exterior edges face each other, rather than the same way? */
+function parentsAntiFacing(graph: StraightSkeletonGraph, first: number, second: number): boolean {
+    const a = graph.edges[first]?.basisVector;
+    const b = graph.edges[second]?.basisVector;
+    if (a === undefined || b === undefined) {
+        return false;
+    }
+    return a.x * b.x + a.y * b.y < 0;
+}
+
+/**
+ * Is `point` at one time from both of these parents, division-free? (W-spec W37, W22.)
+ *
+ * `d₁ / w₁ = d₂ / w₂` restated as `d₁ · w₂ = d₂ · w₁`, with the bar scaled by the same weight
+ * product that scaled the operands. At unit weights both products are by `1.0` and this is
+ * `|d₁ − d₂| ≤ EQUIDISTANCE_BAR`, the equidistance reading unchanged.
+ */
+function onOneEquiTimeLocus(
+    graph: StraightSkeletonGraph,
+    normalisation: SkeletonNormalisation,
+    first: number,
+    second: number,
+    point: Vector2,
+): boolean {
+    const toFirst = distanceToParentLine(graph, first, point);
+    const toSecond = distanceToParentLine(graph, second, point);
+    if (Number.isNaN(toFirst) || Number.isNaN(toSecond)) {
+        return false;
+    }
+    const weightFirst = graph.exteriorWeights[first];
+    const weightSecond = graph.exteriorWeights[second];
+    const discrepancy = Math.abs(toFirst * weightSecond - toSecond * weightFirst)
+        * normalisation.toUnitScale;
+    return discrepancy <= EQUIDISTANCE_BAR * weightFirst * weightSecond;
 }
 
 /**
@@ -618,7 +687,10 @@ interface DuplicateRidge {
  * and separately assert that the legitimate population is still being SEEN. A finder that quietly
  * stopped returning anything would otherwise satisfy the defect pin.
  */
-function duplicateRidges(graph: StraightSkeletonGraph): DuplicateRidge[] {
+function duplicateRidges(
+    graph: StraightSkeletonGraph,
+    normalisation: SkeletonNormalisation,
+): DuplicateRidge[] {
     const spanning = graph.interiorEdges
         .map(interior => ({interior, edge: graph.edges[interior.id]}))
         .filter(entry => entry.edge !== undefined
@@ -635,10 +707,20 @@ function duplicateRidges(graph: StraightSkeletonGraph): DuplicateRidge[] {
             if (!sameNodes) {
                 continue;
             }
-            const skew = parentSkew(
-                graph, a.interior.clockwiseExteriorEdgeIndex, a.interior.widdershinsExteriorEdgeIndex);
+            const clockwise = a.interior.clockwiseExteriorEdgeIndex;
+            const widdershins = a.interior.widdershinsExteriorEdgeIndex;
+            const skew = parentSkew(graph, clockwise, widdershins);
+            // W-spec W37, in the order the licence is argued: parallel, then a locus to share, then
+            // both ends actually on it.
+            const licensed = skew < PARALLEL_PARENTS_BAR
+                && (parentsAntiFacing(graph, clockwise, widdershins)
+                    || graph.exteriorWeights[clockwise] === graph.exteriorWeights[widdershins])
+                && onOneEquiTimeLocus(graph, normalisation, clockwise, widdershins,
+                    graph.nodes[a.edge.source].position)
+                && onOneEquiTimeLocus(graph, normalisation, clockwise, widdershins,
+                    graph.nodes[a.edge.target!].position);
             ridges.push({
-                parentsParallel: skew < PARALLEL_PARENTS_BAR,
+                licensed,
                 description: `ie${a.interior.id} n${a.edge.source}->n${a.edge.target} `
                     + `[${a.interior.clockwiseExteriorEdgeIndex},${a.interior.widdershinsExteriorEdgeIndex}]`
                     + ` and ie${b.interior.id} n${b.edge.source}->n${b.edge.target} `
@@ -650,10 +732,13 @@ function duplicateRidges(graph: StraightSkeletonGraph): DuplicateRidge[] {
     return ridges;
 }
 
-/** The pairs whose parents are not parallel: two bisectors on a ridge that admits one. */
-function crossedPairingProblems(graph: StraightSkeletonGraph): string[] {
-    return duplicateRidges(graph)
-        .filter(ridge => !ridge.parentsParallel)
+/** The pairs nothing licenses: two bisectors on a ridge that admits one. */
+function crossedPairingProblems(
+    graph: StraightSkeletonGraph,
+    normalisation: SkeletonNormalisation,
+): string[] {
+    return duplicateRidges(graph, normalisation)
+        .filter(ridge => !ridge.licensed)
         .map(ridge => ridge.description);
 }
 
@@ -694,7 +779,8 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
         (name, vertices) => {
-            expect(crossedPairingProblems(solveSkeleton(vertices).graph)).toEqual([]);
+            const {graph, normalisation} = solveSkeleton(vertices);
+            expect(crossedPairingProblems(graph, normalisation)).toEqual([]);
         },
     );
 
@@ -711,8 +797,10 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
     it('sees the legitimate head-on population too, so the pins are a filter and not a blindness', () => {
         // Fifteen mid-line pairs across nine fixtures. If `duplicateRidges` stopped finding pairs at
         // all, the defect pins above would still pass — this is what makes them mean something.
-        const legitimate = FULL_CORPUS.flatMap(polygon =>
-            duplicateRidges(solveSkeleton(polygon.vertices).graph).filter(ridge => ridge.parentsParallel));
+        const legitimate = FULL_CORPUS.flatMap(polygon => {
+            const {graph, normalisation} = solveSkeleton(polygon.vertices);
+            return duplicateRidges(graph, normalisation).filter(ridge => ridge.licensed);
+        });
 
         expect(legitimate).toHaveLength(15);
     });
@@ -726,9 +814,9 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
          * interior edges at all, must flip the verdict; if it does not, the sweep is reading
          * something other than the parents' parallelism and the whole discriminator is unwarranted.
          */
-        const {graph} = solveSkeleton(COLLINEAR_DUMBBELL);
-        expect(crossedPairingProblems(graph)).toEqual([]);
-        expect(duplicateRidges(graph)).toHaveLength(1);
+        const {graph, normalisation} = solveSkeleton(COLLINEAR_DUMBBELL);
+        expect(crossedPairingProblems(graph, normalisation)).toEqual([]);
+        expect(duplicateRidges(graph, normalisation)).toHaveLength(1);
 
         // A rotation rather than a nudge, so the skew introduced is 1e-6 whatever length the basis
         // happens to carry — three orders clear of the bar, five below the real defects' readings.
@@ -747,7 +835,78 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
                 : edge),
         };
 
-        expect(crossedPairingProblems(skewed)).toHaveLength(1);
-        expect(crossedPairingProblems(skewed)[0]).toContain('ie26 n12->n13 [3,9]');
+        expect(crossedPairingProblems(skewed, normalisation)).toHaveLength(1);
+        expect(crossedPairingProblems(skewed, normalisation)[0]).toContain('ie26 n12->n13 [3,9]');
+    });
+
+    /*
+     * THE SECOND BUILT-IN MUTATION, ON THE FACING/WEIGHT CLAUSE ALONE (W-spec W37).
+     *
+     * WHY IT IS BUILT RATHER THAN TAKEN FROM THE CORPUS, and this is the whole reason the case is
+     * worth writing: the clause and the equi-time reading are only separable where the two parents
+     * stand at DIFFERENT distances from the shared nodes. Every duplicate ridge on this corpus is a
+     * mid-line, equidistant from its two parents, and there `d₁ · w₂ = d₂ · w₁` forces `w₁ = w₂` on
+     * its own — so reweighting a corpus mid-line withdraws the licence through the equi-time check
+     * whatever the clause says, and convicts nothing.
+     *
+     * The configuration below separates them exactly: two parallel walls at `y = 0` and `y = 3`,
+     * two bisectors spanning one node pair on the line `y = 1` — distance 1 from the first wall and
+     * 2 from the second — with weights 1 and 2. Equi-time HOLDS there (`1 · 2 = 2 · 1`), so the
+     * licence turns entirely on whether the two walls share a locus at all:
+     *
+     *   - ANTI-facing, the walls of a corridor: they do, at any weights. Licensed.
+     *   - SAME-facing at unequal weights: they do not — the faster wavefront simply overtakes the
+     *     slower and no line is reached by both at one time (W-spec W10, W29). NOT licensed, and a
+     *     pair of bisectors spanning one node pair there is the crossed pairing this invariant is
+     *     for.
+     *
+     * Drop `(antiFacing || weightsEqual)` and the last case is licensed and this test dies.
+     */
+    it('withdraws the licence from SAME-FACING parallel parents whose weights differ', () => {
+        const unitSpace: SkeletonNormalisation = {
+            centre: {x: 0, y: 0}, toUnitScale: 1, fromUnitScale: 1, degenerate: false,
+        };
+        /** Two walls, two bisectors on one node pair between them, at the stated facing and weights. */
+        function twoWalls(secondWallBasis: Vector2, weights: number[]): StraightSkeletonGraph {
+            const positions: Vector2[] = [
+                {x: 0, y: 0}, {x: 10, y: 0},                       // wall 0, the line y = 0
+                secondWallBasis.x > 0 ? {x: 0, y: 3} : {x: 10, y: 3},
+                secondWallBasis.x > 0 ? {x: 10, y: 3} : {x: 0, y: 3},
+                {x: 3, y: 1}, {x: 6, y: 1},                        // the shared node pair, on y = 1
+            ];
+            return {
+                nodes: positions.map((position, id) => ({
+                    id, position, inEdges: [], outEdges: [],
+                })),
+                edges: [
+                    {id: 0, source: 0, target: 1, basisVector: {x: 1, y: 0}},
+                    {id: 1, source: 2, target: 3, basisVector: secondWallBasis},
+                    {id: 2, source: 4, target: 5, basisVector: {x: 1, y: 0}},
+                    {id: 3, source: 5, target: 4, basisVector: {x: -1, y: 0}},
+                ],
+                numExteriorNodes: 2,
+                interiorEdges: [
+                    {id: 2, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 1, length: 3},
+                    {id: 3, clockwiseExteriorEdgeIndex: 1, widdershinsExteriorEdgeIndex: 0, length: 3},
+                ],
+                exteriorWeights: weights,
+            };
+        }
+
+        const antiFacing = twoWalls({x: -1, y: 0}, [1, 2]);
+        expect(duplicateRidges(antiFacing, unitSpace)).toHaveLength(1);
+        expect(duplicateRidges(antiFacing, unitSpace)[0].licensed).toBe(true);
+
+        const sameFacingEqual = twoWalls({x: 1, y: 0}, [1, 1]);
+        // Equal weights, same-facing: an equidistant mid-line would exist — but this node pair is
+        // not on it (1 from one wall, 2 from the other), so equi-time refuses it. That is the
+        // equi-time half of the licence doing its own work, and it is asserted so the two halves are
+        // not confused for each other.
+        expect(duplicateRidges(sameFacingEqual, unitSpace)[0].licensed).toBe(false);
+
+        const sameFacingUnequal = twoWalls({x: 1, y: 0}, [1, 2]);
+        // Equi-time HOLDS here — `1 · 2 = 2 · 1` — so only the facing/weight clause can withdraw it.
+        expect(duplicateRidges(sameFacingUnequal, unitSpace)[0].licensed).toBe(false);
+        expect(crossedPairingProblems(sameFacingUnequal, unitSpace)).toHaveLength(1);
     });
 });

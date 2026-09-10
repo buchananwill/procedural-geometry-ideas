@@ -27,6 +27,12 @@ import {
     StraightSkeletonGraph,
     Vector2,
     crossProduct,
+    computeMaxOffset,
+    computeNodeOffsetDistances,
+    computeNodeOffsets,
+    computeOffsetRings,
+    computeOffsetRingsDetailed,
+    computeStrips,
     makeBasis,
     setSkeletonLogLevel,
     solveSkeleton,
@@ -603,5 +609,231 @@ describe('weighted offsets: unit-weight identity over the whole corpus (W36, arc
         const bare = solveSkeleton(WEIGHTED_RECTANGLE_FAST_FLOOR.vertices);
         const uniform = solveSkeleton(WEIGHTED_RECTANGLE_FAST_FLOOR.vertices, {weights: [7, 7, 7, 7]});
         expect(interiorNodes(uniform.graph)).toEqual(interiorNodes(bare.graph));
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE PROJECTION IS IN TIME (W-spec W5, W40) — §4.1 and §4.4's expectations
+ * ============================================================================
+ *
+ * The solver's `maxOffset` and `offsetDistance` became times in package 2 while `computeNodeOffsets`
+ * still returned distances — identical at unit weights, divergent the moment a weight is not one
+ * (arc journal decision 127, F50). These are the assertions that say the seam is closed.
+ *
+ * THE RING AT TIME `t` IS THE EQUI-TIME FRONT: the offset segment of exterior edge `e` stands at
+ * perpendicular distance `w_e · t` from `e`, so one call sets differently-weighted edges back by
+ * different amounts. That is the whole claim, and `ringSetbackErrors` below re-derives it from the
+ * returned geometry against the fixture's own weights rather than against anything the projection
+ * computed.
+ *
+ * MUTATION: put the distance back — drop the `/ exteriorWeights[parent]` in `computeNodeOffsets`, or
+ * the `· w_cw` in `bisectorPositionAtOffset` — and every assertion in this block dies while the
+ * unweighted corpus, the digest and `offset-projection.test.ts` stay green.
+ */
+
+/** Perpendicular distance from `point` to the supporting line of exterior edge `edgeId`. */
+function faceDistance(graph: StraightSkeletonGraph, edgeId: number, point: Vector2): number {
+    return Math.abs(distanceToFace(graph, edgeId, point));
+}
+
+/**
+ * For every segment of every ring at `time`, how far its two endpoints are from `w_e · time`.
+ *
+ * Read off `OffsetRingSegment.exteriorEdgeId`, so each piece is measured against the edge it is the
+ * offset OF and against that edge's own speed. An unweighted projection puts every piece at `time`
+ * from its edge and fails here on any fixture with a non-unit weight.
+ */
+function ringSetbackErrors(result: SkeletonSolveResult, time: number): number[] {
+    const graph = result.graph;
+    const errors: number[] = [];
+    for (const ring of computeOffsetRingsDetailed(result, time)) {
+        for (const segment of ring.segments) {
+            const expected = result.weights[segment.exteriorEdgeId] * time;
+            errors.push(Math.abs(faceDistance(graph, segment.exteriorEdgeId, segment.start.position) - expected));
+            errors.push(Math.abs(faceDistance(graph, segment.exteriorEdgeId, segment.end.position) - expected));
+        }
+    }
+    return errors;
+}
+
+describe('weighted offsets: the projection reads TIME (W40)', () => {
+    it('the node table IS the equi-time table: every node, against every face it touches', () => {
+        /*
+         * THE DIRECT STATEMENT OF W40, and the conviction that does not depend on which edge the
+         * table happened to date a node against. `computeNodeOffsets` picks the clockwise parent of
+         * the first incident bisector — an implementation choice — so a fixture whose nodes all
+         * happen to be dated against a unit-weight edge cannot see the division go missing. This
+         * checks the returned value against EVERY incident face's own clock instead, which is a
+         * choice-free reading: `d_f / w_f` is one number across the faces at a node (W39(i)), and
+         * the table must be that number.
+         */
+        for (const fixture of [
+            WEIGHTED_RECTANGLE_FAST_FLOOR,
+            WEIGHTED_CORRIDOR_FAST_CEILING,
+            WEIGHTED_FAST_SHELF_L,
+            WEIGHTED_SQUARE_NEAR_MAX_RATIO,
+            WEIGHTED_SQUARE_ALTERNATING,
+            WEIGHTED_PENTAGON_HOUSE,
+            WEIGHTED_STEP,
+        ]) {
+            const result = solveWeighted(fixture);
+            const table = computeNodeOffsets(result);
+            let checked = 0;
+            for (let nodeId = result.graph.numExteriorNodes; nodeId < result.graph.nodes.length; nodeId++) {
+                const tabled = table.get(nodeId);
+                if (tabled === undefined) {
+                    continue;
+                }
+                const position = result.graph.nodes[nodeId].position;
+                for (const faceId of facesAtNode(result.graph, nodeId)) {
+                    const time = distanceToFace(result.graph, faceId, position) / result.weights[faceId];
+                    expect({fixture: fixture.name, nodeId, faceId, off: Math.abs(tabled - time) > EQUI_TIME_BAR})
+                        .toEqual({fixture: fixture.name, nodeId, faceId, off: false});
+                    checked += 1;
+                }
+            }
+            expect({fixture: fixture.name, checked: checked > 0}).toEqual({fixture: fixture.name, checked: true});
+        }
+    });
+
+    it('the debug readout is in the same clock as the projection (W40, debug-helpers)', () => {
+        /*
+         * `computeNodeOffsetDistances` is the dashboard's own node-time readout, dated from the
+         * bisector LEAVING a node rather than re-derived from the finished graph — a second route to
+         * one quantity, which is why it is checked against the first rather than trusted. It was the
+         * last site still returning a distance while everything around it returned a time; had it
+         * been left, the overlay would have labelled a weighted node with the slow wall's distance.
+         *
+         * Nodes the readout skips (no outgoing interior edge — the terminal ones) are skipped here
+         * too; the assertion is that the two agree wherever both speak, and that they do speak.
+         */
+        for (const fixture of [WEIGHTED_RECTANGLE_FAST_FLOOR, WEIGHTED_CORRIDOR_FAST_CEILING,
+            WEIGHTED_FAST_SHELF_L, WEIGHTED_SQUARE_ALTERNATING]) {
+            const result = solveWeighted(fixture);
+            const projected = computeNodeOffsets(result);
+            const readout = computeNodeOffsetDistances(result.context!);
+            let compared = 0;
+            for (const [nodeId, time] of readout) {
+                const expected = projected.get(nodeId);
+                if (expected === undefined) {
+                    continue;
+                }
+                expect({fixture: fixture.name, nodeId, off: Math.abs(time - expected) > EQUI_TIME_BAR})
+                    .toEqual({fixture: fixture.name, nodeId, off: false});
+                compared += 1;
+            }
+            expect({fixture: fixture.name, compared: compared > 0})
+                .toEqual({fixture: fixture.name, compared: true});
+        }
+    });
+
+    it('exterior nodes are at time zero and interior nodes are not', () => {
+        // The table's other end: the boundary is `t = 0` by construction rather than by division, so
+        // a weight can never move it. A fast wall would move it if it were a distance.
+        const result = solveWeighted(WEIGHTED_RECTANGLE_FAST_FLOOR);
+        const table = computeNodeOffsets(result);
+        for (let nodeId = 0; nodeId < result.graph.numExteriorNodes; nodeId++) {
+            expect(table.get(nodeId)).toBe(0);
+        }
+        expect(computeOffsetRings(result, 0)).toHaveLength(1);
+    });
+
+    it('§4.1 computeMaxOffset is 2/3 — the TIME the ridge forms at, not the distance to it', () => {
+        const result = solveWeighted(WEIGHTED_RECTANGLE_FAST_FLOOR);
+        // The fast floor covers `2 · 2/3 = 4/3` in that time and the slow top covers `2/3`; the
+        // ridge sits at `y = 4/3`. A projection still in distance reports the 4/3.
+        expect(computeMaxOffset(result)).toBeCloseTo(2 / 3, 12);
+        expect(computeMaxOffset(solveSkeleton(WEIGHTED_RECTANGLE_FAST_FLOOR.vertices)))
+            .toBeCloseTo(1, 12);
+    });
+
+    it('§4.1 the ring at a time sets the fast floor back twice as far as the slow walls', () => {
+        const result = solveWeighted(WEIGHTED_RECTANGLE_FAST_FLOOR);
+        const time = 1 / 3;
+        const rings = computeOffsetRings(result, time);
+        expect(rings).toHaveLength(1);
+
+        // Bottom wavefront `y = 2t`, top `y = 2 − t`, sides `x = t` and `x = 4 − t`.
+        const ys = rings[0].map(vertex => vertex.y);
+        const xs = rings[0].map(vertex => vertex.x);
+        expect(Math.min(...ys)).toBeCloseTo(2 * time, 12);
+        expect(Math.max(...ys)).toBeCloseTo(2 - time, 12);
+        expect(Math.min(...xs)).toBeCloseTo(time, 12);
+        expect(Math.max(...xs)).toBeCloseTo(4 - time, 12);
+
+        expect(Math.max(...ringSetbackErrors(result, time))).toBeLessThan(ANALYTIC_TOLERANCE);
+    });
+
+    it('§4.4 computeMaxOffset is 2/(R+1) at the near-maximum ratio', () => {
+        const result = solveWeighted(WEIGHTED_SQUARE_NEAR_MAX_RATIO);
+        const ratio = Math.max(...WEIGHTED_SQUARE_NEAR_MAX_RATIO.weights);
+        expect(computeMaxOffset(result)).toBeCloseTo(2 / (ratio + 1), 12);
+        // The distance the fast floor covers by then is `2R/(R+1)`, hard against the top wall — and
+        // that is what a projection still measuring distance would have reported as the maximum.
+        expect(computeMaxOffset(result) * ratio).toBeCloseTo(2 * ratio / (ratio + 1), 12);
+    });
+
+    it('§4.4 the ring at half the maximum time is at R/(R+1) from the floor and 1/(R+1) from the top', () => {
+        const result = solveWeighted(WEIGHTED_SQUARE_NEAR_MAX_RATIO);
+        const ratio = Math.max(...WEIGHTED_SQUARE_NEAR_MAX_RATIO.weights);
+        const time = 1 / (ratio + 1);
+        const rings = computeOffsetRings(result, time);
+        expect(rings).toHaveLength(1);
+
+        expect(Math.min(...rings[0].map(vertex => vertex.y))).toBeCloseTo(ratio * time, 10);
+        expect(Math.max(...rings[0].map(vertex => vertex.y))).toBeCloseTo(2 - time, 10);
+        expect(Math.max(...ringSetbackErrors(result, time))).toBeLessThan(1e-10);
+    });
+
+    it('every solving fixture rings at `w_e · t` on every edge, at three fractions of its maximum', () => {
+        // The generalisation of the two above: no analytic ring is needed, because the claim is a
+        // relation between the returned geometry, the segment's own edge and that edge's weight.
+        for (const fixture of [
+            WEIGHTED_RECTANGLE_FAST_FLOOR,
+            WEIGHTED_CORRIDOR_FAST_CEILING,
+            WEIGHTED_FAST_SHELF_L,
+            WEIGHTED_SQUARE_ALTERNATING,
+            WEIGHTED_PENTAGON_HOUSE,
+            WEIGHTED_STEP,
+        ]) {
+            const result = solveWeighted(fixture);
+            const maximum = computeMaxOffset(result);
+            for (const fraction of [0.2, 0.5, 0.8]) {
+                const errors = ringSetbackErrors(result, maximum * fraction);
+                expect({fixture: fixture.name, fraction, empty: errors.length === 0})
+                    .toEqual({fixture: fixture.name, fraction, empty: false});
+                expect(Math.max(...errors)).toBeLessThan(EQUI_TIME_BAR);
+            }
+        }
+    });
+
+    it('the unweighted corpus projects to the same rings it always did', () => {
+        // W40's other half: the division and the multiplication are both by exactly `1.0` here, so
+        // the ring vertices must be bit-identical, not merely close.
+        for (const fixture of FULL_CORPUS.slice(0, 8)) {
+            const bare = solveSkeleton(fixture.vertices);
+            const ones = solveSkeleton(fixture.vertices, {weights: fixture.vertices.map(() => 1)});
+            const depth = computeMaxOffset(bare) * 0.4;
+            expect(computeMaxOffset(ones)).toBe(computeMaxOffset(bare));
+            expect(computeOffsetRings(ones, depth)).toEqual(computeOffsetRings(bare, depth));
+        }
+    });
+
+    it('the strip depth is a time: one depth cuts `w_e · depth` on edge e (W41)', () => {
+        // §4.1's rectangle. The strip on the fast floor is twice as deep as the strips on the slow
+        // walls at one `depth`, which is the whole of what a weighted setback means.
+        const result = solveWeighted(WEIGHTED_RECTANGLE_FAST_FLOOR);
+        const depth = 1 / 4;
+        const strips = computeStrips(result, {depth});
+        expect(strips).toHaveLength(4);
+
+        for (const strip of strips) {
+            const edgeId = strip.supportingEdgeIds[0];
+            expect(strip.supportingEdgeWeights).toEqual([result.weights[edgeId]]);
+            const deepest = Math.max(...strip.boundary.map(
+                point => faceDistance(result.graph, edgeId, point)));
+            expect(deepest).toBeCloseTo(result.weights[edgeId] * depth, 12);
+        }
     });
 });
