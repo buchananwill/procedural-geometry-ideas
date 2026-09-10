@@ -63,15 +63,16 @@ visual-verification tool) and the session-1 journal's process learnings. Additio
 
 ## 4. Next work — SESSION CLOSE HANDOFF, 2026-09-10
 
-**State at close, lead-verified on the merged tree:** tip = the docs commit after `b1bb095`,
-branch un-pushed, nothing has left this machine. Core **5477/5477 (85 suites)**, dashboard
-**312/312 (22 suites)**, corpus 59 (53 clean + 6 defect) plus nine weighted fixtures outside the
-rosters. Digest: 59 pins, 45 native to `0c9c9cd` and 14 re-pinned with attribution. Both of the
-user's session objectives are delivered: weighted offsets are implemented end to end at the root
-(commits `0c9c9cd`, `3dd467c`, `b1bb095`), and the C++ handoff at
+**State at close, lead-verified on the merged tree:** tip = the docs commit after the UI
+commit, branch un-pushed, nothing has left this machine. Core **5477/5477 (85 suites)**,
+dashboard **331/331 (24 suites)**, corpus 59 (53 clean + 6 defect) plus nine weighted fixtures
+outside the rosters. Digest: 59 pins, 45 native to `0c9c9cd` and 14 re-pinned with attribution.
+Both of the user's session objectives are delivered and the weights are reachable from the
+demo UI: weighted offsets are implemented end to end at the root (commits `0c9c9cd`, `3dd467c`,
+`b1bb095`, then the UI commit — F54), and the C++ handoff at
 [cpp-port-handoff.md](./cpp-port-handoff.md) is complete and active. The next session opens
-`recursive-subdivision-arc-journal-5.md`, continuing decisions at **130** and findings at
-**F54**; read THIS section, §2, and F49–F53 — do not read this journal end to end.
+`recursive-subdivision-arc-journal-5.md`, continuing decisions at **131** and findings at
+**F55**; read THIS section, §2, and F49–F54 — do not read this journal end to end.
 
 **The session's four commits and what each is:** `f3bc733` (the documents), `0c9c9cd` (the
 digest gate), `3dd467c` (solver core — defective, F51), `b1bb095` (projection, downstream, and
@@ -86,8 +87,9 @@ bisect that lands on `3dd467c` will see every solve throw.
 2. **Weighted-offsets residue, all small and all open (decisions 126, 128, 129; F53):** the
    unequal-wall corridor fixture that reaches `co-linear-from-1` (the only thing that can reopen
    W33); the ratio constant's discriminating fixture (two arrivals `~R·1e-8` apart on a fast
-   edge); W39(i), I3's weighted restatement in the invariants test; a weights UI in the demo
-   (the hook already threads them); `findOffsetViaIncenter` renamed for its linear-form body;
+   edge); W39(i), I3's weighted restatement in the invariants test; ~~a weights UI in the demo~~
+   (landed, F54); `findOffsetViaIncenter` renamed for its linear-form body; the demo's two
+   pre-existing lint findings (F54);
    spec residue (`arrivalsAreSimultaneous` → `areSimultaneousArrivals`; W52(i) 4 ulps → 3; the
    digest header's W33 sentence). W46's second landing (sub-region weights) waits on item 3.
 3. **The root-floor reconciliation package** — still the one STRUCTURAL open item, carried
@@ -336,6 +338,19 @@ Opus, with Sonnet for work that is mechanical in execution.** Applied: the diges
 116) is dispatched to Sonnet because its content is fully specified and its gate is convicted by
 mutation and re-run by the lead; the weighted core and the degenerate machinery go to Opus.
 
+**130 — (user, 2026-09-10, after the close) Weights are exposed in the demo UI; session 4
+reopens for this one package and session 5 continues at 131 / F54.** Ruled shape: weights live
+in the polygon store as an array parallel to the vertices, default all ones; inserting a vertex
+splits an edge and both halves inherit its weight; deleting a vertex merges two edges and the
+surviving edge keeps the weight of the edge that ran INTO the deleted vertex (a user edit, not
+canonicalisation, so decision 120 does not apply — stated at the site); loading a fixture or
+generating a random polygon resets weights to ones. A per-edge editor lists every edge `i → i+1`
+with a numeric weight and a reset-to-ones action. The two door refusals (ratio, visible corner)
+are caught at the solve boundary and shown as a visible error with the solver's message, never
+an uncaught throw; the primary-bisector overlay shows the weighted bisectors through the
+threading package 3 landed. Visual verification per the session-3 manual: build, check port
+3000, Playwright screenshot of a square with one edge at weight 2.
+
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
 with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
@@ -482,6 +497,22 @@ order preserved for bit-identity). §0's fork figures re-measured by the delegat
 36 files, +7632/−550 against `e2544d4`. Residue the delegate flagged and the lead accepts as
 open: `findOffsetViaIncenter` keeps its old name over a linear-form body; W52(i) says 4 ulps
 where W12 measured 3; the digest header's sentence about W33 is loose.
+
+**F54 — The edge-weights UI landed and the picture matches the analytic answer: a square with
+its left wall at speed 2 puts the ridge two-thirds of the way across, spanning the middle third
+of the height.** Lead-checked on the delegate's Playwright screenshots (a 400-unit square, edge
+0 at weight 2; then edge 0 at 500 showing the ratio refusal as an inline alert with the
+solver's verbatim message while the weight-2 skeleton stays on the canvas) and by re-running
+the dashboard suite: 331/331 (24 suites). Shape: `weights` in the polygon store parallel to
+the vertices with decision 130's insert/delete/reset semantics; `EdgeWeightsPanel`; a new
+`skeleton-solve-boundary.ts` that runs the weight door BEFORE canonicalisation so both
+refusals are caught per keystroke without a solve; `useSkeletonAnimation` exposes `solveError`
+and retains the last good context — which now covers EVERY solver failure, not only the two
+refusals (previously any failure blanked the canvas; delegate's judgement, adopted). Coverage
+boundary, stated in the test headers: the store and both refusal paths are convicted; the
+hook's own routing rests on the type checker, the build and the Playwright pass, because the
+dashboard has no React renderer. Demo lint carries one pre-existing error and one warning in
+untouched files (`dol-system/page.tsx:51`, `AppShellLayout.tsx`) — open, trivial.
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
