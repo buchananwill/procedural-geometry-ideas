@@ -339,7 +339,19 @@ the raw separation alone. Under weights the trailer reaches that point at `arriv
 if `arrivalsAreEqual(arrival_T, arrival_L, ε)`, else the branch falls through to the throw at line
 445. This check is NOT gated on weights (W36). It is reached twice on the corpus at native placement
 (the plus seed) and on the large-coordinate cells; if it fails there at unit weights the digest moves,
-and that movement is a finding to attribute, not a reason to gate.
+and that movement is a finding to attribute, not a reason to gate. **NOT IMPLEMENTED 2026-09-10 (arc
+decision 126).** The check was written and measured at unit weights over the whole corpus: the digest
+does not move (all 59 native pins survive), but the branch is reached by near-anti-parallel corridors
+whose two mid-lines carry constant, slightly different times, so the check FIRES there. With the
+consequence stated above (fall through to the throw) ten pinned assertions across six suites move,
+including a defect growing — the recursion census reports jitter-plus seed 7919 at 16 failed regions
+where 15 is pinned. With the softest consequence (fall through to ordinary termination) four move,
+including an UNATTRIBUTED CURE (rosette5-40 at 1e11, 2 → 1 unresolved) and the 48-way cluster at 2e10
+shattering 11 → 12 nodes. Neither rewrite of the failure register is justified by anything measured,
+because no §4 weighted fixture reaches the branch. Ruled: the closure stands on the raw separation as
+today; the site carries a block comment recording the measurement; the check is re-opened only with
+a weighted fixture that reaches the branch — a corridor whose walls carry different weights and whose
+closure is reached through `co-linear-from-1` — which is §4.10, an OPEN roster entry.
 
 **W34 — The head-on cross-wire is unchanged** (line 404–405): two bisectors on one line pointing at
 each other are the two midlines of a corridor, both at constant time `t*`; under weights both nodes
@@ -686,9 +698,16 @@ shelf (`y = 2 − 4t`) and the floor (edge 5, `y = t`) are anti-facing parallel 
 whole lower block closes at once on the equi-time line `y = 2/5` (W14), the reflex trace arriving at
 its left end `(8/5, 2/5)` and the two right-hand corner traces `(−1, −4)` from `(6,2)` and `(−1, 1)`
 from `(6,0)` at its right end `(28/5, 2/5)`; one ridge between those nodes, both at time `2/5`. Then
-complete solve, causality over time, containment, tiling. A second variant tilting the shelf so the
+complete solve, causality over time, containment, tiling. ~~A second variant tilting the shelf so the
 reflex turn is `1e-3` radians records `|v|` (≈ `3e3` at these weights) and is the fixture W49's guard
-is convicted on.
+is convicted on.~~ *Second variant re-authored 2026-09-10 (arc decision 127(b)) as the delegate's
+`WEIGHTED_NEAR_STRAIGHT_WEIGHT_CHANGE`*: a 10×10 square whose bottom wall is broken at its midpoint
+by a vertex placed `2.5e-3` inside, so the turn sine at that vertex is exactly `1e-3` — above
+`PARALLEL_GATE_SINE_BAR` (`1.41e-4`), so it passes W49's door — with weights `4` and `1` on the two
+halves. Kernel speed at that vertex `|v| = |4 − 1| / 1e-3 = 3e3`, the same number for the same reason
+as the retired variant. Expected: accepted at the door, the vertex pinned (W44), a complete solve,
+causality over time, containment and tiling; the fixture is the conviction of W49's bound
+`|v| ≤ |w₁ − w₂| / 1.41e-4` from inside the contract.
 
 **4.4 Near-maximum-ratio.** `SQUARE` scaled to `(0,0) (0,2) (2,2) (2,0)` with weights `[1, 1, 1, R]`,
 `R = MAX_WEIGHT_RATIO`. Expected at `R`: bottom wavefront `y = R t` meets top `y = 2 − t` at `t = 2 /
@@ -729,8 +748,35 @@ expectations under options (i) and (ii), and the plain-square negative control, 
 door is reached first and none of that geometry is ever computed.~~ A companion assertion keeps the
 contract's other edge honest: the same square with the midpoints REMOVED and weights
 `[1, 2, 1, 2]` on its four edges solves (every weight change is at a `90°` corner), with corner
-velocities `(1, 2)`, `(2, −1)`, `(−1, −2)`, `(−2, 1)`, four-fold rotational symmetry to `1e-12`, and
-no mirror symmetry.
+velocities ~~`(1, 2)`, `(2, −1)`, `(−1, −2)`, `(−2, 1)`, four-fold rotational symmetry to `1e-12`, and
+no mirror symmetry~~ **`(1, 2)`, `(1, −2)`, `(−1, −2)`, `(−1, 2)` — corrected 2026-09-10 (arc decision
+127(a))**: on a four-cycle with alternating weights, opposite edges have the same speed, so the
+configuration is mirror-symmetric about both axes and two-fold rotational; four-fold rotational
+symmetry with no mirror symmetry is unachievable for any weights, and the second and fourth
+velocities as first written were arithmetically wrong (the kernel at `(0,2)` is `v · (1,0) = 1`, `v ·
+(0,−1) = 2`, which is `(1, −2)`, not `(2, −1)`). Asserted: those four velocities, mirror symmetry
+about `x = 1` and `y = 1` to `1e-12`, the ridge horizontal at `y = 4/3` (the fast top and bottom
+walls meet the slow sides' corner traces at `t = 2/3`, as in §4.1).
+
+**4.9 `WEIGHTED_SUB_FLOOR_WEIGHT_CHANGE` — the W44 conviction** (arc decision 127(c)). A small bump on
+one wall: an apex vertex whose chord deviation is `4e-6` — under `SKELETON_NOISE_FLOOR` (`1e-6`)? no:
+four times the floor is not under it, so the bump is built so that the apex's deviation is `4e-6`
+against SHORT incident edges, giving a turn sine of `2e-4` — above `PARALLEL_GATE_SINE_BAR` — and the
+control removes it by lowering the floor's target... *Stated exactly as the delegate authored it:*
+apex deviation `4e-6`, turn sine `2e-4`, weights differing across the apex. The unit-weight CONTROL:
+the same ring solved with all weights one at a `perceptualFloor` above `4e-6` loses the vertex
+(`removedCount` 1). The weighted assertion: the same ring and floor with unequal weights across the
+apex keeps it (`removedCount` 0) because W44 pins it; the solve is complete and the kernel at the apex
+has speed `|w₁ − w₂| / 2e-4`. This fixture exists because a pinned vertex is only distinguishable
+from an unpinned one when its deviation is sub-floor while its turn is super-bar, and that pair of
+conditions holds only when the incident edges are short.
+
+**4.10 OPEN — unequal-wall corridor closing through `co-linear-from-1`** (arc decision 126). The
+discriminating fixture for W33: a corridor whose two walls carry different weights and whose two
+mid-lines are born pointing the same way along one line, so that the pair is classified
+`co-linear-from-1` and reaches the leading-source closure (algorithm-termination-cases.ts lines
+481–486). No expectation is stated yet: the fixture has to be constructed and measured before anything
+is pinned, and W33's check is re-opened by it and by nothing else.
 
 ## 5. Falsification bars
 
@@ -739,8 +785,8 @@ no mirror symmetry.
    current tip, before any weighted change, and is convicted by mutation: perturb one node coordinate
    by one ulp and the pin must die. A moved pin is attributed per fixture; the only sites permitted to
    move it are W21 (arc decision 115: movement bounded by ulps, more than ulps is a defect in the
-   linear form) and W33 (if the equi-time check fails at unit weights on the plus seed or the
-   large-coordinate cells), and each such movement is a finding.
+   linear form); W33's check is not implemented (arc decision 126), so it moves nothing; each such
+   movement is a finding.
 2. **Analytic fixtures** (§4.1, 4.2, 4.4, 4.6): node positions to `1e-12` relative in unit space,
    times to `1e-12`, node and edge counts exact.
 3. **Wavefront causality over time**: `wavefront-causality.test.ts`'s oracle divides by the parent

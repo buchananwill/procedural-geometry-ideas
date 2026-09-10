@@ -56,9 +56,9 @@ visual-verification tool) and the session-1 journal's process learnings. Additio
 
 ## 4. Next work
 
-**Phase 1 (bootstrap, design, handoff draft) is complete and awaits the user's confirmation
-before Phase 2 dispatches.** Nothing has been committed this session yet; the three new files
-(this journal, the ratified spec, the handoff draft) are untracked on a clean tree.
+**Phase 1 (bootstrap, design, handoff draft) is complete and committed at `f3bc733`; Phase 2
+is GO (decision 125).** Package 1 (digest) landed at `0c9c9cd` (F49). Package 2 (solver core)
+dispatched to Opus 2026-09-10 against that pin table; package 3 waits on it.
 
 Phase 2, the implementation packages, in the order the spec's falsification bars require:
 
@@ -308,6 +308,42 @@ Opus, with Sonnet for work that is mechanical in execution.** Applied: the diges
 116) is dispatched to Sonnet because its content is fully specified and its gate is convicted by
 mutation and re-run by the lead; the weighted core and the degenerate machinery go to Opus.
 
+**126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
+NOT implemented; the closure stands on the raw separation, and the check is re-opened only
+with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
+it over the whole corpus at unit weights: the digest does not move (all 59 native pins
+survive), but the branch is reached by near-anti-parallel corridors whose two mid-lines carry
+constant, slightly different times, so the check FIRES there. With W33's stated consequence
+(fall through to the throw) ten pinned assertions across six suites move, including the
+recursion census reporting jitter-plus seed 7919 at 16 failed regions where 15 is pinned — a
+defect growing, which the corpus doctrine (decision 72) treats as a regression. With the
+softest consequence (fall through to the ordinary termination) four move, including an
+UNATTRIBUTED CURE (rosette5-40 at 1e11, 2 → 1 unresolved) and the 48-way cluster at 2e10
+shattering 11 → 12 nodes. Neither rewrite of the failure register is justified by anything
+measured: no §4 weighted fixture reaches the branch, so nothing shows what the check buys.
+Ruled: leave the site as it is, with the delegate's block comment recording the measurement;
+the discriminating weighted fixture — a corridor whose walls carry different weights and whose
+closure is reached through `co-linear-from-1` — is an open item (§5).
+
+**127 — The package-2 delegate's sixteen interpretations are ADOPTED, and the spec's §4.8
+companion corner velocities are corrected to the delegate's derivation.** Of note: (a) the
+spec's §4.8 four-cycle claim (four-fold rotational symmetry with no mirror) is arithmetically
+impossible — alternating weights give opposite edges the same speed, so the shape is
+mirror-symmetric about both axes; the derived velocities `(1,2), (1,−2), (−1,−2), (−1,2)` are
+what the fixture asserts, and the spec is amended to say so; (b) §4.3's second variant is
+re-authored as a 10×10 square with a bottom-wall vertex at turn sine exactly 1e-3, weights 4
+and 1, kernel speed 3e3 — the same number for the same reason; (c) W44's pin needed a new
+fixture (a sub-floor bump with a super-bar turn), which only exists when the incident edges
+are short — the delegate's addition is right and the spec's roster gains it; (d)
+`compareArrivals` returns 0 for an exactly equal pair even at ε = 0, where `fp_compare`
+returns 1, because three stable sorts rely on it — stated at the function; (e) the merged
+graph's `exteriorWeights` is the concatenation in sub-graph order and `weightOf` on a merged
+context is unsupported, consistent with the port's decision not to port `graph-merge`. The
+consequence the delegate flagged for package 3 is binding: `computeNodeOffsets` still returns
+DISTANCES while `maxOffset` and `offsetDistance` are now TIMES — identical at unit weights,
+divergent the moment a weight is not one — so package 3 lands W40 before any weighted solve is
+projected.
+
 ---
 ## Findings
 
@@ -323,6 +359,34 @@ delegate and re-run by the lead: speed `1.5e7` at a turn of `1e-6` with weights 
 the solver's `1e-8` time window becomes a spatial slack of `0.15` of the unit extent. This is the
 user's fast-beside-slow reflex reading from session 3, quantified, and it is why decision 119
 adds a turn-sine guard on weight-changing vertices rather than tightening the ratio.
+
+**F49 — The digest gate is live and convicted, and the solver is nearly bit-exactly invariant
+under a power-of-two rescale: shifting the normalisation exponent by one moved only 4 of 59
+pins.** `full-graph-digest.test.ts` (123 tests: 59 pins, 59 determinism, 4 sensitivity, 1
+coverage) measured on `f3bc733`. Convictions: the delegate's mutation (collapsing
+`PARALLEL_GATE_SINE_BAR` onto `DIRECTION_SINE_BAR`) killed exactly the one pin its doc-comment
+predicts (jitter plus, seed 7919); the lead's mutation (`exponent + 1` in `normalisation.ts`,
+i.e. solving at half the unit extent) killed 4 — so 55 fixtures produce identical bits at half
+scale, which is what an exact power-of-two round trip plus scale-free predicates should give,
+and the four movers are the fixtures where the absolute `1e-8` / `1e-6` bars bite. Delegate
+interpretations adopted: node incidence lists are not serialised (redundant with edge
+source/target); `InteriorEdge.length` is serialised though it is a constant sentinel; the
+`context === null` branch is written but unexercised by the corpus. Full core suite 5372/5372
+(84 suites) reported by the delegate; the digest suite re-run by the lead.
+
+**F50 — Weighted offsets landed in the solver core at `3dd467c`, lead-verified: core 5466/5466
+(85 suites, 86 s) re-run on the merged tree, the digest's 14 movers all attributed to the
+incenter replacement at ≤ 3 ulps with nothing structural moved, and the kernel-spelling
+conviction re-run by the lead (swapping the two weights kills 14 of 94 weighted tests).**
+Surface: `WeightOptions.weights` on `SolveSkeletonOptions`; `Arrival {distance, weight}`;
+`exteriorWeights` on the graph with `weightOf` on the context; `MAX_WEIGHT_RATIO`,
+`MIN_WEIGHT_TURN_SINE`; `makeWeightedBisectedBasis`, `compareArrivals`, `arrivalsAreEqual`,
+`arrivalOf`, `assertWeightsChangeOnlyAtVisibleCorners`. Fixtures: `weighted-fixtures.ts` (not
+enrolled — weights are an option, not a polygon property) and `weighted-offsets.test.ts` (94
+tests) including the equi-time property at every interior node, the weighted generalisation of
+I3. Delegate figures: dashboard 308/308 and dashboard build green (not re-run by the lead).
+Binding for package 3: `computeNodeOffsets` still returns distances while `maxOffset` and
+`offsetDistance` are now times — W40 must land before any weighted solve is projected.
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
