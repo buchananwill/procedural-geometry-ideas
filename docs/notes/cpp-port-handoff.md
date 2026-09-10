@@ -1,7 +1,7 @@
 ---
 title: "C++ port handoff: bringing the skeleton solver up to date with e2544d4..HEAD"
 type: handoff
-status: draft
+status: active
 date: 2026-09-10
 ---
 
@@ -16,10 +16,10 @@ read-only vendored snapshot at `Notes/technical-reference/proc-geo-ts/` and gove
 
 **What the fork is.** Your snapshot's README states the provenance: commit
 `e2544d4729aaa6ccb4d880e71849d14acaf0a146` on `main`, vendored 2026-08-10. That commit is an
-ancestor of this repository's current tip `e88da1f` on branch `feature/recursive-skeleton-subdivision`
-(`git merge-base --is-ancestor` confirms it), and the tip is **109 commits** ahead of it
+ancestor of this repository's current tip `b1bb095` on branch `feature/recursive-skeleton-subdivision`
+(`git merge-base --is-ancestor` confirms it), and the tip is **114 commits** ahead of it
 (`git rev-list --count e2544d4..HEAD`). The solver-relevant delta —
-`packages/core/src` plus `packages/test-fixtures/src` — is **34 files, +5994/−303 lines**
+`packages/core/src` plus `packages/test-fixtures/src` — is **36 files, +7632/−550 lines**
 (`git diff --shortstat`), and six source files under `packages/core/src/straight-skeleton/` did not exist
 at the fork: `canonicalisation.ts`, `normalisation.ts`, `recursive-subdivision.ts`, `region.ts`,
 `skeleton-tree.ts`, `spine.ts`.
@@ -756,71 +756,82 @@ the demo floor, and the drift bound gets a ruled space." Until it lands, `recurs
 99's "recursion arrives with the upstream port" stands. `skeleton-tree.ts` and `spine.ts` are stable
 substrate but only useful once spine mode is wanted.
 
-## 8. Weighted offsets (design ratified, implementation pending)
+## 8. Weighted offsets — the port-first design, written from the landed code
 
-**Status, plainly: the design is ratified and NO implementation has landed.** The contract is
-[weighted-offsets-decisions.md](./weighted-offsets-decisions.md) (rulings W1–W53), ratified as arc
-decision 114 in [recursive-subdivision-arc-journal-4.md](./recursive-subdivision-arc-journal-4.md)
-with decisions 115–119 resolving its open items. This section summarises it for a C++ reader; it will
-be revised with measured results once the TypeScript lands and its digest and fixtures are pinned.
-Nothing here is needed for unweighted rooflines.
+**Status, plainly: weighted offsets are IMPLEMENTED in the TypeScript reference, and this section is
+written from that code rather than from the spec's intentions.** Two commits carry it. `3dd467c` landed
+the solver core: 13 source files, `WeightOptions`, `Arrival`, the kernel spelling, the door guards,
+`weighted-fixtures.ts` and `weighted-offsets.test.ts`. `b1bb095` carried it through projection and
+downstream — `offset-projection.ts`, `strip-decomposition.ts`, `parcel-slicing.ts`, `debug-helpers.ts` —
+and restored `makeWeightedBisectedBasis`, which `3dd467c` shipped WITHOUT: a `git checkout --` revert of
+a conviction mutation discarded the delegate's uncommitted change to `core-functions.ts`, so on that tip
+every solve threw `makeWeightedBisectedBasis is not a function` (finding F51; the restoration is proved
+by the digest, since all 59 pins pass and could not if one bit of the spelling differed).
 
-**Input surface (W1–W4, decision 119).** `weights?: readonly number[]` on `SolveSkeletonOptions` (and
-on `runAlgorithmV5`/`runAlgorithmV5Stepped`), one entry per input vertex: `weights[i]` is the speed of
-exterior edge `i` (vertex `i` → `i+1`). Absent or empty means all ones. Checked at the door beside
-`assertVerticesAreFinite`, each refusal a thrown `Error` naming the index: length must equal the vertex
-count; every weight finite and strictly positive (zero/infinite weights are gables, a post-process,
-never solver input); `max/min ≤ MAX_WEIGHT_RATIO`. Weights are then normalised so the minimum is
-exactly `1` (all-ones divides by `1.0`, exact) and stored on the graph as `exteriorWeights`, plain data,
-DIMENSIONLESS — the unit-extent transform never touches them (W47).
+The ratified contract is [weighted-offsets-decisions.md](./weighted-offsets-decisions.md) (rulings
+W1–W53) with arc decisions 112, 114–120, 124, 126 and 128 in
+[recursive-subdivision-arc-journal-4.md](./recursive-subdivision-arc-journal-4.md). **Where the spec and
+the landed code differ, the code wins and this section says which.** Nothing here is needed for
+unweighted rooflines: an unweighted caller passes nothing, every weighted site multiplies or divides by
+exactly `1.0`, and the 59-fixture digest is the proof.
 
-**Offset means time (W5–W8, W18, W22–W26).** Every field today called an offset — `offsetDistance`,
-`maxOffset`, `computeNodeOffsets`, `computeOffsetRings`' argument, `StripOptions.depth` — becomes the
-wavefront clock, `time = distance / weight`. `makeOffsetDistance` and `sourceOffsetDistance` are NOT
-changed: they keep computing the perpendicular DISTANCE from the clockwise parent's line, and that
-distance is paired with that parent's weight as `Arrival {distance, weight}`. Every tolerance decision
-reads the PAIR, division-free: `compareArrivals(a, b, ε) = fp_compare(a.distance·b.weight,
-b.distance·a.weight, ε·a.weight·b.weight)` — the exact restatement of `|a/wa − b/wb| < ε` — and the
-single rule W26 covers the rest: an absolute epsilon applied to a weight-scaled quantity is multiplied
-by the same weight product that scaled it (`meetHeadOn`'s cancellation test, the direct strike's
-divisor, the phantom test, the layer window, the 64-ulp simultaneity bar). `arrivalOffsetOfPair`'s `max`
-becomes `laterArrival` (the pair whose `distance·other.weight` is larger). Decision 102's linear
-causality is restated over time unchanged.
+### 8.1 The contract
 
-**The kernel (W9–W11).** The vertex velocity solves `v·n₁ = w₁`, `v·n₂ = w₂` with `n = rotateCw90(basis)`
-the inward normal, `c` the clockwise parent basis, `b` the widdershins parent basis:
-`v = (w₂·c − w₁·b) / (c × b)`. The determinant is the sine of the turn; its two zeros are today's two
-degenerate cases (straight vertex: consistent only at `w₁ = w₂`; anti-parallel: the corridor end,
-direction `c` at constant time, W14). The rate along the trace is `1/|v|` against BOTH parents — the
-equi-time property that replaces "equidistant"; at unit weights it is today's `bisectorOffsetRate`.
-Decision 70's sign rule survives verbatim: the rate is `w_cw·(c × b)/|numerator|`, so convex keeps the
-numerator, reflex negates it, and "a bisector's rate is non-negative" becomes a theorem (W13).
+**Per-edge strictly positive weights, normalised to minimum one.** `WeightOptions { weights?: readonly
+number[] }` is declared in `algorithm-termination-cases.ts` and mixed into `SolveSkeletonOptions`;
+`runAlgorithmV5`, `runAlgorithmV5Stepped` and `canonicaliseForSolve` all take `PerceptualFloorOptions &
+WeightOptions`. One entry per INPUT VERTEX: `weights[i]` is the speed of exterior edge `i`, the edge from
+vertex `i` to vertex `(i + 1) % n`. Absent, or of length zero, means all ones. After the door the array
+is divided once by its own minimum (`normaliseWeights`), stored on the graph as `exteriorWeights: number[]`
+(plain data, indexed by exterior edge id, length `numExteriorNodes`) and read back through
+`GraphHelpers.weightOf(exteriorEdgeId)`, which THROWS on an interior edge id rather than reading past the
+end and turning every product into `NaN`. `SkeletonSolveResult.weights` reports the normalised,
+boundary-stage-remapped array the solve actually ran on — so for a fixture with a removed vertex it is
+SHORTER than the caller's. Weights are DIMENSIONLESS: the unit-extent transform never touches them (W47).
 
-**The bisector spelling is prescribed (W12, W52(i)) — port it exactly:**
-`normalize(w_ws · c − w_cw · b)`, i.e. the kernel's numerator normalised, with today's zero-length
-fallback. At unit weights this is bit-identical to today's `makeBisectedBasis(c, −b)` by construction
-(`1.0·c` is `c`; `c − b` is `c + (−b)` in IEEE-754) — measured 0 mismatches on 200 000 random vertices
-and re-run by the lead (decision 114). **The Cramer spelling — divide by `det`, then normalise — is
-PROHIBITED**: it is 0–3 ulps off today's bits (31 % bit-identical over 100 000), and only the scaled
-difference matches the unit-weight reference bit for bit; the naive `normalize(rotateCw90(c + b))` is
-catastrophic near a straight vertex (`4.2e11` ulps at a turn of `1e-6`). The three-line terminal solve
-changes only its third column, `−1` → `−w` (W28, W52(iv)); a triangle over two same-facing parallel
-parents is then REGULAR at unequal weights and returns the point where the faster wall overtakes the
-slower (W29), which is the event that makes `solveParallelClosure`'s no-future-event premise false
-under weights (W32).
+**Offset means time.** Every field the solver calls an offset is the wavefront clock, `time = distance /
+weight`: `CollisionEvent.offsetDistance`, `InteriorEdge.maxOffset`, `SplitOffsetResult.offsetDistance`,
+`TerminalSolution.offset`, the map `computeNodeOffsets` returns, `computeOffsetRings`' argument,
+`StripOptions.depth`, `computeNodeOffsetDistances`. `makeOffsetDistance` and `sourceOffsetDistance` are
+deliberately NOT changed (W6): they keep computing the perpendicular DISTANCE from the clockwise parent's
+supporting line, and leaving their arithmetic alone is what makes every unit-weight number downstream
+bit-identical. Decision 102's linear causality is restated over time unchanged. The physical setback of a
+strip of depth `t` on edge `e` is `w_e · t` — that is what a weight IS.
 
-**The two door guards (W48–W49, decision 119).** (1) `MAX_WEIGHT_RATIO = 100`, DERIVED, not picked:
-after normalisation the fastest edge has weight `R`, so the solver's absolute time window
-`FLOATING_POINT_EPSILON = 1e-8` is a distance window of `R·1e-8` on that edge; at `R = 100` that reaches
-`SKELETON_NOISE_FLOOR = 1e-6`, beyond which the solver would fuse as one moment two arrivals the
-client's floor calls two things. So `MAX_WEIGHT_RATIO = SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON`.
-The ladder `R ∈ {10, 30, 100, 300}` is run and reported so the runtime can move it with a measurement in
-hand. (2) The ratio does NOT bound the vertex speed: at `w₁ ≠ w₂` and a vanishing turn `|v| →
-|w₁ − w₂|/φ`, unbounded for any ratio (measured `|v| = 1.5e7` at a turn of `1e-6` with weights
-`(1, 16)`). The guard is angular: a vertex whose two weights DIFFER and whose `|c × b|` is below
-`PARALLEL_GATE_SINE_BAR` (1.4142e-4, the existing conditioning gate — §5.4) is refused by a thrown
-`Error` naming the vertex, BEFORE canonicalisation runs (decision 124(b)). Unit weights never reach
-either guard.
+**Gables are out of contract.** A zero or infinite weight has no well-posed vertex velocity (the trace
+collapses onto that edge's own line), so it is refused at the door and a gable is a post-process on an
+all-positive solve. This is the same class of fence as the turn guard.
+
+**Both door guards, with their exact constants and messages.** All three refusals are THROWS, not
+diagnostics — the reason `assertVerticesAreFinite` already gives: `diagnostics` reports a solve that ran
+and came back degraded, these are inputs the solver cannot solve at all. All of them run BEFORE
+canonicalisation and before winding reversal, so the index in the message is the caller's own.
+`weightsAtTheDoor(unitVertices, weights)` runs them in this fixed order and returns the normalised array:
+
+1. **Length** (`resolveWeightArray`) — `Weight array has {n} entries but the polygon has {m} vertices;
+   there must be exactly one weight per vertex — the speed of the edge leaving it.`
+2. **Finite and strictly positive** (`assertWeightsAreFinitePositive`) — `Weight {i} is {value}. Every
+   edge weight must be a finite, strictly positive number: a zero or infinite weight has no well-posed
+   vertex velocity, and gables are a post-process on an all-positive solve rather than a solver input.`
+3. **`MAX_WEIGHT_RATIO = 100`** (`assertWeightRatioIsInContract`) — `Weight ratio {r} exceeds
+   MAX_WEIGHT_RATIO (100): edge {fastest} has weight {wf} and edge {slowest} has weight {ws}. Beyond
+   that ratio the solver's absolute time window is wider on the fastest edge than the client's own noise
+   floor, so two arrivals the client can see as two things would be fused into one.` DERIVED, not picked:
+   `MAX_WEIGHT_RATIO = SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON = 1e-6 / 1e-8`. A test asserts that
+   identity so the constant cannot drift from its derivation.
+4. **`MIN_WEIGHT_TURN_SINE = PARALLEL_GATE_SINE_BAR`** (`assertWeightsChangeOnlyAtVisibleCorners`,
+   exported) — `Vertex {i} carries a weight change ({wIn} to {wOut}) at a turn whose sine is {s}, below
+   MIN_WEIGHT_TURN_SINE ({bar}). Weights may change only at a visible corner: a collinear or
+   near-collinear weight change has no well-posed vertex velocity, and anything needing one — a dormer,
+   for instance — is a separate feature stitched into the roof the skeleton produces.` The constant is
+   `sqrt(FLOATING_POINT_EPSILON · (2 − FLOATING_POINT_EPSILON))` ≈ `1.4142e-4`, the existing conditioning
+   gate (§5.4), reused rather than newly minted. The hazard is ANGULAR, not a ratio: `|v| = |w₁ − w₂| /
+   sin(turn)`, unbounded for any ratio — measured `1.5e7` at a turn of `1e-6` with weights `(1, 16)`,
+   where the `1e-8` time window becomes a spatial slack of `0.15`, a seventh of the unit extent. Above
+   the bar `|v| ≤ |w₁ − w₂| / 1.41e-4`, at most `7.1e3 · |w₁ − w₂|`.
+
+**Unit weights never reach guards 3 or 4.** Guard 4 tests `incomingWeight === outgoingWeight` FIRST and
+`continue`s, so with every weight equal it looks at no geometry at all and the digest cannot move.
 
 **Model invariant (decision 124, user-ruled 2026-09-10).** State this in the port, because the port's
 runtime is where the stitched features will be built: **the base of the roof lies in a single plane;
@@ -839,23 +850,361 @@ pinned through canonicalisation's `pinnedIndices` so a sub-floor chord deviation
 either direction (decisions 120, 124(c)); the kernel there is conditioned by the turn, which the door
 has already bounded. The "dormer square" fixture is a refusal conviction, not a solved shape.
 
-**Root-only in the first landing (W46, decision 118).** Weights apply to the ROOT solve only;
-sub-region solves run at unit weight, so the recursion census signatures are unmoved by
-construction. When boundary provenance exists the policy is: perimeter and contour runs inherit the
-parent edge's weight, ridge and cut runs take weight one.
+### 8.2 The kernel and the bisector spelling
 
-**Port-first notes, carried from the spec's "C++ port notes" (W52).** (i) The kernel is the 2×2 solve
-your `marchDirection` equivalent already has; the bisector direction is the scaled difference,
-normalised, NOT the Cramer quotient. (ii) Store times as `distance / weight` but decide every tolerance
-on the pair by cross-multiplication with the epsilon scaled by the weight product. (iii) Normalise
-weights to minimum `1`. (iv) The three-line terminal solve replaces `−1` by `−w` in the third column and
-nothing else. (v) The claim you can make against the reference stays structural identity below `1e-13`
-(§1.2); the full-graph digest (W51, decision 116: a SHA-256 over the denormalised graph of all 59
-fixtures, landing FIRST as its own commit before any weighted change) is the reference's bar, not the
-port's. Two amendments to know: decision 115 replaces the incenter fallback of the split path (W21)
-with the linear equi-time form even at unit weights — the one site whose unit-weight bits will move,
-by ulps, attributed pin by pin — because branching on unit weights is forbidden (W36); and weighted
-fixtures live in their own roster `WEIGHTED_TEST_POLYGONS` (W50), never in `FULL_CORPUS`.
+**The kernel.** The vertex velocity solves `v·n₁ = w₁`, `v·n₂ = w₂` with `n = rotateCw90(basis)` the
+inward normal, `c` the clockwise parent basis, `b` the widdershins parent basis:
+
+```
+det = n₁ × n₂ = c × b            (rotation preserves the cross product)
+v   = (w₂·c − w₁·b) / det
+```
+
+The determinant is the sine of the turn. Its two zeros are today's two degenerate cases: a straight
+vertex (consistent only at `w₁ = w₂`, and the unequal case is refused at the door, so
+`addBisectionEdge` never sees it), and an anti-parallel pair — the corridor end, where the direction is
+`c` at constant time (W14, `algorithm-helpers.ts`'s zero-rate branch, unchanged). The rate along the
+trace is `1/|v|` against BOTH parents — the equi-time property that replaces "equidistant"; at unit
+weights it is today's `bisectorOffsetRate`. Decision 70's sign rule survives verbatim: the rate against
+the clockwise parent is `w_cw·(c × b)/|numerator|`, so its sign is the sign of `c × b`, convex keeps the
+numerator, reflex negates it, and "a bisector's rate is non-negative" becomes a THEOREM rather than a
+convention (W13). `addBisectionEdge`'s convex/reflex test is untouched.
+
+**The bisector spelling — port it exactly.** `makeWeightedBisectedBasis` sits beside `makeBisectedBasis`
+in `core-functions.ts` and is `normalize(w_ws · c − w_cw · b)` with today's zero-length fallback. The
+landed code, operand for operand:
+
+```ts
+export function makeWeightedBisectedBasis(iBasis, jBasis, wCw, wWs): Vector2 {
+    const added = addVectors(scaleVector(iBasis, wWs), scaleVector(jBasis, wCw));
+    const [bisection, size] = normalize(added);
+    if (areEqual(size, 0)) {
+        return rotateCw90(iBasis);        // today's fallback, unchanged
+    }
+    return bisection;
+}
+```
+
+`jBasis` arrives ALREADY NEGATED — it is the same pair `addBisectionEdge` handed `makeBisectedBasis` —
+so the addition IS the spec's difference. Note the order: scale each operand, THEN add, THEN normalise.
+
+**Bit-identity at unit weights is a THEOREM of the spelling, not a measurement that happened to pass.**
+`x * 1.0` is `x` for every finite double, so at all-ones weights the two scalings are the identity on
+their operands and the addition, the normalisation and the fallback are the ones the unweighted solver
+performed, in the order it performed them. The measurement (W12, decision 114) confirms rather than
+establishes it: **0 mismatching vertices in 200 000 random turns** in `(−(π − 1e-4), π − 1e-4)`, re-run by
+the lead, and 0 ulps on the five named configurations.
+
+**The Cramer spelling is PROHIBITED for the bisector direction.** Dividing by `det` and then normalising
+is **0–3 ulps off today's bits, only 31 % bit-identical over 100 000** samples. Only the scaled difference
+matches the unit-weight reference bit for bit, and the whole 112(d) bar rests on that. The naive
+`normalize(rotateCw90(c + b))` is catastrophic near a straight vertex (`4.2e11` ulps at a turn of `1e-6`)
+and is also not used. **The prohibition is on the normalised DIRECTION, not on the kernel quotient**:
+`parcel-slicing.ts`'s `marchDirection` legitimately computes `v = (wA·b.y − wB·a.y, a.x·wB − b.x·wA)/det`
+because it wants the VELOCITY, whose magnitude carries the clock, and its arithmetic is in caller space,
+outside the digest.
+
+**The terminal solve changes one column.** `solveTerminalPoint`'s rows become `[n.x, n.y, −w]` and the
+third unknown is a time; each line contributes `n · P − w · t = n · A`. At unit weights the row is the
+same double `−1`, so position and time are bit-identical by construction. The singularity bar is scaled
+by the same weight (`|det| < FLOATING_POINT_EPSILON · max(w₁, w₂, w₃)`, W26). A triangle over two
+same-facing parallel parents — singular today — is REGULAR at unequal weights (`det = (w₃ − w₁)·(n₁ × n₂)`)
+and returns the point where the faster wall overtakes the slower (W29). No new branch: the existing
+singular fall-through simply stops being taken. That event is what makes `solveParallelClosure`'s
+no-future-event premise false under weights (W32); the function's own gate is unchanged, and the pair
+resolves on the ordinary collision path because its two bisector rays are no longer parallel.
+
+### 8.3 The `Arrival` pair and division-free comparison
+
+`Arrival { distance: number; weight: number }` is a time carried as the pair it came from: `distance` is
+`makeOffsetDistance`'s perpendicular distance from the CLOCKWISE parent's supporting line, `weight` is
+that parent's weight, and `timeOf(a) = a.distance / a.weight` exists for reporting, sorting keys and
+denormalisation ONLY. Every tolerance decision reads the undivided pair. The landed comparator:
+
+```ts
+export function compareArrivals(a: Arrival, b: Arrival, epsilon = FLOATING_POINT_EPSILON): -1 | 0 | 1 {
+    const left = a.distance * b.weight;
+    const right = b.distance * a.weight;
+    const difference = left - right;
+    if (difference === 0 || Math.abs(difference) < epsilon * a.weight * b.weight) {
+        return 0;
+    }
+    return difference < 0 ? -1 : 1;
+}
+
+export const arrivalsAreEqual = (a, b, ε = FLOATING_POINT_EPSILON) => compareArrivals(a, b, ε) === 0;
+export const laterArrival = (a, b) => (a.distance * b.weight >= b.distance * a.weight ? a : b);
+export const arrivalOf = (edge, context, ray, alongRay) => ({
+    distance: makeOffsetDistance(edge, context, ray, alongRay),
+    weight: context.weightOf(context.clockwiseParent(edge).id),
+});
+```
+
+Two details the port must copy, both load-bearing:
+
+- **The `difference === 0` early return.** An exactly equal pair reports `0` even at `epsilon = 0`, where
+  `fp_compare` reports `1` because its window is strict. This comparator is handed to three stable sorts
+  where today's `a - b` returned `0` for a tie and left the order alone; preserving that is what keeps the
+  layer sort bit-identical (decision 127(d)).
+- **The epsilon scaling is the single rule (W26).** An absolute epsilon applied to a weight-scaled
+  quantity is multiplied by the same weight product that scaled it, so no site derives its own. It appears
+  at `meetHeadOn`'s cancellation test (`|r_A·w_B + r_B·w_A| < ε·w_A·w_B`), both split divisors
+  (`< ε·w_e·w_cw`), the phantom test, the layer window, the terminal singularity bar (`ε·max(w)`) and the
+  64-ulp simultaneity bar (`|d₁·w₂ − d₂·w₁| ≤ 64·DBL_EPSILON·max(|d₁·w₂|, |d₂·w₁|)`).
+
+`arrivalOffsetOfPair`'s `Math.max` became `laterArrival`; `bestNonPhantomCollision`, `inArrivalOrder` and
+`earliestArrivalMoment` all sort by `compareArrivals(a, b, 0)`.
+
+### 8.4 The sites that changed
+
+Port counterparts are §3.16's file map. "Identity" is the unit-weight claim: BIT means the site performs
+today's operations on today's operands in today's order and the 59-fixture digest proves it.
+
+| TypeScript function | What changed | Port counterpart | Unit-weight identity |
+|---|---|---|---|
+| `initBoundingPolygon` | takes `weights?`, fills `graph.exteriorWeights` (all ones when omitted), rejects a mismatched length | `SkeletonGraphHelpers` | BIT (data only) |
+| `makeStraightSkeletonSolverContext` | third arg `weights`; adds `weightOf`, which throws on an interior id | `SkeletonSolverContext` | BIT (data only) |
+| `makeWeightedBisectedBasis` (new) | `normalize(w_ws·c − w_cw·b)`, zero-length fallback kept | `SkeletonCoreFunctions` | BIT, by construction (§8.2) |
+| `addBisectionEdge` | calls the weighted basis with both parents' weights; sign rule untouched | `SkeletonAlgorithmHelpers` | BIT |
+| `createBisectionInteriorEdge` | `maxOffset` is a TIME: `timeOf(arrivalOf(...))` | `SkeletonAlgorithmHelpers` | BIT (`d / 1.0`) |
+| `arrivalOf`, `birthArrivalOf`, `timeOf`, `compareArrivals`, `arrivalsAreEqual`, `laterArrival` (new) | the arrival vocabulary | `SkeletonCollisionHelpers` | BIT |
+| `makeOffsetDistance`, `sourceOffsetDistance` | **unchanged, deliberately** (W6) | `SkeletonCollisionHelpers` | BIT (untouched) |
+| `meetHeadOn` | `alongA = (s_B·w_A − s_A·w_B + sep·r_B·w_A) / (r_A·w_B + r_B·w_A)`, cancellation test scaled by `w_A·w_B` | `SkeletonCollisionHelpers` | BIT (same order; 0 mismatches in 100 000) |
+| `collideInteriorEdges` | builds two `Arrival`s and reports `laterArrival`; phantom test is `!arrivalsAreEqual(...)`; `offsetDistance <= 0` becomes `arrival.distance <= 0` | `SkeletonCollisionHelpers` | BIT |
+| `bestNonPhantomCollision` | sorts by `compareArrivals(…, 0)` | `SkeletonCollisionHelpers` | BIT (tie → 0 keeps stable order) |
+| `inArrivalOrder`, `earliestArrivalMoment`, `areSimultaneousArrivals` | sort by arrival; 64-ulp bar cross-multiplied on the pair | `SkeletonAlgorithmComplexCases` | BIT |
+| `handleInteriorNGon`'s layer window | `bestArrival` tracked by `compareArrivals(…, 0)`; window is `compareArrivals(event.arrival, bestArrival, ε) <= 0` | `SkeletonAlgorithmComplexCases` | BIT |
+| `findOffsetByDirectStrike` | `s = L·negT·w_cw / (crossCw·w_t + negT·w_cw)`, `arrival = {s·crossCw, w_cw}` | `SkeletonSplitEvents` | BIT (0 mismatches in 100 000) |
+| `findOffsetViaIncenter` | **replaced outright** by the linear equi-time form (§8.5) | `SkeletonSplitEvents` | **NOT identical — the one exception** |
+| `solveTerminalPoint` | rows `[n.x, n.y, −w]`; singularity bar `ε·max(w)` | `SkeletonAlgorithmTerminationCases` | BIT (the row is the same double `−1`) |
+| `solveDegenerateClosure` | simultaneity is `arrivalsAreEqual`; the not-before-birth test is `compareArrivals(arrival, birth, ε) >= 0` | `SkeletonAlgorithmTerminationCases` | BIT |
+| the snap pre-pass / `nodeOffset` | return and compare `Arrival`s | `SkeletonAlgorithmTerminationCases` | BIT |
+| `validateSplitReachesEdge` | takes an `Arrival`; the split edge's OWN weight converts the local time to travel along it | `SkeletonSolverContext` | BIT |
+| `clockwiseVertexAtOffset`, `widdershinsVertexAtOffset` | argument is a local TIME, carried by `localTime · weightOf(edgeId)` | `SkeletonSolverContext` | BIT (`· 1.0`) |
+| `weightsAtTheDoor` + its four checks + `normaliseWeights` (new) | the door (§8.1) | `SkeletonAlgorithmTerminationCases` | BIT (divides by `1.0`; angular test unreached) |
+| `weightChangeVertexIndices` → `canonicalisePolygon(…, pinnedIndices)` | a weight-change vertex is pinned, never merged | `canonicalisation.ts` has **no port counterpart yet** | BIT (equal weights pin nothing) |
+| `remapWeightsThroughCanonicalisation`, `reverseWeights` | W45's index remaps: `weights'[j] = weights[(n − 2 − j) mod n]` on reversal | `SkeletonAlgorithmTerminationCases` | BIT |
+| `decomposePolygon` | carries `subPolygonWeights`; each piece of a split edge keeps its original edge's weight | `SkeletonPolygonDecomposition` | BIT |
+| `mergeSkeletonGraphs` | `exteriorWeights` is the sub-graphs' arrays CONCATENATED in sub-graph order, NOT indexed by merged edge id; `weightOf` on a merged context is unsupported | no counterpart by design | n/a |
+| `computeNodeOffsets` / `rederiveInteriorNodeOffsets` | divides by `graph.exteriorWeights[parentEdgeId]` — the whole of W40's node table | `SkeletonOffsetProjection` | BIT (`/ 1.0`) |
+| `bisectorPositionAtOffset` | `perpendicular = localTime · exteriorWeights[cwParent]`, then the existing `projectFromPerpendicular` | `SkeletonOffsetProjection` | BIT (`· 1.0`) |
+| `computeStrips`, `StripOptions.depth`, `Strip.supportingEdgeWeights` (new field) | depth is a time; the strip RECORDS its supporting edges' weights rather than looking them up, because `sliceStrip` is handed the strip alone | `SkeletonStripDecomposition` | BIT |
+| `marchDirection`, `FaceEdge.weight` (new field) | solves `v·n_a = w_a`, `v·n_b = w_b`; the parallel-normals fallback scales by the first face's weight; the overtake and meeting tests are in the one clock | `SkeletonParcelSlicing` | BIT, but **outside the digest** (caller space; its bar is the strip-tiling identity) |
+| `computeNodeOffsetDistances`, `computePrimaryInteriorEdges` | times; the primary-bisector overlay takes the solve's weights | no counterpart (debug/dashboard) | BIT |
+
+### 8.5 The one non-identical site: the split fallback's linear form
+
+`generate-split-event.ts` used to build a temporary node on whichever parent was more perpendicular to
+the split edge, bisect there with `makeBisectedBasis`, and intersect two rays. That construction has no
+weighted generalisation, and keeping it "when both weights are one" would be a BRANCH ON UNIT WEIGHTS,
+which W36 forbids on decision 105's ground: the input `(1, …, 1 + 2⁻⁵²)` must not be solved by different
+code from `(1, …, 1)`. Decision 115 therefore replaces it outright and amends 112(d) to make this the
+single named exception to bit-identity. The landed form, with `D₀` the instigator's source distance from
+its own clockwise parent's line, `E₀` its source distance from the split edge's line, `r = cross(d, c)`
+and `q = −cross(d, e)`:
+
+```
+D(s) = D₀ + s·r        E(s) = E₀ − s·q        equi-time: D(s)/w_cw = E(s)/w_e
+s       = (E₀·w_cw − D₀·w_e) / (r·w_e + q·w_cw)         [divisor guarded at ε·w_e·w_cw]
+arrival = { distance: D₀ + s·r, weight: w_cw }
+```
+
+**The digest movement, so the port knows exactly what to expect.** Of the 59 pins, **45 were untouched and
+14 moved, every one of them attributed to this site**. Worst movement anywhere in the corpus is **3 ulps**.
+**Nothing structural moved on any fixture**: no node count, no edge target, no parent pair, no `culled`
+flag, no `complete` flag. The per-fixture measurements are recorded above each moved entry in
+`full-graph-digest.test.ts` — e.g. `Duck Octagon (fails)`: 3 node coordinates by 1 ulp, 2 `maxOffset`
+values by 2 ulps; `V2 Double Reflex Spaceship (fails)`: 1 node coordinate by 1 ulp, 3 `maxOffset` values by
+up to 3 ulps (the worst); `Failing Long Octagon`: 2 `maxOffset` values by 2 ulps, no node moved. Two further
+instruments were re-pinned for the same reason: the region-tree decline area by `3.3e-11` relative, and the
+offset-event boundary regression firing 176 → 172 with silent losses still empty.
+
+**What this means for the port.** If you keep the incenter construction, you keep the PRE-WEIGHT bits at
+unit weights, which means you will differ from the current reference by up to 3 ulps on 14 of the 59
+fixtures and on those `maxOffset` values — structurally identical, numerically a few last bits apart, well
+inside the `1e-13` structural-identity claim §1.2 licenses. Under actual weights the incenter construction
+has no correct answer at all, so port the linear form if you port weights. Movement is bounded by ulps BY
+CONSTRUCTION — the two routes reach the same point — so a pin that moves by more than a few ulps is a
+defect in the linear form, not an attribution.
+
+The function is still NAMED `findOffsetViaIncenter` in the reference; the name is residue, the body is the
+linear equi-time solve.
+
+### 8.6 What is NOT implemented, and why
+
+**W33's equi-time check on the co-linear closure — not implemented, and that is a measured negative result
+(decision 126).** W33 asked the `co-linear-from-1` leading-source closure to check that the trailer's
+arrival at the leading source equals the leader's birth arrival. The check was written and run over the
+whole corpus at unit weights. The digest does NOT move — all 59 native-placement pins survive — but the
+branch is reached by near-anti-parallel corridors whose two mid-lines carry constant, slightly DIFFERENT
+times, so the check fires there. With W33's own stated consequence (fall through to the throw) ten pinned
+assertions across six suites move, including the recursion census reporting jitter-plus seed 7919 at 16
+failed regions where 15 is pinned — a DEFECT GROWING, which the corpus doctrine treats as a regression,
+not a re-pin. With the softest consequence (fall through to ordinary termination) four move, including an
+UNATTRIBUTED CURE (`rosette5-40` at 1e11, 2 → 1 unresolved) and the 48-way cluster at 2e10 shattering 11 →
+12 nodes. Neither rewrite of the failure register is justified by anything measured, because no weighted
+fixture reaches the branch. The closure therefore stands on the raw separation exactly as it did before
+weights, and the site carries a block comment holding the measurement. The discriminating fixture — a
+corridor whose walls carry different weights and whose closure is reached through `co-linear-from-1` — is
+an open roster entry. **Port the closure as it is.**
+
+**Sub-region weights — root-only by ruling (W46, decision 118).** Weights apply to the ROOT solve only;
+sub-region solves run at unit weight, so the recursion census signatures are unmoved by construction and
+the digest pins that. When boundary provenance exists, the ruled policy is: perimeter and contour runs
+inherit the parent edge's weight, ridge and cut runs take weight one. Nothing implements that yet.
+
+**The ratio constant's discriminating fixture is OPEN (decision 128).** The ladder `R ∈ {10, 30, 100, 300}`
+was run on the §4.4 square `[1,1,1,R]` and the §4.6 step and moved NOTHING at any rung — position, time
+and equi-time errors `≤ 2.3e-16`, tiling `≤ 3e-15`. That is not evidence either way: W48's derivation is
+about two arrivals separated by a distance of order `R · 1e-8` on the fast edge fusing into one time
+moment, and neither fixture has near-coincident arrivals at all. Absence of movement on a fixture that
+cannot exhibit the hazard is not a measurement of the hazard. `MAX_WEIGHT_RATIO` keeps its derived value
+of 100; the fixture that would find the first mover is an open item, and the runtime may move the constant
+on its own stated need without waiting for it.
+
+**Two smaller items are open (decision 129).** W39(i)'s weighted restatement of I3 inside
+`graph-index-invariants.test.ts` (the property is asserted in `weighted-offsets.test.ts` instead), and a
+weights UI in the demo — the dashboard hook threads weights but no control passes any.
+
+### 8.7 The conformance additions the port should carry
+
+**1. A full-graph digest, as a bit-identity gate.** This is 112(d)'s instrument (W51, decision 116) and it
+landed FIRST, as its own commit, before any weighted change. Build one like this: for every corpus fixture,
+solve and serialise the DENORMALISED graph into a canonical big-endian byte stream, then SHA-256 it —
+
+- (a) the `complete` flag as one byte;
+- (b) node count, then nodes in id order: id as int32, `position.x` and `position.y` as raw float64 BIT
+  PATTERNS (write through a byte view so `-0` and `NaN` survive);
+- (c) exterior-edge count, then exterior edges in id order: id, source, target (`-1` sentinel), basis x/y bits;
+- (d) interior-edge count, then interior edges in id order: id, source, target (`-1`), basis x/y bits,
+  clockwise parent id, widdershins parent id, a PRESENCE BYTE then `maxOffset` bits (a presence byte, so
+  "unresolved" is distinguishable from any legitimate value including `0` and `NaN`), the `culled` flag, and
+  `InteriorEdge.length`;
+- (e) a presence byte for the solver context, then `acceptedEdges` length and one byte per flag — the
+  presence byte matters because a decompose-and-merge result has no single `acceptedEdges` array and must
+  not serialise as "context present, zero exterior edges".
+
+Node incidence lists are deliberately EXCLUDED: they are redundant with the source/target already on every
+edge. `InteriorEdge.length` is included though it is a permanent `MAX_VALUE` sentinel — real state the type
+exposes, no discriminative power. Put regeneration behind an env flag; never hand-edit a hex string; a
+moved pin is an ATTRIBUTED decision in the commit that moves it, never a rubber stamp.
+
+**Convict it by mutation before trusting it (F49).** The reference's suite is 123 tests — 59 pins, 59
+determinism checks, 4 sensitivity checks, 1 coverage check. Two convictions were run: perturbing one node
+coordinate by one ulp must kill the pin; collapsing `PARALLEL_GATE_SINE_BAR` onto `DIRECTION_SINE_BAR`
+killed exactly the one pin its doc-comment predicts (jitter plus, seed 7919); and shifting the
+normalisation exponent by one (solving at half the unit extent) killed only 4 of 59 — so 55 fixtures
+produce IDENTICAL bits at half scale, which is what an exact power-of-two round trip plus scale-free
+predicates should give, and the four movers are the fixtures where the absolute `1e-8` / `1e-6` bars bite.
+That last result is a useful free property for the port to reproduce.
+
+**2. The equi-time property at every interior node — the weighted I3.** This is the single most valuable
+check in the weighted suite, because NO site in the solver computes it: the kernel direction, the collision
+arrival, the terminal three-line solve and the degenerate closures each reach a node their own way, so it
+is an independent re-derivation of what all of them claim. For each interior node, collect the exterior
+faces of its incident non-culled bisectors (each bisector contributes its clockwise and widdershins
+parent), compute `distanceToFace(face, position) / weights[face]` for each, and assert
+`max − min < 1e-9`. Skip nodes with fewer than two faces, and skip culled bisectors — a culled edge is a
+retired zero-length self-loop and its parents are not faces meeting at the node. The bar is `1e-9`, not the
+analytic `1e-12`, because the quantity is DERIVED: the node comes out of a chain of intersections and the
+distance to each supporting line is re-derived from the ring afterwards, so two independent constructions'
+rounding accumulates. It is still three orders inside `SKELETON_NOISE_FLOOR`. **Run it over the unweighted
+corpus too** — at all ones the division is by `1.0` and it IS I3's equidistance, so a failure there means
+the predicate is measuring something else.
+
+**3. The unit-weight identity test: an explicit all-ones array must equal no weights at all.** Over the
+whole 59-fixture corpus, solve twice — `solve(vertices)` and `solve(vertices, {weights: all ones})` — and
+assert the two graphs digest identically. This convicts the OPTION rather than the tip, which is why it is
+separate from the pinned table. Also assert that the reported `weights` array is all ones and matches
+between the two runs. Two companions: a uniform array `[3,3,3,3]` must normalise to `[1,1,1,1]` (the
+skeleton is invariant under a common scaling of all weights), and a uniform non-unit array `[7,7,7,7]` must
+give the unweighted skeleton's interior nodes exactly. **A failure here is a W36 violation to fix, never a
+tolerance to widen.**
+
+**4. The analytic weighted fixtures, with the values the reference asserts.** From
+`packages/test-fixtures/src/weighted-fixtures.ts` (roster `WEIGHTED_TEST_POLYGONS`, NOT enrolled in
+`CLEAN_TEST_POLYGONS` or `FULL_CORPUS`, because a weighted fixture is a `(ring, weights)` PAIR and those
+rosters' sweeps assume unit weights and their count of 59 is the digest's). All rings are clockwise in a
+y-up frame; every weight array is already at minimum 1. Node positions and times to `1e-12`:
+
+| Fixture | Vertices | Weights | Expected |
+|---|---|---|---|
+| Weighted Rectangle (fast floor) | `(0,0) (0,2) (4,2) (4,0)` | `[1,1,1,2]` | nodes `(2/3, 4/3)` and `(10/3, 4/3)`, both at `t = 2/3`; corner velocities `(1,2) (1,−1) (−1,−1) (−1,2)`. The floor's front is `y = 2t`, the top's `y = 2 − t`, so they meet a THIRD of the way down; at unit weights the same ring gives `(1,1)` and `(3,1)` at `t = 1` |
+| Weighted Corridor (fast ceiling) | `(0,0) (0,1) (10,1) (10,0)` | `[1,3,1,1]` | nodes `(1/4, 1/4)` and `(39/4, 1/4)` at `t = 1/4`; velocities `(1,1) (1,−3) (−1,−3) (−1,1)`. The corridor closes ALL AT ONCE at `t* = width/(w₁+w₂)`, on the line at `w_slow · t*` from the slow wall, NOT the midline |
+| Weighted L (fast shelf beside slow riser) | `(0,0) (0,4) (2,4) (2,2) (6,2) (6,0)` | `[1,1,1,4,1,1]` | nodes `(8/5, 2/5)` and `(28/5, 2/5)` at `t = 2/5`. The reflex `(2,2)` traces `v = (−1,−4)`, speed `sqrt(17)` — the fast shelf drags it down the riser at four times the riser's own rate and the riser's wavefront segment LENGTHENS at rate 4 |
+| Weighted Square (near-maximum ratio) | `(0,0) (0,2) (2,2) (2,0)` | `[1,1,1,100]` | nodes `(2/101, 200/101)` and `(2 − 2/101, 200/101)` at `t = 2/101` — ridge hard against the slow wall. Its companion at `R + 1` is refused |
+| Weighted Step (fast low floor) | `(0,0) (0,10) (12,10) (12,2) (8,2) (8,0)` | `[1,1,1,1,1,2]` | node `(6, 4)` at `t = 2` — an edge-collapse node that DOES NOT EXIST in the unweighted skeleton. The reflex `(8,2)` traces `(−1,1)` and the convex `(8,0)` traces `(−1,2)`; at unit weights both trace `(−1,1)` and the riser never collapses. This is W29/W32's conviction |
+| Weighted Square (alternating edge weights) | `(0,0) (0,2) (2,2) (2,0)` | `[1,2,1,2]` | nodes `(0.5, 1)` and `(1.5, 1)` at `t = 0.5`; velocities `(1,2) (1,−2) (−1,−2) (−1,2)`. Two-fold rotational and mirror-symmetric about both axes — NOT four-fold, because alternating weights on a four-cycle give opposite edges the same speed (the spec's §4.8 four-fold claim is arithmetically impossible and was corrected, decision 127(a)) |
+| Weighted Pentagon House (asymmetric roof) | `PENTAGON_HOUSE` | `[2,1,1,1,1]` | no analytic table; the METAMORPHIC pair — the apex moves toward the SLOW roof so the solve is not mirror-symmetric, and mirroring the ring AND the weight array through W45's reversal map must yield the mirrored skeleton exactly |
+| Weighted Square (weight change at a 1e-3 turn) | 10×10 square with a bottom-wall vertex `2.5e-3` inside it | `[1,1,1,4,1]` | turn sine exactly `1e-3` — SEVEN times `MIN_WEIGHT_TURN_SINE`, so the door ADMITS it. Kernel speed `3/1e-3 = 3e3` on a shape of extent 10: the approach to the bar, and the number that says why the bar is where it is |
+| Weighted Bump (sub-floor weight change at a visible turn) | 10×10 square with a triangular bump `0.05` proud of the bottom wall, apex deviating `4e-6` from the chord | `[1,1,1,1,1,2,2]` | vertex 5 deviates `5e-7` in unit space — HALF the `1e-6` floor, so at equal weights it is removed as invisible — but its turn sine is `2e-4`, above the bar, so a weight change there passes the door and W44 PINS it. The pair of solves is the conviction: unit weights lose it, these weights keep it |
+
+**5. The refusal tests.** Each asserts the throw AND that the message names the offender: a zero, negative,
+`NaN` or infinite weight named by index; a wrong-length array naming both lengths; a ratio above
+`MAX_WEIGHT_RATIO` naming both extreme edges and the constant (with the sibling assertion that
+`MAX_WEIGHT_RATIO === SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON`, and that `MIN_WEIGHT_TURN_SINE ===
+PARALLEL_GATE_SINE_BAR`, so neither constant can drift from its derivation); the invisible-vertex rectangle
+with a weight change at vertex 5, whose turn is exactly zero, refused BEFORE canonicalisation — which would
+otherwise have removed the vertex and hidden the question; and **the dormer square**, a 2×2 square with an
+exactly collinear vertex at the centre of each side and weights `[1,2,1,2,1,2,1,2]`, refused naming vertex 1
+and the weights 1 and 2. That refusal IS the model invariant stated as a test. Two more that keep the guard
+honest: the SAME ring with its midpoints removed (weights `[1,2,1,2]`) must SOLVE — the guard is angular, so
+alternating weights that are refused on a subdivided ring are perfectly admissible on the silhouette's own
+ring — and unit weights must never reach the angular test whatever the geometry.
+
+### 8.8 Porting cautions specific to C++
+
+**Use `double` throughout — `float` cannot carry this tolerance system.** The whole model is an ABSOLUTE
+`1e-8` window in a unit-extent space; `float` has ~24 bits of mantissa, so `1e-8` is below the
+representable resolution of a unit-magnitude operand and every epsilon test degenerates. Under weights it
+is worse in a specific way: `compareArrivals` compares CROSS-MULTIPLIED products `d·w` against
+`ε·w_a·w_b`, and at `MAX_WEIGHT_RATIO = 100` that epsilon reaches `1e-4` while the operands are products
+of a unit-extent distance and a weight up to 100. The dynamic range is trivial for `double` and marginal
+for `float`. Cross-multiplication is what buys the division-free ordering; do not undo it by widening the
+epsilon to compensate for a narrow type.
+
+**The weight normalisation must be EXACT — one division by a positive constant.** Take `min` over the
+array and write `w / min` per element. Do NOT hoist a reciprocal (`w * (1.0 / min)`): that is two
+roundings and it breaks the property the whole bit-identity claim leans on. All-ones divides by `1.0`,
+which is exact for every finite double, so the unit-weight path is untouched bit for bit. Normalise once,
+immediately after the positivity and ratio checks, before anything else reads the array.
+
+**Preserve the order of operations in the bisector spelling.** `scale(c, w_ws)`, `scale(b_negated, w_cw)`,
+THEN add, THEN normalise (`size = sqrt(x² + y²)`, then divide each component), with the `size == 0`
+fallback returning `rotateCw90(c)`. Do not reassociate, do not let the compiler contract the multiply-add
+into an FMA, and do not enable fast math: on MSVC keep `/fp:precise` and never `/fp:fast`; on Clang/GCC
+avoid `-ffast-math` and set `-ffp-contract=off`. The same applies to `meetHeadOn`, the two split divisors
+and the terminal rows — each was written so that its unit-weight evaluation performs today's operations on
+today's operands in today's order, and a reassociation silently discards that.
+
+**The door guards read the CALLER'S ORIGINAL weights, before normalisation, so the messages report the
+numbers the client authored.** `weightsAtTheDoor` resolves the array, checks positivity, checks the ratio,
+checks the turn, and only THEN normalises — so a `[2, 200]` input is refused naming 200 and 2, not 100 and
+1. All three run before canonicalisation and before winding reversal, so the reported INDEX is the
+caller's own, with nothing renumbered yet. Port that ordering exactly; a guard that runs after
+normalisation reports numbers the client never wrote, and one that runs after canonicalisation reports an
+index into a ring the client never sent.
+
+**But the turn guard's GEOMETRY is evaluated in UNIT space.** `weightsAtTheDoor` is called with
+`normalisePolygon(nodes, normalisation)`, not the caller's coordinates. The turn sine is scale-invariant,
+so the verdict is the same in exact arithmetic, but the last bits are not — a vertex sitting within a few
+ulps of the bar can be admitted in one space and refused in the other. Evaluate the sine on the
+unit-extent ring, as the reference does.
+
+**Two small API shapes worth copying.** `weightOf` THROWS on an interior edge id rather than reading past
+the end of the array — a bisector has no speed of its own, it is priced against its parents' — because the
+silent alternative turns every downstream product into `NaN`. And `Arrival` is a two-`double` POD: pass it
+by value, keep it trivially copyable, and store `exteriorWeights` as an owned array on the graph (not a
+view into caller memory) so it survives every graph copy the solver makes.
+
+**Do not add a weight read to a merged graph.** On a merged graph `exteriorWeights` is the sub-graphs'
+arrays concatenated in sub-graph order and is NOT indexed by merged edge id; `weightOf` on a merged context
+is unsupported by design. The port does not port `graph-merge` (roadmap decision 9), so this costs nothing
+— just do not introduce a merge path that prices anything.
+
+**The claim you can make against the reference is unchanged.** It stays structural identity below
+`1e-13` (§1.2), not byte identity. The full-graph digest is the REFERENCE's own bar; §8.7 tells you how
+to build your own so that your port has the same tripwire against its own regressions.
 
 ## 9. Flags: what this document interpreted
 
@@ -882,5 +1231,58 @@ fixtures live in their own roster `WEIGHTED_TEST_POLYGONS` (W50), never in `FULL
   zero.
 - **§7** — "send-ready" is the user's assessment as recorded in the session-3 journal (§4 item 2) and
   decision 113 item 7; the suite figure is the session-4 bootstrap re-run, not a re-run by this document.
+- **§0's fork figures were re-measured** when §8 was rewritten from the landed code: 114 commits (was
+  109), 36 files and +7632/−550 (was 34 and +5994/−303), tip `b1bb095` (was `e88da1f`), by
+  `git rev-list --count e2544d4..HEAD` and `git diff --shortstat e2544d4..HEAD -- packages/core/src
+  packages/test-fixtures/src`. The six new source files are unchanged: the weighted work added no new
+  file under `packages/core/src/straight-skeleton/`. §2's heading still says "re-read against
+  `e88da1f`" and that re-read has NOT been redone against the two weighted commits.
+- **§8 is written from the code, not the spec, and four places where they differ are called out here.**
+  (i) The split function is still NAMED `findOffsetViaIncenter` although its body is the linear
+  equi-time solve; I describe it by behaviour and flag the name as residue. (ii) The spec's §2 roster
+  lists `arrivalsAreSimultaneous` as an exported member of the arrival vocabulary; it does NOT exist.
+  The simultaneity predicate is a module-private `areSimultaneousArrivals(first: Arrival, second:
+  Arrival)` in `algorithm-complex-cases.ts`, and I have described it as internal. (iii) W52(i) says the
+  Cramer spelling differs from the reference "by up to 4 ulps"; W12's own measurement says max 3 ulps
+  over 100 000 with 31 % bit-identical. I used W12's figures because they are the measured ones; the
+  disagreement is unreconciled. (iv) `MIN_WEIGHT_TURN_SINE` is quoted in the sources as both `1.41e-4`
+  and `1.4142e-4`; the value is `sqrt(1e-8 · (2 − 1e-8))`, and I have written the derivation rather
+  than pick between the two roundings.
+- **§8.1's door ordering, and where the turn guard's geometry is evaluated** — read from
+  `weightsAtTheDoor` and its three call sites (`solveSkeleton`, `runAlgorithmV5`,
+  `runAlgorithmV5Stepped`), all of which pass `normalisePolygon(nodes, normalisation)`. The reported
+  INDEX is the caller's own (nothing has been renumbered), the reported WEIGHTS are the caller's own
+  (normalisation runs last), but the turn sine is computed on the unit-extent ring, not on the caller's
+  coordinates. W49 says "the check reads the caller's ring in unit space", which I read as licensing
+  exactly this; I state both halves because a port that evaluates the sine in caller space agrees in
+  exact arithmetic and can disagree in the last bits within a few ulps of the bar.
+- **§8.2's "the Cramer prohibition is on the DIRECTION, not the kernel quotient"** is my reading, not a
+  sentence either the spec or the code states. `parcel-slicing.ts`'s `marchDirection` does divide by the
+  determinant, and it is correct to: it wants the velocity, whose magnitude carries the clock, and its
+  arithmetic is in caller space and outside the digest (W42 says so explicitly). If the port reads W52(i)
+  as banning the quotient everywhere it will get `marchDirection` wrong.
+- **§8.6's W33 account** follows arc decision 126 and the block comment at the site
+  (`algorithm-termination-cases.ts`, the `co-linear-from-1` branch), which say the check FIRES on the
+  near-anti-parallel corridors that reach the branch while all 59 NATIVE-PLACEMENT pins survive.
+  `full-graph-digest.test.ts`'s header says instead that the check "PASSES" on the jitter-plus seed and
+  the large-coordinate cells. I read the two as compatible — no native-placement pin moved either way —
+  and have reported decision 126's wording, but the digest header's sentence is loose and I have not had
+  it corrected.
+- **§8.7's digest recipe is the landed `serialiseGraph`'s field list**, including two choices the port
+  should copy for comparability and one absence it should know about: node incidence lists are excluded
+  as redundant with per-edge source/target; `InteriorEdge.length` is included although it is a permanent
+  `MAX_VALUE` sentinel with no discriminative power; and **`exteriorWeights` is NOT serialised**, so the
+  pinned digest cannot see a weight difference directly — it sees only the geometry weights produce.
+  That is why the unit-weight identity test in `weighted-offsets.test.ts` uses a SECOND, JSON-based
+  digest (which does include incidence lists) computed over both solves of each fixture rather than
+  against the stored table: it convicts the option, not the tip. A port with one digest should be
+  deliberate about which of the two jobs it is doing.
+- **§8.5's "if you keep the incenter construction" advice** is my inference from the measurement, not a
+  ruling: the reference measured the movement between the two constructions and attributed it, so a port
+  that keeps the old construction sits on the pre-change side of exactly that measured gap. Nobody has
+  run the old construction against the current reference to confirm the gap is symmetric.
+- **The test-count figures in §8** come from the journal (F49: 123 digest tests; F50: 94 weighted tests
+  at `3dd467c`) and were not re-run here; `weighted-offsets.test.ts` has since grown by package 3's
+  projection block (`b1bb095`, +232 lines), so its current case count is higher than 94.
 - **No targeted test was run** for this document; every number is read from source, tests or journals
   cited in place.

@@ -35,6 +35,8 @@ from the game runtime that drives this work. See decision 111.
 - Core **5249/5249 (83 suites, 121 s) — measured by re-running at bootstrap**, identical to
   session 3's close. Dashboard **308/308 (21 suites) — measured by re-running at bootstrap.**
   Corpus 59 (53 clean + 6 defect-rostered) inherited from session 3.
+- **After package 3 (lead re-run on the merged tree, 2026-09-10):** dashboard **312/312 (22
+  suites)** against a rebuilt core; core figure recorded in F52's follow-up line below.
 - The C++ port's fork point is **commit `e2544d4` on `main`, vendored 2026-08-10** (F45). That
   commit is an ancestor of the current tip; the tip is 109 commits ahead of it.
 
@@ -48,42 +50,68 @@ visual-verification tool) and the session-1 journal's process learnings. Additio
   `"$CLAUDE_SCRATCHPAD/x.log"` writes to `/x.log` and fails. Use the literal scratchpad path.
 - A quoted heredoc (`<<'EOF'`) of more than ~100 lines through the Bash tool failed with an
   unmatched-quote parse error; write long files with the Write tool.
+- **Never `git checkout --` a file that a delegate may have uncommitted work in.** Undo a
+  conviction mutation by the inverse edit, or run convictions only on a committed tree. F51 is
+  the cost of ignoring this.
+- The dashboard's jest resolves `@proc-geo/core` from `dist`, not `src` (no `moduleNameMapper`
+  there): dashboard tests see a core change only after `--filter @proc-geo/core build`.
 - The C++ port lives in the `resort_game/claude_work` worktree at
   `Source/PistePerfect/{Private,Public}/Geometry/Skeleton` (16 `.cpp`, 18 `.h`). Its vendored
   TypeScript reference is at `Notes/technical-reference/proc-geo-ts/` with a README stating the
   provenance; its governing document is `Notes/buildables/procedural-settlement-roadmap.md`,
   whose §3b is the divergence register (D1–D6). Read-only from this repository.
 
-## 4. Next work
+## 4. Next work — SESSION CLOSE HANDOFF, 2026-09-10
 
-**Phase 1 (bootstrap, design, handoff draft) is complete and committed at `f3bc733`; Phase 2
-is GO (decision 125).** Package 1 (digest) landed at `0c9c9cd` (F49). Package 2 (solver core)
-dispatched to Opus 2026-09-10 against that pin table; package 3 waits on it.
+**State at close, lead-verified on the merged tree:** tip = the docs commit after `b1bb095`,
+branch un-pushed, nothing has left this machine. Core **5477/5477 (85 suites)**, dashboard
+**312/312 (22 suites)**, corpus 59 (53 clean + 6 defect) plus nine weighted fixtures outside the
+rosters. Digest: 59 pins, 45 native to `0c9c9cd` and 14 re-pinned with attribution. Both of the
+user's session objectives are delivered: weighted offsets are implemented end to end at the root
+(commits `0c9c9cd`, `3dd467c`, `b1bb095`), and the C++ handoff at
+[cpp-port-handoff.md](./cpp-port-handoff.md) is complete and active. The next session opens
+`recursive-subdivision-arc-journal-5.md`, continuing decisions at **130** and findings at
+**F54**; read THIS section, §2, and F49–F53 — do not read this journal end to end.
 
-Phase 2, the implementation packages, in the order the spec's falsification bars require:
+**The session's four commits and what each is:** `f3bc733` (the documents), `0c9c9cd` (the
+digest gate), `3dd467c` (solver core — defective, F51), `b1bb095` (projection, downstream, and
+the F51 restoration). The kernel function is present and proven from `b1bb095` onward; a
+bisect that lands on `3dd467c` will see every solve throw.
 
-1. **Digest first** (decision 116): `full-graph-digest.test.ts` pinning all 59 fixtures on the
-   pre-weight tip, convicted by a one-ulp mutation, committed alone.
-2. **Weighted core** (W-spec input surface through terminal cases, the kernel, the bisector
-   spelling, the `{distance, weight}` arrival pair, both door guards of decision 119): digest
-   unchanged on all 59 except the attributed incenter-fallback movement (decision 115); the
-   spec's §4 analytic fixtures land in the same package as its conviction.
-3. **Degenerate machinery and downstream** (W-spec degenerate closures, I5's weight condition,
-   offset projection, canonicalisation's merged-edge rule of decision 117, normalisation's
-   enumeration, the dashboard overlay of decision 114(ii)); the ratio ladder `R ∈ {10, 30, 100,
-   300}` measured and reported for the user's ruling on the constant.
-4. **Handoff §8 revised with measured results**, then the handoff leaves draft status. Push/PR
-   remains the user's call.
+**Remaining work, in the runtime's priority order (decision 111's lens):**
 
-Carried open (session-3 §4 item 1): the root-floor reconciliation package, which gates deep
-recursion and therefore W-spec W46's second landing.
+1. **Send the handoff.** It is send-ready. Push/PR is the user's call; the port team's first
+   actions are named in its §1 (GOLF_CART will assert on their partition; their normalisation
+   scale rule differs; their fixture sidecar is stale) and §8 (the weighted design).
+2. **Weighted-offsets residue, all small and all open (decisions 126, 128, 129; F53):** the
+   unequal-wall corridor fixture that reaches `co-linear-from-1` (the only thing that can reopen
+   W33); the ratio constant's discriminating fixture (two arrivals `~R·1e-8` apart on a fast
+   edge); W39(i), I3's weighted restatement in the invariants test; a weights UI in the demo
+   (the hook already threads them); `findOffsetViaIncenter` renamed for its linear-form body;
+   spec residue (`arrivalsAreSimultaneous` → `areSimultaneousArrivals`; W52(i) 4 ulps → 3; the
+   digest header's W33 sentence). W46's second landing (sub-region weights) waits on item 3.
+3. **The root-floor reconciliation package** — still the one STRUCTURAL open item, carried
+   unchanged from session 3 §4 item 1 with its four exhibits and pre-ruled acceptance criteria.
+   It gates deep recursion, and therefore the handoff's "deep recursion waits" boundary.
+4. **Standing small items** from session 3 §4 items 3–4 (decision 92's presentation
+   contraction; decision 107(b)'s fixture; `graph-merge.ts:110`; the two F42 bars).
+
+**Process learnings this session, for the operational manual:** F51's revert accident (the §3
+rule); the scratchpad variable is unset; long heredocs fail through the Bash tool; the
+dashboard tests read core from `dist`; the account's session limit can cut a delegate off
+mid-edit, and every delegate this session had landed its edits before it died — verify with
+`git status` and a grep for the expected anchors before re-dispatching.
 
 ## 5. Open items
 
 Carried from session 3 §4 items 1, 3 and 4 unchanged: the root-floor reconciliation package
 (structural, four exhibits), decision 92's presentation contraction, decision 107(b)'s fixture,
 `graph-merge.ts:110`'s caller-space epsilon, the two unmeasured bars from F42, push/PR, and the
-anchor-edit caution (re-append the heading in `new_string` when inserting before it).
+anchor-edit caution (re-append the heading in `new_string` when inserting before it). Added
+this session: the unequal-wall corridor fixture that reaches `co-linear-from-1` (decision 126);
+the ratio constant's discriminating fixture (decision 128); W39(i), I3's weighted restatement;
+a weights UI in the demo (decision 129); W46's second landing (sub-region weights) behind the
+root-floor reconciliation.
 
 ---
 ## Decisions
@@ -344,6 +372,24 @@ DISTANCES while `maxOffset` and `offsetDistance` are now TIMES — identical at 
 divergent the moment a weight is not one — so package 3 lands W40 before any weighted solve is
 projected.
 
+**128 — `MAX_WEIGHT_RATIO` stays at 100, and the ladder is not evidence either way: the
+constant's discriminating fixture is OPEN.** F52's ladder moved nothing at R = 300 on two
+fixtures that have no near-coincident arrivals, and W48's derivation is about exactly such
+arrivals (two events `~R·1e-8` apart in distance fusing into one time moment on the fast
+edge). Absence of movement on a fixture that cannot exhibit the hazard is not a measurement of
+the hazard. The constant keeps its derived value; the fixture that would find the first mover
+— two arrivals on a fast edge separated by a distance of order `R · 1e-8` — is an open item,
+and the user may move the constant on the runtime's stated need without waiting for it.
+
+**129 — The package-3 delegate's eleven interpretations are ADOPTED; two items it could not
+close are open: W39(i) (I3's weighted restatement in the invariants test) and a weights UI in
+the demo.** Adopted in particular: `Strip.supportingEdgeWeights` as a recorded field rather than
+a lookup (a collapsed frontage edge shifts the identity); the two `parcel-slicing.ts` epsilons
+now compared against times are at least as strict as before because weights normalise to
+minimum one; `marchDirection`'s parallel-normals fallback scales by the first face's weight
+and says so at the site. The dashboard's hook threading is held by the type checker and the
+build only (no React renderer in its test dependencies) — stated in the test header, accepted.
+
 ---
 ## Findings
 
@@ -387,6 +433,55 @@ tests) including the equi-time property at every interior node, the weighted gen
 I3. Delegate figures: dashboard 308/308 and dashboard build green (not re-run by the lead).
 Binding for package 3: `computeNodeOffsets` still returns distances while `maxOffset` and
 `offsetDistance` are now times — W40 must land before any weighted solve is projected.
+
+**F51 — LEAD ERROR: `3dd467c` shipped without `makeWeightedBisectedBasis`, because the lead's
+`git checkout --` revert of a mutation in `core-functions.ts` discarded the package-2 delegate's
+UNCOMMITTED changes to that same file.** Sequence: the delegate finished with the function in
+place; the lead ran the full suite (5466/5466 — a true figure on that tree); the lead then
+mutated the function's weight order to convict it, ran the weighted tests (14 died — also
+true), and reverted with `git checkout -- core-functions.ts`, which restored the file to
+`0c9c9cd`, not to the delegate's version; the commit followed. On the committed tip every
+solve threw `makeWeightedBisectedBasis is not a function`. The package-3 delegate found it at
+bootstrap, restored the function exactly as W12 spells it, and proved the restoration by the
+digest: all 59 pins of `3dd467c` pass, which they could not if a single bit of the spelling
+differed. F50's "lead-verified 5466/5466" is therefore a figure for the tree BEFORE the
+revert, not for the commit; the correct figure lands with package 3. Operational rule added
+to §3.
+
+**F52 — Package 3 (projection and downstream) is delivered: offsets are TIMES end to end at
+unit-weight bit-identity, and the ratio ladder moved NOTHING at any rung because the
+fixtures cannot exercise the mechanism the constant was derived from.** W40: two arithmetic
+changes only — the node table divides by the parent's weight and the ray position multiplies
+by it — both by exactly one at unit weights; all 59 digest pins unmoved, the 1580
+projection/strip/parcel tests unmoved, the recursion census unmoved, and a new test asserts
+`computeOffsetRings` is `toEqual`-identical between a bare solve and an explicit all-ones solve.
+W41/W42: `Strip` gains `supportingEdgeWeights`, `FaceEdge` gains `weight`, `marchDirection`
+solves `v·n = w`. W37 landed with a hand-built conviction (every corpus duplicate ridge is a
+mid-line, where equi-time forces equal weights, so the facing clause is only separable on
+invented geometry). W15: the overlay takes weights; `useSkeletonAnimation` threads them; no
+demo UI passes any yet. The ladder (§4.4 square `[1,1,1,R]` and §4.6 step, R ∈ {10, 30, 100,
+300}): complete at every rung, position/time/equi-time errors ≤ 2.3e-16, tiling ≤ 3e-15 —
+because both fixtures are free of near-coincident arrivals, and W48's hazard is the absolute
+`1e-8` time window becoming an `R·1e-8` distance window between two CLOSE arrivals. Delegate
+figures: core 5477/5477 (85 suites), dashboard 312/312 (22 suites), both builds green;
+convictions W40 2/3/1, W37 1, W15 1. **Lead re-run on the merged tree: core 5477/5477 (85
+suites, 87 s), dashboard 312/312 (22 suites) after a core rebuild — both match the delegate.**
+
+**F53 — The C++ handoff is complete and leaves draft status: §8 is the port-first weighted
+design written from the landed code, and its three sharpest claims were lead-checked against
+the source.** Checked: the simultaneity predicate is a module-private
+`areSimultaneousArrivals` in `algorithm-complex-cases.ts` (the spec's roster name
+`arrivalsAreSimultaneous` does not exist — spec residue, §5); the door guards read the
+caller's authored weights but compute the turn sine on the unit-extent ring at all three
+`weightsAtTheDoor` call sites; the digest does not serialise `exteriorWeights`, so the
+unit-weight identity test rightly uses a second, JSON-based digest. §8 now carries a 28-row
+site table with the port counterpart and the unit-weight identity claim per row, the digest
+build recipe, all nine analytic fixtures with expected values, and the C++-specific cautions
+(double not float for cross-multiplied comparisons; exact normalisation by division; operation
+order preserved for bit-identity). §0's fork figures re-measured by the delegate: 114 commits,
+36 files, +7632/−550 against `e2544d4`. Residue the delegate flagged and the lead accepts as
+open: `findOffsetViaIncenter` keeps its old name over a linear-form body; W52(i) says 4 ulps
+where W12 measured 3; the digest header's sentence about W33 is loose.
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
