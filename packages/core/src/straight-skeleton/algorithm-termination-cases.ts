@@ -1,6 +1,6 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput, CollisionEvent,
+    AlgorithmStepOutput, Arrival, CollisionEvent,
     PolygonNode,
     SkeletonDiagnostic,
     SkeletonSolveResult,
@@ -11,8 +11,10 @@ import {
 import {stepLog} from "./logger";
 import {
     areEqual,
+    crossProduct,
     directionsAreSame,
     dotProduct,
+    makeBasis,
     rotateCw90,
     sineIsBelow,
     sizeOfVector,
@@ -20,16 +22,24 @@ import {
 } from "./core-functions";
 import {intersectRays} from "./intersection-edges";
 import {
+    arrivalOf,
+    arrivalsAreEqual,
     bestNonPhantomCollision,
+    birthArrivalOf,
     collideInteriorEdges,
-    makeOffsetDistance,
-    sourceOffsetDistance
+    compareArrivals,
 } from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {DIRECTION_SINE_BAR, TRIANGLE_INTERSECT_PAIRINGS} from "./constants";
+import {
+    DIRECTION_SINE_BAR,
+    FLOATING_POINT_EPSILON,
+    MAX_WEIGHT_RATIO,
+    MIN_WEIGHT_TURN_SINE,
+    TRIANGLE_INTERSECT_PAIRINGS,
+} from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
@@ -43,6 +53,7 @@ import {
 import {
     CanonicalPolygon,
     PerceptualFloorOptions,
+    REMOVED_VERTEX_INDEX,
     SKELETON_NOISE_FLOOR,
     canonicalisePolygon,
     resolvePerceptualFloor,
@@ -53,16 +64,19 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
 }
 
 /**
- * The offset at which a node was created, derived the same way the solver derives it
- * everywhere else. Exterior nodes sit on the boundary, so their offset is zero; an interior
- * node is born at the source offset of any bisector emitted from it.
+ * The ARRIVAL at which a node was created, derived the same way the solver derives it
+ * everywhere else (W-spec W30). Exterior nodes sit on the boundary, so their arrival is zero
+ * distance against any weight; an interior node is born at the birth arrival of any bisector
+ * emitted from it.
  *
  * Returns `undefined` for a terminal interior node, which emits nothing and therefore has no
- * offset recorded anywhere for us to read.
+ * arrival recorded anywhere for us to read.
  */
-function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): number | undefined {
+function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): Arrival | undefined {
     if (node.id < context.graph.numExteriorNodes) {
-        return 0;
+        // Zero distance is time zero against every positive weight, so the weight here is a
+        // formality; `1` keeps the pair's arithmetic exactly today's.
+        return {distance: 0, weight: 1};
     }
 
     const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
@@ -70,7 +84,7 @@ function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): 
         return undefined;
     }
 
-    return sourceOffsetDistance(context.getInteriorWithId(outInterior), context);
+    return birthArrivalOf(context.getInteriorWithId(outInterior), context);
 }
 
 /**
@@ -103,7 +117,7 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
     const source = context.findSource(edgeId);
     const interiorEdge = context.getInteriorWithId(edgeId);
     const ray = context.projectRayInterior(interiorEdge);
-    const birthOffset = sourceOffsetDistance(interiorEdge, context);
+    const birthArrival = birthArrivalOf(interiorEdge, context);
 
     let nearest: PolygonNode | undefined;
     let nearestDistance = Number.POSITIVE_INFINITY;
@@ -123,13 +137,12 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
             continue;
         }
 
-        // Same tolerance convention as `notYetBorn`: a snap exactly at the birth offset is
-        // legitimate, only a strictly earlier one is rejected.
-        const snapOffset = makeOffsetDistance(interiorEdge, context, ray, distance);
-        const localOffset = snapOffset - birthOffset;
-        if (localOffset < 0 && !areEqual(localOffset, 0)) {
+        // Same tolerance convention as `notYetBorn`: a snap exactly at the birth arrival is
+        // legitimate, only a strictly earlier one is rejected (W-spec W30).
+        const snapArrival = arrivalOf(interiorEdge, context, ray, distance);
+        if (compareArrivals(snapArrival, birthArrival) < 0) {
             stepLog.debug(
-                `Rejecting snap of e${edgeId} to node ${candidate.id}: snap offset ${snapOffset} precedes the bisector's birth offset ${birthOffset}.`,
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: snap arrival ${snapArrival.distance}/${snapArrival.weight} precedes the bisector's birth arrival ${birthArrival.distance}/${birthArrival.weight}.`,
             );
             continue;
         }
@@ -142,10 +155,10 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // node permanently claiming an in-edge that no longer points at it. On the peanut the
         // birth check alone still let e67 and e68 snap outward before a later pass corrected
         // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
-        const candidateOffset = nodeOffset(context, candidate);
-        if (candidateOffset !== undefined && !areEqual(candidateOffset, snapOffset)) {
+        const candidateArrival = nodeOffset(context, candidate);
+        if (candidateArrival !== undefined && !arrivalsAreEqual(candidateArrival, snapArrival)) {
             stepLog.debug(
-                `Rejecting snap of e${edgeId} to node ${candidate.id}: node exists at offset ${candidateOffset} but the bisector arrives at ${snapOffset}.`,
+                `Rejecting snap of e${edgeId} to node ${candidate.id}: node exists at time ${candidateArrival.distance / candidateArrival.weight} but the bisector arrives at ${snapArrival.distance / snapArrival.weight}.`,
             );
             continue;
         }
@@ -228,19 +241,19 @@ function applyDegenerateClosure(context: StraightSkeletonSolverContext, edgeIds:
 function solveDegenerateClosure(context: StraightSkeletonSolverContext, interiorEdgeIds: number[]): Vector2 | undefined {
     for (const anchorId of interiorEdgeIds) {
         const anchorPosition = context.sourcePosition(anchorId);
-        const arrivalOffsets: number[] = [];
+        const arrivals: Arrival[] = [];
         let valid = true;
 
         for (const edgeId of interiorEdgeIds) {
             const interior = context.getInteriorWithId(edgeId);
             const ray = context.projectRayInterior(interior);
-            const birthOffset = sourceOffsetDistance(interior, context);
+            const birthArrival = birthArrivalOf(interior, context);
             const separation = subtractVectors(anchorPosition, ray.sourceVector);
             const distance = sizeOfVector(separation);
 
             // The anchor itself, and any edge already sourced at the anchor, arrives without travel.
             if (edgeId === anchorId || areEqual(distance, 0)) {
-                arrivalOffsets.push(birthOffset);
+                arrivals.push(birthArrival);
                 continue;
             }
 
@@ -251,21 +264,25 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
                 break;
             }
 
-            const arrivalOffset = makeOffsetDistance(interior, context, ray, distance);
-            const localOffset = arrivalOffset - birthOffset;
-            if (localOffset < 0 && !areEqual(localOffset, 0)) {
+            const arrival = arrivalOf(interior, context, ray, distance);
+            if (compareArrivals(arrival, birthArrival) < 0) {
                 valid = false;
                 break;
             }
 
-            arrivalOffsets.push(arrivalOffset);
+            arrivals.push(arrival);
         }
 
         if (!valid) {
             continue;
         }
 
-        if (arrivalOffsets.every(offset => areEqual(offset, arrivalOffsets[0]))) {
+        // W-spec W31: SIMULTANEITY IS EQUI-TIME. The premise this closure rests on — all exterior
+        // parents parallel, so one clock governs the whole sub-polygon — holds under weights only
+        // for the ANTI-facing case. Same-facing parallel parents at unequal weights have a wavefront
+        // with a MOVING step, and this check fails as it should, sending the step to the collision
+        // path (W-spec W29).
+        if (arrivals.every(arrival => arrivalsAreEqual(arrival, arrivals[0]))) {
             return anchorPosition;
         }
     }
@@ -482,6 +499,36 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         if (intersectionType === 'co-linear-from-1') {
             const separation = subtractVectors(context.sourcePosition(id2), context.sourcePosition(id1));
             const leadingId = dotProduct(separation, context.getEdgeWithId(id1).basisVector) > 0 ? id2 : id1;
+            /*
+             * W-SPEC W33 IS NOT IMPLEMENTED HERE, AND THAT IS A MEASURED NEGATIVE RESULT RATHER
+             * THAN AN OMISSION — see the weighted-offsets delegate's report.
+             *
+             * W33 asks this closure to gain an equi-time check: the trailer reaches the leading
+             * source at `arrivalOf(T, …, separation)` while the leader was born there at its own
+             * birth arrival, and under weights the two need not agree. The check was written and
+             * run over the whole corpus AT UNIT WEIGHTS, where W33 predicted it might move the
+             * digest. It does not move the digest — every one of the 59 native-placement pins
+             * survives it — but it fires elsewhere, because the configurations that reach this
+             * branch are the near-anti-parallel corridors whose two mid-lines carry CONSTANT and
+             * slightly DIFFERENT times:
+             *
+             *   - with W33's own stated consequence (fall through to the throw at the end of the
+             *     collision branch): ten pinned assertions across six suites move, and one of them
+             *     is the recursion census reporting the plus seed at 16 failed regions where 15 is
+             *     pinned — a DEFECT GROWING, which the corpus doctrine treats as a regression and
+             *     not as a re-pin;
+             *   - with the softest consequence available (fall through to the ordinary
+             *     `terminateEdgesAtPoint` on the collision): four assertions move, including
+             *     `NEAR_REGULAR_ROSETTE5_40` at 1e11 leaving one unresolved edge where two are
+             *     pinned (an unattributed CURE) and the 48-way cluster at 2e10 shattering into 12
+             *     nodes where 11 are pinned.
+             *
+             * Both outcomes rewrite the corpus's failure register, which is the lead's call and not
+             * a delegate's, and no §4 weighted fixture reaches this branch, so nothing is currently
+             * measuring what the check would buy. The closure therefore stands on the raw
+             * separation exactly as it did before weights, and the gap is reported rather than
+             * papered over.
+             */
             applyDegenerateClosure(context, input.interiorEdges, context.sourcePosition(leadingId));
             return {childSteps: []};
         } else {
@@ -555,14 +602,30 @@ function solveTerminalPoint(
 ): TerminalSolution | undefined {
     const lines = exteriorParentIds.map(parentId => {
         const normal = rotateCw90(context.getEdgeWithId(parentId).basisVector);
-        return {normal, offsetFromOrigin: dotProduct(normal, context.sourcePosition(parentId))};
+        return {
+            normal,
+            weight: context.weightOf(parentId),
+            offsetFromOrigin: dotProduct(normal, context.sourcePosition(parentId)),
+        };
     });
 
-    const rows = lines.map<Row3>(line => [line.normal.x, line.normal.y, -1]);
+    // W-spec W28: each line contributes `n · P − w · t = n · A`. At unit weights the third column is
+    // the double `-1`, which is the row this always had, so position and time are bit-identical by
+    // construction.
+    //
+    // W-spec W29: a triangle over two SAME-FACING PARALLEL parents is singular today and REGULAR
+    // under unequal weights — with `n₁ = n₃` the determinant is `(w₃ − w₁) · (n₁ × n₂)` — and the
+    // solve then returns the point where the faster wall overtakes the slower. No new branch: the
+    // singular fall-through below simply stops being taken.
+    const rows = lines.map<Row3>(line => [line.normal.x, line.normal.y, -line.weight]);
     const rhs = lines.map(line => line.offsetFromOrigin);
 
     const determinant = determinant3(rows[0], rows[1], rows[2]);
-    if (areEqual(determinant, 0)) {
+    // The determinant is trilinear in the rows, so a weight scales it; the singularity bar carries
+    // the same scaling (W-spec W26, W28). At unit weights `max(1, 1, 1)` is `1` and this is
+    // `areEqual(determinant, 0)`.
+    const largestWeight = Math.max(lines[0].weight, lines[1].weight, lines[2].weight);
+    if (Math.abs(determinant) < FLOATING_POINT_EPSILON * largestWeight) {
         return undefined;
     }
 
@@ -729,8 +792,8 @@ interface SimplePolygonRun {
 }
 
 /** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
-function runSimplePolygon(nodes: Vector2[], perceptualFloor: number): SimplePolygonRun {
-    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor);
+function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: readonly number[]): SimplePolygonRun {
+    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights);
     const exteriorEdges = [...context.graph.edges]
     const errors: string[] = [];
 
@@ -781,8 +844,9 @@ function canonicaliseInUnitSpace(
     nodes: Vector2[],
     normalisation: SkeletonNormalisation,
     perceptualFloor: number,
+    pinnedIndices: readonly number[] = [],
 ): CanonicalPolygon {
-    return canonicalisePolygon(normalisePolygon(nodes, normalisation), perceptualFloor);
+    return canonicalisePolygon(normalisePolygon(nodes, normalisation), perceptualFloor, pinnedIndices);
 }
 
 /**
@@ -805,10 +869,18 @@ function canonicaliseInUnitSpace(
  */
 export function canonicaliseForSolve(
     vertices: Vector2[],
-    options?: PerceptualFloorOptions,
+    options?: PerceptualFloorOptions & WeightOptions,
 ): CanonicalPolygon {
+    // W-spec W44: a weighted caller's remap must describe the same boundary the weighted solve saw,
+    // and under weights that boundary keeps every weight-change vertex. Unweighted callers pass
+    // nothing and pin nothing, exactly as before.
+    const normalisation = makeSkeletonNormalisation(vertices);
+    const unitVertices = normalisePolygon(vertices, normalisation);
+    const pinned = options?.weights === undefined || options.weights.length === 0
+        ? []
+        : weightChangeVertexIndices(weightsAtTheDoor(unitVertices, options.weights));
     return canonicaliseInUnitSpace(
-        vertices, makeSkeletonNormalisation(vertices), resolvePerceptualFloor(options));
+        vertices, normalisation, resolvePerceptualFloor(options), pinned);
 }
 
 /**
@@ -841,9 +913,220 @@ function assertVerticesAreFinite(vertices: Vector2[]): void {
     }
 }
 
+/*
+ * ============================================================================
+ *  THE WEIGHT DOOR — W-spec W1–W4, W44, W45, W48, W49
+ * ============================================================================
+ *
+ * A weight is a per-exterior-edge, strictly positive SPEED: `weights[i]` is the speed of the edge
+ * from input vertex `i` to input vertex `(i + 1) % n` (arc journal decision 112(a)). Everything the
+ * solver used to call an offset is that edge's arrival TIME, `distance / weight`.
+ *
+ * EVERY REFUSAL HERE IS A THROW, NOT A DIAGNOSTIC, and every one of them names the offender. The
+ * reason is the one `assertVerticesAreFinite` already states: `diagnostics` reports a solve that ran
+ * and came back degraded, while these are inputs the solver cannot solve at all. All three run
+ * BEFORE canonicalisation, so the index in the message is the caller's own, before any renumbering
+ * (arc decision 124(b)).
+ */
+
+/** The caller's weights, or all ones. Rejects a mismatched length by name (W-spec W1). */
+function resolveWeightArray(vertexCount: number, weights?: readonly number[]): number[] {
+    if (weights === undefined || weights.length === 0) {
+        return new Array<number>(vertexCount).fill(1);
+    }
+    if (weights.length !== vertexCount) {
+        throw new Error(
+            `Weight array has ${weights.length} entries but the polygon has ${vertexCount} vertices; `
+            + `there must be exactly one weight per vertex — the speed of the edge leaving it.`);
+    }
+    return [...weights];
+}
+
+/** W-spec W2: every weight is a finite, strictly positive double. Zero and infinite are out of contract. */
+function assertWeightsAreFinitePositive(weights: readonly number[]): void {
+    for (let index = 0; index < weights.length; index++) {
+        const weight = weights[index];
+        if (!Number.isFinite(weight) || weight <= 0) {
+            throw new Error(
+                `Weight ${index} is ${weight}. Every edge weight must be a finite, strictly positive `
+                + `number: a zero or infinite weight has no well-posed vertex velocity, and gables are `
+                + `a post-process on an all-positive solve rather than a solver input.`);
+        }
+    }
+}
+
+/**
+ * W-spec W3 and W48, arc decision 119: the weight ratio is checked at the door and refused by a
+ * throw, naming the two extreme edges and the constant.
+ */
+function assertWeightRatioIsInContract(weights: readonly number[]): void {
+    let slowestIndex = 0;
+    let fastestIndex = 0;
+    for (let index = 1; index < weights.length; index++) {
+        if (weights[index] < weights[slowestIndex]) {
+            slowestIndex = index;
+        }
+        if (weights[index] > weights[fastestIndex]) {
+            fastestIndex = index;
+        }
+    }
+
+    const ratio = weights[fastestIndex] / weights[slowestIndex];
+    if (ratio > MAX_WEIGHT_RATIO) {
+        throw new Error(
+            `Weight ratio ${ratio} exceeds MAX_WEIGHT_RATIO (${MAX_WEIGHT_RATIO}): edge ${fastestIndex} `
+            + `has weight ${weights[fastestIndex]} and edge ${slowestIndex} has weight `
+            + `${weights[slowestIndex]}. Beyond that ratio the solver's absolute time window is wider `
+            + `on the fastest edge than the client's own noise floor, so two arrivals the client can `
+            + `see as two things would be fused into one.`);
+    }
+}
+
+/**
+ * W-spec W49, arc journal decision 124(b): **WEIGHTS MAY CHANGE ONLY AT A VISIBLE CORNER.**
+ *
+ * A vertex whose two incident edges carry different weights and whose turn sine `|c × b|` is below
+ * {@link MIN_WEIGHT_TURN_SINE} is refused. The kernel there is either inconsistent (an exactly
+ * collinear weight change has NO vertex velocity: the two offset lines are parallel at different
+ * distances for every `t > 0` and the wavefront has a step of height `|w₁ − w₂| · t`) or so badly
+ * conditioned that the solver's own time window becomes a spatial slack of a fraction of the whole
+ * polygon — `|v| = |w₁ − w₂| / sin(turn)`, measured at `1.5e7` for a turn of `1e-6`.
+ *
+ * THIS IS A FENCE, NOT A CONVENTION. Arc decision 124's model invariant is that the base of the roof
+ * lies in a single plane; a configuration the weighted skeleton cannot make well-posed without an
+ * extra convention (the struck riser of W-spec W53) is OUTSIDE the contract, not inside it with the
+ * convention bolted on. A dormer is a feature stitched into the roof the skeleton produces.
+ *
+ * UNIT WEIGHTS NEVER REACH THE ANGULAR TEST: it is guarded by `w₁ !== w₂` first, so with every
+ * weight equal this function looks at no geometry at all and the digest cannot move.
+ */
+export function assertWeightsChangeOnlyAtVisibleCorners(
+    vertices: readonly Vector2[],
+    weights: readonly number[],
+): void {
+    const count = vertices.length;
+    for (let index = 0; index < count; index++) {
+        const incomingWeight = weights[(index - 1 + count) % count];
+        const outgoingWeight = weights[index];
+        if (incomingWeight === outgoingWeight) {
+            continue;
+        }
+
+        const outgoing = makeBasis(vertices[index], vertices[(index + 1) % count]);
+        const incoming = makeBasis(vertices[(index - 1 + count) % count], vertices[index]);
+        const turnSine = Math.abs(crossProduct(outgoing, incoming));
+        if (turnSine < MIN_WEIGHT_TURN_SINE) {
+            throw new Error(
+                `Vertex ${index} carries a weight change (${incomingWeight} to ${outgoingWeight}) at a `
+                + `turn whose sine is ${turnSine}, below MIN_WEIGHT_TURN_SINE (${MIN_WEIGHT_TURN_SINE}). `
+                + `Weights may change only at a visible corner: a collinear or near-collinear weight `
+                + `change has no well-posed vertex velocity, and anything needing one — a dormer, for `
+                + `instance — is a separate feature stitched into the roof the skeleton produces.`);
+        }
+    }
+}
+
+/**
+ * W-spec W4: weights are normalised so that the MINIMUM is exactly `1`, once, before anything else
+ * reads them.
+ *
+ * The skeleton is invariant under a common scaling of all weights (every time scales by the
+ * reciprocal), so one convention fixes the time unit. Minimum `1` is the one that keeps every time
+ * at most the distance it came from — `t = d / w ≤ d` — so every ABSOLUTE tolerance on a time is at
+ * least as wide in distance terms as it is at unit weight, and at most {@link MAX_WEIGHT_RATIO}
+ * times wider, which is exactly the band W-spec W48 derives the ratio bound from.
+ *
+ * ALL-ONES DIVIDES BY `1.0`, WHICH IS EXACT, so the unit-weight path is untouched bit for bit.
+ */
+function normaliseWeights(weights: readonly number[]): number[] {
+    const minimum = Math.min(...weights);
+    return weights.map(weight => weight / minimum);
+}
+
+/**
+ * Every check at the door, in the order the spec fixes them, returning the normalised weights.
+ *
+ * `unitVertices` is the caller's ring carried to unit extent — the turn guard is stated in unit
+ * space (W-spec N19) — while the indices reported are the caller's own, which they still are because
+ * nothing has been renumbered yet.
+ */
+function weightsAtTheDoor(
+    unitVertices: readonly Vector2[],
+    weights?: readonly number[],
+): number[] {
+    const resolved = resolveWeightArray(unitVertices.length, weights);
+    assertWeightsAreFinitePositive(resolved);
+    assertWeightRatioIsInContract(resolved);
+    assertWeightsChangeOnlyAtVisibleCorners(unitVertices, resolved);
+    return normaliseWeights(resolved);
+}
+
+/**
+ * The vertices canonicalisation may not remove: those whose two incident edges differ in weight
+ * (W-spec W44, arc journal decisions 120 and 124(c)).
+ *
+ * SUCH A VERTEX IS STRUCTURAL, WHATEVER ITS DEVIATION FROM THE CHORD. Decision 55's rule — "a vertex
+ * collinear with the chord between its neighbours contributes nothing" — becomes "collinear AND
+ * equal-weighted contributes nothing" under weights: the vertex is invisible in the SILHOUETTE and
+ * visible in the SKELETON, because the weight change either side of it is what the client authored.
+ * It is pinned, never merged in either direction.
+ *
+ * WELL-CONDITIONED BY THE DOOR IT HAS ALREADY PASSED. Every vertex this pins has a visible turn —
+ * {@link assertWeightsChangeOnlyAtVisibleCorners} ran first — so its kernel speed is at most
+ * `|w₁ − w₂| / MIN_WEIGHT_TURN_SINE`. A sub-floor CHORD DEVIATION does not condition the kernel; the
+ * turn does, and the turn is bounded from below.
+ *
+ * UNIT WEIGHTS PIN NOTHING: with every weight equal this returns an empty list, canonicalisation
+ * behaves exactly as it did before pins existed, and the digest cannot move.
+ */
+function weightChangeVertexIndices(weights: readonly number[]): number[] {
+    const pinned: number[] = [];
+    for (let index = 0; index < weights.length; index++) {
+        if (weights[(index - 1 + weights.length) % weights.length] !== weights[index]) {
+            pinned.push(index);
+        }
+    }
+    return pinned;
+}
+
+/**
+ * Weights carried through canonicalisation's renumbering (W-spec W45).
+ *
+ * Edge `i` survives as edge `indexRemap[i]` when vertex `i` survives; a merged edge — one whose
+ * intervening vertices were removed — takes the weight of its first constituent, which is the weight
+ * of ALL of them, because {@link weightChangeVertexIndices} pinned every vertex where two weights
+ * met. There is no merge rule to choose here: under W-spec W44 the choice cannot arise.
+ */
+function remapWeightsThroughCanonicalisation(
+    weights: readonly number[],
+    indexRemap: readonly number[],
+    survivorCount: number,
+): number[] {
+    const remapped = new Array<number>(survivorCount).fill(1);
+    for (let index = 0; index < indexRemap.length; index++) {
+        const survivor = indexRemap[index];
+        if (survivor !== REMOVED_VERTEX_INDEX) {
+            remapped[survivor] = weights[index];
+        }
+    }
+    return remapped;
+}
+
+/**
+ * Weights carried through the winding reversal (W-spec W45).
+ *
+ * Reversing an `n`-ring sends vertex `j` to `v_{n−1−j}`, so reversed edge `j` runs from `v_{n−1−j}`
+ * to `v_{n−2−j}` — which is original edge `n−2−j`, traversed backwards. A weight is a speed and is
+ * indifferent to which way its edge is traversed, so the value is carried unchanged to that index.
+ */
+function reverseWeights(weights: readonly number[]): number[] {
+    const count = weights.length;
+    return weights.map((_unused, index) => weights[(count - 2 - index + count) % count]);
+}
+
 export function runAlgorithmV5(
     nodes: Vector2[],
-    options?: PerceptualFloorOptions,
+    options?: PerceptualFloorOptions & WeightOptions,
 ): StraightSkeletonSolverContext {
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
@@ -857,12 +1140,19 @@ export function runAlgorithmV5(
     // the same absolute tolerances the solver does. Canonicalisation follows immediately, in unit
     // space — see {@link canonicaliseInUnitSpace} and `canonicalisation.ts`.
     const normalisation = makeSkeletonNormalisation(nodes);
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation, perceptualFloor).vertices;
+    // THE WEIGHT DOOR RUNS BEFORE CANONICALISATION (W-spec W49, arc decision 124(b)), so a refusal
+    // names the caller's own vertex index.
+    const doorWeights = weightsAtTheDoor(normalisePolygon(nodes, normalisation), options?.weights);
+    const canonical = canonicaliseInUnitSpace(
+        nodes, normalisation, perceptualFloor, weightChangeVertexIndices(doorWeights));
+    const unitNodes = canonical.vertices;
+    const canonicalWeights = remapWeightsThroughCanonicalisation(
+        doorWeights, canonical.indexRemap, unitNodes.length);
 
-    const decomposition = decomposePolygon(unitNodes);
+    const decomposition = decomposePolygon(unitNodes, undefined, canonicalWeights);
 
     if (!decomposition.wasSelfIntersecting) {
-        const context = runSimplePolygon(unitNodes, perceptualFloor).context;
+        const context = runSimplePolygon(unitNodes, perceptualFloor, canonicalWeights).context;
         // BOTH HALVES OF THE CONTEXT, because both are handed to the caller and a cache left in unit
         // space would answer in the wrong units about edges that are still perfectly valid.
         denormaliseGraph(context.graph, normalisation);
@@ -870,8 +1160,9 @@ export function runAlgorithmV5(
         return context;
     }
 
-    const subResults = decomposition.subPolygons.map(subPoly => ({
-        graph: runSimplePolygon(subPoly, perceptualFloor).context.graph,
+    const subResults = decomposition.subPolygons.map((subPoly, index) => ({
+        graph: runSimplePolygon(
+            subPoly, perceptualFloor, decomposition.subPolygonWeights[index]).context.graph,
     }));
 
     // MERGED IN UNIT SPACE, then denormalised. The merge deduplicates crossing-point nodes with
@@ -883,7 +1174,35 @@ export function runAlgorithmV5(
     return mergedContext;
 }
 
-export interface SolveSkeletonOptions extends PerceptualFloorOptions {
+/**
+ * Per-edge wavefront speeds (arc journal decision 112(a), W-spec W1–W4).
+ *
+ * ONE ENTRY PER INPUT VERTEX. `weights[i]` is the speed of the edge from vertex `i` to vertex
+ * `(i + 1) % n`. Omitted, or an empty array, means all ones — which is bit-identical to the
+ * unweighted solver by construction, because every weighted site multiplies or divides by exactly
+ * `1.0` and there is no branch on unit weights anywhere (W-spec W36).
+ *
+ * WHAT A WEIGHT MEANS. The wavefront of edge `i` stands at perpendicular distance `w_i · t` from its
+ * supporting line at time `t`, so a fast edge sweeps further in the same time and its face in the
+ * skeleton grows at its expense of its neighbours'. In the roof reading, `w` is the tangent of the
+ * pitch: a shallow roof plane over a fast edge, a steep one over a slow edge.
+ *
+ * THREE THINGS ARE REFUSED, LOUDLY, AT THE DOOR:
+ *
+ *  1. a weight that is not finite and strictly positive (W-spec W2) — zero and infinite weights have
+ *     no well-posed vertex velocity, and a gable is a post-process on an all-positive solve;
+ *  2. `max / min` above {@link MAX_WEIGHT_RATIO} (W-spec W3, W48);
+ *  3. a weight change at a vertex whose turn sine is below {@link MIN_WEIGHT_TURN_SINE} (W-spec W49,
+ *     arc decision 124(b)) — **weights may change only at a visible corner**.
+ *
+ * The array is normalised so the slowest edge has weight exactly `1` before anything reads it
+ * (W-spec W4); `SkeletonSolveResult.weights` reports the normalised, remapped array the solve ran on.
+ */
+export interface WeightOptions {
+    weights?: readonly number[];
+}
+
+export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions {
     /**
      * Reverse counter-clockwise input before solving. The solver only handles clockwise
      * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
@@ -965,12 +1284,21 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     const normalisation = makeSkeletonNormalisation(vertices);
     const unitVertices = normalisePolygon(vertices, normalisation);
 
+    // THE WEIGHT DOOR, BEFORE CANONICALISATION (W-spec W1–W4, W49; arc decision 124(b)). All three
+    // refusals throw here, naming the caller's own index, because nothing has renumbered anything
+    // yet. With no weights this resolves to all ones and refuses nothing.
+    const doorWeights = weightsAtTheDoor(unitVertices, options?.weights);
+
     // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
     // which is what makes it relative by construction rather than a second tolerance system living
     // alongside the first. See `canonicalisation.ts` for what the stage removes and why removing the
-    // input beats handling it.
-    const canonical = canonicalisePolygon(unitVertices, noiseFloor);
+    // input beats handling it. Every weight-change vertex is PINNED (W-spec W44, arc decision 120):
+    // under weights such a vertex is structural whatever its deviation from the chord.
+    const canonical = canonicalisePolygon(
+        unitVertices, noiseFloor, weightChangeVertexIndices(doorWeights));
     let workingVertices = canonical.vertices;
+    let workingWeights = remapWeightsThroughCanonicalisation(
+        doorWeights, canonical.indexRemap, workingVertices.length);
 
     if (canonical.removedCount > 0) {
         diagnostics.push({
@@ -983,13 +1311,15 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
 
     if (normaliseWinding && !isClockwise(workingVertices)) {
         workingVertices = [...workingVertices].reverse();
+        // W-spec W45: the weights are remapped through the reversal with the ring.
+        workingWeights = reverseWeights(workingWeights);
         diagnostics.push({
             kind: 'winding-normalised',
             detail: `Input was counter-clockwise; ${workingVertices.length} vertices reversed to clockwise winding before solving.`,
         });
     }
 
-    const decomposition = decomposePolygon(workingVertices);
+    const decomposition = decomposePolygon(workingVertices, undefined, workingWeights);
 
     let graph: StraightSkeletonGraph;
     let context: StraightSkeletonSolverContext | null;
@@ -1000,8 +1330,10 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
             detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
         });
 
-        const subResults = decomposition.subPolygons.map(subPolygon => {
-            const run = runSimplePolygon(subPolygon, perceptualFloor);
+        const subResults = decomposition.subPolygons.map((subPolygon, index) => {
+            // W-spec W45: each piece of a split edge carries its original edge's weight.
+            const run = runSimplePolygon(
+                subPolygon, perceptualFloor, decomposition.subPolygonWeights[index]);
             pushStepFailures(diagnostics, run.errors);
             return {graph: run.context.graph};
         });
@@ -1009,7 +1341,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
         context = null;
     } else {
-        const run = runSimplePolygon(workingVertices, perceptualFloor);
+        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights);
         pushStepFailures(diagnostics, run.errors);
         graph = run.context.graph;
         context = run.context;
@@ -1033,7 +1365,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges');
     const complete = !blocking && graph.interiorEdges.length > 0;
 
-    return {graph, context, complete, diagnostics, normalisation};
+    return {graph, context, complete, diagnostics, normalisation, weights: workingWeights};
 }
 
 export interface SteppedAlgorithmResult {
@@ -1064,7 +1396,7 @@ function denormaliseSnapshots(snapshots: StraightSkeletonGraph[], normalisation:
 
 export function runAlgorithmV5Stepped(
     nodes: Vector2[],
-    options?: PerceptualFloorOptions,
+    options?: PerceptualFloorOptions & WeightOptions,
 ): SteppedAlgorithmResult {
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
@@ -1080,14 +1412,20 @@ export function runAlgorithmV5Stepped(
     // graphs half of which were in unit space would be worse than useless.
     const perceptualFloor = resolvePerceptualFloor(options);
     const normalisation = makeSkeletonNormalisation(nodes);
+    // THE WEIGHT DOOR, BEFORE CANONICALISATION, as in the solving entry points.
+    const doorWeights = weightsAtTheDoor(normalisePolygon(nodes, normalisation), options?.weights);
     // CANONICALISED IN UNIT SPACE, immediately after, so the stepped visualiser walks the same
     // polygon the solving entry points do. See {@link canonicaliseInUnitSpace}.
-    const unitNodes = canonicaliseInUnitSpace(nodes, normalisation, perceptualFloor).vertices;
+    const canonical = canonicaliseInUnitSpace(
+        nodes, normalisation, perceptualFloor, weightChangeVertexIndices(doorWeights));
+    const unitNodes = canonical.vertices;
+    const canonicalWeights = remapWeightsThroughCanonicalisation(
+        doorWeights, canonical.indexRemap, unitNodes.length);
 
-    const decomposition = decomposePolygon(unitNodes);
+    const decomposition = decomposePolygon(unitNodes, undefined, canonicalWeights);
 
     if (!decomposition.wasSelfIntersecting) {
-        const result = runSimplePolygonStepped(unitNodes, perceptualFloor);
+        const result = runSimplePolygonStepped(unitNodes, perceptualFloor, canonicalWeights);
         denormaliseSnapshots(result.snapshots, normalisation);
         return result;
     }
@@ -1098,8 +1436,9 @@ export function runAlgorithmV5Stepped(
     const subGraphs: StraightSkeletonGraph[] = [];
     let lastError: string | null = null;
 
-    for (const subPoly of decomposition.subPolygons) {
-        const result = runSimplePolygonStepped(subPoly, perceptualFloor);
+    for (const [index, subPoly] of decomposition.subPolygons.entries()) {
+        const result = runSimplePolygonStepped(
+            subPoly, perceptualFloor, decomposition.subPolygonWeights[index]);
         allSnapshots.push(...result.snapshots);
         if (result.error) lastError = result.error;
         if (result.snapshots.length > 0) {
@@ -1120,8 +1459,12 @@ export function runAlgorithmV5Stepped(
     return {snapshots: allSnapshots, error: lastError};
 }
 
-function runSimplePolygonStepped(nodes: Vector2[], perceptualFloor: number): SteppedAlgorithmResult {
-    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor);
+function runSimplePolygonStepped(
+    nodes: Vector2[],
+    perceptualFloor: number,
+    weights?: readonly number[],
+): SteppedAlgorithmResult {
+    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights);
     const exteriorEdges = [...context.graph.edges];
 
     initInteriorEdges(context);

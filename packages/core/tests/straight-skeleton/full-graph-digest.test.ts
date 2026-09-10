@@ -193,6 +193,27 @@ function digestOf(vertices: Vector2[]): string {
  * moved and why — it is never silently updated to whatever the solver currently emits.
  *
  * Regenerate with `DIGEST_PRINT=1 <run this test file>`, which logs a copy-pasteable table.
+ *
+ * ── FOURTEEN PINS RE-PINNED FOR THE WEIGHTED SOLVER CORE — W-spec W21, arc decision 115 ──
+ *
+ * The weighted branch left 45 of the 59 untouched and moved exactly the fourteen marked below, all
+ * of them at ONE named site: `findOffsetViaIncenter` in `generate-split-event.ts`. That function's
+ * old temporary-node-plus-two-ray incenter construction is replaced OUTRIGHT by the linear
+ * equi-time form, because keeping the construction "when both weights are one" would be a branch on
+ * unit weights, which W-spec W36 forbids on journal decision 105's ground. Arc decision 115 amends
+ * 112(d) to make this the single named exception to bit-identity, with the movement bounded by ulps
+ * by construction — the two routes reach the same point — and measured pin by pin.
+ *
+ * MEASURED, against a full graph snapshot of the pre-change tip (node positions, edge sources,
+ * targets and basis bits, interior-edge parents, `maxOffset` and `culled`) taken by solving both
+ * ways. WORST MOVEMENT ANYWHERE IS 3 ULPS. Nothing structural moved on any fixture: no node count,
+ * no edge target, no parent pair, no `culled` flag, and no `complete` flag changed anywhere in the
+ * corpus. The per-fixture measurements are recorded above each moved entry.
+ *
+ * NOTHING ELSE MOVED A PIN. In particular W-spec W33's new equi-time check on the `co-linear-from-1`
+ * closure — the other site the spec named as able to move the digest at unit weights — is reached on
+ * `Off-edge Jitter Plus (seed 7919)` and the large-coordinate cells and PASSES there, so that
+ * fixture's pin is unchanged.
  */
 const PINNED_DIGESTS: Record<string, string> = {
     'Triangle': '54e3232fcce97c6daec3f47f3aaabea5664606c506cd07a7a937c650447439c9',
@@ -206,21 +227,30 @@ const PINNED_DIGESTS: Record<string, string> = {
     'Impossible Octagon': '576484dc6777e3930ddcff6e1a7766c2278b630487bcba5baf96b74645d24b03',
     'Broken Polygon': 'd5731eb56d4fdb37d46f229d904084eaab2b847363caa8e555b79d2bfac0f812',
     'Crazy Polygon': '1c6dde9c72968c9b364ad91ff50081f1012b7ea3f753ee9aef104746b82b8889',
-    'Duck Octagon (fails)': 'c9a2a28759ced444498f14f533a46dd82062ca0a7d3843ca113679d2b56b3128',
-    'Duck Octagon (passes)': 'bd100f1c8e0fc47bf5908ba98b3e694384c5c7b94d0bfebee58faa5a92d023c3',
-    'Moorhen (fails)': 'e775d568bb3184b136d957321e3f4d4732d6aaa274d6b5b649b7814803b64cd4',
-    'Moorhen (passes)': 'f3b12df1b30cec1a797f14bc7724720f71fa0245d5ff7829ca91e78501d2d554',
-    'V2 Double Reflex Spaceship (fails)': '13d420b5429e0b0eb672e48cfcc250e4e13ad1e4b2b82bd100c87e8602de7fb7',
+    // W21 / decision 115: 3 node coordinates moved by 1 ulp, 2 `maxOffset` values by 2 ulps.
+    'Duck Octagon (fails)': '72bad157e5a3a7ec1f0482aacafeecc4f60746abb59a5976d59bd37a1a2a8ca9',
+    // W21 / decision 115: 2 node coordinates moved by 1 ulp; nothing else.
+    'Duck Octagon (passes)': 'aad5eb98e804de77527ad8969f29492090b95ecb98dff30c4b1db0365e258df4',
+    // W21 / decision 115: 2 node coordinates moved by 1 ulp; nothing else.
+    'Moorhen (fails)': '3df1ed66812bd350ac29b350c14f682c129d3d4706a57e1aca54080d68aa1666',
+    // W21 / decision 115: 2 node coordinates moved by 1 ulp; nothing else.
+    'Moorhen (passes)': '6bf6ea9a60e5527c9927b2d57e7329bc2d47e804e49ea2e2a530a27bd1607500',
+    // W21 / decision 115: 1 node coordinate moved by 1 ulp, 3 `maxOffset` values by up to 3 ulps —
+    // the worst movement anywhere in the corpus.
+    'V2 Double Reflex Spaceship (fails)': 'cd9980a9cd59e0bd734c6122ece436de4d4ea05a735d18b04addac8c7df7d410',
     'Previously failed Double Reflex Spaceship (passes)': '85b7b7d3fefc9e18d29e1454e2eace20cb6d838079a4b0a1fb2db893f79fed62',
     'Double Reflex Spaceship (passes)': 'ca66dd1f473f47bf455e252ccdca9b337484f44db863bee33a21db7967ac9cc8',
     'Convergence Towards Isthmus (succeeds)': 'dae4883ef800143a1457b40bd19fa08cac05f7e766e8abb2b84258ae223fc494',
     'Divergence Towards Isthmus (fails node 7)': '8c64f5237f4104cc747ff4aea058a3e2ee8f916e2762ec2ae76005dc2d1674f8',
     'Divergence Towards Isthmus (fails node 4)': '07c963cbcbdaaa44ea3d48971fae12737b1c7ba5ccd2d0c3afe703d45dbcdabe',
     'Long Octagon': 'e036ee11128f59297d22a831076efb39e71e757c61b0b1e1409953c2e516a554',
-    'Failing Long Octagon': '73edea4b14711be40dc5e06b3a85114da23e466c0cb2f048769846a29bbc591b',
-    'Failing Gentle Reflex Pentagon': 'c199aab1dd804a91c100ce7daf0c0fb586a37ca4114870439a7b59e418b5ec9b',
+    // W21 / decision 115: 2 `maxOffset` values moved by 2 ulps; no node moved.
+    'Failing Long Octagon': '1bfaaddda53b05ff850a240a843c0c12d396b1ec981ebf4a6a5671637a78f143',
+    // W21 / decision 115: 2 `maxOffset` values moved by 2 ulps; no node moved.
+    'Failing Gentle Reflex Pentagon': 'fd146cd98bc632465585a3201c618d17915c286d566e4f4c375c0f6cc3141341',
     'Mid-case Success Outer': '082ef07d8388a9efbddafd732a69aabdc4e33a8b4e9abddcb6e64037d1962ab3',
-    'Mid-case Failure Start': 'e86af18d26ea5eb763f716cbb25c8e4f06ce03761c786b21ae2584f920eb6be7',
+    // W21 / decision 115: 1 node coordinate moved by 1 ulp, 2 `maxOffset` values by 2 ulps.
+    'Mid-case Failure Start': 'a01bd2e060b84c7416c6f30ebb3363b4e6929b3ed860f26f92dd88c58e425648',
     'Mid-case Failure End': '57307ed7d39ec9461945e7d7d4a88b788b36de26e8ef3b48181798fb037038d0',
     'Mid-case Success Inner': '0f304802fb5a183caa11e9f7374f9e633ec735195057aa5efe048a397ca9e3d7',
     'Missing Edge at Node 11': '940ebaa76dc7cb52927ebb9215ccb209bf9899b40f62ec01700de88db0d9f664',
@@ -229,11 +259,16 @@ const PINNED_DIGESTS: Record<string, string> = {
     'Not Solvable Heptagon': '3f8abeb6dbf9ea9ae90667fd815f47cf8252a251d3a0d9cb65283126b3a69d24',
     'Wrong Collision at Node 10': '1453d305ff64d38d2349df517e42a7efb40fc8125753fdebccfd14ce99ca757c',
     'Premature Split Octagon': '940ebaa76dc7cb52927ebb9215ccb209bf9899b40f62ec01700de88db0d9f664',
-    'Long Unbroken Side Then Extreme Acute Angle': 'd0a0967ccc75f2eccba2856f61978db5a3e6892bcb71d52c3864872ef9ccc33b',
-    'Incorrect Ordering e38-e30 Collision': '5f5bb73dff60867af848b6a4e25e5209abe98ce7a9ffe6d603ffa9d2ca1c669d',
-    'Premature Bisector Split (fails)': '2a03fcf6e72725bc3b2db5efa13f38b99de0f746029f713e75e310642f26c7ec',
-    'Premature Bisector Split (passes)': 'be9c4267c4fb0915e95f9942e711d71333e4e6ecb997c5314fabffd50e9c5776',
-    'Short Edge Promontory': '1bc71ff1aa6dcdcfe57b9ea8f1e75049fa0c48ea9825046d450c4226d74749c0',
+    // W21 / decision 115: 2 node coordinates moved by 1 ulp, 5 `maxOffset` values by up to 2 ulps.
+    'Long Unbroken Side Then Extreme Acute Angle': '487615a03a0d7cb35a1e3fb5bbde715d854e422ac230832b112b303ff51c72f5',
+    // W21 / decision 115: 3 node coordinates moved by 1 ulp, 5 `maxOffset` values by up to 2 ulps.
+    'Incorrect Ordering e38-e30 Collision': 'da4c684f3aea565b4f3abda865bd55378d8ee45da8e0172c31d5514558b24e14',
+    // W21 / decision 115: 2 `maxOffset` values moved by 1 ulp; no node moved.
+    'Premature Bisector Split (fails)': '3c41045af803511c7285f41288b54931c4acc171f0d870c52b6e2adbd55efd4e',
+    // W21 / decision 115: 2 `maxOffset` values moved by 2 ulps; no node moved.
+    'Premature Bisector Split (passes)': '3874bc693484cae1d97ebf7a4ceaaca9c1ec16a49743085099e4c691453b12dc',
+    // W21 / decision 115: 2 `maxOffset` values moved by 1 ulp; no node moved.
+    'Short Edge Promontory': '34bba7ce2171182ac1009a8bd12c1c7529254c715383c4de23a83fb672897caa',
     'Cross': '8e53e88015c87fa7def33b28b730cd1cbfb847c3528b555eb938067ee9e45b75',
     'T-Shape': '649c0f5f0075e184ca91b33447492e699dcf881e51ba672405519e1fe91f5b48',
     'Golf Cart': '251c2db4de2a20e46f4adad3e7fbdce58eb2110b2835aeb080d09470e23b8217',
@@ -251,7 +286,8 @@ const PINNED_DIGESTS: Record<string, string> = {
     'Off-edge Jitter Reflex L (seed 15838)': '965a41110901f1f6167b251c309ba25e3013d3fe4ed06520cd039de8c276a4a8',
     'Off-edge Jitter Reflex L (seed 55433)': '434f124f04bdeb6ad082a843582bbd8c04bc029a28fa7f3b4dfef1fa5417286c',
     'Off-edge Jitter Plus (seed 7919)': '9e2c7d53d92548ce3af8950cab8466f39ebb35f7c2a6dcbde522cd05be13a7a3',
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': 'd406a05356b11d5032488492100c91d6dbeb895b21fcc9de2b44d69e9030d657',
+    // W21 / decision 115: 3 node coordinates moved by 1 ulp, 5 `maxOffset` values by 1 ulp.
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': '051808c645fce7466a0566881be7f458e7d9d08630568b9775af65f418c29886',
     'Near Regular Circle 48': '1c160f93b47ea00b09858d67fe00d502524130faa603ad62e0acfd5120bed1dc',
     'Near Regular Rosette5 40': 'cdc02b004eab1e13bef32a266d5f9313dd770161e0131beb26b0be3f435184f0',
 };

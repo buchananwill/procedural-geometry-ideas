@@ -530,7 +530,10 @@ describe('e38-e30 Collision Debug', () => {
 
             if (directOffset >= 0) {
                 // validateSplitReachesEdge
-                const validates = context.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, directOffset);
+                // The offset is a distance against the instigator's clockwise parent, which at unit
+                // weights is also the time (W-spec W7).
+                const validates = context.validateSplitReachesEdge(
+                    INSTIGATOR_ID, TARGET_ID, {distance: directOffset, weight: 1});
                 console.log(`validateSplitReachesEdge(offset=${directOffset.toFixed(6)}): ${validates}`);
                 if (!validates) {
                     console.log('<<< REJECTION at validateSplitReachesEdge for direct-strike (line 226-227)');
@@ -648,7 +651,8 @@ describe('e38-e30 Collision Debug', () => {
         }
 
         // validateSplitReachesEdge for incenter
-        const incenterValidates = context.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, incenterOffset);
+        const incenterValidates = context.validateSplitReachesEdge(
+            INSTIGATOR_ID, TARGET_ID, {distance: incenterOffset, weight: 1});
         console.log(`validateSplitReachesEdge(offset=${incenterOffset.toFixed(6)}): ${incenterValidates}`);
         if (!incenterValidates) {
             console.log('<<< REJECTION at validateSplitReachesEdge for incenter fallback (line 266)');
@@ -772,7 +776,8 @@ describe('e38-e30 Collision Debug', () => {
         // Now call the actual validateSplitReachesEdge to trigger the debug logging
         console.log('\n\n=== Calling actual validateSplitReachesEdge (debug logging enabled) ===');
         complexLog.setLevel('debug');
-        const actualResult = context.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, offset);
+        const actualResult = context.validateSplitReachesEdge(
+            INSTIGATOR_ID, TARGET_ID, {distance: offset, weight: 1});
         console.log(`validateSplitReachesEdge result: ${actualResult}`);
         complexLog.setLevel('error');
 
@@ -786,7 +791,8 @@ describe('e38-e30 Collision Debug', () => {
             exteriorEdges2.forEach(e => tryToAcceptExteriorEdge(context2, e.id));
         }
 
-        const validates9 = context2.validateSplitReachesEdge(INSTIGATOR_ID, TARGET_ID, offset);
+        const validates9 = context2.validateSplitReachesEdge(
+            INSTIGATOR_ID, TARGET_ID, {distance: offset, weight: 1});
         console.log(`Step 9 validateSplitReachesEdge: ${validates9}`);
 
         // Show bordering edges at step 9 — with proper sorting

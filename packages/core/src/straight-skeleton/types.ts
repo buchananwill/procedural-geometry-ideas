@@ -30,11 +30,33 @@ export enum SkeletonDirection {
     Widdershins = 'widdershins',
 }
 
+/**
+ * A wavefront arrival TIME, carried as the pair it was derived from (W-spec W7).
+ *
+ * `distance` is the perpendicular distance of the arrival point from the CLOCKWISE PARENT's
+ * supporting line — exactly the number `makeOffsetDistance` has always computed — and `weight` is
+ * that parent's speed. The time is `distance / weight`, and {@link timeOf} performs that division
+ * for reporting, sorting keys and denormalisation only.
+ *
+ * EVERY TOLERANCE DECISION READS THE PAIR, NEVER THE QUOTIENT (W-spec W22, journal decision 105 and
+ * arc decision 112(c)): `d₁ · w₂` against `d₂ · w₁`, with the epsilon multiplied by `w₁ · w₂`. A
+ * divided quantity compared against another divided quantity is two roundings deciding an ordering.
+ */
+export interface Arrival {
+    distance: number;
+    weight: number;
+}
+
 export interface InteriorEdge {
     id: number;
     clockwiseExteriorEdgeIndex: number;
     widdershinsExteriorEdgeIndex: number;
     length: number;
+    /**
+     * The latest TIME at which this bisector can still be carrying a wavefront vertex (W-spec W5,
+     * W16). At unit weights a time and a distance are the same double, which is why this field kept
+     * its name.
+     */
     maxOffset?: number;
     /**
      * True when the solver deliberately retired this edge as a zero-length self-loop
@@ -51,6 +73,20 @@ export interface StraightSkeletonGraph {
     edges: PolygonEdge[];
     numExteriorNodes: number;
     interiorEdges: InteriorEdge[];
+    /**
+     * The per-exterior-edge wavefront SPEED, indexed by exterior edge id, length
+     * `numExteriorNodes` (W-spec W1, W4). Every entry is a finite, strictly positive double, and the
+     * array is normalised so that its minimum is exactly `1`.
+     *
+     * PLAIN DATA, ON THE GRAPH, so it survives `structuredClone` into a worker or the dashboard
+     * alongside everything else the graph carries. DIMENSIONLESS: `normalisation.ts` does not touch
+     * it (W-spec W47).
+     *
+     * ON A MERGED GRAPH this is the sub-graphs' arrays concatenated in sub-graph order and is NOT
+     * indexed by merged edge id — the merged path renumbers edges across sub-graphs and nothing
+     * reads a weight after a merge. See `graph-merge.ts`.
+     */
+    exteriorWeights: number[];
 }
 
 export interface RayProjection {
@@ -69,6 +105,8 @@ export interface GraphHelpers {
     projectRayInterior(edge: InteriorEdge): RayProjection;
     clockwiseParent(edge: InteriorEdge): PolygonEdge;
     widdershinsParent(edge: InteriorEdge): PolygonEdge;
+    /** The wavefront speed of an EXTERIOR edge (W-spec W1). Always finite and strictly positive. */
+    weightOf(exteriorEdgeId: number): number;
     accept(edgeId: number): void;
     acceptAll(edgeIds: number[]): void;
     isAccepted(edgeId: number): boolean;
@@ -84,14 +122,16 @@ export interface GraphHelpers {
     clockwiseSpanIncludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
     widdershinsBisector(edgeId: number): PolygonEdge;
     clockwiseBisector(edgeId: number): PolygonEdge;
-    clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2;
-    widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2;
+    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
+    clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2;
+    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
+    widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2;
     terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode;
     crossWireEdges(id1: number, id2: number): void;
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
-    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean;
+    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
@@ -137,13 +177,19 @@ export const CollisionTypePriority: Record<CollisionType, number> = {
 }
 
 export interface SplitOffsetResult {
+    /** A TIME — `timeOf(arrival)` (W-spec W5). */
     offsetDistance: number;
+    /** The pair every predicate reads (W-spec W7). */
+    arrival: Arrival;
     position: Vector2;
     intersectionData: IntersectionResult;
 }
 
 export interface CollisionEvent {
+    /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights this is today's distance. */
     offsetDistance: number;
+    /** The pair every predicate reads (W-spec W7, W22). */
+    arrival: Arrival;
     collidingEdges: number[]; // first two are instigator and main result, i.e. exterior edge if split, otherwise intersection. Other indices if present are bisector rays to also accept in this event.
     position: Vector2;
     intersectionData: IntersectionResult
@@ -251,4 +297,12 @@ export interface SkeletonSolveResult {
      * quantities — fractions of the maximum offset, aspect-ratio bounds — cross the seam untouched.
      */
     normalisation: SkeletonNormalisation;
+    /**
+     * The per-exterior-edge weights the solve actually ran on: normalised to minimum `1` (W-spec W4)
+     * and remapped through every boundary-stage index change — canonicalisation's removals and the
+     * winding reversal (W-spec W45). Length matches `graph.numExteriorNodes` on the simple path.
+     *
+     * All ones when the caller passed no weights.
+     */
+    weights: number[];
 }

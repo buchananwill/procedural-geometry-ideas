@@ -56,7 +56,7 @@ function makeTriangleGraph(vertices: Vector2[], centerPos: Vector2): StraightSke
         makeInterior(5, 2, 1),
     ];
 
-    return {nodes, edges, numExteriorNodes: 3, interiorEdges};
+    return {nodes, edges, numExteriorNodes: 3, interiorEdges, exteriorWeights: [1, 1, 1]};
 }
 
 describe('graph-merge', () => {

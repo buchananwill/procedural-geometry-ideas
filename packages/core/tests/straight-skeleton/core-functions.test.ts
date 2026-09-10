@@ -17,7 +17,7 @@ import {addNode, initBoundingPolygon, interiorEdgeIndex} from "@proc-geo/core";
 // ---------------------------------------------------------------------------
 
 function emptyGraph(): StraightSkeletonGraph {
-    return { nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [] };
+    return { nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: [] };
 }
 
 function magnitude(v: Vector2): number {
@@ -292,7 +292,7 @@ describe('interiorEdgeIndex', () => {
     }
 
     function graphWith4ExteriorNodes(): StraightSkeletonGraph {
-        return { nodes: [], edges: [], numExteriorNodes: 4, interiorEdges: [] };
+        return { nodes: [], edges: [], numExteriorNodes: 4, interiorEdges: [], exteriorWeights: [1, 1, 1, 1] };
     }
 
     it('returns a negative value for an exterior edge (id 0)', () => {

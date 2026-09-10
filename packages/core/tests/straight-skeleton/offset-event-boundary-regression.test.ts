@@ -500,8 +500,19 @@ describe('offset projection at event boundaries', () => {
             // HARMLESS one; `silentLosses` is still empty over all 53, which is the assertion this
             // pin exists to keep honest. Same movement, same cause, as the sibling pin in
             // `near-regular-ring-loss-diagnosis.test.ts`.
+            //
+            // `fired` MOVED ALONE AGAIN ON 2026-09-10 — 176 to 172, `mutated` bit-unmoved at 341 —
+            // under W-spec W21 / arc decision 115, the weighted-offsets solver core:
+            // `findOffsetViaIncenter` now solves the split event by the linear equi-time form
+            // rather than by building a temporary node and intersecting two rays. The two reach the
+            // SAME point by different arithmetic, so fourteen fixtures move by at most 3 ulps
+            // (attributed pin by pin in `full-graph-digest.test.ts`), and four more hand-broken
+            // hand-overs move from the REPORTED column to the HARMLESS one. `silentLosses` is still
+            // empty over all 53, which is the assertion this pin exists to keep honest — the
+            // instrument reports FEWER hand-broken hand-overs as costing area, and none of them
+            // became silent.
             expect(mutated).toBe(341);
-            expect(fired).toBe(176);
+            expect(fired).toBe(172);
         });
 
         it('closes Pentagon House at the terminal offset its two apex nodes share', () => {

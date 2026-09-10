@@ -1,119 +1,131 @@
 import {
+    Arrival,
     CollisionEvent,
     InteriorEdge, IntersectionResult, PolygonEdge,
     RayProjection,
     SkeletonDirection,
     SplitOffsetResult,
-    StraightSkeletonSolverContext
+    StraightSkeletonSolverContext,
+    Vector2
 } from "./types";
 import {complexLog, splitLog} from "./logger";
 import {
     areEqual, crossProduct, dotProduct,
     findPositionAlongRay,
-    makeBisectedBasis,
     makeRay,
     negateVector,
+    rotateCw90,
+    subtractVectors,
 } from "./core-functions";
+import {FLOATING_POINT_EPSILON} from "./constants";
 import {intersectRays} from "./intersection-edges";
-import {makeOffsetDistance} from "./collision-helpers";
+import {sourceOffsetDistance, timeOf} from "./collision-helpers";
 
 /**
- * Find the split offset by constructing a triangular incenter.
- * Uses the parent bisector most perpendicular to the edge being split.
- * Useful when the bisector doesn't directly strike the edge in its starting state.
+ * The perpendicular distance of `point` from the supporting LINE of `edge`, measured on the inward
+ * side — `dot(rotateCw90(basis), point − A)` for any `A` on the line.
+ *
+ * The same reading as `makeOffsetDistance`'s rate: for a point travelling along a unit direction `d`
+ * this distance changes at `cross(d, basis)` per unit travelled, which is exactly the quantity the
+ * offset machinery already prices with.
+ */
+function distanceFromEdgeLine(
+    point: Vector2,
+    edge: PolygonEdge,
+    context: StraightSkeletonSolverContext,
+): number {
+    const normal = rotateCw90(edge.basisVector);
+    const fromEdge = subtractVectors(point, context.sourcePosition(edge.id));
+    return normal.x * fromEdge.x + normal.y * fromEdge.y;
+}
+
+/**
+ * Where along the instigator's ray its own wavefront clock reads the same as the split edge's — the
+ * split event, solved in closed form (W-spec W21, arc journal decision 115).
+ *
+ * THE ONE SITE WHERE UNIT-WEIGHT BIT-IDENTITY IS NOT ACHIEVABLE, and it is named as such. This
+ * replaced a construction that built a temporary node on whichever parent was more perpendicular to
+ * the split edge, bisected there with `makeBisectedBasis`, and intersected two rays. That
+ * construction reaches THE SAME POINT by different arithmetic, so its unit-weight bits are not
+ * these bits; arc decision 115 amends 112(d) to make this the single named exception, with the
+ * movement measured and attributed pin by pin. Movement is bounded by ulps BY CONSTRUCTION — same
+ * point, different route — so a pin that moves by more than a few ulps is a defect in this form and
+ * not an attribution. Keeping the old construction "when both weights are one" was rejected: that is
+ * a branch on unit weights, which W-spec W36 forbids on journal decision 105's ground.
+ *
+ * THE FORM. With `D₀` the instigator's source distance from its own clockwise parent's line, `E₀`
+ * its source distance from the split edge's line, `r = cross(d, c)` the rate against the clockwise
+ * parent and `q = −cross(d, e)` the rate of approach to the split edge:
+ *
+ *     D(s) = D₀ + s·r          (distance from the clockwise parent's line)
+ *     E(s) = E₀ − s·q          (distance from the split edge's line)
+ *     equi-time:  D(s)/w_cw = E(s)/w_e
+ *     s = (E₀·w_cw − D₀·w_e) / (r·w_e + q·w_cw)
+ *
+ * and the arrival is `{D₀ + s·r, w_cw}` — the instigator's own clock, which is the convention every
+ * arrival in the solver is stated in. The divisor's zero test carries the same `w_e · w_cw` scaling
+ * as the quantity it guards (W-spec W26).
  */
 function findOffsetViaIncenter(
     instigatorData: InteriorEdge,
     edgeToSplit: PolygonEdge,
     context: StraightSkeletonSolverContext
 ): SplitOffsetResult | null {
-    const {
-        clockwise: instigatorClockwiseParent,
-        widdershins: instigatorWiddershinsParent
-    } = context.parentEdges(instigatorData.id);
+    const instigatorRay = context.projectRayInterior(instigatorData);
+    const clockwiseParent = context.clockwiseParent(instigatorData);
 
-    // Make a ray from the parent that is most perpendicular to the splitting edge
-    const clockwiseDot = dotProduct(instigatorClockwiseParent.basisVector, edgeToSplit.basisVector);
-    const widdershinsDot = dotProduct(instigatorWiddershinsParent.basisVector, edgeToSplit.basisVector);
+    const clockwiseWeight = context.weightOf(clockwiseParent.id);
+    const splitWeight = context.weightOf(edgeToSplit.id);
 
-    const usingClockwiseParent = Math.abs(clockwiseDot) < Math.abs(widdershinsDot);
+    const rateAgainstParent = crossProduct(instigatorRay.basisVector, clockwiseParent.basisVector);
+    const rateTowardsSplit = -crossProduct(instigatorRay.basisVector, edgeToSplit.basisVector);
 
-    let bisectorParentRayForTempNode: RayProjection;
-    if (usingClockwiseParent) {
-        bisectorParentRayForTempNode = context.projectRayReversed(instigatorClockwiseParent);
-    } else {
-        bisectorParentRayForTempNode = context.projectRay(instigatorWiddershinsParent);
+    const divisor = rateAgainstParent * splitWeight + rateTowardsSplit * clockwiseWeight;
+    if (Math.abs(divisor) < FLOATING_POINT_EPSILON * splitWeight * clockwiseWeight) {
+        return null;
     }
 
-    // prepare rays from each end, looking towards the edge's centre
-    const edgeToSplitRayCw = context.projectRay(edgeToSplit);
-    const edgeToSplitRayWs: RayProjection = makeRay(context.graph.nodes[edgeToSplit.target!].position, negateVector(edgeToSplit.basisVector))
+    const sourceFromParent = sourceOffsetDistance(instigatorData, context);
+    const sourceFromSplit = distanceFromEdgeLine(instigatorRay.sourceVector, edgeToSplit, context);
 
-    const collisionCw = intersectRays(bisectorParentRayForTempNode, edgeToSplitRayCw);
-    const collisionWs = intersectRays(bisectorParentRayForTempNode, edgeToSplitRayWs);
-
-    // intersect both in case ray is narrowly passing outside either end of the edge
-    const bestResult = (): [IntersectionResult, boolean] => {
-        if (collisionCw[2] === 'converging' && collisionWs[2] !== "converging") {
-            return [collisionCw, true];
-        }
-
-        if (collisionWs[2] === 'converging' && collisionCw[2] !== 'converging') {
-            return [collisionWs, false];
-        }
-
-        const [cwRay1, cwRay2] = collisionCw;
-        const [wsRay1, wsRay2] = collisionWs;
-
-        const usingCw = Math.abs(cwRay1 - cwRay2) < Math.abs(wsRay1 - wsRay2);
-        return usingCw ? [collisionCw, usingCw] : [collisionWs, usingCw];
+    const alongInstigator =
+        (sourceFromSplit * clockwiseWeight - sourceFromParent * splitWeight) / divisor;
+    const arrival: Arrival = {
+        distance: sourceFromParent + alongInstigator * rateAgainstParent,
+        weight: clockwiseWeight,
     };
 
-    const result = bestResult();
-
-    // Make temporary node from the intersection point
-    const [[ray1Length, _, intersectionResult], usingCwIntersection] = result;
-    if (intersectionResult !== 'converging') {
-        return null;
-    }
-    const tempNodePosition = findPositionAlongRay(bisectorParentRayForTempNode, ray1Length);
-
-    const rayUsed = usingCwIntersection ? edgeToSplitRayCw : edgeToSplitRayWs;
-
-    // Perform incenter computation using the temporary node
-    const incenterRay1 = context.projectRayInterior(instigatorData);
-
-    // incenterRay2 HAS to point towards the original bisector
-    const tempBasisPart2 = dotProduct(rayUsed.basisVector, incenterRay1.basisVector) < 0
-        ? negateVector(rayUsed.basisVector)
-        : rayUsed.basisVector;
-    const tempBasis = makeBisectedBasis(negateVector(bisectorParentRayForTempNode.basisVector), tempBasisPart2);
-
-    // Now form the ray
-    const incenterRay2: RayProjection = makeRay(tempNodePosition, tempBasis);
-
-    const intersectionData = intersectRays(incenterRay1, incenterRay2);
-    const [incenterLengthRay1] = intersectionData;
-
-    const offsetDistance = makeOffsetDistance(instigatorData, context, incenterRay1, incenterLengthRay1);
-
-    // Discard negative offsets
-    if (offsetDistance < 0) {
-        splitLog.warn(`Offset distance was < 0: ${offsetDistance}, intersection: ${intersectionData}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
+    // Discard negative arrivals. The weight is positive, so the sign is the distance's.
+    if (arrival.distance < 0) {
+        splitLog.warn(`Offset distance was < 0: ${arrival.distance}, instigator: ${instigatorData}, edgeToSplit: ${edgeToSplit}`)
         return null;
     }
 
-    const position = findPositionAlongRay(incenterRay1, incenterLengthRay1);
+    const position = findPositionAlongRay(instigatorRay, alongInstigator);
 
-    return {offsetDistance, position, intersectionData};
+    // INTERPRETATION (recorded in the delegate's report): the closed form has no second ray to
+    // classify, and `SplitOffsetResult.intersectionData` is consumed only as a classification of the
+    // two PARTICIPANTS. It is therefore the instigator against the split edge's own ray — the same
+    // pair `findOffsetByDirectStrike` reports, so both split paths now describe their event the same
+    // way.
+    const intersectionData = intersectRays(instigatorRay, context.projectRay(edgeToSplit));
+
+    return {offsetDistance: timeOf(arrival), arrival, position, intersectionData};
 }
 
 /**
- * Find the split offset by direct bisector–edge intersection.
+ * Find the split arrival by direct bisector–edge intersection.
  * Solves the equation:
- * offset = distanceAlongBisector * cross(bisector, parent)
+ * distance = distanceAlongBisector * cross(bisector, parent)
  * where distanceAlongBisector partitions the total bisector length by the ratio
  * of the perpendicular projections to parent and struck edge.
+ *
+ * WEIGHTED BY CROSS-MULTIPLICATION (W-spec W20, W26). The two projections are converted into TIMES
+ * by their own edges' weights before the split of `rayLength1` is taken, which is the same
+ * clearing-of-denominators as `meetHeadOn`. At unit weights every product is by `1.0` and this is
+ * `rayLength1 · negT / (crossCw + negT)` in the same operation order — measured 0 mismatches in
+ * 100 000 random operands. The formula keeps today's primary-only assumption (the instigator's
+ * source lies on its parent's line, so there is no source term); that is not new.
  */
 function findOffsetByDirectStrike(
     instigatorData: InteriorEdge,
@@ -124,20 +136,31 @@ function findOffsetByDirectStrike(
     const instigatorRay = context.projectRayInterior(instigatorData);
     const [rayLength1] = initialIntersection;
     const clockwiseInstigatorParent = context.clockwiseParent(instigatorData);
+    const clockwiseWeight = context.weightOf(clockwiseInstigatorParent.id);
+    const splitWeight = context.weightOf(edgeToSplit.id);
     const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector);
     const negativeInstigatorCrossTarget = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
-    const crossSumDivisor = crossClockwiseParent + negativeInstigatorCrossTarget;
+    const crossSumDivisor = crossClockwiseParent * splitWeight + negativeInstigatorCrossTarget * clockwiseWeight;
 
-    if (areEqual(crossSumDivisor, 0)) {
+    if (Math.abs(crossSumDivisor) < FLOATING_POINT_EPSILON * splitWeight * clockwiseWeight) {
         return null;
     }
 
-    const distanceToSplitAlongInstigator = rayLength1 * negativeInstigatorCrossTarget / crossSumDivisor;
-    const offsetDistance = distanceToSplitAlongInstigator * crossClockwiseParent;
+    const distanceToSplitAlongInstigator =
+        rayLength1 * negativeInstigatorCrossTarget * clockwiseWeight / crossSumDivisor;
+    const arrival: Arrival = {
+        distance: distanceToSplitAlongInstigator * crossClockwiseParent,
+        weight: clockwiseWeight,
+    };
 
     const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
 
-    return {offsetDistance, position, intersectionData: initialIntersection};
+    return {
+        offsetDistance: timeOf(arrival),
+        arrival,
+        position,
+        intersectionData: initialIntersection,
+    };
 }
 
 export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
@@ -174,7 +197,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    if (!context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.offsetDistance)) {
+    if (!context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival)) {
         splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
         return null;
     }
@@ -184,6 +207,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         intersectionData: result.intersectionData,
         collidingEdges: [instigatorData.id, edgeToSplit.id],
         offsetDistance: result.offsetDistance,
+        arrival: result.arrival,
         eventType: 'interiorAgainstExterior'
     }
 }
@@ -250,12 +274,13 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.offsetDistance)) {
+        if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival)) {
             complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
             return {
                 intersectionData: directResult.intersectionData,
                 offsetDistance: directResult.offsetDistance,
+                arrival: directResult.arrival,
                 collidingEdges: [instigatorId, targetId],
                 eventType: 'interiorAgainstExterior',
                 position: directResult.position
@@ -290,7 +315,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    if (!context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.offsetDistance)) {
+    if (!context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival)) {
         return null;
     }
 
@@ -299,6 +324,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         intersectionData: incenterResult.intersectionData,
         collidingEdges: [instigatorId, targetId],
         offsetDistance: incenterResult.offsetDistance,
+        arrival: incenterResult.arrival,
         eventType: 'interiorAgainstExterior'
     };
 }

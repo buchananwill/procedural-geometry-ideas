@@ -51,6 +51,8 @@ const STEP = 2 ** -28;
 function eventAt(position: Vector2, collidingEdges: number[]): CollisionEvent {
     return {
         offsetDistance: 1,
+        // The pair the time came from (W-spec W7): unit speed, so distance and time coincide.
+        arrival: {distance: 1, weight: 1},
         collidingEdges,
         position,
         intersectionData: [1, 1, 'converging'],

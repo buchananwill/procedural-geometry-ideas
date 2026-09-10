@@ -35,6 +35,15 @@ export interface CrossingPoint {
 export interface DecompositionResult {
     /** The simple sub-polygons after decomposition (all clockwise) */
     subPolygons: Vector2[][];
+    /**
+     * The per-edge weights of each sub-polygon, parallel to {@link subPolygons} and to each
+     * sub-polygon's own vertex list (W-spec W45).
+     *
+     * EVERY PIECE INHERITS ITS ORIGINAL EDGE'S WEIGHT. Splitting at a crossing cuts two edges in
+     * two; each half is still that wall, moving at that wall's speed. All ones when the caller
+     * passed no weights, so an unweighted decomposition is unchanged in every other respect.
+     */
+    subPolygonWeights: number[][];
     /** The crossing points inserted (these become interior nodes in the merged graph) */
     crossingPoints: Vector2[];
     /** Whether the original polygon was self-intersecting */
@@ -81,29 +90,53 @@ export function findFirstCrossing(vertices: Vector2[]): CrossingPoint | null {
     return null;
 }
 
+/** A sub-polygon and the per-edge weights that came with it (W-spec W45). */
+interface WeightedRing {
+    vertices: Vector2[];
+    weights: number[];
+}
+
 /**
  * Given vertices and a crossing, split into sub-polygons.
  * Discards degenerate sub-polygons (fewer than 3 vertices, near-zero area, or counter-clockwise winding).
  * Returns 0, 1, or 2 valid sub-polygons.
  */
 export function splitAtCrossing(vertices: Vector2[], crossing: CrossingPoint): Vector2[][] {
+    return splitAtCrossingWeighted(vertices, vertices.map(() => 1), crossing)
+        .map(ring => ring.vertices);
+}
+
+/**
+ * The same split, carrying the weight array (W-spec W45).
+ *
+ * Sub-polygon A is `X, V_{i+1}, …, V_j`: its first edge is the tail of edge `i`, then edges
+ * `i+1 … j−1` whole, then the closing edge `V_j → X` is the head of edge `j`. Sub-polygon B is the
+ * mirror of that. Each piece keeps its original edge's weight.
+ */
+function splitAtCrossingWeighted(
+    vertices: Vector2[],
+    weights: readonly number[],
+    crossing: CrossingPoint,
+): WeightedRing[] {
     const {point, edgeI: i, edgeJ: j} = crossing;
     const n = vertices.length;
 
     // Sub-polygon A: X, V_{i+1}, V_{i+2}, ..., V_j
-    const subA: Vector2[] = [point];
+    const subA: WeightedRing = {vertices: [point], weights: [weights[i]]};
     for (let k = i + 1; k <= j; k++) {
-        subA.push(vertices[k % n]);
+        subA.vertices.push(vertices[k % n]);
+        subA.weights.push(weights[k % n]);
     }
 
     // Sub-polygon B: X, V_{j+1}, V_{j+2}, ..., V_i
     // Loop from j+1, wrapping around, stopping at (i+1)%n — so last vertex added is V_i.
-    const subB: Vector2[] = [point];
+    const subB: WeightedRing = {vertices: [point], weights: [weights[j]]};
     for (let k = (j + 1) % n; k !== (i + 1) % n; k = (k + 1) % n) {
-        subB.push(vertices[k]);
+        subB.vertices.push(vertices[k]);
+        subB.weights.push(weights[k]);
     }
 
-    return [subA, subB].filter(isValidSubPolygon);
+    return [subA, subB].filter(ring => isValidSubPolygon(ring.vertices));
 }
 
 /**
@@ -129,36 +162,66 @@ export function ensureClockwise(vertices: Vector2[]): Vector2[] {
 }
 
 /**
- * Recursively decompose a possibly self-intersecting polygon into simple sub-polygons.
- * Each returned sub-polygon is guaranteed simple and clockwise-wound.
+ * Weights carried through a winding reversal (W-spec W45), the same map the solver's boundary stage
+ * uses: reversed edge `j` is original edge `n − 2 − j`.
  */
-export function decomposePolygon(vertices: Vector2[], maxDepth?: number): DecompositionResult {
-    const limit = maxDepth ?? (vertices.length * (vertices.length - 1)) / 2;
-    return decomposeRecursive(vertices, limit, 0);
+function reverseWeights(weights: readonly number[]): number[] {
+    const count = weights.length;
+    return weights.map((_unused, index) => weights[(count - 2 - index + count) % count]);
 }
 
-function decomposeRecursive(vertices: Vector2[], maxDepth: number, depth: number): DecompositionResult {
+/** The ring, wound clockwise, with its weights remapped if it had to be reversed. */
+function ensureClockwiseWeighted(ring: WeightedRing): WeightedRing {
+    if (isClockwise(ring.vertices)) {
+        return ring;
+    }
+    return {vertices: [...ring.vertices].reverse(), weights: reverseWeights(ring.weights)};
+}
+
+/**
+ * Recursively decompose a possibly self-intersecting polygon into simple sub-polygons.
+ * Each returned sub-polygon is guaranteed simple and clockwise-wound.
+ *
+ * `weights` is the per-edge wavefront speed, parallel to `vertices` (W-spec W45). Omitted means all
+ * ones, and `subPolygonWeights` then comes back all ones as well.
+ */
+export function decomposePolygon(
+    vertices: Vector2[],
+    maxDepth?: number,
+    weights?: readonly number[],
+): DecompositionResult {
+    const limit = maxDepth ?? (vertices.length * (vertices.length - 1)) / 2;
+    const resolved = weights !== undefined && weights.length === vertices.length
+        ? [...weights]
+        : vertices.map(() => 1);
+    return decomposeRecursive({vertices, weights: resolved}, limit, 0);
+}
+
+function decomposeRecursive(ring: WeightedRing, maxDepth: number, depth: number): DecompositionResult {
     if (depth > maxDepth) {
         throw new Error(`Polygon decomposition exceeded max recursion depth (${maxDepth})`);
     }
 
-    const crossing = findFirstCrossing(vertices);
+    const crossing = findFirstCrossing(ring.vertices);
 
     if (crossing === null) {
         // Simple polygon — base case
+        const clockwise = ensureClockwiseWeighted(ring);
         return {
-            subPolygons: [ensureClockwise(vertices)],
+            subPolygons: [clockwise.vertices],
+            subPolygonWeights: [clockwise.weights],
             crossingPoints: [],
             wasSelfIntersecting: false,
         };
     }
 
-    const validSubs = splitAtCrossing(vertices, crossing);
+    const validSubs = splitAtCrossingWeighted(ring.vertices, ring.weights, crossing);
 
     if (validSubs.length === 0) {
         // Both sub-polygons were degenerate — return empty
         return {
             subPolygons: [],
+            subPolygonWeights: [],
             crossingPoints: [crossing.point],
             wasSelfIntersecting: true,
         };
@@ -166,16 +229,19 @@ function decomposeRecursive(vertices: Vector2[], maxDepth: number, depth: number
 
     // Recurse on each valid sub-polygon
     const allSubPolygons: Vector2[][] = [];
+    const allSubPolygonWeights: number[][] = [];
     const allCrossingPoints: Vector2[] = [crossing.point];
 
     for (const sub of validSubs) {
         const result = decomposeRecursive(sub, maxDepth, depth + 1);
         allSubPolygons.push(...result.subPolygons);
+        allSubPolygonWeights.push(...result.subPolygonWeights);
         allCrossingPoints.push(...result.crossingPoints);
     }
 
     return {
         subPolygons: allSubPolygons,
+        subPolygonWeights: allSubPolygonWeights,
         crossingPoints: allCrossingPoints,
         wasSelfIntersecting: true,
     };

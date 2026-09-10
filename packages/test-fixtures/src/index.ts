@@ -221,6 +221,36 @@ import {
     OFF_EDGE_JITTER_PLUS_SEED_7919,
 } from './near-floor-jitter';
 
+// weighted-fixtures.ts
+// §4 of the weighted-offsets decision spec. DELIBERATELY NOT ENROLLED in CLEAN_TEST_POLYGONS or
+// FULL_CORPUS (W-spec W50): those rosters' sweeps assume unit weights and their count of 59 is the
+// full-graph digest's, and a weight is an option on the solve rather than a property of a ring — the
+// same ring solves differently under different weights. Two of these entries are inputs the solver
+// REFUSES; see the file header.
+export {
+    WEIGHTED_TEST_POLYGONS,
+    WEIGHTED_RECTANGLE_FAST_FLOOR,
+    WEIGHTED_CORRIDOR_FAST_CEILING,
+    WEIGHTED_FAST_SHELF_L,
+    WEIGHTED_NEAR_STRAIGHT_WEIGHT_CHANGE,
+    NEAR_STRAIGHT_WEIGHT_CHANGE_TURN_SINE,
+    NEAR_STRAIGHT_WEIGHT_CHANGE_SPEED,
+    WEIGHTED_SUB_FLOOR_WEIGHT_CHANGE,
+    SUB_FLOOR_WEIGHT_CHANGE_INDEX,
+    WEIGHTED_SQUARE_NEAR_MAX_RATIO,
+    WEIGHTED_PENTAGON_HOUSE,
+    WEIGHTED_STEP,
+    WEIGHTED_INVISIBLE_VERTEX_REFUSED,
+    WEIGHTED_INVISIBLE_VERTEX_SOLVES,
+    WEIGHTED_DORMER_SQUARE_REFUSED,
+    WEIGHTED_SQUARE_ALTERNATING,
+} from './weighted-fixtures';
+export type {
+    WeightedTestPolygon,
+    WeightedNodeExpectation,
+    WeightedRefusalExpectation,
+} from './weighted-fixtures';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];

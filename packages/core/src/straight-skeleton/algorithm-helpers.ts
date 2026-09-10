@@ -7,18 +7,17 @@ import {
 } from "./types";
 import {complexLog, solverLog} from "./logger";
 import {
-    areEqual,
     assertIsNumber,
     crossProduct,
-    makeBisectedBasis,
     makeRay,
+    makeWeightedBisectedBasis,
     negateVector,
     sineIsBelow
 } from "./core-functions";
 import {DIRECTION_SINE_BAR} from "./constants";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
-import {makeOffsetDistance} from "./collision-helpers";
+import {arrivalOf, timeOf} from "./collision-helpers";
 
 
 /**
@@ -171,7 +170,16 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     const fromNodeWiddershins = negateVector(context.widdershinsParent(newEdge).basisVector)
     const fromNodeClockwise = context.clockwiseParent(newEdge).basisVector;
 
-    const bisectedBasis = makeBisectedBasis(fromNodeClockwise, fromNodeWiddershins);
+    // W-spec W12–W14, W17. The direction is the KERNEL's — the solution of `v · n₁ = w₁`,
+    // `v · n₂ = w₂` — spelled as the scaled difference `normalize(w_ws · c − w_cw · b)` so that at
+    // unit weights it performs today's operations in today's order and is bit-identical. The sign
+    // rule below is untouched: for positive weights the rate's sign is still the sign of `c × b`
+    // (W-spec W13), so convex keeps the numerator and reflex negates it exactly as before.
+    const bisectedBasis = makeWeightedBisectedBasis(
+        fromNodeClockwise,
+        fromNodeWiddershins,
+        context.weightOf(clockwiseExteriorEdgeIndex),
+        context.weightOf(widdershinsExteriorEdgeIndex));
 
     const offsetRate = bisectorOffsetRate(context, newEdge, bisectedBasis);
     let finalBasis: Vector2;
@@ -223,9 +231,10 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
             const rayFromTargetEnd = makeRay(exteriorTargetNode.position, negateVector(polygonEdge.basisVector));
             const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
-                const offset = makeOffsetDistance(interiorEdge, context, newRay, ray1Length)
-                context.updateMaxOffset(edgeIndex, offset)
-                complexLog.info(`EdgeId: ${edgeIndex}, collided edge: ${i}, offset: ${offset}`)
+                // W-spec W16: `maxOffset` is a TIME. At unit weights `distance / 1.0` is exact.
+                const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length))
+                context.updateMaxOffset(edgeIndex, time)
+                complexLog.info(`EdgeId: ${edgeIndex}, collided edge: ${i}, time: ${time}`)
 
             }
         }

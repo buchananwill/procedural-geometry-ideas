@@ -38,7 +38,7 @@ export function mergeSkeletonGraphs(
 ): MergedGraphResult {
     if (subResults.length === 0) {
         return {
-            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: []},
+            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: []},
             crossingNodeIndices: [],
         };
     }
@@ -51,6 +51,16 @@ export function mergeSkeletonGraphs(
     const allNodes: PolygonNode[] = [];
     const allEdges: PolygonEdge[] = [];
     const allInteriorEdges: InteriorEdge[] = [];
+    /**
+     * The sub-graphs' weight arrays, concatenated in sub-graph order (W-spec W45).
+     *
+     * NOT INDEXED BY MERGED EDGE ID, and it cannot be: a merge interleaves each sub-graph's exterior
+     * and interior edges in one id space, so the merged exterior edges are not `0 … numExteriorNodes`.
+     * Nothing reads a weight after a merge — `makeMergedSolverContext` is post-algorithm and its
+     * `weightOf` refuses — so this is carried as a record of what each sub-solve ran on rather than
+     * as a lookup table.
+     */
+    const allExteriorWeights: number[] = [];
 
     // Track the offset for each sub-graph
     const nodeOffsets: number[] = [];
@@ -94,6 +104,8 @@ export function mergeSkeletonGraphs(
                 maxOffset: ie.maxOffset,
             });
         }
+
+        allExteriorWeights.push(...g.exteriorWeights);
 
         totalNodes += g.nodes.length;
         totalEdges += g.edges.length;
@@ -209,6 +221,7 @@ export function mergeSkeletonGraphs(
             edges: allEdges,
             numExteriorNodes: totalExteriorNodes,
             interiorEdges: allInteriorEdges,
+            exteriorWeights: allExteriorWeights,
         },
         crossingNodeIndices,
     };
@@ -250,6 +263,9 @@ export function makeMergedSolverContext(
         projectRayInterior: notSupported('projectRayInterior'),
         clockwiseParent: notSupported('clockwiseParent'),
         widdershinsParent: notSupported('widdershinsParent'),
+        // A merged graph's edge ids are not the exterior-weight array's indices — see the array's
+        // comment in `mergeSkeletonGraphs`. Refusing beats answering with the wrong wall's speed.
+        weightOf: notSupported('weightOf'),
         accept: notSupported('accept'),
         acceptAll: notSupported('acceptAll'),
         isAccepted: (edgeId: number) => edgeId < acceptedEdges.length && acceptedEdges[edgeId],

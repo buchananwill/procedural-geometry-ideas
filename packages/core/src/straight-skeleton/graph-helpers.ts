@@ -33,16 +33,29 @@ export function interiorEdgeIndex(e: PolygonEdge, g: StraightSkeletonGraph): num
 }
 
 /**
- * Nodes given in clockwise order
+ * Nodes given in clockwise order.
+ *
+ * `weights` is the per-exterior-edge wavefront speed, parallel to `nodes`: `weights[i]` is the speed
+ * of the edge from node `i` to node `i + 1` (W-spec W1). Omitted, or of length zero, means all ones.
+ * A mismatched length is rejected loudly rather than padded — a weight array that does not describe
+ * this ring is a caller error, not a default.
  * */
-export function initBoundingPolygon(nodes: Vector2[]): StraightSkeletonGraph {
+export function initBoundingPolygon(nodes: Vector2[], weights?: readonly number[]): StraightSkeletonGraph {
+    if (weights !== undefined && weights.length > 0 && weights.length !== nodes.length) {
+        throw new Error(
+            `Weight array has ${weights.length} entries but the polygon has ${nodes.length} vertices; `
+            + `there must be exactly one weight per vertex (the edge leaving it).`);
+    }
 
     // init object with nodes
     const graph: StraightSkeletonGraph = {
         nodes: nodes.map((v, i) => ({id: i, inEdges: [], outEdges: [], position: v})),
         edges: [],
         numExteriorNodes: nodes.length,
-        interiorEdges: []
+        interiorEdges: [],
+        exteriorWeights: weights !== undefined && weights.length > 0
+            ? [...weights]
+            : nodes.map(() => 1),
     };
 
     // Add exterior edges

@@ -4,6 +4,7 @@ export type {
   PolygonNode,
   PolygonEdge,
   PrimaryInteriorEdge,
+  Arrival,
   InteriorEdge,
   StraightSkeletonGraph,
   RayProjection,
@@ -65,6 +66,8 @@ export {
   DEGENERATE_AREA_EPSILON,
   DIRECTION_SINE_BAR,
   FLOATING_POINT_EPSILON,
+  MAX_WEIGHT_RATIO,
+  MIN_WEIGHT_TURN_SINE,
   NO_COLLISION_RESULTS,
   PARALLEL_GATE_SINE_BAR,
   TRIANGLE_INTERSECT_PAIRINGS,
@@ -87,6 +90,7 @@ export {
   normalize,
   makeBasis,
   makeBisectedBasis,
+  makeWeightedBisectedBasis,
   negateVector,
   findPositionAlongRay,
   makeRay,
@@ -119,9 +123,15 @@ export {
 
 // ── Collision ────────────────────────────────────────────────────────────────
 export {
+  arrivalOf,
+  arrivalsAreEqual,
   bestNonPhantomCollision,
+  birthArrivalOf,
   collisionDistanceFromBasisUnits,
+  compareArrivals,
+  laterArrival,
   sourceOffsetDistance,
+  timeOf,
   collideInteriorAndExteriorEdge,
   makeOffsetDistance,
   collideInteriorEdges,
@@ -142,6 +152,7 @@ export {
 
 // ── V5 algorithm ─────────────────────────────────────────────────────────────
 export {
+  assertWeightsChangeOnlyAtVisibleCorners,
   handleInteriorEdgePair,
   handleInteriorEdgeTriangle,
   handleAlgorithmStepInput,
@@ -151,7 +162,7 @@ export {
   solveSkeleton,
   canonicaliseForSolve,
 } from './straight-skeleton/algorithm-termination-cases';
-export type { SteppedAlgorithmResult, SolveSkeletonOptions } from './straight-skeleton/algorithm-termination-cases';
+export type { SteppedAlgorithmResult, SolveSkeletonOptions, WeightOptions } from './straight-skeleton/algorithm-termination-cases';
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
 

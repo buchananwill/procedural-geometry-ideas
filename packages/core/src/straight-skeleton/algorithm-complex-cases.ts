@@ -1,10 +1,9 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput, BisectionParams, CollisionEvent, CollisionTypePriority,
+    AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext
 } from "./types";
-import {findOrComputeCollision} from "./collision-helpers";
-import {areEqual, fp_compare} from "./core-functions";
+import {compareArrivals, findOrComputeCollision} from "./collision-helpers";
 import handleCollisionEvent from "./collision-handling";
 import {
     bisectWithParams,
@@ -87,12 +86,15 @@ export function inArrivalOrder(
     events: CollisionEvent[],
     tieBreak: (first: CollisionEvent, second: CollisionEvent) => number,
 ): CollisionEvent[] {
-    const byOffset = events.toSorted((e1, e2) => e1.offsetDistance - e2.offsetDistance);
+    // W-spec W24, W25: ordered by ARRIVAL, division-free. At unit weights `compareArrivals(a, b, 0)`
+    // is the sign of `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable
+    // sort delivers exactly today's order.
+    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
 
     const moments: number[] = [];
     let moment = 0;
     for (let index = 0; index < byOffset.length; index++) {
-        if (index > 0 && !areSimultaneousArrivals(byOffset[index - 1].offsetDistance, byOffset[index].offsetDistance)) {
+        if (index > 0 && !areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
             moment++;
         }
         moments.push(moment);
@@ -104,9 +106,16 @@ export function inArrivalOrder(
         .map(entry => entry.event);
 }
 
-function areSimultaneousArrivals(first: number, second: number): boolean {
-    const magnitude = Math.max(Math.abs(first), Math.abs(second));
-    return Math.abs(first - second) <= SIMULTANEOUS_ARRIVAL_ULPS * Number.EPSILON * magnitude;
+/**
+ * W-spec W25: the 64-ulp bar, cross-multiplied. `|d₁·w₂ − d₂·w₁|` against the bar times the larger
+ * of the two products — the exact restatement of the same window on `d₁/w₁` versus `d₂/w₂`, with no
+ * division. At unit weights both products are by `1.0` and the verdict is today's.
+ */
+function areSimultaneousArrivals(first: Arrival, second: Arrival): boolean {
+    const left = first.distance * second.weight;
+    const right = second.distance * first.weight;
+    const magnitude = Math.max(Math.abs(left), Math.abs(right));
+    return Math.abs(left - right) <= SIMULTANEOUS_ARRIVAL_ULPS * Number.EPSILON * magnitude;
 }
 
 /**
@@ -125,22 +134,14 @@ function areSimultaneousArrivals(first: number, second: number): boolean {
  * {@link inArrivalOrder}'s moment partition — this is that partition's first class, taken alone.
  */
 function earliestArrivalMoment(events: CollisionEvent[]): CollisionEvent[] {
-    const byOffset = events.toSorted((e1, e2) => e1.offsetDistance - e2.offsetDistance);
+    const byOffset = events.toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0));
 
     for (let index = 1; index < byOffset.length; index++) {
-        if (!areSimultaneousArrivals(byOffset[index - 1].offsetDistance, byOffset[index].offsetDistance)) {
+        if (!areSimultaneousArrivals(byOffset[index - 1].arrival, byOffset[index].arrival)) {
             return byOffset.slice(0, index);
         }
     }
     return byOffset;
-}
-
-function sameInstigatorComparator(ev1: CollisionEvent, ev2: CollisionEvent) {
-    if (ev1.collidingEdges[0] !== ev2.collidingEdges[0]) {
-        throw new Error("Different instigators! Invalid comparison.")
-    }
-    return ev1.offsetDistance - ev2.offsetDistance;
-
 }
 
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
@@ -177,16 +178,20 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // Generate all currently valid collision events
     const collisionLists: CollisionEvent[][] = createCollisions(input.interiorEdges, exteriorParents, context)
 
+    // W-spec W24: the layer window, on arrivals. `bestArrival` is the earliest by the same
+    // comparator, and the window is the epsilon comparison against it. At unit weights every
+    // product is by `1.0` and this is today's `fp_compare(offset, bestOffset) <= 0` on an
+    // offset-ascending list.
     const collisionsToHandle: CollisionEvent[] = [];
-    let bestOffset = Number.POSITIVE_INFINITY;
+    let bestArrival: Arrival | undefined;
     const flattenedCollisions = collisionLists.flat()
-        .toSorted((e1, e2) => {
-            return e1.offsetDistance - e2.offsetDistance
-        })
+        .toSorted((e1, e2) => compareArrivals(e1.arrival, e2.arrival, 0))
 
     for (const flattenedCollision of flattenedCollisions) {
-        bestOffset = Math.min(bestOffset, flattenedCollision.offsetDistance)
-        if (fp_compare(flattenedCollision.offsetDistance, bestOffset) <= 0){
+        if (bestArrival === undefined || compareArrivals(flattenedCollision.arrival, bestArrival, 0) < 0) {
+            bestArrival = flattenedCollision.arrival;
+        }
+        if (compareArrivals(flattenedCollision.arrival, bestArrival) <= 0){
             collisionsToHandle.push(flattenedCollision)
         }
         else

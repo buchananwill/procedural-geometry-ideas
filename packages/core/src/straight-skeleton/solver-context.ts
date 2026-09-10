@@ -1,4 +1,5 @@
 import {
+    Arrival,
     CollisionCache,
     EdgeRank,
     InteriorEdge, IntersectionType,
@@ -11,7 +12,6 @@ import {
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
-    areEqual,
     dotProduct,
     makeRay,
     negateVector,
@@ -20,7 +20,7 @@ import {
     vectorsAreEqual
 } from "./core-functions";
 import {intersectRays} from "./intersection-edges";
-import {sourceOffsetDistance} from "./collision-helpers";
+import {birthArrivalOf, compareArrivals, timeOf} from "./collision-helpers";
 import {complexLog, splitLog} from "./logger";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
 
@@ -28,13 +28,35 @@ import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
  * `perceptualFloor` is the client's floor for this solve, in the unit space `nodes` are given in. It
  * defaults to the library floor so the many test call sites that build a context directly get the
  * standing behaviour; every production entry point passes the resolved option explicitly.
+ *
+ * `weights` is the per-exterior-edge wavefront speed, parallel to `nodes` (W-spec W1). Omitted means
+ * all ones, which is bit-identical to the unweighted solver by construction — every weighted site
+ * multiplies or divides by exactly `1.0` (W-spec W36).
  */
 export function makeStraightSkeletonSolverContext(
     nodes: Vector2[],
     perceptualFloor: number = SKELETON_NOISE_FLOOR,
+    weights?: readonly number[],
 ): StraightSkeletonSolverContext {
-    const graph = initBoundingPolygon(nodes);
+    const graph = initBoundingPolygon(nodes, weights);
     const acceptedEdges = nodes.map(() => false);
+
+    /**
+     * The wavefront speed of an exterior edge (W-spec W1).
+     *
+     * REFUSES AN INTERIOR EDGE ID rather than reading past the end of the array and returning
+     * `undefined`, which would silently make every product `NaN`. A bisector has no speed of its own;
+     * it is priced against its parents'.
+     */
+    function weightOf(exteriorEdgeId: number): number {
+        const weight = graph.exteriorWeights[exteriorEdgeId];
+        if (weight === undefined) {
+            throw new Error(
+                `Edge ${exteriorEdgeId} is not an exterior edge of this polygon `
+                + `(${graph.numExteriorNodes} exterior edges); only exterior edges carry a weight.`);
+        }
+        return weight;
+    }
 
     function edgeRank(edgeId: number): EdgeRank {
         if (edgeId < graph.numExteriorNodes) {
@@ -119,8 +141,17 @@ export function makeStraightSkeletonSolverContext(
         return span(firstEdge, secondEdge, false);
     }
 
-    function vertexAtOffset(bisector: PolygonEdge, edgeBasis: Vector2, offset: number): Vector2 {
-        const t = projectFromPerpendicular(bisector.basisVector, edgeBasis, offset);
+    /**
+     * The wavefront vertex on `bisector` at a given PERPENDICULAR DISTANCE from the exterior edge
+     * whose basis is `edgeBasis`.
+     *
+     * THE ARGUMENT IS A DISTANCE, NOT A TIME (W-spec W40): callers hold a local time and multiply it
+     * by the weight of the exterior edge they are measuring against before calling. Keeping the
+     * conversion at the call site is what lets one function serve callers measuring against
+     * different edges.
+     */
+    function vertexAtOffset(bisector: PolygonEdge, edgeBasis: Vector2, perpendicular: number): Vector2 {
+        const t = projectFromPerpendicular(bisector.basisVector, edgeBasis, perpendicular);
         return addVectors(graph.nodes[bisector.source].position, scaleVector(bisector.basisVector, t));
     }
 
@@ -255,6 +286,7 @@ export function makeStraightSkeletonSolverContext(
         },
         clockwiseParent,
         widdershinsParent,
+        weightOf,
         accept,
         acceptAll,
         isAccepted(edgeId: number): boolean {
@@ -273,6 +305,7 @@ export function makeStraightSkeletonSolverContext(
         edgeRank,
         isPrimaryNonReflex,
         isReflexEdge,
+        /** `offset` is a TIME (W-spec W16); the `Math.min` is unchanged. */
         updateMaxOffset(edgeId: number, offset: number) {
             if (offset < 0) {
                 return
@@ -288,11 +321,15 @@ export function makeStraightSkeletonSolverContext(
         clockwiseSpanIncludingAccepted: span,
         widdershinsBisector: primaryWiddershinsBisector,
         clockwiseBisector: primaryClockwiseBisector,
-        clockwiseVertexAtOffset(edgeId: number, offset: number): Vector2 {
-            return vertexAtOffset(primaryClockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
+        // W-spec W40: the argument is a local TIME, carried to a perpendicular distance by the
+        // exterior edge's own weight. At unit weights `localTime * 1.0` is exact.
+        clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2 {
+            return vertexAtOffset(primaryClockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector,
+                localTime * weightOf(edgeId));
         },
-        widdershinsVertexAtOffset(edgeId: number, offset: number): Vector2 {
-            return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector, offset);
+        widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2 {
+            return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector,
+                localTime * weightOf(edgeId));
         },
         terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode {
             const node = findOrAddNode(position);
@@ -328,10 +365,15 @@ export function makeStraightSkeletonSolverContext(
             parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
             return parents;
         },
-        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, offset: number): boolean {
+        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean {
             const splitIntersectionOptions: IntersectionType[] = ['converging']
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
+            // The split edge's own weight: the bounding bisectors' travel along this edge is a
+            // perpendicular DISTANCE from THIS edge's line, so it is the local time times THIS
+            // edge's speed (W-spec W40).
+            const splitWeight = weightOf(edgeToSplitId);
+            const splitTime = timeOf(arrival);
 
             const segments = activeExteriorEdgeSegments(edgeToSplitId);
 
@@ -344,26 +386,30 @@ export function makeStraightSkeletonSolverContext(
                 // IMPORTANT; NEVER REMOVE THIS COMMENT.
                 // (DEPRECATED COMMENT: The basis vectors look the wrong way round, but this is the way that works.)
                 // Update: this is correct now that the edge shrinkage/collapse is computed dynamically, using the active edge segments.
-                const widdershinsSourceOffset = sourceOffsetDistance(widdershinsBisector, this)
-                const clockwiseSourceOffset = sourceOffsetDistance(clockwiseBisector, this)
-                const clockwiseLocalOffset = offset - clockwiseSourceOffset;
-                const widdershinsLocalOffset = offset - widdershinsSourceOffset;
+                // W-spec W30: each bounding bisector's BIRTH is its own arrival pair, and the
+                // not-yet-born test is the division-free comparison against it. The local travel is
+                // then a difference of TIMES. At unit weights both times are `d / 1.0` and this is
+                // today's `offset - sourceOffset`.
+                const widdershinsBirth = birthArrivalOf(widdershinsBisector, this);
+                const clockwiseBirth = birthArrivalOf(clockwiseBisector, this);
+                const clockwiseLocalTime = splitTime - timeOf(clockwiseBirth);
+                const widdershinsLocalTime = splitTime - timeOf(widdershinsBirth);
 
                 // A bounding bisector only exists from its own source offset onwards. Extrapolating
                 // one backwards past its origin walks the endpoint the wrong way along the bisector,
                 // which inflates the segment instead of shrinking it and lets a bisector appear to
                 // strike an edge that is still occluded at this offset. Such a segment describes
                 // geometry that does not exist yet, so it cannot validate a split.
-                const notYetBorn = (localOffset: number) => localOffset < 0 && !areEqual(localOffset, 0);
-                if (notYetBorn(clockwiseLocalOffset) || notYetBorn(widdershinsLocalOffset)) {
+                const notYetBorn = (birth: Arrival) => compareArrivals(arrival, birth) < 0;
+                if (notYetBorn(clockwiseBirth) || notYetBorn(widdershinsBirth)) {
                     splitLog.debug(
-                        `Rejecting split of e${edgeToSplitId} by e${bisectorId} at offset ${offset}: bounding bisector not yet born.`,
+                        `Rejecting split of e${edgeToSplitId} by e${bisectorId} at time ${splitTime}: bounding bisector not yet born.`,
                     );
                     return false;
                 }
 
-                const cwVertex = vertexAtOffset(clockwiseEdge, edgeBasis, clockwiseLocalOffset);
-                const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, widdershinsLocalOffset);
+                const cwVertex = vertexAtOffset(clockwiseEdge, edgeBasis, clockwiseLocalTime * splitWeight);
+                const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, widdershinsLocalTime * splitWeight);
                 const cwRay = makeRay(cwVertex, negateVector(edgeBasis));
                 const wsRay = makeRay(wsVertex, edgeBasis);
                 const cwTest = intersectRays(bisectorRay, cwRay);

@@ -97,6 +97,44 @@ export const PARALLEL_GATE_SINE_BAR = Math.sqrt(
  */
 export const DEGENERATE_AREA_EPSILON = 0.000001;
 
+/**
+ * The largest ratio between the fastest and slowest edge weight the solver will accept (W-spec W48,
+ * arc journal decision 119).
+ *
+ * DERIVED, NOT PICKED. After normalisation (W-spec W4) the slowest edge has weight exactly `1` and
+ * the fastest has weight `R = max / min`. A TIME is `distance / weight`, so the solver's absolute
+ * time window — {@link FLOATING_POINT_EPSILON}, used by the layer window and the phantom test — is a
+ * DISTANCE window of `R · 1e-8` on the fastest edge. At `R = 100` that is `1e-6`, which is exactly
+ * `SKELETON_NOISE_FLOOR`: beyond it the solver would fuse, as one arrival moment, two arrivals the
+ * client's own floor says are two separate things. So the constant is
+ * `SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON = 100`.
+ *
+ * Not imported from `canonicalisation.ts` because that module imports from the solver's side of the
+ * graph; the derivation is stated here and the two numbers are asserted against each other in
+ * `weighted-offsets.test.ts`.
+ */
+export const MAX_WEIGHT_RATIO = 100;
+
+/**
+ * "Weights may change only at a VISIBLE CORNER" — the turn-sine bar below which a weight change is
+ * refused (W-spec W49, arc journal decisions 119 and 124(b)).
+ *
+ * THE HAZARD IS ANGULAR, NOT A RATIO. The weighted vertex velocity solves `v · n₁ = w₁`,
+ * `v · n₂ = w₂`, and its magnitude is `sqrt(w₁² + w₂² − 2 w₁ w₂ cos φ) / |sin φ|`. At `w₁ = w₂` that
+ * is `w / cos(φ/2)`, bounded by the vertex angle alone. At `w₁ ≠ w₂` and `φ → 0` it is
+ * `|w₁ − w₂| / φ`, unbounded for ANY weight ratio — measured at `1.5e7` for a turn of `1e-6` with
+ * weights `(1, 16)`, where the `1e-8` time window becomes a spatial slack of `0.15`, a seventh of
+ * the unit extent. {@link MAX_WEIGHT_RATIO} cannot bound it, so a second guard is required.
+ *
+ * IT REUSES AN EXISTING BAR RATHER THAN MINTING ONE. {@link PARALLEL_GATE_SINE_BAR} is already the
+ * one answer to "is this turn too small to price?", and a weight change at a turn the solver refuses
+ * to price an intersection at is the same question. Above the bar the kernel is well conditioned by
+ * the bar's own derivation: `|v| ≤ |w₁ − w₂| / 1.41e-4`, at most `7.1e3 · |w₁ − w₂|`.
+ *
+ * UNIT WEIGHTS NEVER REACH IT: the guard requires `w₁ ≠ w₂` before it looks at the turn at all.
+ */
+export const MIN_WEIGHT_TURN_SINE = PARALLEL_GATE_SINE_BAR;
+
 export const NO_COLLISION_RESULTS: IntersectionType[] = ['diverging', 'parallel', 'identical-source']
 
 export const TRIANGLE_INTERSECT_PAIRINGS = [[0,1],[1,2],[2,0],[1,0],[2,1],[0,2]]

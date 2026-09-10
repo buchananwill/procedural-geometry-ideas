@@ -349,6 +349,13 @@ export function denormaliseCollisionCache(cache: CollisionCache, normalisation: 
             }
             for (const event of entry) {
                 event.offsetDistance = denormaliseLength(normalisation, event.offsetDistance);
+                // W-spec W47: the WEIGHT is dimensionless and untouched; the distance it is paired
+                // with is a length and scales, which is what keeps `timeOf(arrival)` equal to the
+                // `offsetDistance` beside it on both sides of the seam.
+                event.arrival = {
+                    distance: denormaliseLength(normalisation, event.arrival.distance),
+                    weight: event.arrival.weight,
+                };
                 event.position = denormalisePosition(normalisation, event.position);
                 event.intersectionData[0] = denormaliseLength(normalisation, event.intersectionData[0]);
                 event.intersectionData[1] = denormaliseLength(normalisation, event.intersectionData[1]);

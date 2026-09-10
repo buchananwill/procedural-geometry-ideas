@@ -93,12 +93,15 @@ function makeGraph(): StraightSkeletonGraph {
             {id: 1, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 0, length: Number.MAX_VALUE, maxOffset: 4},
             {id: 2, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 0, length: Number.MAX_VALUE},
         ],
+        exteriorWeights: [1, 1],
     };
 }
 
 function makeEvent(overrides: Partial<CollisionEvent> = {}): CollisionEvent {
     return {
         offsetDistance: 3,
+        // The pair the time came from (W-spec W7): unit speed, so distance and time coincide.
+        arrival: {distance: 3, weight: 1},
         collidingEdges: [4, 5],
         position: {x: 7, y: 9},
         intersectionData: [2, 5, 'converging'],

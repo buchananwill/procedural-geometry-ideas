@@ -1,4 +1,5 @@
 import {
+    Arrival,
     CollisionEvent,
     CollisionType,
     InteriorEdge,
@@ -19,23 +20,107 @@ import {
     sineIsBelow,
     subtractVectors
 } from "./core-functions";
-import {DIRECTION_SINE_BAR} from "./constants";
+import {DIRECTION_SINE_BAR, FLOATING_POINT_EPSILON} from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
 } from "./generate-split-event";
 
+/*
+ * ----------------------------------------------------------------------------
+ * THE ARRIVAL VOCABULARY — A TIME IS THE PAIR IT CAME FROM
+ * ----------------------------------------------------------------------------
+ *
+ * W-spec W7 and W22, arc journal decision 112(b) and 112(c). Under weights the wavefront of exterior
+ * edge `i` stands at perpendicular distance `w_i · t` from its supporting line at time `t`, so every
+ * quantity the solver used to compute as a perpendicular distance IS a time once divided by the
+ * weight of the edge it was measured against. The division is performed exactly once, by
+ * {@link timeOf}, and only for reporting, sorting keys and denormalisation; every TOLERANCE decision
+ * is taken on the undivided pair by cross-multiplication.
+ *
+ * AT UNIT WEIGHTS EVERY ONE OF THESE IS TODAY'S ARITHMETIC. Each product is by `1.0`, which is exact
+ * for every finite double, so the operands and the operation order below are the ones the unweighted
+ * solver used. That is the whole mechanism behind arc decision 112(d)'s bit-identity bar — there is
+ * no branch on unit weights anywhere (W-spec W36).
+ */
+
+/** The wavefront clock reading of an arrival: `distance / weight` (W-spec W7). */
+export function timeOf(arrival: Arrival): number {
+    return arrival.distance / arrival.weight;
+}
+
 /**
- * Pick the best (lowest offset) non-phantom/non-outOfBounds collision.
- * Falls back to the lowest-offset collision of any type if none qualify.
+ * Order two arrivals in time, division-free (W-spec W22, W26).
+ *
+ * `d₁/w₁ < d₂/w₂` restated as `d₁·w₂ < d₂·w₁`, with the absolute tolerance scaled by the same weight
+ * product that scaled the operands — the single rule of W-spec W26, so no site derives its own.
+ *
+ * AN EXACTLY ZERO DIFFERENCE IS NEVER AN ORDERING, even at `epsilon = 0`. That is not a widening:
+ * `fp_compare` reports `1` for two identical operands at a zero epsilon (its window is strict), and
+ * this comparator is handed to `toSorted` in three places where today's `a - b` returns `0` for a
+ * tie and leaves the stable order alone. Preserving that is what keeps the layer sort bit-identical.
+ */
+export function compareArrivals(a: Arrival, b: Arrival, epsilon: number = FLOATING_POINT_EPSILON): -1 | 0 | 1 {
+    const left = a.distance * b.weight;
+    const right = b.distance * a.weight;
+    const difference = left - right;
+    if (difference === 0 || Math.abs(difference) < epsilon * a.weight * b.weight) {
+        return 0;
+    }
+    return difference < 0 ? -1 : 1;
+}
+
+/** Do these two arrivals name one moment of the wavefront clock, to `epsilon`? (W-spec W22.) */
+export function arrivalsAreEqual(a: Arrival, b: Arrival, epsilon: number = FLOATING_POINT_EPSILON): boolean {
+    return compareArrivals(a, b, epsilon) === 0;
+}
+
+/** The LATER of two arrivals — `Math.max` on times, cross-multiplied (W-spec W18). */
+export function laterArrival(a: Arrival, b: Arrival): Arrival {
+    return a.distance * b.weight >= b.distance * a.weight ? a : b;
+}
+
+/**
+ * The arrival of a bisector `alongRay` units along its own ray, as the pair (W-spec W7).
+ *
+ * The distance half is {@link makeOffsetDistance}, unchanged and untouched (W-spec W6): the
+ * perpendicular distance from the bisector's clockwise parent's supporting line is exactly what a
+ * time needs beside a weight, and leaving its arithmetic alone is what makes every unit-weight
+ * number downstream bit-identical.
+ */
+export function arrivalOf(
+    edge: InteriorEdge,
+    context: StraightSkeletonSolverContext,
+    ray: RayProjection,
+    alongRay: number,
+): Arrival {
+    return {
+        distance: makeOffsetDistance(edge, context, ray, alongRay),
+        weight: context.weightOf(context.clockwiseParent(edge).id),
+    };
+}
+
+/** The birth arrival of a bisector: its source's distance from its clockwise parent, and that weight. */
+export function birthArrivalOf(edge: InteriorEdge, context: StraightSkeletonSolverContext): Arrival {
+    return {
+        distance: sourceOffsetDistance(edge, context),
+        weight: context.weightOf(context.clockwiseParent(edge).id),
+    };
+}
+
+/**
+ * Pick the best (earliest arrival) non-phantom/non-outOfBounds collision.
+ * Falls back to the earliest collision of any type if none qualify.
  */
 export function bestNonPhantomCollision(events: CollisionEvent[]): CollisionEvent | undefined {
-    const byOffset = (a: CollisionEvent, b: CollisionEvent) => a.offsetDistance - b.offsetDistance;
+    // W-spec W27. At unit weights `compareArrivals(a, b, 0)` is the sign of `a.distance - b.distance`
+    // with a tie reported as `0`, which is what `a.offsetDistance - b.offsetDistance` gave.
+    const byArrival = (a: CollisionEvent, b: CollisionEvent) => compareArrivals(a.arrival, b.arrival, 0);
     return events
             .filter(e => e.eventType !== 'phantomDivergentOffset' && e.eventType !== 'outOfBounds')
-            .sort(byOffset)[0]
-        ?? events.sort(byOffset)[0];
+            .sort(byArrival)[0]
+        ?? events.sort(byArrival)[0];
 }
 
 export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: number, clockwiseParentBasis: Vector2) {
@@ -94,9 +179,17 @@ function offsetRate(edge: InteriorEdge, ray: RayProjection, context: StraightSke
  *
  * `intersectRays` reports a head-on pair as the full separation along both rays — each ray
  * reaching the other's source — which is twice the event and puts the collision point on top
- * of an existing node. They really meet where their offsets agree, which splits the
- * separation in proportion to how fast each converts travel into offset. Returns `null` when
- * the two rates cancel, leaving no offset at which they agree.
+ * of an existing node. They really meet where their TIMES agree, which splits the
+ * separation in proportion to how fast each converts travel into time. Returns `null` when
+ * the two weighted rates cancel, leaving no time at which they agree.
+ *
+ * WEIGHTED BY CROSS-MULTIPLICATION (W-spec W19, W26). Each edge converts travel into distance
+ * against its own clockwise parent at `r`, and into TIME at `r / w`. Setting
+ * `(s_A + a·r_A)/w_A = (s_B + (sep − a)·r_B)/w_B` and clearing the denominators gives the numerator
+ * and divisor below, and the zero test on the divisor is scaled by the same `w_A · w_B` that scaled
+ * it. At unit weights every product is by `1.0` and the expression is the unweighted
+ * `(s_B − s_A + sep·r_B) / (r_A + r_B)` in the same operation order — measured 0 mismatches in
+ * 100 000 random operands.
  */
 function meetHeadOn(
     edgeA: InteriorEdge,
@@ -108,15 +201,18 @@ function meetHeadOn(
 ): [number, number] | null {
     const rateA = offsetRate(edgeA, ray1, context);
     const rateB = offsetRate(edgeB, ray2, context);
-    const combinedRate = rateA + rateB;
+    const weightA = context.weightOf(context.clockwiseParent(edgeA).id);
+    const weightB = context.weightOf(context.clockwiseParent(edgeB).id);
+    const combinedRate = rateA * weightB + rateB * weightA;
 
-    if (areEqual(combinedRate, 0)) {
+    if (Math.abs(combinedRate) < FLOATING_POINT_EPSILON * weightA * weightB) {
         return null;
     }
 
     const sourceOffsetA = sourceOffsetDistance(edgeA, context);
     const sourceOffsetB = sourceOffsetDistance(edgeB, context);
-    const alongA = (sourceOffsetB - sourceOffsetA + separation * rateB) / combinedRate;
+    const alongA = (sourceOffsetB * weightA - sourceOffsetA * weightB + separation * rateB * weightA)
+        / combinedRate;
 
     return [alongA, separation - alongA];
 }
@@ -156,8 +252,10 @@ function meetHeadOn(
  * fired — both with `silentLosses` still empty, so those mutations became HARMLESS rather than
  * unreported — and `large-coordinate-known-failures`' half-merge split, [12,40] to [10,40].
  */
-function arrivalOffsetOfPair(offsetFromA: number, offsetFromB: number): number {
-    return Math.max(offsetFromA, offsetFromB);
+function arrivalOffsetOfPair(arrivalFromA: Arrival, arrivalFromB: Arrival): Arrival {
+    // W-spec W18: `Math.max` on TIMES, decided by cross-multiplication. At unit weights the two
+    // products are by `1.0` and this is `Math.max` on the two distances.
+    return laterArrival(arrivalFromA, arrivalFromB);
 }
 
 /**
@@ -189,13 +287,16 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     const [alongRay1, _alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
 
-    const offsetDistance = makeOffsetDistance(edgeA, context, ray1, alongRay1);
-    const offsetTarget = makeOffsetDistance(edgeB, context, ray2, _alongRay2);
+    const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1);
+    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2);
 
 
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
-    const eventType: CollisionType = !areEqual(offsetDistance, offsetTarget) || offsetDistance <= 0
+    // W-spec W23. The two participants must agree on WHEN the meeting happens, which under weights
+    // is an equi-time question and not an equi-distance one; the sign test stays on the distance,
+    // because the weight is positive and cannot change it.
+    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB) || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
         : anyShared
             ? 'interiorPair'
@@ -221,8 +322,10 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     }
 
+    const pairArrival = arrivalOffsetOfPair(arrivalA, arrivalB);
     events.push({
-        offsetDistance: arrivalOffsetOfPair(offsetDistance, offsetTarget),
+        offsetDistance: timeOf(pairArrival),
+        arrival: pairArrival,
         collidingEdges: [edgeA.id, edgeB.id],
         position: findPositionAlongRay(ray1, alongRay1),
         intersectionData,
@@ -256,8 +359,16 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
     }
 
     events.forEach(e => {
-        if (interiorEdge.maxOffset && e.offsetDistance > interiorEdge.maxOffset) {
-            e.eventType = 'outOfBounds';
+        // W-spec W16. `maxOffset` is a TIME; it is restated as an arrival against this edge's own
+        // clockwise-parent weight so the comparison is the division-free one every other tolerance
+        // decision uses. At unit weights `maxOffset * 1.0` is exact and this is `>` on the two
+        // distances.
+        if (interiorEdge.maxOffset) {
+            const boundWeight = context.weightOf(context.clockwiseParent(interiorEdge).id);
+            const bound: Arrival = {distance: interiorEdge.maxOffset * boundWeight, weight: boundWeight};
+            if (compareArrivals(e.arrival, bound, 0) > 0) {
+                e.eventType = 'outOfBounds';
+            }
         }
 
     })

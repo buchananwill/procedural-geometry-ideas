@@ -207,12 +207,20 @@ describe('the region tree is first-class', () => {
 
             expect(declines.map(node => node.id))
                 .toEqual(['r0.0.2', 'r0.5.3', 'r0.9.3', 'r0.11.3', 'r0.12.3', 'r0.15.2', 'r0.17.2']);
+            // THE AREA MOVED ON 2026-09-10, FROM 2.556309138623965e-7, UNDER W-SPEC W21 / ARC
+            // DECISION 115: `findOffsetViaIncenter` now solves the split event by the linear
+            // equi-time form instead of by constructing a temporary node and intersecting two rays,
+            // which reaches the same point through different arithmetic. This fixture's root graph
+            // moves by 1 ulp on three node coordinates (its own digest pin is re-pinned for the same
+            // reason in `full-graph-digest.test.ts`), and this sliver's area is that movement carried
+            // through three levels of recursion: 8.5e-18 on 2.6e-7, a relative 3.3e-11. The DECLINE
+            // itself, its id, its vertex count and its classification are all unmoved.
             expect(declines[0].outcome).toEqual({
                 kind: 'declined-degenerate',
                 vertexCount: 3,
-                area: 2.556309138623965e-7,
+                area: 2.556309138709409e-7,
                 failure: 'Degenerate region: 3 boundary vertices enclosing an area of '
-                    + '2.556309138623965e-7, under the 0.000001 degeneracy floor.',
+                    + '2.556309138709409e-7, under the 0.000001 degeneracy floor.',
             });
             // Every one of them is a sliver rather than a solve that failed: three vertices, and an
             // area between a fifth and a quarter of the floor.
