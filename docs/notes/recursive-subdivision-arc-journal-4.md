@@ -71,8 +71,10 @@ Both of the user's session objectives are delivered and the weights are reachabl
 demo UI: weighted offsets are implemented end to end at the root (commits `0c9c9cd`, `3dd467c`,
 `b1bb095`, then the UI commit — F54), and the C++ handoff at
 [cpp-port-handoff.md](./cpp-port-handoff.md) is complete and active. The next session opens
-`recursive-subdivision-arc-journal-5.md`, continuing decisions at **131** and findings at
-**F55**; read THIS section, §2, and F49–F54 — do not read this journal end to end.
+`recursive-subdivision-arc-journal-5.md`, continuing decisions at **132** and findings at
+**F55**; read THIS section, §2, decision 131, and F49–F54 — do not read this journal end to
+end. Decision 131 (2026-09-11) reframes item 3 below: F38a is a canonicalisation DEFECT to
+diagnose, and only the drift bound remains a ruling.
 
 **The session's four commits and what each is:** `f3bc733` (the documents), `0c9c9cd` (the
 digest gate), `3dd467c` (solver core — defective, F51), `b1bb095` (projection, downstream, and
@@ -351,6 +353,76 @@ an uncaught throw; the primary-bisector overlay shows the weighted bisectors thr
 threading package 3 landed. Visual verification per the session-3 manual: build, check port
 3000, Playwright screenshot of a square with one edge at weight 2.
 
+**131 — (user, 2026-09-11) CANONICALISATION MUST MAKE NO POLYGON LESS SOLVABLE; any
+canonicalisation that introduces newly pathological geometry is defective per se, and F38a is
+therefore a DEFECT to diagnose, not a tension to reconcile.** The user's words, near-verbatim,
+disagreeing with the lead's framing that canonicalisation is "a deliberate change to the input
+whose safety was assumed, not proven": "This is just badly written canonicalization. As I would
+understand the purpose of the process, it should make no polygon less solvable. Any
+canonicalization algorithm that introduces newly pathological geometry is defective, per se."
+Lead's concession, recorded: the framing of the root-floor package as three defensible rules
+in conflict was wrong for its F38a exhibit — solvability monotonicity is part of
+canonicalisation's CONTRACT, and a solvable region that fails after a vertex removal is a
+contract violation with a location, in one of exactly two places: (a) the canonicaliser
+produced newly pathological geometry (the chord replacing the removed vertex crosses the
+boundary, creates a sub-bar turn or a sub-floor edge, or collapses area — none of which the
+current stage checks for), or (b) the canonicaliser produced a legitimately simpler polygon and
+the SOLVER fails on it, in which case canonicalisation exposed a solver defect rather than
+causing one. Either is a bug; neither is a tolerance choice. Consequences: the root-floor
+package splits — F38a and the r0.3.1 region become a diagnosis task with the two-place question
+above and a conviction test that canonicalisation never reduces solvability over the corpus at
+every floor on the ladder; the drift bound (decisions 76/79's exhibits) remains the genuine
+ruling item, to be stated in the floor's terms rather than at 1e-14. Session 5 continues at
+**132** / F55.
+
+**132 — (user, 2026-09-11) Canonicalisation's contract is (1) sub-perceptual simplification
+CONSTRAINED BY (2) numerical predicate amplification; (2) is the goal and (1) is the licence,
+and the current implementation was built on (1) when it should have been built on (2).** The
+user's words, near-verbatim: "In my mental model now, the contract of canonicalization is one
+of 1) sub-perceptual simplification, 2) constrained by numerical predicate amplification. #2
+is the actual goal: we want to make the input more solvable. #1 is the justification to the
+client: 'we didn't delete anything you can't trivially restore to the resulting skeleton'. My
+intuition now is that #1 has been the basis of implementation, when it should have been #2."
+Lead's reading, recorded as the consequence set: (a) the removal CRITERION is predicate
+margin — a vertex or edge is a candidate because it sits inside one of the solver's resolution
+bands (a turn whose sine is under the angular bar; an edge shorter than the floor; a vertex
+within the floor of its chord), and the removal is made because it moves the configuration
+clearly to one side of that band; the perceptual floor bounds what may be removed (cumulative
+deviation of the original boundary from the canonical one ≤ floor) but never motivates a
+removal on its own. (b) Every removal carries a postcondition in the same currency: it creates
+no new sub-bar turn, no new sub-floor edge, no C1 topology change (crossing, pinch, ring
+split, count/area degeneracy); a removal that would is declined and the vertex kept, since
+keeping invisible geometry is free. (c) The pass-down question dissolves: the CRITERION is
+evaluated in the region's own unit frame (that is where the region's predicates run), the
+LICENCE is the root's floor carried down (that is the client's frame). The current pass-down
+carried the licence as if it were the criterion — which is exactly F38a: a vertex removed with
+licence but without purpose (no predicate hazard in the region's frame), whose removal then
+manufactured one. (d) Falsifiable prediction of this model, to be measured before any code:
+the vertex the root floor removed from r0.3.1 (55433, d0.5/m4) was NOT inside any predicate
+band in the region's frame — its turn sine clears the angular bar and its edges clear the floor
+— and the canonical ring contains a configuration that IS inside a band and that the raw ring
+did not. If the measurement shows otherwise the model is wrong in a way we need to know.
+(e) The monotonicity sweep (raw solves ⇒ canonical solves, over the corpus at every rung of the
+floor ladder) is the standing conviction of the rebuilt stage.
+
+**133 — (user, 2026-09-11) The combination rule: the LICENCE is the perceptual floor always
+measured at the root (the client's frame); the PURPOSE is always measured in the region's
+frame (the solver only cares about its normalised input); therefore at deeper recursion
+canonicalisation is PERMITTED to be more aggressive but never REQUIRED to be — the client's
+frame grows relatively looser with each level, and the solver never tries to simplify what it
+was already able to solve.** The user's words, near-verbatim: "The licence: perceptual floor
+always measured at the root, because that is the client's frame. The purpose: always measured
+in the region frame, because the solver only cares about the normalized inputs. The
+combination: at deeper recursion, canonicalization is permitted to be more aggressive, but
+never required to be. The client's frame becomes in relative terms looser with each recursion,
+but the solver never tries to simplify what it was already able to solve." This supersedes the
+pass-down as designed (a root floor carried down as the removal criterion) and is the ruling
+the root-floor package waited on for its F38a exhibit. Decisions 76 and 79's drift-bound
+exhibits remain: the bound is restated as the licence (cumulative deviation of the original
+boundary from the canonical one, measured in the root frame, ≤ the root floor), not as 1e-14 of
+area — the exact form is the remaining ruling. Next: the decision-132(d) measurement on
+r0.3.1, then a decision spec for the rebuilt stage.
+
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
 with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
@@ -513,6 +585,30 @@ boundary, stated in the test headers: the store and both refusal paths are convi
 hook's own routing rests on the type checker, the build and the Playwright pass, because the
 dashboard has no React renderer. Demo lint carries one pre-existing error and one warning in
 untouched files (`dol-system/page.tsx:51`, `AppShellLayout.tsx`) — open, trivial.
+
+**F55 — Decision 132(d)'s prediction FAILED in both halves, and F38a no longer reproduces:
+the vertex the root floor removed from r0.3.1 WAS inside the angular band, the canonical ring
+gained no in-band configuration the raw ring lacked, and both rings now solve.** Measured at
+the tip on seed 55433, d0.5, every merge group 1–6, floors 1e-6 and 1e-5. The removed vertex
+(index 6): turn sine 2.81e-5, five-fold inside `PARALLEL_GATE_SINE_BAR` (1.41e-4) and three
+decades clear of `DIRECTION_SINE_BAR`; both incident edges ≥ 3e4× the floor; chord deviation
+1.69e-6 in region units — below the passed-down floor (2e-6, the root's 1e-6 carried into a
+region of half the root's extent) and ABOVE the region's own floor (1e-6). So the
+licence/criterion split of decision 133 is real in numbers, but the decision-132 criterion
+would have removed this vertex too (it is an angular hazard), and the removal manufactured
+nothing: the only sub-gate turn in the canonical ring is present in the raw ring, and the
+near-parallel non-adjacent pairs it carries are inherited. Raw and canonical both solve
+complete at both floors. **F38a was therefore place (b) of decision 131 — a solver defect
+exposed by a legitimately simpler ring — and the causality work of F40/F44 cured it without
+anyone noticing the exhibit had gone.** The one live non-degenerate failure on the fixture is
+r0.2.1 at m6/d0.5/1e-6, whose RAW ring fails identically (4 unaccepted edges, two anti-parallel
+corridor walls at sine 6.65e-6, two interior edges that never acquire a target): angular
+class, canonicalisation exonerated — and it is the discriminating fixture decision 107(b) has
+wanted since session 3. Consequences: F38a is retired as an exhibit; the root-floor package is
+now (i) the drift bound restated as the licence (decisions 76/79's exhibits — still live) and
+(ii) the criterion rebuild of decisions 132/133, which is a design correction with no live
+failure driving it; r0.2.1 moves to the solver's angular-class backlog. The delegate's scratch
+test was created, run and deleted; tree clean apart from this journal.
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
