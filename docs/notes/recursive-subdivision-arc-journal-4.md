@@ -423,6 +423,48 @@ boundary from the canonical one, measured in the root frame, ≤ the root floor)
 area — the exact form is the remaining ruling. Next: the decision-132(d) measurement on
 r0.3.1, then a decision spec for the rebuilt stage.
 
+**134 — (user, 2026-09-11) The angular predicates get ONE first-principles derivation
+replacing the two laundered bars, under two contracts: the conceptual — "everything not
+identical is priceable, or everything unpriceable is closed as parallel, and nothing is
+neither" — and the empirical — no currently-solving fixture fails under the new predicate.**
+The user's words, near-verbatim: "angular predicates need a unified, first-principle
+derivation, to replace the naive 'laundering'." Background, F56: `DIRECTION_SINE_BAR` (1e-8) is
+the coordinate epsilon applied to a sine as if a sine were a coordinate; `PARALLEL_GATE_SINE_BAR`
+(1.41e-4) is the same epsilon carried through a cosine; the two are four decades apart and
+r0.2.1's corridor walls (sine 6.65e-6) sit between them — "not the same direction" for identity
+and closure, "too parallel to price" for collision. F41's refusal to converge the two NUMBERS
+stands as measured; this ruling converges the QUESTION instead. Lead's rulings on the empirical
+contract: (a) "currently-solving" means every fixture, census cell and recursion cell that
+solves at the tip, at every floor rung and every pinned scale/translation cell — solvability is
+the bar, not bit-identity; (b) the digest MAY move, and every moved pin is attributed to the
+predicate change and re-pinned by a commit that says so (decision 116's rule); a clean-roster
+digest that does not move is the stronger result and is reported either way; (c) the pinned
+defect signatures may only improve, and an improvement is an attributed cure. Sequence: a
+read-only trace of r0.2.1 confirming the between-the-bars mechanism, then a decision spec for
+the derivation (the angular resolution stated in its own category — the smallest turn the
+client can see over the region's extent, and the smallest sine at which the ray-intersection
+division is well-conditioned in double — and the ordering of identity and priceability so no
+sine falls between), then implementation against the two contracts. Session 5 continues at
+**135** / F57.
+
+**135 — The r0.2.1 defect is the coaxiality bar's CATEGORY, and it is fixed first as its own
+small package; the angular unification of decision 134 follows as the principled package.**
+(a) "Do these two anti-parallel rays share a line?" is a perceptual-identity question, and
+F39/decision 105's doctrine already rules its bar: the floor is the sole perceptual-identity
+bar, epsilon the sole arithmetic-equality bar. `sourceLiesAhead`'s lateral test therefore takes
+the perceptual floor (in unit space, the context's `perceptualFloor`), not
+`FLOATING_POINT_EPSILON` — the spec's OPEN O1 is RULED as "a distance at the floor". Its
+conviction: r0.2.1's raw ring solves complete; the lateral-offset sweep's orphan band (1e-8,
+1e-6] closes; the predicate-level test pins head-on for every δ ≤ floor. Its empirical
+contract is decision 134's: every currently-solving fixture, census and recursion cell stays
+solving at every rung and pinned cell; digest movement attributed; defect signatures may
+only improve. (b) The angular unification proceeds on the draft spec after this lands, with
+the derived resolution and the three-cell partition; O2–O5 are ruled at that spec's
+ratification, and the spec is trimmed to its target before it is read for ratification.
+(c) The F55 delegate's "sine 6.65e-6" was the lead's misreading (F56 amended in place); the
+mechanism claim in F56 was inferred, labelled as inferred, and is now refuted by trace — the
+labelling worked as intended. Session 5 continues at **136** / F58.
+
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
 with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
@@ -609,6 +651,49 @@ now (i) the drift bound restated as the licence (decisions 76/79's exhibits — 
 (ii) the criterion rebuild of decisions 132/133, which is a design correction with no live
 failure driving it; r0.2.1 moves to the solver's angular-class backlog. The delegate's scratch
 test was created, run and deleted; tree clean apart from this journal.
+
+**F56 — AMENDED BY F57: the mechanism inferred here is REFUTED; the two-bars observation
+stands as a principled defect but is not r0.2.1's failure.** ~~The live angular failure sits
+BETWEEN the solver's two angular bars~~ — the walls of r0.2.1 are anti-parallel to one ulp
+(sine 1.7e-16), and the "6.65e-6" was the corridor direction's y-component, misread by the lead
+from the F55 delegate's report. What stands: the two angular bars ARE the coordinate epsilon
+laundered into sine space two different ways. Original text follows for the record. Measured:
+r0.2.1's corridor walls have sine 6.65e-6; `DIRECTION_SINE_BAR` = 1e-8 (the coordinate epsilon on a sine);
+`PARALLEL_GATE_SINE_BAR` = 1.41e-4 (`sqrt(ε(2−ε))`, the same epsilon through `areEqual(|dot|,1)`).
+Inferred, not yet traced: the pricing path refuses to intersect the mid-line bisectors because
+the gate says parallel, and the closure path refuses to close them because identity says not —
+two interior edges of unbounded length that never acquire a target. The bisector code's own
+comment (algorithm-helpers.ts, `ensureBisectionIsInterior`) names this hole and records that
+the corpus never fell into it at 2026-08-29; r0.2.1 (seed 55433, m6/d0.5/1e-6) has. Decision
+134 is the consequence.
+
+**F57 — r0.2.1 TRACED: the refusal is a third, unnamed bar — the head-on coaxiality test at
+the coordinate epsilon — and the hole is POSITIONAL, between 1e-8 and the floor, not angular.**
+The two orphan interior edges are the corridor's two mid-lines (one wall pair in swapped parent
+roles), anti-parallel to one ulp. Site verdicts in unit space: the parallel gate correctly says
+parallel and opens the anti-parallel arm; `sourceLiesAhead` (`intersection-edges.ts:37–41`)
+finds the two rays' sources laterally offset by 2.754e-8 against a bar of
+`FLOATING_POINT_EPSILON · max(1, separation)` = 1e-8 — ratio 2.75, REFUSED — so `intersectRays`
+returns `'parallel'` rather than `'head-on'` and no collision is priced; `solveDegenerateClosure`
+finds no anchor (point-on-ray sine 1.05e-7 vs 1e-8); `solveParallelClosure`'s parent gate PASSES
+but its bisector test is an exact sign test that excludes anti-parallel pairs at any bar; then
+the throw. Predicate-level sweep of the lateral offset δ on r0.2.1's own rays: head-on for δ ≤
+1e-8, orphan for every δ > 1e-8 with no upper bound — practically the band (1e-8, 1e-6], a
+hundred-fold, entirely sub-perceptual. The lateral offset is produced UPSTREAM (a near-
+simultaneous event placing the two mid-line sources 2.75e-8 apart); no exactly-built corridor
+ring reproduces it (20 cells over three synthetic families all solve), so the ring-level
+fixture is r0.2.1 itself and the predicate-level sweep is the conviction. Corroboration: the
+floor ladder on the raw ring fails at 1e-6 only; scale 1/1e3/1e6 fail and 10 solves
+(unexplained — flagged). Also delivered: the first-principles angular derivation —
+perceptual bound `√2·δ` (1.41e-6 at δ = 1e-6), conditioning bound `sqrt(4√2·u/δ)` (2.51e-5
+at δ = 1e-6, `u` the double's unit roundoff, the 4u cross-product error an estimate ±22%),
+conditioning governs below the crossover δ ≈ 6.8e-6, so one resolution ≈ 2.5e-5 sits between
+today's two bars and 5.6× inside the gate — and the draft spec at
+[angular-predicate-basis-decisions.md](./angular-predicate-basis-decisions.md) (601 lines,
+A1–A54, five OPENs), recommending identity bar = priceability bar with a three-cell partition
+(priced above the resolution; same-orientation below → existing closure; opposed-orientation
+below → coaxial-and-approaching priced head-on, else closed at the leading source by a new
+anti-parallel arm).
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
