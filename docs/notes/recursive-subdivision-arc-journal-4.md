@@ -465,6 +465,27 @@ ratification, and the spec is trimmed to its target before it is read for ratifi
 mechanism claim in F56 was inferred, labelled as inferred, and is now refuted by trace — the
 labelling worked as intended. Session 5 continues at **136** / F58.
 
+**136 — (with the user, 2026-09-11) O1 RULED: coaxiality is a LANE WIDTH equal to the
+perceptual floor, evaluated SYMMETRICALLY, and an anti-parallel pair that points together
+but lies outside the lane is an upstream inconsistency that keeps its throw.** The user's
+four-scenario decomposition for anti-parallel rays r1 (from s1) and r2 (from s2): (A) r1
+points away from s2 — decided correctly today by the exact forward sign; (B) r1 points at s2
+but the lateral offset exceeds the lane width — they pass; (C) lateral within the lane — they
+collide head-on; (D) r1 and r2 disagree about B/C. Rulings: the lane width is the floor
+(`coaxialityFloor = δ` in unit space), so the band (1e-8, δ] moves from B to C — this is
+r0.2.1's cure; B above the floor with predicate-parallel walls means the two mid-line sources
+were placed off one line by more than the client can see, an upstream inconsistency, and the
+throw at the end of the collision branch stays as its detector (spec A19). (D) IS possible,
+today and after a naive O1: the two laterals differ by up to `separation × sine(b1, b2)`, and
+the pair's sine is only bounded by the angular resolution (today 1.41e-4 against a 1e-8 bar;
+after the fix 2.5e-5 against 1e-6, still crossable at separations above ~0.04); the ray
+order is chosen by the winding sign of a near-zero cross product, so the verdict could flip on
+the bases' last bits. Therefore the coaxiality test is SYMMETRIC by definition: both sources
+within the lane of the other's line (conjunction), or one lateral measured against the mean
+direction — the spec states the form and the identical-source exit (A15 row) takes the floor
+in the same currency. Unit weights untouched: the test reads positions and bases, never
+weights.
+
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
 with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
