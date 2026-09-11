@@ -484,7 +484,19 @@ the bases' last bits. Therefore the coaxiality test is SYMMETRIC by definition: 
 within the lane of the other's line (conjunction), or one lateral measured against the mean
 direction — the spec states the form and the identical-source exit (A15 row) takes the floor
 in the same currency. Unit weights untouched: the test reads positions and bases, never
-weights.
+weights. *AMENDED the same day (user's challenge): the "throw for B above the floor" clause
+is STRUCK.* The throw at the end of the collision branch is not a per-pair verdict — it fires
+only when a sub-polygon with live interior edges produces NO event and no closure applies. A
+pair that passes while other vertices still produce events is unproblematic and needs no
+ruling. In the no-event state the model supplies the answer: a bounded wavefront with live
+vertices MUST have a next event (a theorem of the exact geometry), so "live vertices, no
+event" can only be a predicate rejecting, over-cautiously, an event that exists — logically r1
+and r2 DO collide and the arithmetic could not see it within the lane. Ruled: on a no-event
+refusal the solver COMPLETES rather than throws — among anti-parallel pointing-together pairs
+it prices the one with the smallest lateral offset as head-on, recording the completion in
+the diagnostics so it is signalled, never silent. This is F44's "narrow only on refusal"
+pattern (F27's restraint gate) applied to coaxiality: the corpus pays nothing where the
+normal lane succeeds. The throw remains ONLY for live vertices with no candidate pair at all.
 
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
