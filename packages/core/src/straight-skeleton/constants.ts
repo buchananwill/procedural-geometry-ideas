@@ -135,6 +135,33 @@ export const MAX_WEIGHT_RATIO = 100;
  */
 export const MIN_WEIGHT_TURN_SINE = PARALLEL_GATE_SINE_BAR;
 
+/**
+ * "Are these two sources on ONE LINE?" — the LANE WIDTH, in distance, for the coaxiality question
+ * (spec A9/A10, journal decisions 135 and 136).
+ *
+ * A THIRD QUESTION, IN THE FLOOR'S CATEGORY. The solver asks three things about a pair of rays, not
+ * two: are the directions identical (an angle), is an intersection priceable (an angle), and are the
+ * two sources coaxial (a DISTANCE). The third was answered for years at
+ * {@link FLOATING_POINT_EPSILON}, which held the solver to arithmetic precision on a question the
+ * client measures in visible distance — `sourceLiesAhead`'s own comment half-recognised this and
+ * then reached for the epsilon anyway.
+ *
+ * THE WIDTH IS THE FLOOR ITSELF, unchanged: two lines the client cannot tell apart ARE one line for
+ * every purpose the solve has, and journal decision 105's doctrine already rules that the floor is
+ * the sole perceptual-identity bar. The identity is written as a function rather than used inline so
+ * that the currency is named at every site that spends it, and so that the C++ port inherits the
+ * three-question structure rather than three literals.
+ *
+ * IN UNIT SPACE, AS AN ABSOLUTE LATERAL DISTANCE — not a relative bar on the source separation. A
+ * relative bar on a separation tending to zero is a bar tending to zero, and head-on-ness is a
+ * property of the two DIRECTIONS, which do not shrink with it. That is the measured counter-case
+ * `sourceLiesAhead`'s `Math.max(1, d)` hybrid existed for; the hybrid is retired because the
+ * absolute form states the same thing without the discontinuity at unit separation.
+ */
+export function coaxialityFloor(perceptualFloor: number): number {
+    return perceptualFloor;
+}
+
 export const NO_COLLISION_RESULTS: IntersectionType[] = ['diverging', 'parallel', 'identical-source']
 
 export const TRIANGLE_INTERSECT_PAIRINGS = [[0,1],[1,2],[2,0],[1,0],[2,1],[0,2]]

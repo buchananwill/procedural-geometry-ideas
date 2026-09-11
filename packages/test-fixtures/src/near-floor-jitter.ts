@@ -114,6 +114,47 @@ export const OFF_EDGE_JITTER_L_SEED_55433: Vector2[] = [
 ];
 
 /**
+ * `r0.2.1` — THE SUB-REGION THE COAXIALITY LANE CURED, quoted as a plain ring.
+ *
+ * Not a hand-authored shape: this is the boundary the recursive driver CUT FOR ITSELF from
+ * {@link OFF_EDGE_JITTER_L_SEED_55433} at merge group 6 / depth fraction 0.5, at
+ * `MAX_RECURSION_LEVELS` and the standing floor — the region journal finding F57 traced, and the
+ * specimen the whole coaxiality package was measured against.
+ *
+ * WHAT IT CARRIES. A corridor whose two walls are anti-parallel to one ulp and whose two mid-line
+ * bisector sources were placed 2.754e-8 apart laterally by a near-simultaneous upstream event. That
+ * offset is 36× INSIDE the client's perceptual floor and 2.75× outside the coordinate epsilon, so
+ * while `sourceLiesAhead` answered a positional question at `FLOATING_POINT_EPSILON` the pair was
+ * refused a head-on verdict: `intersectRays` returned 'parallel', no collision was priced, neither
+ * closure applied, and the two-edge base case threw with four exterior edges unaccepted.
+ *
+ * IT IS NOT ENROLLED IN ANY ROSTER, deliberately. The rosters are rings authored or generated as
+ * inputs; this one exists to pin ONE measured cure at ONE set of dials, and enrolling it would put a
+ * driver artefact into every corpus sweep in the package. `coaxial-lane.test.ts` is its only
+ * consumer, and it asserts the solve is complete WITH NO COMPLETION DIAGNOSTIC — through the normal
+ * lane, not through A19's completion-on-refusal.
+ *
+ * Its own floor removes one vertex (largest discarded deviation 8.45e-7), which is why the ring here
+ * is the fourteen-vertex boundary the driver emitted rather than the thirteen the solver saw.
+ */
+export const OFF_EDGE_JITTER_L_SEED_55433_R021: Vector2[] = [
+    {x: 100, y: 100},
+    {x: 137.50059172575897, y: 137.50055054704342},
+    {x: 200.00030648108694, y: 137.50078143802864},
+    {x: 299.99996993862044, y: 137.49974673538236},
+    {x: 362.49967914307115, y: 137.50016253008877},
+    {x: 362.5004090770955, y: 199.99994405620305},
+    {x: 362.5002038085332, y: 212.4996949666965},
+    {x: 371.87541393242003, y: 208.61648322901152},
+    {x: 371.8755554310722, y: 199.99996628857977},
+    {x: 371.874716005492, y: 128.125078546374},
+    {x: 299.9999526211851, y: 128.12460038181098},
+    {x: 200.00027529553296, y: 128.12563508460076},
+    {x: 141.3839158252745, y: 128.12541853978865},
+    {x: 122.63370666461887, y: 109.3752299683956},
+];
+
+/**
  * Double-reflex plus, k = 2, seed 7919, off-edge jitter at 1e-3. Twenty-four vertices — one inserted
  * sample per edge, the smallest possible perturbation of this shape, and the smallest failing plus
  * cell in the sweep.

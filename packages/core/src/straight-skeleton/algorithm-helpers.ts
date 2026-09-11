@@ -225,11 +225,11 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         }
         const polygonEdge = context.getEdgeWithId(i);
         const exteriorEdgeRay = context.projectRay(polygonEdge)
-        const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay);
+        const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay, context.coaxialityFloor);
         if (ray1Length > 0 && ray2Length > 0) {
             const exteriorTargetNode = context.graph.nodes[polygonEdge.target!]
             const rayFromTargetEnd = makeRay(exteriorTargetNode.position, negateVector(polygonEdge.basisVector));
-            const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd);
+            const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd, context.coaxialityFloor);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 // W-spec W16: `maxOffset` is a TIME. At unit weights `distance / 1.0` is exact.
                 const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length))

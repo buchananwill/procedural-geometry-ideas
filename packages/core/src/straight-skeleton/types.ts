@@ -148,6 +148,26 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      * of three functions that have no opinion about one. See `PerceptualFloorOptions`.
      */
     perceptualFloor: number;
+    /**
+     * The lane width, in unit-space distance, within which two sources count as lying on ONE LINE
+     * (spec A9/A10, journal decision 136). Derived once from {@link perceptualFloor} by
+     * `coaxialityFloor` at context construction and carried here so that every coaxiality site
+     * spends the same number.
+     *
+     * ON THE CONTEXT FOR THE SAME REASON THE FLOOR IS: `intersectRays` takes it as an explicit
+     * parameter and must be handed it by whoever calls it, and the callers four hops below the entry
+     * point have a context and nothing else.
+     */
+    coaxialityFloor: number;
+    /**
+     * Informational reports the SOLVE itself made, as opposed to the boundary stage.
+     *
+     * The only producer today is A19's coaxial completion, which is entered deep inside the per-arity
+     * handlers and has no other way to be heard: `stepAlgorithm` carries THROWN messages out on
+     * `errors`, and a completion is by definition the case that did not throw. `solveSkeleton` drains
+     * this onto its own `diagnostics`, so a completion is signalled, never silent.
+     */
+    diagnostics: SkeletonDiagnostic[];
 }
 
 export type IntersectionType =
@@ -253,13 +273,21 @@ export interface AlgorithmStepOutput {
  * - `self-intersecting`      — the input crossed itself and was decomposed, solved per sub-polygon, and merged.
  * - `step-failure`           — a sub-polygon threw during a solver step and was skipped.
  * - `unresolved-edges`       — one or more interior edges finished the solve without a target node.
+ * - `coaxial-completion`     — a sub-polygon with live interior edges produced no event and no
+ *   closure, and the solver COMPLETED it rather than throwing: it priced the anti-parallel,
+ *   pointing-together pair with the smallest symmetric lateral offset as head-on (spec A19, journal
+ *   decision 136 as amended). INFORMATIONAL — it does not make a result incomplete — but it is
+ *   never expected: a bounded wavefront with live vertices must have a next event, so reaching this
+ *   at all means a predicate refused an event that exists, and the detail names both edge ids and
+ *   the offset so the specimen can be found.
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
     | 'vertices-canonicalised'
     | 'self-intersecting'
     | 'step-failure'
-    | 'unresolved-edges';
+    | 'unresolved-edges'
+    | 'coaxial-completion';
 
 export interface SkeletonDiagnostic {
     kind: SkeletonDiagnosticKind;

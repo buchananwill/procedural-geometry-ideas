@@ -5,7 +5,7 @@ import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 setSkeletonLogLevel('debug');
 import {stepAlgorithm} from '@proc-geo/core';
 import {collideEdges, collideInteriorEdges} from '@proc-geo/core';
-import {intersectRays} from '@proc-geo/core';
+import {intersectRays, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 import {
     CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS,
     DIVERGENCE_TOWARDS_ISTHMUS_FAILS_NODE_4,
@@ -189,7 +189,7 @@ describe('Isthmus Debug', () => {
             console.log(`  ray14: src=(${ray14.sourceVector.x.toFixed(4)}, ${ray14.sourceVector.y.toFixed(4)}) basis=(${ray14.basisVector.x.toFixed(6)}, ${ray14.basisVector.y.toFixed(6)})`);
 
             // Direct intersection call
-            const result = intersectRays(ray11, ray14);
+            const result = intersectRays(ray11, ray14, SKELETON_NOISE_FLOOR);
             console.log(`  unitsToIntersection: [${result[0].toFixed(4)}, ${result[1].toFixed(4)}, '${result[2]}']`);
 
             // Dot and cross of basis vectors
@@ -334,7 +334,7 @@ describe('Isthmus Debug', () => {
                                 const collisions = collideInteriorEdges(ie1, ie2, context);
                                 const ray1 = context.projectRayInterior(ie1);
                                 const ray2 = context.projectRayInterior(ie2);
-                                const rawIntersect = intersectRays(ray1, ray2);
+                                const rawIntersect = intersectRays(ray1, ray2, SKELETON_NOISE_FLOOR);
                                 const dot = dotProduct(ray1.basisVector, ray2.basisVector);
 
                                 const collisionStr = collisions.length > 0
@@ -516,7 +516,7 @@ describe('Isthmus Debug', () => {
             console.log(`  ray1(e16): src=(${ray1.sourceVector.x.toFixed(4)}, ${ray1.sourceVector.y.toFixed(4)}) basis=(${ray1.basisVector.x.toFixed(6)}, ${ray1.basisVector.y.toFixed(6)})`);
             console.log(`  ray2(ext6): src=(${ray2.sourceVector.x.toFixed(4)}, ${ray2.sourceVector.y.toFixed(4)}) basis=(${ray2.basisVector.x.toFixed(6)}, ${ray2.basisVector.y.toFixed(6)})`);
 
-            const intersectionData = intersectRays(ray1, ray2);
+            const intersectionData = intersectRays(ray1, ray2, SKELETON_NOISE_FLOOR);
             console.log(`  intersection: [${intersectionData[0].toFixed(6)}, ${intersectionData[1].toFixed(6)}, '${intersectionData[2]}']`);
 
             if (intersectionData[2] !== 'converging') {
@@ -536,7 +536,7 @@ describe('Isthmus Debug', () => {
             console.log(`  wsParentRay: src=(${widdershinsParentRay.sourceVector.x.toFixed(4)}, ${widdershinsParentRay.sourceVector.y.toFixed(4)}) basis=(${widdershinsParentRay.basisVector.x.toFixed(6)}, ${widdershinsParentRay.basisVector.y.toFixed(6)})`);
             console.log(`  extCollRay: src=(${exteriorCollisionRay.sourceVector.x.toFixed(4)}, ${exteriorCollisionRay.sourceVector.y.toFixed(4)}) basis=(${exteriorCollisionRay.basisVector.x.toFixed(6)}, ${exteriorCollisionRay.basisVector.y.toFixed(6)})`);
 
-            const [alongParent] = intersectRays(widdershinsParentRay, exteriorCollisionRay);
+            const [alongParent] = intersectRays(widdershinsParentRay, exteriorCollisionRay, SKELETON_NOISE_FLOOR);
             const triangleOtherVertex = addVectors(widdershinsParentRay.sourceVector, scaleVector(widdershinsParentRay.basisVector, alongParent));
             console.log(`  alongParent=${alongParent.toFixed(6)}`);
             console.log(`  triangleOtherVertex=(${triangleOtherVertex.x.toFixed(4)}, ${triangleOtherVertex.y.toFixed(4)})`);
@@ -545,7 +545,7 @@ describe('Isthmus Debug', () => {
             console.log(`  triangleOtherBisector=(${triangleOtherBisector.x.toFixed(6)}, ${triangleOtherBisector.y.toFixed(6)})`);
 
             const otherRay = {sourceVector: triangleOtherVertex, basisVector: triangleOtherBisector};
-            const intermediateIntersection = intersectRays(ray1, otherRay);
+            const intermediateIntersection = intersectRays(ray1, otherRay, SKELETON_NOISE_FLOOR);
             const [alongOriginalInterior, _other, resultTypeFinal] = intermediateIntersection;
             console.log(`  intermediate intersection: [${intermediateIntersection[0].toFixed(6)}, ${intermediateIntersection[1].toFixed(6)}, '${resultTypeFinal}']`);
 
@@ -566,13 +566,13 @@ describe('Isthmus Debug', () => {
             const sourceBisectorBasis = context.getEdgeWithId(sourceBisectorId).basisVector;
             const tSource = finalCollisionOffset / crossProduct(sourceBisectorBasis, eEdge.basisVector);
             const advancedSource = addVectors(graph.nodes[eEdge.source].position, scaleVector(sourceBisectorBasis, tSource));
-            const [, alongWfSource] = intersectRays(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector});
+            const [, alongWfSource] = intersectRays(ray1, {sourceVector: advancedSource, basisVector: eEdge.basisVector}, SKELETON_NOISE_FLOOR);
             console.log(`  sourceBisector=e${sourceBisectorId} tSource=${tSource.toFixed(4)} advSrc=(${advancedSource.x.toFixed(4)}, ${advancedSource.y.toFixed(4)}) alongWfSource=${alongWfSource.toFixed(6)}`);
 
             const targetBisectorBasis = context.getEdgeWithId(targetBisectorId).basisVector;
             const tTarget = finalCollisionOffset / crossProduct(targetBisectorBasis, eEdge.basisVector);
             const advancedTarget = addVectors(graph.nodes[eEdge.target!].position, scaleVector(targetBisectorBasis, tTarget));
-            const [, alongWfTarget] = intersectRays(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(eEdge.basisVector, -1)});
+            const [, alongWfTarget] = intersectRays(ray1, {sourceVector: advancedTarget, basisVector: scaleVector(eEdge.basisVector, -1)}, SKELETON_NOISE_FLOOR);
             console.log(`  targetBisector=e${targetBisectorId} tTarget=${tTarget.toFixed(4)} advTgt=(${advancedTarget.x.toFixed(4)}, ${advancedTarget.y.toFixed(4)}) alongWfTarget=${alongWfTarget.toFixed(6)}`);
 
             const isPhantom = alongWfSource < 0 || alongWfTarget < 0;

@@ -63,6 +63,7 @@ export {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 export {
+  coaxialityFloor,
   DEGENERATE_AREA_EPSILON,
   DIRECTION_SINE_BAR,
   FLOATING_POINT_EPSILON,
@@ -107,7 +108,11 @@ export { addNode, interiorEdgeIndex, initBoundingPolygon } from './straight-skel
 export { makeStraightSkeletonSolverContext } from './straight-skeleton/solver-context';
 
 // ── Intersection ─────────────────────────────────────────────────────────────
-export { intersectRays } from './straight-skeleton/intersection-edges';
+export {
+  intersectRays,
+  lateralOffset,
+  symmetricLateralOffset,
+} from './straight-skeleton/intersection-edges';
 
 // ── Algorithm helpers ────────────────────────────────────────────────────────
 export {

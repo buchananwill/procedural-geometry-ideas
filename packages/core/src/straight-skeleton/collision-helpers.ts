@@ -265,7 +265,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const ray2 = context.projectRayInterior(edgeB);
 
 
-    const intersectionData = intersectRays(ray1, ray2);
+    const intersectionData = intersectRays(ray1, ray2, context.coaxialityFloor);
     const [rawAlongRay1, rawAlongRay2, resultType] = intersectionData;
 
     if (NO_COLLISION_RESULTS.includes(resultType)) {

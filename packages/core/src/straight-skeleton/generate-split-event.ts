@@ -108,7 +108,8 @@ function findOffsetViaIncenter(
     // two PARTICIPANTS. It is therefore the instigator against the split edge's own ray — the same
     // pair `findOffsetByDirectStrike` reports, so both split paths now describe their event the same
     // way.
-    const intersectionData = intersectRays(instigatorRay, context.projectRay(edgeToSplit));
+    const intersectionData = intersectRays(
+        instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor);
 
     return {offsetDistance: timeOf(arrival), arrival, position, intersectionData};
 }
@@ -258,8 +259,9 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const backwardsEdgeSplitRay = context.projectRayReversed(edgeToSplit);
     const instigatorRay = context.projectRayInterior(instigatorData);
 
-    const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay);
-    const initialIntersectionTest2 = intersectRays(instigatorRay, backwardsEdgeSplitRay);
+    const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay, context.coaxialityFloor);
+    const initialIntersectionTest2 = intersectRays(
+        instigatorRay, backwardsEdgeSplitRay, context.coaxialityFloor);
     if (!reachesSupportingLine(initialIntersectionTest) && !reachesSupportingLine(initialIntersectionTest2)) {
         // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
         return null;

@@ -12,6 +12,7 @@ import {
     PARALLEL_GATE_SINE_BAR,
     scaleVector,
     sineIsBelow,
+    SKELETON_NOISE_FLOOR,
     vectorsAreEqual,
 } from '@proc-geo/core';
 import type {Vector2} from '@proc-geo/core';
@@ -158,7 +159,7 @@ describe("intersectRays' two collinearity exits answer one separation identicall
         const along = unit(angle);
         const verdicts: string[] = [];
         for (const [first, second] of [[{x: 0, y: 0}, {x: 10, y: 0}], [{x: 10, y: 0}, {x: 0, y: 0}]]) {
-            const [, , type] = intersectRays(makeRay(first, along), makeRay(second, along));
+            const [, , type] = intersectRays(makeRay(first, along), makeRay(second, along), SKELETON_NOISE_FLOOR);
             verdicts.push(type);
         }
         return verdicts;

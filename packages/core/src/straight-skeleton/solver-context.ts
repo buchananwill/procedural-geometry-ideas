@@ -23,6 +23,7 @@ import {intersectRays} from "./intersection-edges";
 import {birthArrivalOf, compareArrivals, timeOf} from "./collision-helpers";
 import {complexLog, splitLog} from "./logger";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
+import {coaxialityFloor} from "./constants";
 
 /**
  * `perceptualFloor` is the client's floor for this solve, in the unit space `nodes` are given in. It
@@ -40,6 +41,9 @@ export function makeStraightSkeletonSolverContext(
 ): StraightSkeletonSolverContext {
     const graph = initBoundingPolygon(nodes, weights);
     const acceptedEdges = nodes.map(() => false);
+    // DERIVED ONCE, HERE (spec A9/A10). Every coaxiality site in the solve spends this one number,
+    // so two sites cannot answer "are these two sources on one line?" differently.
+    const coaxialLane = coaxialityFloor(perceptualFloor);
 
     /**
      * The wavefront speed of an exterior edge (W-spec W1).
@@ -254,6 +258,8 @@ export function makeStraightSkeletonSolverContext(
         acceptedEdges: acceptedEdges,
         collisionCache: new Map() as CollisionCache,
         perceptualFloor,
+        coaxialityFloor: coaxialLane,
+        diagnostics: [],
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
             return idList.map(getEdgeWithId)
@@ -412,8 +418,8 @@ export function makeStraightSkeletonSolverContext(
                 const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, widdershinsLocalTime * splitWeight);
                 const cwRay = makeRay(cwVertex, negateVector(edgeBasis));
                 const wsRay = makeRay(wsVertex, edgeBasis);
-                const cwTest = intersectRays(bisectorRay, cwRay);
-                const wsTest = intersectRays(bisectorRay, wsRay);
+                const cwTest = intersectRays(bisectorRay, cwRay, coaxialLane);
+                const wsTest = intersectRays(bisectorRay, wsRay, coaxialLane);
                 const valid =  splitIntersectionOptions.includes(cwTest[2])
                     && splitIntersectionOptions.includes(wsTest[2]);
 

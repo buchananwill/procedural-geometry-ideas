@@ -15,7 +15,7 @@ import {
 import { recursiveTreeToScene } from '../../src/scene/adapters/recursiveSubdivisionToScene';
 import { EXPLORER_PERCEPTUAL_FLOOR } from '../../src/scene/perceptual-floor';
 import { RESIDUE_TREE, TREE } from '../fixtures/recursive-trees';
-import { INCORRECT_ORDERING_E38_E30_COLLISION } from '@proc-geo/test-fixtures';
+import { FULL_CORPUS, INCORRECT_ORDERING_E38_E30_COLLISION } from '@proc-geo/test-fixtures';
 
 /**
  * The region inspector: one region of a subdivision tree, listed by id and drawn on its own.
@@ -48,6 +48,27 @@ import { INCORRECT_ORDERING_E38_E30_COLLISION } from '@proc-geo/test-fixtures';
  * there is nothing in the corpus to re-point to — the successor to this specimen is a fixture
  * constructed on purpose, not another one harvested. Say so here rather than leaving the next reader
  * to run the sweep again and find it empty.
+ *
+ * ============================================================================
+ *  AND ON 2026-09-11 IT WAS CURED. THE SPECIMEN IS EXTINCT.
+ * ============================================================================
+ *
+ * The COAXIALITY LANE (journal decision 137, spec A9/A10) cured it, and the attribution is exact:
+ * this region's failure was "an exactly anti-parallel interior edge pair" (decision 108(a)), and the
+ * lane is precisely the bar that decides whether such a pair is priced head-on or orphaned.
+ * `sourceLiesAhead` answered that POSITIONAL question — "are these two sources on one line?" — at
+ * `FLOATING_POINT_EPSILON` (1e-8) while the explorer's own floor is 1e-5, three decades coarser; the
+ * pair's lateral offset fell in that band, so the solver refused an event the client could not even
+ * see was in question. `r0.1.3` now solves, its canonical 8-vertex ring re-solves complete, and its
+ * tree carries no failure of any kind.
+ *
+ * RE-SWEPT THE WHOLE CORPUS THE SAME DAY — all 59 fixtures × merge groups 1–6 × depths
+ * 0.25/0.5/0.6/0.75/0.9/1, at this floor — and there is NOT ONE failing region anywhere, degenerate
+ * declines aside; nor does any corpus RING fail as a root at this floor. The prediction above has
+ * landed exactly as written, so the two tests that needed an unsolvable driver-cut region are
+ * replaced below by the assertion that records the extinction, and the constructed successor the
+ * paragraph above calls for is left to the lead: which ring, and whether it is enrolled, is a design
+ * act and not a delegate's re-pin.
  */
 const DEFECT_LEVELS = uniformLevelSpecs({
     levels: MAX_RECURSION_LEVELS,
@@ -120,41 +141,57 @@ describe('the standalone solve', () => {
         expect(solve.result).toBeUndefined();
     });
 
-    it('reports the solver\'s own diagnostics for the live defect region, verbatim', () => {
-        // THE WHOLE AFFORDANCE, ON THE REGION IT WAS BUILT FOR. The inspector solves the polygon the
-        // driver's wavefront actually ran on and gets the same incomplete solve the driver recorded,
-        // which is what puts the driver's verdict and a fresh one in the same frame.
-        //
-        // ON `canonicalBoundary`, NOT `boundary`, and that distinction is now the whole test. The
-        // driver's floor reaches this region as the ROOT's floor restated in region units — 4e-5 here,
-        // coarser than the raw 1e-5 — and it removes one vertex whose deviation is 2.17e-5. The solve
-        // that failed is the solve of the 8-vertex ring that came out of that removal, so that is the
-        // ring handed in here. Core's own `unsolvableRegion()` made exactly this move for exactly this
-        // reason (finding F38a: a region can be made unsolvable BY the pass-down).
-        const region = defectRegion();
+    it('has no unsolvable driver-cut region left to report on: the specimen is extinct', () => {
+        /*
+         * WHAT THIS REPLACES, AND WHY IT IS AN ASSERTION RATHER THAN A DELETION.
+         *
+         * Two tests stood here. One pinned the inspector reporting the solver's own diagnostics
+         * VERBATIM for `r0.1.3` — that a reader comparing the driver's panel and a fresh solve is
+         * comparing the same words. The other pinned the more interesting fact about that region:
+         * its boundary AS CAPTURED solved cleanly and only became unsolvable once the root's floor,
+         * carried down into region units, took an invisible vertex out of it — so a standalone solve
+         * that quietly agreed with the driver would have concealed that the PASS-DOWN, not the
+         * polygon, was what made it fail.
+         *
+         * Both needed an unsolvable driver-cut region, and there is no longer one anywhere in the
+         * corpus at this floor — see the block comment on {@link DEFECT_LEVELS} for the cure and its
+         * attribution. Deleting them silently would leave the next reader to run the sweep again and
+         * find it empty; this asserts the emptiness instead, so the day a region fails here again
+         * this test fires and the affordance gets its specimen back.
+         *
+         * THE AFFORDANCE ITSELF IS NOT UNTESTED. `standaloneSolve`'s three statuses are pinned above
+         * and below — `solved` on a region that finishes, `degenerate` on input that is no polygon —
+         * and the `incomplete` branch is exercised by the whole-tree canvas's failure-patch tests.
+         * What is missing is a REAL specimen for it, and constructing one is a design act the lead
+         * owns.
+         */
+        const failing: string[] = [];
+        for (const polygon of FULL_CORPUS) {
+            const tree = subdivideRecursively(polygon.vertices, {
+                levels: DEFECT_LEVELS,
+                perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR,
+            });
+            for (const node of flattenRecursiveTree(tree)) {
+                if (node.failure === undefined || node.failure.startsWith('Degenerate region')) continue;
+                failing.push(`${polygon.name}: ${node.id}`);
+            }
+        }
 
-        expect(region.failure).toBeDefined();
-        expect(region.boundary).toHaveLength(9);
-        expect(region.canonicalBoundary).toHaveLength(8);
-
-        const solve = standaloneSolve(region.canonicalBoundary);
-        expect(solve.status).toBe('incomplete');
-        expect(solve.detail).toContain('2 interior edge(s) finished without a target node: 17, 19');
-        // Verbatim: the driver's recorded failure CONTAINS this solve's detail as a substring, so a
-        // reader comparing the two panels is comparing the same words and not a paraphrase.
-        expect(region.failure).toContain(solve.detail);
+        expect(failing).toEqual([]);
     });
 
-    it('reports a handed-in boundary that solves where the driver failed, rather than hiding it', () => {
-        // THE DIFFERENCE IS THE FINDING, which is what `standaloneSolve`'s docstring promises. This
-        // region's boundary AS CAPTURED solves cleanly: it is only unsolvable once the root's floor,
-        // carried down into region units, has taken an invisible vertex out of it. A standalone solve
-        // that quietly agreed with the driver here would conceal the most interesting fact about this
-        // region — that the pass-down, not the polygon, is what made it fail.
+    it('still solves the region that used to be the specimen, canonical ring and all', () => {
+        // THE CURE, QUOTED ON THE REGION IT HAPPENED TO. `r0.1.3` is still in the tree, still nine
+        // vertices, and its own floor still removes one of them — everything about the region is as
+        // it was except that both rings now solve. That is what makes this an attributed cure rather
+        // than a specimen that wandered off: the geometry did not move, the predicate did.
         const region = defectRegion();
 
+        expect(region.failure).toBeUndefined();
+        expect(region.boundary).toHaveLength(9);
+        expect(region.canonicalBoundary).toHaveLength(8);
         expect(standaloneSolve(region.boundary).status).toBe('solved');
-        expect(standaloneSolve(region.canonicalBoundary).status).toBe('incomplete');
+        expect(standaloneSolve(region.canonicalBoundary).status).toBe('solved');
     });
 });
 
@@ -176,16 +213,22 @@ describe('the focused picture', () => {
             .toEqual(TREE.boundary.map((_unused, index) => `${index}`));
     });
 
-    it('draws the boundary of a region that will not solve, and no skeleton at all', () => {
+    it('draws the boundary of a region that produced no skeleton, and no skeleton group at all', () => {
         // The distinguishing picture: a ring with no arcs under it is a solver failure, a ring with
         // a visible kink is a cutter failure, and the reader is looking at both facts at once.
         //
-        // Drawn from `canonicalBoundary` for the same reason the diagnostics pin above reads it: that
-        // is the ring the failing solve ran on, and it is the only ring in the corpus that still
-        // produces this picture at the explorer's floor.
-        const region = defectRegion();
-        const boundary = region.canonicalBoundary;
-        const scene = focusedRegionToScene(boundary, standaloneSolve(boundary));
+        // DRAWN FROM A DEGENERATE RING SINCE 2026-09-11, AND THAT IS A LOSS THIS COMMENT OWNS. It used
+        // to be drawn from `r0.1.3`'s `canonicalBoundary` — the last ring in the corpus that produced
+        // this picture at the explorer's floor, and the coaxiality lane cured it (see the block
+        // comment on `DEFECT_LEVELS`). What the branch actually turns on is whether the solve yielded
+        // any arcs, and a ring the solver refuses outright yields none, so the branch is still
+        // covered; what is gone is the SPECIMEN — a real region that draws a ring with nothing under
+        // it — and its constructed successor is the lead's call.
+        const boundary = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
+        const solve = standaloneSolve(boundary);
+        expect(solve.result).toBeUndefined();
+
+        const scene = focusedRegionToScene(boundary, solve);
 
         expect(groupIds(scene)).toEqual(['group:focus-boundary', 'group:focus-vertices']);
         expect(childrenOf(scene, 'group:focus-boundary')).toHaveLength(1);

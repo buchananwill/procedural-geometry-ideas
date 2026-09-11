@@ -14,6 +14,7 @@ import {
 import type {LevelSpec, RecursiveNode} from '@proc-geo/core';
 import {
     AWKWARD_HEPTAGON, FULL_CORPUS, OFF_EDGE_JITTER_L_SEED_55433, OFF_EDGE_JITTER_L_SEED_55433_K4,
+    OFF_EDGE_JITTER_PLUS_SEED_7919,
 } from '@proc-geo/test-fixtures';
 
 /**
@@ -145,6 +146,22 @@ describe('the region tree is first-class', () => {
          * decline at all and decision 96's distinction still needs asserting on a tree that has one.
          * That fixture is the census grid's largest remaining decline population — seven of them, all
          * three-vertex slivers — and its census count of 7 is now entirely declines.
+         *
+         * RE-SPECIMENED AGAIN 2026-09-11, SIXTH TIME, AND THIS ONE IS AN ATTRIBUTED CURE. The
+         * COAXIALITY LANE (journal decision 137, spec A9/A10) cured `r0.2.1` of `(seed 55433)`: it
+         * was the region journal finding F57 traced, and its refusal was `sourceLiesAhead` answering
+         * a POSITIONAL question — "are these two sources on one line?" — at the coordinate epsilon
+         * while the client measures visible distance at the floor. Its corridor's two mid-line
+         * sources sat 2.754e-8 apart laterally, 36× inside the floor, and were priced 'parallel'
+         * rather than 'head-on'; the two bisectors it stranded were 28 and 31, exactly the pair
+         * quoted in the assertions this comment replaces. That fixture's tree at these dials now
+         * carries NO failed node of any kind, pinned in `coaxial-lane.test.ts`.
+         *
+         * THE REPLACEMENT IS `OFF_EDGE_JITTER_PLUS_SEED_7919`'s `r0.4.1` AT THE SAME DIALS, and it
+         * is the same article structurally: level 2, segment index 1, a fourteen-vertex boundary its
+         * own floor reduces, an `Incomplete solve` followed by `unresolved-edges` naming two stranded
+         * bisectors, and solved siblings beside it. Only the fixture and the numbers moved. Its floor
+         * removes TWO vertices rather than one, so the boundary/canonical assertion below says two.
          */
         const DEFECT_LEVELS: LevelSpec[] = uniformLevelSpecs({
             levels: MAX_RECURSION_LEVELS,
@@ -152,10 +169,10 @@ describe('the region tree is first-class', () => {
             depthFraction: 0.5,
             residue: 'recurse',
         });
-        const DEFECT_REGION_ID = 'r0.2.1';
+        const DEFECT_REGION_ID = 'r0.4.1';
 
         function defectTree(): RecursiveNode {
-            return subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, {levels: DEFECT_LEVELS});
+            return subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, {levels: DEFECT_LEVELS});
         }
 
         it('carries the failure on the region the harvest counts, under its own id', () => {
@@ -171,13 +188,13 @@ describe('the region tree is first-class', () => {
             // ends are quoted instead, which is what the sentence actually claims: the floor took one
             // vertex before the solve, and the solve then left two bisectors without a target.
             expect(region!.failure).toMatch(
-                /^Incomplete solve: vertices-canonicalised: 1 vertex\(es\) removed before solving/);
-            // The two stranded ids moved from 29/32 to 28/31 on 2026-08-29 with the arrival ordering
-            // (journal decision 102): the region's own solve is a different solve, one bisector
-            // earlier in the numbering. The region still fails, still on this id, still on the same
-            // two diagnostics — the specimen is re-pointed, not weakened.
+                /^Incomplete solve: vertices-canonicalised: 2 vertex\(es\) removed before solving/);
+            // The two stranded ids were 29/32, then 28/31 on 2026-08-29 with the arrival ordering
+            // (journal decision 102), and are 30/32 since the specimen moved to the plus seed on
+            // 2026-09-11 — see the block comment above for why. The region still fails, still on one
+            // id, still on the same two diagnostics — the specimen is re-pointed, not weakened.
             expect(region!.failure).toMatch(
-                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 28, 31\.$/);
+                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 30, 32\.$/);
             expect(region!.outcome).toEqual({kind: 'failed', failure: region!.failure});
         });
 
@@ -186,15 +203,16 @@ describe('the region tree is first-class', () => {
             // against in the dashboard's region inspector, so if the cutter ever stops emitting it
             // this assertion is the thing that says so.
             const root = defectTree();
-            const parent = findRegionById(root, 'r0.2')!;
+            const parent = findRegionById(root, 'r0.4')!;
             const region = findRegionById(root, DEFECT_REGION_ID)!;
             expect(region.boundary).toEqual(parent.segments[1].boundary);
 
-            // AND THE TWO BOUNDARIES DIFFER, which the previous specimen's did not: this region's own
-            // floor removes one vertex before the solve, so the inspector's standalone solve of
-            // `boundary` and the driver's solve of `canonicalBoundary` are running on different rings
-            // — the region is malformed AND unsolved, and the inspector shows both.
-            expect(region.canonicalBoundary).toHaveLength(region.boundary.length - 1);
+            // AND THE TWO BOUNDARIES DIFFER, which the specimen before the previous one's did not:
+            // this region's own floor removes TWO vertices before the solve, so the inspector's
+            // standalone solve of `boundary` and the driver's solve of `canonicalBoundary` are
+            // running on different rings — the region is malformed AND unsolved, and the inspector
+            // shows both.
+            expect(region.canonicalBoundary).toHaveLength(region.boundary.length - 2);
             expect(region.canonicalAreaDrift).toBeGreaterThan(0);
         });
 

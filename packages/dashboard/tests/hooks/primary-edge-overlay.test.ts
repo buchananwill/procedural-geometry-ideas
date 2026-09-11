@@ -1,4 +1,4 @@
-import { computePrimaryInteriorEdges } from '@proc-geo/core';
+import { computePrimaryInteriorEdges, SKELETON_NOISE_FLOOR } from '@proc-geo/core';
 import type { PrimaryInteriorEdge, Vector2 } from '@proc-geo/core';
 import { WEIGHTED_RECTANGLE_FAST_FLOOR } from '@proc-geo/test-fixtures';
 
@@ -53,11 +53,11 @@ describe('the primary-bisector overlay under weights (W15, arc decision 114(ii))
          * kernel there is `v = (1, 2)` — the fast floor drives the corner upward twice as fast as
          * the slow side wall drives it inward. Unweighted the same corner draws `(1, 1)`.
          */
-        const weighted = computePrimaryInteriorEdges(RECTANGLE, WEIGHTS);
+        const weighted = computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR, WEIGHTS);
         expect(pointsAlong(overlayDirection(weighted, 0), { x: 1, y: 2 })).toBe(true);
         expect(pointsAlong(overlayDirection(weighted, 3), { x: -1, y: 2 })).toBe(true);
 
-        const unweighted = computePrimaryInteriorEdges(RECTANGLE);
+        const unweighted = computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR);
         expect(pointsAlong(overlayDirection(unweighted, 0), { x: 1, y: 1 })).toBe(true);
         expect(pointsAlong(overlayDirection(unweighted, 3), { x: -1, y: 1 })).toBe(true);
     });
@@ -66,7 +66,7 @@ describe('the primary-bisector overlay under weights (W15, arc decision 114(ii))
         // Vertices 1 and 2 have speed 1 on both sides, so the kernel there IS the angle bisector and
         // the overlay must not have moved. That is what makes the case above a weight effect rather
         // than a change of construction.
-        const weighted = computePrimaryInteriorEdges(RECTANGLE, WEIGHTS);
+        const weighted = computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR, WEIGHTS);
         expect(pointsAlong(overlayDirection(weighted, 1), { x: 1, y: -1 })).toBe(true);
         expect(pointsAlong(overlayDirection(weighted, 2), { x: -1, y: -1 })).toBe(true);
     });
@@ -74,15 +74,15 @@ describe('the primary-bisector overlay under weights (W15, arc decision 114(ii))
     it('is bit-identical to the unweighted overlay at all-ones weights', () => {
         // W-spec W12: every scaling is by exactly `1.0`, so this is identity and not approximation.
         // An overlay that merely came CLOSE at unit weights would be a second construction.
-        const ones = computePrimaryInteriorEdges(RECTANGLE, RECTANGLE.map(() => 1));
-        expect(ones).toEqual(computePrimaryInteriorEdges(RECTANGLE));
-        expect(computePrimaryInteriorEdges(RECTANGLE, [])).toEqual(
-            computePrimaryInteriorEdges(RECTANGLE));
+        const ones = computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR, RECTANGLE.map(() => 1));
+        expect(ones).toEqual(computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR));
+        expect(computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR, [])).toEqual(
+            computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR));
     });
 
     it('refuses a weights array of the wrong length rather than padding it', () => {
         // The same rule the solver's door applies (W-spec W1): a short array silently draws a
         // different polygon's bisectors, and the hook turns the throw into an absent overlay.
-        expect(() => computePrimaryInteriorEdges(RECTANGLE, [1, 1])).toThrow(/2 weights for 4 vertices/);
+        expect(() => computePrimaryInteriorEdges(RECTANGLE, SKELETON_NOISE_FLOOR, [1, 1])).toThrow(/2 weights for 4 vertices/);
     });
 });

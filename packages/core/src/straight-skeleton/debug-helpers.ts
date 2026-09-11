@@ -100,6 +100,13 @@ export function computeNodeOffsetDistances(
  */
 export function computePrimaryInteriorEdges(
     vertices: Vector2[],
+    /**
+     * The coaxiality lane `intersectRays` is to spend here (spec A9/A10). REQUIRED rather than
+     * defaulted, for the reason `intersectRays` states: this overlay is drawn for a client whose own
+     * floor decides what it can see, and a module default would draw it against the library's. It
+     * precedes `weights` because TypeScript will not take a required parameter after an optional one.
+     */
+    coaxialityFloor: number,
     weights?: readonly number[],
 ): PrimaryInteriorEdge[] {
     if (vertices.length < 3) return [];
@@ -148,7 +155,7 @@ export function computePrimaryInteriorEdges(
             );
             const edgeRay: RayProjection = {sourceVector: edgeStart, basisVector: edgeBasis};
 
-            const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay);
+            const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay, coaxialityFloor);
 
             // Must be forward along bisector, and within the edge segment
             if (distAlongBisector > 0 && distAlongEdge >= 0 && distAlongEdge <= edgeLength) {
@@ -171,7 +178,11 @@ export function computePrimaryInteriorEdges(
  * Computes pairwise intersection points between primary interior edges (bisectors).
  * O(n^2) segment-segment intersection using unitsToIntersection.
  */
-export function computePrimaryEdgeIntersections(primaryEdges: PrimaryInteriorEdge[]): Vector2[] {
+export function computePrimaryEdgeIntersections(
+    primaryEdges: PrimaryInteriorEdge[],
+    /** The coaxiality lane, stated by the caller — see {@link computePrimaryInteriorEdges}. */
+    coaxialityFloor: number,
+): Vector2[] {
     const points: Vector2[] = [];
 
     for (let i = 0; i < primaryEdges.length; i++) {
@@ -196,7 +207,7 @@ export function computePrimaryEdgeIntersections(primaryEdges: PrimaryInteriorEdg
             const rayA: RayProjection = {sourceVector: a.source, basisVector: aBasis};
             const rayB: RayProjection = {sourceVector: b.source, basisVector: bBasis};
 
-            const [tA, tB] = intersectRays(rayA, rayB);
+            const [tA, tB] = intersectRays(rayA, rayB, coaxialityFloor);
 
             // Both parameters must be in [0, 1] since we used unnormalized basis vectors
             // whose length equals the full segment length

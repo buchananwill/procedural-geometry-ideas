@@ -231,15 +231,32 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
             .toEqual({failed: 2, failingCounts: [4]});
     });
 
-    it('gives the SAME counts at 1e-3, three decades down — the plateau, measured', () => {
+    it('gives the SAME counts at 1e-3, three decades down — the plateau, all but one cell', () => {
         // What makes the headline magnitude nearly free. If these ever diverge from the two
         // assertions above, the failure has stopped being a property of the shape's offset layers
         // and started being a property of how hard the samples were pushed, which is a different
         // defect and needs a different account.
+        //
+        // THE PLUS'S 1e-3 COUNT FELL FROM 2 TO 1 ON 2026-09-11 UNDER THE COAXIALITY LANE (journal
+        // decision 137, spec A9/A10), AND THE PLATEAU IS NOW BROKEN BY EXACTLY ONE CELL — reported
+        // rather than smoothed over, because the comment above says what a divergence means and it
+        // now applies. The cell is `k = 4, seed 47514`: at 1e-3 it was an `unresolved-edges` failure
+        // and now solves complete; at the headline magnitude it still fails, so the divergence is a
+        // property of how hard the samples were pushed, which is the account this comment asks for.
+        //
+        // IT IS NOT AN UNQUALIFIED CURE, and that is the part to read. The newly-complete solve
+        // carries two DIRECTION violations (`e126` at `dot = -1`, `e130` at `dot = -0.99999999999`):
+        // two bisectors wired backwards along their own bases. It is a loud failure becoming a quiet
+        // wrong answer, which is the character journal decision 72 treats as a defect getting worse
+        // even where the pinned NUMBER falls. Two qualifications on that reading, both measured:
+        // this whole configuration runs with the boundary stage OFF and is already riddled with the
+        // same violation — `k = 7` at both magnitudes and both seeds reports complete with three or
+        // four of them, and did so before this change — so it is not a clean baseline; and no fixture
+        // in `FULL_CORPUS` moves at all, the digest included. Flagged for the lead.
         expect(jitterSweep(JITTER_REFLEX_L, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
             .toEqual({failed: 1, failingCounts: [4]});
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 2, failingCounts: [4]});
+            .toEqual({failed: 1, failingCounts: [4]});
     });
 
     it('goes quiet at 1e-9, where the displacement is below the solver\'s own epsilon', () => {

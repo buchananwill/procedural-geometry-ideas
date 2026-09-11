@@ -6,8 +6,10 @@ import type {
     Vector2,
 } from "@proc-geo/core";
 import {
+    coaxialityFloor,
     computePrimaryInteriorEdges,
     computePrimaryEdgeIntersections,
+    resolvePerceptualFloor,
 } from "@proc-geo/core";
 import type { SteppedAlgorithmResult } from "@proc-geo/core";
 import type { Vertex } from "../stores/usePolygonStore";
@@ -148,22 +150,27 @@ export function useSkeletonAnimation(
         [vertices, perceptualFloor, weights]);
     const solverVertexRemap = boundary.indexRemap;
 
+    // The coaxiality lane the overlay's ray intersections are answered at (spec A9/A10): the host
+    // page's own floor, resolved exactly as the solve resolves it, so the drawing and the solve
+    // agree about which two lines are one line.
+    const overlayCoaxialityFloor = coaxialityFloor(resolvePerceptualFloor({ perceptualFloor }));
+
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
         try {
             // W-spec W15 / arc decision 114(ii): the overlay is drawn at the SOLVE's weights.
-            return computePrimaryInteriorEdges(vertices, weights);
+            return computePrimaryInteriorEdges(vertices, overlayCoaxialityFloor, weights);
         } catch {
             // A weights array of the wrong length is refused rather than padded; the overlay is a
             // drawing, so it goes away rather than taking the canvas down with it.
             return [];
         }
-    }, [showPrimaryEdges, vertices, weights]);
+    }, [showPrimaryEdges, vertices, overlayCoaxialityFloor, weights]);
 
     const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
         if (primaryEdges.length === 0) return [];
-        return computePrimaryEdgeIntersections(primaryEdges);
-    }, [primaryEdges]);
+        return computePrimaryEdgeIntersections(primaryEdges, overlayCoaxialityFloor);
+    }, [primaryEdges, overlayCoaxialityFloor]);
 
     // Clear animation state when the polygon or its weights change
     useEffect(() => {

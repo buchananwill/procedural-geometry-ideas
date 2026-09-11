@@ -22,7 +22,7 @@ import {
     projectFromPerpendicular,
     areEqual
 } from '@proc-geo/core';
-import {intersectRays} from '@proc-geo/core';
+import {intersectRays, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 import {generateSplitEventFromTheEdgeItself} from '@proc-geo/core';
 import type {
     AlgorithmStepInput,
@@ -217,7 +217,7 @@ describe('Crazy Polygon Debug', () => {
                 const eB = context.getInteriorWithId(activeIds[j]);
                 const rayA = context.projectRayInterior(eA);
                 const rayB = context.projectRayInterior(eB);
-                const intersection = intersectRays(rayA, rayB);
+                const intersection = intersectRays(rayA, rayB, SKELETON_NOISE_FLOOR);
                 const collisions = collideEdges(activeIds[i], activeIds[j], context);
                 const collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 console.log(
@@ -234,7 +234,7 @@ describe('Crazy Polygon Debug', () => {
                 const instigatorRay = context.projectRayInterior(ie);
                 const extEdge = context.getEdgeWithId(ext);
                 const extRay = context.projectRay(extEdge);
-                const initial = intersectRays(instigatorRay, extRay);
+                const initial = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR);
                 const collisions = collideEdges(ie.id, ext, context);
                 const collisionStr = collisions.length > 0 ? collisions.map(c => `${c.eventType} offset=${c.offsetDistance.toFixed(4)}`).join('; ') : 'NO COLLISION';
                 console.log(
@@ -266,7 +266,7 @@ describe('Crazy Polygon Debug', () => {
         console.log(`  edgeSplitRay:  ${fmtRay(edgeSplitRay)}`);
 
         // Step 1: Initial convergence
-        const initialTest = intersectRays(instigatorRay, edgeSplitRay);
+        const initialTest = intersectRays(instigatorRay, edgeSplitRay, SKELETON_NOISE_FLOOR);
         console.log(`\n  INITIAL CONVERGENCE: [${initialTest[0].toFixed(6)}, ${initialTest[1].toFixed(6)}, ${initialTest[2]}]`);
         if (initialTest[2] !== 'converging') {
             console.log('  >>> STOPPED: initial rays do not converge');
@@ -335,8 +335,8 @@ describe('Crazy Polygon Debug', () => {
                 console.log(`\n  wsTestRay: ${fmtRay(wsTestRay)}`);
                 console.log(`  cwTestRay: ${fmtRay(cwTestRay)}`);
 
-                const wsTest = intersectRays(wsTestRay, instigatorRay);
-                const cwTest = intersectRays(cwTestRay, instigatorRay);
+                const wsTest = intersectRays(wsTestRay, instigatorRay, SKELETON_NOISE_FLOOR);
+                const cwTest = intersectRays(cwTestRay, instigatorRay, SKELETON_NOISE_FLOOR);
                 console.log(`\n  wsTest result: [${wsTest[0].toFixed(6)}, ${wsTest[1].toFixed(6)}, ${wsTest[2]}]`);
                 console.log(`  cwTest result: [${cwTest[0].toFixed(6)}, ${cwTest[1].toFixed(6)}, ${cwTest[2]}]`);
 
@@ -377,7 +377,7 @@ describe('Crazy Polygon Debug', () => {
             const result = generateSplitEventFromTheEdgeItself(e15.id, ext, context);
             const extEdge = context.getEdgeWithId(ext);
             const extRay = context.projectRay(extEdge);
-            const initial = intersectRays(instigatorRay, extRay);
+            const initial = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR);
             console.log(`  e15 x ext${ext}: initial=[${initial[0].toFixed(4)}, ${initial[1].toFixed(4)}, ${initial[2]}] → ${result === null ? 'null' : `offset=${result.offsetDistance.toFixed(4)}`}`);
         }
     });
@@ -393,7 +393,7 @@ describe('Crazy Polygon Debug', () => {
         const ray15 = context.projectRayInterior(e15);
 
         console.log('\n=== e10 x e15 phantom collision analysis ===');
-        const intersection = intersectRays(ray10, ray15);
+        const intersection = intersectRays(ray10, ray15, SKELETON_NOISE_FLOOR);
         console.log(`  ray10: ${fmtRay(ray10)}`);
         console.log(`  ray15: ${fmtRay(ray15)}`);
         console.log(`  intersection: [${intersection[0].toFixed(6)}, ${intersection[1].toFixed(6)}, ${intersection[2]}]`);

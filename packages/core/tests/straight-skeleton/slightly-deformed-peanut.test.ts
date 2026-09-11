@@ -6,6 +6,7 @@ import {
 import {
     intersectRays,
     runAlgorithmV5,
+    SKELETON_NOISE_FLOOR,
     solveSkeleton,
     StraightSkeletonSolverContext,
     Vector2,
@@ -122,12 +123,12 @@ describe('the guard the waist split was lost to', () => {
             basisVector: {x: -edgeBasis.x / length, y: -edgeBasis.y / length},
         };
 
-        const [alongBisector, alongEdge, verdict] = intersectRays(bisector, forward);
+        const [alongBisector, alongEdge, verdict] = intersectRays(bisector, forward, SKELETON_NOISE_FLOOR);
         expect(verdict).toBe('diverging');
         // Exactly zero, up to its sign: the strike lands ON the ray's origin, which is what put it
         // outside the strictly-positive band 'converging' requires.
         expect(Math.abs(alongEdge)).toBe(0);
         expect(alongBisector).toBeCloseTo(vertices[23].y - vertices[7].y, 12);
-        expect(intersectRays(bisector, reversed)[2]).toBe('diverging');
+        expect(intersectRays(bisector, reversed, SKELETON_NOISE_FLOOR)[2]).toBe('diverging');
     });
 });

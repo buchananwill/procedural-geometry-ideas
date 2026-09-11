@@ -7,7 +7,7 @@ import {tryToAcceptExteriorEdge} from '@proc-geo/core';
 import {crossProduct, areEqual, findPositionAlongRay, makeBisectedBasis, negateVector, dotProduct, projectToPerpendicular, normalize, subtractVectors} from '@proc-geo/core';
 import {generateSplitEventFromTheEdgeItself, generateSplitEvent} from '@proc-geo/core';
 import {createCollisions} from '@proc-geo/core';
-import {intersectRays} from '@proc-geo/core';
+import {intersectRays, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 import {makeOffsetDistance, sourceOffsetDistance, collisionDistanceFromBasisUnits} from '@proc-geo/core';
 import type {AlgorithmStepInput, CollisionEvent, Vector2, RayProjection} from '@proc-geo/core';
 
@@ -385,8 +385,8 @@ describe('e38-e30 Collision Debug', () => {
                 const edgeSplitRay = context.projectRay(e30Edge);
                 const backwardsRay = context.projectRayReversed(e30Edge);
                 const {intersectRays} = require('@proc-geo/core');
-                const fwdTest = intersectRays(instigatorRay, edgeSplitRay);
-                const bwdTest = intersectRays(instigatorRay, backwardsRay);
+                const fwdTest = intersectRays(instigatorRay, edgeSplitRay, SKELETON_NOISE_FLOOR);
+                const bwdTest = intersectRays(instigatorRay, backwardsRay, SKELETON_NOISE_FLOOR);
                 console.log(`  Ray test fwd: [${fwdTest[0].toFixed(4)}, ${fwdTest[1].toFixed(4)}, ${fwdTest[2]}]`);
                 console.log(`  Ray test bwd: [${bwdTest[0].toFixed(4)}, ${bwdTest[1].toFixed(4)}, ${bwdTest[2]}]`);
                 const converges = fwdTest[2] === 'converging' || bwdTest[2] === 'converging';
@@ -493,8 +493,8 @@ describe('e38-e30 Collision Debug', () => {
         const backwardsEdgeSplitRay = context.projectRayReversed(e30Edge);
         const instigatorRay = context.projectRayInterior(ie);
 
-        const fwdTest = intersectRays(instigatorRay, edgeSplitRay);
-        const bwdTest = intersectRays(instigatorRay, backwardsEdgeSplitRay);
+        const fwdTest = intersectRays(instigatorRay, edgeSplitRay, SKELETON_NOISE_FLOOR);
+        const bwdTest = intersectRays(instigatorRay, backwardsEdgeSplitRay, SKELETON_NOISE_FLOOR);
         console.log(`Ray vs edge fwd: [${fwdTest[0].toFixed(4)}, ${fwdTest[1].toFixed(4)}, ${fwdTest[2]}]`);
         console.log(`Ray vs edge bwd: [${bwdTest[0].toFixed(4)}, ${bwdTest[1].toFixed(4)}, ${bwdTest[2]}]`);
 
@@ -601,8 +601,8 @@ describe('e38-e30 Collision Debug', () => {
             basisVector: negateVector(e30Edge.basisVector)
         };
 
-        const collisionCw = intersectRays(bisectorParentRay, edgeToSplitRayCw);
-        const collisionWs = intersectRays(bisectorParentRay, edgeToSplitRayWs);
+        const collisionCw = intersectRays(bisectorParentRay, edgeToSplitRayCw, SKELETON_NOISE_FLOOR);
+        const collisionWs = intersectRays(bisectorParentRay, edgeToSplitRayWs, SKELETON_NOISE_FLOOR);
         console.log(`parentRay vs edgeCw: [${collisionCw[0].toFixed(4)}, ${collisionCw[1].toFixed(4)}, ${collisionCw[2]}]`);
         console.log(`parentRay vs edgeWs: [${collisionWs[0].toFixed(4)}, ${collisionWs[1].toFixed(4)}, ${collisionWs[2]}]`);
 
@@ -639,7 +639,7 @@ describe('e38-e30 Collision Debug', () => {
             : rayUsed.basisVector;
         const tempBasis = makeBisectedBasis(negateVector(bisectorParentRay.basisVector), tempBasisPart2);
         const incenterRay2: RayProjection = {sourceVector: tempNodePos, basisVector: tempBasis};
-        const incenterIntersection = intersectRays(incenterRay1, incenterRay2);
+        const incenterIntersection = intersectRays(incenterRay1, incenterRay2, SKELETON_NOISE_FLOOR);
         console.log(`incenterRay1 vs incenterRay2: [${incenterIntersection[0].toFixed(4)}, ${incenterIntersection[1].toFixed(4)}, ${incenterIntersection[2]}]`);
 
         const incenterOffset = makeOffsetDistance(ie, context, incenterRay1, incenterIntersection[0]);
@@ -759,8 +759,8 @@ describe('e38-e30 Collision Debug', () => {
             console.log(`  wsRay: src=${fmt(wsRay.sourceVector)} basis=${fmt(wsRay.basisVector)}`);
 
             // Intersect bisector with each
-            const cwResult = intersectRays(bisectorRay, cwRay);
-            const wsResult = intersectRays(bisectorRay, wsRay);
+            const cwResult = intersectRays(bisectorRay, cwRay, SKELETON_NOISE_FLOOR);
+            const wsResult = intersectRays(bisectorRay, wsRay, SKELETON_NOISE_FLOOR);
             console.log(`  bisector vs cwRay: [${cwResult[0].toFixed(4)}, ${cwResult[1].toFixed(4)}, ${cwResult[2]}]`);
             console.log(`  bisector vs wsRay: [${wsResult[0].toFixed(4)}, ${wsResult[1].toFixed(4)}, ${wsResult[2]}]`);
 

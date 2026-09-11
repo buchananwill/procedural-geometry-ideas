@@ -15,12 +15,13 @@ import {
     directionsAreSame,
     dotProduct,
     makeBasis,
+    negateVector,
     rotateCw90,
     sineIsBelow,
     sizeOfVector,
     subtractVectors
 } from "./core-functions";
-import {intersectRays} from "./intersection-edges";
+import {intersectRays, symmetricLateralOffset} from "./intersection-edges";
 import {
     arrivalOf,
     arrivalsAreEqual,
@@ -38,6 +39,7 @@ import {
     FLOATING_POINT_EPSILON,
     MAX_WEIGHT_RATIO,
     MIN_WEIGHT_TURN_SINE,
+    PARALLEL_GATE_SINE_BAR,
     TRIANGLE_INTERSECT_PAIRINGS,
 } from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
@@ -375,6 +377,76 @@ function solveParallelClosure(
     return undefined;
 }
 
+/** One anti-parallel, pointing-together pair, with the symmetric lateral offset that priced it. */
+interface CoaxialCompletion {
+    firstId: number;
+    secondId: number;
+    /** The symmetric lateral offset between the two sources, in unit space. */
+    offset: number;
+}
+
+/**
+ * THE COMPLETION ON A NO-EVENT REFUSAL — spec A19, journal decision 136 as amended.
+ *
+ * Reached only where a sub-polygon with LIVE interior edges has produced no collision event in
+ * either ordering and no closure applies. That state is not a per-pair verdict and it is not a
+ * geometry the model admits: a bounded wavefront with live vertices MUST have a next event, which is
+ * a theorem of the exact geometry. So "live vertices, no event" can only be a predicate rejecting,
+ * over-cautiously, an event that exists — and logically the two rays DO collide while the arithmetic
+ * could not see it inside the lane.
+ *
+ * The answer the model supplies: among the anti-parallel, pointing-together pairs, the one with the
+ * SMALLEST symmetric lateral offset is the pair that collides, and it is priced `head-on`. The gate
+ * for "anti-parallel" is the EXISTING one — `intersectRays`' own parallel gate, unchanged by this
+ * package — so this narrows nothing that the normal lane already decided; the offset ordering is the
+ * same symmetric measure {@link sourceLiesAhead} tests against the lane, used here to rank rather
+ * than to admit.
+ *
+ * NARROW ONLY ON REFUSAL (F44's pattern, F27's restraint gate). The normal lane at the client's
+ * floor decides everything the corpus needs; this runs only after that lane has refused, so no solve
+ * that succeeds today pays for it, and a firing is a SECOND SPECIMEN to be reported rather than a
+ * tolerance to be widened. `coaxial-lane.test.ts` pins the corpus count at zero at two floors.
+ *
+ * Returns `undefined` when there is no candidate pair at all, and the throw then stands — removing
+ * it would convert a signalled failure into a silent one.
+ */
+function findCoaxialCompletion(
+    context: StraightSkeletonSolverContext,
+    interiorEdgeIds: number[],
+): CoaxialCompletion | undefined {
+    let best: CoaxialCompletion | undefined;
+
+    for (let i = 0; i < interiorEdgeIds.length; i++) {
+        for (let j = i + 1; j < interiorEdgeIds.length; j++) {
+            const firstId = interiorEdgeIds[i];
+            const secondId = interiorEdgeIds[j];
+            const first = context.projectRayInterior(context.getInteriorWithId(firstId));
+            const second = context.projectRayInterior(context.getInteriorWithId(secondId));
+
+            // ANTI-PARALLEL PER THE EXISTING GATE, and opposed in orientation by the exact sign —
+            // the same two halves `intersectRays` splits its parallel branch on.
+            if (!sineIsBelow(first.basisVector, second.basisVector, PARALLEL_GATE_SINE_BAR)
+                || dotProduct(first.basisVector, second.basisVector) >= 0) {
+                continue;
+            }
+
+            // POINTING TOGETHER, ASKED BOTH WAYS. Each ray must run towards the other's source.
+            const separation = subtractVectors(second.sourceVector, first.sourceVector);
+            if (!(dotProduct(separation, first.basisVector) > 0
+                && dotProduct(negateVector(separation), second.basisVector) > 0)) {
+                continue;
+            }
+
+            const offset = symmetricLateralOffset(separation, first.basisVector, second.basisVector);
+            if (best === undefined || offset < best.offset) {
+                best = {firstId, secondId, offset};
+            }
+        }
+    }
+
+    return best;
+}
+
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length !== 2) {
         throw new Error("Invalid call: expecting two interior edges");
@@ -415,6 +487,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     const [, , pairIntersection] = intersectRays(
         context.projectRayInterior(interior1),
         context.projectRayInterior(interior2),
+        context.coaxialityFloor,
     );
 
     // Head on Collision
@@ -456,6 +529,23 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             const parallelClosure = solveParallelClosure(context, input.interiorEdges);
             if (parallelClosure !== undefined) {
                 applyDegenerateClosure(context, input.interiorEdges, parallelClosure);
+                return {childSteps: []};
+            }
+
+            // THE COMPLETION, BEFORE THE THROW (spec A19). See {@link findCoaxialCompletion}: this
+            // is the state the model says cannot exist, so it is completed rather than refused, and
+            // the completion is recorded so it is signalled and never silent.
+            const completion = findCoaxialCompletion(context, input.interiorEdges);
+            if (completion !== undefined) {
+                context.diagnostics.push({
+                    kind: 'coaxial-completion',
+                    detail: `Sub-polygon [${input.interiorEdges.join(', ')}] produced no event and no `
+                        + `closure; completed by pricing e${completion.firstId} against `
+                        + `e${completion.secondId} as head-on at a symmetric lateral offset of `
+                        + `${completion.offset} against a coaxiality lane of ${context.coaxialityFloor}.`,
+                });
+                context.crossWireEdges(completion.firstId, completion.secondId);
+                context.acceptAll(input.interiorEdges);
                 return {childSteps: []};
             }
 
@@ -789,6 +879,17 @@ interface SimplePolygonRun {
     context: StraightSkeletonSolverContext;
     /** Messages accumulated from every `stepAlgorithm` iteration of this run. */
     errors: string[];
+}
+
+/**
+ * Carry the solve's own informational reports onto the caller's diagnostics list (spec A19).
+ *
+ * `errors` already carries what a step THREW; this carries what a step DECIDED and had no other way
+ * to say — today, only the coaxial completion. Written once because the self-intersecting path runs
+ * one context per sub-polygon and every one of them has to be heard.
+ */
+function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePolygonRun): void {
+    diagnostics.push(...run.context.diagnostics);
 }
 
 /** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
@@ -1335,6 +1436,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
             const run = runSimplePolygon(
                 subPolygon, perceptualFloor, decomposition.subPolygonWeights[index]);
             pushStepFailures(diagnostics, run.errors);
+            pushSolveDiagnostics(diagnostics, run);
             return {graph: run.context.graph};
         });
 
@@ -1343,6 +1445,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     } else {
         const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights);
         pushStepFailures(diagnostics, run.errors);
+        pushSolveDiagnostics(diagnostics, run);
         graph = run.context.graph;
         context = run.context;
     }

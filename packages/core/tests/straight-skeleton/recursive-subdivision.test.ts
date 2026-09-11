@@ -576,6 +576,16 @@ function bulgeLongestEdge(ring: Vector2[], offset: number): Vector2[] {
  *
  * What no cell anywhere has any more is a failed node whose floor took NOTHING; see
  * {@link unsolvableRegion} for what stands in for it and why that is faithful.
+ *
+ * RE-MEASURED 2026-09-11 UNDER THE COAXIALITY LANE (journal decision 137, spec A9/A10), AND THE L
+ * SEED'S CELL IS CURED — the sixth time this specimen has been taken by a fix. `r0.2.1` was the
+ * region journal finding F57 traced, and its refusal was `sourceLiesAhead` answering a POSITIONAL
+ * question at the coordinate epsilon: the corridor's two mid-line sources sat 2.754e-8 apart
+ * laterally, 36× inside the client's floor. With the lane at the floor the pair is priced head-on,
+ * and this fixture's whole tree at these dials now carries NO failed node of any kind. The dials
+ * themselves are UNCHANGED and still name a failing cell — `OFF_EDGE_JITTER_PLUS_SEED_7919`'s
+ * `r0.4.1`, an `Incomplete solve` with solved siblings — which is why the constant keeps its value
+ * and its consumers keep their shape. `coaxial-lane.test.ts` pins the cure.
  */
 const JITTERED_L_FAILING_DIALS = {depthFraction: 0.5, mergeGroupSize: 6} as const;
 
@@ -1269,12 +1279,24 @@ describe('recursive segment subdivision', () => {
         });
 
         it('keeps subdividing the siblings of a segment that fails', () => {
-            // A measured case, not a constructed one — re-measured 2026-08-28 after decision 77's
-            // face-walk correction took the previous specimen by curing its cell, as the
-            // split-at-the-vertex correction and the decision-56 partition fix each took the one
-            // before. `OFF_EDGE_JITTER_L_SEED_55433` hands nodes child regions the driver cannot
-            // subdivide; their siblings must still be subdivided — that is the whole of decision 6.
-            const root = subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433, options({
+            // A measured case, not a constructed one — re-measured 2026-09-11 after the COAXIALITY
+            // LANE (journal decision 137, spec A9/A10) took the previous specimen by curing its
+            // cell, as decision 77's face-walk correction, the split-at-the-vertex correction and
+            // the decision-56 partition fix each took the one before.
+            //
+            // THE SPECIMEN MOVED FROM `OFF_EDGE_JITTER_L_SEED_55433` TO THE PLUS SEED, AT THE SAME
+            // DIALS, AND THAT IS AN ATTRIBUTED CURE. `r0.2.1` of the L seed is the region journal
+            // finding F57 traced: its corridor's two mid-line sources sit 2.754e-8 apart laterally,
+            // inside the client's floor and outside the coordinate epsilon, and `sourceLiesAhead`
+            // answered that positional question at the epsilon. With the lane at the floor the pair
+            // is priced head-on, the region solves, and the L seed's whole tree at these dials now
+            // carries NO failed node at all — pinned in `coaxial-lane.test.ts`.
+            //
+            // `OFF_EDGE_JITTER_PLUS_SEED_7919` still hands the driver one such region at exactly
+            // these dials (`r0.4.1`, an `Incomplete solve`, with solved siblings), which is what
+            // decision 6 needs: a failure RECORDED and confined to its own node while its siblings
+            // are subdivided. Its cell is untouched by this package.
+            const root = subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, options({
                 levels: MAX_RECURSION_LEVELS, ...JITTERED_L_FAILING_DIALS,
             }));
             const parents = flattenRecursiveTree(root)

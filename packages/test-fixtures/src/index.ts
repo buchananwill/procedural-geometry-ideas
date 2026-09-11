@@ -208,10 +208,16 @@ import {INVISIBLE_VERTEX_RECTANGLE} from './invisible-vertex-rectangle';
 // `OFF_EDGE_JITTER_L_SEED_15838` was CURED ON THE CENSUS GRID on 2026-08-28 under journal decision
 // 77 — 5 failed regions to 0 — and stays here on the canonical-area drift bound instead. See its
 // entry in the roster below for the measurement and for the ruling that promotion waits on.
+//
+// `OFF_EDGE_JITTER_L_SEED_55433_R021` is the driver-cut sub-region of the 55433 seed that the
+// coaxiality lane cured (journal decisions 136/137, finding F57). It is exported by name and
+// ENROLLED IN NO ROSTER: it is a driver artefact quoted to pin one cure, not a ring authored as
+// solver input. See its header.
 export {
     OFF_EDGE_JITTER_L_SEED_15838,
     OFF_EDGE_JITTER_L_SEED_55433,
     OFF_EDGE_JITTER_L_SEED_55433_K4,
+    OFF_EDGE_JITTER_L_SEED_55433_R021,
     OFF_EDGE_JITTER_PLUS_SEED_7919,
 } from './near-floor-jitter';
 import {
