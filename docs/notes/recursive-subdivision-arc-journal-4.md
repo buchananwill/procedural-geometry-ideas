@@ -63,18 +63,36 @@ visual-verification tool) and the session-1 journal's process learnings. Additio
 
 ## 4. Next work — SESSION CLOSE HANDOFF, 2026-09-10
 
-**State at close, lead-verified on the merged tree:** tip = the docs commit after the UI
-commit, branch un-pushed, nothing has left this machine. Core **5477/5477 (85 suites)**,
-dashboard **331/331 (24 suites)**, corpus 59 (53 clean + 6 defect) plus nine weighted fixtures
-outside the rosters. Digest: 59 pins, 45 native to `0c9c9cd` and 14 re-pinned with attribution.
-Both of the user's session objectives are delivered and the weights are reachable from the
-demo UI: weighted offsets are implemented end to end at the root (commits `0c9c9cd`, `3dd467c`,
-`b1bb095`, then the UI commit — F54), and the C++ handoff at
-[cpp-port-handoff.md](./cpp-port-handoff.md) is complete and active. The next session opens
-`recursive-subdivision-arc-journal-5.md`, continuing decisions at **132** and findings at
-**F55**; read THIS section, §2, decision 131, and F49–F54 — do not read this journal end to
-end. Decision 131 (2026-09-11) reframes item 3 below: F38a is a canonicalisation DEFECT to
-diagnose, and only the drift bound remains a ruling.
+**State at close (2026-09-11), lead-verified on the merged tree:** tip = the docs commit after
+`7af0695`, branch un-pushed, nothing has left this machine. Core **5512/5512 (86 suites)**,
+dashboard **331/331 (24 suites)**, corpus 59 (53 clean + 6 defect) plus nine weighted
+fixtures and one recorded ring (`OFF_EDGE_JITTER_L_SEED_55433_R021`) outside the rosters.
+Digest: 59 pins, 45 native to `0c9c9cd` and 14 re-pinned with attribution (weights), none
+moved by the coaxiality package. Delivered this session: weighted offsets end to end with a
+demo UI (`0c9c9cd`, `3dd467c`, `b1bb095`, `8fa1e06`); the C++ handoff, active; the
+canonicalisation contract re-founded (decisions 131–133) with F38a retired by measurement
+(F55); the coaxiality lane (`7af0695`, decisions 136–138, F57–F58) — the dashboard now has NO
+failing defect specimen at the explorer floor. The next session opens
+`recursive-subdivision-arc-journal-5.md`, continuing decisions at **139** and findings at
+**F59**; read THIS section, §2, decisions 131–138, and F55–F58 — do not read this journal end
+to end.
+
+**Next work, in the runtime's priority order:**
+
+1. **Send the handoff** (unchanged; push/PR is the user's call). Its angular section should
+   gain the coaxiality change before sending — one paragraph from F58.
+2. **The angular unification package** on
+   [angular-predicate-basis-decisions.md](./angular-predicate-basis-decisions.md): A1–A8,
+   A11–A14, A16–A18, A20–A22 with O2–O5 ruled at ratification; it also owns (decision 138) the
+   identical-source exit re-measured with the causality oracles, and the triangle/n-gon
+   "live edges, no event" handlers considered for A19's completion.
+3. **A dashboard defect specimen constructed on purpose** (decision 138(c)) — the explorer's
+   failed-cell tour has no specimen; decision 108's comment anticipated this.
+4. **The canonicalisation rebuild** under decisions 132/133 (criterion in the region frame,
+   licence at the root; monotonicity sweep as the conviction) and the drift bound restated
+   as the licence — no live failure drives it; the near-flat rectangle and seed 15838 are its
+   acceptance fixtures.
+5. Weighted-offsets residue and standing small items as listed in the previous close.
 
 **The session's four commits and what each is:** `f3bc733` (the documents), `0c9c9cd` (the
 digest gate), `3dd467c` (solver core — defective, F51), `b1bb095` (projection, downstream, and
@@ -498,6 +516,37 @@ the diagnostics so it is signalled, never silent. This is F44's "narrow only on 
 pattern (F27's restraint gate) applied to coaxiality: the corpus pays nothing where the
 normal lane succeeds. The throw remains ONLY for live vertices with no candidate pair at all.
 
+**137 — (user, 2026-09-11) GO for the coaxiality package, as "something incrementally more
+rigorous than what we have now".** Scope is exactly spec A9, A10 (symmetric lane at the
+floor), the identical-source row of A15, and A19's completion-on-refusal; the angular
+resolution unification (A1–A8, A11–A14, A16–A18, A20–A22) is the NEXT package and is not
+touched. Bars: r0.2.1's raw ring solves complete through the normal lane; the lateral-offset
+sweep pins head-on for every δ ≤ floor; the completion step fires NOWHERE on the corpus (a
+firing is a second specimen, reported); decision 134's empirical contract; the recursion
+census pin for seed 55433 moves as an attributed cure. Dispatched to Opus.
+
+**138 — Rulings on the coaxiality package's four escalations.** (a) **The identical-source
+exit STAYS at the coordinate epsilon.** The delegate measured the A15 row (distance ≤ floor)
+and reverted it: twenty pinned assertions across four suites move, every one the same way —
+a loudly-failing solve starts reporting `complete: true` with EMPTY diagnostics while the
+causality oracles still count direction violations (Circle 32 jittered: 2 direction at
+dot −0.98; Circle 48 at 1e10: 4 direction; Rosette5-40 at 1e11: 13 clearance). Nothing stops
+solving, so the letter of the empirical contract holds, but a defect that stops announcing
+itself has got worse (decisions 72 and 134(c)). Reopened under the angular package with the
+three causality oracles as its instrument, not solvability alone. (b) **The along-edge-jitter
+plateau cell (k=4, seed 47514, 1e-3, boundary stage off) is pinned as moved, 2 → 1, and
+flagged**: it now completes with two direction violations where it was `unresolved-edges`; the
+configuration already carried the same violation at k=7 before this change, so it is not a
+clean baseline, and no corpus fixture moves — accepted with the flag at the site. (c) **The
+dashboard's last defect specimen is EXTINCT** (r0.1.3 of the e38-e30 fixture, decision
+108(a)'s exactly-anti-parallel pair, now solves at the explorer floor; a re-sweep of 59 × 6
+merge groups × 6 depths at 1e-5 finds no failing region anywhere). The specimen-dependent
+tests now assert the extinction (they fire the day a failing region returns) plus a cure pin;
+the "successor fixture constructed on purpose" that decision 108's comment anticipated is a
+design act and an open item. (d) The triangle and n-gon handlers present the same "live
+edges, no event" state as the pair handler but are not the throw A19 names; they are
+considered for the same completion in the angular package, not here.
+
 **126 — W-spec W33 (the equi-time check on the `co-linear-from-1` leading-source closure) is
 NOT implemented; the closure stands on the raw separation, and the check is re-opened only
 with a weighted fixture that reaches the branch.** The package-2 delegate wrote and measured
@@ -727,6 +776,30 @@ A1–A54, five OPENs), recommending identity bar = priceability bar with a three
 (priced above the resolution; same-orientation below → existing closure; opposed-orientation
 below → coaxial-and-approaching priced head-on, else closed at the leading source by a new
 anti-parallel arm).
+
+**F58 — The coaxiality package landed: the lane is the perceptual floor, symmetric as the
+conjunction of both laterals, and r0.2.1 solves through the normal lane with the completion
+step firing NOWHERE on the corpus; the full-graph digest did not move on a single pin.**
+`intersectRays` takes `coaxialityFloor` as a required parameter, threaded from the context at
+all eleven production sites; `symmetricLateralOffset` both tests and ranks; `coaxialityFloor(δ)
+= δ` is a named identity so the currency is stated at every site. A19's completion
+(`findCoaxialCompletion`, before the pair handler's throw) carries a new informational
+diagnostic `coaxial-completion` on a context diagnostics channel drained by `solveSkeleton`;
+it fires zero times over FULL_CORPUS at 1e-6 and 1e-5. The firing case was constructed by
+mutation (lane at 1e-8 with the completion on: r0.2.1 completes `[28, 31]` at 2.754e-8 —
+F57's exact pair and offset); with both off it fails as the tip did. Convictions: lane to
+1e-8 kills 9 tests; one-sided lane kills the straddling-pair conviction (laterals 0 and 1e-5
+across a 1e-6 lane); the delegate notes argument-order swapping is nearly vacuous because
+the winding sort is swap-invariant — scenario D turns on the bases' last bits, which is what
+the straddling pair pins. The whole seed-55433 tree at m6/d0.5 has zero failed nodes (was
+one); the ring is recorded as `OFF_EDGE_JITTER_L_SEED_55433_R021`, exported, enrolled in no
+roster. Three pins moved, all attributed at the site (two specimen re-pointings to seed
+7919's r0.4.1; the along-edge plateau of decision 138(b)). Delegate figures: core 5512/5512
+(86 suites), dashboard 331/331, both builds green. **Lead re-run on the merged tree: core
+5512/5512 (86 suites); lead conviction: lane forced to 1e-8 with the completion left ON kills
+4 of 35 coaxial-lane tests (the sweep cells above 1e-8 and the zero-firing pin — r0.2.1 then
+solves through the completion, which is the mechanism working as designed); reverted by
+inverse edit, never by checkout.**
 
 **F45 — The fork point is located and measured: the port was vendored from `main` at
 `e2544d4` on 2026-08-10, and the current tip is 109 commits ahead of it.** Evidence: the
