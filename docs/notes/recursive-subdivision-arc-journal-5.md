@@ -255,10 +255,10 @@ simultaneity window is the site expected to move the digest most. Empirical cont
 decision 134. Sequenced AFTER the angular package's first dispatch and BEFORE its positional
 sweep.
 
-**C9 — The causality-diagnostics package** (decision 148). The three oracles move into
-`solveSkeleton` as `causality-violation` diagnostics, always on, tolerance derived from the
-context's floor; test tables assert solver and test-oracle counts agree; D7 resolves
-inside it. Lands before dispatch 2 and before C8.
+**C9 — ~~The causality-diagnostics package~~ LANDED (decision 148, F65, decision 149).**
+Residue moved to C8: the fourth oracle (backwards offset rate) joins the solver check once
+its bar is derived; the four F64 sites re-ruled with F65's numbers, the point-on-ray
+closure first since it now looks movable.
 
 ### D. Documentation and hygiene
 
@@ -290,10 +290,8 @@ the crossed pairing of decision 98") were written under decision 100 on the morn
 re-pointed. This is how the lead's first register entry went wrong (F61). Trivial to fix,
 worth fixing.
 
-**D7 — The causality oracles exist twice in the test tree**: `causalityViolations` in
-`wavefront-measurement-helpers.ts` (added under decision 147(h)) and the private originals
-in `wavefront-causality.test.ts`, same definitions, same 1e-6 tolerance. Point the suite at
-the helper. Trivial.
+**D7 — ~~The causality oracles exist twice in the test tree.~~ CLOSED by C9 (F65): the
+helper is the only test-side copy, and its bar is the unit-space floor (decision 149(a)).**
 
 **D5 — The two journals' close-handoffs disagree on push state**: session 4 said nothing had
 left the machine; the branch was pushed the same day after the close (F60).
@@ -532,8 +530,58 @@ a constructed graph with a backwards edge yields exactly one direction diagnosti
 corpus counts equal the test oracles' on every fixture; removing the check kills the
 constructed test and every re-pointed pin.
 
+**149 — Rulings on the C9 package.** (a) **The test-side oracles' `1e-6` was in CALLER units,
+not unit space — a literal in the wrong currency, the exact disease decision 144 names — and
+the solver's floor-based bar is the derived one.** The brief's premise that the two "coincide
+at the library floor" was the lead's error: for a 300-unit fixture the caller-unit bar is
+256× tighter than the floor. Ruled: the test-side oracle takes the SAME currency (the
+context's perceptual floor, unit space) so that solver and oracle agree by construction and
+the oracle's independence lies in its implementation, not its bar; the three cells that
+differed (Circle 32 jitter 5×/seed 12 and 1×/seed 5, Rosette5 40 at 2e11) keep their
+caller-unit counts as HISTORY in the site comment, not as pins. Consequence under decision
+141: a causality "violation" below the floor is arithmetic noise the client cannot see, not
+a wrong answer, so Circle 32 1×/seed 5 reporting `complete: true` with no diagnostic is
+CORRECT behaviour, and decision 148's contract is discharged in the floor's sense. (b)
+`findBackwardsRateViolations` is a DISTINCT fourth oracle (a bisector born with negative
+offset rate, which the three positional oracles cannot see), at the retired 1e-8; it joins
+the solver check once C8 derives its bar — the angular resolution is the obvious candidate,
+since a rate is a sine. Register C8 gains it. (c) The F64 re-measurement under the
+instrument is recorded in F65 and the four sites stay reverted; C8 re-rules them with the
+numbers. Two site comments are corrected now: `makeOffsetDistance`'s (only k=4 stops
+solving at the tip, not three fixtures) and `algorithm-helpers.ts`'s anti-parallel note
+(negative rates, not direction violations). (d) Interpretations 1–9 adopted: the check runs
+per sub-polygon on the merged path (uncovered by mutation, stated), `runAlgorithmV5` stays
+channel-less, causality diagnostics precede `unresolved-edges`, the diagnostic is a typed
+union member, cost ~3% of solve time accepted, no dashboard change needed.
+
 ---
 ## Findings
+
+**F65 — The causality instrument landed inside the solver, and under it the "silent wrong
+answer" residue of the jitter and large-coordinate classes is almost entirely SUB-FLOOR:
+at the floor the solver finds zero violations on the whole corpus at 1e-6 and 1e-5, and
+on every pinned cell except the two flagged by decision 147.** Delegate figures: core
+5690/5690 (86 suites), dashboard 331/331, builds green, digest unmoved, cost 2.9–3.1% of
+corpus solve time (11–12 ms of ~380 ms, 20 passes). The definitions agree exactly: at the
+oracle's own caller-unit bar the solver returns the oracle's ids on every cell. The F64
+re-measurement under the instrument (199 cells, every site reverted after): the
+identical-source exit at the floor — 3 cells signalled → diagnosed, 29 signalled → complete
+with only sub-floor oracle counts, and 14 jitter cells that solved STOP solving (STOP 3
+regardless); `makeOffsetDistance` noGradient at the resolution — only seed 55433 k=4 stops
+solving (the site comment's "three fixtures" is stale), the other three stay complete and
+every new violation is diagnosed; `addBisectionEdge` zero-rate — parent-blind: 55433, the
+plus and one jitter cell stop solving; anti-parallel-only: three bisectors born with
+negative rate (−8.8e-6, −3.4e-6, −7.8e-6 — all BELOW the angular resolution 1.77e-5) while
+complete and clean on all three positional oracles, seen only by the rate check; point-on-
+ray snap — one cell complete with sub-floor counts only; point-on-ray closure — four cells
+complete, three with sub-floor counts only and ONE (Circle 32 30×/seed 7) clean on every
+measure, a cure. Reading: with the bar in the right currency, "silent" has narrowed to
+(i) fixtures that stop solving (STOP 3, unchanged), (ii) sub-resolution negative rates,
+which the fourth oracle will catch once derived, and (iii) nothing else. The four sites
+remain C8's to re-rule; the point-on-ray closure now looks movable. **Lead verification on
+the merged tree after decision 149's follow-up: core 5690/5690 (86 suites, 115 s),
+dashboard 331/331 after a core rebuild, both builds green — all match the delegate.
+Committed as the C9 code commit.**
 
 **F63 — Dispatch 1 of the angular package landed on the working tree: one derived angular
 resolution replaces both sine bars at every production site, the digest did not move on a
