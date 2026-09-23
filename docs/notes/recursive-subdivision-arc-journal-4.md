@@ -6,7 +6,7 @@ status: active
 
 # Recursive subdivision arc — session 4 journal
 
-**This is the head of the thread**, continuing
+**SUPERSEDED AS HEAD 2026-09-23 by [the session-5 journal](./recursive-subdivision-arc-journal-5.md).** This journal continued
 [the session-3 journal](./recursive-subdivision-arc-journal-3.md). Decisions continue at **111**
 (53–110 in the session-3 journal, 1–52 in
 [recursive-skeleton-subdivision.md](./recursive-skeleton-subdivision.md)); findings continue at

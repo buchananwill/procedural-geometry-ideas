@@ -162,7 +162,7 @@ its fix (the dumbbell precedent), never as a quiet route to a green suite. Conse
 promotions rise to mandated work, both stale exclusion headers are rewritten as defect records or
 retired, and `GOLF_CART`'s endpoint is a solver fix plus promotion — not a permanent exclusion.
 
-**54 — (user, 2026-08-27) `FLOATING_POINT_EPSILON = 1e-8` is a deliberate choice — the Unreal
+**54 — *SUPERSEDED IN PART by journal-5 decision 144 (user, 2026-09-23): the 1e-8 constant WAS a deliberate choice — one named constant that worked for every case then in hand, not magic numbers — and is now universally superseded by derived tolerances; RETAINING it anywhere would be the cargo cult. The "can you see this on a screen?" criterion stands.* (user, 2026-08-27) `FLOATING_POINT_EPSILON = 1e-8` is a deliberate choice — the Unreal
 Engine "small number" constant — and the precision bar is pragmatic, not analytic.** The criterion
 in the user's words: "can you see this on a screen?" This is a practical solver for practical
 geometry; an infinitely small roof section can no more be built than rendered. F10's "the absolute
