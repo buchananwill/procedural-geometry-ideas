@@ -12,10 +12,9 @@ import {
     crossProduct,
     FLOATING_POINT_EPSILON,
     runAlgorithmV5,
-    StraightSkeletonGraph,
     Vector2,
 } from '@proc-geo/core';
-import {distanceToSegment, distanceToSupportingLine} from './wavefront-measurement-helpers';
+import {deriveNodeOffsets, distanceToSegment} from './wavefront-measurement-helpers';
 
 /**
  * Causal consistency of the wavefront.
@@ -58,65 +57,13 @@ interface OffsetViolation {
     targetOffset: number;
 }
 
-/**
- * Re-derive every node's offset from geometry alone: its distance from the supporting line of one
- * of the original polygon edges that defines it. Boundary nodes sit on the boundary, so their
- * offset is zero, and a node with no interior edge incident on it is absent rather than guessed at.
- *
- * This is the oracle both checks below are made against, so it is derived once. It is a formula
- * whose every step matters — which interior edges count as defining a node, which of them is read
- * when there is more than one, and which polygon edge that one names — and a second copy that
- * drifted on any of those would leave the two checks auditing subtly different quantities while
- * appearing to agree.
- *
- * THE POLYGON EDGE IS READ OFF THE SOLVED GRAPH, NOT OFF THE CALLER'S RING, and that is a
- * correction rather than a preference (journal decision 75, 2026-08-28). A parent index names an
- * exterior edge of the polygon the SOLVER saw, and the boundary stage removes vertices the caller
- * still has — `LONG_SIDE_ACUTE_VERTEX` loses one, `INVISIBLE_VERTEX_RECTANGLE` loses one — so
- * indexing the caller's array with it names a different edge from the vertex after the removal
- * onward, and the oracle then measures every offset against the wrong line. It cost this suite a
- * fabricated 1% clearance violation before it was found. The exterior nodes of the graph are the
- * same geometry in the caller's units, in the index space the parent is written in.
- *
- * It stays deliberately independent of `computeNodeOffsets` in `offset-projection.ts`, which
- * computes the same thing for production: the point of this file is to trust nothing the solver
- * recorded, and sharing the derivation with the code under audit would give that up. What *is*
- * shared, from `wavefront-measurement-helpers.ts`, is the point-to-line distance the derivation is
- * written in — pure geometry that reads nothing the solver produced, so borrowing it takes nothing
- * away from the audit while keeping this suite's notion of a distance identical to the offset
- * suites' one.
+/*
+ * The node-offset oracle both checks below are made against is `deriveNodeOffsets`, which lives in
+ * `wavefront-measurement-helpers.ts` beside the distances it is written in. It moved there on
+ * 2026-09-23 (journal decision 141) so that I2 in `graph-index-invariants.test.ts` could ask "are
+ * these two nodes in one offset layer?" of the SAME derivation rather than of a second copy; its
+ * doc comment there carries the reasoning that used to stand here, unchanged.
  */
-function deriveNodeOffsets(graph: StraightSkeletonGraph): Map<number, number> {
-    const edgeCount = graph.numExteriorNodes;
-
-    // Which original polygon edges define each interior edge. The solver records
-    // this; the *positions* it produced are what we are auditing.
-    const parentEdges = new Map<number, number>();
-    for (const interiorEdge of graph.interiorEdges) {
-        parentEdges.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
-    }
-
-    const offsetOf = new Map<number, number>();
-    for (let i = 0; i < graph.numExteriorNodes; i++) {
-        offsetOf.set(i, 0);
-    }
-    for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const node = graph.nodes[i];
-        const incident = [...new Set([...node.inEdges, ...node.outEdges])]
-            .filter(id => parentEdges.has(id));
-        if (incident.length === 0) continue;
-        const parent = parentEdges.get(incident[0])!;
-        offsetOf.set(
-            i,
-            distanceToSupportingLine(
-                node.position,
-                graph.nodes[parent].position,
-                graph.nodes[(parent + 1) % edgeCount].position),
-        );
-    }
-
-    return offsetOf;
-}
 
 /**
  * Check that no skeleton edge travels backwards in time.

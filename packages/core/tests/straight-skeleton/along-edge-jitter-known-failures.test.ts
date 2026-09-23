@@ -235,7 +235,9 @@ describe('OFF_EDGE_JITTER_L_SEED_15838: the two clusters the user circled', () =
     it('leaves the band cluster at (175, 175) as two nodes, 1.9e-4 apart', () => {
         // NOT A DEFECT OF THE CLUSTERING BUT THE LIMIT OF ITS REACH, and pinned as the measurement
         // that a fix has to move. `graph-index-invariants.test.ts` carries this pair as one of the
-        // five the corpus still has under the floor.
+        // five the corpus still has under the floor. (2026-09-23: I2 no longer pins its sub-floor
+        // pairs; under journal decision 141 it admits a pair joined by an edge across two offset
+        // layers, and 15838's one historical pair is asserted admitted there.)
         const cluster = nodesNear(175, 175, 0.5);
 
         expect(cluster).toHaveLength(2);
@@ -254,9 +256,11 @@ describe('OFF_EDGE_JITTER_L_SEED_55433: the specimen of the class', () => {
      * Nothing is removed here: all eighteen vertices are above the floor.
      *
      * IT NOW SOLVES (journal decision 70), and it is pinned solving so that it cannot quietly stop.
-     * What it still cannot do is survive being SUBDIVIDED, and its own skeleton terminates two edges
-     * behind their source while reporting nothing — the two measurements that keep it on the defect
-     * roster, pinned in `recursive-subdivision.test.ts` and `wavefront-causality.test.ts`.
+     * What it still could not do was survive being SUBDIVIDED, and its own skeleton terminated two
+     * edges behind their source while reporting nothing — the two measurements that kept it on the
+     * defect roster. Both went to zero on 2026-08-29, and on 2026-09-23 journal decision 141 ruled
+     * its two I2 sub-floor pairs admissible. Promotion was measured that day and refused by other
+     * clean-roster bars — see its `CENSUS_SIGNATURES` row in `recursive-subdivision.test.ts`.
      */
 
     it('loses no vertex to canonicalisation, and now solves completely', () => {

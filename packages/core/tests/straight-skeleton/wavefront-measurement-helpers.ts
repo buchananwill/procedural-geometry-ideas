@@ -1,9 +1,11 @@
 import {
+    Arrival,
     computeMaxOffset,
     computeNodeOffsets,
     computeOffsetRings,
     projectOffsetWavefront,
     SkeletonSolveResult,
+    StraightSkeletonGraph,
     Vector2,
 } from '@proc-geo/core';
 
@@ -43,7 +45,9 @@ import {
  * pure point-to-line geometry that reads nothing the solver produced, so sharing them costs
  * the causality suite none of the independence from production that it depends on: what that
  * suite must not borrow is `offset-projection.ts`'s *derivation of a node's offset*, which
- * stays re-derived there.
+ * stays re-derived by the suites. That re-derivation, `deriveNodeArrivals`, lives here too since
+ * 2026-09-23 (journal decision 141), because I2 in `graph-index-invariants.test.ts` asks of it
+ * whether two nodes share an offset layer and must ask the causality suite's oracle, not a copy.
  *
  * This file is deliberately NOT named `*.test.ts`: `jest.config.cjs` matches
  * `tests/**\/*.test.ts`, so a helper module beside the suites is not collected as an
@@ -93,6 +97,81 @@ export function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): nu
         return Math.hypot(p.x - a.x, p.y - a.y);
     }
     return Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / length;
+}
+
+/**
+ * Re-derive every node's ARRIVAL from geometry alone: its distance from the supporting line of one
+ * of the original polygon edges that defines it, beside that edge's weight. Boundary nodes sit on
+ * the boundary, so their distance is zero, and a node with no interior edge incident on it is
+ * absent rather than guessed at.
+ *
+ * This is the oracle `wavefront-causality.test.ts`'s checks are made against, and the offset-layer
+ * reading I2 in `graph-index-invariants.test.ts` takes (journal decision 141), so it is derived
+ * once. It is a formula whose every step matters — which interior edges count as defining a node,
+ * which of them is read when there is more than one, and which polygon edge that one names — and a
+ * second copy that drifted on any of those would leave the suites auditing subtly different
+ * quantities while appearing to agree. It moved here from the causality suite on 2026-09-23,
+ * unchanged, for that reason.
+ *
+ * THE POLYGON EDGE IS READ OFF THE SOLVED GRAPH, NOT OFF THE CALLER'S RING, and that is a
+ * correction rather than a preference (journal decision 75, 2026-08-28). A parent index names an
+ * exterior edge of the polygon the SOLVER saw, and the boundary stage removes vertices the caller
+ * still has — `LONG_SIDE_ACUTE_VERTEX` loses one, `INVISIBLE_VERTEX_RECTANGLE` loses one — so
+ * indexing the caller's array with it names a different edge from the vertex after the removal
+ * onward, and the oracle then measures every offset against the wrong line. It cost the causality
+ * suite a fabricated 1% clearance violation before it was found. The exterior nodes of the graph
+ * are the same geometry in the caller's units, in the index space the parent is written in.
+ *
+ * It stays deliberately independent of `computeNodeOffsets` in `offset-projection.ts`, which
+ * computes the same thing for production: the point of the suites that read it is to trust nothing
+ * the solver recorded, and sharing the derivation with the code under audit would give that up.
+ *
+ * THE WEIGHT IS THE ONE OF THE EDGE THE DISTANCE WAS MEASURED AGAINST, so the pair is an `Arrival`
+ * in exactly the solver's sense (W-spec W7) and can be handed to `compareArrivals` without a
+ * division. At unit weights it is `1` everywhere and the distance is the time.
+ */
+export function deriveNodeArrivals(graph: StraightSkeletonGraph): Map<number, Arrival> {
+    const edgeCount = graph.numExteriorNodes;
+
+    // Which original polygon edges define each interior edge. The solver records
+    // this; the *positions* it produced are what we are auditing.
+    const parentEdges = new Map<number, number>();
+    for (const interiorEdge of graph.interiorEdges) {
+        parentEdges.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
+    }
+
+    const arrivalOf = new Map<number, Arrival>();
+    for (let i = 0; i < graph.numExteriorNodes; i++) {
+        arrivalOf.set(i, {distance: 0, weight: graph.exteriorWeights[i]});
+    }
+    for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
+        const node = graph.nodes[i];
+        const incident = [...new Set([...node.inEdges, ...node.outEdges])]
+            .filter(id => parentEdges.has(id));
+        if (incident.length === 0) continue;
+        const parent = parentEdges.get(incident[0])!;
+        arrivalOf.set(i, {
+            distance: distanceToSupportingLine(
+                node.position,
+                graph.nodes[parent].position,
+                graph.nodes[(parent + 1) % edgeCount].position),
+            weight: graph.exteriorWeights[parent],
+        });
+    }
+
+    return arrivalOf;
+}
+
+/**
+ * {@link deriveNodeArrivals}' distances alone: every node's offset, re-derived from geometry. The
+ * causality suite states its law in these; nothing is computed here that the arrival table does not.
+ */
+export function deriveNodeOffsets(graph: StraightSkeletonGraph): Map<number, number> {
+    const offsetOf = new Map<number, number>();
+    for (const [nodeId, arrival] of deriveNodeArrivals(graph)) {
+        offsetOf.set(nodeId, arrival.distance);
+    }
+    return offsetOf;
 }
 
 /**

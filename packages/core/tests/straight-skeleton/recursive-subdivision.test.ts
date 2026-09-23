@@ -200,7 +200,11 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  *     crossed-pairing ridges are its, pinned in `graph-index-invariants.test.ts` under I5 — plus two
  *     sub-floor node pairs pinned under I2, and the spike this fix removes is the SYMPTOM of that
  *     pairing rather than its cause. A census of zero on a fixture whose root solve is knowingly
- *     wrong is exactly the silence decision 100 ordered the I5 sweep built to prevent;
+ *     wrong is exactly the silence decision 100 ordered the I5 sweep built to prevent.
+ *     STALE AS OF 2026-09-23: decision 98 was resolved by journal-3 decision 102 and cured by F44 —
+ *     I5 went to zero on this fixture (see the I5 header in `graph-index-invariants.test.ts`) — and
+ *     the two I2 pairs were ruled admissible by decision 141 (causally ordered, two offset layers).
+ *     Neither holds it on the defect roster any more; see its row below for what still does;
  *   - seed 55433 k=4: 11 to 7. The remaining seven are all `Degenerate region` declines at merge
  *     group 1, which journal decision 96 accepts as correct behaviour — so what is left of this
  *     fixture's census is no longer a defect count at all, and the four that went were solves;
@@ -222,8 +226,12 @@ const CENSUS_MERGE_GROUP_SIZES = [1, 2, 3, 4];
  */
 const CENSUS_SIGNATURES: Record<string, number> = {
     'Off-edge Jitter Reflex L (seed 15838)': 0,
-    // Zero, and STILL ENROLLED — see the fold-fix paragraph above and I5 in
-    // `graph-index-invariants.test.ts`. Promotion waits on decision 98's pairing rule.
+    // Zero, and STILL ENROLLED. As of 2026-09-23 it no longer waits on decision 98's pairing rule —
+    // that was resolved by journal-3 decision 102 and cured by F44 (I5 at zero) — nor on its I2
+    // pairs, which decision 141 admits. Promotion was attempted that day and REFUSED by other clean
+    // bars, measured: this file's canonical-area drift bound of 1e-14 (sub-region drifts up to
+    // 1.05e-5), its pre-residue tree reproduction at merge groups 2 and 3, and scale invariance in
+    // `in-edge-ordering.test.ts` / `skeleton-tree.test.ts` among them.
     'Off-edge Jitter Reflex L (seed 55433)': 0,
     'Off-edge Jitter Plus (seed 7919)': 15,
     'Off-edge Jitter Reflex L (seed 55433, k=4)': 7,

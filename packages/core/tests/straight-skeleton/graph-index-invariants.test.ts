@@ -2,6 +2,8 @@ import {
     CLEAN_TEST_POLYGONS, COLLINEAR_DUMBBELL, FULL_CORPUS, KNOWN_DEFECT_POLYGONS,
 } from '@proc-geo/test-fixtures';
 import {
+    Arrival,
+    compareArrivals,
     normalisePosition,
     solveSkeleton,
     SKELETON_NOISE_FLOOR,
@@ -9,6 +11,7 @@ import {
     SkeletonNormalisation,
     Vector2,
 } from '@proc-geo/core';
+import {deriveNodeArrivals} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -41,7 +44,8 @@ import {
  * that it cannot happen quietly.
  *
  * ----------------------------------------------------------------------------
- * I2 — NO TWO NODES SIT INSIDE THE COINCIDENCE FLOOR OF EACH OTHER
+ * I2 — NO TWO NODES SIT INSIDE THE COINCIDENCE FLOOR OF EACH OTHER, UNLESS A
+ *      SKELETON EDGE JOINS THEM AND ITS TWO ENDS LIE IN DIFFERENT OFFSET LAYERS
  * ----------------------------------------------------------------------------
  *
  * Two skeleton nodes closer together than a viewer could ever distinguish are two nodes the picture
@@ -52,14 +56,40 @@ import {
  * that is either a merge the clustering should have made, or a doubled node whose degree counts are
  * wrong wherever it happened.
  *
+ * THE EXEMPTION, AND WHY IT IS NOT A SOFTENING (journal decision 141, user, 2026-09-23). "The
+ * precision floor is a BOUNDARY CONDITION on what the solver cannot decide, not a filter on what it
+ * has well-definedly produced." The floor decides QUESTIONS the arithmetic cannot — same event, same
+ * direction, same line. A node born of two separately-decidable events in DIFFERENT offset layers is
+ * an ANSWER, and the spatial separation of two such nodes is a property of the output, not an
+ * undecidable question. So a sub-floor pair is admitted exactly when an interior edge joins the two
+ * nodes AND the solver's own simultaneity comparison — `compareArrivals` at its default epsilon, in
+ * unit space, on the arrivals `deriveNodeArrivals` re-derives from geometry (the causality suite's
+ * oracle, not a copy) — calls the two ends' offsets DIFFERENT. A genuine doubled node stays a
+ * violation: two sub-floor nodes with no joining edge, or joined by an edge whose two ends the
+ * solver would call one moment, are one event recorded twice, and that is what the floor is for.
+ *
+ * MEASURED 2026-09-23 on the four historical pairs below: their two ends' unit-space offsets differ
+ * by 5.16e-7, 1.37e-7, 1.96e-7 and 4.71e-7 — 14 to 52 times the solver's 1e-8 simultaneity window.
+ * Nothing about them sits near the layer boundary the exemption draws.
+ *
  * MEASURED IN UNIT SPACE, WHICH IS WHERE THE FLOOR LIVES — the polygon is solved at unit extent, so
  * a caller-space distance means nothing until it is carried back through the solve's own
  * normalisation — and as a DISTANCE rather than `vectorsAreEqual`'s component box, which is what the
  * clustering itself compares.
  *
  * ----------------------------------------------------------------------------
- * FOUR PAIRS SURVIVE, ALL ON THE THREE JITTER L FIXTURES, AND THEY ARE PINNED
+ * HISTORY: FOUR PAIRS SURVIVED, ALL ON THE THREE JITTER L FIXTURES, AND WERE PINNED
  * ----------------------------------------------------------------------------
+ *
+ * Kept as the measurement that decision 141 ruled on. Until 2026-09-23 the four pairs below were a
+ * defect signature, `PINNED_SUB_FLOOR_PAIRS`, guarded by a test asserting that exactly three
+ * fixtures carried one. That table is RETIRED through the cure flow rather than zeroed: the test
+ * that replaced it asserts, per pair, that the pair still stands AND that the exemption is what
+ * admits it (joined, different layers), so the pairs remain named without being a pin the sweep
+ * reads. `(seed 55433)` carried two of them; with them admitted, its promotion to the clean roster
+ * was measured the same day and REFUSED by other clean bars (the recursive driver's canonical-area
+ * drift and scale invariance among them — see its census row in `recursive-subdivision.test.ts`),
+ * so it stays in KNOWN_DEFECT_POLYGONS on those, not on this invariant.
  *
  * Decision 78's clustering resolves an event pair only where both arrivals land in ONE offset layer,
  * and the layer window is still epsilon-wide. There were five. The fifth — `(seed 55433, k=4)`'s
@@ -70,15 +100,19 @@ import {
  *
  * WHAT THE REMAINING FOUR ARE, MEASURED, AND WHY NO CLUSTERING REACHES THEM. Each is a pair joined
  * by a real skeleton edge running from one to the other — `[19,21]` by e35, `[19,20]` by e37,
- * `[24,26]` by e43, `[28,30]` by e50 — so one node is strictly DOWNSTREAM of the other: one event
+ * `[24,26]` by e43, `[28,30]` by e50 (renumbered `[27,29]` once decision 85 merged the split-path
+ * pair) — so one node is strictly DOWNSTREAM of the other: one event
  * creates the bisector the next event terminates, and the edge's own length (7.3e-7, 1.9e-7, 2.8e-7
  * and 6.7e-7 in unit space) IS the pair's separation. They are causally ordered, not simultaneous.
  * No event-layer rule can call them one event, because they are not in one layer and could not be;
  * merging them means collapsing an edge that exists, which is node-level absorption — the mechanism
  * decision 78's amendment rejected on measurement (F27).
  *
- * So they stand as a defect signature like any other: pinned exactly, per fixture, so that one
- * appearing anywhere else — or one of these disappearing — is loud.
+ * They stood as a defect signature, pinned exactly per fixture, until decision 141 ruled that this
+ * causal ordering is precisely what makes them admissible: each is an answer the solver decided
+ * twice, in two layers, not a question it could not decide. The exemption above is that ruling
+ * stated as a condition on the graph, so a pair appearing anywhere else is admitted only if it is
+ * of the same kind, and a doubled node — the kind I2 exists for — is still a failure everywhere.
  */
 
 function primaryParentProblems(graph: StraightSkeletonGraph): string[] {
@@ -132,20 +166,76 @@ function subFloorPairs(graph: StraightSkeletonGraph, normalisation: SkeletonNorm
     return pairs;
 }
 
+/** What the exemption found about one sub-floor pair: the edges joining it, and whether any is layered. */
+interface SubFloorVerdict {
+    pair: number[];
+    /** Resolved interior edges running between the two nodes, in either direction. */
+    joiningEdges: number[];
+    /** Whether some joining edge's two ends lie in different offset layers. */
+    admitted: boolean;
+}
+
 /**
- * The sub-floor node pairs each defect fixture is allowed, MEASURED 2026-08-28. See this file's
- * header for what leaves them standing and what would resolve them.
+ * Do these two nodes lie in different offset layers, by the solver's own simultaneity comparison?
  *
- * A fixture absent from this table is allowed none, which is every clean fixture and four of the
- * seven defect ones.
+ * The arrivals are the causality suite's oracle ({@link deriveNodeArrivals}) carried into unit space,
+ * where the solver's `FLOATING_POINT_EPSILON` window lives; `compareArrivals` at its default epsilon
+ * is the comparison the solver itself uses to decide that one arrival is not yet another. A node with
+ * no derived arrival cannot be placed in a layer and is not admitted.
  */
-const PINNED_SUB_FLOOR_PAIRS: Record<string, number[][]> = {
-    'Off-edge Jitter Reflex L (seed 15838)': [[19, 21]],
-    'Off-edge Jitter Reflex L (seed 55433)': [[19, 20], [24, 26]],
-    // Was [[25, 26], [28, 30]]. The split-path pair resolved into one node, which renumbers every
-    // node after it: the surviving pair is the same geometry that was [28, 30].
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': [[27, 29]],
-};
+function inDifferentLayers(
+    arrivals: Map<number, Arrival>,
+    normalisation: SkeletonNormalisation,
+    first: number,
+    second: number,
+): boolean {
+    const a = arrivals.get(first);
+    const b = arrivals.get(second);
+    if (a === undefined || b === undefined) {
+        return false;
+    }
+    const toUnit = (arrival: Arrival): Arrival => ({
+        distance: arrival.distance * normalisation.toUnitScale,
+        weight: arrival.weight,
+    });
+    return compareArrivals(toUnit(a), toUnit(b)) !== 0;
+}
+
+/** Every sub-floor pair, with the exemption's reading of it (journal decision 141). */
+function subFloorVerdicts(graph: StraightSkeletonGraph, normalisation: SkeletonNormalisation): SubFloorVerdict[] {
+    const arrivals = deriveNodeArrivals(graph);
+    return subFloorPairs(graph, normalisation).map(([first, second]) => {
+        const joiningEdges = graph.interiorEdges
+            .map(interior => graph.edges[interior.id])
+            .filter(edge => edge !== undefined && edge.target !== undefined
+                && ((edge.source === first && edge.target === second)
+                    || (edge.source === second && edge.target === first)))
+            .map(edge => edge.id);
+        return {
+            pair: [first, second],
+            joiningEdges,
+            admitted: joiningEdges.length > 0 && inDifferentLayers(arrivals, normalisation, first, second),
+        };
+    });
+}
+
+/** The sub-floor pairs the exemption does NOT admit: I2's violations. */
+function unadmittedSubFloorPairs(graph: StraightSkeletonGraph, normalisation: SkeletonNormalisation): number[][] {
+    return subFloorVerdicts(graph, normalisation)
+        .filter(verdict => !verdict.admitted)
+        .map(verdict => verdict.pair);
+}
+
+/**
+ * The four pairs that were `PINNED_SUB_FLOOR_PAIRS` until 2026-09-23, with the edge that joins each —
+ * kept as HISTORY that is still asserted, not as a pin the sweep reads. See the I2 header.
+ */
+const HISTORICAL_SUB_FLOOR_PAIRS = [
+    {fixture: 'Off-edge Jitter Reflex L (seed 15838)', pair: [19, 21], edge: 35},
+    {fixture: 'Off-edge Jitter Reflex L (seed 55433)', pair: [19, 20], edge: 37},
+    {fixture: 'Off-edge Jitter Reflex L (seed 55433)', pair: [24, 26], edge: 43},
+    {fixture: 'Off-edge Jitter Reflex L (seed 55433, k=4)', pair: [27, 29], edge: 50},
+] as const;
 
 describe('I1: every primary bisector carries its own vertex\'s two exterior edges', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
@@ -156,25 +246,118 @@ describe('I1: every primary bisector carries its own vertex\'s two exterior edge
     );
 });
 
-describe('I2: no two graph nodes lie inside the coincidence floor of each other', () => {
+describe('I2: no two graph nodes lie inside the coincidence floor of each other, unless a layered edge joins them', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
-        (name, vertices) => {
+        (_name, vertices) => {
             const {graph, normalisation} = solveSkeleton(vertices);
-            expect(subFloorPairs(graph, normalisation)).toEqual(PINNED_SUB_FLOOR_PAIRS[name] ?? []);
+            expect(unadmittedSubFloorPairs(graph, normalisation)).toEqual([]);
         },
     );
 
-    it('is not vacuous: exactly three fixtures carry a pinned pair, and 56 carry none', () => {
-        // The guard on the table itself. A pin naming a fixture that is not in the corpus, or a
-        // table that quietly grew to cover a regression, would leave the sweep above asserting
-        // nothing — so the shape of the table is asserted here rather than trusted.
-        const pinned = Object.keys(PINNED_SUB_FLOOR_PAIRS);
+    it.each(HISTORICAL_SUB_FLOOR_PAIRS.map(entry => [entry.fixture, entry.pair, entry.edge] as const))(
+        'the retired pin on %s, pair %j, still stands and is admitted by the exemption (edge e%i, two layers)',
+        (fixture, pair, edge) => {
+            // The cure-flow half of decision 141: before the table went, each of its rows was shown
+            // to satisfy the exemption — joined by the edge the header names, its two ends in
+            // different layers. The pair is asserted PRESENT, so a solver change that moved or
+            // removed it is seen here rather than passing I2 by absence.
+            const polygon = FULL_CORPUS.find(entry => entry.name === fixture);
+            expect(polygon).toBeDefined();
+            const {graph, normalisation} = solveSkeleton(polygon!.vertices);
+            const verdict = subFloorVerdicts(graph, normalisation)
+                .find(candidate => candidate.pair[0] === pair[0] && candidate.pair[1] === pair[1]);
 
-        expect(pinned).toHaveLength(3);
-        expect(pinned.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
-        expect(Object.values(PINNED_SUB_FLOOR_PAIRS).flat()).toHaveLength(4);
-        expect(FULL_CORPUS.filter(polygon => !pinned.includes(polygon.name))).toHaveLength(56);
+            expect(verdict).toEqual({pair: [...pair], joiningEdges: [edge], admitted: true});
+        },
+    );
+
+    it('the bare distance test finds exactly the four historical pairs, so the exemption is what admits them', () => {
+        // Removing the exemption is the bare distance test; this states what that would convict.
+        const bare = FULL_CORPUS.flatMap(polygon => {
+            const {graph, normalisation} = solveSkeleton(polygon.vertices);
+            return subFloorPairs(graph, normalisation).map(pair => ({fixture: polygon.name, pair}));
+        });
+
+        // Order-free: the corpus lists clean fixtures first, so a fixture moving between rosters
+        // reorders it without changing what is found.
+        expect(bare).toHaveLength(HISTORICAL_SUB_FLOOR_PAIRS.length);
+        expect(bare).toEqual(expect.arrayContaining(
+            HISTORICAL_SUB_FLOOR_PAIRS.map(({fixture, pair}) => ({fixture, pair: [...pair]}))));
+    });
+
+    /*
+     * THE BUILT-IN MUTATIONS: a doubled node must still fail. A unit square, edge 0 on `y = 0`, and
+     * two interior nodes 1e-7 apart — a tenth of the floor — placed so that the only thing varying
+     * between the three cases is what the exemption reads: whether an interior edge joins them, and
+     * whether the solver's comparison calls their two offsets one moment.
+     */
+    const unitSpace: SkeletonNormalisation = {
+        centre: {x: 0, y: 0}, toUnitScale: 1, fromUnitScale: 1, degenerate: false,
+    };
+
+    /** A unit square with two interior nodes and the stated interior edges, parents `[cw, ws]`. */
+    function squareWithTwoNodes(
+        interiorPositions: Vector2[],
+        interiorEdges: {source: number; target: number; parents: [number, number]}[],
+    ): StraightSkeletonGraph {
+        const positions: Vector2[] = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 0, y: 1}, ...interiorPositions];
+        const nodes = positions.map((position, id) => ({
+            id, position, inEdges: [] as number[], outEdges: [] as number[],
+        }));
+        const edges = [0, 1, 2, 3].map(id => {
+            const from = positions[id];
+            const to = positions[(id + 1) % 4];
+            nodes[id].outEdges.push(id);
+            nodes[(id + 1) % 4].inEdges.push(id);
+            return {id, source: id, target: (id + 1) % 4, basisVector: {x: to.x - from.x, y: to.y - from.y}};
+        });
+        const interior = interiorEdges.map((spec, index) => {
+            const id = 4 + index;
+            const from = positions[spec.source];
+            const to = positions[spec.target];
+            nodes[spec.source].outEdges.push(id);
+            nodes[spec.target].inEdges.push(id);
+            edges.push({id, source: spec.source, target: spec.target, basisVector: {x: to.x - from.x, y: to.y - from.y}});
+            return {
+                id,
+                clockwiseExteriorEdgeIndex: spec.parents[0],
+                widdershinsExteriorEdgeIndex: spec.parents[1],
+                length: Math.hypot(to.x - from.x, to.y - from.y),
+            };
+        });
+        return {nodes, edges, numExteriorNodes: 4, interiorEdges: interior, exteriorWeights: [1, 1, 1, 1]};
+    }
+
+    it('is not vacuous: two sub-floor nodes with NO joining edge are a violation', () => {
+        const graph = squareWithTwoNodes(
+            [{x: 0.3, y: 0.5}, {x: 0.3 + 1e-7, y: 0.5}],
+            [{source: 0, target: 4, parents: [0, 3]}, {source: 1, target: 5, parents: [1, 0]}],
+        );
+
+        expect(unadmittedSubFloorPairs(graph, unitSpace)).toEqual([[4, 5]]);
+    });
+
+    it('is not vacuous: two sub-floor nodes joined in ONE offset layer are a violation', () => {
+        // Both nodes 0.3 from edge 0's line: the joining edge runs along the layer, not across it.
+        const graph = squareWithTwoNodes(
+            [{x: 0.5, y: 0.3}, {x: 0.5 + 1e-7, y: 0.3}],
+            [{source: 0, target: 4, parents: [0, 3]}, {source: 4, target: 5, parents: [0, 1]}],
+        );
+
+        expect(unadmittedSubFloorPairs(graph, unitSpace)).toEqual([[4, 5]]);
+    });
+
+    it('admits the same join once its two ends lie in different layers, which is the whole exemption', () => {
+        // The control for the two cases above: the same geometry turned a quarter, so the edge now
+        // runs ACROSS layers, 1e-7 of offset apart — ten times the solver's simultaneity window.
+        const graph = squareWithTwoNodes(
+            [{x: 0.5, y: 0.3}, {x: 0.5, y: 0.3 + 1e-7}],
+            [{source: 0, target: 4, parents: [0, 3]}, {source: 4, target: 5, parents: [0, 1]}],
+        );
+
+        expect(subFloorPairs(graph, unitSpace)).toEqual([[4, 5]]);
+        expect(unadmittedSubFloorPairs(graph, unitSpace)).toEqual([]);
     });
 });
 
