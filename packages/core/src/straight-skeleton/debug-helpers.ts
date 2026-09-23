@@ -107,6 +107,11 @@ export function computePrimaryInteriorEdges(
      * precedes `weights` because TypeScript will not take a required parameter after an optional one.
      */
     coaxialityFloor: number,
+    /**
+     * The angular resolution `intersectRays` is to spend here (spec A1, A15), REQUIRED for the same
+     * reason as the lane: the caller derives it from its own floor with `angularResolution`.
+     */
+    angularResolution: number,
     weights?: readonly number[],
 ): PrimaryInteriorEdge[] {
     if (vertices.length < 3) return [];
@@ -155,7 +160,7 @@ export function computePrimaryInteriorEdges(
             );
             const edgeRay: RayProjection = {sourceVector: edgeStart, basisVector: edgeBasis};
 
-            const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay, coaxialityFloor);
+            const [distAlongBisector, distAlongEdge] = intersectRays(ray, edgeRay, coaxialityFloor, angularResolution);
 
             // Must be forward along bisector, and within the edge segment
             if (distAlongBisector > 0 && distAlongEdge >= 0 && distAlongEdge <= edgeLength) {
@@ -182,6 +187,8 @@ export function computePrimaryEdgeIntersections(
     primaryEdges: PrimaryInteriorEdge[],
     /** The coaxiality lane, stated by the caller — see {@link computePrimaryInteriorEdges}. */
     coaxialityFloor: number,
+    /** The angular resolution, stated by the caller — see {@link computePrimaryInteriorEdges}. */
+    angularResolution: number,
 ): Vector2[] {
     const points: Vector2[] = [];
 
@@ -207,7 +214,7 @@ export function computePrimaryEdgeIntersections(
             const rayA: RayProjection = {sourceVector: a.source, basisVector: aBasis};
             const rayB: RayProjection = {sourceVector: b.source, basisVector: bBasis};
 
-            const [tA, tB] = intersectRays(rayA, rayB, coaxialityFloor);
+            const [tA, tB] = intersectRays(rayA, rayB, coaxialityFloor, angularResolution);
 
             // Both parameters must be in [0, 1] since we used unnormalized basis vectors
             // whose length equals the full segment length

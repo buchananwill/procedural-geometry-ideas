@@ -20,7 +20,7 @@ import {
     sineIsBelow,
     subtractVectors
 } from "./core-functions";
-import {DIRECTION_SINE_BAR, FLOATING_POINT_EPSILON} from "./constants";
+import {CROSS_PRODUCT_ROUNDING_UNITS, FLOATING_POINT_EPSILON, UNIT_ROUNDOFF} from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
@@ -162,8 +162,19 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
     // "There is no offset gradient against this parent" — the one angular basis (journal decision
     // 105), stated as a sine rather than as an `areEqual` on a cross product whose space the call
     // did not name. Both operands are unit bases, so the bar and the number are unchanged.
+    //
+    // THE BAR STAYS AT THE SCRATCH EPSILON — A MEASURED STOP, NOT AN OMISSION (spec A15's
+    // `makeOffsetDistance` row, A25 STOP 3; journal decision 146). Moved to the angular resolution, on
+    // its own and with every other site at its old bar, three defect fixtures that solve at 7faae16
+    // STOP SOLVING: `Off-edge Jitter Reflex L (seed 15838)`, `(seed 55433)` and `(seed 55433, k=4)`,
+    // each with step failures and unresolved edges. The mechanism is inferred rather than traced: a
+    // ray whose rate against its parent is a few parts in 1e6 — a slightly skewed corridor mid-line —
+    // is then priced as travelling at CONSTANT offset while its partner's arrival is priced at its
+    // true rate, and the equi-time check that follows (`arrivalsAreEqual`, still at the scratch
+    // epsilon) reads the pair as phantom. The time windows are the tolerance package's (register C8),
+    // and this site moves with them.
     const noGradient = sineIsBelow(ray.basisVector, context.clockwiseParent(edge).basisVector,
-        DIRECTION_SINE_BAR);
+        FLOATING_POINT_EPSILON);
     const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
     return sourceOffset + deltaOffset;
 
@@ -203,9 +214,26 @@ function meetHeadOn(
     const rateB = offsetRate(edgeB, ray2, context);
     const weightA = context.weightOf(context.clockwiseParent(edgeA).id);
     const weightB = context.weightOf(context.clockwiseParent(edgeB).id);
-    const combinedRate = rateA * weightB + rateB * weightA;
+    const termA = rateA * weightB;
+    const termB = rateB * weightA;
+    const combinedRate = termA + termB;
 
-    if (Math.abs(combinedRate) < FLOATING_POINT_EPSILON * weightA * weightB) {
+    // A DIVISION-SAFETY TEST, NOT AN ANGLE QUESTION (spec A15's `meetHeadOn` row), RE-DERIVED FROM THE
+    // UNIT ROUNDOFF (spec A6 as amended, journal decision 144) — it was `FLOATING_POINT_EPSILON·wA·wB`.
+    // The question is whether the evaluated sum is distinguishable from an arithmetic zero, so the bar
+    // is the sum's own rounding-error bound. Each rate is a cross product of unit vectors, off by at
+    // most `k·u` absolutely (`k` = `CROSS_PRODUCT_ROUNDING_UNITS` = 2, argued in constants.ts); each
+    // product by a weight and the final addition each round once (relative `u`). To first order:
+    //
+    //     |fl(sum) − sum|  ≤  k·u·(wA + wB)  +  2u·(|rateA·wB| + |rateB·wA|)   =: headOnCancellationBound
+    //
+    // A sum inside that bound has no sign and no magnitude the arithmetic can vouch for, so no time
+    // at which the two agree can be computed from it: the pair has no head-on meeting (`null`).
+    // At unit weights the bound is at most `8u ≈ 8.9e-16`, seven orders inside the old `1e-8`;
+    // measured 2026-09-23, no evaluation on `FULL_CORPUS` falls between the two.
+    const cancellationBound = CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * (weightA + weightB)
+        + 2 * UNIT_ROUNDOFF * (Math.abs(termA) + Math.abs(termB));
+    if (Math.abs(combinedRate) <= cancellationBound) {
         return null;
     }
 
@@ -265,7 +293,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const ray2 = context.projectRayInterior(edgeB);
 
 
-    const intersectionData = intersectRays(ray1, ray2, context.coaxialityFloor);
+    const intersectionData = intersectRays(ray1, ray2, context.coaxialityFloor, context.angularResolution);
     const [rawAlongRay1, rawAlongRay2, resultType] = intersectionData;
 
     if (NO_COLLISION_RESULTS.includes(resultType)) {
@@ -333,6 +361,50 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     })
 
     return events
+}
+
+/**
+ * The HEAD-ON event of an anti-parallel, pointing-together pair, priced as `collideInteriorEdges`
+ * prices a pair `intersectRays` has called 'head-on' — used ONLY by the coaxial completion (spec A19,
+ * journal decisions 136 and 145) in the triangle and n-gon handlers, where a sub-polygon with live
+ * edges produced no event, no closure applied, and the completion names the pair the refused lane
+ * should have admitted.
+ *
+ * THE SAME ARITHMETIC AS THE NORMAL LANE'S HEAD-ON ARM: the full separation is split where the two
+ * participants' TIMES agree ({@link meetHeadOn}), and the event's arrival is the later of the two
+ * readings. Two things differ, both because this is a completion and not a verdict:
+ *
+ *   - where `meetHeadOn` finds the weighted rates cancel to an arithmetic zero there is no time at
+ *     which the two agree, and the normal lane would return no event; the completion instead meets
+ *     them at the MIDPOINT of the separation, which is where two equal-rate fronts meet;
+ *   - the event is never classified `phantomDivergentOffset`: the completion is the explicit claim
+ *     that these two rays DO collide, so its type is the parent-sharing classification alone.
+ */
+export function priceHeadOnPair(
+    edgeA: InteriorEdge,
+    edgeB: InteriorEdge,
+    context: StraightSkeletonSolverContext,
+): CollisionEvent {
+    const ray1 = context.projectRayInterior(edgeA);
+    const ray2 = context.projectRayInterior(edgeB);
+    const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
+
+    const [alongRay1, alongRay2] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
+        ?? [separation / 2, separation / 2];
+
+    const pairArrival = arrivalOffsetOfPair(
+        arrivalOf(edgeA, context, ray1, alongRay1),
+        arrivalOf(edgeB, context, ray2, alongRay2));
+    const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
+
+    return {
+        offsetDistance: timeOf(pairArrival),
+        arrival: pairArrival,
+        collidingEdges: [edgeA.id, edgeB.id],
+        position: findPositionAlongRay(ray1, alongRay1),
+        intersectionData: [separation, separation, 'head-on'],
+        eventType: anyShared ? 'interiorPair' : 'interiorNonAdjacent',
+    };
 }
 
 export function collideEdges(edgeIdA: number, edgeIdB: number, context: StraightSkeletonSolverContext): CollisionEvent[] {

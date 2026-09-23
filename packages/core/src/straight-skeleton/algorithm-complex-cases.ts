@@ -3,7 +3,8 @@ import {
     AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext
 } from "./types";
-import {compareArrivals, findOrComputeCollision} from "./collision-helpers";
+import {compareArrivals, findOrComputeCollision, priceHeadOnPair} from "./collision-helpers";
+import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
 import {
     bisectWithParams,
@@ -202,7 +203,28 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     }
 
     if (collisionLists.length === 0) {
-        throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
+        // THE TERMINAL LADDER (journal decision 145), the same one the pair and the triangle climb:
+        // an n-gon whose live edges produce no event is a generalisation of the triangle that does,
+        // and it was refused the same handling only because the terminal cases were first
+        // characterised too simply. The throw below stands ONLY where no rung applies and no
+        // candidate pair exists.
+        const rung = climbTerminalLadder(context, input.interiorEdges);
+        if (rung === undefined) {
+            throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
+        }
+        if (rung.rung === 'closure') {
+            applyDegenerateClosure(context, input.interiorEdges, rung.position);
+            exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e));
+            return result;
+        }
+        // THE COMPLETION, IN THE N-GON'S OWN TERMS: the named pair's head-on event is priced as
+        // `collideInteriorEdges` prices a head-on verdict and becomes the layer, so it is resolved by
+        // exactly the machinery below — whole-event merge or pairwise fallback, bisections emitted
+        // for the surviving arcs, children partitioned — as any found event would be.
+        collisionsToHandle.push(priceHeadOnPair(
+            context.getInteriorWithId(rung.completion.firstId),
+            context.getInteriorWithId(rung.completion.secondId),
+            context));
     }
 
     // Handle collisions

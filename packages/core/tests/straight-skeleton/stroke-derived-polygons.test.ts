@@ -13,6 +13,7 @@ import {
     StrokePoint,
     Vector2,
 } from '@proc-geo/core';
+import {causalityViolations} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -475,10 +476,30 @@ describe('stroke-derived polygons', () => {
             // the direction this arc trades in (journal decision 71a), and the whole regime here is
             // the stage-off one the canonicalisation stage exists to make unreachable — with the
             // stage on, the list above is empty.
+            //
+            // K = 10 LEFT THE LIST 2026-09-23 — MOVED AND FLAGGED, NOT CURED; THE DEFECT STANDS AND
+            // IS PINNED BELOW (journal decision 147, per decision 138(b)'s plateau-cell precedent).
+            // The move is journal decision 145's terminal ladder, made independent of edge count: the
+            // cell died in an N-GON sub-polygon that produced no collision at all, which
+            // `handleInteriorNGon` threw on without trying a closure. With the ladder a CLOSURE rung
+            // closes it (no `coaxial-completion` is recorded) and the four stranded edges (85, 86,
+            // 87, 167) get their node. But the solve now reports `complete: true` with EMPTY
+            // diagnostics while its graph still carries the direction violation it had before — e163,
+            // bit-unmoved by the closure — which is the loud-to-silent pattern decisions 72 and 138(a)
+            // treat as a worsening. So the defect is kept loud through the causality oracle instead of
+            // through `complete`. k = 4, 7 and 8 are unmoved: they end with unresolved edges and no
+            // step failure, so no handler's ladder is reached in them at all.
             const withoutCanonicalisation = subdivisions.filter(
                 k => !solveSkeleton(subdivide(L_SHAPE, k), {noiseFloor: 0}).complete);
 
-            expect(withoutCanonicalisation).toEqual([4, 7, 8, 10]);
+            expect(withoutCanonicalisation).toEqual([4, 7, 8]);
+
+            // THE FLAGGED CELL'S DEFECT, PINNED: exactly one direction violation, e163, and nothing
+            // else. A change that cures it or adds to it must say so here.
+            const k10 = solveSkeleton(subdivide(L_SHAPE, 10), {noiseFloor: 0});
+            expect(k10.complete).toBe(true);
+            expect(k10.diagnostics).toEqual([]);
+            expect(causalityViolations(k10.graph)).toEqual({offset: [], clearance: [], direction: [163]});
         });
 
         it('is not caused by collinearity by itself', () => {

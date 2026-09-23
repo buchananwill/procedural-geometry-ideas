@@ -174,6 +174,64 @@ export function deriveNodeOffsets(graph: StraightSkeletonGraph): Map<number, num
     return offsetOf;
 }
 
+/** The three causality oracles' findings on one graph: the offending interior-edge or node ids. */
+export interface CausalityViolations {
+    /** Interior edges whose target is dated earlier than their source (offset oracle). */
+    offset: number[];
+    /** Interior nodes dated later than their distance to the solver's boundary (clearance oracle). */
+    clearance: number[];
+    /** Interior edges whose target lies behind their source along their own basis (direction oracle). */
+    direction: number[];
+}
+
+/**
+ * `wavefront-causality.test.ts`'s three oracles — offset, clearance, direction — as ONE shared
+ * measurement, at that suite's `1e-6` tolerance and with its definitions exactly (journal decision
+ * 147): a suite pinning a MOVED AND FLAGGED cell's causality count asks the same question the
+ * causality suite asks of the corpus, re-derived from geometry through {@link deriveNodeOffsets}.
+ * Ids are returned rather than counts so a pin can name the edge it is about.
+ */
+export function causalityViolations(graph: StraightSkeletonGraph): CausalityViolations {
+    const TOLERANCE = 1e-6;
+    const offsetOf = deriveNodeOffsets(graph);
+    const found: CausalityViolations = {offset: [], clearance: [], direction: []};
+
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (!edge || edge.target === undefined) continue;
+        const sourceOffset = offsetOf.get(edge.source);
+        const targetOffset = offsetOf.get(edge.target);
+        if (sourceOffset !== undefined && targetOffset !== undefined && targetOffset < sourceOffset - TOLERANCE) {
+            found.offset.push(interiorEdge.id);
+        }
+        const source = graph.nodes[edge.source];
+        const target = graph.nodes[edge.target];
+        if (!source || !target) continue;
+        const travel = {x: target.position.x - source.position.x, y: target.position.y - source.position.y};
+        const length = Math.hypot(travel.x, travel.y);
+        if (length <= TOLERANCE) continue;
+        if ((travel.x / length) * edge.basisVector.x + (travel.y / length) * edge.basisVector.y <= 0) {
+            found.direction.push(interiorEdge.id);
+        }
+    }
+
+    const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
+    for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
+        const offset = offsetOf.get(i);
+        if (offset === undefined) continue;
+        let clearance = Infinity;
+        for (let k = 0; k < boundary.length; k++) {
+            clearance = Math.min(clearance,
+                distanceToSegment(graph.nodes[i].position, boundary[k], boundary[(k + 1) % boundary.length]));
+        }
+        if (offset > clearance + TOLERANCE) {
+            found.clearance.push(i);
+        }
+    }
+
+    return found;
+}
+
 /**
  * Every number a node's own parent edges date it to, re-derived here from raw geometry.
  *

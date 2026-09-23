@@ -10,7 +10,8 @@ import {
     OFF_EDGE_JITTER_PLUS_SEED_7919,
 } from '@proc-geo/test-fixtures';
 
-import {JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitterSweep} from './jitter-helpers';
+import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitteredSamples, jitterSweep} from './jitter-helpers';
+import {causalityViolations} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -168,7 +169,7 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 3 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+    it('fails 2 of 80 cells on the double-reflex plus, at the default noise floor', () => {
         // Was 46 of 80 before decision 70, 13 of 80 after it, 11 under decision 78 and 10 once the
         // parallel-vertex closure took count 2. The plus keeps more of the class than the L because
         // its facing walls are exactly parallel whatever the jitter does, which is a degeneracy
@@ -188,8 +189,48 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
         // the next step of the same argument: ordering a refused layer by arrival was not enough
         // while the whole layer was still CONSUMED in one step, and narrowing it to one arrival
         // moment is what makes the ordering load-bearing.
+        //
+        // THE SEVENTH READING, 2026-09-23, ATTRIBUTED TO `solveParallelClosure`'S PARENT GATE AT THE
+        // ANGULAR RESOLUTION (spec open decision O2, ruled by measurement under journal decision
+        // 146): 3 of 80 becomes 2, and the set moves from [3,8,10] to [8,10] — a strict subset. The
+        // cured cell is k = 3, seed 47514, measured with the gate at the resolution and at the old
+        // 1e-8 with every other site at its new bar: the two differ in that cell alone, and it goes
+        // from a step failure to a complete solve with zero offset, clearance and direction
+        // violations. The derived resolution itself (1.7721e-5 at this floor) moves nothing else on
+        // the 80 cells' verdicts.
+        //
+        // JOURNAL DECISION 145's EDGE-COUNT-INDEPENDENT LADDER DOES NOT REACH THE TWO THAT REMAIN.
+        // Both — k = 8, seed 47514 and k = 10, seed 31676 — die in the TWO-EDGE base case, which
+        // already climbed the whole ladder: two mid-line bisectors with BIT-IDENTICAL bases, running
+        // the same way, their sources 8.5e-6 and 3.9e-6 apart along the line and a few 1e-8 across
+        // it in unit space. The parallel closure refuses them on its parent gate — their exterior
+        // walls are skewed by sines of 1.13e-4 and 6.4e-5, beyond the resolution (measured) — and,
+        // inferred rather than traced, the degenerate closure refuses them because
+        // the point-on-ray test is still at the scratch epsilon (see `pointLiesOnRay`), and the
+        // completion needs an ANTI-parallel pair, so no candidate exists and the throw stands. They
+        // are the "near-parallel walls" class of the fourth reading, not the n-gon class.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 3, failingCounts: [3, 8, 10]});
+            .toEqual({failed: 2, failingCounts: [8, 10]});
+    });
+
+    it('carries one MOVED AND FLAGGED cell: the plus at k = 10, seed 23757, still complete', () => {
+        // JOURNAL DECISION 147. Attributed to `intersectRays`' parallel gate moving from the retired
+        // 1.4142e-4 to the angular resolution (1.7721e-5 at this floor; journal decision 146),
+        // measured by holding that one site at its old bar with every other site at its new one:
+        // the gate move alone gives this cell ONE offset violation and ONE direction violation it
+        // did not have at 7faae16 (0 and 0), while it still solves complete. Not a failing cell, so
+        // the sweep count above cannot see it; pinned here with its counts so that a change which
+        // cures or worsens it is loud.
+        const vertices = jitteredSamples(clockwise(JITTER_DOUBLE_REFLEX_PLUS), 10, 23757, NEAR_FLOOR_MAGNITUDE, OFF_EDGE);
+        const result = solveSkeleton(vertices);
+        const found = causalityViolations(result.graph);
+
+        expect(result.complete).toBe(true);
+        expect({
+            offset: found.offset.length,
+            clearance: found.clearance.length,
+            direction: found.direction.length,
+        }).toEqual({offset: 1, clearance: 0, direction: 1});
     });
 });
 

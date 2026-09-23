@@ -4,6 +4,7 @@ import {
     SLIGHTLY_DEFORMED_PEANUT_2,
 } from '@proc-geo/test-fixtures';
 import {
+    angularResolution,
     intersectRays,
     runAlgorithmV5,
     SKELETON_NOISE_FLOOR,
@@ -11,6 +12,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2,
 } from '@proc-geo/core';
+import {reachesSupportingLine} from '../../src/straight-skeleton/generate-split-event';
 import {escapedNodes} from './containment-helpers';
 
 /*
@@ -123,12 +125,37 @@ describe('the guard the waist split was lost to', () => {
             basisVector: {x: -edgeBasis.x / length, y: -edgeBasis.y / length},
         };
 
-        const [alongBisector, alongEdge, verdict] = intersectRays(bisector, forward, SKELETON_NOISE_FLOOR);
+        const [alongBisector, alongEdge, verdict] = intersectRays(bisector, forward, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR));
         expect(verdict).toBe('diverging');
         // Exactly zero, up to its sign: the strike lands ON the ray's origin, which is what put it
         // outside the strictly-positive band 'converging' requires.
         expect(Math.abs(alongEdge)).toBe(0);
         expect(alongBisector).toBeCloseTo(vertices[23].y - vertices[7].y, 12);
-        expect(intersectRays(bisector, reversed, SKELETON_NOISE_FLOOR)[2]).toBe('diverging');
+        expect(intersectRays(bisector, reversed, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).toBe('diverging');
+    });
+});
+
+describe('the strike at the vertex is a DISTANCE at the coaxiality floor (spec A15, journal decision 146)', () => {
+    /*
+     * "Does this strike land at the split edge's own end?" is positional — a distance along the
+     * edge's unit ray to zero — so it is asked in the floor's category: within the client's floor of
+     * the vertex IS at the vertex. It was `areEqual(alongEdge, 0)`, the scratch epsilon; a strike
+     * 5e-7 from the vertex, inside the floor and fifty epsilons outside the old bar, is the
+     * discriminating case.
+     */
+    it('accepts a forward strike within the floor of the vertex, on either side of it', () => {
+        for (const alongEdge of [0, 5e-9, 5e-7, -5e-7, SKELETON_NOISE_FLOOR, -SKELETON_NOISE_FLOOR]) {
+            expect(reachesSupportingLine([0.5, alongEdge, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(true);
+        }
+    });
+
+    it('refuses one outside the floor, and one that is not travelling forward', () => {
+        expect(reachesSupportingLine([0.5, 2e-6, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(false);
+        expect(reachesSupportingLine([-0.5, 5e-7, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(false);
+    });
+
+    it('moves with the client floor rather than freezing it', () => {
+        expect(reachesSupportingLine([0.5, 5e-6, 'diverging'], 1e-5)).toBe(true);
+        expect(reachesSupportingLine([0.5, 5e-6, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(false);
     });
 });

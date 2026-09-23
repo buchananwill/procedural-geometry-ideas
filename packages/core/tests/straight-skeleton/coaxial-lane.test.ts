@@ -5,6 +5,7 @@ import {
 } from '@proc-geo/test-fixtures';
 import {
     addVectors,
+    angularResolution,
     coaxialityFloor,
     denormaliseLength,
     flattenRecursiveTree,
@@ -151,12 +152,12 @@ describe('the lane is the floor, swept over the lateral offset', () => {
 
     it.each(INSIDE_THE_LANE)('prices a lateral offset of %p as head-on', (delta) => {
         const [first, second] = midLinePair(delta);
-        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR)[2]).toBe<IntersectionType>('head-on');
+        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).toBe<IntersectionType>('head-on');
     });
 
     it.each(OUTSIDE_THE_LANE)('refuses a lateral offset of %p', (delta) => {
         const [first, second] = midLinePair(delta);
-        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR)[2]).not.toBe<IntersectionType>('head-on');
+        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).not.toBe<IntersectionType>('head-on');
     });
 
     it('pins the band that used to orphan the pair: (1e-8, 1e-6] is now head-on', () => {
@@ -171,8 +172,8 @@ describe('the lane is the floor, swept over the lateral offset', () => {
         // The bar is a PARAMETER, not a module constant: the same pair is head-on at a floor that
         // admits it and parallel at one that does not.
         const [first, second] = midLinePair(5e-6);
-        expect(intersectRays(first, second, 1e-5)[2]).toBe<IntersectionType>('head-on');
-        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR)[2]).toBe<IntersectionType>('parallel');
+        expect(intersectRays(first, second, 1e-5, angularResolution(1e-5))[2]).toBe<IntersectionType>('head-on');
+        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).toBe<IntersectionType>('parallel');
     });
 });
 
@@ -181,15 +182,16 @@ describe('the lane is symmetric: both sources in the other ray\'s lane, or neith
         'gives one verdict for a lateral offset of %p whichever ray is passed first',
         (delta) => {
             const [first, second] = midLinePair(delta);
-            expect(intersectRays(second, first, SKELETON_NOISE_FLOOR)[2])
-                .toBe(intersectRays(first, second, SKELETON_NOISE_FLOOR)[2]);
+            expect(intersectRays(second, first, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2])
+                .toBe(intersectRays(first, second, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]);
         },
     );
 
     /*
      * THE CASE THAT CONVICTS THE CONJUNCTION — journal decision 136's scenario D, in numbers.
      *
-     * Two anti-parallel bases at a sine of 1e-5, well inside the parallel gate, with their sources
+     * Two anti-parallel bases at a sine of 1e-5, inside the library floor's angular resolution
+ * (`1.772e-5`; the retired gate was `1.4142e-4`), with their sources
      * one unit apart. The separation lies exactly along the FIRST basis, so its lateral against that
      * basis is zero; against the second it is `|sep| · sine` = 1e-5, ten times the floor. The two
      * readings of one pair therefore straddle the lane.
@@ -216,8 +218,8 @@ describe('the lane is symmetric: both sources in the other ray\'s lane, or neith
 
     it('REFUSES that pair, in both orders — the conjunction, not the one it was handed', () => {
         const [first, second] = straddlingPair();
-        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR)[2]).toBe<IntersectionType>('parallel');
-        expect(intersectRays(second, first, SKELETON_NOISE_FLOOR)[2]).toBe<IntersectionType>('parallel');
+        expect(intersectRays(first, second, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).toBe<IntersectionType>('parallel');
+        expect(intersectRays(second, first, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR))[2]).toBe<IntersectionType>('parallel');
     });
 });
 

@@ -1,180 +1,494 @@
 import {
-    areEqual,
+    angularResolution,
+    conditioningBound,
     crossProduct,
+    CROSS_PRODUCT_ROUNDING_UNITS,
     directionsAreSame,
-    DIRECTION_SINE_BAR,
     dotProduct,
-    FLOATING_POINT_EPSILON,
+    ensureBisectionIsInterior,
     intersectRays,
     makeRay,
+    makeStraightSkeletonSolverContext,
     negateVector,
     normalize,
-    PARALLEL_GATE_SINE_BAR,
+    perceptualBound,
+    rotateWs90,
     scaleVector,
     sineIsBelow,
     SKELETON_NOISE_FLOOR,
+    UNIT_ROUNDOFF,
     vectorsAreEqual,
 } from '@proc-geo/core';
-import type {Vector2} from '@proc-geo/core';
+import type {IntersectionType, Vector2} from '@proc-geo/core';
 
 /**
- * THE ONE ANGULAR BASIS — journal decision 105, landed as `sineIsBelow` / `directionsAreSame`.
+ * ============================================================================
+ *  THE ANGULAR RESOLUTION — spec A1–A14 and A23, journal decisions 134, 144, 145 and 146.
+ * ============================================================================
  *
- * The ruling: "a single value must never receive different verdicts depending on which code path
- * reached the predicate". Angle was where the solver broke that worst. Three sites decided "same
- * direction" — a component box on two unit vectors, an `areEqual` on their dot product, and a bare
- * `1e-4` box with no comment anywhere in the record — answering at ≈1e-8, 1.41e-4 and ≈1.41e-4
- * radians. Two of those three were the SAME constant read in two spaces.
+ * ONE angular bar, a FUNCTION of the client's perceptual floor δ:
  *
- * This file pins the replacement, and it pins the three things that would silently undo it:
+ *     angularResolution(δ) = max( √2·δ , sqrt(k·√2·u / δ) ),    u = 2⁻⁵³,  k = 2
  *
- *   1. the DERIVATION — `PARALLEL_GATE_SINE_BAR` is the exact sine-space restatement of
- *      `areEqual(|dot|, 1)`, so converting that site was a change of spelling and not of verdict;
- *   2. the FORM — the sine test is scale-free and isotropic, which the component box on a
- *      normalised vector is not, and the second of those is the property that let one separation
- *      be judged twice;
- *   3. the SYMMETRY — `intersectRays`' two collinearity exits are mirror images and now answer the
- *      same separation identically. They used to answer at bars four orders apart.
+ * the larger of what the client can SEE (a turn of `√2·δ` moves a vertex δ off its chord on the
+ * longest edge a unit region carries) and what the arithmetic can PRICE (an intersection divided by
+ * a sine carrying `k·u` of absolute error lands within δ only above `sqrt(k·√2·u/δ)`). `k = 2` is
+ * argued in `constants.ts` — the classical γ₂ bound on a two-term cross product of unit vectors,
+ * valid at every angle — and it replaces the spec's estimated `4u` (spec I6).
  *
- * WHAT IS NOT PINNED HERE, DELIBERATELY: that the two bars are one number. They are not, and the
- * collapse was attempted in both directions and refused by the corpus — see the note on
- * `PARALLEL_GATE_SINE_BAR` for the measurements. This suite pins the basis, not a unification that
- * the measurement did not support.
+ * THIS FILE PINS THREE THINGS, and each dies to a different mutation:
+ *
+ *   1. THE DERIVATION, as arithmetic rather than as a decimal: each bound is its formula bit for
+ *      bit, `conditioningBound(δ)²·δ` returns `k·√2·u` to the last ulp, `k` itself is convicted
+ *      against an exact evaluation of the cross product, and the crossover is where the two bounds
+ *      meet. Change `k`, drop the `max`, or swap either bound and a block below dies.
+ *   2. THE ORDERING (spec A11): ONE bar is identity's and priceability's at once — ordering (i) at
+ *      equality — so a pair just under the resolution is not priced and IS identical, and one at or
+ *      over it is priced. The context computes that one bar once (spec A8).
+ *   3. THE PARTITION (spec A14), as a sweep: every sine from 1e-12 to 1e-1 at every floor rung lands
+ *      in exactly ONE cell — (a) priced, (b) same orientation below the resolution, closed or merged
+ *      as identical, (c) opposed orientation below the resolution. A sine with no verdict is spec
+ *      A25's STOP 2.
+ *
+ * CELL (c) IS PINNED AS IT STANDS BEFORE DISPATCH 2. Spec A16's anti-parallel arm is not in this
+ * package, so an opposed pair below the resolution that is NOT coaxial is today refused by every
+ * closure — `solveParallelClosure`'s bisector test is orientation-sensitive at any bar — and it
+ * reaches the coaxial completion (journal decision 145's ladder) or, with no candidate pair, the
+ * throw. The sweep asserts exactly that, so dispatch 2 has its pre-change table.
+ *
+ * ----------------------------------------------------------------------------
+ *  HISTORY — WHAT THIS FILE PINNED BEFORE 2026-09-23, KEPT SO THE RECORD IS NOT LOST
+ * ----------------------------------------------------------------------------
+ *
+ * Under journal decision 105 this suite pinned the TWO laundered bars and the refusal to unify them:
+ *
+ *   - `PARALLEL_GATE_SINE_BAR = sqrt(ε(2 − ε)) = 1.4142e-4` as the EXACT sine-space restatement of
+ *     `areEqual(|dot|, 1)` — `1 − |cos t| < ε ⟺ sin²t < ε(2 − ε)` — asserted to agree with the dot
+ *     test at every orientation around the bar, and `DIRECTION_SINE_BAR = ε = 1e-8`, the epsilon read
+ *     as a sine, four orders tighter;
+ *   - that the two were NOT one number: collapsing the gate onto the identity bar moved 13 tests
+ *     across 4 suites (every large-coordinate signature, the off-edge jitter class, the census gate),
+ *     and collapsing the identity bar onto the gate stopped `seed 55433, k=4` solving;
+ *   - the sine FORM (scale-free, isotropic, division-free, orientation separated) and the SYMMETRY of
+ *     `intersectRays`' two collinearity exits, which had been asked at `1e-4` and `1e-8`.
+ *
+ * Both constants are RETIRED (journal decision 146): neither contains anything but the scratch
+ * epsilon, which decision 144 supersedes everywhere. The form and the symmetry pins survive below,
+ * restated against the derived resolution.
  */
+
+/** The floor ladder of `perceptual-floor-option.test.ts`, spec A23. */
+const FLOOR_LADDER = [SKELETON_NOISE_FLOOR, 3e-6, 1e-5, 3e-5, 1e-4];
+
+/** `k·√2·u`, the product `conditioningBound` divides by the floor. Every factor is exact but √2. */
+const CONDITIONING_NUMERATOR = CROSS_PRODUCT_ROUNDING_UNITS * Math.SQRT2 * UNIT_ROUNDOFF;
+
+/** One unit in the last place of `x`. */
+function ulp(x: number): number {
+    return 2 ** (Math.floor(Math.log2(Math.abs(x))) - 52);
+}
 
 /** A unit vector at `radians` from the x-axis. */
 function unit(radians: number): Vector2 {
     return {x: Math.cos(radians), y: Math.sin(radians)};
 }
 
-/** The angles either side of a bar that any conversion of that bar has to agree about. */
-function anglesAround(bar: number): number[] {
-    return [0, bar * 1e-4, bar * 0.5, bar * 0.9, bar * 0.99, bar * 1.01, bar * 1.1, bar * 2, bar * 1e2];
+/** A unit vector whose sine against `base` is `sine` exactly in exact arithmetic, turned widdershins. */
+function turnedBySine(base: Vector2, sine: number): Vector2 {
+    return normalize({
+        x: base.x * Math.sqrt(1 - sine * sine) - base.y * sine,
+        y: base.y * Math.sqrt(1 - sine * sine) + base.x * sine,
+    })[0];
 }
 
-describe('the parallel gate is the dot-space test, restated in sine space', () => {
-    /*
-     * THE DERIVATION, AS AN ASSERTION RATHER THAN AS A COMMENT.
-     *
-     *   1 - |cos t| < e   <=>   cos^2 t > (1 - e)^2   <=>   sin^2 t < e(2 - e)
-     *
-     * so `areEqual(|dot(a, b)|, 1)` at the epsilon IS `|sin t| < sqrt(e(2 - e))`. If that identity
-     * did not hold, converting `intersection-edges.ts` and `solveParallelClosure` would have been a
-     * value change dressed as a refactor, and the corpus digest agreeing would have been luck.
-     */
-    it('is sqrt(epsilon * (2 - epsilon)), and that is 1.4142e-4 rather than 1e-8', () => {
-        expect(PARALLEL_GATE_SINE_BAR).toBeCloseTo(1.4142135e-4, 10);
-        expect(PARALLEL_GATE_SINE_BAR / DIRECTION_SINE_BAR).toBeGreaterThan(1e4);
+describe('the derivation, pinned as arithmetic (spec A1–A4)', () => {
+    it('reads u as the unit roundoff 2⁻⁵³ — half of Number.EPSILON — and k as 2', () => {
+        expect(UNIT_ROUNDOFF).toBe(2 ** -53);
+        expect(UNIT_ROUNDOFF).toBe(Number.EPSILON / 2);
+        expect(CROSS_PRODUCT_ROUNDING_UNITS).toBe(2);
     });
 
-    it.each(anglesAround(PARALLEL_GATE_SINE_BAR).flatMap(angle => [angle, Math.PI - angle]))(
-        'agrees with areEqual(|dot|, 1) at %p radians, at every orientation',
-        (angle) => {
-            for (let base = 0; base < Math.PI; base += Math.PI / 7) {
-                const a = unit(base);
-                const b = unit(base + angle);
-                expect(sineIsBelow(a, b, PARALLEL_GATE_SINE_BAR))
-                    .toBe(areEqual(Math.abs(dotProduct(a, b)), 1));
-            }
-        },
-    );
+    it.each(FLOOR_LADDER)('at δ = %p the perceptual bound is √2·δ, bit for bit', (floor) => {
+        expect(perceptualBound(floor)).toBe(Math.SQRT2 * floor);
+    });
 
-    it('is not vacuous: the two verdicts do differ from the identity bar in that band', () => {
-        // Without this, the sweep above could pass on a bar that happened to reject everything.
-        const a = unit(0);
-        const b = unit(1e-6);
-        expect(sineIsBelow(a, b, PARALLEL_GATE_SINE_BAR)).toBe(true);
-        expect(sineIsBelow(a, b, DIRECTION_SINE_BAR)).toBe(false);
+    it.each(FLOOR_LADDER)('at δ = %p the conditioning bound is sqrt(k·√2·u / δ), bit for bit', (floor) => {
+        expect(conditioningBound(floor)).toBe(Math.sqrt(2 * Math.SQRT2 * 2 ** -53 / floor));
+    });
+
+    it.each(FLOOR_LADDER)('at δ = %p conditioningBound(δ)²·δ returns k·√2·u to the last ulp', (floor) => {
+        // The formula, not a decimal: square the bound back and multiply the floor in, and the
+        // numerator comes back within ONE ulp on every rung (a correctly rounded division, square
+        // root, square and product; the worst case over 1e-9..1e-2 is two ulps, never more).
+        const bound = conditioningBound(floor);
+        expect(Math.abs(bound * bound * floor - CONDITIONING_NUMERATOR))
+            .toBeLessThanOrEqual(ulp(CONDITIONING_NUMERATOR));
+    });
+
+    it.each(FLOOR_LADDER)('at δ = %p the resolution is the larger of the two bounds', (floor) => {
+        expect(angularResolution(floor))
+            .toBe(Math.max(perceptualBound(floor), conditioningBound(floor)));
+    });
+
+    it('crosses over at δ* = (k·u/√2)^(1/3) — (√2·u)^(1/3) ≈ 5.39e-6 — where the bar is 2⁻¹⁷', () => {
+        // √2·δ = sqrt(k√2u/δ)  ⟺  δ³ = k·u/√2. At k = 2 that is √2·u, and the bar there is
+        // √2·(√2·u)^(1/3) = 2^(1/2 − 52.5/3) = 2⁻¹⁷ in exact arithmetic.
+        const crossover = Math.cbrt(Math.SQRT2 * UNIT_ROUNDOFF);
+        expect(crossover).toBeCloseTo(5.3948e-6, 9);
+        expect(Math.abs(perceptualBound(crossover) - conditioningBound(crossover)))
+            .toBeLessThanOrEqual(2 * ulp(conditioningBound(crossover)));
+        expect(angularResolution(crossover)).toBeCloseTo(2 ** -17, 18);
+
+        // Below it conditioning governs, above it perception — the `max` is live on both sides.
+        expect(conditioningBound(crossover * 0.99)).toBeGreaterThan(perceptualBound(crossover * 0.99));
+        expect(perceptualBound(crossover * 1.01)).toBeGreaterThan(conditioningBound(crossover * 1.01));
+    });
+
+    it('governs by conditioning at the library floor and by perception at the demo floor', () => {
+        // Spec A4 in numbers, at k = 2: 1.7721e-5 at 1e-6 (12.5× the perceptual bound), and the
+        // perceptual 1.4142e-5 at 1e-5.
+        expect(angularResolution(SKELETON_NOISE_FLOOR)).toBe(conditioningBound(SKELETON_NOISE_FLOOR));
+        expect(angularResolution(SKELETON_NOISE_FLOOR)).toBeCloseTo(1.77206e-5, 9);
+        expect(angularResolution(1e-5)).toBe(perceptualBound(1e-5));
+        expect(angularResolution(1e-5)).toBeCloseTo(1.41421e-5, 9);
+    });
+});
+
+describe('k = 2 is a bound on the evaluated cross product, convicted against its exact value', () => {
+    /*
+     * THE ARGUMENT IN `constants.ts`, MEASURED. The exact value of `a.x·b.y − b.x·a.y` on the stored
+     * doubles is recovered with error-free transformations — Dekker's TwoProduct by Veltkamp
+     * splitting (no FMA in JavaScript) and Knuth's TwoSum — so the evaluation error of the solver's
+     * own `crossProduct` is known exactly and checked against the derived bound
+     * `u·(|P| + |Q|) + u·|ĉ|`, which is at most `2u` on unit vectors.
+     */
+    const SPLITTER = 2 ** 27 + 1;
+    const split = (a: number): [number, number] => {
+        const c = SPLITTER * a;
+        const high = c - (c - a);
+        return [high, a - high];
+    };
+    const twoProduct = (a: number, b: number): [number, number] => {
+        const p = a * b;
+        const [aHigh, aLow] = split(a);
+        const [bHigh, bLow] = split(b);
+        return [p, ((aHigh * bHigh - p) + aHigh * bLow + aLow * bHigh) + aLow * bLow];
+    };
+    const twoSum = (a: number, b: number): [number, number] => {
+        const s = a + b;
+        const bVirtual = s - a;
+        return [s, (a - (s - bVirtual)) + (b - bVirtual)];
+    };
+
+    /** `crossProduct(a, b)` and its exact evaluation error, as `[computed, error, |P| + |Q|]`. */
+    function crossError(a: Vector2, b: Vector2): [number, number, number] {
+        const [p, pLow] = twoProduct(a.x, b.y);
+        const [q, qLow] = twoProduct(b.x, a.y);
+        const [computed, subtractionLow] = twoSum(p, -q);
+        // exact = (p + pLow) − (q + qLow) = computed + subtractionLow + pLow − qLow
+        return [computed, -(subtractionLow + pLow - qLow), Math.abs(p) + Math.abs(q)];
+    }
+
+    /** A deterministic generator, so the sample is the same on every run. */
+    function makeRandom(seed: number): () => number {
+        let state = seed >>> 0;
+        return () => {
+            state = (state + 0x6d2b79f5) | 0;
+            let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+            mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+            return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    it('never exceeds u·(|P| + |Q|) + u·|ĉ|, nor 2u, over 50 000 unit pairs at every angle', () => {
+        const random = makeRandom(146);
+        let worstInU = 0;
+        for (let sample = 0; sample < 50_000; sample++) {
+            const a = unit(random() * 2 * Math.PI);
+            // Half the sample near-parallel (sine down to 1e-12), half at any angle.
+            const angle = sample % 2 === 0
+                ? (random() < 0.5 ? 1 : -1) * 10 ** (-12 + 11 * random())
+                : random() * 2 * Math.PI;
+            const b = unit(Math.atan2(a.y, a.x) + angle);
+            const [computed, error, magnitudes] = crossError(a, b);
+            expect(Math.abs(error)).toBeLessThanOrEqual(
+                UNIT_ROUNDOFF * magnitudes + UNIT_ROUNDOFF * Math.abs(computed));
+            worstInU = Math.max(worstInU, Math.abs(error) / UNIT_ROUNDOFF);
+        }
+        expect(worstInU).toBeLessThanOrEqual(CROSS_PRODUCT_ROUNDING_UNITS);
+    });
+
+    it('is exact in the subtraction where Sterbenz applies, so the near-parallel error is at most u', () => {
+        // Same-sign products within a factor of two: the subtraction is exact and only the two
+        // product roundings remain, bounded by u·(|P| + |Q|) ≤ u.
+        const random = makeRandom(1446);
+        for (let sample = 0; sample < 20_000; sample++) {
+            const a = unit(Math.PI / 8 + random() * Math.PI / 4);
+            const b = unit(Math.atan2(a.y, a.x) + 10 ** (-10 + 6 * random()));
+            const [, error, magnitudes] = crossError(a, b);
+            expect(Math.abs(error)).toBeLessThanOrEqual(UNIT_ROUNDOFF * magnitudes);
+        }
+    });
+});
+
+describe('ONE bar, computed once, stated at every call (spec A8, A11, A15)', () => {
+    it.each(FLOOR_LADDER)('the context at δ = %p carries angularResolution(δ), computed there', (floor) => {
+        const context = makeStraightSkeletonSolverContext(
+            [{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}], floor);
+        expect(context.angularResolution).toBe(angularResolution(floor));
+    });
+
+    it('the context defaults to the library floor\'s resolution', () => {
+        const context = makeStraightSkeletonSolverContext([{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}, {x: 1, y: 0}]);
+        expect(context.angularResolution).toBe(angularResolution(SKELETON_NOISE_FLOOR));
+    });
+
+    it('has no default bar left on either predicate: every caller states one', () => {
+        // A parameter with a default does not count toward `Function.length`, so a restored default
+        // bar reads as arity 2 here.
+        expect(sineIsBelow.length).toBe(3);
+        expect(directionsAreSame.length).toBe(3);
+        expect(intersectRays.length).toBe(4);
+    });
+
+    it.each(FLOOR_LADDER)('at δ = %p a sine just under the bar is IDENTICAL and just over it is PRICED', (floor) => {
+        // Ordering (i) at equality: identity's bar and priceability's bar are the same double, so
+        // there is no band in which a pair is neither.
+        const bar = angularResolution(floor);
+        const base = unit(0.3);
+        const under = turnedBySine(base, bar * 0.99);
+        const over = turnedBySine(base, bar * 1.01);
+
+        expect(directionsAreSame(base, under, bar)).toBe(true);
+        expect(sineIsBelow(base, under, bar)).toBe(true);
+        expect(directionsAreSame(base, over, bar)).toBe(false);
+        expect(sineIsBelow(base, over, bar)).toBe(false);
+
+        const source = {x: 0, y: 0};
+        const across = scaleVector(rotateWs90(base), 0.5);
+        expect(intersectRays(makeRay(source, base), makeRay(across, under), floor, bar)[2])
+            .toBe<IntersectionType>('parallel');
+        expect(['converging', 'diverging'])
+            .toContain(intersectRays(makeRay(source, base), makeRay(across, over), floor, bar)[2]);
+    });
+});
+
+describe('ensureBisectionIsInterior asks "is this vertex straight?" at the resolution (spec A15, A20)', () => {
+    /*
+     * On the RAW parent directions, which carry no weight. A turn of 1.5e-8 — past the retired 1e-8
+     * bar and far inside the resolution — is straight, so the bisection is not flipped; a turn of
+     * twice the resolution is a turn, and a widdershins one is flipped. (The rate's own zero test in
+     * `addBisectionEdge` stays at the scratch epsilon, measured at its site; D14 stays open.)
+     */
+    const bar = angularResolution(SKELETON_NOISE_FLOOR);
+    const edge = (id: number, basisVector: Vector2) => ({id, source: id, basisVector});
+    const bisected = {x: 0, y: 1};
+
+    it('leaves a sub-resolution turn unflipped, whichever way its sign reads', () => {
+        const clockwise = edge(0, {x: 1, y: 0});
+        for (const sine of [1.5e-8, -1.5e-8, bar * 0.5, -bar * 0.5]) {
+            const widdershins = edge(1, turnedBySine({x: -1, y: 0}, sine));
+            expect(ensureBisectionIsInterior(clockwise, widdershins, bisected, bar)).toEqual(bisected);
+        }
+    });
+
+    it('flips a widdershins turn past the resolution, and only that one', () => {
+        const clockwise = edge(0, {x: 1, y: 0});
+        const widdershinsTurn = edge(1, turnedBySine({x: -1, y: 0}, bar * 2));
+        const clockwiseTurn = edge(1, turnedBySine({x: -1, y: 0}, -bar * 2));
+        expect(crossProduct(clockwise.basisVector, widdershinsTurn.basisVector)).toBeLessThan(0);
+        expect(ensureBisectionIsInterior(clockwise, widdershinsTurn, bisected, bar)).toEqual(negateVector(bisected));
+        expect(ensureBisectionIsInterior(clockwise, clockwiseTurn, bisected, bar)).toEqual(bisected);
+    });
+});
+
+/*
+ * ----------------------------------------------------------------------------
+ *  THE PARTITION (spec A14), SWEPT
+ * ----------------------------------------------------------------------------
+ */
+
+type Cell = 'a: priced' | 'b: identical — closed or merged' | 'c: opposed — completion or throw';
+
+/**
+ * The cell a pair at `sine` lands in at floor δ, read off the solver's own predicates.
+ *
+ * A pair is built twice for each sine and orientation — sources a unit apart along the first ray
+ * (coaxial) and half a unit across it (not coaxial) — and every one of the four rays sets must give a
+ * verdict that belongs to exactly one cell:
+ *
+ *   (a) `intersectRays` prices it: 'converging' or 'diverging'.
+ *   (b) same orientation, not priced: 'co-linear-from-1/2' (merged onto the leading source) or
+ *       'parallel' — and `directionsAreSame` at the bar holds, which is `solveParallelClosure`'s
+ *       bisector test, so the closure can take it.
+ *   (c) opposed orientation, not priced: 'head-on' (priced as a head-on meeting by `meetHeadOn`) or
+ *       'parallel' — and the closure's bisector test REFUSES it at any bar while the completion's
+ *       anti-parallel gate (`sineIsBelow` at the bar, negative dot) ADMITS it: such a pair reaches
+ *       the coaxial completion, or the throw when no pair points together.
+ */
+function cellOf(sine: number, opposed: boolean, floor: number): Cell[] {
+    const bar = angularResolution(floor);
+    const base = unit(0.7);
+    const turned = turnedBySine(base, sine);
+    const second = opposed ? negateVector(turned) : turned;
+    const cells: Cell[] = [];
+
+    const sourcePlacements = [
+        opposed ? scaleVector(base, 1) : scaleVector(base, -1),
+        scaleVector(rotateWs90(base), 0.5),
+    ];
+    for (const secondSource of sourcePlacements) {
+        const [, , type] = intersectRays(makeRay({x: 0, y: 0}, base), makeRay(secondSource, second), floor, bar);
+        const candidates: Cell[] = [];
+        if (type === 'converging' || type === 'diverging') {
+            candidates.push('a: priced');
+        }
+        if ((type === 'co-linear-from-1' || type === 'co-linear-from-2' || type === 'parallel')
+            && dotProduct(base, second) > 0 && directionsAreSame(base, second, bar)) {
+            candidates.push('b: identical — closed or merged');
+        }
+        if ((type === 'head-on' || type === 'parallel')
+            && dotProduct(base, second) < 0
+            && !directionsAreSame(base, second, bar)
+            && sineIsBelow(base, second, bar)) {
+            candidates.push('c: opposed — completion or throw');
+        }
+        // EXACTLY ONE verdict per ray pair — none is spec A25's STOP 2, two is a band.
+        expect(candidates).toHaveLength(1);
+        cells.push(candidates[0]);
+    }
+    return cells;
+}
+
+/** 1e-12 to 1e-1, eight samples a decade, plus each rung's own bar and its immediate neighbours. */
+function sweptSines(floor: number): number[] {
+    const sines: number[] = [];
+    for (let exponent = -12; exponent <= -1; exponent += 1 / 8) {
+        sines.push(10 ** exponent);
+    }
+    const bar = angularResolution(floor);
+    sines.push(bar * (1 - 1e-9), bar * (1 + 1e-9), bar * 0.5, bar * 2);
+    return sines.toSorted((a, b) => a - b);
+}
+
+describe('the sine partition: every sine in exactly one cell, at every floor rung (spec A14, A23)', () => {
+    it.each(FLOOR_LADDER)('at δ = %p no sine from 1e-12 to 1e-1 is without a verdict, or has two', (floor) => {
+        const bar = angularResolution(floor);
+        for (const sine of sweptSines(floor)) {
+            for (const opposed of [false, true]) {
+                const cells = cellOf(sine, opposed, floor);
+                // Both placements of one sine and orientation agree about the cell: coaxiality moves
+                // a pair within its cell, never across one.
+                expect(new Set(cells).size).toBe(1);
+
+                // AND THE CELL IS THE ONE THE RESOLUTION NAMES, read off the vectors actually built
+                // (`turnedBySine` rounds, so the sine is re-measured rather than assumed).
+                const expected: Cell = !sineIsBelow(unit(0.7), turnedBySine(unit(0.7), sine), bar)
+                    ? 'a: priced'
+                    : opposed ? 'c: opposed — completion or throw' : 'b: identical — closed or merged';
+                expect(cells[0]).toBe(expected);
+            }
+        }
+    });
+
+    it('pins the table for dispatch 2: at the library floor cell (c) is every opposed sine under 1.7721e-5', () => {
+        // The pre-change table spec A16's anti-parallel arm will move: today an opposed,
+        // non-coaxial pair below the resolution is closed by nothing, and reaches the completion or
+        // the throw. After dispatch 2 the same rows must read "closed at the leading source".
+        const rows = [1e-12, 1e-9, 1e-7, 1e-6, 1e-5, 1.7e-5, 1.8e-5, 1e-4, 1e-1]
+            .map(sine => `${sine}: ${cellOf(sine, true, SKELETON_NOISE_FLOOR)[1]}`);
+        expect(rows).toEqual([
+            '1e-12: c: opposed — completion or throw',
+            '1e-9: c: opposed — completion or throw',
+            '1e-7: c: opposed — completion or throw',
+            '0.000001: c: opposed — completion or throw',
+            '0.00001: c: opposed — completion or throw',
+            '0.000017: c: opposed — completion or throw',
+            '0.000018: a: priced',
+            '0.0001: a: priced',
+            '0.1: a: priced',
+        ]);
     });
 });
 
 describe('the sine form is scale-free where the normalised box is not', () => {
     /*
-     * THE REASON THE FORM CHANGED AND NOT ONLY THE NAME. `tryAttachEdgeToNode` asked
-     * "does this node lie on this bisector's ray?" as `vectorsAreEqual(normalize(separation), basis)`
-     * — a division by the separation's own length, performed on exactly the shortest separations the
-     * loop existed to find. The division-free form asks the same question of the raw vector, so the
-     * verdict cannot depend on how far away the candidate happens to be.
+     * THE REASON THE FORM CHANGED AND NOT ONLY THE NAME (journal decision 105), restated at the
+     * derived bar. The division-free form asks the question of the raw vector, so the verdict cannot
+     * depend on how far away the candidate happens to be, nor on its orientation in the plane.
      */
+    const bar = angularResolution(SKELETON_NOISE_FLOOR);
+
     it('gives one verdict for a separation and every scaled copy of it', () => {
         const basis = normalize({x: 3, y: 4})[0];
-        const offRay = normalize({x: 3, y: 4.0000004})[0];
+        const offRay = turnedBySine(basis, bar * 3);
 
         for (const scale of [1e-12, 1e-6, 1e-3, 1, 1e3, 1e6]) {
-            expect(directionsAreSame(scaleVector(basis, scale), basis)).toBe(true);
-            expect(directionsAreSame(scaleVector(offRay, scale), basis)).toBe(false);
+            expect(directionsAreSame(scaleVector(basis, scale), basis, bar)).toBe(true);
+            expect(directionsAreSame(scaleVector(offRay, scale), basis, bar)).toBe(false);
         }
     });
 
     it('is isotropic, where the component-wise box was up to sqrt(2) looser on the diagonal', () => {
-        // The box passes a diagonal separation the axis-aligned one of the same ANGLE fails, which
-        // is one value getting two verdicts from one predicate — decision 105's charge in miniature.
-        const angle = FLOATING_POINT_EPSILON * 1.2;
-
+        const angle = 1.2e-8;
         const axisPair = [unit(0), unit(angle)] as const;
         const diagonalPair = [unit(Math.PI / 4), unit(Math.PI / 4 + angle)] as const;
 
         expect(vectorsAreEqual(axisPair[0], axisPair[1])).toBe(false);
         expect(vectorsAreEqual(diagonalPair[0], diagonalPair[1])).toBe(true);
 
-        expect(sineIsBelow(...axisPair)).toBe(sineIsBelow(...diagonalPair));
-        expect(sineIsBelow(...axisPair)).toBe(false);
+        const tight = 1e-8;
+        expect(sineIsBelow(...axisPair, tight)).toBe(sineIsBelow(...diagonalPair, tight));
+        expect(sineIsBelow(...axisPair, tight)).toBe(false);
     });
 
     it('separates parallelism from orientation, and takes the sign exactly', () => {
         const a = unit(0);
         const antiParallel = negateVector(a);
-
-        // Anti-parallel is parallel and is not the same direction. No tolerance decides the second
-        // half: a half-turn is not a near miss at any bar.
-        expect(sineIsBelow(a, antiParallel)).toBe(true);
-        expect(directionsAreSame(a, antiParallel)).toBe(false);
-        expect(directionsAreSame(a, antiParallel, PARALLEL_GATE_SINE_BAR)).toBe(false);
+        expect(sineIsBelow(a, antiParallel, bar)).toBe(true);
+        expect(directionsAreSame(a, antiParallel, bar)).toBe(false);
     });
 
     it('refuses a zero-length operand rather than calling it parallel to everything', () => {
-        expect(sineIsBelow({x: 0, y: 0}, unit(0))).toBe(false);
-        expect(directionsAreSame({x: 0, y: 0}, unit(0))).toBe(false);
+        expect(sineIsBelow({x: 0, y: 0}, unit(0), bar)).toBe(false);
+        expect(directionsAreSame({x: 0, y: 0}, unit(0), bar)).toBe(false);
     });
 
     it('is the polynomial, not a division: |cross| against bar * |a| * |b|', () => {
         const a = {x: 2, y: 0};
         const b = {x: 1e-9, y: 1};
-        const bar = 1e-3;
-        expect(sineIsBelow(a, b, bar))
-            .toBe(Math.abs(crossProduct(a, b)) < bar * 2 * Math.hypot(1e-9, 1));
+        expect(sineIsBelow(a, b, 1e-3))
+            .toBe(Math.abs(crossProduct(a, b)) < 1e-3 * 2 * Math.hypot(1e-9, 1));
     });
 });
 
 describe("intersectRays' two collinearity exits answer one separation identically", () => {
     /*
-     * THE MIRROR-BRANCH ASYMMETRY, WHICH THE AUDIT DID NOT NAME. 'co-linear-from-1' tested at a bare
-     * `1e-4` and 'co-linear-from-2' at the default `1e-8`, on normalised separations. The two are
-     * the same question asked of the same pair from opposite ends, so a pair could be collinear
-     * approaching from one side and not from the other, decided by nothing but which ray the caller
-     * passed first. Both now stand at the gate's own bar, which is the only bar that leaves no band
-     * where a pair is parallel enough to enter the branch and not collinear enough to leave it.
+     * The mirror-branch symmetry (journal decision 105): 'co-linear-from-1' and 'co-linear-from-2'
+     * are one question asked from opposite ends, and both answer at the gate's own bar — now the
+     * angular resolution — so no band exists where a pair is parallel enough to enter the branch
+     * and not collinear enough to leave it by either exit.
      */
+    const bar = angularResolution(SKELETON_NOISE_FLOOR);
     const collinearVerdicts = (angle: number): string[] => {
         const along = unit(angle);
         const verdicts: string[] = [];
         for (const [first, second] of [[{x: 0, y: 0}, {x: 10, y: 0}], [{x: 10, y: 0}, {x: 0, y: 0}]]) {
-            const [, , type] = intersectRays(makeRay(first, along), makeRay(second, along), SKELETON_NOISE_FLOOR);
+            const [, , type] = intersectRays(
+                makeRay(first, along), makeRay(second, along), SKELETON_NOISE_FLOOR, bar);
             verdicts.push(type);
         }
         return verdicts;
     };
 
-    it.each([0, 1e-9, 1e-7, 1e-6, 1e-5, PARALLEL_GATE_SINE_BAR * 0.5])(
+    it.each([0, 1e-9, 1e-7, 1e-6, 1e-5, bar * 0.5])(
         'reaches a collinear verdict from both ends at a ray tilt of %p',
         (tilt) => {
-            const verdicts = collinearVerdicts(tilt);
-            expect(verdicts.every(type => type.startsWith('co-linear'))).toBe(true);
+            expect(collinearVerdicts(tilt).every(type => type.startsWith('co-linear'))).toBe(true);
         },
     );
 
-    it('is not vacuous: past the gate the pair is no longer collinear from either end', () => {
-        const verdicts = collinearVerdicts(1e-2);
-        expect(verdicts.some(type => type.startsWith('co-linear'))).toBe(false);
+    it('is not vacuous: past the bar the pair is no longer collinear from either end', () => {
+        expect(collinearVerdicts(bar * 2).some(type => type.startsWith('co-linear'))).toBe(false);
     });
 });

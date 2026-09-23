@@ -9,7 +9,7 @@ import {
 import {vectorsAreEqual} from "./core-functions";
 import {addInEdges} from "./graph-helpers";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
-import {coaxialityFloor} from "./constants";
+import {angularResolution, coaxialityFloor} from "./constants";
 
 export interface SubPolygonResult {
     graph: StraightSkeletonGraph;
@@ -255,6 +255,7 @@ export function makeMergedSolverContext(
         // merging a finished pair of graphs is not asked for a tolerance it has no use for.
         perceptualFloor,
         coaxialityFloor: coaxialityFloor(perceptualFloor),
+        angularResolution: angularResolution(perceptualFloor),
         // Nothing runs against a merged context, so nothing adds to this; it is here so the shape is
         // one shape.
         diagnostics: [],

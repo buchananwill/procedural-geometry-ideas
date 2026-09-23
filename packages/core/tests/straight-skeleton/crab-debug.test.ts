@@ -11,7 +11,7 @@ import {
     dotProduct,
     scaleVector
 } from '@proc-geo/core';
-import {intersectRays, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
+import {angularResolution, intersectRays, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 import {generateSplitEventFromTheEdgeItself} from '@proc-geo/core';
 import type {AlgorithmStepInput, RayProjection, Vector2} from '@proc-geo/core';
 
@@ -256,7 +256,7 @@ describe('Crab Test Case Debug', () => {
                 const eB = context.getInteriorWithId(activeIds[j]);
                 const rayA = context.projectRayInterior(eA);
                 const rayB = context.projectRayInterior(eB);
-                const intersection = intersectRays(rayA, rayB, SKELETON_NOISE_FLOOR);
+                const intersection = intersectRays(rayA, rayB, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR));
                 let collisionStr: string;
                 try {
                     const collisions = collideEdges(activeIds[i], activeIds[j], context);
@@ -277,7 +277,7 @@ describe('Crab Test Case Debug', () => {
                 const instigatorRay = context.projectRayInterior(ie);
                 const extEdge = context.getEdgeWithId(ext);
                 const extRay = context.projectRay(extEdge);
-                const initial = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR);
+                const initial = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR));
                 let collisionStr: string;
                 try {
                     const collisions = collideEdges(ie.id, ext, context);
@@ -334,7 +334,7 @@ describe('Crab Test Case Debug', () => {
 
                 const extEdge = context.getEdgeWithId(ext);
                 const extRay = context.projectRay(extEdge);
-                const initialTest = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR);
+                const initialTest = intersectRays(instigatorRay, extRay, SKELETON_NOISE_FLOOR, angularResolution(SKELETON_NOISE_FLOOR));
 
                 const splitResult = generateSplitEventFromTheEdgeItself(ie.id, ext, context);
                 const cwParent = context.clockwiseParent(ie);

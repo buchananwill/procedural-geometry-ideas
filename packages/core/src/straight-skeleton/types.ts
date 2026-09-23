@@ -160,6 +160,14 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      */
     coaxialityFloor: number;
     /**
+     * THE angular resolution for this solve, as a sine (spec A1–A8, journal decision 146): the one bar
+     * below which two directions are identical and above which an intersection of them is priced.
+     * Derived once from {@link perceptualFloor} by `angularResolution` at context construction and
+     * carried here, beside {@link coaxialityFloor}, so every angular site spends the same double and
+     * no site recomputes the square root (spec A8).
+     */
+    angularResolution: number;
+    /**
      * Informational reports the SOLVE itself made, as opposed to the boundary stage.
      *
      * The only producer today is A19's coaxial completion, which is entered deep inside the per-arity

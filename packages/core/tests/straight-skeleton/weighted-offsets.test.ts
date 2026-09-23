@@ -20,7 +20,7 @@ import {
 import {
     MAX_WEIGHT_RATIO,
     MIN_WEIGHT_TURN_SINE,
-    PARALLEL_GATE_SINE_BAR,
+    angularResolution,
     SKELETON_NOISE_FLOOR,
     FLOATING_POINT_EPSILON,
     SkeletonSolveResult,
@@ -368,8 +368,13 @@ describe('weighted offsets: the three refusals (§5 bar 9)', () => {
         expect(MAX_WEIGHT_RATIO).toBe(SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON);
     });
 
-    it('W49: the turn guard reuses the parallel gate rather than minting a new bar', () => {
-        expect(MIN_WEIGHT_TURN_SINE).toBe(PARALLEL_GATE_SINE_BAR);
+    it('W49: the turn guard is its own constant, frozen at the retired gate\'s value (spec A22, O3 interim)', () => {
+        // The alias to the retired `PARALLEL_GATE_SINE_BAR` is cut (journal decision 146): the gate is
+        // now the floor-dependent `angularResolution`, and the velocity bound must not move with the
+        // client's floor. The VALUE is frozen, bit for bit, at `sqrt(ε(2 − ε))` — no behaviour moves —
+        // until the tolerance package (register C8) re-derives it from the kernel's own error budget.
+        expect(MIN_WEIGHT_TURN_SINE).toBe(Math.sqrt(FLOATING_POINT_EPSILON * (2 - FLOATING_POINT_EPSILON)));
+        expect(MIN_WEIGHT_TURN_SINE).not.toBe(angularResolution(SKELETON_NOISE_FLOOR));
     });
 
     it('§4.7 W49: a weight change at the invisible vertex is refused, naming that vertex', () => {

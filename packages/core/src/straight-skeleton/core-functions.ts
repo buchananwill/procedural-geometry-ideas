@@ -1,5 +1,5 @@
 import {RayProjection, Vector2} from "./types";
-import {DIRECTION_SINE_BAR, FLOATING_POINT_EPSILON} from "./constants";
+import {FLOATING_POINT_EPSILON} from "./constants";
 
 export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
     return Math.abs(a - b) < epsilon;
@@ -148,8 +148,12 @@ export function dotProduct(a: Vector2, b: Vector2): number {
  * These two functions are the whole of the replacement. Both work on RAW vectors: the operand
  * magnitudes appear on the right-hand side instead of being divided out on the left, so a caller
  * with a raw separation vector no longer has to normalise before asking, and the amplification that
- * normalising a near-zero separation causes never happens. See {@link DIRECTION_SINE_BAR} for why
- * the form matters as much as the number.
+ * normalising a near-zero separation causes never happens.
+ *
+ * NO DEFAULT BAR (spec A15, journal decision 146). Both used to default to the retired
+ * `DIRECTION_SINE_BAR`, a module constant; the bar is now the solve's own `angularResolution`, a
+ * function of the client's floor carried on the solver context, and a default here would freeze it
+ * at one value one hop away from every caller. Every caller states its bar.
  */
 
 /**
@@ -161,7 +165,7 @@ export function dotProduct(a: Vector2, b: Vector2): number {
  *
  * A zero-length operand fails: the angle to a vector with no direction is not below anything.
  */
-export function sineIsBelow(a: Vector2, b: Vector2, bar: number = DIRECTION_SINE_BAR): boolean {
+export function sineIsBelow(a: Vector2, b: Vector2, bar: number): boolean {
     return Math.abs(crossProduct(a, b)) < bar * sizeOfVector(a) * sizeOfVector(b);
 }
 
@@ -176,7 +180,7 @@ export function sineIsBelow(a: Vector2, b: Vector2, bar: number = DIRECTION_SINE
  * is `directionsAreSame(subtractVectors(point, source), basis)`, with no normalisation of the
  * separation anywhere in it.
  */
-export function directionsAreSame(a: Vector2, b: Vector2, bar: number = DIRECTION_SINE_BAR): boolean {
+export function directionsAreSame(a: Vector2, b: Vector2, bar: number): boolean {
     return dotProduct(a, b) > 0 && sineIsBelow(a, b, bar);
 }
 

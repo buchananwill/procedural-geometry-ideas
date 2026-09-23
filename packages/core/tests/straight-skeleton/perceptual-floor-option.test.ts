@@ -1,6 +1,10 @@
 import {
+    angularResolution,
     canonicaliseForSolve,
+    conditioningBound,
     flattenRecursiveTree,
+    makeStraightSkeletonSolverContext,
+    perceptualBound,
     runAlgorithmV5,
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
@@ -164,6 +168,39 @@ describe('a coarser floor never adds geometry', () => {
                 previous = reading;
             }
         });
+
+    /**
+     * THE LADDER IS A LADDER OF BARS TOO (spec A23, journal decision 146). The angular resolution is
+     * a function of the floor — `max(√2·δ, sqrt(2√2·u/δ))` — so each rung solves at its own bar, and
+     * the context a solve builds carries exactly that bar. Asserted per rung, as the numbers:
+     *
+     *     δ        1e-6        3e-6        1e-5        3e-5        1e-4
+     *     bar      1.7721e-5   1.0231e-5   1.4142e-5   4.2426e-5   1.4142e-4
+     *     governs  condition.  condition.  perception  perception  perception
+     *
+     * INSTRUCTIVELY NON-MONOTONE: coarsening the floor LOOSENS the perceptual bound and TIGHTENS the
+     * conditioning one, so the bar falls from the library floor to a minimum at the crossover
+     * (δ* ≈ 5.39e-6, where it is 2⁻¹⁷ ≈ 7.63e-6) and rises after it. On this ladder the minimum is the
+     * 3e-6 rung, and the 1e-5 rung's bar is looser than it.
+     */
+    it('carries each rung\'s own angular resolution, non-monotone in the floor', () => {
+        const bars = LADDER.map(perceptualFloor =>
+            makeStraightSkeletonSolverContext(JITTERED, perceptualFloor).angularResolution);
+
+        expect(bars).toEqual(LADDER.map(angularResolution));
+        const expected = [1.77206e-5, 1.02310e-5, 1.41421e-5, 4.24264e-5, 1.41421e-4];
+        bars.forEach((bar, rung) => expect(bar).toBeCloseTo(expected[rung], 9));
+
+        // The two rungs either side of the crossover, and which bound each one is.
+        expect(bars[0]).toBe(conditioningBound(LADDER[0]));
+        expect(bars[1]).toBe(conditioningBound(LADDER[1]));
+        expect(bars[2]).toBe(perceptualBound(LADDER[2]));
+        // The minimum is interior, not at an end: the ladder falls, then rises.
+        expect(bars.indexOf(Math.min(...bars))).toBe(1);
+        expect(bars[1]).toBeLessThan(bars[0]);
+        expect(bars[2]).toBeGreaterThan(bars[1]);
+        expect(bars[2]).toBeLessThan(bars[0]);
+    });
 
     /**
      * The recursion's answer to the same question, at the level the pass-down actually operates on.

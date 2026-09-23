@@ -10,7 +10,7 @@ import {
 } from "./types";
 import {complexLog, splitLog} from "./logger";
 import {
-    areEqual, crossProduct, dotProduct,
+    crossProduct, dotProduct,
     findPositionAlongRay,
     makeRay,
     negateVector,
@@ -109,7 +109,8 @@ function findOffsetViaIncenter(
     // pair `findOffsetByDirectStrike` reports, so both split paths now describe their event the same
     // way.
     const intersectionData = intersectRays(
-        instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor);
+        instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor,
+        context.angularResolution);
 
     return {offsetDistance: timeOf(arrival), arrival, position, intersectionData};
 }
@@ -243,12 +244,25 @@ export function generateSplitEventViaBisector(
  * source vertex is a strike on that line like any other, and discarding it is the strict
  * inequality speaking, not the geometry.
  *
- * The zero is tested with the standing `areEqual` tolerance rather than exact equality, because
- * the vertex the bisector points at is reached through a normalisation and a bisection and lands
- * on the line to within the same absolute epsilon everything else here is measured against.
+ * The zero is tested against a tolerance rather than exact equality, because the vertex the
+ * bisector points at is reached through a normalisation and a bisection and lands on the line only
+ * to within the arithmetic that built it.
+ *
+ * THE TOLERANCE IS THE COAXIALITY FLOOR — A DISTANCE, NOT AN ANGLE (spec A15's
+ * `generateSplitEventFromTheEdgeItself` row, journal decisions 144 and 146). "Does this strike land
+ * at the split edge's own end?" is a distance-to-zero question along the edge's unit ray, so it is
+ * asked in the floor's category: a strike within the client's floor of the vertex IS a strike at the
+ * vertex. Was `areEqual(alongEdge, 0)`, the scratch epsilon, which decision 144 retires. `≤`, the
+ * lane's own inequality, as in `sourceLiesAhead`.
+ *
+ * EXPORTED FOR ITS OWN TEST, not for other callers — see `slightly-deformed-peanut.test.ts`.
  */
-function reachesSupportingLine([alongInstigator, alongEdge, resultType]: IntersectionResult): boolean {
-    return resultType === 'converging' || (alongInstigator > 0 && areEqual(alongEdge, 0));
+export function reachesSupportingLine(
+    [alongInstigator, alongEdge, resultType]: IntersectionResult,
+    coaxialityFloor: number,
+): boolean {
+    return resultType === 'converging'
+        || (alongInstigator > 0 && Math.abs(alongEdge) <= coaxialityFloor);
 }
 
 export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
@@ -259,10 +273,12 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const backwardsEdgeSplitRay = context.projectRayReversed(edgeToSplit);
     const instigatorRay = context.projectRayInterior(instigatorData);
 
-    const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay, context.coaxialityFloor);
+    const initialIntersectionTest = intersectRays(instigatorRay, edgeSplitRay, context.coaxialityFloor,
+        context.angularResolution);
     const initialIntersectionTest2 = intersectRays(
-        instigatorRay, backwardsEdgeSplitRay, context.coaxialityFloor);
-    if (!reachesSupportingLine(initialIntersectionTest) && !reachesSupportingLine(initialIntersectionTest2)) {
+        instigatorRay, backwardsEdgeSplitRay, context.coaxialityFloor, context.angularResolution);
+    if (!reachesSupportingLine(initialIntersectionTest, context.coaxialityFloor)
+        && !reachesSupportingLine(initialIntersectionTest2, context.coaxialityFloor)) {
         // We expect now to handle the "near miss" scenarios via the intersections of the bisectors themselves.
         return null;
     }

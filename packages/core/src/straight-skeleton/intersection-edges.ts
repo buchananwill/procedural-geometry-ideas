@@ -6,7 +6,6 @@ import {
     normalize, rotateCw90, rotateWs90, sineIsBelow, sizeOfVector,
     subtractVectors
 } from "./core-functions";
-import {PARALLEL_GATE_SINE_BAR} from "./constants";
 
 /**
  * The lateral distance from `separation` to the line through `basisVector` — `|sep| · sin θ`, said
@@ -65,13 +64,13 @@ export function symmetricLateralOffset(separation: Vector2, basis1: Vector2, bas
  * SYMMETRIC BY DEFINITION, NOT AS A REFINEMENT. `intersectRays` orders its two rays by the winding
  * SIGN of a near-zero cross product, so a one-sided lateral is a verdict that can flip on the bases'
  * last bits. The two laterals differ by up to `|sep| · sine(b₁, b₂)`, and the pair's sine is bounded
- * only by the parallel gate (`1.4142e-4` today), so at separations above about `0.04` the two
- * readings straddle a `1e-6` lane and the pair is head-on or parallel according to which ray the
- * caller passed first. The conjunction removes the question: BOTH sources must lie in the lane.
+ * only by the angular resolution (`1.7721e-5` at the library floor; the retired gate was
+ * `1.4142e-4`), so at separations above about `0.06` the two readings straddle a `1e-6` lane and the
+ * pair is head-on or parallel according to which ray the caller passed first. The conjunction removes the question: BOTH sources must lie in the lane.
  *
  * THE FORWARD TEST STAYS ONE-SIDED, and that is a measurement rather than an oversight. Reaching
- * here means the pair is anti-parallel to within the gate, so `dot(−sep, b₂)` and `dot(sep, b₁)`
- * agree in sign except where both are within `|sep| · 1.4142e-4` of zero — and a separation that
+ * here means the pair is anti-parallel to within the angular resolution, so `dot(−sep, b₂)` and
+ * `dot(sep, b₁)` agree in sign except where both are within `|sep| · angularResolution` of zero — and a separation that
  * nearly perpendicular carries a lateral of nearly `|sep|`, which the lane above has already
  * refused unless `|sep| ≤ δ`, in which case `intersectRays`' identical-source exit fired first.
  */
@@ -90,16 +89,18 @@ function sourceLiesAhead(
  * If the two rays are parallel, return value is [+inf, +inf, type] unless both sources lie on same line.
  * Type gives category of result.
  *
- * `coaxialityFloor` IS A REQUIRED PARAMETER, NOT A MODULE DEFAULT (spec A15's principle). The
- * coaxiality lane is the client's perceptual floor, which is per-solve and travels on the solver
- * context; a default here would freeze it at the library value and reintroduce, one hop away, the
- * very "one number read in two spaces" this bar exists to end. Every production caller threads
- * `context.coaxialityFloor`; a caller with no context states the floor it means.
+ * `coaxialityFloor` AND `angularResolution` ARE REQUIRED PARAMETERS, NOT MODULE DEFAULTS (spec A15's
+ * principle and its signature row). Both are functions of the client's perceptual floor, which is
+ * per-solve and travels on the solver context; a default here would freeze either at the library
+ * value and reintroduce, one hop away, the very "one number read in two spaces" these bars exist to
+ * end. Every production caller threads `context.coaxialityFloor` and `context.angularResolution`; a
+ * caller with no context states the bars it means.
  * */
 export function intersectRays(
     ray1Param: RayProjection,
     ray2Param: RayProjection,
     coaxialityFloor: number,
+    angularResolution: number,
 ): IntersectionResult {
     const checkWinding = crossProduct(ray1Param.basisVector, ray2Param.basisVector)
     const ray1 = checkWinding >= 0 ? ray1Param : ray2Param;
@@ -144,6 +145,24 @@ export function intersectRays(
      *
      * The coaxiality lane itself (`sourceLiesAhead`) is untouched by this and stands; it is a
      * different site with a different measurement. Left here, reported rather than papered over.
+     *
+     * RE-MEASURED 2026-09-23 UNDER JOURNAL DECISION 138(a)'s INSTRUMENT, AND REVERTED AGAIN (journal
+     * decisions 144 and 146, dispatch 1 of the angular package). The move was made again on top of
+     * the derived angular resolution, and it STANDS only if every causality oracle count (offset,
+     * clearance, direction) is zero or unchanged on every cell AND no solve goes from a signalled
+     * failure to `complete: true` with empty diagnostics. Measured over `FULL_CORPUS`, Circle 48 and
+     * Rosette5 40 at the forty-six fine translations 1e8..1e13, and `NEAR_REGULAR_CIRCLE_32` jittered
+     * at 1/3/10/15/30/100 epsilons of its span over seeds 0..7 (199 cells):
+     *
+     *   - the corpus itself is untouched — every fixture's verdict and oracle counts identical;
+     *   - 32 cells go from a signalled failure to complete with empty diagnostics — 12 of Circle 48
+     *     (2e9, 5e9..1e10, 2e10..6e10), 13 of Rosette5 40 (7e10..1e12) and 7 jittered circles, among
+     *     them 15@2 again (offset 0→2, clearance 0→2, direction 0→2);
+     *   - 68 cells grow an oracle count — Circle 48 at 4e10..6e10 goes to 8 offset and 8 direction
+     *     violations from 2 and 1 — and 15 jittered-circle cells that solved now fail.
+     *
+     * Both halves of the instrument fail, so the exit stays at the arithmetic bar until the tolerance
+     * package (register C8) moves the half-merge windows that feed it.
      */
     if (areEqual(distanceToRay2, 0)) {
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
@@ -154,27 +173,33 @@ export function intersectRays(
 
     // Near-parallel guard — intersection would be at meaningless distance.
     //
-    // WAS `areEqual(Math.abs(dotOfBasisVectors), 1)`, which is this same bar said in dot space:
-    // `1 − |cos θ| < ε` is exactly `|sin θ| < sqrt(ε(2 − ε))`, so the constant carries the identical
-    // verdict and the derivation is now written down instead of being a four-order surprise waiting
-    // for whoever compared this line against a component-wise `vectorsAreEqual` elsewhere.
-    if (sineIsBelow(ray1.basisVector, ray2.basisVector, PARALLEL_GATE_SINE_BAR)) {
+    // AT THE SOLVE'S ANGULAR RESOLUTION (spec A1, A15), on the rays that will actually be intersected
+    // (spec A20: the ray-direction group, so under weights the weighted bisector bases). Below it the
+    // division by the sine cannot place the meeting point to within the client's floor (spec A3), and
+    // under ordering (i) at equality (spec A11) the pair is IDENTICAL in direction: it leaves by the
+    // collinear, head-on or parallel exits below and is never priced. At or above it, it is priced.
+    // Was the retired `PARALLEL_GATE_SINE_BAR`, the scratch epsilon read through `areEqual(|dot|, 1)`.
+    //
+    // MEASURED 2026-09-23: the full-graph digest is bit-identical across all 59 fixtures, and on the
+    // off-edge jitter sweeps the move re-pairs four cells structurally (node counts ±1, no oracle
+    // moves) and gives ONE unpinned cell — the plus at k = 10, seed 23757 — one offset and one
+    // direction violation it did not have, while it still completes. Reported, not pinned.
+    if (sineIsBelow(ray1.basisVector, ray2.basisVector, angularResolution)) {
         if (dotOfBasisVectors > 0) {
             // BOTH COLLINEARITY TESTS AT THE GATE'S OWN BAR, on the RAW separation.
             //
             // These two branches are mirror images — "ray 2's source lies along ray 1" and "ray 1's
-            // source lies back along ray 2" — and they were asked at bars four orders apart: a bare
-            // `1e-4` here and the default `1e-8` below, on normalised vectors, neither commented.
-            // That is journal decision 105's charge in its purest form: one separation could be
-            // collinear or not collinear according to which of the two symmetric paths reached it.
-            // They now share the bar of the gate that admitted them, which is the only choice that
-            // leaves no band where a pair is parallel enough to enter this branch and not collinear
-            // enough to leave it by either exit.
-            if (directionsAreSame(relativeRay2Source, ray1.basisVector, PARALLEL_GATE_SINE_BAR)) {
+            // source lies back along ray 2" — and they were once asked at bars four orders apart.
+            // They share the bar of the gate that admitted them — the angular resolution — which is
+            // the only choice that leaves no band where a pair is parallel enough to enter this
+            // branch and not collinear enough to leave it by either exit.
+            // OWED UNDER SPEC A15: these exits take the coaxial form (forward sign + lateral within
+            // `coaxialityFloor`, as `sourceLiesAhead`); deferred to the anti-parallel-arm package
+            // (dispatch 2) by journal decision 147.
+            if (directionsAreSame(relativeRay2Source, ray1.basisVector, angularResolution)) {
                 return [distanceToRay2, 0, 'co-linear-from-1'];
             }
-            if (directionsAreSame(relativeRay2Source, negateVector(ray2.basisVector),
-                PARALLEL_GATE_SINE_BAR)) {
+            if (directionsAreSame(relativeRay2Source, negateVector(ray2.basisVector), angularResolution)) {
                 return [0, distanceToRay2, 'co-linear-from-2'];
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];

@@ -6,6 +6,7 @@ import type {
     Vector2,
 } from "@proc-geo/core";
 import {
+    angularResolution,
     coaxialityFloor,
     computePrimaryInteriorEdges,
     computePrimaryEdgeIntersections,
@@ -153,24 +154,30 @@ export function useSkeletonAnimation(
     // The coaxiality lane the overlay's ray intersections are answered at (spec A9/A10): the host
     // page's own floor, resolved exactly as the solve resolves it, so the drawing and the solve
     // agree about which two lines are one line.
-    const overlayCoaxialityFloor = coaxialityFloor(resolvePerceptualFloor({ perceptualFloor }));
+    const overlayFloor = resolvePerceptualFloor({ perceptualFloor });
+    const overlayCoaxialityFloor = coaxialityFloor(overlayFloor);
+    // And the angular resolution (spec A1), from the same resolved floor, for the same reason: the
+    // overlay and the solve agree about which two directions are one direction.
+    const overlayAngularResolution = angularResolution(overlayFloor);
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
         try {
             // W-spec W15 / arc decision 114(ii): the overlay is drawn at the SOLVE's weights.
-            return computePrimaryInteriorEdges(vertices, overlayCoaxialityFloor, weights);
+            return computePrimaryInteriorEdges(
+                vertices, overlayCoaxialityFloor, overlayAngularResolution, weights);
         } catch {
             // A weights array of the wrong length is refused rather than padded; the overlay is a
             // drawing, so it goes away rather than taking the canvas down with it.
             return [];
         }
-    }, [showPrimaryEdges, vertices, overlayCoaxialityFloor, weights]);
+    }, [showPrimaryEdges, vertices, overlayCoaxialityFloor, overlayAngularResolution, weights]);
 
     const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
         if (primaryEdges.length === 0) return [];
-        return computePrimaryEdgeIntersections(primaryEdges, overlayCoaxialityFloor);
-    }, [primaryEdges, overlayCoaxialityFloor]);
+        return computePrimaryEdgeIntersections(
+            primaryEdges, overlayCoaxialityFloor, overlayAngularResolution);
+    }, [primaryEdges, overlayCoaxialityFloor, overlayAngularResolution]);
 
     // Clear animation state when the polygon or its weights change
     useEffect(() => {

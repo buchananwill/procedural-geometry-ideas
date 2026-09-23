@@ -567,4 +567,23 @@ describe('wavefront causality', () => {
     it.each(BACKWARDS_BISECTOR_CELLS)('%s points no bisector backwards', (_name, vertices) => {
         expect(findBackwardsRateViolations(vertices).join('; ')).toBe('');
     });
+
+    /**
+     * ONE MOVED AND FLAGGED CELL of this generator (journal decision 147): circle 32 jittered at 1x
+     * the tolerance, seed 5. Attributed to `ensureBisectionIsInterior`'s "is this vertex straight?"
+     * test moving from the retired 1e-8 to the angular resolution (journal decision 146), measured
+     * by holding that one site at its old bar with every other site at its new one. The move reaches
+     * this cell once and re-pairs it — 53 nodes to 52 — and its causality counts move MIXED:
+     * offset 1 → 2, clearance 6 → 4, direction 2 → 1, still solving complete. Pinned with its counts
+     * so a change that cures or worsens it is loud.
+     */
+    it('circle 32 jittered at 1x the tolerance, seed 5, carries its pinned causality counts', () => {
+        const vertices = jitterCell(NEAR_REGULAR_CIRCLE_32, 1, 5);
+        expect(runAlgorithmV5(vertices).graph.nodes).toHaveLength(52);
+        expect({
+            offset: findOffsetViolations(vertices).length,
+            clearance: findClearanceViolations(vertices).length,
+            direction: findDirectionViolations(vertices).length,
+        }).toEqual({offset: 2, clearance: 4, direction: 1});
+    });
 });

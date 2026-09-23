@@ -14,7 +14,7 @@ import {
     negateVector,
     sineIsBelow
 } from "./core-functions";
-import {DIRECTION_SINE_BAR} from "./constants";
+import {FLOATING_POINT_EPSILON} from "./constants";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
 import {arrivalOf, timeOf} from "./collision-helpers";
@@ -39,31 +39,31 @@ import {arrivalOf, timeOf} from "./collision-helpers";
  * one and two epsilons reads as a zero rate and a non-zero turn. This decides that sliver the same
  * way the rate branch would have.
  *
- * THE NON-COINCIDENCE ABOVE IS AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105, and it is written
- * here rather than closed because closing it is a value change nothing has measured. Both sites now
- * ask `sineIsBelow` at {@link DIRECTION_SINE_BAR}, so the EXPRESSION is unified — but they ask it of
- * different operands: this one of `(cw, ws)` directly, the rate of `(bisectedBasis, cw)`, which is
- * the same cross product divided by `|cw − ws|`. Where the parents are anti-parallel that divisor is
- * ≈2, so a turn between one and two epsilons is still "no turn" to one predicate and "a turn" to the
- * other.
+ * THE NON-COINCIDENCE ABOVE IS AN OPEN DISAGREEMENT UNDER JOURNAL DECISION 105 (D14). The two
+ * sites ask one expression of different operands: this one of `(cw, ws)` directly, the rate of
+ * `(bisectedBasis, cw)`, which is the same cross product divided by `|cw − ws|`. Spec A15 closes it
+ * by moving BOTH to the angular resolution on `(cw, ws)`. This site moved (2026-09-23, journal
+ * decision 146); the rate's zero test did NOT — both readings of that move were refused by the corpus,
+ * measured at the site in {@link addBisectionEdge} — so D14 stays open, now the other way round:
+ * the rate's zero is reached only below `1e-8`, and every vertex that reaches it reads straight here.
  *
- * MEASURED, AND THE CORPUS SAYS THE SLIVER IS EMPTY IN BOTH DIRECTIONS. Widening the rate's zero
- * test from 1e-8 to 1e-6 leaves the full-graph digest of all 59 fixtures bit-identical; widening it
- * to 1e-2 — six orders — leaves the digest bit-identical AND the whole suite green at 5124/5124. So
- * no bisector anywhere in the corpus carries a rate between 1e-8 and 1e-2: the quantity is either
- * machine-zero or of order one, with nothing in between, and the acknowledged hole is a hole nothing
- * has ever fallen into. TODO nonetheless, because that is a property of THIS corpus rather than of
- * the construction: the discriminating fixture would be a pair of near-anti-parallel walls at a turn
- * of a few epsilons, and none exists to build the conviction on.
+ * MEASURED, THE SLIVER THIS MOVE DECIDES IS NOT EMPTY OFF THE CORPUS. The full-graph digest of all
+ * 59 fixtures is bit-identical under the move, as the 2026-08 widening measurements predicted; but
+ * `NEAR_REGULAR_CIRCLE_32` jittered at one epsilon of its span, seed 5 (a cell of
+ * `wavefront-causality.test.ts`'s generator, unpinned) reaches it once, and moves: 53 nodes to 52,
+ * offset violations 1 → 2, clearance 6 → 4, direction 2 → 1. Reported rather than pinned.
  */
-export function ensureBisectionIsInterior(clockwiseEdge: PolygonEdge, widdershinsEdge: PolygonEdge, bisectedBasis: Vector2
+export function ensureBisectionIsInterior(
+    clockwiseEdge: PolygonEdge,
+    widdershinsEdge: PolygonEdge,
+    bisectedBasis: Vector2,
+    angularResolution: number,
 ) {
     const cross = crossProduct(clockwiseEdge.basisVector, widdershinsEdge.basisVector);
-    // The zero test is `sineIsBelow`, the one angular basis (journal decision 105), rather than an
-    // `areEqual` on the cross: the two are the same bar on unit bases and the same number, but only
-    // one of them says which space it is in.
-    const straight = sineIsBelow(clockwiseEdge.basisVector, widdershinsEdge.basisVector,
-        DIRECTION_SINE_BAR);
+    // "Is this vertex straight?" — at the solve's angular resolution (spec A15), on the RAW PARENT
+    // directions (spec A20: an input-geometry question, which carries no weight). A REQUIRED
+    // parameter because this function has no context; `addBisectionEdge` hands it the context's.
+    const straight = sineIsBelow(clockwiseEdge.basisVector, widdershinsEdge.basisVector, angularResolution);
     return cross < 0 && !straight ? negateVector(bisectedBasis) : bisectedBasis;
 }
 
@@ -184,16 +184,42 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     const offsetRate = bisectorOffsetRate(context, newEdge, bisectedBasis);
     let finalBasis: Vector2;
 
-    // THE ZERO TEST IS THE ONE ANGULAR BASIS; ONLY THE SIGN COMES FROM THE RATE ITSELF. The rate is
+    // THE ZERO TEST IS IN THE ONE ANGULAR FORM; ONLY THE SIGN COMES FROM THE RATE ITSELF. The rate is
     // `cross(bisectedBasis, clockwiseParent)` and both operands are unit, so `sineIsBelow` is the
     // same bar and the same number as the `areEqual(offsetRate, 0)` this replaces — but it names the
     // space, which `areEqual` on a cross product never did (journal decision 105).
+    //
+    // THIS ONE STAYS AT THE SCRATCH EPSILON, ON THE RATE'S OWN OPERANDS — A MEASURED STOP, NOT AN
+    // OMISSION (spec A15's `addBisectionEdge` row, A25 STOPs 3 and 4; journal decision 146). The spec
+    // moves it to the angular resolution on the RAW PARENT directions `(cw, ws)`, the operands
+    // `ensureBisectionIsInterior` reads, to close D14. Both readings of that row were measured on
+    // 2026-09-23 and both were refused by the corpus:
+    //
+    //   - LITERALLY, orientation-blind — `sineIsBelow(cw, ws, angularResolution)`: a near-STRAIGHT
+    //     vertex (parents pointing the same way, sine under the bar) then takes this branch, where
+    //     `ensureBisectionIsInterior` calls it straight and never flips a bisector that
+    //     `normalize(c − b)` pointed out of the polygon. `Off-edge Jitter Reflex L (seed 55433)` and
+    //     `Off-edge Jitter Plus (seed 7919)` STOP SOLVING (STOP 3), and four clean fixtures (T-Shape,
+    //     both dumbbells, Three Globe Chain) reach the branch they never reached.
+    //   - ORIENTATION-AWARE — `directionsAreSame(cw, −ws, angularResolution)`, anti-parallel parents
+    //     only, which is what "a zero rate" means: three bisectors are born with a NEGATIVE offset
+    //     rate — `Off-edge Jitter Plus (seed 7919)` e48 at −8.77e-6 and e52 at −3.42e-6,
+    //     `Off-edge Jitter Reflex L (seed 55433, k=4)` e48 at −7.75e-6 — breaking the bisector rate
+    //     rule, which `wavefront-causality.test.ts` holds universal over `FULL_CORPUS`, and adding a
+    //     direction violation to each fixture's pinned causality signature (STOP 4).
+    //
+    // A rate of a few parts in 1e6 is a real, if slow, wavefront direction: pricing it as zero hands
+    // the direction to the parent ordering, which disagrees with the rate's sign. So the rate's own
+    // zero test keeps the arithmetic bar it had, and D14 stays open — now with `ensureBisectionIsInterior`
+    // at the resolution, where the rate's zero is reached only below `1e-8` and every such vertex reads
+    // straight. The tolerance package (register C8) owns this site's re-derivation.
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
-        DIRECTION_SINE_BAR);
+        FLOATING_POINT_EPSILON);
     if (!zeroRate) {
         finalBasis = offsetRate < 0 ? negateVector(bisectedBasis) : bisectedBasis;
     } else {
-        finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis)
+        finalBasis = ensureBisectionIsInterior(clockwiseEdge, widdershinsEdge, bisectedBasis,
+            context.angularResolution)
     }
 
     graph.edges.push({id, source, basisVector: finalBasis})
@@ -225,11 +251,13 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         }
         const polygonEdge = context.getEdgeWithId(i);
         const exteriorEdgeRay = context.projectRay(polygonEdge)
-        const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay, context.coaxialityFloor);
+        const [ray1Length, ray2Length] = intersectRays(newRay, exteriorEdgeRay, context.coaxialityFloor,
+            context.angularResolution);
         if (ray1Length > 0 && ray2Length > 0) {
             const exteriorTargetNode = context.graph.nodes[polygonEdge.target!]
             const rayFromTargetEnd = makeRay(exteriorTargetNode.position, negateVector(polygonEdge.basisVector));
-            const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd, context.coaxialityFloor);
+            const [ray1LengthTarget, ray2LengthTarget] = intersectRays(newRay, rayFromTargetEnd,
+                context.coaxialityFloor, context.angularResolution);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 // W-spec W16: `maxOffset` is a TIME. At unit weights `distance / 1.0` is exact.
                 const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length))

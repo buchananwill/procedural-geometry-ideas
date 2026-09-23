@@ -29,17 +29,16 @@ import {
     birthArrivalOf,
     collideInteriorEdges,
     compareArrivals,
+    priceHeadOnPair,
 } from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {
-    DIRECTION_SINE_BAR,
     FLOATING_POINT_EPSILON,
     MAX_WEIGHT_RATIO,
     MIN_WEIGHT_TURN_SINE,
-    PARALLEL_GATE_SINE_BAR,
     TRIANGLE_INTERSECT_PAIRINGS,
 } from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
@@ -90,6 +89,40 @@ function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): 
 }
 
 /**
+ * Does the point at `separation` from a ray's source lie ON that ray, travelling forward?
+ *
+ * ONE PREDICATE FOR THE TWO POINT-ON-RAY SITES — {@link tryAttachEdgeToNode} and
+ * {@link solveDegenerateClosure} — on the raw separation, with no division by its length.
+ *
+ * IT STAYS AT THE SCRATCH EPSILON, AS A SINE — A MEASURED STOP, NOT AN OMISSION (spec A15's
+ * point-on-ray row, A25 STOP 4; journal decision 146). The spec moves it into the floor's category:
+ * forward by the exact sign and LATERAL within the coaxiality floor, the form `sourceLiesAhead` uses,
+ * so a node the coincidence merge displaced by a sub-floor distance is recognised on the ray it sits
+ * on. That form was written and measured on 2026-09-23, each site alone and all other sites at their
+ * old bars, over `FULL_CORPUS`, Circle 48 and Rosette5 40 at the forty-six fine translations
+ * 1e8..1e13, and `NEAR_REGULAR_CIRCLE_32` jittered at 1..100 epsilons over eight seeds:
+ *
+ *   - the corpus is untouched at both sites;
+ *   - at the SNAP ({@link tryAttachEdgeToNode}) 16 cells grow a causality count — Circle 48 at
+ *     5e9..8e9 gains an offset and a clearance violation, at 2e10..1e11 an offset violation — and
+ *     the jittered circle at 3 epsilons, seed 6, goes from a signalled failure to `complete: true`
+ *     with empty diagnostics while carrying 3 offset and 1 direction violations;
+ *   - at the CLOSURE ({@link solveDegenerateClosure}) four cells go from a signalled failure to
+ *     complete with empty diagnostics: Circle 48 at 2e9 — leaving the pinned failing list of
+ *     `large-coordinate-known-failures.test.ts` while still carrying its clearance violation — and
+ *     three jittered circles, one of which gains an offset violation it did not have. One of the
+ *     four (30 epsilons, seed 7) comes out clean.
+ *
+ * A defect that stops announcing itself is a defect that got worse (journal decisions 72 and
+ * 134(c)): the same failure mode decision 138(a) measured at `intersectRays`' identical-source exit.
+ * Both sites therefore keep the arithmetic bar they had, `directionsAreSame` at the epsilon, until
+ * the tolerance package (register C8) moves the half-merge windows these displaced nodes come from.
+ */
+function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
+    return directionsAreSame(separation, basis, FLOATING_POINT_EPSILON);
+}
+
+/**
  * For a given edge, scan all existing nodes to see if any node lies exactly
  * along the edge's basis direction from its source.  If found, wire up
  * target / inEdges and return true.
@@ -134,8 +167,10 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // which is the form the ruling removes: the division by `distance` is unbounded as the
         // candidate approaches the source, so the nearest nodes — exactly the ones this loop is
         // looking for — were judged on the noisiest reading of their own direction.
+        // Its bar is argued, and its move to the coaxiality floor measured and refused, at
+        // {@link pointLiesOnRay}.
         if (!(distance > 0 && distance < nearestDistance
-            && directionsAreSame(separation, edgeData.basisVector, DIRECTION_SINE_BAR))) {
+            && pointLiesOnRay(separation, edgeData.basisVector))) {
             continue;
         }
 
@@ -203,7 +238,7 @@ function resolveEdgesPointingAtNodes(context: StraightSkeletonSolverContext, edg
  * self-loop and is marked `culled`, so consumers can tell this deliberate retirement apart from a
  * self-loop that would indicate a solver defect.
  */
-function applyDegenerateClosure(context: StraightSkeletonSolverContext, edgeIds: number[], position: Vector2): void {
+export function applyDegenerateClosure(context: StraightSkeletonSolverContext, edgeIds: number[], position: Vector2): void {
     const unresolved = edgeIds.filter(id => context.getEdgeWithId(id).target === undefined);
     if (unresolved.length > 0) {
         context.terminateEdgesAtPoint(unresolved, position);
@@ -260,8 +295,8 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
             }
 
             // Same point-on-ray predicate as `tryAttachEdgeToNode`, on the raw separation — see
-            // there for why normalising first was the defect rather than the convenience.
-            if (!directionsAreSame(separation, ray.basisVector, DIRECTION_SINE_BAR)) {
+            // {@link pointLiesOnRay} for its bar and why normalising first was the defect.
+            if (!pointLiesOnRay(separation, ray.basisVector)) {
                 valid = false;
                 break;
             }
@@ -308,19 +343,22 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * predicate, so the anti-parallel pair that shares the 'parallel' verdict — two vertices retreating
  * from each other — is excluded rather than closed. It was written as `areEqual(dot, 1)`.
  *
- * ONE QUESTION, ONE BAR — journal decision 107(a). This function used to ask parallelism twice, four
- * orders apart: the parent gate below at {@link DIRECTION_SINE_BAR} (1e-8, a cross product against
- * zero from the start) and this bisector test at `PARALLEL_GATE_SINE_BAR` (1.4142e-4, inherited from
- * `areEqual(dot, 1)`). MEASURED 2026-08-29, and the two bars are NOT symmetric in what they hold up:
- *   - Loosening the PARENT gate to the gate bar is caught — the plus's pinned 4-of-80 off-edge
- *     jitter cells move (`along-edge-jitter-known-failures.test.ts`). It is load-bearing at 1e-8.
- *   - Tightening THIS test to `DIRECTION_SINE_BAR` is caught by NOTHING: the corpus digest is
- *     bit-identical across all 59 fixtures and the whole suite passes.
- * The four orders were unconvicted headroom on this corpus rather than a measured requirement, and
- * a value no instrument can see is the class the tolerance audit flagged (canonicalisation's
- * segment-vs-line stood unconvicted for years). Both readings of "these directions agree" now sit at
- * `DIRECTION_SINE_BAR`, so a bisector set and its parent set are held to the same standard of
- * parallelism, which is what makes the gate's argument about the two apply.
+ * ONE QUESTION, ONE BAR — journal decision 107(a), and now spec A11. This function used to ask
+ * parallelism twice, four orders apart: the parent gate at 1e-8 and this bisector test at 1.4142e-4.
+ * MEASURED 2026-08-29: loosening the PARENT gate to 1.4142e-4 was caught (the plus's pinned
+ * 4-of-80 off-edge jitter cells moved), tightening the bisector test to 1e-8 was caught by nothing;
+ * both then sat at the retired `DIRECTION_SINE_BAR`.
+ *
+ * BOTH NOW READ THE SOLVE'S ANGULAR RESOLUTION (spec A15, A20; journal decision 146). The bisector
+ * test is a ray-direction question; the parent gate an input-geometry one, on the RAW wall
+ * directions. The parent gate was OPEN DECISION O2 — follow the resolution, or keep the 1e-8 107(a)
+ * measured load-bearing — and it was MEASURED BOTH WAYS on 2026-09-23 over all 320 cells of the
+ * off-edge (plus and reflex L, 1e-3) and along-edge (stage off) jitter sweeps, every other site at
+ * its new bar: the two gates differ in exactly ONE cell, the plus at k = 3, seed 47514, which the
+ * resolution CURES — a step failure and unresolved edges become a complete solve with zero offset,
+ * clearance and direction violations. Nothing worsens anywhere, so the gate follows the resolution.
+ * The 2026-08-29 cells were moved by a bar 5.6× looser than this one (`1.4142e-4` against
+ * `1.7721e-5`); at the derived value none of them moves but that one, and it moves the right way.
  *
  * THE ANCHOR IS THE LEADING SOURCE, and it has to be: every other edge terminated there travels
  * forward along its own basis, while any earlier anchor wires an edge to a point behind its own
@@ -350,7 +388,7 @@ function solveParallelClosure(
         .map(parentId => context.getEdgeWithId(parentId).basisVector);
     for (let i = 0; i < parents.length; i++) {
         for (let j = i + 1; j < parents.length; j++) {
-            if (!sineIsBelow(parents[i], parents[j], DIRECTION_SINE_BAR)) {
+            if (!sineIsBelow(parents[i], parents[j], context.angularResolution)) {
                 return undefined;
             }
         }
@@ -359,7 +397,7 @@ function solveParallelClosure(
     const bases = interiorEdgeIds.map(id => context.getEdgeWithId(id).basisVector);
     for (let i = 0; i < bases.length; i++) {
         for (let j = i + 1; j < bases.length; j++) {
-            if (!directionsAreSame(bases[i], bases[j], DIRECTION_SINE_BAR)) {
+            if (!directionsAreSame(bases[i], bases[j], context.angularResolution)) {
                 return undefined;
             }
         }
@@ -397,8 +435,8 @@ interface CoaxialCompletion {
  *
  * The answer the model supplies: among the anti-parallel, pointing-together pairs, the one with the
  * SMALLEST symmetric lateral offset is the pair that collides, and it is priced `head-on`. The gate
- * for "anti-parallel" is the EXISTING one — `intersectRays`' own parallel gate, unchanged by this
- * package — so this narrows nothing that the normal lane already decided; the offset ordering is the
+ * for "anti-parallel" is `intersectRays`' own — the solve's angular resolution — so this narrows
+ * nothing that the normal lane already decided; the offset ordering is the
  * same symmetric measure {@link sourceLiesAhead} tests against the lane, used here to rank rather
  * than to admit.
  *
@@ -409,6 +447,9 @@ interface CoaxialCompletion {
  *
  * Returns `undefined` when there is no candidate pair at all, and the throw then stands — removing
  * it would convert a signalled failure into a silent one.
+ *
+ * ALREADY EDGE-COUNT INDEPENDENT: it ranks every pair of the live set, so the triangle and the n-gon
+ * reach it unchanged through {@link climbTerminalLadder} (journal decision 145).
  */
 function findCoaxialCompletion(
     context: StraightSkeletonSolverContext,
@@ -425,7 +466,7 @@ function findCoaxialCompletion(
 
             // ANTI-PARALLEL PER THE EXISTING GATE, and opposed in orientation by the exact sign —
             // the same two halves `intersectRays` splits its parallel branch on.
-            if (!sineIsBelow(first.basisVector, second.basisVector, PARALLEL_GATE_SINE_BAR)
+            if (!sineIsBelow(first.basisVector, second.basisVector, context.angularResolution)
                 || dotProduct(first.basisVector, second.basisVector) >= 0) {
                 continue;
             }
@@ -445,6 +486,61 @@ function findCoaxialCompletion(
     }
 
     return best;
+}
+
+/** A rung of the terminal ladder that applied, and what it decided (journal decision 145). */
+export type TerminalLadderRung =
+    | {rung: 'closure'; position: Vector2}
+    | {rung: 'completion'; completion: CoaxialCompletion};
+
+/**
+ * THE TERMINAL LADDER, INDEPENDENT OF EDGE COUNT — journal decision 145.
+ *
+ * Reached by every per-arity handler — the pair, the triangle and the n-gon — at the one state they
+ * share: a sub-polygon with live interior edges for which the collision generators produced no
+ * event. An n-gon whose live edges meet at a point is a generalisation of the triangle, and the
+ * solver refused it the same handling only because the terminal cases were first characterised too
+ * simply; today every handler climbs the same rungs in the same order.
+ *
+ *   1. THE CLOSURES — statements about the whole live set, and TERMINAL solves.
+ *      {@link solveDegenerateClosure} (every live edge closes on one source at one shared offset),
+ *      then {@link solveParallelClosure} (every live vertex travels the same way, so no future event
+ *      exists). Returns the closure point; the caller applies it with {@link applyDegenerateClosure}.
+ *   2. THE COMPLETION — a RECOVERY FROM REFUSAL (spec A19, journal decision 136 as amended). A
+ *      bounded wavefront with live vertices must have a next event, so a no-event state is a
+ *      predicate refusing one that exists: {@link findCoaxialCompletion} names the anti-parallel,
+ *      pointing-together pair of smallest symmetric lateral offset. It is RECORDED here as a
+ *      `coaxial-completion` diagnostic, so it is signalled and never silent; the caller prices the
+ *      pair head-on in its own arity's terms.
+ *   3. `undefined` — no rung applies and NO CANDIDATE PAIR EXISTS. The caller throws: removing that
+ *      throw would convert a signalled failure into a silent one.
+ *
+ * Decision 78's many-way clustering is untouched: it handles arrivals that are found and coincide;
+ * this ladder covers the state where no arrival is found at all.
+ */
+export function climbTerminalLadder(
+    context: StraightSkeletonSolverContext,
+    interiorEdgeIds: number[],
+): TerminalLadderRung | undefined {
+    const closure = solveDegenerateClosure(context, interiorEdgeIds)
+        ?? solveParallelClosure(context, interiorEdgeIds);
+    if (closure !== undefined) {
+        return {rung: 'closure', position: closure};
+    }
+
+    const completion = findCoaxialCompletion(context, interiorEdgeIds);
+    if (completion !== undefined) {
+        context.diagnostics.push({
+            kind: 'coaxial-completion',
+            detail: `Sub-polygon [${interiorEdgeIds.join(', ')}] produced no event and no `
+                + `closure; completed by pricing e${completion.firstId} against `
+                + `e${completion.secondId} as head-on at a symmetric lateral offset of `
+                + `${completion.offset} against a coaxiality lane of ${context.coaxialityFloor}.`,
+        });
+        return {rung: 'completion', completion};
+    }
+
+    return undefined;
 }
 
 export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
@@ -488,6 +584,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         context.projectRayInterior(interior1),
         context.projectRayInterior(interior2),
         context.coaxialityFloor,
+        context.angularResolution,
     );
 
     // Head on Collision
@@ -523,28 +620,19 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         }
 
         if (collisions.length === 0) {
-            // Nothing collided in either ordering and no anchor closes the pair, so the last
-            // question is whether a collision was ever possible. Same-direction parallel rays are
-            // the case where it was not.
-            const parallelClosure = solveParallelClosure(context, input.interiorEdges);
-            if (parallelClosure !== undefined) {
-                applyDegenerateClosure(context, input.interiorEdges, parallelClosure);
+            // Nothing collided in either ordering, so the pair is on the TERMINAL LADDER (journal
+            // decision 145) — the same ladder the triangle and the n-gon climb: a closure if either
+            // applies (same-direction parallel rays are the case where no collision was ever
+            // possible), else the coaxial completion, else the throw.
+            const rung = climbTerminalLadder(context, input.interiorEdges);
+            if (rung?.rung === 'closure') {
+                applyDegenerateClosure(context, input.interiorEdges, rung.position);
                 return {childSteps: []};
             }
-
-            // THE COMPLETION, BEFORE THE THROW (spec A19). See {@link findCoaxialCompletion}: this
-            // is the state the model says cannot exist, so it is completed rather than refused, and
-            // the completion is recorded so it is signalled and never silent.
-            const completion = findCoaxialCompletion(context, input.interiorEdges);
-            if (completion !== undefined) {
-                context.diagnostics.push({
-                    kind: 'coaxial-completion',
-                    detail: `Sub-polygon [${input.interiorEdges.join(', ')}] produced no event and no `
-                        + `closure; completed by pricing e${completion.firstId} against `
-                        + `e${completion.secondId} as head-on at a symmetric lateral offset of `
-                        + `${completion.offset} against a coaxiality lane of ${context.coaxialityFloor}.`,
-                });
-                context.crossWireEdges(completion.firstId, completion.secondId);
+            if (rung?.rung === 'completion') {
+                // Two live edges ARE the pair: pricing them head-on wires each to the other's source,
+                // the ridge between the two sources, as the head-on branch above does.
+                context.crossWireEdges(rung.completion.firstId, rung.completion.secondId);
                 context.acceptAll(input.interiorEdges);
                 return {childSteps: []};
             }
@@ -801,20 +889,32 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     const best = bestNonPhantomCollision(allCollisions);
 
     if (!best) {
-        // A triangle whose exterior parents are all parallel defeats every pairwise generator:
-        // the terminal solve is singular, head-on rates cancel, and perpendicular arrivals meet
-        // at an existing source with zero travel ('diverging'). If the whole triangle closes on
-        // one edge's source at a single shared offset, terminate it there — the anchor edge
-        // becomes a culled self-loop. Failing that, and as in the two-edge base case, a triangle
-        // whose three vertices all travel the same way has no future event either, and closes at
-        // its leading source rather than throwing.
-        const closure = solveDegenerateClosure(context, input.interiorEdges)
-            ?? solveParallelClosure(context, input.interiorEdges);
-        if (closure === undefined) {
+        // THE TERMINAL LADDER (journal decision 145), the same one the pair and the n-gon climb.
+        // A triangle whose exterior parents are all parallel defeats every pairwise generator: the
+        // terminal solve is singular, head-on rates cancel, and perpendicular arrivals meet at an
+        // existing source with zero travel ('diverging'). If the whole triangle closes on one edge's
+        // source at a single shared offset, it terminates there — the anchor edge becomes a culled
+        // self-loop — and a triangle whose three vertices all travel the same way has no future event
+        // either and closes at its leading source. Failing both, the coaxial completion.
+        const rung = climbTerminalLadder(context, input.interiorEdges);
+        if (rung === undefined) {
             throw new Error(`Failed to collide interior edges in triangle: ${stringifyFinalData(context, input)}`);
         }
 
-        applyDegenerateClosure(context, input.interiorEdges, closure);
+        if (rung.rung === 'closure') {
+            applyDegenerateClosure(context, input.interiorEdges, rung.position);
+            return {childSteps: []};
+        }
+
+        // THE COMPLETION, IN THE TRIANGLE'S OWN TERMS: the named pair is priced head-on exactly as
+        // `collideInteriorEdges` prices a head-on verdict, and — as with any best collision here —
+        // the whole triangle terminates at that event's point.
+        const event = priceHeadOnPair(
+            context.getInteriorWithId(rung.completion.firstId),
+            context.getInteriorWithId(rung.completion.secondId),
+            context);
+        context.terminateEdgesAtPoint(input.interiorEdges, event.position);
+        context.acceptAll(input.interiorEdges);
         return {childSteps: []};
     }
 

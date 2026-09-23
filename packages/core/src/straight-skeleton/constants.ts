@@ -4,82 +4,122 @@ export const FLOATING_POINT_EPSILON = 0.00000001;
 
 /*
  * ----------------------------------------------------------------------------
- * THE ANGULAR BARS — ONE BASIS, WRITTEN AS A SINE, DERIVED FROM THE EPSILON
+ * THE ANGULAR RESOLUTION — ONE BAR, DERIVED FROM THE CLIENT'S FLOOR AND THE ROUNDOFF
  * ----------------------------------------------------------------------------
  *
- * Journal decision 105: "a single value must never receive different verdicts depending on which
- * code path reached the predicate". Angle was where the solver broke that rule worst, and the
- * mechanism was that NOTHING SAID WHICH SPACE A BAR LIVED IN. The same `FLOATING_POINT_EPSILON`
- * meant ≈1e-8 rad applied component-wise to two unit vectors and 1.41e-4 rad applied to their dot
- * product — one number, two meanings, four orders apart — and a third site carried a bare `1e-4`
- * with no comment anywhere in the record.
+ * Spec A1–A8 (angular-predicate-basis-decisions.md), journal decisions 134, 144 and 146. There is ONE
+ * angular resolution, a FUNCTION of the client's perceptual floor δ, and every angular predicate in
+ * the solver — "are these two directions identical?" and "can these two rays be intersected?" —
+ * reads it. It replaces two retired constants, `DIRECTION_SINE_BAR` (1e-8, the epsilon read as a
+ * sine) and `PARALLEL_GATE_SINE_BAR` (1.4142e-4, the epsilon read through `areEqual(|dot|, 1)`),
+ * which were one scratch constant read in two spaces four orders apart. NEITHER TERM BELOW CONTAINS
+ * `FLOATING_POINT_EPSILON` (spec A6, decision 144): the only two legitimate sources of a tolerance
+ * are the client's floor δ ("visibly the same") and the double's unit roundoff u ("arithmetically
+ * distinguishable"), and the resolution is the larger of one bound drawn from each.
  *
- * Both bars below are stated in ONE space, the SINE of the angle, and both are tested in the
- * division-free relative form the ruling names:
+ * Every angular test keeps the division-free relative form journal decision 105 ruled:
  *
- *     |cross(a, b)|  <  bar · |a| · |b|
+ *     |cross(a, b)|  <  angularResolution · |a| · |b|
  *
- * rather than by normalising the operands and comparing them. That matters for more than tidiness.
- * Normalising divides by a length, and a division by a quantity tending to zero amplifies float
- * noise without bound: a genuinely head-on pair whose sources were 3.9e-8 apart came out with a
- * lateral component of 6.2e-9 — numerically zero — yet a unit direction 0.15 away from the basis,
- * and was misread as parallel (`intersection-edges.ts`). The polynomial form asks the same question
- * of the raw operands and never divides, so one bar means one angle at every magnitude, and the
- * predicate no longer depends on whether the caller happened to normalise first.
+ * THE ORDERING IS (i) AT EQUALITY (spec A11): identity's bar and priceability's bar are one number,
+ * so below the resolution a pair is not priceable and IS identical (closed or merged as parallel),
+ * and at or above it the pair is priced. There is no band between the two.
  *
- * NEITHER IS A NEW NUMBER. Both are derived from {@link FLOATING_POINT_EPSILON}, and the derivation
- * is written here rather than left to be inferred from an effective value someone measured later.
+ * COMPUTED ONCE, AT CONTEXT CONSTRUCTION (spec A8): `makeStraightSkeletonSolverContext` stores
+ * `angularResolution(perceptualFloor)` on the context beside `coaxialityFloor`, and every site reads
+ * that field. A `sqrt` in an inner-loop predicate is slow, and two sites computing it separately
+ * could disagree in the last bit.
  */
 
 /**
- * "The arithmetic cannot tell these two directions apart."
- *
- * The epsilon itself, read as a sine — one radian of angle is one unit of sine at this scale, so
- * `1e-8` here is `1e-8` radians and says so. This is the bar for questions of IDENTITY: does this
- * point lie on that ray, does this bisector run along that basis. It replaces
- * `vectorsAreEqual(unitA, unitB)`, whose component-wise box was the same bar to within a factor of
- * √2 but was anisotropic — a pair separated along the diagonal was judged more leniently than the
- * same separation along an axis — and which required its operands to be normalised first.
+ * The unit roundoff of IEEE-754 binary64 under round-to-nearest: `u = 2⁻⁵³`, HALF of
+ * `Number.EPSILON`. Every correctly rounded operation returns `x(1 + ε)` with `|ε| ≤ u`.
  */
-export const DIRECTION_SINE_BAR = FLOATING_POINT_EPSILON;
+export const UNIT_ROUNDOFF = Number.EPSILON / 2;
 
 /**
- * "These two directions are parallel enough that solving for their intersection is meaningless."
+ * The absolute rounding error of the evaluated cross product of two unit vectors, in units of
+ * {@link UNIT_ROUNDOFF}: **k = 2**. ARGUED HERE (spec I6 flagged the spec's `4u` as an estimate).
  *
- * THE EXACT SINE-SPACE RESTATEMENT OF `areEqual(|dot(a, b)|, 1)`, not an approximation of it and not
- * a value anyone picked. For unit `a`, `b`:
+ * The expression is `crossProduct(a, b) = a.x*b.y − b.x*a.y`, evaluated by JavaScript as two
+ * correctly rounded products and one correctly rounded subtraction — IEEE-754 double, round to
+ * nearest, and NO fused multiply-add (ECMAScript specifies each `*` and `−` as its own rounded
+ * operation; engines may not contract them). Write `P = a.x·b.y`, `Q = b.x·a.y` exactly. Then
  *
- *     1 − |cos θ| < ε   ⟺   cos²θ > (1 − ε)²   ⟺   sin²θ < 1 − (1 − ε)²   =   ε(2 − ε)
+ *     p̂ = P(1 + ε₁),   q̂ = Q(1 + ε₂),   ĉ = (p̂ − q̂)(1 + ε₃),   |εᵢ| ≤ u
  *
- * so the dot-space test at `ε` IS the sine-space test at `sqrt(ε(2 − ε))` — **1.4142e-4**. The four
- * orders between this and {@link DIRECTION_SINE_BAR} were never a choice; they were the epsilon
- * being read in a space where its own square root is the bar, in three places, with the comments at
- * all three calling it "the standing tolerance".
+ *     ĉ − (P − Q) = P·ε₁ − Q·ε₂ + (p̂ − q̂)·ε₃
+ *     |ĉ − (P − Q)| ≤ u·(|P| + |Q|) + u·|p̂ − q̂|
  *
- * IT IS A CONDITIONING GATE, NOT AN IDENTITY CLAIM, and that is why it stands beside the identity
- * bar rather than being collapsed into it. What it guards is a DIVISION: `intersectRays` divides by
- * the sine to place the meeting point, so a pair at 1e-6 radians is priced at 1e6 times its own
- * separation — a distance the solve cannot use whatever it means geometrically.
+ * For unit `a`, `b`, Cauchy–Schwarz on `(|a.x|, |a.y|)·(|b.y|, |b.x|)` gives `|P| + |Q| ≤ |a|·|b| = 1`,
+ * and `|p̂ − q̂| ≤ |P − Q| + u(|P| + |Q|) ≤ |sin θ| + u`. So
  *
- * TWO BARS IS THE MEASURED OUTCOME, NOT THE UNEXAMINED ONE. Journal decision 105 asks for ONE
- * predicate basis, and the collapse was attempted in BOTH directions and refused by the corpus in
- * both. Setting this to {@link DIRECTION_SINE_BAR}: the clean roster stays bit-identical, but 13
- * tests across 4 suites fail — every pinned large-coordinate signature moves (Circle 48 at 1e10,
- * Rosette5 40 at 1e11, the 29-cell scatter, the 48-way half-merge mechanism), the off-edge jitter
- * class moves, and the recursion census gate fires on unattributed movement. Setting
- * {@link DIRECTION_SINE_BAR} to this instead: the clean roster again stays bit-identical, but the
- * `seed 55433, k=4` fixture STOPS SOLVING — `complete` goes true → false with a step failure — and
- * four defect fixtures move.
+ *     |ĉ − sin θ|  ≤  u · (1 + |sin θ|) + u²   ≤   2u + u²
  *
- * So the four orders between the two bars are load-bearing, and what the ruling actually buys here
- * is that the two are now DECLARED, in one space, with one derivation each, instead of being the
- * same constant read in two spaces by accident of which spelling a site reached for. TODO: the
- * disagreement is real and stands — a value at 1e-6 radians is "the same direction" to the gate and
- * "a different direction" to the identity bar. Closing it needs the large-coordinate class ruled
- * first, because that class is what both collapses break.
+ * at EVERY angle — the classical `γ₂` bound for a two-term dot product, to first order. In the
+ * near-parallel regime the resolution actually decides (`|sin θ| ≲ 1e-4`) the third rounding
+ * contributes `u·|sin θ|`, four orders below the first two, and when `p̂` and `q̂` share a sign and lie
+ * within a factor of two of each other Sterbenz's lemma makes the subtraction EXACT (`ε₃ = 0`), so the
+ * error there is `u(|P| + |Q|) ≤ u`. The spec's operands are not exactly unit — a normalised double
+ * has `| |a| − 1 | ≲ 2u` — which moves the bound by `O(u²)` only.
+ *
+ * SO THE CONSTANT IS 2, NOT 3, 4 OR 6. `2u` is the smallest integer multiple of `u` that bounds the
+ * error at every angle (`1u` holds only inside the near-parallel regime, and only just: `u(1 + |sin θ|)`
+ * exceeds it). `3u`, `4u` and `6u` arise only by charging the OPERANDS' own normalisation error —
+ * at most `u` of angle per normalised vector — to the cross product. That is excluded here on the
+ * backward-error reading the conditioning bound needs: the solver's rays ARE the stored doubles, the
+ * intersection `intersectRays` owes is the intersection of THOSE rays, and the only error the
+ * division by `sin θ` amplifies is the error of evaluating `sin θ` from them. An upstream direction
+ * error is a modelling error in the ray, present whether or not anything divides by it.
+ *
+ * Integer-valued and stated as a separate constant so that the C++ port (spec A26.2) reproduces the
+ * product `k · √2 · u` in the same order, bit for bit.
  */
-export const PARALLEL_GATE_SINE_BAR = Math.sqrt(
-    FLOATING_POINT_EPSILON * (2 - FLOATING_POINT_EPSILON));
+export const CROSS_PRODUCT_ROUNDING_UNITS = 2;
+
+/**
+ * The PERCEPTUAL bound on a turn the client can see, as a sine: `√2 · δ` (spec A2).
+ *
+ * A vertex with incident edges of length `L` and turn angle `θ` sits `h ≈ L·θ/2` from the chord
+ * joining its neighbours; the client resolves the turn when `h ≥ δ`, i.e. `θ ≥ 2δ/L`. The bound must
+ * hold for the longest edge a unit-extent region can carry, `L ≤ √2`, so the bound is
+ * `2δ/√2 = √2·δ`. Evaluated in the region's own unit frame (spec A7).
+ */
+export function perceptualBound(perceptualFloor: number): number {
+    return Math.SQRT2 * perceptualFloor;
+}
+
+/**
+ * The CONDITIONING bound below which an intersection cannot be priced to within the floor, as a
+ * sine: `sqrt(k·√2·u / δ)` with `k` = {@link CROSS_PRODUCT_ROUNDING_UNITS} (spec A3, constant argued
+ * there).
+ *
+ * `intersectRays` divides by `sin θ`, computed as a cross product of unit vectors carrying an
+ * absolute error of at most `k·u`. The resulting positional error is `|sep| · k·u / sin²θ`; bounding
+ * it under the floor δ with `|sep| ≤ √2` in unit extent gives `sin²θ ≥ k·√2·u / δ`.
+ *
+ * PRODUCT ORDER IS PART OF THE DEFINITION (spec A26.2): `k · √2` and then `· u` are both exact (`k`
+ * is 2 and `u` a power of two), so the only roundings are the division by δ and the square root.
+ */
+export function conditioningBound(perceptualFloor: number): number {
+    return Math.sqrt(CROSS_PRODUCT_ROUNDING_UNITS * Math.SQRT2 * UNIT_ROUNDOFF / perceptualFloor);
+}
+
+/**
+ * THE angular resolution at floor δ: `max(perceptualBound(δ), conditioningBound(δ))` (spec A1).
+ *
+ * THE `max` IS LIVE ON BOTH SIDES OF THE FLOOR LADDER (spec A4). The two bounds cross at
+ * `δ* = (k·u/√2)^(1/3)` — with `k = 2`, `(√2·u)^(1/3) ≈ 5.39e-6`. Below it the conditioning bound
+ * governs (`1.772e-5` at the library floor `1e-6`, 12.5× the perceptual bound); above it perception
+ * governs (`1.4142e-5` at the demo floor `1e-5`). The resolution is therefore NOT monotone in δ: it
+ * falls from the library floor to a minimum at the crossover and rises after it.
+ *
+ * Read BY THE SOLVER ONLY THROUGH `StraightSkeletonSolverContext.angularResolution` (spec A8); a
+ * caller with no context states the value it means by calling this.
+ */
+export function angularResolution(perceptualFloor: number): number {
+    return Math.max(perceptualBound(perceptualFloor), conditioningBound(perceptualFloor));
+}
 
 /**
  * Area below which a region counts as degenerate — the one floor, for every "is this sub-polygon
@@ -126,14 +166,22 @@ export const MAX_WEIGHT_RATIO = 100;
  * weights `(1, 16)`, where the `1e-8` time window becomes a spatial slack of `0.15`, a seventh of
  * the unit extent. {@link MAX_WEIGHT_RATIO} cannot bound it, so a second guard is required.
  *
- * IT REUSES AN EXISTING BAR RATHER THAN MINTING ONE. {@link PARALLEL_GATE_SINE_BAR} is already the
- * one answer to "is this turn too small to price?", and a weight change at a turn the solver refuses
- * to price an intersection at is the same question. Above the bar the kernel is well conditioned by
- * the bar's own derivation: `|v| ≤ |w₁ − w₂| / 1.41e-4`, at most `7.1e3 · |w₁ − w₂|`.
+ * AN INTERIM ARITHMETIC CONSTANT, FROZEN AT ITS HISTORICAL VALUE, AWAITING RE-DERIVATION (spec A22,
+ * open decision O3 ruled (c) interim by journal decision 146; journal-5 register C8, the tolerance
+ * derivation package). It used to ALIAS the retired `PARALLEL_GATE_SINE_BAR`, borrowing that bar's
+ * number for a DIFFERENT conditioning question: this guards the weighted vertex-velocity kernel,
+ * whose magnitude is `|w₁ − w₂| / φ` as `φ → 0`, not `intersectRays`' division. The gate is now the
+ * floor-dependent `angularResolution`, and had the alias followed it the velocity bound would have
+ * moved silently with the client's floor (`7.1e3·|w₁ − w₂|` becoming `5.6e4·|w₁ − w₂|` at the
+ * library floor). So the alias is cut and the value frozen: `sqrt(ε(2 − ε))` at the scratch epsilon,
+ * **1.4142e-4**, exactly the number the guard has always used — no behaviour moves. Above it the
+ * kernel is conditioned as before: `|v| ≤ |w₁ − w₂| / 1.41e-4`, at most `7.1e3 · |w₁ − w₂|`. Its own
+ * derivation, from the kernel's error budget against the floor, is C8's work (option (b)); it still
+ * descends from `FLOATING_POINT_EPSILON`, which decision 144 retires, and says so.
  *
  * UNIT WEIGHTS NEVER REACH IT: the guard requires `w₁ ≠ w₂` before it looks at the turn at all.
  */
-export const MIN_WEIGHT_TURN_SINE = PARALLEL_GATE_SINE_BAR;
+export const MIN_WEIGHT_TURN_SINE = Math.sqrt(FLOATING_POINT_EPSILON * (2 - FLOATING_POINT_EPSILON));
 
 /**
  * "Are these two sources on ONE LINE?" — the LANE WIDTH, in distance, for the coaxiality question

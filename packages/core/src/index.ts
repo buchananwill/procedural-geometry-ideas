@@ -63,15 +63,18 @@ export {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 export {
+  angularResolution,
   coaxialityFloor,
+  conditioningBound,
+  CROSS_PRODUCT_ROUNDING_UNITS,
   DEGENERATE_AREA_EPSILON,
-  DIRECTION_SINE_BAR,
   FLOATING_POINT_EPSILON,
   MAX_WEIGHT_RATIO,
   MIN_WEIGHT_TURN_SINE,
   NO_COLLISION_RESULTS,
-  PARALLEL_GATE_SINE_BAR,
+  perceptualBound,
   TRIANGLE_INTERSECT_PAIRINGS,
+  UNIT_ROUNDOFF,
 } from './straight-skeleton/constants';
 
 // ── Core math ────────────────────────────────────────────────────────────────

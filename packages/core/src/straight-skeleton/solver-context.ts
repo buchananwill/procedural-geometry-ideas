@@ -23,7 +23,7 @@ import {intersectRays} from "./intersection-edges";
 import {birthArrivalOf, compareArrivals, timeOf} from "./collision-helpers";
 import {complexLog, splitLog} from "./logger";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
-import {coaxialityFloor} from "./constants";
+import {angularResolution, coaxialityFloor} from "./constants";
 
 /**
  * `perceptualFloor` is the client's floor for this solve, in the unit space `nodes` are given in. It
@@ -44,6 +44,9 @@ export function makeStraightSkeletonSolverContext(
     // DERIVED ONCE, HERE (spec A9/A10). Every coaxiality site in the solve spends this one number,
     // so two sites cannot answer "are these two sources on one line?" differently.
     const coaxialLane = coaxialityFloor(perceptualFloor);
+    // DERIVED ONCE, HERE, AND FOR THE SAME REASON (spec A8): the one angular bar of the solve. Every
+    // angular predicate reads this field; none recomputes the square root.
+    const angularBar = angularResolution(perceptualFloor);
 
     /**
      * The wavefront speed of an exterior edge (W-spec W1).
@@ -259,6 +262,7 @@ export function makeStraightSkeletonSolverContext(
         collisionCache: new Map() as CollisionCache,
         perceptualFloor,
         coaxialityFloor: coaxialLane,
+        angularResolution: angularBar,
         diagnostics: [],
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
@@ -418,8 +422,8 @@ export function makeStraightSkeletonSolverContext(
                 const wsVertex = vertexAtOffset(widdershinsEdge, edgeBasis, widdershinsLocalTime * splitWeight);
                 const cwRay = makeRay(cwVertex, negateVector(edgeBasis));
                 const wsRay = makeRay(wsVertex, edgeBasis);
-                const cwTest = intersectRays(bisectorRay, cwRay, coaxialLane);
-                const wsTest = intersectRays(bisectorRay, wsRay, coaxialLane);
+                const cwTest = intersectRays(bisectorRay, cwRay, coaxialLane, angularBar);
+                const wsTest = intersectRays(bisectorRay, wsRay, coaxialLane, angularBar);
                 const valid =  splitIntersectionOptions.includes(cwTest[2])
                     && splitIntersectionOptions.includes(wsTest[2]);
 
