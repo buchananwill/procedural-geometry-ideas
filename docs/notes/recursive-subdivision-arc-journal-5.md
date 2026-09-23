@@ -111,8 +111,10 @@ pin tables at the tip (`wavefront-causality.test.ts` `DEFECT_CAUSALITY_SIGNATURE
   `[27,29]`; an I3 lean of 8.34e-12 at the split-pass medoid (F44, handoff §6) — the one
   number in this class that is still an unexplained solver residue.
 - Plus seed 7919: census 15, all decision-96 declines; causality 0/0/0 (the three direction
-  violations went under F44, needing both of its changes); no I2 pair. **3 of 80 cells at the
-  1e-3 magnitude sweep still fail to solve** (counts 3, 8, 10) — the only remaining
+  violations went under F44, needing both of its changes); no I2 pair. **~~3 of 80 cells at
+  the 1e-3 magnitude sweep still fail to solve~~ 0 of 80 as of F66 (k=3 by the parent gate,
+  F63; k=8 and k=10 by the coaxial co-linear exits, F66); its census rows re-pinned with
+  the recursion specimens extinct.** Original: 3 of 80 (counts 3, 8, 10) — the only remaining
   refuse-to-solve residue of the class, characterised in the test as near-parallel facing
   walls a few epsilons off parallel, near-head-on pairs missing laterally, and n-gon
   partition failures. The coaxiality lane (F58) has not been re-measured against these
@@ -125,7 +127,11 @@ pin tables at the tip (`wavefront-causality.test.ts` `DEFECT_CAUSALITY_SIGNATURE
   does without those oracles as the instrument: twenty pins move to `complete: true` with
   EMPTY diagnostics while the oracles still count violations.
 
-**A2 — The two large-coordinate cells: Circle 48 at translation 1e10, Rosette5 40 at 1e11.**
+**A2 — *AMENDED by F66 (2026-09-23): both decade cells are CURED by the coaxial co-linear
+exits; the scatter lists are empty; what keeps the two fixtures enrolled is now a set of
+fine-translation cells (Circle 48: 10, Rosette5 40: 9) carrying DIAGNOSED clearance
+violations — signalled by the solver, pinned as flagged. The original entry follows.*
+The two large-coordinate cells: Circle 48 at translation 1e10, Rosette5 40 at 1e11.**
 `large-coordinate-known-failures.test.ts`. One defect, not two: both die in
 `handleInteriorEdgePair` because `intersectRays`' `identical-source` exit is an absolute
 `FLOATING_POINT_EPSILON` against a source separation of 1.72e-8 and 5.99e-8 in unit space.
@@ -194,9 +200,19 @@ The site is known (A2); the non-monotonicity is attributed to centring quantisat
 (decision 81) but the specific arithmetic that makes 1e11 pass again has not been written
 down.
 
+**B7 — `Offset Cross Junction` fails at floors ≤ 3e-6 and solves from 1e-5 up (F67).**
+Reported mechanism: an exactly coaxial opposed pair whose offset rates cancel reaches the
+completion, which prices it, and a step failure follows; at 1e-5 a different route solves
+it. Unverified by the lead; the cancelling-rates branch of `priceHeadOnPair` is the
+suspect. A floor-monotonicity failure of solvability is also the shape decision 131 names
+for canonicalisation, here in the predicate lane. A candidate first item for C8.
+
 ### C. Ruled-but-unbuilt design debt
 
-**C1 — The angular unification package**, spec A1–A8, A11–A14, A16–A18, A20–A22, with O2–O5
+**C1 — ~~The angular unification package~~ LANDED in two dispatches (decisions 146/147,
+150/151; F63, F66). O2 ruled by measurement, O3 frozen for C8, O4 negative with a
+construction, O5 ruled to C8. Residue: the three STOP sites and the identical-source exit
+(C8).** Original entry: spec A1–A8, A11–A14, A16–A18, A20–A22, with O2–O5
 to rule at ratification; plus decision 138(a) (the identical-source exit re-measured with
 the causality oracles) and 138(d) (triangle/n-gon completion). O2: does
 `solveParallelClosure`'s parent gate follow the resolution or stay at 1e-8 (decision 107(a)
@@ -231,9 +247,10 @@ restatement; W46's second landing (sub-region weights, behind C2); `findOffsetVi
 renamed for its linear-form body; spec residue (`arrivalsAreSimultaneous` →
 `areSimultaneousArrivals`; W52(i) 4 ulps → 3; the digest header's W33 sentence).
 
-**C5 — A dashboard defect specimen constructed on purpose** (decision 138(c)). The explorer's
-failed-cell tour has no specimen since r0.1.3 went extinct; the specimen-dependent tests
-assert the extinction. Design act.
+**C5 — A dashboard defect specimen at the DEMO floor.** *Narrowed 2026-09-23:*
+`OFFSET_CROSS_JUNCTION` (decision 151(d), F67) is the corpus specimen but fails only at
+floors ≤ 3e-6; the explorer runs at 1e-5, where it solves. Options: let the tour run at
+the library floor for this fixture, or construct a specimen that fails at 1e-5. Small.
 
 **C6 — Unmeasured bars.** `FRONTAGE_VERTEX_FRACTION` and `RAY_SEGMENT_DETERMINANT_EPSILON`
 (F42); `graph-merge.ts:110`'s caller-space epsilon (measure the residue). Decision 107(b)'s
@@ -554,8 +571,114 @@ per sub-polygon on the merged path (uncovered by mutation, stated), `runAlgorith
 channel-less, causality diagnostics precede `unresolved-edges`, the diagnostic is a typed
 union member, cost ~3% of solve time accepted, no dashboard change needed.
 
+**150 — (user, 2026-09-23: "Proceed with the next package") DISPATCH 2 of the angular
+package goes to Opus on baseline `85f45a8`, with this scope.** IN: spec A16 — the
+anti-parallel arm of `solveParallelClosure` (every pair of bases parallel within the
+resolution, opposed orientations present: classify each opposed pair with `intersectRays`;
+coaxial-and-approaching is `head-on` and PRICED, everything else CLOSED at the leading
+source by `applyDegenerateClosure`), which slots into decision 145's ladder as a closure
+rung and is measured under decision 148's instrument; the `co-linear-from-1/2` exits moved
+to spec A15's coaxial form (forward sign + symmetric lateral ≤ `coaxialityFloor`),
+deferred from dispatch 1 by decision 147(e); spec A24 — the `ANTI_PARALLEL_CORRIDOR_*`
+family (`_COAXIAL`, `_SUB_EPSILON`, `_IN_BAND`, `_ABOVE_FLOOR`) with the swept band pinned
+BEFORE the arm lands and asserted flipped after; O4 — one timeboxed attempt at a plain-ring
+construction via a deliberate near-simultaneous coincidence, the negative recorded in the
+fixture header if it fails; the dispatch-2 table in `angular-predicate-basis.test.ts`
+(cell (c) rows) re-pinned from "reaches the completion or the throw" to "closed at the
+leading source" or "priced head-on", each row saying which. Bars: decision 134's
+contract, A25's STOPs 2–4, digest movement attributed per pin, no `causality-violation`
+diagnostic may APPEAR on a cell that had none (the instrument's own STOP), the completion's
+corpus firing count reported. OUT: C8, C7, the port.
+
+**151 — Rulings on dispatch 2's escalations.** (a) **The A15/A17 overlap is RESOLVED BY THE
+INSTRUMENT, and the 78 cells the coaxial co-linear exits move are CURES (69) and
+FLAGGED-MOVED (8), not a cover-up.** Spec A17's fear — "without the parent gate every
+large-coordinate cell closes and reports complete" — was written when `complete` was the
+only signal. Under decisions 148/149 a closure is judged by the solver's own causality
+check: 69 of the 78 are clean on every oracle at the floor with node counts unchanged, and
+the 8 Circle 48 fine-translation cells keep exactly the clearance counts they carried while
+failing, now as `causality-violation` diagnostics — signalled, therefore pinned as moved
+and flagged, as decision 147(b) did. The parent gate STAYS on `solveParallelClosure`
+(conviction 4 shows it still load-bearing for the arm); the co-linear exits carry no gate
+because they are `intersectRays`' verdict on ONE pair, not a closure over a set. (b)
+**Retreating opposed pairs have no leading source and keep the throw**; spec A16's
+"coaxial-and-retreating is CLOSED" is amended in place — wiring either edge would run it
+backwards (decision 70), no solver-produced state reaches it, and the delegate's control
+pins that. (c) Interpretations 3–9 adopted (head-on inside the arm at the triangle/n-gon
+arities means "decline to the completion, which prices it"; lower edge id breaks the tie
+when both sources lead; the family is in no roster because its displacement is not solver
+input; the recursion specimens' extinction re-pinned on the constructed specimen). (d)
+**`OFFSET_CROSS_JUNCTION` (η = 1e-4), the O4 attempt's by-product, IS the constructed
+defect specimen decision 138(c) wanted (register C5): a real ring on which the completion
+fires on an exactly coaxial pair whose offset rates cancel, then a step failure.** Ruled:
+it is ENROLLED in `KNOWN_DEFECT_POLYGONS` with its signature measured over every
+`FULL_CORPUS` sweep and pinned (decision 72's doctrine; decision 143's completeness bar
+applied at enrolment), ~~and the dashboard's failed-cell tour takes it as its specimen~~ — *AMENDED on the
+delegate's flag: it fails at floors 1e-6 and 3e-6 only and solves complete from 1e-5 up,
+so at the demo floor it appears in the defect list and solves; it is the CORPUS specimen,
+and the dashboard tour's specimen stays open unless the tour can run at the library floor
+(C5 re-opened, narrower)*. (e)
+Circle 48 and Rosette5 40 stay enrolled on their fine-translation clearance signatures (10
+and 9 cells); the decision-66/81 decade cells are now clean.
+
 ---
 ## Findings
+
+**F67 — `Offset Cross Junction` is enrolled as the seventh defect fixture with a COMPLETE
+signature at enrolment (decision 143's bar applied for the first time): corpus 60, digest
+60 pins, no clean-only suite touched.** Its signature: census 12 (root `Incomplete solve`
+in every cell of the 3×4 grid, the driver never recurses); causality 0/0/0 on solver and
+oracle, rate check clean; containment holds (every node strictly inside) with 3 stranded
+edges (26, 27, 32) all reported; strip tiling unmeasurable (`computeMaxOffset` throws);
+I1, I2, I3, I5 hold, I4 fails on two exterior edges with no interior walk (e0 n0→n1, e4
+n4→n5) — the only weak-form violator in the corpus; 2 licensed head-on mid-line pairs
+(15 → 17 corpus-wide); the completion fires ONCE on it at floor 1e-6 and nowhere at 1e-5;
+floor ladder — incomplete at 1e-6 and 3e-6 (18 nodes, 33 edges), complete from 1e-5 up
+(19 nodes, 30 edges); no fold; both region-tree identities hold; all-ones weights
+bit-identical. **Mechanism, as reported, unverified by the lead:** at η ≥ 3e-5 both
+mid-lines land exactly on their own lines, the n-gon [26,27,28,30] produces no event, the
+completion prices the exactly coaxial vertical-corridor pair whose offset rates CANCEL,
+and a step failure follows — so the specimen is a `priceHeadOnPair` cancelling-rates case,
+which a looser floor (1e-5) avoids by a different route. Register **B7** opened for the
+mechanism. Delegate figures: core 5726/5726 (87 suites), dashboard 331/331, builds green. **Lead
+verification on the merged tree: core 5726/5726 (87 suites, 92 s), dashboard 331/331 after
+core and test-fixtures rebuilds, all three builds green — match. Committed as the
+dispatch-2 code commit.**
+
+**F66 — Dispatch 2 landed the anti-parallel arm and the coaxial co-linear exits, and the
+EXITS, not the arm, cured 77 cells that had been signalled failures since the arc began:
+both large-coordinate scatter lists are EMPTY, the plus seed's off-edge sweep is 0 of 80,
+and no region anywhere in the recursion census fails a solve.** Delegate figures before
+the enrolment follow-up: core 5707/5707 (87 suites), dashboard 331/331, builds green,
+digest 0 of 59 moved, `coaxial-completion` firing 0 over 649 cells, no causality diagnostic
+appeared anywhere, STOPs 2–4 untriggered. The A/B toggle attributes the movement: the arm
+alone moves 0 of 649 cells; the co-linear exits at the coaxial form (forward sign +
+symmetric lateral ≤ floor, replacing `directionsAreSame` at the resolution) move 78 — 77
+signalled → complete, one 4 → 1 step failures; across all 78 the node counts are unchanged,
+the rate oracle is zero, solver and test oracle agree, 69 are clean on every oracle and 8
+(Circle 48 at 4e10, 5e10, 6e10, 2e11, 5e12–8e12) keep exactly their failing-time clearance
+counts as diagnostics. Re-pinned with attribution: Circle 48's 29 and Rosette5 40's 15
+scatter cells → none; both survive every decade translation; the Circle 32 1e10/1e11
+exception table emptied; the hub in-degrees at 2e9/1e10/2e10 moved as recorded at the site;
+the plus 2 → 0 of 80; the near-regular seed-2 cell clean; the recursion specimens extinct
+and replaced by the constructed `OFFSET_CROSS_JUNCTION`. The pre/post sweep: every δ ≤ 1e-6
+head-on before and after; 5e-6 and 1e-4 orphan-to-completion before, closed at the leading
+source after (at the 1e-5 floor 5e-6 is inside the lane and head-on both times); no cell
+reaches the throw either time. O4 NEGATIVE, with a construction: an offset cross (a corridor
+with two bars, one raised by η) displaces the mid-line source by η/8, at most 7.8e-8 — a
+single coincidence merge cannot move a source by a whole floor, so no plain ring reaches the
+band, and the ring-plus-displacement form stands; at η ≥ 3e-5 the ring fails a DIFFERENT
+way (the completion fires on an exactly coaxial pair whose rates cancel, then a step
+failure) and is exported as `OFFSET_CROSS_JUNCTION`. Convictions: arm removed kills 5; head-
+on closed instead of priced kills 5; exits reverted kills 26 in 8 suites; the parent gate
+removed no longer reproduces spec A17's cover-up on the large-coordinate cells (they no
+longer reach the closure) but kills the pair-ladder completion test, so the gate is still
+load-bearing for the arm. **Reading, lead's:** the identical-source exit at the floor was
+refused twice (138(a), F64/F65) for making cells silent and jitter cells fail, while the
+co-linear exits at the floor — the same coaxiality question asked from each end — cure 77
+with zero regressions. The difference is what each exit DOES on acceptance: identical-source
+terminates the pair as one point, co-linear closes at the leading source with the geometry
+kept. C8 should read that asymmetry before re-ruling the identical-source site.
 
 **F65 — The causality instrument landed inside the solver, and under it the "silent wrong
 answer" residue of the jitter and large-coordinate classes is almost entirely SUB-FLOOR:
