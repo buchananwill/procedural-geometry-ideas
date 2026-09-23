@@ -255,6 +255,11 @@ simultaneity window is the site expected to move the digest most. Empirical cont
 decision 134. Sequenced AFTER the angular package's first dispatch and BEFORE its positional
 sweep.
 
+**C9 — The causality-diagnostics package** (decision 148). The three oracles move into
+`solveSkeleton` as `causality-violation` diagnostics, always on, tolerance derived from the
+context's floor; test tables assert solver and test-oracle counts agree; D7 resolves
+inside it. Lands before dispatch 2 and before C8.
+
 ### D. Documentation and hygiene
 
 **D1 — The C++ handoff's figures and boundary are stale.** §7 quotes core 5249/5249 at the
@@ -496,6 +501,36 @@ attributed site. The delegate's flag that the "shared oracle" named in the rulin
 exist is accepted: it added `causalityViolations(graph)` to the measurement helpers with
 the causality suite's definitions; the causality suite itself still uses its private copy —
 register D7, a trivial de-duplication.
+
+**148 — (user, 2026-09-23) The causality check moves INTO the solver's own diagnostics:
+a solve can never report `complete: true` with empty diagnostics while violating wavefront
+causality.** The user's words: "Yes, I approve moving the causality check into the solver's
+own diagnostics." Lead's consequence set, ruled: (a) the three test-side oracles — offset
+(a node's arrival is consistent with its parents), clearance (no node past its own
+clearance), direction (no edge terminating behind its own source) — become a post-solve
+check inside `solveSkeleton`, emitting one diagnostic per violation with a new kind
+`causality-violation`, the oracle name, the offending node or edge id and the magnitude,
+in unit space. (b) `complete` KEEPS its meaning (every exterior edge accepted); the
+diagnostic is what carries the wrongness, and the doctrine's "signalled" now means "the
+solver said so", not "a test happened to look". (c) The check is ALWAYS ON — it is the
+contract, not an option; its cost is linear in the graph and is measured and reported
+against the solve time. (d) Its tolerance is DERIVED per decision 144: the context's
+perceptual floor in unit space, stated at the site; the delegate reports whether the
+counts differ from the test oracles' current 1e-6 on any pinned cell, and any difference
+is attributed before the test tables are re-pointed. (e) The test-side oracles are KEPT as
+the independent conviction: every pinned table (`DEFECT_CAUSALITY_SIGNATURES`, the flagged
+cells of decision 147) asserts the solver's diagnostic count AND the test oracle's, and
+they must agree; register D7 resolves by making the shared helper the single test-side
+copy. (f) The four F64 sites are re-measured under this instrument: a loosening that
+converts a throw into a completion WITH a `causality-violation` diagnostic is no longer
+silent, so the STOP-4 verdicts on them are re-opened for C8 to re-rule with the new
+instrument — not re-ruled here. (g) The C++ handoff gains this as a stated contract; the
+port inherits the diagnostic. Sequence: this package (register **C9**) lands BEFORE C8,
+because it is C8's instrument, and BEFORE dispatch 2 of the angular package, because
+dispatch 2 loosens the anti-parallel closure and should be measured under it. Convictions:
+a constructed graph with a backwards edge yields exactly one direction diagnostic; the
+corpus counts equal the test oracles' on every fixture; removing the check kills the
+constructed test and every re-pointed pin.
 
 ---
 ## Findings
