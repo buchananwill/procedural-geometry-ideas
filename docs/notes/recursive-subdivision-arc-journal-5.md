@@ -243,7 +243,11 @@ discriminating fixture is DISCHARGED by the recorded ring `OFF_EDGE_JITTER_L_SEE
 **C7 — The defect-signature completion package** (decision 143). Run the five defect
 fixtures through the sixteen clean-only suites; pin what fails with attribution. Small.
 
-**C8 — The tolerance derivation package** (decision 144). Re-read
+**C8 — The tolerance derivation package** (decision 144). *Gains four named sites from
+F64, each with a measurement showing the floor is the WRONG derivation there and the
+detector role must be kept or replaced: the identical-source exit, `makeOffsetDistance`'s
+noGradient, `addBisectionEdge`'s zero-rate (D14 now open in reverse), and the two
+point-on-ray sites.* Re-read
 [tolerance-unification-audit.md](./tolerance-unification-audit.md) against the bar "derived
 from δ or from u, and coherent across predicates"; produce the derivation per site as a
 decision spec; retire `FLOATING_POINT_EPSILON`; re-derive `MAX_WEIGHT_RATIO`; the
@@ -280,6 +284,11 @@ the crossed pairing of decision 98") were written under decision 100 on the morn
 `graph-index-invariants.test.ts` records the cure, but the census comment was never
 re-pointed. This is how the lead's first register entry went wrong (F61). Trivial to fix,
 worth fixing.
+
+**D7 — The causality oracles exist twice in the test tree**: `causalityViolations` in
+`wavefront-measurement-helpers.ts` (added under decision 147(h)) and the private originals
+in `wavefront-causality.test.ts`, same definitions, same 1e-6 tolerance. Point the suite at
+the helper. Trivial.
 
 **D5 — The two journals' close-handoffs disagree on push state**: session 4 said nothing had
 left the machine; the branch was pushed the same day after the close (F60).
@@ -427,8 +436,117 @@ corpus firing count is reported (expected zero, F58's pattern); decision 134's e
 contract and the causality oracles apply. Lands inside the angular package (C1); closes
 register item A4 and the 138(d) carry-over.
 
+**146 — (user, 2026-09-23: "commit the work that is completed, then dispatch the next WU")
+The I2 package is committed as `dce819b` and the record as `7faae16`; the angular package
+is dispatched to Opus as DISPATCH 1 of two, with this scope.** IN: the derived resolution
+(spec A1–A8) with the `4u` error constant ARGUED in the constant's doc comment and the
+formula, not the number, pinned (I6); `DIRECTION_SINE_BAR` and `PARALLEL_GATE_SINE_BAR`
+retired as constants, every production site in the roster taking the context's
+`angularResolution` or a required parameter (A15's angular rows; `sineIsBelow` and
+`directionsAreSame` lose their defaults); the ordering and partition (A11–A14) with the
+sine-partition sweep; the four positional sites moving to `coaxialityFloor` — point-on-ray
+in `tryAttachEdgeToNode` and `solveDegenerateClosure`, the split-event end classification,
+and the identical-source exit ONLY under decision 138(a)'s instrument (all three causality
+oracle counts stay at zero on every fixture, and no solve goes from a signalled failure to
+`complete: true` with empty diagnostics — otherwise it stays and the measurement is
+reported); `meetHeadOn`'s division-safety test re-derived from `u` per decision 144;
+`MIN_WEIGHT_TURN_SINE` frozen as its own named constant at today's value with the alias
+removed, tagged for C8 (O3 ruled (c) interim); O2 MEASURED both ways on the jitter cells
+and ruled by the delegate's numbers (follow the resolution unless a cell worsens); decision
+145's edge-count-independent ladder in the triangle and n-gon handlers, convicted on
+constructed shapes, with the plus seed's three failing cells re-measured and attributed;
+A23's instruments; A25's STOP conditions 2–4. OUT, for dispatch 2: A16's anti-parallel arm,
+A24's fixture family, O4. OUT, for C8: every other positional epsilon site. OUT: C7.
+Baseline `7faae16`, core 5519/5519, dashboard 331/331, digest 59 pins.
+
+**147 — Rulings on dispatch 1's escalations.** (a) **The cross-product rounding constant
+is k = 2, ADOPTED**, with the delegate's argument (two correctly rounded products, one
+rounded subtraction, `|P| + |Q| ≤ 1` by Cauchy–Schwarz, so `|ĉ − sin θ| ≤ 2u + u²` at every
+angle; the spec's 4u charged the operands' normalisation error, which a backward-error
+bound on the division's amplification must not). Lead-checked line by line. The default
+resolution is therefore `1.7721e-5` at δ = 1e-6 (was 2.506e-5 in the spec) and the
+crossover `5.39e-6`; spec A3–A5 are amended to the derived constant. (b) **The stroke-derived
+L at k = 10 with canonicalisation off is NOT an attributed cure**: it went from a signalled
+failure to `complete: true` with empty diagnostics while its one direction violation (e163)
+stands bit-unmoved — the loud-to-silent pattern decisions 72 and 138(a) name as a
+worsening. The precedent the delegate cited (the plus root under decision 78) predates that
+ruling. Ruled as decision 138(b) ruled the plateau cell: the cell is pinned as MOVED and
+FLAGGED, and its direction count is pinned in the same test so the defect is loud through
+the oracle instead of through `complete`. (c) The two unpinned oracle worsenings the
+delegate reported (plus off-edge k=10 seed 23757 under the parent-gate move: +1 offset, +1
+direction, still complete; Circle 32 jitter 1ε seed 5 under the `ensureBisectionIsInterior`
+move: offset 1→2, clearance 6→4, direction 2→1) are PINNED as flagged moved cells with
+their counts, for the same reason — an oracle count that moves and is not pinned is exactly
+the silence the corpus doctrine exists to prevent. (d) The three STOP reverts
+(`makeOffsetDistance` noGradient, `addBisectionEdge` zero-rate, the two point-on-ray sites)
+and the identical-source revert under 138(a) are RATIFIED; each site keeps the coordinate
+epsilon with the measurement in its comment, and each becomes a named C8 item (F64). (e)
+Interpretation 3 — the `co-linear-from-1/2` exits at `angularResolution` where spec A15's
+row says `coaxialityFloor` — spec A15 governs; it lands in DISPATCH 2, which owns the
+anti-parallel arm that exercises those exits, not as a patch here. (f) O2 RULED by the
+measurement: the parent gate follows the resolution (one cell moves, plus k=3, step failure
+→ complete with all oracle counts zero — a clean cure; nothing worsens). (g) The other
+interpretations (1, 2, 4–8, 10–14) are adopted; in particular the n-gon completion feeds the
+priced pair into the normal event layer and the triangle terminates on it, and
+`findCoaxialCompletion` needed no generalisation. (h) *Follow-up landed:* the three pins are
+in place with their values (stroke L k=10: complete, empty diagnostics, direction violation
+`[163]`; plus k=10 seed 23757: `{offset 1, clearance 0, direction 1}`; Circle 32 jitter 1ε
+seed 5: 52 nodes, `{offset 2, clearance 4, direction 1}`), each convicted by reverting its
+attributed site. The delegate's flag that the "shared oracle" named in the ruling did not
+exist is accepted: it added `causalityViolations(graph)` to the measurement helpers with
+the causality suite's definitions; the causality suite itself still uses its private copy —
+register D7, a trivial de-duplication.
+
 ---
 ## Findings
+
+**F63 — Dispatch 1 of the angular package landed on the working tree: one derived angular
+resolution replaces both sine bars at every production site, the digest did not move on a
+single pin, and the terminal ladder is edge-count independent.** Delegate figures: core
+5560/5560 (86 suites, up from 5519), dashboard 331/331, both builds green, 0 of 59 digest
+pins moved (so A21's unit-weight bit-identity holds by measurement). What landed:
+`perceptualBound`, `conditioningBound`, `angularResolution` and `CROSS_PRODUCT_ROUNDING_UNITS
+= 2` in constants.ts, the resolution stored once on the context; `DIRECTION_SINE_BAR` and
+`PARALLEL_GATE_SINE_BAR` deleted; `intersectRays` takes `angularResolution` as a second
+required parameter at all ~65 sites; `sineIsBelow`/`directionsAreSame` lose their defaults;
+the split-event end classification at `coaxialityFloor`; `meetHeadOn` re-derived from `u`
+(`k·u·(wA+wB) + 2u·(|rA·wB|+|rB·wA|)`); `MIN_WEIGHT_TURN_SINE` frozen as its own constant;
+the parent gate at the resolution (O2, one clean cure: plus k=3); the ladder (closures →
+completion → throw) in all three handlers, with a new `priceHeadOnPair` for the
+non-pair completion. The resolution ladder by floor rung: 1.7721e-5, 1.0231e-5, 1.4142e-5,
+4.2426e-5, 1.4142e-4 at δ = 1e-6, 3e-6, 1e-5, 3e-5, 1e-4; crossover 5.39e-6. Sixteen
+convictions by mutation, each killing named tests. Pins moved: the plus sweep 3 → 2 (counts
+[8, 10] remain, both pair-handler throws with bit-identical mid-line bases and parent walls
+at sine 1.13e-4 and 6.4e-5 — no candidate pair, so the completion cannot help them); the
+stroke-derived L with canonicalisation off [4,7,8,10] → [4,7,8] (flagged, decision 147(b)).
+Corpus completion count zero at both floors. **Lead verification on the merged tree, BEFORE the
+follow-up edits of decision 147(b)(c): core 5560/5560 (86 suites, 124 s), dashboard 331/331
+after a core rebuild — both match the delegate. AFTER the follow-up: core 5562/5562 (86 suites, 107
+s), lead re-run — matches. Committed as the dispatch-1 code commit.**
+
+**F64 — At four sites the coordinate epsilon is functioning as a DEFECT DETECTOR for the
+large-coordinate and jitter classes, and moving any of them to the floor silences the
+detector without curing the defect: every loosening converted signalled failures into
+`complete: true` with empty diagnostics while the causality oracles kept counting.** The
+delegate's STOP measurements, lead-read: (1) the identical-source exit at `coaxialityFloor`
+(138(a) re-measured over 199 cells): corpus unchanged, 32 cells signalled → silent-complete,
+68 cells grow an oracle count (Circle 48 at 4e10–6e10: offset 2→8, direction 1→8), 15
+jitter cells that solved now fail; (2) `makeOffsetDistance`'s noGradient at the resolution:
+seeds 15838, 55433 and k=4 stop solving; (3) `addBisectionEdge`'s zero-rate at the
+resolution: orientation-blind, 55433 and the plus stop solving; anti-parallel-only, three
+bisectors are born with NEGATIVE rate (plus e48 −8.8e-6, e52 −3.4e-6; k=4 e48 −7.8e-6) plus
+direction violations — so D14's cross-site disagreement now stands in the REVERSE direction
+(`ensureBisectionIsInterior` moved and held, `addBisectionEdge` could not); (4) the two
+point-on-ray sites at `coaxialityFloor`: the snap grows 16 oracle counts and sends Circle 32
+3@6 silent; the closure sends four cells silent including Circle 48 at 2e9, which would leave
+the pinned failing list while keeping its clearance violation. Reading: these bars are not
+laundered perceptual bars after all — at these sites the tight epsilon is what makes a
+wrong terminal configuration FAIL LOUDLY instead of closing wrongly, and the floor admits
+the wrong closure. Consequence for C8 (decision 144): each of these sites needs a derivation
+that either keeps the detector role explicit (a bar derived from `u` because the question
+really is "has arithmetic already lost this configuration") or moves the detection into the
+solver's own diagnostics so that a solve can never report `complete` with empty diagnostics
+while violating causality. The second is a design option for the user, not a ruling.
 
 **F62 — Promotion of seed 55433 was MEASURED and REFUSED: with I2 admitting its two pairs
 it fails six bars that only the clean roster runs, and every one of them was unmeasured on
