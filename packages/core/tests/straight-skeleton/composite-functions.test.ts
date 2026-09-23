@@ -101,6 +101,27 @@ describe('unitsToIntersection', () => {
         });
     });
 
+    // ---- co-linear exits: the coaxial form (spec A15, journal decision 150) ----
+
+    describe('co-linear exits ask a lateral at the floor, not a sine at the resolution', () => {
+        // Same-way rays half a unit apart. A lateral of 5e-7 is inside the 1e-6 lane; one of 5e-6 is
+        // past it, though its sine against the basis (1e-5) is inside the 1.7721e-5 resolution — the
+        // retired sine form called it collinear from both ends.
+        it('returns co-linear-from-1 and -from-2 for a lateral inside the lane', () => {
+            expect(intersectRays(ray(0, 0, 1, 0), ray(0.5, 5e-7, 1, 0), SKELETON_NOISE_FLOOR, LIBRARY_ANGULAR_RESOLUTION)[2])
+                .toBe('co-linear-from-1');
+            expect(intersectRays(ray(0.5, 5e-7, 1, 0), ray(0, 0, 1, 0), SKELETON_NOISE_FLOOR, LIBRARY_ANGULAR_RESOLUTION)[2])
+                .toBe('co-linear-from-2');
+        });
+
+        it('returns parallel from either end for a lateral past the lane, whatever the sine', () => {
+            expect(intersectRays(ray(0, 0, 1, 0), ray(0.5, 5e-6, 1, 0), SKELETON_NOISE_FLOOR, LIBRARY_ANGULAR_RESOLUTION)[2])
+                .toBe('parallel');
+            expect(intersectRays(ray(0.5, 5e-6, 1, 0), ray(0, 0, 1, 0), SKELETON_NOISE_FLOOR, LIBRARY_ANGULAR_RESOLUTION)[2])
+                .toBe('parallel');
+        });
+    });
+
     // ---- head-on ----
 
     describe('head-on', () => {

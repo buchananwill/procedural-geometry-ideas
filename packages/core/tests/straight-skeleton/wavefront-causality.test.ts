@@ -440,6 +440,10 @@ describe('wavefront causality', () => {
         // `strip-tiling.test.ts` and I4 exist for — causality never saw it.
         'Near Regular Circle 48': {offset: 0, clearance: 0, direction: 0},
         'Near Regular Rosette5 40': {offset: 0, clearance: 0, direction: 0},
+        // Enrolled 2026-09-23, decision 151(d). A signalled failure (step failure, coaxial completion,
+        // three unresolved edges) whose partial graph is clean on all three oracles, solver and test
+        // side alike: its defect is the no-event n-gon, not a causality violation.
+        'Offset Cross Junction': {offset: 0, clearance: 0, direction: 0},
     };
 
     describe.each(KNOWN_DEFECT_POLYGONS)('$name (known defect)', ({name, vertices}) => {
@@ -527,11 +531,17 @@ describe('wavefront causality', () => {
      * in CALLER units — the wrong currency, 256× (circle, scale 2^-8) and 512× (rosette, 2^-9)
      * tighter than the perceptual floor, so every one of them was sub-perceptual (5.6e-9 to 7.0e-7
      * in unit space).
+     *
+     * ALL THREE COMPLETE SINCE 2026-09-23, their counts unmoved at zero on both instruments:
+     * `intersectRays`' collinearity exits moved to the coaxial form (spec A15's row, journal decision
+     * 150), attributed by toggle, and the same-way pairs each one died on close on their leading
+     * source. The rate check above still finds no backwards bisector in any of them, so the three
+     * that once completed by running backwards now complete without doing so.
      */
     const BACKWARDS_BISECTOR_CELL_COUNTS: Record<string, {complete: boolean; counts: CausalityCounts}> = {
-        'circle 32 jittered at 5x the tolerance, seed 12': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
-        'circle 32 jittered at 15x the tolerance, seed 2': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
-        'rosette5 40 translated to 2e11': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
+        'circle 32 jittered at 5x the tolerance, seed 12': {complete: true, counts: {offset: 0, clearance: 0, direction: 0}},
+        'circle 32 jittered at 15x the tolerance, seed 2': {complete: true, counts: {offset: 0, clearance: 0, direction: 0}},
+        'rosette5 40 translated to 2e11': {complete: true, counts: {offset: 0, clearance: 0, direction: 0}},
     };
 
     it.each(BACKWARDS_BISECTOR_CELLS)('%s carries its pinned causality counts on both instruments', (name, vertices) => {

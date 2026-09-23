@@ -118,6 +118,9 @@ interface SweptRegion {
 function sweepCorpus(): SweptRegion[] {
     const swept: SweptRegion[] = [];
 
+    // `Offset Cross Junction` (enrolled 2026-09-23, decision 151(d)) is swept here like every other
+    // fixture and contributes no fold: its root fails at the library floor, so its tree is the one
+    // 12-vertex root node, and that passes every assertion of this suite — its signature here.
     for (const polygon of FULL_CORPUS) {
         const rootFloor = denormaliseLength(
             makeSkeletonNormalisation(polygon.vertices), SKELETON_NOISE_FLOOR);

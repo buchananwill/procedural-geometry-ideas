@@ -1,6 +1,6 @@
 import {IntersectionResult, RayProjection, Vector2} from "./types";
 import {
-    areEqual, crossProduct, directionsAreSame,
+    areEqual, crossProduct,
     dotProduct,
     negateVector,
     normalize, rotateCw90, rotateWs90, sineIsBelow, sizeOfVector,
@@ -186,21 +186,32 @@ export function intersectRays(
     // direction violation it did not have, while it still completes. Reported, not pinned.
     if (sineIsBelow(ray1.basisVector, ray2.basisVector, angularResolution)) {
         if (dotOfBasisVectors > 0) {
-            // BOTH COLLINEARITY TESTS AT THE GATE'S OWN BAR, on the RAW separation.
+            // BOTH COLLINEARITY EXITS IN THE COAXIAL FORM — spec A15's row, journal decisions 147(e)
+            // and 150. "Does ray 2's source lie along ray 1?" and "does ray 1's source lie back along
+            // ray 2?" are the SAME question as `sourceLiesAhead` asks of an opposed pair — are these two
+            // sources on one line — so they take its form: the forward sign exact, and the SYMMETRIC
+            // lateral within the coaxiality lane, a distance at the client's floor.
             //
-            // These two branches are mirror images — "ray 2's source lies along ray 1" and "ray 1's
-            // source lies back along ray 2" — and they were once asked at bars four orders apart.
-            // They share the bar of the gate that admitted them — the angular resolution — which is
-            // the only choice that leaves no band where a pair is parallel enough to enter this
-            // branch and not collinear enough to leave it by either exit.
-            // OWED UNDER SPEC A15: these exits take the coaxial form (forward sign + lateral within
-            // `coaxialityFloor`, as `sourceLiesAhead`); deferred to the anti-parallel-arm package
-            // (dispatch 2) by journal decision 147.
-            if (directionsAreSame(relativeRay2Source, ray1.basisVector, angularResolution)) {
-                return [distanceToRay2, 0, 'co-linear-from-1'];
-            }
-            if (directionsAreSame(relativeRay2Source, negateVector(ray2.basisVector), angularResolution)) {
-                return [0, distanceToRay2, 'co-linear-from-2'];
+            // They used to be asked as a SINE at the angular resolution (`directionsAreSame` on the
+            // raw separation), which is the category error spec A9 names: a sine bar on a separation
+            // is a lateral bar that grows with the separation, so two same-way sources half a unit
+            // apart were one line at a lateral of 8.9e-6 — nearly nine times the library floor, a
+            // distance the client can see — and one at a unit's separation at 1.8e-5.
+            //
+            // The two exits still share one bar and one lateral, and are mirror images: the lateral is
+            // symmetric in the two bases, so neither exit can admit a pair the other refuses on
+            // lateral grounds, and the forward signs `dot(sep, b₁)` and `dot(sep, −b₂)` agree except
+            // where both are within `|sep| · angularResolution` of zero — a separation that nearly
+            // perpendicular carries a lateral of nearly `|sep|`, which the lane refuses unless the
+            // identical-source exit above fired first.
+            const lateral = symmetricLateralOffset(relativeRay2Source, ray1.basisVector, ray2.basisVector);
+            if (lateral <= coaxialityFloor) {
+                if (dotProduct(relativeRay2Source, ray1.basisVector) > 0) {
+                    return [distanceToRay2, 0, 'co-linear-from-1'];
+                }
+                if (dotProduct(relativeRay2Source, negateVector(ray2.basisVector)) > 0) {
+                    return [0, distanceToRay2, 'co-linear-from-2'];
+                }
             }
             return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'parallel'];
         } else {

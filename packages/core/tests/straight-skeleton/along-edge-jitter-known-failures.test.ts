@@ -169,7 +169,7 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             .toEqual({failed: 0, failingCounts: []});
     });
 
-    it('fails 2 of 80 cells on the double-reflex plus, at the default noise floor', () => {
+    it('fails no cell at all on the double-reflex plus either, at the default noise floor', () => {
         // Was 46 of 80 before decision 70, 13 of 80 after it, 11 under decision 78 and 10 once the
         // parallel-vertex closure took count 2. The plus keeps more of the class than the L because
         // its facing walls are exactly parallel whatever the jitter does, which is a degeneracy
@@ -209,8 +209,18 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
         // the point-on-ray test is still at the scratch epsilon (see `pointLiesOnRay`), and the
         // completion needs an ANTI-parallel pair, so no candidate exists and the throw stands. They
         // are the "near-parallel walls" class of the fourth reading, not the n-gon class.
+        //
+        // THE EIGHTH READING, 2026-09-23, ATTRIBUTED TO `intersectRays`' COLLINEARITY EXITS MOVING TO
+        // THE COAXIAL FORM (spec A15's row, journal decision 150), measured by toggle: 2 of 80
+        // becomes 0 — a strict subset, the class's last two cells. Their pair is exactly what the
+        // exits now ask about: same-way, BIT-IDENTICAL bases, sources a few 1e-8 apart across the
+        // line. As a sine at the resolution that was a question about the separation's last bits;
+        // as a lateral at the floor it is one line, and `handleInteriorEdgePair` closes the pair on
+        // its leading source. Both cells complete with zero violations on the solver's causality
+        // check and the test oracle, no bisector at a negative rate, and node counts unmoved. The
+        // sweep is kept at zero, as the reflex L's is, so the class's return is loud.
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, NEAR_FLOOR_MAGNITUDE, OFF_EDGE, SKELETON_NOISE_FLOOR))
-            .toEqual({failed: 2, failingCounts: [8, 10]});
+            .toEqual({failed: 0, failingCounts: []});
     });
 
     it('carries one MOVED AND FLAGGED cell: the plus at k = 10, seed 23757, still complete', () => {

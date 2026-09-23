@@ -589,6 +589,8 @@ describe('weighted offsets: unit-weight identity over the whole corpus (W36, arc
         return createHash('sha256').update(JSON.stringify(parts)).digest('hex');
     }
 
+    // `Offset Cross Junction` (enrolled 2026-09-23, decision 151(d)) is in this sweep and passes it:
+    // its signalled failure is bit-identical with and without the all-ones weight array.
     it.each(FULL_CORPUS.map((fixture): [string, Vector2[]] => [fixture.name, fixture.vertices]))(
         '%s solves identically with an explicit all-ones weight array',
         (_name, vertices) => {

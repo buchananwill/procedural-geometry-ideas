@@ -329,8 +329,9 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
 }
 
 /**
- * Where a sub-polygon whose wavefront vertices all travel in the SAME direction closes, or
- * `undefined` when it is not one.
+ * Where a sub-polygon whose wavefront vertices all travel along ONE AXIS closes — all the same way,
+ * or (spec A16) a corridor of opposed orientations with no head-on pair — or `undefined` when it is
+ * not one.
  *
  * PARALLEL RAYS POINTING THE SAME WAY NEVER MEET, at any offset, so this sub-polygon has no future
  * event at all: every pair of its vertices holds its separation forever, and the ring they bound
@@ -340,9 +341,14 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * rejoined into one supporting line when canonicalisation removes the sample that broke it — reduces
  * the ring to a slit whose two ends run side by side.
  *
- * THE SAME-DIRECTION TEST IS `intersectRays`' OWN: parallel and pointing the same way in one
- * predicate, so the anti-parallel pair that shares the 'parallel' verdict — two vertices retreating
- * from each other — is excluded rather than closed. It was written as `areEqual(dot, 1)`.
+ * ANTI-PARALLEL RAYS THAT ARE NOT HEAD-ON NEVER MEET EITHER (spec A16, journal decision 150), and
+ * {@link antiParallelArmAdmits} is that arm: the bisector test is now parallelism alone, at the
+ * resolution, and orientation is asked separately — a same-direction set is admitted as before, and
+ * a set carrying opposed orientations is admitted only when `intersectRays` prices none of its
+ * opposed pairs `'head-on'`. It used to be `directionsAreSame` pairwise, which excluded every
+ * anti-parallel pair at any bar by design (written before that as `areEqual(dot, 1)`), so a corridor
+ * whose mid-lines missed the coaxiality lane reached no closure at all — only the coaxial completion,
+ * or with no pair pointing together, the throw.
  *
  * ONE QUESTION, ONE BAR — journal decision 107(a), and now spec A11. This function used to ask
  * parallelism twice, four orders apart: the parent gate at 1e-8 and this bisector test at 1.4142e-4.
@@ -368,9 +374,10 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * already uses for a surplus bisector. NO NODE MOVES: the leading source is an existing node, and
  * the other edges' targets are the only thing assigned.
  *
- * A set with no strictly-leading source — two vertices exactly level across the ray — is left to the
- * throw, because either choice would wire an edge across its own wavefront rather than along it. The
- * corpus contains no such set.
+ * A set with no source every other edge reaches forward — two vertices exactly level across the ray,
+ * or a RETREATING opposed pair, each source behind the other — is left to the rungs below and, with no
+ * pair pointing together, to the throw: any anchor would wire an edge across its own wavefront or back
+ * along it. The corpus contains no such set.
  *
  * GATED ON {@link solveDegenerateClosure}'S OWN PRECONDITION — all exterior parents parallel — and
  * that gate is what keeps this a closure rather than a cover-up. Parallel walls are the regime where
@@ -380,6 +387,17 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
  * corruption still in it. Measured: without the gate this closes every large-coordinate cell of
  * journal decisions 66 and 81 — whose graphs have shattered a 48-way hub into ten nodes and carry
  * backwards-running edges — and reports them complete.
+ *
+ * RE-MEASURED 2026-09-23 WITH THE ANTI-PARALLEL ARM IN PLACE (spec A17, journal decision 150), and
+ * the measurement above no longer reproduces, for a stated reason. With `intersectRays`' collinearity
+ * exits in the coaxial form (spec A15), those same cells never reach this closure: their stranded
+ * same-way pairs are one line at the floor, and `handleInteriorEdgePair`'s collinear branch closes
+ * them on the leading source first — the SAME 78 cells (77 of them completing), with identical node
+ * counts and diagnostics, that removing this gate moved under the old exits, and every one reads clean on the solver's causality check, the test
+ * oracle and the rate check, or carries only the clearance counts it carried while failing. Over 649
+ * corpus, large-coordinate and jitter cells, removing the gate now moves nothing. What still convicts
+ * it is the arm: without it, `terminal-cases.test.ts`'s approaching pair on a SQUARE — walls not
+ * parallel — is closed at its leading source instead of reaching the completion.
  */
 function solveParallelClosure(
     context: StraightSkeletonSolverContext,
@@ -398,22 +416,84 @@ function solveParallelClosure(
     const bases = interiorEdgeIds.map(id => context.getEdgeWithId(id).basisVector);
     for (let i = 0; i < bases.length; i++) {
         for (let j = i + 1; j < bases.length; j++) {
-            if (!directionsAreSame(bases[i], bases[j], context.angularResolution)) {
+            if (!sineIsBelow(bases[i], bases[j], context.angularResolution)) {
                 return undefined;
             }
         }
     }
 
+    if (!antiParallelArmAdmits(context, interiorEdgeIds, bases)) {
+        return undefined;
+    }
+
+    // THE LEADING SOURCE, for either arm: a source that EVERY other live edge reaches travelling
+    // forward along its own basis. In a same-direction set that is the one source strictly ahead of
+    // all the others, and it is unique. In a corridor (opposed orientations) it is a source ahead of
+    // every edge of its own orientation AND ahead of every edge of the other — for an approaching pair
+    // BOTH sources qualify, each lying ahead of the other, and the tie is broken by the lower edge id,
+    // a function of the edges themselves rather than of the order the partition handed them over. A
+    // set in which no source is reached forward by all the others — a retreating pair, or two sources
+    // level across the corridor — has no leading source and is left to the rungs below.
+    let leading: {edgeId: number; position: Vector2} | undefined;
     for (const anchorId of interiorEdgeIds) {
         const anchorPosition = context.sourcePosition(anchorId);
         const leads = interiorEdgeIds.every((edgeId, index) => edgeId === anchorId
             || dotProduct(subtractVectors(anchorPosition, context.sourcePosition(edgeId)), bases[index]) > 0);
-        if (leads) {
-            return anchorPosition;
+        if (leads && (leading === undefined || anchorId < leading.edgeId)) {
+            leading = {edgeId: anchorId, position: anchorPosition};
         }
     }
 
-    return undefined;
+    return leading?.position;
+}
+
+/**
+ * SPEC A16 — THE ANTI-PARALLEL ARM of {@link solveParallelClosure}. Does a set whose bases are all
+ * parallel to within the angular resolution admit a closure?
+ *
+ * A SAME-DIRECTION set always does — the arm that existed before this one: parallel rays pointing
+ * the same way never meet.
+ *
+ * A set carrying OPPOSED orientations is a CORRIDOR, and its closure was the hole spec A13 names:
+ * "identical direction" is orientation-sensitive, so an anti-parallel pair below the resolution is
+ * neither priceable (cell (a)) nor identical (cell (b)), and before this arm no closure accepted it —
+ * a pair outside the coaxiality lane reached only the coaxial completion or the throw. Each OPPOSED
+ * pair is classified by `intersectRays`, the solver's own verdict:
+ *
+ *   - `'head-on'` — coaxial within the lane and approaching — is PRICED, not closed: the set is
+ *     returned to the path that prices head-on verdicts (the pair handler's head-on branch, or
+ *     `collideInteriorEdges` at the other arities, and where exactly parallel walls give both
+ *     mid-lines a zero offset rate so that `meetHeadOn` has no time to return, the coaxial
+ *     completion below — which names that pair INSIDE the lane);
+ *   - everything else — coaxial and retreating, or not coaxial in either direction — has NO future
+ *     event: two anti-parallel rays on different lines pass each other, and two on one line that
+ *     retreat never meet. The set is CLOSED at the leading source, as the same-direction arm closes.
+ *
+ * Ordering (ii) of spec A12, applied to the one sub-case that needs it (A13): one branch, not a band.
+ * The parent gate above (spec A17) is unchanged and still guards it.
+ */
+function antiParallelArmAdmits(
+    context: StraightSkeletonSolverContext,
+    interiorEdgeIds: number[],
+    bases: Vector2[],
+): boolean {
+    for (let i = 0; i < interiorEdgeIds.length; i++) {
+        for (let j = i + 1; j < interiorEdgeIds.length; j++) {
+            if (dotProduct(bases[i], bases[j]) > 0) {
+                continue;
+            }
+            const [, , verdict] = intersectRays(
+                context.projectRayInterior(context.getInteriorWithId(interiorEdgeIds[i])),
+                context.projectRayInterior(context.getInteriorWithId(interiorEdgeIds[j])),
+                context.coaxialityFloor,
+                context.angularResolution,
+            );
+            if (verdict === 'head-on') {
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 /** One anti-parallel, pointing-together pair, with the symmetric lateral offset that priced it. */

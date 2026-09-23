@@ -1,4 +1,6 @@
 import {
+    addNode,
+    addVectors,
     angularResolution,
     conditioningBound,
     crossProduct,
@@ -6,6 +8,8 @@ import {
     directionsAreSame,
     dotProduct,
     ensureBisectionIsInterior,
+    handleInteriorEdgePair,
+    initInteriorEdges,
     intersectRays,
     makeRay,
     makeStraightSkeletonSolverContext,
@@ -50,11 +54,12 @@ import type {IntersectionType, Vector2} from '@proc-geo/core';
  *      as identical, (c) opposed orientation below the resolution. A sine with no verdict is spec
  *      A25's STOP 2.
  *
- * CELL (c) IS PINNED AS IT STANDS BEFORE DISPATCH 2. Spec A16's anti-parallel arm is not in this
- * package, so an opposed pair below the resolution that is NOT coaxial is today refused by every
- * closure — `solveParallelClosure`'s bisector test is orientation-sensitive at any bar — and it
- * reaches the coaxial completion (journal decision 145's ladder) or, with no candidate pair, the
- * throw. The sweep asserts exactly that, so dispatch 2 has its pre-change table.
+ * CELL (c) SINCE DISPATCH 2 (spec A16, journal decision 150): an opposed pair below the resolution
+ * is PRICED head-on when it is coaxial within the lane and approaching, and CLOSED at the leading
+ * source by `solveParallelClosure`'s anti-parallel arm otherwise. Dispatch 1 pinned the table before
+ * the arm, when a non-coaxial opposed pair was refused by every closure — the bisector test was
+ * orientation-sensitive at any bar — and reached the coaxial completion or, with no pair pointing
+ * together, the throw; that table is kept as history beside the one that replaced it.
  *
  * ----------------------------------------------------------------------------
  *  HISTORY — WHAT THIS FILE PINNED BEFORE 2026-09-23, KEPT SO THE RECORD IS NOT LOST
@@ -308,7 +313,7 @@ describe('ensureBisectionIsInterior asks "is this vertex straight?" at the resol
  * ----------------------------------------------------------------------------
  */
 
-type Cell = 'a: priced' | 'b: identical — closed or merged' | 'c: opposed — completion or throw';
+type Cell = 'a: priced' | 'b: identical — closed or merged' | 'c: opposed — head-on or closed';
 
 /**
  * The cell a pair at `sine` lands in at floor δ, read off the solver's own predicates.
@@ -322,9 +327,9 @@ type Cell = 'a: priced' | 'b: identical — closed or merged' | 'c: opposed — 
  *       'parallel' — and `directionsAreSame` at the bar holds, which is `solveParallelClosure`'s
  *       bisector test, so the closure can take it.
  *   (c) opposed orientation, not priced: 'head-on' (priced as a head-on meeting by `meetHeadOn`) or
- *       'parallel' — and the closure's bisector test REFUSES it at any bar while the completion's
- *       anti-parallel gate (`sineIsBelow` at the bar, negative dot) ADMITS it: such a pair reaches
- *       the coaxial completion, or the throw when no pair points together.
+ *       'parallel' — parallel to within the bar (`sineIsBelow`) with a negative dot, the set spec
+ *       A16's anti-parallel arm reads: a 'head-on' pair is priced, and a 'parallel' one is closed at
+ *       the leading source. What the solver then does with each is pinned by the table below.
  */
 function cellOf(sine: number, opposed: boolean, floor: number): Cell[] {
     const bar = angularResolution(floor);
@@ -351,13 +356,57 @@ function cellOf(sine: number, opposed: boolean, floor: number): Cell[] {
             && dotProduct(base, second) < 0
             && !directionsAreSame(base, second, bar)
             && sineIsBelow(base, second, bar)) {
-            candidates.push('c: opposed — completion or throw');
+            candidates.push('c: opposed — head-on or closed');
         }
         // EXACTLY ONE verdict per ray pair — none is spec A25's STOP 2, two is a band.
         expect(candidates).toHaveLength(1);
         cells.push(candidates[0]);
     }
     return cells;
+}
+
+/**
+ * What the SOLVER does with an opposed pair of cell (c) — `cellOf`'s two placements (0: coaxial,
+ * sources a unit apart along the first ray; 1: across, half a unit to its side), run through the
+ * two-edge handler at the library floor.
+ *
+ * The pair is planted in a context whose walls are all parallel (a ring of three collinear vertices,
+ * the construction `terminal-cases.test.ts` uses), so the parallel closure's parent gate passes and
+ * the verdict is the ladder's own: 'priced head-on' (cross-wired), 'completion' (spec A19),
+ * 'throw', or 'closed at the leading source' (spec A16's arm, a culled anchor).
+ */
+function opposedPairOutcome(sine: number, placement: 0 | 1): string {
+    const context = makeStraightSkeletonSolverContext(
+        [{x: 0, y: -1}, {x: 5, y: -1}, {x: 10, y: -1}], SKELETON_NOISE_FLOOR);
+    initInteriorEdges(context);
+    const pair = context.graph.interiorEdges.slice(0, 2).map(edge => edge.id);
+    const base = unit(0.7);
+    const origin = {x: 2, y: 3};
+    const secondSource = placement === 0 ? scaleVector(base, 1) : scaleVector(rotateWs90(base), 0.5);
+    const rays: [Vector2, Vector2][] = [
+        [origin, base],
+        [addVectors(origin, secondSource), negateVector(turnedBySine(base, sine))],
+    ];
+    pair.forEach((edgeId, index) => {
+        const edge = context.getEdgeWithId(edgeId);
+        edge.source = addNode(rays[index][0], context.graph);
+        context.graph.nodes[edge.source].outEdges.push(edgeId);
+        edge.basisVector = rays[index][1];
+    });
+
+    try {
+        handleInteriorEdgePair(context, {interiorEdges: pair});
+    } catch {
+        return 'throw';
+    }
+    if (context.diagnostics.some(d => d.kind === 'coaxial-completion')) {
+        return 'completion';
+    }
+    const [first, second] = pair.map(id => context.getEdgeWithId(id));
+    if (pair.some(id => context.getInteriorWithId(id).culled === true)) {
+        return 'closed at the leading source';
+    }
+    return first.target === second.source && second.target === first.source ? 'priced head-on' : 'unclassified';
 }
 
 /** 1e-12 to 1e-1, eight samples a decade, plus each rung's own bar and its immediate neighbours. */
@@ -385,25 +434,37 @@ describe('the sine partition: every sine in exactly one cell, at every floor run
                 // (`turnedBySine` rounds, so the sine is re-measured rather than assumed).
                 const expected: Cell = !sineIsBelow(unit(0.7), turnedBySine(unit(0.7), sine), bar)
                     ? 'a: priced'
-                    : opposed ? 'c: opposed — completion or throw' : 'b: identical — closed or merged';
+                    : opposed ? 'c: opposed — head-on or closed' : 'b: identical — closed or merged';
                 expect(cells[0]).toBe(expected);
             }
         }
     });
 
-    it('pins the table for dispatch 2: at the library floor cell (c) is every opposed sine under 1.7721e-5', () => {
-        // The pre-change table spec A16's anti-parallel arm will move: today an opposed,
-        // non-coaxial pair below the resolution is closed by nothing, and reaches the completion or
-        // the throw. After dispatch 2 the same rows must read "closed at the leading source".
-        const rows = [1e-12, 1e-9, 1e-7, 1e-6, 1e-5, 1.7e-5, 1.8e-5, 1e-4, 1e-1]
-            .map(sine => `${sine}: ${cellOf(sine, true, SKELETON_NOISE_FLOOR)[1]}`);
+    it('pins the dispatch-2 table: at the library floor every opposed sine under 1.7721e-5 is priced head-on or closed', () => {
+        // SPEC A16's ARM FLIPPED THIS TABLE (journal decision 150). Each cell-(c) row names what the
+        // solver does with both of `cellOf`'s placements. COAXIAL — sources a unit apart along the
+        // first ray, so the symmetric lateral is the sine itself: inside the 1e-6 lane the pair is
+        // PRICED head-on (cross-wired), and past it, at 1e-5 and 1.7e-5, it is CLOSED at the leading
+        // source. ACROSS — half a unit to the side, never coaxial: CLOSED at the leading source at
+        // every sine, the first source being the one the second ray reaches forward.
+        //
+        // HISTORY, NOT A PIN — the same rows before the arm, measured on `85f45a8`: coaxial 1e-12 to
+        // 1e-6 priced head-on, 1e-5 and 1.7e-5 reaching the COMPLETION; across, every row reaching
+        // the THROW (the level pair points together in neither direction, so the completion had no
+        // candidate).
+        const rows = [1e-12, 1e-9, 1e-7, 1e-6, 1e-5, 1.7e-5, 1.8e-5, 1e-4, 1e-1].map(sine => {
+            const cell = cellOf(sine, true, SKELETON_NOISE_FLOOR)[1];
+            return cell === 'a: priced'
+                ? `${sine}: ${cell}`
+                : `${sine}: ${cell} | coaxial: ${opposedPairOutcome(sine, 0)} | across: ${opposedPairOutcome(sine, 1)}`;
+        });
         expect(rows).toEqual([
-            '1e-12: c: opposed — completion or throw',
-            '1e-9: c: opposed — completion or throw',
-            '1e-7: c: opposed — completion or throw',
-            '0.000001: c: opposed — completion or throw',
-            '0.00001: c: opposed — completion or throw',
-            '0.000017: c: opposed — completion or throw',
+            '1e-12: c: opposed — head-on or closed | coaxial: priced head-on | across: closed at the leading source',
+            '1e-9: c: opposed — head-on or closed | coaxial: priced head-on | across: closed at the leading source',
+            '1e-7: c: opposed — head-on or closed | coaxial: priced head-on | across: closed at the leading source',
+            '0.000001: c: opposed — head-on or closed | coaxial: priced head-on | across: closed at the leading source',
+            '0.00001: c: opposed — head-on or closed | coaxial: closed at the leading source | across: closed at the leading source',
+            '0.000017: c: opposed — head-on or closed | coaxial: closed at the leading source | across: closed at the leading source',
             '0.000018: a: priced',
             '0.0001: a: priced',
             '0.1: a: priced',
@@ -462,33 +523,55 @@ describe('the sine form is scale-free where the normalised box is not', () => {
     });
 });
 
-describe("intersectRays' two collinearity exits answer one separation identically", () => {
+describe("intersectRays' two collinearity exits ask the coaxial question, from both ends alike", () => {
     /*
-     * The mirror-branch symmetry (journal decision 105): 'co-linear-from-1' and 'co-linear-from-2'
-     * are one question asked from opposite ends, and both answer at the gate's own bar — now the
-     * angular resolution — so no band exists where a pair is parallel enough to enter the branch
-     * and not collinear enough to leave it by either exit.
+     * SPEC A15's ROW, LANDED IN DISPATCH 2 (journal decisions 147(e) and 150). 'co-linear-from-1' and
+     * 'co-linear-from-2' ask whether two same-way sources lie on ONE LINE — the coaxiality question
+     * (spec A9), a DISTANCE — so they take `sourceLiesAhead`'s form: the forward sign exact, and the
+     * SYMMETRIC lateral within the coaxiality lane, the client's floor. They share one bar and one
+     * lateral, so they remain mirror images (journal decision 105): a pair reaches a collinear verdict
+     * from both ends or from neither.
+     *
+     * RE-POINTED FROM A TILT TO A LATERAL. Dispatch 1 swept the ray TILT at sources ten units apart and
+     * asserted a collinear verdict everywhere under the angular resolution — the SINE form, whose lateral
+     * bar is `|sep| · resolution`, 1.8e-4 at that separation. Under the coaxial form a tilt of 1e-6 at
+     * ten units is a lateral of 1e-5, ten times the lane, and is 'parallel'. The sweep is now over the
+     * lateral itself, at half a unit's separation, which is what the question is about.
      */
     const bar = angularResolution(SKELETON_NOISE_FLOOR);
-    const collinearVerdicts = (angle: number): string[] => {
-        const along = unit(angle);
-        const verdicts: string[] = [];
-        for (const [first, second] of [[{x: 0, y: 0}, {x: 10, y: 0}], [{x: 10, y: 0}, {x: 0, y: 0}]]) {
-            const [, , type] = intersectRays(
-                makeRay(first, along), makeRay(second, along), SKELETON_NOISE_FLOOR, bar);
-            verdicts.push(type);
-        }
-        return verdicts;
+    const along = unit(0.3);
+    const SEPARATION = 0.5;
+
+    /** Both orderings of two same-way rays `SEPARATION` apart along `along` and `lateral` across it. */
+    const collinearVerdicts = (lateral: number): string[] => {
+        const first = {x: 0, y: 0};
+        const second = addVectors(scaleVector(along, SEPARATION), scaleVector(rotateWs90(along), lateral));
+        return [[first, second], [second, first]].map(([one, other]) =>
+            intersectRays(makeRay(one, along), makeRay(other, along), SKELETON_NOISE_FLOOR, bar)[2]);
     };
 
-    it.each([0, 1e-9, 1e-7, 1e-6, 1e-5, bar * 0.5])(
-        'reaches a collinear verdict from both ends at a ray tilt of %p',
-        (tilt) => {
-            expect(collinearVerdicts(tilt).every(type => type.startsWith('co-linear'))).toBe(true);
+    it.each([0, 1e-12, 1e-9, 1e-7, 0.99e-6])(
+        'reaches a collinear verdict from both ends at a lateral of %p, inside the lane',
+        (lateral) => {
+            expect(collinearVerdicts(lateral).every(type => type.startsWith('co-linear'))).toBe(true);
         },
     );
 
-    it('is not vacuous: past the bar the pair is no longer collinear from either end', () => {
-        expect(collinearVerdicts(bar * 2).some(type => type.startsWith('co-linear'))).toBe(false);
+    it.each([1.01e-6, 2e-6, 5e-6])(
+        'refuses a collinear verdict from either end at a lateral of %p, past the lane, though its sine is inside the resolution',
+        (lateral) => {
+            // The sine of the separation against the basis is lateral / 0.5 — at most 1e-5, inside the
+            // 1.7721e-5 resolution — so the retired sine form called every one of these collinear.
+            expect(lateral / SEPARATION).toBeLessThan(bar);
+            expect(collinearVerdicts(lateral)).toEqual(['parallel', 'parallel']);
+        },
+    );
+
+    it('is decided by the lateral and not by the separation: ten units apart, a 1e-6 tilt is parallel', () => {
+        // Dispatch 1's own cell, which the sine form called collinear.
+        const tilted = unit(1e-6);
+        const verdicts = [[{x: 0, y: 0}, {x: 10, y: 0}], [{x: 10, y: 0}, {x: 0, y: 0}]].map(([one, other]) =>
+            intersectRays(makeRay(one, tilted), makeRay(other, tilted), SKELETON_NOISE_FLOOR, bar)[2]);
+        expect(verdicts).toEqual(['parallel', 'parallel']);
     });
 });

@@ -206,11 +206,15 @@ describe('large coordinates', () => {
          * BOTH DIRECTIONS FIRE. An unattributed casualty fails the sweep — something regressed. A
          * cell in this table that starts surviving fails it too, and the answer is to delete the
          * entry, never to leave a stale exception standing.
+         *
+         * BOTH ENTRIES DELETED 2026-09-23 — THE TABLE IS EMPTY. `NEAR_REGULAR_CIRCLE_32` survives at
+         * 1e10 and 1e11, attributed by toggle to `intersectRays`' collinearity exits moving to the
+         * coaxial form (spec A15's row, journal decision 150): the same-way pairs the fused cloud
+         * leaves, a few 1e-8 apart, are one line at the floor and close on their leading source. It
+         * is the same cure as the large-coordinate defect fixtures' (see
+         * `large-coordinate-known-failures.test.ts`), on the clean roster.
          */
-        const TRANSLATION_EXCEPTIONS: Record<number, readonly string[]> = {
-            1e10: ['Near Regular Circle 32'],
-            1e11: ['Near Regular Circle 32'],
-        };
+        const TRANSLATION_EXCEPTIONS: Record<number, readonly string[]> = {};
 
         // 1e10 and 1e11 were 29 of 37 before unit-extent normalisation.
         it.each([1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11])(

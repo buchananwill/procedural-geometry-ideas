@@ -12,6 +12,7 @@ import {
 } from '@proc-geo/core';
 import {NEAR_REGULAR_CIRCLE_48, NEAR_REGULAR_ROSETTE5_40} from '@proc-geo/test-fixtures';
 import {place} from './placement-helpers';
+import {oracleCausalityCounts, solverCausalityCounts} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -83,6 +84,36 @@ import {place} from './placement-helpers';
  * so the decade-spaced enrolment sweep sees one cell per fixture by sampling luck. A finer grid
  * does not: the block at the bottom of this file pins it, and 1e10 is NOT the only failing
  * translation for Circle 48.
+ *
+ * ----------------------------------------------------------------------------
+ * CURED 2026-09-23 BY `intersectRays`' COLLINEARITY EXITS MOVING TO THE COAXIAL FORM (spec A15's
+ * row; journal decisions 147(e) and 150, dispatch 2 of the angular package)
+ * ----------------------------------------------------------------------------
+ *
+ * Every failing cell this file pinned now COMPLETES — Circle 48's twenty-nine fine translations and
+ * Rosette5 40's fifteen, and both decade cells. The mechanism is the one the header names, closed
+ * from the other side: the half-merged hub leaves pairs of SAME-WAY bisectors whose sources sit a few
+ * 1e-8 apart, and `'co-linear-from-1/2'` used to ask whether such a pair is on one line as a SINE at the
+ * angular resolution — a question a separation of 1e-8 answers by the last bits of its direction. Asked
+ * as the coaxial form — forward sign exact, symmetric lateral within the client's floor — the pair is
+ * one line, `handleInteriorEdgePair` closes it on its leading source, and the ring finishes.
+ *
+ * MEASURED, NOT ASSUMED, with the old form behind a toggle over 649 cells (`FULL_CORPUS` at two
+ * floors, both fixtures at the 46 fine translations, the decades and the scales, the jittered circle
+ * ladder, and the 320 jitter cells): 78 cells moved, 77 of them from a signalled failure to complete,
+ * and Circle 32 jittered 1x at seed 12, whose four step failures fell to one. Node counts are
+ * unmoved on every cell — the closure assigns targets and creates nothing — the fourth (rate) oracle
+ * reads zero on all 78, and the solver's causality check and the test oracle agree on every one. 69
+ * of the 77 are clean on all three positional oracles; the other eight are Circle 48 at 4e10, 5e10,
+ * 6e10, 2e11 and 5e12..8e12, which carried clearance violations (1, 1, 1, 5, 12, 12, 12, 12) BEFORE
+ * the change and carry exactly the same after it, now on a complete solve that REPORTS them as
+ * `causality-violation` diagnostics (journal decision 148) — pinned below as moved and flagged. No
+ * causality diagnostic appeared anywhere it was not.
+ *
+ * THE FIXTURES ARE NOT PROMOTED, AND COULD NOT BE: neither signature is zero. Both failing lists are
+ * now empty, but Circle 48 carries signalled causality violations at ten fine translations (the
+ * eight moved cells and two that always completed) and Rosette5 40 at nine (all unmoved, all
+ * completing before this change too). Those are pinned below; promotion stays the lead's call.
  */
 
 setSkeletonLogLevel('silent');
@@ -124,9 +155,11 @@ describe('NEAR_REGULAR_CIRCLE_48: the recorded defect from translation 1e10 up',
      * and what would cure it. Everything at or under 1e9 — the whole intended operating envelope,
      * and every scale — is bit-unmoved.
      */
-    it('survives every translation up to 1e9, and none above it', () => {
+    it('survives every translation in the enrolment sweep, 1e10 and 1e11 included', () => {
+        // Was `[1e5 .. 1e9]` — none above 1e9 — from journal decision 78 until 2026-09-23, when the
+        // coaxial collinearity exits closed the half-merged hub's same-way pairs (see the header).
         const surviving = TRANSLATIONS.filter(translate => survives(NEAR_REGULAR_CIRCLE_48, 1, translate));
-        expect(surviving).toEqual([1e5, 1e6, 1e7, 1e8, 1e9]);
+        expect(surviving).toEqual(TRANSLATIONS);
     });
 
     it('survives the whole scale sweep, and its native placement', () => {
@@ -136,42 +169,38 @@ describe('NEAR_REGULAR_CIRCLE_48: the recorded defect from translation 1e10 up',
         }
     });
 
-    it('fails at 1e10 LOUDLY, with a step failure and unresolved edges', () => {
-        // Signalled, not silent. The value of pinning the kinds rather than only `complete` is that
-        // a regression into the silent wrong-skeleton mode — the one unit-extent normalisation
-        // removed — would read as a pass on a bare completeness check.
-        // RE-MEASURED 2026-08-28 under decision 78: six step failures rather than one, and twelve
-        // stranded edges rather than two. The cell fails harder because the floor fuses more of the
-        // scattered hub than the epsilon did — and it still fails LOUDLY, which is the property this
-        // test exists for and the one that survives every re-measurement.
+    it('completes at 1e10 with no diagnostic at all, and clean on both causality instruments', () => {
+        // HISTORY: until 2026-09-23 this cell failed LOUDLY — six step failures and twelve stranded
+        // edges under decision 78, one and two before it. It now completes: the half-merged hub is
+        // still ten shards (the mechanism block below), and the same-way pairs its shards leave are
+        // closed on their leading sources by the coaxial collinearity exits, retiring eleven surplus
+        // bisectors as culled self-loops. The solver's own causality check (journal decision 148) and
+        // the test oracle both read zero, so this is a cure rather than a silence.
         const result = solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, 1e10));
 
-        expect(result.complete).toBe(false);
-        expect(diagnosticKinds(NEAR_REGULAR_CIRCLE_48, 1e10).at(-1)).toBe('unresolved-edges');
-        expect(diagnosticKinds(NEAR_REGULAR_CIRCLE_48, 1e10)).toContain('step-failure');
-        expect(result.diagnostics.at(-1)?.detail)
-            .toContain('12 interior edge(s) finished without a target node');
+        expect(result.complete).toBe(true);
+        expect(result.diagnostics).toEqual([]);
+        expect(solverCausalityCounts(result)).toEqual({offset: 0, clearance: 0, direction: 0});
+        expect(oracleCausalityCounts(result, SKELETON_NOISE_FLOOR)).toEqual({offset: 0, clearance: 0, direction: 0});
+        expect(result.graph.interiorEdges.filter(edge => edge.culled).length).toBe(11);
     });
 
-    it('is MONOTONIC in the translation as of decision 78, where it was not before', () => {
-        // The non-monotonicity was the sharpest evidence that this is not plain precision loss:
-        // 1e11 used to survive where 1e10 did not, because a bigger translation shattered the hub
-        // into events the solver could handle. Under the render floor those shards fall inside one
-        // bar again, so the envelope now closes cleanly at 1e9 and stays closed. The evidence for
-        // the mechanism moves to the hub-structure block below, which measures it directly rather
-        // than inferring it from an ordering.
+    it('survives 1e9, 1e10 and 1e11 alike — neither non-monotonic nor closed at 1e9 any more', () => {
+        // The record: 1e11 once survived where 1e10 did not (the hub shattered into events the solver
+        // could handle), then decision 78's floor closed the envelope at 1e9 (the shards fell inside
+        // one bar again). With the shards' same-way pairs closed on their leading sources, the size
+        // of the translation stops deciding anything on this sweep.
         expect(survives(NEAR_REGULAR_CIRCLE_48, 1, 1e9)).toBe(true);
-        expect(survives(NEAR_REGULAR_CIRCLE_48, 1, 1e10)).toBe(false);
-        expect(survives(NEAR_REGULAR_CIRCLE_48, 1, 1e11)).toBe(false);
+        expect(survives(NEAR_REGULAR_CIRCLE_48, 1, 1e10)).toBe(true);
+        expect(survives(NEAR_REGULAR_CIRCLE_48, 1, 1e11)).toBe(true);
     });
 });
 
 describe('NEAR_REGULAR_ROSETTE5_40: the recorded defect at translation 1e11', () => {
-    it('survives every other translation in the enrolment sweep', () => {
-        // Unmoved by decision 78: this fixture's decade sweep is exactly what it was, and only the
-        // fine grid between the decades grew (see the scatter block).
+    it('survives every translation in the enrolment sweep, 1e11 included', () => {
+        // Was every decade but 1e11 until 2026-09-23 (see the header's dispatch-2 block).
         const surviving = TRANSLATIONS.filter(translate => survives(NEAR_REGULAR_ROSETTE5_40, 1, translate));
-        expect(surviving).toEqual([1e5, 1e6, 1e7, 1e8, 1e9, 1e10]);
+        expect(surviving).toEqual(TRANSLATIONS);
     });
 
     it('survives the whole scale sweep, and its native placement', () => {
@@ -181,53 +210,28 @@ describe('NEAR_REGULAR_ROSETTE5_40: the recorded defect at translation 1e11', ()
         }
     });
 
-    it('fails at 1e11 LOUDLY, in one two-edge base case, leaving two edges unresolved', () => {
-        // WAS TWO BASE CASES AND FOUR EDGES until journal decision 70. The cell still fails and
-        // still fails loudly; what changed is that half the damage is gone, because the bisectors
-        // reaching the terminal ring are no longer allowed to point backwards through the
-        // wavefront on the way. The failure that remains is the F19 regime and nothing else: a
-        // terminal ring finer than the absolute tolerance.
+    it('completes at 1e11 with no diagnostic at all, and clean on both causality instruments', () => {
+        // HISTORY: until 2026-09-23 this cell failed LOUDLY in one two-edge base case, leaving two
+        // edges unresolved (two base cases and four edges before journal decision 70) — the F19
+        // regime, a terminal ring finer than the tolerance. It now completes, and the move is
+        // attributed by toggle to the coaxial collinearity exits alone (see the header); the solve
+        // retires three surplus bisectors as culled self-loops on the way.
         const result = solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, 1e11));
 
-        expect(result.complete).toBe(false);
-        expect(diagnosticKinds(NEAR_REGULAR_ROSETTE5_40, 1e11))
-            .toEqual(['step-failure', 'unresolved-edges']);
-        expect(result.diagnostics.at(-1)?.detail)
-            .toContain('2 interior edge(s) finished without a target node');
+        expect(result.complete).toBe(true);
+        expect(result.diagnostics).toEqual([]);
+        expect(solverCausalityCounts(result)).toEqual({offset: 0, clearance: 0, direction: 0});
+        expect(oracleCausalityCounts(result, SKELETON_NOISE_FLOOR)).toEqual({offset: 0, clearance: 0, direction: 0});
+        expect(result.graph.interiorEdges.filter(edge => edge.culled).length).toBe(3);
     });
 
-    it('dies with its two source nodes 4.7e-9 apart on the terminal ring', () => {
-        // Journal F15b, pinned as the number rather than the story: this is the
-        // terminal-ring-finer-than-tolerance regime, and the separation is what a fix has to move.
-        //
-        // RE-MEASURED 2026-08-28 (journal decision 70). The separation moved 6e-8 -> 4.7e-9 and the
-        // pair moved off y = 0 to (0.0218378, -0.1663852) in unit space. THAT IS THE SEPARATION
-        // CROSSING THE TOLERANCE THE WRONG WAY, and it is worth being precise about: F19 recorded
-        // the failure as node scatter landing at 1.7x to 6x the absolute 1e-8, so the terminal
-        // `identical-source` close could not fire. The scatter is now a FIFTH of that epsilon —
-        // under it, not over — so these two nodes are numerically the same point and the close
-        // still does not fire. The regime is unchanged and the ruling on it (decision 66) stands;
-        // only the number moved, and it moved toward the answer rather than away from it.
-        const detail = solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, 1e11)).diagnostics[0].detail;
-        const positions = [...detail.matchAll(/"position":\{"x":(-?[\d.e-]+),"y":(-?[\d.e-]+)\}/g)]
-            .map(match => ({x: Number(match[1]), y: Number(match[2])}));
-
-        // RE-MEASURED AGAIN 2026-08-28, under decision 78's render floor. The pair now dies at
-        // (-0.0322240, 0) in unit space, 7.24e-8 apart — back ABOVE the arithmetic epsilon, where
-        // the previous reading had it a fifth of the way below. That is the same regime seen from
-        // the other side: the floor merges the events that used to shatter, so what reaches the
-        // terminal ring is a coarser structure whose two survivors sit further apart. The regime is
-        // unchanged, decision 66's ruling on it stands, and the number is pinned rather than the
-        // story so the next move in either direction is loud.
-        expect(positions.length).toBeGreaterThanOrEqual(2);
-        for (const position of positions) {
-            expect(position.x).toBeCloseTo(-0.0322240, 6);
-            expect(position.y).toBeCloseTo(0, 6);
-        }
-        const separation = Math.abs(positions[0].x - positions[1].x);
-        expect(separation).toBeGreaterThan(FLOATING_POINT_EPSILON);
-        expect(separation).toBeLessThan(1e-7);
-    });
+    /*
+     * HISTORY — "dies with its two source nodes 4.7e-9 apart on the terminal ring", retired
+     * 2026-09-23 with the failure it measured. Journal F15b pinned the separation of the base case's
+     * two source nodes as the number a fix had to move: 6e-8, then 4.7e-9 under decision 70, then
+     * 7.24e-8 at (-0.0322240, 0) in unit space under decision 78. With the coaxial collinearity exits
+     * the solve no longer fails, so no failing base case's diagnostic carries the two positions.
+     */
 });
 
 /*
@@ -266,25 +270,6 @@ function terminalCluster(fixture: Vector2[], translate: number, radius: number) 
     }
 
     return {count: positions.length, inDegrees: inDegrees.toSorted((a, b) => a - b), spread};
-}
-
-/** The world-space separation of the two source nodes the failing base case could not close. */
-function disputedWorldGap(fixture: Vector2[], translate: number): number {
-    const placed = place(fixture, 1, translate);
-    const normalisation = makeSkeletonNormalisation(placed);
-    const detail = solveSkeleton(placed).diagnostics[0].detail;
-    const positions = [...detail.matchAll(/"position":\{"x":(-?[\d.e+-]+),"y":(-?[\d.e+-]+)\}/g)]
-        .map(match => ({x: Number(match[1]), y: Number(match[2])}));
-
-    return Math.hypot(positions[0].x - positions[1].x, positions[0].y - positions[1].y)
-        * normalisation.fromUnitScale;
-}
-
-/** The fixture's longest bounding-box side, in caller units at scale 1. */
-function extentOf(fixture: Vector2[]): number {
-    const xs = fixture.map(vertex => vertex.x);
-    const ys = fixture.map(vertex => vertex.y);
-    return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
 }
 
 /**
@@ -332,19 +317,51 @@ describe('the defect is a scatter of translations, not the one cell the decade s
      * cell disappearing means something helped and this account needs re-measuring.
      */
 
-    it('Circle 48 fails at twenty-nine translations in the grid, and 1e10 is only one of them', () => {
+    it('Circle 48 fails at NO translation in the grid, where it failed at twenty-nine', () => {
+        // THE LIST EMPTIED 2026-09-23 (the header's dispatch-2 block). It was
+        //     2e9, 5e9..9e9, 1e10..9e10, 1e11..9e11, 1e12, 5e12..8e12
+        // under decisions 78/81 — twenty-nine cells, every one signalled.
         const failing = FINE_TRANSLATIONS.filter(
             translate => !solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, translate)).complete);
 
-        expect(failing).toEqual([
-            2e9, 5e9, 6e9, 7e9, 8e9, 9e9,
-            1e10, 2e10, 3e10, 4e10, 5e10, 6e10, 7e10, 8e10, 9e10,
-            1e11, 2e11, 3e11, 4e11, 5e11, 6e11, 7e11, 8e11, 9e11,
-            1e12, 5e12, 6e12, 7e12, 8e12,
+        expect(failing).toEqual([]);
+    });
+
+    it('Circle 48 carries EIGHT MOVED AND FLAGGED cells: complete, with their clearance violations reported', () => {
+        // JOURNAL DECISION 147(b)/(c)'s ruling applied: a cell that goes from a signalled failure to
+        // complete while carrying a causality violation is pinned as moved and flagged, with its
+        // counts. These eight carried EXACTLY these clearance counts while they failed, and carry them
+        // unchanged now; since journal decision 148 the solver reports each one as a
+        // `causality-violation` diagnostic, so none of them is silent, and the test oracle agrees.
+        const flagged = FINE_TRANSLATIONS.flatMap(translate => {
+            const result = solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, translate));
+            const counts = solverCausalityCounts(result);
+            expect(oracleCausalityCounts(result, SKELETON_NOISE_FLOOR)).toEqual(counts);
+            return counts.offset + counts.clearance + counts.direction === 0
+                ? []
+                : [`${translate}: ${JSON.stringify(counts)}, ${result.diagnostics.length} diagnostic(s)`];
+        });
+
+        expect(flagged).toEqual([
+            '40000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
+            '50000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
+            '60000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
+            '200000000000: {"offset":0,"clearance":5,"direction":0}, 5 diagnostic(s)',
+            '5000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
+            '6000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
+            '7000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
+            '8000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
+            // NOT MOVED: these two completed before dispatch 2 as well, carrying the same thirteen
+            // clearance violations, and are listed so the sweep states every cell that carries one.
+            '9000000000000: {"offset":0,"clearance":13,"direction":0}, 13 diagnostic(s)',
+            '10000000000000: {"offset":0,"clearance":13,"direction":0}, 13 diagnostic(s)',
         ]);
     });
 
-    it('Rosette5 40 fails at fifteen, spread over two decades that do not touch', () => {
+    it('Rosette5 40 fails at NO translation in the grid, where it failed at fifteen', () => {
+        // THE LIST EMPTIED 2026-09-23 (the header's dispatch-2 block); every one of the fifteen now
+        // completes clean on both causality instruments. The record of how it was fifteen follows.
+        //
         // 3e12 and 4e12 are the point: there is no upper threshold past which the fixture is safe,
         // because the failure turns on the rounding pattern of the particular translation and not
         // on how large it is.
@@ -365,18 +382,38 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         // backwards (minimum direction dot 1.0), which is what separates this from a completion
         // bought by closing over a corrupted graph. Circle 48's list is bit-unmoved, and so is every
         // Rosette5 cell from 7e10 up: those die on the LAYER window, which this does not touch.
+        //
+        // FIFTEEN BECAME NONE on 2026-09-23 — 7e10..9e10, 1e11..9e11, 1e12, 3e12 and 4e12 all
+        // complete, with zero violations on both causality instruments.
         const failing = FINE_TRANSLATIONS.filter(
             translate => !solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, translate)).complete);
 
-        expect(failing).toEqual([
-            7e10, 8e10, 9e10,
-            1e11, 2e11, 3e11, 4e11, 5e11, 6e11, 7e11, 8e11, 9e11,
-            1e12, 3e12, 4e12,
+        expect(failing).toEqual([]);
+        const carrying = FINE_TRANSLATIONS.flatMap(translate => {
+            const counts = solverCausalityCounts(solveSkeleton(place(NEAR_REGULAR_ROSETTE5_40, 1, translate)));
+            return counts.offset + counts.clearance + counts.direction === 0
+                ? [] : [`${translate}: ${JSON.stringify(counts)}`];
+        });
+        // NONE OF THESE MOVED: all nine completed before dispatch 2 with exactly these counts, which
+        // the solver has reported as `causality-violation` diagnostics since journal decision 148. The
+        // fifteen cured cells carry none.
+        expect(carrying).toEqual([
+            '40000000000: {"offset":0,"clearance":1,"direction":0}',
+            '50000000000: {"offset":0,"clearance":1,"direction":0}',
+            '60000000000: {"offset":0,"clearance":1,"direction":0}',
+            '5000000000000: {"offset":1,"clearance":5,"direction":0}',
+            '6000000000000: {"offset":1,"clearance":5,"direction":0}',
+            '7000000000000: {"offset":1,"clearance":5,"direction":0}',
+            '8000000000000: {"offset":1,"clearance":5,"direction":0}',
+            '9000000000000: {"offset":0,"clearance":12,"direction":0}',
+            '10000000000000: {"offset":0,"clearance":12,"direction":0}',
         ]);
     });
 
     it('every failing cell is signalled, and none of them is a silent wrong answer', () => {
-        // WHAT "SIGNALLED" MEANS HERE IS `complete: false`, and every one of the 44 cells has it.
+        // NO CELL FAILS SINCE 2026-09-23, so this and the shape sweep below assert nothing today; they
+        // are kept so that a failing cell's return is held to the same bar.
+        // WHAT "SIGNALLED" MEANS HERE IS `complete: false`, and every one of the 44 cells had it.
         // The exact diagnostic SHAPE is asserted separately below, because three of Rosette5's
         // cells now reach incompleteness by a different route and the two claims are not the same
         // claim: a caller is protected by the flag, not by which sentence follows it.
@@ -462,10 +499,16 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // still fails, which is the pinned behaviour of journal decisions 66/81. Movement in the
         // in-degree split is movement WITHIN an accepted failure, and it is recorded here rather
         // than absorbed.
-        expect(cluster.inDegrees).toEqual([10, 44]);
-        // The whole defect in one number: had these two been 1e-8 apart rather than 1.24e-8, the
-        // `identical-source` branch of `intersectRays` would have closed the pair and the solve
-        // would have completed.
+        //
+        // RE-MEASURED 2026-09-23, [10, 44] -> [10, 48], ATTRIBUTED TO THE COAXIAL COLLINEARITY EXITS
+        // (spec A15, journal decision 150; toggle-measured). The two hubs and their 1.24e-8 are
+        // unmoved; the four arrivals that used to strand now close on the big hub as leading-source
+        // closures, and the cell COMPLETES — see the header's dispatch-2 block.
+        expect(cluster.inDegrees).toEqual([10, 48]);
+        // The whole defect in one number, as it stood until dispatch 2: had these two been 1e-8 apart
+        // rather than 1.24e-8, the `identical-source` branch of `intersectRays` would have closed the
+        // pair and the solve would have completed. The collinearity exits now ask the same question
+        // in the floor's currency, and the pair is closed without that branch moving.
         //
         // BIT-UNMOVED BY DECISION 78, which is worth knowing rather than assuming: this cell's two
         // hubs are separated by more than the render floor as well as more than the epsilon, so
@@ -483,11 +526,16 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // now reach the shard they belong to — and moved nothing else. Same accepted failure, same
         // shape. See the cell above for why the attribution is to the package and not to one of its
         // two mechanisms.
+        //
+        // RE-MEASURED 2026-09-23 under the coaxial collinearity exits (journal decision 150): still ten
+        // shards — the half-merge is the coincidence bar's and is untouched — with in-degrees
+        // [2,3,3,3,6,6,6,6,6,16] -> [2,3,3,5,6,6,6,6,8,24]: the same-way pairs the shards leave now
+        // close on their leading sources, which adds in-edges and no node, and the cell completes.
         expect(cluster.count).toBe(10);
-        expect(cluster.inDegrees).toEqual([2, 3, 3, 3, 6, 6, 6, 6, 6, 16]);
+        expect(cluster.inDegrees).toEqual([2, 3, 3, 5, 6, 6, 6, 6, 8, 24]);
     });
 
-    it('does NOT shatter free at 2e10 any more, which is why the envelope now closes at 1e9', () => {
+    it('does NOT shatter free at 2e10, and completes anyway since dispatch 2', () => {
         // The third regime, re-measured and REVERSED on 2026-08-28. It used to be the reason a
         // bigger translation could be safer than a smaller one: at 2e10 the convergence shattered
         // into 33 ordinary two- and three-way events, none of them a hub, and the fixture solved.
@@ -501,75 +549,39 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // the same reason as the two cells above: fewer arrivals stranded outside the hub by a layer
         // resolved whole. The count of 11 and the failing verdict — the two claims this test makes —
         // are unmoved.
-        expect(solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, 2e10)).complete).toBe(false);
+        //
+        // 2026-09-23, THE COAXIAL COLLINEARITY EXITS (journal decision 150): the verdict flips —
+        // `complete: false` to `true`, zero violations on both instruments — and the hub's in-degree
+        // goes 24 -> 26 as two more same-way arrivals close on it. The count of 11 is unmoved: the
+        // envelope no longer closes at 1e9, though the hub is still half-merged.
+        const result = solveSkeleton(place(NEAR_REGULAR_CIRCLE_48, 1, 2e10));
+        expect(result.complete).toBe(true);
+        expect(solverCausalityCounts(result)).toEqual({offset: 0, clearance: 0, direction: 0});
         expect(cluster.count).toBe(11);
-        expect(Math.max(...cluster.inDegrees)).toBe(24);
+        expect(Math.max(...cluster.inDegrees)).toBe(26);
     });
 });
 
 describe('journal decision 54: the disputed geometry is far below anything renderable', () => {
     /*
-     * Decision 54 sets the precision bar at "can you see this on a screen?". These assertions are
-     * that question answered in numbers, so that any future argument for spending on this defect
-     * has to move them rather than restate the story.
+     * Decision 54 set the precision bar at "can you see this on a screen?", and this block answered it
+     * in numbers for the pair each decade cell's failing base case could not close.
      *
-     * A 4K display is 3840 pixels across. `px` below is what the disputed separation would measure
-     * if the WHOLE fixture were rendered across that display — the most generous framing available,
-     * since any real view shows more than the polygon.
+     * HISTORY, NOT PINS — the dispute is settled as of 2026-09-23. The measured gaps were: Circle 48
+     * at 1e10, 2.5e-5 world units on a 300-unit shape (4.4e-6 before decision 78), a ten-thousandth
+     * of a pixel at 4K and 13 ulps of the input at that placement; Rosette5 40 at 1e11, 7.9e-5 world
+     * units on a 371-unit shape (3.1e-5, then 8.0e-6 under decision 70), a thousandth of a pixel and
+     * 3.6 ulps. Decision 54's argument was that nothing renderable is lost; the coaxial collinearity
+     * exits (journal decision 150) asked the same question in the floor's currency — is this pair on
+     * one line to within what the client can see — answered yes, and closed it. Both cells now
+     * complete with no diagnostic, so there is no failing base case left to read a gap from.
      */
-
-    const pixelsAt4K = (fixture: Vector2[], translate: number) =>
-        3840 * disputedWorldGap(fixture, translate) / extentOf(fixture);
-
-    it('Circle 48 at 1e10 disputes 2.5e-5 world units on a 300-unit shape', () => {
-        // WAS 4.4e-6, RE-MEASURED 2026-08-28 under journal decision 78: the coincidence bar is now
-        // the render floor, so the structure reaching the terminal ring is coarser and the gap in
-        // dispute is about six times what it was. Decision 54's argument is unchanged in kind and
-        // still holds by four orders of magnitude — a twenty-five-millionth of the shape, a
-        // ten-thousandth of a pixel across a 4K display showing nothing but this polygon.
-        const gap = disputedWorldGap(NEAR_REGULAR_CIRCLE_48, 1e10);
-
-        expect(gap).toBeGreaterThan(2e-5);
-        expect(gap).toBeLessThan(3e-5);
-        expect(gap / extentOf(NEAR_REGULAR_CIRCLE_48)).toBeLessThan(1e-7);
-        expect(pixelsAt4K(NEAR_REGULAR_CIRCLE_48, 1e10)).toBeLessThan(1e-3);
-    });
-
-    it('Rosette5 40 at 1e11 disputes 8.0e-6 world units on a 371-unit shape', () => {
-        // WAS 3.1e-5, RE-MEASURED 2026-08-28 under journal decision 70: the disputed gap shrank
-        // by a factor of four when the bisectors reaching this terminal ring stopped being allowed
-        // to run backwards through the wavefront. Decision 54's argument is only strengthened —
-        // less geometry is in dispute than when the decision was taken, not more — so the bar is
-        // re-measured downward and the ruling stands.
-        // WAS 3.1e-5 and then 8.0e-6; RE-MEASURED AGAIN 2026-08-28 under decision 78 at 7.9e-5, for
-        // the same reason as Circle 48 above — a coarser terminal structure disputes a wider gap.
-        // Still a five-millionth of the shape and a thousandth of a pixel at 4K.
-        const gap = disputedWorldGap(NEAR_REGULAR_ROSETTE5_40, 1e11);
-
-        expect(gap).toBeGreaterThan(7e-5);
-        expect(gap).toBeLessThan(9e-5);
-        expect(gap / extentOf(NEAR_REGULAR_ROSETTE5_40)).toBeLessThan(1e-6);
-        expect(pixelsAt4K(NEAR_REGULAR_ROSETTE5_40, 1e11)).toBeLessThan(1e-2);
-    });
-
-    it('and is within an order of magnitude of the input\'s OWN resolution at that placement', () => {
-        /*
-         * The argument that closes it. At 1e10 a double's ulp is 1.9e-6 caller units, so the
-         * fixture's vertices are not specified more finely than that, and the disputed gap is a
-         * small multiple of an ulp of the coordinates it was derived from. There is no better answer
-         * being lost, because at this placement the input does not carry one.
-         *
-         * THE MULTIPLE MOVED FROM "a couple" TO "a dozen" ON 2026-08-28, and the claim is weakened
-         * rather than withdrawn — decision 78's coarser terminal structure disputes 13 ulps at 1e10
-         * and 3.6 at 1e11, where both were under 3 before. It is stated at the measured value and
-         * NOT at a round number, because this is the assertion a future argument for spending on
-         * this defect has to move, and it has moved once already. What has not changed is the order
-         * of the comparison: the disputed geometry is still the same size as the noise in the input
-         * that produced it, and both are four orders below anything renderable.
-         */
-        const ulpAt = (translate: number) => translate * 2 ** -52;
-
-        expect(disputedWorldGap(NEAR_REGULAR_CIRCLE_48, 1e10) / ulpAt(1e10)).toBeLessThan(15);
-        expect(disputedWorldGap(NEAR_REGULAR_ROSETTE5_40, 1e11) / ulpAt(1e11)).toBeLessThan(5);
+    it.each([
+        ['Circle 48', 1e10, NEAR_REGULAR_CIRCLE_48],
+        ['Rosette5 40', 1e11, NEAR_REGULAR_ROSETTE5_40],
+    ] as [string, number, Vector2[]][])('leaves nothing in dispute: %s at %p completes with no diagnostic', (_name, translate, fixture) => {
+        const result = solveSkeleton(place(fixture, 1, translate));
+        expect(result.complete).toBe(true);
+        expect(result.diagnostics).toEqual([]);
     });
 });

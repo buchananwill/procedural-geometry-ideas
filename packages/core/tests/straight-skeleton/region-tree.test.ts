@@ -175,30 +175,32 @@ describe('the region tree is first-class', () => {
             return subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, {levels: DEFECT_LEVELS});
         }
 
-        it('carries the failure on the region the harvest counts, under its own id', () => {
+        /*
+         * CURED 2026-09-23, SEVENTH TIME, AND THERE IS NO REPLACEMENT TO RE-SPECIMEN TO. `intersectRays`'
+         * collinearity exits moved to the coaxial form (spec A15's row, journal decision 150) and
+         * `r0.4.1` SOLVES; measured by toggle over the whole harvest population at merge groups 1–8 and
+         * depths 0.25–1, the ten regions that still failed a solve before the change are none after it.
+         * What this block pinned until then — level 2, segment index 1, fourteen vertices, and a failure
+         * reading `Incomplete solve: vertices-canonicalised: 2 vertex(es) removed before solving …
+         * unresolved-edges: 2 interior edge(s) finished without a target node: 30, 32.` — is HISTORY.
+         *
+         * The dashboard's `regionInspector.test.ts` met the same extinction at the demo floor and
+         * asserted the emptiness instead, so that the day a region fails here again the assertion is
+         * what says so; this block follows it, and quotes the cure on the region it happened to.
+         */
+        it('carries no failure on the region the harvest used to count, which now solves under its own id', () => {
             const region = findRegionById(defectTree(), DEFECT_REGION_ID);
             expect(region).toBeDefined();
             expect(region!.level).toBe(2);
             expect(region!.provenance).toEqual({kind: 'segment', index: 1});
             expect(region!.boundary).toHaveLength(14);
-
-            // PINNED BY ITS ENDS RATHER THAN VERBATIM. This region's diagnostic embeds the solver's
-            // serialised edge dump — two kilobytes of coordinates — and a literal copy of it here
-            // would be a wall of numbers that no future reader could check a change against. Both
-            // ends are quoted instead, which is what the sentence actually claims: the floor took one
-            // vertex before the solve, and the solve then left two bisectors without a target.
-            expect(region!.failure).toMatch(
-                /^Incomplete solve: vertices-canonicalised: 2 vertex\(es\) removed before solving/);
-            // The two stranded ids were 29/32, then 28/31 on 2026-08-29 with the arrival ordering
-            // (journal decision 102), and are 30/32 since the specimen moved to the plus seed on
-            // 2026-09-11 — see the block comment above for why. The region still fails, still on one
-            // id, still on the same two diagnostics — the specimen is re-pointed, not weakened.
-            expect(region!.failure).toMatch(
-                /unresolved-edges: 2 interior edge\(s\) finished without a target node: 30, 32\.$/);
-            expect(region!.outcome).toEqual({kind: 'failed', failure: region!.failure});
+            expect(region!.failure).toBeUndefined();
+            expect(flattenRecursiveTree(defectTree())
+                .filter(node => node.failure !== undefined && !node.failure.startsWith('Degenerate region'))
+                .map(node => node.id)).toEqual([]);
         });
 
-        it('hands the inspector the same polygon the driver failed on', () => {
+        it('hands the inspector the same polygon the driver cut, and used to fail on', () => {
             // PERISHABLE ON PURPOSE. The boundary quoted here is the one a standalone solve is run
             // against in the dashboard's region inspector, so if the cutter ever stops emitting it
             // this assertion is the thing that says so.
@@ -210,8 +212,8 @@ describe('the region tree is first-class', () => {
             // AND THE TWO BOUNDARIES DIFFER, which the specimen before the previous one's did not:
             // this region's own floor removes TWO vertices before the solve, so the inspector's
             // standalone solve of `boundary` and the driver's solve of `canonicalBoundary` are
-            // running on different rings — the region is malformed AND unsolved, and the inspector
-            // shows both.
+            // running on different rings — the region is malformed (and was, until 2026-09-23, unsolved),
+            // and the inspector shows both.
             expect(region.canonicalBoundary).toHaveLength(region.boundary.length - 2);
             expect(region.canonicalAreaDrift).toBeGreaterThan(0);
         });
@@ -262,6 +264,8 @@ describe('the region tree is first-class', () => {
         });
     });
 
+    // `Offset Cross Junction` (enrolled 2026-09-23, decision 151(d)) is swept below and passes both
+    // sweeps: its tree at the census levels is its failed root alone, one id, `outcome` 'failed'.
     describe('identity holds over the whole corpus, not just the pinned pair', () => {
         it('gives every region a unique id equal to its own path from the root', () => {
             const problems: string[] = [];

@@ -237,6 +237,12 @@ const HISTORICAL_SUB_FLOOR_PAIRS = [
     {fixture: 'Off-edge Jitter Reflex L (seed 55433, k=4)', pair: [27, 29], edge: 50},
 ] as const;
 
+/*
+ * `Offset Cross Junction`, ENROLLED 2026-09-23, DECISION 151(d): its partial graph (a signalled
+ * failure) PASSES I1, I2, I3 and I5 — each per-fixture sweep below asserts exactly that for it, and
+ * that is its signature on those four. It FAILS I4 on exterior edges 0 and 4, pinned in
+ * {@link I4_SIGNATURES}, and adds two licensed head-on mid-line pairs to I5's legitimate population.
+ */
 describe('I1: every primary bisector carries its own vertex\'s two exterior edges', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
@@ -615,22 +621,33 @@ function faceWalkFailures(graph: StraightSkeletonGraph, strong: boolean): string
     return failures;
 }
 
+/**
+ * I4's pinned face-walk failures per fixture, strong form. Every fixture not named here is pinned at
+ * none. Enrolled 2026-09-23, decision 151(d): `Offset Cross Junction`'s solve is a signalled failure
+ * that leaves three bisectors without a target, and the faces of its exterior edges 0 and 4 — the
+ * vertical corridor's left wall below the raised bar and above it — do not close.
+ */
+const I4_SIGNATURES: Record<string, string[]> = {
+    'Offset Cross Junction': ['e0: no interior walk from n0 to n1', 'e4: no interior walk from n4 to n5'],
+};
+
 describe('I4: every exterior edge\'s face closes across its own bisectors', () => {
     it.each(FULL_CORPUS.map(polygon => [polygon.name, polygon.vertices] as const))(
         '%s',
-        (_name, vertices) => {
-            expect(faceWalkFailures(solveSkeleton(vertices).graph, true)).toEqual([]);
+        (name, vertices) => {
+            expect(faceWalkFailures(solveSkeleton(vertices).graph, true)).toEqual(I4_SIGNATURES[name] ?? []);
         },
     );
 
     it('holds in the weak form too, so the two readings have not diverged', () => {
         // Measured, not assumed (journal decision 93). The strong form implies the weak one, so this
-        // can only fail if the sweep above stops running — which is the point of keeping it.
+        // can only fail if the sweep above stops running — which is the point of keeping it. The one
+        // violator is the pinned one (enrolled 2026-09-23, decision 151(d)).
         const violating = FULL_CORPUS
             .filter(polygon => faceWalkFailures(solveSkeleton(polygon.vertices).graph, false).length > 0)
             .map(polygon => polygon.name);
 
-        expect(violating).toEqual([]);
+        expect(violating).toEqual(Object.keys(I4_SIGNATURES));
     });
 
     it('is not vacuous: deleting a shaft midline reproduces the dumbbell\'s recorded signature', () => {
@@ -980,12 +997,18 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
     it('sees the legitimate head-on population too, so the pins are a filter and not a blindness', () => {
         // Fifteen mid-line pairs across nine fixtures. If `duplicateRidges` stopped finding pairs at
         // all, the defect pins above would still pass — this is what makes them mean something.
+        //
+        // SEVENTEEN since `Offset Cross Junction` was enrolled 2026-09-23, decision 151(d): its two
+        // bars each carry one licensed head-on mid-line pair (parents exactly anti-parallel), and it
+        // carries no crossed pair — its I5 row above is empty, so it passes this bar.
         const legitimate = FULL_CORPUS.flatMap(polygon => {
             const {graph, normalisation} = solveSkeleton(polygon.vertices);
-            return duplicateRidges(graph, normalisation).filter(ridge => ridge.licensed);
+            return duplicateRidges(graph, normalisation).filter(ridge => ridge.licensed)
+                .map(ridge => polygon.name);
         });
 
-        expect(legitimate).toHaveLength(15);
+        expect(legitimate).toHaveLength(17);
+        expect(legitimate.filter(name => name === 'Offset Cross Junction')).toHaveLength(2);
     });
 
     it('is not vacuous: skewing one shaft wall turns the dumbbell\'s mid-line into a crossed pair', () => {

@@ -79,8 +79,12 @@ describe('no skeleton node escapes the polygon it was solved from', () => {
         // and enrolled `Asymmetric Dumbbell` and `Three Globe Chain` beside it. Before that the
         // split was 50 and 7: the 49 of decision 73, plus `Invisible Vertex Rectangle` added under
         // decision 75, against the 7 known-defect of decision 72.
+        //
+        // 6 -> 7 known-defect: `Offset Cross Junction` enrolled 2026-09-23, decision 151(d). Its
+        // containment signature is the clean one — every node of its partial graph strictly inside,
+        // asserted by the sweep above.
         expect(CLEAN_TEST_POLYGONS).toHaveLength(53);
-        expect(KNOWN_DEFECT_POLYGONS).toHaveLength(6);
+        expect(KNOWN_DEFECT_POLYGONS).toHaveLength(7);
         expect(FULL_CORPUS).toHaveLength(CLEAN_TEST_POLYGONS.length + KNOWN_DEFECT_POLYGONS.length);
     });
 });
@@ -122,12 +126,18 @@ describe('a complete solve strands nothing', () => {
         },
     );
 
-    it('is not vacuous: every fixture in the corpus now reports complete', () => {
+    it('is not vacuous: every fixture in the corpus but the one pinned incomplete reports complete', () => {
         // If every fixture were incomplete the sweep above would assert nothing at all. Since the
         // parallel-vertex closure cured `Off-edge Jitter Plus (seed 7919)`, the corpus's last
-        // incomplete root, the whole of FULL_CORPUS reaches the assertion.
-        const complete = FULL_CORPUS.filter(polygon => solveSkeleton(polygon.vertices).complete);
-        expect(complete.length).toBe(FULL_CORPUS.length);
+        // incomplete root, the whole of FULL_CORPUS reached the assertion — until 2026-09-23, when
+        // `Offset Cross Junction` was enrolled (decision 151(d)) as a root that fails: its three
+        // stranded bisectors (26, 27, 32) are reported by `unresolved-edges` and `complete` is false,
+        // which is this suite's signature for it. It also makes the incomplete branch below live on a
+        // corpus fixture again.
+        const incomplete = FULL_CORPUS
+            .filter(polygon => !solveSkeleton(polygon.vertices).complete)
+            .map(polygon => polygon.name);
+        expect(incomplete).toEqual(['Offset Cross Junction']);
     });
 
     it('still exercises the incomplete branch, on a BUILT specimen', () => {

@@ -150,7 +150,35 @@ describe('a coarser floor never adds geometry', () => {
      */
     const LADDER = [SKELETON_NOISE_FLOOR, 3e-6, DEMO_FLOOR, 3e-5, 1e-4];
 
-    it.each(FULL_CORPUS.map(fixture => [fixture.name, fixture.vertices] as const))(
+    /**
+     * THE ONE FIXTURE WHOSE READINGS GROW, AND WHY THAT IS ITS DEFECT RATHER THAN A BREACH OF THE
+     * GUARD. Enrolled 2026-09-23, decision 151(d): `Offset Cross Junction` FAILS at 1e-6 and 3e-6 —
+     * a step failure after the coaxial completion fires, leaving a partial graph of 18 nodes and 33
+     * edges — and SOLVES from 1e-5 up, complete at 19 nodes and 30 edges, the completion not firing.
+     * Its boundary is identical on every rung (12 exterior nodes; nothing it carries is near any floor),
+     * so the growth is the finer rungs' failure, not geometry the coarser ones added. Pinned rung by
+     * rung, so a cure at the fine floors and a regression at the coarse ones both fire here.
+     */
+    const LADDER_SIGNATURES: Record<string, {complete: boolean; exterior: number; nodes: number; edges: number}[]> = {
+        'Offset Cross Junction': [
+            {complete: false, exterior: 12, nodes: 18, edges: 33},
+            {complete: false, exterior: 12, nodes: 18, edges: 33},
+            {complete: true, exterior: 12, nodes: 19, edges: 30},
+            {complete: true, exterior: 12, nodes: 19, edges: 30},
+            {complete: true, exterior: 12, nodes: 19, edges: 30},
+        ],
+    };
+
+    it.each(Object.entries(LADDER_SIGNATURES))('%s reads its pinned ladder instead', (name, signature) => {
+        const vertices = FULL_CORPUS.find(fixture => fixture.name === name)!.vertices;
+        expect(LADDER.map(perceptualFloor => {
+            const {complete, graph} = solveSkeleton(vertices, {perceptualFloor});
+            return {complete, exterior: graph.numExteriorNodes, nodes: graph.nodes.length, edges: graph.edges.length};
+        })).toEqual(signature);
+    });
+
+    it.each(FULL_CORPUS.filter(fixture => LADDER_SIGNATURES[fixture.name] === undefined)
+        .map(fixture => [fixture.name, fixture.vertices] as const))(
         '%s never grows as the floor rises', (_name, vertices) => {
             let previous: {exterior: number; nodes: number; edges: number} | undefined;
             for (const perceptualFloor of LADDER) {
@@ -214,6 +242,13 @@ describe('a coarser floor never adds geometry', () => {
             const boundaryTotal = (perceptualFloor: number) =>
                 flattenRecursiveTree(subdivideRecursively(fixture.vertices, {levels, perceptualFloor}))
                     .reduce((total, node) => total + node.canonicalBoundary.length, 0);
+            if (fixture.name === 'Offset Cross Junction') {
+                // Enrolled 2026-09-23, decision 151(d). Its root fails at the library floor, so the
+                // tree is the 12-vertex root alone; at the demo floor it solves and the tree carries
+                // 60 boundary vertices. The same failure as the ladder above, not added geometry.
+                expect([boundaryTotal(SKELETON_NOISE_FLOOR), boundaryTotal(DEMO_FLOOR)]).toEqual([12, 60]);
+                continue;
+            }
             expect(boundaryTotal(DEMO_FLOOR)).toBeLessThanOrEqual(boundaryTotal(SKELETON_NOISE_FLOOR));
         }
     });

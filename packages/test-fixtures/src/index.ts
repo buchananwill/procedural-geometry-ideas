@@ -190,6 +190,23 @@ import {GOLF_CART} from './rectilinear-shapes';
 export {ASYMMETRIC_DUMBBELL, THREE_GLOBE_CHAIN} from './rectilinear-shapes';
 import {ASYMMETRIC_DUMBBELL, THREE_GLOBE_CHAIN} from './rectilinear-shapes';
 
+// The anti-parallel corridor family (spec A24, journal decision 150). A ring PLUS a recorded
+// mid-line source displacement, so ENROLLED IN NO ROSTER: the displacement is not solver input, and
+// the ring is `COLLINEAR_DUMBBELL`, already clean. The harness and its pinned verdicts are in
+// `anti-parallel-corridor.test.ts`; the fixture header records O4's negative construction.
+// `OFFSET_CROSS_JUNCTION` is that construction at η = 1e-4, a ring the solver fails on — the recursion
+// suites' constructed unsolvable specimen, and ENROLLED in KNOWN_DEFECT_POLYGONS below (decision 151(d)).
+export {
+    ANTI_PARALLEL_CORRIDOR_COAXIAL,
+    ANTI_PARALLEL_CORRIDOR_SUB_EPSILON,
+    ANTI_PARALLEL_CORRIDOR_IN_BAND,
+    ANTI_PARALLEL_CORRIDOR_ABOVE_FLOOR,
+    ANTI_PARALLEL_CORRIDOR_FAMILY,
+    OFFSET_CROSS_JUNCTION,
+} from './rectilinear-shapes';
+export type {AntiParallelCorridorFixture} from './rectilinear-shapes';
+import {OFFSET_CROSS_JUNCTION} from './rectilinear-shapes';
+
 // invisible-vertex-rectangle.ts
 // In CLEAN_TEST_POLYGONS: it solves clean, and its property is not a defect but a boundary-stage
 // removal — one vertex sits exactly on its own edge, so the solve runs at 15 exterior nodes for 16
@@ -436,6 +453,18 @@ export const KNOWN_DEFECT_POLYGONS: NamedTestPolygon[] = [
     // scatter of translations far from the origin.
     {name: 'Near Regular Circle 48', vertices: NEAR_REGULAR_CIRCLE_48},
     {name: 'Near Regular Rosette5 40', vertices: NEAR_REGULAR_ROSETTE5_40},
+
+    // Offset cross junction (rectilinear-shapes.ts). ENROLLED 2026-09-23, JOURNAL DECISION 151(d): the
+    // constructed defect specimen the register has wanted since decision 138(c). It is the by-product
+    // of spec O4's one attempt at a plain-ring anti-parallel corridor: a vertical corridor with two
+    // bars, the left one raised by 1e-4. It does not displace a corridor mid-line; instead the n-gon
+    // [26, 27, 28, 30] produces no event because the vertical corridor's exactly coaxial head-on pair
+    // has cancelling offset rates, the coaxial completion fires on that pair (symmetric lateral 0), and
+    // a step failure follows. It is also the recursion suites' constructed unsolvable specimen and the
+    // dashboard specimen — with one measured caveat: it fails at floors 1e-6 and 3e-6 and SOLVES from
+    // 1e-5 up, so at the dashboard's explorer floor (1e-5) it is listed as a defect but solves. Its
+    // signature is pinned in every suite that sweeps FULL_CORPUS.
+    {name: 'Offset Cross Junction', vertices: OFFSET_CROSS_JUNCTION},
 ];
 
 /**

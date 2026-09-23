@@ -3,6 +3,7 @@ import {
     COLLINEAR_DUMBBELL,
     FULL_CORPUS,
     KNOWN_DEFECT_POLYGONS,
+    OFFSET_CROSS_JUNCTION,
     OFF_EDGE_JITTER_L_SEED_55433,
     OFF_EDGE_JITTER_L_SEED_55433_K4,
     OFF_EDGE_JITTER_PLUS_SEED_7919,
@@ -240,6 +241,12 @@ const CENSUS_SIGNATURES: Record<string, number> = {
     // layer — and it is now swept as a clean fixture, still at zero.
     'Near Regular Circle 48': 0,
     'Near Regular Rosette5 40': 0,
+    // Enrolled 2026-09-23, decision 151(d). TWELVE, ONE PER CELL OF THE 3 x 4 GRID, and every one is
+    // the same thing: its ROOT is an `Incomplete solve` (the coaxial completion fires on the vertical
+    // corridor's coaxial pair whose rates cancel, then a step failure), so the driver never recurses
+    // and the grid measures one defect twelve times — the plus seed's pre-closure reading, by the same
+    // arithmetic. It is also {@link unsolvableRegion}'s constructed specimen.
+    'Offset Cross Junction': 12,
 };
 
 /**
@@ -728,10 +735,21 @@ function unsolvableRegion(): Vector2[] {
             // joins them, which would fail the pair on the diagnostic rather than on the geometry.
             return root.failure !== undefined && root.canonicalAreaDrift === 0;
         });
-    if (region === undefined) {
-        throw new Error('No harvested region fails to solve, with nothing removed by its own floor, when it is handed back in as a root of its own');
-    }
-    return region;
+    // THE HARVEST WENT EXTINCT ON 2026-09-23. `intersectRays`' collinearity exits moved to the
+    // coaxial form (spec A15's row, journal decision 150) and cured the plus seed's last five failing
+    // regions — `r0.5.2` at merge group 4 / depth 0.5, `r0.4.2` at 5 / 0.75, `r0.4.1` at 6 / 0.5 (the
+    // specimen), `r0.3.1` at 8 / 0.5 and 8 / 0.75 — measured by toggle over the whole population at
+    // merge groups 1–8 and depths 0.25–1: ten failing regions before, none after. `failedRegions` is
+    // kept, so a harvested region that fails again is preferred the day one exists.
+    //
+    // WHAT STANDS IN IS CONSTRUCTED AND SAID TO BE: `OFFSET_CROSS_JUNCTION`, a plain ring the solver
+    // fails on as a root (a completion-then-throw in an n-gon whose coaxial head-on pair has
+    // cancelling rates; see its header), with nothing under its own floor. The `builtReducedRegion`
+    // precedent, one step further: when the population disappears, the member is built rather than
+    // the assertion dropped. SINCE DECISION 151(d) (2026-09-23) IT IS ALSO ENROLLED in
+    // `KNOWN_DEFECT_POLYGONS`, its census signature pinned at 12 in {@link CENSUS_SIGNATURES}: the
+    // specimen these tests use is now a roster member whose failure is attributed, not a stray ring.
+    return region ?? OFFSET_CROSS_JUNCTION;
 }
 
 /**
@@ -1304,8 +1322,17 @@ describe('recursive segment subdivision', () => {
             // these dials (`r0.4.1`, an `Incomplete solve`, with solved siblings), which is what
             // decision 6 needs: a failure RECORDED and confined to its own node while its siblings
             // are subdivided. Its cell is untouched by this package.
+            //
+            // AND TAKEN AGAIN ON 2026-09-23, SEVENTH TIME, AN ATTRIBUTED CURE: `intersectRays`'
+            // collinearity exits moved to the coaxial form (spec A15's row, journal decision 150) and
+            // `r0.4.1` solves — no region anywhere fails a solve any more (see
+            // {@link unsolvableRegion}). The assertion never needed a solve failure: "any recorded
+            // failure" is what it asks, and the census grid's DEGENERATE DECLINES are recorded
+            // failures confined to their node (journal decision 96). The specimen is the plus seed at
+            // merge group 2, full depth — a census-grid cell — where `r0.0` declines `r0.0.2` and
+            // subdivides its siblings.
             const root = subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, options({
-                levels: MAX_RECURSION_LEVELS, ...JITTERED_L_FAILING_DIALS,
+                levels: MAX_RECURSION_LEVELS, mergeGroupSize: 2, depthFraction: FULL_DEPTH_FRACTION,
             }));
             const parents = flattenRecursiveTree(root)
                 .filter(node => node.children.some(child => child.failure !== undefined));

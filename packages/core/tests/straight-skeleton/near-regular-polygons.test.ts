@@ -10,6 +10,8 @@ import {
 import {
     FLOATING_POINT_EPSILON,
     SKELETON_NOISE_FLOOR,
+    areEqual,
+    crossProduct,
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
@@ -383,13 +385,28 @@ describe('near-regular polygons', () => {
          * 14, 18, 20, 23, 24) where 4 failed before, EVERY ONE of them signalled with a step failure
          * and unresolved edges, and not one silent. The coincidence rule changes which cells of the
          * band resolve; it does not change that a cell which does not resolve says so.
+         *
+         * AND ON 2026-09-23 THE CELL RESOLVES — CLEANLY, WHICH IS WHAT SEPARATES IT FROM 2026-08-28's
+         * PASS. `intersectRays`' collinearity exits moved to the coaxial form (spec A15's row, journal
+         * decision 150): the same-way pairs this band's half-merges leave a few 1e-8 apart are one
+         * line at the floor and close on their leading source. Attributed by toggle; the cell goes
+         * from two step failures to `complete: true` with an EMPTY diagnostics list, zero violations
+         * on the solver's own causality check (journal decision 148) and on the test oracle, and NO
+         * bisector at a negative offset rate — the defect this cell was withdrawn for. Seeds 3 and 5
+         * of the same band are cured the same way.
          */
-        it('reports the seed-2 cell as a signalled failure rather than a backwards-bisector pass', () => {
+        it('solves the seed-2 cell with no backwards bisector and no causality violation, where it used to fail', () => {
             const result = solveSkeleton(jitter(NEAR_REGULAR_CIRCLE_32, insideTheBand, 2));
 
-            expect(result.complete).toBe(false);
-            expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toContain('step-failure');
-            expect(result.diagnostics.at(-1)?.kind).toBe('unresolved-edges');
+            expect(result.complete).toBe(true);
+            expect(result.diagnostics).toEqual([]);
+            const backwards = result.graph.interiorEdges.filter(interior => {
+                const rate = crossProduct(
+                    result.graph.edges[interior.id].basisVector,
+                    result.graph.edges[interior.clockwiseExteriorEdgeIndex].basisVector);
+                return rate < 0 && !areEqual(rate, 0);
+            });
+            expect(backwards).toEqual([]);
         });
     });
 });

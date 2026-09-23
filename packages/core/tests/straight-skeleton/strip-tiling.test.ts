@@ -98,8 +98,12 @@ const PINNED_TILING_ERRORS: Record<string, number> = {
  * The list is kept rather than deleted because a static exclusion that outlives its reason is exactly
  * the laundering journal decision 72 retired: an empty one asserts, in the reach test below, that
  * every fixture in the corpus is measured here.
+ *
+ * ONE MEMBER AGAIN SINCE 2026-09-23: `Offset Cross Junction`, enrolled under decision 151(d). Its root
+ * is a signalled failure at the library floor (the coaxial completion fires, then a step failure), so
+ * `computeMaxOffset` refuses it — which is its signature here, asserted below rather than skipped.
  */
-const UNMEASURABLE: string[] = [];
+const UNMEASURABLE: string[] = ['Offset Cross Junction'];
 
 function signedRingArea(ring: Vector2[]): number {
     let total = 0;
@@ -164,8 +168,15 @@ describe('the strips and the residue account for the polygon they were cut from'
         // fixture, would leave every assertion above passing over nothing.
         const measured = FULL_CORPUS.filter(polygon => !UNMEASURABLE.includes(polygon.name));
 
-        expect(measured).toHaveLength(FULL_CORPUS.length);
+        expect(measured).toHaveLength(FULL_CORPUS.length - UNMEASURABLE.length);
         expect(UNMEASURABLE.every(name => FULL_CORPUS.some(polygon => polygon.name === name))).toBe(true);
+        // Every unmeasurable fixture is unmeasurable for the stated reason and no other: its solve
+        // is incomplete, so `computeMaxOffset` refuses it (enrolled 2026-09-23, decision 151(d)).
+        for (const name of UNMEASURABLE) {
+            const result = solveSkeleton(FULL_CORPUS.find(polygon => polygon.name === name)!.vertices);
+            expect(result.complete).toBe(false);
+            expect(() => computeMaxOffset(result)).toThrow(/requires a complete skeleton solve/);
+        }
 
         const result = solveSkeleton(CLEAN_TEST_POLYGONS[0].vertices);
         expect(computeStrips(result, {depth: computeMaxOffset(result) * 0.2}).length).toBeGreaterThan(0);
