@@ -9,12 +9,23 @@ import {
 } from '@proc-geo/test-fixtures';
 import {
     areEqual,
+    checkWavefrontCausality,
     crossProduct,
     FLOATING_POINT_EPSILON,
     runAlgorithmV5,
+    SKELETON_NOISE_FLOOR,
+    SkeletonSolveResult,
+    solveSkeleton,
+    StraightSkeletonGraph,
     Vector2,
 } from '@proc-geo/core';
-import {deriveNodeOffsets, distanceToSegment} from './wavefront-measurement-helpers';
+import {
+    CausalityCounts,
+    causalityViolations,
+    oracleCausalityCounts,
+    oracleViolationsOf,
+    solverCausalityCounts,
+} from './wavefront-measurement-helpers';
 
 /**
  * Causal consistency of the wavefront.
@@ -47,50 +58,50 @@ import {deriveNodeOffsets, distanceToSegment} from './wavefront-measurement-help
  *    its ordering in time is wrong.
  */
 
-const TOLERANCE = 1e-6;
+/*
+ * ============================================================================
+ *  THE THREE ORACLES ARE DEFINED ONCE, IN `wavefront-measurement-helpers.ts` — register D7.
+ * ============================================================================
+ *
+ * `causalityViolations` there is the ONLY test-side copy of the offset, clearance and direction
+ * oracles (journal-5 decision 148(e)); this suite's own private copies were removed on 2026-09-23 and
+ * the wrappers below are thin readings of it. The node-offset derivation all three are made against,
+ * `deriveNodeOffsets`, lives there too (journal decision 141). The definitions, stated once each:
+ *
+ * The bar δ below is the solve's PERCEPTUAL FLOOR, a unit-space length carried into caller units by
+ * the solve's normalisation (journal-5 decision 149):
+ *
+ *  - OFFSET — no skeleton edge travels backwards in time: a targeted interior edge whose target's
+ *    re-derived offset is below its source's by more than δ is a violation.
+ *  - CLEARANCE — no node outruns its own clearance: an interior node whose re-derived offset exceeds
+ *    its distance to the solver's boundary by more than δ is a violation. (The reasoning is at
+ *    {@link findClearanceViolations}.)
+ *  - DIRECTION — no edge terminates behind its own source: a targeted interior edge longer than δ
+ *    whose unit travel has a non-positive dot product with its basis is a violation. (The reasoning
+ *    is at {@link findDirectionViolations}.)
+ *
+ * THE SOLVER NOW ASKS THE SAME THREE QUESTIONS OF ITSELF (journal-5 decision 148). `solveSkeleton`
+ * runs `checkWavefrontCausality` on every solve and reports one `causality-violation` diagnostic per
+ * violation, at the same bar. The oracles here are KEPT as the independent conviction — a separate
+ * implementation of the same definitions at the same bar — and every pinned table below asserts both
+ * counts and that they agree.
+ */
 
-interface OffsetViolation {
-    interiorEdgeId: number;
-    sourceNode: number;
-    targetNode: number;
-    sourceOffset: number;
-    targetOffset: number;
+/** Solve as the pins do: through `solveSkeleton` at the library floor, whose diagnostics carry the solver's own counts. */
+function solve(vertices: Vector2[]): SkeletonSolveResult {
+    return solveSkeleton(vertices);
 }
 
-/*
- * The node-offset oracle both checks below are made against is `deriveNodeOffsets`, which lives in
- * `wavefront-measurement-helpers.ts` beside the distances it is written in. It moved there on
- * 2026-09-23 (journal decision 141) so that I2 in `graph-index-invariants.test.ts` could ask "are
- * these two nodes in one offset layer?" of the SAME derivation rather than of a second copy; its
- * doc comment there carries the reasoning that used to stand here, unchanged.
- */
+/** The test oracles on a solve made by {@link solve}, which runs at the library floor. */
+function oracleOf(vertices: Vector2[]) {
+    return oracleViolationsOf(solve(vertices), SKELETON_NOISE_FLOOR);
+}
 
 /**
- * Check that no skeleton edge travels backwards in time.
+ * Check that no skeleton edge travels backwards in time: the offending interior-edge ids.
  */
-function findOffsetViolations(vertices: Vector2[]): OffsetViolation[] {
-    const context = runAlgorithmV5(vertices);
-    const {graph} = context;
-    const offsetOf = deriveNodeOffsets(graph);
-
-    const violations: OffsetViolation[] = [];
-    for (const interiorEdge of graph.interiorEdges) {
-        const edge = graph.edges[interiorEdge.id];
-        if (!edge || edge.target === undefined) continue;
-        const sourceOffset = offsetOf.get(edge.source);
-        const targetOffset = offsetOf.get(edge.target);
-        if (sourceOffset === undefined || targetOffset === undefined) continue;
-        if (targetOffset < sourceOffset - TOLERANCE) {
-            violations.push({
-                interiorEdgeId: interiorEdge.id,
-                sourceNode: edge.source,
-                targetNode: edge.target,
-                sourceOffset,
-                targetOffset,
-            });
-        }
-    }
-    return violations;
+function findOffsetViolations(vertices: Vector2[]): number[] {
+    return oracleOf(vertices).offset;
 }
 
 /**
@@ -169,49 +180,14 @@ function jitterCell(vertices: Vector2[], multiple: number, seed: number): Vector
  *
  * This is complementary to the causality check rather than a stronger form of it:
  * each catches a defect the other misses.
+ *
+ * The boundary is the one the SOLVER was given, for the same reason `deriveNodeOffsets` reads it:
+ * the two rings differ by whatever the boundary stage removed, and a clearance measured against a
+ * boundary the solver never saw is not a statement about the solver. A node with no interior edge to
+ * date it by is skipped. Returns the offending node ids.
  */
-function findClearanceViolations(vertices: Vector2[]): string[] {
-    const context = runAlgorithmV5(vertices);
-    const {graph} = context;
-    // The boundary the SOLVER was given, for the same reason `deriveNodeOffsets` reads it: the two
-    // rings differ by whatever the boundary stage removed, and a clearance measured against a
-    // boundary the solver never saw is not a statement about the solver.
-    const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
-    const edgeCount = boundary.length;
-    const offsetOf = deriveNodeOffsets(graph);
-
-    const violations: string[] = [];
-    for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const node = graph.nodes[i];
-        // Absent means the node has no interior edge to date it by; the causality check above
-        // skips those for the same reason.
-        const offset = offsetOf.get(i);
-        if (offset === undefined) continue;
-
-        let clearance = Infinity;
-        for (let k = 0; k < edgeCount; k++) {
-            clearance = Math.min(
-                clearance,
-                distanceToSegment(node.position, boundary[k], boundary[(k + 1) % edgeCount]));
-        }
-        if (offset > clearance + TOLERANCE) {
-            violations.push(
-                `node ${i} has offset ${offset.toFixed(3)} but is only ` +
-                `${clearance.toFixed(3)} from the boundary (overshoot ` +
-                `${(offset - clearance).toFixed(3)})`);
-        }
-    }
-    return violations;
-}
-
-interface DirectionViolation {
-    interiorEdgeId: number;
-    sourceNode: number;
-    targetNode: number;
-    sourcePosition: Vector2;
-    targetPosition: Vector2;
-    basisVector: Vector2;
-    dot: number;
+function findClearanceViolations(vertices: Vector2[]): number[] {
+    return oracleOf(vertices).clearance;
 }
 
 /**
@@ -235,65 +211,33 @@ interface DirectionViolation {
  *
  * Derived from raw geometry: the source and target positions come from the graph's nodes and
  * the basis vector from the edge itself, so nothing about the solver's timing bookkeeping is
- * trusted.
+ * trusted. An edge no longer than the tolerance has no direction to disagree with; the offset and
+ * clearance checks own that degeneracy. Returns the offending interior-edge ids.
  */
-function findDirectionViolations(vertices: Vector2[]): DirectionViolation[] {
-    const context = runAlgorithmV5(vertices);
-    const {graph} = context;
-
-    const violations: DirectionViolation[] = [];
-    for (const interiorEdge of graph.interiorEdges) {
-        const edge = graph.edges[interiorEdge.id];
-        if (!edge || edge.target === undefined) continue;
-
-        const source = graph.nodes[edge.source];
-        const target = graph.nodes[edge.target];
-        if (!source || !target) continue;
-
-        const travel = {x: target.position.x - source.position.x, y: target.position.y - source.position.y};
-        const length = Math.hypot(travel.x, travel.y);
-        // A zero-length edge has no direction to disagree with; the offset and clearance
-        // checks own that degeneracy.
-        if (length <= TOLERANCE) continue;
-
-        const dot = (travel.x / length) * edge.basisVector.x + (travel.y / length) * edge.basisVector.y;
-        if (dot > 0) continue;
-
-        violations.push({
-            interiorEdgeId: interiorEdge.id,
-            sourceNode: edge.source,
-            targetNode: edge.target,
-            sourcePosition: source.position,
-            targetPosition: target.position,
-            basisVector: edge.basisVector,
-            dot,
-        });
-    }
-    return violations;
+function findDirectionViolations(vertices: Vector2[]): number[] {
+    return oracleOf(vertices).direction;
 }
 
-function formatPoint(v: Vector2): string {
-    return `(${v.x.toFixed(2)}, ${v.y.toFixed(2)})`;
+/**
+ * Both instruments on one solve: the SOLVER'S `causality-violation` diagnostics counted per oracle,
+ * and the test-side oracles' counts on the same graph.
+ */
+function bothCounts(
+    result: SkeletonSolveResult,
+    perceptualFloor: number = SKELETON_NOISE_FLOOR,
+): {solver: CausalityCounts; oracle: CausalityCounts} {
+    return {solver: solverCausalityCounts(result), oracle: oracleCausalityCounts(result, perceptualFloor)};
 }
 
-function describeDirectionViolations(violations: DirectionViolation[]): string {
-    return violations
-        .map(v =>
-            `interior edge ${v.interiorEdgeId}: source node ${v.sourceNode} at ` +
-            `${formatPoint(v.sourcePosition)} -> target node ${v.targetNode} at ` +
-            `${formatPoint(v.targetPosition)}, but basis is ${formatPoint(v.basisVector)} ` +
-            `(dot ${v.dot.toFixed(3)}, edge runs backwards along its own ray)`)
-        .join('; ');
-}
-
-function describeViolations(violations: OffsetViolation[]): string {
-    return violations
-        .map(v =>
-            `interior edge ${v.interiorEdgeId}: node ${v.sourceNode} at offset ` +
-            `${v.sourceOffset.toFixed(3)} -> node ${v.targetNode} at offset ` +
-            `${v.targetOffset.toFixed(3)} (time runs backwards by ` +
-            `${(v.sourceOffset - v.targetOffset).toFixed(3)})`)
-        .join('; ');
+/**
+ * Whether `result` would be `complete` by the blocking rule with every causality diagnostic set
+ * aside — the rule `complete` is defined by. Journal-5 decision 148(b): a causality violation must
+ * never flip `complete`, so this equals `result.complete` on every solve.
+ */
+function completeIgnoringCausality(result: SkeletonSolveResult): boolean {
+    const blocking = result.diagnostics.some(
+        diagnostic => diagnostic.kind === 'step-failure' || diagnostic.kind === 'unresolved-edges');
+    return !blocking && result.graph.interiorEdges.length > 0;
 }
 
 describe('wavefront causality', () => {
@@ -303,13 +247,11 @@ describe('wavefront causality', () => {
         // 71.64 to offset 62.70 while the second was clean — a phase transition
         // in the output from a sub-pixel change in the input.
         it('holds for the variant that exposed the false split', () => {
-            const violations = findOffsetViolations(PREMATURE_BISECTOR_SPLIT_FAILS);
-            expect(describeViolations(violations)).toBe('');
+            expect(findOffsetViolations(PREMATURE_BISECTOR_SPLIT_FAILS)).toEqual([]);
         });
 
         it('holds for the adjusted variant', () => {
-            const violations = findOffsetViolations(PREMATURE_BISECTOR_SPLIT_PASSES);
-            expect(describeViolations(violations)).toBe('');
+            expect(findOffsetViolations(PREMATURE_BISECTOR_SPLIT_PASSES)).toEqual([]);
         });
 
         it('produces consistent topology across the perturbation', () => {
@@ -368,8 +310,7 @@ describe('wavefront causality', () => {
      */
     describe.each(CLEAN_TEST_POLYGONS)('$name', ({vertices}) => {
         it('never runs backwards in time along a skeleton edge', () => {
-            const violations = findOffsetViolations(vertices);
-            expect(describeViolations(violations)).toBe('');
+            expect(findOffsetViolations(vertices)).toEqual([]);
         });
 
         it('never points a bisector backwards through the wavefront', () => {
@@ -377,11 +318,11 @@ describe('wavefront causality', () => {
         });
 
         it('never places a node beyond its own clearance', () => {
-            expect(findClearanceViolations(vertices).join('; ')).toBe('');
+            expect(findClearanceViolations(vertices)).toEqual([]);
         });
 
         it('never terminates an edge behind its own source', () => {
-            expect(describeDirectionViolations(findDirectionViolations(vertices))).toBe('');
+            expect(findDirectionViolations(vertices)).toEqual([]);
         });
     });
 
@@ -519,6 +460,14 @@ describe('wavefront causality', () => {
         it('terminates exactly its pinned number of edges behind their own source', () => {
             expect(findDirectionViolations(vertices)).toHaveLength(signature.direction);
         });
+
+        it('reports its pinned signature as the solver\'s own diagnostics, agreeing with the oracles', () => {
+            // Journal-5 decision 148(e): the solver's `causality-violation` count per oracle AND the
+            // test-side oracle's, and they must agree. Every row agrees at the library floor.
+            const {solver, oracle} = bothCounts(solve(vertices));
+            expect(solver).toEqual(signature);
+            expect(oracle).toEqual(signature);
+        });
     });
 
     it('attributes a causality signature to every known-defect fixture, and to no one else', () => {
@@ -569,6 +518,30 @@ describe('wavefront causality', () => {
     });
 
     /**
+     * THE SAME THREE CELLS' CAUSALITY COUNTS, ONE AGREED COUNT ON BOTH INSTRUMENTS (journal-5
+     * decisions 148(e) and 149). Measured 2026-09-23. All three are signalled failures
+     * (`complete: false`) and all three are clean at the perceptual floor.
+     *
+     * HISTORY, NOT PINS: before decision 149 the test oracle counted offset/clearance/direction
+     * 1/4/2 on the 5x circle and 2/15/0 on the rosette. Those were measured against a literal `1e-6`
+     * in CALLER units — the wrong currency, 256× (circle, scale 2^-8) and 512× (rosette, 2^-9)
+     * tighter than the perceptual floor, so every one of them was sub-perceptual (5.6e-9 to 7.0e-7
+     * in unit space).
+     */
+    const BACKWARDS_BISECTOR_CELL_COUNTS: Record<string, {complete: boolean; counts: CausalityCounts}> = {
+        'circle 32 jittered at 5x the tolerance, seed 12': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
+        'circle 32 jittered at 15x the tolerance, seed 2': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
+        'rosette5 40 translated to 2e11': {complete: false, counts: {offset: 0, clearance: 0, direction: 0}},
+    };
+
+    it.each(BACKWARDS_BISECTOR_CELLS)('%s carries its pinned causality counts on both instruments', (name, vertices) => {
+        const result = solve(vertices);
+        const {complete, counts} = BACKWARDS_BISECTOR_CELL_COUNTS[name];
+        expect(result.complete).toBe(complete);
+        expect(bothCounts(result)).toEqual({solver: counts, oracle: counts});
+    });
+
+    /**
      * ONE MOVED AND FLAGGED CELL of this generator (journal decision 147): circle 32 jittered at 1x
      * the tolerance, seed 5. Attributed to `ensureBisectionIsInterior`'s "is this vertex straight?"
      * test moving from the retired 1e-8 to the angular resolution (journal decision 146), measured
@@ -576,14 +549,80 @@ describe('wavefront causality', () => {
      * this cell once and re-pairs it — 53 nodes to 52 — and its causality counts move MIXED:
      * offset 1 → 2, clearance 6 → 4, direction 2 → 1, still solving complete. Pinned with its counts
      * so a change that cures or worsens it is loud.
+     *
+     * HISTORY, NOT PINS (journal-5 decision 149): those counts, and the 2/4/1 this cell carried until
+     * decision 149, were measured against a literal `1e-6` in CALLER units — the wrong currency, 256×
+     * tighter than the perceptual floor at this fixture's scale of 2^-8 — and every one of the seven
+     * was sub-perceptual (9.8e-9 to 6.9e-8 in unit space). At the floor, on both instruments, the
+     * cell is clean: it solves complete with no `causality-violation` diagnostic, and the oracle agrees.
      */
     it('circle 32 jittered at 1x the tolerance, seed 5, carries its pinned causality counts', () => {
         const vertices = jitterCell(NEAR_REGULAR_CIRCLE_32, 1, 5);
-        expect(runAlgorithmV5(vertices).graph.nodes).toHaveLength(52);
-        expect({
-            offset: findOffsetViolations(vertices).length,
-            clearance: findClearanceViolations(vertices).length,
-            direction: findDirectionViolations(vertices).length,
-        }).toEqual({offset: 2, clearance: 4, direction: 1});
+        const result = solve(vertices);
+        expect(result.graph.nodes).toHaveLength(52);
+        expect(result.complete).toBe(true);
+        expect(bothCounts(result)).toEqual({
+            solver: {offset: 0, clearance: 0, direction: 0},
+            oracle: {offset: 0, clearance: 0, direction: 0},
+        });
+    });
+
+    /**
+     * THE CORPUS AGREEMENT SWEEP (journal-5 decision 148(e)): over `FULL_CORPUS`, at the library floor
+     * and at the demo floor, the solver's `causality-violation` count equals the test oracle's, per
+     * oracle, per fixture — and `complete` is exactly what the blocking rule gives with every
+     * causality diagnostic set aside, so the check never flips it (decision 148(b)).
+     *
+     * Measured 2026-09-23: every count is zero on both instruments at both floors. Both instruments
+     * run at the floor the solve ran at (journal-5 decision 149).
+     */
+    describe.each([1e-6, 1e-5])('the solver and the oracles agree over the whole corpus at floor %s', perceptualFloor => {
+        it.each(FULL_CORPUS.map((polygon): [string, Vector2[]] => [polygon.name, polygon.vertices]))(
+            '%s',
+            (_name, vertices) => {
+                const result = solveSkeleton(vertices, {perceptualFloor});
+                const {solver, oracle} = bothCounts(result, perceptualFloor);
+                expect(solver).toEqual(oracle);
+                expect(result.complete).toBe(completeIgnoringCausality(result));
+            });
+    });
+
+    /**
+     * THE CONSTRUCTED CONVICTION (journal-5 decision 148): a hand-built graph with one interior edge
+     * terminating behind its own source yields exactly one diagnostic, a `direction` one, naming that
+     * edge. A 2×1 rectangle with a single ridge from (0.5, 0.5) to (1.5, 0.5): both ends are dated at
+     * 0.5 against the top wall and are 0.5 from the boundary, so offset and clearance hold, and the
+     * ridge's basis is set to (−1, 0) — pointing away from its own target.
+     */
+    it('reports exactly one direction violation on a graph with one edge running behind its source', () => {
+        const graph: StraightSkeletonGraph = {
+            nodes: [
+                {id: 0, position: {x: 0, y: 0}, inEdges: [3], outEdges: [0]},
+                {id: 1, position: {x: 0, y: 1}, inEdges: [0], outEdges: [1]},
+                {id: 2, position: {x: 2, y: 1}, inEdges: [1], outEdges: [2]},
+                {id: 3, position: {x: 2, y: 0}, inEdges: [2], outEdges: [3]},
+                {id: 4, position: {x: 0.5, y: 0.5}, inEdges: [], outEdges: [4]},
+                {id: 5, position: {x: 1.5, y: 0.5}, inEdges: [4], outEdges: []},
+            ],
+            edges: [
+                {id: 0, source: 0, target: 1, basisVector: {x: 0, y: 1}},
+                {id: 1, source: 1, target: 2, basisVector: {x: 1, y: 0}},
+                {id: 2, source: 2, target: 3, basisVector: {x: 0, y: -1}},
+                {id: 3, source: 3, target: 0, basisVector: {x: -1, y: 0}},
+                {id: 4, source: 4, target: 5, basisVector: {x: -1, y: 0}},
+            ],
+            numExteriorNodes: 4,
+            interiorEdges: [
+                {id: 4, clockwiseExteriorEdgeIndex: 1, widdershinsExteriorEdgeIndex: 3, length: Number.MAX_VALUE},
+            ],
+            exteriorWeights: [1, 1, 1, 1],
+        };
+
+        const found = checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1);
+        expect(found.map(({oracle, elementId, magnitude}) => ({oracle, elementId, magnitude})))
+            .toEqual([{oracle: 'direction', elementId: 4, magnitude: 1}]);
+        // The graph is built in unit space, so the normalisation carrying the floor across is the identity.
+        expect(causalityViolations(graph, {fromUnitScale: 1}, SKELETON_NOISE_FLOOR))
+            .toEqual({offset: [], clearance: [], direction: [4]});
     });
 });

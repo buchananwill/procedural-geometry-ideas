@@ -203,10 +203,13 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     //     both dumbbells, Three Globe Chain) reach the branch they never reached.
     //   - ORIENTATION-AWARE — `directionsAreSame(cw, −ws, angularResolution)`, anti-parallel parents
     //     only, which is what "a zero rate" means: three bisectors are born with a NEGATIVE offset
-    //     rate — `Off-edge Jitter Plus (seed 7919)` e48 at −8.77e-6 and e52 at −3.42e-6,
-    //     `Off-edge Jitter Reflex L (seed 55433, k=4)` e48 at −7.75e-6 — breaking the bisector rate
-    //     rule, which `wavefront-causality.test.ts` holds universal over `FULL_CORPUS`, and adding a
-    //     direction violation to each fixture's pinned causality signature (STOP 4).
+    //     rate — `Off-edge Jitter Plus (seed 7919)` e48 at −8.8e-6 and e52 at −3.4e-6,
+    //     `Off-edge Jitter Reflex L (seed 55433, k=4)` e48 at −7.8e-6, every one below the angular
+    //     resolution — breaking the bisector rate rule, which `wavefront-causality.test.ts` holds
+    //     universal over `FULL_CORPUS` (STOP 4). Re-measured 2026-09-23 under the solver's own
+    //     causality check (journal-5 decisions 148, 149): both fixtures stay complete, the offset,
+    //     clearance and direction counts do not move on either instrument, and NO diagnostic is raised
+    //     — the negative rates are seen ONLY by the test-side rate check, which the solver does not run.
     //
     // A rate of a few parts in 1e6 is a real, if slow, wavefront direction: pricing it as zero hands
     // the direction to the parent ordering, which disagrees with the rate's sign. So the rate's own

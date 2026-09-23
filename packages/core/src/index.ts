@@ -23,8 +23,15 @@ export type {
   CollisionCache,
   SkeletonDiagnosticKind,
   SkeletonDiagnostic,
+  GeneralSkeletonDiagnosticKind,
+  GeneralSkeletonDiagnostic,
+  CausalityOracle,
+  CausalityViolationDiagnostic,
   SkeletonSolveResult,
 } from './straight-skeleton/types';
+
+// ── Post-solve wavefront causality check (journal-5 decision 148) ────────────
+export { checkWavefrontCausality } from './straight-skeleton/causality-check';
 export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
 
 // ── Unit-extent normalisation (the solver's boundary transform) ──────────────

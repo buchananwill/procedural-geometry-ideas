@@ -7,13 +7,14 @@ import {
     runStrokePipeline,
     setSkeletonLogLevel,
     SimplificationConfig,
+    SKELETON_NOISE_FLOOR,
     SmoothingConfig,
     solveSkeleton,
     StrokePipelineConfig,
     StrokePoint,
     Vector2,
 } from '@proc-geo/core';
-import {causalityViolations} from './wavefront-measurement-helpers';
+import {oracleCausalityCounts, oracleViolationsOf, solverCausalityCounts} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -496,10 +497,19 @@ describe('stroke-derived polygons', () => {
 
             // THE FLAGGED CELL'S DEFECT, PINNED: exactly one direction violation, e163, and nothing
             // else. A change that cures it or adds to it must say so here.
+            //
+            // AND IT IS NO LONGER SILENT (journal-5 decision 148): the solver's own causality check
+            // reports e163 as its one diagnostic, 0.41 in unit space behind its source, while
+            // `complete` stays true. The solver's count and the test oracle's agree.
             const k10 = solveSkeleton(subdivide(L_SHAPE, 10), {noiseFloor: 0});
             expect(k10.complete).toBe(true);
-            expect(k10.diagnostics).toEqual([]);
-            expect(causalityViolations(k10.graph)).toEqual({offset: [], clearance: [], direction: [163]});
+            expect(k10.diagnostics.map(diagnostic => diagnostic.kind)).toEqual(['causality-violation']);
+            expect(k10.diagnostics.flatMap(diagnostic => diagnostic.kind === 'causality-violation'
+                ? [{oracle: diagnostic.oracle, elementId: diagnostic.elementId}] : []))
+                .toEqual([{oracle: 'direction', elementId: 163}]);
+            // `noiseFloor: 0` turns canonicalisation off; the perceptual floor is the library's.
+            expect(oracleViolationsOf(k10, SKELETON_NOISE_FLOOR)).toEqual({offset: [], clearance: [], direction: [163]});
+            expect(solverCausalityCounts(k10)).toEqual(oracleCausalityCounts(k10, SKELETON_NOISE_FLOOR));
         });
 
         it('is not caused by collinearity by itself', () => {

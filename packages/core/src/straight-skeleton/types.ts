@@ -288,6 +288,12 @@ export interface AlgorithmStepOutput {
  *   never expected: a bounded wavefront with live vertices must have a next event, so reaching this
  *   at all means a predicate refused an event that exists, and the detail names both edge ids and
  *   the offset so the specimen can be found.
+ * - `causality-violation`    — the solved graph breaks wavefront causality by one of the three
+ *   post-solve oracles (journal-5 decision 148): one diagnostic per violation, carried as a
+ *   {@link CausalityViolationDiagnostic}. INFORMATIONAL with respect to `complete` — `complete` keeps
+ *   its meaning (every exterior edge accepted, no step failure, no unresolved edge) — but it is what
+ *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
+ *   while violating wavefront causality. See `causality-check.ts`.
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
@@ -295,12 +301,45 @@ export type SkeletonDiagnosticKind =
     | 'self-intersecting'
     | 'step-failure'
     | 'unresolved-edges'
-    | 'coaxial-completion';
+    | 'coaxial-completion'
+    | 'causality-violation';
 
-export interface SkeletonDiagnostic {
-    kind: SkeletonDiagnosticKind;
+/** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
+export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
+
+/** A diagnostic whose whole content is its kind and a human detail line. */
+export interface GeneralSkeletonDiagnostic {
+    kind: GeneralSkeletonDiagnosticKind;
     detail: string;
 }
+
+/**
+ * Which of the three post-solve causality oracles a violation was found by (journal-5 decision 148).
+ *
+ * - `offset`    — an interior edge whose target is dated earlier than its source.
+ * - `clearance` — an interior node dated later than its own distance to the solver's boundary.
+ * - `direction` — an interior edge whose target lies behind its source along its own basis vector.
+ */
+export type CausalityOracle = 'offset' | 'clearance' | 'direction';
+
+/**
+ * One wavefront-causality violation found on a solved graph by `checkWavefrontCausality`.
+ *
+ * `elementId` is an INTERIOR EDGE id for the `offset` and `direction` oracles and a NODE id for the
+ * `clearance` oracle. `magnitude` is in UNIT SPACE — the solve's own normalised coordinates — so it
+ * reads against the perceptual floor the check was run at: the backwards step in time (`offset`), the
+ * overshoot past clearance (`clearance`), or the distance the target lies behind the source along the
+ * basis (`direction`).
+ */
+export interface CausalityViolationDiagnostic {
+    kind: 'causality-violation';
+    detail: string;
+    oracle: CausalityOracle;
+    elementId: number;
+    magnitude: number;
+}
+
+export type SkeletonDiagnostic = GeneralSkeletonDiagnostic | CausalityViolationDiagnostic;
 
 export interface SkeletonSolveResult {
     graph: StraightSkeletonGraph;

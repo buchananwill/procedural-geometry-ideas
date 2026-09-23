@@ -165,9 +165,13 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
     //
     // THE BAR STAYS AT THE SCRATCH EPSILON — A MEASURED STOP, NOT AN OMISSION (spec A15's
     // `makeOffsetDistance` row, A25 STOP 3; journal decision 146). Moved to the angular resolution, on
-    // its own and with every other site at its old bar, three defect fixtures that solve at 7faae16
-    // STOP SOLVING: `Off-edge Jitter Reflex L (seed 15838)`, `(seed 55433)` and `(seed 55433, k=4)`,
-    // each with step failures and unresolved edges. The mechanism is inferred rather than traced: a
+    // its own and with every other site at its old bar, and RE-MEASURED 2026-09-23 on the current tree
+    // under the solver's own causality check (journal-5 decisions 148, 149): ONE defect fixture stops
+    // solving — `Off-edge Jitter Reflex L (seed 55433, k=4)`, with step failures and unresolved edges —
+    // and three stay complete while gaining violations, every one of them diagnosed as a
+    // `causality-violation` (offset/clearance/direction): `(seed 15838)` 0/0/0 → 1/1/1, `(seed 55433)`
+    // 0/0/0 → 1/0/1, `Off-edge Jitter Plus (seed 7919)` 0/0/0 → 0/1/0. (The earlier measurement
+    // recorded here had all three reflex-L fixtures stop solving; it no longer holds.) The mechanism is inferred rather than traced: a
     // ray whose rate against its parent is a few parts in 1e6 — a slightly skewed corridor mid-line —
     // is then priced as travelling at CONSTANT offset while its partner's arrival is priced at its
     // true rate, and the equi-time check that follows (`arrivalsAreEqual`, still at the scratch

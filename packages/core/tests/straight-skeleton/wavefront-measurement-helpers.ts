@@ -4,6 +4,7 @@ import {
     computeNodeOffsets,
     computeOffsetRings,
     projectOffsetWavefront,
+    SkeletonNormalisation,
     SkeletonSolveResult,
     StraightSkeletonGraph,
     Vector2,
@@ -185,14 +186,29 @@ export interface CausalityViolations {
 }
 
 /**
- * `wavefront-causality.test.ts`'s three oracles — offset, clearance, direction — as ONE shared
- * measurement, at that suite's `1e-6` tolerance and with its definitions exactly (journal decision
- * 147): a suite pinning a MOVED AND FLAGGED cell's causality count asks the same question the
- * causality suite asks of the corpus, re-derived from geometry through {@link deriveNodeOffsets}.
- * Ids are returned rather than counts so a pin can name the edge it is about.
+ * The three causality oracles — offset, clearance, direction — as the ONE test-side copy (register
+ * D7, journal-5 decision 148(e)), re-derived from geometry through {@link deriveNodeOffsets}.
+ * `wavefront-causality.test.ts` states each definition beside the sweeps that use it, and every suite
+ * pinning a causality count asks this function. Ids are returned rather than counts so a pin can name
+ * the edge it is about.
+ *
+ * THE BAR IS THE SOLVER'S OWN (journal-5 decision 149): the perceptual floor the solve ran at, a
+ * UNIT-SPACE length, carried into the graph's caller units by the solve's `fromUnitScale` (an exact
+ * power of two). It used to be a literal `1e-6` in caller units — the wrong currency, 256× tighter
+ * than the floor on a 300-unit fixture, so it counted sub-perceptual violations the solver's check
+ * rightly does not. With one bar the two agree by construction.
+ *
+ * KEPT AS THE INDEPENDENT CONVICTION of the solver's own check (`checkWavefrontCausality`, which
+ * `solveSkeleton` runs on every solve and reports as `causality-violation` diagnostics): the
+ * definitions and the bar are the same; the independence is the separate implementation.
  */
-export function causalityViolations(graph: StraightSkeletonGraph): CausalityViolations {
-    const TOLERANCE = 1e-6;
+export function causalityViolations(
+    graph: StraightSkeletonGraph,
+    normalisation: Pick<SkeletonNormalisation, 'fromUnitScale'>,
+    perceptualFloor: number,
+): CausalityViolations {
+    // The solve's perceptual floor, a unit-space length, in the graph's (caller) units.
+    const TOLERANCE = perceptualFloor * normalisation.fromUnitScale;
     const offsetOf = deriveNodeOffsets(graph);
     const found: CausalityViolations = {offset: [], clearance: [], direction: []};
 
@@ -230,6 +246,39 @@ export function causalityViolations(graph: StraightSkeletonGraph): CausalityViol
     }
 
     return found;
+}
+
+/** Violation counts per causality oracle. */
+export interface CausalityCounts {
+    offset: number;
+    clearance: number;
+    direction: number;
+}
+
+/**
+ * {@link causalityViolations} on a solve, at the floor it ran at. `perceptualFloor` is the value the
+ * solve was given (the library floor, `SKELETON_NOISE_FLOOR`, when it was given none); the result does
+ * not record it, so the caller states it.
+ */
+export function oracleViolationsOf(result: SkeletonSolveResult, perceptualFloor: number): CausalityViolations {
+    return causalityViolations(result.graph, result.normalisation, perceptualFloor);
+}
+
+/** The test-side oracles' counts on a solve, at the floor it ran at: {@link oracleViolationsOf}, counted. */
+export function oracleCausalityCounts(result: SkeletonSolveResult, perceptualFloor: number): CausalityCounts {
+    const found = oracleViolationsOf(result, perceptualFloor);
+    return {offset: found.offset.length, clearance: found.clearance.length, direction: found.direction.length};
+}
+
+/** The SOLVER'S counts: its `causality-violation` diagnostics on a solve, counted per oracle. */
+export function solverCausalityCounts(result: SkeletonSolveResult): CausalityCounts {
+    const counts: CausalityCounts = {offset: 0, clearance: 0, direction: 0};
+    for (const diagnostic of result.diagnostics) {
+        if (diagnostic.kind === 'causality-violation') {
+            counts[diagnostic.oracle] += 1;
+        }
+    }
+    return counts;
 }
 
 /**

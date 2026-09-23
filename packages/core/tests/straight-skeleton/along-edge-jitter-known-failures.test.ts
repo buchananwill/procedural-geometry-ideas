@@ -11,7 +11,7 @@ import {
 } from '@proc-geo/test-fixtures';
 
 import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitteredSamples, jitterSweep} from './jitter-helpers';
-import {causalityViolations} from './wavefront-measurement-helpers';
+import {oracleCausalityCounts, oracleViolationsOf, solverCausalityCounts} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -223,7 +223,7 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
         // cures or worsens it is loud.
         const vertices = jitteredSamples(clockwise(JITTER_DOUBLE_REFLEX_PLUS), 10, 23757, NEAR_FLOOR_MAGNITUDE, OFF_EDGE);
         const result = solveSkeleton(vertices);
-        const found = causalityViolations(result.graph);
+        const found = oracleViolationsOf(result, SKELETON_NOISE_FLOOR);
 
         expect(result.complete).toBe(true);
         expect({
@@ -231,6 +231,11 @@ describe('off-edge jitter just above the noise floor: the recorded defect', () =
             clearance: found.clearance.length,
             direction: found.direction.length,
         }).toEqual({offset: 1, clearance: 0, direction: 1});
+        // Journal-5 decision 148: the solver reports both violations itself — the same edge, e270,
+        // 7.6e-6 back in time and 0.23 behind its source in unit space — and its count agrees with
+        // the oracle's. `complete` is unmoved.
+        expect(solverCausalityCounts(result)).toEqual({offset: 1, clearance: 0, direction: 1});
+        expect(solverCausalityCounts(result)).toEqual(oracleCausalityCounts(result, SKELETON_NOISE_FLOOR));
     });
 });
 

@@ -1,6 +1,6 @@
 import {
     AlgorithmStepInput,
-    AlgorithmStepOutput, Arrival, CollisionEvent,
+    AlgorithmStepOutput, Arrival, CausalityViolationDiagnostic, CollisionEvent,
     PolygonNode,
     SkeletonDiagnostic,
     SkeletonSolveResult,
@@ -42,6 +42,7 @@ import {
     TRIANGLE_INTERSECT_PAIRINGS,
 } from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
+import {checkWavefrontCausality} from "./causality-check";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
 import {
@@ -1444,6 +1445,17 @@ function findUnresolvedInteriorEdgeIds(graph: StraightSkeletonGraph): number[] {
         .map(interiorEdge => interiorEdge.id);
 }
 
+/** Carry the causality check's findings onto the diagnostics list, each detail prefixed by `where`. */
+function pushCausalityViolations(
+    diagnostics: SkeletonDiagnostic[],
+    violations: CausalityViolationDiagnostic[],
+    where: string,
+): void {
+    for (const found of violations) {
+        diagnostics.push({...found, detail: `${where}${found.detail}`});
+    }
+}
+
 function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): void {
     for (const error of errors) {
         diagnostics.push({kind: 'step-failure', detail: error});
@@ -1537,6 +1549,14 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
                 subPolygon, perceptualFloor, decomposition.subPolygonWeights[index]);
             pushStepFailures(diagnostics, run.errors);
             pushSolveDiagnostics(diagnostics, run);
+            // THE CAUSALITY CHECK RUNS PER SUB-POLYGON ON THIS PATH, BEFORE THE MERGE, AND IN UNIT
+            // SPACE (journal-5 decision 148). The merged graph interleaves every sub-graph's exterior
+            // and interior edges in one id space, so its exterior nodes are not one ring and a parent
+            // index does not name `nodes[parent] -> nodes[parent + 1]`: the oracles' definitions do
+            // not apply to it. Each sub-graph is an ordinary simple solve, and the ids reported are
+            // that sub-graph's, named by its index.
+            pushCausalityViolations(
+                diagnostics, checkWavefrontCausality(run.context.graph, perceptualFloor, 1), `Sub-polygon ${index}: `);
             return {graph: run.context.graph};
         });
 
@@ -1555,6 +1575,17 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     denormaliseGraph(graph, normalisation);
     if (context !== null) {
         denormaliseCollisionCache(context.collisionCache, normalisation);
+    }
+
+    // THE CAUSALITY CHECK, ALWAYS ON (journal-5 decision 148). Run on the returned, caller-space
+    // graph with its lengths carried into unit space, at the solve's perceptual floor. It only reads
+    // the graph. It does NOT enter `blocking` below: `complete` keeps its meaning, and the diagnostic
+    // is what makes a causally wrong answer signalled. The merged path ran it per sub-polygon above.
+    // Pushed BEFORE the unresolved-edge report so that, as on the merged path, a failing solve's
+    // diagnostics still end with `unresolved-edges`.
+    if (context !== null) {
+        pushCausalityViolations(
+            diagnostics, checkWavefrontCausality(graph, perceptualFloor, normalisation.toUnitScale), '');
     }
 
     const unresolvedEdgeIds = findUnresolvedInteriorEdgeIds(graph);
