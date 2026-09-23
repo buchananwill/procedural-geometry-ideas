@@ -58,8 +58,23 @@ misled this session's bootstrap. One addition:
 
 ## 4. Next work
 
-To be ruled with the user against §5. The lead's recommended order, pending the user's
-steer:
+**Refreshed 2026-09-23 after dispatch 2 (tip `75e7fa9`, core 5726/5726, dashboard 331/331,
+corpus 60 = 53 clean + 7 defect, digest 60).** Done this session: the register; I2
+restated (141/142); C9 the causality instrument (148/149); the angular package in two
+dispatches (146/147, 150/151). Remaining, in the lead's recommended order:
+
+1. **C8, the tolerance derivation package** — as a DECISION SPEC first (decision 144(f)):
+   re-read the tolerance audit at the "derived and coherent" bar, one derivation per site,
+   the four F64/F65 sites and the fourth oracle's bar included, the identical-source /
+   co-linear asymmetry of F66 read before ruling, B7's cancelling-rates case as the first
+   fixture. No code until ratified.
+2. **C7, the defect-signature completion** — small, independent, can run beside item 1.
+3. **C2, the canonicalisation rebuild** — waits on the drift bound's form (the user's
+   remaining ruling); acceptance fixtures 15838, the near-flat rectangle, 55433 at depth.
+4. **D2, the backlog reconciliation**, and **C5** (a demo-floor specimen) — small.
+
+*The original list, superseded, follows.* To be ruled with the user against §5. The
+lead's recommended order, pending the user's steer:
 
 1. **The angular unification package** (§5 C1) — it is the only package whose contract is
    already written and ratified in part, it owns three register entries (A1 identical-source
