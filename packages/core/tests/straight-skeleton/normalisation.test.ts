@@ -101,7 +101,7 @@ function makeEvent(overrides: Partial<CollisionEvent> = {}): CollisionEvent {
     return {
         offsetDistance: 3,
         // The pair the time came from (W-spec W7): unit speed, so distance and time coincide.
-        arrival: {distance: 3, weight: 1},
+        arrival: {distance: 3, weight: 1, uncertainty: 0},
         collidingEdges: [4, 5],
         position: {x: 7, y: 9},
         intersectionData: [2, 5, 'converging'],

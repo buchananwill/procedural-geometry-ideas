@@ -16,7 +16,7 @@ import {
 } from "./core-functions";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
-import {arrivalOf, timeOf} from "./collision-helpers";
+import {arrivalOf, rayIntersectionUncertainty, timeOf} from "./collision-helpers";
 
 /** `addBisectionEdge`'s zero-rate sine bar, held for C8 dispatch 2 (T17, T31; census S19). */
 const ZERO_RATE_SINE_BAR = 0.00000001;
@@ -221,6 +221,15 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     //
     // NOT RE-DERIVED IN C8 DISPATCH 1 (census S19): T17's orientation-aware reading at ρ, with the
     // fourth oracle as its complement (T18), is dispatch 2's (T29–T32). The bar is held bit-identical.
+    //
+    // C8 DISPATCH 2 MEASURED T17 AND IT STOPS (2026-09-24, T37 STOPs 1 and 3; the window still held,
+    // so T33's precondition is unmet as well). `directionsAreSame(cw, −ws, ρ)` on the raw parents,
+    // with the fourth oracle landed at T18: the three sub-ρ negative rates appear as F65 found them and
+    // the oracle correctly leaves them unflagged, three off-edge jitter cells lose a direction violation
+    // (the L at k = 2 seed 55433, the plus at k = 4 seed 47514 and k = 6 seed 15838) — but the jittered
+    // Circle 32 at 3 × 1e-8, seed 7, STOPS SOLVING (a pair-handler step failure on e71/e76), and the plus
+    // at k = 2, seed 23757 gains an offset violation of 1.77e-6 with its `causality-violation` diagnostic.
+    // Held here; the fourth oracle stands on its own (causality-check.ts) and reads zero everywhere.
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
         ZERO_RATE_SINE_BAR);
     if (!zeroRate) {
@@ -268,7 +277,10 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
                 context.coaxialityFloor, context.angularResolution);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 // W-spec W16: `maxOffset` is a TIME. At unit weights `distance / 1.0` is exact.
-                const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length))
+                // A ray intersection, so it carries the intersection's pricing error budget (C8 spec T12
+                // as amended); only its time is read here, into `maxOffset`.
+                const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length,
+                    rayIntersectionUncertainty(newRay, exteriorEdgeRay)))
                 context.updateMaxOffset(edgeIndex, time)
                 complexLog.info(`EdgeId: ${edgeIndex}, collided edge: ${i}, time: ${time}`)
 

@@ -1,13 +1,23 @@
 import type { Vector2 } from "../shared/types";
 import type { SegmentIntersection } from "./types";
 import { subtractVectors, crossProduct, addVectors, scaleVector } from "../straight-skeleton/core-functions";
-
-const EPSILON = 1e-10;
+import { CROSS_PRODUCT_ROUNDING_UNITS, UNIT_ROUNDOFF } from "../straight-skeleton/constants";
 
 /**
  * Test two finite line segments for intersection.
  * Segment A: a1 → a2.  Segment B: b1 → b2.
  * Returns null if segments don't intersect within their bounds.
+ *
+ * THE PARALLEL TEST IS A DIVISION GUARD, AND TAKES ITS OWN ROUNDING BOUND (C8 spec T24, I6; census
+ * S46): `cross(dA, dB)` is `|dA|·|dB|·sin θ` evaluated from raw (unnormalised) segment vectors, so its
+ * absolute rounding error is `k·u·|dA|·|dB|` with `k` = `CROSS_PRODUCT_ROUNDING_UNITS` (the unit-vector
+ * argument of constants.ts, scaled by the operands' lengths). Inside that bound the divisor has no sign
+ * the arithmetic can vouch for, and the pair is parallel. It was an absolute `1e-10` on a raw cross
+ * product — an AREA, so a different angle at every segment length.
+ *
+ * CONTAINMENT IS EXACT: `t ∈ [0, 1]` with no slack. The `1e-10` slack widened every segment by a
+ * parameter, not a length; a caller that wants touches at a shared vertex treated as no crossing says
+ * so with a length of its own (`polygon-decomposition.ts`, T24).
  */
 export function segmentSegmentIntersection(
   a1: Vector2,
@@ -20,7 +30,9 @@ export function segmentSegmentIntersection(
   const cross = crossProduct(dA, dB);
 
   // Parallel or collinear — treat as no intersection
-  if (Math.abs(cross) < EPSILON) {
+  const parallelBound = CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF
+    * Math.hypot(dA.x, dA.y) * Math.hypot(dB.x, dB.y);
+  if (Math.abs(cross) <= parallelBound) {
     return null;
   }
 
@@ -28,7 +40,7 @@ export function segmentSegmentIntersection(
   const tA = crossProduct(diff, dB) / cross;
   const tB = crossProduct(diff, dA) / cross;
 
-  if (tA < -EPSILON || tA > 1 + EPSILON || tB < -EPSILON || tB > 1 + EPSILON) {
+  if (tA < 0 || tA > 1 || tB < 0 || tB > 1) {
     return null;
   }
 
@@ -60,6 +72,16 @@ export function signedArea(vertices: Vector2[]): number {
       (vertices[j].x - origin.x) * (vertices[i].y - origin.y);
   }
   return area / 2;
+}
+
+/** The perimeter of a closed ring: the sum of its edge lengths, the closing edge included. */
+export function ringPerimeter(vertices: Vector2[]): number {
+  let perimeter = 0;
+  for (let i = 0; i < vertices.length; i++) {
+    const j = (i + 1) % vertices.length;
+    perimeter += Math.hypot(vertices[j].x - vertices[i].x, vertices[j].y - vertices[i].y);
+  }
+  return perimeter;
 }
 
 /**

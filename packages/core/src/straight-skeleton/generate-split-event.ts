@@ -86,7 +86,8 @@ function findOffsetViaIncenter(
     const termAgainstParent = rateAgainstParent * splitWeight;
     const termTowardsSplit = rateTowardsSplit * clockwiseWeight;
     const divisor = termAgainstParent + termTowardsSplit;
-    if (Math.abs(divisor) <= weightedRateSumRoundingBound(termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight)) {
+    const divisorBound = weightedRateSumRoundingBound(termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight);
+    if (Math.abs(divisor) <= divisorBound) {
         return null;
     }
 
@@ -95,9 +96,14 @@ function findOffsetViaIncenter(
 
     const alongInstigator =
         (sourceFromSplit * clockwiseWeight - sourceFromParent * splitWeight) / divisor;
+    const travelledOffset = alongInstigator * rateAgainstParent;
     const arrival: Arrival = {
-        distance: sourceFromParent + alongInstigator * rateAgainstParent,
+        distance: sourceFromParent + travelledOffset,
         weight: clockwiseWeight,
+        // THE SPLIT'S OWN PRICING ERROR BUDGET (C8 spec T12 as amended, journal decision 160(a)): the
+        // divisor carries at most `divisorBound` (S33's bound), so the quotient — and the offset it buys,
+        // `alongInstigator · rateAgainstParent` — carries that fraction of itself, to first order.
+        uncertainty: Math.abs(travelledOffset) * divisorBound / Math.abs(divisor),
     };
 
     // Discard negative arrivals. The weight is positive, so the sign is the distance's.
@@ -152,15 +158,20 @@ function findOffsetByDirectStrike(
     const crossSumDivisor = termClockwiseParent + termTarget;
 
     // A DIVISION GUARD (C8 spec T19, census S34): the same structure and the same bound as S33.
-    if (Math.abs(crossSumDivisor) <= weightedRateSumRoundingBound(termClockwiseParent, termTarget, clockwiseWeight, splitWeight)) {
+    const divisorBound = weightedRateSumRoundingBound(termClockwiseParent, termTarget, clockwiseWeight, splitWeight);
+    if (Math.abs(crossSumDivisor) <= divisorBound) {
         return null;
     }
 
     const distanceToSplitAlongInstigator =
         rayLength1 * negativeInstigatorCrossTarget * clockwiseWeight / crossSumDivisor;
+    const distance = distanceToSplitAlongInstigator * crossClockwiseParent;
     const arrival: Arrival = {
-        distance: distanceToSplitAlongInstigator * crossClockwiseParent,
+        distance,
         weight: clockwiseWeight,
+        // THE SPLIT'S OWN PRICING ERROR BUDGET (C8 spec T12 as amended): S34's divisor bound, carried
+        // into the quotient as a relative error to first order — the same form as the incenter path.
+        uncertainty: Math.abs(distance) * divisorBound / Math.abs(crossSumDivisor),
     };
 
     const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);

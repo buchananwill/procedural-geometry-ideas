@@ -79,8 +79,9 @@ function stringifyFinalData(context: StraightSkeletonSolverContext, input: Algor
 function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): Arrival | undefined {
     if (node.id < context.graph.numExteriorNodes) {
         // Zero distance is time zero against every positive weight, so the weight here is a
-        // formality; `1` keeps the pair's arithmetic exactly today's.
-        return {distance: 0, weight: 1};
+        // formality; `1` keeps the pair's arithmetic exactly today's. A boundary vertex is a STORED
+        // input position, so its pricing error budget is 0 (C8 spec T12 as amended).
+        return {distance: 0, weight: 1, uncertainty: 0};
     }
 
     const outInterior = node.outEdges.find(id => context.edgeRank(id) !== 'exterior');
@@ -186,8 +187,9 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // Same tolerance convention as `notYetBorn`: a snap exactly at the birth arrival is
         // legitimate, only a strictly earlier one is rejected (W-spec W30). S26 (C8 spec T14): "before
         // the birth" is a same-moment question; its window is held with the other six at
-        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see constants.ts).
-        const snapArrival = arrivalOf(interiorEdge, context, ray, distance);
+        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see constants.ts). The snap's travel is the distance
+        // between two STORED positions, so it carries no pricing error (uncertainty 0).
+        const snapArrival = arrivalOf(interiorEdge, context, ray, distance, 0);
         if (compareArrivals(snapArrival, birthArrival, HELD_SIMULTANEITY_WINDOW) < 0) {
             stepLog.debug(
                 `Rejecting snap of e${edgeId} to node ${candidate.id}: snap arrival ${snapArrival.distance}/${snapArrival.weight} precedes the bisector's birth arrival ${birthArrival.distance}/${birthArrival.weight}.`,
@@ -321,8 +323,10 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
                 break;
             }
 
-            // S27 (C8 spec T14): the closure's birth-causality test; window held (T37 STOP).
-            const arrival = arrivalOf(interior, context, ray, distance);
+            // S27 (C8 spec T14): the closure's birth-causality test; window held (T37 STOP). The travel
+            // is the distance from a STORED source to a STORED anchor, so it carries no pricing error
+            // (uncertainty 0).
+            const arrival = arrivalOf(interior, context, ray, distance, 0);
             if (compareArrivals(arrival, birthArrival, HELD_SIMULTANEITY_WINDOW) < 0) {
                 valid = false;
                 break;
@@ -1492,7 +1496,7 @@ export function runAlgorithmV5(
     const canonicalWeights = remapWeightsThroughCanonicalisation(
         doorWeights, canonical.indexRemap, unitNodes.length);
 
-    const decomposition = decomposePolygon(unitNodes, undefined, canonicalWeights);
+    const decomposition = decomposePolygon(unitNodes, perceptualFloor, undefined, canonicalWeights);
 
     if (!decomposition.wasSelfIntersecting) {
         const context = runSimplePolygon(unitNodes, perceptualFloor, canonicalWeights).context;
@@ -1673,7 +1677,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         });
     }
 
-    const decomposition = decomposePolygon(workingVertices, undefined, workingWeights);
+    const decomposition = decomposePolygon(workingVertices, perceptualFloor, undefined, workingWeights);
 
     let graph: StraightSkeletonGraph;
     let context: StraightSkeletonSolverContext | null;
@@ -1797,7 +1801,7 @@ export function runAlgorithmV5Stepped(
     const canonicalWeights = remapWeightsThroughCanonicalisation(
         doorWeights, canonical.indexRemap, unitNodes.length);
 
-    const decomposition = decomposePolygon(unitNodes, undefined, canonicalWeights);
+    const decomposition = decomposePolygon(unitNodes, perceptualFloor, undefined, canonicalWeights);
 
     if (!decomposition.wasSelfIntersecting) {
         const result = runSimplePolygonStepped(unitNodes, perceptualFloor, canonicalWeights);

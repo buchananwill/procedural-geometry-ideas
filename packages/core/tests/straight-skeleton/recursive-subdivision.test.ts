@@ -17,7 +17,7 @@ import {
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
-    DEGENERATE_AREA_EPSILON,
+    degenerateAreaBar,
     denormaliseLength,
     FALLBACK_LEVEL_SPEC,
     flattenRecursiveTree,
@@ -33,6 +33,7 @@ import {
     REMOVED_VERTEX_INDEX,
     RecursiveOptions,
     ResidueTreatment,
+    ringPerimeter,
     SegmentTreatment,
     signedArea,
     SKELETON_NOISE_FLOOR,
@@ -234,8 +235,16 @@ const CENSUS_SIGNATURES: Record<string, number> = {
     // 1.05e-5), its pre-residue tree reproduction at merge groups 2 and 3, and scale invariance in
     // `in-edge-ordering.test.ts` / `skeleton-tree.test.ts` among them.
     'Off-edge Jitter Reflex L (seed 55433)': 0,
-    'Off-edge Jitter Plus (seed 7919)': 15,
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': 7,
+    // 15 → 11 and 7 → 5 on 2026-09-24 (C8 dispatch 2): decision 159(b), the six released regions solve
+    // clean. The degeneracy bar became T23's form (b), "no visible width" — the root floor in caller
+    // units times half the region's perimeter — which releases six of the 22 decision-96 declines
+    // (areas 4.6e-7..8.5e-7 against bars 4.0e-7..5.5e-7): on the plus `r0.8.2`, `r0.15.2`, `r0.18.2`
+    // (full depth, merge group 1) and `r0.0.2` (full depth, merge group 2); on k=4 `r0.15.2` and
+    // `r0.17.2` (full depth, merge group 1). Each was solved before the bar moved: complete, zero
+    // causality violations on all four oracles, I2 and I5 clean, strips tiling the canonical region to
+    // ≤ 1.25e-16. The 16 that remain are still decision-96 declines.
+    'Off-edge Jitter Plus (seed 7919)': 11,
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': 5,
     // `Collinear Dumbbell` left this table with the roster on 2026-08-28 (journal decision 90). Its
     // census signature was zero throughout — this grid never saw its defect, which was in the strip
     // layer — and it is now swept as a clean fixture, still at zero.
@@ -409,9 +418,12 @@ function fullDepthReference(
     level: number,
     levels: number,
     mergeGroupSize: number,
+    rootFloor: number = rootFloorOf(boundary),
 ): SubdivisionShape {
     const bare: SubdivisionShape = {level, segments: [], children: []};
-    if (boundary.length < 3 || ringArea(boundary) < DEGENERATE_AREA_EPSILON) {
+    // The degeneracy bar the driver states (C8 spec T23, O3 form (b)): the root floor in caller units
+    // times half the region's perimeter.
+    if (boundary.length < 3 || ringArea(boundary) < degenerateAreaBar(rootFloor, ringPerimeter(boundary))) {
         return {...bare, failure: 'degenerate'};
     }
 
@@ -432,8 +444,13 @@ function fullDepthReference(
         segments: segments.map(segment => segment.boundary),
         children: level + 1 >= levels
             ? []
-            : segments.map(segment => fullDepthReference(segment.boundary, level + 1, levels, mergeGroupSize)),
+            : segments.map(segment => fullDepthReference(segment.boundary, level + 1, levels, mergeGroupSize, rootFloor)),
     };
+}
+
+/** The library floor restated in the caller units of `root`, as the driver restates it. */
+function rootFloorOf(root: Vector2[]): number {
+    return denormaliseLength(makeSkeletonNormalisation(root), SKELETON_NOISE_FLOOR);
 }
 
 function fixtureVertices(name: string): Vector2[] {
@@ -1282,7 +1299,8 @@ describe('recursive segment subdivision', () => {
             // zero and far below the floor — so an exact `=== 0` test would hand it to the solver.
             const sliver: Vector2[] = [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0.5, y: 1e-13}];
             expect(Math.abs(signedArea(sliver))).toBeGreaterThan(0);
-            expect(Math.abs(signedArea(sliver))).toBeLessThan(DEGENERATE_AREA_EPSILON);
+            expect(Math.abs(signedArea(sliver)))
+                .toBeLessThan(degenerateAreaBar(rootFloorOf(sliver), ringPerimeter(sliver)));
 
             const root = subdivideRecursively(sliver, options({levels: 2}));
             expect(root.failure).toMatch(/^Degenerate region/);
@@ -1293,11 +1311,16 @@ describe('recursive segment subdivision', () => {
         it('subdivides a small region whose area clears the degeneracy floor', () => {
             // The other side of the same boundary: shrinking a square until its area is merely small
             // must not make it degenerate, or the floor would be silently eating real geometry.
-            const side = Math.sqrt(DEGENERATE_AREA_EPSILON) * 10;
+            //
+            // C8 spec T23: the bar is "no visible width", the root floor (in caller units) times half the
+            // perimeter, so a square is degenerate only when its side is under twice the floor — and the
+            // floor is restated from the ROOT, here the square itself. A 1e-2 square clears it by far.
+            const side = 1e-2;
             const small: Vector2[] = [
                 {x: 0, y: 0}, {x: 0, y: side}, {x: side, y: side}, {x: side, y: 0},
             ];
-            expect(Math.abs(signedArea(small))).toBeGreaterThan(DEGENERATE_AREA_EPSILON);
+            expect(Math.abs(signedArea(small)))
+                .toBeGreaterThan(degenerateAreaBar(rootFloorOf(small), ringPerimeter(small)));
 
             const root = subdivideRecursively(small, options({mergeGroupSize: 1}));
             expect(root.failure).toBeUndefined();
@@ -1331,8 +1354,14 @@ describe('recursive segment subdivision', () => {
             // failures confined to their node (journal decision 96). The specimen is the plus seed at
             // merge group 2, full depth — a census-grid cell — where `r0.0` declines `r0.0.2` and
             // subdivides its siblings.
+            //
+            // AND MOVED AGAIN ON 2026-09-24, AN ATTRIBUTED RELEASE (C8 dispatch 2, decision 159(b)): the
+            // degeneracy bar became "no visible width", and that `r0.0.2` (area 4.79e-7 against a bar
+            // of 4.16e-7) is one of the six released declines, which solve clean. The specimen is the
+            // same fixture at merge group 1, full depth, where `r0.0` still declines `r0.0.2`,
+            // `r0.0.3` and `r0.0.4` (areas 1.8e-7, 1.5e-7, 2.8e-7 under bars 2.4e-7, 2.3e-7, 2.9e-7).
             const root = subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, options({
-                levels: MAX_RECURSION_LEVELS, mergeGroupSize: 2, depthFraction: FULL_DEPTH_FRACTION,
+                levels: MAX_RECURSION_LEVELS, mergeGroupSize: 1, depthFraction: FULL_DEPTH_FRACTION,
             }));
             const parents = flattenRecursiveTree(root)
                 .filter(node => node.children.some(child => child.failure !== undefined));
@@ -1785,18 +1814,25 @@ describe('recursive segment subdivision', () => {
 
     describe('a residue ring too degenerate to recurse on', () => {
         /**
-         * Cut this deep and the square's residue is a square of area 4e-8 — a real ring of four real
-         * vertices, and far under the degeneracy floor. Decision 4 discards it from the recursion; it
-         * is not discarded from the region, because it is still part of the area the tiling identity
-         * has to account for.
+         * Cut this deep and the square's residue is a square 2e-6 on a side — a real ring of four real
+         * vertices, and narrower than the degeneracy bar allows. Decision 4 discards it from the
+         * recursion; it is not discarded from the region, because it is still part of the area the
+         * tiling identity has to account for.
+         *
+         * RE-CUT 2026-09-24 (C8 dispatch 2, spec T23): the bar became "no visible width" — the root
+         * floor restated in caller units (2e-6 on this square) times half the ring's perimeter — so a
+         * square residue is degenerate only when its side is under twice the floor. At the old depth,
+         * 0.9999, the ring was 2e-4 on a side: a hundred floors wide, visible, and under only the
+         * retired absolute `1e-6`. It now solves; this depth keeps the decline the test is about.
          */
-        const NEARLY_FULL_DEPTH = 0.9999;
+        const NEARLY_FULL_DEPTH = 0.999999;
 
         it('is recorded as a failed child while the ring itself is kept', () => {
             const root = subdivideRecursively(SQUARE, options({levels: 2, depthFraction: NEARLY_FULL_DEPTH}));
 
             expect(root.residueRings).toHaveLength(1);
-            expect(ringArea(root.residueRings[0])).toBeLessThan(DEGENERATE_AREA_EPSILON);
+            expect(ringArea(root.residueRings[0]))
+                .toBeLessThan(degenerateAreaBar(rootFloorOf(SQUARE), ringPerimeter(root.residueRings[0])));
             expect(ringArea(root.residueRings[0])).toBeGreaterThan(0);
 
             expect(root.residueChildren).toHaveLength(1);

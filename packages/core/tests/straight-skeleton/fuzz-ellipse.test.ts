@@ -9,7 +9,7 @@ import {LONG_OCTAGON} from '@proc-geo/test-fixtures';
 import {WACKY_OCTAGON} from '@proc-geo/test-fixtures';
 import {CONVERGENCE_TOWARDS_ISTHMUS_SUCCEEDS} from '@proc-geo/test-fixtures';
 import {SUCCESS_CASE_DOUBLE_REFLEX_SPACESHIP} from '@proc-geo/test-fixtures';
-import {setSkeletonLogLevel} from '@proc-geo/core';
+import {setSkeletonLogLevel, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 import {stepAlgorithm} from '@proc-geo/core';
 
 setSkeletonLogLevel('silent');
@@ -86,7 +86,7 @@ function runAlgorithmV5WithDeadline(nodes: Vector2[], deadlineMs: number) {
     }
 
     const deadline = Date.now() + deadlineMs;
-    const decomposition = decomposePolygon(nodes);
+    const decomposition = decomposePolygon(nodes, SKELETON_NOISE_FLOOR);
 
     if (!decomposition.wasSelfIntersecting) {
         return runSimplePolygonWithDeadline(nodes, deadline);

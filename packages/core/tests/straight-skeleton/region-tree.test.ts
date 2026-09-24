@@ -1,7 +1,11 @@
 import {
     childRegionId,
-    DEGENERATE_AREA_EPSILON,
+    degenerateAreaBar,
+    denormaliseLength,
+    makeSkeletonNormalisation,
+    ringPerimeter,
     setSkeletonLogLevel,
+    SKELETON_NOISE_FLOOR,
     findRegionById,
     flattenRecursiveTree,
     FULL_DEPTH_FRACTION,
@@ -225,8 +229,11 @@ describe('the region tree is first-class', () => {
                 subdivideRecursively(OFF_EDGE_JITTER_L_SEED_55433_K4, {levels: CENSUS_LEVELS}))
                 .filter(node => node.outcome.kind === 'declined-degenerate');
 
+            // `r0.15.2` and `r0.17.2` LEFT THIS LIST ON 2026-09-24 (C8 dispatch 2, decision 159(b)): the
+            // degeneracy bar became "no visible width" (spec T23, O3 form (b)), which releases them —
+            // areas 5.74e-7 and 4.61e-7 against bars 4.51e-7 and 4.04e-7 — and both solve clean.
             expect(declines.map(node => node.id))
-                .toEqual(['r0.0.2', 'r0.5.3', 'r0.9.3', 'r0.11.3', 'r0.12.3', 'r0.15.2', 'r0.17.2']);
+                .toEqual(['r0.0.2', 'r0.5.3', 'r0.9.3', 'r0.11.3', 'r0.12.3']);
             // THE AREA MOVED ON 2026-09-10, FROM 2.556309138623965e-7, UNDER W-SPEC W21 / ARC
             // DECISION 115: `findOffsetViaIncenter` now solves the split event by the linear
             // equi-time form instead of by constructing a temporary node and intersecting two rays,
@@ -235,15 +242,21 @@ describe('the region tree is first-class', () => {
             // reason in `full-graph-digest.test.ts`), and this sliver's area is that movement carried
             // through three levels of recursion: 8.5e-18 on 2.6e-7, a relative 3.3e-11. The DECLINE
             // itself, its id, its vertex count and its classification are all unmoved.
+            //
+            // THE BAR MOVED ON 2026-09-24 (C8 spec T23, O3 form (b)): the root floor restated in caller
+            // units (2.56e-4 on this fixture) times half the region's perimeter, reported on the
+            // outcome as `bar` beside the area it was measured against. The area is unmoved.
             expect(declines[0].outcome).toEqual({
                 kind: 'declined-degenerate',
                 vertexCount: 3,
                 area: 2.556309138709409e-7,
+                bar: 3.0098302748362464e-7,
                 failure: 'Degenerate region: 3 boundary vertices enclosing an area of '
-                    + '2.556309138709409e-7, under the 0.000001 degeneracy floor.',
+                    + '2.556309138709409e-7, under the 3.0098302748362464e-7 degeneracy floor '
+                    + '(root floor 0.000256 × half-perimeter).',
             });
             // Every one of them is a sliver rather than a solve that failed: three vertices, and an
-            // area between a fifth and a quarter of the floor.
+            // area under the bar its own perimeter sets.
             expect(declines.every(node => node.boundary.length === 3)).toBe(true);
         });
     });
@@ -328,8 +341,15 @@ describe('the region tree is first-class', () => {
                     if (outcome.area !== area) {
                         problems.push(`${polygon.name}/${node.id}: declined at area ${outcome.area}, measures ${area}`);
                     }
-                    if (outcome.vertexCount >= 3 && outcome.area >= DEGENERATE_AREA_EPSILON) {
+                    if (outcome.vertexCount >= 3 && outcome.area >= outcome.bar) {
                         problems.push(`${polygon.name}/${node.id}: declined a region of ${outcome.area}, above the floor`);
+                    }
+                    // The bar it reports is the one C8 spec T23 states: the ROOT floor restated in caller
+                    // units, times half the region's perimeter.
+                    const rootFloor = denormaliseLength(makeSkeletonNormalisation(polygon.vertices), SKELETON_NOISE_FLOOR);
+                    if (outcome.vertexCount >= 3
+                        && outcome.bar !== degenerateAreaBar(rootFloor, ringPerimeter(node.boundary))) {
+                        problems.push(`${polygon.name}/${node.id}: declined against a bar of ${outcome.bar}, not the root-restated one`);
                     }
                 }
             }

@@ -1,4 +1,5 @@
 import {
+    angularResolution,
     Arrival,
     computeMaxOffset,
     computeNodeOffsets,
@@ -143,7 +144,7 @@ export function deriveNodeArrivals(graph: StraightSkeletonGraph): Map<number, Ar
 
     const arrivalOf = new Map<number, Arrival>();
     for (let i = 0; i < graph.numExteriorNodes; i++) {
-        arrivalOf.set(i, {distance: 0, weight: graph.exteriorWeights[i]});
+        arrivalOf.set(i, {distance: 0, weight: graph.exteriorWeights[i], uncertainty: 0});
     }
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const node = graph.nodes[i];
@@ -157,6 +158,8 @@ export function deriveNodeArrivals(graph: StraightSkeletonGraph): Map<number, Ar
                 graph.nodes[parent].position,
                 graph.nodes[(parent + 1) % edgeCount].position),
             weight: graph.exteriorWeights[parent],
+            // Re-derived from a STORED position, not priced: no pricing error budget (C8 spec T12).
+            uncertainty: 0,
         });
     }
 
@@ -270,15 +273,56 @@ export function oracleCausalityCounts(result: SkeletonSolveResult, perceptualFlo
     return {offset: found.offset.length, clearance: found.clearance.length, direction: found.direction.length};
 }
 
-/** The SOLVER'S counts: its `causality-violation` diagnostics on a solve, counted per oracle. */
+/**
+ * The SOLVER'S counts: its `causality-violation` diagnostics on a solve, counted per POSITIONAL oracle.
+ * The fourth oracle, `rate` (C8 spec T18), is counted separately by {@link solverRateViolations}, so
+ * the pinned three-oracle tables keep their shape and the rate count has its own sweeps.
+ */
 export function solverCausalityCounts(result: SkeletonSolveResult): CausalityCounts {
     const counts: CausalityCounts = {offset: 0, clearance: 0, direction: 0};
     for (const diagnostic of result.diagnostics) {
-        if (diagnostic.kind === 'causality-violation') {
+        if (diagnostic.kind === 'causality-violation' && diagnostic.oracle !== 'rate') {
             counts[diagnostic.oracle] += 1;
         }
     }
     return counts;
+}
+
+/** The SOLVER'S fourth-oracle findings on a solve: the interior-edge ids of its `rate` diagnostics. */
+export function solverRateViolations(result: SkeletonSolveResult): number[] {
+    return result.diagnostics.flatMap(diagnostic =>
+        diagnostic.kind === 'causality-violation' && diagnostic.oracle === 'rate' ? [diagnostic.elementId] : []);
+}
+
+/**
+ * THE FOURTH ORACLE, TEST SIDE — the independent conviction of the solver's `rate` oracle (C8 spec T18,
+ * journal decision 148(e)): the interior edges whose offset rate against their clockwise parent,
+ * `cross(basis, clockwiseParent.basis)`, is negative while their two parents are NOT anti-parallel at
+ * the angular resolution `ρ(perceptualFloor)`. Anti-parallel is `cw` and `−ws` pointing the same way to
+ * within ρ of sine, which is `addBisectionEdge`'s zero-rate predicate (T17); this is its complement.
+ *
+ * Direction is scale-free, so the graph may be in caller or unit space. The predicate is written out
+ * here rather than imported, as the other three oracles are.
+ */
+export function rateViolations(graph: StraightSkeletonGraph, perceptualFloor: number): number[] {
+    const resolution = angularResolution(perceptualFloor);
+    const found: number[] = [];
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        if (!edge) continue;
+        const clockwise = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex].basisVector;
+        const widdershins = graph.edges[interiorEdge.widdershinsExteriorEdgeIndex].basisVector;
+        const rate = edge.basisVector.x * clockwise.y - clockwise.x * edge.basisVector.y;
+        if (rate >= 0) continue;
+        const against = {x: -widdershins.x, y: -widdershins.y};
+        const antiParallel = clockwise.x * against.x + clockwise.y * against.y > 0
+            && Math.abs(clockwise.x * against.y - against.x * clockwise.y)
+                < resolution * Math.hypot(clockwise.x, clockwise.y) * Math.hypot(against.x, against.y);
+        if (!antiParallel) {
+            found.push(interiorEdge.id);
+        }
+    }
+    return found;
 }
 
 /**

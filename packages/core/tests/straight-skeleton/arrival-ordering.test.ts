@@ -42,7 +42,7 @@ function event(offsetDistance: number, collidingEdges: number[], eventType: Coll
         offsetDistance,
         // Under weights a time is carried as the `{distance, weight}` pair it came from (W-spec W7).
         // These fixtures are stated as times, so the pair is that time against unit speed.
-        arrival: {distance: offsetDistance, weight: 1},
+        arrival: {distance: offsetDistance, weight: 1, uncertainty: 0},
         collidingEdges,
         position: {x: 0, y: 0},
         intersectionData: [CONVERGING[0], CONVERGING[1], CONVERGING[2]],

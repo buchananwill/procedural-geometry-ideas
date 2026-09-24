@@ -53,9 +53,10 @@ export function makeStraightSkeletonSolverContext(
     // DERIVED ONCE, HERE, AND FOR THE SAME REASON (spec A8): the one angular bar of the solve. Every
     // angular predicate reads this field; none recomputes the square root.
     const angularBar = angularResolution(perceptualFloor);
-    // DERIVED ONCE, HERE (C8 spec T5, T12): the one simultaneity window of the solve, carried on the
-    // context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it yet:
-    // its move hit T37's STOPs and they hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
+    // DERIVED ONCE, HERE (C8 spec T5, T12 as amended): the CAP of the simultaneity window, carried on
+    // the context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it
+    // yet: both the flat δ window (dispatch 1) and the per-pair window capped at it (dispatch 2) hit
+    // T37's STOPs, and the sites hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
     const window = simultaneityWindow(perceptualFloor);
 
     /**

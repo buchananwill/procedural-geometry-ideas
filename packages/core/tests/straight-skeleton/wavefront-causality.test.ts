@@ -8,9 +8,11 @@ import {
     PREMATURE_BISECTOR_SPLIT_PASSES,
 } from '@proc-geo/test-fixtures';
 import {
-    areEqual,
+    angularResolution,
     checkWavefrontCausality,
     crossProduct,
+    directionsAreSame,
+    negateVector,
     runAlgorithmV5,
     SKELETON_NOISE_FLOOR,
     SkeletonSolveResult,
@@ -26,18 +28,14 @@ import {
  */
 const JITTER_UNIT = 1e-8;
 
-/**
- * The rate oracle's bar, held at the retired scratch value as a stated literal: this is census S21, and
- * its move into the solver as the fourth oracle, at T17's complementary predicate, is C8 dispatch 2's
- * (T18).
- */
-const RATE_ORACLE_BAR = 1e-8;
 import {
     CausalityCounts,
     causalityViolations,
     oracleCausalityCounts,
     oracleViolationsOf,
+    rateViolations,
     solverCausalityCounts,
+    solverRateViolations,
 } from './wavefront-measurement-helpers';
 
 /**
@@ -136,26 +134,25 @@ function findOffsetViolations(vertices: Vector2[]): number[] {
  *
  * ZERO IS ALLOWED AND IS NOT A LOOPHOLE. Two exactly anti-parallel parents give a bisector that
  * runs along a corridor at constant offset — a real ridge, not a violation — and 22 of the corpus's
- * 923 bisectors sit in that band. Only a rate that is negative BY MORE THAN the solver's own
- * tolerance is a violation.
+ * 923 bisectors sit in that band.
+ *
+ * THE BAR IS STATED ON THE PARENTS, NOT ON THE RATE (C8 spec T18, census S21; journal decisions
+ * 148(e), 153(a)). A negative rate is a violation exactly when the bisector's two parents are NOT
+ * anti-parallel at the solve's angular resolution — the complement of `addBisectionEdge`'s zero-rate
+ * predicate (T17), which is the solver's fourth oracle, `rate`. This is its independent conviction:
+ * `rateViolations` in `wavefront-measurement-helpers.ts` re-states the same definition. It used to be
+ * `rate < 0 && |rate| ≥ 1e-8`, the retired scratch epsilon read on the rate.
  */
 function findBackwardsRateViolations(vertices: Vector2[]): string[] {
     const {graph} = runAlgorithmV5(vertices);
-    const violations: string[] = [];
-
-    for (const interiorEdge of graph.interiorEdges) {
-        const edge = graph.edges[interiorEdge.id];
-        if (!edge) continue;
-        const clockwiseParent = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex];
-        const rate = crossProduct(edge.basisVector, clockwiseParent.basisVector);
-        if (rate < 0 && !areEqual(rate, 0, RATE_ORACLE_BAR)) {
-            violations.push(
-                `e${interiorEdge.id} advances at offset rate ${rate} against its clockwise parent `
-                + `${interiorEdge.clockwiseExteriorEdgeIndex}: it runs backwards through the wavefront`);
-        }
-    }
-
-    return violations;
+    return rateViolations(graph, SKELETON_NOISE_FLOOR).map(id => {
+        const interiorEdge = graph.interiorEdges.find(candidate => candidate.id === id)!;
+        const rate = crossProduct(graph.edges[id].basisVector,
+            graph.edges[interiorEdge.clockwiseExteriorEdgeIndex].basisVector);
+        return `e${id} advances at offset rate ${rate} against its clockwise parent `
+            + `${interiorEdge.clockwiseExteriorEdgeIndex}, whose walls are not anti-parallel at the angular `
+            + `resolution: it runs backwards through the wavefront`;
+    });
 }
 
 /**
@@ -607,7 +604,126 @@ describe('wavefront causality', () => {
                 const {solver, oracle} = bothCounts(result, perceptualFloor);
                 expect(solver).toEqual(oracle);
                 expect(result.complete).toBe(completeIgnoringCausality(result));
+                // FOUR ORACLES SINCE C8 DISPATCH 2 (spec T18): the fourth, `rate`, compared id for id —
+                // the solver's `rate` diagnostics against the test-side `rateViolations` on the same
+                // graph. On the self-intersecting path the solver checks each sub-polygon before the
+                // merge, so the id comparison is made on the simple path. Measured 2026-09-24: zero on
+                // both instruments, every fixture, both floors.
+                if (result.context !== null) {
+                    expect(solverRateViolations(result)).toEqual(rateViolations(result.graph, perceptualFloor));
+                }
+                expect(solverRateViolations(result)).toEqual([]);
             });
+    });
+
+    /**
+     * A SUB-RESOLUTION NEGATIVE RATE BETWEEN ANTI-PARALLEL WALLS IS NOT A VIOLATION — decision 153(a) / T18.
+     *
+     * T17's reading of `addBisectionEdge`'s zero-rate test (anti-parallel parents at the angular
+     * resolution ρ, orientation-aware) leaves bisectors whose direction came from the parent ordering
+     * with a rate a few parts in 1e6 NEGATIVE (F65: −8.8e-6, −3.4e-6, −7.8e-6 on the plus and k=4, all
+     * under ρ/2 = 8.86e-6). That move itself STOPPED in C8 dispatch 2 (see `addBisectionEdge`), so those
+     * three are not produced on this tree; the RULING is pinned on a constructed graph instead. The
+     * fourth oracle is T17's exact complement, so a negative rate between walls anti-parallel at ρ is NOT
+     * a violation — and the same bisector between walls skewed past ρ IS, on both instruments.
+     */
+    function corridorGraph(widdershinsSkew: number, bisectorRate: number): StraightSkeletonGraph {
+        // Walls e0 (clockwise parent, pointing +x) and e2 (widdershins parent, pointing −x, skewed by
+        // `widdershinsSkew`); a bisector e4 from node 0 whose rate against e0 is `bisectorRate`.
+        const skewLength = Math.hypot(1, widdershinsSkew);
+        const rateLength = Math.hypot(1, bisectorRate);
+        return {
+            nodes: [
+                {id: 0, position: {x: 0, y: 0}, inEdges: [3], outEdges: [0, 4]},
+                {id: 1, position: {x: 4, y: 0}, inEdges: [0], outEdges: [1]},
+                {id: 2, position: {x: 4, y: -1}, inEdges: [1], outEdges: [2]},
+                {id: 3, position: {x: 0, y: -1}, inEdges: [2], outEdges: [3]},
+            ],
+            edges: [
+                {id: 0, source: 0, target: 1, basisVector: {x: 1, y: 0}},
+                {id: 1, source: 1, target: 2, basisVector: {x: 0, y: -1}},
+                {id: 2, source: 2, target: 3, basisVector: {x: -1 / skewLength, y: widdershinsSkew / skewLength}},
+                {id: 3, source: 3, target: 0, basisVector: {x: 0, y: 1}},
+                // cross((1, −r)/|·|, (1, 0)) = r/|·|: the rate against e0 is `bisectorRate` to first order.
+                {id: 4, source: 0, basisVector: {x: 1 / rateLength, y: -bisectorRate / rateLength}},
+            ],
+            numExteriorNodes: 4,
+            interiorEdges: [
+                {id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 2, length: Number.MAX_VALUE},
+            ],
+            exteriorWeights: [1, 1, 1, 1],
+        };
+    }
+
+    it('a negative rate of −8.8e-6 between walls anti-parallel at ρ is NOT a violation (decision 153(a)/T18)', () => {
+        const resolution = angularResolution(SKELETON_NOISE_FLOOR);
+        const graph = corridorGraph(1e-6, -8.8e-6);
+        const rate = crossProduct(graph.edges[4].basisVector, graph.edges[0].basisVector);
+        expect(rate).toBeLessThan(0);
+        expect(-rate).toBeLessThan(resolution / 2);
+        // T17's predicate holds on the raw parents…
+        expect(directionsAreSame(graph.edges[0].basisVector, negateVector(graph.edges[2].basisVector), resolution))
+            .toBe(true);
+        // …so T18's violation is false, on both instruments.
+        expect(checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1)).toEqual([]);
+        expect(rateViolations(graph, SKELETON_NOISE_FLOOR)).toEqual([]);
+    });
+
+    it('the same negative rate between walls skewed past ρ IS a violation, on both instruments', () => {
+        const resolution = angularResolution(SKELETON_NOISE_FLOOR);
+        const graph = corridorGraph(2 * resolution, -8.8e-6);
+        expect(directionsAreSame(graph.edges[0].basisVector, negateVector(graph.edges[2].basisVector), resolution))
+            .toBe(false);
+        expect(checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1).map(({oracle, elementId}) => ({oracle, elementId})))
+            .toEqual([{oracle: 'rate', elementId: 4}]);
+        expect(rateViolations(graph, SKELETON_NOISE_FLOOR)).toEqual([4]);
+    });
+
+    /**
+     * THE FOURTH ORACLE'S COUNT ON EVERY PINNED CELL (T37 STOP 4: it may only fall once it is in). Every
+     * cell of this file's pinned tables reads zero on both instruments — measured 2026-09-24.
+     */
+    it('the rate oracle reads zero on every pinned cell of this file, on both instruments', () => {
+        const cells: Vector2[][] = [
+            ...BACKWARDS_BISECTOR_CELLS.map(([, vertices]) => vertices),
+            jitterCell(NEAR_REGULAR_CIRCLE_32, 1, 5),
+            ...KNOWN_DEFECT_POLYGONS.map(polygon => polygon.vertices),
+        ];
+        for (const vertices of cells) {
+            const result = solve(vertices);
+            expect(solverRateViolations(result)).toEqual([]);
+            expect(rateViolations(result.graph, SKELETON_NOISE_FLOOR)).toEqual([]);
+        }
+    });
+
+    it('the rate oracle convicts a bisector turned backwards on an ordinary vertex', () => {
+        // A 2×1 rectangle's primary bisector at node 0 (clockwise parent e0 = (0,0)->(0,1), widdershins
+        // e3 = (2,0)->(0,0) — perpendicular, far from anti-parallel), turned to point OUT of the
+        // rectangle: its rate against e0 is negative and nothing licenses it.
+        const graph: StraightSkeletonGraph = {
+            nodes: [
+                {id: 0, position: {x: 0, y: 0}, inEdges: [3], outEdges: [0, 4]},
+                {id: 1, position: {x: 0, y: 1}, inEdges: [0], outEdges: [1]},
+                {id: 2, position: {x: 2, y: 1}, inEdges: [1], outEdges: [2]},
+                {id: 3, position: {x: 2, y: 0}, inEdges: [2], outEdges: [3]},
+            ],
+            edges: [
+                {id: 0, source: 0, target: 1, basisVector: {x: 0, y: 1}},
+                {id: 1, source: 1, target: 2, basisVector: {x: 1, y: 0}},
+                {id: 2, source: 2, target: 3, basisVector: {x: 0, y: -1}},
+                {id: 3, source: 3, target: 0, basisVector: {x: -1, y: 0}},
+                {id: 4, source: 0, basisVector: {x: -Math.SQRT1_2, y: -Math.SQRT1_2}},
+            ],
+            numExteriorNodes: 4,
+            interiorEdges: [
+                {id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 3, length: Number.MAX_VALUE},
+            ],
+            exteriorWeights: [1, 1, 1, 1],
+        };
+        expect(checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1)
+            .map(({oracle, elementId}) => ({oracle, elementId})))
+            .toEqual([{oracle: 'rate', elementId: 4}]);
+        expect(rateViolations(graph, SKELETON_NOISE_FLOOR)).toEqual([4]);
     });
 
     /**

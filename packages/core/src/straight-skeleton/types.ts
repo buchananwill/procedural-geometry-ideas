@@ -45,6 +45,18 @@ export enum SkeletonDirection {
 export interface Arrival {
     distance: number;
     weight: number;
+    /**
+     * The PRICING ERROR BUDGET of `distance`: a first-order bound, in the same (unit-space, before
+     * denormalisation) length as `distance`, on how far the arithmetic that priced this arrival can
+     * have placed it from the exact answer for the doubles it was given (C8 spec T12 as amended,
+     * journal decision 160(a) — O1(b)'s per-event budget applied to time). Set ONCE, where the arrival
+     * is priced: `k·u·|sep| / sin²θ` at a ray intersection, the divisor's own rounding bound at a
+     * head-on meeting and a split, and `0` where nothing was priced (a stored position, a birth, a
+     * bound). `pairSimultaneityWindow` widens a pair's simultaneity window by the two budgets, never
+     * past the perceptual floor — landed and measured, but NOT spent: its move to the seven window sites
+     * hit T37's STOPs in C8 dispatch 2 (see `HELD_SIMULTANEITY_WINDOW`).
+     */
+    uncertainty: number;
 }
 
 export interface InteriorEdge {
@@ -175,7 +187,7 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      * here beside {@link coaxialityFloor} and {@link angularResolution}, so every window site — the
      * layer, the phantom test, the snap's equal-time check, the closure's simultaneity and the three
      * birth-causality tests — can spend one double. NOT YET SPENT: the sites hold
-     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under C8 dispatch 1's T37 STOP; see constants.ts.
+     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under C8 dispatches 1 and 2's T37 STOPs; see constants.ts.
      */
     simultaneityWindow: number;
     /**
@@ -299,8 +311,8 @@ export interface AlgorithmStepOutput {
  *   never expected: a bounded wavefront with live vertices must have a next event, so reaching this
  *   at all means a predicate refused an event that exists, and the detail names both edge ids and
  *   the offset so the specimen can be found.
- * - `causality-violation`    — the solved graph breaks wavefront causality by one of the three
- *   post-solve oracles (journal-5 decision 148): one diagnostic per violation, carried as a
+ * - `causality-violation`    — the solved graph breaks wavefront causality by one of the four
+ *   post-solve oracles (journal-5 decision 148, C8 spec T18): one diagnostic per violation, carried as a
  *   {@link CausalityViolationDiagnostic}. INFORMATIONAL with respect to `complete` — `complete` keeps
  *   its meaning (every exterior edge accepted, no step failure, no unresolved edge) — but it is what
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
@@ -325,22 +337,26 @@ export interface GeneralSkeletonDiagnostic {
 }
 
 /**
- * Which of the three post-solve causality oracles a violation was found by (journal-5 decision 148).
+ * Which of the four post-solve causality oracles a violation was found by (journal-5 decisions 148,
+ * 149(b); C8 spec T18).
  *
  * - `offset`    — an interior edge whose target is dated earlier than its source.
  * - `clearance` — an interior node dated later than its own distance to the solver's boundary.
  * - `direction` — an interior edge whose target lies behind its source along its own basis vector.
+ * - `rate`      — an interior edge whose offset rate against its clockwise parent is NEGATIVE while
+ *   its two parents are NOT anti-parallel at the angular resolution: it runs backwards through the
+ *   wavefront (T18, the exact complement of `addBisectionEdge`'s zero-rate predicate, T17).
  */
-export type CausalityOracle = 'offset' | 'clearance' | 'direction';
+export type CausalityOracle = 'offset' | 'clearance' | 'direction' | 'rate';
 
 /**
  * One wavefront-causality violation found on a solved graph by `checkWavefrontCausality`.
  *
- * `elementId` is an INTERIOR EDGE id for the `offset` and `direction` oracles and a NODE id for the
- * `clearance` oracle. `magnitude` is in UNIT SPACE — the solve's own normalised coordinates — so it
+ * `elementId` is an INTERIOR EDGE id for the `offset`, `direction` and `rate` oracles and a NODE id for
+ * the `clearance` oracle. `magnitude` is in UNIT SPACE — the solve's own normalised coordinates — so it
  * reads against the perceptual floor the check was run at: the backwards step in time (`offset`), the
  * overshoot past clearance (`clearance`), or the distance the target lies behind the source along the
- * basis (`direction`).
+ * basis (`direction`). For `rate` it is the magnitude of the negative rate, a dimensionless sine.
  */
 export interface CausalityViolationDiagnostic {
     kind: 'causality-violation';

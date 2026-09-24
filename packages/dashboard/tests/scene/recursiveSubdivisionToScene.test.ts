@@ -495,11 +495,18 @@ describe('the residue on the canvas', () => {
  * produced at all, which keeps this suite's fill census about the failure and nothing else. A
  * specimen that only fails BELOW full depth would not do: its residue rings are dashed fills too,
  * and the census below could no longer tell a hole from a courtyard.
+ *
+ * RE-SPECIMENED 2026-09-24, the fifth time, by C8 dispatch 2's degeneracy bar (spec T23, O3 form (b),
+ * journal decision 159(b)): the bar became "no visible width" — the root floor in caller units times
+ * half the region's perimeter — and `r0.0.2` in groups of two (4.79e-7 against a bar of 4.16e-7) is one
+ * of the six declines it releases; it solves clean. The same fixture in groups of ONE still declines
+ * several slivers under the new bar (`r0.0.2`, `r0.0.3`, `r0.0.4` among them), which is all this suite
+ * needs: every failure patch must read as a hole among the tints.
  */
 describe('a failed cell among tinted ones', () => {
     const levels: LevelSpec[] = uniformLevelSpecs({
         levels: 3,
-        mergeGroupSize: 2,
+        mergeGroupSize: 1,
         depthFraction: FULL_DEPTH_FRACTION,
         residue: 'void',
     });

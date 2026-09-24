@@ -19,7 +19,13 @@ import {
     sineIsBelow,
     subtractVectors
 } from "./core-functions";
-import {HELD_SIMULTANEITY_WINDOW, weightedRateSumRoundingBound} from "./constants";
+import {
+    ARRIVAL_MOMENT_ULPS,
+    CROSS_PRODUCT_ROUNDING_UNITS,
+    HELD_SIMULTANEITY_WINDOW,
+    UNIT_ROUNDOFF,
+    weightedRateSumRoundingBound,
+} from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
@@ -53,6 +59,51 @@ export function timeOf(arrival: Arrival): number {
 }
 
 /**
+ * THE SIMULTANEITY WINDOW OF ONE PAIR, cross-multiplied (C8 spec T12 as amended by journal decision
+ * 160, T13): the width, in the units of `|d₁·w₂ − d₂·w₁|`, inside which the two arrivals are ONE
+ * MOMENT of the wavefront clock.
+ *
+ *     window  =  min( cap · min(w₁, w₂),
+ *                     max( ARRIVAL_MOMENT_ULPS · ε · max(|d₁·w₂|, |d₂·w₁|),
+ *                          uncertainty₁ · w₂  +  uncertainty₂ · w₁ ) )
+ *
+ * which, divided through by `w₁·w₂`, is the time-axis statement
+ *
+ *     |t₁ − t₂|  <  min( cap / max(w₁, w₂),  max( 64·ε·max(t₁, t₂),  e₁/w₁ + e₂/w₂ ) ).
+ *
+ * THE FLOOR IS ARITHMETIC: the moment bar of S29 at the LATER of the two times (`t` in the bar is the
+ * larger arrival time), which two routes to one exact value never exceed. WIDENED BY CONDITIONING: the
+ * two arrivals' own pricing error budgets ({@link Arrival.uncertainty}), converted to time by their
+ * own weights — an ordering the arithmetic cannot vouch for is not an ordering. CAPPED BY PERCEPTION:
+ * `cap` is the solve's `simultaneityWindow` (δ), stated on the FASTER participant, so inside the
+ * window no participating edge advances more than δ — where decision 157 releases the solver from
+ * deciding. At unit weights it reads `min(δ, max(64·ε·max(d₁, d₂), e₁ + e₂))` on `|d₁ − d₂|`.
+ *
+ * A literal `cap = 0` makes the window `0`: an exact comparison.
+ *
+ * LANDED AND MEASURED, NOT SPENT — A MEASURED STOP (C8 dispatch 2, 2026-09-24; T16, T37). With all seven
+ * sites (S22–S28) comparing at this window, 211 of the 580 sweep cells move and 45 core tests fail:
+ * `Near Regular Circle 48` and the regular circles of the vertex-count sweep stop solving (STOP 1), and
+ * two CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`). The movers are NOT
+ * ill-conditioned pairs: on the Peanut the phantom test (S23) splits `e37 × e57` (sin θ = 0.374, |sep| =
+ * 0.401, budget 6.4e-16 per reading) whose two readings differ by 5.0e-15 against a moment bar of 2.9e-15;
+ * on `Near Regular Circle 32` the layer (S22) splits a 32-way meeting whose arrivals differ by 8.7e-15 to
+ * 1.2e-14 against a bar of 8.3e-15 (sin θ = 0.195, budgets 6.7e-16). The pricing budget charges only the
+ * division by `sin θ`; the readings also differ by the rounding of the bisector bases, the rates and the
+ * source offsets, which it does not charge, so well-conditioned many-way meetings fall one to two moment
+ * bars apart and are split. By site alone: S22 moves 209 cells, S23 75, S24 11 (hash only) plus a
+ * `Golf Cart` recursion throw, S25–S28 nothing. The sites spend `HELD_SIMULTANEITY_WINDOW` through
+ * {@link compareArrivals}; see constants.ts.
+ */
+export function pairSimultaneityWindow(a: Arrival, b: Arrival, cap: number): number {
+    const left = a.distance * b.weight;
+    const right = b.distance * a.weight;
+    const momentBar = ARRIVAL_MOMENT_ULPS * Number.EPSILON * Math.max(Math.abs(left), Math.abs(right));
+    const conditioning = a.uncertainty * b.weight + b.uncertainty * a.weight;
+    return Math.min(cap * Math.min(a.weight, b.weight), Math.max(momentBar, conditioning));
+}
+
+/**
  * Order two arrivals in time, division-free (W-spec W22, W26), with the SIMULTANEITY WINDOW stated per
  * pair (C8 spec T13).
  *
@@ -60,14 +111,13 @@ export function timeOf(arrival: Arrival): number {
  *
  *     |d₁·w₂ − d₂·w₁|  <  window · min(w₁, w₂)      ⟺      |t₁ − t₂|  <  window / max(w₁, w₂)
  *
- * — inside the window no participating edge advances more than `window` (a LENGTH: the solve's
- * `simultaneityWindow`, δ, once T37's STOP on moving the seven sites is lifted; until then
- * `HELD_SIMULTANEITY_WINDOW`). The bar is stated on the FASTER participant, which is what
- * dissolves W-spec W48's fusing hazard for every weight ratio (T22). At unit weights it reads
+ * — inside the window no participating edge advances more than `window` (a LENGTH). The seven window
+ * sites pass `HELD_SIMULTANEITY_WINDOW`: T12's amended per-pair form ({@link pairSimultaneityWindow}) is
+ * landed but its move hit T37's STOPs (see there). The bar is stated on the FASTER participant, which is
+ * what dissolves W-spec W48's fusing hazard for every weight ratio (T22). At unit weights it reads
  * `|d₁ − d₂| < window`, the operands and operation order of the unweighted solver.
  *
- * NO DEFAULT (T4): every caller states its window — the solve's `simultaneityWindow` where the question
- * is "one moment?", or a literal `0` where it only ORDERS (S31).
+ * NO DEFAULT (T4): every caller states its window, or a literal `0` where it only ORDERS (S31).
  *
  * AN EXACTLY ZERO DIFFERENCE IS NEVER AN ORDERING, even at `window = 0`. That is not a widening:
  * `fp_compare` reports `1` for two identical operands at a zero epsilon (its window is strict), and
@@ -101,25 +151,54 @@ export function laterArrival(a: Arrival, b: Arrival): Arrival {
  * perpendicular distance from the bisector's clockwise parent's supporting line is exactly what a
  * time needs beside a weight, and leaving its arithmetic alone is what makes every unit-weight
  * number downstream bit-identical.
+ *
+ * `uncertainty` is the pricing error budget of `alongRay` (C8 spec T12 as amended), stated by the
+ * caller that priced it: {@link rayIntersectionUncertainty} for a ray intersection, the head-on
+ * divisor's bound for a head-on meeting, `0` for a travel that is the distance between two stored
+ * positions.
  */
 export function arrivalOf(
     edge: InteriorEdge,
     context: StraightSkeletonSolverContext,
     ray: RayProjection,
     alongRay: number,
+    uncertainty: number,
 ): Arrival {
     return {
         distance: makeOffsetDistance(edge, context, ray, alongRay),
         weight: context.weightOf(context.clockwiseParent(edge).id),
+        uncertainty,
     };
 }
 
-/** The birth arrival of a bisector: its source's distance from its clockwise parent, and that weight. */
+/**
+ * The birth arrival of a bisector: its source's distance from its clockwise parent, and that weight.
+ *
+ * ITS UNCERTAINTY IS 0: the source is a STORED node position, not a priced one, and the distance is a
+ * projection of two stored positions — no division by a small quantity, so no conditioning to carry
+ * (C8 spec T12 as amended; a stored position has no pricing error).
+ */
 export function birthArrivalOf(edge: InteriorEdge, context: StraightSkeletonSolverContext): Arrival {
     return {
         distance: sourceOffsetDistance(edge, context),
         weight: context.weightOf(context.clockwiseParent(edge).id),
+        uncertainty: 0,
     };
+}
+
+/**
+ * The pricing error budget of a RAY INTERSECTION (C8 spec T12 as amended, journal decision 160(a)):
+ * `k·u·|sep| / sin²θ`, the conditioning quantity of spec A3 and O1's histogram — `intersectRays`
+ * divides by `sin θ`, evaluated as a cross product of unit bases carrying `k·u` of absolute error
+ * (`k` = `CROSS_PRODUCT_ROUNDING_UNITS`, argued in constants.ts), so the meeting point is placed to
+ * within `|sep|·k·u/sin²θ` along each ray. A distance along a ray moves the offset by at most that
+ * much, so it bounds the arrival's distance too. Every priced pair has `sin θ ≥ ρ`, and ρ was sized
+ * (A3) so that this stays under δ at `|sep| ≤ √2`.
+ */
+export function rayIntersectionUncertainty(ray1: RayProjection, ray2: RayProjection): number {
+    const sine = crossProduct(ray1.basisVector, ray2.basisVector);
+    const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
+    return CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * separation / (sine * sine);
 }
 
 /**
@@ -222,6 +301,12 @@ function offsetRate(edge: InteriorEdge, ray: RayProjection, context: StraightSke
  * it. At unit weights every product is by `1.0` and the expression is the unweighted
  * `(s_B − s_A + sep·r_B) / (r_A + r_B)` in the same operation order — measured 0 mismatches in
  * 100 000 random operands.
+ *
+ * Returns `[alongA, alongB, uncertainty]`, the third being the meeting's pricing error budget (C8 spec
+ * T12 as amended): the divisor carries at most `cancellationBound` of absolute error, so the quotient
+ * `alongA` carries `|alongA| · cancellationBound / |combinedRate|` to first order — and `alongB =
+ * separation − alongA` carries the same error. It is the head-on analogue of `k·u·|sep|/sin²θ`: a
+ * division by a small evaluated quantity, charged its own rounding.
  */
 function meetHeadOn(
     edgeA: InteriorEdge,
@@ -230,7 +315,7 @@ function meetHeadOn(
     ray2: RayProjection,
     separation: number,
     context: StraightSkeletonSolverContext,
-): [number, number] | null {
+): [number, number, number] | null {
     const rateA = offsetRate(edgeA, ray1, context);
     const rateB = offsetRate(edgeB, ray2, context);
     const weightA = context.weightOf(context.clockwiseParent(edgeA).id);
@@ -264,7 +349,7 @@ function meetHeadOn(
     const alongA = (sourceOffsetB * weightA - sourceOffsetA * weightB + separation * rateB * weightA)
         / combinedRate;
 
-    return [alongA, separation - alongA];
+    return [alongA, separation - alongA, Math.abs(alongA) * cancellationBound / Math.abs(combinedRate)];
 }
 
 /**
@@ -337,9 +422,16 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     const [alongRay1, _alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
 
-    const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1);
-    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2);
+    // THE PRICING ERROR BUDGET (C8 spec T12 as amended, journal decision 160(a)), one per verdict: a
+    // 'converging' pair was priced by `intersectRays`' division by `sin θ`; a 'head-on' pair by
+    // `meetHeadOn`'s division by the combined rate; a 'co-linear-from-1' pair was not priced at all —
+    // its travel is the distance between two STORED sources, so it carries no pricing error (0).
+    const uncertainty = resultType === 'converging'
+        ? rayIntersectionUncertainty(ray1, ray2)
+        : headOnMeeting?.[2] ?? 0;
 
+    const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1, uncertainty);
+    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2, uncertainty);
 
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
@@ -348,7 +440,8 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // because the weight is positive and cannot change it.
     //
     // S23 (C8 spec T14): the phantom test asks whether the two readings are ONE MOMENT. Its window is
-    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see the constant), per pair.
+    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP, dispatches 1 and 2; see the
+    // constant), per pair.
     const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW) || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
         : anyShared
@@ -414,12 +507,14 @@ export function priceHeadOnPair(
     const ray2 = context.projectRayInterior(edgeB);
     const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
 
-    const [alongRay1, alongRay2] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
-        ?? [separation / 2, separation / 2];
+    // The midpoint fallback is a MODEL CHOICE, not a priced quantity — halving a stored separation — so
+    // its pricing error budget is 0 (C8 spec T12 as amended); a priced meeting carries meetHeadOn's.
+    const [alongRay1, alongRay2, uncertainty] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
+        ?? [separation / 2, separation / 2, 0];
 
     const pairArrival = arrivalOffsetOfPair(
-        arrivalOf(edgeA, context, ray1, alongRay1),
-        arrivalOf(edgeB, context, ray2, alongRay2));
+        arrivalOf(edgeA, context, ray1, alongRay1, uncertainty),
+        arrivalOf(edgeB, context, ray2, alongRay2, uncertainty));
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
     return {
@@ -462,7 +557,8 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
         // distances.
         if (interiorEdge.maxOffset) {
             const boundWeight = context.weightOf(context.clockwiseParent(interiorEdge).id);
-            const bound: Arrival = {distance: interiorEdge.maxOffset * boundWeight, weight: boundWeight};
+            // A bound, not a priced arrival: its uncertainty is 0, and the comparison is exact anyway (S31).
+            const bound: Arrival = {distance: interiorEdge.maxOffset * boundWeight, weight: boundWeight, uncertainty: 0};
             if (compareArrivals(e.arrival, bound, 0) > 0) {
                 e.eventType = 'outOfBounds';
             }

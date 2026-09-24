@@ -6,13 +6,13 @@ import {
     REMOVED_VERTEX_INDEX,
     resolvePerceptualFloor,
 } from './canonicalisation';
-import {DEGENERATE_AREA_EPSILON} from './constants';
+import {degenerateAreaBar} from './constants';
 import {denormaliseLength, makeSkeletonNormalisation, normaliseLength, normalisePolygon} from './normalisation';
 import {computeMaxOffset, computeOffsetRings} from './offset-projection';
 import {computeStrips} from './strip-decomposition';
 import type {Strip, StripOptions} from './strip-decomposition';
 import {ensureClockwise} from './polygon-decomposition';
-import {signedArea} from '../random-polygon/geometry-helpers';
+import {ringPerimeter, signedArea} from '../random-polygon/geometry-helpers';
 
 /**
  * Recursive segment subdivision: solve a region, cut it into segments, solve each segment again —
@@ -262,8 +262,14 @@ export type RegionOutcome =
         failure: string;
         /** Boundary vertices the region was handed. Fewer than three is one of the two reasons. */
         vertexCount: number;
-        /** `|signedArea|` of the region as measured, against {@link DEGENERATE_AREA_EPSILON}. */
+        /** `|signedArea|` of the region as measured, against `bar`. */
         area: number;
+        /**
+         * The degeneracy bar it was measured against, in caller units (C8 spec T23, O3 form (b)):
+         * `degenerateAreaBar(rootFloor, perimeter)` — the root's perceptual floor restated in caller
+         * units, times half the region's perimeter. `0` for a region with fewer than three vertices.
+         */
+        bar: number;
     };
 
 export interface RecursiveNode {
@@ -673,23 +679,32 @@ export type SegmentOutcome =
  * `solveSkeleton` throws below three vertices and a zero-area polygon has no skeleton to speak of;
  * both are reported the same way as a solve that merely failed, because to the caller they are the
  * same event — this cell was not subdivided.
+ *
+ * THE BAR IS "NO VISIBLE WIDTH" (C8 spec T23, O3 form (b), journal decision 159(b)): the ROOT floor
+ * restated in caller units — the same restatement canonicalisation uses (S47) — times half the region's
+ * caller-unit perimeter. A region whose mean width `2A / P` is under the floor is a tile the client
+ * cannot see is a tile.
  */
-function degenerateRegionFailure(boundary: Vector2[]): Extract<RegionOutcome, {kind: 'declined-degenerate'}> | undefined {
-    // Reported with the area it was measured at, not just the sentence that quotes it: journal
-    // decision 96 accepts the decline as correct behaviour, so the number that made the call is a
-    // measurement a reader checks against the floor rather than a fragment to parse back out.
+function degenerateRegionFailure(
+    boundary: Vector2[],
+    rootFloor: number,
+): Extract<RegionOutcome, {kind: 'declined-degenerate'}> | undefined {
+    // Reported with the area it was measured at, and the bar, not just the sentence that quotes them:
+    // journal decision 96 accepts the decline as correct behaviour, so the numbers that made the call
+    // are a measurement a reader checks rather than a fragment to parse back out.
     const area = boundary.length < 3 ? 0 : Math.abs(signedArea(boundary));
     if (boundary.length < 3) {
         return {
-            kind: 'declined-degenerate', vertexCount: boundary.length, area,
+            kind: 'declined-degenerate', vertexCount: boundary.length, area, bar: 0,
             failure: `Degenerate region: ${boundary.length} boundary vertices, fewer than the three a polygon needs.`,
         };
     }
-    if (area < DEGENERATE_AREA_EPSILON) {
+    const bar = degenerateAreaBar(rootFloor, ringPerimeter(boundary));
+    if (area < bar) {
         return {
-            kind: 'declined-degenerate', vertexCount: boundary.length, area,
+            kind: 'declined-degenerate', vertexCount: boundary.length, area, bar,
             failure: `Degenerate region: ${boundary.length} boundary vertices enclosing an area of `
-                + `${area}, under the ${DEGENERATE_AREA_EPSILON} degeneracy floor.`,
+                + `${area}, under the ${bar} degeneracy floor (root floor ${rootFloor} × half-perimeter).`,
         };
     }
     return undefined;
@@ -738,7 +753,7 @@ function divideRegion(
 /**
  * How much area canonicalisation removed, as a fraction of the region it was handed.
  *
- * `boundary` has already cleared {@link DEGENERATE_AREA_EPSILON} by the time this is asked — the
+ * `boundary` has already cleared the degeneracy bar (`degenerateAreaBar`) by the time this is asked — the
  * degeneracy screen runs before the solve — so the divisor is bounded away from zero and there is no
  * degenerate case to guard. Zero EXACTLY when the two rings are the same vertices, because the two
  * shoelace sums are then term for term identical.
@@ -814,7 +829,7 @@ function subdivideNode(
     // child is, because to the caller the two are the same event.
     // A degenerate region is turned away BEFORE anything is canonicalised, which is the one case in
     // which a node really is its own canonical form with a drift of exactly zero.
-    const degeneracy = degenerateRegionFailure(boundary);
+    const degeneracy = degenerateRegionFailure(boundary, run.rootNoiseFloor);
     if (degeneracy !== undefined) {
         return {
             ...identity, outcome: degeneracy,

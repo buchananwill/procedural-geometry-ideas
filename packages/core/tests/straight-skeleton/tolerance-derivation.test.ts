@@ -1,25 +1,50 @@
 import {
+    angularResolution,
+    Arrival,
     ARRIVAL_MOMENT_ULPS,
+    checkWavefrontCausality,
+    coaxialityFloor,
+    compareArrivals,
     CROSS_PRODUCT_ROUNDING_UNITS,
-    DEGENERATE_AREA_EPSILON,
+    crossProduct,
+    decomposePolygon,
+    degenerateAreaBar,
+    denormaliseLength,
+    directionsAreSame,
+    flattenRecursiveTree,
+    intersectRays,
+    makeSkeletonNormalisation,
     makeStraightSkeletonSolverContext,
     maxWeightRatio,
     minWeightTurnSine,
+    negateVector,
+    pairSimultaneityWindow,
+    rayIntersectionUncertainty,
+    segmentSegmentIntersection,
+    ringPerimeter,
+    signedArea,
     simultaneityWindow,
     SKELETON_NOISE_FLOOR,
+    StraightSkeletonGraph,
+    subdivideRecursively,
     UNIT_ROUNDOFF,
     Vector2,
 } from '@proc-geo/core';
+import {OFF_EDGE_JITTER_PLUS_SEED_7919} from '@proc-geo/test-fixtures';
 import {
+    ARITHMETIC_SAME_POINT_BOX,
     basisSumRoundingBound,
     cramerQuotientRoundingBound,
     DETERMINANT3_ROUNDING_UNITS,
     determinant3RoundingBound,
     determinant3TripleSum,
+    HELD_SIMULTANEITY_WINDOW,
     UNIT_CROSS_PRODUCT_ROUNDING_BOUND,
     weightedRateSumRoundingBound,
 } from '@proc-geo/core/straight-skeleton/constants';
 import {SIMULTANEITY_RELATIVE_TOLERANCE} from '@proc-geo/core/straight-skeleton/offset-projection';
+import {reachesSupportingLine} from '@proc-geo/core/straight-skeleton/generate-split-event';
+import {rateViolations} from './wavefront-measurement-helpers';
 
 /*
  * ============================================================================
@@ -313,9 +338,269 @@ describe('T26: the offset projection\'s simultaneous sets read the moment bar', 
     });
 });
 
-describe('T23 is held: the degeneracy floor is unmoved while O3 is STOPPED', () => {
-    it('is still the absolute area it was', () => {
-        // Neither of O3's forms kept every decision-96 decline (header, A3), so nothing moved.
-        expect(DEGENERATE_AREA_EPSILON).toBe(1e-6);
+/*
+ * ============================================================================
+ *  DISPATCH 2 (2026-09-24): T12 AS AMENDED, T18, T23, T24, AND THE COHERENCE TABLE
+ * ============================================================================
+ *
+ * Landed: the per-pair window's MACHINERY (the `Arrival` pricing budget and `pairSimultaneityWindow`),
+ * unspent — its move to S22–S28 STOPPED (see `HELD_SIMULTANEITY_WINDOW`); the fourth oracle `rate`
+ * (T18); the degeneracy bar in form (b) in both consumers (T23, decision 159(b)); the decomposition's
+ * endpoint length and the segment test's own rounding bound (T24). Held: S19 (T17's move STOPPED),
+ * S6/S10/S11/S20 (T33's precondition — the window at its derived form — is unmet).
+ */
+
+describe('T12 as amended (decision 160): the per-pair window, pinned as arithmetic', () => {
+    const random = seededRandom(160);
+    const arrival = (distance: number, weight: number, uncertainty: number): Arrival => ({distance, weight, uncertainty});
+
+    it('is min(cap·min(w₁, w₂), max(64·ε·max(|d₁w₂|, |d₂w₁|), e₁·w₂ + e₂·w₁)) on random operands', () => {
+        for (let draw = 0; draw < 2000; draw++) {
+            const a = arrival(random(), 1 + 99 * random(), random() < 0.5 ? 0 : 1e-12 * random());
+            const b = arrival(random(), 1 + 99 * random(), random() < 0.5 ? 0 : 1e-6 * random());
+            const cap = random() < 0.2 ? 0 : 1e-6 * (1 + random());
+            const left = a.distance * b.weight;
+            const right = b.distance * a.weight;
+            const expected = Math.min(cap * Math.min(a.weight, b.weight),
+                Math.max(ARRIVAL_MOMENT_ULPS * Number.EPSILON * Math.max(Math.abs(left), Math.abs(right)),
+                    a.uncertainty * b.weight + b.uncertainty * a.weight));
+            expect(pairSimultaneityWindow(a, b, cap)).toBe(expected);
+        }
+    });
+
+    it('reads the moment bar at the LATER time for stored arrivals, the budgets when they are wider, δ at most', () => {
+        const floor = SKELETON_NOISE_FLOOR;
+        // Stored positions carry no budget: the window is the moment bar at the later time.
+        expect(pairSimultaneityWindow(arrival(0.25, 1, 0), arrival(0.5, 1, 0), floor))
+            .toBe(ARRIVAL_MOMENT_ULPS * Number.EPSILON * 0.5);
+        // A budget wider than the moment bar widens it…
+        expect(pairSimultaneityWindow(arrival(0.5, 1, 3e-12), arrival(0.5, 1, 4e-12), floor)).toBe(7e-12);
+        // …and never past the floor, stated on the faster participant.
+        expect(pairSimultaneityWindow(arrival(0.5, 1, 1e-3), arrival(0.5, 4, 1e-3), floor)).toBe(floor * 1);
+        // A literal cap of 0 is exact.
+        expect(pairSimultaneityWindow(arrival(0.5, 1, 1e-3), arrival(0.5, 1, 1e-3), 0)).toBe(0);
+    });
+
+    it('prices a ray intersection at k·u·|sep| / sin²θ', () => {
+        for (let draw = 0; draw < 1000; draw++) {
+            const theta = 2 * Math.PI * random();
+            const phi = theta + 0.01 + 3 * random();
+            const ray1 = {sourceVector: {x: random(), y: random()}, basisVector: {x: Math.cos(theta), y: Math.sin(theta)}};
+            const ray2 = {sourceVector: {x: random(), y: random()}, basisVector: {x: Math.cos(phi), y: Math.sin(phi)}};
+            const sine = crossProduct(ray1.basisVector, ray2.basisVector);
+            const separation = Math.hypot(ray2.sourceVector.x - ray1.sourceVector.x, ray2.sourceVector.y - ray1.sourceVector.y);
+            expect(rayIntersectionUncertainty(ray1, ray2))
+                .toBeCloseTo(CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * separation / (sine * sine), 25);
+        }
+    });
+
+    it('is NOT spent: the seven sites hold the historical 1e-8 under a measured STOP (T16, T37)', () => {
+        // S22–S28 all compare at `HELD_SIMULTANEITY_WINDOW` through `compareArrivals`' flat per-pair
+        // form: 1e-7 apart at unit weights is two moments, 5e-9 apart is one — whatever the budgets say.
+        expect(HELD_SIMULTANEITY_WINDOW).toBe(1e-8);
+        expect(compareArrivals(arrival(0.5, 1, 0), arrival(0.5 + 5e-9, 1, 0), HELD_SIMULTANEITY_WINDOW)).toBe(0);
+        expect(compareArrivals(arrival(0.5, 1, 0), arrival(0.5 + 1e-7, 1, 0), HELD_SIMULTANEITY_WINDOW)).toBe(-1);
+    });
+});
+
+describe('T17 / T18: the fourth oracle is the exact complement of the zero-rate predicate', () => {
+    /** A four-wall ring whose bisector e4 has clockwise parent e0 and widdershins parent e2. */
+    function graphWith(clockwise: Vector2, widdershins: Vector2, bisector: Vector2): StraightSkeletonGraph {
+        return {
+            nodes: [
+                {id: 0, position: {x: 0, y: 0}, inEdges: [3], outEdges: [0, 4]},
+                {id: 1, position: {x: 4, y: 0}, inEdges: [0], outEdges: [1]},
+                {id: 2, position: {x: 4, y: -1}, inEdges: [1], outEdges: [2]},
+                {id: 3, position: {x: 0, y: -1}, inEdges: [2], outEdges: [3]},
+            ],
+            edges: [
+                {id: 0, source: 0, target: 1, basisVector: clockwise},
+                {id: 1, source: 1, target: 2, basisVector: {x: 0, y: -1}},
+                {id: 2, source: 2, target: 3, basisVector: widdershins},
+                {id: 3, source: 3, target: 0, basisVector: {x: 0, y: 1}},
+                {id: 4, source: 0, basisVector: bisector},
+            ],
+            numExteriorNodes: 4,
+            interiorEdges: [{id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 2, length: Number.MAX_VALUE}],
+            exteriorWeights: [1, 1, 1, 1],
+        };
+    }
+
+    it.each([SKELETON_NOISE_FLOOR, 1e-5])('T17 true ⇔ T18 violation false, on random parents with a negative rate, at δ = %p', floor => {
+        const random = seededRandom(17);
+        const resolution = angularResolution(floor);
+        let antiParallelSeen = 0;
+        let violationsSeen = 0;
+        for (let draw = 0; draw < 4000; draw++) {
+            const theta = 2 * Math.PI * random();
+            const clockwise = {x: Math.cos(theta), y: Math.sin(theta)};
+            // Widdershins parent near anti-parallel: a deviation spread across the resolution.
+            const deviation = (random() * 2 - 1) * 3 * resolution;
+            const flip = random() < 0.1 ? 0 : Math.PI;
+            const widdershins = {x: Math.cos(theta + flip + deviation), y: Math.sin(theta + flip + deviation)};
+            // A bisector with a NEGATIVE rate against the clockwise parent: rotated slightly widdershins of it.
+            const lean = 1e-7 + 1e-4 * random();
+            const bisector = {x: Math.cos(theta + lean), y: Math.sin(theta + lean)};
+            expect(crossProduct(bisector, clockwise)).toBeLessThan(0);
+
+            const zeroRate = directionsAreSame(clockwise, negateVector(widdershins), resolution);
+            const graph = graphWith(clockwise, widdershins, bisector);
+            const solverViolates = checkWavefrontCausality(graph, floor, 1).some(found => found.oracle === 'rate');
+            const oracleViolates = rateViolations(graph, floor).includes(4);
+            expect(solverViolates).toBe(!zeroRate);
+            expect(oracleViolates).toBe(!zeroRate);
+            antiParallelSeen += zeroRate ? 1 : 0;
+            violationsSeen += solverViolates ? 1 : 0;
+        }
+        // Both halves of the partition are exercised.
+        expect(antiParallelSeen).toBeGreaterThan(500);
+        expect(violationsSeen).toBeGreaterThan(500);
+    });
+
+    it('a non-negative rate is never a violation, whatever the parents', () => {
+        const random = seededRandom(18);
+        for (let draw = 0; draw < 1000; draw++) {
+            const theta = 2 * Math.PI * random();
+            const clockwise = {x: Math.cos(theta), y: Math.sin(theta)};
+            const widdershins = {x: Math.cos(theta + 6 * random()), y: Math.sin(theta + 6 * random())};
+            const bisector = {x: Math.cos(theta + 0.5 * random()), y: Math.sin(theta + 0.5 * random())};
+            if (crossProduct(bisector, clockwise) < 0) continue;
+            expect(checkWavefrontCausality(graphWith(clockwise, widdershins, bisector), SKELETON_NOISE_FLOOR, 1)
+                .filter(found => found.oracle === 'rate')).toEqual([]);
+        }
+    });
+});
+
+describe('T23 (O3 form (b), decision 159(b)): the degeneracy bar is "no visible width", one bar in two spaces', () => {
+    it('is floor · perimeter / 2', () => {
+        const random = seededRandom(23);
+        for (let draw = 0; draw < 1000; draw++) {
+            const [floor, perimeter] = [1e-7 + 1e-4 * random(), 10 * random()];
+            expect(degenerateAreaBar(floor, perimeter)).toBe(floor * perimeter / 2);
+        }
+    });
+
+    it('the recursion reads it with the ROOT floor restated in caller units (S43)', () => {
+        const rootFloor = denormaliseLength(makeSkeletonNormalisation(OFF_EDGE_JITTER_PLUS_SEED_7919), SKELETON_NOISE_FLOOR);
+        const declines = flattenRecursiveTree(subdivideRecursively(OFF_EDGE_JITTER_PLUS_SEED_7919, {
+            levels: [1, 1, 1].map(() => ({depthFraction: 1, mergeGroupSize: 1, segments: 'recurse' as const, residue: 'recurse' as const})),
+        })).flatMap(node => node.outcome.kind === 'declined-degenerate' ? [{node, outcome: node.outcome}] : []);
+        expect(declines.length).toBeGreaterThan(0);
+        for (const {node, outcome} of declines) {
+            expect(outcome.bar).toBe(degenerateAreaBar(rootFloor, ringPerimeter(node.boundary)));
+            expect(outcome.area).toBeLessThan(outcome.bar);
+        }
+    });
+
+    it('the decomposition reads it in the space it is handed, with the floor it is handed (S44)', () => {
+        // The bowtie's clockwise lobe is a triangle of area 25 and perimeter 10 + 10√2 ≈ 24.1: kept at
+        // any floor under 25 / 12.07 ≈ 2.07 (its mean width), discarded above it.
+        const bowtie: Vector2[] = [{x: 0, y: 0}, {x: 10, y: -10}, {x: 10, y: 0}, {x: 0, y: -10}];
+        const kept = decomposePolygon(bowtie, 2);
+        const discarded = decomposePolygon(bowtie, 2.2);
+        expect(kept.wasSelfIntersecting).toBe(true);
+        expect(kept.subPolygons.length).toBeGreaterThan(0);
+        for (const sub of kept.subPolygons) {
+            expect(Math.abs(signedArea(sub))).toBeGreaterThanOrEqual(degenerateAreaBar(2, ringPerimeter(sub)));
+        }
+        expect(discarded.subPolygons.length).toBeLessThan(kept.subPolygons.length);
+    });
+});
+
+describe('T24: the decomposition\'s endpoint test is a length at the floor; the segment test its own bound', () => {
+    it('reads a crossing within δ of a shared vertex as a touch, and one beyond it as a crossing', () => {
+        // Edge 0 runs (0,0)→(1,0); the poking edge crosses it at x = 1 − d, d from the vertex (1, 0).
+        const floor = SKELETON_NOISE_FLOOR;
+        const pokeAt = (d: number): Vector2[] => [
+            {x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: -1}, {x: 1 - d, y: 0.5}, {x: 1 - d, y: -0.5}, {x: 0, y: -1},
+        ];
+        expect(decomposePolygon(pokeAt(10 * floor), floor).wasSelfIntersecting).toBe(true);
+        expect(decomposePolygon(pokeAt(floor / 10), floor).wasSelfIntersecting).toBe(false);
+    });
+
+    it('S46: two tiny segments crossing at 45° are priced — the parallel bar is k·u·|a|·|b|, not an area', () => {
+        // |dA|·|dB|·sin θ = 1e-12 · √2/2 ≈ 7e-13: under the retired absolute 1e-10, which called them
+        // parallel, and twelve orders above their own rounding bound.
+        const s = 1e-6;
+        const hit = segmentSegmentIntersection({x: 0, y: 0}, {x: s, y: 0}, {x: s / 2, y: -s / 2}, {x: s, y: s / 2});
+        expect(hit).not.toBeNull();
+        expect(hit!.tA).toBeCloseTo(0.75, 12);
+        // Exactly parallel segments are still refused.
+        expect(segmentSegmentIntersection({x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1})).toBeNull();
+    });
+
+    it('S46: containment is exact — a crossing just past a segment\'s end is not on it', () => {
+        // The second segment stops 1e-12 short of the first (tA ≈ −1e-12): the retired 1e-10 slack
+        // admitted it.
+        const hit = segmentSegmentIntersection({x: 0, y: 0}, {x: 1, y: 0}, {x: -1e-12, y: -1}, {x: -1e-12, y: 1});
+        expect(hit).toBeNull();
+        expect(segmentSegmentIntersection({x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}, {x: 0, y: 1})).not.toBeNull();
+    });
+});
+
+/*
+ * ============================================================================
+ *  THE COHERENCE TABLE (spec §Coherence): each pair asked one question — one bar, read from the source
+ * ============================================================================
+ *
+ * Each row is asserted by reading the constants and context fields the sites spend, not by re-deriving
+ * them. Rows whose single bar is HELD by a measured STOP are asserted as the held state, so a move is
+ * loud either way.
+ */
+describe('the coherence table', () => {
+    const context = makeStraightSkeletonSolverContext(SQUARE, SKELETON_NOISE_FLOOR);
+
+    it('S22 layer / S3 event clustering — HELD (STOP): the cap is δ on the context, the sites spend 1e-8', () => {
+        expect(context.simultaneityWindow).toBe(context.perceptualFloor);
+        expect(HELD_SIMULTANEITY_WINDOW).toBe(1e-8);
+    });
+
+    it('S22 / S23–S28 — one bar: every window site spends the same held window through compareArrivals', () => {
+        const a: Arrival = {distance: 0.5, weight: 1, uncertainty: 0};
+        const b: Arrival = {distance: 0.5 + 0.9 * HELD_SIMULTANEITY_WINDOW, weight: 1, uncertainty: 0};
+        expect(compareArrivals(a, b, HELD_SIMULTANEITY_WINDOW)).toBe(0);
+    });
+
+    it('S29 / S30 — one instant: the offset projection reads the moment bar', () => {
+        expect(SIMULTANEITY_RELATIVE_TOLERANCE).toBe(ARRIVAL_MOMENT_ULPS * Number.EPSILON);
+    });
+
+    it('S7–S9 `<` / S3, S13 `<` — one inequality: a lateral of exactly λ is outside the lane', () => {
+        const lane = context.coaxialityFloor;
+        expect(lane).toBe(coaxialityFloor(SKELETON_NOISE_FLOOR));
+        // S9: a strike exactly λ along the edge is NOT at its end; strictly inside it is.
+        expect(reachesSupportingLine([1, lane, 'diverging'], lane)).toBe(false);
+        expect(reachesSupportingLine([1, lane / 2, 'diverging'], lane)).toBe(true);
+        // S8: two same-way rays exactly λ apart laterally are not one line; λ/2 apart they are.
+        const ray = {sourceVector: {x: 0, y: 0}, basisVector: {x: 1, y: 0}};
+        expect(intersectRays(ray, {sourceVector: {x: 1, y: lane}, basisVector: {x: 1, y: 0}}, lane, context.angularResolution)[2])
+            .toBe('parallel');
+        expect(intersectRays(ray, {sourceVector: {x: 1, y: lane / 2}, basisVector: {x: 1, y: 0}}, lane, context.angularResolution)[2])
+            .toBe('co-linear-from-1');
+    });
+
+    it('S14 / S15–S18 / S21 — one angular resolution: the context field is angularResolution(δ)', () => {
+        expect(context.angularResolution).toBe(angularResolution(SKELETON_NOISE_FLOOR));
+    });
+
+    it('S19 zero rate / S21 fourth oracle — the oracle is T17\'s complement; S19 itself is HELD (STOP)', () => {
+        // The complement relation is pinned on random parents above. S19's own move to T17 stopped
+        // (a jittered Circle 32 cell stops solving, a plus cell gains an offset violation), so the
+        // solver still asks the rate's zero at the rate's own 1e-8; the pair reads two bars until it
+        // moves, which this row records.
+        expect(angularResolution(SKELETON_NOISE_FLOOR)).toBeGreaterThan(1e-8);
+    });
+
+    it('S1 / S2 / S4 / S5 — one arithmetic same-point bar, HELD at the shared box (register C11)', () => {
+        expect(ARITHMETIC_SAME_POINT_BOX).toBe(1e-8);
+    });
+
+    it('S43 / S44 — one δ-derived degeneracy bar, each consumer in its own space', () => {
+        // Both consumers read `degenerateAreaBar`; the T23 block above exercises each consumer.
+        expect(degenerateAreaBar(SKELETON_NOISE_FLOOR, 4)).toBe(2 * SKELETON_NOISE_FLOOR);
+    });
+
+    it('S37 / S39 — one division-safety class: the basis sum takes 2k·u, `normalize` exact zero', () => {
+        expect(basisSumRoundingBound(1, 1)).toBe(2 * CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF);
     });
 });

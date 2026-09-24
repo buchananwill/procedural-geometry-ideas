@@ -164,15 +164,17 @@ export const SKELETON_NOISE_FLOOR = 1e-6;
  *   - the coincidence clustering's `isOneEvent` bar (`coincident-events.ts`), anchored (decision 155);
  *   - the coaxiality lane, `coaxialityFloor(δ) = δ` (spec A9/A10);
  *   - the angular resolution, `angularResolution(δ)` (spec A1–A8);
- *   - the simultaneity window, `simultaneityWindow(δ) = δ` (C8 spec T12–T14);
+ *   - the simultaneity window's cap, `simultaneityWindow(δ) = δ` (C8 spec T12–T14; its seven sites are
+ *     held at a measured STOP);
+ *   - the degeneracy bar, `degenerateAreaBar(δ, perimeter)` — the root floor restated in caller units in
+ *     the recursion, the solve's floor in unit space in the decomposition (T23, O3 form (b));
  *   - the solver's own causality check (journal decisions 148, 149);
  *   - the weight door's two bounds, `maxWeightRatio(δ)` and `minWeightTurnSine(δ, Δw)` (T21, T22).
  *
  * What is NOT floor-derived is so by the same rule, not by exemption: a comparison whose acceptance
  * DISCARDS OR SUBSTITUTES an answer already produced takes the unit roundoff (`findOrAddNode`'s
  * same-point bar, whose derivation is held by its O1 STOP; the moment bar `ARRIVAL_MOMENT_ULPS`), and
- * a division guard takes its own rounding bound. `DEGENERATE_AREA_EPSILON` is still an absolute area
- * awaiting its form (T23, O3 — STOPPED on its settling measurement); the strip and parcel constants
+ * a division guard takes its own rounding bound. The strip and parcel constants
  * are classified and not re-derived (T27, O5); and the test-side bars are instruments, held tighter
  * than any floor on purpose (audit §7.1 decision 5).
  *

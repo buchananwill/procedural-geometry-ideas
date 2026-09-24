@@ -355,6 +355,8 @@ export function denormaliseCollisionCache(cache: CollisionCache, normalisation: 
                 event.arrival = {
                     distance: denormaliseLength(normalisation, event.arrival.distance),
                     weight: event.arrival.weight,
+                    // The pricing error budget is a length beside the distance, and scales with it.
+                    uncertainty: denormaliseLength(normalisation, event.arrival.uncertainty),
                 };
                 event.position = denormalisePosition(normalisation, event.position);
                 event.intersectionData[0] = denormaliseLength(normalisation, event.intersectionData[0]);

@@ -143,33 +143,37 @@ export function angularResolution(perceptualFloor: number): number {
 }
 
 /**
- * Area below which a region counts as degenerate — the one floor, for every "is this sub-polygon
- * worth solving" question in the package.
+ * "Is this region worth solving?" — the DEGENERACY BAR, an area: `floor · perimeter / 2`, "NO VISIBLE
+ * WIDTH" (C8 spec T23, open decision O3 ruled form (b) by journal decision 159(b)).
  *
- * A floor rather than an exact zero, because the regions asking are *computed*: a sub-polygon of a
- * self-intersection decomposition and a segment boundary from `computeStrips` both arrive as
- * intersections of rays, so a sliver that is geometrically collinear carries an area of `1e-13` and
- * never an exact `0`. Testing `=== 0` would catch only hand-authored collinear input.
+ * A region of area `A` and perimeter `P` has a mean width of about `2A / P`; below `floor` the client
+ * cannot see it has any width at all, which is decision 96's "a tile narrower than a certain size". It
+ * replaces `DEGENERATE_AREA_EPSILON = 1e-6`, an absolute area with no derivation, which was read in two
+ * spaces (spec I3): a caller-space area in the recursion, and a unit-space area in the decomposition,
+ * where it was a square 1e-3 on a side — 1000δ — so a visible lobe of a self-intersection could be
+ * discarded.
  *
- * An absolute area, read in TWO SPACES (spec I3): a caller-space area by the recursion
- * (`recursive-subdivision.ts` `degenerateRegionFailure`) and a UNIT-space area by the decomposition
- * (`polygon-decomposition.ts` `isValidSubPolygon`, which runs after `solveSkeleton` normalises).
+ * ONE BAR, EACH CONSUMER IN ITS OWN SPACE: the recursion (`degenerateRegionFailure`) reads it with the
+ * ROOT floor restated in caller units and the region's caller-unit perimeter, as canonicalisation
+ * restates the root floor (S47); the decomposition (`isValidSubPolygon`) reads it in unit space with the
+ * solve's perceptual floor, because `solveSkeleton` normalises before it decomposes.
  *
- * NOT YET DERIVED — A MEASURED STOP (C8 spec T23, open decision O3; dispatch 1's settling measurement,
- * 2026-09-24). O3's two candidate forms were measured against every decision-96 decline in the
- * recursion census (22 declines, all at depth 1, on `Off-edge Jitter Plus (seed 7919)` and
- * `Off-edge Jitter Reflex L (seed 55433, k=4)`), with the root floor restated in caller units as
- * canonicalisation restates it (2.56e-4 on both). (a) `δ²` keeps 1 of the 22; (b) `δ·(perimeter/2)`
- * keeps 16 and releases 6 (areas 4.6e-7..8.5e-7 against bars 4.0e-7..5.5e-7). Neither form keeps
- * every decline, which is the ruling rule's STOP branch, so the number is unmoved and the form is
- * returned to the lead. The decomposition's sub-polygon verdicts over the self-intersecting fixtures
- * agree under all three bars (current, (a), (b)) at both 1e-6 and 1e-5.
+ * A FLOOR RATHER THAN AN EXACT ZERO, because the regions asking are computed: a sub-polygon of a
+ * decomposition and a segment boundary from `computeStrips` both arrive as intersections of rays, so a
+ * geometrically collinear sliver carries an area of `1e-13` and never an exact `0`.
  *
- * It lived twice — `AREA_EPSILON` in `polygon-decomposition.ts` and `DEGENERATE_AREA_EPSILON` in
- * `recursive-subdivision.ts` — with the second's comment asserting the two must agree; they are one
- * declaration here so that agreement cannot lapse.
+ * MEASURED BEFORE IT MOVED (C8 dispatches 1 and 2, 2026-09-24). Of the recursion census's 22
+ * decision-96 declines (all at full depth, on `Off-edge Jitter Plus (seed 7919)` and `Off-edge Jitter
+ * Reflex L (seed 55433, k=4)`, root floor 2.56e-4 in caller units), this form keeps 16 and releases 6
+ * (areas 4.6e-7..8.5e-7 against bars 4.0e-7..5.5e-7); `δ²` would have kept 1. Decision 159(b) ruled
+ * that the six be SOLVED before the bar moved: all six solve complete, with zero causality violations
+ * on every oracle, I2 and I5 clean, and their strips tiling the canonical region to ≤ 1.25e-16. The
+ * decomposition's sub-polygon verdicts over the self-intersecting fixtures agree under the old and the
+ * new bar.
  */
-export const DEGENERATE_AREA_EPSILON = 0.000001;
+export function degenerateAreaBar(floor: number, perimeter: number): number {
+    return floor * perimeter / 2;
+}
 
 /**
  * Ulps of the larger quantity within which two computed values are ONE MOMENT of the arithmetic — the
@@ -190,24 +194,29 @@ export const DEGENERATE_AREA_EPSILON = 0.000001;
 export const ARRIVAL_MOMENT_ULPS = 64;
 
 /**
- * "Are these two arrivals ONE MOMENT of the wavefront clock?" — the SIMULTANEITY WINDOW, as a length
- * (C8 spec T12–T14; journal decisions 155 and 158).
+ * "Are these two arrivals ONE MOMENT of the wavefront clock?" — the CAP of the SIMULTANEITY WINDOW, as
+ * a length (C8 spec T12 as amended by journal decision 160, T13, T14; decisions 155 and 158).
  *
- * THE WINDOW IS THE FLOOR ITSELF, and both sources give it. Perceptually, an offset is a length and
- * one floor governs both axes (decision 83), so the time axis cannot be finer than the space axis.
- * Arithmetically, the angular resolution was sized (spec A3) so that every intersection the solver
- * prices is placed to within δ; every arrival distance therefore carries up to δ of error, and two
- * arrivals less than δ apart are not orderable by the solver's own error budget — the question
- * decision 141 hands to the floor. It replaces the scratch `1e-8`, which was about 1e8 ulps of pure
- * literal.
+ * THE WINDOW IS PER PAIR, AND THIS IS ITS CAP. Each pair's window is its own ordering uncertainty — the
+ * arithmetic moment bar (`ARRIVAL_MOMENT_ULPS · ε · t` at the later time) widened by the two arrivals'
+ * pricing error budgets (`Arrival.uncertainty`) — and never wider than δ, where decision 157 releases
+ * the solver from deciding: perceptual in its cap, arithmetic in its floor. See
+ * `pairSimultaneityWindow` (collision-helpers.ts) for the expression.
  *
- * STATED PER PAIR, CROSS-MULTIPLIED (T13): `|d₁·w₂ − d₂·w₁| < window · min(w₁, w₂)`, which is
- * `|t₁ − t₂| < δ / max(w₁, w₂)` — inside the window no participating edge advances more than δ. At
- * unit weights it reads `|d₁ − d₂| < δ`.
+ * THE FLAT δ WINDOW IS STRUCK (F70, decision 160). A δ-wide layer resolved as one event merges the
+ * geometry of arrivals the arithmetic orders perfectly well — two arrivals 1e-7 apart are about 1e9
+ * ulps apart, a deterministic order — and resolving them as simultaneous OVERRIDES that order, which
+ * decision 157 forbids. "Every arrival carries up to δ of error" is the worst case at the conditioning
+ * edge (spec A3), not the typical arrival; the typical arrival carries its own budget, which is what the
+ * per-pair form reads.
  *
- * ANCHORED, NEVER TRANSITIVE (decision 155): approximate equality is not an equivalence relation, so
- * every window is anchored on the earliest arrival and its width never exceeds δ. A many-way meeting
- * the window splits across two layers yields two nodes inside the floor, which decision 141 admits.
+ * NOT YET SPENT: the per-pair form hit T37's STOPs in C8 dispatch 2 (see `pairSimultaneityWindow`), and
+ * the seven sites read {@link HELD_SIMULTANEITY_WINDOW}.
+ *
+ * STATED CROSS-MULTIPLIED (T13): the cap is `δ · min(w₁, w₂)` on `|d₁·w₂ − d₂·w₁|`, which is
+ * `|t₁ − t₂| < δ / max(w₁, w₂)` — inside it no participating edge advances more than δ.
+ *
+ * ANCHORED, NEVER TRANSITIVE (decision 155): every window is anchored on the earliest arrival.
  *
  * Named like {@link coaxialityFloor} so every window site states which currency it spends; computed
  * once onto `StraightSkeletonSolverContext.simultaneityWindow` (T5).
@@ -217,24 +226,22 @@ export function simultaneityWindow(perceptualFloor: number): number {
 }
 
 /**
- * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP (C8 spec
- * T14, T16, T37; dispatch 1, 2026-09-24). The derivation above is landed and carried on the context as
- * `simultaneityWindow`; the sites S22–S28 do not yet spend it, because moving them hit T37's STOPs.
- * Measured by toggle, each site alone with every other at 1e-8, over the T37 instrument suites:
+ * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP, TWICE (C8
+ * spec T14, T16, T37).
  *
- *   - S22 (the layer): the four predicted defect digests move (T15), AND fixtures stop solving (two
- *     off-edge jitter plus cells), `Off-edge Jitter Reflex L (seed 55433)` gains a direction violation
- *     and a `causality-violation` diagnostic, the recursion census moves, `Offset Cross Junction`'s
- *     ladder moves at 1e-5 and above, and two clean fixtures (Crazy Polygon, Duck Octagon) grow as the
- *     floor rises — STOPs 1, 2, 3 and 6, and T16;
- *   - S28 (split birth): one off-edge jitter plus cell (k = 3) stops solving — STOP 1;
- *   - S23 (phantom) and S24 (snap time): off-corpus movement only (Circle 48 at 1e10's culled count,
- *     the 1e10 shards, the jittered Circle 32 at 1x seed 5, the flagged plus cell cured);
- *   - S25, S26, S27: nothing moves.
+ * DISPATCH 1 (the flat δ window, F70): S22 alone moved the four predicted defect digests and stopped
+ * fixtures solving, grew a direction violation and a diagnostic on `(seed 55433)`, moved the recursion
+ * census and `Offset Cross Junction`'s ladder; S28 alone stopped one plus cell solving — STOPs 1, 2, 3, 6.
  *
- * T14 puts all seven on ONE bar, so a partial landing would be one question at two bars (decision
- * 144); all seven are held together and the STOP is returned to the lead. Stated per pair in T13's
- * form (`window · min(w₁, w₂)`), which is landed.
+ * DISPATCH 2 (T12 as amended by journal decision 160, the per-pair window `pairSimultaneityWindow` in
+ * collision-helpers.ts, capped at δ): with all seven sites at it, 211 of 580 sweep cells move and 45 core
+ * tests fail — `Near Regular Circle 48` and the vertex-count sweep's regular circles STOP SOLVING, and two
+ * CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`). Each site alone: S22 moves
+ * 209 cells (39 tests), S23 75 (16 tests, both clean digests), S24 11 cells by hash only plus a `Golf
+ * Cart` recursion throw, S25–S28 nothing. The movers are well-conditioned (sin θ 0.2–0.37): their
+ * readings differ by one to two moment bars, more than the pricing budget charges. Decision 160(b)'s
+ * prediction does not hold, so all seven stay here together (one question, one bar — decision 144) and
+ * the STOP is returned to the lead; the gated form is not built (T16).
  */
 export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
 

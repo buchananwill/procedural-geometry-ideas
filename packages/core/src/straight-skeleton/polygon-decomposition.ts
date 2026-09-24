@@ -1,25 +1,20 @@
 import {Vector2} from "./types";
-import {segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
-import {DEGENERATE_AREA_EPSILON} from "./constants";
+import {ringPerimeter, segmentSegmentIntersection, signedArea, isClockwise} from "../random-polygon/geometry-helpers";
+import {degenerateAreaBar} from "./constants";
 
 /**
- * How close to a segment's end a crossing must be before it counts as an endpoint touch instead.
+ * Is a crossing at parameter `t` on a segment of length `length` an ENDPOINT TOUCH — the two edges
+ * meeting at a vertex they already share — rather than a crossing? (C8 spec T24, census S45.)
  *
- * A DIMENSIONLESS PARAMETRIC BAR on `t ∈ [0, 1]`, and its space is the point: it carries the same
- * value as the retired scratch `FLOATING_POINT_EPSILON` (deleted by C8 spec T1) but was never that
- * constant and must not be re-derived from its history,
- * because `t` has already been divided by the segment's own length. A `t` of 1e-8 is 1e-8 of a
- * length on every segment — so this bar is relative by construction where the solver's epsilon is
- * absolute, and the two agreeing on a number is a coincidence of history rather than a shared
- * meaning. Claim: two edges meeting within a hundred-millionth of a segment's length of a shared
- * vertex are meeting AT that vertex, and a polygon is not self-intersecting for touching itself
- * where it is already joined.
- *
- * NAMED AND CLASSIFIED, NOT RE-VALUED, under journal decision 104. The audit's own proposal — to
- * restate it as an absolute length against the segment's length — is a value change on every
- * segment whose length is not one, and nothing has measured what it would move.
+ * A QUESTION ABOUT INPUT GEOMETRY, SO A LENGTH AT THE FLOOR: the crossing is at the vertex when its
+ * distance from the nearer end, `min(t, 1 − t) · |segment|`, is strictly under the perceptual floor δ
+ * (T7's one inequality). `solveSkeleton` decomposes in UNIT space, so δ is the solve's own floor. It
+ * was a parametric `1e-8` on `t` — the retired scratch epsilon's value, relative to each segment's
+ * length, so a different distance on every segment.
  */
-const ENDPOINT_PARAMETER_EPSILON = 1e-8;
+function isEndpointTouch(t: number, length: number, perceptualFloor: number): boolean {
+    return Math.min(t, 1 - t) * length < perceptualFloor;
+}
 
 export interface CrossingPoint {
     point: Vector2;
@@ -55,8 +50,11 @@ export interface DecompositionResult {
  * Find the first crossing between any pair of non-adjacent edges.
  * Returns null if polygon is simple.
  * O(n^2) brute force — fine for the polygon sizes used here (< 50 vertices).
+ *
+ * `perceptualFloor` is the solve's floor in the space `vertices` are given in (unit space on the
+ * solver's path): the endpoint-touch bar (T24). REQUIRED, per C8 spec T4.
  */
-export function findFirstCrossing(vertices: Vector2[]): CrossingPoint | null {
+export function findFirstCrossing(vertices: Vector2[], perceptualFloor: number): CrossingPoint | null {
     const n = vertices.length;
     if (n < 4) return null; // Triangle can't self-intersect
 
@@ -72,11 +70,11 @@ export function findFirstCrossing(vertices: Vector2[]): CrossingPoint | null {
 
             if (result === null) continue;
 
-            // Skip endpoint-only touches (shared vertices, not true crossings)
-            if (result.tA < ENDPOINT_PARAMETER_EPSILON
-                || result.tA > 1 - ENDPOINT_PARAMETER_EPSILON) continue;
-            if (result.tB < ENDPOINT_PARAMETER_EPSILON
-                || result.tB > 1 - ENDPOINT_PARAMETER_EPSILON) continue;
+            // Skip endpoint-only touches (shared vertices, not true crossings), for BOTH segments (T24).
+            const lengthI = Math.hypot(vertices[i2].x - vertices[i].x, vertices[i2].y - vertices[i].y);
+            const lengthJ = Math.hypot(vertices[j2].x - vertices[j].x, vertices[j2].y - vertices[j].y);
+            if (isEndpointTouch(result.tA, lengthI, perceptualFloor)) continue;
+            if (isEndpointTouch(result.tB, lengthJ, perceptualFloor)) continue;
 
             return {
                 point: result.point,
@@ -102,8 +100,8 @@ interface WeightedRing {
  * Discards degenerate sub-polygons (fewer than 3 vertices, near-zero area, or counter-clockwise winding).
  * Returns 0, 1, or 2 valid sub-polygons.
  */
-export function splitAtCrossing(vertices: Vector2[], crossing: CrossingPoint): Vector2[][] {
-    return splitAtCrossingWeighted(vertices, vertices.map(() => 1), crossing)
+export function splitAtCrossing(vertices: Vector2[], crossing: CrossingPoint, perceptualFloor: number): Vector2[][] {
+    return splitAtCrossingWeighted(vertices, vertices.map(() => 1), crossing, perceptualFloor)
         .map(ring => ring.vertices);
 }
 
@@ -118,6 +116,7 @@ function splitAtCrossingWeighted(
     vertices: Vector2[],
     weights: readonly number[],
     crossing: CrossingPoint,
+    perceptualFloor: number,
 ): WeightedRing[] {
     const {point, edgeI: i, edgeJ: j} = crossing;
     const n = vertices.length;
@@ -137,19 +136,22 @@ function splitAtCrossingWeighted(
         subB.weights.push(weights[k]);
     }
 
-    return [subA, subB].filter(ring => isValidSubPolygon(ring.vertices));
+    return [subA, subB].filter(ring => isValidSubPolygon(ring.vertices, perceptualFloor));
 }
 
 /**
  * Check if a sub-polygon is valid for skeleton computation:
  * - At least 3 vertices
- * - Non-degenerate area
+ * - Non-degenerate area: at or above `degenerateAreaBar(δ, perimeter)`, "no visible width" (C8 spec
+ *   T23, O3 form (b)), read in UNIT space with the solve's floor because `solveSkeleton` normalises
+ *   before it decomposes. It was the absolute `1e-6`, which in unit space is a square 1e-3 on a side —
+ *   1000δ — so a visible lobe could be discarded (spec I3).
  * - Clockwise winding (counter-clockwise = exterior island, discard)
  */
-function isValidSubPolygon(vertices: Vector2[]): boolean {
+function isValidSubPolygon(vertices: Vector2[], perceptualFloor: number): boolean {
     if (vertices.length < 3) return false;
     const area = signedArea(vertices);
-    if (Math.abs(area) < DEGENERATE_AREA_EPSILON) return false;
+    if (Math.abs(area) < degenerateAreaBar(perceptualFloor, ringPerimeter(vertices))) return false;
     // Clockwise winding has negative signed area in this codebase's convention
     return area < 0;
 }
@@ -185,9 +187,14 @@ function ensureClockwiseWeighted(ring: WeightedRing): WeightedRing {
  *
  * `weights` is the per-edge wavefront speed, parallel to `vertices` (W-spec W45). Omitted means all
  * ones, and `subPolygonWeights` then comes back all ones as well.
+ *
+ * `perceptualFloor` is the solve's floor in the space `vertices` are given in — UNIT space on the
+ * solver's path — and is both the endpoint-touch length (T24) and the degeneracy bar's floor (T23).
+ * REQUIRED, per C8 spec T4: a default here would be a tolerance chosen one hop from every caller.
  */
 export function decomposePolygon(
     vertices: Vector2[],
+    perceptualFloor: number,
     maxDepth?: number,
     weights?: readonly number[],
 ): DecompositionResult {
@@ -195,15 +202,20 @@ export function decomposePolygon(
     const resolved = weights !== undefined && weights.length === vertices.length
         ? [...weights]
         : vertices.map(() => 1);
-    return decomposeRecursive({vertices, weights: resolved}, limit, 0);
+    return decomposeRecursive({vertices, weights: resolved}, perceptualFloor, limit, 0);
 }
 
-function decomposeRecursive(ring: WeightedRing, maxDepth: number, depth: number): DecompositionResult {
+function decomposeRecursive(
+    ring: WeightedRing,
+    perceptualFloor: number,
+    maxDepth: number,
+    depth: number,
+): DecompositionResult {
     if (depth > maxDepth) {
         throw new Error(`Polygon decomposition exceeded max recursion depth (${maxDepth})`);
     }
 
-    const crossing = findFirstCrossing(ring.vertices);
+    const crossing = findFirstCrossing(ring.vertices, perceptualFloor);
 
     if (crossing === null) {
         // Simple polygon — base case
@@ -216,7 +228,7 @@ function decomposeRecursive(ring: WeightedRing, maxDepth: number, depth: number)
         };
     }
 
-    const validSubs = splitAtCrossingWeighted(ring.vertices, ring.weights, crossing);
+    const validSubs = splitAtCrossingWeighted(ring.vertices, ring.weights, crossing, perceptualFloor);
 
     if (validSubs.length === 0) {
         // Both sub-polygons were degenerate — return empty
@@ -234,7 +246,7 @@ function decomposeRecursive(ring: WeightedRing, maxDepth: number, depth: number)
     const allCrossingPoints: Vector2[] = [crossing.point];
 
     for (const sub of validSubs) {
-        const result = decomposeRecursive(sub, maxDepth, depth + 1);
+        const result = decomposeRecursive(sub, perceptualFloor, maxDepth, depth + 1);
         allSubPolygons.push(...result.subPolygons);
         allSubPolygonWeights.push(...result.subPolygonWeights);
         allCrossingPoints.push(...result.crossingPoints);

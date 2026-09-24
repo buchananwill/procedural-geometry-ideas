@@ -181,10 +181,12 @@ interface SubFloorVerdict {
  *
  * The arrivals are the causality suite's oracle ({@link deriveNodeArrivals}) carried into unit space,
  * where the solver's simultaneity window lives; `compareArrivals` at the window the solver's sites
- * actually spend — `HELD_SIMULTANEITY_WINDOW` (1e-8), held under C8 dispatch 1's T37 STOP rather than
- * the derived `simultaneityWindow(δ)` — is the comparison the solver itself uses to decide that one
- * arrival is not yet another. When the sites move to δ, this instrument moves with them. A node with
- * no derived arrival cannot be placed in a layer and is not admitted.
+ * actually spend — `HELD_SIMULTANEITY_WINDOW` (1e-8), held under C8 dispatches 1 and 2's T37 STOPs
+ * rather than the derived `simultaneityWindow(δ)` or T12's amended per-pair form — is the comparison
+ * the solver itself uses to decide that one arrival is not yet another. When the sites move, this
+ * instrument moves with them. The oracle's arrivals are re-derived from STORED node positions, so they
+ * carry no pricing error budget (`uncertainty` 0). A node with no derived arrival cannot be placed in a
+ * layer and is not admitted.
  */
 function inDifferentLayers(
     arrivals: Map<number, Arrival>,
@@ -200,6 +202,7 @@ function inDifferentLayers(
     const toUnit = (arrival: Arrival): Arrival => ({
         distance: arrival.distance * normalisation.toUnitScale,
         weight: arrival.weight,
+        uncertainty: 0,
     });
     return compareArrivals(toUnit(a), toUnit(b), HELD_SIMULTANEITY_WINDOW) !== 0;
 }

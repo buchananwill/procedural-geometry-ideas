@@ -1,4 +1,5 @@
 import type {CausalityViolationDiagnostic, StraightSkeletonGraph, Vector2} from './types';
+import {angularResolution} from './constants';
 
 /*
  * ============================================================================
@@ -11,7 +12,7 @@ import type {CausalityViolationDiagnostic, StraightSkeletonGraph, Vector2} from 
  * what carries the wrongness. It is ALWAYS ON — the contract, not an option — and it only READS the
  * graph.
  *
- * THE THREE ORACLES, each the definition `wavefront-causality.test.ts` states, reproduced exactly:
+ * THE FOUR ORACLES (the fourth, `rate`, is C8 spec T18 — see {@link rateViolations}), each the definition `wavefront-causality.test.ts` states, reproduced exactly:
  *
  *  - OFFSET: an interior edge with a target is a violation when its target's derived offset is less
  *    than its source's derived offset by more than the tolerance.
@@ -20,6 +21,8 @@ import type {CausalityViolationDiagnostic, StraightSkeletonGraph, Vector2} from 
  *  - DIRECTION: an interior edge with a target, whose source-to-target travel is longer than the
  *    tolerance, is a violation when the unit travel vector's dot product with the edge's basis vector
  *    is not strictly positive.
+ *  - RATE: an interior edge whose offset rate against its clockwise parent is negative, while its two
+ *    parents are not anti-parallel at the angular resolution ρ(δ) (T18, T17's exact complement).
  *
  * A node's DERIVED OFFSET is re-derived from geometry, never read from the solver's bookkeeping:
  * boundary nodes are at 0; an interior node takes its first incident interior edge (in-edges, then
@@ -94,13 +97,13 @@ function violation(
 }
 
 /**
- * Run the three causality oracles over a solved graph and return one diagnostic per violation.
+ * Run the four causality oracles over a solved graph and return one diagnostic per violation.
  *
  * `perceptualFloor` is the solve's floor, in UNIT space. `toUnitScale` carries the graph's lengths
  * into unit space: `normalisation.toUnitScale` for a graph already returned to caller space, `1` for
  * a graph still in unit space. Every magnitude reported is in unit space.
  *
- * Diagnostics are ordered by oracle — offset, clearance, direction — and by id within each.
+ * Diagnostics are ordered by oracle — offset, clearance, direction, rate — and by id within each.
  */
 export function checkWavefrontCausality(
     graph: StraightSkeletonGraph,
@@ -168,5 +171,49 @@ export function checkWavefrontCausality(
         }
     }
 
-    return [...offsetViolations, ...clearanceViolations, ...directionViolations];
+    return [...offsetViolations, ...clearanceViolations, ...directionViolations,
+        ...rateViolations(graph, perceptualFloor)];
+}
+
+/**
+ * THE FOURTH ORACLE, `rate` (C8 spec T18; journal decisions 149(b), 153(a)): the zero-rate question
+ * asked AFTERWARDS. A bisector violates when its offset rate against its clockwise parent,
+ * `cross(basis, clockwiseParent.basis)`, is NEGATIVE — every unit of travel along it moves the wavefront
+ * clock backwards — AND its two parents are NOT anti-parallel at the angular resolution ρ(δ).
+ *
+ * THE EXACT COMPLEMENT OF T17'S PREDICATE, stated on the parents and not on the rate. `addBisectionEdge`
+ * gives a bisector whose parents are anti-parallel at ρ — `directionsAreSame(cw, −ws, ρ)` — its
+ * direction from the parent ordering, and there its rate may come out a few parts in 1e6 negative: that
+ * is the resolution speaking, not a violation. A bar on the rate itself would be a different number (a
+ * rate is about sin φ / 2 of the parents' deviation φ), and a u-bar would count bisectors whose walls
+ * spec A11's partition calls parallel — one question at two bars (decision 144).
+ *
+ * Read from the graph alone: the bases are unit vectors and direction is scale-free, so no length
+ * crosses the normalisation seam here. The predicate is re-stated locally rather than imported from
+ * `core-functions.ts`, as the other three oracles re-state theirs.
+ */
+function rateViolations(graph: StraightSkeletonGraph, perceptualFloor: number): CausalityViolationDiagnostic[] {
+    const resolution = angularResolution(perceptualFloor);
+    const found: CausalityViolationDiagnostic[] = [];
+    for (const interiorEdge of graph.interiorEdges) {
+        const edge = graph.edges[interiorEdge.id];
+        const clockwise = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex]?.basisVector;
+        const widdershins = graph.edges[interiorEdge.widdershinsExteriorEdgeIndex]?.basisVector;
+        if (!edge || !clockwise || !widdershins) continue;
+        const rate = edge.basisVector.x * clockwise.y - clockwise.x * edge.basisVector.y;
+        if (!(rate < 0)) continue;
+        // Anti-parallel at ρ: `cw` and `−ws` point the same way — exact sign, then the sine bar.
+        const againstX = -widdershins.x;
+        const againstY = -widdershins.y;
+        const sameWay = clockwise.x * againstX + clockwise.y * againstY > 0;
+        const sine = Math.abs(clockwise.x * againstY - againstX * clockwise.y);
+        const antiParallel = sameWay
+            && sine < resolution * Math.hypot(clockwise.x, clockwise.y) * Math.hypot(againstX, againstY);
+        if (antiParallel) continue;
+        found.push(violation('rate', interiorEdge.id, -rate,
+            `Interior edge ${interiorEdge.id} advances at offset rate ${rate} against its clockwise parent `
+            + `${interiorEdge.clockwiseExteriorEdgeIndex}, whose walls are not anti-parallel at the `
+            + `${resolution} angular resolution: it runs backwards through the wavefront.`));
+    }
+    return found;
 }

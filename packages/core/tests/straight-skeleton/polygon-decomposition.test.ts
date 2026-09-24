@@ -6,28 +6,35 @@ import {
     ensureClockwise,
     CrossingPoint,
 } from '@proc-geo/core';
-import {signedArea, isClockwise} from '@proc-geo/core';
+import {signedArea, isClockwise, SKELETON_NOISE_FLOOR} from '@proc-geo/core';
 
 // Helpers
 const V = (x: number, y: number): Vector2 => ({x, y});
+
+/**
+ * The perceptual floor these direct calls state (C8 spec T4, T23, T24): the library floor, read here in
+ * the fixtures' own coordinates. On the solver's path the decomposition runs in unit space with the
+ * solve's floor; these calls hand it caller coordinates directly, so the floor is a caller length.
+ */
+const FLOOR = SKELETON_NOISE_FLOOR;
 
 describe('polygon-decomposition', () => {
 
     describe('findFirstCrossing', () => {
         it('returns null for a simple triangle', () => {
             const tri = [V(0, 0), V(10, 0), V(5, -10)]; // clockwise
-            expect(findFirstCrossing(tri)).toBeNull();
+            expect(findFirstCrossing(tri, FLOOR)).toBeNull();
         });
 
         it('returns null for a simple square', () => {
             const sq = [V(0, 0), V(10, 0), V(10, -10), V(0, -10)]; // clockwise
-            expect(findFirstCrossing(sq)).toBeNull();
+            expect(findFirstCrossing(sq, FLOOR)).toBeNull();
         });
 
         it('finds a crossing in a figure-8 (bowtie) quad', () => {
             // Edges 0→1 and 2→3 cross
             const bowtie = [V(0, 0), V(10, -10), V(10, 0), V(0, -10)];
-            const crossing = findFirstCrossing(bowtie);
+            const crossing = findFirstCrossing(bowtie, FLOOR);
             expect(crossing).not.toBeNull();
             expect(crossing!.edgeI).toBe(0);
             expect(crossing!.edgeJ).toBe(2);
@@ -40,7 +47,7 @@ describe('polygon-decomposition', () => {
             // Normal pentagon (CW): (0,0), (10,0), (5,-8), (10,-15), (0,-15)
             // Move vertex 2 past edge 4→0 so it crosses
             const poke = [V(0, 0), V(10, 0), V(-5, -5), V(10, -15), V(0, -15)];
-            const crossing = findFirstCrossing(poke);
+            const crossing = findFirstCrossing(poke, FLOOR);
             expect(crossing).not.toBeNull();
         });
 
@@ -48,7 +55,7 @@ describe('polygon-decomposition', () => {
             // A simple polygon where edges share vertices but don't cross
             const poly = [V(0, 0), V(5, 0), V(10, 0), V(10, -10), V(0, -10)];
             // Edge 0→1 and 1→2 are collinear but share vertex 1 — not a crossing
-            expect(findFirstCrossing(poly)).toBeNull();
+            expect(findFirstCrossing(poly, FLOOR)).toBeNull();
         });
     });
 
@@ -62,7 +69,7 @@ describe('polygon-decomposition', () => {
                 tI: 0.5,
                 tJ: 0.5,
             };
-            const subs = splitAtCrossing(bowtie, crossing);
+            const subs = splitAtCrossing(bowtie, crossing, FLOOR);
             // One or both triangles should be valid (CW, non-degenerate)
             expect(subs.length).toBeGreaterThanOrEqual(1);
             for (const sub of subs) {
@@ -80,7 +87,7 @@ describe('polygon-decomposition', () => {
                 tI: 0.5,
                 tJ: 0.5,
             };
-            const subs = splitAtCrossing(bowtie, crossing);
+            const subs = splitAtCrossing(bowtie, crossing, FLOOR);
             // All returned sub-polygons must be clockwise
             for (const sub of subs) {
                 expect(signedArea(sub)).toBeLessThan(0);
@@ -91,7 +98,7 @@ describe('polygon-decomposition', () => {
     describe('decomposePolygon', () => {
         it('returns a simple polygon unchanged', () => {
             const sq = [V(0, 0), V(10, 0), V(10, -10), V(0, -10)];
-            const result = decomposePolygon(sq);
+            const result = decomposePolygon(sq, FLOOR);
             expect(result.wasSelfIntersecting).toBe(false);
             expect(result.subPolygons.length).toBe(1);
             expect(result.crossingPoints.length).toBe(0);
@@ -99,7 +106,7 @@ describe('polygon-decomposition', () => {
 
         it('decomposes a figure-8 into sub-polygons', () => {
             const bowtie = [V(0, 0), V(10, -10), V(10, 0), V(0, -10)];
-            const result = decomposePolygon(bowtie);
+            const result = decomposePolygon(bowtie, FLOOR);
             expect(result.wasSelfIntersecting).toBe(true);
             expect(result.subPolygons.length).toBeGreaterThanOrEqual(1);
             expect(result.crossingPoints.length).toBeGreaterThanOrEqual(1);
@@ -121,7 +128,7 @@ describe('polygon-decomposition', () => {
                 V(-5, -10),// 4
                 V(-5, -5), // 5
             ];
-            const result = decomposePolygon(hex);
+            const result = decomposePolygon(hex, FLOOR);
             expect(result.wasSelfIntersecting).toBe(true);
             // Should produce at least 2 valid sub-polygons (up to 3 depending on exterior island filtering)
             expect(result.subPolygons.length).toBeGreaterThanOrEqual(2);
@@ -130,7 +137,7 @@ describe('polygon-decomposition', () => {
             for (const sub of result.subPolygons) {
                 expect(isClockwise(sub)).toBe(true);
                 expect(sub.length).toBeGreaterThanOrEqual(3);
-                expect(findFirstCrossing(sub)).toBeNull();
+                expect(findFirstCrossing(sub, FLOOR)).toBeNull();
             }
         });
 
@@ -139,9 +146,9 @@ describe('polygon-decomposition', () => {
             const complex = [
                 V(0, 0), V(20, -20), V(20, 0), V(0, -20), // two crossings creating a butterfly
             ];
-            const result = decomposePolygon(complex);
+            const result = decomposePolygon(complex, FLOOR);
             for (const sub of result.subPolygons) {
-                expect(findFirstCrossing(sub)).toBeNull();
+                expect(findFirstCrossing(sub, FLOOR)).toBeNull();
             }
         });
     });

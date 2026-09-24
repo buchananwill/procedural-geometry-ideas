@@ -58,7 +58,7 @@ function eventAt(position: Vector2, collidingEdges: number[]): CollisionEvent {
     return {
         offsetDistance: 1,
         // The pair the time came from (W-spec W7): unit speed, so distance and time coincide.
-        arrival: {distance: 1, weight: 1},
+        arrival: {distance: 1, weight: 1, uncertainty: 0},
         collidingEdges,
         position,
         intersectionData: [1, 1, 'converging'],
@@ -161,7 +161,7 @@ describe('clusterCoincidentMerges: the partition is anchored, never transitive (
         const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => ({
             ...eventAt(position, [10 + index]),
-            arrival: {distance: index === 3 ? 0.5 : 1, weight: 1},
+            arrival: {distance: index === 3 ? 0.5 : 1, weight: 1, uncertainty: 0},
         }));
 
         const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
