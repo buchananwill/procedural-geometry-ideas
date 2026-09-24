@@ -225,9 +225,42 @@ export function simultaneityWindow(perceptualFloor: number): number {
     return perceptualFloor;
 }
 
+/*
+ * ----------------------------------------------------------------------------
+ * THE WINDOW AND THE BOX — ONE HAND-TUNED SYSTEM, HELD TOGETHER (journal decision 162, finding F72,
+ * register C12)
+ * ----------------------------------------------------------------------------
+ *
+ * {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX} are not two tolerances that happen
+ * to share a number: they are ONE MATCHED PAIR. The window resolves arrivals up to its width apart as one
+ * event and places the merged node at the event's ANCHOR rather than at each arrival's own meeting point,
+ * so it DISPLACES merged nodes by up to its width. Later arrivals, priced from the true geometry, then land
+ * up to that far from the node the window placed — and the box, joining any position within it to an
+ * existing node, ABSORBS exactly that displacement. F72 reads C11's 43 unexplained node joins, 7e-10 to
+ * 1.16e-8 from their node and uncorrelated with any conditioning quantity, as that absorption: the range a
+ * 1e-8 window creates, reached by the whole-event merge, the terminal triangle and the split path (inferred
+ * from the ranges, not yet traced join by join — C11's diagnosis attributes each join to the layer that
+ * displaced its node).
+ *
+ * Decision 162 rules a PERCEPTUAL window wrong in principle: it merges events that are distinct at the
+ * solver's own precision, the placed nodes then disagree with the upstream graph by more than the
+ * arithmetic floor, and the downstream wavefront goes unsolvable for want of nodes the arithmetic expects.
+ * So both go ARITHMETIC, and TOGETHER: the window to the per-pair bar with a complete first-order error
+ * model (bases, rates, source offsets, the division — F71 measured the division-only budget two orders too
+ * narrow), the box to exact identity. Neither moves alone. They are held here as one admitted pair until
+ * register C12's sequential-resolution package — genuinely near-coincident events at a jittered hub
+ * resolved in arithmetic order, the near-regular class — lets both go.
+ *
+ * THE CONVICTION TO RUN THEN (F72's prediction, falsifiable): with the window at the per-pair bar, O1's
+ * join histogram (`tolerance-derivation.test.ts`, A1) EMPTIES ITS >64-ULP BUCKET. Joins above 64 ulps that
+ * survive the window's move are the box absorbing something other than the window's displacement, and
+ * falsify F72.
+ */
+
 /**
  * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP, TWICE (C8
- * spec T14, T16, T37).
+ * spec T14, T16, T37). Half of ONE matched pair with {@link ARITHMETIC_SAME_POINT_BOX} — see the section
+ * above: they move together, under register C12, or not at all.
  *
  * DISPATCH 1 (the flat δ window, F70): S22 alone moved the four predicted defect digests and stopped
  * fixtures solving, grew a direction violation and a diagnostic on `(seed 55433)`, moved the recursion
@@ -413,6 +446,50 @@ export function basisSumRoundingBound(weightA: number, weightB: number): number 
 export const UNIT_CROSS_PRODUCT_ROUNDING_BOUND = CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF;
 
 /**
+ * The FORWARD error of an evaluated OFFSET RATE — `cross(b̂, ĉ)`, a bisector basis against its clockwise
+ * parent's wall basis, both COMPUTED from stored vertex coordinates — against the rate of the EXACT
+ * geometry those coordinates describe, in units of {@link UNIT_ROUNDOFF}: **8**, near zero (journal-5
+ * decision 164). ARGUED HERE as {@link CROSS_PRODUCT_ROUNDING_UNITS} is argued.
+ *
+ * `k = 2` answers the BACKWARD question — the error of evaluating the cross product of the stored doubles
+ * — which is right for `intersectRays`, whose rays ARE those doubles. "Is this bisector's rate zero?" is
+ * the FORWARD question — is the rate of the geometry the solver was given zero — so it must also charge
+ * how far each operand's direction lies from the exact direction of the geometry. A perturbation of a
+ * vector's components by relative factors `(1 + δᵢ)`, `|δᵢ| ≤ u`, turns it by at most
+ * `|v_x v_y (δ₂ − δ₁)| / |v|² ≤ u·|sin 2φ| ≤ u`, and a common factor turns it not at all. So:
+ *
+ *   - the WALL BASIS `ĉ = normalize(q − p)`: the subtraction rounds each component once (≤ u of turn) and
+ *     the normalisation divides each by one shared computed length and rounds once more (≤ u): **2u**;
+ *   - the BISECTOR BASIS `b̂ = normalize(w_ws·ĉ − w_cw·ŵ)`: where its rate is near zero the two parents
+ *     are near ANTI-parallel (near-parallel same-way parents at unequal weights are refused at the door,
+ *     `minWeightTurnSine`; at equal weights their bisector is the ±1-rate perpendicular), so its direction
+ *     is a convex combination of the two parents' and inherits at most their **2u**; the weight scalings
+ *     round once (**u**, exact at unit weights), the sum once (**u**) and the normalisation once (**u**):
+ *     **5u**;
+ *   - the EVALUATION: `u·(1 + |sin θ|) + u²` (the `k` argument), which near zero is **u** to first order.
+ *
+ * Turns of `ε_b` and `ε_c` move `sin θ` by at most `|ε_b| + |ε_c|`, and the operands' length errors (a few
+ * u) multiply `|sin θ|`, which inside the bar is itself O(u) — second order. Total, to first order where
+ * the bar decides: `2u + 5u + u = 8u ≈ 8.9e-16`.
+ *
+ * A WORST-CASE BOUND, NOT A FIT: over 200 000 random near-anti-parallel wall pairs measured against exact
+ * dyadic arithmetic (C8 dispatch 3), the worst forward error of the evaluated rate was 1.75u — the
+ * roundings rarely align — and over 2 000 000 EXACTLY anti-parallel pairs the computed rate never
+ * exceeded 1.5u. The bound is what the arithmetic can VOUCH FOR, not what it usually achieves: `Golf
+ * Cart`'s 3.3u corridor rates, which it zeroes, are TRUE rates of a one-ulp tilt in that fixture's input
+ * (vertex 3 at y = 399.99999999999994), not rounding.
+ */
+export const FORWARD_CROSS_PRODUCT_ROUNDING_UNITS = 8;
+
+/**
+ * `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS · u`: the bar below which an evaluated offset rate carries no sign
+ * the arithmetic can vouch for about the exact geometry (journal-5 decision 164). Read through
+ * `offsetRateIsArithmeticZero` (core-functions.ts) by `makeOffsetDistance` (S20). `addBisectionEdge`'s
+ * zero rate (S19) was measured at it and stays held (see that site).
+ */
+export const OFFSET_RATE_FORWARD_ROUNDING_BOUND = FORWARD_CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF;
+
+/**
  * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
  * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
  * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
@@ -432,6 +509,11 @@ export const UNIT_CROSS_PRODUCT_ROUNDING_BOUND = CROSS_PRODUCT_ROUNDING_UNITS * 
  *
  * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
  * bar and never δ (F27, audit C1).
+ *
+ * THE WINDOW'S COUNTERPART (journal decision 162(b), F72): the other half of ONE matched pair with
+ * {@link HELD_SIMULTANEITY_WINDOW} — it absorbs the displacement the window's anchored merge creates, and
+ * goes EXACT only together with the window's move to its arithmetic per-pair bar, under register C12. See
+ * "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`, which states the conviction to run then.
  */
 export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
 

@@ -20,7 +20,7 @@ import {
     sizeOfVector,
     subtractVectors
 } from "./core-functions";
-import {intersectRays, symmetricLateralOffset} from "./intersection-edges";
+import {intersectRays, lateralOffset, symmetricLateralOffset} from "./intersection-edges";
 import {
     arrivalOf,
     arrivalsAreEqual,
@@ -93,12 +93,14 @@ function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): 
 }
 
 /**
- * Does the point at `separation` from a ray's source lie ON that ray, travelling forward?
+ * Does the point at `separation` from a ray's source lie ON that ray, travelling forward? — THE SNAP'S
+ * predicate ({@link tryAttachEdgeToNode}, census S10), on the raw separation, with no division by its
+ * length, as a sine at the held {@link POINT_ON_RAY_SINE_BAR}.
  *
- * ONE PREDICATE FOR THE TWO POINT-ON-RAY SITES — {@link tryAttachEdgeToNode} and
- * {@link solveDegenerateClosure} — on the raw separation, with no division by its length.
+ * It was the predicate of BOTH point-on-ray sites until C8 dispatch 3, when the closure's (S11) moved to
+ * the coaxial form ({@link anchorLiesOnRay}); the snap's did not (see {@link POINT_ON_RAY_SINE_BAR}).
  *
- * IT STAYS AT THE SCRATCH EPSILON, AS A SINE — A MEASURED STOP, NOT AN OMISSION (spec A15's
+ * HISTORY — IT STAYED AT THE SCRATCH EPSILON, AS A SINE — A MEASURED STOP, NOT AN OMISSION (spec A15's
  * point-on-ray row, A25 STOP 4; journal decision 146). The spec moves it into the floor's category:
  * forward by the exact sign and LATERAL within the coaxiality floor, the form `sourceLiesAhead` uses,
  * so a node the coincidence merge displaced by a sub-floor distance is recognised on the ray it sits
@@ -127,10 +129,39 @@ function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
 }
 
 /**
- * {@link pointLiesOnRay}'s sine bar, held bit-identical for C8 dispatch 2 (T29–T32; census S10, S11),
- * whose move to the coaxial form is measured on a tree where the window already reads δ (T33).
+ * {@link pointLiesOnRay}'s sine bar — the SNAP's (census S10), HELD at its historical `1e-8` (C8 spec T32;
+ * journal decision 161(e)).
+ *
+ * T32 moves it to the coaxial form, as S11 moved. MEASURED (dispatch 2, and again in dispatch 3 on a tree
+ * with S6, S11 and S20 landed): at the lane the snap gives `Off-edge Jitter Plus`, k = 3, seed 47514 (the
+ * off-edge 1e-3 grid) an offset violation of its own, DIAGNOSED as a `causality-violation` on a cell that
+ * had none — T37 STOP 3 — and moves 39 of the 580 sweep cells by digest (15 of Circle 48's fine
+ * translations, 5e9..1e11; 18 off-edge plus cells and one L cell; 5 cells of the jittered Circle 32 ladder,
+ * one of which, 1 × 1e-8 seed 2, loses a node). So it stays here. `tolerance-derivation.test.ts` asserts
+ * the held state on that cell.
  */
 const POINT_ON_RAY_SINE_BAR = 0.00000001;
+
+/**
+ * Does the ANCHOR at `separation` from a ray's source lie on that ray, travelling forward? — the closure's
+ * point-on-ray ({@link solveDegenerateClosure}, census S11) in the COAXIAL FORM (C8 spec T11, T32; journal
+ * decision 161(e)): forward by the EXACT sign of `dot(sep, basis)`, and the lateral `|cross(sep, basis)| /
+ * |basis|` STRICTLY within the coaxiality lane λ (T7) — the lane `sourceLiesAhead` and the co-linear exits
+ * read, asked of a point.
+ *
+ * ONE-SIDED, NOT SYMMETRIC (spec I8): the candidate is a node, not a ray, so there is no second line to
+ * measure against and no winding sign to order the pair by. Acceptance wires edges to an EXISTING node and
+ * moves nothing, so under T2 it answers a question — δ's class.
+ *
+ * It was {@link pointLiesOnRay}'s sine at `1e-8` — the sine form on a raw separation is a lateral bar that
+ * grows with the separation (spec A9). MEASURED over dispatch 2's 580 cells, and again on landing: the
+ * verdict flips 45 times on 26 cells (Circle 48 and Rosette5 40 at fine translations, one off-edge plus
+ * cell, five Circle 32 ladder cells) and 0 cells move — node positions, edge targets and bases, verdict,
+ * node count and all four oracles — and no full-graph digest pin moves.
+ */
+function anchorLiesOnRay(separation: Vector2, basis: Vector2, coaxialityFloor: number): boolean {
+    return dotProduct(separation, basis) > 0 && lateralOffset(separation, basis) < coaxialityFloor;
+}
 
 /**
  * For a given edge, scan all existing nodes to see if any node lies exactly
@@ -316,9 +347,10 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
                 continue;
             }
 
-            // Same point-on-ray predicate as `tryAttachEdgeToNode`, on the raw separation — see
-            // {@link pointLiesOnRay} for its bar and why normalising first was the defect.
-            if (!pointLiesOnRay(separation, ray.basisVector)) {
+            // Does the anchor lie on this edge's ray? The COAXIAL form, on the raw separation — see
+            // {@link anchorLiesOnRay} (S11, landed in C8 dispatch 3). The snap's point-on-ray is a
+            // different site and stays held ({@link pointLiesOnRay}, S10).
+            if (!anchorLiesOnRay(separation, ray.basisVector, context.coaxialityFloor)) {
                 valid = false;
                 break;
             }

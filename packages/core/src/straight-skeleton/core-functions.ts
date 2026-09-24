@@ -1,5 +1,9 @@
 import {RayProjection, Vector2} from "./types";
-import {basisSumRoundingBound, UNIT_CROSS_PRODUCT_ROUNDING_BOUND} from "./constants";
+import {
+    basisSumRoundingBound,
+    OFFSET_RATE_FORWARD_ROUNDING_BOUND,
+    UNIT_CROSS_PRODUCT_ROUNDING_BOUND,
+} from "./constants";
 
 /*
  * NO DEFAULT BAR ON ANY EQUALITY PREDICATE (C8 spec T4). `areEqual`, `vectorsAreEqual` and
@@ -215,5 +219,31 @@ export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpe
     // A DIVISION GUARD (C8 spec T19, S38): a cross product of unit vectors inside its own rounding
     // bound `k·u` has no sign to divide by — was `areEqual(cross, 0)` at the scratch 1e-8.
     return Math.abs(cross) <= UNIT_CROSS_PRODUCT_ROUNDING_BOUND ? 0 : perpendicular / cross;
+}
+
+/**
+ * Is this evaluated OFFSET RATE an arithmetic zero? `|rate| ≤ 8u` — the rate's FORWARD rounding bound
+ * (C8 spec T2, T30; journal decisions 157, 161(b) and 164).
+ *
+ * An offset rate is `cross(basis, clockwiseParent.basis)`: a bisector basis against a wall basis, both
+ * normalised from COMPUTED vectors. The question both callers ask is whether the rate of the EXACT
+ * geometry is zero, so the bar charges the operands' own direction errors as well as the evaluation:
+ * {@link OFFSET_RATE_FORWARD_ROUNDING_BOUND}, argued at `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS` in
+ * constants.ts. Inside it the rate has no sign the arithmetic can vouch for; outside it the sign and the
+ * magnitude are an ANSWER the solver has already computed. (`k·u`, the backward bound of the evaluation
+ * alone, was landed here first and is too narrow for a forward question — decision 164.)
+ *
+ * A SUBSTITUTION BAR, NOT A QUESTION. `makeOffsetDistance` substitutes `0` for the computed rate when this
+ * holds (S20), so under T2 the bar is the arithmetic's own, and never the angular resolution or the
+ * perceptual floor: decision 157's floor releases the solver from questions it cannot decide, and never
+ * overrides an answer it has given. `≤`, as every rounding-bound guard in this package compares.
+ *
+ * `addBisectionEdge`'s zero rate (S19) asks the same expression of the same operand and decision 164
+ * wired it here, but it is NOT a caller: measured in C8 dispatch 3, this bar there leaves `Golf Cart`'s
+ * root unmoved but prices its level-1 regions' 5u–24u corridor rates by sign, and a region's strips come
+ * out 3.2% short. The site stays held at its sine literal (see there).
+ */
+export function offsetRateIsArithmeticZero(rate: number): boolean {
+    return Math.abs(rate) <= OFFSET_RATE_FORWARD_ROUNDING_BOUND;
 }
 

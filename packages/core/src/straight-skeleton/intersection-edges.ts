@@ -7,9 +7,6 @@ import {
     subtractVectors
 } from "./core-functions";
 
-/** The identical-source exit's separation bar, held for C8 dispatch 2 (T9, T29; census S6). */
-const IDENTICAL_SOURCE_BAR = 0.00000001;
-
 /**
  * The lateral distance from `separation` to the line through `basisVector` — `|sep| · sin θ`, said
  * without a division by `|sep|` and without normalising the basis.
@@ -75,7 +72,9 @@ export function symmetricLateralOffset(separation: Vector2, basis1: Vector2, bas
  * here means the pair is anti-parallel to within the angular resolution, so `dot(−sep, b₂)` and
  * `dot(sep, b₁)` agree in sign except where both are within `|sep| · angularResolution` of zero — and a separation that
  * nearly perpendicular carries a lateral of nearly `|sep|`, which the lane above has already
- * refused unless `|sep| ≤ δ`, in which case `intersectRays`' identical-source exit fired first.
+ * refused unless `|sep| < δ`. Until C8 dispatch 3 such a pair left by `intersectRays`' identical-source
+ * exit first; that exit is EXACT now (S6), so a pair of distinct sources closer than δ reaches this test
+ * and its exact forward sign decides — on the 580 measured cells, with no verdict moving.
  */
 function sourceLiesAhead(
     separation: Vector2,
@@ -170,11 +169,19 @@ export function intersectRays(
      * package (register C8) moves the half-merge windows that feed it.
      */
     //
-    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S6): its move to exact is dispatch 2's (T9, T29), measured
-    // on a tree whose window already reads δ (T33). The band population T9 rests on was measured here
-    // first — no separation in (0, 1e-8) on the corpus at 1e-6 and 1e-5, the fine translations or the
-    // jitter sweeps — and the bar is held bit-identical as a named literal.
-    if (distanceToRay2 < IDENTICAL_SOURCE_BAR) {
+    // EXACT SINCE C8 DISPATCH 3 (census S6; spec T9, T28, T29; journal decision 161(e)): `separation
+    // === 0`. Acceptance terminates the pair as ONE POINT — it discards an answer the solver has already
+    // produced — so under T2 it takes the arithmetic's bar, and for two STORED node positions that bar's
+    // degenerate case is bit identity. Two distinct sources within δ are the coaxiality lane's question
+    // (S7, S8), which keeps every node; that is F66's asymmetry, ruled by T28.
+    //
+    // HISTORY. Held at a named literal `1e-8` through dispatches 1 and 2 while T33 waited on the window;
+    // decision 161(e) dissolved that precondition (the held window IS the tree these sites live on). The
+    // band (0, 1e-8) was measured EMPTY in dispatch 2 over its 580 cells — `FULL_CORPUS` at 1e-6 and
+    // 1e-5, Circle 48 and Rosette5 40 at the 46 fine translations, the off-edge 1e-3 and along-edge 1.0
+    // jitter grids, the jittered Circle 32 ladder — with 0 cells moving, and RE-MEASURED on landing:
+    // still empty, 0 of 580 cells moving. `tolerance-derivation.test.ts` asserts the exit and the band.
+    if (distanceToRay2 === 0) {
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
     }
 
@@ -212,8 +219,8 @@ export function intersectRays(
             // symmetric in the two bases, so neither exit can admit a pair the other refuses on
             // lateral grounds, and the forward signs `dot(sep, b₁)` and `dot(sep, −b₂)` agree except
             // where both are within `|sep| · angularResolution` of zero — a separation that nearly
-            // perpendicular carries a lateral of nearly `|sep|`, which the lane refuses unless the
-            // identical-source exit above fired first.
+            // perpendicular carries a lateral of nearly `|sep|`, which the lane refuses unless `|sep| < δ`
+            // (the identical-source exit above no longer takes that case: it is exact since C8 dispatch 3).
             const lateral = symmetricLateralOffset(relativeRay2Source, ray1.basisVector, ray2.basisVector);
             // Strictly within the lane (C8 spec T7), as `sourceLiesAhead`.
             if (lateral < coaxialityFloor) {

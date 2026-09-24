@@ -18,7 +18,11 @@ import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
 import {arrivalOf, rayIntersectionUncertainty, timeOf} from "./collision-helpers";
 
-/** `addBisectionEdge`'s zero-rate sine bar, held for C8 dispatch 2 (T17, T31; census S19). */
+/**
+ * `addBisectionEdge`'s zero-rate sine bar, HELD (census S19). Three re-derivations were measured and
+ * refused: T17's ρ (dispatch 2, decision 161(b)), `k·u` and the forward bound 8u (dispatch 3, decision
+ * 164). Each measurement is at the site.
+ */
 const ZERO_RATE_SINE_BAR = 0.00000001;
 
 
@@ -48,6 +52,7 @@ const ZERO_RATE_SINE_BAR = 0.00000001;
  * decision 146); the rate's zero test did NOT — both readings of that move were refused by the corpus,
  * measured at the site in {@link addBisectionEdge} — so D14 stays open, now the other way round:
  * the rate's zero is reached only below `1e-8`, and every vertex that reaches it reads straight here.
+ * (C8 dispatch 3 measured `k·u` and the forward bound 8u there too, and both were refused; see the site.)
  *
  * MEASURED, THE SLIVER THIS MOVE DECIDES IS NOT EMPTY OFF THE CORPUS. The full-graph digest of all
  * 59 fixtures is bit-identical under the move, as the 2026-08 widening measurements predicted; but
@@ -189,9 +194,10 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     // THE ZERO TEST IS IN THE ONE ANGULAR FORM; ONLY THE SIGN COMES FROM THE RATE ITSELF. The rate is
     // `cross(bisectedBasis, clockwiseParent)` and both operands are unit, so `sineIsBelow` is the
     // same bar and the same number as the `areEqual(offsetRate, 0)` this replaces — but it names the
-    // space, which `areEqual` on a cross product never did (journal decision 105).
+    // space, which `areEqual` on a cross product never did (journal decision 105). HELD at 1e-8 (census
+    // S19): three re-derivations were measured and each refused — see the last three paragraphs.
     //
-    // THIS ONE STAYS AT THE SCRATCH EPSILON, ON THE RATE'S OWN OPERANDS — A MEASURED STOP, NOT AN
+    // HISTORY: IT STAYED AT THE SCRATCH EPSILON, ON THE RATE'S OWN OPERANDS — A MEASURED STOP, NOT AN
     // OMISSION (spec A15's `addBisectionEdge` row, A25 STOPs 3 and 4; journal decision 146). The spec
     // moves it to the angular resolution on the RAW PARENT directions `(cw, ws)`, the operands
     // `ensureBisectionIsInterior` reads, to close D14. Both readings of that row were measured on
@@ -219,17 +225,35 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     // at the resolution, where the rate's zero is reached only below `1e-8` and every such vertex reads
     // straight. The tolerance package (register C8) owns this site's re-derivation.
     //
-    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S19): T17's orientation-aware reading at ρ, with the
-    // fourth oracle as its complement (T18), is dispatch 2's (T29–T32). The bar is held bit-identical.
+    // C8 DISPATCH 2 MEASURED T17 AND IT STOPS (2026-09-24, T37 STOPs 1 and 3). `directionsAreSame(cw, −ws,
+    // ρ)` on the raw parents, with the fourth oracle landed at T18: the three sub-ρ negative rates appear
+    // as F65 found them and the oracle correctly leaves them unflagged, three off-edge jitter cells lose a
+    // direction violation (the L at k = 2 seed 55433, the plus at k = 4 seed 47514 and k = 6 seed 15838) —
+    // but the jittered Circle 32 at 3 × 1e-8, seed 7, STOPS SOLVING (a pair-handler step failure on
+    // e71/e76), and the plus at k = 2, seed 23757 gains an offset violation of 1.77e-6 with its
+    // `causality-violation` diagnostic. The fourth oracle stands on its own (causality-check.ts).
     //
-    // C8 DISPATCH 2 MEASURED T17 AND IT STOPS (2026-09-24, T37 STOPs 1 and 3; the window still held,
-    // so T33's precondition is unmet as well). `directionsAreSame(cw, −ws, ρ)` on the raw parents,
-    // with the fourth oracle landed at T18: the three sub-ρ negative rates appear as F65 found them and
-    // the oracle correctly leaves them unflagged, three off-edge jitter cells lose a direction violation
-    // (the L at k = 2 seed 55433, the plus at k = 4 seed 47514 and k = 6 seed 15838) — but the jittered
-    // Circle 32 at 3 × 1e-8, seed 7, STOPS SOLVING (a pair-handler step failure on e71/e76), and the plus
-    // at k = 2, seed 23757 gains an offset violation of 1.77e-6 with its `causality-violation` diagnostic.
-    // Held here; the fourth oracle stands on its own (causality-check.ts) and reads zero everywhere.
+    // C8 DISPATCH 3 MEASURED `|rate| ≤ k·u` (decision 161(b)) AND IT MOVES A CLEAN FIXTURE. Over dispatch
+    // 2's 580 cells five births have a rate in (k·u, 1e-8): `Golf Cart` e16 (−7.28e-16) and e21
+    // (+7.28e-16) at 1e-6 and at 1e-5, and the jittered Circle 32 at 1 × 1e-8, seed 5, e70 (−6.22e-9). The
+    // two negative ones are flipped by the sign rule where the parent ordering kept them, and the clean
+    // `Golf Cart` became a SILENT wrong answer — complete, empty diagnostics, all four oracles clean, but
+    // its skeleton no longer a tree and its strips 3.2% short of the canonical area.
+    //
+    // C8 DISPATCH 3 THEN MEASURED THE FORWARD BOUND, 8u (`offsetRateIsArithmeticZero`, journal-5 decision
+    // 164), AND IT MOVES THE SAME FIXTURE ONE LEVEL DOWN. At the ROOT it does what decision 164 asked:
+    // `Golf Cart`'s 3.3u rates are zeroed, and over the 580 cells ONE cell moves — the Circle 32 cell above,
+    // 52 → 53 nodes, e70 a true negative priced by its sign, still complete and clean on all four oracles;
+    // no digest pin moves. But in the recursion, `Golf Cart`'s LEVEL-1 regions carry the same corridor at
+    // rates of 5.2u to 24u (±1.16e-15, ±1.53e-15, ±4.32e-15, ±5.35e-15, on walls tilted 2.3e-15 to 1.07e-14
+    // in the region's own unit space), above 8u; priced by sign, a level-1 region's strips cover 3.2% less
+    // than its canonical area — the root's failure again — and `recursive-subdivision.test.ts` fails (2
+    // tests). Attributed by toggle: this site back at 1e-8, the recursion passes. So the site stays HELD
+    // (journal-5 decision 164's instruction). NOTE, MEASURED: `Golf Cart`'s root rate is NOT rounding.
+    // Its vertex 3 sits at y = 399.99999999999994, one ulp below 400, so wall e2 is tilted by 1.456e-15 and
+    // the exact rate is ±7.28e-16, the computed value; the regions' larger tilts are that same ulp read on
+    // shorter, re-normalised walls. The rates this site must not price by sign are TRUE rates of a
+    // sub-perceptual tilt, which no rounding bound on the rate separates from e70's −6.22e-9.
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
         ZERO_RATE_SINE_BAR);
     if (!zeroRate) {

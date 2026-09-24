@@ -15,8 +15,8 @@ import {
     crossProduct,
     findPositionAlongRay,
     normalize,
+    offsetRateIsArithmeticZero,
     projectToPerpendicular,
-    sineIsBelow,
     subtractVectors
 } from "./core-functions";
 import {
@@ -31,9 +31,6 @@ import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
 } from "./generate-split-event";
-
-/** `makeOffsetDistance`'s zero-gradient sine bar, held for C8 dispatch 2 (T29–T32; census S20). */
-const NO_GRADIENT_SINE_BAR = 0.00000001;
 
 /*
  * ----------------------------------------------------------------------------
@@ -251,12 +248,10 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 
 export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
     const sourceOffset = sourceOffsetDistance(edge, context);
-    // "There is no offset gradient against this parent" — the one angular basis (journal decision
-    // 105), stated as a sine rather than as an `areEqual` on a cross product whose space the call
-    // did not name. Both operands are unit bases, so the bar and the number are unchanged.
+    // "There is no offset gradient against this parent" — a substitution of 0 for the computed rate.
     //
-    // THE BAR STAYS AT THE SCRATCH EPSILON — A MEASURED STOP, NOT AN OMISSION (spec A15's
-    // `makeOffsetDistance` row, A25 STOP 3; journal decision 146). Moved to the angular resolution, on
+    // HISTORY (the move to the angular resolution, refused): THE BAR STAYED AT THE SCRATCH EPSILON — A
+    // MEASURED STOP, NOT AN OMISSION (spec A15's `makeOffsetDistance` row, A25 STOP 3; journal decision 146). Moved to the angular resolution, on
     // its own and with every other site at its old bar, and RE-MEASURED 2026-09-23 on the current tree
     // under the solver's own causality check (journal-5 decisions 148, 149): ONE defect fixture stops
     // solving — `Off-edge Jitter Reflex L (seed 55433, k=4)`, with step failures and unresolved edges —
@@ -270,11 +265,24 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
     // epsilon) reads the pair as phantom. The time windows are the tolerance package's (register C8),
     // and this site moves with them.
     //
-    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S20): its move to `≤ k·u` is dispatch 2's (T29–T32),
-    // measured on a tree whose window already reads δ (T33). Its bar is held here, bit-identical, as a
-    // named literal now that the scratch constant is deleted.
-    const noGradient = sineIsBelow(ray.basisVector, context.clockwiseParent(edge).basisVector,
-        NO_GRADIENT_SINE_BAR);
+    // THE OFFSET RATE'S FORWARD ROUNDING BOUND, 8u, SINCE C8 DISPATCH 3 (census S20; spec T2, T30; journal
+    // decisions 161(e) and 164). Acceptance SUBSTITUTES 0 for a computed rate, so under T2 it may discard
+    // only what the arithmetic cannot vouch for: whether the exact geometry's rate is zero, which charges
+    // the normalised bases' own direction errors as well as the evaluation — `offsetRateIsArithmeticZero`,
+    // argued at `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS` in constants.ts. `alongRay · rate` has no division
+    // in it, so every rate outside the bound is priced as it is. Held at a named sine literal `1e-8`
+    // through dispatches 1 and 2 (T33's precondition, dissolved by decision 161(e)). `addBisectionEdge`'s
+    // zero rate (S19) asks the same of the same operand; measured at this bar, it stays held (see there).
+    //
+    // MEASURED on dispatch 2's 580 cells. At the retired 1e-8, 37 evaluations of a rate in (2u, 1e-8) were
+    // zeroed, on three cells: `Golf Cart` at 1e-6 and at 1e-5 (e16 and e21, |rate| 7.28e-16 = 3.3u) and the
+    // jittered Circle 32 at 1 × 1e-8, seed 5 (e70, 6.22e-9). `k·u`, landed first in dispatch 3, priced all
+    // of them and moved the `Golf Cart` digest pin (e16 and e21's `maxOffset` by tens of ulps); at 8u the
+    // `Golf Cart` rates are zeroed again and its pin is back to native. What is now priced is e70 alone —
+    // one bisector on one cell, 19 evaluations — and this site moves no cell: geometry,
+    // verdict, node count, every oracle and every digest pin unmoved.
+    const noGradient = offsetRateIsArithmeticZero(
+        crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector));
     const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
     return sourceOffset + deltaOffset;
 
