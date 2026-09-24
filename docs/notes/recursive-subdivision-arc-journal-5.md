@@ -221,15 +221,13 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
-**C12 — The simultaneity window as a MECHANISM, not a number** (F71; user's ruling). The
-held 1e-8 is an admitted literal at the width where the whole-event resolution works.
-Proposed design: group arrivals at the perceptual width δ, anchored (decision 155);
-verify each layer's resolution with the causality check turned inward as the REFUSAL
-gate (the C9 instrument), replacing "an edge claimed twice"; narrow on refusal to the
-anchored per-pair bar (decision 160's machinery, landed and unspent). Prerequisite
-understanding: why a δ-wide layer resolved wrongly passes today's refusal detector. Also
-touches the near-regular class (backlog item 5), whose sequential resolution of
-near-coincident events is what the per-pair window exposed.
+**C12 — Sequential resolution of near-coincident events, so the window and the box can go
+arithmetic** (F71, F72, decision 162). ~~The perceptual-width design~~ struck by 162. The
+package: (1) diagnose why a jittered hub (Circle 48 native, the regular circles) fails
+when its arrivals are resolved in arithmetic order — the near-regular class; (2) make it
+produce the sub-floor fan decision 141 admits; (3) then the window takes the per-pair bar
+with a complete error model and the box goes exact, with F72's prediction as the
+conviction. Until then the 1e-8 window and box stay held as one matched pair, labelled.
 
 **C11 — Three paths join a computed position to an existing node 7e-10 to 1.2e-8 away
 without going through event resolution** (F69, decision 159(a)): the whole-event merge
@@ -871,8 +869,43 @@ unblock; the handoff's public-surface note. **Lead verification of dispatch 2's 
 core 5777/5777 (88 suites, 146 s), dashboard 331/331, all builds green after rebuilds —
 match. Committed as the C8 dispatch-2 code commit.**
 
+**162 — (user, 2026-09-24) A perceptual simultaneity window is WRONG IN PRINCIPLE: it
+asks the solver to merge events that are distinct at its own precision, the placed nodes
+then disagree with the upstream graph by more than the arithmetic floor, and the
+downstream wavefront becomes unsolvable because it is "missing" nodes from the
+arithmetic's perspective.** The user's words, near-verbatim: "Using the perceptual
+threshold on this simultaneity window creates a problem, because it asks the Solver to
+merge events that from its perspective are distinct. The downstream state of the polygon
+can become corrupted, because the nodes that have been created disagree with the upstream
+graph, by more than the numerical floor threshold. This works in some simple enough
+inputs, but for others the corrupted graph becomes unsolvable, because it's missing nodes
+from the perspective of the numerical precision." Lead's confirmation against F70's
+signature: direction violations are bisectors terminated at a merged node sitting behind
+their true termination; unresolved edges are the solver looking for a node the corrupted
+wavefront no longer produces. Consequences: (a) the window's derivation is ARITHMETIC —
+the per-pair bar of decision 160 with a COMPLETE first-order error model (bases, rates,
+source offsets, the division), not the perceptual cap; decision 160's "capped at δ" is
+struck and the flat-floor variant is closed for good; (b) the node same-point box is the
+window's counterpart (F72) and goes EXACT with it; (c) the blocker is not a tolerance: it
+is the sequential resolution of genuinely near-coincident events at a jittered hub, which
+under decision 141 must produce sub-floor structure and today fails (the near-regular
+class, backlog item 5). **C12 is re-pointed to that solver-correctness package**; the 1e-8
+window and box stay held as one admitted, matched pair until it lands.
+
 ---
 ## Findings
+
+**F72 — The 43 unexplained node joins of C11 lie in exactly the range of displacement a
+1e-8 simultaneity window creates, so the same-point box is the window's downstream
+absorber, and the two literals are ONE hand-tuned system.** Lead's reading of dispatch
+1's histogram under decision 162: the joins are 7e-10 to 1.16e-8 from their node,
+uncorrelated with any conditioning quantity, reached by the whole-event merge, the
+terminal triangle and the split path — every one a later arrival, priced from true
+geometry, landing near a node the window had placed at its anchor rather than at that
+arrival's own meeting point. The correspondence is inferred from the ranges, not traced
+join by join; C11's diagnosis should confirm it by attributing each join to the layer
+that displaced its node. Prediction, falsifiable: with the window at the per-pair bar the
+histogram's >64-ulp bucket empties.
 
 **F71 — The per-pair window is TWO orders too narrow and the flat floor is TWO orders too
 wide; the held 1e-8 sits where the whole-event resolution works, and what it encodes is
