@@ -682,6 +682,23 @@ layers on exactly the four jitter defect fixtures and no clean fixture; and O4, 
 (the derived coherence bound is ~1e8). Spec status stays draft until those three are
 ruled.
 
+**154 — (user, 2026-09-24) O1 of the C8 spec is RULED BY ITS HISTOGRAM: the arithmetic
+same-point bar is decided by the settling measurement, run FIRST in the implementation
+dispatch, and not in advance.** The measurement: every non-zero distance at which
+`findOrAddNode` currently joins a position to an existing node, over `FULL_CORPUS`, the 46
+fine translations of Circle 48 and Rosette5 40, and the jitter sweeps. Ruling rule: if
+every join is exact or within `ARRIVAL_MOMENT_ULPS` (64) ulps, option (a) — one
+representation bar coherent with the moment bar — is taken as free; if joins exist above
+that AND correlate with poorly conditioned pricings (the conditioning quantity
+|sep|·2u/sin²θ at the pricing site), option (b) is taken in its cheap form — one error
+budget per event, set at pricing, carried on the event type; a join above 64 ulps that does
+NOT correlate with conditioning names a path bypassing event resolution and is fixed there,
+never absorbed by a bar. What (b) buys, recorded so the choice is legible: no multiple to
+argue, correctness where positional error is non-uniform, and a principled bypass
+detector; what it does not buy: any reduction of error, and the doubled-node case it
+guards is already caught by the clustering before a node exists and by the causality check
+and I2 after. T2, T12 and O4 remain the user's open rulings.
+
 ---
 ## Findings
 
