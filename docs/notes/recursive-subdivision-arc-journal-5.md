@@ -221,11 +221,12 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
-**C13 — A global check for the solver's diagnostics** (F73). The four per-edge causality
-oracles miss a bisector flipped by a rounding-sized sign: the skeleton stops being a tree
-and the tiling runs 3.2% short with every oracle clean. Candidate: the tree property
-(cheap, structural) as a fifth solver-side check, with the tiling identity as the
-test-side conviction. Rule after C12, when the window and box move and the risk is live.
+**C13 — A global check for the solver's diagnostics** (F73, F75). *Promoted AHEAD of C12's
+retry by decision 168(h).* The four per-edge causality oracles miss a face-structure
+change: a flipped sign (Golf Cart, 3.2% short) and a split meeting (plus k9/seed 23757,
+1.1% short) both pass with every oracle clean. Candidate: the tree property (cheap,
+structural) as a fifth solver-side check, the tiling identity as the test-side
+conviction; C12's F75 cells are the fixtures that must fire it.
 
 **C12 — Sequential resolution of near-coincident events, so the window, the box AND the
 zero-rate test can go arithmetic** (F71, F72, decisions 162, 165). *S19 joined 2026-09-24:
@@ -1015,8 +1016,63 @@ arrival its own node — answers questions below the moment bar, F73's class), o
 fixtures and the recursion/tiling pins where sub-floor fans are now real structure; STOP
 if any moved cell carries a causality or tiling violation. Dispatched to Opus.
 
+**168 — C12 STOPPED on measurement after its conviction PASSED; what landed stays, the
+three literals stay held, and C13 is promoted AHEAD of C12's retry.** (a) LANDED: the
+complete first-order error model on every arrival (Part 1 — bases' direction and length,
+rates, source offsets, the division, head-on, both split paths, the terminal triangle's
+Cramer position; convicted against 256-bit exact arithmetic on 20 000 draws, and the
+conviction FOUND a missing term, the normalised vector's length error λ = 3u, when a
+bisector sat 28.8u off its true direction), unspent while the window is held; the silent
+one-edge child drop is LOUD (a `step-failure` naming the edge and its ring; fires in 0 of
+642 cells). (b) The conviction of decision 167 HELD: with the model, the per-pair window
+and the exact box, Circle 48 native, Peanut 32 and Deformed Peanut 2 are digest-unmoved,
+all 62 regular circles solve, the corpus moves on one defect fixture only, clean. (c)
+STOPPED off-corpus (F75): two oracle rises, a silent 1.1% tiling miss with all four
+oracles clean, four cells losing machine-precision tiling, a clean fixture gaining a
+failed region. The window and box are back at 1e-8 by inverse edit with the measurements
+at the sites. (d) S19 at 8u still leaves Golf Cart's level-1 regions 3.2% short on the
+per-pair tree — HELD; the three literals remain one documented set. (e) S5 cannot be
+exact: 35 rings across 17 fixtures repeat a vertex because a zero-length segment's two
+ends are computed separately — it keeps a rounding-derived bar, argued at the site. (f)
+The `δ` cap in the pair window is KEPT despite 162(a) striking it: the wide budgets of
+near-straight vertices land on it, and without it they would exceed the floor — the cap
+is where 157's release applies; 162(a) is amended to say so. (g) Interpretations 1–15
+adopted; the S2 reading "coordinates equal OR a single instigator" is recorded as the one
+that leaves clean digests unmoved. **Lead verification of the delivered tree: core 5807/5807 (88 suites, 351 s — slower
+than the ~125 s norm, the budget arithmetic is the suspect and is measured under C13),
+dashboard 331/331, all builds green after rebuilds — match. Committed as the C12 code
+commit.** (h) **Order**: C13 (a global check in the solver's own
+diagnostics — the tree property, with the tiling identity as the test-side conviction)
+lands BEFORE C12 is retried, because F75's failure class is invisible to every per-edge
+oracle and a mechanism cannot be measured against an instrument that cannot see its
+failure.
+
 ---
 ## Findings
+
+**F75 — C12's mechanism fails where the honest error budgets are NON-UNIFORM: a bisector
+at a near-straight vertex carries a budget thousands of moment bars wide (the cot(φ/2)
+term), the anchored non-transitive layer then takes one partner of a single geometric
+meeting and defers another, and the deferred arrival is resolved against a wavefront the
+first resolution already changed — a topological change that the tiling sees and no
+per-edge oracle does.** Delegate's measurements on the per-pair/exact-box tree, not
+re-run by the lead. The splitting pair: off-edge plus k9/seed 23757, ring [92, 164, 229,
+237] — the layer took 164×229 (gap 8.6e-11, budget 9.5e-10) and left 164×237 (budget
+1.1e-11); result: strips 1.1% short of the area, `complete`, four oracles clean (F73's
+class, predicted as the second failure shape in decision 167's dispatch note). Budget
+distribution over the corpus: median 1.5 moment bars, 90th percentile 36, 99th 2e4, max
+2.9e13 (a defect fixture; 1254 on a clean one). Also: Circle 48 at 2e11 gains offset and
+direction violations (the box); plus k7/seed 31676 gains one of each (the window); four
+cells lose machine-precision tiling (the worst 1.7e-15 → 3.6e-10); Failing Long Octagon
+gains an unattributed failed region; under literal-exact same-point identity seven clean
+digests move on split re-reports 0.03–1.93 ulps apart (dissolved by treating a single
+instigator's re-reports as one point). Cures alongside: Circle 48 at 2e11's tiling 0.57 →
+1.3e-8; a ladder cell F → complete. Abstract shape, for the user: decision 155 says a
+non-transitive window may leave two nodes inside the floor and that is sound; F75 shows
+the CONSEQUENCE of splitting a meeting is not always two nodes — it can be a different
+face structure, because the second resolution runs against a wavefront the first one
+rewrote. Soundness of the nodes does not imply soundness of the faces. The instrument
+that sees faces is C13.
 
 **F74 — C12 DIAGNOSED (delegate's read-only trace on `b1d4c8b`, lead not re-run): a
 jittered hub does NOT fail under arithmetic-order resolution because its events are
