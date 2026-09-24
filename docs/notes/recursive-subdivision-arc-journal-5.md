@@ -221,6 +221,16 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
+**C12 — The simultaneity window as a MECHANISM, not a number** (F71; user's ruling). The
+held 1e-8 is an admitted literal at the width where the whole-event resolution works.
+Proposed design: group arrivals at the perceptual width δ, anchored (decision 155);
+verify each layer's resolution with the causality check turned inward as the REFUSAL
+gate (the C9 instrument), replacing "an edge claimed twice"; narrow on refusal to the
+anchored per-pair bar (decision 160's machinery, landed and unspent). Prerequisite
+understanding: why a δ-wide layer resolved wrongly passes today's refusal detector. Also
+touches the near-regular class (backlog item 5), whose sequential resolution of
+near-coincident events is what the per-pair window exposed.
+
 **C11 — Three paths join a computed position to an existing node 7e-10 to 1.2e-8 away
 without going through event resolution** (F69, decision 159(a)): the whole-event merge
 landing on an earlier layer's node, the terminal-triangle closed form, the split path. 43
@@ -812,7 +822,7 @@ attribution. (e) Interpretations 1–14 adopted, in particular: the per-pair win
 passes; c₃ = 5 argued and convicted against exact arithmetic; the dashboard's ratio
 refusal test moves to weight 1e12 since the panel's 500 is admitted under decision 156.
 
-**160 — (user, 2026-09-24) T12 is AMENDED: the simultaneity window is each pair's own
+**160 — *SUPERSEDED IN PART by decision 161(a) and F71: measured, the per-pair window is two orders too narrow; the machinery stays landed, the sites stay at the held 1e-8, and the window becomes register C12, a mechanism design for the user.* (user, 2026-09-24) T12 is AMENDED: the simultaneity window is each pair's own
 ordering uncertainty — the arithmetic moment bar widened by the pair's actual conditioning
 error — CAPPED at δ; perceptual in its cap, arithmetic in its floor. The δ-flat window is
 STRUCK.** The user's words: "That's fine to revert my wrong hunch." Lead's note for the
@@ -831,8 +841,72 @@ budget on the `Arrival` type; T13's cross-multiplied form is kept; (d) decision 
 anchoring is unchanged; (e) spec T12–T15 are amended in place; T16's STOP stands. Carried
 by C8 dispatch 2.
 
+**161 — Rulings on C8 dispatch 2.** (a) **The per-pair window (decision 160) is STOPPED on
+measurement and the sites stay at the held 1e-8, machinery landed and unspent; decision
+160 is SUPERSEDED IN PART by F71 and the window's design goes to the user as register
+C12.** (b) **S19 at ρ on the raw parents (T17) is STOPPED and reverted**: Circle 32 3×/seed
+7 stops solving and the plus k=2/seed 23757 gains a diagnosed offset violation, against
+three direction-violation cures. Under decision 157 the sign of a computed rate is a
+deterministic answer; T17 read the site as a question and T2 now reads it as a
+SUBSTITUTION (zero for a computed rate) — the same class as S20 — so S19 takes `k·u` in
+dispatch 3, measured. D14 stays open in that form. (c) **The fourth oracle (T18) LANDS** at
+zero on the corpus, all 580 cells and every pinned cell, solver and test-side agreeing;
+its exemption (parents anti-parallel at ρ) is convicted on constructed graphs since F65's
+three bisectors do not exist while S19 is held. (d) **O3 is RULED (b), `δ·perimeter/2`,
+and T23/T24 LAND**: all six released regions solve clean on four oracles, I2, I5 and
+tiling; the census re-pins 22 → 16 (plus 15 → 11, k=4 7 → 5) as an attributed cure;
+`DEGENERATE_AREA_EPSILON` becomes `degenerateAreaBar(floor, perimeter)` in both consumers;
+the decomposition's endpoint and parallel tests are derived with no verdict change; three
+specimens moved with attribution (the square residue ring, the sibling-failure specimen,
+the dashboard failed-cell specimen). `decomposePolygon` now takes the floor — a public
+surface change for the handoff. (e) **Part C's T33 precondition is DISSOLVED**: the window
+is held indefinitely (C12), so the held window IS the tree the F64 sites are measured on.
+The census dispatch 2 took is therefore evidence: S6 exact (band empty, 0 cells move), S20
+at `k·u` (37 zeroed rates in (2u, 1e-8) now priced, largest 6.2e-9, 0 cells move), S11 at
+the lane (0 cells move) LAND in dispatch 3; S10 at the lane is HELD — it gives the plus
+k=3/seed 47514 a diagnosed offset violation (STOP 3) and shrinks two Circle 32 cells by a
+node. (f) Interpretations 1–13 adopted; the `Arrival.uncertainty` machinery stays for C12.
+**Dispatch 3** (small): S6, S20, S11 as ruled; S19 at `k·u`; the coherence rows those
+unblock; the handoff's public-surface note. **Lead verification of dispatch 2's tree:
+core 5777/5777 (88 suites, 146 s), dashboard 331/331, all builds green after rebuilds —
+match. Committed as the C8 dispatch-2 code commit.**
+
 ---
 ## Findings
+
+**F71 — The per-pair window is TWO orders too narrow and the flat floor is TWO orders too
+wide; the held 1e-8 sits where the whole-event resolution works, and what it encodes is
+not a tolerance but the coupling of TWO mechanisms.** Delegate's measurements on the 580
+cells, not re-run by the lead. On the held trajectory 98.1% of the 14 million arrival
+comparisons sit at the moment bar, 1.85% are widened by the pricing budget, 0.012% hit the
+δ cap. All seven sites per-pair: 211 of 580 cells move, 45 tests fail in 13 suites —
+Circle 48 native and the regular circles STOP solving, two CLEAN digests move (Near
+Regular Peanut 32, Slightly Deformed Peanut 2), a Circle 32 cell gains a clearance
+violation. The named movers are NOT ill-conditioned (Peanut 32: sine 0.374, separation
+0.4, readings 5.0e-15 apart against a bar of 2.9e-15 with budgets of 6.4e-16 each; Circle
+32's 32-way meeting: arrivals 8.7e-15 to 1.2e-14 apart against 8.3e-15): the budget
+charges only the division by the sine, while the readings also differ by rounding in the
+bases, the rates and the source offsets, which it does not charge. So decision 160(b)'s
+prediction is FALSIFIED: a complete first-order error model would sit near 1e-14, and it
+would STILL not solve Circle 48 natively, whose 48 hub arrivals differ by up to ~1e-9
+from the fixture's own near-regular jitter — genuinely distinct events the sequential
+resolution cannot yet handle (the near-regular class of backlog item 5). The flip census
+(comparisons the held window calls one moment and the per-pair window does not): 24 479
+at the layer site, 51 538 at the phantom site, gaps from 1× to 4.6e7× the moment bar.
+**Reading, lead's:** the 1e-8 window is doing perceptual work — grouping arrivals the
+geometry says are one meeting but jitter and rounding scattered — at a width found by
+trial, and it works because the whole-event resolution is CORRECT for a genuinely
+concurrent layer and the refusal-then-narrow of F44 rescues the rest. The flat floor
+fails not because δ is the wrong perceptual width but because the resolution's REFUSAL
+DETECTOR ("an edge claimed twice") is too weak to notice a δ-wide layer resolved wrongly:
+it accepts layers containing causally sequenced events and produces the F70 violations.
+The per-pair window fails because sequential resolution of near-coincident events is
+itself the unsolved near-regular defect. Neither literal is derivable; the derivation is
+of the MECHANISM: group at the perceptual width (decision 157's release), verify the
+layer's resolution with the causality check turned inward (the C9 instrument as the
+refusal gate), and narrow on refusal to the anchored per-pair bar (decisions 155, 160).
+That is register **C12**, a design package for the user, and the 1e-8 stays held with an
+honest label until it is ruled.
 
 **F69 — C8 dispatch 1 landed the frame: `FLOATING_POINT_EPSILON` is DELETED, every
 comparison states its bar, the division guards, both weighted constants and the moment bar
