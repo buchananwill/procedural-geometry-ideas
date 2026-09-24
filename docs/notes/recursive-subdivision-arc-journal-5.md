@@ -221,8 +221,16 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
-**C12 — Sequential resolution of near-coincident events, so the window and the box can go
-arithmetic** (F71, F72, decision 162). ~~The perceptual-width design~~ struck by 162. The
+**C13 — A global check for the solver's diagnostics** (F73). The four per-edge causality
+oracles miss a bisector flipped by a rounding-sized sign: the skeleton stops being a tree
+and the tiling runs 3.2% short with every oracle clean. Candidate: the tree property
+(cheap, structural) as a fifth solver-side check, with the tiling identity as the
+test-side conviction. Rule after C12, when the window and box move and the risk is live.
+
+**C12 — Sequential resolution of near-coincident events, so the window, the box AND the
+zero-rate test can go arithmetic** (F71, F72, decisions 162, 165). *S19 joined 2026-09-24:
+its 1e-8 is the third member of the hand-tuned set; a true sub-perceptual rate sign
+cannot be carried through the other two at their current level.* ~~The perceptual-width design~~ struck by 162. The
 package: (1) diagnose why a jittered hub (Circle 48 native, the regular circles) fails
 when its arrivals are resolved in arithmetic order — the near-regular class; (2) make it
 produce the sub-floor fan decision 141 admits; (3) then the window takes the per-pair bar
@@ -905,8 +913,78 @@ baseline `1211e55`. C12 opens after it with a DIAGNOSIS first — a read-only tr
 a jittered hub fails under arithmetic-order resolution — and the lead chooses the
 mechanism on that trace, recorded as a decision before any code.
 
+**164 — Rulings on C8 dispatch 3.** (a) S6 exact, S11 at the lane: LANDED as measured (band
+empty, no cell moves). (b) **S19 and S20 both take a FORWARD-error bound, not k·u, and the
+Golf Cart digest re-pin is REFUSED**: the two Golf Cart edges e16/e21 are born at rates of
+±7.28e-16 (3.3u) between walls that are EXACTLY anti-parallel by construction, so their
+true rate is zero and the computed rate is the rounding of the normalised bases — the
+operand error the k = 2 argument deliberately does not charge (decision 147(a) adopted
+the backward-error reading for `intersectRays`, whose rays ARE the stored doubles). The
+zero-rate question is the opposite case: it asks whether the EXACT geometry's rate is
+zero, a forward-error question, so its bound charges normalisation: a named
+`FORWARD_CROSS_PRODUCT_ROUNDING_UNITS`, argued at the site (two normalised operands each
+within ~u of unit length, plus the cross product's own 2u), which must contain 3.3u and
+exclude 4.36e-8, the smallest true non-zero rate in the sweep. Under that bound S20 prices
+nothing it zeroed at Golf Cart, so its digest pin returns to native — THAT is the
+conviction; and S19 is re-measured with the expectation that Golf Cart is bit-unmoved and
+only Circle 32 1×/seed 5's e70 (rate −6.2e-9, 2.8e7 u, a true negative) changes, its
+cell attributed. (c) The S19 measurement at k·u exposed an INSTRUMENT GAP (F73): a
+skeleton that is no longer a tree with strips 3.2% short of the area, `complete` with
+empty diagnostics and all FOUR oracles clean — only the tiling identity saw it. (d) S10
+stays held (STOP 3 re-confirmed). (e) Interpretations 2–10 adopted; interpretation 1
+superseded by (b).
+
+**165 — LEAD ERROR in 164(b), corrected by the delegate's measurement, and the re-ruling:
+S20 lands on the forward bound as a sound worst case; S19 stays held and JOINS C12's
+matched set, because the rates it must not price are TRUE rates of a sub-perceptual
+tilt, which no rounding bound can separate from a true rate the solver must honour.**
+The facts: Golf Cart's vertex 3 is at y = 399.99999999999994, one ulp below 400 (the
+fixture's own recorded perturbation), so wall e2 is tilted by 1.456e-15 and the exact
+rate of e16/e21 is ±7.28e-16 — equal to the computed value to far below an ulp. Over
+200 000 random near-anti-parallel pairs the forward rounding error of a rate never
+exceeded 1.75u, and over 2 000 000 exactly anti-parallel pairs the computed rate never
+exceeded 1.5u; both are inside k·u. 164(b)'s diagnosis ("the 3.3u is basis rounding") is
+STRUCK. Rulings: (a) `FORWARD_CROSS_PRODUCT_ROUNDING_UNITS = 8` (two normalised operands
+each within 2u of direction, the bisector's own three roundings, the evaluation's u) is
+a sound worst-case bound and S20 takes it; it zeroes Golf Cart's 3.3u because a rate that
+small is inside what the arithmetic can vouch for IN GENERAL, not because the walls are
+anti-parallel — the site says so; the Golf Cart digest pin RETURNS TO NATIVE (the
+conviction), and the priced rates fall to Circle 32's e70 alone. (b) S19 at 8u moves one
+root cell (Circle 32 1×/seed 5, 52 → 53 nodes, clean) but makes Golf Cart's LEVEL-1
+recursion regions silent wrong answers — the same corridor solved at rates of 5u to 24u,
+true rates of tilts of 2e-15 to 1e-14 in the region's unit space, priced by sign, strips
+3.2% short of the area, four oracles clean (F73's class again). S19 is HELD at 1e-8 by
+inverse edit. (c) **Why no rate bound works at S19**: the zero-rate test does not ask "is
+this rate zero" — it asks "is this rate's SIGN reliable enough to choose the bisector's
+direction", and the direction chosen by the sign of a 1e-15 tilt decides which END of a
+corridor the vertex runs to, a topological choice the client cannot see and the solver's
+other predicates (the 1e-8 window and box) cannot carry consistently. A rate of 6e-9
+(Circle 32's e70) IS carried consistently at 1e-8. So S19's bar is the same hand-tuned
+level as the window and the box, and it moves with them: **S19 joins C12**, D14 stays
+open, and the three literals are documented as ONE system. Decision 157 is not violated:
+the solver declines to honour a sign it cannot carry through, which is the release, not
+an override. (d) Interpretations 1–5 adopted; the recursion regions are added to every
+future S19 and C12 measurement (the 580-cell sweep is root-only). **Lead verification of
+dispatch 3's tree: core 5794/5794 (88 suites, 125 s), dashboard 331/331, all builds green
+after rebuilds — match. Committed as the C8 dispatch-3 code commit. C8 is CLOSED as a
+package: every tolerance in the solver is derived or is one of the three documented
+members of the C12 set.**
+
 ---
 ## Findings
+
+**F73 — A bisector flipped by a rounding-sized rate sign makes Golf Cart a SILENT wrong
+answer that all four causality oracles miss and only the tiling identity catches.** From
+dispatch 3's S19 measurement at k·u (reverted): the skeleton stops being a tree, the
+strips cover 3.2% less than the canonical area, scale and translation invariance break,
+the I5 head-on population drops 17 → 16 — with `complete: true`, empty diagnostics,
+offset/clearance/direction/rate all zero. Reading: a bisector whose direction is chosen by
+the sign of noise runs at a legitimate-looking rate in a legitimate-looking direction; no
+per-edge causality oracle can object, because each edge is locally consistent; the wrong
+answer is GLOBAL (the tree property, the tiling). Consequence for the instrument doctrine
+(decisions 148/149): the causality check is necessary, not sufficient; the tiling identity
+(or the tree property, which is cheaper) is the candidate fifth check for the solver's own
+diagnostics. Register **C13**. Not re-run by the lead.
 
 **F72 — The 43 unexplained node joins of C11 lie in exactly the range of displacement a
 1e-8 simultaneity window creates, so the same-point box is the window's downstream
