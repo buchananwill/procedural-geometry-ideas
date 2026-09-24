@@ -6,7 +6,8 @@ import {DEGENERATE_AREA_EPSILON} from "./constants";
  * How close to a segment's end a crossing must be before it counts as an endpoint touch instead.
  *
  * A DIMENSIONLESS PARAMETRIC BAR on `t ∈ [0, 1]`, and its space is the point: it carries the same
- * value as {@link FLOATING_POINT_EPSILON} but is NOT that constant and must not be re-pointed at it,
+ * value as the retired scratch `FLOATING_POINT_EPSILON` (deleted by C8 spec T1) but was never that
+ * constant and must not be re-derived from its history,
  * because `t` has already been divided by the segment's own length. A `t` of 1e-8 is 1e-8 of a
  * length on every segment — so this bar is relative by construction where the solver's epsilon is
  * absolute, and the two agreeing on a number is a coincidence of history rather than a shared

@@ -17,7 +17,7 @@ import {
     rotateCw90,
     subtractVectors,
 } from "./core-functions";
-import {FLOATING_POINT_EPSILON} from "./constants";
+import {weightedRateSumRoundingBound} from "./constants";
 import {intersectRays} from "./intersection-edges";
 import {sourceOffsetDistance, timeOf} from "./collision-helpers";
 
@@ -80,8 +80,13 @@ function findOffsetViaIncenter(
     const rateAgainstParent = crossProduct(instigatorRay.basisVector, clockwiseParent.basisVector);
     const rateTowardsSplit = -crossProduct(instigatorRay.basisVector, edgeToSplit.basisVector);
 
-    const divisor = rateAgainstParent * splitWeight + rateTowardsSplit * clockwiseWeight;
-    if (Math.abs(divisor) < FLOATING_POINT_EPSILON * splitWeight * clockwiseWeight) {
+    // A DIVISION GUARD (C8 spec T19, census S33): two rates, each a unit cross product off by `k·u`,
+    // each scaled by a weight, summed — `meetHeadOn`'s structure exactly, so its bound. It was
+    // `FLOATING_POINT_EPSILON · w_e · w_cw`, seven to eight orders wider.
+    const termAgainstParent = rateAgainstParent * splitWeight;
+    const termTowardsSplit = rateTowardsSplit * clockwiseWeight;
+    const divisor = termAgainstParent + termTowardsSplit;
+    if (Math.abs(divisor) <= weightedRateSumRoundingBound(termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight)) {
         return null;
     }
 
@@ -142,9 +147,12 @@ function findOffsetByDirectStrike(
     const splitWeight = context.weightOf(edgeToSplit.id);
     const crossClockwiseParent = crossProduct(instigatorRay.basisVector, clockwiseInstigatorParent.basisVector);
     const negativeInstigatorCrossTarget = crossProduct(negateVector(instigatorRay.basisVector), edgeToSplit.basisVector);
-    const crossSumDivisor = crossClockwiseParent * splitWeight + negativeInstigatorCrossTarget * clockwiseWeight;
+    const termClockwiseParent = crossClockwiseParent * splitWeight;
+    const termTarget = negativeInstigatorCrossTarget * clockwiseWeight;
+    const crossSumDivisor = termClockwiseParent + termTarget;
 
-    if (Math.abs(crossSumDivisor) < FLOATING_POINT_EPSILON * splitWeight * clockwiseWeight) {
+    // A DIVISION GUARD (C8 spec T19, census S34): the same structure and the same bound as S33.
+    if (Math.abs(crossSumDivisor) <= weightedRateSumRoundingBound(termClockwiseParent, termTarget, clockwiseWeight, splitWeight)) {
         return null;
     }
 
@@ -252,8 +260,11 @@ export function generateSplitEventViaBisector(
  * `generateSplitEventFromTheEdgeItself` row, journal decisions 144 and 146). "Does this strike land
  * at the split edge's own end?" is a distance-to-zero question along the edge's unit ray, so it is
  * asked in the floor's category: a strike within the client's floor of the vertex IS a strike at the
- * vertex. Was `areEqual(alongEdge, 0)`, the scratch epsilon, which decision 144 retires. `≤`, the
- * lane's own inequality, as in `sourceLiesAhead`.
+ * vertex. Was `areEqual(alongEdge, 0)`, the scratch epsilon, which decision 144 retires. STRICTLY
+ * BELOW the floor (C8 spec T7): "the same point, before any node exists" is one inequality across the
+ * package, the one canonicalisation and the coincidence clustering use; this was `≤` until C8, a
+ * boundary of measure zero (no lateral on the corpus, the fine translations or the jitter sweeps equals
+ * the floor exactly — 0 of 10.5 million evaluations measured).
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `slightly-deformed-peanut.test.ts`.
  */
@@ -262,7 +273,7 @@ export function reachesSupportingLine(
     coaxialityFloor: number,
 ): boolean {
     return resultType === 'converging'
-        || (alongInstigator > 0 && Math.abs(alongEdge) <= coaxialityFloor);
+        || (alongInstigator > 0 && Math.abs(alongEdge) < coaxialityFloor);
 }
 
 export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {

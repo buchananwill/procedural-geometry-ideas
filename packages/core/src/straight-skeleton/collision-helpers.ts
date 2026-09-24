@@ -12,7 +12,6 @@ import {
 } from "./types";
 import {intersectRays} from "./intersection-edges";
 import {
-    areEqual,
     crossProduct,
     findPositionAlongRay,
     normalize,
@@ -20,12 +19,15 @@ import {
     sineIsBelow,
     subtractVectors
 } from "./core-functions";
-import {CROSS_PRODUCT_ROUNDING_UNITS, FLOATING_POINT_EPSILON, UNIT_ROUNDOFF} from "./constants";
+import {HELD_SIMULTANEITY_WINDOW, weightedRateSumRoundingBound} from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
 } from "./generate-split-event";
+
+/** `makeOffsetDistance`'s zero-gradient sine bar, held for C8 dispatch 2 (T29–T32; census S20). */
+const NO_GRADIENT_SINE_BAR = 0.00000001;
 
 /*
  * ----------------------------------------------------------------------------
@@ -51,29 +53,40 @@ export function timeOf(arrival: Arrival): number {
 }
 
 /**
- * Order two arrivals in time, division-free (W-spec W22, W26).
+ * Order two arrivals in time, division-free (W-spec W22, W26), with the SIMULTANEITY WINDOW stated per
+ * pair (C8 spec T13).
  *
- * `d₁/w₁ < d₂/w₂` restated as `d₁·w₂ < d₂·w₁`, with the absolute tolerance scaled by the same weight
- * product that scaled the operands — the single rule of W-spec W26, so no site derives its own.
+ * `d₁/w₁ < d₂/w₂` restated as `d₁·w₂ < d₂·w₁`. Two arrivals are one moment when
  *
- * AN EXACTLY ZERO DIFFERENCE IS NEVER AN ORDERING, even at `epsilon = 0`. That is not a widening:
+ *     |d₁·w₂ − d₂·w₁|  <  window · min(w₁, w₂)      ⟺      |t₁ − t₂|  <  window / max(w₁, w₂)
+ *
+ * — inside the window no participating edge advances more than `window` (a LENGTH: the solve's
+ * `simultaneityWindow`, δ, once T37's STOP on moving the seven sites is lifted; until then
+ * `HELD_SIMULTANEITY_WINDOW`). The bar is stated on the FASTER participant, which is what
+ * dissolves W-spec W48's fusing hazard for every weight ratio (T22). At unit weights it reads
+ * `|d₁ − d₂| < window`, the operands and operation order of the unweighted solver.
+ *
+ * NO DEFAULT (T4): every caller states its window — the solve's `simultaneityWindow` where the question
+ * is "one moment?", or a literal `0` where it only ORDERS (S31).
+ *
+ * AN EXACTLY ZERO DIFFERENCE IS NEVER AN ORDERING, even at `window = 0`. That is not a widening:
  * `fp_compare` reports `1` for two identical operands at a zero epsilon (its window is strict), and
  * this comparator is handed to `toSorted` in three places where today's `a - b` returns `0` for a
  * tie and leaves the stable order alone. Preserving that is what keeps the layer sort bit-identical.
  */
-export function compareArrivals(a: Arrival, b: Arrival, epsilon: number = FLOATING_POINT_EPSILON): -1 | 0 | 1 {
+export function compareArrivals(a: Arrival, b: Arrival, window: number): -1 | 0 | 1 {
     const left = a.distance * b.weight;
     const right = b.distance * a.weight;
     const difference = left - right;
-    if (difference === 0 || Math.abs(difference) < epsilon * a.weight * b.weight) {
+    if (difference === 0 || Math.abs(difference) < window * Math.min(a.weight, b.weight)) {
         return 0;
     }
     return difference < 0 ? -1 : 1;
 }
 
-/** Do these two arrivals name one moment of the wavefront clock, to `epsilon`? (W-spec W22.) */
-export function arrivalsAreEqual(a: Arrival, b: Arrival, epsilon: number = FLOATING_POINT_EPSILON): boolean {
-    return compareArrivals(a, b, epsilon) === 0;
+/** Do these two arrivals name one moment of the wavefront clock, within `window`? (W-spec W22, C8 T13.) */
+export function arrivalsAreEqual(a: Arrival, b: Arrival, window: number): boolean {
+    return compareArrivals(a, b, window) === 0;
 }
 
 /** The LATER of two arrivals — `Math.max` on times, cross-multiplied (W-spec W18). */
@@ -177,8 +190,12 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
     // true rate, and the equi-time check that follows (`arrivalsAreEqual`, still at the scratch
     // epsilon) reads the pair as phantom. The time windows are the tolerance package's (register C8),
     // and this site moves with them.
+    //
+    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S20): its move to `≤ k·u` is dispatch 2's (T29–T32),
+    // measured on a tree whose window already reads δ (T33). Its bar is held here, bit-identical, as a
+    // named literal now that the scratch constant is deleted.
     const noGradient = sineIsBelow(ray.basisVector, context.clockwiseParent(edge).basisVector,
-        FLOATING_POINT_EPSILON);
+        NO_GRADIENT_SINE_BAR);
     const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
     return sourceOffset + deltaOffset;
 
@@ -235,8 +252,9 @@ function meetHeadOn(
     // at which the two agree can be computed from it: the pair has no head-on meeting (`null`).
     // At unit weights the bound is at most `8u ≈ 8.9e-16`, seven orders inside the old `1e-8`;
     // measured 2026-09-23, no evaluation on `FULL_CORPUS` falls between the two.
-    const cancellationBound = CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * (weightA + weightB)
-        + 2 * UNIT_ROUNDOFF * (Math.abs(termA) + Math.abs(termB));
+    // The bound is now one shared function (C8 spec T19), the same expression in the same order, so
+    // this site and the two split divisors it is the pattern for (S33, S34) spend one bound bit for bit.
+    const cancellationBound = weightedRateSumRoundingBound(termA, termB, weightA, weightB);
     if (Math.abs(combinedRate) <= cancellationBound) {
         return null;
     }
@@ -328,7 +346,10 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // W-spec W23. The two participants must agree on WHEN the meeting happens, which under weights
     // is an equi-time question and not an equi-distance one; the sign test stays on the distance,
     // because the weight is positive and cannot change it.
-    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB) || arrivalA.distance <= 0
+    //
+    // S23 (C8 spec T14): the phantom test asks whether the two readings are ONE MOMENT. Its window is
+    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see the constant), per pair.
+    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW) || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
         : anyShared
             ? 'interiorPair'

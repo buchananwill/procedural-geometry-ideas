@@ -5,6 +5,7 @@ import {
     Vector2,
 } from "./types";
 import {vectorsAreEqual} from "./core-functions";
+import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
@@ -60,6 +61,12 @@ export interface CoincidentMerge {
     position: Vector2;
     /** Interior edge ids arriving at `position`, ascending. */
     edgeIds: number[];
+    /**
+     * The position of the cluster's ANCHOR — its earliest arrival (journal decision 155). Every member
+     * lies strictly within the floor of it, and no two anchors of one layer lie within the floor of
+     * each other; `position` is the members' medoid and so lies within the floor of this.
+     */
+    anchor: Vector2;
 }
 
 /**
@@ -69,21 +76,29 @@ export interface CoincidentMerge {
  * separate groups; events at the same point are one vertex event however many pairs
  * reported it.
  *
- * CONNECTED COMPONENTS, NOT FIRST MATCH. This used to join each event to the first group
- * already within `vectorsAreEqual` of it. Proximity under a fixed absolute tolerance is not
- * transitive, so that partition depended on the order the events arrived in: instrumentation
- * of a 48-gon fan measured 1424 events over 48 distinct edge ids reaching this function intact
- * and leaving it as *four* groups, where the identical relation at the identical tolerance,
- * replayed as connected components, gives one at every placement measured.
+ * ANCHORED, NOT TRANSITIVE (journal decision 155(b), C8 dispatch 1). "Approximately equals" is not
+ * an equivalence relation and the solver must never claim transitivity: A ≈ B and B ≈ C do not give
+ * A ≈ C. The clustering used to be CONNECTED COMPONENTS under `isOneEvent` — single linkage, so a run
+ * of events each within the floor of the next became one group however far its extremes lay apart —
+ * and that is exactly the claim the ruling forbids. It is now anchored: events are visited EARLIEST
+ * ARRIVAL FIRST, each joins the nearest existing anchor within the floor, and an event within the
+ * floor of no anchor becomes an anchor itself. Every group therefore lies within the floor of its
+ * earliest arrival's position and its diameter is below twice the floor, and a many-way meeting the
+ * floor cannot hold in one group yields two nodes inside the floor, which decision 141 admits.
  *
- * The predicate and its tolerance do not move — only the rule for turning that relation into a
- * partition. Changing both at once would make any fixture regression unattributable.
+ * MEASURED BEFORE IT MOVED (C8 dispatch 1, the component-diameter census): over `FULL_CORPUS` at 1e-6
+ * and 1e-5, Circle 48 and Rosette5 40 at the 46 fine translations, and the jitter sweeps (the 160-cell
+ * off-edge 1e-3 grid, the 160-cell along-edge stage-off grid, the 48-cell jittered Circle 32 ladder),
+ * 23 421 components were formed. On the corpus the widest was 5.44e-7 at 1e-6 and 4.42e-6 at 1e-5 —
+ * inside the floor, so there the anchored partition IS the component partition and nothing moves. Off
+ * it, 15 components were wider than the floor (Circle 48 at 4e10, 5e10, 6e10 and 2e11; eleven
+ * off-edge jitter cells; widest 1.906e-6), and those are the cells this restatement moves.
  *
- * SINGLE-LINKAGE CHAINING IS AN ACCEPTED COST. Transitive closure under a fixed tolerance means
- * a run of events each within tolerance of the next becomes one group however far its extremes
- * lie apart. On this corpus that is the wanted behaviour — it is what reunites a fan whose
- * extremes are measured 1.95e-08 apart. The alternative not taken is gap-based partitioning,
- * which bounds a group's diameter at the price of a second threshold nothing has measured.
+ * NOT FIRST MATCH IN ARRIVAL ORDER. The oldest form of this function joined each event to the first
+ * group already within tolerance of it in the order the layer happened to list them, which made the
+ * partition depend on list order (a 48-gon fan left it as four groups). The anchored form visits the
+ * events in a CANONICAL order — exact arrival, then the colliding edge ids, then position — so the
+ * partition is a function of the event set, not of how it was listed.
  *
  * THE RESULT IS A CANONICAL FUNCTION OF THE EVENT SET, not of the order it arrived in: each
  * merge's `edgeIds` ascending, and the merges themselves ordered by their smallest edge id. The
@@ -99,45 +114,50 @@ export interface CoincidentMerge {
  * and disjoint non-empty sets have distinct minima.
  */
 export function clusterCoincidentMerges(events: CollisionEvent[], floor: number): CoincidentMerge[] {
-    const merges = coincidentComponents(events, floor).map(component => ({
-        position: medoidPosition(component.map(index => events[index].position)),
-        edgeIds: distinctEdgeIds(component.map(index => events[index])).sort((a, b) => a - b),
+    const clusters = anchoredClusters(events, floor);
+    const merges = clusters.map(cluster => ({
+        position: medoidPosition(cluster.members.map(index => events[index].position)),
+        edgeIds: distinctEdgeIds(cluster.members.map(index => events[index])).sort((a, b) => a - b),
+        anchor: events[cluster.anchor].position,
     }));
 
-    assertMergePositionsAreDistinct(merges, floor);
+    assertMergesAreAnchored(merges, floor);
 
     return merges.sort((a, b) => a.edgeIds[0] - b.edgeIds[0]);
 }
 
 /**
- * No two merges of one layer may carry positions inside the perceptual floor of each other.
+ * The anchored partition's own postcondition: no two ANCHORS of one layer lie inside the perceptual
+ * floor of each other, and every merge's representative lies inside the floor of its own anchor.
  *
- * First-match clustering gave this for free by construction. Components plus a member
- * representative restore it by an argument about the partition — distinct components contain no
- * pair within tolerance of each other, and a medoid is a member — so it is checked rather than
- * trusted. `CoincidentMerge.position` feeds `terminateEdgesAtPoint` and thence `findOrAddNode`, so
- * two merges within the floor of each other would be two vertex events the picture cannot tell
- * apart, fused or not fused according to a tolerance further down. That skeleton is causally
- * consistent, so the causality, clearance and direction audits all pass it: the failure mode is
- * silent, which is why it is asserted here rather than left to a downstream check.
- *
- * STATED AT THE CLUSTERING'S OWN BAR, which since journal decision 78 is the render-scale floor
- * rather than `findOrAddNode`'s epsilon. It is therefore stronger than what the node lookup needs:
- * it asserts the postcondition this module is responsible for, not the precondition of the next
- * one.
+ * RESTATED UNDER JOURNAL DECISION 155. This gate used to assert that no two merge POSITIONS lie within
+ * the floor of each other — a claim that "within the floor" is one event, which is transitivity by
+ * another name, and which an anchored partition does not (and must not) guarantee: two clusters whose
+ * anchors are a floor apart can have medoids closer than that, and decision 141 admits the two nodes.
+ * What the anchored construction DOES guarantee is checked rather than trusted: anchors pairwise
+ * separated (an event within the floor of an anchor joins it rather than founding its own), and each
+ * representative a member, hence within the floor of its anchor. A CENTROID representative breaks
+ * the second — a centroid is on no member and, for a group chained around its anchor, lies a floor or
+ * more from it — which is the mutation the suite convicts this gate against.
  *
  * Internal to the solver — deliberately not re-exported from the package index. It is exported
- * from this module only so the suite can convict it against a centroid representative, the
- * mutation it exists to catch.
+ * from this module only so the suite can convict it.
  */
-export function assertMergePositionsAreDistinct(merges: CoincidentMerge[], floor: number): void {
+export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number): void {
     for (let i = 0; i < merges.length; i++) {
+        if (!isOneEvent(merges[i].position, merges[i].anchor, floor)) {
+            throw new Error(
+                `Coincidence clustering placed merge [${merges[i].edgeIds.join(', ')}] at `
+                + `(${merges[i].position.x}, ${merges[i].position.y}), outside the floor of its anchor `
+                + `(${merges[i].anchor.x}, ${merges[i].anchor.y}).`,
+            );
+        }
         for (let j = i + 1; j < merges.length; j++) {
-            if (isOneEvent(merges[i].position, merges[j].position, floor)) {
+            if (isOneEvent(merges[i].anchor, merges[j].anchor, floor)) {
                 throw new Error(
-                    `Coincidence clustering produced two merges at the same position: `
+                    `Coincidence clustering produced two merges anchored at the same position: `
                     + `[${merges[i].edgeIds.join(', ')}] and [${merges[j].edgeIds.join(', ')}] `
-                    + `both at (${merges[i].position.x}, ${merges[i].position.y}).`,
+                    + `both at (${merges[i].anchor.x}, ${merges[i].anchor.y}).`,
                 );
             }
         }
@@ -160,27 +180,30 @@ export function assertMergePositionsAreDistinct(merges: CoincidentMerge[], floor
  * where from. The same medoid convention as the merge path, for the same reason — a member of the
  * set, never a centroid that no arrival visited.
  *
- * A COMPONENT THE EPSILON ALREADY UNIFIES IS LEFT EXACTLY ALONE, and that restraint is what keeps
- * this change to the pairs it is for. Where every member is within `vectorsAreEqual` of the
- * representative, `findOrAddNode` already hands them one node at the first-established member's
- * position; re-pointing them at the medoid would move that node by whichever member the centroid
- * happens to favour. Measured, that is not hypothetical: it moves one coordinate by one ulp on four
- * CLEAN fixtures, for no gain at all — they were one node before and one node after. The defect is
- * the component the epsilon does NOT unify, and only that component is touched.
+ * A GROUP THE ARITHMETIC SAME-POINT BAR ALREADY UNIFIES IS LEFT EXACTLY ALONE, and that restraint is
+ * what keeps this change to the pairs it is for. Where every member is within `findOrAddNode`'s own
+ * bar ({@link ARITHMETIC_SAME_POINT_BOX}, C8 census S2) of the representative, `findOrAddNode` already
+ * hands them one node at the first-established member's position; re-pointing them at the medoid
+ * would move that node by whichever member the centroid happens to favour. Measured, that is not
+ * hypothetical: it moves one coordinate by one ulp on four CLEAN fixtures, for no gain at all — they
+ * were one node before and one node after. The defect is the group the node lookup does NOT unify,
+ * and only that group is touched.
+ *
+ * The same ANCHORED grouping as {@link clusterCoincidentMerges} (journal decision 155).
  */
 export function coincidentEventPositions(events: CollisionEvent[], floor: number): Vector2[] {
     const resolved = events.map(event => event.position);
 
-    for (const component of coincidentComponents(events, floor)) {
-        if (component.length < 2) {
+    for (const {members} of anchoredClusters(events, floor)) {
+        if (members.length < 2) {
             continue;
         }
-        const positions = component.map(index => events[index].position);
+        const positions = members.map(index => events[index].position);
         const position = medoidPosition(positions);
-        if (positions.every(member => vectorsAreEqual(member, position))) {
+        if (positions.every(member => vectorsAreEqual(member, position, ARITHMETIC_SAME_POINT_BOX))) {
             continue;
         }
-        for (const index of component) {
+        for (const index of members) {
             resolved[index] = position;
         }
     }
@@ -189,56 +212,80 @@ export function coincidentEventPositions(events: CollisionEvent[], floor: number
 }
 
 /**
- * The events of one layer partitioned into connected components under `vectorsAreEqual`, as
- * lists of indices into `events`.
- *
- * Components appear in the order their first member arrived, and members within a component in
- * arrival order. Neither ordering survives into the returned merges — `clusterCoincidentMerges`
- * replaces both with the canonical one — so nothing downstream may reason from it.
+ * The canonical visiting order of the anchored clustering: EARLIEST ARRIVAL FIRST, by the exact
+ * cross-multiplied comparison (no window — this orders, it does not decide simultaneity), then by the
+ * colliding edge ids lexicographically, then by position (x, then y). Edge ids are integers from the
+ * polygon's own vertex order, so the tie-breaks carry no arithmetic and no placement can move them.
  */
-function coincidentComponents(events: CollisionEvent[], floor: number): number[][] {
-    const parent = events.map((_, index) => index);
-
-    const find = (index: number): number => {
-        let root = index;
-        while (parent[root] !== root) {
-            root = parent[root];
-        }
-        for (let step = index; parent[step] !== root; ) {
-            const next = parent[step];
-            parent[step] = root;
-            step = next;
-        }
-        return root;
-    };
-
-    for (let i = 0; i < events.length; i++) {
-        for (let j = i + 1; j < events.length; j++) {
-            if (find(i) === find(j)) {
-                continue;
-            }
-            if (isOneEvent(events[i].position, events[j].position, floor)) {
-                parent[find(j)] = find(i);
-            }
+function canonicalEventOrder(first: CollisionEvent, second: CollisionEvent): number {
+    const difference = first.arrival.distance * second.arrival.weight - second.arrival.distance * first.arrival.weight;
+    if (difference !== 0) {
+        return difference < 0 ? -1 : 1;
+    }
+    const edges = first.collidingEdges;
+    const others = second.collidingEdges;
+    for (let index = 0; index < Math.min(edges.length, others.length); index++) {
+        if (edges[index] !== others[index]) {
+            return edges[index] - others[index];
         }
     }
-
-    const componentByRoot = new Map<number, number[]>();
-    for (let index = 0; index < events.length; index++) {
-        const root = find(index);
-        const component = componentByRoot.get(root);
-        if (component === undefined) {
-            componentByRoot.set(root, [index]);
-        } else {
-            component.push(index);
-        }
+    if (edges.length !== others.length) {
+        return edges.length - others.length;
     }
+    if (first.position.x !== second.position.x) {
+        return first.position.x < second.position.x ? -1 : 1;
+    }
+    if (first.position.y !== second.position.y) {
+        return first.position.y < second.position.y ? -1 : 1;
+    }
+    return 0;
+}
 
-    return [...componentByRoot.values()];
+/** One anchored group: the index of its anchor (its earliest arrival) and every member, anchor first. */
+interface AnchoredCluster {
+    anchor: number;
+    members: number[];
 }
 
 /**
- * The member position nearest the component's centroid, exact ties broken lexicographically by
+ * The events of one layer partitioned ANCHORED at the floor (journal decision 155): visited in
+ * {@link canonicalEventOrder}, each event joins the NEAREST existing anchor strictly within the floor
+ * of it, or founds a group of its own. Anchors are therefore pairwise at least the floor apart, and
+ * every member lies strictly within the floor of its group's anchor.
+ *
+ * Groups appear in the order their anchors were founded. That ordering does not survive into the
+ * returned merges — `clusterCoincidentMerges` replaces it with the canonical one — so nothing
+ * downstream may reason from it.
+ */
+function anchoredClusters(events: CollisionEvent[], floor: number): AnchoredCluster[] {
+    const order = events.map((_event, index) => index)
+        .sort((first, second) => canonicalEventOrder(events[first], events[second]));
+
+    const clusters: AnchoredCluster[] = [];
+    for (const index of order) {
+        const position = events[index].position;
+        let nearest: AnchoredCluster | undefined;
+        let nearestDistance = Number.POSITIVE_INFINITY;
+        for (const cluster of clusters) {
+            const anchor = events[cluster.anchor].position;
+            const distance = Math.hypot(anchor.x - position.x, anchor.y - position.y);
+            if (isOneEvent(anchor, position, floor) && distance < nearestDistance) {
+                nearest = cluster;
+                nearestDistance = distance;
+            }
+        }
+        if (nearest === undefined) {
+            clusters.push({anchor: index, members: [index]});
+        } else {
+            nearest.members.push(index);
+        }
+    }
+
+    return clusters;
+}
+
+/**
+ * The member position nearest the group's centroid, exact ties broken lexicographically by
  * position — x first, then y.
  *
  * THE CENTROID IS THE YARDSTICK, NEVER THE ANSWER. Nothing bounds a centroid's distance from any
@@ -441,7 +488,7 @@ export function contiguousRuns(ring: number[], members: ReadonlySet<number>): nu
  */
 export function bisectionsForMerge(
     ring: number[],
-    merge: CoincidentMerge,
+    merge: Pick<CoincidentMerge, 'position' | 'edgeIds'>,
     sourceNodeId: number,
     context: StraightSkeletonSolverContext,
 ): BisectionParams[] {

@@ -518,9 +518,11 @@ describe('e38-e30 Collision Debug', () => {
         console.log(`crossCwParent: ${crossCwParent.toFixed(6)}`);
         console.log(`negInstigatorCrossTarget: ${negInstigatorCrossTarget.toFixed(6)}`);
         console.log(`crossSumDivisor: ${crossSumDivisor.toFixed(6)}`);
-        console.log(`areEqual(divisor, 0): ${areEqual(crossSumDivisor, 0)}`);
+        // A trace, not an assertion: the scratch 1e-8 it was written against is stated, since `areEqual`
+        // has no default (C8 spec T4); the solver's own guard is now the divisor's rounding bound (T19).
+        console.log(`areEqual(divisor, 0): ${areEqual(crossSumDivisor, 0, 1e-8)}`);
 
-        if (!areEqual(crossSumDivisor, 0)) {
+        if (!areEqual(crossSumDivisor, 0, 1e-8)) {
             const distAlongInstigator = fwdTest[0] * negInstigatorCrossTarget / crossSumDivisor;
             const directOffset = distAlongInstigator * crossCwParent;
             const directPosition = findPositionAlongRay(instigatorRay, distAlongInstigator);

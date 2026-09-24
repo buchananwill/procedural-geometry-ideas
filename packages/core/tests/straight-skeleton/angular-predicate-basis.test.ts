@@ -495,10 +495,12 @@ describe('the sine form is scale-free where the normalised box is not', () => {
         const axisPair = [unit(0), unit(angle)] as const;
         const diagonalPair = [unit(Math.PI / 4), unit(Math.PI / 4 + angle)] as const;
 
-        expect(vectorsAreEqual(axisPair[0], axisPair[1])).toBe(false);
-        expect(vectorsAreEqual(diagonalPair[0], diagonalPair[1])).toBe(true);
-
+        // The component box at the bar it was retired from (stated: `vectorsAreEqual` has no default
+        // since C8 spec T4).
         const tight = 1e-8;
+        expect(vectorsAreEqual(axisPair[0], axisPair[1], tight)).toBe(false);
+        expect(vectorsAreEqual(diagonalPair[0], diagonalPair[1], tight)).toBe(true);
+
         expect(sineIsBelow(...axisPair, tight)).toBe(sineIsBelow(...diagonalPair, tight));
         expect(sineIsBelow(...axisPair, tight)).toBe(false);
     });

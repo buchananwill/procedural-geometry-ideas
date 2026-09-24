@@ -140,9 +140,10 @@ export const WEIGHTED_FAST_SHELF_L: WeightedTestPolygon = {
  * halves carry weights 4 and 1.
  *
  * `|v| = |w₁ − w₂| / sin(turn)` — the whole of W-spec W49's argument — puts the kernel velocity at
- * that vertex at `3 / 1e-3 = 3e3` on a shape of extent 10. The turn sine is seven times
- * `MIN_WEIGHT_TURN_SINE` (`1.41e-4`), so the door ADMITS this input: it is the approach to the
- * guard's bar, not a violation of it, and the number it records is why the bar is where it is.
+ * that vertex at `3 / 1e-3 = 3e3` on a shape of extent 10. The turn sine is seven times the retired
+ * frozen bar (`1.41e-4`) and some forty-six times the derived per-vertex bar `minWeightTurnSine(δ, 3)`
+ * (`2.17e-5` at the library floor, C8 spec T21), so the door ADMITS this input: it is the approach to
+ * the guard's bar, not a violation of it.
  */
 const NEAR_STRAIGHT_TURN_SINE = 1e-3;
 /** The offset that makes the turn sine at the broken wall's midpoint exactly `NEAR_STRAIGHT_TURN_SINE`. */
@@ -169,7 +170,8 @@ export const WEIGHTED_NEAR_STRAIGHT_WEIGHT_CHANGE: WeightedTestPolygon = {
  * A ten-by-ten square with a small triangular bump standing `0.05` proud of its bottom wall, whose
  * apex `V` deviates `4e-6` from the chord between the bump's two shoulders. In the solver's unit
  * space that deviation is `5e-7`, half the `1e-6` noise floor, so at EQUAL weights `V` is removed as
- * invisible. Its turn sine is `2e-4`, above `MIN_WEIGHT_TURN_SINE` (`1.41e-4`), so a weight change
+ * invisible. Its turn sine is `2e-4`, above the door's bar (the retired frozen `1.41e-4`, and the
+ * derived per-vertex `minWeightTurnSine(δ, 1)` = `1.25e-5` at the library floor), so a weight change
  * there passes the door — and W-spec W44 then PINS it, because a vertex whose incident weights
  * differ is structural whatever its deviation from the chord.
  *
@@ -193,14 +195,16 @@ export const NEAR_STRAIGHT_WEIGHT_CHANGE_TURN_SINE = NEAR_STRAIGHT_TURN_SINE;
 export const NEAR_STRAIGHT_WEIGHT_CHANGE_SPEED = 3 / NEAR_STRAIGHT_TURN_SINE;
 
 /**
- * §4.4 — The near-maximum-ratio square, at `R = MAX_WEIGHT_RATIO`.
+ * §4.4 — The near-maximum-ratio square, at `R = 100`, the retired `MAX_WEIGHT_RATIO`.
  *
- * `SQUARE` with its bottom edge at the fastest speed the contract admits. The bottom wavefront
+ * `SQUARE` with its bottom edge at the fastest speed the contract USED to admit; the derived bound
+ * `maxWeightRatio(δ)` (C8 spec T22, journal decision 156) is about 9.95e7 at the library floor, and the
+ * door's refusal is now convicted at that bound in `weighted-offsets.test.ts`. The bottom wavefront
  * `y = R t` meets the top's `y = 2 − t` at `t = 2 / (R + 1)`, so the ridge sits at
  * `y = 2R / (R + 1)` — hard against the top wall — and runs from `x = 2 / (R + 1)` to
  * `x = 2 − 2 / (R + 1)`.
  *
- * Its companion in the test file is the same ring at `R + 1`, which the ratio guard REFUSES.
+ * It is kept at 100 for its analytic nodes, which are pinned against it.
  */
 const NEAR_MAX_RATIO = 100;
 export const WEIGHTED_SQUARE_NEAR_MAX_RATIO: WeightedTestPolygon = {

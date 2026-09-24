@@ -117,7 +117,8 @@ export const REMOVED_VERTEX_INDEX = -1;
  * caller-space floor scaled per polygon would reintroduce precisely the absolute-tolerance defect
  * that normalisation was landed to remove.
  *
- * IT CLEARS `FLOATING_POINT_EPSILON` BY TWO ORDERS OF MAGNITUDE, AND THAT GAP IS THE ENTIRE POINT OF
+ * IT CLEARED THE RETIRED SCRATCH `FLOATING_POINT_EPSILON` (1e-8, deleted by C8 spec T1) BY TWO ORDERS
+ * OF MAGNITUDE, AND THAT GAP WAS THE ENTIRE POINT OF
  * THE STAGE. If the two were comparable the pass would buy nothing: a vertex at 1.1x the epsilon
  * would survive canonicalisation and still be sitting inside the solver's degenerate band. The gap is
  * what makes every SURVIVING vertex comfortably non-degenerate rather than merely non-degenerate. A
@@ -150,27 +151,33 @@ export const SKELETON_NOISE_FLOOR = 1e-6;
  * derives its own and passes it here. Omitting the option is byte-identical to the behaviour before
  * the option existed.
  *
- * EXACTLY TWO PRODUCTION BARS ARE FLOOR-DERIVED AT SOLVE TIME, and both are perceptual-identity
- * questions in the sense of the tolerance audit's §7.1 decision 2:
+ * EVERY PERCEPTUAL QUESTION IN THE SOLVE READS THIS ONE FLOOR (C8 spec T2, T25; journal decisions 144
+ * and 157). An earlier version of this comment said "exactly two production bars are floor-derived";
+ * that stopped being true with the angular package and is false now. Under the tolerance-derivation
+ * package's category rule, a comparison that decides a QUESTION the arithmetic cannot decide — about
+ * input geometry, or about candidate events before any node exists — takes δ, and the solve derives
+ * every such bar from this value once, at context construction:
  *
- *   1. {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
- *      solver never sees it either". Reached as the default for `SolveSkeletonOptions.noiseFloor`,
- *      which the recursion driver overrides with the root floor restated in region units.
- *   2. `coincident-events.ts`'s `isOneEvent` bar — "these two arrivals are one vertex event, as far
- *      as anything that will ever look at the skeleton is concerned". Reached through
- *      {@link StraightSkeletonSolverContext.perceptualFloor}.
+ *   - {@link canonicalisePolygon}'s deviation bar — "this boundary vertex cannot be seen, so the
+ *     solver never sees it either" — the ROOT floor restated in region units by the recursion driver,
+ *     strictly below (the same inequality as every other "same point before any node" bar, T7);
+ *   - the coincidence clustering's `isOneEvent` bar (`coincident-events.ts`), anchored (decision 155);
+ *   - the coaxiality lane, `coaxialityFloor(δ) = δ` (spec A9/A10);
+ *   - the angular resolution, `angularResolution(δ)` (spec A1–A8);
+ *   - the simultaneity window, `simultaneityWindow(δ) = δ` (C8 spec T12–T14);
+ *   - the solver's own causality check (journal decisions 148, 149);
+ *   - the weight door's two bounds, `maxWeightRatio(δ)` and `minWeightTurnSine(δ, Δw)` (T21, T22).
  *
- * EVERYTHING ELSE STAYS A MODULE CONSTANT, deliberately, and each for a reason already ruled:
- * `FLOATING_POINT_EPSILON` and every bar derived from it answer "can the arithmetic tell these
- * apart?", which is a property of doubles and not of a viewport (audit §7.1 decision 3);
- * `findOrAddNode`'s epsilon is frozen by measurement (audit constraint C1); `DEGENERATE_AREA_EPSILON`
- * is an absolute caller-space area whose space is an OPEN audit item (§7.2 decision 10) and moves
- * only under a ruling; the strip and parcel tolerances are relative to quantities the solve itself
- * produced and are correct as they are (§7.1 decision 6); and the test-side bars are instruments,
- * held tighter than any floor on purpose (§7.1 decision 5).
+ * What is NOT floor-derived is so by the same rule, not by exemption: a comparison whose acceptance
+ * DISCARDS OR SUBSTITUTES an answer already produced takes the unit roundoff (`findOrAddNode`'s
+ * same-point bar, whose derivation is held by its O1 STOP; the moment bar `ARRIVAL_MOMENT_ULPS`), and
+ * a division guard takes its own rounding bound. `DEGENERATE_AREA_EPSILON` is still an absolute area
+ * awaiting its form (T23, O3 — STOPPED on its settling measurement); the strip and parcel constants
+ * are classified and not re-derived (T27, O5); and the test-side bars are instruments, held tighter
+ * than any floor on purpose (audit §7.1 decision 5).
  *
- * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each of the two bars
- * above keeps its own space and its own predicate exactly as it had them; only the number substituted
+ * WHAT THE OPTION CHANGES IS WHERE A VALUE COMES FROM, NEVER WHAT IT MEANS. Each bar above keeps its
+ * own space and its own predicate exactly as it had them; only the number substituted
  * for {@link SKELETON_NOISE_FLOOR} is the client's. In particular the recursion driver's root-floor
  * pass-down is untouched: the canonicalisation bar is still the ROOT's floor restated in the region's
  * units while the coincidence bar is still the raw floor in whatever unit space the region has. That

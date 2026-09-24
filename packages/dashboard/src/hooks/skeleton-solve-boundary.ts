@@ -13,9 +13,10 @@ import type { Vertex } from "../stores/usePolygonStore";
  * Arc decision 130. The weighted solver refuses two configurations AT ITS DOOR, before it looks at
  * any geometry it could recover from:
  *
- *   - the RATIO refusal (W-spec W3/W48, decision 119) — `max / min` weight above `MAX_WEIGHT_RATIO`;
+ *   - the RATIO refusal (W-spec W3/W48, decision 119) — `max / min` weight above `maxWeightRatio(δ)`
+ *     (C8 spec T22; it was the retired `MAX_WEIGHT_RATIO = 100`);
  *   - the VISIBLE-CORNER refusal (W-spec W49, decision 124(b)) — a weight change at a vertex whose
- *     turn sine is below `MIN_WEIGHT_TURN_SINE`.
+ *     turn sine is below `minWeightTurnSine(δ, Δw)` (C8 spec T21).
  *
  * Both are thrown `Error`s naming the offending edge or vertex. A UI that lets a user type a weight
  * can reach either one on any keystroke, so the throw has to become a value at exactly one place —

@@ -70,7 +70,8 @@ describe('Step 3 Detailed Trace', () => {
         const firingEvents: CollisionEvent[] = [];
         for (const list of collisionLists) {
             for (const ev of list) {
-                if (areEqual(ev.offsetDistance, bestOffset) && ev.eventType !== 'phantomDivergentOffset') {
+                // The layer window the solver's sites hold (1e-8, C8 dispatch 1's T37 STOP), stated.
+                if (areEqual(ev.offsetDistance, bestOffset, 1e-8) && ev.eventType !== 'phantomDivergentOffset') {
                     firingEvents.push(ev);
                 }
             }

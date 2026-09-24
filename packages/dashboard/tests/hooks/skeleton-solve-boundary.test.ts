@@ -31,9 +31,12 @@ import {
  */
 
 const RATIO_REFUSED = {
-    // The panel's own worst case: one edge of a square set to 500 against neighbours at 1.
+    // One edge of a square set to 1e12 against neighbours at 1. The door's bound is the derived
+    // `maxWeightRatio(δ) = δ / (64·√2·u)` (C8 spec T22, journal decision 156) — about 1e8 at the library
+    // floor and 1e9 at 1e-5 — which replaced the retired `MAX_WEIGHT_RATIO = 100`; the panel's old worst
+    // case of 500 is now admitted, so the refusal is reached with a ratio past every floor's bound.
     vertices: WEIGHTED_SQUARE_NEAR_MAX_RATIO.vertices,
-    weights: [1, 1, 1, 500],
+    weights: [1, 1, 1, 1e12],
 };
 
 describe('the ratio refusal at the solve boundary', () => {
@@ -43,7 +46,7 @@ describe('the ratio refusal at the solve boundary', () => {
         const outcome = solveSkeletonBoundary(
             RATIO_REFUSED.vertices, {weights: RATIO_REFUSED.weights});
         expect(outcome.indexRemap).toBeNull();
-        expect(outcome.error).toMatch(/MAX_WEIGHT_RATIO \(100\)/);
+        expect(outcome.error).toMatch(/exceeds maxWeightRatio\(/);
         // The message names the two extreme edges, which is what the user has to go and change.
         expect(outcome.error).toMatch(/edge 3/);
     });
@@ -51,12 +54,12 @@ describe('the ratio refusal at the solve boundary', () => {
     it('is met by the direct solve and the stepped start as well', () => {
         const direct = solveSkeletonGuarded(RATIO_REFUSED.vertices, {weights: RATIO_REFUSED.weights});
         expect(direct.context).toBeNull();
-        expect(direct.error).toMatch(/MAX_WEIGHT_RATIO/);
+        expect(direct.error).toMatch(/maxWeightRatio/);
 
         const stepped = solveSkeletonSteppedGuarded(
             RATIO_REFUSED.vertices, {weights: RATIO_REFUSED.weights});
         expect(stepped.result).toBeNull();
-        expect(stepped.error).toMatch(/MAX_WEIGHT_RATIO/);
+        expect(stepped.error).toMatch(/maxWeightRatio/);
     });
 });
 

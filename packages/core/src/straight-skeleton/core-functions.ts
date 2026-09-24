@@ -1,11 +1,23 @@
 import {RayProjection, Vector2} from "./types";
-import {FLOATING_POINT_EPSILON} from "./constants";
+import {basisSumRoundingBound, UNIT_CROSS_PRODUCT_ROUNDING_BOUND} from "./constants";
 
-export function areEqual(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): boolean {
+/*
+ * NO DEFAULT BAR ON ANY EQUALITY PREDICATE (C8 spec T4). `areEqual`, `vectorsAreEqual` and
+ * `fp_compare` used to default to the scratch `FLOATING_POINT_EPSILON`, which is deleted (T1). A default
+ * here would be a tolerance chosen one hop away from every caller — the pattern spec A15 removed from
+ * `sineIsBelow` — so every caller states its bar, and an exact comparison is written with a literal 0.
+ */
+
+export function areEqual(a: number, b: number, epsilon: number): boolean {
     return Math.abs(a - b) < epsilon;
 }
 
-export function vectorsAreEqual(a: Vector2, b: Vector2, epsilon?: number): boolean {
+/**
+ * The COMPONENT-WISE BOX: both coordinates within `epsilon`. Kept, with its bar stated by the caller,
+ * only where C8 did not re-derive the site: the arithmetic same-point bar (spec T8) stays the box while
+ * its O1 ruling is STOPPED (see `solver-context.ts` `findOrAddNode`).
+ */
+export function vectorsAreEqual(a: Vector2, b: Vector2, epsilon: number): boolean {
     return areEqual(a.x, b.x, epsilon) && areEqual(a.y, b.y, epsilon);
 }
 
@@ -15,7 +27,7 @@ export function assertIsNumber(x: unknown): asserts x is number {
     }
 }
 
-export function fp_compare(a: number, b: number, epsilon = FLOATING_POINT_EPSILON): number {
+export function fp_compare(a: number, b: number, epsilon: number): number {
     const diff = a - b;
     if (Math.abs(diff) < epsilon) {
         return 0;
@@ -73,7 +85,9 @@ export function makeBasis(from: Vector2, to: Vector2): Vector2 {
 export function makeBisectedBasis(iBasis: Vector2, jBasis: Vector2): Vector2 {
     const added = addVectors(iBasis, jBasis);
     const [bisection, size] = normalize(added);
-    if (areEqual(size, 0)) {
+    // A DIVISION GUARD (C8 spec T19, S37): the sum of two unit bases has no direction the arithmetic
+    // can vouch for inside its own rounding bound, `2k·u` — was `areEqual(size, 0)` at the scratch 1e-8.
+    if (size <= basisSumRoundingBound(1, 1)) {
         // noinspection JSSuspiciousNameCombination Matrix rotation
         return rotateCw90(iBasis)
     }
@@ -107,7 +121,9 @@ export function makeWeightedBisectedBasis(
 ): Vector2 {
     const added = addVectors(scaleVector(iBasis, wWs), scaleVector(jBasis, wCw));
     const [bisection, size] = normalize(added);
-    if (areEqual(size, 0)) {
+    // The same guard as {@link makeBisectedBasis}, each basis's `k·u` scaled by its weight; at unit
+    // weights `basisSumRoundingBound(1, 1)`, bit for bit (C8 spec T19, S37).
+    if (size <= basisSumRoundingBound(wWs, wCw)) {
         // noinspection JSSuspiciousNameCombination Matrix rotation
         return rotateCw90(iBasis)
     }
@@ -196,6 +212,8 @@ export function projectToPerpendicular(iBasis: Vector2, jBasis: Vector2, length:
  * */
 export function projectFromPerpendicular(iBasis: Vector2, jBasis: Vector2, perpendicular: number): number {
     const cross = crossProduct(iBasis, jBasis);
-    return areEqual(cross, 0) ? 0 : perpendicular / cross;
+    // A DIVISION GUARD (C8 spec T19, S38): a cross product of unit vectors inside its own rounding
+    // bound `k·u` has no sign to divide by — was `areEqual(cross, 0)` at the scratch 1e-8.
+    return Math.abs(cross) <= UNIT_CROSS_PRODUCT_ROUNDING_BOUND ? 0 : perpendicular / cross;
 }
 

@@ -24,26 +24,38 @@ function magnitude(v: Vector2): number {
     return Math.sqrt(v.x * v.x + v.y * v.y);
 }
 
+/**
+ * The bar these predicate tests state. `areEqual` and `fp_compare` have NO default since C8 spec T4 —
+ * every caller states its bar — so the suite states one: the retired scratch value, kept here only as
+ * the number these cases were written against.
+ */
+const STATED_BAR = 1e-8;
+
 // ---------------------------------------------------------------------------
 // areEqual
 // ---------------------------------------------------------------------------
 
 describe('areEqual', () => {
     it('returns true for identical values', () => {
-        expect(areEqual(1, 1)).toBe(true);
+        expect(areEqual(1, 1, STATED_BAR)).toBe(true);
     });
 
     it('returns true when difference is within epsilon', () => {
-        // 5e-9 < FLOATING_POINT_EPSILON (1e-8)
-        expect(areEqual(0, 0.000000005)).toBe(true);
+        // 5e-9 < the stated bar (1e-8)
+        expect(areEqual(0, 0.000000005, STATED_BAR)).toBe(true);
     });
 
     it('returns false when difference is outside epsilon', () => {
-        expect(areEqual(0, 0.0001)).toBe(false);
+        expect(areEqual(0, 0.0001, STATED_BAR)).toBe(false);
     });
 
     it('returns true for identical negative values', () => {
-        expect(areEqual(-1, -1)).toBe(true);
+        expect(areEqual(-1, -1, STATED_BAR)).toBe(true);
+    });
+
+    it('is strict at a zero bar: identical values are not "within 0"', () => {
+        // The exact form a caller writes as a literal 0 (C8 spec T4) is `===`, not `areEqual(x, y, 0)`.
+        expect(areEqual(1, 1, 0)).toBe(false);
     });
 });
 
@@ -76,24 +88,24 @@ describe('assertIsNumber', () => {
 
 describe('fp_compare', () => {
     it('returns -1 when a < b', () => {
-        expect(fp_compare(1, 2)).toBe(-1);
+        expect(fp_compare(1, 2, STATED_BAR)).toBe(-1);
     });
 
     it('returns 1 when a > b', () => {
-        expect(fp_compare(2, 1)).toBe(1);
+        expect(fp_compare(2, 1, STATED_BAR)).toBe(1);
     });
 
     it('returns 0 when a === b', () => {
-        expect(fp_compare(5, 5)).toBe(0);
+        expect(fp_compare(5, 5, STATED_BAR)).toBe(0);
     });
 
-    it('returns 0 when difference is within default epsilon', () => {
-        // 5e-9 < FLOATING_POINT_EPSILON (1e-8)
-        expect(fp_compare(0, 5e-9)).toBe(0);
+    it('returns 0 when difference is within the stated epsilon', () => {
+        // 5e-9 < the stated bar (1e-8)
+        expect(fp_compare(0, 5e-9, STATED_BAR)).toBe(0);
     });
 
-    it('returns -1 when difference is outside default epsilon', () => {
-        expect(fp_compare(0, 0.0001)).toBe(-1);
+    it('returns -1 when difference is outside the stated epsilon', () => {
+        expect(fp_compare(0, 0.0001, STATED_BAR)).toBe(-1);
     });
 
     it('returns 0 with a custom epsilon that covers the difference', () => {

@@ -253,10 +253,18 @@ describe('along-edge jitter with the stage OFF: the recorded defect, still alive
         // same violation — `k = 7` at both magnitudes and both seeds reports complete with three or
         // four of them, and did so before this change — so it is not a clean baseline; and no fixture
         // in `FULL_CORPUS` moves at all, the digest included. Flagged for the lead.
+        //
+        // THE PLATEAU IS WHOLE AGAIN, 2026-09-24, ATTRIBUTED TO THE ANCHORED COINCIDENCE CLUSTERING
+        // (journal decision 155(b), C8 dispatch 1; toggle-measured against the retired connected
+        // components, nothing else moved in this file). `k = 4, seed 47514` at 1e-3 goes back from
+        // complete-with-two-direction-violations to a loud failure (`unresolved-edges`, one direction
+        // violation), so the plus reads 2 here as at the headline magnitude. A cell that solved at the
+        // tip no longer does, which is C8 spec T37's STOP 1 read literally; it is the quiet wrong answer
+        // this comment flagged becoming loud again (decision 72), and it is reported to the lead as such.
         expect(jitterSweep(JITTER_REFLEX_L, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
             .toEqual({failed: 1, failingCounts: [4]});
         expect(jitterSweep(JITTER_DOUBLE_REFLEX_PLUS, 1e-3, ALONG_EDGE, STAGE_OFF, SUBSET_COUNTS, SUBSET_SEEDS))
-            .toEqual({failed: 1, failingCounts: [4]});
+            .toEqual({failed: 2, failingCounts: [4]});
     });
 
     it('goes quiet at 1e-9, where the displacement is below the solver\'s own epsilon', () => {

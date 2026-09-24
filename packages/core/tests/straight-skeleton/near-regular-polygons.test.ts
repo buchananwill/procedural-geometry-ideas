@@ -8,7 +8,6 @@ import {
     NEAR_REGULAR_ROSETTE5_40,
 } from '@proc-geo/test-fixtures';
 import {
-    FLOATING_POINT_EPSILON,
     SKELETON_NOISE_FLOOR,
     areEqual,
     crossProduct,
@@ -404,7 +403,9 @@ describe('near-regular polygons', () => {
                 const rate = crossProduct(
                     result.graph.edges[interior.id].basisVector,
                     result.graph.edges[interior.clockwiseExteriorEdgeIndex].basisVector);
-                return rate < 0 && !areEqual(rate, 0);
+                // The rate oracle's bar, held at the retired scratch value as a stated literal: its
+                // re-derivation into the solver's fourth oracle is C8 dispatch 2's (T18).
+                return rate < 0 && !areEqual(rate, 0, 1e-8);
             });
             expect(backwards).toEqual([]);
         });

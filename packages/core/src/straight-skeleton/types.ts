@@ -168,6 +168,17 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      */
     angularResolution: number;
     /**
+     * THE simultaneity window for this solve, as a length (C8 spec T5, T12–T14; journal decisions 155
+     * and 158): two arrivals are one moment of the wavefront clock when `|d₁·w₂ − d₂·w₁| <
+     * simultaneityWindow · min(w₁, w₂)`, anchored on the earliest arrival, never transitive. Derived
+     * once from {@link perceptualFloor} by `simultaneityWindow` at context construction and carried
+     * here beside {@link coaxialityFloor} and {@link angularResolution}, so every window site — the
+     * layer, the phantom test, the snap's equal-time check, the closure's simultaneity and the three
+     * birth-causality tests — can spend one double. NOT YET SPENT: the sites hold
+     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under C8 dispatch 1's T37 STOP; see constants.ts.
+     */
+    simultaneityWindow: number;
+    /**
      * Informational reports the SOLVE itself made, as opposed to the boundary stage.
      *
      * The only producer today is A19's coaxial completion, which is entered deep inside the per-arity

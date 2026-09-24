@@ -4,6 +4,7 @@ import {
     StraightSkeletonSolverContext
 } from "./types";
 import {compareArrivals, findOrComputeCollision, priceHeadOnPair} from "./collision-helpers";
+import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW} from "./constants";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
 import {
@@ -34,8 +35,11 @@ function compareEdgeIdLists(first: number[], second: number[]): number {
     return first.length - second.length;
 }
 
-/**
- * Ulps of the larger offset within which two arrivals are ONE moment of the wavefront clock.
+/*
+ * THE MOMENT BAR — {@link ARRIVAL_MOMENT_ULPS}, ulps of the larger offset within which two arrivals are
+ * ONE moment of the arithmetic (census S29). It lived here as `SIMULTANEOUS_ARRIVAL_ULPS` and moved to
+ * `constants.ts` under C8 spec T26, value unchanged, because the offset projection's simultaneous-set
+ * partition (S30) asks the same question and now spends the same bar.
  *
  * A REPRESENTATION BAR, NOT A GEOMETRIC TOLERANCE. Its only job is to stop the arithmetic's own
  * rounding from being read as causal order: two arrivals that are equal in exact arithmetic are
@@ -50,7 +54,6 @@ function compareEdgeIdLists(first: number[], second: number[]): number {
  * The rounding noise it exists to absorb sits at one to a few ulps, six orders below it. Both
  * populations are asserted as ratios in `arrival-ordering.test.ts`.
  */
-const SIMULTANEOUS_ARRIVAL_ULPS = 64;
 
 /**
  * Order one layer's events by ARRIVAL, breaking exact simultaneity with `tieBreak`.
@@ -77,11 +80,12 @@ const SIMULTANEOUS_ARRIVAL_ULPS = 64;
  * THE TIE-BREAK KEEPS ITS PROPER SCOPE. Decision 65's lexicographic ordering exists so that events
  * a floating-point offset CANNOT separate are still resolved in an order no placement can move —
  * node identity must not turn on an ulp. That argument is about genuine simultaneity, so it applies
- * within {@link SIMULTANEOUS_ARRIVAL_ULPS} and nowhere else.
+ * within {@link ARRIVAL_MOMENT_ULPS} and nowhere else.
  *
  * MOMENTS BY SINGLE LINKAGE, over an already offset-ascending list, so the result is a total order
- * rather than a sort under a non-transitive "close enough" predicate. The same convention, and the
- * same accepted cost, as the coincidence clustering in `coincident-events.ts`.
+ * rather than a sort under a non-transitive "close enough" predicate. (The coincidence clustering in
+ * `coincident-events.ts` used the same single linkage until journal decision 155 made it anchored;
+ * this partition is at the 64-ulp representation bar, S29, which C8 spec T26 keeps as it is.)
  */
 export function inArrivalOrder(
     events: CollisionEvent[],
@@ -116,12 +120,12 @@ function areSimultaneousArrivals(first: Arrival, second: Arrival): boolean {
     const left = first.distance * second.weight;
     const right = second.distance * first.weight;
     const magnitude = Math.max(Math.abs(left), Math.abs(right));
-    return Math.abs(left - right) <= SIMULTANEOUS_ARRIVAL_ULPS * Number.EPSILON * magnitude;
+    return Math.abs(left - right) <= ARRIVAL_MOMENT_ULPS * Number.EPSILON * magnitude;
 }
 
 /**
  * The events of the EARLIEST arrival moment in `events` — the first single-linkage run of
- * {@link SIMULTANEOUS_ARRIVAL_ULPS} over the offset-ascending list, and nothing after it.
+ * {@link ARRIVAL_MOMENT_ULPS} over the offset-ascending list, and nothing after it.
  *
  * THE MOMENT, NOT THE LAYER. `collisionsToHandle` is an `fp_compare` window on the best offset: an
  * ABSOLUTE 1e-8 on offsets of order 1e-1, so roughly 1e8 ulps wide. Everything inside it is resolved
@@ -180,9 +184,11 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const collisionLists: CollisionEvent[][] = createCollisions(input.interiorEdges, exteriorParents, context)
 
     // W-spec W24: the layer window, on arrivals. `bestArrival` is the earliest by the same
-    // comparator, and the window is the epsilon comparison against it. At unit weights every
-    // product is by `1.0` and this is today's `fp_compare(offset, bestOffset) <= 0` on an
-    // offset-ascending list.
+    // comparator, and the window is compared against it, ANCHORED on the earliest arrival (journal
+    // decision 155) and stated per pair (C8 spec T13). Census S22: the window is HELD at 1e-8
+    // (`HELD_SIMULTANEITY_WINDOW`) — its move to the solve's `simultaneityWindow` (δ, T12) hit T37's
+    // STOPs, measured by toggle; see the constant. At unit weights every product is by `1.0` and this
+    // is `fp_compare(offset, bestOffset, 1e-8) <= 0` on an offset-ascending list.
     const collisionsToHandle: CollisionEvent[] = [];
     let bestArrival: Arrival | undefined;
     const flattenedCollisions = collisionLists.flat()
@@ -192,7 +198,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         if (bestArrival === undefined || compareArrivals(flattenedCollision.arrival, bestArrival, 0) < 0) {
             bestArrival = flattenedCollision.arrival;
         }
-        if (compareArrivals(flattenedCollision.arrival, bestArrival) <= 0){
+        if (compareArrivals(flattenedCollision.arrival, bestArrival, HELD_SIMULTANEITY_WINDOW) <= 0){
             collisionsToHandle.push(flattenedCollision)
         }
         else

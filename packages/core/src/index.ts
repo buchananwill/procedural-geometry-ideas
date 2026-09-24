@@ -71,15 +71,16 @@ export {
 // ── Constants ────────────────────────────────────────────────────────────────
 export {
   angularResolution,
+  ARRIVAL_MOMENT_ULPS,
   coaxialityFloor,
   conditioningBound,
   CROSS_PRODUCT_ROUNDING_UNITS,
   DEGENERATE_AREA_EPSILON,
-  FLOATING_POINT_EPSILON,
-  MAX_WEIGHT_RATIO,
-  MIN_WEIGHT_TURN_SINE,
+  maxWeightRatio,
+  minWeightTurnSine,
   NO_COLLISION_RESULTS,
   perceptualBound,
+  simultaneityWindow,
   TRIANGLE_INTERSECT_PAIRINGS,
   UNIT_ROUNDOFF,
 } from './straight-skeleton/constants';

@@ -92,7 +92,8 @@ function completionVerdict(context: StraightSkeletonSolverContext): Verdict | un
         return undefined;
     }
     const offsets = completions.map(d => Number(/lateral offset of (\S+) against/.exec(d.detail)![1]));
-    return offsets.every(offset => offset <= context.coaxialityFloor) ? 'head-on' : 'orphan-to-completion';
+    // Strictly inside the lane is inside it (C8 spec T7).
+    return offsets.every(offset => offset < context.coaxialityFloor) ? 'head-on' : 'orphan-to-completion';
 }
 
 /** The verdict on the corridor pair `[first, second]` after its handler ran (or threw). */
@@ -303,19 +304,40 @@ function flippedByTheArm(row: string): string {
     return row.replaceAll('orphan-to-completion', 'closed at the leading source');
 }
 
+/**
+ * THE ONE CELL C8 SPEC T7 MOVES, AND WHY ONLY THIS ONE. The lane became STRICT (`lateral < λ`, one
+ * inequality for "the same line, before any node exists" across the package). The sweep's δ = 1e-6 at
+ * the library floor puts a lateral EXACTLY on the floor for the three harnesses whose displacement is
+ * exact in unit space — family, triangle, n-gon — so those three now read the pair as not coaxial and
+ * close it at the leading source; `r0.2.1`'s displacement is carried through a rotated basis and lands
+ * inside the floor by rounding, so it stays head-on. The boundary has measure zero: no lateral on the
+ * corpus, the fine translations or the jitter sweeps equals the floor (0 of 10.5 million measured).
+ */
+const T7_BOUNDARY_ROW = 'floor 0.000001, δ 0.000001: family closed at the leading source; r0.2.1 head-on; '
+    + 'triangle closed at the leading source; n-gon closed at the leading source';
+
+function flippedByT7(row: string): string {
+    return row.startsWith('floor 0.000001, δ 0.000001:') ? T7_BOUNDARY_ROW : row;
+}
+
 describe('the swept table', () => {
-    it('reads the pre-arm table with every orphan closed at the leading source, and nothing else moved', () => {
-        expect(sweepRows()).toEqual(PRE_ARM_TABLE.map(flippedByTheArm));
+    it('reads the pre-arm table with every orphan closed at the leading source, and only the T7 boundary cell moved', () => {
+        expect(sweepRows()).toEqual(PRE_ARM_TABLE.map(flippedByTheArm).map(flippedByT7));
     });
 
     it('reaches neither the completion as an orphan nor the throw in any cell', () => {
         const rows = sweepRows();
         expect(rows.filter(row => row.includes('orphan'))).toEqual([]);
-        // Each cell is head-on inside the lane and closed outside it: the lane is the floor, and the
-        // family's displacement is exact in unit space (the arity pair sits on y = 0).
+        // Each cell is head-on STRICTLY inside the lane and closed outside it (C8 spec T7): the lane is
+        // the floor, and the family's displacement is exact in unit space (the arity pair sits on y = 0).
+        // The cell exactly on the floor is {@link T7_BOUNDARY_ROW}.
         for (const floor of FLOORS) {
             for (const delta of DELTAS) {
-                const expected = delta <= floor ? 'head-on' : 'closed at the leading source';
+                if (delta === floor) {
+                    expect(rows).toContain(T7_BOUNDARY_ROW);
+                    continue;
+                }
+                const expected = delta < floor ? 'head-on' : 'closed at the leading source';
                 expect(rows).toContain(`floor ${floor}, δ ${delta}: family ${expected}; r0.2.1 ${expected}; `
                     + `triangle ${expected}; n-gon ${expected}`);
             }

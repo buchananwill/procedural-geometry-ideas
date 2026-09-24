@@ -1,9 +1,9 @@
 import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {ARITHMETIC_SAME_POINT_BOX} from '@proc-geo/core/straight-skeleton/constants';
 import {
     BoundaryRun,
     CanonicalPolygon,
     canonicalisePolygon,
-    FLOATING_POINT_EPSILON,
     makeRootRegion,
     makeSkeletonNormalisation,
     normalisePolygon,
@@ -346,11 +346,13 @@ describe('a polygon is never reduced below three vertices', () => {
 });
 
 describe('the floor', () => {
-    it('clears the solver\'s degeneracy epsilon by two orders of magnitude', () => {
+    it('clears the solver\'s widest arithmetic bar by two orders of magnitude', () => {
         // Decision 6: if the two were comparable the stage would buy nothing, because a vertex just
         // over the floor would survive and still be inside the solver's degenerate band. The gap is
-        // what makes every survivor COMFORTABLY non-degenerate.
-        expect(SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON).toBeGreaterThanOrEqual(100);
+        // what makes every survivor COMFORTABLY non-degenerate. The scratch `FLOATING_POINT_EPSILON`
+        // this was asserted against is deleted (C8 spec T1); the widest arithmetic bar left in the
+        // solver is the same-point box `findOrAddNode` holds under its O1 STOP, at the same 1e-8.
+        expect(SKELETON_NOISE_FLOOR / ARITHMETIC_SAME_POINT_BOX).toBeGreaterThanOrEqual(100);
         expect(SKELETON_NOISE_FLOOR).toBe(1e-6);
     });
 

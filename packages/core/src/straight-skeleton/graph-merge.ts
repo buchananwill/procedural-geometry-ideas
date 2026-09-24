@@ -9,7 +9,7 @@ import {
 import {vectorsAreEqual} from "./core-functions";
 import {addInEdges} from "./graph-helpers";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
-import {angularResolution, coaxialityFloor} from "./constants";
+import {angularResolution, ARITHMETIC_SAME_POINT_BOX, coaxialityFloor, simultaneityWindow} from "./constants";
 
 export interface SubPolygonResult {
     graph: StraightSkeletonGraph;
@@ -116,23 +116,21 @@ export function mergeSkeletonGraphs(
     // Find nodes that match crossing points. Multiple sub-graphs may have exterior nodes
     // at the same crossing-point position.
     //
-    // THE ONE POSITIONAL EPSILON EVALUATED IN CALLER SPACE, classified and left alone under journal
-    // decisions 104/105. Every other tolerance in the solver sees unit-space coordinates, which is
-    // what makes an absolute `1e-8` a relative bar; this comparison runs after the sub-graphs have
-    // been denormalised, so on a polygon spanning 1e5 it is a relative bar of 1e-13 and on one
-    // spanning 1e-3 it is 1e-5. It survives because the two sides are NOT independently computed
-    // geometry: `cp` is the crossing point the decomposition produced and the node is that same
-    // point carried through one sub-solve, so the comparison is asking about round-trip residue
-    // rather than about geometric proximity. TODO: measure the residue distribution across the
-    // decomposition corpus and restate this relative to the crossing point's own magnitude — it is
-    // the last unclassified positional bar, and nothing has measured what it tolerates.
+    // S4 OF THE C8 CENSUS: THE ARITHMETIC SAME-POINT BAR, EVALUATED IN UNIT SPACE. An earlier comment
+    // here said this ran "after the sub-graphs have been denormalised", in caller space; that was stale
+    // (C8 spec I2). All three callers — `runAlgorithmV5`, `solveSkeleton`'s self-intersecting path and
+    // the stepped solve — merge in UNIT space and denormalise afterwards, so the bar is read in the same
+    // space as `findOrAddNode`'s. The two sides are NOT independently computed geometry: `cp` is the
+    // crossing point the decomposition produced and the node is that same point carried through one
+    // sub-solve as an exterior node, so the comparison asks about identity, not proximity, and is
+    // expected exact. It shares S1's bar ({@link ARITHMETIC_SAME_POINT_BOX}), held with S1's O1 STOP.
     const crossingNodeGroups: Map<number, number[]> = new Map(); // crossingIndex → list of node IDs at that position
 
     for (let ci = 0; ci < crossingPoints.length; ci++) {
         const cp = crossingPoints[ci];
         const matchingNodes: number[] = [];
         for (let ni = 0; ni < allNodes.length; ni++) {
-            if (vectorsAreEqual(allNodes[ni].position, cp)) {
+            if (vectorsAreEqual(allNodes[ni].position, cp, ARITHMETIC_SAME_POINT_BOX)) {
                 matchingNodes.push(ni);
             }
         }
@@ -256,6 +254,7 @@ export function makeMergedSolverContext(
         perceptualFloor,
         coaxialityFloor: coaxialityFloor(perceptualFloor),
         angularResolution: angularResolution(perceptualFloor),
+        simultaneityWindow: simultaneityWindow(perceptualFloor),
         // Nothing runs against a merged context, so nothing adds to this; it is here so the shape is
         // one shape.
         diagnostics: [],

@@ -1,11 +1,14 @@
 import {IntersectionResult, RayProjection, Vector2} from "./types";
 import {
-    areEqual, crossProduct,
+    crossProduct,
     dotProduct,
     negateVector,
     normalize, rotateCw90, rotateWs90, sineIsBelow, sizeOfVector,
     subtractVectors
 } from "./core-functions";
+
+/** The identical-source exit's separation bar, held for C8 dispatch 2 (T9, T29; census S6). */
+const IDENTICAL_SOURCE_BAR = 0.00000001;
 
 /**
  * The lateral distance from `separation` to the line through `basisVector` — `|sep| · sin θ`, said
@@ -29,7 +32,7 @@ export function lateralOffset(separation: Vector2, basisVector: Vector2): number
  * measured against the other ray's line (spec A10, journal decision 136).
  *
  * THE MAXIMUM IS THE CONJUNCTION. "Coaxial" is "both sources within the lane of the other's line",
- * and `max(l₁, l₂) ≤ δ` is exactly `l₁ ≤ δ AND l₂ ≤ δ` — the same predicate, expressed as one
+ * and `max(l₁, l₂) < δ` is exactly `l₁ < δ AND l₂ < δ` — the same predicate, expressed as one
  * number so that the completion of A19 can ORDER candidate pairs by it as well as test them.
  */
 export function symmetricLateralOffset(separation: Vector2, basis1: Vector2, basis2: Vector2): number {
@@ -81,7 +84,9 @@ function sourceLiesAhead(
     coaxialityFloor: number,
 ): boolean {
     const forward = dotProduct(separation, basis1);
-    return forward > 0 && symmetricLateralOffset(separation, basis1, basis2) <= coaxialityFloor;
+    // STRICTLY within the lane (C8 spec T7): one inequality for "the same point/line, before any node
+    // exists" across the package. This was `≤` until C8 — a boundary of measure zero, measured empty.
+    return forward > 0 && symmetricLateralOffset(separation, basis1, basis2) < coaxialityFloor;
 }
 
 /**
@@ -164,7 +169,12 @@ export function intersectRays(
      * Both halves of the instrument fail, so the exit stays at the arithmetic bar until the tolerance
      * package (register C8) moves the half-merge windows that feed it.
      */
-    if (areEqual(distanceToRay2, 0)) {
+    //
+    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S6): its move to exact is dispatch 2's (T9, T29), measured
+    // on a tree whose window already reads δ (T33). The band population T9 rests on was measured here
+    // first — no separation in (0, 1e-8) on the corpus at 1e-6 and 1e-5, the fine translations or the
+    // jitter sweeps — and the bar is held bit-identical as a named literal.
+    if (distanceToRay2 < IDENTICAL_SOURCE_BAR) {
         return [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, 'identical-source'];
     }
 
@@ -205,7 +215,8 @@ export function intersectRays(
             // perpendicular carries a lateral of nearly `|sep|`, which the lane refuses unless the
             // identical-source exit above fired first.
             const lateral = symmetricLateralOffset(relativeRay2Source, ray1.basisVector, ray2.basisVector);
-            if (lateral <= coaxialityFloor) {
+            // Strictly within the lane (C8 spec T7), as `sourceLiesAhead`.
+            if (lateral < coaxialityFloor) {
                 if (dotProduct(relativeRay2Source, ray1.basisVector) > 0) {
                     return [distanceToRay2, 0, 'co-linear-from-1'];
                 }

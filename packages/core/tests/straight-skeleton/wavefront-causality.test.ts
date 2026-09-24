@@ -11,7 +11,6 @@ import {
     areEqual,
     checkWavefrontCausality,
     crossProduct,
-    FLOATING_POINT_EPSILON,
     runAlgorithmV5,
     SKELETON_NOISE_FLOOR,
     SkeletonSolveResult,
@@ -19,6 +18,20 @@ import {
     StraightSkeletonGraph,
     Vector2,
 } from '@proc-geo/core';
+
+/**
+ * The jitter ladder's GRID UNIT (C8 spec T1): cells are sized in steps of `1e-8` of a polygon's span.
+ * It was the solver's scratch `FLOATING_POINT_EPSILON`; that constant is deleted, and the unit is kept
+ * here as a grid address, not a tolerance, so every pinned cell keeps its address.
+ */
+const JITTER_UNIT = 1e-8;
+
+/**
+ * The rate oracle's bar, held at the retired scratch value as a stated literal: this is census S21, and
+ * its move into the solver as the fourth oracle, at T17's complementary predicate, is C8 dispatch 2's
+ * (T18).
+ */
+const RATE_ORACLE_BAR = 1e-8;
 import {
     CausalityCounts,
     causalityViolations,
@@ -135,7 +148,7 @@ function findBackwardsRateViolations(vertices: Vector2[]): string[] {
         if (!edge) continue;
         const clockwiseParent = graph.edges[interiorEdge.clockwiseExteriorEdgeIndex];
         const rate = crossProduct(edge.basisVector, clockwiseParent.basisVector);
-        if (rate < 0 && !areEqual(rate, 0)) {
+        if (rate < 0 && !areEqual(rate, 0, RATE_ORACLE_BAR)) {
             violations.push(
                 `e${interiorEdge.id} advances at offset rate ${rate} against its clockwise parent `
                 + `${interiorEdge.clockwiseExteriorEdgeIndex}: it runs backwards through the wavefront`);
@@ -154,7 +167,7 @@ function jitterCell(vertices: Vector2[], multiple: number, seed: number): Vector
         Math.max(...vertices.map(v => v.x)) - Math.min(...vertices.map(v => v.x)),
         Math.max(...vertices.map(v => v.y)) - Math.min(...vertices.map(v => v.y)),
     );
-    const amplitude = multiple * FLOATING_POINT_EPSILON * span;
+    const amplitude = multiple * JITTER_UNIT * span;
 
     let state = seed >>> 0;
     const random = () => {

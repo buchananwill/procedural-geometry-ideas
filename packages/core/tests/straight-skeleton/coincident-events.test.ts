@@ -1,11 +1,10 @@
 import type {CollisionEvent, Vector2} from '../../src/straight-skeleton/types';
 import {
-    assertMergePositionsAreDistinct,
+    assertMergesAreAnchored,
     clusterCoincidentMerges,
     coincidentEventPositions,
     CoincidentMerge,
 } from '../../src/straight-skeleton/coincident-events';
-import {vectorsAreEqual} from '../../src/straight-skeleton/core-functions';
 import {SKELETON_NOISE_FLOOR} from '../../src/straight-skeleton/canonicalisation';
 
 /*
@@ -19,9 +18,16 @@ import {SKELETON_NOISE_FLOOR} from '../../src/straight-skeleton/canonicalisation
  * 1424 events over 48 edge ids and came out as four groups where the same relation, replayed as
  * connected components, gives one.
  *
- * These tests fix the three properties that replacement has to have — the partition is the
- * transitive closure, it does not depend on arrival order, and the representative of a group is
- * always one of that group's own members — and convict the invariant gate that protects the third.
+ * That replacement was connected components — the transitive closure. JOURNAL DECISION 155(b)
+ * RETIRES IT: approximate equality is not an equivalence relation, and the solver must never claim
+ * transitivity. The partition is now ANCHORED — events visited earliest arrival first, each joining
+ * the nearest anchor strictly within the floor or founding its own — so every group lies within the
+ * floor of its anchor and a run the floor cannot hold in one group is two groups.
+ *
+ * These tests fix the three properties the anchored partition has to have — it is anchored and not
+ * transitive, it does not depend on the order the layer lists its events in, and the representative of
+ * a group is always one of that group's own members — and convict the invariant gate that protects
+ * the partition.
  */
 
 /**
@@ -36,8 +42,8 @@ import {SKELETON_NOISE_FLOOR} from '../../src/straight-skeleton/canonicalisation
  * SINCE JOURNAL DECISION 78 THIS IS THE RENDER-SCALE FLOOR, not the arithmetic epsilon: two events
  * closer together than a viewer could ever see are one event. Every construction below is written
  * as a RATIO of this bar and so carries its meaning across the change — a chain whose neighbours sit
- * at 0.6 of the bar and whose extremes sit at 1.8 of it still requires transitive closure to become
- * one group, which is the property these tests exist for. Left at 1e-8 the same constructions would
+ * at 0.6 of the bar and whose extremes sit at 1.8 of it would need transitive closure to become one
+ * group, which is exactly what the anchored partition refuses (decision 155). Left at 1e-8 the same constructions would
  * all fall inside a single bar and pass without asking anything.
  */
 const CLUSTERING_BAR = SKELETON_NOISE_FLOOR;
@@ -125,21 +131,43 @@ function clusterByCentroid(events: CollisionEvent[]): CoincidentMerge[] {
         return {
             position: {x: x / members.length, y: y / members.length},
             edgeIds: [...new Set(members.flatMap(index => events[index].collidingEdges))],
+            // The group's first-listed member stands as its anchor, so the gate can read the mutant.
+            anchor: events[members[0]].position,
         };
     });
 }
 
-describe('clusterCoincidentMerges: the partition is the transitive closure', () => {
-    it('chains a run of events into one group, however far its extremes lie apart', () => {
-        // Neighbours are 0.6 of the bar apart and the extremes 1.8 of it: first-match grouping split
-        // exactly this shape in two, because event 2 was compared against event 0's position.
+describe('clusterCoincidentMerges: the partition is anchored, never transitive (decision 155)', () => {
+    it('does NOT chain: a run whose extremes lie beyond the floor is two groups, each within the floor of its anchor', () => {
+        // Neighbours are 0.6 of the bar apart and the extremes 1.8 of it. Connected components — the
+        // retired rule — made this ONE group, a claim that 0 ≈ 0.6 ≈ 1.2 ≈ 1.8 makes 0 ≈ 1.8. Anchored,
+        // the earliest (edge 10, at 0) holds 0.6; 1.2 is a floor or more from it and founds its own
+        // group, which holds 1.8.
         const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
         const events = positions.map((position, index) => eventAt(position, [10 + index]));
 
         const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
-        expect(merges).toHaveLength(1);
-        expect(merges[0].edgeIds).toEqual([10, 11, 12, 13]);
+        expect(merges).toHaveLength(2);
+        expect(merges[0].edgeIds).toEqual([10, 11]);
+        expect(merges[1].edgeIds).toEqual([12, 13]);
+        expect(merges[0].anchor).toEqual({x: 0, y: 0});
+        expect(merges[1].anchor).toEqual(positions[2]);
+    });
+
+    it('anchors on the EARLIEST arrival, whatever the edge ids say', () => {
+        // The same run, but the event at 1.8 arrives first: it anchors, holds 1.2, and 0.6 then founds
+        // the second group with 0. Arrival decides the anchor; the ids only break exact ties.
+        const positions = chainPositions(4, 0.6 * CLUSTERING_BAR);
+        const events = positions.map((position, index) => ({
+            ...eventAt(position, [10 + index]),
+            arrival: {distance: index === 3 ? 0.5 : 1, weight: 1},
+        }));
+
+        const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
+
+        expect(merges.map(merge => merge.edgeIds)).toEqual([[10, 11], [12, 13]]);
+        expect(merges[1].anchor).toEqual(positions[3]);
     });
 
     it('keeps genuinely separate points in separate groups', () => {
@@ -169,7 +197,7 @@ describe('clusterCoincidentMerges: the partition is the transitive closure', () 
         const partitions = [forward, reversed, interleaved].map(events =>
             clusterCoincidentMerges(events, CLUSTERING_BAR).map(merge => [...merge.edgeIds].sort((a, b) => a - b)));
 
-        expect(partitions[0]).toEqual([[20, 21, 22, 23, 24]]);
+        expect(partitions[0]).toEqual([[20, 21], [22, 23], [24]]);
         expect(partitions[1]).toEqual(partitions[0]);
         expect(partitions[2]).toEqual(partitions[0]);
     });
@@ -214,16 +242,19 @@ describe('clusterCoincidentMerges: the representative is a medoid', () => {
     });
 
     it('never answers with the centroid when no member sits there', () => {
-        // Decision 4, made concrete: a component chained into a ring about the origin has its
-        // centroid exactly at the origin, which is not within tolerance of any of its members.
+        // Decision 4, made concrete: a ring about the origin has its centroid exactly at the origin,
+        // which is not within tolerance of any of its members. Anchored, the ring is several groups
+        // (its neighbours chain, its anchors cannot); every group still answers with one of its own.
         const ring = ringPositions();
         const events = ring.map((position, index) => eventAt(position, [70 + index]));
 
         const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
-        expect(merges).toHaveLength(1);
-        expect(isOneOf(merges[0].position, ring)).toBe(true);
-        expect(vectorsAreEqual(merges[0].position, {x: 0, y: 0})).toBe(false);
+        expect(merges.length).toBeGreaterThan(1);
+        for (const merge of merges) {
+            expect(isOneOf(merge.position, ring)).toBe(true);
+            expect(merge.position).not.toEqual({x: 0, y: 0});
+        }
     });
 });
 
@@ -250,7 +281,7 @@ function ringPositions(): Vector2[] {
     return positions;
 }
 
-describe('the invariant gate: no two merges of one layer share a position', () => {
+describe('the invariant gate: the partition is anchored (decision 155)', () => {
     it('passes the medoid partition of a layer that would collide under a centroid', () => {
         const ring = ringPositions();
         const events = [
@@ -260,13 +291,16 @@ describe('the invariant gate: no two merges of one layer share a position', () =
 
         const merges = clusterCoincidentMerges(events, CLUSTERING_BAR);
 
-        expect(merges).toHaveLength(2);
-        expect(() => assertMergePositionsAreDistinct(merges, CLUSTERING_BAR)).not.toThrow();
+        // The centre is two floors from every ring member, so it founds its own group; the ring is
+        // several anchored groups. Every anchor is a floor or more from every other.
+        expect(merges.length).toBeGreaterThan(2);
+        expect(() => assertMergesAreAnchored(merges, CLUSTERING_BAR)).not.toThrow();
     });
 
     it('fires on the centroid partition of that same layer', () => {
-        // The mutation this gate exists to catch: two components — the ring and the single event at
-        // its centre — that are genuinely distinct at every member, collapsing onto one position.
+        // The mutation this gate exists to catch: the retired transitive partition with a CENTROID
+        // representative — the ring chained into one component answers at the origin, on no member and
+        // two floors from its own anchor.
         const ring = ringPositions();
         const events = [
             ...ring.map((position, index) => eventAt(position, [80 + index])),
@@ -276,17 +310,28 @@ describe('the invariant gate: no two merges of one layer share a position', () =
         const mutant = clusterByCentroid(events);
 
         expect(mutant).toHaveLength(2);
-        expect(vectorsAreEqual(mutant[0].position, mutant[1].position)).toBe(true);
-        expect(() => assertMergePositionsAreDistinct(mutant, CLUSTERING_BAR)).toThrow(/same position/);
+        expect(mutant[0].position).toEqual(mutant[1].position);
+        expect(() => assertMergesAreAnchored(mutant, CLUSTERING_BAR)).toThrow(/outside the floor of its anchor/);
+    });
+
+    it('fires on two groups anchored within the floor of each other', () => {
+        // The transitivity the anchored partition exists to refuse, stated as merges: two anchors
+        // closer than the floor would be one event split in two by the order it was visited in.
+        const merges: CoincidentMerge[] = [
+            {position: {x: 0, y: 0}, edgeIds: [10], anchor: {x: 0, y: 0}},
+            {position: {x: 0.5 * CLUSTERING_BAR, y: 0}, edgeIds: [11], anchor: {x: 0.5 * CLUSTERING_BAR, y: 0}},
+        ];
+
+        expect(() => assertMergesAreAnchored(merges, CLUSTERING_BAR)).toThrow(/anchored at the same position/);
     });
 
     it('accepts a layer whose merges are distinct', () => {
         const merges: CoincidentMerge[] = [
-            {position: {x: 0, y: 0}, edgeIds: [10]},
-            {position: {x: 1, y: 0}, edgeIds: [11]},
+            {position: {x: 0, y: 0}, edgeIds: [10], anchor: {x: 0, y: 0}},
+            {position: {x: 1, y: 0}, edgeIds: [11], anchor: {x: 1, y: 0}},
         ];
 
-        expect(() => assertMergePositionsAreDistinct(merges, CLUSTERING_BAR)).not.toThrow();
+        expect(() => assertMergesAreAnchored(merges, CLUSTERING_BAR)).not.toThrow();
     });
 });
 
@@ -324,7 +369,7 @@ describe('coincidentEventPositions: identity for the events the merge path never
     });
 
     it('leaves a pair the node lookup already unifies exactly where it was', () => {
-        // THE RESTRAINT THAT KEEPS THE CLEAN ROSTER BIT-IDENTICAL. Inside `vectorsAreEqual`,
+        // THE RESTRAINT THAT KEEPS THE CLEAN ROSTER BIT-IDENTICAL. Inside the arithmetic same-point bar,
         // `findOrAddNode` already returns one node at the first-established position; re-pointing
         // the pair at its medoid would move that node for no gain, which is measured to cost one ulp
         // on four clean fixtures.

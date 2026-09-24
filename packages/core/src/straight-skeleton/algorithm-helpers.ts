@@ -14,10 +14,12 @@ import {
     negateVector,
     sineIsBelow
 } from "./core-functions";
-import {FLOATING_POINT_EPSILON} from "./constants";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
 import {arrivalOf, timeOf} from "./collision-helpers";
+
+/** `addBisectionEdge`'s zero-rate sine bar, held for C8 dispatch 2 (T17, T31; census S19). */
+const ZERO_RATE_SINE_BAR = 0.00000001;
 
 
 /**
@@ -216,8 +218,11 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     // zero test keeps the arithmetic bar it had, and D14 stays open — now with `ensureBisectionIsInterior`
     // at the resolution, where the rate's zero is reached only below `1e-8` and every such vertex reads
     // straight. The tolerance package (register C8) owns this site's re-derivation.
+    //
+    // NOT RE-DERIVED IN C8 DISPATCH 1 (census S19): T17's orientation-aware reading at ρ, with the
+    // fourth oracle as its complement (T18), is dispatch 2's (T29–T32). The bar is held bit-identical.
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
-        FLOATING_POINT_EPSILON);
+        ZERO_RATE_SINE_BAR);
     if (!zeroRate) {
         finalBasis = offsetRate < 0 ? negateVector(bisectedBasis) : bisectedBasis;
     } else {

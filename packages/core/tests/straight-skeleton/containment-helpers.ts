@@ -1,4 +1,4 @@
-import {FLOATING_POINT_EPSILON, solveSkeleton, Vector2} from '@proc-geo/core';
+import {solveSkeleton, Vector2} from '@proc-geo/core';
 
 /*
  * ============================================================================
@@ -11,17 +11,25 @@ import {FLOATING_POINT_EPSILON, solveSkeleton, Vector2} from '@proc-geo/core';
  */
 
 /**
+ * The unit-space distance a node may sit outside the boundary and still count as on it: an
+ * INSTRUMENT bar, held tighter than any floor on purpose (audit §7.1 decision 5). It was the solver's
+ * scratch `FLOATING_POINT_EPSILON`; that constant is deleted (C8 spec T1), and the instrument keeps
+ * its value as its own named literal so the sweep asks exactly what it asked before.
+ */
+const CONTAINMENT_SLACK_FRACTION = 1e-8;
+
+/**
  * The caller-space distance a node may sit outside the boundary and still count as on it.
  *
- * The solver's tolerances are absolute in UNIT space, where the polygon has extent 1; multiplying
- * by the caller's extent says the same thing in the caller's units, which is the conversion
- * `normalisation.ts` applies to every other length.
+ * Stated in UNIT space, where the polygon has extent 1; multiplying by the caller's extent says the
+ * same thing in the caller's units, which is the conversion `normalisation.ts` applies to every other
+ * length.
  */
 export function containmentTolerance(polygon: Vector2[]): number {
     const xs = polygon.map(vertex => vertex.x);
     const ys = polygon.map(vertex => vertex.y);
     const extent = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
-    return FLOATING_POINT_EPSILON * extent;
+    return CONTAINMENT_SLACK_FRACTION * extent;
 }
 
 /** Even-odd crossing test. A point exactly on the boundary is decided by the distance test instead. */

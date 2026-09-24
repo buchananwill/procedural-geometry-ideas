@@ -405,7 +405,7 @@ describe('Crazy Polygon Debug', () => {
 
         console.log(`\n  e10 offset: ${offset10.toFixed(6)} (sourceOffset=${srcOffset10.toFixed(6)})`);
         console.log(`  e15 offset: ${offset15.toFixed(6)} (sourceOffset=${srcOffset15.toFixed(6)})`);
-        console.log(`  areEqual(${offset10.toFixed(6)}, ${offset15.toFixed(6)}) = ${areEqual(offset10, offset15)}`);
+        console.log(`  areEqual(${offset10.toFixed(6)}, ${offset15.toFixed(6)}) = ${areEqual(offset10, offset15, 1e-8)}`);
         console.log(`  delta = ${Math.abs(offset10 - offset15).toFixed(6)}`);
 
         // What point does the collision occur at?

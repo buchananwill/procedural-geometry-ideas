@@ -2,7 +2,6 @@ import {
     computeMaxOffset,
     computeOffsetRings,
     computeStrips,
-    FLOATING_POINT_EPSILON,
     SKELETON_NOISE_FLOOR,
     makeSkeletonNormalisation,
     normalisePosition,
@@ -117,6 +116,13 @@ import {oracleCausalityCounts, solverCausalityCounts} from './wavefront-measurem
  */
 
 setSkeletonLogLevel('silent');
+
+/**
+ * The identical-source exit's separation bar the spread below is measured against — the retired
+ * scratch `FLOATING_POINT_EPSILON` (deleted by C8 spec T1), which that exit still reads as its own
+ * named literal until dispatch 2 (T9, T29). Stated here so the measurement keeps its yardstick.
+ */
+const HISTORICAL_IDENTICAL_SOURCE_BAR = 1e-8;
 
 /** The full translation sweep `large-coordinate-failures.test.ts` asserts over the corpus. */
 const TRANSLATIONS = [1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11];
@@ -327,7 +333,7 @@ describe('the defect is a scatter of translations, not the one cell the decade s
         expect(failing).toEqual([]);
     });
 
-    it('Circle 48 carries EIGHT MOVED AND FLAGGED cells: complete, with their clearance violations reported', () => {
+    it('Circle 48 carries FIVE MOVED AND FLAGGED cells: complete, with their clearance violations reported', () => {
         // JOURNAL DECISION 147(b)/(c)'s ruling applied: a cell that goes from a signalled failure to
         // complete while carrying a causality violation is pinned as moved and flagged, with its
         // counts. These eight carried EXACTLY these clearance counts while they failed, and carry them
@@ -342,11 +348,13 @@ describe('the defect is a scatter of translations, not the one cell the decade s
                 : [`${translate}: ${JSON.stringify(counts)}, ${result.diagnostics.length} diagnostic(s)`];
         });
 
+        // FOUR MOVED 2026-09-24, ALL DOWNWARDS, ATTRIBUTED TO THE ANCHORED COINCIDENCE CLUSTERING (journal
+        // decision 155(b), C8 dispatch 1; toggle-measured against the retired connected components).
+        // These are exactly the four fine translations whose clustering formed a component WIDER than
+        // the floor (the component-diameter census): 4e10, 5e10 and 6e10 went from one clearance
+        // violation to none, and 2e11 from five to three. Every other cell is bit-unmoved.
         expect(flagged).toEqual([
-            '40000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
-            '50000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
-            '60000000000: {"offset":0,"clearance":1,"direction":0}, 1 diagnostic(s)',
-            '200000000000: {"offset":0,"clearance":5,"direction":0}, 5 diagnostic(s)',
+            '200000000000: {"offset":0,"clearance":3,"direction":0}, 3 diagnostic(s)',
             '5000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
             '6000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
             '7000000000000: {"offset":0,"clearance":12,"direction":0}, 12 diagnostic(s)',
@@ -514,8 +522,8 @@ describe('the mechanism: a 48-way convergence half-merged by the coincidence bar
         // hubs are separated by more than the render floor as well as more than the epsilon, so
         // widening the coincidence bar to the floor did not reach them. The cells the widening did
         // reach are the ones above 1e9, where the scatter is finer than the floor.
-        expect(cluster.spread).toBeGreaterThan(FLOATING_POINT_EPSILON);
-        expect(cluster.spread).toBeLessThan(2 * FLOATING_POINT_EPSILON);
+        expect(cluster.spread).toBeGreaterThan(HISTORICAL_IDENTICAL_SOURCE_BAR);
+        expect(cluster.spread).toBeLessThan(2 * HISTORICAL_IDENTICAL_SOURCE_BAR);
     });
 
     it('shatters into ten at 1e10, with a hub of 16 — the same half-merge, coarser', () => {

@@ -74,7 +74,8 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * UNDER WEIGHTS IT IS AT LEAST AS WIDE IN DISTANCE AS IT WAS (W-spec W4, W41). Weights are
  * normalised to minimum one, so a time is at most the distance it came from and this window covers
  * at least `CLIP_DEPTH_EPSILON` of caller-space distance on every edge — on the fastest edge, up to
- * `MAX_WEIGHT_RATIO` times more. It is a degeneracy admission, not a decision, so widening it that
+ * the weight ratio times more (at most `maxWeightRatio(δ)`, C8 spec T22). It is a degeneracy admission,
+ * not a decision (census S49, classified and not re-derived under T27), so widening it that
  * far admits residue and nothing else; it is stated here rather than re-derived per weight.
  */
 const CLIP_DEPTH_EPSILON = 1e-9;

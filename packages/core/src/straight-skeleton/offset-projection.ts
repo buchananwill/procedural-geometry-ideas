@@ -1,5 +1,6 @@
 import type {InteriorEdge, SkeletonSolveResult, StraightSkeletonSolverContext, Vector2} from './types';
 import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAreEqual} from './core-functions';
+import {ARITHMETIC_SAME_POINT_BOX, ARRIVAL_MOMENT_ULPS} from './constants';
 
 /**
  * Projection of a solved straight skeleton back into wavefront positions.
@@ -299,15 +300,19 @@ function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): number {
  * - the narrowest gap to a genuinely distinct event is **1.23e-4** (Duck Octagon (fails): 9.42e-3
  *   absolute against a maximum offset of 76.89).
  *
- * The two bounds are eleven orders of magnitude apart, so this value is not marginal: it sits ~700x
- * above the largest spread it must close and ~1e8x below the smallest gap it must not cross. Were
- * they within an order of magnitude of each other, that would be a finding against the whole
- * approach rather than a tolerance to tune.
+ * THE MOMENT BAR, NOT A FREE NUMBER (C8 spec T26, census S30). It was `1e-12`, a value picked inside
+ * the gap; it is now `ARRIVAL_MOMENT_ULPS · ε` — the same 64-ulp representation bar the solver's layer
+ * tie-break reads (S29), because both ask one question: are these two computed values one instant of
+ * the arithmetic? That is `1.42e-14` relative, and it sits inside the measured gap with an order to
+ * spare on the near side: within-instant spread 1.42e-15 < 1.42e-14 < nearest real gap 1.23e-4 (the
+ * ratios are asserted in `tolerance-derivation.test.ts`). Were the two bounds within an order of
+ * magnitude of each other, that would be a finding against the whole approach rather than a
+ * tolerance to tune.
  *
  * This is NOT slack in a lifetime comparison. It partitions the table; the comparisons that read
  * the table stay bit-exact. See the module header.
  */
-const SIMULTANEITY_RELATIVE_TOLERANCE = 1e-12;
+export const SIMULTANEITY_RELATIVE_TOLERANCE = ARRIVAL_MOMENT_ULPS * Number.EPSILON;
 
 /**
  * One simultaneous event as the table sees it: the nodes that reach it, and the distinct offsets
@@ -709,7 +714,10 @@ function makeEndpoint(bisector: AliveBisector, edgeSource: Vector2, edgeBasis: V
  * still chained, because a zero-length segment's two ends are the same point.
  */
 function makeRing(cycle: WavefrontSegment[]): OffsetRing | null {
-    const kept = cycle.filter(segment => !vectorsAreEqual(segment.startPosition, segment.endPosition));
+    // Census S5: the arithmetic same-point bar, held with S1's O1 STOP at its historical box
+    // (C8 spec T8; see `ARITHMETIC_SAME_POINT_BOX`). It runs in CALLER space and is not yet scaled by
+    // the projection's own scale, which is T8's second half and moves with O1's ruling.
+    const kept = cycle.filter(segment => !vectorsAreEqual(segment.startPosition, segment.endPosition, ARITHMETIC_SAME_POINT_BOX));
     if (kept.length < 3) {
         return null;
     }
@@ -797,7 +805,7 @@ function assembleRings(segments: WavefrontSegment[], offset: number): OffsetProj
                 bisectorIds: chainBisectorIds(cycle),
                 segmentCount: cycle.length,
                 keptSegmentCount: cycle.filter(
-                    segment => !vectorsAreEqual(segment.startPosition, segment.endPosition)).length,
+                    segment => !vectorsAreEqual(segment.startPosition, segment.endPosition, ARITHMETIC_SAME_POINT_BOX)).length,
             });
             continue;
         }

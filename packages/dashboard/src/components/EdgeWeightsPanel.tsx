@@ -6,8 +6,9 @@ import { usePolygonStore } from "../stores/usePolygonStore";
 import CollapseChevron from "./CollapseChevron";
 
 /**
- * The smallest weight the editor will accept. A weight is a strictly positive speed (W-spec W2), and
- * `MAX_WEIGHT_RATIO` is 100, so anything this side of the ratio bound is reachable from `1`.
+ * The smallest weight the editor will accept. A weight is a strictly positive speed (W-spec W2). The
+ * solver's ratio bound is `maxWeightRatio(δ)` (about 1e8 at the library floor, C8 spec T22), far
+ * beyond anything this floor and a typed weight reach, so the door refuses only pathological input.
  */
 export const MIN_EDGE_WEIGHT = 0.01;
 

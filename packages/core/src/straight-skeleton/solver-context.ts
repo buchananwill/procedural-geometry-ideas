@@ -23,7 +23,13 @@ import {intersectRays} from "./intersection-edges";
 import {birthArrivalOf, compareArrivals, timeOf} from "./collision-helpers";
 import {complexLog, splitLog} from "./logger";
 import {SKELETON_NOISE_FLOOR} from "./canonicalisation";
-import {angularResolution, coaxialityFloor} from "./constants";
+import {
+    angularResolution,
+    ARITHMETIC_SAME_POINT_BOX,
+    coaxialityFloor,
+    HELD_SIMULTANEITY_WINDOW,
+    simultaneityWindow,
+} from "./constants";
 
 /**
  * `perceptualFloor` is the client's floor for this solve, in the unit space `nodes` are given in. It
@@ -47,6 +53,10 @@ export function makeStraightSkeletonSolverContext(
     // DERIVED ONCE, HERE, AND FOR THE SAME REASON (spec A8): the one angular bar of the solve. Every
     // angular predicate reads this field; none recomputes the square root.
     const angularBar = angularResolution(perceptualFloor);
+    // DERIVED ONCE, HERE (C8 spec T5, T12): the one simultaneity window of the solve, carried on the
+    // context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it yet:
+    // its move hit T37's STOPs and they hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
+    const window = simultaneityWindow(perceptualFloor);
 
     /**
      * The wavefront speed of an exterior edge (W-spec W1).
@@ -190,7 +200,7 @@ export function makeStraightSkeletonSolverContext(
             throw new Error(`Cannot place a node at the non-finite position (${position.x}, ${position.y}).`);
         }
         const node = graph.nodes.find(n => {
-            return vectorsAreEqual(n.position, position);
+            return vectorsAreEqual(n.position, position, ARITHMETIC_SAME_POINT_BOX);
         })
         if (node !== undefined) {
             return node;
@@ -263,6 +273,7 @@ export function makeStraightSkeletonSolverContext(
         perceptualFloor,
         coaxialityFloor: coaxialLane,
         angularResolution: angularBar,
+        simultaneityWindow: window,
         diagnostics: [],
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
@@ -410,7 +421,9 @@ export function makeStraightSkeletonSolverContext(
                 // which inflates the segment instead of shrinking it and lets a bisector appear to
                 // strike an edge that is still occluded at this offset. Such a segment describes
                 // geometry that does not exist yet, so it cannot validate a split.
-                const notYetBorn = (birth: Arrival) => compareArrivals(arrival, birth) < 0;
+                // S28 (C8 spec T14): "before the birth" is a same-moment question; its window is held
+                // with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see the constant), per pair.
+                const notYetBorn = (birth: Arrival) => compareArrivals(arrival, birth, HELD_SIMULTANEITY_WINDOW) < 0;
                 if (notYetBorn(clockwiseBirth) || notYetBorn(widdershinsBirth)) {
                     splitLog.debug(
                         `Rejecting split of e${edgeToSplitId} by e${bisectorId} at time ${splitTime}: bounding bisector not yet born.`,

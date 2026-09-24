@@ -1,6 +1,27 @@
 import {IntersectionType} from "./types";
 
-export const FLOATING_POINT_EPSILON = 0.00000001;
+/*
+ * ----------------------------------------------------------------------------
+ * THE TWO SOURCES OF A TOLERANCE — AND NO THIRD (C8 spec T1, T2; journal decisions 144, 157)
+ * ----------------------------------------------------------------------------
+ *
+ * The scratch constant `FLOATING_POINT_EPSILON = 1e-8` is DELETED. It was one literal read as a
+ * distance, a time, a sine, an area and a parameter, and it was none of them. A tolerance in this
+ * package may now contain only: the client's perceptual floor δ (`context.perceptualFloor`, unit
+ * space) for "visibly the same"; the unit roundoff u = 2⁻⁵³ (`UNIT_ROUNDOFF`) for "arithmetically
+ * distinguishable"; integer multiples of u argued at their site the way `CROSS_PRODUCT_ROUNDING_UNITS`
+ * is argued below; and IEEE representability limits.
+ *
+ * THE CATEGORY RULE (spec T2, ratified by decision 157). A comparison that decides a QUESTION the
+ * arithmetic cannot decide — about input geometry, or about candidate events before any node exists —
+ * takes δ. A comparison whose acceptance DISCARDS OR SUBSTITUTES an answer the solver has already
+ * produced — collapsing two nodes to one, replacing a computed rate — takes u. A comparison guarding a
+ * division takes that operation's own first-order rounding bound. The floor is a release from
+ * imperceptible questions, never an override of an answer already given.
+ *
+ * Every derived bar is a FUNCTION of δ (and u), computed once at context construction and carried on
+ * the context (spec T5, A8), so that a C++ port inherits the derivation rather than a number (T38).
+ */
 
 /*
  * ----------------------------------------------------------------------------
@@ -130,7 +151,20 @@ export function angularResolution(perceptualFloor: number): number {
  * intersections of rays, so a sliver that is geometrically collinear carries an area of `1e-13` and
  * never an exact `0`. Testing `=== 0` would catch only hand-authored collinear input.
  *
- * An absolute area in the polygon's own units, on the same footing as {@link FLOATING_POINT_EPSILON}.
+ * An absolute area, read in TWO SPACES (spec I3): a caller-space area by the recursion
+ * (`recursive-subdivision.ts` `degenerateRegionFailure`) and a UNIT-space area by the decomposition
+ * (`polygon-decomposition.ts` `isValidSubPolygon`, which runs after `solveSkeleton` normalises).
+ *
+ * NOT YET DERIVED — A MEASURED STOP (C8 spec T23, open decision O3; dispatch 1's settling measurement,
+ * 2026-09-24). O3's two candidate forms were measured against every decision-96 decline in the
+ * recursion census (22 declines, all at depth 1, on `Off-edge Jitter Plus (seed 7919)` and
+ * `Off-edge Jitter Reflex L (seed 55433, k=4)`), with the root floor restated in caller units as
+ * canonicalisation restates it (2.56e-4 on both). (a) `δ²` keeps 1 of the 22; (b) `δ·(perimeter/2)`
+ * keeps 16 and releases 6 (areas 4.6e-7..8.5e-7 against bars 4.0e-7..5.5e-7). Neither form keeps
+ * every decline, which is the ruling rule's STOP branch, so the number is unmoved and the form is
+ * returned to the lead. The decomposition's sub-polygon verdicts over the self-intersecting fixtures
+ * agree under all three bars (current, (a), (b)) at both 1e-6 and 1e-5.
+ *
  * It lived twice — `AREA_EPSILON` in `polygon-decomposition.ts` and `DEGENERATE_AREA_EPSILON` in
  * `recursive-subdivision.ts` — with the second's comment asserting the two must agree; they are one
  * declaration here so that agreement cannot lapse.
@@ -138,22 +172,98 @@ export function angularResolution(perceptualFloor: number): number {
 export const DEGENERATE_AREA_EPSILON = 0.000001;
 
 /**
- * The largest ratio between the fastest and slowest edge weight the solver will accept (W-spec W48,
- * arc journal decision 119).
+ * Ulps of the larger quantity within which two computed values are ONE MOMENT of the arithmetic — the
+ * REPRESENTATION BAR (C8 spec T26; moved here from `algorithm-complex-cases.ts`, where it was
+ * `SIMULTANEOUS_ARRIVAL_ULPS`, value unchanged).
  *
- * DERIVED, NOT PICKED. After normalisation (W-spec W4) the slowest edge has weight exactly `1` and
- * the fastest has weight `R = max / min`. A TIME is `distance / weight`, so the solver's absolute
- * time window — {@link FLOATING_POINT_EPSILON}, used by the layer window and the phantom test — is a
- * DISTANCE window of `R · 1e-8` on the fastest edge. At `R = 100` that is `1e-6`, which is exactly
- * `SKELETON_NOISE_FLOOR`: beyond it the solver would fuse, as one arrival moment, two arrivals the
- * client's own floor says are two separate things. So the constant is
- * `SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON = 100`.
+ * SIXTY-FOUR, argued by two measured populations six orders away on either side (asserted as ratios in
+ * `arrival-ordering.test.ts`): the rounding noise between two reports of one arrival sits at one to a
+ * few ulps; the nearest genuinely separate arrivals on the corpus (`OFF_EDGE_JITTER_L_SEED_55433`'s
+ * collapsing 4-ring) sit 3.9e5 to 1.1e6 ulps apart. Read with `Number.EPSILON` (= 2u) as
+ * `ARRIVAL_MOMENT_ULPS · ε · |larger|`.
  *
- * Not imported from `canonicalisation.ts` because that module imports from the solver's side of the
- * graph; the derivation is stated here and the two numbers are asserted against each other in
- * `weighted-offsets.test.ts`.
+ * SHARED BY EVERY "SAME VALUE, TWO ARITHMETIC ROUTES" QUESTION: the moment partition of the layer
+ * tie-break (S29), the offset table's simultaneous sets (S30, which was a free `1e-12`), and the
+ * arithmetic same-point bar of node identity (S1, S2, S4, S5 — see {@link positionsAreOnePoint}).
+ * Integer-valued so the C++ port reproduces the product order bit for bit (T38).
  */
-export const MAX_WEIGHT_RATIO = 100;
+export const ARRIVAL_MOMENT_ULPS = 64;
+
+/**
+ * "Are these two arrivals ONE MOMENT of the wavefront clock?" — the SIMULTANEITY WINDOW, as a length
+ * (C8 spec T12–T14; journal decisions 155 and 158).
+ *
+ * THE WINDOW IS THE FLOOR ITSELF, and both sources give it. Perceptually, an offset is a length and
+ * one floor governs both axes (decision 83), so the time axis cannot be finer than the space axis.
+ * Arithmetically, the angular resolution was sized (spec A3) so that every intersection the solver
+ * prices is placed to within δ; every arrival distance therefore carries up to δ of error, and two
+ * arrivals less than δ apart are not orderable by the solver's own error budget — the question
+ * decision 141 hands to the floor. It replaces the scratch `1e-8`, which was about 1e8 ulps of pure
+ * literal.
+ *
+ * STATED PER PAIR, CROSS-MULTIPLIED (T13): `|d₁·w₂ − d₂·w₁| < window · min(w₁, w₂)`, which is
+ * `|t₁ − t₂| < δ / max(w₁, w₂)` — inside the window no participating edge advances more than δ. At
+ * unit weights it reads `|d₁ − d₂| < δ`.
+ *
+ * ANCHORED, NEVER TRANSITIVE (decision 155): approximate equality is not an equivalence relation, so
+ * every window is anchored on the earliest arrival and its width never exceeds δ. A many-way meeting
+ * the window splits across two layers yields two nodes inside the floor, which decision 141 admits.
+ *
+ * Named like {@link coaxialityFloor} so every window site states which currency it spends; computed
+ * once onto `StraightSkeletonSolverContext.simultaneityWindow` (T5).
+ */
+export function simultaneityWindow(perceptualFloor: number): number {
+    return perceptualFloor;
+}
+
+/**
+ * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP (C8 spec
+ * T14, T16, T37; dispatch 1, 2026-09-24). The derivation above is landed and carried on the context as
+ * `simultaneityWindow`; the sites S22–S28 do not yet spend it, because moving them hit T37's STOPs.
+ * Measured by toggle, each site alone with every other at 1e-8, over the T37 instrument suites:
+ *
+ *   - S22 (the layer): the four predicted defect digests move (T15), AND fixtures stop solving (two
+ *     off-edge jitter plus cells), `Off-edge Jitter Reflex L (seed 55433)` gains a direction violation
+ *     and a `causality-violation` diagnostic, the recursion census moves, `Offset Cross Junction`'s
+ *     ladder moves at 1e-5 and above, and two clean fixtures (Crazy Polygon, Duck Octagon) grow as the
+ *     floor rises — STOPs 1, 2, 3 and 6, and T16;
+ *   - S28 (split birth): one off-edge jitter plus cell (k = 3) stops solving — STOP 1;
+ *   - S23 (phantom) and S24 (snap time): off-corpus movement only (Circle 48 at 1e10's culled count,
+ *     the 1e10 shards, the jittered Circle 32 at 1x seed 5, the flagged plus cell cured);
+ *   - S25, S26, S27: nothing moves.
+ *
+ * T14 puts all seven on ONE bar, so a partial landing would be one question at two bars (decision
+ * 144); all seven are held together and the STOP is returned to the lead. Stated per pair in T13's
+ * form (`window · min(w₁, w₂)`), which is landed.
+ */
+export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
+
+/**
+ * The largest ratio between the fastest and slowest edge weight the solver will accept (W-spec W48;
+ * C8 spec T22, journal decision 156): `maxWeightRatio(δ) = δ / (64·√2·u)`.
+ *
+ * THE OLD DERIVATION IS VOID. `MAX_WEIGHT_RATIO = 100` was `1e-6 / 1e-8`: the scratch time window read
+ * as a distance on the fastest edge. The per-pair window (T13) is stated on the FASTER participant, so
+ * that hazard — two arrivals fused because the window, read in the fast edge's distance, exceeds the
+ * floor — is gone for every ratio. What still binds is COHERENCE between the two simultaneity bars:
+ * the narrowest window, `δ / R` in time, must stay wider than the arithmetic moment bar
+ * (`ARRIVAL_MOMENT_ULPS · ε · t`, S29) at the largest time a unit-extent region admits,
+ * `t_max = √2/2` (spec I7). So
+ *
+ *     R  ≤  δ / (64 · ε · t_max)  =  δ / (64 · 2u · √2/2)  =  δ / (64 · √2 · u)
+ *
+ * — about 9.95e7 at the library floor and 9.95e8 at 1e-5. The door refuses only where the narrowest
+ * window would fall inside the moment bar: "guards pathological, doesn't insist on a concrete product
+ * opinion" (decision 156). The conditioning hazard the old ceiling half-covered is the per-vertex turn
+ * guard's ({@link minWeightTurnSine}).
+ *
+ * PRODUCT ORDER IS PART OF THE DEFINITION: `64 · √2` and `· u` are exact (powers of two), so the only
+ * rounding is the division, and `maxWeightRatio(δ) · 64 · √2 · u` returns δ (asserted in
+ * `tolerance-derivation.test.ts`).
+ */
+export function maxWeightRatio(perceptualFloor: number): number {
+    return perceptualFloor / (ARRIVAL_MOMENT_ULPS * Math.SQRT2 * UNIT_ROUNDOFF);
+}
 
 /**
  * "Weights may change only at a VISIBLE CORNER" — the turn-sine bar below which a weight change is
@@ -164,24 +274,159 @@ export const MAX_WEIGHT_RATIO = 100;
  * is `w / cos(φ/2)`, bounded by the vertex angle alone. At `w₁ ≠ w₂` and `φ → 0` it is
  * `|w₁ − w₂| / φ`, unbounded for ANY weight ratio — measured at `1.5e7` for a turn of `1e-6` with
  * weights `(1, 16)`, where the `1e-8` time window becomes a spatial slack of `0.15`, a seventh of
- * the unit extent. {@link MAX_WEIGHT_RATIO} cannot bound it, so a second guard is required.
+ * the unit extent. {@link maxWeightRatio} cannot bound it, so a second guard is required.
  *
- * AN INTERIM ARITHMETIC CONSTANT, FROZEN AT ITS HISTORICAL VALUE, AWAITING RE-DERIVATION (spec A22,
- * open decision O3 ruled (c) interim by journal decision 146; journal-5 register C8, the tolerance
- * derivation package). It used to ALIAS the retired `PARALLEL_GATE_SINE_BAR`, borrowing that bar's
- * number for a DIFFERENT conditioning question: this guards the weighted vertex-velocity kernel,
- * whose magnitude is `|w₁ − w₂| / φ` as `φ → 0`, not `intersectRays`' division. The gate is now the
- * floor-dependent `angularResolution`, and had the alias followed it the velocity bound would have
- * moved silently with the client's floor (`7.1e3·|w₁ − w₂|` becoming `5.6e4·|w₁ − w₂|` at the
- * library floor). So the alias is cut and the value frozen: `sqrt(ε(2 − ε))` at the scratch epsilon,
- * **1.4142e-4**, exactly the number the guard has always used — no behaviour moves. Above it the
- * kernel is conditioned as before: `|v| ≤ |w₁ − w₂| / 1.41e-4`, at most `7.1e3 · |w₁ − w₂|`. Its own
- * derivation, from the kernel's error budget against the floor, is C8's work (option (b)); it still
- * descends from `FLOATING_POINT_EPSILON`, which decision 144 retires, and says so.
+ * DERIVED FROM THE KERNEL'S OWN ERROR BUDGET (C8 spec T21), PER VERTEX: `√(√2·u·Δw / δ)`, with
+ * `Δw = |w₁ − w₂|` at that vertex on the NORMALISED weights (minimum exactly 1, W-spec W4). The
+ * kernel's velocity is `num / sin φ` with `|num| → Δw` as `φ → 0`, and the evaluated sine carries
+ * `k·u` of absolute error (`k` = {@link CROSS_PRODUCT_ROUNDING_UNITS}), so the velocity error is about
+ * `Δw·k·u / sin²φ`. Over the largest time a unit-extent region admits, `t_max ≤ √2/2` at minimum weight
+ * 1 (spec I7), the positional error stays under δ when
+ *
+ *     sin²φ  ≥  k·u·t_max·Δw / δ  =  2u·(√2/2)·Δw / δ  =  √2·u·Δw / δ.
+ *
+ * Equivalently `conditioningBound(δ)·√(Δw/2)`. At the library floor: 4.853e-5 for weights (1, 16) and
+ * 1.2468e-4 for Δw = 99, against the retired frozen 1.4142e-4 (the scratch epsilon's `√(ε(2 − ε))`,
+ * which this replaces). A DIFFERENT QUESTION from `intersectRays`' division, so distinct from the
+ * angular resolution (spec A22).
+ *
+ * PRODUCT ORDER IS PART OF THE DEFINITION: `√2 · u` is exact (u a power of two), then `· Δw`, `/ δ`
+ * and the square root each round once; `minWeightTurnSine(δ, Δw)² · δ` returns `√2·u·Δw` to the ulp
+ * (asserted in `tolerance-derivation.test.ts`).
  *
  * UNIT WEIGHTS NEVER REACH IT: the guard requires `w₁ ≠ w₂` before it looks at the turn at all.
  */
-export const MIN_WEIGHT_TURN_SINE = Math.sqrt(FLOATING_POINT_EPSILON * (2 - FLOATING_POINT_EPSILON));
+export function minWeightTurnSine(perceptualFloor: number, weightDifference: number): number {
+    return Math.sqrt(Math.SQRT2 * UNIT_ROUNDOFF * weightDifference / perceptualFloor);
+}
+
+/*
+ * ----------------------------------------------------------------------------
+ * DIVISION SAFETY — EACH GUARD TAKES ITS OPERATION'S OWN FIRST-ORDER ROUNDING BOUND (C8 spec T19, T20)
+ * ----------------------------------------------------------------------------
+ *
+ * "Is this divisor zero?" is a question about the arithmetic, not about the geometry, so its bar is
+ * the evaluated expression's own rounding-error bound: a value inside it has no sign and no magnitude
+ * the arithmetic can vouch for. The pattern is `meetHeadOn`'s (collision-helpers.ts). Every bound below
+ * is first order in u, lies seven to eight orders inside the retired `1e-8`, and is compared with `≤`
+ * ("inside the bound"), as `meetHeadOn` compares.
+ */
+
+/**
+ * The rounding bound of `rateA·weightB + rateB·weightA`, where each rate is a cross product of unit
+ * vectors (absolute error `k·u`, {@link CROSS_PRODUCT_ROUNDING_UNITS}) and each product by a weight and
+ * the final addition round once (relative u):
+ *
+ *     |fl(sum) − sum|  ≤  k·u·(weightA + weightB)  +  2u·(|termA| + |termB|)
+ *
+ * `termA = rateA·weightB` and `termB = rateB·weightA` are the two EVALUATED products. The operation
+ * order is `meetHeadOn`'s, so that site and the two split divisors (S33, S34) share one bound bit for
+ * bit. At unit weights the bound is at most `8u ≈ 8.9e-16`.
+ */
+export function weightedRateSumRoundingBound(
+    termA: number,
+    termB: number,
+    weightA: number,
+    weightB: number,
+): number {
+    return CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * (weightA + weightB)
+        + 2 * UNIT_ROUNDOFF * (Math.abs(termA) + Math.abs(termB));
+}
+
+/**
+ * The rounding error of a 3×3 determinant evaluated by cofactor expansion along the first row, in
+ * units of u: **c₃ = 5**. ARGUED HERE, as {@link CROSS_PRODUCT_ROUNDING_UNITS} is argued above.
+ *
+ * The expression is `r₀₀·(r₁₁·r₂₂ − r₁₂·r₂₁) − r₀₁·(r₁₀·r₂₂ − r₁₂·r₂₀) + r₀₂·(r₁₀·r₂₁ − r₁₁·r₂₀)`,
+ * every `*`, `−` and `+` its own correctly rounded operation (no FMA, T39). Each of the six exact
+ * triple products `P` reaches the result through at most FIVE roundings: the inner product (1), the
+ * inner subtraction (1), the outer product (1), and the two outer additions — left to right, the first
+ * two cofactor terms pass through both, the third through one. So each carries a relative factor
+ * `(1 + θ₅)` with `|θ₅| ≤ γ₅ = 5u/(1 − 5u)`, and to first order
+ *
+ *     |fl(det) − det|  ≤  5u · Σ |triple products|.
+ *
+ * Integer-valued and stated separately so the port reproduces `c₃ · u · Σ` in the same order (T38).
+ */
+export const DETERMINANT3_ROUNDING_UNITS = 5;
+
+/** The sum of the magnitudes of the six triple products of a 3×3 determinant's cofactor expansion. */
+export function determinant3TripleSum(
+    row0: readonly [number, number, number],
+    row1: readonly [number, number, number],
+    row2: readonly [number, number, number],
+): number {
+    return Math.abs(row0[0]) * (Math.abs(row1[1] * row2[2]) + Math.abs(row1[2] * row2[1]))
+        + Math.abs(row0[1]) * (Math.abs(row1[0] * row2[2]) + Math.abs(row1[2] * row2[0]))
+        + Math.abs(row0[2]) * (Math.abs(row1[0] * row2[1]) + Math.abs(row1[1] * row2[0]));
+}
+
+/** `c₃ · u · Σ|triple products|` — the determinant's first-order rounding bound (S35, T19). */
+export function determinant3RoundingBound(tripleSum: number): number {
+    return DETERMINANT3_ROUNDING_UNITS * UNIT_ROUNDOFF * tripleSum;
+}
+
+/**
+ * The first-order rounding bound of a Cramer quotient `t = det_t / det` (S36, T20).
+ *
+ * `det_t` and `det` each carry `c₃·u·Σ|triple products|` of their own ({@link
+ * determinant3RoundingBound}), and the division rounds once (relative u). Propagated to first order:
+ *
+ *     |fl(t) − t|  ≤  (c₃·u·Σ_t  +  |t| · c₃·u·Σ) / |det|  +  u·|t|
+ *
+ * where `Σ_t` is the triple sum of the substituted determinant. With unit normals this is the spec's
+ * `c₃·u·(|rhs| + |t|·Σ|weights|) / |det|` with the normals' components (each at most 1) kept rather
+ * than bounded away, plus the division's own rounding.
+ */
+export function cramerQuotientRoundingBound(
+    numeratorTripleSum: number,
+    denominatorTripleSum: number,
+    quotient: number,
+    determinant: number,
+): number {
+    return (determinant3RoundingBound(numeratorTripleSum)
+            + Math.abs(quotient) * determinant3RoundingBound(denominatorTripleSum)) / Math.abs(determinant)
+        + UNIT_ROUNDOFF * Math.abs(quotient);
+}
+
+/**
+ * The rounding bound of the sum of two (weighted) unit bases before normalisation, `|wWs·c + wCw·b|`
+ * (S37, T19): each unit basis carries up to `k·u` of absolute error, scaled by its weight, so
+ * `k·u·(wWs + wCw)` — which at unit weights is the spec's `2k·u`, bit for bit. A sum inside it has no
+ * direction the arithmetic can vouch for.
+ */
+export function basisSumRoundingBound(weightA: number, weightB: number): number {
+    return CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * (weightA + weightB);
+}
+
+/**
+ * The rounding bound of a cross product of two unit vectors, `k·u` (S38, T19): the divisor of
+ * `projectFromPerpendicular`.
+ */
+export const UNIT_CROSS_PRODUCT_ROUNDING_BOUND = CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF;
+
+/**
+ * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
+ * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
+ * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
+ * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule).
+ *
+ * O1's settling histogram (dispatch 1, 2026-09-24) found joins ABOVE 64 ulps — 43 of them at 5e5 to
+ * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine
+ * translations, one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — and they do
+ * NOT correlate with the pricing's conditioning: every one sits 6e3 to 3.6e8 times the larger of its
+ * two positions' conditioning quantities (`|sep|·2u/sin²θ` at the pair pricing, the Cramer bound at
+ * the terminal triangle). That is decision 154's third branch: each such join names a path that
+ * BYPASSED EVENT RESOLUTION, and the three found are reported to the lead rather than absorbed — the
+ * whole-event merge (`handleInteriorNGon` → `terminateEdgesAtPoint`) landing on a node an earlier layer
+ * built, the terminal triangle's closed form (`handleInteriorEdgeTriangle`) landing on one, and the
+ * split path (`handleCollisionEvent`). Until those paths are fixed there, option (a)'s representation
+ * bar would split nodes this box currently joins, so the bar is not moved.
+ *
+ * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
+ * bar and never δ (F27, audit C1).
+ */
+export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
 
 /**
  * "Are these two sources on ONE LINE?" — the LANE WIDTH, in distance, for the coaxiality question
@@ -190,7 +435,7 @@ export const MIN_WEIGHT_TURN_SINE = Math.sqrt(FLOATING_POINT_EPSILON * (2 - FLOA
  * A THIRD QUESTION, IN THE FLOOR'S CATEGORY. The solver asks three things about a pair of rays, not
  * two: are the directions identical (an angle), is an intersection priceable (an angle), and are the
  * two sources coaxial (a DISTANCE). The third was answered for years at
- * {@link FLOATING_POINT_EPSILON}, which held the solver to arithmetic precision on a question the
+ * the retired scratch `FLOATING_POINT_EPSILON`, which held the solver to arithmetic precision on a question the
  * client measures in visible distance — `sourceLiesAhead`'s own comment half-recognised this and
  * then reached for the epsilon anyway.
  *

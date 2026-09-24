@@ -11,6 +11,7 @@ import {
     SkeletonNormalisation,
     Vector2,
 } from '@proc-geo/core';
+import {HELD_SIMULTANEITY_WINDOW} from '@proc-geo/core/straight-skeleton/constants';
 import {deriveNodeArrivals} from './wavefront-measurement-helpers';
 
 /*
@@ -179,8 +180,10 @@ interface SubFloorVerdict {
  * Do these two nodes lie in different offset layers, by the solver's own simultaneity comparison?
  *
  * The arrivals are the causality suite's oracle ({@link deriveNodeArrivals}) carried into unit space,
- * where the solver's `FLOATING_POINT_EPSILON` window lives; `compareArrivals` at its default epsilon
- * is the comparison the solver itself uses to decide that one arrival is not yet another. A node with
+ * where the solver's simultaneity window lives; `compareArrivals` at the window the solver's sites
+ * actually spend — `HELD_SIMULTANEITY_WINDOW` (1e-8), held under C8 dispatch 1's T37 STOP rather than
+ * the derived `simultaneityWindow(δ)` — is the comparison the solver itself uses to decide that one
+ * arrival is not yet another. When the sites move to δ, this instrument moves with them. A node with
  * no derived arrival cannot be placed in a layer and is not admitted.
  */
 function inDifferentLayers(
@@ -198,7 +201,7 @@ function inDifferentLayers(
         distance: arrival.distance * normalisation.toUnitScale,
         weight: arrival.weight,
     });
-    return compareArrivals(toUnit(a), toUnit(b)) !== 0;
+    return compareArrivals(toUnit(a), toUnit(b), HELD_SIMULTANEITY_WINDOW) !== 0;
 }
 
 /** Every sub-floor pair, with the exemption's reading of it (journal decision 141). */

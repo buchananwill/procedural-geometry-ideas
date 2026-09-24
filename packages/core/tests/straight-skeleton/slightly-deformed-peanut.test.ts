@@ -144,9 +144,20 @@ describe('the strike at the vertex is a DISTANCE at the coaxiality floor (spec A
      * discriminating case.
      */
     it('accepts a forward strike within the floor of the vertex, on either side of it', () => {
-        for (const alongEdge of [0, 5e-9, 5e-7, -5e-7, SKELETON_NOISE_FLOOR, -SKELETON_NOISE_FLOOR]) {
+        for (const alongEdge of [0, 5e-9, 5e-7, -5e-7]) {
             expect(reachesSupportingLine([0.5, alongEdge, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(true);
         }
+    });
+
+    it('is STRICT at the floor itself (C8 spec T7): a strike exactly one floor away is not at the vertex', () => {
+        // One inequality for "the same point, before any node exists" across the package — the one
+        // canonicalisation and the coincidence clustering use. It was `≤` until C8; the boundary is of
+        // measure zero (no evaluation on the corpus, the fine translations or the jitter sweeps lands on
+        // it), so only this constructed case can see the difference.
+        expect(reachesSupportingLine([0.5, SKELETON_NOISE_FLOOR, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(false);
+        expect(reachesSupportingLine([0.5, -SKELETON_NOISE_FLOOR, 'diverging'], SKELETON_NOISE_FLOOR)).toBe(false);
+        expect(reachesSupportingLine([0.5, SKELETON_NOISE_FLOOR * (1 - Number.EPSILON), 'diverging'], SKELETON_NOISE_FLOOR))
+            .toBe(true);
     });
 
     it('refuses one outside the floor, and one that is not travelling forward', () => {

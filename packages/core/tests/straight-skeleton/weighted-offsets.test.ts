@@ -18,11 +18,13 @@ import {
     WeightedTestPolygon,
 } from '@proc-geo/test-fixtures';
 import {
-    MAX_WEIGHT_RATIO,
-    MIN_WEIGHT_TURN_SINE,
+    ARRIVAL_MOMENT_ULPS,
+    maxWeightRatio,
+    minWeightTurnSine,
     angularResolution,
+    conditioningBound,
     SKELETON_NOISE_FLOOR,
-    FLOATING_POINT_EPSILON,
+    UNIT_ROUNDOFF,
     SkeletonSolveResult,
     StraightSkeletonGraph,
     Vector2,
@@ -352,29 +354,39 @@ describe('weighted offsets: the three refusals (§5 bar 9)', () => {
             .toThrow(/Weight array has 3 entries but the polygon has 4 vertices/);
     });
 
-    it('W3: a ratio above MAX_WEIGHT_RATIO is refused, naming the two extreme edges', () => {
+    it('W3: a ratio above maxWeightRatio(δ) is refused, naming the two extreme edges', () => {
+        // C8 spec T22, journal decision 156: the bound is `δ / (64·√2·u)`, about 9.95e7 at the library
+        // floor, where it was the retired `MAX_WEIGHT_RATIO = 100`. At `R` the door admits the ring; at
+        // `2R` it refuses it. (The analytic near-maximum-ratio square is still pinned at 100, above.)
         const square = WEIGHTED_SQUARE_NEAR_MAX_RATIO.vertices;
-        // §4.4: at `R` the ring solves; at `R + 1` the door refuses it.
-        expect(() => solveSkeleton(square, {weights: [1, 1, 1, MAX_WEIGHT_RATIO]})).not.toThrow();
-        expect(() => solveSkeleton(square, {weights: [1, 1, 1, MAX_WEIGHT_RATIO + 1]}))
-            .toThrow(/edge 3 has weight 101 and edge 0 has weight 1/);
-        expect(() => solveSkeleton(square, {weights: [1, 1, 1, MAX_WEIGHT_RATIO + 1]}))
-            .toThrow(/exceeds MAX_WEIGHT_RATIO \(100\)/);
+        const bound = maxWeightRatio(SKELETON_NOISE_FLOOR);
+        expect(() => solveSkeleton(square, {weights: [1, 1, 1, bound]})).not.toThrow();
+        expect(() => solveSkeleton(square, {weights: [1, 1, 1, 2 * bound]}))
+            .toThrow(new RegExp(`edge 3 has weight ${2 * bound} and edge 0 has weight 1`));
+        expect(() => solveSkeleton(square, {weights: [1, 1, 1, 2 * bound]}))
+            .toThrow(/exceeds maxWeightRatio\(0\.000001\)/);
+        // The retired ceiling no longer refuses anything: 101 passes the door.
+        expect(() => solveSkeleton(square, {weights: [1, 1, 1, 101]})).not.toThrow();
     });
 
-    it('W3: the ratio constant is DERIVED from the two ruled constants, not picked', () => {
-        // `SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON` — beyond it the solver's absolute time
-        // window on the fastest edge is wider than the client's own floor.
-        expect(MAX_WEIGHT_RATIO).toBe(SKELETON_NOISE_FLOOR / FLOATING_POINT_EPSILON);
+    it('W3: the ratio bound is DERIVED from the floor and the roundoff, as a formula (C8 spec T22)', () => {
+        // The narrowest per-pair window, δ/R in time, must stay wider than the 64-ulp moment bar at the
+        // largest time a unit-extent region admits (√2/2): R ≤ δ / (64·ε·√2/2) = δ / (64·√2·u).
+        for (const floor of [1e-6, 3e-6, 1e-5, 1e-4]) {
+            expect(maxWeightRatio(floor)).toBe(floor / (ARRIVAL_MOMENT_ULPS * Math.SQRT2 * UNIT_ROUNDOFF));
+        }
+        expect(maxWeightRatio(SKELETON_NOISE_FLOOR)).toBeCloseTo(9.95e7, -6);
     });
 
-    it('W49: the turn guard is its own constant, frozen at the retired gate\'s value (spec A22, O3 interim)', () => {
-        // The alias to the retired `PARALLEL_GATE_SINE_BAR` is cut (journal decision 146): the gate is
-        // now the floor-dependent `angularResolution`, and the velocity bound must not move with the
-        // client's floor. The VALUE is frozen, bit for bit, at `sqrt(ε(2 − ε))` — no behaviour moves —
-        // until the tolerance package (register C8) re-derives it from the kernel's own error budget.
-        expect(MIN_WEIGHT_TURN_SINE).toBe(Math.sqrt(FLOATING_POINT_EPSILON * (2 - FLOATING_POINT_EPSILON)));
-        expect(MIN_WEIGHT_TURN_SINE).not.toBe(angularResolution(SKELETON_NOISE_FLOOR));
+    it('W49: the turn guard is DERIVED per vertex from the kernel\'s error budget (C8 spec T21)', () => {
+        // `minWeightTurnSine(δ, Δw) = √(√2·u·Δw / δ)`, equivalently `conditioningBound(δ)·√(Δw/2)`.
+        // It replaced the frozen 1.4142e-4 (the scratch epsilon's `√(ε(2 − ε))`), and it is still a
+        // DIFFERENT question from the angular resolution (spec A22).
+        expect(minWeightTurnSine(SKELETON_NOISE_FLOOR, 15)).toBeCloseTo(4.853e-5, 8);
+        expect(minWeightTurnSine(SKELETON_NOISE_FLOOR, 99)).toBeCloseTo(1.2468e-4, 8);
+        expect(minWeightTurnSine(SKELETON_NOISE_FLOOR, 15))
+            .toBeCloseTo(conditioningBound(SKELETON_NOISE_FLOOR) * Math.sqrt(15 / 2), 15);
+        expect(minWeightTurnSine(SKELETON_NOISE_FLOOR, 15)).not.toBe(angularResolution(SKELETON_NOISE_FLOOR));
     });
 
     it('§4.7 W49: a weight change at the invisible vertex is refused, naming that vertex', () => {
@@ -383,7 +395,7 @@ describe('weighted offsets: the three refusals (§5 bar 9)', () => {
         expect(() => solveWeighted(fixture))
             .toThrow(new RegExp(`Vertex ${refusal.vertexIndex} carries a weight change `
                 + `\\(${refusal.incomingWeight} to ${refusal.outgoingWeight}\\)`));
-        expect(() => solveWeighted(fixture)).toThrow(/below MIN_WEIGHT_TURN_SINE/);
+        expect(() => solveWeighted(fixture)).toThrow(/below minWeightTurnSine/);
     });
 
     it('§4.8 the dormer square is refused, naming vertex 1 and the weights 1 and 2', () => {
@@ -470,7 +482,9 @@ describe('weighted offsets: W44 pins a weight-change vertex and nothing else', (
         const count = fixture.vertices.length;
         const outgoing = makeBasis(fixture.vertices[index], fixture.vertices[(index + 1) % count]);
         const incoming = makeBasis(fixture.vertices[(index - 1 + count) % count], fixture.vertices[index]);
-        expect(Math.abs(crossProduct(outgoing, incoming))).toBeGreaterThan(MIN_WEIGHT_TURN_SINE);
+        const weightDifference = Math.abs(fixture.weights[index] - fixture.weights[(index - 1 + count) % count]);
+        expect(Math.abs(crossProduct(outgoing, incoming)))
+            .toBeGreaterThan(minWeightTurnSine(SKELETON_NOISE_FLOOR, weightDifference));
 
         // The deviation is below the floor in the space canonicalisation works in, which the control
         // above demonstrates behaviourally; asserted here as the caller-space number the fixture is
@@ -490,7 +504,8 @@ describe('weighted offsets: W44 pins a weight-change vertex and nothing else', (
     it('§4.3 the conditioning hazard is angular, and this is the number', () => {
         /*
          * `|v| = |w₁ − w₂| / sin(turn)`, measured on a ring the door ADMITS: the turn sine is `1e-3`,
-         * seven times `MIN_WEIGHT_TURN_SINE`, and the kernel velocity at that vertex is already
+         * seven times the retired frozen bar and some forty-six times the derived per-vertex bar
+         * `minWeightTurnSine(δ, 3)` (C8 spec T21), and the kernel velocity at that vertex is already
          * `3e3` on a shape of extent 10. That is arc journal F48's finding as a fixture, and it is
          * why the bar exists at all — the weight RATIO here is 4, nowhere near the ratio guard.
          */
@@ -502,7 +517,7 @@ describe('weighted offsets: W44 pins a weight-change vertex and nothing else', (
         // The construction places the deviation by the small-angle relation, so the sine lands one
         // part in 4e6 short of the nominal `1e-3` — the third-order term, not a defect.
         expect(turnSine).toBeCloseTo(NEAR_STRAIGHT_WEIGHT_CHANGE_TURN_SINE, 8);
-        expect(turnSine).toBeGreaterThan(MIN_WEIGHT_TURN_SINE);
+        expect(turnSine).toBeGreaterThan(minWeightTurnSine(SKELETON_NOISE_FLOOR, 3));
 
         const velocity = kernelVelocity(fixture.vertices, fixture.weights, 4);
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
