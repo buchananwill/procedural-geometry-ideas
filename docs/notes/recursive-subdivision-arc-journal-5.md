@@ -892,6 +892,19 @@ under decision 141 must produce sub-floor structure and today fails (the near-re
 class, backlog item 5). **C12 is re-pointed to that solver-correctness package**; the 1e-8
 window and box stay held as one admitted, matched pair until it lands.
 
+**163 — (user, 2026-09-24) GO for C8 dispatch 3; C12's approach is the LEAD's call, with
+failures explained to the user in abstract terms for joint diagnosis.** The user's words,
+near-verbatim: "If I've learned anything today, it's that I can't know what is the right
+way to rule in all these details. Some I get wrong. Pick one for C12. If it fails, explain
+it to me and we'll figure out why. You're good at the details, I'm still better at the
+abstract reasoning. Some trial and error remains necessary. Progress is gradually made."
+Lead's reading of the division: the user rules PRINCIPLES (141, 155, 157, 162 are the
+shape of the contract) and the lead rules MECHANISMS against them by measurement,
+reporting each failure as the principle it collided with. Dispatch 3 is dispatched on
+baseline `1211e55`. C12 opens after it with a DIAGNOSIS first — a read-only trace of why
+a jittered hub fails under arithmetic-order resolution — and the lead chooses the
+mechanism on that trace, recorded as a decision before any code.
+
 ---
 ## Findings
 
