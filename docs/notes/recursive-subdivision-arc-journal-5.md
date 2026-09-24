@@ -699,6 +699,32 @@ detector; what it does not buy: any reduction of error, and the doubled-node cas
 guards is already caught by the clustering before a node exists and by the causality check
 and I2 after. T2, T12 and O4 remain the user's open rulings.
 
+**155 — (user, 2026-09-24) O2 of the C8 spec is RULED (a), ANCHORED: "approximately
+equals" is not an equivalence relation and the solver must never claim transitivity; the
+perceptual floor sits ABOVE the computational floor precisely so that every answer is more
+precise than the client can perceive, and a transitive layer breaks that guarantee.** The
+user's words, near-verbatim: "We have a computational limit on testing simultaneity, and
+for pragmatism we're opting to use a more permissive perceptual threshold for some
+predicates. Neither of these imply that 'approximately equals' IS equals, and the point of
+having a perceptual floor above the computational floor is that we're always guaranteed a
+more precise answer than the client can perceive, which respects the client's needs.
+Transitive equality breaks that. A ≈ B and B ≈ C does not guarantee A ≈ C, so we must not
+claim that. If that results in two nodes that are within the perceptual threshold, because
+transitive equality didn't hold, we are still above the computational floor and still
+producing something that is arithmetically sound. Reality might be that A ≠ B ≠ C, but the
+perceptual contract allows the computational contract to decline trying to decide, if it
+can't." Consequences: (a) the simultaneity window is anchored on the earliest arrival and
+its width never exceeds δ; a many-way meeting split across two layers yields two nodes
+inside the floor, which decision 141 admits as a well-defined answer. (b) The same
+principle reaches the SPATIAL axis: decision 78's coincidence clustering groups positions
+by connected components, which is transitive. The C8 dispatch measures the diameter of
+every component the clustering forms over the corpus, the fine translations and the jitter
+sweeps; a component wider than δ is a transitivity claim this ruling forbids, and the
+clustering is then restated as anchored or diameter-bounded, attributed. If no component
+exceeds δ the form is moot in practice and is restated anyway for coherence, with the
+digest expected not to move. (c) The gated form (c) of O2 stays in reserve only as a
+STOP response, not as a design. Remaining user rulings: T2, T12, O4.
+
 ---
 ## Findings
 
