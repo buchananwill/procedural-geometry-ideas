@@ -812,6 +812,25 @@ attribution. (e) Interpretations 1–14 adopted, in particular: the per-pair win
 passes; c₃ = 5 argued and convicted against exact arithmetic; the dashboard's ratio
 refusal test moves to weight 1e12 since the panel's 500 is admitted under decision 156.
 
+**160 — (user, 2026-09-24) T12 is AMENDED: the simultaneity window is each pair's own
+ordering uncertainty — the arithmetic moment bar widened by the pair's actual conditioning
+error — CAPPED at δ; perceptual in its cap, arithmetic in its floor. The δ-flat window is
+STRUCK.** The user's words: "That's fine to revert my wrong hunch." Lead's note for the
+record: the flat window was the spec's derivation (T12's "every arrival carries up to δ of
+error") as much as the user's ratification, and the measurement that refuted it (F70) is
+the empirical contract working as designed. Consequences: (a) the window per pair is
+`max(ARRIVAL_MOMENT_ULPS·ε·t, conditioning(pair))` with the cap `min(…, δ)`, where
+`conditioning(pair)` is the positional error budget of each arrival's pricing
+(|sep|·2u/sin²θ at a ray intersection, the Cramer bound at a terminal triangle, the
+split's own bound), carried on the arrival — O1(b)'s per-event budget applied to time;
+(b) at unit weights on the corpus the window is expected to sit at the moment bar for
+nearly every pair and to widen only where a pricing was poorly conditioned, so the digest
+is expected NOT to move and any movement is attributed to a named ill-conditioned pair;
+(c) the seven sites S22–S28 read the per-pair window through `compareArrivals` with the
+budget on the `Arrival` type; T13's cross-multiplied form is kept; (d) decision 155's
+anchoring is unchanged; (e) spec T12–T15 are amended in place; T16's STOP stands. Carried
+by C8 dispatch 2.
+
 ---
 ## Findings
 
