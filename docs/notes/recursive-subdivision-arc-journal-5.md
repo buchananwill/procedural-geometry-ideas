@@ -221,6 +221,13 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
+**C11 — Three paths join a computed position to an existing node 7e-10 to 1.2e-8 away
+without going through event resolution** (F69, decision 159(a)): the whole-event merge
+landing on an earlier layer's node, the terminal-triangle closed form, the split path. 43
+joins over 580 cells, uncorrelated with conditioning. Hypothesis: arrivals at a node the
+clustering sited within δ, a perceptual question asked late. Diagnose before any
+same-point bar moves; the box is held at 1e-8 meanwhile.
+
 **C10 — The snap pre-pass is a missing rung of the triangle/n-gon ladder** (F68). The pair
 handler runs `resolveEdgesPointingAtNodes` before its closures; decision 145's ladder in
 the other two handlers does not. Add it, measure B7, and then rule the level opposed pair
@@ -279,7 +286,10 @@ discriminating fixture is DISCHARGED by the recorded ring `OFF_EDGE_JITTER_L_SEE
 **C7 — The defect-signature completion package** (decision 143). Run the five defect
 fixtures through the sixteen clean-only suites; pin what fails with attribution. Small.
 
-**C8 — The tolerance derivation package** (decision 144). *Gains four named sites from
+**C8 — The tolerance derivation package** (decision 144). *Dispatch 1 LANDED (F69);
+held inside it: the window (F70, user's ruling), the same-point box (C11), O3 (159(b),
+dispatch 2 measures the six). Dispatch 2 owns the fourth oracle, the four F64 sites, T23,
+T24, the coherence assertion.* *Gains four named sites from
 F64, each with a measurement showing the floor is the WRONG derivation there and the
 detector role must be kept or replaced: the identical-source exit, `makeOffsetDistance`'s
 noGradient, `addBisectionEdge`'s zero-rate (D14 now open in reverse), and the two
@@ -772,8 +782,81 @@ T24, T29–T32 (the four F64 sites), the coherence table asserted, the remainder
 C++ notes carried to the handoff. Baseline for dispatch 1: `2986d46` plus the spec's
 status commit; core 5726/5726 (87 suites), dashboard 331/331, digest 60.
 
+**159 — Rulings on C8 dispatch 1's four STOPs.** (a) **O1's third branch is RATIFIED as a
+STOP, and the three bypass paths are register C11**: 43 node joins across the sweeps lie
+7e-10 to 1.16e-8 from an existing node, uncorrelated with any conditioning quantity (6e3 to
+3.6e8 times larger), reached by the whole-event merge landing on an earlier layer's node,
+the terminal-triangle closed form, and the split path. The same-point box is HELD at 1e-8
+as one shared named constant (`ARITHMETIC_SAME_POINT_BOX`), a literal by admission, until
+C11 is diagnosed. Lead's hypothesis, unmeasured: these joins are arrivals at a node the
+coincidence clustering SITED within δ of the arrival's true point (decision 78 sites a
+cluster at a member), so the question they ask is "same event as the one that made this
+node", a perceptual question asked late through an arithmetic door — the audit's decision
+15 says such a join belongs in event resolution, not in `findOrAddNode`. (b) **O3 is
+re-ruled by a sharper measurement**: neither form keeps all 22 decision-96 declines (δ²
+keeps 1; δ·perimeter/2 keeps 16 and releases 6), so dispatch 1 correctly held. But the
+STOP rule the lead wrote — "every decline keeps its verdict" — was stricter than decision
+96, which ruled declining slivers correct, not that exactly these 22 are slivers. Ruled:
+dispatch 2 solves the six regions form (b) releases; if all six solve with zero causality
+violations, (b) is adopted and the census re-pins 22 → 16 as an attributed cure; if any
+fails, O3 STOPs on the measurement and the bar stays. (c) **The window at δ is a
+REGRESSION, held at 1e-8 with its machinery landed, and it REOPENS T12 — to the user
+(F70).** (d) **The anchored restatement of the coincidence clustering (decision 155(b))
+LANDS with its one literal STOP-1 read as an improvement**: the along-edge plateau cell
+k=4/seed 47514 goes from `complete` with two direction violations to `unresolved-edges`
+with one — a cell decision 138(b) had flagged as a quiet wrong answer becoming loud, which
+decisions 72 and 147(b) rank above a silent completion; and it CURES four Circle 48
+fine-translation cells (4e10, 5e10, 6e10 clearance 1 → 0; 2e11 5 → 3). Re-pinned with
+attribution. (e) Interpretations 1–14 adopted, in particular: the per-pair window form
+`window·min(w₁,w₂)` differs from the tip's `ε·w₁·w₂` under weights and the weighted suite
+passes; c₃ = 5 argued and convicted against exact arithmetic; the dashboard's ratio
+refusal test moves to weight 1e12 since the panel's 500 is admitted under decision 156.
+
 ---
 ## Findings
+
+**F69 — C8 dispatch 1 landed the frame: `FLOATING_POINT_EPSILON` is DELETED, every
+comparison states its bar, the division guards, both weighted constants and the moment bar
+are derived, the coincidence clustering is anchored, and the digest did not move on a
+single pin.** Delegate figures: core 5752/5752 (88 suites), dashboard 331/331, all builds
+green, digest 60 unmoved, completion firing unmoved, no causality diagnostic appeared.
+The five measurements, each exact against the spec where the spec predicted: O1's
+histogram (43 joins above 64 ulps, none correlated with conditioning — decision 159(a));
+component diameters (corpus maximum 5.44e-7 at 1e-6, 4.42e-6 at 1e-5, none over its floor;
+15 off-corpus components over δ, widest 1.9e-6, all Circle 48 fine translations and
+off-edge jitter cells); O3 both ways (decision 159(b)); T9's band EMPTY over 580 cells, so
+S12 is exact and S6's premise holds for dispatch 2; T15's window census in EXACT agreement
+with the spec (four jitter defect fixtures at 1e-6; only Offset Cross Junction at 1e-5,
+one layer 2 → 28 events). Landed: T1, T4, T5 (the function and field, sites held), T7
+(zero of 10.5 million laterals equal δ exactly), S12 exact, T13's per-pair form, T19, T20
+(c₃ = 5), T21, T22, T25, T26, the anchored clustering, `tolerance-derivation.test.ts` (22
+tests). Held: S1/S2/S4/S5 at the 1e-8 box (C11); S22–S28 at `HELD_SIMULTANEITY_WINDOW`
+= 1e-8 (F70); T23 (O3, 159(b)); S6 and the four F64 sites (dispatch 2). Eleven
+convictions by mutation. **Lead verification on the merged tree: core 5752/5752 (88
+suites, 155 s), dashboard 331/331 and dashboard build green after core and test-fixtures
+rebuilds — match. Committed as the C8 dispatch-1 code commit.**
+
+**F70 — The simultaneity window at δ REGRESSES, and the reason is a conflict between two
+of the user's own rulings that the spec did not see: T12 (simultaneity is perceptual, the
+window is δ) and decision 157 (the floor never overrides a deterministic answer already
+given).** Moving S22 alone to δ, with the other six sites held: the four predicted digest
+movers move, and beyond them plus jitter cells k=3 and k=10 STOP solving, seed 55433
+gains a direction violation with its diagnostic, the recursion census moves, Offset Cross
+Junction's solving rungs change shape (19 nodes/30 edges → 17/32), Rosette5 40 gains
+clearance violations at 3e12 and 4e12, and Circle 48 at 1e10 and Rosette5 40 at 1e11 are
+no longer clean — STOPs 1, 2, 3 and 6 at once. S28 alone stops plus k=3 solving. S23 and
+S24 move only off-corpus cells, mixed (a flagged plus cell cured, a Circle 32 cell
+shrinks). S25–S27 move nothing. Reading, lead's: a δ-wide layer is resolved as ONE event,
+which merges the geometry of arrivals the arithmetic can order perfectly well — two
+arrivals 1e-7 apart in time are a billion ulps apart, a deterministic order, and
+resolving them as simultaneous OVERRIDES it. T12's argument that "every arrival carries
+up to δ of error" is the worst case at the conditioning edge, not the typical arrival. So
+the derived window is not δ flat: it is each PAIR's own ordering uncertainty — the
+arithmetic moment bar, widened by the pair's actual conditioning error, and CAPPED at δ
+where the floor releases the solver from deciding. That is O1(b)'s per-event budget
+applied to time, the machinery the histogram declined for space. This spec's T12 is
+therefore AMENDED IN PART pending the user: the window is perceptual in its CAP and
+arithmetic in its floor. Not re-run by the lead; the numbers are the delegate's toggles.
 
 **F68 — (delegate-traced for the C8 spec, T34; not re-run by the lead) `Offset Cross
 Junction` fails at the library floor because its two junction closures land 6.25δ apart
