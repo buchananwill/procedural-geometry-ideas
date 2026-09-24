@@ -237,7 +237,9 @@ produce the sub-floor fan decision 141 admits; (3) then the window takes the per
 with a complete error model and the box goes exact, with F72's prediction as the
 conviction. Until then the 1e-8 window and box stay held as one matched pair, labelled.
 
-**C11 — Three paths join a computed position to an existing node 7e-10 to 1.2e-8 away
+**C11 — DISSOLVES INTO C12 (F74): the 44 joins are the box absorbing genuinely distinct
+sub-floor events; with the box exact they become distinct nodes, admissible under 141.**
+Original: Three paths join a computed position to an existing node 7e-10 to 1.2e-8 away
 without going through event resolution** (F69, decision 159(a)): the whole-event merge
 landing on an earlier layer's node, the terminal-triangle closed form, the split path. 43
 joins over 580 cells, uncorrelated with conditioning. Hypothesis: arrivals at a node the
@@ -987,8 +989,62 @@ list of candidate mechanisms with, for each, the principle it rests on (141, 155
 162), what it changes, and what measurement would falsify it — no code. The lead rules
 on that list as decision 167.
 
+**167 — C12's mechanism, chosen on the trace (F74): the window and the box move TOGETHER
+to the arithmetic bar — the per-pair window with decision 162's COMPLETE first-order error
+model, the same-point box EXACT — and the silent single-edge child drop becomes a loud
+step failure; the concurrent-ring terminal rung is the held fallback.** Principle: 162(a)
+and (b) as ruled — the box is the window's counterpart; 141 admits the sub-floor structure
+a sequential resolution produces; 157 is respected because the window releases only what
+a stated error model cannot order. What the trace settled: the per-pair window alone
+fails native hubs ONLY through the held box, which re-joins a later layer's merge onto an
+orphan edge's own source and leaves a one-edge ring that `stepAlgorithm` drops silently
+(algorithm-termination-cases.ts:1134) — with the box exact, every regular circle, Circle
+48 at every translation and the whole Circle 32 ladder solve at the division-only per-pair
+bar. Why the complete error model is REQUIRED, not optional: at native placement Circle
+48's 48 hub arrivals are concurrent to 2.7e-14 (3.2 moment bars) and the two clean
+digests that moved (Peanut 32, Deformed Peanut 2) differ by 5e-15 against a 2.9e-15 bar —
+rounding in the bases, rates and source offsets that the division-only budget does not
+charge; a model that charges them (F71 estimated ~1e-14) should gather each of those
+meetings into ONE layer and leave those digests unmoved. That is the conviction: with
+the complete model, Circle 48 native, Peanut 32 and Deformed Peanut 2 do not move; if
+they still fan, the model is incomplete or the concurrent-ring rung (the delegate's option
+2: an n-ring whose walls are concurrent within their Cramer bound terminates at one node,
+closing C10's mechanism too) is added as the complement. Rejected: option (b) (every
+arrival its own node — answers questions below the moment bar, F73's class), option (c)
+(the struck perceptual pass). Accepted cost: attributed movement on the three defect
+fixtures and the recursion/tiling pins where sub-floor fans are now real structure; STOP
+if any moved cell carries a causality or tiling violation. Dispatched to Opus.
+
 ---
 ## Findings
+
+**F74 — C12 DIAGNOSED (delegate's read-only trace on `b1d4c8b`, lead not re-run): a
+jittered hub does NOT fail under arithmetic-order resolution because its events are
+distinct; it fails because the window moved while the box stayed, and with both at the
+arithmetic bar every regular circle and Circle 48 at every translation solve.** Native
+Circle 48 is bit-identical to a regular 48-gon; its 2256 hub events span 2.7e-14 in time
+(3.2 moment bars) and its walls are concurrent to 6.5e-14 — the whole fan is rounding,
+and F71's "~1e-9 distinct arrivals" is AMENDED: that spread exists only at translated
+placements and comes from the spatial clustering's medoid, not the time window. Failure
+mechanism under the per-pair window with the box held, class RESOLUTION: step 1 gathers
+22 of 2256 events into one node n48; at step 5 a ring [59, 60, 61, 62, 99] merges its four
+original edges, the box joins that merge ONTO n48 — which is e99's own source, born 1.3e-15
+LATER than the arrivals it must meet — and e99 is left as a one-edge child that
+`stepAlgorithm` filters silently; three unresolved edges, no diagnostic. The refusal
+detector refused nothing: no edge was claimed twice. Twenty of 62 regular circles fail
+this way. Control: per-pair window + exact box solves all 62, Circle 48 native as 4 hub
+nodes 1e-16 to 5e-15 apart joined by 1e-15 edges, the fine grid 92/92, the ladder 48/48;
+core 5794 with that configuration fails 31 tests in 10 suites, all digest/pin movement on
+Circle 48, Peanut 32, Deformed Peanut 2, three defect fixtures, the census, tiling and I2
+— none yet checked for violations. **F72 is FALSIFIED and STRUCK**: under the per-pair
+window the >64-ulp join bucket grows 44 → 603, and of the 44 held joins only 3 are
+window-displaced nodes; 41 are the box absorbing a GENUINELY LATER OR EARLIER event
+1e-10 to 4e-7 away in time at translated or jittered hubs — distinct events, admissible
+as distinct nodes under 141 once the box is exact. So C11 dissolves into C12 by the box
+going exact, not by the window. Other per-pair failure classes with the box held:
+PARTITION at Circle 48 2e8–1e9, Rosette5 40 1e8–1e10 (with 8 causality violations),
+GENERATION at three Circle 32 ladder cells; all complete with the exact box. The
+delegate's ranked mechanisms and pick are adopted in decision 167.
 
 **F73 — A bisector flipped by a rounding-sized rate sign makes Golf Cart a SILENT wrong
 answer that all four causality oracles miss and only the tiling identity catches.** From
@@ -1003,7 +1059,7 @@ answer is GLOBAL (the tree property, the tiling). Consequence for the instrument
 (or the tree property, which is cheaper) is the candidate fifth check for the solver's own
 diagnostics. Register **C13**. Not re-run by the lead.
 
-**F72 — The 43 unexplained node joins of C11 lie in exactly the range of displacement a
+**F72 — STRUCK by F74 (falsified: the >64-ulp bucket GROWS under the per-pair window, and 41 of the 44 joins are the box absorbing genuinely distinct events, not window displacement). Original: The 43 unexplained node joins of C11 lie in exactly the range of displacement a
 1e-8 simultaneity window creates, so the same-point box is the window's downstream
 absorber, and the two literals are ONE hand-tuned system.** Lead's reading of dispatch
 1's histogram under decision 162: the joins are 7e-10 to 1.16e-8 from their node,
