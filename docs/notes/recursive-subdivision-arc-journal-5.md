@@ -970,6 +970,23 @@ after rebuilds — match. Committed as the C8 dispatch-3 code commit. C8 is CLOS
 package: every tolerance in the solver is derived or is one of the three documented
 members of the C12 set.**
 
+**166 — C12 opens with a READ-ONLY DIAGNOSIS (decision 163), dispatched to Opus on
+`9eb131e`; the lead chooses the mechanism on the trace.** The trace must answer, with the
+solver's own numbers: (1) at a jittered hub (Circle 48 native; the regular circles of the
+vertex-count sweep), what the 1e-8 window does today — how many arrivals each layer
+gathers, where the node lands, how far each arrival's true meeting point is from it; (2)
+with the window at the per-pair bar (decision 160's landed machinery, toggled on), the
+exact step at which the solve fails, the wavefront state at that step, what the refusal
+detector ("an edge claimed twice") saw and did not see, and whether the failure is in
+event generation (a true event not found), in resolution (an event resolved into an
+inconsistent state), or in the partition; (3) F72's prediction: under the per-pair window
+does the >64-ulp bucket of the node-join histogram empty; (4) whether the three C11
+bypass paths (whole-event merge onto an earlier node, terminal triangle, split) are
+where the per-pair solve breaks, i.e. whether C11 and C12 are one defect; (5) a ranked
+list of candidate mechanisms with, for each, the principle it rests on (141, 155, 157,
+162), what it changes, and what measurement would falsify it — no code. The lead rules
+on that list as decision 167.
+
 ---
 ## Findings
 
