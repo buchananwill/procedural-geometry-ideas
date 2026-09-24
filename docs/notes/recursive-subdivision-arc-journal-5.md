@@ -741,6 +741,20 @@ fence of decision 112(e) and the visible-corner refusal of 124(b) are untouched;
 C4's "discriminating fixture for the ratio constant" is CLOSED as moot. Remaining user
 rulings: T2, T12.
 
+**157 — (user, 2026-09-24) T2 of the C8 spec, the category rule, is RATIFIED: the
+perceptual floor is a RELEASE from asking further questions, never an override of a
+deterministic answer already given.** The user's words, near-verbatim: "The purpose of the
+perceptual floor is to avoid wasting effort on imperceptible differences, especially given
+that arithmetic is computationally bounded. Perceptual floor is release from needing to
+ask further questions; perceptual floor does not try to override deterministic answers
+that have already been given." Consequence: T2 stands as written — a comparison that
+decides a question before any node exists takes δ; a comparison whose acceptance would
+discard or substitute a produced answer takes u; a division guard takes its own rounding
+bound — and it is the implementer's rule for every site the census classifies, including
+any site a future package adds. Decisions 141 and 157 together are the contract of the
+floor: a boundary condition on undecidable questions, a release from imperceptible ones,
+and never a filter on answers. Remaining user ruling: T12.
+
 ---
 ## Findings
 
