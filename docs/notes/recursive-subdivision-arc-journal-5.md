@@ -725,6 +725,22 @@ exceeds δ the form is moot in practice and is restated anyway for coherence, wi
 digest expected not to move. (c) The gated form (c) of O2 stays in reserve only as a
 STOP response, not as a design. Remaining user rulings: T2, T12, O4.
 
+**156 — (user, 2026-09-24) O4 of the C8 spec is RULED: `MAX_WEIGHT_RATIO = 100` is
+replaced by the derived coherence bound `maxWeightRatio(δ) = δ / (64·√2·u)`, about 1e8
+at the library floor; the door refuses only where the narrowest simultaneity window
+would fall inside the arithmetic moment bar.** The user's words: "Guards pathological,
+doesn't insist on a concrete product opinion." Lead's confirmation of legitimacy: the
+ceiling's two former jobs are both discharged elsewhere — the W48 fusing hazard by the
+per-pair window on the faster participant (T13), the F48 conditioning hazard by the
+per-vertex turn guard `minWeightTurnSine(δ, Δw)` (T21), which at a weight difference of
+1e8 admits a weight change only at a corner with sine ≥ ~0.125 — so what remains is
+exactly the coherence constraint the derived bound states. Consequences: the bound is a
+function of δ (~1e9 at the demo floor) and ports as one; decision 119's constant and
+decision 128's ladder are superseded on this point, noted in place; the zero/infinite
+fence of decision 112(e) and the visible-corner refusal of 124(b) are untouched; register
+C4's "discriminating fixture for the ratio constant" is CLOSED as moot. Remaining user
+rulings: T2, T12.
+
 ---
 ## Findings
 
