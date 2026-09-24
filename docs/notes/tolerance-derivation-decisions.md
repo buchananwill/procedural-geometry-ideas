@@ -1,11 +1,13 @@
 ---
 title: "Tolerance derivation: decision spec"
 type: design
-status: draft
+status: ratified
 date: 2026-09-24
 ---
 
 # Tolerance derivation: decision spec
+
+**RATIFIED 2026-09-24 (journal-5 decision 158).** Rulings applied: T2 ratified by the user (decision 157: the floor is a release from further questions, never an override of an answer already given); T12 ratified by the user (decision 158: simultaneity is perceptual and NOT transitive); O1 ruled by its histogram (decision 154, with the ruling rule stated there); O2 ruled (a) ANCHORED (decision 155 — approximate equality is never transitive; the same principle reaches decision 78's spatial clustering, whose component diameters are censused and bounded); O3 ruled by its settling measurement (lead); O4 ruled to the derived bound `maxWeightRatio(δ) = δ/(64√2·u)` (decision 156); O5 classification only (lead); T7 and T18 ruled by the lead (decision 153); T34 is journal F68. Implementation in two dispatches per decision 158.
 
 ## Intent
 

@@ -755,6 +755,23 @@ any site a future package adds. Decisions 141 and 157 together are the contract 
 floor: a boundary condition on undecidable questions, a release from imperceptible ones,
 and never a filter on answers. Remaining user ruling: T12.
 
+**158 — (user, 2026-09-24) T12 is RATIFIED — simultaneity is perceptual, and NOT
+transitive (decision 155) — and with it the C8 spec is RATIFIED; the implementation goes
+to Opus in TWO dispatches.** The user's words: "Yes, simultaneity is perceptual, but not
+transitive, as already discussed." Spec status moves to ratified with the rulings noted
+at its head: O1 by histogram (154), O2 anchored (155), O3 by its settling measurement
+(lead), O4 the derived bound (156), O5 classification only (lead), T2 (157), T7 and T18
+(153). **Dispatch 1** — measurements FIRST, then the frame and the window: O1's histogram
+and its ruling rule; the component-diameter census of decision 155(b) and its restatement;
+O3's declines both ways and its ruling; T9's band population; T15's window census re-run
+as the pre-change table; then T1, T4, T5, T7, T8, T9, T12–T16 (the window at δ, anchored,
+per pair, at all seven sites, each attributed by toggle), T19, T20, T21, T22, T25, T26,
+T36's test for what has landed, T37's STOPs. **Dispatch 2**, on dispatch 1's tree because
+T33 requires the window at δ first — T17, T18 (the fourth oracle into the solver), T23,
+T24, T29–T32 (the four F64 sites), the coherence table asserted, the remainder of T36, the
+C++ notes carried to the handoff. Baseline for dispatch 1: `2986d46` plus the spec's
+status commit; core 5726/5726 (87 suites), dashboard 331/331, digest 60.
+
 ---
 ## Findings
 
