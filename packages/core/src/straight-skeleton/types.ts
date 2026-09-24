@@ -46,15 +46,17 @@ export interface Arrival {
     distance: number;
     weight: number;
     /**
-     * The PRICING ERROR BUDGET of `distance`: a first-order bound, in the same (unit-space, before
-     * denormalisation) length as `distance`, on how far the arithmetic that priced this arrival can
-     * have placed it from the exact answer for the doubles it was given (C8 spec T12 as amended,
-     * journal decision 160(a) — O1(b)'s per-event budget applied to time). Set ONCE, where the arrival
-     * is priced: `k·u·|sep| / sin²θ` at a ray intersection, the divisor's own rounding bound at a
-     * head-on meeting and a split, and `0` where nothing was priced (a stored position, a birth, a
-     * bound). `pairSimultaneityWindow` widens a pair's simultaneity window by the two budgets, never
-     * past the perceptual floor — landed and measured, but NOT spent: its move to the seven window sites
-     * hit T37's STOPs in C8 dispatch 2 (see `HELD_SIMULTANEITY_WINDOW`).
+     * The ERROR BUDGET of `distance`: a first-order bound, in the same (unit-space, before
+     * denormalisation) length as `distance`, on how far the computed distance can lie from the
+     * distance of the EXACT geometry the solver was given — the stored input doubles (journal-5
+     * decisions 162(a) and 167, register C12: the COMPLETE first-order model). It charges every
+     * rounding on the route: the bases' direction errors, the offset rate's forward error, the source
+     * offset (and the source node's own carried position budget), the division, and the final
+     * products and sums — see `arrivalUncertainty` and the error-model section of constants.ts. Set
+     * ONCE, where the arrival is priced; `0` only for a quantity with no arithmetic in it (a boundary
+     * vertex's zero, a bound). `pairSimultaneityWindow` widens a pair's simultaneity window by the two
+     * budgets — landed and measured, but NOT spent: register C12's move of the seven window sites to it
+     * STOPPED (see `HELD_SIMULTANEITY_WINDOW`).
      */
     uncertainty: number;
 }
@@ -123,7 +125,12 @@ export interface GraphHelpers {
     acceptAll(edgeIds: number[]): void;
     isAccepted(edgeId: number): boolean;
     isAcceptedInterior(edge: InteriorEdge): boolean;
-    findOrAddNode(position: Vector2): PolygonNode;
+    /**
+     * The node at exactly `position`, created if none exists. `positionUncertainty` is the position's
+     * first-order error budget (journal-5 decision 167), recorded on
+     * `StraightSkeletonSolverContext.positionUncertainties`; `0` for a stored position.
+     */
+    findOrAddNode(position: Vector2, positionUncertainty: number): PolygonNode;
     findSource(edgeId: number): PolygonNode;
     sourcePosition(edgeId: number): Vector2;
     edgeRank(edgeId: number): EdgeRank;
@@ -138,7 +145,8 @@ export interface GraphHelpers {
     clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2;
     /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
     widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2;
-    terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode;
+    /** Terminate `edgeIds` at the node at `position` ({@link findOrAddNode}), carrying its error budget. */
+    terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode;
     crossWireEdges(id1: number, id2: number): void;
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
@@ -180,16 +188,29 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
      */
     angularResolution: number;
     /**
-     * THE simultaneity window for this solve, as a length (C8 spec T5, T12–T14; journal decisions 155
-     * and 158): two arrivals are one moment of the wavefront clock when `|d₁·w₂ − d₂·w₁| <
-     * simultaneityWindow · min(w₁, w₂)`, anchored on the earliest arrival, never transitive. Derived
-     * once from {@link perceptualFloor} by `simultaneityWindow` at context construction and carried
-     * here beside {@link coaxialityFloor} and {@link angularResolution}, so every window site — the
-     * layer, the phantom test, the snap's equal-time check, the closure's simultaneity and the three
+     * THE CAP of the simultaneity window for this solve, as a length (C8 spec T5, T12–T14; journal
+     * decisions 155, 158, 160 and 167): two arrivals are one moment of the wavefront clock when
+     * `|d₁·w₂ − d₂·w₁|` is inside their PAIR's window — the moment bar widened by their two error
+     * budgets — and never wider than `simultaneityWindow · min(w₁, w₂)`; anchored on the earliest
+     * arrival, never transitive (`compareArrivalsAtPairWindow`). Derived once from
+     * {@link perceptualFloor} by `simultaneityWindow` at context construction and carried here beside
+     * {@link coaxialityFloor} and {@link angularResolution}, so every window site — the layer, the
+     * phantom test, the snap's equal-time check, the closure's simultaneity and the three
      * birth-causality tests — can spend one double. NOT YET SPENT: the sites hold
-     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under C8 dispatches 1 and 2's T37 STOPs; see constants.ts.
+     * `HELD_SIMULTANEITY_WINDOW` (1e-8) under the T37 STOPs of C8 dispatches 1 and 2 and of register
+     * C12; see constants.ts.
      */
     simultaneityWindow: number;
+    /**
+     * Each node's POSITION ERROR BUDGET, indexed by node id (journal-5 decision 167, part (iii) of the
+     * complete first-order model): how far the node's stored position can lie from the exact point of
+     * the geometry the solver was given. `0` for a boundary vertex (a stored input double); for an
+     * interior node, the budget of the event position that created it — the largest, where several
+     * events land on one node. Read wherever a bisector sourced at the node is priced, so a priced
+     * position's error is CARRIED into every arrival downstream of it. A length in the graph's space:
+     * unit space during the solve, carried to caller space with the graph. Not carried across a merge.
+     */
+    positionUncertainties: number[];
     /**
      * Informational reports the SOLVE itself made, as opposed to the boundary stage.
      *
@@ -233,6 +254,8 @@ export interface SplitOffsetResult {
     /** The pair every predicate reads (W-spec W7). */
     arrival: Arrival;
     position: Vector2;
+    /** `position`'s first-order error budget (journal-5 decision 167). */
+    positionUncertainty: number;
     intersectionData: IntersectionResult;
 }
 
@@ -241,6 +264,11 @@ export interface CollisionEvent {
     offsetDistance: number;
     /** The pair every predicate reads (W-spec W7, W22). */
     arrival: Arrival;
+    /**
+     * The first-order error budget of `position` against the exact geometry (journal-5 decision 167):
+     * carried onto the node the event creates (`StraightSkeletonSolverContext.positionUncertainties`).
+     */
+    positionUncertainty: number;
     collidingEdges: number[]; // first two are instigator and main result, i.e. exterior edge if split, otherwise intersection. Other indices if present are bisector rays to also accept in this event.
     position: Vector2;
     intersectionData: IntersectionResult

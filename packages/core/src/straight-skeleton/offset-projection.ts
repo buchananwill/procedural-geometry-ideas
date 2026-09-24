@@ -707,6 +707,22 @@ function makeEndpoint(bisector: AliveBisector, edgeSource: Vector2, edgeBasis: V
 }
 
 /**
+ * Does this segment have any length at all? Census S5: the arithmetic same-point bar, held with S1 at its
+ * historical box (C8 spec T8; see `ARITHMETIC_SAME_POINT_BOX`). It runs in CALLER space and is not yet
+ * scaled by the projection's own scale, which is T8's second half.
+ *
+ * IT CANNOT BE EXACT, MEASURED (register C12, journal-5 decision 167): a zero-length segment's two ends are
+ * two DIFFERENT bisectors' positions at the offset, computed apart, and they differ by ulps; read as
+ * coordinate equality, the segment is kept and its ring repeats a vertex — 35 rings across 17 fixtures in
+ * `offset-event-boundary-regression.test.ts` ("never returns a ring with a repeated vertex"), and the
+ * square's wavefront one nanometre before its final event with it. Its bar is a question about two
+ * computed positions, not about one stored node, so it needs their error budget, not identity.
+ */
+function segmentHasLength(segment: WavefrontSegment): boolean {
+    return !vectorsAreEqual(segment.startPosition, segment.endPosition, ARITHMETIC_SAME_POINT_BOX);
+}
+
+/**
  * Turn one closed run of wavefront segments into a ring.
  *
  * Zero-length segments are dropped: a segment whose two ends coincide contributes no geometry, and
@@ -714,10 +730,7 @@ function makeEndpoint(bisector: AliveBisector, edgeSource: Vector2, edgeBasis: V
  * still chained, because a zero-length segment's two ends are the same point.
  */
 function makeRing(cycle: WavefrontSegment[]): OffsetRing | null {
-    // Census S5: the arithmetic same-point bar, held with S1's O1 STOP at its historical box
-    // (C8 spec T8; see `ARITHMETIC_SAME_POINT_BOX`). It runs in CALLER space and is not yet scaled by
-    // the projection's own scale, which is T8's second half and moves with O1's ruling.
-    const kept = cycle.filter(segment => !vectorsAreEqual(segment.startPosition, segment.endPosition, ARITHMETIC_SAME_POINT_BOX));
+    const kept = cycle.filter(segmentHasLength);
     if (kept.length < 3) {
         return null;
     }
@@ -805,7 +818,7 @@ function assembleRings(segments: WavefrontSegment[], offset: number): OffsetProj
                 bisectorIds: chainBisectorIds(cycle),
                 segmentCount: cycle.length,
                 keptSegmentCount: cycle.filter(
-                    segment => !vectorsAreEqual(segment.startPosition, segment.endPosition, ARITHMETIC_SAME_POINT_BOX)).length,
+                    segmentHasLength).length,
             });
             continue;
         }

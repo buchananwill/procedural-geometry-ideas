@@ -45,6 +45,7 @@ function event(offsetDistance: number, collidingEdges: number[], eventType: Coll
         arrival: {distance: offsetDistance, weight: 1, uncertainty: 0},
         collidingEdges,
         position: {x: 0, y: 0},
+        positionUncertainty: 0,
         intersectionData: [CONVERGING[0], CONVERGING[1], CONVERGING[2]],
         eventType,
     };

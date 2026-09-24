@@ -77,7 +77,7 @@ describe('sourceOffsetDistance', () => {
         }
 
         const sourcePos = {x: 3 * (1 + Math.sqrt(2)) / 2, y: 4.5};
-        const node = context.findOrAddNode(sourcePos);
+        const node = context.findOrAddNode(sourcePos, 0);
         const secEdgeId = createBisectionInteriorEdge(context, 1, 7, node.id);
         const secEdge = context.getInteriorWithId(secEdgeId);
 

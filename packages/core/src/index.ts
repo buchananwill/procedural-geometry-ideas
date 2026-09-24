@@ -147,6 +147,8 @@ export {
   compareArrivals,
   laterArrival,
   pairSimultaneityWindow,
+  compareArrivalsAtPairWindow,
+  arrivalsAreSimultaneous,
   rayIntersectionUncertainty,
   sourceOffsetDistance,
   timeOf,

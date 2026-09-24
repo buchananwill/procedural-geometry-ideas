@@ -17,9 +17,26 @@ import {
     rotateCw90,
     subtractVectors,
 } from "./core-functions";
-import {weightedRateSumRoundingBound} from "./constants";
+import {
+    arrivalUncertainty,
+    BASIS_LENGTH_ERROR,
+    offsetRateForwardError,
+    pointAlongRayUncertainty,
+    UNIT_ROUNDOFF,
+    WALL_DIRECTION_ERROR,
+    weightedRateSumForwardBound,
+    weightedRateSumRoundingBound,
+} from "./constants";
 import {intersectRays} from "./intersection-edges";
-import {sourceOffsetDistance, timeOf} from "./collision-helpers";
+import {
+    exteriorRayTerms,
+    interiorDirectionError,
+    interiorRayTerms,
+    nodePositionUncertainty,
+    rayIntersectionUncertainty,
+    sourceOffsetWithBudget,
+    timeOf
+} from "./collision-helpers";
 
 /**
  * The perpendicular distance of `point` from the supporting LINE of `edge`, measured on the inward
@@ -91,19 +108,48 @@ function findOffsetViaIncenter(
         return null;
     }
 
-    const sourceFromParent = sourceOffsetDistance(instigatorData, context);
+    const [sourceFromParent, sourceFromParentBudget] = sourceOffsetWithBudget(instigatorData, context);
     const sourceFromSplit = distanceFromEdgeLine(instigatorRay.sourceVector, edgeToSplit, context);
 
     const alongInstigator =
         (sourceFromSplit * clockwiseWeight - sourceFromParent * splitWeight) / divisor;
     const travelledOffset = alongInstigator * rateAgainstParent;
+    const distance = sourceFromParent + travelledOffset;
+
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
+    // charged only the divisor's backward rounding; the travel `a = N/Δ` also carries its numerator's
+    // inputs and the two rates' FORWARD errors:
+    //
+    //     E_E₀ = e_P + |P − A|·(η_e + 3u) + λ·|E₀|  the source's distance from the split line (the line's
+    //                                              turn about its stored source A, the subtraction and
+    //                                              the dot's rounding, the normal's length error)
+    //     E_Δ  = w_e·E_r + w_cw·E_q + 2u·(|r·w_e| + |q·w_cw|)
+    //     E_N  = w_cw·E_E₀ + w_e·E_D₀ + 3u·(|E₀·w_cw| + |D₀·w_e|)
+    //     E_a  = E_N/|Δ| + |a|·E_Δ/|Δ| + u·|a|
+    //
+    // and the arrival `D₀ + a·r` is then `arrivalUncertainty`'s form, the event point `P + a·b̂`
+    // `pointAlongRayUncertainty`'s.
+    const sourceBudget = nodePositionUncertainty(context, context.getEdgeWithId(instigatorData.id).source);
+    const directionError = interiorDirectionError(instigatorData, context);
+    const rateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateAgainstParent);
+    const towardsSplitError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, rateTowardsSplit);
+    const fromSplitSource = subtractVectors(instigatorRay.sourceVector, context.sourcePosition(edgeToSplit.id));
+    const sourceFromSplitBudget = sourceBudget
+        + Math.hypot(fromSplitSource.x, fromSplitSource.y) * (WALL_DIRECTION_ERROR + 3 * UNIT_ROUNDOFF)
+        + BASIS_LENGTH_ERROR * Math.abs(sourceFromSplit);
+    const divisorBudget = weightedRateSumForwardBound(
+        termAgainstParent, termTowardsSplit, clockwiseWeight, splitWeight, rateError, towardsSplitError);
+    const numeratorBudget = clockwiseWeight * sourceFromSplitBudget + splitWeight * sourceFromParentBudget
+        + 3 * UNIT_ROUNDOFF * (Math.abs(sourceFromSplit * clockwiseWeight) + Math.abs(sourceFromParent * splitWeight));
+    const alongBudget = numeratorBudget / Math.abs(divisor)
+        + Math.abs(alongInstigator) * divisorBudget / Math.abs(divisor)
+        + UNIT_ROUNDOFF * Math.abs(alongInstigator);
+
     const arrival: Arrival = {
-        distance: sourceFromParent + travelledOffset,
+        distance,
         weight: clockwiseWeight,
-        // THE SPLIT'S OWN PRICING ERROR BUDGET (C8 spec T12 as amended, journal decision 160(a)): the
-        // divisor carries at most `divisorBound` (S33's bound), so the quotient — and the offset it buys,
-        // `alongInstigator · rateAgainstParent` — carries that fraction of itself, to first order.
-        uncertainty: Math.abs(travelledOffset) * divisorBound / Math.abs(divisor),
+        uncertainty: arrivalUncertainty(
+            sourceFromParentBudget, rateAgainstParent, rateError, alongInstigator, alongBudget, distance, false),
     };
 
     // Discard negative arrivals. The weight is positive, so the sign is the distance's.
@@ -123,7 +169,14 @@ function findOffsetViaIncenter(
         instigatorRay, context.projectRay(edgeToSplit), context.coaxialityFloor,
         context.angularResolution);
 
-    return {offsetDistance: timeOf(arrival), arrival, position, intersectionData};
+    return {
+        offsetDistance: timeOf(arrival),
+        arrival,
+        position,
+        positionUncertainty: pointAlongRayUncertainty(
+            sourceBudget, alongInstigator, alongBudget, directionError, position),
+        intersectionData,
+    };
 }
 
 /**
@@ -166,12 +219,39 @@ function findOffsetByDirectStrike(
     const distanceToSplitAlongInstigator =
         rayLength1 * negativeInstigatorCrossTarget * clockwiseWeight / crossSumDivisor;
     const distance = distanceToSplitAlongInstigator * crossClockwiseParent;
+
+    // THE SPLIT'S ERROR BUDGET, COMPLETE TO FIRST ORDER (journal-5 decisions 162(a), 167). C8 dispatch 2
+    // charged only S34's divisor rounding, and — dispatch 2's interpretation 2 — NOT the intersection
+    // behind `rayLength1`, which is `intersectRays`' travel of the instigator to the split edge's line and
+    // carries that intersection's whole budget. With `a = L₁·n·w_cw/Δ`, `n = cross(−b̂, ê)`:
+    //
+    //     E_L₁ = rayIntersectionUncertainty(instigator, split edge)       (bases, sources, division)
+    //     E_n  = η_b + η_e + k·u                                          (a rate's forward error)
+    //     E_Δ  = w_e·E_r + w_cw·E_n + 2u·(|r·w_e| + |n·w_cw|)
+    //     E_a  = (E_L₁·|n| + |L₁|·E_n)·w_cw/|Δ| + |a|·E_Δ/|Δ| + 3u·|a|
+    //
+    // The arrival `a·r` has no source term — the primary-only assumption this form has always made (a
+    // primary instigator's source lies on its clockwise parent's line, `s = 0` exactly).
+    const [, rayLength2] = initialIntersection;
+    const sourceBudget = nodePositionUncertainty(context, context.getEdgeWithId(instigatorData.id).source);
+    const directionError = interiorDirectionError(instigatorData, context);
+    const rateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, crossClockwiseParent);
+    const targetRateError = offsetRateForwardError(directionError, WALL_DIRECTION_ERROR, negativeInstigatorCrossTarget);
+    const rayLength1Budget = rayIntersectionUncertainty(
+        instigatorRay, context.projectRay(edgeToSplit),
+        interiorRayTerms(instigatorData, context, rayLength1), exteriorRayTerms(rayLength2));
+    const divisorBudget = weightedRateSumForwardBound(
+        termClockwiseParent, termTarget, clockwiseWeight, splitWeight, rateError, targetRateError);
+    const alongBudget = (rayLength1Budget * Math.abs(negativeInstigatorCrossTarget)
+            + Math.abs(rayLength1) * targetRateError) * clockwiseWeight / Math.abs(crossSumDivisor)
+        + Math.abs(distanceToSplitAlongInstigator) * divisorBudget / Math.abs(crossSumDivisor)
+        + 3 * UNIT_ROUNDOFF * Math.abs(distanceToSplitAlongInstigator);
+
     const arrival: Arrival = {
         distance,
         weight: clockwiseWeight,
-        // THE SPLIT'S OWN PRICING ERROR BUDGET (C8 spec T12 as amended): S34's divisor bound, carried
-        // into the quotient as a relative error to first order — the same form as the incenter path.
-        uncertainty: Math.abs(distance) * divisorBound / Math.abs(crossSumDivisor),
+        uncertainty: arrivalUncertainty(
+            0, crossClockwiseParent, rateError, distanceToSplitAlongInstigator, alongBudget, distance, false),
     };
 
     const position = findPositionAlongRay(instigatorRay, distanceToSplitAlongInstigator);
@@ -180,6 +260,8 @@ function findOffsetByDirectStrike(
         offsetDistance: timeOf(arrival),
         arrival,
         position,
+        positionUncertainty: pointAlongRayUncertainty(
+            sourceBudget, distanceToSplitAlongInstigator, alongBudget, directionError, position),
         intersectionData: initialIntersection,
     };
 }
@@ -225,6 +307,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
 
     return {
         position: result.position,
+        positionUncertainty: result.positionUncertainty,
         intersectionData: result.intersectionData,
         collidingEdges: [instigatorData.id, edgeToSplit.id],
         offsetDistance: result.offsetDistance,
@@ -323,7 +406,8 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                 arrival: directResult.arrival,
                 collidingEdges: [instigatorId, targetId],
                 eventType: 'interiorAgainstExterior',
-                position: directResult.position
+                position: directResult.position,
+                positionUncertainty: directResult.positionUncertainty,
             };
         }
     }
@@ -361,6 +445,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     return {
         position: incenterResult.position,
+        positionUncertainty: incenterResult.positionUncertainty,
         intersectionData: incenterResult.intersectionData,
         collidingEdges: [instigatorId, targetId],
         offsetDistance: incenterResult.offsetDistance,

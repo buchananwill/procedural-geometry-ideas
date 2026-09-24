@@ -16,7 +16,13 @@ import {
 } from "./core-functions";
 import {interiorEdgeIndex} from "./graph-helpers";
 import {intersectRays} from "./intersection-edges";
-import {arrivalOf, rayIntersectionUncertainty, timeOf} from "./collision-helpers";
+import {
+    arrivalOf,
+    exteriorRayTerms,
+    interiorRayTerms,
+    rayIntersectionUncertainty,
+    timeOf
+} from "./collision-helpers";
 
 /**
  * `addBisectionEdge`'s zero-rate sine bar, HELD (census S19). Three re-derivations were measured and
@@ -254,6 +260,13 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     // the exact rate is ±7.28e-16, the computed value; the regions' larger tilts are that same ulp read on
     // shorter, re-normalised walls. The rates this site must not price by sign are TRUE rates of a
     // sub-perceptual tilt, which no rounding bound on the rate separates from e70's −6.22e-9.
+    //
+    // REGISTER C12 MEASURED IT AGAIN, AS THE THIRD MEMBER OF THE WINDOW/BOX SET (journal-5 decisions 165,
+    // 167(d)), at the forward bound 8u on the tree with the per-pair window and the exact box: at the root
+    // 0 of 642 sweep cells move; in the recursion `Golf Cart`'s level-1 regions still cover 3.23% less than
+    // their canonical area and `Golf Cart` throws in "subdivides without throwing". The window and box
+    // moving did not change it. HELD by inverse edit, and the window and the box are held beside it
+    // (constants.ts, "THE WINDOW AND THE BOX").
     const zeroRate = sineIsBelow(bisectedBasis, context.clockwiseParent(newEdge).basisVector,
         ZERO_RATE_SINE_BAR);
     if (!zeroRate) {
@@ -301,10 +314,11 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
                 context.coaxialityFloor, context.angularResolution);
             if (ray1LengthTarget > 0 && ray2LengthTarget > 0) {
                 // W-spec W16: `maxOffset` is a TIME. At unit weights `distance / 1.0` is exact.
-                // A ray intersection, so it carries the intersection's pricing error budget (C8 spec T12
-                // as amended); only its time is read here, into `maxOffset`.
+                // A ray intersection, so it carries the intersection's error budget (journal-5 decision
+                // 167's complete model); only its time is read here, into `maxOffset`.
                 const time = timeOf(arrivalOf(interiorEdge, context, newRay, ray1Length,
-                    rayIntersectionUncertainty(newRay, exteriorEdgeRay)))
+                    rayIntersectionUncertainty(newRay, exteriorEdgeRay,
+                        interiorRayTerms(interiorEdge, context, ray1Length), exteriorRayTerms(ray2Length))))
                 context.updateMaxOffset(edgeIndex, time)
                 complexLog.info(`EdgeId: ${edgeIndex}, collided edge: ${i}, time: ${time}`)
 

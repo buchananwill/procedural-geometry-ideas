@@ -104,6 +104,7 @@ function makeEvent(overrides: Partial<CollisionEvent> = {}): CollisionEvent {
         arrival: {distance: 3, weight: 1, uncertainty: 0},
         collidingEdges: [4, 5],
         position: {x: 7, y: 9},
+        positionUncertainty: 0,
         intersectionData: [2, 5, 'converging'],
         eventType: 'interiorPair',
         ...overrides,

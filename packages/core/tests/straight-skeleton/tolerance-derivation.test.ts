@@ -1,6 +1,9 @@
 import {
     addBisectionEdge,
     angularResolution,
+    arrivalsAreSimultaneous,
+    birthArrivalOf,
+    compareArrivalsAtPairWindow,
     Arrival,
     ARRIVAL_MOMENT_ULPS,
     checkWavefrontCausality,
@@ -35,6 +38,7 @@ import {
     SKELETON_NOISE_FLOOR,
     solveSkeleton,
     StraightSkeletonGraph,
+    stepAlgorithm,
     subdivideRecursively,
     subtractVectors,
     UNIT_ROUNDOFF,
@@ -42,11 +46,23 @@ import {
 } from '@proc-geo/core';
 import {FULL_CORPUS, OFF_EDGE_JITTER_PLUS_SEED_7919} from '@proc-geo/test-fixtures';
 import * as intersectionEdges from '@proc-geo/core/straight-skeleton/intersection-edges';
+import * as complexCases from '@proc-geo/core/straight-skeleton/algorithm-complex-cases';
 import {offsetRateIsArithmeticZero} from '@proc-geo/core/straight-skeleton/core-functions';
 import {climbTerminalLadder} from '@proc-geo/core/straight-skeleton/algorithm-termination-cases';
 import {
     ARITHMETIC_SAME_POINT_BOX,
+    arrivalUncertainty,
+    BASIS_LENGTH_ERROR,
+    BASIS_LENGTH_ROUNDING_UNITS,
     basisSumRoundingBound,
+    bisectorDirectionError,
+    offsetRateForwardError as rateForwardErrorBound,
+    pointAlongRayUncertainty,
+    rayIntersectionAlongUncertainty,
+    sourceOffsetUncertainty,
+    WALL_DIRECTION_ERROR,
+    WALL_DIRECTION_ROUNDING_UNITS,
+    weightedRateSumForwardBound,
     cramerQuotientRoundingBound,
     DETERMINANT3_ROUNDING_UNITS,
     determinant3RoundingBound,
@@ -397,16 +413,26 @@ describe('T12 as amended (decision 160): the per-pair window, pinned as arithmet
         expect(pairSimultaneityWindow(arrival(0.5, 1, 1e-3), arrival(0.5, 1, 1e-3), 0)).toBe(0);
     });
 
-    it('prices a ray intersection at k·u·|sep| / sin²θ', () => {
+    it('prices a ray intersection\'s travel with the complete model: (e₁ + e₂ + η₁|a| + η₂|t| + k·u·|a| + 5u·D)/|sin θ| + (λ + 2u)·|a|', () => {
+        const u = UNIT_ROUNDOFF;
         for (let draw = 0; draw < 1000; draw++) {
             const theta = 2 * Math.PI * random();
             const phi = theta + 0.01 + 3 * random();
             const ray1 = {sourceVector: {x: random(), y: random()}, basisVector: {x: Math.cos(theta), y: Math.sin(theta)}};
             const ray2 = {sourceVector: {x: random(), y: random()}, basisVector: {x: Math.cos(phi), y: Math.sin(phi)}};
+            const first = {along: 2 * random() - 1, sourceUncertainty: 1e-13 * random(), directionError: 5 * u};
+            const second = {along: 2 * random() - 1, sourceUncertainty: 1e-13 * random(), directionError: 2 * u};
             const sine = crossProduct(ray1.basisVector, ray2.basisVector);
-            const separation = Math.hypot(ray2.sourceVector.x - ray1.sourceVector.x, ray2.sourceVector.y - ray1.sourceVector.y);
-            expect(rayIntersectionUncertainty(ray1, ray2))
-                .toBeCloseTo(CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * separation / (sine * sine), 25);
+            const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
+            const expected = (first.sourceUncertainty + second.sourceUncertainty
+                    + first.directionError * Math.abs(first.along) + second.directionError * Math.abs(second.along)
+                    + CROSS_PRODUCT_ROUNDING_UNITS * u * Math.abs(first.along) + 5 * u * separation) / Math.abs(sine)
+                + (BASIS_LENGTH_ERROR + 2 * u) * Math.abs(first.along);
+            expect(rayIntersectionUncertainty(ray1, ray2, first, second)).toBe(expected);
+            expect(rayIntersectionAlongUncertainty(first, second, separation, sine)).toBe(expected);
+            // C8 dispatch 2's division-only budget is its term (iv), bounded by k·u·D/sin²θ.
+            expect(CROSS_PRODUCT_ROUNDING_UNITS * u * Math.abs(first.along) / Math.abs(sine))
+                .toBeLessThanOrEqual(expected);
         }
     });
 
@@ -416,6 +442,362 @@ describe('T12 as amended (decision 160): the per-pair window, pinned as arithmet
         expect(HELD_SIMULTANEITY_WINDOW).toBe(1e-8);
         expect(compareArrivals(arrival(0.5, 1, 0), arrival(0.5 + 5e-9, 1, 0), HELD_SIMULTANEITY_WINDOW)).toBe(0);
         expect(compareArrivals(arrival(0.5, 1, 0), arrival(0.5 + 1e-7, 1, 0), HELD_SIMULTANEITY_WINDOW)).toBe(-1);
+    });
+
+    it('the per-pair comparison (register C12, landed and unspent): one moment exactly inside the pair window', () => {
+        // `compareArrivalsAtPairWindow` is the comparison C12 moved all seven sites to, and STOPPED (see
+        // constants.ts, "THE WINDOW AND THE BOX"): 0 when |d₁w₂ − d₂w₁| < pairSimultaneityWindow, else the sign.
+        for (let draw = 0; draw < 2000; draw++) {
+            const a = arrival(0.5, 1 + 3 * random(), random() < 0.5 ? 0 : 1e-12 * random());
+            const b = arrival(0.5 + 1e-11 * (random() * 2 - 1), 1 + 3 * random(), random() < 0.5 ? 0 : 1e-12 * random());
+            const difference = a.distance * b.weight - b.distance * a.weight;
+            const expected = difference === 0 || Math.abs(difference) < pairSimultaneityWindow(a, b, SKELETON_NOISE_FLOOR)
+                ? 0 : difference < 0 ? -1 : 1;
+            expect(compareArrivalsAtPairWindow(a, b, SKELETON_NOISE_FLOOR)).toBe(expected);
+            expect(arrivalsAreSimultaneous(a, b, SKELETON_NOISE_FLOOR)).toBe(expected === 0);
+        }
+        // Budgets widen it: 5e-15 apart at a moment bar of 7.1e-15 is one moment; 5e-14 apart is two unless
+        // the budgets cover it.
+        expect(compareArrivalsAtPairWindow(arrival(0.5, 1, 0), arrival(0.5 + 5e-14, 1, 0), SKELETON_NOISE_FLOOR)).toBe(-1);
+        expect(compareArrivalsAtPairWindow(arrival(0.5, 1, 3e-14), arrival(0.5 + 5e-14, 1, 3e-14), SKELETON_NOISE_FLOOR)).toBe(0);
+    });
+});
+
+/*
+ * ============================================================================
+ *  C12 (journal-5 decisions 162(a), 167): THE COMPLETE FIRST-ORDER ERROR MODEL, PINNED AND CONVICTED
+ * ============================================================================
+ *
+ * Every budget formula of constants.ts's error-model section is pinned as the arithmetic it is; the
+ * intersection travel, the arrival and the source offset are then convicted against EXACT arithmetic —
+ * 256-bit fixed point over the doubles' exact dyadic values, with the true unit directions taken by an
+ * integer square root — on random configurations whose bases are NORMALISED COMPUTED vectors, as the
+ * solver's are.
+ *
+ * The model is LANDED and UNSPENT: register C12 spent it at the seven window sites beside an exact box,
+ * the three fixtures of decision 167's conviction stayed unmoved, and the move STOPPED elsewhere (a silent
+ * 1.1% tiling miss, oracle rises, machine-precision tilings lost) — see constants.ts, "THE WINDOW AND THE
+ * BOX". Measured on `FULL_CORPUS` at the library floor, the budgets sit at a median of 1.5 moment bars, a
+ * 99th percentile of 2.1e4 and a maximum of 2.9e13 (near-straight jittered vertices).
+ */
+
+/** 256-bit binary fixed point: enough to hold every product of the doubles below exactly, and a square root to 2⁻²⁵⁶. */
+const FIX = 256n;
+
+function fixed(value: number): bigint {
+    const {mantissa, exponent} = exact(value);
+    const shift = BigInt(exponent) + FIX;
+    return shift >= 0n ? mantissa << shift : mantissa >> -shift;
+}
+
+function fixedTimes(a: bigint, b: bigint): bigint {
+    return (a * b) >> FIX;
+}
+
+function fixedOver(a: bigint, b: bigint): bigint {
+    return (a << FIX) / b;
+}
+
+function integerSqrt(n: bigint): bigint {
+    if (n < 2n) return n;
+    let x = 1n << BigInt(Math.ceil(n.toString(2).length / 2));
+    for (;;) {
+        const y = (x + n / x) >> 1n;
+        if (y >= x) return x;
+        x = y;
+    }
+}
+
+function fixedUnit(x: bigint, y: bigint): [bigint, bigint] {
+    const length = integerSqrt((x * x + y * y));
+    return [fixedOver(x, length), fixedOver(y, length)];
+}
+
+function fixedCross(ax: bigint, ay: bigint, bx: bigint, by: bigint): bigint {
+    return fixedTimes(ax, by) - fixedTimes(bx, ay);
+}
+
+function fixedToNumber(value: bigint): number {
+    return Number(value) / 2 ** 256;
+}
+
+/** A wall `p → q` of random stored doubles: the solver's basis, and the exact unit direction in fixed point. */
+function randomWall(random: () => number): {basis: Vector2; exactDirection: [bigint, bigint]} {
+    const p = {x: random(), y: random()};
+    const theta = 2 * Math.PI * random();
+    const length = 0.05 + random();
+    const q = {x: p.x + length * Math.cos(theta), y: p.y + length * Math.sin(theta)};
+    const [basis] = normalize(subtractVectors(q, p));
+    return {basis, exactDirection: fixedUnit(fixed(q.x) - fixed(p.x), fixed(q.y) - fixed(p.y))};
+}
+
+describe('decision 167: the complete first-order error model, pinned as arithmetic', () => {
+    const random = seededRandom(1670);
+    const u = UNIT_ROUNDOFF;
+
+    it('part (i): a wall turns by 2u; a bisector by (w_ws·(3u|ĉ·b̂| + 4u|ĉ×b̂|) + w_cw·(3u|ŵ·b̂| + 4u|ŵ×b̂|))/|v| + 2u', () => {
+        expect(WALL_DIRECTION_ROUNDING_UNITS).toBe(2);
+        expect(WALL_DIRECTION_ERROR).toBe(2 * u);
+        expect(BASIS_LENGTH_ROUNDING_UNITS).toBe(3);
+        expect(BASIS_LENGTH_ERROR).toBe(3 * u);
+        for (let draw = 0; draw < 2000; draw++) {
+            const [cUnit] = normalize({x: Math.cos(7 * random()), y: Math.sin(7 * random())});
+            const [w] = normalize({x: Math.cos(7 * random()), y: Math.sin(7 * random())});
+            const [cw, ws] = draw % 2 === 0 ? [1, 1] : [1 + 9 * random(), 1 + 9 * random()];
+            const basis = makeWeightedBisectedBasis(cUnit, negateVector(w), cw, ws);
+            const v = {x: ws * cUnit.x - cw * w.x, y: ws * cUnit.y - cw * w.y};
+            const size = Math.sqrt(v.x * v.x + v.y * v.y);
+            const share = (x: Vector2) => 3 * u * Math.abs(x.x * basis.x + x.y * basis.y)
+                + 4 * u * Math.abs(x.x * basis.y - basis.x * x.y);
+            const expected = size <= basisSumRoundingBound(ws, cw)
+                ? 2 * u
+                : (ws * share(cUnit) + cw * share(w)) / size + 2 * u;
+            const error = bisectorDirectionError(cUnit, w, cw, ws, basis);
+            expect(error).toBe(expected);
+            if (cw === 1 && ws === 1 && size > 1e-3) {
+                // Unit weights: the turns average (5u) and the length errors do not (4u·cot(φ/2)).
+                const halfAngle = Math.asin(Math.min(1, size / 2));
+                expect(error / u).toBeCloseTo(5 + 4 / Math.tan(halfAngle), 6);
+            }
+        }
+        // Anti-parallel walls: 5u, the constant's own argument; a right angle: 9u.
+        expect(bisectorDirectionError({x: 1, y: 0}, {x: -1, y: 0}, 1, 1, {x: 1, y: 0}) / u).toBeCloseTo(5, 12);
+        const [diagonal] = normalize({x: 1, y: -1});
+        expect(bisectorDirectionError({x: 1, y: 0}, {x: 0, y: 1}, 1, 1, diagonal) / u).toBeCloseTo(9, 12);
+    });
+
+    it('part (ii): an offset rate\'s forward error is η_b + η_c + k·u + 2λ·|r|', () => {
+        expect(rateForwardErrorBound(5 * u, 2 * u, 0)).toBe(9 * u);
+        for (let draw = 0; draw < 1000; draw++) {
+            const [b, c, r] = [20 * u * random(), 20 * u * random(), 2 * random() - 1];
+            expect(rateForwardErrorBound(b, c, r))
+                .toBe(b + c + CROSS_PRODUCT_ROUNDING_UNITS * u + 2 * BASIS_LENGTH_ERROR * Math.abs(r));
+        }
+    });
+
+    it('part (iii): a source offset\'s budget is e_P + L·(η_c + 4u) + 4u·|s|', () => {
+        for (let draw = 0; draw < 1000; draw++) {
+            const [e, length, offset] = [1e-13 * random(), random(), 2 * random() - 1];
+            expect(sourceOffsetUncertainty(e, length, offset, 2 * u))
+                .toBe(e + length * (2 * u + 4 * u) + 4 * u * Math.abs(offset));
+        }
+    });
+
+    it('the arrival: E_s + |r|·E_a + |a|·(E_r + [substituted]·|r|) + u·(|a·r| + |d|)', () => {
+        for (let draw = 0; draw < 1000; draw++) {
+            const [es, r, er, a, ea, d] = [1e-14 * random(), 2 * random() - 1, 9 * u, random(), 1e-14 * random(), random()];
+            const substituted = random() < 0.2;
+            expect(arrivalUncertainty(es, r, er, a, ea, d, substituted))
+                .toBe(es + Math.abs(r) * ea + a * (er + (substituted ? Math.abs(r) : 0)) + u * (a * Math.abs(r) + d));
+        }
+    });
+
+    it('a point along a ray: e_P + E_a + |a|·(η_b + λ) + 2u·(|a| + ‖X‖₁)', () => {
+        for (let draw = 0; draw < 1000; draw++) {
+            const [e, a, ea, eta] = [1e-14 * random(), 2 * random() - 1, 1e-14 * random(), 5 * u];
+            const point = {x: 2 * random() - 1, y: 2 * random() - 1};
+            expect(pointAlongRayUncertainty(e, a, ea, eta, point))
+                .toBe(e + ea + Math.abs(a) * (eta + BASIS_LENGTH_ERROR)
+                    + 2 * u * (Math.abs(a) + Math.abs(point.x) + Math.abs(point.y)));
+        }
+    });
+
+    it('the head-on and split divisors\' FORWARD bound: w_B·E_rA + w_A·E_rB + 2u·(|termA| + |termB|)', () => {
+        for (let draw = 0; draw < 1000; draw++) {
+            const [termA, termB] = [random() * 2 - 1, random() * 2 - 1];
+            const [weightA, weightB] = [1 + 99 * random(), 1 + 99 * random()];
+            const [errorA, errorB] = [9 * u * random(), 9 * u * random()];
+            expect(weightedRateSumForwardBound(termA, termB, weightA, weightB, errorA, errorB))
+                .toBe(weightB * errorA + weightA * errorB + 2 * u * (Math.abs(termA) + Math.abs(termB)));
+        }
+        // It replaces the backward bound's k·u per rate with the rate's forward error, and so contains it.
+        expect(weightedRateSumForwardBound(1, 1, 1, 1, 9 * u, 9 * u))
+            .toBeGreaterThan(weightedRateSumRoundingBound(1, 1, 1, 1));
+    });
+});
+
+describe('decision 167: the complete model bounds the TRUE error, measured against exact arithmetic', () => {
+    const lane = SKELETON_NOISE_FLOOR;
+    const resolution = angularResolution(SKELETON_NOISE_FLOOR);
+
+    it('contains the true error of a ray intersection\'s travel and of its arrival on 20 000 random intersections', () => {
+        const random = seededRandom(167);
+        let worstTravel = 0;
+        let worstArrival = 0;
+        let roundingTravel = 0;
+        let roundingArrival = 0;
+        let measured = 0;
+        for (let draw = 0; draw < 20_000; draw++) {
+            // Each ray: a stored source carrying a budget e (its true position is inside it), and a basis that
+            // is either a WALL (normalised from stored doubles) or a unit-weight BISECTOR of two such walls.
+            const rays = [0, 1].map(() => {
+                const parent = randomWall(random);
+                const other = randomWall(random);
+                const bisector = draw % 2 === 1;
+                const basis = bisector
+                    ? makeWeightedBisectedBasis(parent.basis, negateVector(other.basis), 1, 1)
+                    : other.basis;
+                const exactDirection: [bigint, bigint] = bisector
+                    ? fixedUnit(parent.exactDirection[0] - other.exactDirection[0], parent.exactDirection[1] - other.exactDirection[1])
+                    : other.exactDirection;
+                const directionError = bisector
+                    ? bisectorDirectionError(parent.basis, other.basis, 1, 1, basis)
+                    : WALL_DIRECTION_ERROR;
+                const source = {x: random(), y: random()};
+                const budget = random() < 0.5 ? 0 : 1e-12 * random();
+                const angle = 2 * Math.PI * random();
+                const exactSource: [bigint, bigint] = [
+                    fixed(source.x) + fixed(0.999 * budget * Math.cos(angle)),
+                    fixed(source.y) + fixed(0.999 * budget * Math.sin(angle)),
+                ];
+                return {ray: {sourceVector: source, basisVector: basis}, exactSource, exactDirection, directionError, budget, parent};
+            });
+            const [one, two] = rays;
+            const [along1, along2, verdict] = intersectRays(one.ray, two.ray, lane, resolution);
+            if (verdict !== 'converging' && verdict !== 'diverging') {
+                continue;
+            }
+            measured += 1;
+
+            const travelBound = rayIntersectionUncertainty(one.ray, two.ray,
+                {along: along1, sourceUncertainty: one.budget, directionError: one.directionError},
+                {along: along2, sourceUncertainty: two.budget, directionError: two.directionError});
+            const separation = [two.exactSource[0] - one.exactSource[0], two.exactSource[1] - one.exactSource[1]];
+            const exactTravel = fixedOver(
+                fixedCross(separation[0], separation[1], two.exactDirection[0], two.exactDirection[1]),
+                fixedCross(one.exactDirection[0], one.exactDirection[1], two.exactDirection[0], two.exactDirection[1]));
+            const travelError = Math.abs(fixedToNumber(fixed(along1) - exactTravel));
+            expect(travelError).toBeLessThanOrEqual(travelBound);
+            worstTravel = Math.max(worstTravel, travelError / travelBound);
+            if (one.budget === 0 && two.budget === 0) {
+                roundingTravel = Math.max(roundingTravel, travelError / travelBound);
+            }
+
+            // The arrival against ray 1's clockwise parent, a primary bisector's `0 + a·r` (the source offset is
+            // exactly 0 there): the travel's budget, the rate's forward error, the product's rounding.
+            const rate = crossProduct(one.ray.basisVector, one.parent.basis);
+            const distance = along1 * rate;
+            const arrivalBound = arrivalUncertainty(0, rate,
+                rateForwardErrorBound(one.directionError, WALL_DIRECTION_ERROR, rate), along1, travelBound, distance, false);
+            const exactDistance = fixedTimes(exactTravel,
+                fixedCross(one.exactDirection[0], one.exactDirection[1], one.parent.exactDirection[0], one.parent.exactDirection[1]));
+            const arrivalError = Math.abs(fixedToNumber(fixed(distance) - exactDistance));
+            expect(arrivalError).toBeLessThanOrEqual(arrivalBound);
+            worstArrival = Math.max(worstArrival, arrivalError / arrivalBound);
+            if (one.budget === 0 && two.budget === 0) {
+                roundingArrival = Math.max(roundingArrival, arrivalError / arrivalBound);
+            }
+        }
+        // A bound, not a fit — and live: rounding error was seen, and nearly every draw was priced. With the
+        // sources exact, the ROUNDING part of the model alone: measured worst 0.32 of the travel bound and
+        // 0.28 of the arrival bound (the turn-only bisector reading of part (i) exceeded it 2.4×, which is how
+        // the length term was found). With a carried source budget the source term is tight by construction
+        // (the true source is placed 0.999 of its budget away), so the carried worst sits just under 1.
+        expect(measured).toBeGreaterThan(19_000);
+        expect(worstTravel).toBeLessThanOrEqual(1);
+        expect(worstArrival).toBeLessThanOrEqual(1);
+        expect(roundingTravel).toBeLessThan(0.5);
+        expect(roundingTravel).toBeGreaterThan(0.05);
+        expect(roundingArrival).toBeLessThan(0.5);
+        expect(roundingArrival).toBeGreaterThan(0.05);
+    });
+
+    it('contains the true error of a source offset on 20 000 random secondary sources', () => {
+        const random = seededRandom(1671);
+        let worst = 0;
+        let rounding = 0;
+        for (let draw = 0; draw < 20_000; draw++) {
+            // The wall `A → B` (stored), a source P (stored, carrying a budget), the offset as `sourceOffsetDistance`
+            // computes it: `cross(normalize(P − A), ĉ) · |P − A|`.
+            const a = {x: random(), y: random()};
+            const theta = 2 * Math.PI * random();
+            const b = {x: a.x + (0.05 + random()) * Math.cos(theta), y: a.y + (0.05 + random()) * Math.sin(theta)};
+            const [basis] = normalize(subtractVectors(b, a));
+            const exactDirection = fixedUnit(fixed(b.x) - fixed(a.x), fixed(b.y) - fixed(a.y));
+            const p = {x: random(), y: random()};
+            const budget = random() < 0.5 ? 0 : 1e-12 * random();
+            const angle = 2 * Math.PI * random();
+            const exactP = [fixed(p.x) + fixed(0.999 * budget * Math.cos(angle)), fixed(p.y) + fixed(0.999 * budget * Math.sin(angle))];
+            const [unit, length] = normalize(subtractVectors(p, a));
+            const offset = crossProduct(unit, basis) * length;
+            const bound = sourceOffsetUncertainty(budget, length, offset, WALL_DIRECTION_ERROR);
+            const exactOffset = fixedCross(exactP[0] - fixed(a.x), exactP[1] - fixed(a.y), exactDirection[0], exactDirection[1]);
+            const error = Math.abs(fixedToNumber(fixed(offset) - exactOffset));
+            expect(error).toBeLessThanOrEqual(bound);
+            worst = Math.max(worst, error / bound);
+            if (budget === 0) {
+                rounding = Math.max(rounding, error / bound);
+            }
+        }
+        // Measured: the rounding part alone at worst 0.33 of its bound.
+        expect(worst).toBeLessThanOrEqual(1);
+        expect(rounding).toBeLessThan(0.5);
+        expect(rounding).toBeGreaterThan(0.05);
+    });
+});
+
+describe('decision 167, part (iii): every node carries its position budget, and every arrival its complete one', () => {
+    it('boundary vertices carry 0; every node the solve placed carries a positive budget', () => {
+        for (const name of ['Default Pentagon', 'Near Regular Peanut 32', 'Off-edge Jitter Plus (seed 7919)']) {
+            const fixture = FULL_CORPUS.find(candidate => candidate.name === name)!;
+            const {context} = solveSkeleton(fixture.vertices);
+            expect(context).not.toBeNull();
+            const {graph, positionUncertainties} = context!;
+            expect(positionUncertainties).toHaveLength(graph.nodes.length);
+            for (const node of graph.nodes) {
+                if (node.id < graph.numExteriorNodes) {
+                    expect(positionUncertainties[node.id]).toBe(0);
+                } else {
+                    expect(positionUncertainties[node.id]).toBeGreaterThan(0);
+                }
+            }
+        }
+    });
+
+    it('a node two events land on answers for both: it keeps the larger budget', () => {
+        const context = makeStraightSkeletonSolverContext(SQUARE, SKELETON_NOISE_FLOOR);
+        const first = context.findOrAddNode({x: 0.5, y: 0.5}, 3e-15);
+        expect(context.positionUncertainties[first.id]).toBe(3e-15);
+        expect(context.findOrAddNode({x: 0.5, y: 0.5}, 7e-15).id).toBe(first.id);
+        expect(context.positionUncertainties[first.id]).toBe(7e-15);
+        expect(context.findOrAddNode({x: 0.5, y: 0.5}, 1e-15).id).toBe(first.id);
+        expect(context.positionUncertainties[first.id]).toBe(7e-15);
+    });
+
+    it('a secondary bisector\'s birth arrival carries its source offset\'s budget, which carries its node\'s', () => {
+        // Every secondary bisector on the peanut: the birth budget is sourceOffsetUncertainty of the source
+        // node's own carried budget — never the 0 the division-only model gave a "stored" source.
+        const {context} = solveSkeleton(FULL_CORPUS.find(candidate => candidate.name === 'Near Regular Peanut 32')!.vertices);
+        const secondaries = context!.graph.interiorEdges.filter(edge => context!.edgeRank(edge.id) === 'secondary');
+        expect(secondaries.length).toBeGreaterThan(0);
+        for (const edge of secondaries) {
+            const birth = birthArrivalOf(edge, context!);
+            const source = context!.findSource(edge.id);
+            expect(birth.uncertainty).toBeGreaterThanOrEqual(context!.positionUncertainties[source.id]);
+            expect(birth.uncertainty).toBeGreaterThan(0);
+        }
+    });
+});
+
+describe('decision 167(c): a child with exactly one live interior edge is a LOUD step failure, never a silent drop', () => {
+    it('reports the orphan edge and its ring as an error, keeps the real child and drops the finished one', () => {
+        // F74's orphan does not arise on this tree (the window and box are held); the rule is pinned by
+        // handing `stepAlgorithm` an n-gon step whose children include one.
+        const context = makeStraightSkeletonSolverContext(SQUARE, SKELETON_NOISE_FLOOR);
+        initInteriorEdges(context);
+        const ids = context.graph.interiorEdges.map(edge => edge.id);
+        const spy = jest.spyOn(complexCases, 'handleInteriorNGon').mockReturnValue({
+            childSteps: [{interiorEdges: [ids[2]]}, {interiorEdges: []}, {interiorEdges: [ids[0], ids[1]]}],
+        });
+        try {
+            const output = stepAlgorithm(context, [{interiorEdges: ids}]);
+            expect(output.childSteps).toEqual([{interiorEdges: [ids[0], ids[1]]}]);
+            expect(output.errors).toHaveLength(1);
+            expect(output.errors![0]).toContain(`e${ids[2]}`);
+            expect(output.errors![0]).toContain(`[${ids.join(', ')}]`);
+        } finally {
+            spy.mockRestore();
+        }
     });
 });
 
@@ -801,9 +1183,9 @@ function closureLadderAt(lateral: number) {
     const [toward, , anchored] = interiorEdgeIds;
     expect(context.clockwiseParent(context.getInteriorWithId(toward)).basisVector).toEqual({x: 0, y: 1});
     expect(context.clockwiseParent(context.getInteriorWithId(anchored)).basisVector).toEqual({x: 0, y: -1});
-    const anchor = context.findOrAddNode({x: 0.5, y: 0.5});
+    const anchor = context.findOrAddNode({x: 0.5, y: 0.5}, 0);
     const towardEdge = context.getEdgeWithId(toward);
-    towardEdge.source = context.findOrAddNode({x: 0.25, y: 0.5 + lateral}).id;
+    towardEdge.source = context.findOrAddNode({x: 0.25, y: 0.5 + lateral}, 0).id;
     towardEdge.basisVector = {x: 1, y: 0};
     const anchoredEdge = context.getEdgeWithId(anchored);
     anchoredEdge.source = anchor.id;

@@ -189,6 +189,15 @@ export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number
  * were one node before and one node after. The defect is the group the node lookup does NOT unify,
  * and only that group is touched.
  *
+ * REGISTER C12 MEASURED THIS BAR EXACT, WITH THE BOX, AND IT IS HELD WITH IT (journal-5 decision 167;
+ * see "THE WINDOW AND THE BOX" in constants.ts). Read as coordinate equality alone it re-points the
+ * re-report groups of seven CLEAN fixtures (`Failing Long Octagon`, `Not Solvable Heptagon`, `Long
+ * Unbroken Side Then Extreme Acute Angle`, `Incorrect Ordering e38-e30 Collision`, both `Premature
+ * Bisector Split`s, `Short Edge Promontory`) — every one a group of reports of ONE split, one instigator,
+ * 0.03 to 1.93 ulps apart — and moves their digests by that much. The exact form that moved no clean
+ * digest also left alone any group whose members all name one instigator, which acceptance already
+ * resolves to one node (the first resolved consumes the instigator; the rest place nothing).
+ *
  * The same ANCHORED grouping as {@link clusterCoincidentMerges} (journal decision 155).
  */
 export function coincidentEventPositions(events: CollisionEvent[], floor: number): Vector2[] {

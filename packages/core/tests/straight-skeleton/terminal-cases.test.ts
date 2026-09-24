@@ -108,7 +108,7 @@ describe('handleInteriorEdgeTriangle: the closed form over three supporting line
         // sources before every other test, so three bisectors leaving one point produced no
         // collision at all and the base case threw. The closed form reads only the parent lines.
         const {context, interiorEdgeIds} = initialisedContext(RIGHT_TRIANGLE_6_8_10);
-        const shared = context.findOrAddNode({x: 1, y: 1});
+        const shared = context.findOrAddNode({x: 1, y: 1}, 0);
         for (const edgeId of interiorEdgeIds) {
             context.getEdgeWithId(edgeId).source = shared.id;
         }
@@ -189,7 +189,7 @@ describe('handleInteriorEdgeTriangle: the guards, and what they fall through to'
 function pairFromOneSource(directions: [Vector2, Vector2]): InitialisedContext {
     const initialised = initialisedContext(SQUARE);
     const {context, interiorEdgeIds} = initialised;
-    const shared = context.findOrAddNode({x: 1, y: 1});
+    const shared = context.findOrAddNode({x: 1, y: 1}, 0);
     const pair = interiorEdgeIds.slice(0, 2);
 
     pair.forEach((edgeId, index) => {
@@ -253,11 +253,11 @@ function collinearLeadingFirstPair(): InitialisedContext {
     const pair = interiorEdgeIds.slice(0, 2);
 
     const leading = context.getEdgeWithId(pair[0]);
-    leading.source = context.findOrAddNode({x: 1.5, y: 1}).id;
+    leading.source = context.findOrAddNode({x: 1.5, y: 1}, 0).id;
     leading.basisVector = {x: 1, y: 0};
 
     const trailing = context.getEdgeWithId(pair[1]);
-    trailing.source = context.findOrAddNode({x: 0.5, y: 1}).id;
+    trailing.source = context.findOrAddNode({x: 0.5, y: 1}, 0).id;
     trailing.basisVector = {x: 1, y: 0};
 
     return {context, interiorEdgeIds: pair};
@@ -403,7 +403,7 @@ describe('findOrAddNode: a non-finite position is a defect, not a new node', () 
     ])('throws on %s', (_label, position) => {
         const context = makeStraightSkeletonSolverContext(SQUARE);
 
-        expect(() => context.findOrAddNode(position as Vector2)).toThrow(/non-finite/);
+        expect(() => context.findOrAddNode(position as Vector2, 0)).toThrow(/non-finite/);
     });
 
     it('still matches an existing node and still appends a new one', () => {
@@ -412,9 +412,9 @@ describe('findOrAddNode: a non-finite position is a defect, not a new node', () 
         const context = makeStraightSkeletonSolverContext(SQUARE);
         const nodeCount = context.graph.nodes.length;
 
-        expect(context.findOrAddNode({x: 0, y: 0}).id).toBe(0);
+        expect(context.findOrAddNode({x: 0, y: 0}, 0).id).toBe(0);
         expect(context.graph.nodes).toHaveLength(nodeCount);
-        expect(context.findOrAddNode({x: 1, y: 1}).id).toBe(nodeCount);
+        expect(context.findOrAddNode({x: 1, y: 1}, 0).id).toBe(nodeCount);
         expect(context.graph.nodes).toHaveLength(nodeCount + 1);
     });
 });
@@ -450,7 +450,7 @@ function placeRays(
 ): void {
     ids.forEach((edgeId, index) => {
         const edge = context.getEdgeWithId(edgeId);
-        edge.source = context.findOrAddNode(rays[index][0]).id;
+        edge.source = context.findOrAddNode(rays[index][0], 0).id;
         edge.basisVector = rays[index][1];
     });
 }
@@ -519,7 +519,7 @@ describe('decision 145: the triangle climbs the ladder', () => {
     it('CLOSURE: three sources on one node close there, with no completion recorded', () => {
         const {context, interiorEdgeIds} = initialisedContext(SQUARE);
         const three = interiorEdgeIds.slice(0, 3);
-        const centre = context.findOrAddNode({x: 1, y: 1});
+        const centre = context.findOrAddNode({x: 1, y: 1}, 0);
         three.forEach(edgeId => { context.getEdgeWithId(edgeId).source = centre.id; });
 
         handleInteriorEdgeTriangle(context, {interiorEdges: three});
@@ -566,7 +566,7 @@ describe('decision 145: the triangle climbs the ladder', () => {
 describe('decision 145: the n-gon climbs the same ladder', () => {
     it('CLOSURE: four sources on one node close there, where the n-gon used to throw', () => {
         const {context, interiorEdgeIds} = initialisedContext(SQUARE);
-        const centre = context.findOrAddNode({x: 1, y: 1});
+        const centre = context.findOrAddNode({x: 1, y: 1}, 0);
         interiorEdgeIds.forEach(edgeId => { context.getEdgeWithId(edgeId).source = centre.id; });
 
         const output = handleInteriorNGon(context, {interiorEdges: interiorEdgeIds});

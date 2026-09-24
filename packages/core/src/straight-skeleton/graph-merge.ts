@@ -123,7 +123,8 @@ export function mergeSkeletonGraphs(
     // space as `findOrAddNode`'s. The two sides are NOT independently computed geometry: `cp` is the
     // crossing point the decomposition produced and the node is that same point carried through one
     // sub-solve as an exterior node, so the comparison asks about identity, not proximity, and is
-    // expected exact. It shares S1's bar ({@link ARITHMETIC_SAME_POINT_BOX}), held with S1's O1 STOP.
+    // expected exact. It shares S1's bar ({@link ARITHMETIC_SAME_POINT_BOX}), held with S1 — register C12
+    // measured the pair exact and it STOPPED with the window (journal-5 decision 167; see constants.ts).
     const crossingNodeGroups: Map<number, number[]> = new Map(); // crossingIndex → list of node IDs at that position
 
     for (let ci = 0; ci < crossingPoints.length; ci++) {
@@ -255,6 +256,10 @@ export function makeMergedSolverContext(
         coaxialityFloor: coaxialityFloor(perceptualFloor),
         angularResolution: angularResolution(perceptualFloor),
         simultaneityWindow: simultaneityWindow(perceptualFloor),
+        // NOT CARRIED ACROSS A MERGE (journal-5 decision 167): the budgets are read only while pricing,
+        // and nothing prices against a merged context. Empty rather than zero-filled, so no reader can
+        // take an absent budget for an exact one.
+        positionUncertainties: [],
         // Nothing runs against a merged context, so nothing adds to this; it is here so the shape is
         // one shape.
         diagnostics: [],

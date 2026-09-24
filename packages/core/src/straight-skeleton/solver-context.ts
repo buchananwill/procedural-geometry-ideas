@@ -54,10 +54,14 @@ export function makeStraightSkeletonSolverContext(
     // angular predicate reads this field; none recomputes the square root.
     const angularBar = angularResolution(perceptualFloor);
     // DERIVED ONCE, HERE (C8 spec T5, T12 as amended): the CAP of the simultaneity window, carried on
-    // the context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it
-    // yet: both the flat δ window (dispatch 1) and the per-pair window capped at it (dispatch 2) hit
-    // T37's STOPs, and the sites hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
+    // the context for the "are these two arrivals one moment?" sites (S22–S28). They do not spend it:
+    // the flat δ window (C8 dispatch 1), the per-pair window with the division-only budget (dispatch 2)
+    // and the per-pair window with the complete model beside an exact box (register C12) all hit T37's
+    // STOPs, and the sites hold `HELD_SIMULTANEITY_WINDOW` (see constants.ts).
     const window = simultaneityWindow(perceptualFloor);
+    // THE NODES' POSITION ERROR BUDGETS (journal-5 decision 167, part (iii) of the complete model),
+    // parallel to `graph.nodes`: a boundary vertex is a stored input double, exact by definition.
+    const positionUncertainties: number[] = graph.nodes.map(() => 0);
 
     /**
      * The wavefront speed of an exterior edge (W-spec W1).
@@ -190,13 +194,18 @@ export function makeStraightSkeletonSolverContext(
      * needs a GEOMETRIC merge, the defect is that its path bypassed event resolution — which is a
      * question about the event layer, not about this number.
      *
+     * EXACT IDENTITY WAS MEASURED IN REGISTER C12 AND IS HELD (journal-5 decision 167): with the window
+     * at its per-pair bar beside it, see "THE WINDOW AND THE BOX" in constants.ts; ALONE, with the window
+     * held, it trades `Near Regular Circle 48` at 2e11's 57% tiling miss for an offset and a direction
+     * violation. The box moves with the window or not at all.
+     *
      * PRECONDITION: `position` is finite. A NaN coordinate never compares equal to itself under an
      * absolute tolerance — the difference is NaN and every comparison against it is false — so the
      * lookup below misses and appends **a fresh node on every call**. An infinite one is no better.
      * A non-finite position is a defect upstream of this function, and failing loudly at the first
      * one beats accumulating duplicate nodes that no later pass can reconcile.
      */
-    function findOrAddNode(position: Vector2): PolygonNode {
+    function findOrAddNode(position: Vector2, positionUncertainty: number): PolygonNode {
         if (!Number.isFinite(position.x) || !Number.isFinite(position.y)) {
             throw new Error(`Cannot place a node at the non-finite position (${position.x}, ${position.y}).`);
         }
@@ -204,9 +213,12 @@ export function makeStraightSkeletonSolverContext(
             return vectorsAreEqual(n.position, position, ARITHMETIC_SAME_POINT_BOX);
         })
         if (node !== undefined) {
+            // Two events landing on one node: the node answers for both, so it carries the larger budget.
+            positionUncertainties[node.id] = Math.max(positionUncertainties[node.id] ?? 0, positionUncertainty);
             return node;
         }
         const index = graph.nodes.push({id: graph.nodes.length, position, inEdges: [], outEdges: []});
+        positionUncertainties[index - 1] = positionUncertainty;
         return graph.nodes[index - 1];
     }
 
@@ -275,6 +287,7 @@ export function makeStraightSkeletonSolverContext(
         coaxialityFloor: coaxialLane,
         angularResolution: angularBar,
         simultaneityWindow: window,
+        positionUncertainties,
         diagnostics: [],
         getEdgeWithId,
         getEdges(idList: number[]): PolygonEdge[] {
@@ -353,8 +366,8 @@ export function makeStraightSkeletonSolverContext(
             return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector,
                 localTime * weightOf(edgeId));
         },
-        terminateEdgesAtPoint(edgeIds: number[], position: Vector2): PolygonNode {
-            const node = findOrAddNode(position);
+        terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode {
+            const node = findOrAddNode(position, positionUncertainty);
             addInEdges(node, edgeIds);
             edgeIds.forEach(id => {
                 getEdgeWithId(id).target = node.id;
@@ -423,7 +436,7 @@ export function makeStraightSkeletonSolverContext(
                 // strike an edge that is still occluded at this offset. Such a segment describes
                 // geometry that does not exist yet, so it cannot validate a split.
                 // S28 (C8 spec T14): "before the birth" is a same-moment question; its window is held
-                // with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see the constant), per pair.
+                // with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP; register C12, see the constant).
                 const notYetBorn = (birth: Arrival) => compareArrivals(arrival, birth, HELD_SIMULTANEITY_WINDOW) < 0;
                 if (notYetBorn(clockwiseBirth) || notYetBorn(widdershinsBirth)) {
                     splitLog.debug(

@@ -21,9 +21,17 @@ import {
 } from "./core-functions";
 import {
     ARRIVAL_MOMENT_ULPS,
-    CROSS_PRODUCT_ROUNDING_UNITS,
+    arrivalUncertainty,
+    bisectorDirectionError,
     HELD_SIMULTANEITY_WINDOW,
+    offsetRateForwardError,
+    pointAlongRayUncertainty,
+    RayErrorTerms,
+    rayIntersectionAlongUncertainty,
+    sourceOffsetUncertainty,
     UNIT_ROUNDOFF,
+    WALL_DIRECTION_ERROR,
+    weightedRateSumForwardBound,
     weightedRateSumRoundingBound,
 } from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
@@ -78,19 +86,18 @@ export function timeOf(arrival: Arrival): number {
  *
  * A literal `cap = 0` makes the window `0`: an exact comparison.
  *
- * LANDED AND MEASURED, NOT SPENT — A MEASURED STOP (C8 dispatch 2, 2026-09-24; T16, T37). With all seven
- * sites (S22–S28) comparing at this window, 211 of the 580 sweep cells move and 45 core tests fail:
- * `Near Regular Circle 48` and the regular circles of the vertex-count sweep stop solving (STOP 1), and
- * two CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`). The movers are NOT
- * ill-conditioned pairs: on the Peanut the phantom test (S23) splits `e37 × e57` (sin θ = 0.374, |sep| =
- * 0.401, budget 6.4e-16 per reading) whose two readings differ by 5.0e-15 against a moment bar of 2.9e-15;
- * on `Near Regular Circle 32` the layer (S22) splits a 32-way meeting whose arrivals differ by 8.7e-15 to
- * 1.2e-14 against a bar of 8.3e-15 (sin θ = 0.195, budgets 6.7e-16). The pricing budget charges only the
- * division by `sin θ`; the readings also differ by the rounding of the bisector bases, the rates and the
- * source offsets, which it does not charge, so well-conditioned many-way meetings fall one to two moment
- * bars apart and are split. By site alone: S22 moves 209 cells, S23 75, S24 11 (hash only) plus a
- * `Golf Cart` recursion throw, S25–S28 nothing. The sites spend `HELD_SIMULTANEITY_WINDOW` through
- * {@link compareArrivals}; see constants.ts.
+ * LANDED AND MEASURED TWICE, NOT SPENT — A MEASURED STOP BOTH TIMES (T16, T37). REGISTER C12 (journal-5
+ * decision 167) spent it at all seven sites S22–S28, through {@link compareArrivalsAtPairWindow}, with the
+ * budgets of the COMPLETE first-order model and the same-point box exact beside it: the three fixtures
+ * dispatch 2 split were gathered and unmoved, and the move STOPPED elsewhere (see "THE WINDOW AND THE BOX"
+ * in constants.ts). The sites spend `HELD_SIMULTANEITY_WINDOW` through {@link compareArrivals}.
+ *
+ * C8 dispatch 2 measured this window with the DIVISION-ONLY budget and it STOPPED (T16, T37): 211
+ * of 580 sweep cells moved, `Near Regular Circle 48` and the regular circles stopped solving, and two
+ * CLEAN digests moved (`Near Regular Peanut 32`: `e37 × e57`, readings 5.0e-15 apart against a moment bar
+ * of 2.9e-15 and budgets of 6.4e-16 each; `Slightly Deformed Peanut 2`). F71 read the gap as the rounding
+ * of the bases, the rates and the source offsets that budget did not charge; F74 found the circles'
+ * failure was the held BOX re-joining a later layer's merge onto an orphan's own source.
  */
 export function pairSimultaneityWindow(a: Arrival, b: Arrival, cap: number): number {
     const left = a.distance * b.weight;
@@ -108,11 +115,14 @@ export function pairSimultaneityWindow(a: Arrival, b: Arrival, cap: number): num
  *
  *     |d₁·w₂ − d₂·w₁|  <  window · min(w₁, w₂)      ⟺      |t₁ − t₂|  <  window / max(w₁, w₂)
  *
- * — inside the window no participating edge advances more than `window` (a LENGTH). The seven window
- * sites pass `HELD_SIMULTANEITY_WINDOW`: T12's amended per-pair form ({@link pairSimultaneityWindow}) is
- * landed but its move hit T37's STOPs (see there). The bar is stated on the FASTER participant, which is
- * what dissolves W-spec W48's fusing hazard for every weight ratio (T22). At unit weights it reads
- * `|d₁ − d₂| < window`, the operands and operation order of the unweighted solver.
+ * — inside the window no participating edge advances more than `window` (a LENGTH). The bar is stated on
+ * the FASTER participant, which is what dissolves W-spec W48's fusing hazard for every weight ratio
+ * (T22). At unit weights it reads `|d₁ − d₂| < window`, the operands and operation order of the
+ * unweighted solver.
+ *
+ * The seven window sites pass `HELD_SIMULTANEITY_WINDOW`: T12's amended per-pair form
+ * ({@link compareArrivalsAtPairWindow}) is landed but its move hit T37's STOPs, in C8 dispatch 2 and again
+ * in register C12 (see {@link pairSimultaneityWindow}).
  *
  * NO DEFAULT (T4): every caller states its window, or a literal `0` where it only ORDERS (S31).
  *
@@ -136,6 +146,34 @@ export function arrivalsAreEqual(a: Arrival, b: Arrival, window: number): boolea
     return compareArrivals(a, b, window) === 0;
 }
 
+/**
+ * Order two arrivals at THEIR OWN simultaneity window (C8 spec T12 as amended, T13; journal-5 decisions
+ * 160, 162(a) and 167): `0` — one moment — when `|d₁·w₂ − d₂·w₁| < pairSimultaneityWindow(a, b, cap)`,
+ * the arithmetic moment bar widened by the two arrivals' complete first-order error budgets and capped at
+ * `cap·min(w₁, w₂)`; otherwise the sign of the difference. An exactly zero difference is one moment, as in
+ * {@link compareArrivals}.
+ *
+ * LANDED, NOT SPENT: register C12 moved the seven "are these two arrivals one moment?" sites (S22–S28) to
+ * it, each passing the solve's `simultaneityWindow` (δ) as the cap, and the move STOPPED (see
+ * {@link pairSimultaneityWindow}); the sites hold `HELD_SIMULTANEITY_WINDOW`.
+ *
+ * NEVER TRANSITIVE (decision 155): it answers for ONE PAIR.
+ */
+export function compareArrivalsAtPairWindow(a: Arrival, b: Arrival, cap: number): -1 | 0 | 1 {
+    const left = a.distance * b.weight;
+    const right = b.distance * a.weight;
+    const difference = left - right;
+    if (difference === 0 || Math.abs(difference) < pairSimultaneityWindow(a, b, cap)) {
+        return 0;
+    }
+    return difference < 0 ? -1 : 1;
+}
+
+/** Do these two arrivals name one moment, at their own window? ({@link compareArrivalsAtPairWindow}.) */
+export function arrivalsAreSimultaneous(a: Arrival, b: Arrival, cap: number): boolean {
+    return compareArrivalsAtPairWindow(a, b, cap) === 0;
+}
+
 /** The LATER of two arrivals — `Math.max` on times, cross-multiplied (W-spec W18). */
 export function laterArrival(a: Arrival, b: Arrival): Arrival {
     return a.distance * b.weight >= b.distance * a.weight ? a : b;
@@ -149,20 +187,22 @@ export function laterArrival(a: Arrival, b: Arrival): Arrival {
  * time needs beside a weight, and leaving its arithmetic alone is what makes every unit-weight
  * number downstream bit-identical.
  *
- * `uncertainty` is the pricing error budget of `alongRay` (C8 spec T12 as amended), stated by the
- * caller that priced it: {@link rayIntersectionUncertainty} for a ray intersection, the head-on
- * divisor's bound for a head-on meeting, `0` for a travel that is the distance between two stored
- * positions.
+ * `alongRayUncertainty` is the error budget of `alongRay`, stated by the caller that priced it:
+ * {@link rayIntersectionUncertainty} for a ray intersection, {@link meetHeadOn}'s for a head-on meeting,
+ * the split paths' own, and {@link separationUncertainty} for a travel that is the distance between two
+ * node positions. The arrival's own budget is then the COMPLETE first-order model (journal-5 decisions
+ * 162(a), 167): {@link offsetDistanceWithBudget}.
  */
 export function arrivalOf(
     edge: InteriorEdge,
     context: StraightSkeletonSolverContext,
     ray: RayProjection,
     alongRay: number,
-    uncertainty: number,
+    alongRayUncertainty: number,
 ): Arrival {
+    const [distance, uncertainty] = offsetDistanceWithBudget(edge, context, ray, alongRay, alongRayUncertainty);
     return {
-        distance: makeOffsetDistance(edge, context, ray, alongRay),
+        distance,
         weight: context.weightOf(context.clockwiseParent(edge).id),
         uncertainty,
     };
@@ -171,31 +211,79 @@ export function arrivalOf(
 /**
  * The birth arrival of a bisector: its source's distance from its clockwise parent, and that weight.
  *
- * ITS UNCERTAINTY IS 0: the source is a STORED node position, not a priced one, and the distance is a
- * projection of two stored positions — no division by a small quantity, so no conditioning to carry
- * (C8 spec T12 as amended; a stored position has no pricing error).
+ * ITS UNCERTAINTY IS THE SOURCE OFFSET'S BUDGET ({@link sourceOffsetUncertainty}): the source may be a
+ * PRICED node position carrying its own budget, and the distance is computed through a subtraction, a
+ * normalisation and a cross product. A primary bisector's is exactly 0: its source lies on its parent's
+ * line by construction and nothing is computed.
  */
 export function birthArrivalOf(edge: InteriorEdge, context: StraightSkeletonSolverContext): Arrival {
+    const [distance, uncertainty] = sourceOffsetWithBudget(edge, context);
     return {
-        distance: sourceOffsetDistance(edge, context),
+        distance,
         weight: context.weightOf(context.clockwiseParent(edge).id),
-        uncertainty: 0,
+        uncertainty,
     };
 }
 
 /**
- * The pricing error budget of a RAY INTERSECTION (C8 spec T12 as amended, journal decision 160(a)):
- * `k·u·|sep| / sin²θ`, the conditioning quantity of spec A3 and O1's histogram — `intersectRays`
- * divides by `sin θ`, evaluated as a cross product of unit bases carrying `k·u` of absolute error
- * (`k` = `CROSS_PRODUCT_ROUNDING_UNITS`, argued in constants.ts), so the meeting point is placed to
- * within `|sep|·k·u/sin²θ` along each ray. A distance along a ray moves the offset by at most that
- * much, so it bounds the arrival's distance too. Every priced pair has `sin θ ≥ ρ`, and ρ was sized
- * (A3) so that this stays under δ at `|sep| ≤ √2`.
+ * A node's carried position budget (journal-5 decision 167, part (iii)). The solver places every node it
+ * creates through `findOrAddNode`, which records one, and a boundary vertex's is 0. A node with NO entry
+ * was placed into the graph directly (`graph-helpers.addNode` — constructed graphs in tests and tooling),
+ * at a position its caller STORED rather than priced, so it reads as a stored position: 0.
  */
-export function rayIntersectionUncertainty(ray1: RayProjection, ray2: RayProjection): number {
+export function nodePositionUncertainty(context: StraightSkeletonSolverContext, nodeId: number): number {
+    return context.positionUncertainties[nodeId] ?? 0;
+}
+
+/** The direction error of an interior edge's stored basis — part (i) of the model, at its own parents and weights. */
+export function interiorDirectionError(edge: InteriorEdge, context: StraightSkeletonSolverContext): number {
+    const clockwise = context.clockwiseParent(edge);
+    const widdershins = context.widdershinsParent(edge);
+    return bisectorDirectionError(
+        clockwise.basisVector,
+        widdershins.basisVector,
+        context.weightOf(clockwise.id),
+        context.weightOf(widdershins.id),
+        context.getEdgeWithId(edge.id).basisVector);
+}
+
+/** An interior edge's ray, as the intersection budget charges it: its travel, its source's budget, its basis's error. */
+export function interiorRayTerms(edge: InteriorEdge, context: StraightSkeletonSolverContext, along: number): RayErrorTerms {
+    return {
+        along,
+        sourceUncertainty: nodePositionUncertainty(context, context.getEdgeWithId(edge.id).source),
+        directionError: interiorDirectionError(edge, context),
+    };
+}
+
+/** An exterior edge's ray: its source is a stored input vertex (0) and its basis a wall's (2u). */
+export function exteriorRayTerms(along: number): RayErrorTerms {
+    return {along, sourceUncertainty: 0, directionError: WALL_DIRECTION_ERROR};
+}
+
+/**
+ * The error budget of the distance between two node positions, `|P₂ − P₁|` as `normalize` computes it:
+ * the two carried budgets, plus a relative `3u` for the subtraction, the squares, their sum and the root.
+ */
+export function separationUncertainty(firstBudget: number, secondBudget: number, separation: number): number {
+    return firstBudget + secondBudget + 3 * UNIT_ROUNDOFF * separation;
+}
+
+/**
+ * The error budget of the travel along `ray1` to its intersection with `ray2`, as `intersectRays` prices
+ * it — the COMPLETE first-order model's part (i), (iii) and (iv): {@link rayIntersectionAlongUncertainty}
+ * (constants.ts), with the sine and the separation read from the rays exactly as `intersectRays` reads
+ * them. C8 dispatch 2's division-only `k·u·|sep|/sin²θ` is its term (iv).
+ */
+export function rayIntersectionUncertainty(
+    ray1: RayProjection,
+    ray2: RayProjection,
+    first: RayErrorTerms,
+    second: RayErrorTerms,
+): number {
     const sine = crossProduct(ray1.basisVector, ray2.basisVector);
     const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
-    return CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * separation / (sine * sine);
+    return rayIntersectionAlongUncertainty(first, second, separation, sine);
 }
 
 /**
@@ -217,6 +305,15 @@ export function collisionDistanceFromBasisUnits(collidingChild: Vector2, units: 
 }
 
 export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext) {
+    return sourceOffsetWithBudget(edge, context)[0];
+}
+
+/**
+ * The source offset and its error budget ({@link sourceOffsetUncertainty}, part (iii) of the model). The
+ * arithmetic of the offset is `sourceOffsetDistance`'s, unchanged; a primary bisector's is exactly `0`
+ * with a budget of `0`.
+ */
+export function sourceOffsetWithBudget(edge: InteriorEdge, context: StraightSkeletonSolverContext): [number, number] {
     const edgeRank = context.edgeRank(edge.id);
 
     if (edgeRank === 'secondary') {
@@ -225,10 +322,12 @@ export function sourceOffsetDistance(edge: InteriorEdge, context: StraightSkelet
         const parentSourceNode = context.findSource(clockwiseParent.id);
         const parentSourceToEdgeSource = subtractVectors(edgeSourceNode.position, parentSourceNode.position);
         const [basis, size] = normalize(parentSourceToEdgeSource);
-        return projectToPerpendicular(basis, clockwiseParent.basisVector, size);
+        const offset = projectToPerpendicular(basis, clockwiseParent.basisVector, size);
+        return [offset, sourceOffsetUncertainty(
+            nodePositionUncertainty(context, edgeSourceNode.id), size, offset, WALL_DIRECTION_ERROR)];
     }
 
-    return 0;
+    return [0, 0];
 }
 
 export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
@@ -247,7 +346,23 @@ export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: Polyg
 }
 
 export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeletonSolverContext, ray: RayProjection, alongRay: number): number {
-    const sourceOffset = sourceOffsetDistance(edge, context);
+    return offsetDistanceWithBudget(edge, context, ray, alongRay, 0)[0];
+}
+
+/**
+ * {@link makeOffsetDistance}'s distance — its arithmetic unchanged — and the distance's error budget under
+ * the COMPLETE first-order model ({@link arrivalUncertainty}, constants.ts): the source offset's budget,
+ * the travel's (`alongRayUncertainty`, stated by the caller that priced the travel), and the offset
+ * rate's forward error at this edge's basis ({@link offsetRateForwardError}).
+ */
+export function offsetDistanceWithBudget(
+    edge: InteriorEdge,
+    context: StraightSkeletonSolverContext,
+    ray: RayProjection,
+    alongRay: number,
+    alongRayUncertainty: number,
+): [number, number] {
+    const [sourceOffset, sourceBudget] = sourceOffsetWithBudget(edge, context);
     // "There is no offset gradient against this parent" — a substitution of 0 for the computed rate.
     //
     // HISTORY (the move to the angular resolution, refused): THE BAR STAYED AT THE SCRATCH EPSILON — A
@@ -281,11 +396,13 @@ export function makeOffsetDistance(edge: InteriorEdge, context: StraightSkeleton
     // `Golf Cart` rates are zeroed again and its pin is back to native. What is now priced is e70 alone —
     // one bisector on one cell, 19 evaluations — and this site moves no cell: geometry,
     // verdict, node count, every oracle and every digest pin unmoved.
-    const noGradient = offsetRateIsArithmeticZero(
-        crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector));
+    const rate = crossProduct(ray.basisVector, context.clockwiseParent(edge).basisVector);
+    const noGradient = offsetRateIsArithmeticZero(rate);
     const deltaOffset = noGradient ? 0 : collisionDistanceFromBasisUnits(ray.basisVector, alongRay, context.clockwiseParent(edge).basisVector);
-    return sourceOffset + deltaOffset;
-
+    const distance = sourceOffset + deltaOffset;
+    const rateError = offsetRateForwardError(interiorDirectionError(edge, context), WALL_DIRECTION_ERROR, rate);
+    return [distance, arrivalUncertainty(
+        sourceBudget, rate, rateError, alongRay, alongRayUncertainty, distance, noGradient)];
 }
 
 /** How much offset each unit travelled along this edge's ray buys its clockwise parent. */
@@ -310,11 +427,20 @@ function offsetRate(edge: InteriorEdge, ray: RayProjection, context: StraightSke
  * `(s_B − s_A + sep·r_B) / (r_A + r_B)` in the same operation order — measured 0 mismatches in
  * 100 000 random operands.
  *
- * Returns `[alongA, alongB, uncertainty]`, the third being the meeting's pricing error budget (C8 spec
- * T12 as amended): the divisor carries at most `cancellationBound` of absolute error, so the quotient
- * `alongA` carries `|alongA| · cancellationBound / |combinedRate|` to first order — and `alongB =
- * separation − alongA` carries the same error. It is the head-on analogue of `k·u·|sep|/sin²θ`: a
- * division by a small evaluated quantity, charged its own rounding.
+ * Returns `[alongA, alongB, budgetA, budgetB]`: the two travels and their error budgets under the
+ * COMPLETE first-order model (journal-5 decisions 162(a), 167). With `N` the numerator, `Δ` the divisor:
+ *
+ *     E_Δ      =  w_B·E_rA + w_A·E_rB + 2u·(|termA| + |termB|)          (weightedRateSumForwardBound)
+ *     E_N      =  w_A·E_sB + w_B·E_sA + w_A·(|r_B|·E_sep + sep·E_rB)
+ *                 + 4u·(|s_B·w_A| + |s_A·w_B| + |sep·r_B·w_A|)
+ *     E_alongA =  E_N/|Δ|  +  |alongA|·E_Δ/|Δ|  +  u·|alongA|
+ *     E_alongB =  E_alongA  +  E_sep  +  u·|alongB|
+ *
+ * — the two rates' FORWARD errors (`E_r`, {@link offsetRateForwardError}) where C8 dispatch 2 charged only
+ * the divisor's backward rounding; the two source offsets' budgets (`E_s`, part iii); the separation's
+ * ({@link separationUncertainty}: the sources' carried budgets and its own rounding); the three products
+ * and two sums of the numerator rounding once each; and the quotient and the final subtraction. The
+ * GUARD above is unchanged: it asks whether the evaluated divisor has a sign, a backward question (T19).
  */
 function meetHeadOn(
     edgeA: InteriorEdge,
@@ -323,7 +449,7 @@ function meetHeadOn(
     ray2: RayProjection,
     separation: number,
     context: StraightSkeletonSolverContext,
-): [number, number, number] | null {
+): [number, number, number, number] | null {
     const rateA = offsetRate(edgeA, ray1, context);
     const rateB = offsetRate(edgeB, ray2, context);
     const weightA = context.weightOf(context.clockwiseParent(edgeA).id);
@@ -352,12 +478,29 @@ function meetHeadOn(
         return null;
     }
 
-    const sourceOffsetA = sourceOffsetDistance(edgeA, context);
-    const sourceOffsetB = sourceOffsetDistance(edgeB, context);
+    const [sourceOffsetA, sourceBudgetA] = sourceOffsetWithBudget(edgeA, context);
+    const [sourceOffsetB, sourceBudgetB] = sourceOffsetWithBudget(edgeB, context);
     const alongA = (sourceOffsetB * weightA - sourceOffsetA * weightB + separation * rateB * weightA)
         / combinedRate;
+    const alongB = separation - alongA;
 
-    return [alongA, separation - alongA, Math.abs(alongA) * cancellationBound / Math.abs(combinedRate)];
+    const rateErrorA = offsetRateForwardError(interiorDirectionError(edgeA, context), WALL_DIRECTION_ERROR, rateA);
+    const rateErrorB = offsetRateForwardError(interiorDirectionError(edgeB, context), WALL_DIRECTION_ERROR, rateB);
+    const divisorBudget = weightedRateSumForwardBound(termA, termB, weightA, weightB, rateErrorA, rateErrorB);
+    const separationBudget = separationUncertainty(
+        nodePositionUncertainty(context, context.getEdgeWithId(edgeA.id).source),
+        nodePositionUncertainty(context, context.getEdgeWithId(edgeB.id).source),
+        separation);
+    const numeratorBudget = weightA * sourceBudgetB + weightB * sourceBudgetA
+        + weightA * (Math.abs(rateB) * separationBudget + separation * rateErrorB)
+        + 4 * UNIT_ROUNDOFF * (Math.abs(sourceOffsetB * weightA) + Math.abs(sourceOffsetA * weightB)
+            + Math.abs(separation * rateB * weightA));
+    const budgetA = numeratorBudget / Math.abs(combinedRate)
+        + Math.abs(alongA) * divisorBudget / Math.abs(combinedRate)
+        + UNIT_ROUNDOFF * Math.abs(alongA);
+    const budgetB = budgetA + separationBudget + UNIT_ROUNDOFF * Math.abs(alongB);
+
+    return [alongA, alongB, budgetA, budgetB];
 }
 
 /**
@@ -430,16 +573,31 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     const [alongRay1, _alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
 
-    // THE PRICING ERROR BUDGET (C8 spec T12 as amended, journal decision 160(a)), one per verdict: a
-    // 'converging' pair was priced by `intersectRays`' division by `sin θ`; a 'head-on' pair by
-    // `meetHeadOn`'s division by the combined rate; a 'co-linear-from-1' pair was not priced at all —
-    // its travel is the distance between two STORED sources, so it carries no pricing error (0).
-    const uncertainty = resultType === 'converging'
-        ? rayIntersectionUncertainty(ray1, ray2)
-        : headOnMeeting?.[2] ?? 0;
+    // THE TRAVELS' ERROR BUDGETS (journal-5 decisions 162(a), 167: the complete first-order model), one
+    // per verdict: a 'converging' pair was priced by `intersectRays` — bases, sources, division, each
+    // ray's own ({@link rayIntersectionUncertainty}); a 'head-on' pair by {@link meetHeadOn}; a
+    // 'co-linear-from-1' pair's non-zero travel is the distance between the two sources
+    // ({@link separationUncertainty}), and its zero travel has no arithmetic in it.
+    const sourceBudgetA = nodePositionUncertainty(context, context.getEdgeWithId(edgeA.id).source);
+    const sourceBudgetB = nodePositionUncertainty(context, context.getEdgeWithId(edgeB.id).source);
+    let budget1: number;
+    let budget2: number;
+    if (resultType === 'converging') {
+        const termsA = interiorRayTerms(edgeA, context, rawAlongRay1);
+        const termsB = interiorRayTerms(edgeB, context, rawAlongRay2);
+        budget1 = rayIntersectionUncertainty(ray1, ray2, termsA, termsB);
+        budget2 = rayIntersectionUncertainty(ray2, ray1, termsB, termsA);
+    } else if (headOnMeeting !== null) {
+        budget1 = headOnMeeting[2];
+        budget2 = headOnMeeting[3];
+    } else {
+        const separationBudget = separationUncertainty(sourceBudgetA, sourceBudgetB, Math.max(rawAlongRay1, rawAlongRay2));
+        budget1 = rawAlongRay1 === 0 ? 0 : separationBudget;
+        budget2 = rawAlongRay2 === 0 ? 0 : separationBudget;
+    }
 
-    const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1, uncertainty);
-    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2, uncertainty);
+    const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1, budget1);
+    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2, budget2);
 
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
 
@@ -448,9 +606,10 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // because the weight is positive and cannot change it.
     //
     // S23 (C8 spec T14): the phantom test asks whether the two readings are ONE MOMENT. Its window is
-    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP, dispatches 1 and 2; see the
-    // constant), per pair.
-    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW) || arrivalA.distance <= 0
+    // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP, C8 dispatches 1 and 2 and register
+    // C12; see the constant), per pair.
+    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW)
+        || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
         : anyShared
             ? 'interiorPair'
@@ -477,11 +636,14 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     }
 
     const pairArrival = arrivalOffsetOfPair(arrivalA, arrivalB);
+    const position = findPositionAlongRay(ray1, alongRay1);
     events.push({
         offsetDistance: timeOf(pairArrival),
         arrival: pairArrival,
+        positionUncertainty: pointAlongRayUncertainty(
+            sourceBudgetA, alongRay1, budget1, interiorDirectionError(edgeA, context), position),
         collidingEdges: [edgeA.id, edgeB.id],
-        position: findPositionAlongRay(ray1, alongRay1),
+        position,
         intersectionData,
         eventType
     })
@@ -515,21 +677,29 @@ export function priceHeadOnPair(
     const ray2 = context.projectRayInterior(edgeB);
     const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
 
-    // The midpoint fallback is a MODEL CHOICE, not a priced quantity — halving a stored separation — so
-    // its pricing error budget is 0 (C8 spec T12 as amended); a priced meeting carries meetHeadOn's.
-    const [alongRay1, alongRay2, uncertainty] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
-        ?? [separation / 2, separation / 2, 0];
+    // The midpoint fallback is a MODEL CHOICE — halving the separation — so its budget is the halved
+    // separation's (the sources' carried budgets and the separation's rounding) plus the halving's; a
+    // priced meeting carries meetHeadOn's (journal-5 decision 167).
+    const sourceBudgetA = nodePositionUncertainty(context, context.getEdgeWithId(edgeA.id).source);
+    const sourceBudgetB = nodePositionUncertainty(context, context.getEdgeWithId(edgeB.id).source);
+    const midpointBudget = separationUncertainty(sourceBudgetA, sourceBudgetB, separation) / 2
+        + UNIT_ROUNDOFF * separation;
+    const [alongRay1, alongRay2, budget1, budget2] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
+        ?? [separation / 2, separation / 2, midpointBudget, midpointBudget];
 
     const pairArrival = arrivalOffsetOfPair(
-        arrivalOf(edgeA, context, ray1, alongRay1, uncertainty),
-        arrivalOf(edgeB, context, ray2, alongRay2, uncertainty));
+        arrivalOf(edgeA, context, ray1, alongRay1, budget1),
+        arrivalOf(edgeB, context, ray2, alongRay2, budget2));
     const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
+    const position = findPositionAlongRay(ray1, alongRay1);
 
     return {
         offsetDistance: timeOf(pairArrival),
         arrival: pairArrival,
+        positionUncertainty: pointAlongRayUncertainty(
+            sourceBudgetA, alongRay1, budget1, interiorDirectionError(edgeA, context), position),
         collidingEdges: [edgeA.id, edgeB.id],
-        position: findPositionAlongRay(ray1, alongRay1),
+        position,
         intersectionData: [separation, separation, 'head-on'],
         eventType: anyShared ? 'interiorPair' : 'interiorNonAdjacent',
     };

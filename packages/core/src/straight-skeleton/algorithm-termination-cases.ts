@@ -28,7 +28,9 @@ import {
     birthArrivalOf,
     collideInteriorEdges,
     compareArrivals,
+    nodePositionUncertainty,
     priceHeadOnPair,
+    separationUncertainty,
 } from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
@@ -36,12 +38,14 @@ import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {
     cramerQuotientRoundingBound,
-    HELD_SIMULTANEITY_WINDOW,
     determinant3RoundingBound,
     determinant3TripleSum,
     maxWeightRatio,
+    HELD_SIMULTANEITY_WINDOW,
     minWeightTurnSine,
     TRIANGLE_INTERSECT_PAIRINGS,
+    UNIT_ROUNDOFF,
+    WALL_DIRECTION_ERROR,
 } from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
@@ -51,6 +55,7 @@ import {
     SkeletonNormalisation,
     denormaliseCollisionCache,
     denormaliseGraph,
+    denormalisePositionUncertainties,
     makeSkeletonNormalisation,
     normalisePolygon,
 } from "./normalisation";
@@ -218,9 +223,10 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // Same tolerance convention as `notYetBorn`: a snap exactly at the birth arrival is
         // legitimate, only a strictly earlier one is rejected (W-spec W30). S26 (C8 spec T14): "before
         // the birth" is a same-moment question; its window is held with the other six at
-        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see constants.ts). The snap's travel is the distance
-        // between two STORED positions, so it carries no pricing error (uncertainty 0).
-        const snapArrival = arrivalOf(interiorEdge, context, ray, distance, 0);
+        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; register C12, see constants.ts).
+        // The snap's travel is the distance between two node positions, each carrying its own budget.
+        const snapArrival = arrivalOf(interiorEdge, context, ray, distance, separationUncertainty(
+            nodePositionUncertainty(context, candidate.id), nodePositionUncertainty(context, source.id), distance));
         if (compareArrivals(snapArrival, birthArrival, HELD_SIMULTANEITY_WINDOW) < 0) {
             stepLog.debug(
                 `Rejecting snap of e${edgeId} to node ${candidate.id}: snap arrival ${snapArrival.distance}/${snapArrival.weight} precedes the bisector's birth arrival ${birthArrival.distance}/${birthArrival.weight}.`,
@@ -237,7 +243,7 @@ function tryAttachEdgeToNode(context: StraightSkeletonSolverContext, edgeId: num
         // birth check alone still let e67 and e68 snap outward before a later pass corrected
         // their targets, leaving nodes 31 and 35 holding exactly such phantom in-edges.
         // S24 (C8 spec T14): the snap's equal-time check; its window is held with the other six at
-        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; see constants.ts).
+        // `HELD_SIMULTANEITY_WINDOW` (T37 STOP; register C12, see constants.ts).
         const candidateArrival = nodeOffset(context, candidate);
         if (candidateArrival !== undefined
             && !arrivalsAreEqual(candidateArrival, snapArrival, HELD_SIMULTANEITY_WINDOW)) {
@@ -288,7 +294,10 @@ function resolveEdgesPointingAtNodes(context: StraightSkeletonSolverContext, edg
 export function applyDegenerateClosure(context: StraightSkeletonSolverContext, edgeIds: number[], position: Vector2): void {
     const unresolved = edgeIds.filter(id => context.getEdgeWithId(id).target === undefined);
     if (unresolved.length > 0) {
-        context.terminateEdgesAtPoint(unresolved, position);
+        // Every closure point is an EXISTING node's stored position (the anchor's, or the leading
+        // source's), so `findOrAddNode` returns that node and keeps its own budget: this adds nothing
+        // to it (journal-5 decision 167).
+        context.terminateEdgesAtPoint(unresolved, position, 0);
     }
 
     for (const id of edgeIds) {
@@ -355,10 +364,13 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
                 break;
             }
 
-            // S27 (C8 spec T14): the closure's birth-causality test; window held (T37 STOP). The travel
-            // is the distance from a STORED source to a STORED anchor, so it carries no pricing error
-            // (uncertainty 0).
-            const arrival = arrivalOf(interior, context, ray, distance, 0);
+            // S27 (C8 spec T14): the closure's birth-causality test; window held (T37 STOP, C12). The travel
+            // is the distance from a node's position to the anchor node's, each carrying its own budget
+            // (journal-5 decision 167).
+            const arrival = arrivalOf(interior, context, ray, distance, separationUncertainty(
+                nodePositionUncertainty(context, context.findSource(anchorId).id),
+                nodePositionUncertainty(context, context.findSource(edgeId).id),
+                distance));
             if (compareArrivals(arrival, birthArrival, HELD_SIMULTANEITY_WINDOW) < 0) {
                 valid = false;
                 break;
@@ -378,7 +390,7 @@ function solveDegenerateClosure(context: StraightSkeletonSolverContext, interior
         // path (W-spec W29).
         //
         // S25 (C8 spec T14): simultaneity ANCHORED on the first arrival — every arrival is compared with
-        // that one, never chained (journal decision 155); window held (T37 STOP; see constants.ts).
+        // that one, never chained (journal decision 155); window held (T37 STOP, C12; see constants.ts).
         if (arrivals.every(arrival => arrivalsAreEqual(arrival, arrivals[0], HELD_SIMULTANEITY_WINDOW))) {
             return anchorPosition;
         }
@@ -738,7 +750,8 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // then discarded by `NO_COLLISION_RESULTS` as "no collision" so that the collision branch
         // below threw two lines later. No new predicate and no new tolerance is introduced here; an
         // existing decision simply stops being thrown away.
-        context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1));
+        // The shared source is an existing node: it keeps its own budget (journal-5 decision 167).
+        context.terminateEdgesAtPoint([id1, id2], context.sourcePosition(id1), 0);
     } else {
         const collisions = collideInteriorEdges(interior1, interior2, context);
 
@@ -851,7 +864,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             return {childSteps: []};
         } else {
             // Standard convergence — wire both edges to the collision point
-            context.terminateEdgesAtPoint([id1, id2], best.position);
+            context.terminateEdgesAtPoint([id1, id2], best.position, best.positionUncertainty);
         }
     }
 
@@ -872,9 +885,33 @@ interface TerminalSolution {
      * the width of "zero within the arithmetic".
      */
     offsetRoundingBound: number;
+    /**
+     * `position`'s first-order error budget against the exact walls (journal-5 decision 167): the Cramer
+     * quotients' own rounding (c₃ = 5, {@link cramerQuotientRoundingBound}) for `x` and `y`, plus the walls'
+     * input error — each normal turned by its wall's `2u`, each right-hand side `n·A` off by `4u·|A|` (the
+     * turn and the dot's rounding) — carried through the inverse: `|δ(x, y)| ≤ (Σᵢ|C_i0| + Σᵢ|C_i1|)/|det| ·
+     * maxᵢ(4u·|Aᵢ| + 2u·‖X‖₁)`, with `C` the cofactors (the inverse's first two rows are `C_i0/det`,
+     * `C_i1/det`). RECORDED, NEVER READ BY A WINDOW: the triangle builds no `Arrival`, and its node is
+     * terminal — every edge into it is accepted and nothing is ever born from it — so no arrival is ever
+     * priced from this position and no window site compares its time.
+     */
+    positionUncertainty: number;
 }
 
 type Row3 = [number, number, number];
+
+/** `Σᵢ |C_i,column|` — the absolute cofactors of one column of a 3×3 matrix (the inverse's row, times |det|). */
+function cofactorColumnSum(rows: Row3[], column: number): number {
+    let total = 0;
+    for (let row = 0; row < 3; row++) {
+        const keptRows = [0, 1, 2].filter(index => index !== row);
+        const keptColumns = [0, 1, 2].filter(index => index !== column);
+        const minor = rows[keptRows[0]][keptColumns[0]] * rows[keptRows[1]][keptColumns[1]]
+            - rows[keptRows[0]][keptColumns[1]] * rows[keptRows[1]][keptColumns[0]];
+        total += Math.abs(minor);
+    }
+    return total;
+}
 
 function determinant3(row0: Row3, row1: Row3, row2: Row3): number {
     return row0[0] * (row1[1] * row2[2] - row1[2] * row2[1])
@@ -968,12 +1005,28 @@ function solveTerminalPoint(
     const position = {x: substituted(0), y: substituted(1)};
     const offset = substituted(2);
     const offsetRows = replacedRows(2);
+    const denominatorSum = determinant3TripleSum(rows[0], rows[1], rows[2]);
     const offsetRoundingBound = cramerQuotientRoundingBound(
         determinant3TripleSum(offsetRows[0], offsetRows[1], offsetRows[2]),
-        determinant3TripleSum(rows[0], rows[1], rows[2]),
+        denominatorSum,
         offset,
         determinant);
-    return {position, offset, offsetRoundingBound};
+
+    // THE POSITION'S BUDGET (journal-5 decision 167): see `TerminalSolution.positionUncertainty`.
+    const quotientRounding = (column: number, value: number): number => {
+        const replaced = replacedRows(column);
+        return cramerQuotientRoundingBound(
+            determinant3TripleSum(replaced[0], replaced[1], replaced[2]), denominatorSum, value, determinant);
+    };
+    const pointSize = Math.abs(position.x) + Math.abs(position.y);
+    const worstResidual = Math.max(...exteriorParentIds.map(parentId => {
+        const source = context.sourcePosition(parentId);
+        return 4 * UNIT_ROUNDOFF * (Math.abs(source.x) + Math.abs(source.y))
+            + WALL_DIRECTION_ERROR * pointSize;
+    }));
+    const positionUncertainty = quotientRounding(0, position.x) + quotientRounding(1, position.y)
+        + (cofactorColumnSum(rows, 0) + cofactorColumnSum(rows, 1)) / Math.abs(determinant) * worstResidual;
+    return {position, offset, offsetRoundingBound, positionUncertainty};
 }
 
 /**
@@ -1032,7 +1085,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
 
     const terminal = solveTerminalTriangle(context, input.interiorEdges);
     if (terminal !== undefined) {
-        context.terminateEdgesAtPoint(input.interiorEdges, terminal.position);
+        context.terminateEdgesAtPoint(input.interiorEdges, terminal.position, terminal.positionUncertainty);
         context.acceptAll(input.interiorEdges);
 
         return {
@@ -1075,12 +1128,12 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
             context.getInteriorWithId(rung.completion.firstId),
             context.getInteriorWithId(rung.completion.secondId),
             context);
-        context.terminateEdgesAtPoint(input.interiorEdges, event.position);
+        context.terminateEdgesAtPoint(input.interiorEdges, event.position, event.positionUncertainty);
         context.acceptAll(input.interiorEdges);
         return {childSteps: []};
     }
 
-    context.terminateEdgesAtPoint(input.interiorEdges, best.position);
+    context.terminateEdgesAtPoint(input.interiorEdges, best.position, best.positionUncertainty);
 
     context.acceptAll(input.interiorEdges);
 
@@ -1120,7 +1173,22 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
 
     for (const input of inputs) {
         try {
-            childSteps.push(...handleAlgorithmStepInput(context, input).childSteps);
+            for (const child of handleAlgorithmStepInput(context, input).childSteps) {
+                // A CHILD WITH EXACTLY ONE LIVE INTERIOR EDGE IS A LOUD FAILURE, NEVER A SILENT DROP
+                // (journal-5 decision 167(c), F74). One live bisector bounds no sub-polygon: it cannot
+                // meet anything, so the ring that produced it was resolved into an inconsistent state —
+                // F74's orphan, left when a later layer's merge re-joined onto the orphan's own source.
+                // This filter used to drop such a child without a word, and the edge surfaced only as
+                // an unresolved edge at the end. It is reported here as a `step-failure` naming the
+                // edge and the ring it came from. A child with NO edges is a finished region, and goes.
+                if (child.interiorEdges.length === 1) {
+                    errors.push(`Sub-polygon [${input.interiorEdges.join(', ')}] left a child with one live `
+                        + `interior edge, e${child.interiorEdges[0]}, which bounds no sub-polygon and can meet `
+                        + `nothing: the ring was resolved into an inconsistent state.`);
+                } else if (child.interiorEdges.length > 1) {
+                    childSteps.push(child);
+                }
+            }
         } catch (e) {
             errors.push(e instanceof Error ? e.message : String(e));
         }
@@ -1131,7 +1199,7 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
     }
 
     return {
-        childSteps: childSteps.filter(steps => steps.interiorEdges.length > 1),
+        childSteps,
         errors
     }
 }
@@ -1536,6 +1604,7 @@ export function runAlgorithmV5(
         // space would answer in the wrong units about edges that are still perfectly valid.
         denormaliseGraph(context.graph, normalisation);
         denormaliseCollisionCache(context.collisionCache, normalisation);
+        denormalisePositionUncertainties(context.positionUncertainties, normalisation);
         return context;
     }
 
@@ -1752,6 +1821,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     denormaliseGraph(graph, normalisation);
     if (context !== null) {
         denormaliseCollisionCache(context.collisionCache, normalisation);
+        denormalisePositionUncertainties(context.positionUncertainties, normalisation);
     }
 
     // THE CAUSALITY CHECK, ALWAYS ON (journal-5 decision 148). Run on the returned, caller-space

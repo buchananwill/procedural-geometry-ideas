@@ -12,11 +12,11 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     const interiorEdge = context.getInteriorWithId(instigator);
 
-    const newNode = context.terminateEdgesAtPoint([instigator], event.position);
+    const newNode = context.terminateEdgesAtPoint([instigator], event.position, event.positionUncertainty);
 
     if (event.eventType === 'interiorPair') {
         const otherInterior = context.getInteriorWithId(target);
-        context.terminateEdgesAtPoint([target], event.position);
+        context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
         const parentSharing = checkSharedParents(instigator, target, context);
 
@@ -43,7 +43,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         // it does not give it a target node, and the reciprocal event cannot repair the omission
         // because by then both edges are accepted and the handler returns early above. The
         // `interiorPair` branch terminates both for exactly this reason.
-        context.terminateEdgesAtPoint([target], event.position);
+        context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
         context.accept(instigator);
         context.accept(target);

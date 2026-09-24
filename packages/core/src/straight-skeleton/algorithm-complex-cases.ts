@@ -189,6 +189,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // (`HELD_SIMULTANEITY_WINDOW`) — its move to the solve's `simultaneityWindow` (δ, T12) hit T37's
     // STOPs, measured by toggle; see the constant. At unit weights every product is by `1.0` and this
     // is `fp_compare(offset, bestOffset, 1e-8) <= 0` on an offset-ascending list.
+    //
+    // REGISTER C12 MEASURED THE PER-PAIR FORM HERE WITH THE COMPLETE ERROR MODEL (journal-5 decision 167)
+    // AND IT STOPPED — see "THE WINDOW AND THE BOX" in constants.ts. Two readings of "every arrival within
+    // the per-pair window of the earliest" were measured. FILTERING the whole list admits a later arrival
+    // with a wide budget while refusing an earlier one of the SAME EDGE with a narrow budget: on `Off-edge
+    // Jitter Plus (seed 7919)` the ring [22, 25, 26, 43, 45] took 26 × 43 (4.07e-11 after the earliest,
+    // budget 2.79e-11) into the layer with 25 × 45 (budget 1.52e-11) and left 22 × 43 (2.29e-11 after it,
+    // budget 2.2e-15) out, and a direction violation appeared. The PREFIX form — this loop's own shape,
+    // cut at the first refusal — removes that, but still resolves a wide-budget arrival with the earliest
+    // while a narrow-budget arrival of the same edges, unorderable against it, is left out: `Off-edge Jitter
+    // Plus`, k = 9, seed 23757 took 164 × 229 (8.6e-11 after a split, budget 9.5e-10) with the split and
+    // left 164 × 237 (2.8e-12 later still, budget 1.1e-11), and its strips came out 1.1% short.
     const collisionsToHandle: CollisionEvent[] = [];
     let bestArrival: Arrival | undefined;
     const flattenedCollisions = collisionLists.flat()
@@ -362,7 +374,13 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
                 return;
             }
 
-            const node = context.terminateEdgesAtPoint(arrivals, merge.position);
+            // The merge's node carries the largest position budget among the events it gathers (journal-5
+            // decision 167): its position is one of theirs (the medoid), and it answers for all of them.
+            const positionUncertainty = Math.max(0, ...eventsToResolve
+                .filter(event => merge.edgeIds.includes(event.collidingEdges[0])
+                    && merge.edgeIds.includes(event.collidingEdges[1]))
+                .map(event => event.positionUncertainty));
+            const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
             context.acceptAll(arrivals);
             recordBisections(bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context))
         })

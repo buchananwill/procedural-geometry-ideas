@@ -1,4 +1,4 @@
-import {IntersectionType} from "./types";
+import {IntersectionType, Vector2} from "./types";
 
 /*
  * ----------------------------------------------------------------------------
@@ -187,9 +187,10 @@ export function degenerateAreaBar(floor: number, perimeter: number): number {
  * `ARRIVAL_MOMENT_ULPS · ε · |larger|`.
  *
  * SHARED BY EVERY "SAME VALUE, TWO ARITHMETIC ROUTES" QUESTION: the moment partition of the layer
- * tie-break (S29), the offset table's simultaneous sets (S30, which was a free `1e-12`), and the
- * arithmetic same-point bar of node identity (S1, S2, S4, S5 — see {@link positionsAreOnePoint}).
- * Integer-valued so the C++ port reproduces the product order bit for bit (T38).
+ * tie-break (S29), the offset table's simultaneous sets (S30, which was a free `1e-12`), and the floor of
+ * every pair's simultaneity window (`pairSimultaneityWindow`). The same-point question of node identity
+ * (S1, S2, S4, S5) reads {@link ARITHMETIC_SAME_POINT_BOX}, held (register C12). Integer-valued so the C++
+ * port reproduces the product order bit for bit (T38).
  */
 export const ARRIVAL_MOMENT_ULPS = 64;
 
@@ -210,8 +211,10 @@ export const ARRIVAL_MOMENT_ULPS = 64;
  * edge (spec A3), not the typical arrival; the typical arrival carries its own budget, which is what the
  * per-pair form reads.
  *
- * NOT YET SPENT: the per-pair form hit T37's STOPs in C8 dispatch 2 (see `pairSimultaneityWindow`), and
- * the seven sites read {@link HELD_SIMULTANEITY_WINDOW}.
+ * NOT YET SPENT: the per-pair form hit T37's STOPs in C8 dispatch 2 (division-only budget) and again in
+ * register C12 (complete model, exact box) — see "THE WINDOW AND THE BOX" below — and the seven sites read
+ * {@link HELD_SIMULTANEITY_WINDOW}. `compareArrivalsAtPairWindow` (collision-helpers.ts) is the per-pair
+ * comparison, landed and unspent.
  *
  * STATED CROSS-MULTIPLIED (T13): the cap is `δ · min(w₁, w₂)` on `|d₁·w₂ − d₂·w₁|`, which is
  * `|t₁ − t₂| < δ / max(w₁, w₂)` — inside it no participating edge advances more than δ.
@@ -227,54 +230,64 @@ export function simultaneityWindow(perceptualFloor: number): number {
 
 /*
  * ----------------------------------------------------------------------------
- * THE WINDOW AND THE BOX — ONE HAND-TUNED SYSTEM, HELD TOGETHER (journal decision 162, finding F72,
- * register C12)
+ * THE WINDOW AND THE BOX — ONE HAND-TUNED SYSTEM, HELD TOGETHER (journal decisions 162 and 167, findings
+ * F72 (struck) and F74, register C12)
  * ----------------------------------------------------------------------------
  *
  * {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX} are not two tolerances that happen
- * to share a number: they are ONE MATCHED PAIR. The window resolves arrivals up to its width apart as one
- * event and places the merged node at the event's ANCHOR rather than at each arrival's own meeting point,
- * so it DISPLACES merged nodes by up to its width. Later arrivals, priced from the true geometry, then land
- * up to that far from the node the window placed — and the box, joining any position within it to an
- * existing node, ABSORBS exactly that displacement. F72 reads C11's 43 unexplained node joins, 7e-10 to
- * 1.16e-8 from their node and uncorrelated with any conditioning quantity, as that absorption: the range a
- * 1e-8 window creates, reached by the whole-event merge, the terminal triangle and the split path (inferred
- * from the ranges, not yet traced join by join — C11's diagnosis attributes each join to the layer that
- * displaced its node).
+ * to share a number: they are ONE MATCHED PAIR. F74 traced what the pair does: the box absorbs genuinely
+ * later or earlier events 1e-10 to 4e-7 away in time (41 of C11's 44 joins), and if the window moves
+ * alone to its per-pair bar, the held box re-joins a later layer's merge onto an orphan edge's own source
+ * and leaves a one-edge ring the step used to drop silently. Decision 162 rules a PERCEPTUAL window wrong
+ * in principle, and decision 167 chose to move both, together, to the arithmetic bar: the window to each
+ * pair's own, the moment bar widened by the two arrivals' COMPLETE first-order error budgets (the
+ * error-model section below), capped at {@link simultaneityWindow}; the box to exact coordinate equality
+ * at S1, S2, S4 and S5.
  *
- * Decision 162 rules a PERCEPTUAL window wrong in principle: it merges events that are distinct at the
- * solver's own precision, the placed nodes then disagree with the upstream graph by more than the
- * arithmetic floor, and the downstream wavefront goes unsolvable for want of nodes the arithmetic expects.
- * So both go ARITHMETIC, and TOGETHER: the window to the per-pair bar with a complete first-order error
- * model (bases, rates, source offsets, the division — F71 measured the division-only budget two orders too
- * narrow), the box to exact identity. Neither moves alone. They are held here as one admitted pair until
- * register C12's sequential-resolution package — genuinely near-coincident events at a jittered hub
- * resolved in arithmetic order, the near-regular class — lets both go.
+ * REGISTER C12 MEASURED THAT MOVE AND IT STOPPED; BOTH ARE HELD HERE, BY INVERSE EDIT (2026-09-25). The
+ * complete model is LANDED on every `Arrival` and every node (`Arrival.uncertainty`,
+ * `positionUncertainties`) and convicted against exact arithmetic, and it is UNSPENT, as the division-only
+ * budget was after C8 dispatch 2. Measured over 642 cells (`FULL_CORPUS` at 1e-6 and 1e-5, Circle 48 and
+ * Rosette5 40 at the 46 fine translations, the off-edge 1e-3 and along-edge 1.0 jitter grids, the jittered
+ * Circle 32 ladder, the 62 regular circles of the vertex-count sweep):
  *
- * THE CONVICTION TO RUN THEN (F72's prediction, falsifiable): with the window at the per-pair bar, O1's
- * join histogram (`tolerance-derivation.test.ts`, A1) EMPTIES ITS >64-ULP BUCKET. Joins above 64 ulps that
- * survive the window's move are the box absorbing something other than the window's displacement, and
- * falsify F72.
+ *   - DECISION 167'S CONVICTION HELD. `Near Regular Circle 48` (native), `Near Regular Peanut 32` and
+ *     `Slightly Deformed Peanut 2` did not move; every regular circle solved, digest unmoved.
+ *   - THE WINDOW STOPPED. The complete model is honest and it is WIDE where a bisector is ill-conditioned:
+ *     a unit-weight bisector's direction error is `5u + 4u·cot(φ/2)` (the parents `φ` apart), so a
+ *     near-straight jittered vertex carries budgets of up to 2.9e13 moment bars on the corpus (median 1.5,
+ *     99th percentile 2.1e4) and reaches the δ cap — the perceptual window again, locally. An anchored
+ *     per-pair layer then resolves a wide-budget arrival with the earliest while leaving out a
+ *     narrow-budget arrival of the same edges that is unorderable against it: `Off-edge Jitter Plus`, k = 9,
+ *     seed 23757, strips 1.1% short with every oracle clean (F73's class); k = 7, seed 31676, an offset and
+ *     a direction violation; four cells off machine-precision tiling (1.7e-13 to 3.6e-10). Filtering the
+ *     whole list rather than cutting at the first refusal also gave `Off-edge Jitter Plus (seed 7919)` a
+ *     direction violation and stopped two off-edge cells solving.
+ *   - THE BOX, EXACT, IS MOSTLY WHAT DECISION 167 SAID — sub-floor fans become separate nodes, trees and
+ *     tilings improve on the translated circles — but alone it gives `Near Regular Circle 48` at 2e11 an
+ *     offset and a direction violation (while curing that cell's 57% tiling miss), and at S5 the offset
+ *     projection's two ends of a zero-length segment are computed independently and differ by ulps, so an
+ *     exact S5 keeps a repeated vertex (`offset-event-boundary-regression.test.ts`, two tests).
+ *
+ * The package's own report carries every table; the lead rules on the next mechanism.
  */
 
 /**
- * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP, TWICE (C8
- * spec T14, T16, T37). Half of ONE matched pair with {@link ARITHMETIC_SAME_POINT_BOX} — see the section
- * above: they move together, under register C12, or not at all.
+ * THE WINDOW THE SEVEN SITES STILL READ — HELD AT ITS HISTORICAL `1e-8` AS A MEASURED STOP, THREE TIMES
+ * (C8 spec T14, T16, T37; register C12). Half of ONE matched pair with {@link ARITHMETIC_SAME_POINT_BOX} —
+ * see the section above: they move together, or not at all.
  *
  * DISPATCH 1 (the flat δ window, F70): S22 alone moved the four predicted defect digests and stopped
  * fixtures solving, grew a direction violation and a diagnostic on `(seed 55433)`, moved the recursion
  * census and `Offset Cross Junction`'s ladder; S28 alone stopped one plus cell solving — STOPs 1, 2, 3, 6.
  *
  * DISPATCH 2 (T12 as amended by journal decision 160, the per-pair window `pairSimultaneityWindow` in
- * collision-helpers.ts, capped at δ): with all seven sites at it, 211 of 580 sweep cells move and 45 core
- * tests fail — `Near Regular Circle 48` and the vertex-count sweep's regular circles STOP SOLVING, and two
- * CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`). Each site alone: S22 moves
- * 209 cells (39 tests), S23 75 (16 tests, both clean digests), S24 11 cells by hash only plus a `Golf
- * Cart` recursion throw, S25–S28 nothing. The movers are well-conditioned (sin θ 0.2–0.37): their
- * readings differ by one to two moment bars, more than the pricing budget charges. Decision 160(b)'s
- * prediction does not hold, so all seven stay here together (one question, one bar — decision 144) and
- * the STOP is returned to the lead; the gated form is not built (T16).
+ * collision-helpers.ts, capped at δ, DIVISION-ONLY budget): with all seven sites at it, 211 of 580 sweep
+ * cells move and 45 core tests fail — `Near Regular Circle 48` and the vertex-count sweep's regular circles
+ * STOP SOLVING, and two CLEAN digests move (`Near Regular Peanut 32`, `Slightly Deformed Peanut 2`).
+ *
+ * REGISTER C12 (the per-pair window with the COMPLETE first-order model, beside an exact box): the three
+ * fixtures dispatch 2 split are gathered and unmoved, and the move STOPS elsewhere — see the section above.
  */
 export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
 
@@ -489,31 +502,312 @@ export const FORWARD_CROSS_PRODUCT_ROUNDING_UNITS = 8;
  */
 export const OFFSET_RATE_FORWARD_ROUNDING_BOUND = FORWARD_CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF;
 
+/*
+ * ----------------------------------------------------------------------------
+ * THE ARRIVAL ERROR MODEL — COMPLETE, FIRST ORDER (journal-5 decisions 162(a) and 167, register C12)
+ * ----------------------------------------------------------------------------
+ *
+ * THE QUESTION. Two arrivals of ONE exact meeting, priced along two different routes, come out as two
+ * different doubles. The simultaneity window of a pair must contain that difference, or the solver splits
+ * one meeting into two moments on the strength of its own rounding (F71: Peanut 32's `e37 × e57` readings
+ * differ by 5.0e-15 against a moment bar of 2.9e-15; Circle 48's 48 hub arrivals span 2.7e-14). So each
+ * arrival carries a FORWARD error bound — how far its computed distance can lie from the distance of the
+ * EXACT geometry the solver was handed (the stored input doubles) — and two arrivals whose difference is
+ * inside the sum of their bounds cannot be ordered by anything the arithmetic can vouch for.
+ *
+ * WHAT C8 DISPATCH 2 CHARGED, AND WHY IT WAS TWO ORDERS SHORT. Only the division by `sin θ` inside
+ * `intersectRays` (`k·u·|sep|/sin²θ`): the BACKWARD error of evaluating the intersection of the stored
+ * rays. But the rays are not the geometry — their bases are NORMALISED COMPUTED vectors, their sources
+ * may be PRICED positions, and the arrival is then read through a computed RATE and a computed SOURCE
+ * OFFSET. Every one of those roundings reaches the reading. The model below charges each, to first order
+ * in u, as the FORWARD question requires (the argument at {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}).
+ *
+ * THE PIECES, EACH ARGUED AT ITS FUNCTION:
+ *
+ *   (i)   a basis's DIRECTION error — a wall `normalize(q − p)`: {@link WALL_DIRECTION_ERROR} (2u); a
+ *         bisector: {@link bisectorDirectionError} (`5u + 4u·cot(φ/2)` at unit weights, the parents `φ`
+ *         apart) — propagated through the intersection as `(η₁·|a| + η₂·|t|) / |sin θ|`
+ *         ({@link rayIntersectionAlongUncertainty}); and every normalised vector's LENGTH error
+ *         ({@link BASIS_LENGTH_ERROR}, 3u), which the turn-only reading missed;
+ *   (ii)  the offset RATE's forward error, {@link offsetRateForwardError} (`η_b + η_c + 2u + 6u·|r|`),
+ *         times the travel ({@link arrivalUncertainty});
+ *   (iii) the SOURCE's own position budget, CARRIED from the event that placed the node (0 for a
+ *         stored input vertex) — into the intersection as `(e₁ + e₂)/|sin θ|`, and into the source
+ *         offset ({@link sourceOffsetUncertainty});
+ *   (iv)  the division term C8 dispatch 2 had, now stated on the priced travel: `k·u·|a| / |sin θ|`
+ *         (≤ `k·u·|sep|/sin²θ`);
+ *
+ * plus the evaluation roundings of every product and sum on the route. All are FIRST ORDER: products of
+ * two error terms are dropped, as the `k` argument drops `u²`.
+ *
+ * A BOUND, NOT A FIT, CONVICTED AGAINST EXACT ARITHMETIC: `tolerance-derivation.test.ts` pins every
+ * formula below as arithmetic and convicts the intersection budget against exact dyadic arithmetic on
+ * 20 000 random intersections of normalised computed bases.
+ */
+
+/**
+ * The direction error of a WALL basis — `makeBasis(p, q) = normalize(q − p)` of two stored doubles —
+ * against the exact direction of `q − p`, in units of u: **2** (the FORWARD argument at
+ * {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}): the subtraction rounds each component once (a turn of at
+ * most `u·|sin 2φ| ≤ u`), and the normalisation divides both by one shared computed length (no turn) and
+ * rounds each quotient once (at most `u` more).
+ */
+export const WALL_DIRECTION_ROUNDING_UNITS = 2;
+
+/** `WALL_DIRECTION_ROUNDING_UNITS · u`: a wall basis's direction error, as an angle (radians ≈ sine). */
+export const WALL_DIRECTION_ERROR = WALL_DIRECTION_ROUNDING_UNITS * UNIT_ROUNDOFF;
+
+/**
+ * The LENGTH error of any normalised computed vector — `normalize(z)`, `| |ẑ| − 1 |` — in units of u:
+ * **3**. The computed length `√(x² + y²)` is off by a relative `2u` (the two squares and their sum give
+ * `2u` on the square, halved by the root, plus the root's own rounding), and each quotient rounds once
+ * more (`u`). A direction's TURN and its LENGTH are separate errors, and the model needs both: a length
+ * error is harmless along the vector but not across a sum or a difference of two such vectors (see
+ * {@link bisectorDirectionError}), and it scales every product the vector enters.
+ */
+export const BASIS_LENGTH_ROUNDING_UNITS = 3;
+
+/** `BASIS_LENGTH_ROUNDING_UNITS · u`: the relative length error of a normalised computed vector. */
+export const BASIS_LENGTH_ERROR = BASIS_LENGTH_ROUNDING_UNITS * UNIT_ROUNDOFF;
+
+/**
+ * The direction error of a BISECTOR basis `b̂ = ±normalize(v)`, `v = w_ws·ĉ − w_cw·ŵ` (the kernel
+ * numerator `makeWeightedBisectedBasis` normalises; `ĉ`, `ŵ` the clockwise and widdershins parent WALL
+ * bases), against the exact bisector of the exact walls — PART (i) of the model for an interior ray.
+ *
+ * DERIVED. Perturb `ĉ` by `δc` — a TURN `θ_c` (across `ĉ`) and a LENGTH error `λ_c` (along it) — and `ŵ`
+ * likewise. The component of `δv = w_ws·δc − w_cw·δw` across `v̂` is what turns `v`: a turn of `ĉ`
+ * contributes `θ_c·|ĉ·v̂|`, a length error `λ_c·|ĉ × v̂|`. So `v` turns by
+ *
+ *     ( w_ws·(θ_c·|ĉ·b̂| + λ_c·|ĉ×b̂|)  +  w_cw·(θ_w·|ŵ·b̂| + λ_w·|ŵ×b̂|) ) / |v|.
+ *
+ * Each parent carries the wall's turn `2u` and length error `3u` ({@link BASIS_LENGTH_ERROR}), and its
+ * weight scaling rounds each component once more (`u` of turn and `u` of length; exact at unit weights,
+ * charged regardless so that there is no branch on unit weights — W-spec W36): `θ = 3u`, `λ = 4u`. The
+ * sum rounds each component once (`u` of turn) and the normalisation once more (`u`). So
+ *
+ *     η_b  =  ( w_ws·(3u·|ĉ·b̂| + 4u·|ĉ×b̂|)  +  w_cw·(3u·|ŵ·b̂| + 4u·|ŵ×b̂|) ) / |v|  +  2u.
+ *
+ * AT UNIT WEIGHTS, `v = ĉ − ŵ` with the parents `φ` apart: `|ĉ·v̂| = |ŵ·v̂| = |v|/2` (the TURNS average —
+ * the bisector's direction is the mean of the parents' angles) and `|ĉ×v̂| = |ŵ×v̂| = cos(φ/2)` (the
+ * LENGTH errors do not), so `η_b = 5u + 4u·cot(φ/2)`: 5u between anti-parallel walls (the corridor
+ * midline, where {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}'s 5u was argued), 9u at a right angle, and
+ * growing without bound at a near-STRAIGHT vertex, where two nearly equal unit vectors are subtracted and
+ * their length errors are all that is left of the difference's direction. MEASURED BEFORE IT WAS
+ * WRITTEN: the turn-only form (5u at every angle) was convicted against exact arithmetic by a bisector
+ * 28.8u off its true direction (`tolerance-derivation.test.ts`). Under unequal weights the kernel can
+ * amplify further, which the per-vertex turn guard ({@link minWeightTurnSine}) bounds; the expression
+ * charges it as it stands.
+ *
+ * THE FALLBACK: where `|v|` is inside its own rounding bound ({@link basisSumRoundingBound}) the basis is
+ * `rotateCw90(ĉ)`, an exact rotation of the clockwise wall, whose turn is the wall's.
+ */
+export function bisectorDirectionError(
+    clockwiseBasis: Vector2,
+    widdershinsBasis: Vector2,
+    clockwiseWeight: number,
+    widdershinsWeight: number,
+    basis: Vector2,
+): number {
+    const vx = widdershinsWeight * clockwiseBasis.x - clockwiseWeight * widdershinsBasis.x;
+    const vy = widdershinsWeight * clockwiseBasis.y - clockwiseWeight * widdershinsBasis.y;
+    const size = Math.sqrt(vx * vx + vy * vy);
+    if (size <= basisSumRoundingBound(widdershinsWeight, clockwiseWeight)) {
+        return WALL_DIRECTION_ERROR;
+    }
+    const turn = WALL_DIRECTION_ERROR + UNIT_ROUNDOFF;
+    const length = BASIS_LENGTH_ERROR + UNIT_ROUNDOFF;
+    const clockwiseShare = turn * Math.abs(clockwiseBasis.x * basis.x + clockwiseBasis.y * basis.y)
+        + length * Math.abs(clockwiseBasis.x * basis.y - basis.x * clockwiseBasis.y);
+    const widdershinsShare = turn * Math.abs(widdershinsBasis.x * basis.x + widdershinsBasis.y * basis.y)
+        + length * Math.abs(widdershinsBasis.x * basis.y - basis.x * widdershinsBasis.y);
+    return (widdershinsWeight * clockwiseShare + clockwiseWeight * widdershinsShare) / size
+        + 2 * UNIT_ROUNDOFF;
+}
+
+/**
+ * The FORWARD error of an evaluated offset rate `r = cross(b̂, ĉ)` — PART (ii) of the model:
+ *
+ *     E_r  =  η_b + η_c + k·u + 2·λ·|r|
+ *
+ * Turns of the two operands move the sine by at most the sum of the turns; the evaluation adds
+ * `u·(1 + |sin θ|) ≤ k·u` at any angle (the `k` argument); and each operand's length error
+ * ({@link BASIS_LENGTH_ERROR}) scales the product. At unit weights between anti-parallel walls, near
+ * zero, this is {@link FORWARD_CROSS_PRODUCT_ROUNDING_UNITS}'s argument (5u + 2u + the evaluation, the
+ * length term second order); away from zero the evaluation is charged at `2u` and the length errors at
+ * `6u·|r|`, because a rate multiplying a travel is read at every angle.
+ */
+export function offsetRateForwardError(basisDirectionError: number, wallDirectionError: number, rate: number): number {
+    return basisDirectionError + wallDirectionError + CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF
+        + 2 * BASIS_LENGTH_ERROR * Math.abs(rate);
+}
+
+/**
+ * The error budget of a SOURCE OFFSET `s = cross(normalize(P − A), ĉ) · |P − A|` — a bisector source
+ * `P`'s distance from its clockwise parent's line through the wall's own stored source `A` — PART (iii)
+ * of the model, with `L = |P − A|`:
+ *
+ *     E_s  =  e_P  +  L·(η_c + 4u)  +  4u·|s|
+ *
+ * `e_P` is `P`'s carried position budget (a displacement of `P` moves its distance from the line by at
+ * most itself; `A` is a stored input vertex, exact). `η_c` turns the line about `A`, moving the distance
+ * at `P` by `L·η_c`. `L·ŝep` is the computed separation with each component off by a relative `2u` (the
+ * subtraction and the quotient — the length `L`'s own error cancels between the quotient and the
+ * product), `2u·L` as a vector, and the cross product of two unit vectors rounds by `k·u = 2u`: `4u·L`.
+ * The wall's LENGTH error ({@link BASIS_LENGTH_ERROR}) scales the offset by a relative `3u` and the final
+ * product rounds once: `4u·|s|`. A PRIMARY bisector's source IS its clockwise parent's source, `s = 0`
+ * exactly and not computed: its budget is `0` (the caller does not reach this).
+ */
+export function sourceOffsetUncertainty(
+    sourceUncertainty: number,
+    separation: number,
+    sourceOffset: number,
+    wallDirectionError: number,
+): number {
+    return sourceUncertainty + separation * (wallDirectionError + 4 * UNIT_ROUNDOFF)
+        + 4 * UNIT_ROUNDOFF * Math.abs(sourceOffset);
+}
+
+/** One ray of a priced intersection, with the error terms part (i) and part (iii) of the model charge it. */
+export interface RayErrorTerms {
+    /** The computed travel along this ray to the meeting point. */
+    along: number;
+    /** The carried position budget of the ray's source node (0 for a stored input vertex). */
+    sourceUncertainty: number;
+    /** The direction error of the ray's basis ({@link WALL_DIRECTION_ERROR} or {@link bisectorDirectionError}). */
+    directionError: number;
+}
+
+/**
+ * The error budget of the travel `a` along ray 1 to its intersection with ray 2 as `intersectRays` prices
+ * it — `a = D·dot(ŝep, rot b₂) / dot(rot b₂, b₁)`, `D = |sep|` — against the travel to the intersection
+ * of the EXACT rays, with `s = |sin θ|` the evaluated sine and `t` the travel along ray 2:
+ *
+ *     E_a  =  ( e₁ + e₂  +  η₁·|a| + η₂·|t|  +  k·u·|a|  +  5u·D ) / s   +   (λ + 2u)·|a|
+ *
+ * DERIVED (the exact first-order propagation, `P₁ + a·b₁ = P₂ + t·b₂`, so `a = cross(P₂ − P₁, b₂) /
+ * cross(b₁, b₂)`):
+ *
+ *   - SOURCES (part iii): a displacement `δ` of either source moves `a` by `cross(δ, b₂)/sin θ`, at most
+ *     `|δ|/s` — hence `(e₁ + e₂)/s`;
+ *   - BASES (part i): turning `b₂` by `η₂` about `P₂` moves line 2, at the meeting point, by `η₂·|t|`
+ *     across itself, and `a` by `η₂·|t|/s` (exactly `−η₂·t/sin θ`); turning `b₁` by `η₁` moves `a` by
+ *     `η₁·|a|·|cos θ|/s ≤ η₁·|a|/s`. By the law of sines `|a|, |t| ≤ D/s`, so this is at most
+ *     `(η₁ + η₂)·D/sin²θ` — the `|sep|·(2u + 2u)/sin θ` of the dispatch, per unit of travel;
+ *   - THE DIVISION (part iv): the denominator is a dot product of unit vectors, off by `k·u` absolutely,
+ *     so relatively by `k·u/s`: `k·u·|a|/s` (C8 dispatch 2's term, `≤ k·u·D/sin²θ`, restated on `|a|`);
+ *   - THE NUMERATOR: `D·ŝep` is the computed separation with each component off by a relative `3u` (the
+ *     subtraction, the quotient by `D`, the product by `D` — the length `D`'s own error cancels between
+ *     the two), `3u·D` as a vector; the dot product with a unit vector rounds by `k·u = 2u` of `D`: `5u·D/s`
+ *     (ray 2's LENGTH error scales numerator and denominator alike, and cancels);
+ *   - THE SCALARS: ray 1's LENGTH error `λ` ({@link BASIS_LENGTH_ERROR}) scales the denominator, and so
+ *     the travel, by a relative `λ`; the product and the quotient round once each: `(λ + 2u)·|a|`.
+ */
+export function rayIntersectionAlongUncertainty(
+    first: RayErrorTerms,
+    second: RayErrorTerms,
+    separation: number,
+    sine: number,
+): number {
+    const travel = Math.abs(first.along);
+    return (first.sourceUncertainty + second.sourceUncertainty
+            + first.directionError * travel + second.directionError * Math.abs(second.along)
+            + CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF * travel
+            + 5 * UNIT_ROUNDOFF * separation) / Math.abs(sine)
+        + (BASIS_LENGTH_ERROR + 2 * UNIT_ROUNDOFF) * travel;
+}
+
+/**
+ * The error budget of an ARRIVAL DISTANCE `d = s + a·r` (`makeOffsetDistance`): the source offset `s`
+ * plus the travel `a` times the offset rate `r` — or `d = s` where the rate is substituted by zero (S20):
+ *
+ *     E_d  =  E_s  +  |r|·E_a  +  |a|·(E_r + [substituted]·|r|)  +  u·(|a·r| + |d|)
+ *
+ * First order in the three inputs' budgets (`E_s`, `E_a`, `E_r`), each argued at its own function; the
+ * product and the sum round once each. A SUBSTITUTED rate discards `a·r` outright, so the discarded
+ * reading `|a·r|` is charged on top of the rate's forward error: the exact rate can be as large as
+ * `|r| + E_r`.
+ */
+export function arrivalUncertainty(
+    sourceOffsetBudget: number,
+    rate: number,
+    rateError: number,
+    along: number,
+    alongBudget: number,
+    distance: number,
+    rateSubstituted: boolean,
+): number {
+    const travel = Math.abs(along);
+    const rateMagnitude = Math.abs(rate);
+    return sourceOffsetBudget
+        + rateMagnitude * alongBudget
+        + travel * (rateError + (rateSubstituted ? rateMagnitude : 0))
+        + UNIT_ROUNDOFF * (travel * rateMagnitude + Math.abs(distance));
+}
+
+/**
+ * The error budget of a POINT placed along a ray, `X = P + a·b̂` (`findPositionAlongRay`) — the budget
+ * an event hands the node it creates:
+ *
+ *     E_X  =  e_P  +  E_a  +  |a|·(η_b + λ)  +  2u·(|a| + ‖X‖₁)
+ *
+ * the source's carried budget, the travel's, the basis's turn and LENGTH error ({@link BASIS_LENGTH_ERROR})
+ * swept over the travel, and the scaling and the addition rounding each component once (`u·|a|` and
+ * `u·|X|` per axis, bounded in the 1-norm).
+ */
+export function pointAlongRayUncertainty(
+    sourceUncertainty: number,
+    along: number,
+    alongBudget: number,
+    directionError: number,
+    position: Vector2,
+): number {
+    const travel = Math.abs(along);
+    return sourceUncertainty + alongBudget + travel * (directionError + BASIS_LENGTH_ERROR)
+        + 2 * UNIT_ROUNDOFF * (travel + Math.abs(position.x) + Math.abs(position.y));
+}
+
+/**
+ * The FORWARD error bound of a weighted rate sum `rateA·weightB + rateB·weightA` — the divisor of the
+ * head-on meeting and of both split paths — against the sum of the EXACT rates: each rate's forward
+ * error ({@link offsetRateForwardError}) scaled by its weight, plus the two products and the sum rounding
+ * once each (`2u` per term, as in {@link weightedRateSumRoundingBound}, whose `k·u` backward charge the
+ * forward errors replace). A BUDGET, not the division guard: the guard stays the backward bound (T19).
+ */
+export function weightedRateSumForwardBound(
+    termA: number,
+    termB: number,
+    weightA: number,
+    weightB: number,
+    rateErrorA: number,
+    rateErrorB: number,
+): number {
+    return weightB * rateErrorA + weightA * rateErrorB
+        + 2 * UNIT_ROUNDOFF * (Math.abs(termA) + Math.abs(termB));
+}
+
 /**
  * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
  * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
  * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
- * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule).
+ * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule; register C12).
  *
  * O1's settling histogram (dispatch 1, 2026-09-24) found joins ABOVE 64 ulps — 43 of them at 5e5 to
- * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine
- * translations, one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — and they do
- * NOT correlate with the pricing's conditioning: every one sits 6e3 to 3.6e8 times the larger of its
- * two positions' conditioning quantities (`|sep|·2u/sin²θ` at the pair pricing, the Cramer bound at
- * the terminal triangle). That is decision 154's third branch: each such join names a path that
- * BYPASSED EVENT RESOLUTION, and the three found are reported to the lead rather than absorbed — the
- * whole-event merge (`handleInteriorNGon` → `terminateEdgesAtPoint`) landing on a node an earlier layer
- * built, the terminal triangle's closed form (`handleInteriorEdgeTriangle`) landing on one, and the
- * split path (`handleCollisionEvent`). Until those paths are fixed there, option (a)'s representation
- * bar would split nodes this box currently joins, so the bar is not moved.
+ * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine translations,
+ * one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — that do NOT correlate with
+ * the pricing's conditioning. F74 traced them: 41 of 44 are this box absorbing a genuinely later or
+ * earlier event (1e-10 to 4e-7 away in time), which decision 141 would admit as a distinct node.
  *
  * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
  * bar and never δ (F27, audit C1).
  *
- * THE WINDOW'S COUNTERPART (journal decision 162(b), F72): the other half of ONE matched pair with
- * {@link HELD_SIMULTANEITY_WINDOW} — it absorbs the displacement the window's anchored merge creates, and
- * goes EXACT only together with the window's move to its arithmetic per-pair bar, under register C12. See
- * "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`, which states the conviction to run then.
+ * THE WINDOW'S COUNTERPART (journal decisions 162(b), 167): the other half of ONE matched pair with
+ * {@link HELD_SIMULTANEITY_WINDOW}. Register C12 measured both at the arithmetic bar and the move STOPPED;
+ * see "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`. Exact, the four sites read: S1 and S4
+ * coordinate equality; S2 coordinate equality OR one instigator (a group of re-reports of ONE split is
+ * one node by acceptance — read as equality alone, it moved seven clean digests by at most 1.93 ulps);
+ * S5 could not be exact (the two ends of a zero-length offset segment are computed apart and differ by
+ * ulps, and an exact S5 keeps a repeated vertex).
  */
 export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
 

@@ -61,6 +61,7 @@ function eventAt(position: Vector2, collidingEdges: number[]): CollisionEvent {
         arrival: {distance: 1, weight: 1, uncertainty: 0},
         collidingEdges,
         position,
+        positionUncertainty: 0,
         intersectionData: [1, 1, 'converging'],
         eventType: 'interiorPair',
     };

@@ -334,6 +334,16 @@ export function denormaliseGraph(graph: StraightSkeletonGraph, normalisation: Sk
 }
 
 /**
+ * Carry a context's node position budgets back into the caller's coordinates, IN PLACE (journal-5
+ * decision 167): each is a length beside a node position, so it scales with the graph.
+ */
+export function denormalisePositionUncertainties(budgets: number[], normalisation: SkeletonNormalisation): void {
+    for (let index = 0; index < budgets.length; index++) {
+        budgets[index] = denormaliseLength(normalisation, budgets[index]);
+    }
+}
+
+/**
  * Carry a context's collision memo back into the caller's coordinates, IN PLACE.
  *
  * SEPARATE FROM THE GRAPH BECAUSE ONLY SOME CALLERS HAVE BOTH. The stepped entry point hands back
@@ -359,6 +369,7 @@ export function denormaliseCollisionCache(cache: CollisionCache, normalisation: 
                     uncertainty: denormaliseLength(normalisation, event.arrival.uncertainty),
                 };
                 event.position = denormalisePosition(normalisation, event.position);
+                event.positionUncertainty = denormaliseLength(normalisation, event.positionUncertainty);
                 event.intersectionData[0] = denormaliseLength(normalisation, event.intersectionData[0]);
                 event.intersectionData[1] = denormaliseLength(normalisation, event.intersectionData[1]);
             }
