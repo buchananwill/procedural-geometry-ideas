@@ -216,11 +216,15 @@ The site is known (A2); the non-monotonicity is attributed to centring quantisat
 down.
 
 **B7 — `Offset Cross Junction` fails at floors ≤ 3e-6 and solves from 1e-5 up (F67).**
-Reported mechanism: an exactly coaxial opposed pair whose offset rates cancel reaches the
-completion, which prices it, and a step failure follows; at 1e-5 a different route solves
-it. Unverified by the lead; the cancelling-rates branch of `priceHeadOnPair` is the
-suspect. A floor-monotonicity failure of solvability is also the shape decision 131 names
-for canonicalisation, here in the predicate lane. A candidate first item for C8.
+*Re-pointed 2026-09-24 (F68):* NOT a tolerance — a collapsed zero-width corridor whose
+meetings all sit at existing sources with zero travel, priced by the completion at the
+midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
+candidate: C10.
+
+**C10 — The snap pre-pass is a missing rung of the triangle/n-gon ladder** (F68). The pair
+handler runs `resolveEdgesPointingAtNodes` before its closures; decision 145's ladder in
+the other two handlers does not. Add it, measure B7, and then rule the level opposed pair
+that spec A16 leaves to the throw. Small, after C8.
 
 ### C. Ruled-but-unbuilt design debt
 
@@ -636,8 +640,66 @@ and the dashboard tour's specimen stays open unless the tour can run at the libr
 Circle 48 and Rosette5 40 stay enrolled on their fine-translation clearance signatures (10
 and 9 cells); the decision-66/81 decade cells are now clean.
 
+**152 — (user, 2026-09-24: "Link me the C8 spec") The C8 decision spec is DRAFTED by an
+Opus delegate at [tolerance-derivation-decisions.md](./tolerance-derivation-decisions.md),
+status draft, for the lead's ratification; no production code moves until it is
+ratified (decision 144(f)).** Inputs named: the tolerance audit (1120 lines, §3 inventory
+and §4 disagreement map at the "named" bar), decision 144's two sources (δ and u), decisions
+147–151, F64–F67, the angular spec's A1–A10 as the pattern of a derivation, and the 42
+epsilon-family call sites in `packages/core/src` at `2ef58d8`. Required contents: one
+derivation per site in the audit's inventory plus every site added since (the F64 four,
+the fourth oracle, `MAX_WEIGHT_RATIO`, `MIN_WEIGHT_TURN_SINE`, the simultaneity window);
+each site classified by the question it asks, its category (perceptual, arithmetic,
+detector), its operands and its expected digest effect; the identical-source / co-linear
+asymmetry of F66 stated as a decision; B7's cancelling-rates case as the first fixture;
+falsification bars in decision 134's form; OPEN items with settling measurements. The
+user's plan-writing style governs: a decision spec, not a phased plan.
+
+**153 — Lead review of the C8 spec
+([tolerance-derivation-decisions.md](./tolerance-derivation-decisions.md), 296 lines, 65
+census rows against the audit's 41, T1–T40, O1–O5): read in full; three items go to the
+user for ratification, the rest is ruled here.** (a) **I4 RULED for T18**: the fourth
+oracle's bar is the complement of the zero-rate predicate at ρ on the raw parents, per
+decision 149(b) and coherence; F65's phrase "which the fourth oracle will catch" is
+AMENDED in place — the three sub-ρ negative rates are below the resolution and are not
+violations. (b) **I10 RULED for T7**: the three landed `≤` sites go to `<` so the package
+has one inequality; a boundary of measure zero is not worth a second convention. (c) T9
+(identical-source exact) is accepted on its premise — every production ray source is a
+stored node position — with the band (0, 1e-8) population as its conviction; if the band
+is non-empty the premise is false and T9 reopens. (d) T34 is assigned **F68** and labelled
+delegate-traced, not lead-re-run; register B7 is re-pointed to its mechanism. (e) O1, O2,
+O3 and O5 are lead-level and are ruled by their settling measurements, which run FIRST in
+the implementation dispatch, before any bar moves. (f) The census's I2 (graph-merge's
+dedupe runs in unit space, its comment stale) corrects register C6's premise, and I3
+(`DEGENERATE_AREA_EPSILON` read as a unit-space area in the decomposition, 1000δ on a side)
+is a live finding folded into O3. (g) **To the user:** T2, the category rule ("a comparison
+that decides a question before any node exists takes δ; one whose acceptance discards or
+substitutes a produced answer takes u; a division guard takes its own rounding bound") —
+a sharpening of decision 141 that explains F66 and should be confirmed as principle; T12,
+the simultaneity window at δ, with T15's prediction that at the library floor it widens
+layers on exactly the four jitter defect fixtures and no clean fixture; and O4, whether
+`MAX_WEIGHT_RATIO = 100` survives as a PRODUCT ceiling now that no derivation yields it
+(the derived coherence bound is ~1e8). Spec status stays draft until those three are
+ruled.
+
 ---
 ## Findings
+
+**F68 — (delegate-traced for the C8 spec, T34; not re-run by the lead) `Offset Cross
+Junction` fails at the library floor because its two junction closures land 6.25δ apart
+and hand the n-gon a zero-width, fully collapsed corridor whose every meeting sits AT an
+existing source with zero travel; the completion then prices the exactly-zero-rate
+mid-lines at their midpoint, and the partition throws.** The rates are exact zeros, so no
+derived tolerance touches it (spec I9): B7 is C8's CONTROL fixture, its ladder rows must
+stay bit-pinned through the package. The transition to solving lies between δ = 4e-6 and
+4.5e-6, where the coaxiality lane admits two reflex bisectors at a lateral of 6.25e-6/√2;
+a second independent route is the coincidence floor merging the two junction nodes above
+6.25e-6. The cure lives in the terminal ladder: the pair handler runs a snap pre-pass
+(`resolveEdgesPointingAtNodes`) that the triangle and n-gon ladders LACK — decision 145's
+"same ladder" is incomplete by one rung — and, by reasoning only, the level opposed pair
+e26/e27 would still fall to spec A16's retreating-pair throw after it. Register: B7
+re-pointed; new **C10** (the snap rung in the triangle/n-gon ladder, with B7 as its
+fixture).
 
 **F67 — `Offset Cross Junction` is enrolled as the seventh defect fixture with a COMPLETE
 signature at enrolment (decision 143's bar applied for the first time): corpus 60, digest
@@ -715,7 +777,7 @@ ray snap — one cell complete with sub-floor counts only; point-on-ray closure 
 complete, three with sub-floor counts only and ONE (Circle 32 30×/seed 7) clean on every
 measure, a cure. Reading: with the bar in the right currency, "silent" has narrowed to
 (i) fixtures that stop solving (STOP 3, unchanged), (ii) sub-resolution negative rates,
-which the fourth oracle will catch once derived, and (iii) nothing else. The four sites
+which the fourth oracle was expected to catch — AMENDED by decision 153(a): they are below the angular resolution and are NOT violations under T18, and (iii) nothing else. The four sites
 remain C8's to re-rule; the point-on-ray closure now looks movable. **Lead verification on
 the merged tree after decision 149's follow-up: core 5690/5690 (86 suites, 115 s),
 dashboard 331/331 after a core rebuild, both builds green — all match the delegate.
