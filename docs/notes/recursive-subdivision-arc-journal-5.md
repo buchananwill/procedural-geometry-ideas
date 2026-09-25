@@ -1055,6 +1055,16 @@ lands BEFORE C12 is retried, because F75's failure class is invisible to every p
 oracle and a mechanism cannot be measured against an instrument that cannot see its
 failure.
 
+**169 — (user, 2026-09-25: "Go, I can't wring any more interpretations of wrongness from
+the data I have now") C14 and the absent-edge-event trace are dispatched together to Opus
+on `98fcb03`.** C14 lands the generation-time exclusion (a reflex vertex never splits a
+wall adjacent to one of its own parents) with the B-layer and A-digest convictions and a
+corpus census of such candidates; the trace answers, read-only, why e92×e237 was absent
+from B's candidate list at the per-pair bar — the phantom test at S23 on the split-born
+path first — and reports what it finds without fixing it, so the lead can rule whether
+it is a budget defect (the split path's budgets were never convicted against exact
+arithmetic) or a generation defect of its own.
+
 ---
 ## Findings
 
