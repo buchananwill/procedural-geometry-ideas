@@ -1,10 +1,11 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
-    StraightSkeletonSolverContext
+    StraightSkeletonSolverContext, Vector2
 } from "./types";
 import {compareArrivals, findOrComputeCollision, priceHeadOnPair} from "./collision-helpers";
-import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW} from "./constants";
+import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
+import {rotateCw90} from "./core-functions";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
 import {
@@ -147,6 +148,13 @@ function earliestArrivalMoment(events: CollisionEvent[]): CollisionEvent[] {
         }
     }
     return byOffset;
+}
+
+/** The inward perpendicular distance of `point` from wall `wallId`'s supporting line, through its stored source. */
+function distanceFromWallLine(point: Vector2, wallId: number, context: StraightSkeletonSolverContext): number {
+    const normal = rotateCw90(context.getEdgeWithId(wallId).basisVector);
+    const source = context.sourcePosition(wallId);
+    return normal.x * (point.x - source.x) + normal.y * (point.y - source.y);
 }
 
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
@@ -382,7 +390,19 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
                 .map(event => event.positionUncertainty));
             const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
             context.acceptAll(arrivals);
-            recordBisections(bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context))
+            const bisections = bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context);
+            // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
+            // release, and its cost downstream is each emitted bisector's equi-time residual at the node —
+            // {@link mergeDisplacementUncertainty}. The node's budget is the larger of the members' pricing
+            // budget above and the largest residual over the bisectors it emits.
+            context.positionUncertainties[node.id] = Math.max(
+                context.positionUncertainties[node.id] ?? 0,
+                ...bisections.map(params => mergeDisplacementUncertainty(
+                    distanceFromWallLine(node.position, params.clockwiseExteriorEdgeIndex, context),
+                    context.weightOf(params.clockwiseExteriorEdgeIndex),
+                    distanceFromWallLine(node.position, params.widdershinsExteriorEdgeIndex, context),
+                    context.weightOf(params.widdershinsExteriorEdgeIndex))));
+            recordBisections(bisections)
         })
 
         // Splits of one layer landing on one point are ONE vertex event, and this is where they are

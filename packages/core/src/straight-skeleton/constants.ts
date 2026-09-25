@@ -668,6 +668,38 @@ export function sourceOffsetUncertainty(
         + 4 * UNIT_ROUNDOFF * Math.abs(sourceOffset);
 }
 
+/**
+ * THE MERGE NODE'S DISPLACEMENT, AS A POSITION BUDGET (journal-5 decision 170; the ratified Part B of
+ * register C14's trace). A whole-event merge gathers meetings that lie within the perceptual floor of one
+ * another and sites ONE node at their medoid — decision 157's release: below the floor the solver is not
+ * obliged to tell the meetings apart. The release is not free downstream. Every bisector the merge emits
+ * starts at that node, and a bisector's clock is read from its source's distance to its CLOCKWISE parent
+ * (`sourceOffsetWithBudget`); if the node is not on the emitted bisector's own equi-time locus, that
+ * reading and the widdershins parent's differ by the node's residual, and every later arrival of the
+ * bisector carries the difference whole — for a corridor midline (anti-parallel parents, rate ≈ 0) it is
+ * not even attenuated. The pricing budgets of the merged events do not see it: they answer for where each
+ * EVENT was computed, not for where the node was PUT.
+ *
+ * The residual, for an emitted bisector with parents `cw`, `ws` at distances `d_cw`, `d_ws` of the node
+ * from their lines and weights `w_cw`, `w_ws`:
+ *
+ *     E_merge  =  |d_cw·w_ws − d_ws·w_cw| / min(w_cw, w_ws)       ( = |d_cw − d_ws| at unit weights )
+ *
+ * which is `max(w_cw, w_ws)·|t_cw − t_ws|`: the two parents' clocks at the node, disagreeing, restated as
+ * a length on the faster wall — never smaller than the clockwise reading's error `w_cw·|t_cw − t_ws|`.
+ * Measured on `Off-edge Jitter Plus`, k = 9, seed 23757: the step-58 merge of 163×232 and 93×232, 9.47e-7
+ * apart, sited the 75|4 bisector's source 1.7214e-10 off its locus, against a carried budget of 9.28e-12.
+ */
+export function mergeDisplacementUncertainty(
+    clockwiseDistance: number,
+    clockwiseWeight: number,
+    widdershinsDistance: number,
+    widdershinsWeight: number,
+): number {
+    return Math.abs(clockwiseDistance * widdershinsWeight - widdershinsDistance * clockwiseWeight)
+        / Math.min(clockwiseWeight, widdershinsWeight);
+}
+
 /** One ray of a priced intersection, with the error terms part (i) and part (iii) of the model charge it. */
 export interface RayErrorTerms {
     /** The computed travel along this ray to the meeting point. */

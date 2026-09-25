@@ -69,12 +69,14 @@ import {
     determinant3TripleSum,
     FORWARD_CROSS_PRODUCT_ROUNDING_UNITS,
     HELD_SIMULTANEITY_WINDOW,
+    mergeDisplacementUncertainty,
     OFFSET_RATE_FORWARD_ROUNDING_BOUND,
     UNIT_CROSS_PRODUCT_ROUNDING_BOUND,
     weightedRateSumRoundingBound,
 } from '@proc-geo/core/straight-skeleton/constants';
 import {SIMULTANEITY_RELATIVE_TOLERANCE} from '@proc-geo/core/straight-skeleton/offset-projection';
 import {reachesSupportingLine} from '@proc-geo/core/straight-skeleton/generate-split-event';
+import {arrivalOf, interiorRayTerms} from '@proc-geo/core/straight-skeleton/collision-helpers';
 import {rateViolations} from './wavefront-measurement-helpers';
 import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, jitteredSamples} from './jitter-helpers';
 
@@ -1342,5 +1344,75 @@ describe('the coherence table', () => {
 
     it('S37 / S39 — one division-safety class: the basis sum takes 2k·u, `normalize` exact zero', () => {
         expect(basisSumRoundingBound(1, 1)).toBe(2 * CROSS_PRODUCT_ROUNDING_UNITS * UNIT_ROUNDOFF);
+    });
+});
+
+/*
+ * JOURNAL-5 DECISION 170: A MERGE NODE CARRIES WHERE IT WAS PUT. The whole-event merge sites one node at the
+ * medoid of the meetings it gathers (decision 157's release), and every bisector it emits reads its clock
+ * from that node's distance to its CLOCKWISE parent. Off the bisector's equi-time locus, that reading and the
+ * widdershins parent's disagree by the node's residual, and the disagreement rides the bisector to its next
+ * meeting. The node's budget is therefore the larger of its members' pricing budgets and that residual
+ * (`mergeDisplacementUncertainty`, constants.ts; the site is the merge branch of `handleInteriorNGon`).
+ */
+describe('decision 170: the merge node\'s displacement budget', () => {
+    it('is |d_cw·w_ws − d_ws·w_cw| / min(w_cw, w_ws): |d_cw − d_ws| at unit weights, max(w)·|t_cw − t_ws| weighted', () => {
+        expect(mergeDisplacementUncertainty(0.75, 1, 0.25, 1)).toBe(0.5);
+        expect(mergeDisplacementUncertainty(0.25, 1, 0.75, 1)).toBe(0.5);
+        expect(mergeDisplacementUncertainty(0.5, 1, 0.5, 1)).toBe(0);
+        // w_cw = 2, w_ws = 1: clocks 0.5 and 1, max(w)·|Δt| = 2 · 0.5 = 1.
+        expect(mergeDisplacementUncertainty(1, 2, 1, 1)).toBe(1);
+        // Equal clocks under unequal weights are no displacement at all.
+        expect(mergeDisplacementUncertainty(2, 2, 1, 1)).toBe(0);
+    });
+
+    /*
+     * THE CONSTRUCTED MERGE. A corridor 0.2 high, widening to the right (top wall rising 0.05 over its
+     * length), closed on the left by a two-wall cap whose kink (−0.01, 0.102410478) is placed so that the
+     * cap's two collapses — wall 0 and wall 1 — fall into ONE layer 8e-9 off their balance point. The
+     * whole-event merge gathers e6, e7, e8 into one node and emits the corridor's midline e12 (walls 2 | 5)
+     * from it; the node sits off that midline's locus by 1.79e-9. The midline next meets e11, the bisector of
+     * the bottom wall's slight kink (0.5, −0.001) — a converging pair whose two readings are exact but for
+     * the midline's inherited residual. Without the merge term the node's budget is its members' pricing
+     * budget, ~1e-15, and the pair is a phantom at its own window; with it, the pair is a candidate.
+     */
+    it('makes the emitted bisector\'s next meeting a candidate at its own window, where it was a phantom', () => {
+        const vertices: Vector2[] = [
+            {x: 0, y: 0}, {x: -0.01, y: 0.1 + 0.002410478}, {x: 0, y: 0.2},
+            {x: 1, y: 0.25}, {x: 1, y: 0}, {x: 0.5, y: -0.001},
+        ];
+        const context = makeStraightSkeletonSolverContext(vertices);
+        initInteriorEdges(context);
+        const children = stepAlgorithm(context, [{interiorEdges: context.graph.interiorEdges.map(edge => edge.id)}]).childSteps;
+
+        const merged = context.graph.nodes[6];
+        expect(merged.inEdges).toEqual([6, 7, 8]);
+        expect(children.map(child => child.interiorEdges)).toEqual([[9, 10, 11, 12]]);
+        expect([context.parentEdges(12).clockwise.id, context.parentEdges(12).widdershins.id].sort()).toEqual([2, 5]);
+
+        const distance = (wall: number) => {
+            const basis = context.getEdgeWithId(wall).basisVector;
+            const source = context.sourcePosition(wall);
+            return basis.y * (merged.position.x - source.x) - basis.x * (merged.position.y - source.y);
+        };
+        const residual = Math.abs(distance(2) - distance(5));
+        expect(residual).toBeGreaterThan(1e-9);
+        expect(context.positionUncertainties[6]).toBeGreaterThanOrEqual(residual * (1 - 1e-9));
+
+        const midline = context.getInteriorWithId(12);
+        const kink = context.getInteriorWithId(11);
+        const ray1 = context.projectRayInterior(midline);
+        const ray2 = context.projectRayInterior(kink);
+        const [along1, along2, verdict] = intersectRays(ray1, ray2, context.coaxialityFloor, context.angularResolution);
+        expect(verdict).toBe('converging');
+        const terms1 = interiorRayTerms(midline, context, along1);
+        const terms2 = interiorRayTerms(kink, context, along2);
+        const first = arrivalOf(midline, context, ray1, along1, rayIntersectionUncertainty(ray1, ray2, terms1, terms2));
+        const second = arrivalOf(kink, context, ray2, along2, rayIntersectionUncertainty(ray2, ray1, terms2, terms1));
+
+        // The two readings disagree by the residual the midline inherited ...
+        expect(Math.abs(first.distance - second.distance)).toBeGreaterThan(0.99 * residual);
+        // ... and the pair is ONE MOMENT at its own window only because the node's budget carries it.
+        expect(compareArrivalsAtPairWindow(first, second, context.simultaneityWindow)).toBe(0);
     });
 });
