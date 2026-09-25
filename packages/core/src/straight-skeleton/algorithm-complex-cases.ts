@@ -157,6 +157,33 @@ function distanceFromWallLine(point: Vector2, wallId: number, context: StraightS
     return normal.x * (point.x - source.x) + normal.y * (point.y - source.y);
 }
 
+/**
+ * A NODE CARRIES WHERE IT WAS PUT (journal-5 decisions 170 and 171(c)): raise `nodeId`'s position budget to
+ * the largest equi-time residual, at the node, of the bisectors it emits — {@link mergeDisplacementUncertainty}
+ * for each one's two parents. ONE TERM, TWO SITES, because both sites take ONE release: the coincidence
+ * clustering sites a group of meetings at its MEDOID (decision 157's release, below the floor the solver is
+ * not obliged to tell them apart), and every bisector born there reads its clock from the node's distance to
+ * its clockwise parent, so wherever the node is off that bisector's own locus the reading carries the residual
+ * to the bisector's next meeting. The whole-event merge pays it (decision 170); so does a split re-pointed by
+ * `coincidentEventPositions` (decision 171(c)).
+ *
+ * THE RESIDUAL, NOT THE DISTANCE MOVED. The budget answers for the disagreement between the emitted bisector's
+ * two parent clocks at the node, and the residual IS that disagreement, exactly. The distance from a member's
+ * own point to the medoid is not a bound on it in either direction: a displacement ALONG the bisector's locus
+ * moves no clock and costs nothing, and one across it moves both parents' distances, by up to twice itself at
+ * unit weights. So the distance would overcharge the first and could undercharge the second.
+ */
+function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], context: StraightSkeletonSolverContext): void {
+    const position = context.graph.nodes[nodeId].position;
+    context.positionUncertainties[nodeId] = Math.max(
+        context.positionUncertainties[nodeId] ?? 0,
+        ...bisections.map(params => mergeDisplacementUncertainty(
+            distanceFromWallLine(position, params.clockwiseExteriorEdgeIndex, context),
+            context.weightOf(params.clockwiseExteriorEdgeIndex),
+            distanceFromWallLine(position, params.widdershinsExteriorEdgeIndex, context),
+            context.weightOf(params.widdershinsExteriorEdgeIndex))));
+}
+
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
     return interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
@@ -392,16 +419,10 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             context.acceptAll(arrivals);
             const bisections = bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context);
             // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
-            // release, and its cost downstream is each emitted bisector's equi-time residual at the node —
-            // {@link mergeDisplacementUncertainty}. The node's budget is the larger of the members' pricing
-            // budget above and the largest residual over the bisectors it emits.
-            context.positionUncertainties[node.id] = Math.max(
-                context.positionUncertainties[node.id] ?? 0,
-                ...bisections.map(params => mergeDisplacementUncertainty(
-                    distanceFromWallLine(node.position, params.clockwiseExteriorEdgeIndex, context),
-                    context.weightOf(params.clockwiseExteriorEdgeIndex),
-                    distanceFromWallLine(node.position, params.widdershinsExteriorEdgeIndex, context),
-                    context.weightOf(params.widdershinsExteriorEdgeIndex))));
+            // release, and its cost downstream is each emitted bisector's equi-time residual at the node.
+            // The node's budget is the larger of the members' pricing budget above and the largest residual
+            // over the bisectors it emits — {@link chargeSitingResidual}.
+            chargeSitingResidual(node.id, bisections, context);
             recordBisections(bisections)
         })
 
@@ -415,9 +436,19 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             .toSorted(byEventPriority);
         const splitPositions = coincidentEventPositions(splitEvents, context.perceptualFloor);
 
-        splitEvents
-            .map((event, index) => handleCollisionEvent({...event, position: splitPositions[index]}, context))
-            .forEach(recordBisections)
+        // A RE-POINTED SPLIT PAYS FOR THE MOVE, AS A MERGE DOES (journal-5 decision 171(c)). Its node is
+        // sited at the group's medoid, not at its own meeting, so the bisectors it emits inherit that
+        // node's residual on their parents' clocks — {@link chargeSitingResidual}, the merge's term. Only
+        // an event actually moved is charged: at its own point a split's residual is its own pricing's
+        // rounding, which its position budget already answers for, and the medoid member is not moved.
+        splitEvents.forEach((event, index) => {
+            const sited = splitPositions[index];
+            const bisections = handleCollisionEvent({...event, position: sited}, context);
+            if (bisections.length > 0 && (sited.x !== event.position.x || sited.y !== event.position.y)) {
+                chargeSitingResidual(bisections[0].source, bisections, context);
+            }
+            recordBisections(bisections);
+        });
     }
 
     exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))

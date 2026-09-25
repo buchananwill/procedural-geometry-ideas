@@ -1415,4 +1415,40 @@ describe('decision 170: the merge node\'s displacement budget', () => {
         // ... and the pair is ONE MOMENT at its own window only because the node's budget carries it.
         expect(compareArrivalsAtPairWindow(first, second, context.simultaneityWindow)).toBe(0);
     });
+
+    /*
+     * JOURNAL-5 DECISION 171(c): A RE-POINTED SPLIT PAYS THE SAME TERM. `coincidentEventPositions` sites a group
+     * of one layer's splits at its medoid, so every split moved there emits its two bisectors from a node off
+     * their loci. MEASURED: over the off-edge 1e-3 jitter grid and the corpus, with the split charge removed,
+     * 13 plus cells carry a split node whose emitted bisectors' residual exceeds its budget — up to 2.3e-4 in
+     * caller units against a budget of 7.5e-13; with it, none. This cell's node carries 3.19e-5 against 7.7e-13.
+     */
+    it('charges a split re-pointed to its layer\'s medoid with the residual of the bisectors it emits', () => {
+        const result = solveSkeleton(jitteredSamples(clockwise(JITTER_DOUBLE_REFLEX_PLUS), 2, 31676, 1e-3, true));
+        const {graph} = result;
+        const budgets = result.context!.positionUncertainties;
+        const distance = (point: Vector2, wall: number) => {
+            const basis = graph.edges[wall].basisVector;
+            const source = graph.nodes[graph.edges[wall].source].position;
+            return Math.abs(basis.x * (point.y - source.y) - basis.y * (point.x - source.x));
+        };
+        let widest = 0;
+        for (let nodeId = graph.numExteriorNodes; nodeId < graph.nodes.length; nodeId++) {
+            const node = graph.nodes[nodeId];
+            for (const edgeId of node.outEdges) {
+                const interior = graph.interiorEdges.find(edge => edge.id === edgeId)!;
+                const residual = mergeDisplacementUncertainty(
+                    distance(node.position, interior.clockwiseExteriorEdgeIndex),
+                    graph.exteriorWeights[interior.clockwiseExteriorEdgeIndex],
+                    distance(node.position, interior.widdershinsExteriorEdgeIndex),
+                    graph.exteriorWeights[interior.widdershinsExteriorEdgeIndex]);
+                widest = Math.max(widest, residual);
+                // Relative slack for the budget's round trip through unit space; the residual is
+                // recomputed here in caller units.
+                expect(budgets[nodeId]).toBeGreaterThanOrEqual(residual * (1 - 1e-4));
+            }
+        }
+        // Not vacuous: the cell's re-pointed split node sits a visible fraction of the floor off its locus.
+        expect(widest).toBeGreaterThan(1e-5);
+    });
 });

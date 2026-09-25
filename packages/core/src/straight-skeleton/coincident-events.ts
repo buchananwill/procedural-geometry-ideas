@@ -199,6 +199,12 @@ export function assertMergesAreAnchored(merges: CoincidentMerge[], floor: number
  * resolves to one node (the first resolved consumes the instigator; the rest place nothing).
  *
  * The same ANCHORED grouping as {@link clusterCoincidentMerges} (journal decision 155).
+ *
+ * A MOVED EVENT IS CHARGED FOR THE MOVE (journal-5 decision 171(c)): the caller raises the node's budget to
+ * the equi-time residual of the bisectors each re-pointed split emits there — the merge's own term
+ * (`chargeSitingResidual`, algorithm-complex-cases.ts). Unpaid, the residual rode those bisectors to their
+ * next meeting unbudgeted: 13 off-edge plus cells carried a split node up to 2.3e-4 caller units off its
+ * bisectors' loci against a budget of 7.5e-13.
  */
 export function coincidentEventPositions(events: CollisionEvent[], floor: number): Vector2[] {
     const resolved = events.map(event => event.position);

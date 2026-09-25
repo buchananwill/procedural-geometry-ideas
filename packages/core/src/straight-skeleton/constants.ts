@@ -689,6 +689,10 @@ export function sourceOffsetUncertainty(
  * a length on the faster wall — never smaller than the clockwise reading's error `w_cw·|t_cw − t_ws|`.
  * Measured on `Off-edge Jitter Plus`, k = 9, seed 23757: the step-58 merge of 163×232 and 93×232, 9.47e-7
  * apart, sited the 75|4 bisector's source 1.7214e-10 off its locus, against a carried budget of 9.28e-12.
+ *
+ * THE SPLIT PATH PAYS IT TOO (journal-5 decision 171(c)): `coincidentEventPositions` re-points a group of
+ * one layer's splits at its medoid in the same way, and each moved split's node is charged this term over
+ * the two bisectors it emits.
  */
 export function mergeDisplacementUncertainty(
     clockwiseDistance: number,
