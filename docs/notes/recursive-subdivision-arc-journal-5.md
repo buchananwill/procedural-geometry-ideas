@@ -1050,7 +1050,32 @@ failure.
 ---
 ## Findings
 
-**F75 — C12's mechanism fails where the honest error budgets are NON-UNIFORM: a bisector
+**F76 — F75 RENDERED and CORRECTED (delegate's Playwright screenshots of the failing cell
+solved both ways, lead-inspected): the per-pair solve covers 1.1% too MUCH, not too
+little; no second node is ever made; the two configurations place the SAME two nodes
+1.2564e-6 apart (1.256 floors), and the whole difference is ONE INCIDENCE — which of the
+two nodes one bisector ends at.** In the held solve, bisector e238 (between faces 75 and
+4) ends at the upper node with e92, so face 4 closes there and face 3 fills the cell
+below. In the per-pair solve the same bisector (e237) runs PAST the upper node and ends
+at the lower one, on top of the edge that already joins them; face 4's boundary walk
+therefore never meets e92's endpoint, follows e229 down and around face 3's far side, and
+face 4's strip becomes wall 4's cell AND wall 3's cell (555.6 → 1527.8, +972.1, which is
+face 3's area to the digit; face 3 itself unchanged; the cell covered twice). Both solves:
+`complete`, four oracles 0/0/0/0, 172 nodes, 88 strips; held tiling +1.8e-12, per-pair
++1.111e-2 at half depth and +1.944e-2 at full depth. The deferred arrival (164×237, gap
+8.9e-11 against a per-pair window of 1.4e-11) made no node: its true point lies 2.8e-12
+from the lower node and the bisector was ATTACHED there. Also: 92×237 does not appear in
+the per-pair candidate list at all, where held took its counterpart — the delegate's
+unverified guess is the phantom test (S23) at the per-pair window. Corrections: F75 and
+decision 168(c) read "over" not "short"; the "first node / deferred node" pair of
+decision 167's brief does not exist. What the pictures say about the principles: decision
+155 holds — two nodes inside the floor, both sound, in BOTH solves; the failure is that a
+deferred arrival, resolved after the layer that should have contained it, was snapped to
+the node the first resolution had already placed, and that one endpoint choice flips a
+face's closure. Sound nodes, unsound incidence. Images at
+`scratchpad/c12-visual/01–06`; scripts and data beside them.
+
+**F75 — *CORRECTED by F76: the strips cover 1.1% too MUCH (one cell twice), not too little; no second node — one bisector ends at the wrong one of the same two nodes.* C12's mechanism fails where the honest error budgets are NON-UNIFORM: a bisector
 at a near-straight vertex carries a budget thousands of moment bars wide (the cot(φ/2)
 term), the anchored non-transitive layer then takes one partner of a single geometric
 meeting and defers another, and the deferred arrival is resolved against a wavefront the
