@@ -1065,8 +1065,62 @@ path first — and reports what it finds without fixing it, so the lead can rule
 it is a budget defect (the split path's budgets were never convicted against exact
 arithmetic) or a generation defect of its own.
 
+**170 — Rulings on the C14 package and the absent-edge-event trace.** (a) **Part B's
+cause is RATIFIED as a BUDGET defect with a named missing term: the merge node's
+displacement.** The floor-level coincidence clustering places a merged node at a MEMBER
+(the medoid), so every other member's true meeting point is displaced by up to δ; the
+arrival budgets charge rounding but not that displacement, which is a perceptual RELEASE
+the solver took (decision 157) and must account for downstream. Ruled: a merge node's
+position budget is the larger of its members' pricing budgets AND its cluster's spread,
+charged per emitted bisector as the equidistance residual |d_cw − d_ws| at the node (exact
+and cheap; 1.72e-10 on the cell, 18.6× what was charged). Landed now, on the held window,
+with the digest expected unmoved and the conviction that under the per-pair toggle
+e92×e237 becomes a candidate and the cell tiles. (b) **C14's exclusion STANDS in principle
+and its STOP is a SECOND masked defect, not a reason to hold the exclusion forever**: on
+off-edge plus k8/seed 47514 the impossible split was the only event joining e102 to wall
+64's corner because the true edge event 102×217 is generated as 'diverging' — the meeting
+lies 8.44e-6 BEHIND e217's source. Ruled: C14 lands TOGETHER with (a) and k8 is
+re-measured; if it still rises, 102×217's diverging verdict is traced read-only (a source
+displaced past its own meeting is either a causality error at e217's birth or the strict
+`> 0` at S39) and C14 is HELD with k8 recorded as its blocker (register C15), never with
+the cell re-pinned as a flagged move — a diagnosed wrong answer that replaces a lucky
+right one is not yet an improvement. (c) F77's "A hides it by merging both candidates in
+one layer" is CORRECTED (delegate's interpretation 7): the held layer took the split
+alone and e238 joined the split's node afterwards through the 1e-8 same-point box; the
+masking is the box's, which is C12's matched pair again. (d) The exclusion lives in the
+n-gon's candidate enumeration by the ring's own parent adjacency (interpretation 2),
+adopted; the pair and triangle handlers are censused for split candidates in the
+follow-up (the triangle showed none; pairs were not counted).
+
 ---
 ## Findings
+
+**F78 — The absent edge event TRACED (delegate, read-only on the C14 tree, lead not
+re-run): e92×e237 IS submitted and priced converging; its two readings of the arrival
+differ by 1.72e-10 because e237's source node was placed by the floor-level merge at the
+medoid of two events 9.5e-7 apart, and the per-pair window (2.1e-11, the conditioning
+term) is 8× too narrow to absorb a displacement no budget charged; the phantom test at
+S23 drops it.** Numbers: readings 0.1953130295272146 (wall 4's clock) and
+0.19531302969935654 (wall 75's clock), difference −1.7214194e-10; travel budgets 1.06e-11
+each, arrival uncertainties 1.19e-11 and 9.28e-12; e237's rate ~2.4e-6 (its walls
+anti-parallel) so the source error passes through unattenuated; the source n145 sits off
+the 75|4 equidistance line by d75 − d4 = 1.7214197e-10, matching the reading difference
+to seven digits; n145 is the step-58 merge of two events at y = −0.3255194562 and
+−0.3255204036, grouped by `clusterCoincidentMerges` and sited at the second. The held
+window (1e-8) admits the pair. No other predicate drops it. **C14 measured** (held, patch
+kept at `scratchpad/c14/c14-held.patch`): exclusion in `createCollisions` by ring
+adjacency; digest 60/60 unmoved; on the C12 toggle the cell's layer no longer contains
+92×75, narrows to 164×229, and the triangle [92, 237, 242] then terminates at the e92
+meeting — the correct incidence, tiling back to 1.8e-12 — with one new direction
+violation on e242 because the two events still resolve in inverted order while 92×237 is
+missing (F78's budget term cures that); corpus census: 94 parent-adjacent split candidates
+at 1e-6 (59 taken into layers on 16 fixtures), 84 at 1e-5, 556 on the fine translations,
+2878 on the off-edge grid, none on the along-edge grid or the ladder; removing them moves
+0 corpus cells, 3 fine cells (a culled self-loop's `maxOffset` only), 3 off-edge cells (one
+fewer redundant edge each, bit-identical otherwise), and ONE off-edge cell for the worse
+(k8/seed 47514: 0/0/0 → 1/0/2 diagnosed, the true edge event 102×217 'diverging' 8.44e-6
+behind e217's source). Constructed conviction: a dented square whose reflex bisector
+would split its parent-adjacent wall at exactly the edge-event point.
 
 **F77 — (user, 2026-09-25, from the F76 renders) The C12 failure's ROOT is an ontologically
 IMPOSSIBLE split: e92 is the 4|3 vertex and e237 the 75|4 vertex, the two ends of wall 4's
@@ -1084,7 +1138,7 @@ remain, and the exact continuation is a two-wall terminal — a 3|4 bisector out
 meeting e92 head-on; e242, born as 75|3 by the split, has garbage parentage because wall
 75 no longer exists. Lead's two earlier readings (a short-piece culling defect; a snap
 across a live sliver) are STRUCK as downstream symptoms: they describe the solver
-terminating garbage edges consistently after the impossible event. Why A hides it: the
+terminating garbage edges consistently after the impossible event. Why A hides it *(CORRECTED by decision 170(c): the held layer took the split ALONE, and e238 joined its node afterwards through the 1e-8 same-point box — the masking is the box's)*: the
 impossible split and the real edge event were candidates in one layer at one point and
 the whole-event resolution merged them, terminating e237 correctly. TWO DEFECTS, in
 order: (1) the split generator admits a strike on a wall ADJACENT to the striker's own
