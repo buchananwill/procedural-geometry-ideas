@@ -1122,8 +1122,65 @@ the same missing term. If the sweep is clean, the window and box LAND for real; 
 each residual is traced before anything else. Pair-handler split census: 0 over 580
 cells (interpretation 1 closed).
 
+**172 — C12's re-measurement: NOT LANDED; the split-siting charge (171(c)) LANDS; the
+remaining 46 regressions are all RESOLUTION defects in five named mechanisms, and the
+through-line is that the SPATIAL clustering at δ is the last perceptual release inside
+event resolution — it goes to the user (F80).** (a) Part 0 lands: `chargeSitingResidual`
+charges the equi-time residual at the sited node for every split `coincidentEventPositions`
+moved (13 off-edge cells carried under-charged split nodes up to 2.4e-4 against 7.5e-13);
+digest 60/60 unmoved, suite green. (b) The sweep's budgets are COMPLETE: every reading's
+error is ≤ 0.22 of its budget against 256-bit exact meeting times; no missing term, no
+generation defect. (c) The five mechanisms (F80) are all in how a layer is formed and
+resolved, not in what it is measured with; four of the five trace to the coincidence
+clustering at δ (decision 78, anchored by 155(b)) siting arithmetically distinct
+simultaneous meetings at one medoid, whose now-honest residual re-widens the time window
+locally toward the floor. (d) Ruled: the window and box stay held; C12's next mechanism
+is the user's ruling on the SPACE axis — whether the coincidence clustering becomes
+arithmetic too (cluster only within the members' budgets, distinct meetings becoming
+distinct sub-floor nodes under 141) — with C13's face-level instrument landing FIRST
+either way, because F80's failures are face-level. (e) The two anchored-prefix mechanisms
+(R3, R4) and the narrowing tie-break (R5) are the lead's to fix once the space axis is
+ruled: a member joins a layer only if unorderable against the anchor AND against every
+member it shares an edge with (a local condition, not transitivity); the
+refusal-then-narrow must not narrow below the members' own joint window. (f) The
+site comments are rewritten with these measurements in the next code dispatch.
+
 ---
 ## Findings
+
+**F80 — With complete budgets, the arithmetic window fails on 46 of 32,335 cells and
+regions, every one a RESOLUTION defect, in five mechanisms; F75's named regressions are
+mostly CURED by the merge term, and what remains is the spatial clustering.** Delegate's
+sweep (642 root cells + 31,693 recursion regions; every moved cell's oracles agree solver
+and test-side; clean digests all unmoved; no rate rise; completion firing unchanged): fine
+translations 77 moved (11 cures, 43 neutral, 23 regressions); off-edge 98 (16/73/9);
+ladder 42 (29/12/1); regions 1,063 (11/1,040/12); corpus 1 neutral at 1e-6 and Offset
+Cross Junction's ladder +4 edges at 1e-5 (STOP 6). F75's cells: plus k7/seed 31676 and
+Circle 48 at 2e11 CURED by the merge term (tree regained, tiling 3.9e-8 → 1.4e-12 and
+0.57 → 2.5e-8); k9/seed 23757 cured as F78 predicted; four tiling losses persist (all
+below 1e-12, above machine precision); the Failing Long Octagon region still stops
+solving. Attribution: merge term off returns F75's picture; exact box alone with the
+window held gives 5 fine regressions. **The five mechanisms:** R1 — `clusterCoincidentMerges`
+at δ sites arithmetically distinct simultaneous meetings (1.1e-12 to 1.4e-7 apart in
+time, up to 9.3e-7 in space) at one medoid, so the node is off the other members' loci
+(8 off-edge cells, 1 ladder, 6 regions); R2 — the same merge over NON-CONTIGUOUS
+simultaneous collapses makes a partition node whose honest residual widens the child
+rings' windows toward the δ cap — "a perceptual window, locally" (Circle 48 at 1e8–3e10
+with tiling 0.09–2.2 and the tree lost, Rosette5 40 at 4e10–6e10 going from diagnosed to
+SILENT, Offset Cross Junction at 1e-5); R3 — the anchored prefix spends the anchor's wide
+budget (1.1e-7, actual error 1.3e-13) on a member orderable against another member it
+shares an edge with (L k10/seed 47514); R4 — the anchored prefix splits ONE exactly
+simultaneous meeting across layers by budget width and the deferred reading lands on its
+partner's node, leaving an uncullled zero-length edge and the tree lost (five regions,
+e.g. Long Octagon: two events at one point, the anchor 1.07e-16 earlier, one window
+9.6e-17 and the other 1.7e-16); R5 — refusal-then-narrow at the 64ε bar picks the
+computed-earliest of two rivals unorderable at their own windows, reversing the exact
+order (Failing Long Octagon region: exact gap 6.7e-17 the other way, error 1.7e-16
+inside a 7.7e-16 budget), "Failed to collide interior edges in triangle". Reading,
+lead's, for the user: the time axis is now honest and the failures have moved to the
+SPACE axis, where decision 78's clustering still merges what the arithmetic can
+distinguish; and to the layer's shape, where the anchored non-transitive prefix needs a
+local consistency condition. Not re-run by the lead. Per-cell data in `scratchpad/c12r/`.
 
 **F79 — The k8 counterexample: a reflex vertex CAN strike a wall adjacent to its own
 parent, when the shared wall is growing.** Off-edge plus k8/seed 47514, step 63, ring
