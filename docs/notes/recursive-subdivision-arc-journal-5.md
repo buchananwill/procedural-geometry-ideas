@@ -221,6 +221,14 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
+**C14 — The split generator admits an impossible strike: a reflex vertex against a wall
+adjacent to one of its own parents** (F77, the user's diagnosis). Reachable only through
+the shared vertex, which is the edge event. Fix at generation: exclude walls adjacent to
+the striker's parents from split candidates (or classify such a strike as that edge
+event). Conviction: B's layer no longer contains 92×75; A's digest expected unmoved
+(the split was redundant there); the corpus census of such candidates reported. Small;
+BEFORE C13, since it is a generation defect the C12 trace must not be measured over.
+
 **C13 — A global check for the solver's diagnostics** (F73, F75). *Promoted AHEAD of C12's
 retry by decision 168(h).* The four per-edge causality oracles miss a face-structure
 change: a flipped sign (Golf Cart, 3.2% short) and a split meeting (plus k9/seed 23757,
@@ -1049,6 +1057,32 @@ failure.
 
 ---
 ## Findings
+
+**F77 — (user, 2026-09-25, from the F76 renders) The C12 failure's ROOT is an ontologically
+IMPOSSIBLE split: e92 is the 4|3 vertex and e237 the 75|4 vertex, the two ends of wall 4's
+wavefront segment, so the 4|3 vertex can reach wall 75 only at their shared vertex — wall
+4 collapsing, the edge event of e92 with e237 — never at an interior point; the split
+"92×75" that B's layer took is geometrically impossible, and e237 reaching n150 instead
+of stopping at e92 is the entire defect.** The user's argument, near-verbatim: "e237 and
+e92 both have 4 as a parent. The other parent of e237 is e75. So, extreme though it is to
+conceive, e237 and e92 exist at some fleeting point as the bisectors at either end of
+e4. This makes it impossible for e92 to strike e75 through e237. … Given the parentage
+shown, there aren't enough exterior edges left to make any sense out of e237 dodging e92,
+and the fact that it reaches n150 instead of n151 is the entire defect." Also from the
+user: once 164, 229 and 237 meet at n150 walls 76 and 75 are gone, only walls 3 and 4
+remain, and the exact continuation is a two-wall terminal — a 3|4 bisector out of n150
+meeting e92 head-on; e242, born as 75|3 by the split, has garbage parentage because wall
+75 no longer exists. Lead's two earlier readings (a short-piece culling defect; a snap
+across a live sliver) are STRUCK as downstream symptoms: they describe the solver
+terminating garbage edges consistently after the impossible event. Why A hides it: the
+impossible split and the real edge event were candidates in one layer at one point and
+the whole-event resolution merged them, terminating e237 correctly. TWO DEFECTS, in
+order: (1) the split generator admits a strike on a wall ADJACENT to the striker's own
+parent — reachable only through the shared vertex, i.e. an edge event — a generation-
+time exclusion the shared-parent checks should make and do not; (2) the true edge event
+e92×e237 was ABSENT from B's candidate list at the per-pair bar (the phantom test on the
+split-born path is the suspect), which is why B could not mask (1). Register **C14** for
+(1); (2) folds into C12's trace. Neither touches the non-transitive window's principle.
 
 **F76 — F75 RENDERED and CORRECTED (delegate's Playwright screenshots of the failing cell
 solved both ways, lead-inspected): the per-pair solve covers 1.1% too MUCH, not too
