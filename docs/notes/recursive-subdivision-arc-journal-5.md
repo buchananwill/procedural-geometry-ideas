@@ -221,13 +221,13 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
-**C14 — The split generator admits an impossible strike: a reflex vertex against a wall
-adjacent to one of its own parents** (F77, the user's diagnosis). Reachable only through
-the shared vertex, which is the edge event. Fix at generation: exclude walls adjacent to
-the striker's parents from split candidates (or classify such a strike as that edge
-event). Conviction: B's layer no longer contains 92×75; A's digest expected unmoved
-(the split was redundant there); the corpus census of such candidates reported. Small;
-BEFORE C13, since it is a generation defect the C12 trace must not be measured over.
+**C14 — A strike on a parent-adjacent wall is the shared vertex's EDGE EVENT when the
+instigator and that vertex's bisector converge, and a legitimate split when they diverge**
+(F77, F79, decision 171(b)). S9 generalised: a strike within the coaxiality lane of a
+LIVE vertex's current position on the wall is that vertex's edge event, not a split.
+Fixtures: k9/seed 23757 (convergent, the impossible split) and k8/seed 47514 (divergent,
+a real split). The broad exclusion's patch is held in `scratchpad/c14/`. After the C12
+re-measurement.
 
 **C13 — A global check for the solver's diagnostics** (F73, F75). *Promoted AHEAD of C12's
 retry by decision 168(h).* The four per-edge causality oracles miss a face-structure
@@ -1092,8 +1092,51 @@ n-gon's candidate enumeration by the ring's own parent adjacency (interpretation
 adopted; the pair and triangle handlers are censused for split candidates in the
 follow-up (the triangle showed none; pairs were not counted).
 
+**171 — The merge-displacement budget LANDS; C14's rule is NARROWED by a counterexample;
+C12 is re-measured next.** (a) `mergeDisplacementUncertainty` = |d_cw·w_ws − d_ws·w_cw| /
+min(w) — the equidistance residual at a merge node, |d_cw − d_ws| at unit weights —
+raises the node's budget after `terminateEdgesAtPoint`; convicted three ways (digest
+60/60 and suite green with the window held; under the C12 toggle the k9 cell's edge event
+is a candidate with window 3.47e-10 against a 1.72e-10 difference, e237 ends at e92's
+node, the direction violation is gone, tiling back to 1.8e-12; a constructed corridor cap
+whose merge residual of 1.79e-9 makes a converging pair one moment, dying at 1.7e-15
+without the term). (b) **C14 as stated is TOO BROAD, and the k8 cell is the
+counterexample that shows why**: e102 (26|27) and e217 (26|64, a corridor mid-line)
+DIVERGE — wall 26 grows, not collapses — so the 26|27 vertex can travel along the
+corridor and strike wall 64's interior on the far side of the 26|64 vertex; that is a
+genuine split of a parent-adjacent wall. F77's argument holds only when the instigator
+and the shared-vertex bisector CONVERGE, so that the shared wall collapses between them
+and the strike can only be at the shared vertex. Ruled: C14's exclusion is restated as
+"a strike on a parent-adjacent wall is the shared vertex's EDGE EVENT when the instigator
+and that vertex's bisector converge, and a legitimate split when they diverge" — which is
+S9's "does the strike land at the edge's end" generalised from the wall's end to any LIVE
+VERTEX on the wall: a strike within the coaxiality lane of a live vertex's current
+position is that vertex's edge event, not a split. k8 and k9 are its two fixtures (one
+each way). Not built yet; the held patch stays in the scratchpad. (c) Interpretation 3
+adopted as a ruling: the split-position re-pointing in `coincidentEventPositions` ALSO
+sites at a medoid and is charged the same way — folded into the C12 re-measurement. (d)
+**Next: C12 re-measured on this tree** — the per-pair window, exact box and the term, over
+the full 580 cells plus recursion regions — because F75's other regressions (k7/seed
+31676's oracle rise, four tiling losses, the Failing Long Octagon census cell) may all be
+the same missing term. If the sweep is clean, the window and box LAND for real; if not,
+each residual is traced before anything else. Pair-handler split census: 0 over 580
+cells (interpretation 1 closed).
+
 ---
 ## Findings
+
+**F79 — The k8 counterexample: a reflex vertex CAN strike a wall adjacent to its own
+parent, when the shared wall is growing.** Off-edge plus k8/seed 47514, step 63, ring
+[102, 120, 202, 210, 217]: e217 is the 26|64 corridor mid-line born at a step-61 merge of
+two collapses 1.29e-7 apart (residual 1.287e-7, now its budget); it points away from e102;
+`intersectRays` puts their crossing 8.44e-6 behind e217's source — 65× its budget — and
+the node is born before the meeting, so the rays genuinely diverge: wall 26's live
+segment between them is growing. e102 reaches wall 64 at (1.2024e-5, −1.1414e-5), where
+d26 = d27 = d64, inside wall 64's live segment on the far side of the 26|64 vertex from
+where it moves. Removing that split (C14 as first stated) leaves e102 with no event to
+wall 64's corner and the cell goes 0/0/0 → 1/0/2 diagnosed. Delegate-traced; not re-run
+by the lead. The ontological argument of F77 is therefore CONDITIONAL on convergence,
+and the k9 and k8 cells are the pair of fixtures that separate the two cases.
 
 **F78 — The absent edge event TRACED (delegate, read-only on the C14 tree, lead not
 re-run): e92×e237 IS submitted and priced converging; its two readings of the arrival
