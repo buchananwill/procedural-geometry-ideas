@@ -1177,6 +1177,38 @@ re-framed by it — the clustering's displacement is not the defect, the tests t
 it are. Dispatched: C14 broad + S39's along-ray budget, measured on the full grid
 including the regions; k8 and k9 are the two convictions.
 
+**174 — The along-ray slack (173(c)) is STOPPED on measurement, C14 stays blocked behind
+it, and the mechanism question goes to the user: budget the predicates that touch a
+misplaced vertex, or stop misplacing the vertex.** Delegate's measurement (window held,
+642 root cells + 31,693 regions), tree reverted to `06a5cab`: the slack `e/|rate|` on the
+ahead-of-source test made 102×217 a candidate on k8 (converging, 6.4e-8 before the
+split) — and the cell went 0/0/0 → 2/0/1 with the tree lost, because siting the event at
+e217's misplaced source puts it 8.4e-6 off e102's line; siting at the crossing instead
+gives one direction violation, e217 running 8.4e-6 backwards along its basis from a source
+that is not where its corner is. Two further mechanisms: **M1** — the strict `> 0` at
+EXACTLY zero is load-bearing: a crossing at a vertex's own source is that vertex's birth
+event, already resolved, and any positive slack (1.5e-15 on T-Shape) re-admits it as a
+zero-travel event — T-Shape, a clean fixture, loses the tree at both floors and its digest
+moves, Offset Cross Junction's root "completes" at tiling 0.36; **M2** — the slack is
+unbounded as the rate falls toward the 8u guard: 2.68 on a ladder cell, larger than the
+polygon. Cures alongside: Rosette5 40 at 4e10–6e10 (clearance 1 → 0, tiling 0.142 →
+2.5e-8). C14 measured on top: k9 under the toggle is CLEAN (no split, 92×237 taken, e237
+at e92's node, tiling 1.85e-12); k8 inherits A's regression; C14's own effect is six
+neutral cells and no corpus move. **Reading, lead's:** budgeting the tests that touch a
+misplaced vertex is the wrong direction — the vertex's along-ray uncertainty is
+genuinely larger than the polygon at a near-anti-parallel corner, so any predicate that
+honours it admits garbage, and any that does not rejects the true event. The displacement
+should not exist: a merge may SITE THE NODE at the medoid (decision 78's release) but each
+bisector it EMITS should start on its own exact locus — the equidistant point of its two
+parent walls — not at the medoid, so no bisector is ever a misplaced representative of
+its corner, no 1/sin amplification arises, and the strict ahead-of-source test stays
+strict. That is "cluster for RESOLUTION, not for POSITION": the layer decides which edges
+are consumed together; each emitted edge's source is its own answer (141, 157). It
+produces a sub-floor fan of sources around the hub, joined by sub-floor edges, which
+F74's control already showed solving every regular circle. It also removes the
+displacement behind F80's R1 and R2 at its origin. Proposed to the user as C12's
+mechanism, decision 175 on their word; C14 lands after it; C15 dissolves into it.
+
 ---
 ## Findings
 
