@@ -239,7 +239,14 @@ change: a flipped sign (Golf Cart, 3.2% short) and a split meeting (plus k9/seed
 structural) as a fifth solver-side check, the tiling identity as the test-side
 conviction; C12's F75 cells are the fixtures that must fire it.
 
-**C12 — Sequential resolution of near-coincident events, so the window, the box AND the
+**C12 — CLOSED FOR THIS SESSION (decision 177). The arithmetic route is the next
+session's structural package, behind C13: per-pair window, exact node identity,
+arithmetic spatial clustering, sequential resolution of near-coincident events, the
+layer-shape condition and the narrowing fix for F80's R3–R5, with the no-second-path
+invariant kept loud. Three downstream repairs measured and refused this session (174,
+175, 176). Instruments ready: the sweep harness at `scratchpad/c176/harness/`
+(bit-reproduces the baseline), k8 and k9 as the convictions, C14's patch and fixtures.**
+Original: Sequential resolution of near-coincident events, so the window, the box AND the
 zero-rate test can go arithmetic** (F71, F72, decisions 162, 165). *S19 joined 2026-09-24:
 its 1e-8 is the third member of the hand-tuned set; a true sub-perceptual rate sign
 cannot be carried through the other two at their current level.* ~~The perceptual-width design~~ struck by 162. The
@@ -1259,8 +1266,55 @@ closed for this session with the held pair documented and the arithmetic route (
 window, exact box, arithmetic spatial clustering, sequential resolution, R3–R5) recorded
 as the next session's structural package behind C13.
 
+**177 — C12 is CLOSED for this session: the guarded locus source (176) fails by
+construction, the held window/box/zero-rate triple stays as the documented admitted
+system, and the arithmetic route is recorded as the next session's structural package
+behind C13.** F83's measurement: guard G1 ("the corner exists: the locus point is ahead
+of every live front at the anchor time") refuses the very cases the unguarded form cured,
+because whenever the hub is off the locus the locus point at the anchor time lies BEHIND
+the front of a wall the same merge consumes — by roughly the residual (k=4: 4.1e-12
+against 8.3e-12) or the residual amplified along a corridor (k8: 1.14e-3) — and no bar
+separates that from R-b's genuine cut-off (2e-7 to 1e-6), which is itself sometimes a
+consumed wall. So G1 contradicts the k8 cure exactly as F82 said: k8 needs the source at
+or behind the true corner, R-b needs it at or after the corner's birth, and only
+sequential resolution knows which. Worse, where G1 refuses ONE of a merge's two bisectors
+the mixed merge fails the tiling (Circle 48 at 3e11–5e11, an F82 cure, becomes a 0.375
+tiling loss). Lead's reading, for the user: the whole-event merge at δ is a single
+release taken for a whole cluster, and every attempt to recover exact geometry for its
+products after the fact — budgeting the tests that touch them (174), re-siting them
+(175), re-siting them only where safe (176) — founders on the same fact: the products'
+true geometry depends on the ORDER in which the cluster's members would have resolved,
+which the merge discarded. The correct fix is not downstream of the merge; it is to stop
+merging what the arithmetic can order — the arithmetic route of decision 162: per-pair
+window, exact node identity, arithmetic spatial clustering, sequential resolution of
+near-coincident events, and the layer-shape and narrowing fixes for F80's R3–R5. That
+package is large, it needs C13's face-level instrument first, and it is the next
+session's. What this session leaves: every tolerance derived except the matched triple,
+which is labelled at the site with every measurement that refused to move it; the
+merge-displacement and split-siting budgets landed and unspent; C14's exclusion held
+behind k8 in `scratchpad/c14/` with its two fixtures named; the k8 and k9 cells as the
+package's convictions. Decision 176's prediction is STRUCK as falsified.
+
 ---
 ## Findings
+
+**F83 — The guarded locus source (decision 176) measured: none of F82's eight cures
+survive, k8 is not delivered, 8 of F82's 22 regressions remain in a new "mixed merge"
+mode and 4 new ones appear; the digest is unmoved on all 60 pins because G1 refused the
+k=4 pin's only candidate.** Delegate's numbers (tree clean at `c6a510d`; artefacts at
+`scratchpad/c176/`): guard firings over the grid — fine G1 683 / locus 154 / G2 34; ladder
+G1 135 / locus 30 / G2 8; off-edge G1 44 / locus 6; corpus G1 4 / locus 3. G2 alone decided
+no cell. k8: G1 refuses the 26|64 corner (consumed wall 65 passes S by 1.14e-3 against a
+bar of 2.8e-15), the split is taken, 102×218 never a candidate, bit-identical to baseline.
+Regressions: Circle 48 at 5e9–8e9 (tiling 9.4e-9 → 0.638, the 48-way hub fully refused
+and the child hubs mixed), 2e11, 3e11–5e11 (tree gained, tiling 5.3e-8 → 0.375, every
+four-arrival merge mixed); ladder 1×/s4, s5 (tree lost), s6, 10×/s0 (new, tree lost). The
+14 F82 regressions that vanished did so because G1 refused, not because the locus was
+right. In situ with the guards off and the no-second-path invariant on, the R-a cells
+STOP loudly (Circle 48 at 5e9: 8 step-failures naming the join) instead of silently
+losing the tree — that invariant is worth keeping when the route is next attempted. Not
+re-run by the lead; the harness (`scratchpad/c176/harness/`) reproduces the baseline
+sweep bit for bit and is the instrument for the next session.
 
 **F82 — Decision 175 measured: the locus-source representation is CORRECT for a merge
 whose corner exists at the anchor time and WRONG where a third wall has already cut the
