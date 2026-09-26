@@ -58,7 +58,48 @@ misled this session's bootstrap. One addition:
 
 ## 4. Next work
 
-**Refreshed 2026-09-23 after dispatch 2 (tip `75e7fa9`, core 5726/5726, dashboard 331/331,
+**Refreshed 2026-09-27 after C12 closed (tip `45cda17`, core 5810/5810, dashboard
+331/331, corpus 60, digest 60, ~45 commits unpushed on this branch).** Done since the
+previous refresh: C8 in three dispatches (every tolerance derived except the matched
+triple: the 1e-8 simultaneity window, the 1e-8 same-point box, the 1e-8 zero-rate test —
+one hand-tuned system, labelled at the site with every measurement that refused to move
+it); C9 the causality instrument; the merge-displacement and split-siting budgets landed
+and unspent; the C12 diagnosis, three downstream repairs measured and refused (174, 175,
+176); the impossible split identified (F77, unconditional per 173) with C14's exclusion
+held behind k8. The next session opens `recursive-subdivision-arc-journal-6.md`,
+continuing decisions at **178** and findings at **F84**; read §2, THIS section, decisions
+141, 155, 157, 162, 173, 177 and findings F74, F80, F81, F83 — do not read this journal
+(~1400 lines) end to end.
+
+**Remaining, in the lead's recommended order:**
+
+1. **C13, the face-level instrument** — the tree property in the solver's own
+   diagnostics, the tiling identity as the test-side conviction, with the no-second-path
+   invariant of F83 kept loud. Every C12 failure this session was face-level and invisible
+   to the four per-edge oracles. Small; GO pending.
+2. **C12, the arithmetic route** — the structural package: per-pair window, exact node
+   identity, arithmetic spatial clustering (no medoid siting of what the arithmetic can
+   order), sequential resolution of near-coincident events, the layer-shape condition and
+   the narrowing fix (F80's R3–R5). Instruments ready: the sweep harness at
+   `scratchpad/c176/harness/` (copy it into the repo's tests as a tool before the
+   scratchpad is lost), k8 and k9 as convictions, C14's patch. Measured on the full grid
+   including the recursion regions.
+3. **C14** lands with 2 (it needs the true edge event on k8).
+4. **C2, the canonicalisation rebuild** — waits on the drift bound's form (the user's
+   remaining ruling); acceptance fixtures 15838, the near-flat rectangle, 55433 at depth.
+5. **C7** (defect-signature completion), **D2** (backlog reconciliation), **C5** (a
+   demo-floor specimen), the C++ handoff refresh (D1: `decomposePolygon` takes the floor;
+   `angularResolution`, `maxWeightRatio`, `minWeightTurnSine` port as functions).
+
+**Process learnings this session, for the operational manual:** delegates may not use
+`git checkout --` — one did on a clean tree with no loss, the rule stands; a delegate's
+report can be wrong in its PREMISE (F61, 164) and right in its measurement, so the
+lead's ruling text must name the fact it rests on; the scratchpad is session-specific —
+any harness worth keeping is copied into the repo before the session ends; the core
+suite now runs ~300 s (budget arithmetic; measure under C13); the three C12 attempts
+each cost a full-grid measurement (~30 min of delegate time) and each was worth it.
+
+*(Previous refresh, 2026-09-23, follows.)* **Refreshed 2026-09-23 after dispatch 2 (tip `75e7fa9`, core 5726/5726, dashboard 331/331,
 corpus 60 = 53 clean + 7 defect, digest 60).** Done this session: the register; I2
 restated (141/142); C9 the causality instrument (148/149); the angular package in two
 dispatches (146/147, 150/151). Remaining, in the lead's recommended order:
