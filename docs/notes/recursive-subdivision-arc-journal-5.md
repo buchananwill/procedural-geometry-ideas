@@ -221,13 +221,16 @@ meetings all sit at existing sources with zero travel, priced by the completion 
 midpoint, then a partition throw. C8's control fixture (its ladder rows stay pinned). Cure
 candidate: C10.
 
-**C14 — A strike on a parent-adjacent wall is the shared vertex's EDGE EVENT when the
-instigator and that vertex's bisector converge, and a legitimate split when they diverge**
-(F77, F79, decision 171(b)). S9 generalised: a strike within the coaxiality lane of a
-LIVE vertex's current position on the wall is that vertex's edge event, not a split.
-Fixtures: k9/seed 23757 (convergent, the impossible split) and k8/seed 47514 (divergent,
-a real split). The broad exclusion's patch is held in `scratchpad/c14/`. After the C12
-re-measurement.
+**C14 — A strike on a parent-adjacent wall is ALWAYS the shared vertex's edge event**
+(F77, unconditional per decision 173; F79's "divergent" case was the ring's displaced
+representative of the corner, F81). The broad exclusion lands with S39's along-ray
+budget, which is what lets the true edge event through on k8. Fixtures: k9/seed 23757
+and k8/seed 47514, both edge events. Dispatched.
+
+**C15 — Strict positional tests on merge-born fast vertices ignore the along-ray budget**
+(decision 173(c)). The ahead-of-source test is the first; every `> 0` / `=== 0` positional
+test whose operand is a vertex with a carried time budget and a speed of 1/sin(turn) needs
+`speed · e_birth`. Census after S39 lands.
 
 **C13 — A global check for the solver's diagnostics** (F73, F75). *Promoted AHEAD of C12's
 retry by decision 168(h).* The four per-edge causality oracles miss a face-structure
@@ -1145,8 +1148,56 @@ member it shares an edge with (a local condition, not transitivity); the
 refusal-then-narrow must not narrow below the members' own joint window. (f) The
 site comments are rewritten with these measurements in the next code dispatch.
 
+**173 — F77 holds UNCONDITIONALLY; decision 171(b)'s narrowing is STRUCK; C14 returns to
+the broad exclusion; and the k8 STOP is a third strict, budget-blind predicate — the
+ahead-of-source test — rejecting the true edge event.** The data (F81): at the split time
+the strike point P is exactly where wall 26's front meets wall 64's front (1e-13), the true
+26|64 corner; the ring's REPRESENTATIVE of that corner, e217, sits 1.2874e-7 above wall
+64's front — its merge residual, carried — and because walls 26 and 64 are only 1.1265e-4
+from anti-parallel, that lateral residual places e217 1.1429e-3 (= 1.2874e-7 / 1.1265e-4)
+up the corridor from the corner it stands for, moving away from e102 at 1.78e4 per unit
+time. Read against the walls, e102 and the corner CONVERGE and meet at P: F77's edge
+event. Read against e217, they diverge: the artefact. Rulings: (a) a strike on a
+parent-adjacent wall is ALWAYS the shared vertex's edge event; the ontology needs no
+convergence condition, because the shared wall's true corner is where the two fronts
+meet, and a reflex vertex reaches the adjacent wall only there. (b) C14's broad exclusion
+(the held patch) is RESTORED. (c) The reason the true edge event 102×217 is absent is the
+strict `> 0` ahead-of-source test in `intersectRays` (census S39) applied to a source whose
+along-ray position is uncertain by its SPEED times its birth-time budget: 1.78e4 × 1.29e-7
+= 2.3e-3, against a crossing only 8.44e-6 behind the source (4.75e-10 in time before its
+birth). Ruled: S39 takes the source's along-ray budget — `along ≥ −(speed · e_birth)`
+where `e_birth` is the source node's carried time budget — the derived form of a test that
+was exact only because nobody had asked what the source's position is worth. This is F48's
+conditioning (a vertex speed of 1/sin at a near-anti-parallel corner) arriving in the
+positional predicates: a lateral residual of an eighth of a floor becomes a thousand floors
+along the corridor. (d) Consequence for F80's mechanisms: R1/R2's "node off the other
+members' loci" is the same displacement; every strict positional test on a merge-born
+fast vertex needs the along-ray budget, and the space-axis question to the user is
+re-framed by it — the clustering's displacement is not the defect, the tests that ignore
+it are. Dispatched: C14 broad + S39's along-ray budget, measured on the full grid
+including the regions; k8 and k9 are the two convictions.
+
 ---
 ## Findings
+
+**F81 — The k8 "genuine split" RENDERED from the solver's data (delegate, lead-inspected):
+the strike is the 26|64 edge event; the ring's 26|64 vertex is displaced 1.14e-3 along the
+corridor by a 1.29e-7 residual amplified by the corner's near-anti-parallelism.** Captured
+at the step with ring [102, 120, 202, 210, 217], held configuration, no toggle: e102 (27|26,
+reflex, speed 1.414) from n27; e217 (26|64) from n140 with d26 = 0.19531462049 and d64 =
+0.19531474923 — a birth residual of 1.2874e-7 exactly equal to its budget — basis
+(−1, −1.1e-5), speed 1.7755e4; walls 26 and 64 1.1265e-4 from anti-parallel. Split 102×64
+at t_s = 0.19531468438, P = (1.20235e-5, −1.14141e-5), equidistant from walls 26, 27 and 64
+to 3e-17, and 1.06e-13 from the computed crossing of wall 26's and 64's fronts. P lies
+inside wall 64's live segment at fraction 0.99043 from e202, 1.1429e-3 short of e217 and
+1.275e-7 off the chord because e217 is off the front. `intersectRays(102, 217)` =
+[0.27623, −8.44e-6, 'diverging'] — the crossing at time 0.19531462001, 4.75e-10 BEFORE
+e217's birth. Over Δ = 1.6e-8 the true front crossing moves toward e102 at e217's speed and
+reaches it at P; e217 moves the other way. The solve then builds one 26|64 ridge n140 → P
+and a 27|64 bisector out of P — the edge event's topology, with e220 standing in for the
+displaced e217, which is culled as a self-loop. So the split is a real strike of wall 64 in
+the solver's representation and geometrically the meeting of e102 with the true corner.
+Images and probe data at `scratchpad/c14-visual/`.
 
 **F80 — With complete budgets, the arithmetic window fails on 46 of 32,335 cells and
 regions, every one a RESOLUTION defect, in five mechanisms; F75's named regressions are
@@ -1182,7 +1233,7 @@ SPACE axis, where decision 78's clustering still merges what the arithmetic can
 distinguish; and to the layer's shape, where the anchored non-transitive prefix needs a
 local consistency condition. Not re-run by the lead. Per-cell data in `scratchpad/c12r/`.
 
-**F79 — The k8 counterexample: a reflex vertex CAN strike a wall adjacent to its own
+**F79 — *LEAD CAVEAT 2026-09-26: the "corridor" picture in decision 171(b) and the lead's hand-drawn panel B are WITHDRAWN as unverified — the user found the drawing inconsistent with the wavefront's own rules (offset walls parallel at one distance; a reflex bisector points into its wide side); a render from the solver's data is dispatched and this finding is re-read against it.* The k8 counterexample: a reflex vertex CAN strike a wall adjacent to its own
 parent, when the shared wall is growing.** Off-edge plus k8/seed 47514, step 63, ring
 [102, 120, 202, 210, 217]: e217 is the 26|64 corridor mid-line born at a step-61 merge of
 two collapses 1.29e-7 apart (residual 1.287e-7, now its budget); it points away from e102;
