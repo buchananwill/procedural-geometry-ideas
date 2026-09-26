@@ -1209,6 +1209,24 @@ F74's control already showed solving every regular circle. It also removes the
 displacement behind F80's R1 and R2 at its origin. Proposed to the user as C12's
 mechanism, decision 175 on their word; C14 lands after it; C15 dissolves into it.
 
+**175 — (user, 2026-09-26: "Ok try that") C12's mechanism is "cluster for RESOLUTION,
+not for POSITION": a merge sites its node at the medoid, but every bisector it emits
+starts on its own exact locus, the point equidistant from its two parent walls at the
+event's time; dispatched to Opus on `275fc6d`, measured under the HELD window on the full
+grid before anything else moves.** Decision 78 is amended, not struck: the medoid siting
+stands for the node; it no longer determines where emitted bisectors begin. The
+representation of the resulting sub-floor structure (fan sources around the hub, the
+edges that join them, their parents, and what the consumed edges terminate at) is the
+delegate's to propose, under the graph's invariants (I1 parents, I4 walkability, the
+tree property, the tiling identity at machine precision) and decision 141; F74's control
+(per-pair + exact box on the regular circles: 4 hub nodes 1e-16 to 5e-15 apart joined by
+1e-15 edges) is the target shape. Bars: k8 and k9 are the convictions (the true edge
+events found, no impossible split needed, oracles 0/0/0, tree held, tiling at machine
+precision); the digest may move only on fixtures whose merges have non-zero residual,
+each attributed; T37's STOPs plus the tree and tiling checks; the strict ahead-of-source
+test UNCHANGED. Then C14 lands on the same tree. If it fails, the failure is explained to
+the user in the terms of 141/157/162 per decision 163.
+
 ---
 ## Findings
 
