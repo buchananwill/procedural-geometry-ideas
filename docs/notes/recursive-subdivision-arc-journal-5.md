@@ -1227,8 +1227,56 @@ each attributed; T37's STOPs plus the tree and tiling checks; the strict ahead-o
 test UNCHANGED. Then C14 lands on the same tree. If it fails, the failure is explained to
 the user in the terms of 141/157/162 per decision 163.
 
+**176 — Decision 175's mechanism STOPPED on the grid (22 regressions, all at many-wall
+hubs) after PASSING both convictions; the lead re-dispatches it GUARDED, taking the
+locus source only where the corner exists and is fresh, and falling back to today's
+behaviour otherwise.** What the attempt established (F82): emitting each bisector from
+its own locus at the merge's anchor time cures k8 (the 26|64 source on its locus,
+`intersectRays(102, 218)` converging under the STRICT test, the edge event taken, the
+split generated but never taken, the 26|64 ridge into P and the 27|64 bisector out of
+it, oracles 0/0/0, tree held) and k9 (under the toggle 92×237 taken, the impossible split
+no longer generated), cures eight more cells (Circle 48 at 3e11–5e11's tree, Rosette5 40
+at 4e10–6e10, three direction violations, three ladder cells), moves one digest pin with
+a non-zero residual (k=4, 8.3e-12), and regresses 22: (R-a) the join from the locus source
+to the hub, when the source is absorbed by the held box into an EARLIER node already
+joined to the hub, closes a CYCLE — the tree is lost (Circle 48 at 5e9–3e10, ladder
+cells); (R-b) at a many-wall hub the A|B corner does NOT EXIST at the anchor time, a third
+wall's front having cut it off, so the locus point lies outside the live region (1.2e-6
+to 3.5e-6 from the hub) and the source is placed where the wavefront has already passed;
+(R-c) the same below the oracle's floor, faces overlapping. And the delegate's honest
+statement of why no single time works: k8 needs the source at or behind the true corner,
+R-b needs it at or after the corner's birth, and the corner's true birth is known only by
+resolving the cluster in SEQUENCE — the question clustering exists to skip. Ruled, the
+lead's mechanism call under 163: the locus source is taken ONLY when (i) the locus point
+at the anchor time lies inside the live offset polygon — ahead of every live front, the
+corner exists — and (ii) `findOrAddNode` returns a FRESH node for it, not an absorption
+into an existing one; otherwise the bisector starts at the hub as today. Both guards
+preserve today's behaviour exactly where the attempt failed and take the new behaviour
+only where it is well-defined — decision 157's shape, a release where the answer is not
+determinable. Prediction: k8/k9 and the eight cures stand; R-a/R-b/R-c vanish; the
+corpus is bit-identical except the k=4 pin. If the guarded form still regresses, C12 is
+closed for this session with the held pair documented and the arithmetic route (per-pair
+window, exact box, arithmetic spatial clustering, sequential resolution, R3–R5) recorded
+as the next session's structural package behind C13.
+
 ---
 ## Findings
+
+**F82 — Decision 175 measured: the locus-source representation is CORRECT for a merge
+whose corner exists at the anchor time and WRONG where a third wall has already cut the
+corner off, and its joins can close cycles through the held box.** Delegate's numbers
+(tree reverted to `6a72f36`; attempt patch at `scratchpad/c175/`): representation (a) — hub
+at the medoid, consumed edges end there, each emitted A|B bisector starts at the crossing
+of A's and B's offset lines at the anchor time, joined to the hub by an interior edge
+carrying A|B (I4's strong walk forces the parents), exact coincidence at the S29 moment
+bar so exact merges are bit-identical; census: 6,103 emitted bisectors carry a residual
+over 642 root cells, 1,108 above the bar, only two corpus cells (both defect fixtures).
+Sweep: corpus 2 neutral; fine 51 moved (6 cures, 33 neutral, 12 regressions); off-edge
+23 (3/20/0); ladder 33 (3/20/10); regions 13 neutral; along-edge and regular unmoved.
+k8: tiling 1.48e-9/6.18e-9/0, bit-identical to baseline at two depths — the residual
+loss is elsewhere in the cell. Split re-pointing not attempted (stopped first). The
+delegate's projection-rule variant (nearest locus point to the hub) fails both ways: k8
+1/0/2 and 31 regressions. Not re-run by the lead.
 
 **F81 — The k8 "genuine split" RENDERED from the solver's data (delegate, lead-inspected):
 the strike is the 26|64 edge event; the ring's 26|64 vertex is displaced 1.14e-3 along the
