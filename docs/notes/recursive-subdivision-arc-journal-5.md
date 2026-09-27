@@ -47,6 +47,11 @@ its update to this solver's state (F59). See decision 139.
   `resort_game/claude_work` worktree; its update packages P2, P3a, P3b and P4 have landed
   (F59).
 
+**State at close (2026-09-27), lead-verified:** tip = the close commit after `738761a`,
+core 5810/5810 (88 suites) + the skipped sweep-harness suite, dashboard 331/331, corpus
+60 (53 clean + 7 defect), digest 60 pins, branch PUSHED at close (decision 178). Session
+6 continues at decision 179 / F84.
+
 ## 3. Operational manual
 
 Carried by reference from the session-4 journal §3 and the session-3 journal §3. Nothing
@@ -67,7 +72,7 @@ it); C9 the causality instrument; the merge-displacement and split-siting budget
 and unspent; the C12 diagnosis, three downstream repairs measured and refused (174, 175,
 176); the impossible split identified (F77, unconditional per 173) with C14's exclusion
 held behind k8. The next session opens `recursive-subdivision-arc-journal-6.md`,
-continuing decisions at **178** and findings at **F84**; read §2, THIS section, decisions
+continuing decisions at **179** and findings at **F84** (178 is the close); read §2, THIS section, decisions
 141, 155, 157, 162, 173, 177 and findings F74, F80, F81, F83 — do not read this journal
 (~1400 lines) end to end.
 
@@ -1335,6 +1340,18 @@ which is labelled at the site with every measurement that refused to move it; th
 merge-displacement and split-siting budgets landed and unspent; C14's exclusion held
 behind k8 in `scratchpad/c14/` with its two fixtures named; the k8 and k9 cells as the
 package's convictions. Decision 176's prediction is STRUCK as falsified.
+
+**178 — (user, 2026-09-27) SESSION 5 CLOSES HERE; C13 defers to session 6; the sweep
+harness is copied into the repo; the journal is closed, committed and PUSHED.** The
+user's words: "Let's close up this session here, and C13 will defer into the next. Copy
+the harness into the repo, as suggested, close the journal, commit and push." Landed: the
+harness at `packages/core/tests/sweep-harness/` (`sweep.ts` verbatim from the
+decision-176 delegate's validated rebuild, a README with the grid and the classification
+rule, and a jest driver that SKIPS unless `SWEEP_OUT` is set — the normal suite never runs
+it; compiled through jest, 9 skipped). The push is the first since 2026-09-11 and carries
+this session's commits. Session 6 opens `recursive-subdivision-arc-journal-6.md`,
+continuing decisions at **179** and findings at **F84**, and bootstraps from §4's
+2026-09-27 refresh.
 
 ---
 ## Findings
