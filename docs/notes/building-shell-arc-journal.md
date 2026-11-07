@@ -702,6 +702,15 @@ departs from those four steps is a defect.
      `[0,0,1000,1000]` on storey 0, gabled on x = 0 and x = 1000, at 22.5°. Its assertions are in spec 40. The
      roster's fixtures exist to stress geometry, and none of them is the building a player sees first. WP3.3 carries
      it.
+104. **The type re-review of WP4.1 APPROVES** it: all nine blocking findings are closed by changes of shape, and
+     there are 5 new notes. All the notes are accepted for **WP4.2**, alongside any findings from the browser
+     re-review:
+     - `SHELL_KINDS` becomes `readonly`;
+     - the residual `group: LegendGroup | ''`, and `SPEC_SHELL_KINDS` typed as `readonly ShellKind[]` with no cast;
+     - an `RGB` built without a cast;
+     - `LayerOwners` derived from `Layers`, and the viewer's named types exported;
+     - **the `uBias` shader patch fails loudly.** Patching by string replacement goes silent if a three.js upgrade
+       changes the source lines, so `lineMaterial` throws when the patched shader lacks `uBias`, and a test pins it.
 
 ## Findings
 
