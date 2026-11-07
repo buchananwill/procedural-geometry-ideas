@@ -71,6 +71,23 @@ departs from those four steps is a defect.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
 - ~~**Roof lines in the C++ port: exact cut or staircase (F20, point 2).**~~ Closed by decision 89: exact cuts.
 - ~~**Corners between two Rings (F20, point 1).**~~ Closed by decision 90: named by geometry.
+- **Unsolved problems the C++ port inherits** (the user asked on 2026-11-07; the lead's inventory):
+  - **Courtyards.** A storey plan with a hole is refused. Roof-gable needs a cut to roof one, and up to 4 Rings can
+    enclose one, so content can reach this.
+  - **Roof forms per union wall, not per Ring** (spec §3 deferred). The rule for a wall run merged from several Rings
+    is undecided.
+  - **Roof-gable algorithm B's measured defects** are inherited unchanged: 3 FAIL (7g to 7i, all mixed pitch) and 6
+    CHEEK.
+  - **A straight-skeleton refusal is a hard error with no fallback.** The risk lives in mixed-pitch weights.
+  - **No sliver-Cell policy.** Exact cuts keep partial Cells down to 1e-4 cm², with no merge rule or minimum size for
+    content.
+  - **Edge-table pairs that would be `Unclassified`** if they ever arose: Roof–Underside, Gable–Underside, and sloped
+    flat Gable–Gable. None has been seen yet.
+  - **The cleaning tolerance was measured on manifold-3d's float32 output.** It must be re-measured on whichever C++
+    boolean is chosen, by decision 109's sweeps, with this prototype as the oracle.
+  - **Divergences listed in `newConventions`:** roof-line cuts, Underside Cells, the Cheek kind, inward-corner naming,
+    and C30 vertex slots.
+  - **"Builds on any valid union" is unproven until WP3.4 and WP3.5 land** and fresh seeds pass.
 - ~~**The C++ vertex-addition feature (F15).**~~ Located by the user (content journal 01, C30) and closed by decision
   58.
 
