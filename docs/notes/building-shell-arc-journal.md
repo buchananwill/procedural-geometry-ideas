@@ -757,6 +757,16 @@ departs from those four steps is a defect.
        - capped triangles take the faceID across the long edge.
      - **WP3.2 goes to both reviewers** on `2c0bb2e..fb150ed`. The decision above goes into WP3.3, which the same
        delegate starts now so the demo is not held up. Anything the reviews raise becomes WP3.4.
+107. **The type review of WP3.2 APPROVES it** (0 blocking; WP3.1's B8 and N5 to N7 are confirmed fixed). Its notes,
+     all accepted for **WP3.4**:
+     - **N8:** `shell.test.ts` imports `AREA_TOL`, `SNAP_MOVE` and `planHolds` from `shell-invariants.ts`; the copies
+       go.
+     - **N9:** `nextHalf`, `triOf` and `makeUnionFind` move to a leaf module, as `vec3.ts` was done, so `clean.ts`
+       stops copying them and the import cycle is avoided.
+     - **N10:** one exported `meshOf(out): ShellMesh` and one exported `NO_CLEAN`.
+     - **N11:** `planeKey` is renamed to say it registers (`clusterKeyOf`), and `PlaneClusters` holds `{rep, key}[]`.
+     - **N12:** `Partial<Record<…>>` for the residuals; this one may vanish under decision 106.
+     - **N13:** `unit` moves to `vec3.ts`, and `CapTri` is named.
 
 ## Findings
 
