@@ -327,7 +327,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - each `ShellKind` has one fill colour, drawn translucent for `Ground`;
     - each `EdgeKind` has one line colour;
     - `Unclassified` and surviving `Internal` are magenta;
-    - partial Cells are drawn in a lighter shade of their face's colour;
+    - partial Cells show through their outlines. A "highlight partial Cells" toggle tints them, and is off by default
+      (**AMENDED 2026-11-07**, journal decision 98: a default lighter fill hid the exact roof lines and read as
+      another kind);
+    - every Edge is visible wherever no non-adjacent face occludes it, and the draw order is faces, partial-Cell
+      tint, Cell outlines, then Edges (**AMENDED 2026-11-07**, journal decision 98);
     - a legend lists every colour in use.
 29. **Toggles:**
     - faces, Edges, vertices, Cell outlines (vertices **AMENDED 2026-11-07**, journal decision 58);

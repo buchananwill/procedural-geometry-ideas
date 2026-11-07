@@ -594,6 +594,40 @@ departs from those four steps is a defect.
       `Record`, and `count.get` without `!`.
     - These make up **WP4.1**, together with decision 95's single-config change and any accepted findings from WP4's
       correctness review, which is still running.
+98. **Rulings on WP4's correctness review** (fresh Opus, browser, on `def8c95`, served from a snapshot after WP3.1's
+    edits began). The data side is sound: readouts, picking, the panel, toggle state and legend kinds all match the
+    data, with a pick sweep over 5 views of all 10 fixtures. **The drawing misleads.** All findings are accepted.
+    - **F1 (High).** Concave and flat Edges are hidden by the faces: `LineSegments2` uses a plain depth test. With
+      faces on, the user cannot see TallerUpper's RingJunctions, Overhang's `^`, ValleyWings' valley, or any
+      SoffitJunction or InternalCorner.
+      - **Requirement:** every Edge is visible wherever no non-adjacent face occludes it.
+      - **Gate:** screenshots with faces on show all of those, and the reviewer re-checks.
+      - The lead's message to the user had called the WP4 screenshots right on the strength of NarrowUpperStorey
+        alone, which has no concave Edge. **That was wrong, and is corrected here.**
+    - **F2 (High).** The partial-Cell overlay covers Cell outlines and thins Edges. Draw order is faces, then any
+      partial-Cell fill, then Cell outlines, then Edges.
+    - **F3 (Medium), and spec 28 is AMENDED.** A partial Cell is no longer a lighter fill by default. It shows through
+      its outline, with a "highlight partial Cells" toggle. The lighter fill made a tan staircase that read as Wall
+      on NarrowUpperStorey and hid the true Hip line. That contradicts the exact cut.
+    - **F4 (Medium).** The palette is revised with a measured floor:
+      - every Edge colour is at least ΔE76 30 from every fill it can lie on;
+      - Edge kinds that can meet at one vertex are at least 25 apart;
+      - the hover and pin colours are distinct from every kind colour;
+      - a test computes ΔE76 over the tables and asserts these floors.
+    - **F5 (Medium).** Raw mode draws the union's faces translucent, so the removed parts inside show. The legend
+      says "raw Internal face", not "removed by the union".
+    - **F6 (Low).** The origin AxesHelper is replaced by a corner orientation gizmo, listed in the legend.
+    - **F7 (Low).** Legend counts follow the storey toggles. The outline, hover and pin colours are listed. Defects
+      count ShellEdges and NetEdges separately.
+    - **F8 (Low).** A failed build clears the scene and shows its error. A hash change loads that fixture.
+    - **F9 (Low).** Materials are disposed along with geometries.
+    - **Q6 (tests pass on wrong colours).** The pure colour-buffer path gets tests that convict the reviewer's four
+      colour mutations: every face drawn as Wall, partial Cells unlightened, every Edge Ridge-red, and an
+      sRGB/linear mix-up. Readout tests assert whole lines, not `toContain`.
+    - **WP4.1 is these items plus decisions 95 and 97.** It goes to the WP4 delegate. Its browser verification runs on
+      a tree that includes WP3.1, and the WP4 correctness reviewer re-checks in the browser before WP4 is accepted.
+    - **Side effect, reported:** the reviewer briefly drove another session's browser tab on :5199, then sent it
+      back.
 
 ## Findings
 
