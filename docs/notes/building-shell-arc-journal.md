@@ -951,6 +951,12 @@ departs from those four steps is a defect.
        indexed ring-parent"). Spec 3's "whose side lies on a union wall and overlaps it" already covers it. WP3.6
        adds an `OverlapRingConflict` pair: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose x = 1000 sides
        overlap over y 0 to 400 and disagree. Swapping the indices flips the whole x = 1000 wall.
+     - **The user has confirmed that pitch follows the same rule** (2026-11-07: "lowest index wins"). Spec 3 already
+       gives the winner "form and pitch". WP3.6 adds a `PitchRingConflict` pair: flush Rings that agree on the shared
+       wall's form, both hip, but not on its pitch (30° against 45°). Swapping the indices swaps the whole wall's
+       pitch.
+     - **Buried Ring sides raise no question,** since a swallowed feature ceases to contribute (user, 2026-11-07).
+       Spec 3 already drops their forms. The lead had listed them among the conflicts in error.
 117. **WP3.5 returned at `f707edf`**: the imprint (spec 15 as amended) and C6.
      - **NarrowUpperStoreyGabled is green** against the spec's numbers: storey 1 Wall 50000.00, storey 0 Gable
        105884.57.
