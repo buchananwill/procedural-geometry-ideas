@@ -259,6 +259,14 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - **`edges`, `cells` and `faces` are each in cyclic order, counter-clockwise seen from outside**, read from the
       manifold's triangle fan.
     - **A vertex carries no kind of its own**: its incident NetEdges' kinds and faces' tags are what a Grammar reads.
+    - **Sheets.** The union can write a non-manifold pinch: two surface sheets that touch along an edge or at a point,
+      for example an upper wall flush over a lower reflex corner. They appear as coincident mesh vertices, or as
+      coincident ShellEdges.
+      - Coincident vertices are one ShellVertex, whose lists hold each sheet's counter-clockwise run in turn, with the
+        sheets ordered by lowest face id.
+      - Coincident ShellEdges stay separate ShellEdges, one per sheet, and share their endpoint ShellVertices.
+
+      **AMENDED 2026-11-07** (journal decisions 110 and 119).
 20. **Convexity is the only sign-sensitive test in the app, and it is stated once here.** The edge is **flat** when
     `|dot(nA, nB) - 1| < 1e-6`, and **this test runs first**. Otherwise take face A, its outward unit normal `nA`, a
     point `p` on the edge, and `q`, the vertex opposite the edge in face B's output triangle incident to it. The edge
@@ -335,8 +343,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - `sides[i]` is the `NetEdge` id of the side from `polygon[i]` to `polygon[i + 1]`, and its kind is read from that
       NetEdge.
 
-    `whole` is true when its area is `cellSize²` within tolerance. A partial Cell is kept, however small, unless its
-    area is under `SHELL_TOLERANCE_CM²`, and the report counts them.
+    `whole` is true when its area is `cellSize²` within tolerance. **A partial Cell exists exactly when its polygon has
+    at least three distinct vertices on the 1/1024 cm snap grid**, however small its area, and the report counts
+    partial Cells. **AMENDED 2026-11-07** (journal decision 119): a Cell under `SHELL_TOLERANCE_CM²` was dropped,
+    which disagreed with vertex identity. Its vertices, kept because they lie more than `SHELL_TOLERANCE_CM` apart,
+    left NetEdges with nothing on one side.
 24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable
     junction cuts Cells along it, exactly as the shell does.
 25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes:

@@ -1005,7 +1005,34 @@ departs from those four steps is a defect.
      - `DirectionalSpec extends AmbientSpec` would read better over a `LightSpec` base;
      - one test restates a type.
 
-     A viewer change in a later arc picks them up. WP3.6 (courtyards
+     A viewer change in a later arc picks them up.
+119. **WP3.4 returned at `3575aa7`.** It delivers C1 to C5, C7 and C8, plus decisions 107 and 108. The delegate's
+     figures:
+     - **Test figure:** 3432/3435 outside the viewer.
+     - **Random seeds:** seeds 1 to 4, 140 cases each, pass 1120/1120 across both heights.
+     - **Sweep:** 580/580 at each height.
+     - **C1 and C2 regressions:** 4/4.
+     - **Gates:** convicted. The order-clustering gate belongs to WP3.5.
+     - **Pins:** none moved, beyond the Fuzz46 residual and the flat sum check both going under C5.
+     - **C1 is extended to coincident ShellEdges.** The overhang's foot is shared by both sheets along its length, so
+       spec 19 now gains "sheets".
+     - **The 3 red tests are a new class, F43, and are not enrolled.** The delegate stopped and reported, as its
+       rule required. **Ruled: a Cell exists exactly when it has at least three distinct snapped vertices.** The
+       area drop under `SHELL_TOLERANCE_CM²` is STRUCK from spec 23. It disagreed with vertex identity, and
+       existence now follows the snap grid that defines identity. Whether content can use sliver Cells stays on the
+       open sliver-policy item.
+     - **Left for WP3.6, in files WP3.4 did not own:** decision 107's N11 (`clusterKeyOf`, `{rep, key}[]` in
+       `tags.ts`) and the `union.ts` half of N10 (`meshOf`, `NO_CLEAN`).
+     - **WP3.6 goes to a fresh Opus delegate.** It carries:
+       - courtyards (decision 115);
+       - Ring forms (decision 116 and its addenda);
+       - F43's ruling, with G52h270u, G58h270 and G58h270u enrolled as regressions;
+       - the N10 and N11 leftovers.
+     - **The combined correctness review** goes to a fresh Opus reviewer on `8c8dda8^..3575aa7` (WP3.3 to WP3.5),
+       served from a snapshot, in parallel with WP3.6. **The type review** goes to the standing type reviewer on the
+       same range.
+
+## Findings WP3.6 (courtyards
        and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
 
 ## Findings
@@ -1247,3 +1274,15 @@ departs from those four steps is a defect.
     one vertex, which Manifold correctly writes as two coincident vertices.
   - **It is routine geometry.** Stacked walls are routinely flush on a 50 cm lattice.
   - Checked by the lead by reasoning over the octants, which agrees with the WP3 correctness reviewer's report.
+  - **The pinch extends along an edge,** per the WP3.4 delegate. Both sheets also share the overhang's foot, from the
+    corner to the overhang's far end. In FlushOverReflex that runs from (300, 300, h) to (450, 300, h), and the union
+    writes it as two coincident ShellEdges.
+- **F43. Length and area tolerances disagree on slivers about 0.01 × 0.02 cm.** In G58h270, at 270 cm storeys, the
+  rake passes 0.017 cm above the lattice corner (50, 0, 350).
+  - **The vertices are kept.** Its two lattice crossings, (49.989, 350) and (50, 350.017), and the corner itself all
+    lie more than 0.01 cm apart.
+  - **The Cell is dropped.** The piece between them is 9.35e-5 cm², under 0.01², so it goes, and its sides are left
+    as one-Cell NetEdges.
+  - The same happens at x = 550, and in G52h270u and G58h270u.
+  - Found by decision 108's storey-height grid at 270 cm, a height no fixture or earlier sweep used. Measured by
+    the WP3.4 delegate.
