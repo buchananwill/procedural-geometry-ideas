@@ -55,7 +55,9 @@ departs from those four steps is a defect.
    snap is reported. Its first open question is whether manifold-3d 3.2.1 carries `faceID` through `union`; the
    delegate stops if it does not. When it returns, it gets decision 67's two reviews before acceptance. While it ran,
    it was handed decision 68's `RoofParts` naming and decision 69's test that the parts agree with `runB`.
-   **Returned at `2ec9e98` (decision 71); reviews dispatched.**
+   **Returned at `2ec9e98` (decision 71). Reviews are in (decisions 72 and 73). WP2.1 dispatched to the same delegate
+   at `07981cd`.** When WP2.1 returns, its fix diff goes back to both reviewers for a targeted re-review before WP2 is
+   accepted.
 6. **WP1.1** (after WP2 merges, before WP3): decision 68's typecheck script with `@types/node`, plus decision 69's
    per-case verdict pin and its vite-alias test. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
@@ -311,6 +313,24 @@ departs from those four steps is a defect.
       - Equal kind and storey falls to the lower wall id, then the lower plane id.
       - The tests keep their own assertion tolerances.
     - **The spec still said "All nine" (Low):** already corrected in `6555588`. The reviewer read an earlier text.
+    - **AMENDED 2026-11-07 by decision 74:** Bridge's genus is 0, not 1.
+74. **Bridge's genus is 0, and the lead's "1" is STRUCK** (F28). The open-ground towers and bridge form a ∏, which is
+    open at z = 0 as well as at both y faces, so it is topologically a ball. Only BridgeOverBlock's block closes the
+    loop, giving genus 1. The delegate measured this and kept the wrong expectation as an `it.fails` test, as
+    briefed. It now becomes a plain assertion of 0. Spec 32 is amended.
+75. **A gable piece's face on any island wall line is tagged `Gable` with that wall; `Cheek` is only a face on no wall
+    line.** This amends spec 8, which tagged every face other than the piece's own wall line as Cheek. A monopitch's
+    vertical face on its dead high-end wall, as in cases 5a to 5e (F29), is a genuine exterior face standing on a
+    wall line. It is no artefact. Tagging it Cheek made a B PASS look like a defect. The per-case `cheeks` pins are
+    re-measured after the change.
+76. **WP2.1 (`ee32857`) is accepted subject to WP2.2, which carries decisions 74 and 75.** These interpretations stand
+    as rulings:
+    - gable tagging runs on Manifold's mesh before the weld and snap, and the `faceID`s are carried through the weld
+      (F30);
+    - `RETAG_SLACK_CM` lives in `union.ts`, `errorMessage` in `storey.ts`, and the plane predicates in `tags.ts`;
+    - the footprint and bbox tests use a hand-made `Piece`.
+
+    After WP2.2, the WP2.1 and WP2.2 diff goes to both reviewers for a targeted re-review.
 
 ## Findings
 
@@ -435,3 +455,19 @@ departs from those four steps is a defect.
 - **F27. The union leaves surviving Cheeks on roof-gable cases 2b, 4b, 5a to 5e and 8b** (8 cases, `cheeks` 1 or 2),
   per the WP2 correctness reviewer's probe. Roof-gable's B tally has 6 CHEEK verdicts, so the two sets do not map one
   to one. WP2.1 reports the per-case cross-table.
+- **F28. Bridge measures genus 0 and BridgeOverBlock genus 1** (WP2.1, `ee32857`). A probe at (500, 300, 300) is in
+  air. Slices show the towers alone at z = 300 and 450 (240000 cm²) and the full storey at z = 750 (600000 cm²).
+- **F29. The cheek cross-table over the 49 hole-free cases, measured at `ee32857` under spec 8's original tagging:**
+  - The union and B agree on 2b, 4b and 8b, which are Cheek in both.
+  - On 2d, 3c and 4l, B reports CHEEK and the union shows none.
+  - On 5a to 5e, monopitch cases that B passes, the union shows large Cheeks: the vertical face on the dead high-end
+    wall, lying on a band end (5a: y = 300, 75000 cm²). Decision 75 retags these.
+  - All other cases show none in both.
+
+  **Roof-gable's CHEEK verdict is a height-measurement notion, and the union's Cheek is a tag on a surviving face.** The
+  two are not expected to coincide.
+- **F30. The 1e-5 normal rule cannot hold on snapped vertices.** Case 7f's 85° face is about 2.3 cm wide in plan, and
+  the 1/1024 cm snap tilts its normal by 1.86e-5. Before the snap, the worst over 602 case triangles is 1.85e-7.
+- **F31. With `far: 'plane'`, no generated piece's band leaves its island, and none reaches the bbox cap**, over all
+  10 fixtures and 49 cases. The footprint trim and the cap act only on hand-made pieces. They are guards, not live
+  geometry, today.

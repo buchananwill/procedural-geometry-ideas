@@ -113,8 +113,10 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    - to keep only what lies above the plate;
    - to keep only what lies within the island's footprint.
 
-   Its faces on a piece plane are tagged `Roof` with that canonical plane's id, its face on the wall line `Gable`
-   with the piece's wall, and every other face `Cheek`. **AMENDED 2026-11-07** (journal decision 41): a Roof face is
+   Its faces on a piece plane are tagged `Roof` with that canonical plane's id. Its faces on any island wall line are
+   tagged `Gable` with that wall, which covers its own wall line and, for example, a monopitch's dead high-end wall.
+   Every other face is `Cheek`. **AMENDED 2026-11-07** (journal decision 75): only the piece's own wall line was
+   Gable, so a monopitch's genuine high-end face came out Cheek. **AMENDED 2026-11-07** (journal decision 41): a Roof face is
    keyed by its canonical plane, not by a wall, because `finishBuilding` merges collinear walls of equal pitch into
    one plane. Spec text that says "that plane's wall" now means that plane.
 9. **`algoB.ts` gains one export**, `solveRoofParts(b: Building, opt: BOptions): {defaults: PlaneFace[]; faces: RawFace[]; pieces: Piece[]}`.
@@ -325,9 +327,10 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     decision 47).
 32. **Every fixture asserts these invariants:**
     - Manifold's status is OK;
-    - the output is closed, with its expected genus. That is 1 for `Bridge` and `BridgeOverBlock`, each of which has a
-      tunnel under the bridge, and 0 for the other clean fixtures. A degenerate twin's genus is measured, then pinned
-      (**AMENDED 2026-11-07**, journal decision 73);
+    - the output is closed, with its expected genus. That is 1 for `BridgeOverBlock`, whose block closes a tunnel under
+      the bridge, and 0 for every other clean fixture, `Bridge` included: its towers on open ground form a ∏, which has
+      no tunnel. A degenerate twin's genus is measured, then pinned (**AMENDED 2026-11-07**, journal decisions 73 and
+      74);
     - `survivingInternal` is 0;
     - `cheeks` is 0. A surviving Cheek is reported, not waived, and a fixture that shows one is a finding
       (**AMENDED 2026-11-07**, journal decision 46);
