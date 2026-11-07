@@ -69,11 +69,8 @@ departs from those four steps is a defect.
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
-- ~~**Roof lines in the C++ port: exact cut or staircase (F20, point 2).**~~ Closed by decision 87: the C++ staircase,
-  revisited after the viewer exists.
-- **Corners between two Rings: `RingJunction` (C++) or `ExternalCorner`/`InternalCorner` (prototype) (F20, point 1).**
-  The lead recommends the prototype's reading. The four-step model unions Rings per storey, so a junction between Rings
-  stops being an edge between faces, and keeping Ring identity would reopen the failed approach. The user rules.
+- ~~**Roof lines in the C++ port: exact cut or staircase (F20, point 2).**~~ Closed by decision 89: exact cuts.
+- ~~**Corners between two Rings (F20, point 1).**~~ Closed by decision 90: named by geometry.
 - ~~**The C++ vertex-addition feature (F15).**~~ Located by the user (content journal 01, C30) and closed by decision
   58.
 
@@ -205,7 +202,7 @@ departs from those four steps is a defect.
 65. **`ShellReport` gains `newConventions: string[]`**, listing every place where the prototype uses a name in a
     context the C++ net has no precedent for. Today that is `RoofInterior` on Underside faces. `SoffitEdge` and
     `SoffitJunction` stay in `newEdgeKinds` (F20, point 3).
-66. **STRUCK AND REVERSED 2026-11-07 by decision 87** (the user ruled for the C++ staircase). **The prototype keeps
+66. **RESTORED 2026-11-07 by decision 89**, after decision 87 had struck it the same day. **The prototype keeps
     exact cuts at roof lines**: Cells are cut at hips, valleys and off-lattice ridges, so those
     lines get triangular and sliver partial Cells. The C++ staircase is not copied. Whether the C++ port adopts exact
     cuts is an open item for the user (F20, point 2).
@@ -437,7 +434,8 @@ departs from those four steps is a defect.
 86. **WP3 dispatched 2026-11-07** (general-purpose, Opus, fresh) at `0636dd0`. It delivers step 4: ShellFaces,
     ShellEdges, NetEdges, vertices, Cells, `buildShell`, the export CLI, and every fixture's own assertions.
     Decision 67's two reviews follow its return.
-87. **Roof lines follow the C++ net in every respect** (user, 2026-11-07): "For 1, follow the C++ in all respects.
+87. **STRUCK AND REVERSED 2026-11-07 by decision 89** (the user reverted it). **Roof lines follow the C++ net in every
+    respect** (user, 2026-11-07): "For 1, follow the C++ in all respects.
     Any changes can be considered once the prototype has a viewport I can inspect."
     - **Roof Cells:** whole 50 cm plan squares, each assigned to one roof face.
     - **Hips and valleys:** a staircase of whole-Cell sides between squares of different faces.
@@ -450,6 +448,48 @@ departs from those four steps is a defect.
     - **WP3 was told mid-run** to hold roof-Cell work and continue everything else.
     - **Any departure from the C++ waits until WP4's viewer exists for the user to inspect.**
     - **The cross-Ring corner question** (F20, point 1) is still open. This ruling does not cover it.
+88. **STRUCK 2026-11-07 by decision 89**, with its spec 22 and 32 amendments removed from the spec. **The prototype's
+    roof-Cell rule is spec 22's amendment, transcribed from the C++** (F35). Where the C++ depends
+    on Ring identity, the prototype substitutes its own rule:
+    - **Which squares are roof Cells:** storey N's footprint minus storey N+1's. This equals the C++ for
+      lattice-aligned Rings.
+    - **Assignment ties:** the lower canonical plane id. The C++ uses PlateRun order.
+    - **Eaves versus RingJunction:** by the storey's plate. The C++ reads a Ring's top row.
+
+    There are also prototype conventions with no C++ precedent:
+    - a square partly buried by the union is kept;
+    - each roof Cell's polygon is its plan square at plate height. The C++ never lifts a square, and the viewer may
+      draw squares lifted onto their faces' planes.
+
+    Spec 32's "every Cell lies on its face" is amended for Roof Cells. Gables, Walls, Cheeks and Undersides stay
+    exact: decision 87's ruling covers roof lines only.
+89. **The prototype is a clean-room design, and the C++ is not a constraint** (user, 2026-11-07, reverting decision
+    87): "Maybe I should just let you 'clean room' this and not be saddled with the bad decisions C++ has. That was
+    half the initial point. I revert my previous ruling. Do whatever is cleanest and most logical in all cases, to
+    produce the _desired_ manifold clipping prototype. Don't let the C++ force you to do something that is obviously
+    limiting."
+    - **Exact roof cuts stand** (decision 66 restored, decisions 87 and 88 struck). Spec 22, 32 and 33 are back to
+      exact cuts. WP3 was told mid-run to lift its hold.
+    - **The C++ is read for vocabulary and as a point of comparison only.** Every C++-driven ruling was re-examined.
+      Each of these stands on its own merits, not because the C++ does it:
+      - decision 59, NetEdges pairing one to one: each side is exactly one edge between at most two Cells;
+      - decision 61, `GableVertical` and `GableHorizontal` inside Gable faces: a lattice line inside a gable is a
+        gable line;
+      - decision 75, wall-line faces as Gable: a face standing on a wall is that wall's face;
+      - spec 21's reuse of `EModularEdgeKind` names, which keeps the vocabulary the content uses.
+    - **`newConventions`** (decision 65) stays, now as a list of where the prototype differs from the C++, kept for
+      the port.
+    - **F35 stays as a record** of what the C++ does.
+90. **A corner between two Rings is named by its geometry: `ExternalCorner` or `InternalCorner`, never
+    `RingJunction`** (F20, point 1, ruled under decision 89). There are three reasons:
+    - the four-step model drops Ring identity at the union;
+    - one building shape must give the same edges however it was split into Rings;
+    - `RingJunction` already names the roof-against-upper-wall line, so one kind would cover two geometrically
+      different things.
+
+    The report's `newConventions` lists the difference for the port.
+
+## Findings
 
 ## Findings
 
@@ -610,3 +650,23 @@ departs from those four steps is a defect.
   x = 200 over the spine's hip. That cheek was tagged Gable on wall 8, the arm wall x = 200 spanning y 200 to 600, on
   30000 cm² where wall 8 does not stand. `cheeks` read 0. The same U without the left arm reads `cheeks` 1. Measured
   by the WP2 correctness reviewer's probe at `9d90583`. Decision 80 amends the rule.
+- **F35. The C++ roof Cell rules** (`pisteperfect-5-7-27`, 2026-11-07). Paths are under
+  `Source/PistePerfect/Private/Buildables/ModularBuilding/`. `WholeCellTolerance` is 1e-6 Cell
+  (`Public/.../ModularWholeNumber.h:12`).
+  - **Squares are assigned by their centre.** `FaceHolding` takes the highest face holding the centre, and
+    `WinsTie` breaks ties: a face on a gabled run gives way, then the lower PlateRun wins. PlateRun is
+    Ring-dependent. See `Roof/ModularRoofAssembly.cpp:171-252`.
+  - **Only axis-aligned ridges snap** (`IsOnRidge`, `NearestCellLine`: a halfway tie takes the lower line, at
+    `Roof/ModularRoofNet.cpp:203-232`). Ridge edges can lie between Cells of one face.
+  - **Hip and Valley are read by plane pair, with no proximity check** (`RoofInteriorKind`, `:234-271`).
+    Otherwise the kind is RoofInterior.
+  - **No square is ever lifted.** Each level has one flat `RoofGrid` at plate height
+    (`Net/CellNetSurfaces.cpp:166-259`). Tiles are laid per face, and line Pieces are framed on the true lines
+    (`Realisation/ModularKitFrames.cpp:105-241`).
+  - **Roof Cells are a topped-out Ring's interior less whatever Rings stand over it** (`:161-227`). Burial drops only
+    a square that is wholly inside another solid (`Roof/ModularBuriedCells.cpp`).
+  - **Verge pairs by column**, with the roof Cell matched to the column's highest Gable Cell, and WallPlate replaces
+    Eaves at gable columns (`Roof/ModularRoofNet.cpp:73-106`). Eaves versus RingJunction reads a Ring's top row
+    (`Net/CellNetEdges.cpp:286`).
+  - **Unverified by the author:** how `Plan.RoofOfCell` is built, whether edges cross roof grids, and how
+    `ReflexCornersOfCell` is used.

@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 78 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 90 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -274,6 +274,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
     **AMENDED 2026-11-07** (journal decision 77, the user's ruling): a surviving Cheek is a legitimate face of its own
     kind with Cells. It had no Cells before.
+
+    (An interim amendment that adopted the C++ net's staircased roof Cells was reverted the same day, 2026-11-07,
+    in journal decisions 87 to 89. Roof Cells are cut exactly, as this decision states.)
 23. **A Cell is one lattice square intersected with its face's projected region**, by `CrossSection.intersect`, lifted
     back onto the face's plane:
 
@@ -362,8 +365,15 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - **`newConventions` lists every name used where the C++ net has no precedent**. Today that is `RoofInterior` on
       Underside faces, since the C++ net has no underside Cells, and the `Cheek` kind, which the C++ makes a Gable
       over no run (journal decision 77).
+    - **A corner between two Rings is `ExternalCorner` or `InternalCorner`, by its geometry** (journal decision 90).
+      The C++ net calls it `RingJunction`. Rings are rectangles, so every `InternalCorner` lies between two Rings.
+      `newConventions` therefore lists this convention whenever any `InternalCorner` Edge is emitted. It needs no
+      Ring provenance.
+    - **The prototype is a clean-room design** (journal decision 89). These entries record where it differs from the
+      C++ for the port's benefit; they are not a list of defects.
     - **Roof lines are cut exactly**, so hips, valleys and off-lattice ridges carry triangular and sliver partial
-      Cells. The C++ net instead staircases them on whole plan Cells. Which form the port takes is not decided here.
+      Cells. The C++ net staircases them on whole plan Cells instead. The prototype is a clean-room design and does
+      not follow that (journal decision 89).
 
 ### The fixtures
 
