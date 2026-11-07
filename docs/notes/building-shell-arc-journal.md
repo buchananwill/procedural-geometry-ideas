@@ -711,6 +711,28 @@ departs from those four steps is a defect.
      - `LayerOwners` derived from `Layers`, and the viewer's named types exported;
      - **the `uBias` shader patch fails loudly.** Patching by string replacement goes silent if a three.js upgrade
        changes the source lines, so `lineMaterial` throws when the patched shader lacks `uBias`, and a test pins it.
+105. **WP4.1 is accepted at `c16fe9c` on the browser re-review**, with WP4.2 to follow. The reviewer served a
+     `git archive c16fe9c` snapshot and confirmed every one of the seven faces-on checks. Its sweep read Edge pixels
+     off the canvas over 7 fixtures and 5 views (for example RingJunction 342/342, Valley 18/18, InternalCorner
+     68/68). Ten colour mutations each fail a test. The depth bias lets an Edge show through a face only within its
+     stated allowance, at most about 8 px.
+     - **Accepted for WP4.2:**
+       - **M1 (Medium).** The ΔE floors are measured against each fill's lit range, not its flat table colour. The
+         range runs from its darkest to its lightest Lambert appearance, and a downward face (Underside) is
+         ambient-only. The opt-in partial tint counts as a fill. Colours tuned to exactly 32.0 unlit had no margin;
+         SoffitJunction on a lit Wall measured 29.5.
+       - **M2 (Medium).** `EDGE_KIND_LIES_ON` adds Cheek wherever it names Gable, per spec 21. Verge on Cheek
+         measured ΔE 13.5.
+       - **L2 (Low).** "Can meet at one vertex" also takes every pair of Edge kinds that actually meets at a vertex
+         across all eleven fixtures, computed from the shells, alongside the share-a-face-kind rule.
+       - **L3 (Low).** SoffitEdge moves away from ExternalCorner's dark blue.
+       - **L1 (Low).** The gizmo shows its labels in every view, and its X colour matches the legend.
+       - **L4 (Low).** The hover overlay must not read as the partial tint: at least ΔE 25 from the tint at lit
+         appearance, or an outline emphasis instead of a white fill.
+       - **L5 (Low).** The legend lists the ghost-outline grey.
+     - **Decision 104's five notes** join WP4.2.
+     - **WP4.2's check:** the browser reviewer re-reads SoffitJunction and Underside RoofInterior on screen, and the
+       ΔE test is convicted by darkening Wall to its lit minimum.
 
 ## Findings
 
