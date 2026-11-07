@@ -682,7 +682,28 @@ departs from those four steps is a defect.
        - case 4b's 2 Cheeks is correct;
        - the re-tag pass's provenance `wall` may name a wall whose span misses the point, which is harmless.
      - **WP3.2 is these items plus decision 100.** It goes to a fresh Opus delegate. The WP3 delegate's context is
-       past 480k tokens, and the robustness work needs a clear head.
+       past 480k tokens, and the robustness work needs a clear head. **Dispatched.** It was told mid-run that `src/`
+       runs in the browser, so no `process.env` and no `node:` imports; its work in progress had read `process.env`.
+102. **The storey height is 250 cm, not 300** (user, 2026-11-07: "Default storey size in use in the C++ project is
+     250cm"; confirmed in F38). Every height in spec 34 to 40 and in spec 20's worked examples was recomputed by the
+     lead, and the spec amended in place.
+     - **Each clean fixture still tests what it tests,** because the fixtures keep their own steeper pitches:
+       - NarrowUpperStorey's upper storey stays buried (lower roof at 596.4 against the upper plate at 500);
+       - TallerUpper's apex (423.2) and Overhang's apex (423.2) stay under the upper plate (500);
+       - BridgeOverBlock's tunnel stays open (ridge 423.2, bridge floor 500);
+       - ValleyWings' ridges (450) stay under the upper plate (500).
+     - **ValleyWingsPierced is still pierced:** its ridges reach 596.4, above 500.
+     - **OverhangApexOnEave is redesigned.** At 250 its old apex (550) would pierce storey 1's roof rather than touch
+       its eave. The new geometry is `[0,0,500,500]` and `[250,0,750,500]`, both at 45°, which puts the apex at
+       (250, 250, 500), exactly on storey 1's eave line. Its topology is re-measured and pinned.
+     - **This lands as WP3.3, after WP3.2,** so that pin changes from the two packages are not confused. The new
+       numbers are spec 34 to 40's.
+103. **Add `DefaultChalet`, Piste Perfect's default building, as the eleventh fixture** (from F38). It is
+     `[0,0,1000,1000]` on storey 0, gabled on x = 0 and x = 1000, at 22.5°. Its assertions are in spec 40. The
+     roster's fixtures exist to stress geometry, and none of them is the building a player sees first. WP3.3 carries
+     it.
+
+## Findings
 
 ## Findings
 
@@ -874,3 +895,13 @@ departs from those four steps is a defect.
 - **F37. F3's nudge regressed 8 of the 580 sweep cases** that built before. Example: the same box gabled at 26.574°.
   The rake apex sits 0.059 cm above z = 450, so the apex Verge NetEdges are 0.131 cm long, and the run falls outside
   every fan wedge (`probe11.mjs`).
+- **F38. Piste Perfect's content defaults** (`pisteperfect-5-7-27`, 2026-11-07, from `ContentSource/Core/tables/`):
+  - storeys are 250 cm and fixed (`tagged_architecture_grammar.json:5`). The spec's 300 came from the C++ test
+    fixtures (`ModularExteriorManifoldSpec.cpp:5`).
+  - Cells are 50 cm (`tagged_modular_building_system.json:4`).
+  - **The default Grammar:**
+    - roof pitch 22.5°;
+    - walls facing E and W are gabled, and walls facing N and S are pitched;
+    - the default Ring is 1000 × 1000 at storey 0;
+    - limits: at most 3 storeys, 4 Rings and 12 corners per Ring, a wing aspect of at most 4, and right angles only.
+  - There is no minimum Ring side.

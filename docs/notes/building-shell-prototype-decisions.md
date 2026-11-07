@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 90 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 103 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -82,7 +82,7 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    interface ShellFixture {
      name: string;
      cellSize: number;        // 50
-     storeyHeight: number;    // 300; storey N's floor at N * storeyHeight, its plate at (N + 1) * storeyHeight
+     storeyHeight: number;    // 250 (AMENDED 2026-11-07 from 300, journal decision 102); storey N's floor at N * storeyHeight, its plate at (N + 1) * storeyHeight
      rings: FixtureRing[];
      roofs: Record<number, StoreyRoof>;   // one per storey index present
    }
@@ -231,16 +231,16 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     **AMENDED 2026-11-07** (journal decision 42): `q` was B's centroid, which lands on the wrong side of the edge for a
     non-convex B. Storey 1's notched wall in `OverhangApexOnEave` would have come out convex, as `Eaves`.
 
-    **Worked example (convex, a Ridge).** Two roof faces at 30 degrees over a 600 cm span, plate at 300.
-    - Face A is `z = 300 + 0.577x`, so `nA = (-0.5, 0, 0.866)`.
-    - Face B is `z = 300 + 0.577(600 - x)`.
-    - The edge point is `p = (300, 250, 473.2)`, and B's incident triangle has the eave vertex `q = (600, 0, 300)`.
+    **Worked example (convex, a Ridge).** Two roof faces at 30 degrees over a 600 cm span, plate at 250.
+    - Face A is `z = 250 + 0.577x`, so `nA = (-0.5, 0, 0.866)`.
+    - Face B is `z = 250 + 0.577(600 - x)`.
+    - The edge point is `p = (300, 250, 423.2)`, and B's incident triangle has the eave vertex `q = (600, 0, 250)`.
     - `dot(nA, q - p) = -0.5·300 + 0.866·(-173.2) = -300 < 0`, so the edge is convex. It is also horizontal, so it is a
       `Ridge`.
 
     **Worked example (concave, a RingJunction).** Face A is the same lower roof. B is an upper storey's wall at
-    `x = 200`. The edge point is `p = (200, 100, 415.5)`, and B's incident triangle has the vertex `q = (200, 0, 600)`.
-    `dot(nA, q - p) = 0 + 0.866·184.5 = 159.8 > 0`, so the edge is concave: a `RingJunction`.
+    `x = 200`. The edge point is `p = (200, 100, 365.5)`, and B's incident triangle has the vertex `q = (200, 0, 500)`.
+    `dot(nA, q - p) = 0 + 0.866·134.5 = 116.5 > 0`, so the edge is concave: a `RingJunction`.
 21. **Edge kinds reuse Piste Perfect's `EModularEdgeKind` names where they exist**, and the classification is this
     table, read for the unordered pair of tags:
 
@@ -388,9 +388,13 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
 ### The fixtures
 
-All ten use `cellSize` 50 and `storeyHeight` 300. Coordinates are `[x0, y0, x1, y1]`. **AMENDED 2026-11-07:** the
-roster grew from seven (first miscounted as six) to ten (journal decision 70). Decision 38 now holds two fixtures (journal decision 55). Decisions 37 and 39 each hold a
-clean twin and a degenerate twin (journal decision 56).
+All eleven use `cellSize` 50 and `storeyHeight` 250, Piste Perfect's default. Coordinates are `[x0, y0, x1, y1]`.
+**AMENDED 2026-11-07:**
+- the storey height was 300; every height below is recomputed for 250 (journal decision 102);
+- the roster grew from seven (first miscounted as six) to ten (journal decision 70), then to eleven with
+  `DefaultChalet` (journal decision 103);
+- decision 38 now holds two fixtures (journal decision 55);
+- decisions 37 and 39 each hold a clean twin and a degenerate twin (journal decision 56).
 
 **A degenerate twin asserts only decision 32's invariants until its topology is measured**, and that measured
 topology is then pinned as its assertion. A degenerate twin that breaks an invariant is a finding, never a waived
@@ -399,42 +403,45 @@ assertion.
 34. **`NarrowUpperStorey`**, Piste Perfect's fixture of that name.
     - **Rings:** `[0,0,600,600]` on storey 0, and `[200,0,400,200]` on storey 1, flush with the lower Ring's y = 0
       wall.
-    - **Roofs:** storey 0 has y = 0 gabled and 60 degrees elsewhere, so its apex is at 819.6. Storey 1 is a 45 degree
+    - **Roofs:** storey 0 has y = 0 gabled and 60 degrees elsewhere, so its apex is at 769.6. Storey 1 is a 45 degree
       hip.
     - **Asserts:**
       - no `Roof` face of storey 1;
-      - storey 1 has `Wall` faces only on the plane y = 0, with total area 60000;
-      - storey 0's `Gable` area is 155884.6 − 60000 = 95884.6;
-      - one `Ridge` from (300, 0, 819.6) to (300, 300, 819.6);
-      - `GableVertical` Edges on x = 200 and x = 400 over z 300 to 600, and `GableHorizontal` at z = 600 over x 200
+      - storey 1 has `Wall` faces only on the plane y = 0, with total area 50000;
+      - storey 0's `Gable` area is 155884.6 − 50000 = 105884.6;
+      - one `Ridge` from (300, 0, 769.6) to (300, 300, 769.6);
+      - `GableVertical` Edges on x = 200 and x = 400 over z 250 to 500, and `GableHorizontal` at z = 500 over x 200
         to 400;
-      - `FloorLine` at z = 300 over x 200 to 400, and `WallPlate` at z = 300 over x 0 to 200 and x 400 to 600;
-      - the vertex where storey 0's Gable column line x = 50 crosses the rake, at (50, 0, 386.6), lists a `Verge`
+      - `FloorLine` at z = 250 over x 200 to 400, and `WallPlate` at z = 250 over x 0 to 200 and x 400 to 600;
+      - the vertex where storey 0's Gable column line x = 50 crosses the rake, at (50, 0, 336.6), lists a `Verge`
         NetEdge and a `GableVertical` NetEdge (**AMENDED 2026-11-07**, journal decision 59). This is C28's bracket
         seat.
 35. **`NarrowUpperStoreyGabled`**: `NarrowUpperStorey` with storey 1's y = 0 wall also gabled. Its faces, tags and
     areas equal `NarrowUpperStorey`'s, and no `Gable` face of storey 1 survives. This fails if the coplanar rule lets
     the upper Gable win.
-36. **`TallerUpper`**: `NarrowUpperStorey` with storey 0 at 30 degrees instead of 60, so its apex is at 473.2 and
-    below storey 1's plate at 600.
+36. **`TallerUpper`**: `NarrowUpperStorey` with storey 0 at 30 degrees instead of 60, so its apex is at 423.2 and
+    below storey 1's plate at 500.
     - storey 1's `Roof` faces cover plan area 40000;
     - the lower `Ridge` runs only from y = 200 to y = 300 at x = 300;
-    - `RingJunction` Edges run along x = 200 and x = 400 at z = 415.5 over y 0 to 200;
-    - two sloped `RingJunction` Edges on y = 200 meet at (300, 200, 473.2).
-37. **`Overhang`**: `[0,0,600,600]` on storey 0, a 30 degree hip with its apex at 473.2, and `[300,0,900,600]` on
+    - `RingJunction` Edges run along x = 200 and x = 400 at z = 365.5 over y 0 to 200;
+    - two sloped `RingJunction` Edges on y = 200 meet at (300, 200, 423.2).
+37. **`Overhang`**: `[0,0,600,600]` on storey 0, a 30 degree hip with its apex at 423.2, and `[300,0,900,600]` on
     storey 1, a 45 degree hip.
     - storey 1's `Underside` survives over x 600 to 900, area 180000;
     - storey 0's `Roof` survives only over x 0 to 300, plan area 180000;
     - `SoffitEdge` along x = 900, and along y = 0 and y = 600 over x 600 to 900;
-    - `SoffitJunction` along x = 600 at z = 300;
-    - a ^-shaped `RingJunction` on x = 300 through (300, 0, 300), (300, 300, 473.2) and (300, 600, 300).
+    - `SoffitJunction` along x = 600 at z = 250;
+    - a ^-shaped `RingJunction` on x = 300 through (300, 0, 250), (300, 300, 423.2) and (300, 600, 250).
 
     **AMENDED 2026-11-07** (journal decision 49): storey 0 was 45 degrees, which put its apex exactly on storey 1's eave
-    line at (300, 300, 600). That geometry is kept as the degenerate twin below.
+    line. That geometry is kept as the degenerate twin below.
 
-    **`OverhangApexOnEave`** (degenerate twin) is `Overhang` with storey 0 at 45 degrees, as first written. Its apex
-    lies on storey 1's eave line at (300, 300, 600), and storey 1's x = 300 wall pinches there into two faces that touch
-    only at that point.
+    **`OverhangApexOnEave`** (degenerate twin) puts a hip's apex exactly on the upper storey's eave line. It is
+    `[0,0,500,500]` on storey 0, a 45 degree hip, and `[250,0,750,500]` on storey 1, a 45 degree hip. Its apex
+    (250, 250, 500) lies on storey 1's eave line x = 250 at plate height 500. Storey 1's x = 250 wall pinches there
+    into two faces that touch only at that point. **AMENDED 2026-11-07** (journal decision 102): at 250 cm storeys,
+    the old geometry's apex (550) would pierce storey 1's roof rather than touch its eave, so the footprints shrink
+    to keep the coincidence.
 38. **`Bridge`**, the owner's column case: towers that stand from the ground and a bridge over open air. **AMENDED
     2026-11-07** (journal decision 55, confirmed by the user): the planner's reconstruction, which had a block on
     storey 0, is kept as `BridgeOverBlock` below.
@@ -443,30 +450,30 @@ assertion.
     - **Asserts:**
       - no `Roof` face of storey 0 or storey 1;
       - storey 2's `Underside` survives over x 200 to 800, area 360000;
-      - a `SoffitJunction` along each tower's inner wall (x = 200 and x = 800) at z = 600;
-      - a `FloorLine` at z = 300 on each inner wall;
+      - a `SoffitJunction` along each tower's inner wall (x = 200 and x = 800) at z = 500;
+      - a `FloorLine` at z = 250 on each inner wall;
       - a `GroundLine` under each inner wall.
 
     **`BridgeOverBlock`** is the planner's reconstruction, unchanged.
     - **Rings:** towers `[0,0,200,600]` and `[800,0,1000,600]` over storeys 0 to 2, a block `[0,0,1000,600]` on
       storey 0, and a bridge `[200,0,800,600]` on storey 2. Every storey is a 30 degree hip.
     - **Asserts:**
-      - storey 0's `Roof` survives over x 200 to 800, its `Ridge` whole from x 300 to 700 at z 473.2, under storey 2's
-        floor at 600;
+      - storey 0's `Roof` survives over x 200 to 800, its `Ridge` whole from x 300 to 700 at z 423.2, under storey 2's
+        floor at 500;
       - no `Roof` face of storey 1;
       - storey 2's `Underside` survives over x 200 to 800, area 360000;
       - storey 0's roof meets each tower's inner wall by sloped `RingJunction` Edges.
 39. **`ValleyWings`**: `[0,0,1000,400]` and `[600,0,1000,1000]` on storey 0, forming an L, with x = 0 and y = 1000
-    gabled and 45 degrees elsewhere, so its ridges stand at 500; and `[650,50,950,300]` on storey 1, a 45 degree hip
-    over the L's corner, with its plate at 600.
+    gabled and 45 degrees elsewhere, so its ridges stand at 450; and `[650,50,950,300]` on storey 1, a 45 degree hip
+    over the L's corner, with its plate at 500.
     - the lower roof has a `Valley` Edge on the line x + y = 1000, and it ends on storey 1's y = 300 wall at
-      (700, 300), where two `RingJunction` Edges meet;
+      (700, 300, 350), where two `RingJunction` Edges meet;
     - no `Roof` face of storey 0 meets a `Roof` face of storey 1, by a shared Edge or a shared vertex (**AMENDED
       2026-11-07**, journal decision 96);
     - no Edge is `Unclassified`.
 
-    **AMENDED 2026-11-07** (journal decision 50): the lower roof was 60 degrees, which put its ridges at 646.4, above
-    storey 1's plate, and storey 1 was `[650,50,950,350]`, whose corner lay exactly on the valley line. That geometry is
+    **AMENDED 2026-11-07** (journal decision 50): the lower roof was 60 degrees, which put its ridges at 596.4 (at 250 cm
+    storeys), above storey 1's plate, and storey 1 was `[650,50,950,350]`, whose corner lay exactly on the valley line. That geometry is
     kept as the degenerate twin below.
 
     **`ValleyWingsPierced`** (degenerate twin) is `ValleyWings` with the lower roof at 60 degrees and storey 1 at
@@ -483,6 +490,14 @@ assertion.
     2026-11-07** (journal decision 52): the old premise "a building that has nothing to clip" was false, because the T's
     union buries the hip faces under the gable piece and the gable's foot inside the stem.
 
+    **`DefaultChalet`** is Piste Perfect's default building: `[0,0,1000,1000]` on storey 0 alone, with x = 0 and
+    x = 1000 gabled and 22.5 degrees elsewhere. **AMENDED 2026-11-07** (journal decision 103): it was added as the
+    eleventh fixture.
+    - one `Ridge` from (0, 500, 457.1) to (1000, 500, 457.1), since 250 + 500·tan 22.5° = 457.1;
+    - two `Gable` faces, each of area 103553.4;
+    - four `Verge` Edges and two `Eaves` Edges;
+    - its report is empty in decision 40's sense.
+
 ## 3. Deferred
 
 - **Deriving union wall forms from Ring forms.** This prototype authors forms per storey, so the inheritance rule
@@ -492,7 +507,7 @@ assertion.
   regression check on the old one.
 - **The C++ boolean**: Manifold vendored, or the engine's `UE::Geometry::FMeshBoolean`. Either is for the C++ spec.
 - **Dressing, Pieces, Grammars and the ridge's true end.** Shell and Cells only.
-- **Per-storey height overrides.** Every storey is 300.
+- **Per-storey height overrides.** Every storey is 250.
 
 ## 4. Retirement
 
