@@ -1031,6 +1031,19 @@ departs from those four steps is a defect.
      - **The combined correctness review** goes to a fresh Opus reviewer on `8c8dda8^..3575aa7` (WP3.3 to WP3.5),
        served from a snapshot, in parallel with WP3.6. **The type review** goes to the standing type reviewer on the
        same range.
+120. **Rulings on the type review of WP3.3 to WP3.5** (REQUEST CHANGES: 2 blocking, 5 notes). Decision 107's N9 and N12
+     are fixed. N8 and N13 are fixed apart from some residue, N10 is half done, and N11 is open as expected. Every
+     item is accepted and added to the running WP3.6 package as an addendum, since WP3.6 is the only package writing
+     the pipeline:
+     - **B9:** `PieceVertex`, `CapAcross` and `CapAt` hoisted to module scope.
+     - **B10:** `unit3`, `add3`, `scale3` and `dist3` all live in `vec3.ts`.
+     - **N14:** one `lineDistance`, in `vec3.ts`.
+     - **N15:** `clusterKeys` uses `makeUnionFind`.
+     - **N16:** `notchedSolid` uses `meshOf`.
+     - **N8 residue:** the shared `AREA_TOL` and `dist`.
+     - **N17:** non-empty origin tuples.
+     - **N18:** `FaceOrigin`, a `Pick`-based return type, `ShellFixture`, a throw instead of a default, and a tuple
+       literal.
 
 ## Findings WP3.6 (courtyards
        and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
