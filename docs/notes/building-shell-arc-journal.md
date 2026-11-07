@@ -849,6 +849,24 @@ departs from those four steps is a defect.
        `shell-invariants.ts` and the robustness tests. The file split keeps them apart. The branch stays red on
        NarrowUpperStoreyGabled until WP3.5 lands.
      - **WP3.3's review** is folded into one correctness review over WP3.3 to WP3.5 together.
+112. **Dispatches and returns, 2026-11-07.**
+     - **WP3.4** has gone to the WP3.2/3.3 delegate, scoped to C1–C8 (C6 excepted) plus decisions 107 and 108. It
+       includes a hand-made minimal C1 fixture: an L-shaped storey 0 with a flush upper wall over the reflex corner.
+     - **WP3.5,** the imprint plus C6, has gone to a fresh Opus delegate in parallel. The two hold disjoint file
+       rosters.
+     - **WP4.2 returned at `72cf919`.**
+       - The delegate ran 1199/1199 on a snapshot, viewer 75/75.
+       - The lit-range floors come from one `lighting.ts` shared by the renderer and the test, with a margin of 3. All
+         210 Edge-kind pairs are at least 31 apart.
+       - Hover and pin are outline-only.
+       - The `uBias` patch throws when it does not apply.
+       - Three gates and two further mutations were convicted.
+
+       Both WP4 reviewers re-check it before it is accepted.
+     - **The user asked for a diagnosis of C1.** The lead checked the reviewer's account against the geometry of
+       Fuzz109 (F42).
+
+## Findings
 
 ## Findings
 
@@ -1077,3 +1095,13 @@ departs from those four steps is a defect.
   - **The defect is latent:** a corners-only probe found 7 mislabelled robustness cases at 300 and 2 at 250, each
     passing every invariant.
   - Measured by the WP3.2/3.3 delegate (`wp33-probe-c.mjs`).
+- **F42. C1's pinch is the ordinary "upper wall flush over a lower reflex corner" shape.** In Fuzz109, storey 0
+  `[70,30,290,270]` ∪ `[80,260,460,450]` has a reflex corner at (290, 260). Storey 1 `[180,100,390,260]` has its
+  y = 260 wall flush with the lower wing's y = 260 wall, passing over that corner.
+  - **The air under the overhang** is the single octant x > 290, y < 260, z < 300.
+  - **The air above the lower roof** lies at y > 260 and z > 300, above roof planes that pass through the corner
+    point.
+  - **The two pockets meet only at (290, 260, 300).** The solid is valid, but its surface is two cones touching at
+    one vertex, which Manifold correctly writes as two coincident vertices.
+  - **It is routine geometry.** Stacked walls are routinely flush on a 50 cm lattice.
+  - Checked by the lead by reasoning over the octants, which agrees with the WP3 correctness reviewer's report.
