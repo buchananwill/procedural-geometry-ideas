@@ -67,6 +67,9 @@ departs from those four steps is a defect.
 
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
+- **What a surviving Cheek is (F32).** Is it a defect, which is the prototype's rule today (decision 46: no Cells,
+  and `cheeks` 0 asserted), or a legitimate Gable-like face with Cells, as the C++ treats it? Asked of the user
+  2026-11-07.
 - **Roof lines in the C++ port: exact cut or staircase (F20, point 2).** The prototype keeps exact cuts (decision 66).
   The user rules for C++.
 - **Corners between two Rings: `RingJunction` (C++) or `ExternalCorner`/`InternalCorner` (prototype) (F20, point 1).**
@@ -471,3 +474,14 @@ departs from those four steps is a defect.
 - **F31. With `far: 'plane'`, no generated piece's band leaves its island, and none reaches the bbox cap**, over all
   10 fixtures and 49 cases. The footprint trim and the cap act only on hand-made pieces. They are guards, not live
   geometry, today.
+- **F32. The C++ net makes the dead high-end wall `ECellNetSurfaceForm::Gable`**, the same as a promoted wall
+  (`pisteperfect-5-7-27`, 2026-11-07). Decision 75 matches it.
+  - `IsStandingWallSegment` counts promoted and Dead sides (`ModularRoofPieces.h:27`, set by `MarkDeadWalls`).
+  - `StandingWallLines` feeds `WallFaceOf` into `Geometry.VerticalFaces` (`ModularRoofComposition.cpp:278-284`).
+  - `AddWallGable` builds each one (`ModularRoofAssembly.cpp:47-74`).
+  - Its roof meeting gets `WallPlate` and `Verge` from `AppendRunPlatesAndVerges` (`ModularRoofNet.cpp:73-106`). The
+    Verge is horizontal at a monopitch's high end, which agrees with table 21's convex Roof-Gable `Verge`.
+
+  **Divergence: the C++ makes Cheeks Gables too.** `AddCheekGable` (`ModularRoofAssembly.cpp:76-98`) adds a Gable
+  over no run, carrying `RaisedByRun`, `CheekOrigin` and `CheekAxisU`, with its columns on the plan lattice. The
+  prototype instead gives a Cheek no Cells, and decision 46 makes a surviving Cheek fail every fixture.
