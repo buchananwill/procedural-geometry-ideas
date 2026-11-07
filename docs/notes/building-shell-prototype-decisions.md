@@ -355,7 +355,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
 
     ```ts
-    interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[]; newConventions: string[] }
+    interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: EdgeKind[]; newConventions: string[] }
+    // newEdgeKinds: EdgeKind[] AMENDED 2026-11-07 from string[] (journal decision 94)
     interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; netEdges: NetEdge[]; vertices: ShellVertex[]; cells: ShellCell[]; report: ShellReport }
     ```
 

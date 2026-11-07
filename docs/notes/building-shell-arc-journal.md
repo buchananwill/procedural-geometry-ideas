@@ -512,6 +512,23 @@ departs from those four steps is a defect.
     - **The delegate is general-purpose on Sonnet**, as decision 57 set: the viewer is low-risk front-end work.
     - **When it returns**, it gets decision 67's two reviews. The correctness review checks the viewer against
       spec 26 to 30 in a real browser.
+94. **Rulings on WP3's type review** (REQUEST CHANGES, 7 blocking, 4 notes, on `8c5d752..1f28bc6`):
+    - **B1, `newEdgeKinds: EdgeKind[]` against the spec's `string[]`:** the code is right. Spec 33 is amended to
+      `EdgeKind[]`; the narrower type costs nothing in the JSON. The lead owns the spec, and the clean-room ruling
+      (decision 89) favours the precise type.
+    - **B2 to B7, accepted:**
+      - name `UnionFind`;
+      - hoist `EdgeCrossing`, `SidePoint` and `CellRun`, and drop the casts;
+      - export `BoundaryPoint`, typing the test with it and `FaceFrame`;
+      - type the `classifyEdge` test helper from `EdgeShape` and `EdgeGeometry`;
+      - add `ReportPin` by `Pick`;
+      - name `ShellBuilder`.
+    - **N1, accepted:** `FrameTable`.
+    - **N2, accepted:** one exported vector module (`dot3`, `cross3`, `sub3`) replaces the private copies in
+      `faces.ts`, `edges.ts` and `union.ts`. This is a behaviour-neutral change to WP2's `union.ts`.
+    - **N3, accepted:** parsed JSON goes through `unknown`.
+    - **N4, sequential builds in a test:** no change.
+    - These make up **WP3.1**, together with any accepted findings from the correctness review.
 
 ## Findings
 
