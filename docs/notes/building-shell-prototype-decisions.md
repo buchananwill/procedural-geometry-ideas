@@ -119,7 +119,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    behaviour exactly, so the copy-integrity test still holds. **Every storey calls it with `{far: 'plane'}`**,
    roof-gable's chosen rule (**AMENDED 2026-11-07**, journal decision 48).
 
-   **AMENDED 2026-11-07** (journal decision 64): it also returns `notes: string[]`. A piece that `buildPieces` drops as
+   **AMENDED 2026-11-07** (journal decisions 64 and 68): it returns a named, exported
+   `interface RoofParts { defaults: PlaneFace[]; faces: RawFace[]; pieces: Piece[]; notes: string[] }`. A piece that `buildPieces` drops as
    NoPlane is a hard error naming the fixture, storey and line. A skeleton refusal throws.
 10. **Tags are assigned at construction, by geometry**, and every triangle of every raw part gets a `faceID` indexing
     one `TagTable` entry:

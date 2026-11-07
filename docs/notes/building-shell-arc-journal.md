@@ -207,6 +207,17 @@ departs from those four steps is a defect.
 
     The lead dispatches the reviewers and rules on their findings, never the implementer. Reviewers get the commit and
     the spec, not the lead's conclusions. WP1's reviews were dispatched on `da766c4` while WP2 was running.
+68. **Rulings on WP1's type review** (`typescript-type-reviewer`, APPROVE, 0 blocking, 4 notes):
+    - **N1, an inline return type:** accepted. `solveRoofParts` returns a named, exported `RoofParts`, which carries
+      decision 64's `notes`, and spec 9 is amended. Handed to the WP2 delegate, which owns that change.
+    - **N2, discarded `notes`:** already ruled as decision 64, in WP2.
+    - **N3, no typecheck gate:** accepted. The app gains a `typecheck` script (`tsc --noEmit`) that covers `src`,
+      `tests` and both config files. `@types/node` is added after the spec's license check. This lands as a small
+      fix after WP2 merges and before WP3 is dispatched, so WP2's lockfile is not contended. From then on, each work
+      package's verification includes the typecheck.
+    - **N4, the core path declared in both `tsconfig.json` and `vite.config.ts`:** no change. tsconfig cannot import
+      it, and the module-identity test convicts a broken vite alias. A broken tsconfig path would surface under N3's
+      typecheck. The unused `export` of `CORE_SOURCE` is cosmetic.
 
 ## Findings
 
