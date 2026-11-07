@@ -529,6 +529,23 @@ departs from those four steps is a defect.
     - **N3, accepted:** parsed JSON goes through `unknown`.
     - **N4, sequential builds in a test:** no change.
     - These make up **WP3.1**, together with any accepted findings from the correctness review.
+95. **WP4 returned at `def8c95`, 426/426, `typecheck` clean**, per the delegate.
+    - **Browser sweep:** the delegate ran all ten fixtures in Chromium. Each built and rendered, the page's report
+      matched `out/<fixture>.json`, the legend covered every kind in use, and the console was clean. Hover, pin,
+      every toggle and raw mode were exercised. The colour-completeness test was convicted by mutation.
+    - **What the lead checked:** the NarrowUpperStorey screenshot, by eye. It shows the Ridge, the upper Wall flush
+      on the Gable with a FloorLine between them, WallPlates either side, partial Cells along the rake and hip, and
+      zero defect rows.
+    - **Its interpretations stand pending review:**
+      - it uses `buildShellDetailed`, for the raw parts and the triangle-to-face map;
+      - storey membership comes from the face's tag;
+      - hover priority is vertex, then Edge, then face;
+      - raw `Internal` faces are grey, because they are removed;
+      - the defect rows are always listed.
+    - **The WASM fix moves to `vite.config.ts`:** `optimizeDeps: {exclude: ['manifold-3d']}` goes there, `dev` goes
+      back to plain `vite`, and `src/viewer/vite.viewer.config.ts` is removed. One config serves dev, test and
+      export, and a second config only for dev is a trap. This is a WP4.1 item.
+    - Decision 67's two reviews are dispatched on `bc35eff..def8c95`.
 
 ## Findings
 
