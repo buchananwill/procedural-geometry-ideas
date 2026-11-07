@@ -733,6 +733,30 @@ departs from those four steps is a defect.
      - **Decision 104's five notes** join WP4.2.
      - **WP4.2's check:** the browser reviewer re-reads SoffitJunction and Underside RoofInterior on screen, and the
        ΔE test is convicted by darkening Wall to its lit minimum.
+106. **WP3.2 returned at `fb150ed`.** The robustness requirement of decision 101 is met: 580/580 sweep cases and
+     80/80 random fixtures build and pass, against 384 and 60 before. The tests excluding the viewer's are
+     1124/1124. Five viewer-palette failures came from WP4.2's uncommitted work in progress, not from WP3.2. No
+     fixture pin moved, and all five gates convicted (F39).
+     - **The cleaning pass is accepted** (`src/clean.ts`). It collapses short edges, drops degenerate triangles,
+       flips caps, and re-enters the mesh through `ofMesh`, which must accept it as closed.
+       - `CLEAN_TOLERANCE_CM = 4/1024`, with a hard error if any vertex would move more than 0.005 cm.
+       - Measured over 670 raw unions: noise edges run 1e-4 to 1.74e-3 cm, with none between 2e-3 and 0.05; caps are
+         at most 1e-3 cm high; the thinnest genuine triangle is 1.0e-2 cm.
+       - Manifold 3.2.1's `simplify` and `setTolerance` were measured to collapse nothing at this scale, and a test
+         pins that.
+     - **Fuzz46 is ruled by a principled area bound, not a pin.** Decision 32's area invariant becomes per face:
+       `|loop area − area of the face's own triangles| ≤ loop perimeter × the run-straightness tolerance`. Straightening
+       a run moves its boundary by at most that tolerance, so the bound is exactly what loop reduction can cost.
+       Fuzz46's kink of 2.47e-4 cm on a 559 cm Hip falls within it. Its pin is removed, and it must pass the
+       derived bound. The flat 0.05 cm² sum check goes, since it was arbitrary at any scale. Spec 32 is amended.
+     - **The delegate's interpretations stand as rulings:**
+       - `cross2` lives in `vec3.ts`;
+       - plane clusters are per build, in `ShellTags.clusters`;
+       - B8 is convicted by a forged-origin test;
+       - the net invariants (tiling, pairing, winding, grid vertices, face ids) join decision 32's;
+       - capped triangles take the faceID across the long edge.
+     - **WP3.2 goes to both reviewers** on `2c0bb2e..fb150ed`. The decision above goes into WP3.3, which the same
+       delegate starts now so the demo is not held up. Anything the reviews raise becomes WP3.4.
 
 ## Findings
 
@@ -936,3 +960,13 @@ departs from those four steps is a defect.
     - the default Ring is 1000 × 1000 at storey 0;
     - limits: at most 3 storeys, 4 Rings and 12 corners per Ring, a wing aspect of at most 4, and right angles only.
   - There is no minimum Ring side.
+- **F39. Before WP3.2, raw unions broke step 4 in several ways besides F36 and F37**:
+  - "neither on a ShellEdge nor a lattice line", in 24 sweep cases;
+  - NetEdge mismatches, in 3 random cases;
+  - "closed run with no bend", in 2;
+  - "loop keeps 2 endpoints";
+  - thrown WASM pointers.
+
+  Cleaning and the bisector fix cured all of them. Cleaning touched 188 of 580 sweep cases and 20 of 80 random ones,
+  with a largest move of 1.74e-3 cm. It touched none of the ten fixtures' unions. Measured by the WP3.2 delegate at
+  `fb150ed`.
