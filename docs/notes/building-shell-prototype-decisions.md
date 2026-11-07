@@ -175,7 +175,18 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - an upper storey's flush wall on the plane of the lower storey's Gable keeps `Wall`;
     - an upper storey's own Gable lying inside the lower Gable's triangle shows the lower Gable, so one continuous
       Gable stands.
-15. **The re-tag pass:**
+15. **AMENDED 2026-11-07** (journal decision 111). The union can merge coplanar regions of different identity into
+    one output triangle, so a single tag per triangle, chosen at its centroid, mislabels part of its area. Before
+    deciding any tag, the re-tag pass **imprints** onto the output mesh the boundaries between coplanar raw faces
+    whose winners differ:
+    - every output triangle that straddles such a boundary is split along it;
+    - every new vertex lying on another triangle's edge splits that neighbour, as the weld's T-junction split does;
+    - the mesh re-enters through `Manifold.ofMesh`, which must accept it as closed.
+
+    After imprinting, every output triangle lies wholly within one winning region, which is asserted on every fixture
+    and robustness case. The steps below then apply per triangle.
+
+    **The re-tag pass:**
     - for each output triangle, collect every raw triangle on the same oriented plane (normals within `1e-5`, offsets
       within `0.01` cm) whose polygon holds the output triangle's centroid;
     - when they carry different identities (decision 10), decision 14's order picks one (**AMENDED 2026-11-07**:
@@ -499,7 +510,8 @@ assertion.
     x = 1000 gabled and 22.5 degrees elsewhere. **AMENDED 2026-11-07** (journal decision 103): it was added as the
     eleventh fixture.
     - one `Ridge` from (0, 500, 457.1) to (1000, 500, 457.1), since 250 + 500·tan 22.5° = 457.1;
-    - two `Gable` faces, each of area 103553.4;
+    - two `Gable` faces, each of area 103553.4 within 500/2048 cm². That is the most the 1/1024 cm snap of the apex can
+      cost; the measured value is 103553.23;
     - four `Verge` Edges and two `Eaves` Edges;
     - its report is empty in decision 40's sense.
 

@@ -828,6 +828,29 @@ departs from those four steps is a defect.
      - **C7 (Low).** The bisector test is non-strict, with first-match tie-breaking.
      - **C8 (Low).** Each edge collapse is preceded by a link-condition check, and a collapse that would pinch is a
        hard error.
+111. **WP3.3 returned at `8c8dda8`.** It delivers 250 cm storeys, the redesigned OverhangApexOnEave, `DefaultChalet`,
+     and re-pins. The delegate ran 1799/1810 outside the viewer.
+     - **Every hand-computed spec number is confirmed**, except DefaultChalet's Gable at 103553.23 against
+       103553.4. The apex's 1/1024 snap costs 0.165 cm², so spec 40 now states the snap bound.
+     - **11 tests are red, all NarrowUpperStoreyGabled's, and correctly unpinned.** The cause is F41, a design defect
+       in spec 15.
+     - **Spec 15 is amended: the re-tag pass imprints the boundaries between coplanar raw faces of different winners
+       onto the output mesh before tagging.**
+       - Straddling triangles are split along those boundaries.
+       - Neighbours are split at each new vertex, reusing the weld's T-junction split.
+       - The mesh is re-validated through `ofMesh`.
+       - A new invariant holds that no output triangle straddles a winning-region boundary, checked at corners, edge
+         midpoints and centroid against the raw faces. It runs on every fixture and robustness case.
+       - The 300 cm cases the delegate's corner probe found mislabelled (P36.089u, P39.376u, P49.583u, P55.984u,
+         Fuzz47) become named regression fixtures. The probe is corners-only, so the invariant is the real net.
+     - **Delegation.** The imprint goes to a fresh Opus delegate as **WP3.5**, which owns `union.ts`'s re-tag pass,
+       `tags.ts` and its own new test file. WP3.4 (decision 110's C1 to C8, plus decisions 107 and 108) goes to the
+       WP3.2/3.3 delegate in parallel, which owns `clean.ts`, `edges.ts`, `cells.ts`, `faces.ts`,
+       `shell-invariants.ts` and the robustness tests. The file split keeps them apart. The branch stays red on
+       NarrowUpperStoreyGabled until WP3.5 lands.
+     - **WP3.3's review** is folded into one correctness review over WP3.3 to WP3.5 together.
+
+## Findings
 
 ## Findings
 
@@ -1045,3 +1068,12 @@ departs from those four steps is a defect.
   unions (C1) and one cap oscillation (C2). The gated seed and the sweep pass, because WP3.2 was tuned on them.
   Measured by the WP3 correctness reviewer (`probe15` to `probe17`). An empirical tolerance gated on its own training
   inputs does not show generality.
+- **F41. The re-tag pass tags each output triangle once, at its centroid, but the union can merge coplanar regions
+  of different identity into one triangle.**
+  - **At 250,** NarrowUpperStoreyGabled's whole y = 0 region becomes one triangle, (0,0,250), (600,0,250),
+    (300,0,769.6), carrying storey 0's Gable faceID. Its centroid falls in storey 1's Wall rectangle, so all
+    155884.57 cm² is tagged `Wall|1`, and storey 0's Gable comes out at 0.
+  - **At 300,** Manifold triangulated differently, and the fixture passed by chance.
+  - **The defect is latent:** a corners-only probe found 7 mislabelled robustness cases at 300 and 2 at 250, each
+    passing every invariant.
+  - Measured by the WP3.2/3.3 delegate (`wp33-probe-c.mjs`).
