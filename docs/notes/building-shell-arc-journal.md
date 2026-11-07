@@ -744,7 +744,8 @@ departs from those four steps is a defect.
          at most 1e-3 cm high; the thinnest genuine triangle is 1.0e-2 cm.
        - Manifold 3.2.1's `simplify` and `setTolerance` were measured to collapse nothing at this scale, and a test
          pins that.
-     - **Fuzz46 is ruled by a principled area bound, not a pin.** Decision 32's area invariant becomes per face:
+     - **STRUCK 2026-11-07 by decision 110 (C5): the bound scaled with perimeter and could hide a lost notch.**
+       **Fuzz46 is ruled by a principled area bound, not a pin.** Decision 32's area invariant becomes per face:
        `|loop area − area of the face's own triangles| ≤ loop perimeter × the run-straightness tolerance`. Straightening
        a run moves its boundary by at most that tolerance, so the bound is exactly what loop reduction can cost.
        Fuzz46's kink of 2.47e-4 cm on a 559 cm Hip falls within it. Its pin is removed, and it must pass the
@@ -794,6 +795,39 @@ departs from those four steps is a defect.
 
      Offered to the user: a brief for the C++ team, or scoping it against the UE suites through the spec author's
      session.
+110. **Rulings on the correctness review of WP3.2** (`2c0bb2e..fb150ed`, on a `git archive` extract: 1124/1124).
+     **Cleaning is sound:** across 960 unions it moved no vertex more than 1.6e-3 cm, and the capped triangles' faceIDs
+     are correct. **Decision 101's requirement is not yet met** (F40). Everything below is accepted for **WP3.4**,
+     together with decisions 107 and 108.
+     - **C1 (High).** Manifold writes a non-manifold pinch as two vertices at one exact position with no edge between
+       them, and `vertexAt` throws on it. That shape is ordinary: an upper storey overhanging a reflex corner. Such
+       vertices become one ShellVertex carrying both sheets' fans. Its lists are each sheet's counter-clockwise run in
+       turn, the sheets ordered by lowest face id, as spec 19 amends. Fuzz109 (seed 2) and Fuzz3 (seed 3) become
+       named regression fixtures.
+     - **C2 (High).** `cleanMesh` oscillates on two caps that share a long edge. The fix flips only against a non-cap
+       neighbour, and otherwise merges the near-collinear vertex into the long edge. Fuzz134 (seed 4) becomes a
+       named regression fixture.
+     - **C3 (Medium).** The robustness gate is blind to tags. It adds:
+       - every output triangle lies on its tag's generating plane, which convicts the reviewer's cap-faceID mutation;
+       - `unclassifiedEdges` is 0, and an Unclassified edge in a random case is a finding to report, never to waive;
+       - no ShellEdge joins two faces of one identity;
+       - decision 60's cyclic order.
+     - **C4 (Medium).** The gate re-ran only the inputs it was tuned on. It now runs random seeds 1 to 4, at both 250
+       and 300, plus decision 108's pitch × storey-height grid. A larger seeded fuzz is opt-in, through a test-only
+       setting. Its failing seeds are shrunk and enrolled as named fixtures with their failure pinned.
+     - **C5 (Medium). Decision 106's per-face area bound is STRUCK.** A bound that scales with perimeter could pass a
+       loop that dropped a genuine 4 × 4 cm notch. In its place:
+       - every vertex `reduceFaceLoops` drops lies within `SHELL_TOLERANCE_CM` of the chord it is dropped onto;
+       - a run's straightness is measured against the run's final chord, not segment by segment;
+       - each face's loop area equals its own triangles' area minus the exact area of the dropped vertices'
+         triangles, within float epsilon.
+
+       Fuzz46 must pass on that accounting. Spec 32 is amended again.
+     - **C6 (Low).** Plane clusters become the connected components of the `samePlane` graph, which is independent of
+       query order.
+     - **C7 (Low).** The bisector test is non-strict, with first-match tie-breaking.
+     - **C8 (Low).** Each edge collapse is preceded by a link-condition check, and a collapse that would pinch is a
+       hard error.
 
 ## Findings
 
@@ -1007,3 +1041,7 @@ departs from those four steps is a defect.
   Cleaning and the bisector fix cured all of them. Cleaning touched 188 of 580 sweep cases and 20 of 80 random ones,
   with a largest move of 1.74e-3 cm. It touched none of the ten fixtures' unions. Measured by the WP3.2 delegate at
   `fb150ed`.
+- **F40. At `fb150ed`, fresh random seeds still fail about 1% of cases** (4 of 420 over seeds 2 to 4): three pinched
+  unions (C1) and one cap oscillation (C2). The gated seed and the sweep pass, because WP3.2 was tuned on them.
+  Measured by the WP3 correctness reviewer (`probe15` to `probe17`). An empirical tolerance gated on its own training
+  inputs does not show generality.

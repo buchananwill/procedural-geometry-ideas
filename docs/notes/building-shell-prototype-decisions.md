@@ -361,9 +361,12 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - `cheeks` equals the fixture's pinned, measured count, which is 0 for all ten. A Cheek is a legitimate face
       (**AMENDED 2026-11-07**, journal decisions 46 and 77; decision 46's "is 0" is struck);
     - every Cell's polygon lies on its face;
-    - every `ShellFace`'s loop area equals the area of its own triangles, within the face's loop perimeter times the
-      run-straightness tolerance. **AMENDED 2026-11-07** (journal decision 106): a flat 0.05 cm² bound on the summed
-      area was arbitrary at any scale, and a 559 cm Hip's float kink exceeded it.
+    - every vertex that loop reduction drops lies within `SHELL_TOLERANCE_CM` of the chord it is dropped onto, and each
+      `ShellFace`'s loop area equals its own triangles' area minus the exact area those dropped vertices cut off,
+      within float epsilon. **AMENDED 2026-11-07 twice** (journal decisions 106 and 110): a flat 0.05 cm² sum bound
+      was arbitrary, and a bound scaled by perimeter could hide a lost notch;
+    - every output triangle lies on its tag's generating plane; no ShellEdge joins two faces of one identity
+      (**AMENDED 2026-11-07**, journal decision 110).
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
 
     ```ts
