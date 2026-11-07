@@ -777,6 +777,23 @@ departs from those four steps is a defect.
        F36 shows the same failure mode with pitch in this arc.
      - **Offered to the user:** ask the spec author which C++ suites hard-code 300, and what a C++ parameter sweep
        would need.
+109. **The arc's headline recommendation to the C++ side is aggressive sweeps and fuzzing** (user, 2026-11-07:
+     hand-written C++ tests give no real assurance of robustness without sweeps across a wide range of inputs).
+     Evidence: F36. Here ten reasoned fixtures passed while a pitch sweep failed 161 of 580.
+     1. **Invariant-only assertions:** closed, genus, no surviving Internal, no Unclassified, Cells tile their faces,
+        NetEdges pair, vertex order, and areas consistent.
+     2. **Inputs sampled from the Grammar's reachable space,** then wider: random Ring layouts within the content
+        caps (3 storeys, 4 Rings, 12 corners, right angles, wing aspect 4), the content pitch set at 250 cm, then a
+        continuous pitch × storey-height sweep.
+     3. **Seeded and reproducible.** A failing seed is shrunk and enrolled as a named fixture with its failure pinned,
+        following the `test-fixtures` package's enrol-don't-exclude rule.
+     4. **A differential oracle:** the same layouts run through the C++ net and through this prototype, comparing
+        kinds, counts and areas. The JSON export exists for this.
+     5. **Budget:** a fixed-seed slice on every build and the full sweep nightly. Measure the failure rate before
+        fixing.
+
+     Offered to the user: a brief for the C++ team, or scoping it against the UE suites through the spec author's
+     session.
 
 ## Findings
 
