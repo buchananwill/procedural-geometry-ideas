@@ -58,7 +58,8 @@ departs from those four steps is a defect.
    **Returned at `2ec9e98` (decision 71). Reviews are in (decisions 72 and 73). WP2.1 dispatched to the same delegate
    at `07981cd`.** When WP2.1 returns, its fix diff goes back to both reviewers for a targeted re-review before WP2 is
    accepted.
-6. **WP1.1** (after WP2 merges, before WP3): decision 68's typecheck script with `@types/node`, plus decision 69's
+   **WP2 accepted at `3fbc6de` (decision 82).**
+6. **Pre-WP3 batch: WP1.1 plus decision 82's two items, dispatched 2026-11-07.** WP1.1 is: decision 68's typecheck script with `@types/node`, plus decision 69's
    per-case verdict pin and its vite-alias test. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
    invariants on all nine fixtures.
@@ -392,6 +393,21 @@ departs from those four steps is a defect.
       - band-end and far-side planes hold Gable zones where they lie on a wall line;
       - triangles under the area floor match by offset only.
     - The correctness reviewer's targeted check of `8f7fb86..3fbc6de` is dispatched.
+82. **WP2 is accepted at `3fbc6de`.** The final check found N1, N2 and N4 fixed as ruled, with no crack, sliver or
+    misplaced faceID. It probed the split path over SingleStoreyT, 11 cases and stress inputs, all NoError, closed
+    and genus 0. Its three new Low findings:
+    - **The span-end division is never shown to change a tag:** accepted. A test has one triangle crossing a wall's
+      span end on a band-end or far-side plane, and is convicted by deleting the split loop.
+    - **Opposite gables across collinear walls report conflicts on an ordinary gabled box:** accepted. On a plane
+      that is any piece's own promoted line, every gable piece of the storey takes that piece's own-wall zone over
+      its band, ahead of span zones. One face then has one identity, whichever piece made it. Pin: the reviewer's
+      three-rect box, gabled at y = 0 and y = 300 at 50°, has 0 conflicts. Spec 8's text already implies this; the
+      ruling makes it storey-wide.
+    - **Dropping the normal bound widens tie errors to crease slivers under about 0.02 cm:** no change. The failure
+      is loud, and none occurs in any fixture, case or stress input.
+
+    These two items join WP1.1 as one **pre-WP3 batch**, given to the WP2 delegate. Their check is the correctness
+    reviewer re-reading that diff, plus the new typecheck gate.
 
 ## Findings
 
