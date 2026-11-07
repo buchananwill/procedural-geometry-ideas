@@ -947,6 +947,10 @@ departs from those four steps is a defect.
          gabled.
        - **Mono forms stay out of Ring authoring for now.** No fixture uses them, and mono needs a low corner.
      - **Open item "Roof forms per union wall, not per Ring" closes on WP3.6's acceptance.**
+     - **The user has confirmed that overlapping Rings follow the same rule** (2026-11-07: "Same answer: the lower
+       indexed ring-parent"). Spec 3's "whose side lies on a union wall and overlaps it" already covers it. WP3.6
+       adds an `OverlapRingConflict` pair: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose x = 1000 sides
+       overlap over y 0 to 400 and disagree. Swapping the indices flips the whole x = 1000 wall.
 
 ## Findings
 
