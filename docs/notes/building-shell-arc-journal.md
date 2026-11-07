@@ -645,6 +645,44 @@ departs from those four steps is a defect.
       - F5 is listed only for off-lattice Hip, Valley or Ridge edges.
       - `storey.ts` keys gable faceIDs by generating plane.
     - Both WP3 reviewers are re-checking `16f57d6..e117f4f`. WP4.1 was told WP3.1 had landed.
+100. **Rulings on the type re-review of WP3.1** (REQUEST CHANGES). B1 to B7 and N1 to N3 are all fixed; B1 was
+     resolved through the spec amendment. All of its new findings are accepted.
+     - **B8:** `vertexRecords` narrows once with a `switch` on `VertexOrigin`, checked by `never`. The `-1` face
+       sentinel goes; it could otherwise leak into `ShellVertex.faces` and the export.
+     - **N5:** one exported `onLattice` replaces the two copies.
+     - **N6:** `BuildOutcome` is named, and the test wraps with `errorMessage`.
+     - **N7:** the F4 test uses `Vec2` and the shared `cross`.
+     - These form **WP3.2**, together with any findings from the correctness re-review.
+101. **Rulings on the correctness re-review of WP3.1.** F1 to F6 and F8 are fixed as ruled. The reviewer's invariant
+     probes over all ten fixtures (about 9.2k vertices) find nothing wrong, and they measured 472/472 at `e117f4f`.
+     - **N1 (High, a regression), accepted (F37).** F3's 1e-4 rad nudge fails against wedges from unsnapped
+       positions. Cell sides under about 17 cm, or Cell corners under 1e-4 rad, fall outside every wedge.
+       - **The fix:** a run's fan triangle is chosen by a point strictly inside the Cell's own corner, on the
+         bisector of its leaving and arriving sides, with every coordinate taken from one consistent set.
+       - **The reproducer becomes a test:** the `[0,0,600,400]` box with y = 0 gabled at 26.574°.
+     - **Pre-existing near-coincident vertices (High for the arc), accepted (F36).** The union's float32 output
+       leaves distinct vertices 7.6e-5 to 2.3e-4 cm apart, so `vertexAt` throws "snap to one grid point". This hits
+       16 of 80 random Ring fixtures and 161 of 580 pitch-sweep cases, at both commits. Fuzz54's Hip and Valley
+       6e-4 cm apart is the same class of fault. **A prototype that works only at the fixtures' pitches is not
+       the desired clipping prototype.**
+       - **The requirement:** step 4 must build on any valid union. Between the union and step 4, the union's
+         output is cleaned at a stated tolerance: near-coincident vertices are merged and the resulting
+         degenerate triangles collapsed, through Manifold's own simplification or an equivalent. The result
+         must still be a closed manifold, and its tags must survive.
+       - **The gate:** the reviewer's pitch sweep (20° to 70°, with and without an upper storey) and its 80
+         random Ring fixtures become tests. Every case must build and pass spec 32's invariants. Any case that
+         still fails is reported with its cause, never skipped.
+     - **Low items, accepted:**
+       - `planeKey` assigns plane ids by `samePlane` clustering, not by rounding;
+       - a Cell lobe with negative area is a hard error, as a contour hole is;
+       - `ShellReport.cheeks` counts Cheek ShellFaces, as spec 30 says (case 4b stays at 2).
+     - **Its other answers stand as rulings:**
+       - one Cell per piece is sound;
+       - F5's off-lattice rule is sound;
+       - case 4b's 2 Cheeks is correct;
+       - the re-tag pass's provenance `wall` may name a wall whose span misses the point, which is harmless.
+     - **WP3.2 is these items plus decision 100.** It goes to a fresh Opus delegate. The WP3 delegate's context is
+       past 480k tokens, and the robustness work needs a clear head.
 
 ## Findings
 
@@ -827,3 +865,12 @@ departs from those four steps is a defect.
     (`Net/CellNetEdges.cpp:286`).
   - **Unverified by the author:** how `Plan.RoofOfCell` is built, whether edges cross roof grids, and how
     `ReflexCornersOfCell` is used.
+- **F36. The union's float32 output carries distinct vertices 7.6e-5 to 2.3e-4 cm apart**, which step 4's
+  `vertexAt` refuses (`edges.ts:85-101`).
+  - It fails 16 of 80 random Ring fixtures and 161 of 580 pitch-sweep cases (20° to 70° in 0.173° steps), at both
+    `16f57d6` and `e117f4f`. Example: a `[0,0,600,400]` box with y = 0 gabled at 20.346°.
+  - The ten fixtures happen to avoid it.
+  - Measured by the WP3 correctness reviewer (`probe10.mjs`, `fuzz3.mjs`, `fuzz4.mjs` in the scratchpad).
+- **F37. F3's nudge regressed 8 of the 580 sweep cases** that built before. Example: the same box gabled at 26.574°.
+  The rake apex sits 0.059 cm above z = 450, so the apex Verge NetEdges are 0.131 cm long, and the run falls outside
+  every fan wedge (`probe11.mjs`).
