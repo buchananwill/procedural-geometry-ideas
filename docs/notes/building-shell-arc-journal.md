@@ -873,6 +873,29 @@ departs from those four steps is a defect.
        `EDGE_KIND_LIES_ON`;
      - `DirectionalSpec` gains `color`, and the gizmo camera takes `GIZMO_FOV`;
      - `gizmoWorstExtent` takes overrides, so its clip test exercises the real function.
+114. **WP4.2 is accepted at `72cf919` on the browser re-review.** The reviewer measured the lighting model against
+     screen pixels and found them matching: Roof worst ΔE 0.57 over 151 samples; Wall 555 of 559, the other 4
+     explained.
+     - **The previously failing pairs now clear on screen:**
+       - SoffitJunction on lit Wall: 46.5 (was 29.5);
+       - Underside RoofInterior: 39.6 (was 24.9);
+       - Verge on a constructed Cheek: 38.1 (was 13.5);
+       - ExternalCorner against SoffitEdge: 36.1 (was 27.0).
+     - **The lowest Edge-on-fill pair on screen** is Ridge on Roof at 37.4.
+     - **The tests convict the old colours:** 11 of 12 colour mutations fail a test. Gizmo labels fit in every view,
+       and hover reads apart from the tint.
+     - **Accepted for WP4.3,** alongside decision 113:
+       - **L-a.** The scene's lights are built by one pure, exported function from `lighting.ts`, and a test pins
+         it. The directional colour joins the spec, and `lambertFactor` uses the light colours. Hard-coding the
+         scene's ambient light currently passes every test.
+       - **L-b.** Hover and pin outline materials leave `clearLayers`' map, or have their bias refreshed every
+         frame and on resize. A pin rebuilt at one zoom keeps a stale bias.
+       - **Dark blues.** A luminance-contrast floor of at least 3:1 against the background applies to Edge colours
+         and gizmo labels, beside ΔE76, which overstates contrast for dark blues. ExternalCorner measures 1.19:1,
+         and the Z label 2.07:1.
+       - **L-c.** The lit-normal model adds Ground seen from above and downward-facing Cheek.
+     - **Side effect, reported:** the reviewer's first extraction overwrote `scratchpad\snap42`, another agent's
+       folder. Both running WP3 delegates were warned.
 
 ## Findings
 
