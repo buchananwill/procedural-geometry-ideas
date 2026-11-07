@@ -51,6 +51,8 @@ into `apps/building-shell/src/roof/`:
 
 - `constants.ts`: `SHELL_TOLERANCE_CM` (decision 16).
 - `fixture.ts`: `ShellFixture`, `FixtureRing`, `StoreyRoof`, and the fixture list `SHELL_FIXTURES`.
+- `manifold.ts`: the one `manifold-3d` WASM loader. `weld.ts`: decision 11's weld-and-snap primitive, the only rounding
+  in the app (journal decision 71).
 - `storey.ts`: `StoreyPlan` (one storey's union outline and its solved roof) and `buildStoreyParts` (one storey's
   raw tagged solids).
 - `tags.ts`: `ShellKind`, `FaceTag`, `TagTable` (`faceID` to `FaceTag`).
@@ -344,8 +346,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
 ### The fixtures
 
-All nine use `cellSize` 50 and `storeyHeight` 300. Coordinates are `[x0, y0, x1, y1]`. **AMENDED 2026-11-07:** the
-roster grew from six to nine. Decision 38 now holds two fixtures (journal decision 55). Decisions 37 and 39 each hold a
+All ten use `cellSize` 50 and `storeyHeight` 300. Coordinates are `[x0, y0, x1, y1]`. **AMENDED 2026-11-07:** the
+roster grew from seven (first miscounted as six) to ten (journal decision 70). Decision 38 now holds two fixtures (journal decision 55). Decisions 37 and 39 each hold a
 clean twin and a degenerate twin (journal decision 56).
 
 **A degenerate twin asserts only decision 32's invariants until its topology is measured**, and that measured

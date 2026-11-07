@@ -55,6 +55,7 @@ departs from those four steps is a defect.
    snap is reported. Its first open question is whether manifold-3d 3.2.1 carries `faceID` through `union`; the
    delegate stops if it does not. When it returns, it gets decision 67's two reviews before acceptance. While it ran,
    it was handed decision 68's `RoofParts` naming and decision 69's test that the parts agree with `runB`.
+   **Returned at `2ec9e98` (decision 71); reviews dispatched.**
 6. **WP1.1** (after WP2 merges, before WP3): decision 68's typecheck script with `@types/node`, plus decision 69's
    per-case verdict pin and its vite-alias test. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
@@ -242,6 +243,21 @@ departs from those four steps is a defect.
       before WP3.
     - **WP1 is accepted at `da766c4`**, which lifts decision 62's provisional status. The open follow-ups are all
       named here.
+70. **The roster is ten fixtures, not nine** (F21). Decisions 55 and 56 counted wrong, and the spec's preamble is
+    corrected. The ten are:
+    - NarrowUpperStorey and NarrowUpperStoreyGabled;
+    - TallerUpper;
+    - Overhang and OverhangApexOnEave;
+    - Bridge and BridgeOverBlock;
+    - ValleyWings and ValleyWingsPierced;
+    - SingleStoreyT.
+71. **WP2 returned at `2ec9e98`, 110/110, `tsc --noEmit` clean, per the delegate.** It is not accepted until decision
+    67's two reviews return; both were dispatched on `2ec9e98`.
+    - `src/manifold.ts`, the single WASM loader, joins the roster.
+    - Rule on the NoPlane hard error once the reviews are in: it matches the substring `': NoPlane,'` in the frozen
+      `buildPieces`' note text.
+
+## Findings
 
 ## Findings
 
@@ -338,3 +354,26 @@ departs from those four steps is a defect.
        content.
     3. **Underside has no C++ precedent.** The C++ net has no underside Cells (exterior-manifold spec decision 13), and
        it leaves an overhang's rim without Edges (the comment at `CellNetEdges.cpp:300-302`).
+- **F21. The original spec said "All six" but listed seven fixtures (34 to 40).** Decisions 55 and 56 built on the
+  wrong base, which gives ten, not nine. The WP2 delegate caught it.
+- **F22. manifold-3d 3.2.1 carries each input `faceID` through `union` per triangle**, keeps separate parts' ids
+  distinct, and keeps exactly one copy of two coincident coplanar faces. The probe is
+  `tests/manifold-faceid.test.ts` at `2ec9e98`.
+- **F23. All ten fixtures hold spec 32's WP2 invariants**: status OK, closed, `survivingInternal` 0, `cheeks` 0. This
+  includes both degenerate twins.
+  - Spec 34 and 35's tagged areas hold: storey 1's Wall is 60000.000 on y = 0, and storey 0's Gable is 95884.570.
+  - Conflicts appear only on the y = 0 plane of NarrowUpperStorey, NarrowUpperStoreyGabled and TallerUpper. In each,
+    Wall wins over Gable, or the lower storey's Gable wins over the upper's.
+  - **In NarrowUpperStorey, Manifold already keeps the upper Wall without re-tagging**, so only the conflicts list
+    convicts a disabled re-tag pass there. NarrowUpperStoreyGabled convicts it by area.
+- **F24. A storey offset of 0.005 cm (snapped to 0.00488) changes tagged areas by about 1 to 2 cm², but no
+  topological invariant.** At +0.005, a 0.0049 cm Gable strip at the plate is re-tagged storey-0 Wall, because its
+  centroid lies within the re-tag pass's 0.01 cm containment slack. Tolerance-scale offsets are absorbed by the
+  re-tag, not detected by it.
+- **F25. Only mixed-pitch cases convict the `1 / w.tan` weighting.** Mutating it to `w.tan` fails 10 of the 49
+  hole-free CASES (4g and 7a to 7i). Uniform pitch gives the same skeleton under either weighting, so no shell
+  fixture can catch it. The CASES agreement test is the only gate.
+- **F26. Roof-gable's `runB.eval` returns null on a point exactly on a 45° hip** (case 7i at (62.5, 437.5)): its
+  point-in-polygon falls into the float crack between two skeleton faces. The union gives the correct height there.
+  This is a defect of the frozen prototype. The agreement test offsets its grid by (+0.3, +0.7) cm to stay off such
+  lines.
