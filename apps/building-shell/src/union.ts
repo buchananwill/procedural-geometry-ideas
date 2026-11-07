@@ -1,23 +1,23 @@
 // Steps 2 and 3 of the four-step model: the storeys' raw parts, stacked at their storey heights, go through one
 // `Manifold.union` (spec decision 12), and every output triangle's tag is its faceID's (13), re-tagged where
 // coplanar raw faces overlap (14, 15). Between the union and the re-tag pass, the output is cleaned (`clean.ts`,
-// journal decision 101, F36): edges shorter than `CLEAN_TOLERANCE_CM` collapse. Nothing else removes geometry.
+// journal decision 101, F36): edges shorter than `CLEAN_TOLERANCE_CM` collapse. Nothing else removes geometry. The
+// cleaned mesh is then imprinted with the winner boundaries (`imprint.ts`, spec decision 15 as amended, journal
+// decision 111) before any tag is decided.
 import type {ErrorStatus, Manifold} from 'manifold-3d';
 import {CleanStats, cleanMesh} from './clean.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeysOf} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
 import {errorMessage} from './errors.ts';
+import {ImprintStats, imprintRegions} from './imprint.ts';
+import {RegionModel, makeRegionModel} from './regions.ts';
 import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
-import {FaceTag, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, retagCompare, samePlane, tagLabel} from './tags.ts';
-import {cross3, dot3, sub3} from './vec3.ts';
+import {FaceTag, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, tagLabel} from './tags.ts';
+import {cross3, sub3} from './vec3.ts';
 
-/**
- * The re-tag pass's containment slack, in cm: how far outside a raw triangle's edge an output centroid may lie and
- * still count as held. Above float32 noise (about 1e-4 cm), and well below `SHELL_TOLERANCE_CM` so it cannot relabel
- * a genuine thin face (spec decision 16 as amended, journal decision 73).
- */
-export const RETAG_SLACK_CM = 1e-3;
+export {RETAG_SLACK_CM, prepareRawTri, rawTriHolds} from './regions.ts';
+export type {RawTri, RawTriEdge} from './regions.ts';
 
 /** The union's output mesh: float32 positions, vertex indices, one input faceID per triangle. */
 export interface ShellMesh { positions: Float32Array; tris: Uint32Array; faceIDs: Uint32Array }
@@ -30,10 +30,15 @@ export interface ShellUnion {
   closed: boolean;
   /** The output manifold's genus (spec decision 32 as amended). */
   genus: number;
-  /** The union's output after the cleaning (journal decision 101, F36): what the re-tag pass and step 4 read. */
+  /**
+   * The union's output after the cleaning (journal decision 101, F36) and the imprint (journal decision 111): what the
+   * re-tag pass and step 4 read.
+   */
   mesh: ShellMesh;
   /** What the cleaning merged and dropped. */
   clean: CleanStats;
+  /** What the imprint cut and added. */
+  imprint: ImprintStats;
   tags: ShellTags;
   /** Every raw part before the union, still addressable (spec decision 29's raw mode). */
   parts: RawPart[];
@@ -111,7 +116,7 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
       return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {merged: 0, collapsed: 0, flipped: 0, maxMoveCm: 0}};
     }
     const {mesh, stats} = cleanMesh(raw);
-    const genus = mesh === raw ? u.genus() : cleanedGenus(wasm, mesh);
+    const genus = mesh === raw ? u.genus() : remeshedGenus(wasm, mesh, 'cleaned');
     return {status, closed: mesh.tris.length > 0 && isClosed(mesh.tris), genus, mesh, clean: stats};
   } finally {
     ms.forEach(m => m.delete());
@@ -120,19 +125,19 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
 }
 
 /**
- * Journal decision 101, F36: the cleaned mesh goes back through `Manifold.ofMesh`, which must accept it as a closed
- * manifold; its genus is the cleaned mesh's. A refusal is a hard error.
+ * Journal decisions 101 (F36) and 111 (F41): the cleaned mesh, and again the imprinted one, goes back through
+ * `Manifold.ofMesh`, which must accept it as a closed manifold; its genus is that mesh's. A refusal is a hard error.
  */
-function cleanedGenus(wasm: Wasm, mesh: ShellMesh): number {
+function remeshedGenus(wasm: Wasm, mesh: ShellMesh, what: string): number {
   let m: Manifold;
   try {
     m = wasm.Manifold.ofMesh(new wasm.Mesh({numProp: 3, vertProperties: mesh.positions, triVerts: mesh.tris, faceID: mesh.faceIDs}));
   } catch (e) {
-    throw new Error(`the cleaned union is no manifold: ${errorMessage(e)}`);
+    throw new Error(`the ${what} union is no manifold: ${errorMessage(e)}`);
   }
   try {
     const status = m.status();
-    if (status !== 'NoError') throw new Error(`the cleaned union is no manifold: ${status}`);
+    if (status !== 'NoError') throw new Error(`the ${what} union is no manifold: ${status}`);
     return m.genus();
   } finally {
     m.delete();
@@ -141,55 +146,14 @@ function cleanedGenus(wasm: Wasm, mesh: ShellMesh): number {
 
 // ---- The re-tag pass (spec decision 15) ---------------------------------------------------------------------------
 
-/** One edge of a raw triangle: a point on it and the unit normal pointing into the triangle, in its plane. */
-export interface RawTriEdge { o: Vec3; m: Vec3 }
-
-/** A raw triangle prepared for the containment test on its face's plane. */
-export interface RawTri { edges: RawTriEdge[]; lo: Vec3; hi: Vec3 }
-
-/** Prepares a raw triangle on a face with outward normal `n`; null below `SHELL_TOLERANCE_CM`² of area. */
-export function prepareRawTri(a: Vec3, b: Vec3, c: Vec3, n: Vec3): RawTri | null {
-  const area = Math.hypot(...cross3(sub3(b, a), sub3(c, a))) / 2;
-  if (area < SHELL_TOLERANCE_CM ** 2) return null;
-  const edges = [[a, b], [b, c], [c, a]].map(([o, e]): RawTriEdge => {
-    const m = cross3(n, sub3(e, o));
-    const L = Math.hypot(...m);
-    return {o, m: [m[0] / L, m[1] / L, m[2] / L]};
-  });
-  const lo: Vec3 = [Math.min(a[0], b[0], c[0]) - RETAG_SLACK_CM, Math.min(a[1], b[1], c[1]) - RETAG_SLACK_CM, Math.min(a[2], b[2], c[2]) - RETAG_SLACK_CM];
-  const hi: Vec3 = [Math.max(a[0], b[0], c[0]) + RETAG_SLACK_CM, Math.max(a[1], b[1], c[1]) + RETAG_SLACK_CM, Math.max(a[2], b[2], c[2]) + RETAG_SLACK_CM];
-  return {edges, lo, hi};
-}
-
-/** Whether the raw triangle holds point `q`, allowing `RETAG_SLACK_CM` outside each edge. */
-export const rawTriHolds = (t: RawTri, q: Vec3): boolean =>
-  q[0] >= t.lo[0] && q[0] <= t.hi[0] && q[1] >= t.lo[1] && q[1] <= t.hi[1] && q[2] >= t.lo[2] && q[2] <= t.hi[2]
-  && t.edges.every(e => dot3(e.m, sub3(q, e.o)) >= -RETAG_SLACK_CM);
-
-export function retagPass(label: string, mesh: ShellMesh, parts: RawPart[], tags: ShellTags): RetagResult {
-  const {table, planes, clusters} = tags;
-  // Raw triangles per faceID, on their face's exact generating plane.
-  const raw: RawTri[][] = table.map(() => []);
-  for (const part of parts) {
-    const {positions: P, tris, faceIDs} = part.soup;
-    for (let t = 0; t < tris.length / 3; t++) {
-      const f = faceIDs[t];
-      const v = (j: number): Vec3 => [P[3 * tris[3 * t + j]], P[3 * tris[3 * t + j] + 1], P[3 * tris[3 * t + j] + 2]];
-      const r = prepareRawTri(v(0), v(1), v(2), planes[f].n);
-      if (r) raw[f].push(r);
-    }
-  }
-  // Faces sharing an oriented plane, Internal excluded.
-  const coplanar = new Map<number, number[]>();
-  const peersOf = (f: number): number[] => {
-    let got = coplanar.get(f);
-    if (!got) {
-      got = table.map((_, g) => g).filter(g => table[g].kind !== 'Internal' && samePlane(planes[f], planes[g]));
-      coplanar.set(f, got);
-    }
-    return got;
-  };
-
+/**
+ * Spec decision 15 as amended (journal decision 111): each output triangle is tagged by the winner at its centroid among
+ * the raw triangles on its oriented plane that hold it, its own faceID's included only when they hold it. The imprint
+ * has already cut the mesh so that every triangle lies within one winning region. A centroid no raw face holds keeps
+ * its faceID's tag.
+ */
+export function retagPass(label: string, mesh: ShellMesh, model: RegionModel): RetagResult {
+  const {table, planes} = model.tags;
   const conflicts = new Set<string>();
   const triTags: FaceTag[] = [];
   const P = mesh.positions;
@@ -199,15 +163,8 @@ export function retagPass(label: string, mesh: ShellMesh, parts: RawPart[], tags
     if (!own) throw new Error(`${label}: output triangle ${t} carries faceID ${f}, which no raw part issued`);
     if (own.kind === 'Internal') { triTags.push(own); continue; }
     const mean = (ax: number): number => (P[3 * mesh.tris[3 * t] + ax] + P[3 * mesh.tris[3 * t + 1] + ax] + P[3 * mesh.tris[3 * t + 2] + ax]) / 3;
-    const q: Vec3 = [mean(0), mean(1), mean(2)];
-    // Every peer lies on f's oriented plane, so f's plane is every candidate's identity plane.
-    const found = new Map<string, FaceTag>([[identityKey(own, planes[f], clusters), own]]);
-    for (const g of peersOf(f)) {
-      const k = identityKey(table[g], planes[f], clusters);
-      if (found.has(k)) continue;
-      if (raw[g].some(r => rawTriHolds(r, q))) found.set(k, table[g]);
-    }
-    const ranked = [...found.values()].sort(retagCompare);
+    const held = model.holdersAt(f, [mean(0), mean(1), mean(2)]);
+    const ranked = held.length ? held : [own];
     const winner = ranked[0];
     for (const loser of ranked.slice(1)) conflicts.add(`${label}: ${planeLabel(planes[f])}: ${tagLabel(winner)} over ${tagLabel(loser)}`);
     triTags.push(winner);
@@ -244,13 +201,36 @@ export function areaByIdentity(u: TaggedMesh, pred: (t: FaceTag) => boolean): Ma
 
 // ---- Entry points --------------------------------------------------------------------------------------------------
 
-/** Unions raw parts already built: the one union, the re-tag pass, and the defect counts. */
+/** No imprint: what a union Manifold refused reports. */
+const NO_IMPRINT: ImprintStats = {split: 0, neighbours: 0, added: 0, boundaries: 0};
+
+/**
+ * Spec decision 15 as amended (journal decision 111): the cleaned union imprinted with every winner boundary. An
+ * imprinted mesh must come back from `Manifold.ofMesh` as a closed manifold of the cleaned mesh's genus, or it is a
+ * hard error naming the fixture.
+ */
+function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, model: RegionModel): UnionPartsResult & {imprint: ImprintStats} {
+  if (cleaned.status !== 'NoError') return {...cleaned, imprint: NO_IMPRINT};
+  const {mesh, stats} = imprintRegions(cleaned.mesh, model);
+  if (mesh === cleaned.mesh) return {...cleaned, imprint: stats};
+  let genus: number;
+  try {
+    genus = remeshedGenus(wasm, mesh, 'imprinted');
+  } catch (e) {
+    throw new Error(`${label}: ${errorMessage(e)}`);
+  }
+  if (genus !== cleaned.genus) throw new Error(`${label}: the imprint changed the genus from ${cleaned.genus} to ${genus}`);
+  return {...cleaned, closed: isClosed(mesh.tris), genus, mesh, imprint: stats};
+}
+
+/** Unions raw parts already built: the one union, the imprint, the re-tag pass, and the defect counts. */
 export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], parts: RawPart[], tags: ShellTags): ShellUnion {
-  const {status, closed, genus, mesh, clean} = unionParts(wasm, parts);
-  const {triTags, conflicts} = retagPass(label, mesh, parts, tags);
+  const model = makeRegionModel(parts, tags);
+  const {status, closed, genus, mesh, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts), model);
+  const {triTags, conflicts} = retagPass(label, mesh, model);
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
   const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
-  return {label, status, closed, genus, mesh, clean, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
+  return {label, status, closed, genus, mesh, clean, imprint, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
 }
 
 /** Unions already-planned storeys: builds every raw part, then `unionRawParts`. */

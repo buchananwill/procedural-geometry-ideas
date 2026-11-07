@@ -45,22 +45,87 @@ export const sameNormal = (a: Vec3, b: Vec3): boolean =>
 export const samePlane = (p: Plane3, q: Plane3): boolean => sameNormal(p.n, q.n) && Math.abs(p.d - q.d) <= SHELL_TOLERANCE_CM;
 
 /**
- * Journal decision 101: one build's oriented planes, clustered by `samePlane`. A plane joins the first cluster whose
- * first member it is `samePlane` to, else starts one. Clusters are bucketed by offset in `SHELL_TOLERANCE_CM` steps,
- * so a lookup reads three buckets.
+ * Journal decision 110, C6: one build's oriented planes, clustered as the connected components of the `samePlane`
+ * graph. `samePlane` is not transitive, so a cluster can hold two planes further apart than the tolerance, joined
+ * through a third. Every plane is registered (`addPlane`; `addFace` registers its face's plane), and the components
+ * and their keys are computed over all of them on the first key read after a registration. Neither depends on the order
+ * planes were registered or queried in.
  */
 export interface PlaneClusters {
-  /** Per cluster: its first member. */
-  reps: Plane3[];
-  /** Per cluster: its key. */
-  keys: string[];
-  /** Offset bucket to the clusters whose first member falls in it. */
-  buckets: Map<number, number[]>;
-  /** Every key issued, so two clusters never share one. */
-  used: Set<string>;
+  /** Every distinct registered plane, in registration order. */
+  planes: Plane3[];
+  /** A plane's exact text to its index in `planes`. */
+  index: Map<string, number>;
+  /** Per registered plane: its cluster's key, or null when a registration has made the keys stale. */
+  keys: string[] | null;
 }
 
-export const makePlaneClusters = (): PlaneClusters => ({reps: [], keys: [], buckets: new Map(), used: new Set()});
+export const makePlaneClusters = (): PlaneClusters => ({planes: [], index: new Map(), keys: null});
+
+/** A plane's exact text: every component as JavaScript prints it, round-tripping, with -0 read as 0. */
+const exactText = (p: Plane3): string => `${p.n[0]},${p.n[1]},${p.n[2]}|${p.d}`;
+
+/** A plane's readable text: its normal and offset on the 1/1024 grid. */
+const gridText = (p: Plane3): string => `${p.n.map(snapCm).join(',')}|${snapCm(p.d)}`;
+
+/** Registers an oriented plane with the build's clusters and returns its index; a plane already registered keeps its. */
+export function addPlane(clusters: PlaneClusters, p: Plane3): number {
+  const k = exactText(p);
+  let i = clusters.index.get(k);
+  if (i === undefined) {
+    i = clusters.planes.length;
+    clusters.planes.push(p);
+    clusters.index.set(k, i);
+    clusters.keys = null;
+  }
+  return i;
+}
+
+/**
+ * Every registered plane's cluster key. Clusters are the `samePlane` graph's connected components, found by union-find
+ * over offset buckets `SHELL_TOLERANCE_CM` wide (two `samePlane` planes lie in one bucket or adjacent ones). A cluster's
+ * key is the least grid text among its members; clusters whose keys would coincide are ordered by that text and then
+ * by their least member's exact text, and all but the first take a `~k` suffix.
+ */
+function clusterKeys(planes: Plane3[]): string[] {
+  const parent = planes.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
+    return i;
+  };
+  const buckets = new Map<number, number[]>();
+  planes.forEach((p, i) => {
+    const b = Math.floor(p.d / SHELL_TOLERANCE_CM);
+    for (let c = b - 1; c <= b + 1; c++) {
+      for (const j of buckets.get(c) ?? []) {
+        if (!samePlane(planes[j], p)) continue;
+        const ri = find(i), rj = find(j);
+        if (ri !== rj) parent[Math.max(ri, rj)] = Math.min(ri, rj);
+      }
+    }
+    const list = buckets.get(b);
+    if (list) list.push(i); else buckets.set(b, [i]);
+  });
+  const members = new Map<number, number[]>();
+  planes.forEach((_, i) => {
+    const r = find(i);
+    const l = members.get(r);
+    if (l) l.push(i); else members.set(r, [i]);
+  });
+  const least = (xs: string[]): string => xs.reduce((m, x) => (x < m ? x : m));
+  const comps = [...members.values()].map(ms => ({
+    ms, grid: least(ms.map(i => gridText(planes[i]))), exact: least(ms.map(i => exactText(planes[i]))),
+  }));
+  comps.sort((a, b) => (a.grid < b.grid ? -1 : a.grid > b.grid ? 1 : a.exact < b.exact ? -1 : a.exact > b.exact ? 1 : 0));
+  const keys = new Array<string>(planes.length);
+  let k = 0;
+  comps.forEach((c, i) => {
+    k = i > 0 && comps[i - 1].grid === c.grid ? k + 1 : 0;
+    const key = k ? `${c.grid}~${k}` : c.grid;
+    for (const m of c.ms) keys[m] = key;
+  });
+  return keys;
+}
 
 /**
  * The tag table and, per `faceID`, the oriented plane the face was generated on. Every raw part of a building draws
@@ -77,29 +142,21 @@ export function makeShellTags(): ShellTags {
 export function addFace(tags: ShellTags, tag: FaceTag, plane: Plane3): number {
   tags.table.push(tag);
   tags.planes.push(plane);
+  addPlane(tags.clusters, plane);
   return tags.table.length - 1;
 }
 
 /**
- * An oriented plane's key, by `samePlane` clustering (journal decision 101), never by rounding alone: two planes
- * within tolerance key alike even where rounding would part them, as at a 1/1024 cm boundary. The key is the
- * cluster's first member's normal and offset on the 1/1024 grid, readable and alike across builds for one exact
- * plane; a second cluster rounding to the same text takes a `~n` suffix.
+ * An oriented plane's key, by `samePlane` clustering (journal decisions 101 and 110), never by rounding alone: two
+ * planes within tolerance key alike even where rounding would part them, as at a 1/1024 cm boundary, and so do two
+ * planes joined through a third. The key is readable, and alike across builds for one exact plane. A plane not yet
+ * registered is registered first, which can change keys read before: every face's plane is registered as the face is
+ * added, so a build's keys are fixed before anything reads them.
  */
 export function planeKey(p: Plane3, clusters: PlaneClusters): string {
-  const bucket = Math.floor(p.d / SHELL_TOLERANCE_CM);
-  for (let b = bucket - 1; b <= bucket + 1; b++) {
-    for (const i of clusters.buckets.get(b) ?? []) if (samePlane(clusters.reps[i], p)) return clusters.keys[i];
-  }
-  const i = clusters.reps.length;
-  const text = `${p.n.map(snapCm).join(',')}|${snapCm(p.d)}`;
-  const key = clusters.used.has(text) ? `${text}~${i}` : text;
-  clusters.reps.push(p);
-  clusters.keys.push(key);
-  clusters.used.add(key);
-  const list = clusters.buckets.get(bucket);
-  if (list) list.push(i); else clusters.buckets.set(bucket, [i]);
-  return key;
+  const i = addPlane(clusters, p);
+  if (!clusters.keys) clusters.keys = clusterKeys(clusters.planes);
+  return clusters.keys[i];
 }
 
 /**
