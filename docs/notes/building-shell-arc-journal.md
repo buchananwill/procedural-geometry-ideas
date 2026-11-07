@@ -408,6 +408,15 @@ departs from those four steps is a defect.
 
     These two items join WP1.1 as one **pre-WP3 batch**, given to the WP2 delegate. Their check is the correctness
     reviewer re-reading that diff, plus the new typecheck gate.
+83. **The pre-WP3 batch returned at `c7d674f`, 142/142, `typecheck` clean**, per the delegate. All four gates
+    convicted: deleting the split loop, restoring per-piece zones, breaking the alias in `vite.config.ts` only, and
+    swapping 2a's and 2b's verdicts.
+    - **Roof-gable's own `run.ts` reproduced the README's B line at `f7b6091`**, and its 53 verdicts are pinned:
+      CHEEK on 2b, 2d, 3c, 4b, 4l and 8b; FAIL on 7g, 7h and 7i; PASS on the other 44.
+    - **`@types/node` is pinned at 22.12.0, not the workspace's 20.19.33**, because vitest 5.0.5's peer range
+      requires `^22.0.0` or later. It and `undici-types` 6.20.0 are both MIT.
+    - Storey-wide own-wall zones are scoped to one island.
+    - The correctness reviewer's targeted check is dispatched.
 
 ## Findings
 
