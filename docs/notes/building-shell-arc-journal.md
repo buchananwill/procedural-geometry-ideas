@@ -488,6 +488,23 @@ departs from those four steps is a defect.
       different things.
 
     The report's `newConventions` lists the difference for the port.
+91. **WP3 returned at `1f28bc6`: 392/392, `typecheck` clean, all ten fixtures' assertions passing**, per the
+    delegate.
+    - **The export:** the CLI writes ten `out/<fixture>.json` files, each deep-equal to `buildShell` run in vitest.
+      `out/` is gitignored, since the JSON is regenerated rather than committed.
+    - **Gates:** all six named gates convicted, as did one mutation per fixture.
+    - **Not accepted yet:** decision 67's two reviews are dispatched on `8c5d752..1f28bc6`, to fresh reviewers.
+92. **"The report is empty" (spec 40) means that no defect field is set.** `conflicts`, `survivingInternal`,
+    `unclassifiedEdges`, `cheeks` and `newEdgeKinds` are empty or 0. `partialCells` and `newConventions` are
+    information and are pinned as measured. Exact roof cuts give SingleStoreyT 42 partial Cells, and its two
+    InternalCorners list decision 90's convention, so a literal "empty" could not hold. Spec 40 is amended. The
+    delegate's other interpretations stand as rulings:
+    - `whole` is judged on the Cell's area in its own lattice plane;
+    - a lattice square split by a face gives one Cell per piece, and a square that contains a hole of its face is a
+      hard error;
+    - convexity reads `q` from the run's manifold edge furthest from A's plane;
+    - a flat sloped Gable–Gable edge is `Unclassified`;
+    - `ShellFace.area` comes from its loops.
 
 ## Findings
 

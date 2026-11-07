@@ -463,7 +463,9 @@ assertion.
 40. **`SingleStoreyT`**: roof-gable case `2a`, the T with x = 1000 gabled, on storey 0 alone, at that case's 45 degrees.
     - Its Roof and Gable top surface equals case 2a's own `expected(p)` plus the plate height, at every point of a 25 cm
       plan grid strictly inside the footprint, within `SHELL_TOLERANCE_CM`.
-    - Its report is empty.
+    - Its report is empty: `conflicts`, `survivingInternal`, `unclassifiedEdges`, `cheeks` and `newEdgeKinds` are all 0
+      or empty. `partialCells` and `newConventions` are information, pinned as measured (**AMENDED 2026-11-07**,
+      journal decision 92).
 
     This fails if the union changes a single storey's roof away from roof-gable's measured answer. **AMENDED
     2026-11-07** (journal decision 52): the old premise "a building that has nothing to clip" was false, because the T's
