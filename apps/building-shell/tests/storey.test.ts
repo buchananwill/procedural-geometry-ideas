@@ -6,7 +6,8 @@ import {Wasm, getManifold} from '../src/manifold.ts';
 import {Piece, solveRoofParts} from '../src/roof/algoB.ts';
 import {Building, Rect, Sel, Wall, buildFromRects} from '../src/roof/model.ts';
 import {
-  Generating, RawPart, StoreyPlan, buildStoreyParts, makePartContext, matchGenerating, planBuilding, planStorey,
+  Generating, RawPart, StoreyPlan, buildStoreyParts, divideAtZoneEnds, gableGenerating, makePartContext,
+  matchGenerating, planBuilding, planStorey,
 } from '../src/storey.ts';
 import {FaceTag, ShellTags, Vec3, makeShellTags} from '../src/tags.ts';
 import {ShellUnion, partManifold, triArea, unionPlans} from '../src/union.ts';
@@ -154,6 +155,44 @@ describe('wall-line Gable is bounded by the wall (journal decision 80)', () => {
     const arm = wallOn(plan.building, w => w.a.x === 200 && w.b.x === 200, 'on x = 200');
     // The arm wall's own span, y 200 to 600, under min(200, 600 - y).
     expect(Math.abs(onX200(u, t => t.kind === 'Gable' && t.wall === arm.id).on - 60000)).toBeLessThan(0.05);
+  });
+});
+
+describe('span-end division (journal decision 82)', () => {
+  it("divides one triangle crossing the arm wall's span end on the U's band-end plane, changing its tag", () => {
+    const plan = planStorey(oneStorey('USplitProbe', [{y: 0, to: 200, form: 'gable'}], [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]]), 0);
+    const [piece] = plan.roof.pieces;
+    const arm = wallOn(plan.building, w => w.a.x === 200 && w.b.x === 200, 'on x = 200');
+    // The band's high end, x = 200 facing +x: Cheek over the spine, Gable on the arm wall from y = 200.
+    const bandEnd = gableGenerating(plan, piece, piece.farDist).find(g => g.plane.n[0] > 0.5 && Math.abs(g.plane.d - 200) <= SHELL_TOLERANCE_CM);
+    if (!bandEnd?.along) throw new Error('no zoned band-end plane at x = 200');
+    expect(bandEnd.along.zones).toEqual([{wall: arm.id, lo: 200, hi: 600}]);
+
+    // One triangle from y = 100 to y = 400, its centroid at y = 300 on the arm side.
+    const tri: Vec3[] = [[200, 100, 300], [200, 400, 300], [200, 250, 450]];
+    const pieces = divideAtZoneEnds(tri, bandEnd, 0);
+    const area = (t: Vec3[]): number => Math.abs((t[1][1] - t[0][1]) * (t[2][2] - t[0][2]) - (t[2][1] - t[0][1]) * (t[1][2] - t[0][2])) / 2;
+    const cheek = pieces.filter(p => p.tag.kind === 'Cheek');
+    const gable = pieces.filter(p => p.tag.kind === 'Gable');
+    expect(cheek.length).toBeGreaterThan(0);
+    expect(gable.length).toBeGreaterThan(0);
+    for (const p of cheek) for (const v of p.tri) expect(v[1]).toBeLessThanOrEqual(200 + 1e-9);
+    for (const p of gable) {
+      expect(p.tag.wall).toBe(arm.id);
+      for (const v of p.tri) expect(v[1]).toBeGreaterThanOrEqual(200 - 1e-9);
+    }
+    // The pieces tile the triangle: nothing lost, nothing doubled.
+    expect(cheek.reduce((s, p) => s + area(p.tri), 0) + gable.reduce((s, p) => s + area(p.tri), 0)).toBeCloseTo(area(tri), 9);
+  });
+});
+
+describe('storey-wide own-wall zones (journal decision 82)', () => {
+  it('gives a gabled box of three rects one identity per face: 0 conflicts', () => {
+    const f = oneStorey('Box3Probe', [{y: 0, form: 'gable'}, {y: 300, form: 'gable'}], [[0, 0, 130, 300], [130, 0, 270, 300], [270, 0, 400, 300]]);
+    const box = {...f, roofs: {0: {...f.roofs[0], defaultDeg: 50}}};
+    const u = unionPlans(wasm, box.name, [planStorey(box, 0)]);
+    expect(u.status).toBe('NoError');
+    expect(u.conflicts).toEqual([]);
   });
 });
 

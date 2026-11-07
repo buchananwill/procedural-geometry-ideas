@@ -257,7 +257,7 @@ function splitPolygon(poly: Vec3[], axis: AlongAxis, c: number): Vec3[][] {
  * within one stretch and is tagged by where it stands, never a straddling triangle by its centroid. Returns the
  * pieces as triangles (fans of the convex pieces), with the tag each takes.
  */
-function divideAtZoneEnds(corners: Vec3[], g: Generating, storey: number): TaggedTri[] {
+export function divideAtZoneEnds(corners: Vec3[], g: Generating, storey: number): TaggedTri[] {
   let pieces: Vec3[][] = [corners];
   if (g.along) {
     const {axis, zones} = g.along;
@@ -280,9 +280,11 @@ const axisAlong = (p: Plane3): AlongAxis => (Math.abs(p.n[0]) > 0.5 ? 1 : 0);
  * the part and listed once.
  * - A Roof plane for each piece plane.
  * - Every vertical plane its faces can stand on: each island wall line, both band ends and the far side. A face on
- *   one is Cheek with the piece's wall, except within a Gable zone. The zones, first match winning, are the piece's
- *   own wall over the whole band when the plane is its own line, then each island wall on the plane over that wall's
- *   own span, in ring order.
+ *   one is Cheek with the piece's wall, except within a Gable zone. The zones, first match winning, are:
+ *   - the own-wall zone of every piece of the island whose promoted line the plane is, over that piece's whole band,
+ *     this piece first and then the storey's pieces in order (journal decision 82: one face, one identity, whichever
+ *     piece made it);
+ *   - then each island wall on the plane over that wall's own span, in ring order.
  * - The plate, Cheek.
  */
 export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Generating[] {
@@ -290,6 +292,9 @@ export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Ge
   const w = piece.wall;
   const comp = b.comps[w.comp];
   const cheek: PartlessTag = {kind: 'Cheek', storey: plan.storey, wall: w.id, plane: -1};
+  // Every promoted line of the island, this piece's own first (journal decision 82): a face on any of them takes
+  // that line's piece's own-wall zone, whichever piece made the face.
+  const promoted = [piece, ...plan.roof.pieces.filter(p => p !== piece && p.wall.comp === w.comp)];
   const gens: Generating[] = [];
   const addOnce = (g: Generating): void => { if (!gens.some(e => samePlane(e.plane, g.plane))) gens.push(g); };
   for (const id of piece.planes) addOnce({plane: roofPlane(b.planes[id], plan.plate), tag: {kind: 'Roof', storey: plan.storey, wall: -1, plane: id}});
@@ -310,7 +315,7 @@ export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Ge
       return {wall: o.id, lo: Math.min(a, c), hi: Math.max(a, c)};
     };
     const zones: GableZone[] = [];
-    if (samePlane(plane, wallPlane(w))) zones.push({wall: w.id, lo: piece.bandLo, hi: piece.bandHi});
+    for (const p of promoted) if (samePlane(plane, wallPlane(p.wall))) zones.push({wall: p.wall.id, lo: p.bandLo, hi: p.bandHi});
     for (const o of comp.walls) if (samePlane(plane, wallPlane(o))) zones.push(span(o));
     addOnce({plane, tag: cheek, along: zones.length ? {axis: along, zones} : undefined});
   }
