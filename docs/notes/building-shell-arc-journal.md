@@ -48,13 +48,21 @@ departs from those four steps is a defect.
    unit normals and incident-triangle vertices.
 3. ~~Cut `feature/building-shell` and commit the spec and this journal on it.~~ Done: `3e833dc`.
 4. **WP1 dispatched 2026-11-07** (general-purpose, Opus) at `3e833dc`. Its gates are: a perturbed copy fails the
-   copy-integrity test, `@proc-geo/core` resolves to source, and the license check is clean. Checkpoint with the user
-   when it returns, before WP2.
+   copy-integrity test, `@proc-geo/core` resolves to source, and the license check is clean. **Returned and accepted:
+   decision 62.**
+5. **WP2 awaits the user's go.** It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
+   union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
+   invariants on all nine fixtures.
 
 ## 5. Open items
 
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
+- **Roof lines in the C++ port: exact cut or staircase (F20, point 2).** The prototype keeps exact cuts (decision 66).
+  The user rules for C++.
+- **Corners between two Rings: `RingJunction` (C++) or `ExternalCorner`/`InternalCorner` (prototype) (F20, point 1).**
+  The lead recommends the prototype's reading. The four-step model unions Rings per storey, so a junction between Rings
+  stops being an edge between faces, and keeping Ring identity would reopen the failed approach. The user rules.
 - ~~**The C++ vertex-addition feature (F15).**~~ Located by the user (content journal 01, C30) and closed by decision
   58.
 
@@ -172,6 +180,21 @@ departs from those four steps is a defect.
 61. **Spec decision 25 is corrected to the C++ convention: an interior lattice side on a Gable face is
     `GableVertical` or `GableHorizontal`**, not `WallVertical` or `WallHorizontal`. Wall faces keep `WallVertical` and
     `WallHorizontal` (F16).
+62. **WP1 is accepted at `da766c4`.** The delegate measured the app at 2/2 and core at 5810/5819 with 9 skipped.
+    The lead checked that the record matches the tree: the commit's stat, the test's literal tally, and the diff,
+    which is confined to `apps/building-shell/` and the lockfile. Neither figure was re-run.
+63. **The pins `manifold-3d` 3.2.1 and `vite` 7.3.7 stand**, as the no-copyleft rule requires (F19). Later packages
+    work against manifold-3d 3.2.1's API. A later manifold-3d is taken only once its closure is clean again.
+64. **`solveRoofParts` also returns `notes: string[]`, and a piece that `buildPieces` drops as NoPlane is a hard error
+    naming the fixture, storey and line.** A gable that no end wall can slope is an authoring error, and dropping it
+    silently would let the union build a wrong roof that looks right. Its throw on a skeleton refusal stays, as
+    decision 51 rules. The change lands in WP2, which first consumes it.
+65. **`ShellReport` gains `newConventions: string[]`**, listing every place where the prototype uses a name in a
+    context the C++ net has no precedent for. Today that is `RoofInterior` on Underside faces. `SoffitEdge` and
+    `SoffitJunction` stay in `newEdgeKinds` (F20, point 3).
+66. **The prototype keeps exact cuts at roof lines**: Cells are cut at hips, valleys and off-lattice ridges, so those
+    lines get triangular and sliver partial Cells. The C++ staircase is not copied. Whether the C++ port adopts exact
+    cuts is an open item for the user (F20, point 2).
 
 ## Findings
 
@@ -243,3 +266,28 @@ departs from those four steps is a defect.
     field. Decision 59 takes (a).
   - It suggests cyclic order around the vertex as cheap now and costly later. Decision 60 takes it.
   - None of this blocks WP3 except the incidence point.
+- **F18. The copy-integrity tally cannot detect a broken alias today**, because core's current `dist/` behaves the same
+  as its source. The WP1 delegate showed the tally still passes with the alias emptied. Only the module-identity test
+  (`solveSkeleton` through the alias `toBe` the source's) guards the alias, and the same run convicted it by mutation.
+- **F19. Two copyleft chains block the latest releases.** Every `manifold-3d` from 3.3.0 on pulls LGPL-3.0
+  `@img/sharp-libvips*` through `@gltf-transform/functions`, then `ndarray-pixels`, then `sharp`. `vite` 8 depends
+  hard on MPL-2.0 `lightningcss`. The app's closure at the pinned versions is 96 packages, all MIT, Apache-2.0, ISC or
+  BSD-3-Clause, per the WP1 delegate's lockfile walk against registry license fields.
+- **F20. The C++ net's edge kinds against spec 21 and 25** (`pisteperfect-5-7-27`, 2026-11-07, reading
+  `CellNetEdges.cpp` and `ModularRoofNet.cpp` on `feature/modular-building-content-and-net`). The rake-seat vertex
+  (50, 0, 386.6) is confirmed.
+  - **These agree:**
+    - `WallHorizontal` within a storey, `FloorLine` across storeys (`CellNetEdges.cpp:250`);
+    - `WallVertical` between coplanar walls (`:265-266`);
+    - `Eaves` versus `RingJunction` for a wall against a roof (`:286`);
+    - one-Cell Edges, such as `GroundLine` (`:299-313`).
+  - **Three diverge because the models differ:**
+    1. **Two Rings' walls meeting at an angle are `RingJunction` in C++** (`:266`). The prototype unions Rings per
+       storey, so Ring identity is gone and the corner is `ExternalCorner` or `InternalCorner`. The author prefers
+       the prototype's reading, but calls it the user's decision.
+    2. **C++ roof Cells are whole plan squares.** A Ridge snaps to the nearest Cell line, and Hip and Valley are a
+       staircase of whole-Cell sides (`ModularRoofNet.cpp:217-271`). The prototype cuts Cells exactly at the line.
+       A hip Piece over triangular half-Cells is not one over a staircase, so this matters for the port and for
+       content.
+    3. **Underside has no C++ precedent.** The C++ net has no underside Cells (exterior-manifold spec decision 13), and
+       it leaves an overhang's rim without Edges (the comment at `CellNetEdges.cpp:300-302`).

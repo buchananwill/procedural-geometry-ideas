@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 61 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 66 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -63,7 +63,9 @@ into `apps/building-shell/src/roof/`:
 
 **Dependencies**, all permissive, pinned to exact versions with no `^`: `three` (MIT), `@types/three`, `manifold-3d`
 (Apache 2.0), `vite`, `vitest`, and `@proc-geo/core` (`workspace:*`). **No copyleft dependency may be added**, direct
-or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked before it is installed.
+or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked before it is installed. **AMENDED
+2026-11-07** (journal decision 63): `manifold-3d` is pinned at 3.2.1 and `vite` at 7.3.7. manifold-3d 3.3.0 and later
+pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
 ## 2. Decisions
 
@@ -116,6 +118,9 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
    It returns the default hip faces and the pieces `runB` already computes, with `Piece` exported. `runB` keeps its
    behaviour exactly, so the copy-integrity test still holds. **Every storey calls it with `{far: 'plane'}`**,
    roof-gable's chosen rule (**AMENDED 2026-11-07**, journal decision 48).
+
+   **AMENDED 2026-11-07** (journal decision 64): it also returns `notes: string[]`. A piece that `buildPieces` drops as
+   NoPlane is a hard error naming the fixture, storey and line. A skeleton refusal throws.
 10. **Tags are assigned at construction, by geometry**, and every triangle of every raw part gets a `faceID` indexing
     one `TagTable` entry:
 
@@ -321,11 +326,17 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
 
     ```ts
-    interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[] }
+    interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[]; newConventions: string[] }
     interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; netEdges: NetEdge[]; vertices: ShellVertex[]; cells: ShellCell[]; report: ShellReport }
     ```
 
     These files are reference data for Piste Perfect's C++ tests.
+
+    **AMENDED 2026-11-07** (journal decisions 65 and 66):
+    - **`newConventions` lists every name used where the C++ net has no precedent**. Today that is `RoofInterior` on
+      Underside faces, since the C++ net has no underside Cells.
+    - **Roof lines are cut exactly**, so hips, valleys and off-lattice ridges carry triangular and sliver partial
+      Cells. The C++ net instead staircases them on whole plan Cells. Which form the port takes is not decided here.
 
 ### The fixtures
 
