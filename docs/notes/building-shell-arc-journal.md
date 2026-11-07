@@ -50,7 +50,10 @@ departs from those four steps is a defect.
 4. **WP1 dispatched 2026-11-07** (general-purpose, Opus) at `3e833dc`. Its gates are: a perturbed copy fails the
    copy-integrity test, `@proc-geo/core` resolves to source, and the license check is clean. **Returned and accepted:
    decision 62.**
-5. **WP2 awaits the user's go.** It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
+5. **WP2 dispatched 2026-11-07** (general-purpose, Opus) at `153166a`, on the user's go. Its gates: disabling the
+   re-tag pass, offsetting a storey by 0.005 cm, and making the NoPlane drop silent each fail a test, and removing the
+   snap is reported. Its first open question is whether manifold-3d 3.2.1 carries `faceID` through `union`; the
+   delegate stops if it does not. When it returns, it gets decision 67's two reviews before acceptance. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
    invariants on all nine fixtures.
 
@@ -180,7 +183,9 @@ departs from those four steps is a defect.
 61. **Spec decision 25 is corrected to the C++ convention: an interior lattice side on a Gable face is
     `GableVertical` or `GableHorizontal`**, not `WallVertical` or `WallHorizontal`. Wall faces keep `WallVertical` and
     `WallHorizontal` (F16).
-62. **WP1 is accepted at `da766c4`.** The delegate measured the app at 2/2 and core at 5810/5819 with 9 skipped.
+62. **AMENDED 2026-11-07: WP1's acceptance is provisional until decision 67's reviews return.** The lead accepted it
+    on a record check alone, with no independent review, and the user caught that. **WP1 is accepted at
+    `da766c4`.** The delegate measured the app at 2/2 and core at 5810/5819 with 9 skipped.
     The lead checked that the record matches the tree: the commit's stat, the test's literal tally, and the diff,
     which is confined to `apps/building-shell/` and the lockfile. Neither figure was re-run.
 63. **The pins `manifold-3d` 3.2.1 and `vite` 7.3.7 stand**, as the no-copyleft rule requires (F19). Later packages
@@ -195,6 +200,13 @@ departs from those four steps is a defect.
 66. **The prototype keeps exact cuts at roof lines**: Cells are cut at hips, valleys and off-lattice ridges, so those
     lines get triangular and sliver partial Cells. The C++ staircase is not copied. Whether the C++ port adopts exact
     cuts is an open item for the user (F20, point 2).
+67. **Every work package gets two independent reviews before it is accepted** (prompted by the user, 2026-11-07).
+    - A correctness and spec-compliance review: a general-purpose agent on Opus, read-only.
+    - A type-discipline review: `typescript-type-reviewer`. The `react-quality-reviewer` would apply only to React
+      code, and the viewer is plain three.js.
+
+    The lead dispatches the reviewers and rules on their findings, never the implementer. Reviewers get the commit and
+    the spec, not the lead's conclusions. WP1's reviews were dispatched on `da766c4` while WP2 was running.
 
 ## Findings
 
