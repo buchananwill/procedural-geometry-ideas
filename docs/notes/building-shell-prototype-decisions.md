@@ -107,8 +107,18 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
      coincident opposite partner across the slit, so the union removes it, and `survivingInternal` 0 proves the cut
      leaves no surface.
    - **Authored `form: 'cut'` selectors stay a hard error.** Only this rule places a cut.
-3. **Roof forms are authored per storey on the union outline** with roof-gable's `Sel`s. Deriving a union wall's form
-   from the Ring that owns it is deferred.
+3. **Roof forms are authored per Ring and derived onto the union outline** (**AMENDED 2026-11-07**, journal decision
+   116; forms were authored per storey on the union outline with roof-gable's `Sel`s, and Ring inheritance was
+   deferred).
+   - **Authoring.** Each `FixtureRing` carries its side forms, each `hip` or `gable` with an optional pitch, plus a
+     default pitch. Its index in `rings` stands in for the C++ parent `FBuildableComponentModel` index.
+   - **The merged wall.** A union wall is a maximal straight run of the storey outline: one line, one facing,
+     contiguous, however many Ring corners the traced outline breaks it at.
+   - **The rule (the C++'s):** among the Rings whose side lies on a union wall and overlaps it, **the lowest index
+     wins, and the whole union wall takes that side's form and pitch.**
+   - **What the roof sees.** The derived forms become roof-gable `Sel`s over each union wall's span, so roof-gable is
+     unchanged.
+   - **Buried sides.** A Ring side lying inside the union produces no union wall, and its form is dropped.
 4. **Every storey is roofed as if it were the top storey**, whether or not a storey stands over it. A middle storey's
    roof is always built, and the union removes whatever of it lies inside the storey above.
 
@@ -534,8 +544,8 @@ assertion.
 
 ## 3. Deferred
 
-- **Deriving union wall forms from Ring forms.** This prototype authors forms per storey, so the inheritance rule
-  stays a C++-side decision.
+- ~~**Deriving union wall forms from Ring forms.**~~ No longer deferred: decision 3 adopts the C++ rule, in which the
+  lowest `FBuildableComponentModel` index wins the whole wall (journal decision 116).
 - ~~**Courtyards and holes.**~~ No longer deferred: decision 2 roofs them through a cut along a raw Ring wall
   (journal decision 115).
 - **Numerical parity with the C++ Cell counts and indices.** The JSON is reference data for the new C++ design, not a

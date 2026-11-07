@@ -931,6 +931,22 @@ departs from those four steps is a defect.
        - **Cases 9a to 9d join the roof-parts agreement test** through their own cut.
        - **The random generator may produce courtyards** within the Grammar's caps.
      - The open item "Courtyards" closes on WP3.6's acceptance.
+116. **Union wall forms come from Rings: the lowest parent `FBuildableComponentModel` index wins, and the whole wall
+     takes its form** (user, 2026-11-07: "This has already been answered in C++. Each ring has a parent
+     FBuildableComponentModel index. Lowest index wins and the whole wall takes whatever it asks for.").
+     - **The lead's reading:** "the whole wall" is the maximal straight run of the union outline, not the traced
+       segment. `unionLoops` breaks walls at every Ring corner, and splitting there would let one wall's halves
+       differ, which the rule exists to prevent. The Ring's index in `rings` stands in for the model index.
+     - **Spec 3 is amended:** forms are authored per Ring side, with a hip or gable form and a pitch, and derived
+       onto the union walls as roof-gable `Sel`s. Spec §3's deferral closes.
+     - **WP3.6 carries it with courtyards.** Both are storey planning (`storey.ts`, `fixture.ts`):
+       - Every existing fixture is re-authored with Ring forms. Its shell must come out identical, so every existing
+         pin holds unchanged. That makes a strong regression check on the derivation.
+       - **A `FlushRingConflict` pair:** Rings `[0,0,500,400]` and `[500,0,1000,400]`, one hipping its S side and
+         the other gabling it. In one order the whole y = 0 wall is hipped; with the indices swapped it is
+         gabled.
+       - **Mono forms stay out of Ring authoring for now.** No fixture uses them, and mono needs a low corner.
+     - **Open item "Roof forms per union wall, not per Ring" closes on WP3.6's acceptance.**
 
 ## Findings
 
