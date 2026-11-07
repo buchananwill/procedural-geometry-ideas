@@ -865,6 +865,14 @@ departs from those four steps is a defect.
        Both WP4 reviewers re-check it before it is accepted.
      - **The user asked for a diagnosis of C1.** The lead checked the reviewer's account against the geometry of
        Fuzz109 (F42).
+113. **The type re-review of WP4.2 APPROVES it**: 0 blocking, and WP4.1's N1 to N5 and their residuals are all closed.
+     Its five new notes are accepted for a final viewer polish batch, **WP4.3**, to follow the browser re-review:
+     - `lineMaterial` takes `LineMaterialOptions`;
+     - `PickLayer` is derived from `keyof Pick<Layers, …>`;
+     - "Cheek reads as Gable" becomes true by construction through a `readsAsGable` helper over
+       `EDGE_KIND_LIES_ON`;
+     - `DirectionalSpec` gains `color`, and the gizmo camera takes `GIZMO_FOV`;
+     - `gizmoWorstExtent` takes overrides, so its clip test exercises the real function.
 
 ## Findings
 
