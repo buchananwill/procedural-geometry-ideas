@@ -1,17 +1,18 @@
 // Spec decision 27: what a hover or a pin says, as plain text lines, naming things as the spec does.
+import {wallLabel} from '../roof/model.ts';
 import type {ShellBuild} from '../shell.ts';
 import type {FaceTag, Vec3} from '../tags.ts';
-import {wallLabel} from '../roof/model.ts';
 
-/** What the cursor is over. A surface hit carries a face and, when a Cell lies there, the Cell. */
-export interface Hit { face?: number; cell?: number; edge?: number; vertex?: number }
-
-export const hitIsEmpty = (h: Hit): boolean => h.face === undefined && h.cell === undefined && h.edge === undefined && h.vertex === undefined;
+/** What the cursor is over (journal decision 97, N1): a vertex, an Edge, or a surface, which carries its face and, when a Cell lies there, the Cell. */
+export type Hit =
+  | {kind: 'vertex'; id: number}
+  | {kind: 'edge'; id: number}
+  | {kind: 'surface'; face: number; cell: number | null};
 
 const fmt = (v: number): string => (Math.round(v * 100) / 100).toString();
-export const fmtPoint = (p: readonly number[]): string => `(${p.map(fmt).join(', ')})`;
+export const fmtPoint = (p: Readonly<Vec3>): string => `(${p.map(fmt).join(', ')})`;
 
-export function distance(a: Vec3, b: Vec3): number {
+export function distance(a: Readonly<Vec3>, b: Readonly<Vec3>): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
@@ -74,15 +75,11 @@ export function vertexLines(build: ShellBuild, id: number): string[] {
   ];
 }
 
-/**
- * The readout for a hit: a vertex alone, else an Edge alone, else the face and the Cell on it. Each section is a list of
- * lines whose first line is its title.
- */
+/** The readout for a hit: each section is a list of lines whose first line is its title. */
 export function readoutSections(build: ShellBuild, h: Hit): string[][] {
-  if (h.vertex !== undefined) return [vertexLines(build, h.vertex)];
-  if (h.edge !== undefined) return [edgeLines(build, h.edge)];
-  const out: string[][] = [];
-  if (h.face !== undefined) out.push(faceLines(build, h.face));
-  if (h.cell !== undefined) out.push(cellLines(build, h.cell));
-  return out;
+  switch (h.kind) {
+    case 'vertex': return [vertexLines(build, h.id)];
+    case 'edge': return [edgeLines(build, h.id)];
+    case 'surface': return h.cell === null ? [faceLines(build, h.face)] : [faceLines(build, h.face), cellLines(build, h.cell)];
+  }
 }

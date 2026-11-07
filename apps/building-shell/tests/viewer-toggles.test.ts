@@ -1,7 +1,7 @@
 // Spec decision 29: the toggle state, as pure transitions.
 import {describe, expect, it} from 'vitest';
 import {
-  LAYER_KEYS, makeToggles, setLayer, setNetKindOutlines, setRaw, setStorey, visibleStoreys, withStoreys,
+  LAYER_KEYS, makeToggles, setHighlightPartial, setLayer, setNetKindOutlines, setRaw, setStorey, visibleStoreys, withStoreys,
 } from '../src/viewer/toggles.ts';
 
 describe('toggle state', () => {
@@ -9,6 +9,7 @@ describe('toggle state', () => {
     const t = makeToggles([0, 1, 2]);
     expect(t.layers).toEqual({faces: true, edges: true, vertices: false, cellOutlines: false});
     expect(t.raw).toBe(false);
+    expect(t.highlightPartial).toBe(false);
     expect([...visibleStoreys(t)].sort()).toEqual([0, 1, 2]);
   });
 
@@ -49,6 +50,7 @@ describe('toggle state', () => {
     const t = makeToggles([0]);
     expect(setRaw(t, true).raw).toBe(true);
     expect(setNetKindOutlines(t, true).netKindOutlines).toBe(true);
+    expect(setHighlightPartial(t, true).highlightPartial).toBe(true);
   });
 
   it('a new fixture keeps the layer choices and shows every one of its storeys', () => {

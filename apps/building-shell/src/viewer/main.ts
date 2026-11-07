@@ -2,13 +2,30 @@
 // selected fixture and wires the side panel to the scene. `buildShellDetailed` is `buildShell` with its intermediate
 // records kept, which the viewer needs for the raw parts and the face-to-triangle map; `buildShell` itself is
 // `(await buildShellDetailed(f)).shell`.
+import {errorMessage} from '../errors.ts';
 import {SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
+import type {Vec3} from '../tags.ts';
+import {fixtureFromHash} from './hash.ts';
 import {LegendEntry, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
-import {Hit, hitIsEmpty, readoutSections} from './readout.ts';
-import {ShellScene} from './scene.ts';
-import {LAYER_KEYS, LayerKey, ToggleState, makeToggles, setLayer, setNetKindOutlines, setRaw, setStorey, withStoreys} from './toggles.ts';
+import {Hit, readoutSections} from './readout.ts';
+import {ScreenPoint, ShellScene} from './scene.ts';
+import {
+  LAYER_KEYS, LayerKey, ToggleState, makeToggles, setHighlightPartial, setLayer, setNetKindOutlines, setRaw, setStorey, withStoreys,
+} from './toggles.ts';
+
+/** The page's test hook: lets a browser test project a known world point to the page and read the current state. */
+export interface ViewerHook {
+  readonly build: ShellBuild | undefined;
+  readonly toggles: ToggleState;
+  project(p: Readonly<Vec3>): ScreenPoint;
+  setView(position: Readonly<Vec3>, target: Readonly<Vec3>): void;
+}
+
+declare global {
+  interface Window { __viewer?: ViewerHook }
+}
 
 const $ = <T extends HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -33,7 +50,7 @@ let token = 0;
 
 const scene = new ShellScene($('view'), {
   onHover: hit => { hovered = hit; renderReadouts(); },
-  onClick: hit => { pinned = hit && !hitIsEmpty(hit) ? hit : null; renderReadouts(); },
+  onClick: hit => { pinned = hit; renderReadouts(); },
 });
 
 // ---- Readouts -----------------------------------------------------------------------------------------------------
@@ -61,12 +78,12 @@ function renderReadouts(): void {
 
 // ---- Panel --------------------------------------------------------------------------------------------------------
 
-function checkbox(label: string, checked: boolean, onChange: (on: boolean) => void, id?: string): HTMLLabelElement {
+function checkbox(label: string, checked: boolean, onChange: (on: boolean) => void, id: string): HTMLLabelElement {
   const l = el('label', undefined, 'toggle');
   const c = el('input');
   c.type = 'checkbox';
   c.checked = checked;
-  if (id) c.id = id;
+  c.id = id;
   c.addEventListener('change', () => onChange(c.checked));
   l.append(c, document.createTextNode(label));
   return l;
@@ -83,6 +100,8 @@ function renderToggles(): void {
   layers.replaceChildren();
   for (const key of LAYER_KEYS) layers.append(checkbox(LAYER_LABEL[key], toggles.layers[key], on => apply(setLayer(toggles, key, on)), `layer-${key}`));
   layers.append(el('br'));
+  layers.append(checkbox('Highlight partial Cells (tint)', toggles.highlightPartial, on => apply(setHighlightPartial(toggles, on)), 'highlight-partial'));
+  layers.append(el('br'));
   layers.append(checkbox('Raw mode (ghost every raw part, before the union)', toggles.raw, on => apply(setRaw(toggles, on)), 'raw'));
   layers.append(el('br'));
   layers.append(checkbox('Colour Cell outlines by NetEdge kind', toggles.netKindOutlines, on => apply(setNetKindOutlines(toggles, on)), 'net-kind'));
@@ -93,27 +112,19 @@ function renderToggles(): void {
   }
 }
 
+function countText(e: LegendEntry): string {
+  if (e.count === null) return '';
+  if (e.netCount !== undefined) return `${e.count} Edges, ${e.netCount} net sides`;
+  return e.note === undefined || e.note === 'translucent' ? `${e.count}` : `${e.count} ${e.note}`;
+}
+
 function renderLegend(): void {
   const box = $('legend');
   box.replaceChildren();
   if (!build) return;
   const table = el('table');
   let group = '';
-  const row = (e: LegendEntry): HTMLTableRowElement => {
-    const tr = el('tr');
-    if (e.group === 'Defects' && e.count === 0) tr.className = 'zero';
-    const name = el('td');
-    const sw = el('span', undefined, 'swatch');
-    sw.style.background = cssColour(e.colour);
-    if (e.note === 'translucent') sw.style.opacity = '0.5';
-    name.append(sw, document.createTextNode(e.label));
-    const text = e.netCount !== undefined ? `${e.count} Edges, ${e.netCount} net sides`
-      : e.note && e.note !== 'translucent' ? `${e.count} ${e.note}` : `${e.count}`;
-    const count = el('td', text, 'count');
-    tr.append(name, count);
-    return tr;
-  };
-  for (const e of legendEntries(build, {netKindOutlines: toggles.netKindOutlines && toggles.layers.cellOutlines, raw: toggles.raw})) {
+  for (const e of legendEntries(build, toggles)) {
     if (e.group !== group) {
       group = e.group;
       const tr = el('tr');
@@ -122,7 +133,15 @@ function renderLegend(): void {
       tr.append(th);
       table.append(tr);
     }
-    table.append(row(e));
+    const tr = el('tr');
+    if (e.group === 'Defects' && e.count === 0 && !e.netCount) tr.className = 'zero';
+    const name = el('td');
+    const sw = el('span', undefined, 'swatch');
+    sw.style.background = cssColour(e.colour);
+    if (e.note === 'translucent') sw.style.opacity = '0.5';
+    name.append(sw, document.createTextNode(e.label));
+    tr.append(name, el('td', countText(e), 'count'));
+    table.append(tr);
   }
   box.append(table);
 }
@@ -168,6 +187,7 @@ function renderReport(b: ShellBuild): void {
 async function load(fixture: ShellFixture): Promise<void> {
   const mine = ++token;
   const status = $('status');
+  status.style.color = '';
   status.textContent = `Building ${fixture.name}...`;
   $('buildline').textContent = '';
   try {
@@ -190,16 +210,18 @@ async function load(fixture: ShellFixture): Promise<void> {
   } catch (e) {
     if (mine !== token) return;
     console.error(`${fixture.name}: build failed`, e);
+    // Journal decision 98, F8: a failed build leaves no stale shell behind, only its error.
     build = undefined;
-    status.textContent = `${fixture.name}: build failed: ${e instanceof Error ? e.message : String(e)}`;
+    pinned = null;
+    hovered = null;
+    scene.clearBuild();
+    const message = `${fixture.name}: build failed: ${errorMessage(e)}`;
+    status.textContent = message;
     status.style.color = 'var(--bad)';
-    $('report').replaceChildren(el('div', status.textContent, 'bad'));
+    $('report').replaceChildren(el('div', message, 'bad'));
+    $('legend').replaceChildren();
+    renderReadouts();
   }
-}
-
-function startingFixture(): ShellFixture {
-  const name = decodeURIComponent(location.hash.slice(1));
-  return SHELL_FIXTURES.find(f => f.name === name) ?? SHELL_FIXTURES[0];
 }
 
 const select = $<HTMLSelectElement>('fixture');
@@ -208,23 +230,28 @@ select.addEventListener('change', () => {
   const f = SHELL_FIXTURES.find(x => x.name === select.value);
   if (!f) return;
   history.replaceState(null, '', `#${encodeURIComponent(f.name)}`);
-  $('status').style.color = '';
+  void load(f);
+});
+// Journal decision 98, F8: a hash change loads that fixture.
+window.addEventListener('hashchange', () => {
+  const f = fixtureFromHash(location.hash, SHELL_FIXTURES);
+  select.value = f.name;
   void load(f);
 });
 $('reset').addEventListener('click', () => scene.resetView());
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { pinned = null; scene.unpin(); renderReadouts(); }
 });
-// A click on empty space reaches `onClick(null)`, which unpins; the scene clears its own pin highlight there too.
-const start = startingFixture();
+
+const start = fixtureFromHash(location.hash, SHELL_FIXTURES);
 select.value = start.name;
 renderToggles();
 renderReadouts();
 void load(start);
 
-/** Test hook: lets a browser test project a known world point to the page and read the current state. */
-(window as unknown as {__viewer: unknown}).__viewer = {
+window.__viewer = {
   get build() { return build; },
   get toggles() { return toggles; },
-  project: (p: [number, number, number]) => scene.project(p),
+  project: p => scene.project(p),
+  setView: (position, target) => scene.setView(position, target),
 };
