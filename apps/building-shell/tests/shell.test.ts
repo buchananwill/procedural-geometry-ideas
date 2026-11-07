@@ -5,7 +5,7 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
 import type {Vec2} from 'manifold-3d';
 import {errorMessage} from '../src/errors.ts';
-import {ShellFace, loopArea, meshSurfaceArea} from '../src/faces.ts';
+import {ShellFace, loopArea} from '../src/faces.ts';
 import {FixtureRing, SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, fixtureByName} from '../src/fixture.ts';
 import {CASES} from '../src/roof/cases.ts';
 import {Rect, Sel} from '../src/roof/model.ts';
@@ -16,11 +16,8 @@ import {
 import {FaceTag, Vec3, planeKey} from '../src/tags.ts';
 import {cross2} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
+import {AREA_TOL, SNAP_MOVE, faceAreaViolations, planHolds, tagPlaneViolations} from './shell-invariants.ts';
 
-/** Tagged and summed areas to 0.05 cm², as `union.test.ts` asserts them. The worst float32 drift measured is 1.1e-3. */
-const AREA_TOL = 0.05;
-/** The furthest `snapCm` moves a 3D point: half a 1/1024 cm step on each axis. */
-const SNAP_MOVE = Math.sqrt(3) / (2 * SNAP_STEPS_PER_CM);
 const TAN30 = Math.tan(Math.PI / 6);
 const TAN60 = Math.sqrt(3);
 
@@ -89,25 +86,6 @@ function vertexNear(b: ShellBuild, p: Vec3): ShellVertex {
   return v;
 }
 
-/** Whether plan point (x, y) lies in a face's plan projection, its boundary within tolerance included. */
-function planHolds(f: ShellFace, x: number, y: number): boolean {
-  let winding = 0;
-  for (const loop of f.loops) {
-    for (let i = 0; i < loop.length; i++) {
-      const a = loop[i], c = loop[(i + 1) % loop.length];
-      const dx = c[0] - a[0], dy = c[1] - a[1];
-      const L2 = dx * dx + dy * dy;
-      const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L2)) : 0;
-      if (Math.hypot(a[0] + t * dx - x, a[1] + t * dy - y) <= SHELL_TOLERANCE_CM) return true;
-      if ((a[1] <= y) !== (c[1] <= y)) {
-        const xi = a[0] + ((y - a[1]) * dx) / dy;
-        if (xi > x) winding += c[1] > a[1] ? 1 : -1;
-      }
-    }
-  }
-  return winding !== 0;
-}
-
 // ---- Decision 32's WP3 invariants -------------------------------------------------------------------------------
 
 describe('decision 32 invariants (WP3 part)', () => {
@@ -127,9 +105,14 @@ describe('decision 32 invariants (WP3 part)', () => {
     }
   });
 
-  it.each(ALL)("%s: the summed ShellFace areas equal the output mesh's surface area", name => {
-    const b = get(name);
-    expect(Math.abs(sumArea(b.shell.faces) - meshSurfaceArea(b.union.mesh))).toBeLessThan(AREA_TOL);
+  // Spec decision 32 as amended (journal decision 110, C5): the loop area accounted for exactly.
+  it.each(ALL)("%s: every ShellFace's loop area is its own triangles' less the chains loop reduction dropped", name => {
+    expect(faceAreaViolations(get(name))).toEqual([]);
+  });
+
+  // Journal decision 110, C3.
+  it.each(ALL)("%s: every output triangle lies on its tag's generating plane", name => {
+    expect(tagPlaneViolations(get(name))).toEqual([]);
   });
 
   it.each(ALL)('%s: each face\'s Cells tile its lattice projection', name => {

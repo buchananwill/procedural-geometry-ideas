@@ -1,7 +1,7 @@
 // The cleaning between the union and step 4 (journal decision 101, F36): near-coincident vertices merge, caps flip
 // away, the result stays a closed manifold, and every triangle keeps a tag whose plane holds it.
 import {describe, expect, it} from 'vitest';
-import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, cleanMesh} from '../src/clean.ts';
+import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, meshOf} from '../src/clean.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {SHELL_FIXTURES, ShellFixture} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
@@ -25,10 +25,7 @@ async function rawUnion(u: ShellUnion): Promise<ShellMesh> {
   const ms = u.parts.map(p => partManifold(wasm, p));
   const m = wasm.Manifold.union(ms);
   try {
-    const g = m.getMesh();
-    const positions = new Float32Array(3 * g.numVert);
-    for (let v = 0; v < g.numVert; v++) for (let a = 0; a < 3; a++) positions[3 * v + a] = g.vertProperties[g.numProp * v + a];
-    return {positions, tris: Uint32Array.from(g.triVerts), faceIDs: Uint32Array.from(g.faceID)};
+    return meshOf(m.getMesh());
   } finally {
     ms.forEach(x => x.delete());
     m.delete();
@@ -110,7 +107,7 @@ describe('cleanMesh', () => {
 
   it.each(SHELL_FIXTURES.map(f => [f.name, f] as const))('%s: leaves the fixture\'s union as it is', async (_, f) => {
     const u = await unionShell(f);
-    expect(u.clean).toEqual({merged: 0, collapsed: 0, flipped: 0, maxMoveCm: 0});
+    expect(u.clean).toEqual(NO_CLEAN);
   });
 
   it('refuses a chain of short edges reaching past CLEAN_MAX_MOVE_CM', () => {
@@ -122,5 +119,16 @@ describe('cleanMesh', () => {
       faceIDs: Uint32Array.from([0, 0, 0]),
     };
     expect(() => cleanMesh(mesh)).toThrow(/past/);
+  });
+
+  it('refuses a short-edge collapse that would pinch the surface (journal decision 110, C8)', () => {
+    // A triangular bipyramid: equator 0, 1, 2 with 0-1 only 1e-3 cm long, apexes 3 and 4. Vertices 0 and 1 share the
+    // neighbour 2 through no triangle of their edge, so collapsing it would join two sheets at one edge.
+    const mesh: ShellMesh = {
+      positions: Float32Array.from([0, 0, 0, 1e-3, 0, 0, 50, 80, 0, 25, 30, 50, 25, 30, -50]),
+      tris: Uint32Array.from([0, 1, 3, 1, 2, 3, 2, 0, 3, 1, 0, 4, 2, 1, 4, 0, 2, 4]),
+      faceIDs: new Uint32Array(6),
+    };
+    expect(() => cleanMesh(mesh)).toThrow(/would pinch the surface/);
   });
 });

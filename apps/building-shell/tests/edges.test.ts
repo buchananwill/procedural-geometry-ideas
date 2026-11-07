@@ -2,7 +2,8 @@
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {
-  EDGE_KINDS, EdgeGeometry, EdgeShape, NEW_EDGE_KINDS, buildShellEdges, classifyEdge, edgeShape, liftAcross, makeVertexRegistry,
+  EDGE_KINDS, EdgeGeometry, EdgeShape, NEW_EDGE_KINDS, buildShellEdges, classifyEdge, edgeShape, liftAcross, makeVertexRegistry, meshOrigin,
+  straightRuns, vertexAt,
 } from '../src/edges.ts';
 import {FaceSource, assembleFaces, meshPoint} from '../src/faces.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
@@ -155,5 +156,49 @@ describe('convexity reads the opposite vertex of B\'s incident triangle (journal
     const {edges} = buildShellEdges(src, asm, makeVertexRegistry(), 300);
     const e = edges.find(x => x.faces.includes(riser) && x.faces.includes(ell));
     expect(e?.kind).toBe('ExternalCorner');
+  });
+});
+
+describe('straightRuns (journal decision 110, C5)', () => {
+  it('keeps a straight chain one run, and cuts a chain at a real bend', () => {
+    const line: Vec3[] = [0, 1, 2, 3, 4].map(i => [100 * i, 0, 0]);
+    expect(straightRuns(line)).toEqual([[0, 4]]);
+    const bent: Vec3[] = [[0, 0, 0], [100, 0, 0], [200, 0, 0], [200, 100, 0], [200, 200, 0]];
+    expect(straightRuns(bent)).toEqual([[0, 2], [2, 4]]);
+  });
+
+  it('cuts a chain that drifts under the tolerance at each vertex but bows past it from its final chord', () => {
+    // Twenty 100 cm steps, each turning 4e-6 rad: each new vertex lies under 0.004 cm off the line from the run's start
+    // to the next vertex, under SHELL_TOLERANCE_CM, but the whole chain bows about 0.02 cm off its own final chord.
+    const pts: Vec3[] = [[0, 0, 0]];
+    let angle = 0;
+    for (let i = 0; i < 20; i++) {
+      angle += 4e-6;
+      const [x, y] = pts[pts.length - 1];
+      pts.push([x + 100 * Math.cos(angle), y + 100 * Math.sin(angle), 0]);
+    }
+    const runs = straightRuns(pts);
+    expect(runs.length).toBeGreaterThan(1);
+    for (const [s, e] of runs) {
+      const a = pts[s], b = pts[e];
+      for (let k = s + 1; k < e; k++) {
+        const p = pts[k];
+        const t = ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / ((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2);
+        expect(Math.hypot(p[0] - a[0] - t * (b[0] - a[0]), p[1] - a[1] - t * (b[1] - a[1]))).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
+      }
+    }
+  });
+});
+
+describe('vertexAt at a pinch (journal decision 110, C1)', () => {
+  it('makes two mesh vertices at one exact position one vertex of two sheets, and refuses two distinct points on one grid point', () => {
+    const reg = makeVertexRegistry();
+    const p: Vec3 = [290, 260, 300];
+    const a = vertexAt(reg, p, meshOrigin(13, p));
+    expect(vertexAt(reg, [...p], meshOrigin(26, [...p]))).toBe(a);
+    expect(reg.origins[a]).toEqual({at: 'mesh', vertices: [13, 26], point: p});
+    const q: Vec3 = [10, 10, 10.0002];
+    vertexAt(reg, [10, 10, 10], meshOrigin(1, [10, 10, 10]));
+    expect(() => vertexAt(reg, q, meshOrigin(2, q))).toThrow(/snap to one grid point/);
   });
 });

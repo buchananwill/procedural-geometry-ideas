@@ -94,8 +94,8 @@ describe('originRecord (journal decision 100, B8)', () => {
   it('reads each origin\'s faces, and refuses an origin of no known kind rather than naming face -1', async () => {
     const b = await buildShellDetailed(fixtureByName('NarrowUpperStorey'));
     const {union: u, faces: asm, edges: ea} = b;
-    expect(originRecord(u, asm, ea, {at: 'face', face: 3}, 'test')).toEqual({fan: null, faces: [3]});
-    expect(originRecord(u, asm, ea, {at: 'edge', edge: 0}, 'test')).toEqual({fan: null, faces: ea.edges[0].faces});
+    expect(originRecord(u, asm, ea, {at: 'face', face: 3}, 'test')).toEqual({sheets: [{faces: [3], fan: null}], faces: [3]});
+    expect(originRecord(u, asm, ea, {at: 'edge', edges: [0]}, 'test')).toEqual({sheets: [{faces: ea.edges[0].faces, fan: null}], faces: ea.edges[0].faces});
     const forged = {at: 'lattice', face: 3} as unknown as VertexOrigin;
     expect(() => originRecord(u, asm, ea, forged, 'test')).toThrow(/no known kind/);
   });

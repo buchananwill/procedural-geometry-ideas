@@ -8,7 +8,7 @@ import {
 import {FaceAssembly, FaceSource, ShellFace, destOf, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
 import {Wasm} from './manifold.ts';
 import {Vec3, tagLabel} from './tags.ts';
-import {cross2, cross3, dot3, sub3} from './vec3.ts';
+import {cross2, cross3, dot3, sub3, unit3} from './vec3.ts';
 
 /** Spec decision 23 as amended (journal decisions 44, 58 and 59). */
 export interface ShellCell {
@@ -136,7 +136,7 @@ export function edgePoints(edge: ShellEdge, frames: FrameTable, reg: VertexRegis
     }
     kept.push(c);
   }
-  const ids = [edge.v[0], ...kept.map(c => ('id' in c ? c.id : vertexAt(reg, c.p, {at: 'edge', edge: edge.id}))), edge.v[1]];
+  const ids = [edge.v[0], ...kept.map(c => ('id' in c ? c.id : vertexAt(reg, c.p, {at: 'edge', edges: [edge.id]}))), edge.v[1]];
   return {ids};
 }
 
@@ -313,9 +313,15 @@ export function interiorSideKind(face: ShellFace, a: Vec3, b: Vec3): EdgeKind {
 
 const sideKey = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},${a}`);
 
+/** Two ShellEdges between the same two vertices: one segment of a pinch, written on each of its two sheets. */
+const coincident = (e: ShellEdge, f: ShellEdge): boolean => sideKey(e.v[0], e.v[1]) === sideKey(f.v[0], f.v[1]);
+
 /**
- * Journal decision 59: one NetEdge per pair of consecutive vertices along any Cell side. A side lies on a ShellEdge
- * when both its ends are among that edge's vertices; otherwise it must lie on a lattice line of its face.
+ * Journal decision 59: one NetEdge per pair of consecutive vertices along any Cell side and the ShellEdge it lies on.
+ * A side lies on a ShellEdge when both its ends are among that edge's vertices; otherwise it must lie on a lattice
+ * line of its face. Journal decision 110, C1: where an upper storey overhangs a lower reflex corner, the two sheets of
+ * the pinch share a segment, which the union writes as two coincident ShellEdges. Their sides are two NetEdges on one
+ * pair of vertices, one per ShellEdge; any other pair of vertices reading two ShellEdges is a hard error.
  */
 function assembleNetEdges(
   cells: ShellCell[], faces: ShellFace[], frames: FrameTable, edges: ShellEdge[], pts: EdgePoints[],
@@ -324,6 +330,7 @@ function assembleNetEdges(
   const onEdge = pts.map(p => new Set(p.ids));
   const netEdges: NetEdge[] = [];
   const byKey = new Map<string, number>();
+  const byPair = new Map<string, number[]>();
   for (const cell of cells) {
     const face = faces[cell.face];
     const fr = frames[cell.face];
@@ -333,9 +340,16 @@ function assembleNetEdges(
       const hits = faceEdges[cell.face].filter(e => onEdge[e].has(a) && onEdge[e].has(b));
       if (hits.length > 1) throw new Error(`cell ${cell.id}: side ${a}-${b} lies on ShellEdges ${hits.join(' and ')}`);
       const shellEdge = hits.length ? hits[0] : -1;
-      const k = sideKey(a, b);
+      const pair = sideKey(a, b);
+      const k = `${pair}|${shellEdge}`;
       let id = byKey.get(k);
       if (id === undefined) {
+        for (const other of byPair.get(pair) ?? []) {
+          const s = netEdges[other].shellEdge;
+          if (shellEdge < 0 || s < 0 || !coincident(edges[shellEdge], edges[s])) {
+            throw new Error(`cell ${cell.id}: side ${a}-${b} reads ShellEdge ${shellEdge}, its NetEdge ${s}`);
+          }
+        }
         const A = reg.positions[a], B = reg.positions[b];
         if (shellEdge < 0) {
           const alongS = Math.abs(A[fr.s] - B[fr.s]) <= SHELL_TOLERANCE_CM && onLattice(A[fr.s], cellSize);
@@ -344,9 +358,9 @@ function assembleNetEdges(
         }
         id = netEdges.length;
         byKey.set(k, id);
+        const list = byPair.get(pair);
+        if (list) list.push(id); else byPair.set(pair, [id]);
         netEdges.push({id, kind: shellEdge >= 0 ? edges[shellEdge].kind : interiorSideKind(face, A, B), v: [a, b], cells: [], shellEdge});
-      } else if (netEdges[id].shellEdge !== shellEdge) {
-        throw new Error(`cell ${cell.id}: side ${a}-${b} reads ShellEdge ${shellEdge}, its NetEdge ${netEdges[id].shellEdge}`);
       }
       netEdges[id].cells.push(cell.id);
       return id;
@@ -386,8 +400,7 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
       ins.add(k.in);
     }
     const where = `vertex ${id} at (${p.join(', ')})`;
-    const {fan, faces: originFaces} = originRecord(src, asm, ea, reg.origins[id], where);
-    let faces = originFaces;
+    const {sheets} = originRecord(src, asm, ea, reg.origins[id], where);
     /** One run of Cells around the vertex, from the NetEdge after a gap to the one before the next. */
     const walk = (start: number): CellRun => {
       const run: CellRun = {edges: [], cells: []};
@@ -402,25 +415,34 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
       }
       return run;
     };
+    // Runs from each gap, then each closed cycle left, from its lowest NetEdge: at a pinch every sheet may close its
+    // own fan of Cells (journal decision 110, C1).
     const starts = [...outOf.keys()].filter(e => !ins.has(e)).sort((a, b) => a - b);
-    let runs = corners.length ? (starts.length ? starts : [Math.min(...outOf.keys())]).map(walk) : [];
-    if (runs.length > 1 && !fan) throw new Error(`${where}: ${runs.length} gaps in its Cell fan away from a mesh vertex`);
-    if (fan) {
-      // Journal decision 96, F3: each run sits in one triangle of the fan, read just counter-clockwise of its first
-      // Cell's leaving side, so runs follow the fan even where one face meets the vertex twice.
-      const at = new Map(runs.map(r => [r, fanTriangleOf(src, asm, fan, cells[r.cells[0]], id, reg, where)]));
-      runs = [...runs].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0));
-      if (runs.length) {
-        const first = fan.faceAt[at.get(runs[0]) ?? 0];
-        faces = [...faces.slice(first), ...faces.slice(0, first)];
-      }
+    let runs = starts.map(walk);
+    const walked = new Set(runs.flatMap(r => r.edges));
+    for (const e of [...outOf.keys()].sort((a, b) => a - b)) {
+      if (walked.has(e)) continue;
+      const cycle = walk(e);
+      cycle.edges.forEach(x => walked.add(x));
+      runs.push(cycle);
     }
+    // Journal decision 96, F3: a run at a mesh vertex sits in one triangle of a sheet's fan, found by its first Cell's
+    // corner, so runs follow the fan even where one face meets the vertex twice. Journal decision 110, C1: at a pinch
+    // the runs go sheet by sheet, the sheets in order of lowest face id, and each sheet's faces start at its first run.
+    const placed = new Map(runs.map(r => [r, placeRun(src, asm, sheets, cells[r.cells[0]], id, reg, where)]));
+    const place = (r: CellRun): RunPlace => placed.get(r) ?? {sheet: 0, triangle: 0};
+    for (const [s, sheet] of sheets.entries()) {
+      const n = runs.filter(r => place(r).sheet === s).length;
+      if (n > 1 && !sheet.fan) throw new Error(`${where}: ${n} gaps in its Cell fan away from a mesh vertex`);
+    }
+    runs = [...runs].sort((a, b) => place(a).sheet - place(b).sheet || place(a).triangle - place(b).triangle);
+    const faces = sheets.flatMap((sheet, s) => {
+      const first = runs.find(r => place(r).sheet === s);
+      const k = !first ? 0 : sheet.fan ? sheet.fan.faceAt[place(first).triangle] : Math.max(0, sheet.faces.indexOf(cells[first.cells[0]].face));
+      return [...sheet.faces.slice(k), ...sheet.faces.slice(0, k)];
+    });
     const edges = runs.flatMap(r => r.edges), cellIds = runs.flatMap(r => r.cells);
     if (cellIds.length !== corners.length) throw new Error(`${where}: its Cells form a closed fan and a gap at once`);
-    if (!fan && cellIds.length) {
-      const first = faces.indexOf(cells[cellIds[0]].face);
-      if (first > 0) faces = [...faces.slice(first), ...faces.slice(0, first)];
-    }
     return {id, p, edges, cells: cellIds, faces};
   });
 }
@@ -428,33 +450,53 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
 /** One run of Cells around a vertex, from the NetEdge after a gap to the one before the next, in order. */
 export interface CellRun { edges: number[]; cells: number[] }
 
-/** What a vertex's origin gives its record: the triangle fan at a mesh vertex, and the faces it lies on. */
-export interface OriginRecord { fan: FaceFan | null; faces: number[] }
+/**
+ * One sheet of the surface through a vertex (journal decision 110, C1): the faces it lies on, and at a mesh vertex
+ * the triangle fan they come from.
+ */
+export interface VertexSheet { faces: number[]; fan: FaceFan | null }
 
 /**
- * Journal decision 100, B8: a vertex's faces read from its origin, narrowed once and checked exhaustive. A mesh vertex
- * reads its triangle fan, a point inside a ShellEdge that edge's two faces, a lattice corner its one face. An origin
- * of any other shape is a hard error, so no placeholder face id can reach `ShellVertex.faces` or the export.
+ * What a vertex's origin gives its record: each sheet through it, ordered by lowest face id, and their faces in that
+ * order. A vertex has one sheet, a pinch one per coincident mesh vertex or per coincident ShellEdge.
+ */
+export interface OriginRecord { sheets: VertexSheet[]; faces: number[] }
+
+/** Orders sheets by their lowest face id (journal decision 110, C1). */
+const byLowestFace = (a: VertexSheet, b: VertexSheet): number => Math.min(...a.faces) - Math.min(...b.faces);
+
+/** The record of a vertex's sheets: ordered by lowest face id, their faces named sheet by sheet. */
+const recordOf = (sheets: VertexSheet[]): OriginRecord => {
+  const ordered = [...sheets].sort(byLowestFace);
+  return {sheets: ordered, faces: ordered.flatMap(s => s.faces)};
+};
+
+/**
+ * Journal decision 100, B8: a vertex's faces read from its origin, narrowed once and checked exhaustive.
+ * - A mesh vertex reads its triangle fan; a pinch, each coincident mesh vertex's (journal decision 110, C1).
+ * - A point inside a ShellEdge reads that edge's two faces; inside two coincident ShellEdges, each one's. ShellEdges
+ *   that are not coincident never share an inner point, so that is a hard error.
+ * - A lattice corner reads its one face.
+ * An origin of any other shape is a hard error, so no placeholder face id can reach `ShellVertex.faces` or the export.
  */
 export function originRecord(src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, o: VertexOrigin, where: string): OriginRecord {
   switch (o.at) {
-    case 'mesh': {
-      const fan = faceFan(src, asm, o.vertex);
-      return {fan, faces: fan.faces};
+    case 'mesh': return recordOf(o.vertices.map(v => {
+      const fan = faceFan(src, asm, v);
+      return {faces: fan.faces, fan};
+    }));
+    case 'edge': {
+      const [first, ...rest] = o.edges.map(e => ea.edges[e]);
+      for (const e of rest) if (!coincident(first, e)) throw new Error(`${where}: inside ShellEdges ${first.id} and ${e.id}, which do not coincide`);
+      return recordOf([first, ...rest].map(e => ({faces: [...e.faces], fan: null})));
     }
-    case 'edge': return {fan: null, faces: [...ea.edges[o.edge].faces]};
-    case 'face': return {fan: null, faces: [o.face]};
+    case 'face': return recordOf([{faces: [o.face], fan: null}]);
     default: {
       const never: never = o;
       throw new Error(`${where}: an origin of no known kind, ${JSON.stringify(never)}`);
     }
   }
 }
-
-const unit = (u: Vec3): Vec3 => {
-  const L = Math.hypot(...u);
-  return [u[0] / L, u[1] / L, u[2] / L];
-};
 
 /**
  * The direction from vertex `v` along the bisector of Cell `c`'s corner there, in the face's plane: half way round,
@@ -465,8 +507,8 @@ export function cornerBisector(c: ShellCell, v: number, positions: readonly Vec3
   const m = c.corners.length;
   const i = c.corners.indexOf(v);
   const P = positions[v];
-  const out = unit(sub3(positions[c.corners[(i + 1) % m]], P));
-  const back = unit(sub3(positions[c.corners[(i - 1 + m) % m]], P));
+  const out = unit3(sub3(positions[c.corners[(i + 1) % m]], P));
+  const back = unit3(sub3(positions[c.corners[(i - 1 + m) % m]], P));
   const turn = cross3(n, out);
   let angle = Math.atan2(dot3(cross3(out, back), n), dot3(out, back));
   if (angle <= 0) angle += 2 * Math.PI;
@@ -475,12 +517,12 @@ export function cornerBisector(c: ShellCell, v: number, positions: readonly Vec3
 }
 
 /**
- * Journal decision 101, F37: the index in `fan` of the triangle holding Cell `c`'s corner at vertex `v`, found by the
- * bisector of that corner, strictly inside each of the Cell's face's fan triangles' wedges or none. Every coordinate,
- * the Cell's corners and the fan triangles' corners alike, is read on the 1/1024 cm grid (`snapPoint`), so the Cell's
+ * Journal decisions 101 (F37) and 110 (C7): the index in `fan` of the first triangle of Cell `c`'s face whose wedge at
+ * vertex `v` holds the bisector of the Cell's corner, its two sides included; -1 if none does. Every coordinate, the
+ * Cell's corners and the fan triangles' corners alike, is read on the 1/1024 cm grid (`snapPoint`), so the Cell's
  * sides and the wedges are measured in one consistent coordinate set.
  */
-function fanTriangleOf(src: FaceSource, asm: FaceAssembly, fan: FaceFan, c: ShellCell, v: number, reg: VertexRegistry, where: string): number {
+export function fanTriangleOf(src: FaceSource, asm: FaceAssembly, fan: FaceFan, c: ShellCell, v: number, reg: VertexRegistry): number {
   const {tris, positions} = src.mesh;
   const V = reg.positions[v];
   const n = asm.faces[c.face].normal;
@@ -489,7 +531,26 @@ function fanTriangleOf(src: FaceSource, asm: FaceAssembly, fan: FaceFan, c: Shel
   for (const [k, h] of fan.halves.entries()) {
     if (asm.triFace[triOf(h)] !== c.face) continue;
     const a = sub3(grid(destOf(tris, h)), V), b = sub3(grid(originOf(tris, prevHalf(h))), V);
-    if (dot3(cross3(a, d), n) > 0 && dot3(cross3(d, b), n) > 0) return k;
+    if (dot3(cross3(a, d), n) >= 0 && dot3(cross3(d, b), n) >= 0) return k;
+  }
+  return -1;
+}
+
+/** Where a run of Cells sits around a vertex: the sheet holding its first Cell's corner, and the fan triangle in it. */
+export interface RunPlace { sheet: number; triangle: number }
+
+/**
+ * A run's place: the first sheet, in order, that holds its first Cell's corner. A sheet with a fan holds it in one of
+ * its triangles; a sheet with none holds it when it lies on the Cell's face.
+ */
+function placeRun(src: FaceSource, asm: FaceAssembly, sheets: VertexSheet[], c: ShellCell, v: number, reg: VertexRegistry, where: string): RunPlace {
+  for (const [sheet, s] of sheets.entries()) {
+    if (!s.fan) {
+      if (s.faces.includes(c.face)) return {sheet, triangle: 0};
+      continue;
+    }
+    const triangle = fanTriangleOf(src, asm, s.fan, c, v, reg);
+    if (triangle >= 0) return {sheet, triangle};
   }
   throw new Error(`${where}: Cell ${c.id} lies in no triangle of its face's fan`);
 }

@@ -60,8 +60,24 @@ export interface ShellVertex {
 
 // ---- Vertices ---------------------------------------------------------------------------------------------------
 
-/** Where a vertex was first found: a mesh vertex ending a ShellEdge, inside a ShellEdge, or inside a face. */
-export type VertexOrigin = {at: 'mesh'; vertex: number} | {at: 'edge'; edge: number} | {at: 'face'; face: number};
+/**
+ * A vertex of the net found at mesh vertices ending ShellEdges. `vertices` is one mesh vertex, or several at one exact
+ * position `point` where Manifold writes a non-manifold pinch as coincident vertices with no edge between them
+ * (journal decision 110, C1): each is one sheet of the surface through the point.
+ */
+export interface MeshOrigin { at: 'mesh'; vertices: number[]; point: Vec3 }
+
+/**
+ * A vertex of the net found inside ShellEdges: one, or two coincident ones where a pinch's two sheets share a segment
+ * (journal decision 110, C1).
+ */
+export interface EdgeOrigin { at: 'edge'; edges: number[] }
+
+/** Where a vertex was first found: at mesh vertices ending ShellEdges, inside ShellEdges, or inside a face. */
+export type VertexOrigin = MeshOrigin | EdgeOrigin | {at: 'face'; face: number};
+
+/** The origin of a vertex first found at mesh vertex `vertex`, at `point`. */
+export const meshOrigin = (vertex: number, point: Vec3): MeshOrigin => ({at: 'mesh', vertices: [vertex], point});
 
 /**
  * Every vertex of the net, keyed by its snapped position (journal decision 58): two points are one vertex exactly
@@ -79,9 +95,15 @@ export const snapPoint = (p: Vec3): Vec3 => [snapCm(p[0]), snapCm(p[1]), snapCm(
 
 const pointKey = (p: Vec3): string => `${p[0]},${p[1]},${p[2]}`;
 
+/** Two points at one exact position. */
+const samePoint = (p: Vec3, q: Vec3): boolean => p[0] === q[0] && p[1] === q[1] && p[2] === q[2];
+
 /**
- * The id of the vertex at `p`, registering it on first sight. Two distinct mesh vertices snapping to one grid point
- * would merge two ShellEdge endpoints, so that is a hard error.
+ * The id of the vertex at `p`, registering it on first sight.
+ * - Two mesh vertices at one exact position are one pinched vertex (journal decision 110, C1): the second joins the
+ *   first's origin as another sheet. The cleaning leaves no edge shorter than its tolerance, so no edge joins them.
+ * - Two distinct mesh vertices at different positions snapping to one grid point would merge two ShellEdge
+ *   endpoints, so that is a hard error.
  */
 export function vertexAt(reg: VertexRegistry, p: Vec3, origin: VertexOrigin): number {
   const s = snapPoint(p);
@@ -89,12 +111,23 @@ export function vertexAt(reg: VertexRegistry, p: Vec3, origin: VertexOrigin): nu
   const got = reg.byKey.get(k);
   if (got !== undefined) {
     const o = reg.origins[got];
-    if (origin.at === 'mesh' && o.at === 'mesh' && o.vertex !== origin.vertex) {
-      throw new Error(`vertex (${k}): mesh vertices ${o.vertex} and ${origin.vertex} snap to one grid point`);
+    if (origin.at === 'mesh' && o.at === 'mesh') {
+      for (const v of origin.vertices) {
+        if (o.vertices.includes(v)) continue;
+        if (!samePoint(o.point, origin.point)) {
+          throw new Error(`vertex (${k}): mesh vertices ${o.vertices.join(', ')} and ${v} snap to one grid point`);
+        }
+        o.vertices.push(v);
+      }
+    } else if (origin.at === 'mesh') {
+      reg.origins[got] = {at: 'mesh', vertices: [...origin.vertices], point: origin.point};
+    } else if (origin.at === 'edge' && o.at === 'edge') {
+      for (const e of origin.edges) if (!o.edges.includes(e)) o.edges.push(e);
     }
-    if (origin.at === 'mesh' && o.at !== 'mesh') reg.origins[got] = origin;
     return got;
   }
+  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: [...origin.vertices], point: origin.point};
+  if (origin.at === 'edge') origin = {at: 'edge', edges: [...origin.edges]};
   reg.positions.push(s);
   reg.origins.push(origin);
   reg.byKey.set(k, reg.positions.length - 1);
@@ -190,6 +223,25 @@ function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
 }
 
 /**
+ * Journal decision 110, C5: a chain of points cut into maximal straight runs, as `[start, end)` ranges of its edges
+ * (edge `i` runs from `points[i]` to `points[i + 1]`). A run grows while every point inside it lies within
+ * `SHELL_TOLERANCE_CM` of its final chord, from its first point to its last; measured segment by segment instead, a
+ * chain drifting a little at each vertex could bow far off its chord unseen.
+ */
+export function straightRuns(points: Vec3[]): [start: number, end: number][] {
+  const out: [number, number][] = [];
+  const n = points.length - 1;
+  let start = 0;
+  while (start < n) {
+    let end = start + 1;
+    while (end < n && points.slice(start + 1, end + 1).every(p => lineDistance(p, points[start], points[end + 1]) <= SHELL_TOLERANCE_CM)) end++;
+    out.push([start, end]);
+    start = end;
+  }
+  return out;
+}
+
+/**
  * Decision 20's `dot(nA, q - p)` over one manifold half-edge `h` of face A: `p` is the edge's midpoint, `q` the vertex
  * of B's triangle (the twin's) opposite the edge.
  */
@@ -204,8 +256,8 @@ export function liftAcross(src: FaceSource, asm: FaceAssembly, h: number, nA: Ve
 
 /**
  * Spec decision 19: every manifold edge between two different faces, grouped by the face pair and chained into
- * maximal straight runs. A run breaks where its chain branches or bends (a vertex further than `SHELL_TOLERANCE_CM`
- * from the line through the run's start and the next vertex). Each run is classified by decisions 20 and 21: `q` is
+ * maximal straight runs. A run breaks where its chain branches, or where it would bring a vertex further than
+ * `SHELL_TOLERANCE_CM` from its own final chord (`straightRuns`). Each run is classified by decisions 20 and 21: `q` is
  * read over every manifold edge of the run, and the one furthest from A's plane decides.
  */
 export function buildShellEdges(src: FaceSource, asm: FaceAssembly, reg: VertexRegistry, storeyHeight: number): EdgeAssembly {
@@ -267,20 +319,16 @@ export function buildShellEdges(src: FaceSource, asm: FaceAssembly, reg: VertexR
       chains.push([...cyc.slice(bendAt), ...cyc.slice(0, bendAt)]);
     }
     for (const chain of chains) {
-      // Split the chain at bends.
-      let start = 0;
-      for (let i = 1; i <= chain.length; i++) {
-        const atEnd = i === chain.length;
-        const bend = !atEnd && lineDistance(P(originOf(tris, chain[i])), P(originOf(tris, chain[start])), P(destOf(tris, chain[i]))) > SHELL_TOLERANCE_CM;
-        if (!atEnd && !bend) continue;
-        const piece = chain.slice(start, i);
+      // Split the chain into straight runs, each measured against its own final chord (journal decision 110, C5).
+      const points = [originOf(tris, chain[0]), ...chain.map(h => destOf(tris, h))].map(P);
+      for (const [s, e] of straightRuns(points)) {
+        const piece = chain.slice(s, e);
         const verts = [originOf(tris, piece[0]), ...piece.map(h => destOf(tris, h))];
         edges.push(makeEdge(src, asm, reg, edges.length, fa, fb, piece, verts, storeyHeight));
         runs.push(verts);
         halves.push(piece);
         endpoints.add(verts[0]);
         endpoints.add(verts[verts.length - 1]);
-        start = i;
       }
     }
   }
@@ -304,7 +352,7 @@ function makeEdge(
     z: (a[2] + b[2]) / 2,
   };
   const kind = classifyEdge(asm.faces[fa].tag, asm.faces[fb].tag, geometry, storeyHeight);
-  const v: [number, number] = [vertexAt(reg, a, {at: 'mesh', vertex: va}), vertexAt(reg, b, {at: 'mesh', vertex: vb})];
+  const v: [number, number] = [vertexAt(reg, a, meshOrigin(va, a)), vertexAt(reg, b, meshOrigin(vb, b))];
   return {id, kind, a, b, v, faces: [fa, fb]};
 }
 

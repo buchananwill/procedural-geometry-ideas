@@ -7,3 +7,8 @@ export const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[
 export const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 /** The 2D cross product: positive when `b` turns counter-clockwise from `a`. */
 export const cross2 = (a: Vec2, b: Vec2): number => a[0] * b[1] - a[1] * b[0];
+/** `u` scaled to unit length (journal decision 107, N13). */
+export const unit3 = (u: Vec3): Vec3 => {
+  const L = Math.hypot(...u);
+  return [u[0] / L, u[1] / L, u[2] / L];
+};

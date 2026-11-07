@@ -63,3 +63,45 @@ export function randomFixtures(seed: number, count: number, storeyHeight: number
   }
   return out;
 }
+
+/** Journal decision 108's storey heights: 250 to 300 in 10 cm steps, both ends included. */
+export const GRID_STOREY_HEIGHTS_CM: readonly number[] = [250, 260, 270, 280, 290, 300];
+
+/** Journal decision 108's pitches: 20 to 70 degrees in whole degrees. */
+export const GRID_PITCHES_DEG: readonly number[] = Array.from({length: 51}, (_, i) => 20 + i);
+
+/**
+ * Journal decision 108: the sweep's box as a grid of pitch by storey height, alone and with its upper storey, so a
+ * threshold that moves with storey height (ridge against the plate above, apex against eave) is crossed, not sampled
+ * at one height. 612 cases.
+ */
+export const gridFixtures = (): ShellFixture[] => GRID_STOREY_HEIGHTS_CM.flatMap(h => GRID_PITCHES_DEG.flatMap(deg =>
+  [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: `G${deg}h${h}${upper ? 'u' : ''}`}))));
+
+/** One random fixture of a seed's run, named for its seed so two seeds' `Fuzz<k>` never collide. */
+export function seededFixture(seed: number, index: number, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture {
+  const f = randomFixtures(seed, index + 1, storeyHeight)[index];
+  return {...f, name: `Seed${seed}Fuzz${index}`};
+}
+
+/**
+ * Journal decision 110, C1, made by hand: an L-shaped storey 0, `[0,0,300,300]` and `[0,300,600,600]`, with its reflex
+ * corner at (300, 300), and a storey 1 `[100,100,450,300]` whose y = 300 wall is flush with the second wing's and runs
+ * over the corner. The air under the overhang and the air over the lower roof meet along the overhang's foot, from
+ * the corner to (450, 300), at plate height: the union writes the corner as two coincident vertices and that segment
+ * as two coincident edges. Every Ring is on the 50 cm lattice, and both storeys are 45 degree hips.
+ */
+export function flushOverReflexFixture(storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture {
+  return {
+    name: 'FlushOverReflex', cellSize: 50, storeyHeight,
+    rings: [
+      {rect: [0, 0, 300, 300], baseStorey: 0, storeys: 1}, {rect: [0, 300, 600, 600], baseStorey: 0, storeys: 1},
+      {rect: [100, 100, 450, 300], baseStorey: 1, storeys: 1},
+    ],
+    roofs: {0: {sels: [], defaultDeg: 45}, 1: {sels: [], defaultDeg: 45}},
+  };
+}
+
+/** Journal decision 110: the named regression fixtures, each the seed and index the WP3 correctness reviewer found. */
+export const PINCH_SEEDS: readonly [seed: number, index: number][] = [[2, 109], [3, 3]];
+export const CAP_CHAIN_SEED: readonly [seed: number, index: number] = [4, 134];

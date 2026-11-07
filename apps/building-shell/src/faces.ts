@@ -2,7 +2,9 @@
 // edge-connected set of triangles sharing one identity (decision 10) and one oriented plane.
 import {FaceTag, Plane3, PlaneClusters, Vec3, identityKey, samePlane} from './tags.ts';
 import {ShellMesh, ShellUnion, triArea} from './union.ts';
-import {cross3, dot3} from './vec3.ts';
+import {SHELL_TOLERANCE_CM} from './constants.ts';
+import {cross3, dot3, sub3} from './vec3.ts';
+import {makeUnionFind, nextHalf, triOf} from './halfedge.ts';
 
 export interface ShellFace {
   id: number;
@@ -30,9 +32,9 @@ export interface MeshTopology {
   out: Int32Array;
 }
 
-export const nextHalf = (h: number): number => 3 * Math.floor(h / 3) + (h % 3 + 1) % 3;
-export const prevHalf = (h: number): number => 3 * Math.floor(h / 3) + (h % 3 + 2) % 3;
-export const triOf = (h: number): number => Math.floor(h / 3);
+// The half-edge arithmetic lives in the leaf module `halfedge.ts` (journal decision 107, N9); re-exported here for
+// step 4's other parts.
+export {nextHalf, prevHalf, triOf} from './halfedge.ts';
 
 /** The origin vertex of half-edge `h`. */
 export const originOf = (tris: Uint32Array, h: number): number => tris[h];
@@ -78,19 +80,10 @@ export interface FaceAssembly {
   loopVerts: number[][][];
   /** Per face: its identity (`faceIdentity`), for labels. */
   identities: string[];
+  /** Per face: the chains loop reduction dropped (journal decision 110, C5), empty until `reduceFaceLoops`. */
+  dropped: DroppedChain[][];
 }
 
-/** Union-find over `n` items: `find` gives a set's lowest member, `join` merges two sets. */
-export interface UnionFind { find: (i: number) => number; join: (i: number, j: number) => void }
-
-function makeUnionFind(n: number): UnionFind {
-  const parent = Int32Array.from({length: n}, (_, i) => i);
-  const find = (i: number): number => {
-    while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
-    return i;
-  };
-  return {find, join: (i, j) => { const a = find(i), b = find(j); if (a !== b) parent[Math.max(a, b)] = Math.min(a, b); }};
-}
 
 /**
  * Journal decision 96, F2: splits a traced boundary loop at every vertex it visits twice, so a hole touching its
@@ -172,7 +165,7 @@ export function assembleFaces(src: FaceSource): FaceAssembly {
   }));
   for (const face of faces) setLoops(face, loopVerts[face.id], mesh.positions);
   const identities = faces.map(f => faceIdentity(f, tags.clusters));
-  return {faces, triFace, topo, planes, loopVerts, identities};
+  return {faces, triFace, topo, planes, loopVerts, identities, dropped: faces.map(() => [])};
 }
 
 /** Sets a face's loops from mesh vertex lists: outer (largest signed area) first, and its area, outer less holes. */
@@ -191,13 +184,58 @@ function setLoops(face: ShellFace, loops: number[][], positions: Float32Array): 
  */
 export function reduceFaceLoops(asm: FaceAssembly, positions: Float32Array, isEndpoint: (v: number) => boolean): void {
   for (const face of asm.faces) {
-    const kept = asm.loopVerts[face.id].map(l => l.filter(isEndpoint));
+    const where = `face ${face.id} (${asm.identities[face.id]})`;
+    const full = asm.loopVerts[face.id];
+    const kept = full.map(l => l.filter(isEndpoint));
     for (const [i, l] of kept.entries()) {
-      if (l.length < 3) throw new Error(`face ${face.id} (${asm.identities[face.id]}): loop ${i} keeps ${l.length} ShellEdge endpoints`);
+      if (l.length < 3) throw new Error(`${where}: loop ${i} keeps ${l.length} ShellEdge endpoints`);
     }
+    const dropped = full.flatMap(l => droppedChains(l, isEndpoint));
+    for (const d of dropped) {
+      const a = meshPoint(positions, d.from), b = meshPoint(positions, d.to);
+      for (const v of d.dropped) {
+        const off = chordDistance(meshPoint(positions, v), a, b);
+        if (off > SHELL_TOLERANCE_CM) throw new Error(`${where}: loop reduction drops vertex ${v}, ${off} cm off its chord`);
+      }
+    }
+    asm.dropped[face.id] = dropped;
     asm.loopVerts[face.id] = kept;
     setLoops(face, kept, positions);
   }
+}
+
+/**
+ * Journal decision 110, C5: what loop reduction drops along one loop. Each chain runs between two kept vertices, its
+ * dropped vertices in loop order; `from` and `to` are the kept ends, so the chain's polygon is `from`, the dropped
+ * vertices, `to`.
+ */
+export interface DroppedChain { from: number; dropped: number[]; to: number }
+
+/** The chains of non-endpoint vertices along a closed loop, each between the kept vertices either side of it. */
+export function droppedChains(loop: number[], isEndpoint: (v: number) => boolean): DroppedChain[] {
+  const first = loop.findIndex(isEndpoint);
+  if (first < 0) return [];
+  const n = loop.length;
+  const out: DroppedChain[] = [];
+  let from = loop[first];
+  let run: number[] = [];
+  for (let k = 1; k <= n; k++) {
+    const v = loop[(first + k) % n];
+    if (!isEndpoint(v)) { run.push(v); continue; }
+    if (run.length) out.push({from, dropped: run, to: v});
+    from = v;
+    run = [];
+  }
+  return out;
+}
+
+/** Distance from `p` to the segment's chord, the line through `a` and `b`. */
+function chordDistance(p: Vec3, a: Vec3, b: Vec3): number {
+  const ab = sub3(b, a), ap = sub3(p, a);
+  const L2 = dot3(ab, ab);
+  if (L2 === 0) return Math.hypot(...ap);
+  const t = dot3(ap, ab) / L2;
+  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
 }
 
 /** The sum of the output triangles' areas: the mesh's surface area. */
