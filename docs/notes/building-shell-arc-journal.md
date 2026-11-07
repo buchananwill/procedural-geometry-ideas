@@ -575,7 +575,25 @@ departs from those four steps is a defect.
     - **F8 (Low), accepted.** Spec 39's "no storey-0 Roof meets a storey-1 Roof" covers a shared vertex as well as a
       shared Edge.
     - **WP3.1 is these items plus decision 94's type items.** It goes to the WP3 delegate. The two reviewers re-check
-      the diff before WP3 is accepted.
+      the diff before WP3 is accepted. **Dispatched at `16f57d6`.**
+97. **Rulings on WP4's type review** (REQUEST CHANGES, 9 blocking, 7 notes, on `bc35eff..def8c95`). All are accepted
+    except where marked.
+    - **B1 to B9:**
+      - the shared `errorMessage`;
+      - a typed `ViewerHook` through a `Window` declaration, with no casts;
+      - one `DrawBuffers` shape;
+      - `LegendOptions` as a `Pick` of `ToggleState`;
+      - named `ScreenPoint`, `PointerDown`, `PickedFace`, `Bounds`, `RGB` and `TriIndices`, with `Layers` exported;
+      - a typed owners record instead of `userData`, and the needless `Line2` cast deleted;
+      - guards instead of `!`;
+      - a malformed `#hash` falling back to the first fixture instead of killing the page;
+      - `Readonly<Vec3>` parameters.
+    - **N1:** `Hit` becomes a discriminated union.
+    - **N2:** `LegendNote` is a literal union.
+    - **N3 to N7:** the housekeeping, the `Disposable3D` cast, the test helpers, `SHELL_KINDS` keyed to the colour
+      `Record`, and `count.get` without `!`.
+    - These make up **WP4.1**, together with decision 95's single-config change and any accepted findings from WP4's
+      correctness review, which is still running.
 
 ## Findings
 
