@@ -7,7 +7,7 @@ import {SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {fixtureFromHash} from './hash.ts';
-import {LegendEntry, legendEntries} from './legend.ts';
+import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
 import {ScreenPoint, ShellScene} from './scene.ts';
@@ -123,7 +123,7 @@ function renderLegend(): void {
   box.replaceChildren();
   if (!build) return;
   const table = el('table');
-  let group = '';
+  let group: LegendGroup | undefined;
   for (const e of legendEntries(build, toggles)) {
     if (e.group !== group) {
       group = e.group;

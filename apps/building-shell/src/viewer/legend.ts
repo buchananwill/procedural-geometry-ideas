@@ -5,7 +5,7 @@ import {EDGE_KINDS, EdgeKind} from '../edges.ts';
 import type {ShellBuild} from '../shell.ts';
 import type {ShellKind} from '../tags.ts';
 import {
-  AXIS_COLOURS, EDGE_KIND_COLOUR, HOVER_COLOUR, OUTLINE_COLOUR, PIN_COLOUR, RAW_INTERNAL_GREY, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR, partialColour,
+  AXIS_COLOURS, EDGE_KIND_COLOUR, GHOST_LINE_COLOUR, HOVER_COLOUR, OUTLINE_COLOUR, PIN_COLOUR, RAW_INTERNAL_GREY, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR, partialColour,
 } from './palette.ts';
 import {ToggleState, visibleStoreys} from './toggles.ts';
 import {cellShown, edgeShown, faceShown, netEdgeShown, vertexShown} from './visibility.ts';
@@ -60,6 +60,9 @@ function partialEntries(build: ShellBuild, storeys: ReadonlySet<number>): Legend
   });
 }
 
+/** The grey of the thin outlines drawn round every raw ghost part (journal decision 105, L5). */
+const GHOST_OUTLINE_ENTRY: LegendEntry = {group: 'Raw ghosts', label: 'raw part outline', colour: GHOST_LINE_COLOUR, count: null};
+
 function rawEntries(build: ShellBuild, storeys: ReadonlySet<number>): LegendEntry[] {
   const kinds = new Map<ShellKind, number>();
   for (const part of build.union.parts) {
@@ -67,7 +70,7 @@ function rawEntries(build: ShellBuild, storeys: ReadonlySet<number>): LegendEntr
     const seen = new Set<ShellKind>(part.soup.faceIDs.map(f => build.union.tags.table[f].kind));
     for (const k of seen) kinds.set(k, (kinds.get(k) ?? 0) + 1);
   }
-  return SHELL_KINDS.flatMap((k): LegendEntry[] => {
+  const ghosts = SHELL_KINDS.flatMap((k): LegendEntry[] => {
     const n = kinds.get(k);
     if (n === undefined) return [];
     return [{
@@ -75,6 +78,7 @@ function rawEntries(build: ShellBuild, storeys: ReadonlySet<number>): LegendEntr
       colour: k === 'Internal' ? RAW_INTERNAL_GREY : SHELL_KIND_COLOUR[k], count: n, note: 'parts',
     }];
   });
+  return ghosts.length ? [...ghosts, GHOST_OUTLINE_ENTRY] : [];
 }
 
 function defectEntries(build: ShellBuild, storeys: ReadonlySet<number>): LegendEntry[] {
@@ -108,8 +112,8 @@ export function legendEntries(build: ShellBuild, options: LegendOptions): Legend
     ...(layers.faces && options.highlightPartial ? partialEntries(build, storeys) : []),
     ...vertices,
     ...(options.raw ? rawEntries(build, storeys) : []),
-    {group: 'Interaction', label: 'Hovered', colour: HOVER_COLOUR, count: null},
-    {group: 'Interaction', label: 'Pinned', colour: PIN_COLOUR, count: null},
+    {group: 'Interaction', label: 'Hovered (outline)', colour: HOVER_COLOUR, count: null},
+    {group: 'Interaction', label: 'Pinned (outline)', colour: PIN_COLOUR, count: null},
     {group: 'Orientation', label: 'X axis (corner gizmo)', colour: AXIS_COLOURS.x, count: null},
     {group: 'Orientation', label: 'Y axis (corner gizmo)', colour: AXIS_COLOURS.y, count: null},
     {group: 'Orientation', label: 'Z axis, up (corner gizmo)', colour: AXIS_COLOURS.z, count: null},

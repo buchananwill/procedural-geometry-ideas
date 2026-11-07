@@ -8,7 +8,6 @@
 import {
   AmbientLight, BufferAttribute, BufferGeometry, CanvasTexture, Color, DirectionalLight, DoubleSide, FrontSide, Group, Material, Mesh, MeshBasicMaterial,
   MeshLambertMaterial, Object3D, PerspectiveCamera, Points, PointsMaterial, Raycaster, Scene, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer,
-  AxesHelper,
 } from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
@@ -17,16 +16,20 @@ import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometr
 import type {ShellBuild} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {
-  DrawBuffers, cellOutlineSegments, cellTriangles, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, meshBounds,
-  singleCellTriangles, singleFaceTriangles, vertexPoints,
+  DrawBuffers, cellOutlineSegments, cellTriangles, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, linearRGB, meshBounds, vertexPoints,
 } from './buffers.ts';
+import {GIZMO_AXIS_LENGTH, GIZMO_FOV, GIZMO_LABEL_AT, GIZMO_LABEL_SIZE, GIZMO_MARGIN, GIZMO_SIZE, GIZMO_DISTANCE} from './gizmo.ts';
+import {AMBIENT_LIGHT, DIRECTIONAL_LIGHTS} from './lighting.ts';
+import {makeBiasedLineMaterial} from './line-shader.ts';
 import {AXIS_COLOURS, BACKGROUND, GHOST_OPACITY, GROUND_OPACITY, HOVER_COLOUR, PIN_COLOUR, RAW_SHELL_OPACITY, cssColour} from './palette.ts';
 import type {Hit} from './readout.ts';
 import {ToggleState, visibleStoreys} from './toggles.ts';
 
 export interface ScreenPoint { x: number; y: number }
-interface PointerDown extends ScreenPoint { t: number }
-interface PickedFace { id: number; distance: number }
+/** Where and when the pointer went down, to tell a click from a drag. */
+export interface PointerDown extends ScreenPoint { t: number }
+/** The face under the cursor and how far along the ray it lies. */
+export interface PickedFace { id: number; distance: number }
 
 /** The drawn layers. */
 export interface Layers {
@@ -41,8 +44,11 @@ export interface Layers {
   ghostLines?: LineSegments2;
 }
 
-/** The record id behind each drawn primitive of a pickable layer. */
-interface LayerOwners { solid?: Int32Array; ground?: Int32Array; cellPick?: Int32Array; edges?: Int32Array; vertices?: Int32Array }
+/** The layers a cursor can pick from. */
+export type PickLayer = 'solid' | 'ground' | 'cellPick' | 'edges' | 'vertices';
+
+/** The record id behind each drawn primitive of a pickable layer (derived from `Layers`, so a layer renamed there breaks here). */
+export type LayerOwners = {[K in PickLayer & keyof Layers]?: Int32Array};
 
 export interface SceneEvents {
   /** The cursor moved over the canvas; `null` when over nothing. */
@@ -52,7 +58,7 @@ export interface SceneEvents {
 }
 
 /** Anything three.js holds GPU memory for. */
-interface Disposable3D { geometry: BufferGeometry; material: Material | Material[] }
+export interface Disposable3D { geometry: BufferGeometry; material: Material | Material[] }
 const isDisposable = (o: Object3D): o is Object3D & Disposable3D => 'geometry' in o && 'material' in o;
 function dispose(o: Object3D): void {
   if (!isDisposable(o)) return;
@@ -63,8 +69,6 @@ function dispose(o: Object3D): void {
 /** How far a line is pulled toward the camera, as a fraction of the camera's distance to its target. */
 const LINE_BIAS = {edges: 0.006, outlines: 0.003, none: 0} as const;
 const PICK_TOLERANCE = 0.009;
-const GIZMO_SIZE = 140;
-const GIZMO_MARGIN = 10;
 
 function triGeometry(b: DrawBuffers, withColours: boolean): BufferGeometry {
   const g = new BufferGeometry();
@@ -97,7 +101,7 @@ function label(text: string, colour: number): Sprite {
     ctx.fillText(text, 32, 34);
   }
   const s = new Sprite(new SpriteMaterial({map: new CanvasTexture(canvas), depthTest: false, transparent: true}));
-  s.scale.setScalar(0.4);
+  s.scale.setScalar(GIZMO_LABEL_SIZE);
   return s;
 }
 
@@ -112,6 +116,8 @@ export class ShellScene {
   private readonly gizmoCamera = new PerspectiveCamera(30, 1, 0.1, 20);
   /** Every LineMaterial, so a resize can set its resolution; the value is its bias fraction (see `LINE_BIAS`). */
   private readonly lineMaterials = new Map<LineMaterial, number>();
+  /** The LineMaterials the current highlights hold, dropped from `lineMaterials` when they are rebuilt. */
+  private readonly highlightMaterials = new Set<LineMaterial>();
   private readonly raycaster = new Raycaster();
   private layers: Layers = {};
   private owners: LayerOwners = {};
@@ -136,20 +142,15 @@ export class ShellScene {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
 
-    this.scene.add(new AmbientLight(0xffffff, 1.5));
-    const key = new DirectionalLight(0xffffff, 2.2);
-    key.position.set(-1, -2, 3);
-    const fill = new DirectionalLight(0xffffff, 0.9);
-    fill.position.set(2, 1, 1);
-    this.scene.add(key, fill, this.content, this.highlights);
-
-    this.gizmoCamera.up.set(0, 0, 1);
-    this.gizmoScene.add(new AxesHelper(1));
-    for (const [text, colour, p] of [['X', AXIS_COLOURS.x, [1.3, 0, 0]], ['Y', AXIS_COLOURS.y, [0, 1.3, 0]], ['Z', AXIS_COLOURS.z, [0, 0, 1.3]]] as const) {
-      const s = label(text, colour);
-      s.position.set(p[0], p[1], p[2]);
-      this.gizmoScene.add(s);
+    // The lights come from `lighting.ts`, which the palette's floors are measured against.
+    this.scene.add(new AmbientLight(AMBIENT_LIGHT.color, AMBIENT_LIGHT.intensity), this.content, this.highlights);
+    for (const spec of DIRECTIONAL_LIGHTS) {
+      const light = new DirectionalLight(0xffffff, spec.intensity);
+      light.position.set(spec.position[0], spec.position[1], spec.position[2]);
+      this.scene.add(light);
     }
+
+    this.buildGizmo();
 
     const el = this.renderer.domElement;
     el.addEventListener('pointermove', e => this.onMove(e));
@@ -159,6 +160,30 @@ export class ShellScene {
     new ResizeObserver(() => this.resize()).observe(host);
     this.resize();
     this.renderer.setAnimationLoop(() => this.frame());
+  }
+
+  /** The corner orientation gizmo: three axes in the legend's colours, each with its label beyond the tip. */
+  private buildGizmo(): void {
+    this.gizmoCamera.up.set(0, 0, 1);
+    this.gizmoCamera.fov = GIZMO_FOV;
+    this.gizmoCamera.updateProjectionMatrix();
+    const L = GIZMO_AXIS_LENGTH;
+    const axes = [
+      {text: 'X', colour: AXIS_COLOURS.x, tip: [L, 0, 0]},
+      {text: 'Y', colour: AXIS_COLOURS.y, tip: [0, L, 0]},
+      {text: 'Z', colour: AXIS_COLOURS.z, tip: [0, 0, L]},
+    ] as const;
+    const g = new LineSegmentsGeometry();
+    g.setPositions(axes.flatMap(a => [0, 0, 0, ...a.tip]));
+    g.setColors(axes.flatMap(a => { const [r, gr, b] = linearRGB(a.colour); return [r, gr, b, r, gr, b]; }));
+    const m = makeBiasedLineMaterial({width: 3});
+    m.resolution.set(GIZMO_SIZE, GIZMO_SIZE);
+    this.gizmoScene.add(new LineSegments2(g, m));
+    for (const a of axes) {
+      const s = label(a.text, a.colour);
+      s.position.set(a.tip[0] * GIZMO_LABEL_AT, a.tip[1] * GIZMO_LABEL_AT, a.tip[2] * GIZMO_LABEL_AT);
+      this.gizmoScene.add(s);
+    }
   }
 
   // ---- Loading and layers ------------------------------------------------------------------------------------------
@@ -221,13 +246,8 @@ export class ShellScene {
   }
 
   /** A LineMaterial in vertex colours whose lines are pulled toward the camera by `bias` of the camera distance. */
-  private lineMaterial(width: number, bias: number, opacity = 1): LineMaterial {
-    const m = new LineMaterial({vertexColors: true, linewidth: width, transparent: opacity < 1, opacity});
-    m.uniforms.uBias = {value: 0};
-    m.vertexShader = m.vertexShader
-      .replace('void main() {', 'uniform float uBias;\nvoid main() {')
-      .replace('vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );',
-        'vec4 end = modelViewMatrix * vec4( instanceEnd, 1.0 );\n\t\t\tstart.xyz -= normalize( start.xyz ) * uBias;\n\t\t\tend.xyz -= normalize( end.xyz ) * uBias;');
+  private lineMaterial(options: Parameters<typeof makeBiasedLineMaterial>[0], bias: number): LineMaterial {
+    const m = makeBiasedLineMaterial(options);
     m.resolution.set(this.host.clientWidth, this.host.clientHeight);
     this.lineMaterials.set(m, bias);
     return m;
@@ -275,12 +295,12 @@ export class ShellScene {
     }
     const outlines = cellOutlineSegments(build, storeys, netKindOutlines);
     if (outlines.owner.length) {
-      L.outlines = new LineSegments2(segGeometry(outlines), this.lineMaterial(1.3, LINE_BIAS.outlines));
+      L.outlines = new LineSegments2(segGeometry(outlines), this.lineMaterial({width: 1.3}, LINE_BIAS.outlines));
       L.outlines.renderOrder = 2;
     }
     const edges = edgeSegments(build, storeys);
     if (edges.owner.length) {
-      L.edges = new LineSegments2(segGeometry(edges), this.lineMaterial(3.5, LINE_BIAS.edges));
+      L.edges = new LineSegments2(segGeometry(edges), this.lineMaterial({width: 3.5}, LINE_BIAS.edges));
       L.edges.renderOrder = 3;
       owners.edges = edges.owner;
     }
@@ -297,7 +317,7 @@ export class ShellScene {
     if (ghost.owner.length) {
       L.ghost = mesh(ghost, new MeshBasicMaterial({vertexColors: true, side: DoubleSide, transparent: true, opacity: GHOST_OPACITY, depthWrite: false}), 5);
       const lines = ghostSegments(build, storeys);
-      if (lines.owner.length) L.ghostLines = new LineSegments2(segGeometry(lines), this.lineMaterial(1.5, LINE_BIAS.none, 0.55));
+      if (lines.owner.length) L.ghostLines = new LineSegments2(segGeometry(lines), this.lineMaterial({width: 1.5, opacity: 0.55}, LINE_BIAS.none));
     }
     for (const [name, o] of Object.entries(L)) if (o && name !== 'cellPick') this.content.add(o);
   }
@@ -411,34 +431,30 @@ export class ShellScene {
     for (const o of [...this.highlights.children]) {
       this.highlights.remove(o);
       dispose(o);
-      if (o instanceof LineSegments2 && o.material instanceof LineMaterial) this.lineMaterials.delete(o.material);
     }
+    for (const m of this.highlightMaterials) this.lineMaterials.delete(m);
+    this.highlightMaterials.clear();
     if (this.pinned) this.highlights.add(...this.highlightOf(this.pinned, PIN_COLOUR, 9));
     if (this.hoverHit) this.highlights.add(...this.highlightOf(this.hoverHit, HOVER_COLOUR, 6));
   }
 
+  /**
+   * The emphasis for a hit, as outlines only (journal decision 105, L4): a white fill would read as the opt-in partial
+   * tint. A face is outlined along its loops and a Cell along its polygon, depth-tested with the Edges' bias so
+   * a face behind the building does not show through.
+   */
   private highlightOf(hit: Hit, colour: number, width: number): Object3D[] {
     const build = this.build;
     if (!build) return [];
     const out: Object3D[] = [];
-    const overlay = (b: DrawBuffers): Mesh => {
-      const g = new BufferGeometry();
-      g.setAttribute('position', new BufferAttribute(b.positions, 3));
-      return new Mesh(g, new MeshBasicMaterial({
-        color: colour, transparent: true, opacity: 0.4, side: DoubleSide, depthWrite: false,
-        polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4,
-      }));
-    };
-    const line = (a: Readonly<Vec3>, b: Readonly<Vec3>): LineSegments2 => {
+    const loop = (points: readonly Readonly<Vec3>[], w: number): void => {
       const g = new LineSegmentsGeometry();
-      g.setPositions([...a, ...b]);
-      const m = new LineMaterial({color: colour, linewidth: width, depthTest: false});
-      m.uniforms.uBias = {value: 0};
-      m.resolution.set(this.host.clientWidth, this.host.clientHeight);
-      this.lineMaterials.set(m, LINE_BIAS.none);
+      g.setPositions(points.flatMap((p, i) => [...p, ...points[(i + 1) % points.length]]));
+      const m = this.lineMaterial({width: w, colour}, LINE_BIAS.edges);
+      this.highlightMaterials.add(m);
       const l = new LineSegments2(g, m);
       l.renderOrder = 10;
-      return l;
+      out.push(l);
     };
     switch (hit.kind) {
       case 'vertex': {
@@ -451,16 +467,12 @@ export class ShellScene {
       }
       case 'edge': {
         const e = build.shell.edges[hit.id];
-        out.push(line(e.a, e.b));
+        loop([e.a, e.b], width);
         break;
       }
       case 'surface': {
-        out.push(overlay(singleFaceTriangles(build, hit.face)));
-        if (hit.cell !== null) {
-          const cell = build.shell.cells[hit.cell];
-          out.push(overlay(singleCellTriangles(build, hit.cell)));
-          for (let i = 0; i < cell.polygon.length; i++) out.push(line(cell.polygon[i], cell.polygon[(i + 1) % cell.polygon.length]));
-        }
+        for (const l of build.shell.faces[hit.face].loops) loop(l, width * 0.7);
+        if (hit.cell !== null) loop(build.shell.cells[hit.cell].polygon, width * 0.55);
         break;
       }
     }
@@ -487,7 +499,7 @@ export class ShellScene {
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
     // The corner orientation gizmo: the same view direction, on a fresh depth buffer.
-    this.gizmoCamera.position.copy(this.camera.position).sub(this.controls.target).setLength(4.4);
+    this.gizmoCamera.position.copy(this.camera.position).sub(this.controls.target).setLength(GIZMO_DISTANCE);
     this.gizmoCamera.lookAt(0, 0, 0);
     this.renderer.clearDepth();
     this.renderer.setScissorTest(true);

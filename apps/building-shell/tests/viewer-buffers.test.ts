@@ -5,6 +5,7 @@ import {beforeAll, describe, expect, it} from 'vitest';
 import {fixtureByName} from '../src/fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
+import type {RGB} from '../src/viewer/colour-metrics.ts';
 import {
   DrawBuffers, cellOutlineSegments, cellTriangles, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, linearRGB, triangulatePolygon, vertexPoints,
 } from '../src/viewer/buffers.ts';
@@ -18,8 +19,10 @@ beforeAll(async () => { b = await buildShellDetailed(fixtureByName('NarrowUpperS
 const ALL: ReadonlySet<number> = new Set([0, 1]);
 
 /** The sRGB transfer function, written here independently of the viewer's. */
-const toLinear = (hex: number): [number, number, number] =>
-  [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255].map(c => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }) as [number, number, number];
+const toLinear = (hex: number): RGB => {
+  const channel = (c: number): number => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+  return [channel((hex >> 16) & 255), channel((hex >> 8) & 255), channel(hex & 255)];
+};
 
 /** The colour of vertex `v` of primitive `p`, `per` vertices to a primitive. */
 const colourOf = (buf: DrawBuffers, p: number, per: number): number[] => Array.from(buf.colors.slice(3 * per * p, 3 * per * p + 3));

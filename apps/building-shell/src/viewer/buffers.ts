@@ -81,17 +81,6 @@ export function faceTriangles(build: ShellBuild, storeys: StoreySet, ground: boo
   return w.done();
 }
 
-/** One ShellFace's triangles, for a highlight. */
-export function singleFaceTriangles(build: ShellBuild, faceId: number): DrawBuffers {
-  const {mesh} = build.union;
-  const w = new Writer();
-  for (let t = 0; t < mesh.tris.length / 3; t++) {
-    if (build.faces.triFace[t] !== faceId) continue;
-    w.push([at(mesh.positions, mesh.tris[3 * t]), at(mesh.positions, mesh.tris[3 * t + 1]), at(mesh.positions, mesh.tris[3 * t + 2])], 0xffffff, faceId);
-  }
-  return w.done();
-}
-
 // ---- Cells --------------------------------------------------------------------------------------------------------
 
 /**
@@ -107,16 +96,6 @@ export function cellTriangles(build: ShellBuild, storeys: StoreySet, mode: 'tint
     for (const [i, j, k] of triangulatePolygon(cell.polygon, face.normal)) {
       w.push([cell.polygon[i], cell.polygon[j], cell.polygon[k]], partialColour(face.tag.kind), cell.id);
     }
-  }
-  return w.done();
-}
-
-/** One Cell's triangles, for a highlight. */
-export function singleCellTriangles(build: ShellBuild, cellId: number): DrawBuffers {
-  const cell = build.shell.cells[cellId];
-  const w = new Writer();
-  for (const [i, j, k] of triangulatePolygon(cell.polygon, build.shell.faces[cell.face].normal)) {
-    w.push([cell.polygon[i], cell.polygon[j], cell.polygon[k]], 0xffffff, cellId);
   }
   return w.done();
 }

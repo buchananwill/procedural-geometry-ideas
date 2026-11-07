@@ -10,7 +10,15 @@ export function srgbToLinear(channel: number): number {
   return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
 }
 
+/** One linear-light channel in 0..1 (clamped) to an sRGB channel in 0..255. */
+export function linearToSrgb(linear: number): number {
+  const c = Math.min(1, Math.max(0, linear));
+  return Math.round(255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055));
+}
+
 export const hexToRgb = (hex: number): RGB => [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
+
+export const rgbToHex = ([r, g, b]: RGB): number => (r << 16) | (g << 8) | b;
 
 export function hexToLab(hex: number): Lab {
   const [r, g, b] = hexToRgb(hex).map(srgbToLinear);
