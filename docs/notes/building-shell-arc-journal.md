@@ -546,6 +546,36 @@ departs from those four steps is a defect.
       back to plain `vite`, and `src/viewer/vite.viewer.config.ts` is removed. One config serves dev, test and
       export, and a second config only for dev is a trap. This is a WP4.1 item.
     - Decision 67's two reviews are dispatched on `bc35eff..def8c95`.
+96. **Rulings on WP3's correctness review** (fresh Opus, on `8c5d752..1f28bc6`). It found convexity, the table,
+    Cells, pairing, vertex identity and cyclic order correct over all ten fixtures, with the export deterministic.
+    It ran 392/392 before WP4's files appeared.
+    - **F1 (Medium-high), accepted.** A ShellEdge endpoint lying inside another face's ShellEdge (a T-point) is
+      missing from `edgePoints`, so `buildShell` throws on a valid shell. Storey 1 at `[30,70,70,170]` on storey 0's
+      45° hip reproduces it. Every registered ShellEdge endpoint inside an edge becomes one of that edge's boundary
+      points. The reproducer becomes a test.
+    - **F2 (Medium-low), accepted.** A hole that touches its face's outer loop is stored as one self-touching loop,
+      and the area still checks out. Loops are split at every touching vertex into simple loops, outer first. A test
+      checks the on-lattice twin, storey 1 at `[50,100,100,200]`, loop by loop.
+    - **F3 (Low), accepted.** A face meeting a vertex twice is no longer a hard error. The vertex's cyclic lists
+      follow the triangle fan and may name that face twice.
+    - **F4 (Medium, test gap), accepted.** Every Cell's `lattice` index, on both axes and on partial Cells, is
+      asserted independently from its polygon.
+    - **F5 (Low), accepted.** `newConventions` records the exact roof cut whenever a Roof Cell is cut by a Hip,
+      Valley or Ridge ShellEdge: "Roof lines cut exactly (C++: staircase)". The `newConventions` pins move with it.
+    - **F6 (Medium, spec tension), accepted, and decision 41 is AMENDED.** The identity of a Wall, Gable or Cheek face
+      is `(kind, storey, oriented vertical plane)`. `wall` becomes provenance only, as `part` is.
+      - The traced outline keeps collinear Ring corners, so collinear walls had distinct wall ids. Bridge's storey 2
+        then split into 31 faces with spurious flat `WallVertical` edges, against 27 faces as one Ring.
+      - Keying by plane makes the shell independent of how the plan was split into Rings, which is decision 90's
+        stated reason.
+      - Faces on one plane that are not edge-connected stay separate under spec 18.
+      - The fixture pins that move are re-measured. A test asserts that Bridge built from 3 Rings equals Bridge built
+        as 1 Ring, face for face and Edge for Edge.
+    - **F7, a non-vertical surviving Cheek throws:** no change. It is latent, and it fails loud, not silent.
+    - **F8 (Low), accepted.** Spec 39's "no storey-0 Roof meets a storey-1 Roof" covers a shared vertex as well as a
+      shared Edge.
+    - **WP3.1 is these items plus decision 94's type items.** It goes to the WP3 delegate. The two reviewers re-check
+      the diff before WP3 is accepted.
 
 ## Findings
 

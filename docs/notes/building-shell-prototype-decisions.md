@@ -141,8 +141,14 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     // wall: -1 for Roof, floors and Internal. plane: the storey Building's canonical plane id for Roof, -1 otherwise.
     ```
 
-    **A face's identity is `(kind, storey, plane)` for Roof and `(kind, storey, wall)` for every other kind. `part`
-    is provenance only and is never compared.** Face grouping (decision 18), conflict detection (decision 15) and the
+    **A face's identity is:**
+    - `(kind, storey, plane)` for Roof;
+    - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek;
+    - `(kind, storey)` for Underside, Ground and Internal.
+
+    **`part` and `wall` are provenance only, and are never compared.** **AMENDED 2026-11-07 again** (journal decision
+    96): vertical kinds were keyed by `wall`, so collinear walls from different Rings split one face in two. The
+    shell's edges then depended on how the plan was split into Rings. Face grouping (decision 18), conflict detection (decision 15) and the
     re-tag rule (decision 14) compare identity, never the whole `FaceTag`. **AMENDED 2026-11-07** (journal decision
     41): without it, the hip solid's Roof faces and a gable piece's Roof faces on the same plane would split into
     separate faces, with a spurious `RoofSeam` between them.
@@ -451,7 +457,8 @@ assertion.
     over the L's corner, with its plate at 600.
     - the lower roof has a `Valley` Edge on the line x + y = 1000, and it ends on storey 1's y = 300 wall at
       (700, 300), where two `RingJunction` Edges meet;
-    - no `Roof` face of storey 0 meets a `Roof` face of storey 1;
+    - no `Roof` face of storey 0 meets a `Roof` face of storey 1, by a shared Edge or a shared vertex (**AMENDED
+      2026-11-07**, journal decision 96);
     - no Edge is `Unclassified`.
 
     **AMENDED 2026-11-07** (journal decision 50): the lower roof was 60 degrees, which put its ridges at 646.4, above
