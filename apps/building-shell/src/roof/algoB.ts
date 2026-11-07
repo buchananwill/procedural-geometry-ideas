@@ -223,12 +223,22 @@ export function runB(b: Building, opt: BOptions): Surface {
   };
 }
 
+/** What `solveRoofParts` returns: the parts `runB` composes, and `buildPieces`' notes. */
+export interface RoofParts {
+  defaults: PlaneFace[];
+  faces: RawFace[];
+  pieces: Piece[];
+  /** `buildPieces`' notes, among them every piece it dropped as NoPlane (journal decision 64). */
+  notes: string[];
+}
+
 /**
  * The parts `runB` composes, for the building shell: the default hip faces (as plane faces and as the skeleton's
- * raw faces, which keep their wall) and the pieces. A component the skeleton refuses throws, since a storey with a
- * missing roof is not a shell. Added by the building-shell copy (spec decision 9); `runB` above is unchanged.
+ * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. A component the skeleton refuses throws,
+ * since a storey with a missing roof is not a shell. Added by the building-shell copy (spec decision 9); `runB` above
+ * is unchanged. The caller turns a NoPlane note into a hard error naming its fixture and storey (journal decision 64).
  */
-export function solveRoofParts(b: Building, opt: BOptions): {defaults: PlaneFace[]; faces: RawFace[]; pieces: Piece[]} {
+export function solveRoofParts(b: Building, opt: BOptions): RoofParts {
   const defaults: PlaneFace[] = [];
   const faces: RawFace[] = [];
   for (const comp of b.comps) {
@@ -243,5 +253,5 @@ export function solveRoofParts(b: Building, opt: BOptions): {defaults: PlaneFace
   const notes: string[] = [];
   const pieces: Piece[] = [];
   for (const comp of b.comps) pieces.push(...buildPieces(b, comp, opt, notes));
-  return {defaults, faces, pieces};
+  return {defaults, faces, pieces, notes};
 }
