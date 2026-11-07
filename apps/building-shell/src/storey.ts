@@ -1,18 +1,14 @@
 // Step 1 of the four-step model: every storey built as if it were the only storey, as separate raw tagged parts
 // (spec decisions 2 to 11). Parts are never pre-unioned: the one union is `union.ts`'s.
-import type {Vec2} from 'manifold-3d';
+import type {Mesh, Vec2} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeyRects} from './fixture.ts';
 import {Wasm} from './manifold.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Wall, buildFromRects, planeAt, polyArea, wallLabel} from './roof/model.ts';
-import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, sameNormal, samePlane} from './tags.ts';
+import {errorMessage} from './errors.ts';
+import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, identityKey, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
-
-/** The message of anything thrown: one helper for every catch site. */
-export function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
-}
 
 /** One storey's union outline (as a roof-gable `Building`) and its solved roof. */
 export interface StoreyPlan {
@@ -183,27 +179,40 @@ function bboxReach(b: Building, w: Wall): number {
   return w.a.x - b.bbox.x0;
 }
 
-/** One plane a gable piece's faces can lie on, with the tag a face on it takes. */
-export interface Generating { tag: PartlessTag; plane: Plane3 }
+/** A stretch of a wall-line plane, `[lo, hi]` along the line, over which a face is Gable with `wall`. */
+export interface GableZone { wall: number; lo: number; hi: number }
+
+/** Which world coordinate runs along a vertical plane: 0 (x) or 1 (y). */
+export type AlongAxis = 0 | 1;
+
+/** A vertical plane's Gable zones, in priority order, and the coordinate they are measured along. */
+export interface WallLineZones { axis: AlongAxis; zones: GableZone[] }
+
+/**
+ * One plane a gable piece's faces can lie on. `tag` is what a face on it takes outside every Gable zone: Roof on a
+ * piece plane, Cheek on every other plane. `along` is set on a plane that holds an island wall line.
+ */
+export interface Generating { plane: Plane3; tag: PartlessTag; along?: WallLineZones }
+
+/** One triangle of a divided face, with the tag it takes. */
+export interface TaggedTri { tri: Vec3[]; tag: PartlessTag }
 
 /** Below this area (cm²) a triangle has no reliable normal, and is matched by offset alone. */
 const NORMAL_AREA_FLOOR = SHELL_TOLERANCE_CM ** 2;
 
 /**
- * Journal decisions 45 and 73: the generating plane a triangle lies on. Candidates are the planes whose normal agrees
- * with the triangle's within `PLANE_NORMAL_TOL` and whose offset holds all three corners within `SHELL_TOLERANCE_CM`.
- * None, or two, is a hard error naming the part. Run on Manifold's mesh before the snap: the 1/1024 cm snap tilts a
- * narrow face's normal by up to about 2e-5 (case 7f's 85 degree face), where Manifold's own float32 output stays
- * under 2e-7.
+ * Journal decisions 45 and 80: the generating plane a triangle lies on. A plane matches when all three corners lie
+ * within `SHELL_TOLERANCE_CM` of it and the triangle's normal points the plane's way. No normal bound applies: on
+ * float32 noise a bound falsely rejects low triangles. None, or two, is a hard error naming the part.
  */
-function matchGenerating(partName: string, soup: TriSoup, t: number, gens: Generating[]): number {
+export function matchGenerating(partName: string, soup: TriSoup, t: number, gens: Generating[]): number {
   const cr = triCross(soup, t);
   const twiceArea = Math.hypot(...cr);
-  const n: Vec3 = [cr[0] / twiceArea, cr[1] / twiceArea, cr[2] / twiceArea];
   const corners = [0, 1, 2].map(j => soup.tris[3 * t + j]);
   const at = (): string => [0, 1, 2].map(ax => (corners.reduce((s, v) => s + soup.positions[3 * v + ax], 0) / 3).toFixed(3)).join(', ');
   const hits = gens.flatMap((g, gi) => {
-    if (twiceArea / 2 > NORMAL_AREA_FLOOR && !sameNormal(n, g.plane.n)) return [];
+    const facing = cr[0] * g.plane.n[0] + cr[1] * g.plane.n[1] + cr[2] * g.plane.n[2];
+    if (twiceArea / 2 > NORMAL_AREA_FLOOR && facing <= 0) return [];
     const dist = Math.max(...corners.map(v => Math.abs(
       g.plane.n[0] * soup.positions[3 * v] + g.plane.n[1] * soup.positions[3 * v + 1] + g.plane.n[2] * soup.positions[3 * v + 2] - g.plane.d)));
     return dist <= SHELL_TOLERANCE_CM ? [gi] : [];
@@ -211,6 +220,102 @@ function matchGenerating(partName: string, soup: TriSoup, t: number, gens: Gener
   if (!hits.length) throw new Error(`${partName}: triangle ${t} at (${at()}) matches no generating plane`);
   if (hits.length > 1) throw new Error(`${partName}: triangle ${t} at (${at()}) ties between generating planes ${hits.join(' and ')}`);
   return hits[0];
+}
+
+/** The tag a face on `g` takes at `s` along its line: Gable with the first zone holding `s`, else `g.tag`. */
+function zoneTag(g: Generating, s: number, storey: number): PartlessTag {
+  const z = g.along?.zones.find(zone => s >= zone.lo && s <= zone.hi);
+  return z ? {kind: 'Gable', storey, wall: z.wall, plane: -1} : g.tag;
+}
+
+/**
+ * Splits a convex polygon at `coord[axis] = c`. A corner within `SHELL_TOLERANCE_CM` of the line counts as on it, so
+ * nothing thinner than tolerance is cut off. Returns the polygon whole when the line does not cross it.
+ */
+function splitPolygon(poly: Vec3[], axis: AlongAxis, c: number): Vec3[][] {
+  const side = (p: Vec3): number => (p[axis] < c - SHELL_TOLERANCE_CM ? -1 : p[axis] > c + SHELL_TOLERANCE_CM ? 1 : 0);
+  const sides = poly.map(side);
+  if (!sides.includes(-1) || !sides.includes(1)) return [poly];
+  const below: Vec3[] = [], above: Vec3[] = [];
+  poly.forEach((p, i) => {
+    const q = poly[(i + 1) % poly.length];
+    const sp = sides[i], sq = sides[(i + 1) % poly.length];
+    if (sp <= 0) below.push(p);
+    if (sp >= 0) above.push(p);
+    if (sp * sq < 0) {
+      const t = (c - p[axis]) / (q[axis] - p[axis]);
+      const x: Vec3 = [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]), p[2] + t * (q[2] - p[2])];
+      below.push(x);
+      above.push(x);
+    }
+  });
+  return [below, above];
+}
+
+/**
+ * Journal decision 80: a triangle on a wall-line plane is divided at every zone end it straddles, so each piece lies
+ * within one stretch and is tagged by where it stands, never a straddling triangle by its centroid. Returns the
+ * pieces as triangles (fans of the convex pieces), with the tag each takes.
+ */
+function divideAtZoneEnds(corners: Vec3[], g: Generating, storey: number): TaggedTri[] {
+  let pieces: Vec3[][] = [corners];
+  if (g.along) {
+    const {axis, zones} = g.along;
+    for (const c of [...new Set(zones.flatMap(z => [z.lo, z.hi]))]) pieces = pieces.flatMap(p => splitPolygon(p, axis, c));
+  }
+  return pieces.flatMap(poly => {
+    const tris: Vec3[][] = [];
+    for (let i = 1; i + 1 < poly.length; i++) tris.push([poly[0], poly[i], poly[i + 1]]);
+    return tris.map(tri => ({tri, tag: g.along ? zoneTag(g, (tri[0][g.along.axis] + tri[1][g.along.axis] + tri[2][g.along.axis]) / 3, storey) : g.tag}));
+  });
+}
+
+const vertexOf = (P: number[], i: number): Vec3 => [P[3 * i], P[3 * i + 1], P[3 * i + 2]];
+
+/** A vertical plane's coordinate along its line: y on a plane facing ±x, x on one facing ±y. */
+const axisAlong = (p: Plane3): AlongAxis => (Math.abs(p.n[0]) > 0.5 ? 1 : 0);
+
+/**
+ * Spec decision 8 as amended (journal decisions 75 and 80): a gable piece's generating planes, each oriented out of
+ * the part and listed once.
+ * - A Roof plane for each piece plane.
+ * - Every vertical plane its faces can stand on: each island wall line, both band ends and the far side. A face on
+ *   one is Cheek with the piece's wall, except within a Gable zone. The zones, first match winning, are the piece's
+ *   own wall over the whole band when the plane is its own line, then each island wall on the plane over that wall's
+ *   own span, in ring order.
+ * - The plate, Cheek.
+ */
+export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Generating[] {
+  const b = plan.building;
+  const w = piece.wall;
+  const comp = b.comps[w.comp];
+  const cheek: PartlessTag = {kind: 'Cheek', storey: plan.storey, wall: w.id, plane: -1};
+  const gens: Generating[] = [];
+  const addOnce = (g: Generating): void => { if (!gens.some(e => samePlane(e.plane, g.plane))) gens.push(g); };
+  for (const id of piece.planes) addOnce({plane: roofPlane(b.planes[id], plan.plate), tag: {kind: 'Roof', storey: plan.storey, wall: -1, plane: id}});
+
+  const axis: Vec3 = alongX(w) ? [1, 0, 0] : [0, 1, 0];
+  const inward: Vec3 = [w.n.x, w.n.y, 0];
+  const lineD = inward[0] * w.a.x + inward[1] * w.a.y;
+  const vertical: Plane3[] = [
+    wallPlane(w), ...comp.walls.map(wallPlane),
+    {n: [-axis[0], -axis[1], -axis[2]], d: -piece.bandLo},
+    {n: axis, d: piece.bandHi},
+    {n: inward, d: lineD + far},
+  ];
+  for (const plane of vertical) {
+    const along = axisAlong(plane);
+    const span = (o: Wall): GableZone => {
+      const a = along === 0 ? o.a.x : o.a.y, c = along === 0 ? o.b.x : o.b.y;
+      return {wall: o.id, lo: Math.min(a, c), hi: Math.max(a, c)};
+    };
+    const zones: GableZone[] = [];
+    if (samePlane(plane, wallPlane(w))) zones.push({wall: w.id, lo: piece.bandLo, hi: piece.bandHi});
+    for (const o of comp.walls) if (samePlane(plane, wallPlane(o))) zones.push(span(o));
+    addOnce({plane, tag: cheek, along: zones.length ? {axis: along, zones} : undefined});
+  }
+  addOnce({plane: horizontal(plan.plate, false), tag: cheek});
+  return gens;
 }
 
 /**
@@ -234,60 +339,57 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
 
   const live: Deletable[] = [];
   const keep = <T extends Deletable>(m: T): T => { live.push(m); return m; };
-  let m = keep(keep(keep(new wasm.CrossSection([rect.map(toVec2)])).extrude(H + 10)).translate([0, 0, plan.plate]));
-  for (const id of piece.planes) {
-    const pl = b.planes[id];
-    const L = Math.hypot(pl.gx, pl.gy, 1);
-    m = keep(m.trimByPlane([pl.gx / L, pl.gy / L, -1 / L], -(plan.plate + pl.c) / L));
+  let mesh: Mesh | null;
+  try {
+    let m = keep(keep(keep(new wasm.CrossSection([rect.map(toVec2)])).extrude(H + 10)).translate([0, 0, plan.plate]));
+    for (const id of piece.planes) {
+      const pl = b.planes[id];
+      const L = Math.hypot(pl.gx, pl.gy, 1);
+      m = keep(m.trimByPlane([pl.gx / L, pl.gy / L, -1 / L], -(plan.plate + pl.c) / L));
+    }
+    m = keep(m.trimByPlane([0, 0, 1], plan.plate));
+    const foot = keep(keep(keep(new wasm.CrossSection([comp.outer.map(toVec2)])).extrude(H + 30)).translate([0, 0, plan.plate - 10]));
+    m = keep(m.intersect(foot));
+    mesh = m.isEmpty() ? null : m.getMesh();
+  } finally {
+    live.forEach(x => x.delete());
   }
-  m = keep(m.trimByPlane([0, 0, 1], plan.plate));
-  const foot = keep(keep(keep(new wasm.CrossSection([comp.outer.map(toVec2)])).extrude(H + 30)).translate([0, 0, plan.plate - 10]));
-  m = keep(m.intersect(foot));
-  const mesh = m.isEmpty() ? null : m.getMesh();
-  live.forEach(x => x.delete());
   if (!mesh) throw empty('nothing is left after the trims');
 
   // numProp is 3, so the mesh has no property seams and no merge vectors.
   const np = mesh.numProp;
   const positions: number[] = [];
   for (let v = 0; v < mesh.numVert; v++) positions.push(mesh.vertProperties[np * v], mesh.vertProperties[np * v + 1], mesh.vertProperties[np * v + 2]);
-  const tris = Array.from(mesh.triVerts);
-  const raw: TriSoup = {positions, tris, faceIDs: new Array<number>(tris.length / 3).fill(-1)};
+  const fromManifold: TriSoup = {positions, tris: Array.from(mesh.triVerts), faceIDs: []};
 
-  // Generating planes, oriented out of the part (spec decision 8 as amended, journal decision 75):
-  // - Roof on each piece plane;
-  // - Gable on every island wall line, with that wall: the piece's own wall first, then the island's walls in ring
-  //   order, so a line shared by collinear walls takes the first of them listed;
-  // - Cheek on what no wall line holds: the plate, the band ends and the far side.
-  // A plane already listed keeps its first tag, so a band end or far side on a wall line is Gable.
-  const gableOn = (on: Wall): Generating => ({tag: {kind: 'Gable', storey: plan.storey, wall: on.id, plane: -1}, plane: wallPlane(on)});
-  const cheek: PartlessTag = {kind: 'Cheek', storey: plan.storey, wall: w.id, plane: -1};
-  const candidates: Generating[] = piece.planes.map(id => ({tag: {kind: 'Roof', storey: plan.storey, wall: -1, plane: id}, plane: roofPlane(b.planes[id], plan.plate)}));
-  candidates.push(gableOn(w), ...comp.walls.map(gableOn));
-  const axis: Vec3 = alongX(w) ? [1, 0, 0] : [0, 1, 0];
-  const inward: Vec3 = [w.n.x, w.n.y, 0];
-  const lineD = inward[0] * w.a.x + inward[1] * w.a.y;
-  const minusAxis: Vec3 = [-axis[0], -axis[1], -axis[2]];
-  for (const pl of [
-    horizontal(plan.plate, false),
-    {n: minusAxis, d: -piece.bandLo},
-    {n: axis, d: piece.bandHi},
-    {n: inward, d: lineD + far},
-  ]) candidates.push({tag: cheek, plane: pl});
-  const gens = candidates.filter((g, i) => !candidates.slice(0, i).some(e => samePlane(e.plane, g.plane)));
+  const gens = gableGenerating(plan, piece, far);
 
-  // Tagged on Manifold's final mesh, then welded and snapped with its faceIDs before `ofMesh` (spec decision 11).
+  // Tagged on Manifold's final mesh, then welded and snapped with its faceIDs before `ofMesh` (spec decision 11). A
+  // triangle on a wall-line plane is divided at its Gable zone ends first (journal decision 80).
   const id = ctx.parts.length;
   const fullName = `${plan.label} storey ${plan.storey} ${name}`;
-  const ids = new Map<number, number>(); // generating index -> faceID
-  for (let t = 0; t < raw.tris.length / 3; t++) {
-    const gi = matchGenerating(fullName, raw, t, gens);
-    let f = ids.get(gi);
-    if (f === undefined) {
-      f = addFace(ctx.tags, {...gens[gi].tag, part: id}, gens[gi].plane);
-      ids.set(gi, f);
+  const ids = new Map<string, number>(); // generating index and tag -> faceID
+  const raw: TriSoup = {positions: [...positions], tris: [], faceIDs: []};
+  for (let t = 0; t < fromManifold.tris.length / 3; t++) {
+    const gi = matchGenerating(fullName, fromManifold, t, gens);
+    const corners = [0, 1, 2].map(j => fromManifold.tris[3 * t + j]);
+    const pieces = divideAtZoneEnds(corners.map(v => vertexOf(positions, v)), gens[gi], plan.storey);
+    for (const {tri, tag} of pieces) {
+      const key = `${gi}|${identityKey({...tag, part: id})}`;
+      let f = ids.get(key);
+      if (f === undefined) {
+        f = addFace(ctx.tags, {...tag, part: id}, gens[gi].plane);
+        ids.set(key, f);
+      }
+      if (pieces.length === 1) {
+        raw.tris.push(...corners);
+      } else {
+        const start = raw.positions.length / 3;
+        for (const p of tri) raw.positions.push(p[0], p[1], p[2]);
+        raw.tris.push(start, start + 1, start + 2);
+      }
+      raw.faceIDs.push(f);
     }
-    raw.faceIDs[t] = f;
   }
   return finishPart(ctx, plan, 'gable', name, raw);
 }

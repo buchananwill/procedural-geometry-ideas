@@ -5,7 +5,8 @@ import type {ErrorStatus, Manifold} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeysOf} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
-import {PartContext, RawPart, StoreyPlan, buildStoreyParts, errorMessage, makePartContext, planStorey} from './storey.ts';
+import {errorMessage} from './errors.ts';
+import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
 import {FaceTag, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, retagCompare, samePlane, tagLabel} from './tags.ts';
 
 /**

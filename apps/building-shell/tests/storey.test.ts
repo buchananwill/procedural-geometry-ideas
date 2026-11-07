@@ -5,10 +5,12 @@ import {SHELL_FIXTURES, ShellFixture, fixtureByName, storeysOf} from '../src/fix
 import {Wasm, getManifold} from '../src/manifold.ts';
 import {Piece, solveRoofParts} from '../src/roof/algoB.ts';
 import {Building, Rect, Sel, Wall, buildFromRects} from '../src/roof/model.ts';
-import {RawPart, StoreyPlan, buildStoreyParts, makePartContext, planBuilding, planStorey} from '../src/storey.ts';
-import {Vec3, makeShellTags} from '../src/tags.ts';
-import {partManifold} from '../src/union.ts';
-import {snapCm} from '../src/weld.ts';
+import {
+  Generating, RawPart, StoreyPlan, buildStoreyParts, makePartContext, matchGenerating, planBuilding, planStorey,
+} from '../src/storey.ts';
+import {FaceTag, ShellTags, Vec3, makeShellTags} from '../src/tags.ts';
+import {ShellUnion, partManifold, triArea, unionPlans} from '../src/union.ts';
+import {TriSoup, snapCm} from '../src/weld.ts';
 
 let wasm: Wasm;
 beforeAll(async () => { wasm = await getManifold(); });
@@ -39,11 +41,25 @@ function planWithPiece(label: string, rects: Rect[], piece: (b: Building) => Pie
   return {...plan, roof: {...plan.roof, pieces: [piece(plan.building)]}};
 }
 
-function gableOf(plan: StoreyPlan): RawPart {
-  const parts = buildStoreyParts(makePartContext(wasm, makeShellTags()), plan);
+function gableOf(plan: StoreyPlan, tags: ShellTags = makeShellTags()): RawPart {
+  const parts = buildStoreyParts(makePartContext(wasm, tags), plan);
   const g = parts.find(p => p.kind === 'gable');
   if (!g) throw new Error('no gable part built');
   return g;
+}
+
+/** Output area matching `pred` on the plane x = 200 facing +x, and off it. */
+interface OnX200 { on: number; off: number }
+
+function onX200(u: ShellUnion, pred: (t: FaceTag) => boolean): OnX200 {
+  const out: OnX200 = {on: 0, off: 0};
+  u.triTags.forEach((tag, t) => {
+    if (!pred(tag)) return;
+    const pl = u.tags.planes[u.mesh.faceIDs[t]];
+    const on = Math.abs(pl.n[0] - 1) < 1e-9 && Math.abs(pl.d - 200) <= SHELL_TOLERANCE_CM;
+    out[on ? 'on' : 'off'] += triArea(u.mesh, t);
+  });
+  return out;
 }
 
 const vertices = (p: RawPart): Vec3[] =>
@@ -117,6 +133,78 @@ describe('gable piece construction (decision 8)', () => {
       return {wall: w, bandLo: 2000, bandHi: 2100, farDist: 100, planes: [w.plane], label: 'line y=0 off the footprint'};
     });
     expect(() => gableOf(plan)).toThrow(/OffFootprintProbe storey 0: gable piece 0 \(line y=0 off the footprint\) is empty/);
+  });
+});
+
+describe('wall-line Gable is bounded by the wall (journal decision 80)', () => {
+  // The correctness reviewer's U: the spine's y = 0 wall is gabled over [0, 200] only. The piece's band end at x = 200
+  // stands over the spine for y 0 to 200, where no wall stands, and on the left arm's wall x = 200 for y 200 to 600.
+  const U_RECTS: Rect[] = [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]];
+  const U_SELS: Sel[] = [{y: 0, to: 200, form: 'gable'}];
+
+  it('has one surviving Cheek, on x = 200 over the spine, and Gable on the arm wall only within its span', () => {
+    const f = oneStorey('UProbe', U_SELS, U_RECTS);
+    const plan = planStorey(f, 0);
+    const u = unionPlans(wasm, f.name, [plan]);
+    expect(u.cheeks).toBe(1);
+    const cheek = onX200(u, t => t.kind === 'Cheek');
+    expect(cheek.off).toBeLessThan(SHELL_TOLERANCE_CM ** 2);
+    // Over the spine: 200 tall less the spine hip beneath it, 40000 - 10000.
+    expect(Math.abs(cheek.on - 30000)).toBeLessThan(0.05);
+    const arm = wallOn(plan.building, w => w.a.x === 200 && w.b.x === 200, 'on x = 200');
+    // The arm wall's own span, y 200 to 600, under min(200, 600 - y).
+    expect(Math.abs(onX200(u, t => t.kind === 'Gable' && t.wall === arm.id).on - 60000)).toBeLessThan(0.05);
+  });
+});
+
+describe('own wall first (journal decision 80)', () => {
+  it('tags a piece on the later of two collinear walls Gable with its own wall over the whole band', () => {
+    // [0, 400] x [0, 300] traced from two rects keeps a corner at (200, 0), so y = 0 is two collinear walls.
+    const tags = makeShellTags();
+    let own = -1, earlier = -1;
+    const part = gableOf(planWithPiece('CollinearProbe', [[0, 0, 200, 300], [200, 0, 400, 300]], b => {
+      const onY0 = b.walls.filter(x => x.a.y === 0 && x.b.y === 0).sort((p, q) => p.id - q.id);
+      if (onY0.length !== 2) throw new Error(`expected two walls on y = 0, found ${onY0.length}`);
+      earlier = onY0[0].id;
+      const w = onY0[1];
+      own = w.id;
+      const end = (x: number): number => wallOn(b, o => o.a.x === x && o.b.x === x, `on x = ${x}`).plane;
+      return {wall: w, bandLo: 0, bandHi: 400, farDist: 300, planes: [end(0), end(400)], label: 'line y=0 on the later wall'};
+    }), tags);
+    // Only the y = 0 plane: the far side at y = 300 is Gable on walls of its own, within their spans.
+    const onY0 = part.soup.faceIDs.filter(id => tags.planes[id].n[1] < -0.5 && Math.abs(tags.planes[id].d) <= SHELL_TOLERANCE_CM);
+    const gables = onY0.map(id => tags.table[id]).filter(t => t.kind === 'Gable');
+    expect(onY0.length).toBe(gables.length);
+    expect(own).toBeGreaterThan(earlier);
+    expect(gables.length).toBeGreaterThan(0);
+    expect([...new Set(gables.map(t => t.wall))]).toEqual([own]);
+  });
+});
+
+describe('generating-plane matching (journal decision 80, N2)', () => {
+  const up = (d: number): Generating => ({plane: {n: [0, 0, 1], d}, tag: {kind: 'Cheek', storey: 0, wall: 0, plane: -1}});
+  /** A one-triangle soup with these corners. */
+  const soupAt = (corners: Vec3[]): TriSoup => ({positions: corners.flat(), tris: [0, 1, 2], faceIDs: [-1]});
+
+  it('matches a low triangle whose float32-noisy normal is far beyond 1e-5', () => {
+    // 1 cm altitude, one corner 2e-4 cm high: the normal tilts by about 2e-4.
+    expect(matchGenerating('probe', soupAt([[0, 0, 0], [100, 0, 0], [50, 1, 2e-4]]), 0, [up(0)])).toBe(0);
+  });
+
+  it('is a hard error when no plane holds the triangle', () => {
+    expect(() => matchGenerating('NoMatchProbe', soupAt([[0, 0, 5], [100, 0, 5], [0, 100, 5]]), 0, [up(0)]))
+      .toThrow(/NoMatchProbe: triangle 0 at .* matches no generating plane/);
+  });
+
+  it('is a hard error when two planes both hold it', () => {
+    expect(() => matchGenerating('TieProbe', soupAt([[0, 0, 0.0025], [100, 0, 0.0025], [0, 100, 0.0025]]), 0, [up(0), up(0.005)]))
+      .toThrow(/TieProbe: triangle 0 at .* ties between generating planes 0 and 1/);
+  });
+
+  it('rejects a plane its normal faces away from', () => {
+    const down: Generating = {plane: {n: [0, 0, -1], d: 0}, tag: {kind: 'Cheek', storey: 0, wall: 0, plane: -1}};
+    expect(() => matchGenerating('FacingProbe', soupAt([[0, 0, 0], [100, 0, 0], [0, 100, 0]]), 0, [down]))
+      .toThrow(/matches no generating plane/);
   });
 });
 

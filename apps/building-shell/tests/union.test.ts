@@ -39,10 +39,10 @@ const EXPECTED_GENUS: Record<string, number> = {
 
 const kindOf = (kind: FaceTag['kind'], storey: number) => (t: FaceTag): boolean => t.kind === kind && t.storey === storey;
 
-/** The output area of `pred`'s triangles lying on the plane y = 0 (outward -y), and off it. */
 /** Tagged area on the plane y = 0 and off it. */
 interface OnOffY0 { on: number; off: number }
 
+/** The output area of `pred`'s triangles lying on the plane y = 0 (outward -y), and off it. */
 function splitByY0(u: ShellUnion, pred: (t: FaceTag) => boolean): OnOffY0 {
   const P = u.mesh.positions;
   const onY0 = (t: number): boolean => [0, 1, 2].every(j => Math.abs(P[3 * u.mesh.tris[3 * t + j] + 1]) <= SHELL_TOLERANCE_CM);

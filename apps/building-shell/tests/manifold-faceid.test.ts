@@ -6,6 +6,9 @@ import {getManifold, Wasm} from '../src/manifold.ts';
 let wasm: Wasm;
 beforeAll(async () => { wasm = await getManifold(); });
 
+/** Which coordinate axis a box face is normal to, and where along it the face lies. */
+type AxisPlane = [axis: number, at: number];
+
 /** An axis-aligned box as a raw mesh, every one of its 12 triangles carrying `baseID + faceIndex` (6 faces). */
 function boxMesh(w: Wasm, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, baseID: number) {
   const v = [
@@ -41,8 +44,6 @@ describe('manifold-3d 3.2.1 faceID provenance', () => {
     expect([...ids].some(id => id < 200)).toBe(true);
     expect([...ids].some(id => id >= 200)).toBe(true);
     // Each output triangle lies on the plane its faceID names.
-    /** Which coordinate axis a box face is normal to, and where along it the face lies. */
-    type AxisPlane = [axis: number, at: number];
     const planeOf = (id: number): AxisPlane => {
       const local = id % 100;
       const off = id >= 200 ? 5 : 0;
