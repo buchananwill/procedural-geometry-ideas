@@ -381,6 +381,17 @@ departs from those four steps is a defect.
     - **WP2.3 carries decisions 79 and 80.** Its check is that one reviewer, the correctness reviewer, re-reads the
       WP2.3 diff for N1, N2 and N4, and that the delegate shows `tsc --noEmit` clean. Decision 79's type items are
       mechanical, so the type reviewer is not recalled. **WP2 is accepted when that check passes.**
+81. **WP2.3 returned at `3fbc6de`, 137/137, `tsc --noEmit` clean**, per the delegate. No fixture and no case pin
+    moved.
+    - The U pins `cheeks` 1: a 30000 cm² Cheek on x = 200 above the spine's hip. The arm wall's Gable is 60000 cm²,
+      on its own span only.
+    - Gate 1 convicted: with plane-only matching restored, the U reads 0. Gate 2 convicted: with the own-wall order
+      swapped, the N4 test fails.
+    - The delegate's interpretations stand pending the check:
+      - zone ends are inclusive within tolerance;
+      - band-end and far-side planes hold Gable zones where they lie on a wall line;
+      - triangles under the area floor match by offset only.
+    - The correctness reviewer's targeted check of `8f7fb86..3fbc6de` is dispatched.
 
 ## Findings
 
