@@ -913,6 +913,24 @@ departs from those four steps is a defect.
        - **L-c.** The lit-normal model adds Ground seen from above and downward-facing Cheek.
      - **Side effect, reported:** the reviewer's first extraction overwrote `scratchpad\snap42`, another agent's
        folder. Both running WP3 delegates were warned.
+115. **Courtyards are roofed by a cut along a raw Ring wall** (user, 2026-11-07: "use one of the raw rings walls to
+     make a cut across the courtyards building ring, and that produces a shape the solver can handle without any
+     changes to it"). Spec 2 is amended with the cut-selection rule, the true-outline wall prism and Internal cut
+     faces. Spec §3 no longer defers courtyards. Decision 73's "any `cut` form is a hard error" now applies only to
+     authored cuts.
+     - **The machinery exists already.** Roof-gable's `buildCourtyard` and algorithm B's cut pieces do the work,
+       measured on cases 9a to 9d.
+     - **WP3.6 delivers it** after WP3.4 and WP3.5 land. It touches `storey.ts` and `fixture.ts` and the fixture
+       roster's tests, which overlap both delegates' work. It delivers:
+       - **A `Courtyard` fixture:** four Rings, `[0,0,1000,300]`, `[0,700,1000,1000]`, `[0,300,300,700]` and
+         `[700,300,1000,700]`, at 250 cm and 30°. Its assertions:
+         - spec 32's invariants with genus 1;
+         - Wall faces on all four courtyard walls;
+         - no ShellEdge on the cut's line beyond the geometry's own (the cut leaves no trace);
+         - an empty report in spec 40's sense.
+       - **Cases 9a to 9d join the roof-parts agreement test** through their own cut.
+       - **The random generator may produce courtyards** within the Grammar's caps.
+     - The open item "Courtyards" closes on WP3.6's acceptance.
 
 ## Findings
 

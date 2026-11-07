@@ -88,8 +88,25 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    }
    ```
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
-   `unionLoops`. Several islands are allowed, each its own `Comp`. A hole is refused with an error, as roof-gable
-   refuses one.
+   `unionLoops`. Several islands are allowed, each its own `Comp`.
+
+   **A hole (a courtyard) is roofed through a cut, the user's sanctioned solution** (**AMENDED 2026-11-07**, journal
+   decision 115; a hole was refused before).
+   - **Where the cut goes.** The cut runs along one raw Ring wall: a wall of one of the storey's Ring rectangles,
+     before the union, that crosses the island's ring from the hole's loop to the outer loop with the island's
+     interior on both sides along its whole length.
+   - **Which wall, when several qualify:** the shortest, then the lowest x, then the lowest y. If none qualifies, it
+     is a hard error naming the fixture and storey.
+   - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
+     width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
+     `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's
+     copied files change.
+   - **The wall prism** is built from the true outline, the outer loop with the hole's loop as a hole, not from the
+     slit polygon. The courtyard's walls are ordinary `Wall` faces, and the cut is not a wall.
+   - **Faces on the cut's vertical plane** from the hip solid or the cut pieces are tagged `Internal`. Each has a
+     coincident opposite partner across the slit, so the union removes it, and `survivingInternal` 0 proves the cut
+     leaves no surface.
+   - **Authored `form: 'cut'` selectors stay a hard error.** Only this rule places a cut.
 3. **Roof forms are authored per storey on the union outline** with roof-gable's `Sel`s. Deriving a union wall's form
    from the Ring that owns it is deferred.
 4. **Every storey is roofed as if it were the top storey**, whether or not a storey stands over it. A middle storey's
@@ -519,7 +536,8 @@ assertion.
 
 - **Deriving union wall forms from Ring forms.** This prototype authors forms per storey, so the inheritance rule
   stays a C++-side decision.
-- **Courtyards and holes.** roof-gable needs a cut for them, and no fixture here has one.
+- ~~**Courtyards and holes.**~~ No longer deferred: decision 2 roofs them through a cut along a raw Ring wall
+  (journal decision 115).
 - **Numerical parity with the C++ Cell counts and indices.** The JSON is reference data for the new C++ design, not a
   regression check on the old one.
 - **The C++ boolean**: Manifold vendored, or the engine's `UE::Geometry::FMeshBoolean`. Either is for the C++ spec.
