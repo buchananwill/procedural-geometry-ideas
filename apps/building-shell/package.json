@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config src/viewer/vite.viewer.config.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "export": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/export.ts"
