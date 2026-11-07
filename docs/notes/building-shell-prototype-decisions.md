@@ -169,7 +169,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       "different tags" now reads "different identities");
     - every such conflict is listed in the report with its fixture, plane and both tags.
 16. **Positions are float32 in `manifold-3d`'s mesh**, so every geometric tolerance in the app is `0.01` cm and lives
-    in one constant, `SHELL_TOLERANCE_CM`.
+    in one constant, `SHELL_TOLERANCE_CM`. **AMENDED 2026-11-07** (journal decision 73): one exception, the re-tag
+    pass's containment slack. It is `RETAG_SLACK_CM = 1e-3`, its own named constant, above float32 noise but small
+    enough not to relabel a genuine thin face.
 17. **A surviving `Internal` triangle is a defect, not a face**: it is drawn magenta and counted in
     `ShellReport.survivingInternal`, and every fixture asserts that count is zero.
 
@@ -323,7 +325,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     decision 47).
 32. **Every fixture asserts these invariants:**
     - Manifold's status is OK;
-    - the output is closed;
+    - the output is closed, with its expected genus. That is 1 for `Bridge` and `BridgeOverBlock`, each of which has a
+      tunnel under the bridge, and 0 for the other clean fixtures. A degenerate twin's genus is measured, then pinned
+      (**AMENDED 2026-11-07**, journal decision 73);
     - `survivingInternal` is 0;
     - `cheeks` is 0. A surviving Cheek is reported, not waived, and a fixture that shows one is a finding
       (**AMENDED 2026-11-07**, journal decision 46);

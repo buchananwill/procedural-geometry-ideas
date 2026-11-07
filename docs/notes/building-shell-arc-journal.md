@@ -256,6 +256,61 @@ departs from those four steps is a defect.
     - `src/manifold.ts`, the single WASM loader, joins the roster.
     - Rule on the NoPlane hard error once the reviews are in: it matches the substring `': NoPlane,'` in the frozen
       `buildPieces`' note text.
+72. **Rulings on WP2's type review** (`typescript-type-reviewer`, REQUEST CHANGES, 6 blocking, 6 notes, on
+    `2ec9e98`). None of the findings touches a shape the spec fixes.
+    - **B1 to B6 are all accepted:**
+      - named result types for `weldAndSnap`, `unionParts`, `retagPass` and the `Pick`s, each derived from
+        `ShellUnion` where its fields come from there;
+      - named `RawTriEdge` and `Deletable`;
+      - `Vec3` and named index tuples instead of written-out tuples, with the redundant `triangulate` cast removed;
+      - `Rect[]` and `Sel[]` in the tests, with no casts;
+      - `ErrorStatus` instead of `string`;
+      - one `errorMessage(e: unknown)` helper at every catch site.
+    - **N1 to N4 are accepted:**
+      - `RetaggableKind = Exclude<ShellKind, 'Internal'>`, with a completeness-checked rank table;
+      - the module-private types exported, and the repeated `Omit`s named;
+      - explicit return types on `storeyRects` and `makeShellTags`;
+      - named failures instead of `!` in the tests.
+    - **N5:** the canonical `Vec3` is manifold-3d's, re-exported from `tags.ts`, so there is one definition.
+    - **N6, a rejected WASM load cached forever:** no change. It is a dev tool, and a failed load is fatal anyway.
+    - These fixes form **WP2.1**, together with any accepted findings from the correctness review. WP2 is accepted only
+      after WP2.1 is verified.
+73. **Rulings on WP2's correctness review** (general-purpose, Opus, on `2ec9e98`). It found no blocking defect, and it
+    re-ran 110/110 on a tree it showed equal to the commit. All accepted findings go into WP2.1.
+    - **Positive controls (Medium), accepted.**
+      - `cheeks` is pinned per case in the 49-case agreement test, as measured. The delegate reports the cross-table
+        of union Cheeks against roof-gable's per-case B verdict (F27).
+      - A test omits the hip solid and asserts `survivingInternal > 0`.
+    - **The footprint trim and the bbox cap are never exercised (Medium-Low), accepted.** A constructed storey whose
+      gable band leaves its island's footprint is asserted and convicted by deleting `intersect(foot)`. The bbox cap
+      gets the same treatment.
+    - **"Closed" adds nothing beyond Manifold's status (Low), accepted and strengthened.** Each fixture asserts its
+      expected genus: 1 for `Bridge` and `BridgeOverBlock`, which each have a tunnel under the bridge, open at both
+      y faces, and 0 for the other clean fixtures. The degenerate twins' genus is measured, then pinned. The dead
+      merge-vector code goes.
+    - **Re-tag containment slack of 0.01 cm (Low), accepted.** It could launder a thin Cheek into Wall. The slack
+      becomes its own named constant, `RETAG_SLACK_CM = 1e-3`, which is above float32 noise (about 1e-4) and below
+      the 0.01 tolerance. Spec 16 is amended to name it. A unit test convicts setting it to 0 and setting it to 0.01.
+    - **The gable piece drops silently when it is empty or `H <= tol` (Low), accepted.** This is a hard error naming
+      the fixture, storey and line, by decision 64's reasoning.
+    - **`onEdge` can return the triangle's own third vertex (Low), accepted.** A sliver whose third vertex lies on
+      its own opposite edge is dropped, not split. A unit test covers it.
+    - **Gable-piece tagging picks the nearest plane by normal sign alone (Low), accepted.** A triangle first matches
+      generating planes whose normal agrees within 1e-5, then the nearest offset. Two candidates tying within
+      tolerance is a hard error.
+    - **NoPlane matched by substring (Low), accepted.** Any `solveRoofParts` note is a hard error, because notes are
+      produced only on a drop.
+    - **A lone `cut` wall silently becomes a hip (Low), accepted.** Any `cut` form in a shell storey is a hard error,
+      because courtyards are deferred.
+    - **The `1e-9` area threshold:** derived from `SHELL_TOLERANCE_CM²`. `cheeks` counts Cheek identities with area
+      above `SHELL_TOLERANCE_CM²`.
+    - **The case-count floor:** exactly 49, not `> 40`.
+    - **A manifold leak when `partManifold` throws:** freed in a `finally`.
+    - **Interpretations accepted as rulings:**
+      - A Cheek carries its piece's wall.
+      - Equal kind and storey falls to the lower wall id, then the lower plane id.
+      - The tests keep their own assertion tolerances.
+    - **The spec still said "All nine" (Low):** already corrected in `6555588`. The reviewer read an earlier text.
 
 ## Findings
 
@@ -377,3 +432,6 @@ departs from those four steps is a defect.
   point-in-polygon falls into the float crack between two skeleton faces. The union gives the correct height there.
   This is a defect of the frozen prototype. The agreement test offsets its grid by (+0.3, +0.7) cm to stay off such
   lines.
+- **F27. The union leaves surviving Cheeks on roof-gable cases 2b, 4b, 5a to 5e and 8b** (8 cases, `cheeks` 1 or 2),
+  per the WP2 correctness reviewer's probe. Roof-gable's B tally has 6 CHEEK verdicts, so the two sets do not map one
+  to one. WP2.1 reports the per-case cross-table.
