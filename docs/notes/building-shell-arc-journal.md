@@ -67,9 +67,7 @@ departs from those four steps is a defect.
 
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
-- **What a surviving Cheek is (F32).** Is it a defect, which is the prototype's rule today (decision 46: no Cells,
-  and `cheeks` 0 asserted), or a legitimate Gable-like face with Cells, as the C++ treats it? Asked of the user
-  2026-11-07.
+- ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
 - **Roof lines in the C++ port: exact cut or staircase (F20, point 2).** The prototype keeps exact cuts (decision 66).
   The user rules for C++.
 - **Corners between two Rings: `RingJunction` (C++) or `ExternalCorner`/`InternalCorner` (prototype) (F20, point 1).**
@@ -334,6 +332,25 @@ departs from those four steps is a defect.
     - the footprint and bbox tests use a hand-made `Piece`.
 
     After WP2.2, the WP2.1 and WP2.2 diff goes to both reviewers for a targeted re-review.
+77. **A surviving Cheek is a legitimate face of its own kind, with Cells** (user, 2026-11-07, choosing over "Cheek
+    is a Gable" and "Cheek stays a defect"). It amends spec 21, 22, 25 and 32, and decision 46. The amendments land
+    in WP3.
+    - **Cells:** a Cheek face is laid in `(u, z)` exactly as a Gable face (spec 22). Its interior lattice sides are
+      `GableVertical` and `GableHorizontal` (spec 25).
+    - **Edges:** for the edge table (spec 21), a Cheek reads as a Gable. Every row that names Gable applies to Cheek
+      in Gable's place, and a Cheek against a Gable reads as Gable against Gable. The face keeps its own `ShellKind`,
+      so reports and the viewer can tell a cheek from a wall-line Gable.
+    - **Fixtures:** decision 46's "every fixture asserts `cheeks` is 0" is STRUCK. `cheeks` is information. Each
+      fixture and case pins its measured count, which is 0 for all ten fixtures and 1 for cases 2b, 4b and 8b.
+    - **Report:** `newConventions` lists `Cheek`, because the C++ makes a cheek a Gable over no run
+      (`AddCheekGable`, F32).
+78. **WP2.2 returned at `9d90583`, 131/131, `tsc --noEmit` clean**, per the delegate. Both gates convicted:
+    - with the old wall-line rule restored, exactly the 5a to 5e pins fail;
+    - with a wrong genus expectation on Overhang or Bridge, that fixture's genus test fails.
+
+    The delegate's interpretation stands as a ruling: collinear walls share one Gable plane, and a face on that line
+    takes the piece's own wall when it is on the piece's line, otherwise the first wall in ring order. The
+    `2ec9e98..9d90583` diff goes to both reviewers for a targeted re-review.
 
 ## Findings
 
@@ -485,3 +502,7 @@ departs from those four steps is a defect.
   **Divergence: the C++ makes Cheeks Gables too.** `AddCheekGable` (`ModularRoofAssembly.cpp:76-98`) adds a Gable
   over no run, carrying `RaisedByRun`, `CheekOrigin` and `CheekAxisU`, with its columns on the plan lattice. The
   prototype instead gives a Cheek no Cells, and decision 46 makes a surviving Cheek fail every fixture.
+- **F33. Under decision 75, the union shows a Cheek only where B says CHEEK: cases 2b, 4b and 8b**, each a band-end
+  face standing on no wall line. They are 2b at y = 150 (11250 cm²); 4b at y = 150 and y = 350 (11250 cm² each,
+  one identity); and 8b at x = 800 (17500 cm²). Cases 5a to 5e now show none. B's CHEEKs on 2d, 3c and 4l still have
+  no surviving Cheek in the union. Measured at `9d90583`.

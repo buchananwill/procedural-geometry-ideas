@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 66 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 78 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -244,6 +244,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     | Wall or Gable, Ground | none | `GroundLine` | none |
     | Wall, Underside | none | `SoffitEdge` | `SoffitJunction` |
 
+    **A Cheek reads as a Gable for this table**: every row that names Gable applies with Cheek in Gable's place, and a
+    Cheek against a Gable or another Cheek reads as Gable against Gable (**AMENDED 2026-11-07**, journal decision 77).
+
     Any cell of the table marked none, and any pair not in it, gives `Unclassified`: drawn magenta and counted in
     `ShellReport.unclassifiedEdges`. `RoofSeam`, `GableSloped`, `SoffitEdge`, `SoffitJunction` and `Unclassified` are
     new names, not in `EModularEdgeKind`, and the report lists them as such.
@@ -261,7 +264,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - a `Wall` or `Gable` face is laid in `(u, z)`, where `u` is world x for a face whose normal is ±y and world y for
       one whose normal is ±x;
     - a `Roof` or `Underside` face is laid in plan `(x, y)`;
-    - `Ground`, `Cheek` and `Internal` faces get no Cells.
+    - a `Cheek` face is laid in `(u, z)` exactly as a Gable face;
+    - `Ground` and `Internal` faces get no Cells.
+
+    **AMENDED 2026-11-07** (journal decision 77, the user's ruling): a surviving Cheek is a legitimate face of its own
+    kind with Cells. It had no Cells before.
 23. **A Cell is one lattice square intersected with its face's projected region**, by `CrossSection.intersect`, lifted
     back onto the face's plane:
 
@@ -282,7 +289,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     junction cuts Cells along it, exactly as the shell does.
 25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes:
     - `WallVertical` or `WallHorizontal` on a Wall face;
-    - `GableVertical` or `GableHorizontal` on a Gable face;
+    - `GableVertical` or `GableHorizontal` on a Gable or Cheek face (Cheek **AMENDED 2026-11-07**, journal decision
+      77);
     - `RoofInterior` on a Roof or Underside face.
 
     **AMENDED 2026-11-07** (journal decision 61): Gable faces took `WallVertical` and `WallHorizontal`, which disagrees
@@ -332,8 +340,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       no tunnel. A degenerate twin's genus is measured, then pinned (**AMENDED 2026-11-07**, journal decisions 73 and
       74);
     - `survivingInternal` is 0;
-    - `cheeks` is 0. A surviving Cheek is reported, not waived, and a fixture that shows one is a finding
-      (**AMENDED 2026-11-07**, journal decision 46);
+    - `cheeks` equals the fixture's pinned, measured count, which is 0 for all ten. A Cheek is a legitimate face
+      (**AMENDED 2026-11-07**, journal decisions 46 and 77; decision 46's "is 0" is struck);
     - every Cell's polygon lies on its face;
     - the summed `ShellFace` areas equal the output mesh's surface area within tolerance.
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
@@ -347,7 +355,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
     **AMENDED 2026-11-07** (journal decisions 65 and 66):
     - **`newConventions` lists every name used where the C++ net has no precedent**. Today that is `RoofInterior` on
-      Underside faces, since the C++ net has no underside Cells.
+      Underside faces, since the C++ net has no underside Cells, and the `Cheek` kind, which the C++ makes a Gable
+      over no run (journal decision 77).
     - **Roof lines are cut exactly**, so hips, valleys and off-lattice ridges carry triangular and sliver partial
       Cells. The C++ net instead staircases them on whole plan Cells. Which form the port takes is not decided here.
 
