@@ -37,6 +37,8 @@ departs from those four steps is a defect.
 - `EModularEdgeKind` is at `Source\PistePerfect\Public\Buildables\ModularBuilding\ModularEdgeKind.h` in Piste Perfect:
   16 members, `WallVertical` through `GroundLine`.
 - `@proc-geo/core`'s `package.json` resolves to `dist/`, not source (F9).
+- **The spec's author is the Claude session `pisteperfect-5-7-27`**, which confirmed it on 2026-11-07. Confer with it
+  by cross-session message on anything that touches the C++ project.
 
 ## 4. Next work
 
@@ -44,13 +46,17 @@ departs from those four steps is a defect.
 2. ~~Fold decisions 41 to 56 into the spec in place.~~ Done 2026-11-07. Amended: spec 8, 9, 10, 11, 14, 15, 18, 20,
    21, 23, 31, 32, 37, 38, 39 and 40, plus the fixture preamble. The worked examples in spec 20 were recomputed with
    unit normals and incident-triangle vertices.
-3. Cut `feature/building-shell`, commit the spec and this journal on it, then dispatch the implementation. This waits
-   for the user's go.
+3. ~~Cut `feature/building-shell` and commit the spec and this journal on it.~~ Done: `3e833dc`.
+4. **WP1 dispatched 2026-11-07** (general-purpose, Opus) at `3e833dc`. Its gates are: a perturbed copy fails the
+   copy-integrity test, `@proc-geo/core` resolves to source, and the license check is clean. Checkpoint with the user
+   when it returns, before WP2.
 
 ## 5. Open items
 
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
+- ~~**The C++ vertex-addition feature (F15).**~~ Located by the user (content journal 01, C30) and closed by decision
+  58.
 
 ## Decisions
 
@@ -90,7 +96,10 @@ departs from those four steps is a defect.
     F12.
 53. **Decision 51 is accepted by the user (2026-11-07)**, who notes that a proposed C++ feature already adds vertices
     to the model, so welding and snapping belong with that work on the C++ side. The prototype's rule stays as
-    decision 51 states it.
+    decision 51 states it. **AMENDED 2026-11-07:** the user has now located the feature. It is "vertices as net slots"
+    (Piste Perfect content journal 01, deferred item C30, raised as option A in C28): the grid also stores vertices,
+    and a vertex can be a location that fixes a Piece Type in the Grammar. It is not a welding feature. Decision 51
+    serves it by making a vertex's identity exact. Decision 58 carries the feature into the prototype.
 54. **Open questions go to the user one per turn, each with its own detail** (user, 2026-11-07).
 55. **Bridge becomes two fixtures** (user, 2026-11-07), and the spec's fixture roster grows from six to seven.
     - **`Bridge` is the open-ground column case.** Towers `[0,0,200,600]` and `[800,0,1000,600]` over storeys 0 to 2,
@@ -121,6 +130,22 @@ departs from those four steps is a defect.
 
     The standing team is Unreal C++ only, so the delegates are `general-purpose` agents with the model set
     explicitly on each dispatch.
+
+58. **The shell exports its vertices as first-class records**, so that the JSON can serve as reference data for C30
+    (user, 2026-11-07, when locating the feature):
+
+    ```ts
+    interface ShellVertex { id: number; p: Vec3; edges: number[]; cells: number[]; faces: number[] }
+    ```
+
+    - **A vertex is every `ShellEdge` endpoint and every Cell corner**, deduplicated by exact equality of its position
+      on decision 51's 1/1024 cm grid. That gives every vertex exactly one id.
+    - **`ShellEdge` gains `v: [number, number]`**, its two endpoint vertex ids.
+    - **`ShellCell` gains `corners: number[]`**, the vertex id of each `polygon` point, in the same order.
+    - `BuildingShell` gains `vertices: ShellVertex[]`.
+    - **A vertex carries no kind of its own.** The kinds of its incident Edges and the tags of its incident faces are
+      enough for a Grammar to fix a Piece Type, and naming vertex kinds is the C++ design's call.
+    - Lands in WP3. The viewer gains a vertex toggle and a vertex readout in WP4.
 
 ## Findings
 
@@ -169,3 +194,12 @@ departs from those four steps is a defect.
   NarrowUpperStoreyGabled's containment (storey 1's gabled roof stays under storey 0's); TallerUpper's 473.2, 415.5 and
   Ridge span; Overhang's areas; Bridge's areas and heights. Every name the spec calls new is absent from
   `EModularEdgeKind`, and every name it calls reused is present. The README's B line sums to 53.
+- **F15. The spec's author knows of no C++ vertex-addition feature and found no spec for one** (`pisteperfect-5-7-27`,
+  2026-11-07). It searched PistePerfect Notes for vertex addition, insertion, added corners, 1/1024 and quantisation,
+  and read the buildables index and modular-building journal 10. The nearest existing mechanisms do something else:
+  - `FPathwayNodeHandle` quantises pathway positions onto a 1 cm lattice;
+  - the persistence spec's `RehomeModularStroke` handles a removed vertex, not an added one.
+
+  The author agrees that opposite-vertex convexity (decision 42) is right, and raises no objection to decisions 41 to
+  57. Decision 53's premise is therefore unlocated, not disproved. **Resolved the same day:** the feature is C30 in
+  content journal 01, a branch the spec's author had not read. See decision 58.

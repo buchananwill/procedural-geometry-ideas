@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 56 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 58 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -55,7 +55,7 @@ into `apps/building-shell/src/roof/`:
 - `tags.ts`: `ShellKind`, `FaceTag`, `TagTable` (`faceID` to `FaceTag`).
 - `union.ts`: `unionShell` (all raw parts to one manifold) and the coplanar re-tag pass.
 - `faces.ts`: `ShellFace` assembly from the output triangles.
-- `edges.ts`: `EdgeKind`, `ShellEdge`, `classifyEdge`.
+- `edges.ts`: `EdgeKind`, `ShellEdge`, `ShellVertex`, `classifyEdge`.
 - `cells.ts`: `ShellCell`, `layCells`.
 - `shell.ts`: `BuildingShell`, `ShellReport`, `buildShell(fixture)`, the pipeline's one entry point.
 - `export.ts`: a node CLI writing `out/<fixture>.json` for every fixture.
@@ -179,8 +179,16 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
 19. **A `ShellEdge` is a maximal straight run of manifold edges with the same two `ShellFace`s on either side**:
 
     ```ts
-    interface ShellEdge { id: number; kind: EdgeKind; a: Vec3; b: Vec3; faces: [number, number] }
+    interface ShellEdge { id: number; kind: EdgeKind; a: Vec3; b: Vec3; v: [number, number]; faces: [number, number] }
+    interface ShellVertex { id: number; p: Vec3; edges: number[]; cells: number[]; faces: number[] }
     ```
+
+    **AMENDED 2026-11-07** (journal decision 58): the net's vertices are first-class records, as reference data for
+    Piste Perfect's deferred C30, "vertices as net slots".
+    - **A `ShellVertex` is every `ShellEdge` endpoint and every Cell corner**, deduplicated by exact equality of its
+      position on decision 11's 1/1024 cm grid.
+    - `v` holds an Edge's endpoint vertex ids.
+    - **A vertex carries no kind of its own**: its incident Edges' kinds and faces' tags are what a Grammar reads.
 20. **Convexity is the only sign-sensitive test in the app, and it is stated once here.** The edge is **flat** when
     `|dot(nA, nB) - 1| < 1e-6`, and **this test runs first**. Otherwise take face A, its outward unit normal `nA`, a
     point `p` on the edge, and `q`, the vertex opposite the edge in face B's output triangle incident to it. The edge
@@ -237,11 +245,12 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
     back onto the face's plane:
 
     ```ts
-    interface ShellCell { id: number; face: number; lattice: [number, number]; polygon: Vec3[]; sides: EdgeKind[]; whole: boolean }
+    interface ShellCell { id: number; face: number; lattice: [number, number]; polygon: Vec3[]; corners: number[]; sides: EdgeKind[]; whole: boolean }
     ```
 
     `sides[i]` is the kind of the side from `polygon[i]` to `polygon[i + 1]`, set by decision 25 (**AMENDED
-    2026-11-07**, journal decision 44).
+    2026-11-07**, journal decision 44). `corners[i]` is the `ShellVertex` id of `polygon[i]` (**AMENDED 2026-11-07**,
+    journal decision 58).
 
     `whole` is true when its area is `cellSize²` within tolerance. A partial Cell is kept, however small, unless its
     area is under `SHELL_TOLERANCE_CM²`, and the report counts them.
@@ -258,7 +267,8 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
     face, Cell or Edge shows a readout:
     - for a face: tag kind, storey, source wall label, area;
     - for a Cell: lattice coordinate and whole or partial;
-    - for an Edge: kind, length, and its two faces' tags.
+    - for an Edge: kind, length, and its two faces' tags;
+    - for a vertex: position, and its incident Edges' kinds (**AMENDED 2026-11-07**, journal decision 58).
 
     A click pins the readout.
 28. **Colours are fixed per kind:**
@@ -268,7 +278,7 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
     - partial Cells are drawn in a lighter shade of their face's colour;
     - a legend lists every colour in use.
 29. **Toggles:**
-    - faces, Edges, Cell outlines;
+    - faces, Edges, vertices, Cell outlines (vertices **AMENDED 2026-11-07**, journal decision 58);
     - each storey;
     - a **raw** mode that draws every raw part before the union as translucent ghosts, so what the union removed is
       visible.
@@ -295,7 +305,7 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
 
     ```ts
     interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[] }
-    interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; cells: ShellCell[]; report: ShellReport }
+    interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; vertices: ShellVertex[]; cells: ShellCell[]; report: ShellReport }
     ```
 
     These files are reference data for Piste Perfect's C++ tests.
