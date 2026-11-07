@@ -49,6 +49,7 @@ into `apps/building-shell/src/roof/`:
 
 **New, in `apps/building-shell/src/`:**
 
+- `constants.ts`: `SHELL_TOLERANCE_CM` (decision 16).
 - `fixture.ts`: `ShellFixture`, `FixtureRing`, `StoreyRoof`, and the fixture list `SHELL_FIXTURES`.
 - `storey.ts`: `StoreyPlan` (one storey's union outline and its solved roof) and `buildStoreyParts` (one storey's
   raw tagged solids).
@@ -312,7 +313,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
 31. **Copy integrity:** a vitest test runs roof-gable's algorithm B over the copied `cases.ts` with `measure.ts`. Its
     tally must equal the roof-gable README's B line exactly: `pass 44, cheek 6, fail 3, blocked 0, none 0`. The test
-    fails if the copy drifted or the skeleton moved off `f7b6091`'s behaviour. **The app's vite and vitest configs
+    fails if the copy drifted or the skeleton moved off `f7b6091`'s behaviour, on the path the shell uses. **AMENDED
+    2026-11-07** (journal decision 69): the test also pins each of the 53 cases' B verdicts, captured from roof-gable's
+    own `run.ts` at `f7b6091`. Code the shell never runs is out of its scope. **The app's vite and vitest configs
     alias `@proc-geo/core` to `packages/core/src/index.ts`**, as core's jest config does. Core's `package.json`
     resolves to `dist/`, so without the alias this test would measure the last build (**AMENDED 2026-11-07**, journal
     decision 47).

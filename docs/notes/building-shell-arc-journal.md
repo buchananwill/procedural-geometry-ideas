@@ -53,7 +53,10 @@ departs from those four steps is a defect.
 5. **WP2 dispatched 2026-11-07** (general-purpose, Opus) at `153166a`, on the user's go. Its gates: disabling the
    re-tag pass, offsetting a storey by 0.005 cm, and making the NoPlane drop silent each fail a test, and removing the
    snap is reported. Its first open question is whether manifold-3d 3.2.1 carries `faceID` through `union`; the
-   delegate stops if it does not. When it returns, it gets decision 67's two reviews before acceptance. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
+   delegate stops if it does not. When it returns, it gets decision 67's two reviews before acceptance. While it ran,
+   it was handed decision 68's `RoofParts` naming and decision 69's test that the parts agree with `runB`.
+6. **WP1.1** (after WP2 merges, before WP3): decision 68's typecheck script with `@types/node`, plus decision 69's
+   per-case verdict pin and its vite-alias test. It covers raw parts, tagging (decision 45), welding and snapping (decision 51), the
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
    invariants on all nine fixtures.
 
@@ -218,6 +221,27 @@ departs from those four steps is a defect.
     - **N4, the core path declared in both `tsconfig.json` and `vite.config.ts`:** no change. tsconfig cannot import
       it, and the module-identity test convicts a broken vite alias. A broken tsconfig path would surface under N3's
       typecheck. The unused `export` of `CORE_SOURCE` is cosmetic.
+69. **Rulings on WP1's correctness review** (general-purpose, Opus, on `da766c4`). It found the copies byte-identical
+    or allowed, and the tally equal to `run.ts`'s. It re-ran the app's tests (2/2) on a tree it showed unchanged from
+    the commit.
+    - **Discarded `notes` (rated High):** already decision 64. Its amendment postdates `da766c4`, so this is no WP1
+      defect; WP2 delivers it.
+    - **`solveRoofParts` re-types `runB`'s logic, with no test that they agree (Medium):** accepted. WP2 adds a test
+      for every hole-free `CASES` entry: the union of that storey's raw parts has top-surface height
+      `runB(b).eval(p).h + plate` on a plan grid inside the footprint. The test is convicted by mutating `1 / w.tan`.
+      Handed to the WP2 delegate. This ties the shell's parts to roof-gable's own answer, not to the README's counts.
+    - **The tally compares counts only (Medium):** accepted in part. The test pins the per-case B verdict for all 53
+      cases. The verdicts are captured by running roof-gable's own `run.ts` read-only at `f7b6091`, and the counts
+      assertion stays. Drift in code the shell never runs (`transformBuilding`, `buildCourtyard`, the
+      `contact`/`ridge` branches, `compareSurfaces`) is out of scope. Spec 31's claim is narrowed to "drift on the
+      path the shell uses".
+    - **The alias test only observes vitest (Low):** accepted. A test asserts that `vite.config.ts` holds the alias
+      and that `vitest.config.ts` defines none of its own.
+    - **`src/constants.ts` is missing from the roster (Low):** the roster gains it.
+    - The per-case verdicts and the alias test land with decision 68's typecheck as **WP1.1**, after WP2 merges and
+      before WP3.
+    - **WP1 is accepted at `da766c4`**, which lifts decision 62's provisional status. The open follow-ups are all
+      named here.
 
 ## Findings
 
