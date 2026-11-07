@@ -1,6 +1,6 @@
 // The pipeline's one entry point: the four-step model end to end, from a fixture to its BuildingShell (spec decision
 // 33). Steps 1 to 3 are `union.ts`'s; step 4 lays faces, Edges, Cells, NetEdges and vertices on the final mesh only.
-import {CellNet, FrameTable, ShellCell, layCells, vertexRecords} from './cells.ts';
+import {CellNet, FrameTable, ShellCell, layCells, onLattice, vertexRecords} from './cells.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {EdgeAssembly, EdgeKind, NEW_EDGE_KINDS, NetEdge, ShellEdge, ShellVertex, buildShellEdges, makeVertexRegistry} from './edges.ts';
 import {FaceAssembly, ShellFace, assembleFaces, reduceFaceLoops} from './faces.ts';
@@ -64,12 +64,11 @@ export interface ShellBuild {
  * would staircase. A Cell side along a lattice line (a ridge on a Cell line) is no cut.
  */
 function cutsRoofCell(faces: ShellFace[], net: CellNet, vertices: ShellVertex[], edges: ShellEdge[], cellSize: number): boolean {
-  const onLattice = (v: number): boolean => Math.abs(v / cellSize - Math.round(v / cellSize)) * cellSize <= SHELL_TOLERANCE_CM;
   return net.netEdges.some(n => {
     if (n.shellEdge < 0 || !ROOF_LINE_KINDS.includes(edges[n.shellEdge].kind)) return false;
     if (!n.cells.some(c => faces[net.cells[c].face].tag.kind === 'Roof')) return false;
     const a = vertices[n.v[0]].p, b = vertices[n.v[1]].p;
-    const along = (ax: 0 | 1): boolean => Math.abs(a[ax] - b[ax]) <= SHELL_TOLERANCE_CM && onLattice(a[ax]);
+    const along = (ax: 0 | 1): boolean => Math.abs(a[ax] - b[ax]) <= SHELL_TOLERANCE_CM && onLattice(a[ax], cellSize);
     return !along(0) && !along(1);
   });
 }
@@ -86,7 +85,8 @@ function report(u: ShellUnion, faces: ShellFace[], edges: ShellEdge[], net: Cell
     conflicts: u.conflicts,
     survivingInternal: u.survivingInternal,
     unclassifiedEdges: edges.filter(e => e.kind === 'Unclassified').length,
-    cheeks: u.cheeks,
+    // Journal decision 101: the Cheek ShellFaces, as spec decision 30 names them.
+    cheeks: faces.filter(f => f.tag.kind === 'Cheek').length,
     partialCells: net.cells.filter(c => !c.whole).length,
     newEdgeKinds: NEW_EDGE_KINDS.filter(k => emitted.has(k)),
     newConventions,

@@ -3,7 +3,9 @@
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
-import {ShellFace, faceIdentity, loopArea, meshSurfaceArea} from '../src/faces.ts';
+import type {Vec2} from 'manifold-3d';
+import {errorMessage} from '../src/errors.ts';
+import {ShellFace, loopArea, meshSurfaceArea} from '../src/faces.ts';
 import {FixtureRing, SHELL_FIXTURES, ShellFixture, fixtureByName} from '../src/fixture.ts';
 import {CASES} from '../src/roof/cases.ts';
 import {Rect, Sel} from '../src/roof/model.ts';
@@ -12,6 +14,7 @@ import {
   ShellBuild, ShellReport, buildShellDetailed,
 } from '../src/shell.ts';
 import {FaceTag, Vec3, planeKey} from '../src/tags.ts';
+import {cross2} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 
 /** Tagged and summed areas to 0.05 cm², as `union.test.ts` asserts them. The worst float32 drift measured is 1.1e-3. */
@@ -39,14 +42,17 @@ const hipTouch = (name: string, upper: Rect): ShellFixture => ({
 const HIP_TOUCH_OFF = hipTouch('HipTouchOffLattice', [30, 70, 70, 170]);
 const HIP_TOUCH_ON = hipTouch('HipTouchOnLattice', [50, 100, 100, 200]);
 
+/** One fixture's build, or the error it threw (journal decision 100, N6). */
+type BuildOutcome = ShellBuild | Error;
+
 /** Each build, or the error it threw: a fixture that fails to build fails its own tests, not the whole file. */
-const builds = new Map<string, ShellBuild | Error>();
+const builds = new Map<string, BuildOutcome>();
 beforeAll(async () => {
   for (const f of [...SHELL_FIXTURES, ...PROBES]) {
     try {
       builds.set(f.name, await buildShellDetailed(f));
     } catch (e) {
-      builds.set(f.name, e instanceof Error ? e : new Error(String(e)));
+      builds.set(f.name, e instanceof Error ? e : new Error(errorMessage(e)));
     }
   }
 }, 120_000);
@@ -243,7 +249,7 @@ describe('the net (journal decisions 58 to 60)', () => {
 
   it.each(ALL)('%s: no ShellEdge joins two faces of one identity (open question 4)', name => {
     const b = get(name);
-    const id = (f: number): string => faceIdentity(b.shell.faces[f]);
+    const id = (f: number): string => b.faces.identities[f];
     expect(b.shell.edges.filter(e => id(e.faces[0]) === id(e.faces[1])).map(e => e.id)).toEqual([]);
   });
 
@@ -267,7 +273,7 @@ describe('the net (journal decisions 58 to 60)', () => {
     const withCells = new Set(b.shell.cells.map(c => c.face));
     for (const f of b.shell.faces) {
       const laid = ['Wall', 'Gable', 'Cheek', 'Roof', 'Underside'].includes(f.tag.kind);
-      expect(withCells.has(f.id), `face ${f.id} ${faceIdentity(f)}`).toBe(laid);
+      expect(withCells.has(f.id), `face ${f.id} ${b.faces.identities[f.id]}`).toBe(laid);
     }
   });
 });
@@ -411,7 +417,7 @@ describe.each(['NarrowUpperStorey', 'NarrowUpperStoreyGabled'])('%s (decisions 3
 describe('NarrowUpperStoreyGabled (decision 35)', () => {
   it("equals NarrowUpperStorey's faces, tags and areas, and no storey-1 Gable survives", () => {
     const sig = (b: ShellBuild): string[] => b.shell.faces.map(f =>
-      `${faceIdentity(f)} n=${f.normal.map(x => x.toFixed(6)).join(',')} d=${f.offset.toFixed(3)} a=${(Math.round(f.area * 10) / 10).toFixed(1)}`).sort();
+      `${b.faces.identities[f.id]} n=${f.normal.map(x => x.toFixed(6)).join(',')} d=${f.offset.toFixed(3)} a=${(Math.round(f.area * 10) / 10).toFixed(1)}`).sort();
     expect(sig(get('NarrowUpperStoreyGabled'))).toEqual(sig(get('NarrowUpperStorey')));
     expect(facesWhere(get('NarrowUpperStoreyGabled'), is('Gable', 1))).toEqual([]);
   });
@@ -694,12 +700,12 @@ describe('F4: every Cell\'s lattice index', () => {
     for (const c of b.shell.cells) {
       const fr = b.frames[c.face];
       if (!fr) throw new Error(`cell ${c.id} has no frame`);
-      const pts = c.polygon.map(p => [p[fr.s], p[fr.t]]);
+      const pts: Vec2[] = c.polygon.map(p => [p[fr.s], p[fr.t]]);
       // The polygon's area centroid lies strictly inside the one square holding the whole polygon.
       let a = 0, cs = 0, ct = 0;
       pts.forEach((p, i) => {
         const q = pts[(i + 1) % pts.length];
-        const w = p[0] * q[1] - q[0] * p[1];
+        const w = cross2(p, q);
         a += w; cs += (p[0] + q[0]) * w; ct += (p[1] + q[1]) * w;
       });
       const centroid = [cs / (3 * a), ct / (3 * a)];
@@ -735,13 +741,13 @@ describe('F5: the exact roof cut is a new convention', () => {
 
 describe('F6: the shell does not depend on how the plan was split into Rings', () => {
   /** A face by what it is: identity on its plane, area, and its loops' points; never its id, wall or part. */
-  const faceSig = (f: ShellFace): string => {
+  const faceSig = (b: ShellBuild, f: ShellFace): string => {
     const loops = f.loops.map(l => l.map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort().join(' ')).sort();
-    return `${f.tag.kind}|${f.tag.storey}|${planeKey({n: f.normal, d: f.offset})}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
+    return `${f.tag.kind}|${f.tag.storey}|${planeKey({n: f.normal, d: f.offset}, b.union.tags.clusters)}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
   };
   const edgeSig = (b: ShellBuild, e: ShellEdge): string => {
     const ends = [e.a, e.b].map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort();
-    return `${e.kind}|${ends.join(' ')}|${e.faces.map(f => faceSig(b.shell.faces[f])).sort().join(' & ')}`;
+    return `${e.kind}|${ends.join(' ')}|${e.faces.map(f => faceSig(b, b.shell.faces[f])).sort().join(' & ')}`;
   };
 
   it("builds Bridge's storey 2 from 3 Rings exactly as from 1, face for face and Edge for Edge", async () => {
@@ -754,7 +760,7 @@ describe('F6: the shell does not depend on how the plan was split into Rings', (
         {rect: [0, 0, 1000, 600], baseStorey: 2, storeys: 1},
       ],
     });
-    expect(three.shell.faces.map(faceSig).sort()).toEqual(one.shell.faces.map(faceSig).sort());
+    expect(three.shell.faces.map(f => faceSig(three, f)).sort()).toEqual(one.shell.faces.map(f => faceSig(one, f)).sort());
     expect(three.shell.edges.map(e => edgeSig(three, e)).sort()).toEqual(one.shell.edges.map(e => edgeSig(one, e)).sort());
     const counts = (b: ShellBuild): number[] => [b.shell.vertices.length, b.shell.netEdges.length, b.shell.cells.length];
     expect(counts(three)).toEqual(counts(one));

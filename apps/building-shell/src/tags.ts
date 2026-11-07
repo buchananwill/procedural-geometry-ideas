@@ -45,13 +45,32 @@ export const sameNormal = (a: Vec3, b: Vec3): boolean =>
 export const samePlane = (p: Plane3, q: Plane3): boolean => sameNormal(p.n, q.n) && Math.abs(p.d - q.d) <= SHELL_TOLERANCE_CM;
 
 /**
+ * Journal decision 101: one build's oriented planes, clustered by `samePlane`. A plane joins the first cluster whose
+ * first member it is `samePlane` to, else starts one. Clusters are bucketed by offset in `SHELL_TOLERANCE_CM` steps,
+ * so a lookup reads three buckets.
+ */
+export interface PlaneClusters {
+  /** Per cluster: its first member. */
+  reps: Plane3[];
+  /** Per cluster: its key. */
+  keys: string[];
+  /** Offset bucket to the clusters whose first member falls in it. */
+  buckets: Map<number, number[]>;
+  /** Every key issued, so two clusters never share one. */
+  used: Set<string>;
+}
+
+export const makePlaneClusters = (): PlaneClusters => ({reps: [], keys: [], buckets: new Map(), used: new Set()});
+
+/**
  * The tag table and, per `faceID`, the oriented plane the face was generated on. Every raw part of a building draws
  * its `faceID`s from one `ShellTags`, so a `faceID` is unique across all parts and survives the union (spec 13).
+ * `clusters` keys the build's planes for face identity.
  */
-export interface ShellTags { table: TagTable; planes: Plane3[] }
+export interface ShellTags { table: TagTable; planes: Plane3[]; clusters: PlaneClusters }
 
 export function makeShellTags(): ShellTags {
-  return {table: [], planes: []};
+  return {table: [], planes: [], clusters: makePlaneClusters()};
 }
 
 /** Registers one face and returns its `faceID`. */
@@ -61,26 +80,43 @@ export function addFace(tags: ShellTags, tag: FaceTag, plane: Plane3): number {
   return tags.table.length - 1;
 }
 
-/** An oriented plane's key: its normal and offset on the 1/1024 grid, so one computed plane always keys alike. */
-export const planeKey = (p: Plane3): string => `${p.n.map(snapCm).join(',')}|${snapCm(p.d)}`;
+/**
+ * An oriented plane's key, by `samePlane` clustering (journal decision 101), never by rounding alone: two planes
+ * within tolerance key alike even where rounding would part them, as at a 1/1024 cm boundary. The key is the
+ * cluster's first member's normal and offset on the 1/1024 grid, readable and alike across builds for one exact
+ * plane; a second cluster rounding to the same text takes a `~n` suffix.
+ */
+export function planeKey(p: Plane3, clusters: PlaneClusters): string {
+  const bucket = Math.floor(p.d / SHELL_TOLERANCE_CM);
+  for (let b = bucket - 1; b <= bucket + 1; b++) {
+    for (const i of clusters.buckets.get(b) ?? []) if (samePlane(clusters.reps[i], p)) return clusters.keys[i];
+  }
+  const i = clusters.reps.length;
+  const text = `${p.n.map(snapCm).join(',')}|${snapCm(p.d)}`;
+  const key = clusters.used.has(text) ? `${text}~${i}` : text;
+  clusters.reps.push(p);
+  clusters.keys.push(key);
+  clusters.used.add(key);
+  const list = clusters.buckets.get(bucket);
+  if (list) list.push(i); else clusters.buckets.set(bucket, [i]);
+  return key;
+}
 
 /**
  * Spec decision 10 as amended (journal decisions 41 and 96), for a face with tag `t` on oriented plane `plane`:
  * - `(kind, storey, plane)` for Roof, `plane` the storey Building's canonical plane id;
- * - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek, so collinear walls are one face;
+ * - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek, so collinear walls are one face; the plane
+ *   is keyed by the build's `clusters`;
  * - `(kind, storey)` for Underside, Ground and Internal.
  * `part` and `wall` are provenance only, and never enter it.
  */
-export function identityKey(t: FaceTag, plane: Plane3): string {
+export function identityKey(t: FaceTag, plane: Plane3, clusters: PlaneClusters): string {
   switch (t.kind) {
     case 'Roof': return `Roof|${t.storey}|p${t.plane}`;
-    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${planeKey(plane)}`;
+    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${planeKey(plane, clusters)}`;
     case 'Underside': case 'Ground': case 'Internal': return `${t.kind}|${t.storey}`;
   }
 }
-
-/** Two faces' tags on their planes share one identity. */
-export const sameIdentity = (a: FaceTag, pa: Plane3, b: FaceTag, pb: Plane3): boolean => identityKey(a, pa) === identityKey(b, pb);
 
 /**
  * Spec decision 14's total order as ranks, strongest lowest. A `Record` over `RetaggableKind`, so adding a kind

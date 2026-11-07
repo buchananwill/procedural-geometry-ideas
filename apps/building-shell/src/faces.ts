@@ -1,6 +1,6 @@
 // Step 4, first part: the union's output triangles grouped into ShellFaces (spec decision 18). A face is a maximal
 // edge-connected set of triangles sharing one identity (decision 10) and one oriented plane.
-import {FaceTag, Plane3, Vec3, identityKey, samePlane} from './tags.ts';
+import {FaceTag, Plane3, PlaneClusters, Vec3, identityKey, samePlane} from './tags.ts';
 import {ShellMesh, ShellUnion, triArea} from './union.ts';
 import {cross3, dot3} from './vec3.ts';
 
@@ -76,6 +76,8 @@ export interface FaceAssembly {
   planes: Plane3[];
   /** Per face: its loops as mesh vertex indices, outer first, every boundary vertex kept. */
   loopVerts: number[][][];
+  /** Per face: its identity (`faceIdentity`), for labels. */
+  identities: string[];
 }
 
 /** Union-find over `n` items: `find` gives a set's lowest member, `join` merges two sets. */
@@ -112,8 +114,8 @@ export function splitSimpleLoops(loop: number[]): number[][] {
   return out;
 }
 
-/** A face's identity (spec decision 10 as amended), read on its own plane. */
-export const faceIdentity = (f: ShellFace): string => identityKey(f.tag, {n: f.normal, d: f.offset});
+/** A face's identity (spec decision 10 as amended), read on its own plane, its plane keyed by the build's clusters. */
+export const faceIdentity = (f: ShellFace, clusters: PlaneClusters): string => identityKey(f.tag, {n: f.normal, d: f.offset}, clusters);
 
 /**
  * Spec decision 18: groups the output triangles into faces. Two triangles across a manifold edge join when they share
@@ -126,7 +128,7 @@ export function assembleFaces(src: FaceSource): FaceAssembly {
   const nTri = mesh.tris.length / 3;
   const topo = meshTopology(mesh.tris, mesh.positions.length / 3);
   const planeOf = (t: number): Plane3 => tags.planes[mesh.faceIDs[t]];
-  const keys = triTags.map((tag, t) => identityKey(tag, planeOf(t)));
+  const keys = triTags.map((tag, t) => identityKey(tag, planeOf(t), tags.clusters));
   const {find, join} = makeUnionFind(nTri);
   for (let h = 0; h < mesh.tris.length; h++) {
     const g = topo.twin[h];
@@ -169,7 +171,8 @@ export function assembleFaces(src: FaceSource): FaceAssembly {
     id, tag: triTags[t], normal: unsigned(planes[id].n), offset: planes[id].d || 0, loops: [], area: 0,
   }));
   for (const face of faces) setLoops(face, loopVerts[face.id], mesh.positions);
-  return {faces, triFace, topo, planes, loopVerts};
+  const identities = faces.map(f => faceIdentity(f, tags.clusters));
+  return {faces, triFace, topo, planes, loopVerts, identities};
 }
 
 /** Sets a face's loops from mesh vertex lists: outer (largest signed area) first, and its area, outer less holes. */
@@ -190,7 +193,7 @@ export function reduceFaceLoops(asm: FaceAssembly, positions: Float32Array, isEn
   for (const face of asm.faces) {
     const kept = asm.loopVerts[face.id].map(l => l.filter(isEndpoint));
     for (const [i, l] of kept.entries()) {
-      if (l.length < 3) throw new Error(`face ${face.id} (${faceIdentity(face)}): loop ${i} keeps ${l.length} ShellEdge endpoints`);
+      if (l.length < 3) throw new Error(`face ${face.id} (${asm.identities[face.id]}): loop ${i} keeps ${l.length} ShellEdge endpoints`);
     }
     asm.loopVerts[face.id] = kept;
     setLoops(face, kept, positions);

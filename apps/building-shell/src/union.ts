@@ -1,7 +1,9 @@
 // Steps 2 and 3 of the four-step model: the storeys' raw parts, stacked at their storey heights, go through one
 // `Manifold.union` (spec decision 12), and every output triangle's tag is its faceID's (13), re-tagged where
-// coplanar raw faces overlap (14, 15). Nothing else removes geometry.
+// coplanar raw faces overlap (14, 15). Between the union and the re-tag pass, the output is cleaned (`clean.ts`,
+// journal decision 101, F36): edges shorter than `CLEAN_TOLERANCE_CM` collapse. Nothing else removes geometry.
 import type {ErrorStatus, Manifold} from 'manifold-3d';
+import {CleanStats, cleanMesh} from './clean.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeysOf} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
@@ -28,7 +30,10 @@ export interface ShellUnion {
   closed: boolean;
   /** The output manifold's genus (spec decision 32 as amended). */
   genus: number;
+  /** The union's output after the cleaning (journal decision 101, F36): what the re-tag pass and step 4 read. */
   mesh: ShellMesh;
+  /** What the cleaning merged and dropped. */
+  clean: CleanStats;
   tags: ShellTags;
   /** Every raw part before the union, still addressable (spec decision 29's raw mode). */
   parts: RawPart[];
@@ -44,7 +49,7 @@ export interface ShellUnion {
 }
 
 /** What the union alone yields. */
-export type UnionPartsResult = Pick<ShellUnion, 'status' | 'closed' | 'genus' | 'mesh'>;
+export type UnionPartsResult = Pick<ShellUnion, 'status' | 'closed' | 'genus' | 'mesh' | 'clean'>;
 
 /** What the re-tag pass yields. */
 export type RetagResult = Pick<ShellUnion, 'triTags' | 'conflicts'>;
@@ -95,18 +100,42 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
     for (const p of parts) ms.push(partManifold(wasm, p));
     u = wasm.Manifold.union(ms);
     const status = u.status();
-    const genus = u.genus();
     // numProp is 3, so the output has no property seams and no merge vectors.
     const out = u.getMesh();
     const np = out.numProp;
     const positions = new Float32Array(3 * out.numVert);
     for (let v = 0; v < out.numVert; v++) for (let a = 0; a < 3; a++) positions[3 * v + a] = out.vertProperties[np * v + a];
-    const tris = Uint32Array.from(out.triVerts);
-    const mesh: ShellMesh = {positions, tris, faceIDs: Uint32Array.from(out.faceID)};
-    return {status, closed: tris.length > 0 && isClosed(tris), genus, mesh};
+    const raw: ShellMesh = {positions, tris: Uint32Array.from(out.triVerts), faceIDs: Uint32Array.from(out.faceID)};
+    // A union Manifold refuses is reported as it stands, uncleaned.
+    if (status !== 'NoError') {
+      return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {merged: 0, collapsed: 0, flipped: 0, maxMoveCm: 0}};
+    }
+    const {mesh, stats} = cleanMesh(raw);
+    const genus = mesh === raw ? u.genus() : cleanedGenus(wasm, mesh);
+    return {status, closed: mesh.tris.length > 0 && isClosed(mesh.tris), genus, mesh, clean: stats};
   } finally {
     ms.forEach(m => m.delete());
     u?.delete();
+  }
+}
+
+/**
+ * Journal decision 101, F36: the cleaned mesh goes back through `Manifold.ofMesh`, which must accept it as a closed
+ * manifold; its genus is the cleaned mesh's. A refusal is a hard error.
+ */
+function cleanedGenus(wasm: Wasm, mesh: ShellMesh): number {
+  let m: Manifold;
+  try {
+    m = wasm.Manifold.ofMesh(new wasm.Mesh({numProp: 3, vertProperties: mesh.positions, triVerts: mesh.tris, faceID: mesh.faceIDs}));
+  } catch (e) {
+    throw new Error(`the cleaned union is no manifold: ${errorMessage(e)}`);
+  }
+  try {
+    const status = m.status();
+    if (status !== 'NoError') throw new Error(`the cleaned union is no manifold: ${status}`);
+    return m.genus();
+  } finally {
+    m.delete();
   }
 }
 
@@ -138,7 +167,7 @@ export const rawTriHolds = (t: RawTri, q: Vec3): boolean =>
   && t.edges.every(e => dot3(e.m, sub3(q, e.o)) >= -RETAG_SLACK_CM);
 
 export function retagPass(label: string, mesh: ShellMesh, parts: RawPart[], tags: ShellTags): RetagResult {
-  const {table, planes} = tags;
+  const {table, planes, clusters} = tags;
   // Raw triangles per faceID, on their face's exact generating plane.
   const raw: RawTri[][] = table.map(() => []);
   for (const part of parts) {
@@ -172,9 +201,9 @@ export function retagPass(label: string, mesh: ShellMesh, parts: RawPart[], tags
     const mean = (ax: number): number => (P[3 * mesh.tris[3 * t] + ax] + P[3 * mesh.tris[3 * t + 1] + ax] + P[3 * mesh.tris[3 * t + 2] + ax]) / 3;
     const q: Vec3 = [mean(0), mean(1), mean(2)];
     // Every peer lies on f's oriented plane, so f's plane is every candidate's identity plane.
-    const found = new Map<string, FaceTag>([[identityKey(own, planes[f]), own]]);
+    const found = new Map<string, FaceTag>([[identityKey(own, planes[f], clusters), own]]);
     for (const g of peersOf(f)) {
-      const k = identityKey(table[g], planes[f]);
+      const k = identityKey(table[g], planes[f], clusters);
       if (found.has(k)) continue;
       if (raw[g].some(r => rawTriHolds(r, q))) found.set(k, table[g]);
     }
@@ -207,7 +236,7 @@ export function areaByIdentity(u: TaggedMesh, pred: (t: FaceTag) => boolean): Ma
   const out = new Map<string, number>();
   u.triTags.forEach((tag, t) => {
     if (!pred(tag)) return;
-    const k = identityKey(tag, u.tags.planes[u.mesh.faceIDs[t]]);
+    const k = identityKey(tag, u.tags.planes[u.mesh.faceIDs[t]], u.tags.clusters);
     out.set(k, (out.get(k) ?? 0) + triArea(u.mesh, t));
   });
   return out;
@@ -217,11 +246,11 @@ export function areaByIdentity(u: TaggedMesh, pred: (t: FaceTag) => boolean): Ma
 
 /** Unions raw parts already built: the one union, the re-tag pass, and the defect counts. */
 export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], parts: RawPart[], tags: ShellTags): ShellUnion {
-  const {status, closed, genus, mesh} = unionParts(wasm, parts);
+  const {status, closed, genus, mesh, clean} = unionParts(wasm, parts);
   const {triTags, conflicts} = retagPass(label, mesh, parts, tags);
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
   const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
-  return {label, status, closed, genus, mesh, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
+  return {label, status, closed, genus, mesh, clean, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
 }
 
 /** Unions already-planned storeys: builds every raw part, then `unionRawParts`. */

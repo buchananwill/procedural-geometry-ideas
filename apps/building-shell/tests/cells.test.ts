@@ -1,7 +1,9 @@
 // Cells (spec decisions 22 to 25): lattice frames, interior side kinds, and the boundary points a Cell side carries.
 import {describe, expect, it} from 'vitest';
-import {BoundaryPoint, FaceFrame, faceFrame, interiorSideKind, layCells, withBoundaryPoints} from '../src/cells.ts';
-import {buildShellEdges, makeVertexRegistry, vertexAt} from '../src/edges.ts';
+import type {Vec2} from 'manifold-3d';
+import {BoundaryPoint, FaceFrame, contourLobes, faceFrame, interiorSideKind, layCells, originRecord, withBoundaryPoints} from '../src/cells.ts';
+import {VertexOrigin, buildShellEdges, makeVertexRegistry, vertexAt} from '../src/edges.ts';
+import {buildShellDetailed} from '../src/shell.ts';
 import {ShellFace, assembleFaces, reduceFaceLoops} from '../src/faces.ts';
 import {fixtureByName} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
@@ -69,6 +71,33 @@ describe('NetEdge pairing along a rake, before any vertex is ordered (journal de
         expect(n.cells.map(c => asm.faces[cells[c].face].tag.kind).sort()).toEqual(['Gable', 'Roof']);
       }
     }
+  });
+});
+
+describe('contourLobes (journal decisions 92 and 101)', () => {
+  const at = (pts: Vec2[]) => (id: number): Vec2 => pts[id];
+  // A figure eight touching itself at corner 0: one lobe through 1 and 2 counter-clockwise, the other through 3 and 4
+  // clockwise.
+  const pts: Vec2[] = [[0, 0], [10, 0], [10, 10], [-10, -10], [-10, 0]];
+
+  it('gives one Cell per lobe of a contour touching itself', () => {
+    const ccw: Vec2[] = [[0, 0], [10, 0], [10, 10], [-10, 0], [-10, -10], [0, -10]];
+    expect(contourLobes([0, 1, 2, 0, 4, 5], at(ccw), 'test').map(l => l.ids)).toEqual([[0, 1, 2], [0, 4, 5]]);
+  });
+
+  it('refuses a lobe wound clockwise, as it refuses a contour hole', () => {
+    expect(() => contourLobes([0, 1, 2, 0, 3, 4], at(pts), 'test')).toThrow(/winds clockwise/);
+  });
+});
+
+describe('originRecord (journal decision 100, B8)', () => {
+  it('reads each origin\'s faces, and refuses an origin of no known kind rather than naming face -1', async () => {
+    const b = await buildShellDetailed(fixtureByName('NarrowUpperStorey'));
+    const {union: u, faces: asm, edges: ea} = b;
+    expect(originRecord(u, asm, ea, {at: 'face', face: 3}, 'test')).toEqual({fan: null, faces: [3]});
+    expect(originRecord(u, asm, ea, {at: 'edge', edge: 0}, 'test')).toEqual({fan: null, faces: ea.edges[0].faces});
+    const forged = {at: 'lattice', face: 3} as unknown as VertexOrigin;
+    expect(() => originRecord(u, asm, ea, forged, 'test')).toThrow(/no known kind/);
   });
 });
 
