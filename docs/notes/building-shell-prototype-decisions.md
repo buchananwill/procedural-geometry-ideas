@@ -113,9 +113,14 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    - to keep only what lies above the plate;
    - to keep only what lies within the island's footprint.
 
-   Its faces on a piece plane are tagged `Roof` with that canonical plane's id. Its faces on any island wall line are
-   tagged `Gable` with that wall, which covers its own wall line and, for example, a monopitch's dead high-end wall.
-   Every other face is `Cheek`. **AMENDED 2026-11-07** (journal decision 75): only the piece's own wall line was
+   Its faces on a piece plane are tagged `Roof` with that canonical plane's id. A face is tagged `Gable`:
+   - with the piece's own wall, over the piece's whole band `[bandLo, bandHi]`;
+   - with any other island wall, where it stands within that wall's own span, for example on a monopitch's dead
+     high-end wall.
+
+   Every other face, including any part of a wall's plane outside the wall's span, is `Cheek`. **AMENDED 2026-11-07**
+   (journal decisions 75 and 80): wall-line faces other than the piece's own wall were Cheek, and the first
+   amendment wrongly matched a wall's whole plane rather than its span. **AMENDED 2026-11-07** (journal decision 75): only the piece's own wall line was
    Gable, so a monopitch's genuine high-end face came out Cheek. **AMENDED 2026-11-07** (journal decision 41): a Roof face is
    keyed by its canonical plane, not by a wall, because `finishBuilding` merges collinear walls of equal pitch into
    one plane. Spec text that says "that plane's wall" now means that plane.

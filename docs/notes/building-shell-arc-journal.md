@@ -351,6 +351,36 @@ departs from those four steps is a defect.
     The delegate's interpretation stands as a ruling: collinear walls share one Gable plane, and a face on that line
     takes the piece's own wall when it is on the piece's line, otherwise the first wall in ring order. The
     `2ec9e98..9d90583` diff goes to both reviewers for a targeted re-review.
+79. **Rulings on the type re-review of `2ec9e98..9d90583`** (REQUEST CHANGES). B1 to B6 and N1 to N5 are all fixed,
+    and the reviewer typechecked them clean.
+    - **B7, a type declared inside a test's `it` callback (`AxisPlane`):** accepted. Hoist it to module scope.
+    - **N7, an orphaned doc comment above `splitByY0`:** accepted.
+    - **N8, the generic `errorMessage` living in `storey.ts`:** accepted now rather than later, because WP3's modules
+      will need it too. It moves to `src/errors.ts`, which joins the roster.
+
+    These join any accepted correctness re-review findings as **WP2.3**.
+80. **Rulings on the correctness re-review of `2ec9e98..9d90583`.** Every accepted finding is fixed as ruled. The
+    reviewer re-ran 131/131 on a tree it showed equal to `9d90583`. F30's faceID carriage through the weld is
+    sound.
+    - **N1 (Medium), accepted: decision 75 is AMENDED.** "Wall line" means the wall, not its infinite plane (F34).
+      - A gable-piece face is Gable on its own wall over the piece's whole band `[bandLo, bandHi]`, because the line
+        is promoted across its extent. Case 2a's gable over the T's stem is the example.
+      - It is Gable on any other island wall only where it stands within that wall's own span.
+      - Everywhere else on such a plane it is Cheek.
+      - A triangle that straddles a span end must not be classified by its centroid. The face is divided at the span
+        end.
+      - Pin: the reviewer's U case reports `cheeks` 1, with a Cheek on x = 200.
+    - **N2 (Low), accepted.** A gable-piece triangle matches a generating plane when all three vertices lie within
+      `SHELL_TOLERANCE_CM` of it and its normal points the plane's way. The 1e-5 normal bound is dropped: on
+      float32 noise it falsely rejects triangles under about 6 cm altitude. Two planes both matching is a hard
+      error. Each error path gets a test.
+    - **N3, the bbox cap's value cannot be observed:** no change. The cap guards against `Infinity`, which its test
+      convicts.
+    - **N4 (Low), accepted.** A test with a piece on the later of two collinear walls pins "own wall first".
+    - **N5:** `gablePiece` frees `live` in a `finally`.
+    - **WP2.3 carries decisions 79 and 80.** Its check is that one reviewer, the correctness reviewer, re-reads the
+      WP2.3 diff for N1, N2 and N4, and that the delegate shows `tsc --noEmit` clean. Decision 79's type items are
+      mechanical, so the type reviewer is not recalled. **WP2 is accepted when that check passes.**
 
 ## Findings
 
@@ -506,3 +536,8 @@ departs from those four steps is a defect.
   face standing on no wall line. They are 2b at y = 150 (11250 cm²); 4b at y = 150 and y = 350 (11250 cm² each,
   one identity); and 8b at x = 800 (17500 cm²). Cases 5a to 5e now show none. B's CHEEKs on 2d, 3c and 4l still have
   no surviving Cheek in the union. Measured at `9d90583`.
+- **F34. Decision 75 as first ruled matched a wall's infinite plane.** A U with rects `[0,0,200,600]`,
+  `[0,0,1000,200]` and `[800,0,1000,600]`, with `{y:0, to:200, form:'gable'}` at 45°, has a band-end cheek at
+  x = 200 over the spine's hip. That cheek was tagged Gable on wall 8, the arm wall x = 200 spanning y 200 to 600, on
+  30000 cm² where wall 8 does not stand. `cheeks` read 0. The same U without the left arm reads `cheeks` 1. Measured
+  by the WP2 correctness reviewer's probe at `9d90583`. Decision 80 amends the rule.
