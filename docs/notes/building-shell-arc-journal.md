@@ -417,6 +417,25 @@ departs from those four steps is a defect.
       requires `^22.0.0` or later. It and `undici-types` 6.20.0 are both MIT.
     - Storey-wide own-wall zones are scoped to one island.
     - The correctness reviewer's targeted check is dispatched.
+84. **The user gave the go for WP3 (2026-11-07), to dispatch once decision 83's check passes.** The two C++ open
+    items, roof-line staircase and cross-Ring corners, stay open; neither changes WP3.
+    - WP3 goes to a fresh Opus delegate. The WP2 delegate's context is past 450k tokens, and WP3's surface is new.
+85. **The pre-WP3 batch is accepted at `c7d674f`.** The correctness reviewer's check found:
+    - the 53-verdict pin equals roof-gable's committed `roof-prototype.html` case for case;
+    - the storey-wide zones are as ruled, and a face cannot take an identity from a piece whose band misses it;
+    - `typecheck` covers both config files against `@types/node` 22.12.0.
+
+    Its findings:
+    - **The span-end split is unit-tested only through `divideAtZoneEnds`, not through `gablePiece` (Low):**
+      accepted, and it goes to WP3. An end-to-end test through `buildStoreyParts` uses a hand-made `Piece` whose
+      band-end face Manifold leaves unvertexed at a span end, and asserts the tagged areas on each side.
+    - **The alias "not redefined" test would pass if `vitest.config.ts` stopped merging and declared an identical
+      alias:** no change. It is cosmetic while the two arrays are identical.
+    - **The results page's commit predates roof-gable's last source commit by 44 minutes:** noted. The delegate's
+      live run of `run.ts` on current source produced the same verdicts, so the pin stands on that run.
+86. **WP3 dispatched 2026-11-07** (general-purpose, Opus, fresh) at `0636dd0`. It delivers step 4: ShellFaces,
+    ShellEdges, NetEdges, vertices, Cells, `buildShell`, the export CLI, and every fixture's own assertions.
+    Decision 67's two reviews follow its return.
 
 ## Findings
 
