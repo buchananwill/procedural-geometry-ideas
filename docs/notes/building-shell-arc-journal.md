@@ -997,7 +997,15 @@ departs from those four steps is a defect.
 
        Because it is a small polish batch, a single targeted type check was dispatched, following decision 80's
        precedent. **The viewer is "easily good enough to understand the problem and solution space"** (user,
-       2026-11-07), so no further browser rounds are planned. WP3.6 (courtyards
+       2026-11-07), so no further browser rounds are planned.
+118. **WP4 is closed: WP4.3 is accepted at `1886b32`.** The type check APPROVES it: 0 blocking, and decision 113's
+     N1 to N5 are all closed by changes of shape. Its three notes are recorded and not scheduled, since the viewer
+     has no further batch planned:
+     - two tests assert on `scene.ts`'s source text where a constructor argument could carry the guarantee;
+     - `DirectionalSpec extends AmbientSpec` would read better over a `LightSpec` base;
+     - one test restates a type.
+
+     A viewer change in a later arc picks them up. WP3.6 (courtyards
        and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
 
 ## Findings
