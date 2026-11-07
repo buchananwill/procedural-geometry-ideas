@@ -147,6 +147,32 @@ departs from those four steps is a defect.
       enough for a Grammar to fix a Piece Type, and naming vertex kinds is the C++ design's call.
     - Lands in WP3. The viewer gains a vertex toggle and a vertex readout in WP4.
 
+    **AMENDED 2026-11-07 by decision 59**: `ShellVertex.edges` names NetEdges, not ShellEdges.
+59. **Vertex incidence is at Cell-side resolution, through a new `NetEdge` record** (from the spec author's review,
+    F17, option a):
+
+    ```ts
+    interface NetEdge { id: number; kind: EdgeKind; v: [number, number]; cells: number[]; shellEdge: number }
+    ```
+
+    - **A NetEdge is the segment between two consecutive vertices along any Cell side.** `cells` holds the one or two
+      Cells it borders; it holds one where the far face has no Cells (Ground, Cheek). `shellEdge` is the ShellEdge it
+      lies on, or -1 for an interior lattice side. Its `kind` is set by spec decision 25.
+    - **Every Cell polygon carries every vertex on its boundary**, including the points where the neighbouring face's
+      lattice meets their shared ShellEdge. Each polygon side is then exactly one NetEdge, and coincident sides pair
+      one to one, as `FCellNetEdge`'s First/Second Cell and Side do in C++.
+    - **`ShellCell.sides` becomes `number[]`, NetEdge ids**, and the kind is read from the NetEdge. This amends
+      decision 44's `EdgeKind[]`.
+    - `ShellVertex.edges` holds NetEdge ids, and `BuildingShell` gains `netEdges: NetEdge[]`. ShellEdge keeps `v`.
+    - **WP3 test:** on `NarrowUpperStorey`, the vertex where storey 0's Gable column line x = 50 crosses the rake, at
+      (50, 0, 386.6), lists a `Verge` NetEdge and a `GableVertical` NetEdge.
+60. **A vertex's `edges`, `cells` and `faces` are each in cyclic order, counter-clockwise seen from outside**, read from
+    the manifold's triangle fan. A Piece seated at a vertex needs a frame, and an unordered set gives none at a saddle
+    (F17, point 3).
+61. **Spec decision 25 is corrected to the C++ convention: an interior lattice side on a Gable face is
+    `GableVertical` or `GableHorizontal`**, not `WallVertical` or `WallHorizontal`. Wall faces keep `WallVertical` and
+    `WallHorizontal` (F16).
+
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
@@ -203,3 +229,17 @@ departs from those four steps is a defect.
   The author agrees that opposite-vertex convexity (decision 42) is right, and raises no objection to decisions 41 to
   57. Decision 53's premise is therefore unlocated, not disproved. **Resolved the same day:** the feature is C30 in
   content journal 01, a branch the spec's author had not read. See decision 58.
+- **F16. Piste Perfect's C++ kinds interior Gable lattice sides `GableVertical` and `GableHorizontal`.**
+  `ModularRoofNet.cpp:144` and `:152` set them on the Edges between neighbouring gable Cells, and the seam steps at
+  `:679` to `:682` do the same. Spec 25 gave every interior side of a Wall or Gable face `WallVertical` or
+  `WallHorizontal`.
+- **F17. The spec author's review of decision 58** (`pisteperfect-5-7-27`, 2026-11-07, after reading content journal
+  01's C28 to C30):
+  - It agrees with "no vertex kind".
+  - **ShellEdge-endpoint incidence misses the case vertices exist for.** C28's bracket seat is where a Cell column
+    line crosses the gable rake. That point is a Cell corner in the middle of a Verge ShellEdge, so under decision 58
+    it lists no Verge at all.
+  - It offered (a) Cell-side incidence, which matches C++ `FCellNetEdge`, and recommended it, or (b) an `onEdges[]`
+    field. Decision 59 takes (a).
+  - It suggests cyclic order around the vertex as cheap now and costly later. Decision 60 takes it.
+  - None of this blocks WP3 except the incidence point.

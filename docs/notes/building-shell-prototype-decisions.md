@@ -25,7 +25,7 @@ deliverable is a three.js viewer that shows the finished shell, colour-coded by 
 the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
 decisions (section 2). It carries no function bodies.
 
-**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 58 in
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 61 in
 [the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
 and cites the journal decision behind it.
 
@@ -55,7 +55,7 @@ into `apps/building-shell/src/roof/`:
 - `tags.ts`: `ShellKind`, `FaceTag`, `TagTable` (`faceID` to `FaceTag`).
 - `union.ts`: `unionShell` (all raw parts to one manifold) and the coplanar re-tag pass.
 - `faces.ts`: `ShellFace` assembly from the output triangles.
-- `edges.ts`: `EdgeKind`, `ShellEdge`, `ShellVertex`, `classifyEdge`.
+- `edges.ts`: `EdgeKind`, `ShellEdge`, `NetEdge`, `ShellVertex`, `classifyEdge`.
 - `cells.ts`: `ShellCell`, `layCells`.
 - `shell.ts`: `BuildingShell`, `ShellReport`, `buildShell(fixture)`, the pipeline's one entry point.
 - `export.ts`: a node CLI writing `out/<fixture>.json` for every fixture.
@@ -180,15 +180,23 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
 
     ```ts
     interface ShellEdge { id: number; kind: EdgeKind; a: Vec3; b: Vec3; v: [number, number]; faces: [number, number] }
+    interface NetEdge { id: number; kind: EdgeKind; v: [number, number]; cells: number[]; shellEdge: number }
     interface ShellVertex { id: number; p: Vec3; edges: number[]; cells: number[]; faces: number[] }
     ```
 
-    **AMENDED 2026-11-07** (journal decision 58): the net's vertices are first-class records, as reference data for
-    Piste Perfect's deferred C30, "vertices as net slots".
+    **AMENDED 2026-11-07** (journal decisions 58 to 60): the net's vertices are first-class records, as reference data
+    for Piste Perfect's deferred C30, "vertices as net slots".
     - **A `ShellVertex` is every `ShellEdge` endpoint and every Cell corner**, deduplicated by exact equality of its
-      position on decision 11's 1/1024 cm grid.
-    - `v` holds an Edge's endpoint vertex ids.
-    - **A vertex carries no kind of its own**: its incident Edges' kinds and faces' tags are what a Grammar reads.
+      position on decision 11's 1/1024 cm grid. A ShellEdge's `v` holds its endpoint vertex ids.
+    - **A `NetEdge` is the segment between two consecutive vertices along any Cell side.**
+      - `cells` holds the one or two Cells it borders: one where the far face has no Cells.
+      - `shellEdge` is the ShellEdge it lies on, or -1 for an interior lattice side.
+      - Its `kind` is set by decision 25.
+    - **A vertex's `edges` are NetEdge ids, not ShellEdge ids**, so a Cell corner in the middle of a ShellEdge (a
+      column line crossing a rake) still lists that ShellEdge's kind.
+    - **`edges`, `cells` and `faces` are each in cyclic order, counter-clockwise seen from outside**, read from the
+      manifold's triangle fan.
+    - **A vertex carries no kind of its own**: its incident NetEdges' kinds and faces' tags are what a Grammar reads.
 20. **Convexity is the only sign-sensitive test in the app, and it is stated once here.** The edge is **flat** when
     `|dot(nA, nB) - 1| < 1e-6`, and **this test runs first**. Otherwise take face A, its outward unit normal `nA`, a
     point `p` on the edge, and `q`, the vertex opposite the edge in face B's output triangle incident to it. The edge
@@ -245,19 +253,28 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
     back onto the face's plane:
 
     ```ts
-    interface ShellCell { id: number; face: number; lattice: [number, number]; polygon: Vec3[]; corners: number[]; sides: EdgeKind[]; whole: boolean }
+    interface ShellCell { id: number; face: number; lattice: [number, number]; polygon: Vec3[]; corners: number[]; sides: number[]; whole: boolean }
     ```
 
-    `sides[i]` is the kind of the side from `polygon[i]` to `polygon[i + 1]`, set by decision 25 (**AMENDED
-    2026-11-07**, journal decision 44). `corners[i]` is the `ShellVertex` id of `polygon[i]` (**AMENDED 2026-11-07**,
-    journal decision 58).
+    **AMENDED 2026-11-07** (journal decisions 44, 58 and 59):
+    - **`polygon` carries every vertex on the Cell's boundary**, including the points where the neighbouring face's
+      lattice meets their shared ShellEdge. Each side is then exactly one NetEdge.
+    - `corners[i]` is the `ShellVertex` id of `polygon[i]`.
+    - `sides[i]` is the `NetEdge` id of the side from `polygon[i]` to `polygon[i + 1]`, and its kind is read from that
+      NetEdge.
 
     `whole` is true when its area is `cellSize²` within tolerance. A partial Cell is kept, however small, unless its
     area is under `SHELL_TOLERANCE_CM²`, and the report counts them.
 24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable
     junction cuts Cells along it, exactly as the shell does.
-25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes `WallVertical` or `WallHorizontal` on
-    a Wall or Gable face, and `RoofInterior` on a Roof or Underside face.
+25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes:
+    - `WallVertical` or `WallHorizontal` on a Wall face;
+    - `GableVertical` or `GableHorizontal` on a Gable face;
+    - `RoofInterior` on a Roof or Underside face.
+
+    **AMENDED 2026-11-07** (journal decision 61): Gable faces took `WallVertical` and `WallHorizontal`, which disagrees
+    with Piste Perfect's `ModularRoofNet.cpp`. That code kinds the Edges between neighbouring gable Cells
+    `GableVertical` and `GableHorizontal`.
 
 ### The viewer
 
@@ -305,7 +322,7 @@ or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked b
 
     ```ts
     interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[] }
-    interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; vertices: ShellVertex[]; cells: ShellCell[]; report: ShellReport }
+    interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; netEdges: NetEdge[]; vertices: ShellVertex[]; cells: ShellCell[]; report: ShellReport }
     ```
 
     These files are reference data for Piste Perfect's C++ tests.
@@ -332,7 +349,10 @@ assertion.
       - one `Ridge` from (300, 0, 819.6) to (300, 300, 819.6);
       - `GableVertical` Edges on x = 200 and x = 400 over z 300 to 600, and `GableHorizontal` at z = 600 over x 200
         to 400;
-      - `FloorLine` at z = 300 over x 200 to 400, and `WallPlate` at z = 300 over x 0 to 200 and x 400 to 600.
+      - `FloorLine` at z = 300 over x 200 to 400, and `WallPlate` at z = 300 over x 0 to 200 and x 400 to 600;
+      - the vertex where storey 0's Gable column line x = 50 crosses the rake, at (50, 0, 386.6), lists a `Verge`
+        NetEdge and a `GableVertical` NetEdge (**AMENDED 2026-11-07**, journal decision 59). This is C28's bracket
+        seat.
 35. **`NarrowUpperStoreyGabled`**: `NarrowUpperStorey` with storey 1's y = 0 wall also gabled. Its faces, tags and
     areas equal `NarrowUpperStorey`'s, and no `Gable` face of storey 1 survives. This fails if the coplanar rule lets
     the upper Gable win.
