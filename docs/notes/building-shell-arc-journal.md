@@ -69,8 +69,8 @@ departs from those four steps is a defect.
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
-- **Roof lines in the C++ port: exact cut or staircase (F20, point 2).** The prototype keeps exact cuts (decision 66).
-  The user rules for C++.
+- ~~**Roof lines in the C++ port: exact cut or staircase (F20, point 2).**~~ Closed by decision 87: the C++ staircase,
+  revisited after the viewer exists.
 - **Corners between two Rings: `RingJunction` (C++) or `ExternalCorner`/`InternalCorner` (prototype) (F20, point 1).**
   The lead recommends the prototype's reading. The four-step model unions Rings per storey, so a junction between Rings
   stops being an edge between faces, and keeping Ring identity would reopen the failed approach. The user rules.
@@ -205,7 +205,8 @@ departs from those four steps is a defect.
 65. **`ShellReport` gains `newConventions: string[]`**, listing every place where the prototype uses a name in a
     context the C++ net has no precedent for. Today that is `RoofInterior` on Underside faces. `SoffitEdge` and
     `SoffitJunction` stay in `newEdgeKinds` (F20, point 3).
-66. **The prototype keeps exact cuts at roof lines**: Cells are cut at hips, valleys and off-lattice ridges, so those
+66. **STRUCK AND REVERSED 2026-11-07 by decision 87** (the user ruled for the C++ staircase). **The prototype keeps
+    exact cuts at roof lines**: Cells are cut at hips, valleys and off-lattice ridges, so those
     lines get triangular and sliver partial Cells. The C++ staircase is not copied. Whether the C++ port adopts exact
     cuts is an open item for the user (F20, point 2).
 67. **Every work package gets two independent reviews before it is accepted** (prompted by the user, 2026-11-07).
@@ -436,6 +437,19 @@ departs from those four steps is a defect.
 86. **WP3 dispatched 2026-11-07** (general-purpose, Opus, fresh) at `0636dd0`. It delivers step 4: ShellFaces,
     ShellEdges, NetEdges, vertices, Cells, `buildShell`, the export CLI, and every fixture's own assertions.
     Decision 67's two reviews follow its return.
+87. **Roof lines follow the C++ net in every respect** (user, 2026-11-07): "For 1, follow the C++ in all respects.
+    Any changes can be considered once the prototype has a viewport I can inspect."
+    - **Roof Cells:** whole 50 cm plan squares, each assigned to one roof face.
+    - **Hips and valleys:** a staircase of whole-Cell sides between squares of different faces.
+    - **Ridges:** snapped to the nearest Cell line.
+    - **What stays exact:** the manifold's ShellFaces and ShellEdges. Only the Cell net, meaning the Cells,
+      NetEdges and vertices on Roof faces, staircases.
+    - **Exact rules are pending.** The assignment, snapping and kind rules come from the C++ source, by way of the spec
+      author (asked 2026-11-07). The spec's decisions 22 to 24 and 32 ("every Cell's polygon lies on its face") are
+      amended once those rules are in hand.
+    - **WP3 was told mid-run** to hold roof-Cell work and continue everything else.
+    - **Any departure from the C++ waits until WP4's viewer exists for the user to inspect.**
+    - **The cross-Ring corner question** (F20, point 1) is still open. This ruling does not cover it.
 
 ## Findings
 
