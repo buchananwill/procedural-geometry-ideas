@@ -7,7 +7,8 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
-import {randomFixtures, sweepFixture, sweepFixtures} from './robustness-fixtures.ts';
+import {STOREY_HEIGHT_CM} from '../src/fixture.ts';
+import {REVIEWER_STOREY_HEIGHT_CM, randomFixtures, sweepFixture, sweepFixtures} from './robustness-fixtures.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 
 /** Every sweep case is a box, alone or with one storey on its wall: no tunnel, and no Cheek survives (measured). */
@@ -15,17 +16,20 @@ const SWEEP_EXPECTED: ShellExpectation = {genus: 0, cheeks: 0};
 
 /**
  * The random fixtures as measured: genus 0 and no Cheek face for all 80 (rectangles overlapping at a corner never
- * close a tunnel). One case keeps a residual above the area tolerance, pinned exactly:
- * - **Fuzz46**: its Hip between Roof faces 11 and 12 runs 559 cm through one mesh vertex 2.47e-4 cm off the chord,
- *   float32 noise in the union's intersection. Each face's loop keeps only the run's ends, so both faces' loop areas
- *   fall 0.042 cm² short of their triangles'. The cleaning cannot reach it: there is no short edge and no cap, and
- *   the case is cleaned of nothing.
+ * close a tunnel). One case keeps a residual above the area tolerance, pinned exactly, per storey height:
+ * - **Fuzz46** at 300 cm storeys: its Hip between Roof faces 11 and 12 runs 559 cm through one mesh vertex 2.47e-4 cm
+ *   off the chord, float32 noise in the union's intersection. Each face's loop keeps only the run's ends, so both
+ *   faces' loop areas fall 0.042 cm² short of their triangles'. The cleaning cannot reach it: there is no short edge
+ *   and no cap, and the case is cleaned of nothing.
+ * - **Fuzz46** at 250 cm storeys: the same Hip, 50 cm lower, with the same gap.
  */
-const RANDOM_RESIDUALS: Record<string, number> = {Fuzz46: 0.0846};
-const RANDOM = randomFixtures(1, 80);
+const RANDOM_RESIDUALS: Record<number, Record<string, number>> = {300: {Fuzz46: 0.0846}, 250: {Fuzz46: 0.0846}};
 
-describe('the pitch sweep (journal decision 101, F36 and F37): 20 to 70 degrees in 0.173 degree steps', () => {
-  const cases = sweepFixtures();
+/** The reviewer's storey height, so its measured cases reproduce, and the fixtures' (journal decision 102). */
+const HEIGHTS = [REVIEWER_STOREY_HEIGHT_CM, STOREY_HEIGHT_CM];
+
+describe.each(HEIGHTS)('the pitch sweep (journal decision 101, F36 and F37) at %i cm storeys: 20 to 70 degrees in 0.173 degree steps', h => {
+  const cases = sweepFixtures(h);
 
   it('has all 580 of the reviewer\'s cases', () => {
     expect(cases).toHaveLength(580);
@@ -37,14 +41,16 @@ describe('the pitch sweep (journal decision 101, F36 and F37): 20 to 70 degrees 
   });
 });
 
-describe('the random Ring fixtures (journal decision 101, F36): seed 1, 80 fixtures', () => {
+describe.each(HEIGHTS)('the random Ring fixtures (journal decision 101, F36) at %i cm storeys: seed 1, 80 fixtures', h => {
+  const random = randomFixtures(1, 80, h);
+
   it('pins residuals only for fixtures of the run', () => {
-    for (const name of Object.keys(RANDOM_RESIDUALS)) expect(RANDOM.map(f => f.name)).toContain(name);
+    for (const name of Object.keys(RANDOM_RESIDUALS[h])) expect(random.map(f => f.name)).toContain(name);
   });
 
-  it.each(RANDOM.map(f => [f.name, f] as const))('%s builds and keeps every invariant', async (name, f) => {
+  it.each(random.map(f => [f.name, f] as const))('%s builds and keeps every invariant', async (name, f) => {
     const b = await buildShellDetailed(f);
-    expect(invariantViolations(b, {genus: 0, cheeks: 0, areaResidual: RANDOM_RESIDUALS[name]})).toEqual([]);
+    expect(invariantViolations(b, {genus: 0, cheeks: 0, areaResidual: RANDOM_RESIDUALS[h][name]})).toEqual([]);
   });
 });
 

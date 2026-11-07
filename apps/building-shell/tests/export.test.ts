@@ -41,6 +41,6 @@ describe('the export (decision 33)', () => {
   }, 60_000);
 
   it('covers the whole roster', () => {
-    expect(SHELL_FIXTURES.map(f => shellFileName(f.name))).toHaveLength(10);
+    expect(SHELL_FIXTURES.map(f => shellFileName(f.name))).toHaveLength(11);
   });
 });

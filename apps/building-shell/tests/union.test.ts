@@ -33,7 +33,7 @@ function get(name: string): ShellUnion {
  */
 const EXPECTED_GENUS: Record<string, number> = {
   NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, Bridge: 0, BridgeOverBlock: 1,
-  ValleyWings: 0, SingleStoreyT: 0,
+  ValleyWings: 0, SingleStoreyT: 0, DefaultChalet: 0,
   OverhangApexOnEave: 0, ValleyWingsPierced: 0, // degenerate twins, measured and pinned
 };
 
@@ -82,14 +82,14 @@ describe.each(['NarrowUpperStorey', 'NarrowUpperStoreyGabled'])('%s (decisions 3
     expect(taggedArea(get(name), kindOf('Roof', 1))).toBeLessThan(SHELL_TOLERANCE_CM ** 2);
   });
 
-  it("has storey 1's Wall area only on y = 0, totalling 60000", () => {
+  it("has storey 1's Wall area only on y = 0, totalling 50000", () => {
     const {on, off} = splitByY0(get(name), kindOf('Wall', 1));
-    expect(Math.abs(on - 60000)).toBeLessThan(AREA_TOL);
+    expect(Math.abs(on - 50000)).toBeLessThan(AREA_TOL);
     expect(off).toBeLessThan(SHELL_TOLERANCE_CM ** 2);
   });
 
-  it("has storey 0's Gable area 155884.6 - 60000 = 95884.6", () => {
-    expect(Math.abs(taggedArea(get(name), kindOf('Gable', 0)) - (90000 * Math.sqrt(3) - 60000))).toBeLessThan(AREA_TOL);
+  it("has storey 0's Gable area 155884.6 - 50000 = 105884.6", () => {
+    expect(Math.abs(taggedArea(get(name), kindOf('Gable', 0)) - (90000 * Math.sqrt(3) - 50000))).toBeLessThan(AREA_TOL);
   });
 
   it('has no surviving storey-1 Gable', () => {

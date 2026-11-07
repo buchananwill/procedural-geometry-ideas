@@ -6,7 +6,7 @@ import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
 import type {Vec2} from 'manifold-3d';
 import {errorMessage} from '../src/errors.ts';
 import {ShellFace, loopArea, meshSurfaceArea} from '../src/faces.ts';
-import {FixtureRing, SHELL_FIXTURES, ShellFixture, fixtureByName} from '../src/fixture.ts';
+import {FixtureRing, SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, fixtureByName} from '../src/fixture.ts';
 import {CASES} from '../src/roof/cases.ts';
 import {Rect, Sel} from '../src/roof/model.ts';
 import {
@@ -28,14 +28,14 @@ const TAN60 = Math.sqrt(3);
 const U_RECTS: Rect[] = [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]];
 const U_SELS: Sel[] = [{y: 0, to: 200, form: 'gable'}];
 const oneStoreyRings = (rects: Rect[]): FixtureRing[] => rects.map(rect => ({rect, baseStorey: 0, storeys: 1}));
-const U_PROBE: ShellFixture = {name: 'UProbe', cellSize: 50, storeyHeight: 300, rings: oneStoreyRings(U_RECTS), roofs: {0: {sels: U_SELS, defaultDeg: 45}}};
+const U_PROBE: ShellFixture = {name: 'UProbe', cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings(U_RECTS), roofs: {0: {sels: U_SELS, defaultDeg: 45}}};
 
 /**
  * The correctness reviewer's hip-touch probes (journal decision 96, F1 and F2): storey 1 stands on storey 0's 45
  * degree hip with one corner on the hip line x = y, at (70, 70) off the lattice and at (100, 100) on it.
  */
 const hipTouch = (name: string, upper: Rect): ShellFixture => ({
-  name, cellSize: 50, storeyHeight: 300,
+  name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM,
   rings: [{rect: [0, 0, 600, 600], baseStorey: 0, storeys: 1}, {rect: upper, baseStorey: 1, storeys: 1}],
   roofs: {0: {sels: [], defaultDeg: 45}, 1: {sels: [], defaultDeg: 45}},
 });
@@ -283,21 +283,26 @@ describe('the net (journal decisions 58 to 60)', () => {
 /** A fixture's report as measured: its conflict count (union.test.ts pins the strings) and the rest exactly. */
 type ReportPin = Pick<ShellReport, 'partialCells' | 'newEdgeKinds' | 'newConventions'> & {conflicts: number};
 type KindsPin = Pick<ShellReport, 'newEdgeKinds' | 'newConventions'>;
-// Every fixture has a Hip, so every one cuts a Roof Cell exactly (journal decision 96, F5).
+// Every fixture with a Hip cuts a Roof Cell exactly (journal decision 96, F5). DefaultChalet has none, and its one
+// Ridge runs on the Cell line y = 500, so it lists no convention at all.
 const SOFFIT: KindsPin = {newEdgeKinds: ['SoffitEdge', 'SoffitJunction'], newConventions: [CONVENTION_UNDERSIDE_ROOF_INTERIOR, CONVENTION_ROOF_LINES_CUT]};
 const PLAIN: KindsPin = {newEdgeKinds: [], newConventions: [CONVENTION_ROOF_LINES_CUT]};
 const CORNERED: KindsPin = {newEdgeKinds: [], newConventions: [CONVENTION_CORNER_BY_GEOMETRY, CONVENTION_ROOF_LINES_CUT]};
+const NONE: KindsPin = {newEdgeKinds: [], newConventions: []};
+// Re-measured at 250 cm storeys (journal decision 102): OverhangApexOnEave 84 -> 70 (redesigned footprints) and
+// ValleyWingsPierced 116 -> 124; every other count is unchanged.
 const REPORTS: Record<string, ReportPin> = {
   NarrowUpperStorey: {conflicts: 1, partialCells: 56, ...PLAIN},
   NarrowUpperStoreyGabled: {conflicts: 2, partialCells: 56, ...PLAIN},
   TallerUpper: {conflicts: 1, partialCells: 66, ...PLAIN},
   Overhang: {conflicts: 0, partialCells: 90, ...SOFFIT},
-  OverhangApexOnEave: {conflicts: 0, partialCells: 84, ...SOFFIT},
+  OverhangApexOnEave: {conflicts: 0, partialCells: 70, ...SOFFIT},
   Bridge: {conflicts: 0, partialCells: 48, ...SOFFIT},
   BridgeOverBlock: {conflicts: 0, partialCells: 96, ...SOFFIT},
   ValleyWings: {conflicts: 0, partialCells: 54, ...CORNERED},
-  ValleyWingsPierced: {conflicts: 0, partialCells: 116, ...CORNERED},
+  ValleyWingsPierced: {conflicts: 0, partialCells: 124, ...CORNERED},
   SingleStoreyT: {conflicts: 0, partialCells: 42, ...CORNERED},
+  DefaultChalet: {conflicts: 0, partialCells: 56, ...NONE},
 };
 
 describe('the report (decision 33)', () => {
@@ -364,48 +369,50 @@ describe('a surviving Cheek reads as a Gable (UProbe)', () => {
 
 // ---- The fixtures (decisions 34 to 40) ------------------------------------------------------------------------------
 
-const APEX_60 = 300 + 300 * TAN60; // 819.6
-const RAKE_SEAT_Z = 300 + 50 * TAN60; // 386.6
+/** Every fixture's storey height (journal decision 102): plates at 250, 500 and 750. */
+const H = STOREY_HEIGHT_CM;
+const APEX_60 = H + 300 * TAN60; // 769.6
+const RAKE_SEAT_Z = H + 50 * TAN60; // 336.6
 
 describe.each(['NarrowUpperStorey', 'NarrowUpperStoreyGabled'])('%s (decisions 34 and 35)', name => {
   it('has no Roof face of storey 1', () => {
     expect(facesWhere(get(name), is('Roof', 1))).toEqual([]);
   });
 
-  it("has storey 1's Wall faces only on y = 0, totalling 60000", () => {
+  it("has storey 1's Wall faces only on y = 0, totalling 50000", () => {
     const walls = facesWhere(get(name), is('Wall', 1));
     for (const f of walls) {
       expect(near(f.normal, [0, -1, 0])).toBe(true);
       expect(Math.abs(f.offset)).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
     }
-    expect(Math.abs(sumArea(walls) - 60000)).toBeLessThan(AREA_TOL);
+    expect(Math.abs(sumArea(walls) - 200 * H)).toBeLessThan(AREA_TOL);
   });
 
-  it("has storey 0's Gable area 155884.6 - 60000", () => {
-    expect(Math.abs(sumArea(facesWhere(get(name), is('Gable', 0))) - (90000 * TAN60 - 60000))).toBeLessThan(AREA_TOL);
+  it("has storey 0's Gable area 155884.6 - 50000 = 105884.6", () => {
+    expect(Math.abs(sumArea(facesWhere(get(name), is('Gable', 0))) - (90000 * TAN60 - 200 * H))).toBeLessThan(AREA_TOL);
   });
 
-  it('has one Ridge, from (300, 0, 819.6) to (300, 300, 819.6)', () => {
+  it('has one Ridge, from (300, 0, 769.6) to (300, 300, 769.6)', () => {
     const b = get(name);
     expect(b.shell.edges.filter(e => e.kind === 'Ridge')).toHaveLength(1);
     expectEdge(b, 'Ridge', [300, 0, APEX_60], [300, 300, APEX_60]);
   });
 
-  it('has GableVertical on x = 200 and x = 400 over z 300 to 600, GableHorizontal at z = 600 over x 200 to 400', () => {
+  it('has GableVertical on x = 200 and x = 400 over z 250 to 500, GableHorizontal at z = 500 over x 200 to 400', () => {
     const b = get(name);
-    expectEdge(b, 'GableVertical', [200, 0, 300], [200, 0, 600]);
-    expectEdge(b, 'GableVertical', [400, 0, 300], [400, 0, 600]);
-    expectEdge(b, 'GableHorizontal', [200, 0, 600], [400, 0, 600]);
+    expectEdge(b, 'GableVertical', [200, 0, H], [200, 0, 2 * H]);
+    expectEdge(b, 'GableVertical', [400, 0, H], [400, 0, 2 * H]);
+    expectEdge(b, 'GableHorizontal', [200, 0, 2 * H], [400, 0, 2 * H]);
   });
 
-  it('has FloorLine at z = 300 over x 200 to 400, WallPlate at z = 300 over x 0 to 200 and x 400 to 600', () => {
+  it('has FloorLine at z = 250 over x 200 to 400, WallPlate at z = 250 over x 0 to 200 and x 400 to 600', () => {
     const b = get(name);
-    expectEdge(b, 'FloorLine', [200, 0, 300], [400, 0, 300]);
-    expectEdge(b, 'WallPlate', [0, 0, 300], [200, 0, 300]);
-    expectEdge(b, 'WallPlate', [400, 0, 300], [600, 0, 300]);
+    expectEdge(b, 'FloorLine', [200, 0, H], [400, 0, H]);
+    expectEdge(b, 'WallPlate', [0, 0, H], [200, 0, H]);
+    expectEdge(b, 'WallPlate', [400, 0, H], [600, 0, H]);
   });
 
-  it("lists a Verge and a GableVertical NetEdge at the rake seat (50, 0, 386.6), C28's bracket seat", () => {
+  it("lists a Verge and a GableVertical NetEdge at the rake seat (50, 0, 336.6), C28's bracket seat", () => {
     const b = get(name);
     const v = vertexNear(b, [50, 0, RAKE_SEAT_Z]);
     const kinds = v.edges.map(e => b.shell.netEdges[e].kind);
@@ -424,8 +431,8 @@ describe('NarrowUpperStoreyGabled (decision 35)', () => {
 });
 
 describe('TallerUpper (decision 36)', () => {
-  const low = 300 + 200 * TAN30; // 415.5
-  const apex = 300 + 300 * TAN30; // 473.2
+  const low = H + 200 * TAN30; // 365.5
+  const apex = H + 300 * TAN30; // 423.2
 
   it("has storey 1's Roof faces over plan area 40000", () => {
     expect(Math.abs(planArea(facesWhere(get('TallerUpper'), is('Roof', 1))) - 40000)).toBeLessThan(AREA_TOL);
@@ -438,13 +445,13 @@ describe('TallerUpper (decision 36)', () => {
     expectEdge(b, 'Ridge', [300, 200, apex], [300, 300, apex]);
   });
 
-  it('has RingJunctions along x = 200 and x = 400 at z = 415.5 over y 0 to 200', () => {
+  it('has RingJunctions along x = 200 and x = 400 at z = 365.5 over y 0 to 200', () => {
     const b = get('TallerUpper');
     expectEdge(b, 'RingJunction', [200, 0, low], [200, 200, low]);
     expectEdge(b, 'RingJunction', [400, 0, low], [400, 200, low]);
   });
 
-  it('has two sloped RingJunctions on y = 200 meeting at (300, 200, 473.2)', () => {
+  it('has two sloped RingJunctions on y = 200 meeting at (300, 200, 423.2)', () => {
     const b = get('TallerUpper');
     expectEdge(b, 'RingJunction', [200, 200, low], [300, 200, apex]);
     expectEdge(b, 'RingJunction', [300, 200, apex], [400, 200, low]);
@@ -452,7 +459,7 @@ describe('TallerUpper (decision 36)', () => {
 });
 
 describe('Overhang (decision 37)', () => {
-  const apex = 300 + 300 * TAN30;
+  const apex = H + 300 * TAN30; // 423.2
 
   it("has storey 1's Underside only over x 600 to 900, area 180000", () => {
     const u = facesWhere(get('Overhang'), is('Underside', 1));
@@ -468,19 +475,19 @@ describe('Overhang (decision 37)', () => {
 
   it('has SoffitEdge along x = 900, and along y = 0 and y = 600 over x 600 to 900', () => {
     const b = get('Overhang');
-    expectEdge(b, 'SoffitEdge', [900, 0, 300], [900, 600, 300]);
-    expectEdge(b, 'SoffitEdge', [600, 0, 300], [900, 0, 300]);
-    expectEdge(b, 'SoffitEdge', [600, 600, 300], [900, 600, 300]);
+    expectEdge(b, 'SoffitEdge', [900, 0, H], [900, 600, H]);
+    expectEdge(b, 'SoffitEdge', [600, 0, H], [900, 0, H]);
+    expectEdge(b, 'SoffitEdge', [600, 600, H], [900, 600, H]);
   });
 
-  it('has SoffitJunction along x = 600 at z = 300', () => {
-    expectEdge(get('Overhang'), 'SoffitJunction', [600, 0, 300], [600, 600, 300]);
+  it('has SoffitJunction along x = 600 at z = 250', () => {
+    expectEdge(get('Overhang'), 'SoffitJunction', [600, 0, H], [600, 600, H]);
   });
 
-  it('has a ^-shaped RingJunction on x = 300 through (300, 0, 300), (300, 300, 473.2) and (300, 600, 300)', () => {
+  it('has a ^-shaped RingJunction on x = 300 through (300, 0, 250), (300, 300, 423.2) and (300, 600, 250)', () => {
     const b = get('Overhang');
-    expectEdge(b, 'RingJunction', [300, 0, 300], [300, 300, apex]);
-    expectEdge(b, 'RingJunction', [300, 300, apex], [300, 600, 300]);
+    expectEdge(b, 'RingJunction', [300, 0, H], [300, 300, apex]);
+    expectEdge(b, 'RingJunction', [300, 300, apex], [300, 600, H]);
   });
 });
 
@@ -497,17 +504,17 @@ describe('Bridge (decision 38)', () => {
 
   it.each([200, 800])('has SoffitJunction, FloorLine and GroundLine along the inner wall x = %i', x => {
     const b = get('Bridge');
-    expectEdge(b, 'SoffitJunction', [x, 0, 600], [x, 600, 600]);
-    expectEdge(b, 'FloorLine', [x, 0, 300], [x, 600, 300]);
+    expectEdge(b, 'SoffitJunction', [x, 0, 2 * H], [x, 600, 2 * H]);
+    expectEdge(b, 'FloorLine', [x, 0, H], [x, 600, H]);
     expectEdge(b, 'GroundLine', [x, 0, 0], [x, 600, 0]);
   });
 });
 
 describe('BridgeOverBlock (decision 38)', () => {
-  const apex = 300 + 300 * TAN30;
-  const low = 300 + 200 * TAN30;
+  const apex = H + 300 * TAN30; // 423.2
+  const low = H + 200 * TAN30; // 365.5
 
-  it("has storey 0's Roof over x 200 to 800, its Ridge whole from x 300 to 700 at z 473.2", () => {
+  it("has storey 0's Roof over x 200 to 800, its Ridge whole from x 300 to 700 at z 423.2", () => {
     const b = get('BridgeOverBlock');
     const r = facesWhere(b, is('Roof', 0));
     expect(Math.abs(planArea(r) - 360000)).toBeLessThan(AREA_TOL);
@@ -529,8 +536,8 @@ describe('BridgeOverBlock (decision 38)', () => {
 
   it.each([200, 800])("meets the tower's inner wall x = %i by sloped RingJunctions", x => {
     const b = get('BridgeOverBlock');
-    expectEdge(b, 'RingJunction', [x, 0, 300], [x, 200, low]);
-    expectEdge(b, 'RingJunction', [x, 400, low], [x, 600, 300]);
+    expectEdge(b, 'RingJunction', [x, 0, H], [x, 200, low]);
+    expectEdge(b, 'RingJunction', [x, 400, low], [x, 600, H]);
     for (const e of b.shell.edges.filter(e => e.faces.some(f => is('Roof', 0)(tagOf(b, f))) && e.faces.some(f => is('Wall', 1)(tagOf(b, f))))) {
       expect(e.kind).toBe('RingJunction');
     }
@@ -538,13 +545,13 @@ describe('BridgeOverBlock (decision 38)', () => {
 });
 
 describe('ValleyWings (decision 39)', () => {
-  it("has a Valley on x + y = 1000 ending on storey 1's y = 300 wall at (700, 300), where two RingJunctions meet", () => {
+  it("has a Valley on x + y = 1000 ending on storey 1's y = 300 wall at (700, 300, 350), where two RingJunctions meet", () => {
     const b = get('ValleyWings');
     const valleys = b.shell.edges.filter(e => e.kind === 'Valley' && e.faces.every(f => is('Roof', 0)(tagOf(b, f))));
     expect(valleys).toHaveLength(1);
     const [v] = valleys;
     for (const p of [v.a, v.b]) expect(Math.abs(p[0] + p[1] - 1000)).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
-    const end: Vec3 = [700, 300, 400];
+    const end: Vec3 = [700, 300, H + 100];
     expect(near(v.a, end) || near(v.b, end)).toBe(true);
     const meet = b.shell.edges.filter(e => e.kind === 'RingJunction' && (near(e.a, end) || near(e.b, end)));
     expect(meet).toHaveLength(2);
@@ -580,7 +587,7 @@ describe('SingleStoreyT (decision 40)', () => {
         if (!strictlyInside(x, y)) continue;
         const zs = roofs.filter(f => planHolds(f, x, y)).map(f => (f.offset - f.normal[0] * x - f.normal[1] * y) / f.normal[2]);
         expect(zs.length, `no Roof face over (${x}, ${y})`).toBeGreaterThan(0);
-        expect(Math.abs(Math.max(...zs) - (300 + expected({x, y}))), `top at (${x}, ${y})`).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
+        expect(Math.abs(Math.max(...zs) - (H + expected({x, y}))), `top at (${x}, ${y})`).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
         checked++;
       }
     }
@@ -599,6 +606,40 @@ describe('SingleStoreyT (decision 40)', () => {
   });
 });
 
+describe('DefaultChalet (decision 40, journal decision 103)', () => {
+  const TAN22_5 = Math.tan(Math.PI / 8);
+  const ridgeZ = H + 500 * TAN22_5; // 457.1
+
+  it('has one Ridge, from (0, 500, 457.1) to (1000, 500, 457.1)', () => {
+    const b = get('DefaultChalet');
+    expect(b.shell.edges.filter(e => e.kind === 'Ridge')).toHaveLength(1);
+    expectEdge(b, 'Ridge', [0, 500, ridgeZ], [1000, 500, ridgeZ]);
+  });
+
+  // The Gable's base corners lie on the 1/1024 cm grid; its apex at z = 457.10678 does not, and the raw parts' snap
+  // (spec decision 11) moves it at most half a grid step, so over the 1000 cm base the area may move 500 / 2048 cm².
+  // Measured: 103553.23, the apex snapped to 457.10645.
+  it('has two Gable faces, each of area 103553.4 to within the apex snap', () => {
+    const gables = facesWhere(get('DefaultChalet'), t => t.kind === 'Gable');
+    expect(gables).toHaveLength(2);
+    for (const f of gables) expect(Math.abs(f.area - 500 * 500 * TAN22_5)).toBeLessThanOrEqual(500 / (2 * SNAP_STEPS_PER_CM));
+  });
+
+  it('has four Verge Edges and two Eaves Edges', () => {
+    const {edges} = get('DefaultChalet').shell;
+    expect(edges.filter(e => e.kind === 'Verge')).toHaveLength(4);
+    expect(edges.filter(e => e.kind === 'Eaves')).toHaveLength(2);
+  });
+
+  it('has a report empty of findings, in the sense SingleStoreyT has', () => {
+    const {report} = get('DefaultChalet').shell;
+    expect({conflicts: report.conflicts, survivingInternal: report.survivingInternal, unclassifiedEdges: report.unclassifiedEdges,
+      cheeks: report.cheeks, newEdgeKinds: report.newEdgeKinds}).toEqual({
+      conflicts: [], survivingInternal: 0, unclassifiedEdges: 0, cheeks: 0, newEdgeKinds: [],
+    });
+  });
+});
+
 // ---- The degenerate twins: decision 32's invariants plus their measured topology -----------------------------------
 
 /** Faces per kind and storey, ShellEdges per kind, and the net's counts, as measured. */
@@ -607,7 +648,9 @@ const TWIN_TOPOLOGY: Record<string, TwinTopology> = {
   OverhangApexOnEave: {
     faces: {Ground0: 1, Roof0: 3, Roof1: 4, Underside1: 1, Wall0: 4, Wall1: 5},
     edges: {Eaves: 8, ExternalCorner: 8, FloorLine: 2, GroundLine: 4, Hip: 6, RingJunction: 2, SoffitEdge: 3, SoffitJunction: 1},
-    vertices: 853, netEdges: 1722, cells: 870,
+    // Re-measured on the redesigned footprints at 250 cm storeys (journal decision 102): faces and Edges unchanged,
+    // vertices 853 -> 596, NetEdges 1722 -> 1205, Cells 870 -> 610.
+    vertices: 596, netEdges: 1205, cells: 610,
   },
   // Re-measured under journal decision 96's plane identity: the L's two collinear walls on y = 0 and on x = 1000 are
   // now one face each (Wall0 8 -> 6), so their flat WallVertical seams go (2 -> 0) and the Eaves and GroundLines they
@@ -615,7 +658,9 @@ const TWIN_TOPOLOGY: Record<string, TwinTopology> = {
   ValleyWingsPierced: {
     faces: {Gable0: 2, Ground0: 1, Roof0: 4, Roof1: 4, Wall0: 6, Wall1: 6},
     edges: {Eaves: 10, ExternalCorner: 9, GroundLine: 6, Hip: 5, InternalCorner: 1, Ridge: 2, RingJunction: 6, Valley: 5, Verge: 4, WallPlate: 2},
-    vertices: 971, netEdges: 1896, cells: 926,
+    // Re-measured at 250 cm storeys (journal decision 102): faces and Edges unchanged, vertices 971 -> 873, NetEdges
+    // 1896 -> 1702, Cells 926 -> 830.
+    vertices: 873, netEdges: 1702, cells: 830,
   },
 };
 
@@ -636,10 +681,10 @@ describe.each(Object.keys(TWIN_TOPOLOGY))('%s (degenerate twin)', name => {
 });
 
 describe('OverhangApexOnEave pinch (decision 37)', () => {
-  it("splits storey 1's x = 300 wall into two faces touching only at (300, 300, 600)", () => {
+  it("splits storey 1's x = 250 wall into two faces touching only at (250, 250, 500)", () => {
     const b = get('OverhangApexOnEave');
-    const pinch: Vec3 = [300, 300, 600];
-    const halves = facesWhere(b, is('Wall', 1)).filter(f => near(f.normal, [-1, 0, 0]) && Math.abs(f.offset + 300) <= SHELL_TOLERANCE_CM);
+    const pinch: Vec3 = [250, 250, 2 * H];
+    const halves = facesWhere(b, is('Wall', 1)).filter(f => near(f.normal, [-1, 0, 0]) && Math.abs(f.offset + 250) <= SHELL_TOLERANCE_CM);
     expect(halves).toHaveLength(2);
     for (const f of halves) expect(f.loops.flat().some(p => near(p, pinch))).toBe(true);
     expect(b.shell.edges.filter(e => e.faces.includes(halves[0].id) && e.faces.includes(halves[1].id))).toEqual([]);
@@ -650,9 +695,9 @@ describe('OverhangApexOnEave pinch (decision 37)', () => {
 // ---- The correctness review's findings (journal decision 96) ------------------------------------------------------
 
 describe('F1: a ShellEdge end inside another ShellEdge is a vertex of both', () => {
-  it("splits storey 0's hip at storey 1's corner (70, 70, 370), off the lattice, and pairs both sides there", () => {
+  it("splits storey 0's hip at storey 1's corner (70, 70, 320), off the lattice, and pairs both sides there", () => {
     const b = get(HIP_TOUCH_OFF.name);
-    const X: Vec3 = [70, 70, 370];
+    const X: Vec3 = [70, 70, STOREY_HEIGHT_CM + 70];
     const x = vertexNear(b, X);
     const hips = b.shell.edges.filter(e => e.kind === 'Hip' && e.faces.every(f => is('Roof', 0)(tagOf(b, f)))
       && Math.abs(e.a[0] - e.a[1]) <= SHELL_TOLERANCE_CM && Math.abs(e.b[0] - e.b[1]) <= SHELL_TOLERANCE_CM);
@@ -667,7 +712,7 @@ describe('F1: a ShellEdge end inside another ShellEdge is a vertex of both', () 
 });
 
 describe('F2: a hole touching its face\'s outer loop is two simple loops', () => {
-  it("gives storey 0's west roof face an outer loop and storey 1's footprint as a hole touching it at (100, 100, 400)", () => {
+  it("gives storey 0's west roof face an outer loop and storey 1's footprint as a hole touching it at (100, 100, 350)", () => {
     const b = get(HIP_TOUCH_ON.name);
     const west = facesWhere(b, is('Roof', 0)).filter(f => near(f.normal, [-Math.SQRT1_2, 0, Math.SQRT1_2]));
     expect(west).toHaveLength(1);
@@ -675,19 +720,19 @@ describe('F2: a hole touching its face\'s outer loop is two simple loops', () =>
     expect(rest).toEqual([]);
     for (const loop of [outer, hole]) expect(new Set(loop.map(p => snapPoint(p).join(','))).size).toBe(loop.length);
     expect(loopArea(outer, west[0].normal)).toBeGreaterThan(0);
-    // The footprint [50, 100] x [100, 200] on z = 300 + x: 5000 cm² in plan, 5000 * sqrt 2 on the slope.
+    // The footprint [50, 100] x [100, 200] on z = 250 + x: 5000 cm² in plan, 5000 * sqrt 2 on the slope.
     expect(Math.abs(loopArea(hole, west[0].normal) + 5000 * Math.SQRT2)).toBeLessThan(AREA_TOL);
-    const corners: Vec3[] = [[50, 100, 350], [100, 100, 400], [100, 200, 400], [50, 200, 350]];
+    const corners: Vec3[] = [[50, 100, H + 50], [100, 100, H + 100], [100, 200, H + 100], [50, 200, H + 50]];
     expect(hole).toHaveLength(4);
     for (const c of corners) expect(hole.some(p => near(p, c))).toBe(true);
-    expect(outer.some(p => near(p, [100, 100, 400]))).toBe(true);
+    expect(outer.some(p => near(p, [100, 100, H + 100]))).toBe(true);
   });
 });
 
 describe('F3: a face meeting a vertex twice', () => {
-  it("names storey 0's pinched west roof face twice at (70, 70, 370), in fan order", () => {
+  it("names storey 0's pinched west roof face twice at (70, 70, 320), in fan order", () => {
     const b = get(HIP_TOUCH_OFF.name);
-    const x = vertexNear(b, [70, 70, 370]);
+    const x = vertexNear(b, [70, 70, STOREY_HEIGHT_CM + 70]);
     const west = facesWhere(b, is('Roof', 0)).filter(f => near(f.normal, [-Math.SQRT1_2, 0, Math.SQRT1_2]));
     expect(west).toHaveLength(1);
     expect(x.faces.filter(f => f === west[0].id)).toHaveLength(2);
@@ -722,7 +767,7 @@ describe('F4: every Cell\'s lattice index', () => {
 
 describe('F5: the exact roof cut is a new convention', () => {
   const box = (name: string, depth: number): ShellFixture => ({
-    name, cellSize: 50, storeyHeight: 300, rings: oneStoreyRings([[0, 0, 400, depth]]),
+    name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings([[0, 0, 400, depth]]),
     roofs: {0: {sels: [{x: 0, form: 'gable'}, {x: 400, form: 'gable'}], defaultDeg: 45}},
   });
 

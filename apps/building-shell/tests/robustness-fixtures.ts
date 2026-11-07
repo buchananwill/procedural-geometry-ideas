@@ -3,6 +3,13 @@
 import type {FixtureRing, ShellFixture, StoreyRoof} from '../src/fixture.ts';
 import type {Sel} from '../src/roof/model.ts';
 
+/**
+ * The storey height the reviewer's reproducers ran at, in cm. They are kept at it so their measured cases (F36's
+ * near-coincident vertices, F37's 26.574 degree apex) still reproduce; the tests also run every case at the
+ * fixtures' 250 (journal decision 102).
+ */
+export const REVIEWER_STOREY_HEIGHT_CM = 300;
+
 /** `fuzz4.mjs`'s pitches: 20 degrees up to 70 in 0.173 degree steps, accumulated as the reproducer does. */
 export function sweepPitches(): number[] {
   const out: number[] = [];
@@ -14,23 +21,24 @@ export function sweepPitches(): number[] {
  * `fuzz4.mjs`'s case: a `[0, 0, 600, 400]` box with y = 0 gabled at `deg`, and with `upper` a 200 x 200 storey 1 on
  * its y = 0 wall, hipped at 45 degrees.
  */
-export function sweepFixture(deg: number, upper: boolean): ShellFixture {
+export function sweepFixture(deg: number, upper: boolean, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture {
   const rings: FixtureRing[] = [{rect: [0, 0, 600, 400], baseStorey: 0, storeys: 1}];
   if (upper) rings.push({rect: [200, 0, 400, 200], baseStorey: 1, storeys: 1});
   const roofs: Record<number, StoreyRoof> = {0: {sels: [{y: 0, form: 'gable'}], defaultDeg: deg}};
   if (upper) roofs[1] = {sels: [], defaultDeg: 45};
-  return {name: `P${deg.toFixed(3)}${upper ? 'u' : ''}`, cellSize: 50, storeyHeight: 300, rings, roofs};
+  return {name: `P${deg.toFixed(3)}${upper ? 'u' : ''}`, cellSize: 50, storeyHeight, rings, roofs};
 }
 
 /** Every sweep case: each pitch alone and with the upper storey, 580 in all. */
-export const sweepFixtures = (): ShellFixture[] => sweepPitches().flatMap(deg => [sweepFixture(deg, false), sweepFixture(deg, true)]);
+export const sweepFixtures = (storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture[] =>
+  sweepPitches().flatMap(deg => [sweepFixture(deg, false, storeyHeight), sweepFixture(deg, true, storeyHeight)]);
 
 /**
  * `fuzz3.mjs`'s random Ring fixtures, draw for draw: one- and two-storey plans of up to two storey-0 Rings and one
  * storey-1 Ring, gabled on the first Ring's x or y side or hipped, at assorted pitches. Seed 1, 80 fixtures, is the
  * reviewer's run.
  */
-export function randomFixtures(seed: number, count: number): ShellFixture[] {
+export function randomFixtures(seed: number, count: number, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture[] {
   let s = seed;
   const rnd = (): number => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
   const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
@@ -51,7 +59,7 @@ export function randomFixtures(seed: number, count: number): ShellFixture[] {
     const sels: Sel[] = rnd() < 0.5 ? [{x: x0, form: 'gable'}] : rnd() < 0.5 ? [{y: y0, form: 'gable'}] : [];
     const roofs: Record<number, StoreyRoof> = {0: {sels, defaultDeg: pick([22.5, 30, 37, 45, 52.5, 60])}};
     if (two) roofs[1] = {sels: [], defaultDeg: pick([30, 45, 55])};
-    out.push({name: `Fuzz${k}`, cellSize: 50, storeyHeight: 300, rings, roofs});
+    out.push({name: `Fuzz${k}`, cellSize: 50, storeyHeight, rings, roofs});
   }
   return out;
 }

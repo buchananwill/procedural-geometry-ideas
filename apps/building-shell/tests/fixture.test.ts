@@ -5,14 +5,14 @@ import {CASES} from '../src/roof/cases.ts';
 import {planStorey} from '../src/storey.ts';
 
 describe('fixture roster', () => {
-  it('holds every fixture spec decisions 34 to 40 name, cellSize 50 and storeyHeight 300', () => {
+  it('holds every fixture spec decisions 34 to 40 name, cellSize 50 and storeyHeight 250 (journal decision 102)', () => {
     expect(SHELL_FIXTURES.map(f => f.name)).toEqual([
       'NarrowUpperStorey', 'NarrowUpperStoreyGabled', 'TallerUpper', 'Overhang', 'OverhangApexOnEave',
-      'Bridge', 'BridgeOverBlock', 'ValleyWings', 'ValleyWingsPierced', 'SingleStoreyT',
+      'Bridge', 'BridgeOverBlock', 'ValleyWings', 'ValleyWingsPierced', 'SingleStoreyT', 'DefaultChalet',
     ]);
     for (const f of SHELL_FIXTURES) {
       expect(f.cellSize).toBe(50);
-      expect(f.storeyHeight).toBe(300);
+      expect(f.storeyHeight).toBe(250);
       expect(Object.keys(f.roofs).map(Number)).toEqual(storeysOf(f));
     }
   });
@@ -25,7 +25,7 @@ describe('fixture roster', () => {
 
   it('places storey N between N and N + 1 storey heights', () => {
     const plan = planStorey(fixtureByName('Bridge'), 2);
-    expect([plan.floor, plan.plate]).toEqual([600, 900]);
+    expect([plan.floor, plan.plate]).toEqual([500, 750]);
   });
 });
 

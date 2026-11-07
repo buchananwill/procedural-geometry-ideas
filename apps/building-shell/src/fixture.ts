@@ -18,8 +18,11 @@ export interface ShellFixture {
 
 const ring = (rect: Rect, baseStorey: number, storeys = 1): FixtureRing => ({rect, baseStorey, storeys});
 const hip = (defaultDeg: number): StoreyRoof => ({sels: [], defaultDeg});
+/** Piste Perfect's default storey height, in cm (journal decision 102): every fixture's. */
+export const STOREY_HEIGHT_CM = 250;
+
 const fixture = (name: string, rings: FixtureRing[], roofs: Record<number, StoreyRoof>): ShellFixture =>
-  ({name, cellSize: 50, storeyHeight: 300, rings, roofs});
+  ({name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings, roofs});
 
 /** Roof-gable case 2a's rects and selector, stated literally: `cases.ts` does not export them. */
 export const CASE_2A_RECTS: Rect[] = [[0, 0, 1000, 500], [1000, 150, 1400, 350]];
@@ -27,6 +30,8 @@ export const CASE_2A_SELS: Sel[] = [{x: 1000, form: 'gable'}];
 
 const narrowRings = (): FixtureRing[] => [ring([0, 0, 600, 600], 0), ring([200, 0, 400, 200], 1)];
 const overhangRings = (): FixtureRing[] => [ring([0, 0, 600, 600], 0), ring([300, 0, 900, 600], 1)];
+/** Journal decision 102: at 250 cm storeys the footprints shrink so the 45 degree apex (250, 250, 500) meets the eave. */
+const apexOnEaveRings = (): FixtureRing[] => [ring([0, 0, 500, 500], 0), ring([250, 0, 750, 500], 1)];
 const towers = (): FixtureRing[] => [ring([0, 0, 200, 600], 0, 3), ring([800, 0, 1000, 600], 0, 3)];
 const bridgeRoofs = (): Record<number, StoreyRoof> => ({0: hip(30), 1: hip(30), 2: hip(30)});
 const valleyWingsRoof = (deg: number): StoreyRoof => ({sels: [{x: 0, form: 'gable'}, {y: 1000, form: 'gable'}], defaultDeg: deg});
@@ -43,7 +48,7 @@ export const SHELL_FIXTURES: ShellFixture[] = [
   fixture('TallerUpper', narrowRings(), {0: {sels: [{y: 0, form: 'gable'}], defaultDeg: 30}, 1: hip(45)}),
   // 37, clean twin and degenerate twin
   fixture('Overhang', overhangRings(), {0: hip(30), 1: hip(45)}),
-  fixture('OverhangApexOnEave', overhangRings(), {0: hip(45), 1: hip(45)}),
+  fixture('OverhangApexOnEave', apexOnEaveRings(), {0: hip(45), 1: hip(45)}),
   // 38
   fixture('Bridge', [...towers(), ring([200, 0, 800, 600], 2)], bridgeRoofs()),
   fixture('BridgeOverBlock', [...towers(), ring([0, 0, 1000, 600], 0), ring([200, 0, 800, 600], 2)], bridgeRoofs()),
@@ -54,6 +59,8 @@ export const SHELL_FIXTURES: ShellFixture[] = [
     {0: valleyWingsRoof(60), 1: hip(45)}),
   // 40
   fixture('SingleStoreyT', CASE_2A_RECTS.map(r => ring(r, 0)), {0: {sels: CASE_2A_SELS, defaultDeg: 45}}),
+  // 40, Piste Perfect's default building (journal decision 103)
+  fixture('DefaultChalet', [ring([0, 0, 1000, 1000], 0)], {0: {sels: [{x: 0, form: 'gable'}, {x: 1000, form: 'gable'}], defaultDeg: 22.5}}),
 ];
 
 export function fixtureByName(name: string): ShellFixture {
