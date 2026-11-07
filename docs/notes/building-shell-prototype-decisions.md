@@ -1,0 +1,408 @@
+---
+title: "Building Shell Prototype: Fixed Design Decisions"
+type: decision-spec
+status: proposed
+---
+
+# Building shell prototype
+
+A TypeScript prototype of a modular building's exterior shell, built the way the owner specified it for Piste
+Perfect's modular buildings, to replace a C++ pipeline whose abstraction proved brittle (Piste Perfect's
+[exterior-manifold spec](../../../resort_game/PistePerfect_5_7/Notes/buildables/modular-building-exterior-manifold-decisions.md)
+is the failed approach; read it for vocabulary only, not for design). The model is four steps and nothing else:
+
+1. **Every storey is built as if it were the only storey**, from the union of the Ring rectangles that hold it: a
+   closed solid with a floor, walls and its own roof.
+2. **The storey solids are stacked** at their storey heights.
+3. **Their union is taken on the raw geometry.** Every face, or part of a face, inside another solid disappears, and
+   so does every face where two solids touch. The result is one closed manifold with no internal faces, each surviving
+   face tagged with its source: Wall, Gable, Roof, Underside or Ground, plus its storey and source wall.
+4. **Only then is the Cell grid laid on the surviving faces**, and the shell's Edges are read off the manifold's
+   edges.
+
+Nothing is ever tested for lying "inside a hull" at Cell level: Cells do not exist until the shell is final. The
+deliverable is a three.js viewer that shows the finished shell, colour-coded by face kind, Edge kind and Cell, which
+the cursor can rotate and inspect, plus a JSON export per fixture. This document fixes the roster (section 1) and the
+decisions (section 2). It carries no function bodies.
+
+**Amended 2026-11-07** by the arc lead's review, recorded as decisions 41 to 56 in
+[the building-shell arc journal](./building-shell-arc-journal.md). Every amended decision below says so where it stands
+and cites the journal decision behind it.
+
+## 1. Type Roster
+
+**The app**: `apps/building-shell/`, package `@proc-geo/building-shell`, private, not publishable. A Vite app with
+plain TypeScript and three.js (no React, no Next), tests by vitest. Piste Perfect's terms (Ring, Storey, Gable, Cell)
+live only here, never in `packages/core`.
+
+**Copied from Piste Perfect's roof-gable prototype** (`../../../resort_game/PistePerfect_5_7/Scripts/prototypes/roof-gable/src/`)
+into `apps/building-shell/src/roof/`:
+
+- `model.ts`: `Pt`, `Rect`, `Wall`, `Comp`, `Plane`, `Building`, `Sel`, `unionLoops`, `buildFromRects`, `planeAt`.
+  Copied unchanged.
+- `surface.ts`: `PlaneFace`, `Sample`, `Surface`, `evalFaces`. Copied unchanged.
+- `skeleton.ts`: `solveFaces`, `RawFace`. Its `file:///D:/...` import becomes `@proc-geo/core`; nothing else changes.
+- `algoB.ts`: `runB` and its `Piece`. Copied, plus one export (decision 9).
+- `cases.ts` and `measure.ts`: copied unchanged, used only by the copy-integrity test (decision 31).
+- Import specifiers change from `./model.ts` to `./model` if the app's tsconfig refuses `.ts` extensions; no other
+  edit is allowed.
+
+**New, in `apps/building-shell/src/`:**
+
+- `fixture.ts`: `ShellFixture`, `FixtureRing`, `StoreyRoof`, and the fixture list `SHELL_FIXTURES`.
+- `storey.ts`: `StoreyPlan` (one storey's union outline and its solved roof) and `buildStoreyParts` (one storey's
+  raw tagged solids).
+- `tags.ts`: `ShellKind`, `FaceTag`, `TagTable` (`faceID` to `FaceTag`).
+- `union.ts`: `unionShell` (all raw parts to one manifold) and the coplanar re-tag pass.
+- `faces.ts`: `ShellFace` assembly from the output triangles.
+- `edges.ts`: `EdgeKind`, `ShellEdge`, `classifyEdge`.
+- `cells.ts`: `ShellCell`, `layCells`.
+- `shell.ts`: `BuildingShell`, `ShellReport`, `buildShell(fixture)`, the pipeline's one entry point.
+- `export.ts`: a node CLI writing `out/<fixture>.json` for every fixture.
+- `viewer/`: the three.js page (decisions 26 to 30).
+
+**Dependencies**, all permissive, pinned to exact versions with no `^`: `three` (MIT), `@types/three`, `manifold-3d`
+(Apache 2.0), `vite`, `vitest`, and `@proc-geo/core` (`workspace:*`). **No copyleft dependency may be added**, direct
+or transitive: no GPL, LGPL, AGPL or MPL. Any new package's license is checked before it is installed.
+
+## 2. Decisions
+
+### Fixtures and storeys
+
+1. **A fixture is a value**, and every length is in centimetres:
+
+   ```ts
+   interface FixtureRing { rect: Rect; baseStorey: number; storeys: number }
+   interface StoreyRoof { sels: Sel[]; defaultDeg: number }   // roof-gable's selector DSL, on the storey's union outline
+   interface ShellFixture {
+     name: string;
+     cellSize: number;        // 50
+     storeyHeight: number;    // 300; storey N's floor at N * storeyHeight, its plate at (N + 1) * storeyHeight
+     rings: FixtureRing[];
+     roofs: Record<number, StoreyRoof>;   // one per storey index present
+   }
+   ```
+2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
+   `unionLoops`. Several islands are allowed, each its own `Comp`. A hole is refused with an error, as roof-gable
+   refuses one.
+3. **Roof forms are authored per storey on the union outline** with roof-gable's `Sel`s. Deriving a union wall's form
+   from the Ring that owns it is deferred.
+4. **Every storey is roofed as if it were the top storey**, whether or not a storey stands over it. A middle storey's
+   roof is always built, and the union removes whatever of it lies inside the storey above.
+
+### The raw solids
+
+5. **A storey yields separate raw parts, never pre-unioned:** one wall prism per island, one hip solid per island, and
+   one solid per gable piece. Keeping the parts apart is what lets every raw triangle carry exactly one tag before the
+   single union in decision 12.
+6. **The wall prism** is the island's outline extruded from the storey's floor to its plate. Its side faces are tagged
+   `Wall`, each with the union wall it lies on. Its bottom face is tagged `Ground` on storey 0 and `Underside` on every
+   storey above. Its top face is tagged `Internal`.
+7. **The hip solid** is one closed mesh: bottom face the island's outline at plate height, top faces the skeleton's
+   faces from `solveFaces`, each lifted to `z = plate + planeAt(plane, p)`. Each top face is tagged `Roof` with its
+   `RawFace.wall`, and the bottom face is tagged `Internal`.
+8. **A gable piece's solid** is the piece's band rectangle in plan: along the wall over `[bandLo, bandHi]`, inward from
+   the wall line to `farDist` (capped at the storey's bounding box). It is extruded from plate height upward and then
+   trimmed:
+   - to keep only what lies below every one of the piece's planes;
+   - to keep only what lies above the plate;
+   - to keep only what lies within the island's footprint.
+
+   Its faces on a piece plane are tagged `Roof` with that canonical plane's id, its face on the wall line `Gable`
+   with the piece's wall, and every other face `Cheek`. **AMENDED 2026-11-07** (journal decision 41): a Roof face is
+   keyed by its canonical plane, not by a wall, because `finishBuilding` merges collinear walls of equal pitch into
+   one plane. Spec text that says "that plane's wall" now means that plane.
+9. **`algoB.ts` gains one export**, `solveRoofParts(b: Building, opt: BOptions): {defaults: PlaneFace[]; faces: RawFace[]; pieces: Piece[]}`.
+   It returns the default hip faces and the pieces `runB` already computes, with `Piece` exported. `runB` keeps its
+   behaviour exactly, so the copy-integrity test still holds. **Every storey calls it with `{far: 'plane'}`**,
+   roof-gable's chosen rule (**AMENDED 2026-11-07**, journal decision 48).
+10. **Tags are assigned at construction, by geometry**, and every triangle of every raw part gets a `faceID` indexing
+    one `TagTable` entry:
+
+    ```ts
+    type ShellKind = 'Wall' | 'Gable' | 'Roof' | 'Underside' | 'Ground' | 'Cheek' | 'Internal';
+    interface FaceTag { kind: ShellKind; storey: number; wall: number; plane: number; part: number }
+    // wall: -1 for Roof, floors and Internal. plane: the storey Building's canonical plane id for Roof, -1 otherwise.
+    ```
+
+    **A face's identity is `(kind, storey, plane)` for Roof and `(kind, storey, wall)` for every other kind. `part`
+    is provenance only and is never compared.** Face grouping (decision 18), conflict detection (decision 15) and the
+    re-tag rule (decision 14) compare identity, never the whole `FaceTag`. **AMENDED 2026-11-07** (journal decision
+    41): without it, the hip solid's Roof faces and a gable piece's Roof faces on the same plane would split into
+    separate faces, with a spurious `RoofSeam` between them.
+11. **Each raw part enters Manifold through `Manifold.ofMesh`**, with its `faceID` array set from the tag table. A part
+    Manifold refuses as non-manifold is a hard error naming the fixture, storey and part. **AMENDED 2026-11-07:**
+    - **A part may be built with Manifold operations** (decision 8's extrude and trims). It is then tagged on its final
+      mesh by matching each triangle's plane to the part's generating planes, and enters the union through `ofMesh`
+      with those `faceID`s. A triangle that matches no generating plane is a hard error naming the part (journal
+      decision 45).
+    - **Before `ofMesh`, every part's vertices are welded within `SHELL_TOLERANCE_CM` and snapped to a 1/1024 cm
+      grid**, and any strip vertex lying on another strip's edge is split into that edge. A storey whose default hip
+      `solveFaces` refuses is a hard error naming the fixture and storey (journal decision 51).
+
+### The union and provenance
+
+12. **The whole building is one `Manifold.union` over every raw part of every storey**, and nothing else removes
+    geometry. There is no containment test, no burial rule and no plan-view mask anywhere in the app.
+13. **An output triangle's tag starts as its `faceID`'s entry**, which Manifold carries through the boolean.
+14. **Coplanar overlap is re-tagged by one total order: `Wall` > `Gable` > `Roof` > `Underside` > `Ground` > `Cheek`,
+    and between equal kinds the lower storey wins.** Overlapping triangles with the same identity (decision 10) are no
+    conflict. **`Internal` takes no part in re-tagging**: an output triangle whose `faceID` is Internal stays Internal
+    and counts toward decision 17. **AMENDED 2026-11-07** (journal decision 43): the original rule ordered only Wall and
+    Gable, and could have relabelled a surviving Internal triangle. Two cases from the fixtures:
+    - an upper storey's flush wall on the plane of the lower storey's Gable keeps `Wall`;
+    - an upper storey's own Gable lying inside the lower Gable's triangle shows the lower Gable, so one continuous
+      Gable stands.
+15. **The re-tag pass:**
+    - for each output triangle, collect every raw triangle on the same oriented plane (normals within `1e-5`, offsets
+      within `0.01` cm) whose polygon holds the output triangle's centroid;
+    - when they carry different identities (decision 10), decision 14's order picks one (**AMENDED 2026-11-07**:
+      "different tags" now reads "different identities");
+    - every such conflict is listed in the report with its fixture, plane and both tags.
+16. **Positions are float32 in `manifold-3d`'s mesh**, so every geometric tolerance in the app is `0.01` cm and lives
+    in one constant, `SHELL_TOLERANCE_CM`.
+17. **A surviving `Internal` triangle is a defect, not a face**: it is drawn magenta and counted in
+    `ShellReport.survivingInternal`, and every fixture asserts that count is zero.
+
+### Faces
+
+18. **A `ShellFace` is a maximal edge-connected set of output triangles sharing one identity (decision 10) and one
+    oriented plane**, stored as outer and hole loops, with the outer loop first. **AMENDED 2026-11-07**: "tag" now reads
+    "identity", and triangles that touch only at a vertex are separate faces.
+
+    ```ts
+    interface ShellFace { id: number; tag: FaceTag; normal: Vec3; offset: number; loops: Vec3[][]; area: number }
+    ```
+
+### Edges
+
+19. **A `ShellEdge` is a maximal straight run of manifold edges with the same two `ShellFace`s on either side**:
+
+    ```ts
+    interface ShellEdge { id: number; kind: EdgeKind; a: Vec3; b: Vec3; faces: [number, number] }
+    ```
+20. **Convexity is the only sign-sensitive test in the app, and it is stated once here.** The edge is **flat** when
+    `|dot(nA, nB) - 1| < 1e-6`, and **this test runs first**. Otherwise take face A, its outward unit normal `nA`, a
+    point `p` on the edge, and `q`, the vertex opposite the edge in face B's output triangle incident to it. The edge
+    is **convex** when `dot(nA, q - p) < -SHELL_TOLERANCE_CM` and **concave** when
+    `dot(nA, q - p) > SHELL_TOLERANCE_CM`. The edge is **horizontal** when its z extent is within tolerance, and
+    **vertical** when its plan extent is.
+
+    **AMENDED 2026-11-07** (journal decision 42): `q` was B's centroid, which lands on the wrong side of the edge for a
+    non-convex B. Storey 1's notched wall in `OverhangApexOnEave` would have come out convex, as `Eaves`.
+
+    **Worked example (convex, a Ridge).** Two roof faces at 30 degrees over a 600 cm span, plate at 300.
+    - Face A is `z = 300 + 0.577x`, so `nA = (-0.5, 0, 0.866)`.
+    - Face B is `z = 300 + 0.577(600 - x)`.
+    - The edge point is `p = (300, 250, 473.2)`, and B's incident triangle has the eave vertex `q = (600, 0, 300)`.
+    - `dot(nA, q - p) = -0.5·300 + 0.866·(-173.2) = -300 < 0`, so the edge is convex. It is also horizontal, so it is a
+      `Ridge`.
+
+    **Worked example (concave, a RingJunction).** Face A is the same lower roof. B is an upper storey's wall at
+    `x = 200`. The edge point is `p = (200, 100, 415.5)`, and B's incident triangle has the vertex `q = (200, 0, 600)`.
+    `dot(nA, q - p) = 0 + 0.866·184.5 = 159.8 > 0`, so the edge is concave: a `RingJunction`.
+21. **Edge kinds reuse Piste Perfect's `EModularEdgeKind` names where they exist**, and the classification is this
+    table, read for the unordered pair of tags:
+
+    | Pair | Flat | Convex | Concave |
+    |---|---|---|---|
+    | Roof, Roof | `RoofSeam` | `Ridge` if horizontal, else `Hip` | `Valley` |
+    | Roof, Wall | none | `Eaves` | `RingJunction` |
+    | Roof, Gable | none | `Verge` | `RingJunction` |
+    | Wall, Wall | `FloorLine` if horizontal, else `WallVertical` | `ExternalCorner` | `InternalCorner` |
+    | Wall, Gable | `WallPlate` if horizontal at the Gable's own plate, else `GableHorizontal` if horizontal, `GableVertical` if vertical, `GableSloped` otherwise | `ExternalCorner` | `InternalCorner` |
+    | Gable, Gable | `GableVertical` or `GableHorizontal` | `ExternalCorner` | `InternalCorner` |
+    | Wall or Gable, Ground | none | `GroundLine` | none |
+    | Wall, Underside | none | `SoffitEdge` | `SoffitJunction` |
+
+    Any cell of the table marked none, and any pair not in it, gives `Unclassified`: drawn magenta and counted in
+    `ShellReport.unclassifiedEdges`. `RoofSeam`, `GableSloped`, `SoffitEdge`, `SoffitJunction` and `Unclassified` are
+    new names, not in `EModularEdgeKind`, and the report lists them as such.
+
+    **`EdgeKind` is exactly these 21 members** (**AMENDED 2026-11-07**, journal decision 44). The 16 from
+    `EModularEdgeKind`, in its order, are `WallVertical`, `WallHorizontal`, `FloorLine`, `ExternalCorner`,
+    `InternalCorner`, `RingJunction`, `Eaves`, `RoofInterior`, `WallPlate`, `GableHorizontal`, `GableVertical`, `Verge`,
+    `Ridge`, `Hip`, `Valley` and `GroundLine`. The 5 new ones are `RoofSeam`, `GableSloped`, `SoffitEdge`,
+    `SoffitJunction` and `Unclassified`.
+
+### Cells
+
+22. **Cells are laid on the final `ShellFace`s, never before**, on one global lattice of `cellSize` squares anchored at
+    the world origin:
+    - a `Wall` or `Gable` face is laid in `(u, z)`, where `u` is world x for a face whose normal is ±y and world y for
+      one whose normal is ±x;
+    - a `Roof` or `Underside` face is laid in plan `(x, y)`;
+    - `Ground`, `Cheek` and `Internal` faces get no Cells.
+23. **A Cell is one lattice square intersected with its face's projected region**, by `CrossSection.intersect`, lifted
+    back onto the face's plane:
+
+    ```ts
+    interface ShellCell { id: number; face: number; lattice: [number, number]; polygon: Vec3[]; sides: EdgeKind[]; whole: boolean }
+    ```
+
+    `sides[i]` is the kind of the side from `polygon[i]` to `polygon[i + 1]`, set by decision 25 (**AMENDED
+    2026-11-07**, journal decision 44).
+
+    `whole` is true when its area is `cellSize²` within tolerance. A partial Cell is kept, however small, unless its
+    area is under `SHELL_TOLERANCE_CM²`, and the report counts them.
+24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable
+    junction cuts Cells along it, exactly as the shell does.
+25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes `WallVertical` or `WallHorizontal` on
+    a Wall or Gable face, and `RoofInterior` on a Roof or Underside face.
+
+### The viewer
+
+26. **The viewer is one page at `apps/building-shell/index.html`, served by `vite dev`.** It loads `manifold-3d`'s WASM
+    in the browser and runs `buildShell` live on the selected fixture.
+27. **The camera is a three.js `OrbitControls` rig**: drag to orbit, wheel to dolly, right-drag to track. Hovering a
+    face, Cell or Edge shows a readout:
+    - for a face: tag kind, storey, source wall label, area;
+    - for a Cell: lattice coordinate and whole or partial;
+    - for an Edge: kind, length, and its two faces' tags.
+
+    A click pins the readout.
+28. **Colours are fixed per kind:**
+    - each `ShellKind` has one fill colour, drawn translucent for `Ground`;
+    - each `EdgeKind` has one line colour;
+    - `Unclassified` and surviving `Internal` are magenta;
+    - partial Cells are drawn in a lighter shade of their face's colour;
+    - a legend lists every colour in use.
+29. **Toggles:**
+    - faces, Edges, Cell outlines;
+    - each storey;
+    - a **raw** mode that draws every raw part before the union as translucent ghosts, so what the union removed is
+      visible.
+30. **A side panel shows the fixture selector and the `ShellReport`**: conflicts, surviving `Internal`, `Unclassified`
+    Edges, `Cheek` faces, partial Cell count, and Manifold's status.
+
+### Output and tests
+
+31. **Copy integrity:** a vitest test runs roof-gable's algorithm B over the copied `cases.ts` with `measure.ts`. Its
+    tally must equal the roof-gable README's B line exactly: `pass 44, cheek 6, fail 3, blocked 0, none 0`. The test
+    fails if the copy drifted or the skeleton moved off `f7b6091`'s behaviour. **The app's vite and vitest configs
+    alias `@proc-geo/core` to `packages/core/src/index.ts`**, as core's jest config does. Core's `package.json`
+    resolves to `dist/`, so without the alias this test would measure the last build (**AMENDED 2026-11-07**, journal
+    decision 47).
+32. **Every fixture asserts these invariants:**
+    - Manifold's status is OK;
+    - the output is closed;
+    - `survivingInternal` is 0;
+    - `cheeks` is 0. A surviving Cheek is reported, not waived, and a fixture that shows one is a finding
+      (**AMENDED 2026-11-07**, journal decision 46);
+    - every Cell's polygon lies on its face;
+    - the summed `ShellFace` areas equal the output mesh's surface area within tolerance.
+33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
+
+    ```ts
+    interface ShellReport { conflicts: string[]; survivingInternal: number; unclassifiedEdges: number; cheeks: number; partialCells: number; newEdgeKinds: string[] }
+    interface BuildingShell { fixture: string; faces: ShellFace[]; edges: ShellEdge[]; cells: ShellCell[]; report: ShellReport }
+    ```
+
+    These files are reference data for Piste Perfect's C++ tests.
+
+### The fixtures
+
+All nine use `cellSize` 50 and `storeyHeight` 300. Coordinates are `[x0, y0, x1, y1]`. **AMENDED 2026-11-07:** the
+roster grew from six to nine. Decision 38 now holds two fixtures (journal decision 55). Decisions 37 and 39 each hold a
+clean twin and a degenerate twin (journal decision 56).
+
+**A degenerate twin asserts only decision 32's invariants until its topology is measured**, and that measured
+topology is then pinned as its assertion. A degenerate twin that breaks an invariant is a finding, never a waived
+assertion.
+
+34. **`NarrowUpperStorey`**, Piste Perfect's fixture of that name.
+    - **Rings:** `[0,0,600,600]` on storey 0, and `[200,0,400,200]` on storey 1, flush with the lower Ring's y = 0
+      wall.
+    - **Roofs:** storey 0 has y = 0 gabled and 60 degrees elsewhere, so its apex is at 819.6. Storey 1 is a 45 degree
+      hip.
+    - **Asserts:**
+      - no `Roof` face of storey 1;
+      - storey 1 has `Wall` faces only on the plane y = 0, with total area 60000;
+      - storey 0's `Gable` area is 155884.6 − 60000 = 95884.6;
+      - one `Ridge` from (300, 0, 819.6) to (300, 300, 819.6);
+      - `GableVertical` Edges on x = 200 and x = 400 over z 300 to 600, and `GableHorizontal` at z = 600 over x 200
+        to 400;
+      - `FloorLine` at z = 300 over x 200 to 400, and `WallPlate` at z = 300 over x 0 to 200 and x 400 to 600.
+35. **`NarrowUpperStoreyGabled`**: `NarrowUpperStorey` with storey 1's y = 0 wall also gabled. Its faces, tags and
+    areas equal `NarrowUpperStorey`'s, and no `Gable` face of storey 1 survives. This fails if the coplanar rule lets
+    the upper Gable win.
+36. **`TallerUpper`**: `NarrowUpperStorey` with storey 0 at 30 degrees instead of 60, so its apex is at 473.2 and
+    below storey 1's plate at 600.
+    - storey 1's `Roof` faces cover plan area 40000;
+    - the lower `Ridge` runs only from y = 200 to y = 300 at x = 300;
+    - `RingJunction` Edges run along x = 200 and x = 400 at z = 415.5 over y 0 to 200;
+    - two sloped `RingJunction` Edges on y = 200 meet at (300, 200, 473.2).
+37. **`Overhang`**: `[0,0,600,600]` on storey 0, a 30 degree hip with its apex at 473.2, and `[300,0,900,600]` on
+    storey 1, a 45 degree hip.
+    - storey 1's `Underside` survives over x 600 to 900, area 180000;
+    - storey 0's `Roof` survives only over x 0 to 300, plan area 180000;
+    - `SoffitEdge` along x = 900, and along y = 0 and y = 600 over x 600 to 900;
+    - `SoffitJunction` along x = 600 at z = 300;
+    - a ^-shaped `RingJunction` on x = 300 through (300, 0, 300), (300, 300, 473.2) and (300, 600, 300).
+
+    **AMENDED 2026-11-07** (journal decision 49): storey 0 was 45 degrees, which put its apex exactly on storey 1's eave
+    line at (300, 300, 600). That geometry is kept as the degenerate twin below.
+
+    **`OverhangApexOnEave`** (degenerate twin) is `Overhang` with storey 0 at 45 degrees, as first written. Its apex
+    lies on storey 1's eave line at (300, 300, 600), and storey 1's x = 300 wall pinches there into two faces that touch
+    only at that point.
+38. **`Bridge`**, the owner's column case: towers that stand from the ground and a bridge over open air. **AMENDED
+    2026-11-07** (journal decision 55, confirmed by the user): the planner's reconstruction, which had a block on
+    storey 0, is kept as `BridgeOverBlock` below.
+    - **Rings:** towers `[0,0,200,600]` and `[800,0,1000,600]` over storeys 0 to 2, and a bridge `[200,0,800,600]` on
+      storey 2. Every storey is a 30 degree hip. Storeys 0 and 1 are two islands each.
+    - **Asserts:**
+      - no `Roof` face of storey 0 or storey 1;
+      - storey 2's `Underside` survives over x 200 to 800, area 360000;
+      - a `SoffitJunction` along each tower's inner wall (x = 200 and x = 800) at z = 600;
+      - a `FloorLine` at z = 300 on each inner wall;
+      - a `GroundLine` under each inner wall.
+
+    **`BridgeOverBlock`** is the planner's reconstruction, unchanged.
+    - **Rings:** towers `[0,0,200,600]` and `[800,0,1000,600]` over storeys 0 to 2, a block `[0,0,1000,600]` on
+      storey 0, and a bridge `[200,0,800,600]` on storey 2. Every storey is a 30 degree hip.
+    - **Asserts:**
+      - storey 0's `Roof` survives over x 200 to 800, its `Ridge` whole from x 300 to 700 at z 473.2, under storey 2's
+        floor at 600;
+      - no `Roof` face of storey 1;
+      - storey 2's `Underside` survives over x 200 to 800, area 360000;
+      - storey 0's roof meets each tower's inner wall by sloped `RingJunction` Edges.
+39. **`ValleyWings`**: `[0,0,1000,400]` and `[600,0,1000,1000]` on storey 0, forming an L, with x = 0 and y = 1000
+    gabled and 45 degrees elsewhere, so its ridges stand at 500; and `[650,50,950,300]` on storey 1, a 45 degree hip
+    over the L's corner, with its plate at 600.
+    - the lower roof has a `Valley` Edge on the line x + y = 1000, and it ends on storey 1's y = 300 wall at
+      (700, 300), where two `RingJunction` Edges meet;
+    - no `Roof` face of storey 0 meets a `Roof` face of storey 1;
+    - no Edge is `Unclassified`.
+
+    **AMENDED 2026-11-07** (journal decision 50): the lower roof was 60 degrees, which put its ridges at 646.4, above
+    storey 1's plate, and storey 1 was `[650,50,950,350]`, whose corner lay exactly on the valley line. That geometry is
+    kept as the degenerate twin below.
+
+    **`ValleyWingsPierced`** (degenerate twin) is `ValleyWings` with the lower roof at 60 degrees and storey 1 at
+    `[650,50,950,350]`, as first written. The lower ridges pierce storey 1's eaves, and the valley passes through
+    storey 1's corner at (650, 350).
+40. **`SingleStoreyT`**: roof-gable case `2a`, the T with x = 1000 gabled, on storey 0 alone, at that case's 45 degrees.
+    - Its Roof and Gable top surface equals case 2a's own `expected(p)` plus the plate height, at every point of a 25 cm
+      plan grid strictly inside the footprint, within `SHELL_TOLERANCE_CM`.
+    - Its report is empty.
+
+    This fails if the union changes a single storey's roof away from roof-gable's measured answer. **AMENDED
+    2026-11-07** (journal decision 52): the old premise "a building that has nothing to clip" was false, because the T's
+    union buries the hip faces under the gable piece and the gable's foot inside the stem.
+
+## 3. Deferred
+
+- **Deriving union wall forms from Ring forms.** This prototype authors forms per storey, so the inheritance rule
+  stays a C++-side decision.
+- **Courtyards and holes.** roof-gable needs a cut for them, and no fixture here has one.
+- **Numerical parity with the C++ Cell counts and indices.** The JSON is reference data for the new C++ design, not a
+  regression check on the old one.
+- **The C++ boolean**: Manifold vendored, or the engine's `UE::Geometry::FMeshBoolean`. Either is for the C++ spec.
+- **Dressing, Pieces, Grammars and the ridge's true end.** Shell and Cells only.
+- **Per-storey height overrides.** Every storey is 300.
+
+## 4. Retirement
+
+Nothing in proc-geo is removed. In Piste Perfect, the roof-gable prototype stays as it is, as the frozen record of its
+53-case table.
