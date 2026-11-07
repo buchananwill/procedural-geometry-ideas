@@ -57,11 +57,13 @@ function clearOfWalls(b: Building, p: Pt): boolean {
 const holeFree = CASES.filter(c => c.build().comps.every(comp => comp.holes.length === 0));
 
 /**
- * The union's surviving Cheek identities per case, as measured (journal decision 73, F27); a case not listed has
- * none. Against roof-gable's B verdict: 2b, 4b and 8b are B CHEEKs; 5a to 5e are B PASSes, whose Cheek is the
- * monopitch's high-end face.
+ * The union's surviving Cheek identities per case, as measured after journal decision 75 put every wall-line face
+ * under Gable; a case not listed has none. Each is a B CHEEK, and each surviving face is a band end on no wall line:
+ * - 2b: wall 1 (x=1000 y[0,150]), on y = 150 facing +y, 11250 cm²;
+ * - 4b: wall 5 (x=1000 y[150,350]), on y = 150 facing -y and on y = 350 facing +y, 11250 cm² each;
+ * - 8b: wall 1 (y=0 x[800,1000]), on x = 800 facing -x, 17500 cm².
  */
-const MEASURED_CHEEKS: Record<string, number> = {'2b': 1, '4b': 1, '5a': 1, '5b': 1, '5c': 1, '5d': 1, '5e': 2, '8b': 1};
+const MEASURED_CHEEKS: Record<string, number> = {'2b': 1, '4b': 1, '8b': 1};
 
 describe('solveRoofParts agrees with runB', () => {
   it('covers every hole-free case: all 53 but the four courtyards', () => {

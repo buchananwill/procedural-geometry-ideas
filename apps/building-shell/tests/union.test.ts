@@ -27,11 +27,12 @@ function get(name: string): ShellUnion {
 }
 
 /**
- * Spec decision 32 as amended: every clean fixture's genus, and the degenerate twins' as measured (both 0). Bridge's
- * expected 1 is the spec's and is kept; it measures 0 (see the failing-expected test below).
+ * Spec decision 32 as amended (journal decisions 73 and 74): every clean fixture's genus, and the degenerate twins' as
+ * measured (both 0). BridgeOverBlock's block closes a tunnel under the bridge; Bridge's towers on open ground form a
+ * capital pi, which has none.
  */
 const EXPECTED_GENUS: Record<string, number> = {
-  NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, Bridge: 1, BridgeOverBlock: 1,
+  NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, Bridge: 0, BridgeOverBlock: 1,
   ValleyWings: 0, SingleStoreyT: 0,
   OverhangApexOnEave: 0, ValleyWingsPierced: 0, // degenerate twins, measured and pinned
 };
@@ -65,16 +66,8 @@ describe('decision 32 invariants (WP2 part)', () => {
     expect(Object.keys(EXPECTED_GENUS).sort()).toEqual(SHELL_FIXTURES.map(f => f.name).sort());
   });
 
-  it.each(SHELL_FIXTURES.filter(f => f.name !== 'Bridge').map(f => [f.name]))('%s: has its expected genus', name => {
-    expect(get(name).genus).toBe(EXPECTED_GENUS[name]);
-  });
-
-  // FAILING-EXPECTED, reported in WP2.1: Bridge measures genus 0, one component. Its towers stand on open ground and
-  // the bridge joins their tops, a solid shaped like a capital pi, which is a ball: the gap under the bridge is open at
-  // z = 0 as well as at both y faces. BridgeOverBlock's storey-0 block closes the loop, and it measures 1. The spec's
-  // expectation stands until the arc lead rules on it.
-  it.fails('Bridge: has its expected genus (spec says 1, measures 0)', () => {
-    expect(get('Bridge').genus).toBe(EXPECTED_GENUS.Bridge);
+  it.each(SHELL_FIXTURES)('$name: has its expected genus', f => {
+    expect(get(f.name).genus).toBe(EXPECTED_GENUS[f.name]);
   });
 
   it.each(SHELL_FIXTURES.map(f => [f.name]))('%s: every output triangle carries a faceID some raw part issued', name => {

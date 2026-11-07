@@ -254,11 +254,16 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
   const tris = Array.from(mesh.triVerts);
   const raw: TriSoup = {positions, tris, faceIDs: new Array<number>(tris.length / 3).fill(-1)};
 
-  // Generating planes, oriented out of the part: Roof first, then the wall line, then every Cheek-bearing plane. A
-  // plane already listed (a footprint wall on the wall line, a band end on an end wall) keeps its first tag.
-  const sideTag = (kind: 'Gable' | 'Cheek'): PartlessTag => ({kind, storey: plan.storey, wall: w.id, plane: -1});
+  // Generating planes, oriented out of the part (spec decision 8 as amended, journal decision 75):
+  // - Roof on each piece plane;
+  // - Gable on every island wall line, with that wall: the piece's own wall first, then the island's walls in ring
+  //   order, so a line shared by collinear walls takes the first of them listed;
+  // - Cheek on what no wall line holds: the plate, the band ends and the far side.
+  // A plane already listed keeps its first tag, so a band end or far side on a wall line is Gable.
+  const gableOn = (on: Wall): Generating => ({tag: {kind: 'Gable', storey: plan.storey, wall: on.id, plane: -1}, plane: wallPlane(on)});
+  const cheek: PartlessTag = {kind: 'Cheek', storey: plan.storey, wall: w.id, plane: -1};
   const candidates: Generating[] = piece.planes.map(id => ({tag: {kind: 'Roof', storey: plan.storey, wall: -1, plane: id}, plane: roofPlane(b.planes[id], plan.plate)}));
-  candidates.push({tag: sideTag('Gable'), plane: wallPlane(w)});
+  candidates.push(gableOn(w), ...comp.walls.map(gableOn));
   const axis: Vec3 = alongX(w) ? [1, 0, 0] : [0, 1, 0];
   const inward: Vec3 = [w.n.x, w.n.y, 0];
   const lineD = inward[0] * w.a.x + inward[1] * w.a.y;
@@ -268,8 +273,7 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
     {n: minusAxis, d: -piece.bandLo},
     {n: axis, d: piece.bandHi},
     {n: inward, d: lineD + far},
-    ...comp.walls.map(wallPlane),
-  ]) candidates.push({tag: sideTag('Cheek'), plane: pl});
+  ]) candidates.push({tag: cheek, plane: pl});
   const gens = candidates.filter((g, i) => !candidates.slice(0, i).some(e => samePlane(e.plane, g.plane)));
 
   // Tagged on Manifold's final mesh, then welded and snapped with its faceIDs before `ofMesh` (spec decision 11).
