@@ -7,7 +7,7 @@
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "export": "node -e \"console.error('export: not yet implemented'); process.exit(1)\""
+    "export": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/export.ts"
   },
   "dependencies": {
     "@proc-geo/core": "workspace:*",

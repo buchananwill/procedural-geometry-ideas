@@ -186,6 +186,38 @@ describe('span-end division (journal decision 82)', () => {
   });
 });
 
+describe('span-end split through buildStoreyParts (journal decision 85)', () => {
+  // [0, 400] x [0, 300] traced from two rects keeps corners at (400, 150) and (0, 150), so x = 400 is two collinear
+  // walls, spans y [0, 150] and [150, 300]. The hand-made piece stands on y = 0 over the whole line with only the far
+  // wall's plane, z = plate + 300 - y, so its band end x = 400 is one right triangle that Manifold leaves unvertexed at
+  // y = 150 (measured: its only vertices there are (400, 0, 300), (400, 0, 600) and (400, 300, 300)).
+  it('tags the band-end face Gable with each wall over its own span, by area', () => {
+    const tags = makeShellTags();
+    let lower = -1, upper = -1;
+    const part = gableOf(planWithPiece('SpanEndProbe', [[0, 0, 400, 150], [0, 150, 400, 300]], b => {
+      lower = wallOn(b, w => w.a.x === 400 && w.b.x === 400 && Math.max(w.a.y, w.b.y) === 150, 'x = 400 below y = 150').id;
+      upper = wallOn(b, w => w.a.x === 400 && w.b.x === 400 && Math.min(w.a.y, w.b.y) === 150, 'x = 400 above y = 150').id;
+      const w = wallOn(b, x => x.a.y === 0 && x.b.y === 0, 'on y = 0');
+      const far = wallOn(b, x => x.a.y === 300 && x.b.y === 300, 'on y = 300');
+      return {wall: w, bandLo: 0, bandHi: 400, farDist: 300, planes: [far.plane], label: 'line y=0 far plane only'};
+    }), tags);
+    const P = part.soup.positions;
+    const byWall = new Map<string, number>();
+    part.soup.faceIDs.forEach((id, t) => {
+      const pl = tags.planes[id];
+      if (!(pl.n[0] > 0.5 && Math.abs(pl.d - 400) <= SHELL_TOLERANCE_CM)) return;
+      const [a, b, c] = [0, 1, 2].map(j => 3 * part.soup.tris[3 * t + j]);
+      const area = Math.abs((P[b + 1] - P[a + 1]) * (P[c + 2] - P[a + 2]) - (P[c + 1] - P[a + 1]) * (P[b + 2] - P[a + 2])) / 2;
+      const k = `${tags.table[id].kind} ${tags.table[id].wall}`;
+      byWall.set(k, (byWall.get(k) ?? 0) + area);
+    });
+    // Under z = 300 - y over the plate: 33750 below y = 150, 11250 above.
+    expect([...byWall.keys()].sort()).toEqual([`Gable ${lower}`, `Gable ${upper}`].sort());
+    expect(Math.abs((byWall.get(`Gable ${lower}`) ?? 0) - 33750)).toBeLessThan(0.05);
+    expect(Math.abs((byWall.get(`Gable ${upper}`) ?? 0) - 11250)).toBeLessThan(0.05);
+  });
+});
+
 describe('storey-wide own-wall zones (journal decision 82)', () => {
   it('gives a gabled box of three rects one identity per face: 0 conflicts', () => {
     const f = oneStorey('Box3Probe', [{y: 0, form: 'gable'}, {y: 300, form: 'gable'}], [[0, 0, 130, 300], [130, 0, 270, 300], [270, 0, 400, 300]]);
