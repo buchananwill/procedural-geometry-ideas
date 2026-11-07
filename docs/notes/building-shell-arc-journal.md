@@ -628,6 +628,23 @@ departs from those four steps is a defect.
       a tree that includes WP3.1, and the WP4 correctness reviewer re-checks in the browser before WP4 is accepted.
     - **Side effect, reported:** the reviewer briefly drove another session's browser tab on :5199, then sent it
       back.
+99. **WP3.1 returned at `e117f4f`: 472/472, `typecheck` clean, all four gates convicted**, per the delegate. Probe5
+    and probe8 now build.
+    - **Pins moved under F6, plane identity:**
+      - ValleyWingsPierced: Wall0 faces 8 → 6, `WallVertical` 2 → 0, Eaves 12 → 10, GroundLine 8 → 6.
+      - Case 4b: `cheeks` 1 → 2. Its one Cheek stands on two planes, y = 150 and y = 350.
+    - **Unpinned counts that moved under F6:**
+      - Bridge: faces 31 → 27.
+      - BridgeOverBlock: faces 34 → 26.
+      - ValleyWings: faces 23 → 21.
+      - `WallVertical` is now 0 in all three.
+    - **Moved under F5:** every fixture's `newConventions` now lists "Roof lines cut exactly".
+    - **Unchanged:** the conflicts, `partialCells`, and the vertex, NetEdge and Cell counts.
+    - **Pending re-review**, before acceptance:
+      - Cells whose square pieces touch at one vertex are split into one Cell per piece.
+      - F5 is listed only for off-lattice Hip, Valley or Ridge edges.
+      - `storey.ts` keys gable faceIDs by generating plane.
+    - Both WP3 reviewers are re-checking `16f57d6..e117f4f`. WP4.1 was told WP3.1 had landed.
 
 ## Findings
 
