@@ -3,14 +3,15 @@
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
-import {ShellFace, loopArea, meshSurfaceArea} from '../src/faces.ts';
-import {SHELL_FIXTURES, ShellFixture, fixtureByName} from '../src/fixture.ts';
+import {ShellFace, faceIdentity, loopArea, meshSurfaceArea} from '../src/faces.ts';
+import {FixtureRing, SHELL_FIXTURES, ShellFixture, fixtureByName} from '../src/fixture.ts';
 import {CASES} from '../src/roof/cases.ts';
 import {Rect, Sel} from '../src/roof/model.ts';
 import {
-  CONVENTION_CHEEK, CONVENTION_CORNER_BY_GEOMETRY, CONVENTION_UNDERSIDE_ROOF_INTERIOR, ShellBuild, buildShellDetailed,
+  CONVENTION_CHEEK, CONVENTION_CORNER_BY_GEOMETRY, CONVENTION_ROOF_LINES_CUT, CONVENTION_UNDERSIDE_ROOF_INTERIOR, ROOF_LINE_KINDS,
+  ShellBuild, ShellReport, buildShellDetailed,
 } from '../src/shell.ts';
-import {FaceTag, Vec3, identityKey} from '../src/tags.ts';
+import {FaceTag, Vec3, planeKey} from '../src/tags.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 
 /** Tagged and summed areas to 0.05 cm², as `union.test.ts` asserts them. The worst float32 drift measured is 1.1e-3. */
@@ -21,22 +22,42 @@ const TAN30 = Math.tan(Math.PI / 6);
 const TAN60 = Math.sqrt(3);
 
 /** The correctness reviewer's U (storey.test.ts): one surviving Cheek, on x = 200 over the spine. */
-const U_PROBE: ShellFixture = {
-  name: 'UProbe', cellSize: 50, storeyHeight: 300,
-  rings: ([[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]] as Rect[]).map(rect => ({rect, baseStorey: 0, storeys: 1})),
-  roofs: {0: {sels: [{y: 0, to: 200, form: 'gable'}] as Sel[], defaultDeg: 45}},
-};
+const U_RECTS: Rect[] = [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]];
+const U_SELS: Sel[] = [{y: 0, to: 200, form: 'gable'}];
+const oneStoreyRings = (rects: Rect[]): FixtureRing[] => rects.map(rect => ({rect, baseStorey: 0, storeys: 1}));
+const U_PROBE: ShellFixture = {name: 'UProbe', cellSize: 50, storeyHeight: 300, rings: oneStoreyRings(U_RECTS), roofs: {0: {sels: U_SELS, defaultDeg: 45}}};
 
-const builds = new Map<string, ShellBuild>();
+/**
+ * The correctness reviewer's hip-touch probes (journal decision 96, F1 and F2): storey 1 stands on storey 0's 45
+ * degree hip with one corner on the hip line x = y, at (70, 70) off the lattice and at (100, 100) on it.
+ */
+const hipTouch = (name: string, upper: Rect): ShellFixture => ({
+  name, cellSize: 50, storeyHeight: 300,
+  rings: [{rect: [0, 0, 600, 600], baseStorey: 0, storeys: 1}, {rect: upper, baseStorey: 1, storeys: 1}],
+  roofs: {0: {sels: [], defaultDeg: 45}, 1: {sels: [], defaultDeg: 45}},
+});
+const HIP_TOUCH_OFF = hipTouch('HipTouchOffLattice', [30, 70, 70, 170]);
+const HIP_TOUCH_ON = hipTouch('HipTouchOnLattice', [50, 100, 100, 200]);
+
+/** Each build, or the error it threw: a fixture that fails to build fails its own tests, not the whole file. */
+const builds = new Map<string, ShellBuild | Error>();
 beforeAll(async () => {
-  for (const f of [...SHELL_FIXTURES, U_PROBE]) builds.set(f.name, await buildShellDetailed(f));
+  for (const f of [...SHELL_FIXTURES, ...PROBES]) {
+    try {
+      builds.set(f.name, await buildShellDetailed(f));
+    } catch (e) {
+      builds.set(f.name, e instanceof Error ? e : new Error(String(e)));
+    }
+  }
 }, 120_000);
 function get(name: string): ShellBuild {
   const b = builds.get(name);
   if (!b) throw new Error(`no shell built for ${name}`);
+  if (b instanceof Error) throw b;
   return b;
 }
-const ALL = [...SHELL_FIXTURES.map(f => f.name), U_PROBE.name];
+const PROBES = [U_PROBE, HIP_TOUCH_OFF, HIP_TOUCH_ON];
+const ALL = [...SHELL_FIXTURES, ...PROBES].map(f => f.name);
 
 // ---- Helpers ----------------------------------------------------------------------------------------------------
 
@@ -222,7 +243,8 @@ describe('the net (journal decisions 58 to 60)', () => {
 
   it.each(ALL)('%s: no ShellEdge joins two faces of one identity (open question 4)', name => {
     const b = get(name);
-    expect(b.shell.edges.filter(e => identityKey(tagOf(b, e.faces[0])) === identityKey(tagOf(b, e.faces[1]))).map(e => e.id)).toEqual([]);
+    const id = (f: number): string => faceIdentity(b.shell.faces[f]);
+    expect(b.shell.edges.filter(e => id(e.faces[0]) === id(e.faces[1])).map(e => e.id)).toEqual([]);
   });
 
   it.each(ALL)('%s: a NetEdge on a ShellEdge takes its kind, an interior one its face\'s (decision 25)', name => {
@@ -245,18 +267,21 @@ describe('the net (journal decisions 58 to 60)', () => {
     const withCells = new Set(b.shell.cells.map(c => c.face));
     for (const f of b.shell.faces) {
       const laid = ['Wall', 'Gable', 'Cheek', 'Roof', 'Underside'].includes(f.tag.kind);
-      expect(withCells.has(f.id), `face ${f.id} ${identityKey(f.tag)}`).toBe(laid);
+      expect(withCells.has(f.id), `face ${f.id} ${faceIdentity(f)}`).toBe(laid);
     }
   });
 });
 
 // ---- The report (decision 33) ---------------------------------------------------------------------------------------
 
-/** Each fixture's report as measured: its conflict count (union.test.ts pins the strings) and the rest exactly. */
-const SOFFIT = {newEdgeKinds: ['SoffitEdge', 'SoffitJunction'], newConventions: [CONVENTION_UNDERSIDE_ROOF_INTERIOR]};
-const PLAIN = {newEdgeKinds: [], newConventions: []};
-const CORNERED = {newEdgeKinds: [], newConventions: [CONVENTION_CORNER_BY_GEOMETRY]};
-const REPORTS: Record<string, {conflicts: number; partialCells: number; newEdgeKinds: string[]; newConventions: string[]}> = {
+/** A fixture's report as measured: its conflict count (union.test.ts pins the strings) and the rest exactly. */
+type ReportPin = Pick<ShellReport, 'partialCells' | 'newEdgeKinds' | 'newConventions'> & {conflicts: number};
+type KindsPin = Pick<ShellReport, 'newEdgeKinds' | 'newConventions'>;
+// Every fixture has a Hip, so every one cuts a Roof Cell exactly (journal decision 96, F5).
+const SOFFIT: KindsPin = {newEdgeKinds: ['SoffitEdge', 'SoffitJunction'], newConventions: [CONVENTION_UNDERSIDE_ROOF_INTERIOR, CONVENTION_ROOF_LINES_CUT]};
+const PLAIN: KindsPin = {newEdgeKinds: [], newConventions: [CONVENTION_ROOF_LINES_CUT]};
+const CORNERED: KindsPin = {newEdgeKinds: [], newConventions: [CONVENTION_CORNER_BY_GEOMETRY, CONVENTION_ROOF_LINES_CUT]};
+const REPORTS: Record<string, ReportPin> = {
   NarrowUpperStorey: {conflicts: 1, partialCells: 56, ...PLAIN},
   NarrowUpperStoreyGabled: {conflicts: 2, partialCells: 56, ...PLAIN},
   TallerUpper: {conflicts: 1, partialCells: 66, ...PLAIN},
@@ -386,7 +411,7 @@ describe.each(['NarrowUpperStorey', 'NarrowUpperStoreyGabled'])('%s (decisions 3
 describe('NarrowUpperStoreyGabled (decision 35)', () => {
   it("equals NarrowUpperStorey's faces, tags and areas, and no storey-1 Gable survives", () => {
     const sig = (b: ShellBuild): string[] => b.shell.faces.map(f =>
-      `${identityKey(f.tag)} n=${f.normal.map(x => x.toFixed(6)).join(',')} d=${f.offset.toFixed(3)} a=${(Math.round(f.area * 10) / 10).toFixed(1)}`).sort();
+      `${faceIdentity(f)} n=${f.normal.map(x => x.toFixed(6)).join(',')} d=${f.offset.toFixed(3)} a=${(Math.round(f.area * 10) / 10).toFixed(1)}`).sort();
     expect(sig(get('NarrowUpperStoreyGabled'))).toEqual(sig(get('NarrowUpperStorey')));
     expect(facesWhere(get('NarrowUpperStoreyGabled'), is('Gable', 1))).toEqual([]);
   });
@@ -520,10 +545,13 @@ describe('ValleyWings (decision 39)', () => {
     for (const e of meet) expect(e.faces.some(f => is('Wall', 1)(tagOf(b, f)))).toBe(true);
   });
 
-  it('has no Roof face of storey 0 meeting a Roof face of storey 1', () => {
+  it('has no Roof face of storey 0 meeting a Roof face of storey 1, by a shared Edge or a shared vertex', () => {
     const b = get('ValleyWings');
     const kinds = (e: ShellEdge): string => e.faces.map(f => `${tagOf(b, f).kind}${tagOf(b, f).storey}`).sort().join('|');
     expect(b.shell.edges.filter(e => kinds(e) === 'Roof0|Roof1')).toEqual([]);
+    // Journal decision 96, F8: nor at a vertex.
+    const both = b.shell.vertices.filter(v => v.faces.some(f => is('Roof', 0)(tagOf(b, f))) && v.faces.some(f => is('Roof', 1)(tagOf(b, f))));
+    expect(both.map(v => v.p)).toEqual([]);
   });
 
   it('has no Unclassified Edge', () => {
@@ -575,9 +603,12 @@ const TWIN_TOPOLOGY: Record<string, TwinTopology> = {
     edges: {Eaves: 8, ExternalCorner: 8, FloorLine: 2, GroundLine: 4, Hip: 6, RingJunction: 2, SoffitEdge: 3, SoffitJunction: 1},
     vertices: 853, netEdges: 1722, cells: 870,
   },
+  // Re-measured under journal decision 96's plane identity: the L's two collinear walls on y = 0 and on x = 1000 are
+  // now one face each (Wall0 8 -> 6), so their flat WallVertical seams go (2 -> 0) and the Eaves and GroundLines they
+  // split join (12 -> 10, 8 -> 6).
   ValleyWingsPierced: {
-    faces: {Gable0: 2, Ground0: 1, Roof0: 4, Roof1: 4, Wall0: 8, Wall1: 6},
-    edges: {Eaves: 12, ExternalCorner: 9, GroundLine: 8, Hip: 5, InternalCorner: 1, Ridge: 2, RingJunction: 6, Valley: 5, Verge: 4, WallPlate: 2, WallVertical: 2},
+    faces: {Gable0: 2, Ground0: 1, Roof0: 4, Roof1: 4, Wall0: 6, Wall1: 6},
+    edges: {Eaves: 10, ExternalCorner: 9, GroundLine: 6, Hip: 5, InternalCorner: 1, Ridge: 2, RingJunction: 6, Valley: 5, Verge: 4, WallPlate: 2},
     vertices: 971, netEdges: 1896, cells: 926,
   },
 };
@@ -607,6 +638,132 @@ describe('OverhangApexOnEave pinch (decision 37)', () => {
     for (const f of halves) expect(f.loops.flat().some(p => near(p, pinch))).toBe(true);
     expect(b.shell.edges.filter(e => e.faces.includes(halves[0].id) && e.faces.includes(halves[1].id))).toEqual([]);
     expect(vertexNear(b, pinch).faces.filter(f => f === halves[0].id || f === halves[1].id)).toHaveLength(2);
+  });
+});
+
+// ---- The correctness review's findings (journal decision 96) ------------------------------------------------------
+
+describe('F1: a ShellEdge end inside another ShellEdge is a vertex of both', () => {
+  it("splits storey 0's hip at storey 1's corner (70, 70, 370), off the lattice, and pairs both sides there", () => {
+    const b = get(HIP_TOUCH_OFF.name);
+    const X: Vec3 = [70, 70, 370];
+    const x = vertexNear(b, X);
+    const hips = b.shell.edges.filter(e => e.kind === 'Hip' && e.faces.every(f => is('Roof', 0)(tagOf(b, f)))
+      && Math.abs(e.a[0] - e.a[1]) <= SHELL_TOLERANCE_CM && Math.abs(e.b[0] - e.b[1]) <= SHELL_TOLERANCE_CM);
+    const through = hips.filter(e => !near(e.a, X) && !near(e.b, X) && Math.min(e.a[0], e.b[0]) < 70 && Math.max(e.a[0], e.b[0]) > 70);
+    expect(through).toHaveLength(1);
+    // X ends other ShellEdges, and the hip's NetEdges meet there from both roof faces.
+    expect(b.shell.edges.filter(e => e.v.includes(x.id)).length).toBeGreaterThan(0);
+    const atX = b.shell.netEdges.filter(n => n.shellEdge === through[0].id && n.v.includes(x.id));
+    expect(atX).toHaveLength(2);
+    for (const n of atX) expect(n.cells).toHaveLength(2);
+  });
+});
+
+describe('F2: a hole touching its face\'s outer loop is two simple loops', () => {
+  it("gives storey 0's west roof face an outer loop and storey 1's footprint as a hole touching it at (100, 100, 400)", () => {
+    const b = get(HIP_TOUCH_ON.name);
+    const west = facesWhere(b, is('Roof', 0)).filter(f => near(f.normal, [-Math.SQRT1_2, 0, Math.SQRT1_2]));
+    expect(west).toHaveLength(1);
+    const [outer, hole, ...rest] = west[0].loops;
+    expect(rest).toEqual([]);
+    for (const loop of [outer, hole]) expect(new Set(loop.map(p => snapPoint(p).join(','))).size).toBe(loop.length);
+    expect(loopArea(outer, west[0].normal)).toBeGreaterThan(0);
+    // The footprint [50, 100] x [100, 200] on z = 300 + x: 5000 cm² in plan, 5000 * sqrt 2 on the slope.
+    expect(Math.abs(loopArea(hole, west[0].normal) + 5000 * Math.SQRT2)).toBeLessThan(AREA_TOL);
+    const corners: Vec3[] = [[50, 100, 350], [100, 100, 400], [100, 200, 400], [50, 200, 350]];
+    expect(hole).toHaveLength(4);
+    for (const c of corners) expect(hole.some(p => near(p, c))).toBe(true);
+    expect(outer.some(p => near(p, [100, 100, 400]))).toBe(true);
+  });
+});
+
+describe('F3: a face meeting a vertex twice', () => {
+  it("names storey 0's pinched west roof face twice at (70, 70, 370), in fan order", () => {
+    const b = get(HIP_TOUCH_OFF.name);
+    const x = vertexNear(b, [70, 70, 370]);
+    const west = facesWhere(b, is('Roof', 0)).filter(f => near(f.normal, [-Math.SQRT1_2, 0, Math.SQRT1_2]));
+    expect(west).toHaveLength(1);
+    expect(x.faces.filter(f => f === west[0].id)).toHaveLength(2);
+  });
+});
+
+describe('F4: every Cell\'s lattice index', () => {
+  it.each(ALL)('%s: matches the square its polygon lies in, on both axes', name => {
+    const b = get(name);
+    for (const c of b.shell.cells) {
+      const fr = b.frames[c.face];
+      if (!fr) throw new Error(`cell ${c.id} has no frame`);
+      const pts = c.polygon.map(p => [p[fr.s], p[fr.t]]);
+      // The polygon's area centroid lies strictly inside the one square holding the whole polygon.
+      let a = 0, cs = 0, ct = 0;
+      pts.forEach((p, i) => {
+        const q = pts[(i + 1) % pts.length];
+        const w = p[0] * q[1] - q[0] * p[1];
+        a += w; cs += (p[0] + q[0]) * w; ct += (p[1] + q[1]) * w;
+      });
+      const centroid = [cs / (3 * a), ct / (3 * a)];
+      expect([Math.floor(centroid[0] / 50), Math.floor(centroid[1] / 50)], `cell ${c.id}`).toEqual(c.lattice);
+      for (const p of pts) {
+        for (const ax of [0, 1]) {
+          expect(p[ax]).toBeGreaterThanOrEqual(c.lattice[ax] * 50 - SHELL_TOLERANCE_CM);
+          expect(p[ax]).toBeLessThanOrEqual(c.lattice[ax] * 50 + 50 + SHELL_TOLERANCE_CM);
+        }
+      }
+    }
+  });
+});
+
+describe('F5: the exact roof cut is a new convention', () => {
+  const box = (name: string, depth: number): ShellFixture => ({
+    name, cellSize: 50, storeyHeight: 300, rings: oneStoreyRings([[0, 0, 400, depth]]),
+    roofs: {0: {sels: [{x: 0, form: 'gable'}, {x: 400, form: 'gable'}], defaultDeg: 45}},
+  });
+
+  it('is not listed for a gabled box whose only roof line, its Ridge, runs on a Cell line', async () => {
+    const {shell} = await buildShellDetailed(box('RidgeOnLattice', 300));
+    expect(shell.edges.filter(e => ROOF_LINE_KINDS.includes(e.kind)).map(e => e.kind)).toEqual(['Ridge']);
+    expect(shell.report.newConventions).not.toContain(CONVENTION_ROOF_LINES_CUT);
+  });
+
+  it('is listed once its Ridge runs off the Cell lines', async () => {
+    const {shell} = await buildShellDetailed(box('RidgeOffLattice', 250));
+    expect(shell.edges.filter(e => ROOF_LINE_KINDS.includes(e.kind)).map(e => e.kind)).toEqual(['Ridge']);
+    expect(shell.report.newConventions).toContain(CONVENTION_ROOF_LINES_CUT);
+  });
+});
+
+describe('F6: the shell does not depend on how the plan was split into Rings', () => {
+  /** A face by what it is: identity on its plane, area, and its loops' points; never its id, wall or part. */
+  const faceSig = (f: ShellFace): string => {
+    const loops = f.loops.map(l => l.map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort().join(' ')).sort();
+    return `${f.tag.kind}|${f.tag.storey}|${planeKey({n: f.normal, d: f.offset})}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
+  };
+  const edgeSig = (b: ShellBuild, e: ShellEdge): string => {
+    const ends = [e.a, e.b].map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort();
+    return `${e.kind}|${ends.join(' ')}|${e.faces.map(f => faceSig(b.shell.faces[f])).sort().join(' & ')}`;
+  };
+
+  it("builds Bridge's storey 2 from 3 Rings exactly as from 1, face for face and Edge for Edge", async () => {
+    const three = get('Bridge');
+    const bridge = fixtureByName('Bridge');
+    const one = await buildShellDetailed({
+      ...bridge, name: 'BridgeOneRing',
+      rings: [
+        {rect: [0, 0, 200, 600], baseStorey: 0, storeys: 2}, {rect: [800, 0, 1000, 600], baseStorey: 0, storeys: 2},
+        {rect: [0, 0, 1000, 600], baseStorey: 2, storeys: 1},
+      ],
+    });
+    expect(three.shell.faces.map(faceSig).sort()).toEqual(one.shell.faces.map(faceSig).sort());
+    expect(three.shell.edges.map(e => edgeSig(three, e)).sort()).toEqual(one.shell.edges.map(e => edgeSig(one, e)).sort());
+    const counts = (b: ShellBuild): number[] => [b.shell.vertices.length, b.shell.netEdges.length, b.shell.cells.length];
+    expect(counts(three)).toEqual(counts(one));
+  });
+
+  it("gives Bridge's storey 2 one Wall face per wall plane and no flat WallVertical seam", () => {
+    const b = get('Bridge');
+    expect(facesWhere(b, is('Wall', 2))).toHaveLength(4);
+    expect(b.shell.edges.filter(e => e.kind === 'WallVertical')).toEqual([]);
   });
 });
 

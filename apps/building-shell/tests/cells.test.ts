@@ -1,6 +1,6 @@
 // Cells (spec decisions 22 to 25): lattice frames, interior side kinds, and the boundary points a Cell side carries.
 import {describe, expect, it} from 'vitest';
-import {faceFrame, interiorSideKind, layCells, withBoundaryPoints} from '../src/cells.ts';
+import {BoundaryPoint, FaceFrame, faceFrame, interiorSideKind, layCells, withBoundaryPoints} from '../src/cells.ts';
 import {buildShellEdges, makeVertexRegistry, vertexAt} from '../src/edges.ts';
 import {ShellFace, assembleFaces, reduceFaceLoops} from '../src/faces.ts';
 import {fixtureByName} from '../src/fixture.ts';
@@ -78,8 +78,8 @@ describe('withBoundaryPoints (journal decision 59)', () => {
     const at = (p: Vec3): number => vertexAt(reg, p, {at: 'face', face: 0});
     const [a, b, c] = [at([0, 0, 300]), at([50, 0, 386.6]), at([0, 0, 350])];
     const t1 = at([28.8675, 0, 350]), t2 = at([10, 0, 317.32]), off = at([25, 0, 320]);
-    const fr = {s: 0, t: 2, r: 1, sign: 1} as const;
-    const boundary = [t1, t2, off].map(id => ({id, at: [reg.positions[id][0], reg.positions[id][2]] as [number, number]}));
+    const fr: FaceFrame = {s: 0, t: 2, r: 1, sign: 1};
+    const boundary: BoundaryPoint[] = [t1, t2, off].map(id => ({id, at: [reg.positions[id][0], reg.positions[id][2]]}));
     expect(withBoundaryPoints([a, b, c], reg, fr, boundary)).toEqual([a, t2, t1, b, c]);
   });
 });

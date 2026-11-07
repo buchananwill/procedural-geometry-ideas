@@ -26,10 +26,13 @@ describe('the export (decision 33)', () => {
       });
       expect(written.map(f => path.basename(f))).toEqual(['NarrowUpperStorey.json', 'Overhang.json']);
       for (const f of fixtures) {
-        const back = JSON.parse(await readFile(path.join(dir, shellFileName(f.name)), 'utf8')) as BuildingShell;
-        expect(back).toEqual(built.get(f.name));
-        expect(Object.keys(back).sort()).toEqual(['cells', 'edges', 'faces', 'fixture', 'netEdges', 'report', 'vertices']);
-        expect(Object.keys(back.report).sort()).toEqual(
+        // Parsed JSON is unknown until the deep equality has shown it is the shell (journal decision 94, N3).
+        const back: unknown = JSON.parse(await readFile(path.join(dir, shellFileName(f.name)), 'utf8'));
+        const want = built.get(f.name);
+        if (!want) throw new Error(`no shell built for ${f.name}`);
+        expect(back).toEqual(want);
+        expect(Object.keys(want).sort()).toEqual(['cells', 'edges', 'faces', 'fixture', 'netEdges', 'report', 'vertices']);
+        expect(Object.keys(want.report).sort()).toEqual(
           ['cheeks', 'conflicts', 'newConventions', 'newEdgeKinds', 'partialCells', 'survivingInternal', 'unclassifiedEdges']);
       }
     } finally {

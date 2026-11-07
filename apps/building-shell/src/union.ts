@@ -8,6 +8,7 @@ import {Wasm, getManifold} from './manifold.ts';
 import {errorMessage} from './errors.ts';
 import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
 import {FaceTag, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, retagCompare, samePlane, tagLabel} from './tags.ts';
+import {cross3, dot3, sub3} from './vec3.ts';
 
 /**
  * The re-tag pass's containment slack, in cm: how far outside a raw triangle's edge an output centroid may lie and
@@ -48,8 +49,8 @@ export type UnionPartsResult = Pick<ShellUnion, 'status' | 'closed' | 'genus' | 
 /** What the re-tag pass yields. */
 export type RetagResult = Pick<ShellUnion, 'triTags' | 'conflicts'>;
 
-/** An output mesh with its re-tagged triangles: all the area measures need. */
-export type TaggedMesh = Pick<ShellUnion, 'mesh' | 'triTags'>;
+/** An output mesh with its re-tagged triangles and each faceID's plane: all the area measures need. */
+export type TaggedMesh = Pick<ShellUnion, 'mesh' | 'triTags' | 'tags'>;
 
 /** Spec decision 11: a raw part enters Manifold through `ofMesh`; a refusal is a hard error naming the part. */
 export function partManifold(wasm: Wasm, part: RawPart): Manifold {
@@ -111,10 +112,6 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
 
 // ---- The re-tag pass (spec decision 15) ---------------------------------------------------------------------------
 
-const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-
 /** One edge of a raw triangle: a point on it and the unit normal pointing into the triangle, in its plane. */
 export interface RawTriEdge { o: Vec3; m: Vec3 }
 
@@ -174,9 +171,10 @@ export function retagPass(label: string, mesh: ShellMesh, parts: RawPart[], tags
     if (own.kind === 'Internal') { triTags.push(own); continue; }
     const mean = (ax: number): number => (P[3 * mesh.tris[3 * t] + ax] + P[3 * mesh.tris[3 * t + 1] + ax] + P[3 * mesh.tris[3 * t + 2] + ax]) / 3;
     const q: Vec3 = [mean(0), mean(1), mean(2)];
-    const found = new Map<string, FaceTag>([[identityKey(own), own]]);
+    // Every peer lies on f's oriented plane, so f's plane is every candidate's identity plane.
+    const found = new Map<string, FaceTag>([[identityKey(own, planes[f]), own]]);
     for (const g of peersOf(f)) {
-      const k = identityKey(table[g]);
+      const k = identityKey(table[g], planes[f]);
       if (found.has(k)) continue;
       if (raw[g].some(r => rawTriHolds(r, q))) found.set(k, table[g]);
     }
@@ -209,7 +207,7 @@ export function areaByIdentity(u: TaggedMesh, pred: (t: FaceTag) => boolean): Ma
   const out = new Map<string, number>();
   u.triTags.forEach((tag, t) => {
     if (!pred(tag)) return;
-    const k = identityKey(tag);
+    const k = identityKey(tag, u.tags.planes[u.mesh.faceIDs[t]]);
     out.set(k, (out.get(k) ?? 0) + triArea(u.mesh, t));
   });
   return out;
@@ -222,7 +220,7 @@ export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], pa
   const {status, closed, genus, mesh} = unionParts(wasm, parts);
   const {triTags, conflicts} = retagPass(label, mesh, parts, tags);
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
-  const cheeks = [...areaByIdentity({mesh, triTags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
+  const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
   return {label, status, closed, genus, mesh, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
 }
 

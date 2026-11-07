@@ -2,10 +2,11 @@
 // and every vertex's incidences in cyclic order (journal decisions 58 to 60).
 import type {SimplePolygon, Vec2} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {EdgeAssembly, EdgeKind, NetEdge, ShellEdge, ShellVertex, VertexRegistry, faceFan, findVertex, vertexAt} from './edges.ts';
-import {FaceAssembly, FaceSource, ShellFace, meshPoint} from './faces.ts';
+import {EdgeAssembly, EdgeKind, FaceFan, NetEdge, ShellEdge, ShellVertex, VertexRegistry, faceFan, findVertex, vertexAt} from './edges.ts';
+import {FaceAssembly, FaceSource, ShellFace, destOf, faceIdentity, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
 import {Wasm} from './manifold.ts';
-import {Vec3, identityKey} from './tags.ts';
+import {Vec3} from './tags.ts';
+import {cross3, dot3, sub3} from './vec3.ts';
 
 /** Spec decision 23 as amended (journal decisions 44, 58 and 59). */
 export interface ShellCell {
@@ -41,10 +42,9 @@ export function faceFrame(face: ShellFace): FaceFrame | null {
   const make = (s: Axis, t: Axis, r: Axis): FaceFrame => {
     const es: Vec3 = [0, 0, 0], et: Vec3 = [0, 0, 0];
     es[s] = 1; et[t] = 1;
-    const c: Vec3 = [es[1] * et[2] - es[2] * et[1], es[2] * et[0] - es[0] * et[2], es[0] * et[1] - es[1] * et[0]];
-    return {s, t, r, sign: c[0] * n[0] + c[1] * n[1] + c[2] * n[2] > 0 ? 1 : -1};
+    return {s, t, r, sign: dot3(cross3(es, et), n) > 0 ? 1 : -1};
   };
-  const where = (): string => `face ${face.id} (${identityKey(face.tag)})`;
+  const where = (): string => `face ${face.id} (${faceIdentity(face)})`;
   switch (face.tag.kind) {
     case 'Wall': case 'Gable': case 'Cheek': {
       if (Math.abs(n[2]) > 1e-6 || Math.max(Math.abs(n[0]), Math.abs(n[1])) < 1 - 1e-6) {
@@ -71,23 +71,46 @@ function lift(face: ShellFace, fr: FaceFrame, s: number, t: number): Vec3 {
 
 const to2 = (fr: FaceFrame, p: Vec3): Vec2 => [p[fr.s], p[fr.t]];
 
-/** A ShellEdge's vertices in order from `a` to `b`: its ends and every lattice crossing of a face it bounds. */
+/** Per face: the lattice frame its Cells are laid in, or null for a face with no Cells. */
+export type FrameTable = (FaceFrame | null)[];
+
+/** A ShellEdge's vertices in order from `a` to `b`: its ends, every ShellEdge end inside it, every lattice crossing. */
 export interface EdgePoints { ids: number[] }
 
 /**
- * Journal decision 59: the vertices along one ShellEdge, shared by both faces' Cells. They are the edge's two ends and
- * every point where a lattice line of either face crosses it (world `x`, `y` or `z` at a multiple of `cellSize`, for
- * the axes that face is laid on). Crossings within `SHELL_TOLERANCE_CM` of an end or of each other are one point.
+ * A point found inside a ShellEdge, at parameter `t` from `a`: a vertex already registered (`id`, a ShellEdge end
+ * lying inside this edge) or a lattice crossing still to register (`p`).
  */
-export function edgePoints(edge: ShellEdge, frames: (FaceFrame | null)[], reg: VertexRegistry, cellSize: number): EdgePoints {
+export type EdgeCrossing = {t: number; id: number} | {t: number; p: Vec3};
+
+/**
+ * Journal decisions 59 and 96 (F1): the vertices along one ShellEdge, shared by both faces' Cells.
+ * - its two ends;
+ * - every other ShellEdge's end lying inside it (a T-point: a face pinched against the edge ends edges there while
+ *   the face across runs straight on);
+ * - every point where a lattice line of either face crosses it (world `x`, `y` or `z` at a multiple of `cellSize`,
+ *   for the axes that face is laid on).
+ * Points within `SHELL_TOLERANCE_CM` of an end or of each other are one point, a registered end winning.
+ */
+export function edgePoints(edge: ShellEdge, frames: FrameTable, reg: VertexRegistry, cellSize: number, ends: readonly number[]): EdgePoints {
   const A = reg.positions[edge.v[0]], B = reg.positions[edge.v[1]];
-  const L = Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]);
+  const AB = sub3(B, A);
+  const L = Math.hypot(...AB);
+  const inside = (t: number): boolean => t * L > SHELL_TOLERANCE_CM && (1 - t) * L > SHELL_TOLERANCE_CM;
+  const found: EdgeCrossing[] = [];
+  for (const id of ends) {
+    if (id === edge.v[0] || id === edge.v[1]) continue;
+    const w = sub3(reg.positions[id], A);
+    const t = dot3(w, AB) / (L * L);
+    if (!inside(t)) continue;
+    const off = Math.hypot(w[0] - t * AB[0], w[1] - t * AB[1], w[2] - t * AB[2]);
+    if (off <= SHELL_TOLERANCE_CM) found.push({t, id});
+  }
   const axes = new Set<Axis>();
   for (const f of edge.faces) {
     const fr = frames[f];
     if (fr) { axes.add(fr.s); axes.add(fr.t); }
   }
-  const found: {t: number; p: Vec3}[] = [];
   for (const ax of axes) {
     const c0 = A[ax], c1 = B[ax];
     if (Math.abs(c1 - c0) <= SHELL_TOLERANCE_CM) continue;
@@ -95,26 +118,31 @@ export function edgePoints(edge: ShellEdge, frames: (FaceFrame | null)[], reg: V
     for (let k = Math.ceil(lo / cellSize); k * cellSize <= hi; k++) {
       const value = k * cellSize;
       const t = (value - c0) / (c1 - c0);
-      if (t * L <= SHELL_TOLERANCE_CM || (1 - t) * L <= SHELL_TOLERANCE_CM) continue;
-      const p: Vec3 = [A[0] + t * (B[0] - A[0]), A[1] + t * (B[1] - A[1]), A[2] + t * (B[2] - A[2])];
+      if (!inside(t)) continue;
+      const p: Vec3 = [A[0] + t * AB[0], A[1] + t * AB[1], A[2] + t * AB[2]];
       p[ax] = value;
       found.push({t, p});
     }
   }
   found.sort((x, y) => x.t - y.t);
-  const ids = [edge.v[0]];
-  let lastT = 0;
-  for (const {t, p} of found) {
-    if ((t - lastT) * L <= SHELL_TOLERANCE_CM) continue;
-    ids.push(vertexAt(reg, p, {at: 'edge', edge: edge.id}));
-    lastT = t;
+  const kept: EdgeCrossing[] = [];
+  for (const c of found) {
+    const last = kept[kept.length - 1];
+    if (last && (c.t - last.t) * L <= SHELL_TOLERANCE_CM) {
+      if ('id' in c && !('id' in last)) kept[kept.length - 1] = c;
+      continue;
+    }
+    kept.push(c);
   }
-  ids.push(edge.v[1]);
+  const ids = [edge.v[0], ...kept.map(c => ('id' in c ? c.id : vertexAt(reg, c.p, {at: 'edge', edge: edge.id}))), edge.v[1]];
   return {ids};
 }
 
 /** A boundary vertex of a face in its lattice coordinates. */
-interface BoundaryPoint { id: number; at: Vec2 }
+export interface BoundaryPoint { id: number; at: Vec2 }
+
+/** A boundary vertex found on a Cell side, `u` along it from its start. */
+interface SidePoint { u: number; id: number }
 
 const shoelace = (poly: Vec2[]): number => poly.reduce((s, p, i) => {
   const q = poly[(i + 1) % poly.length];
@@ -134,7 +162,7 @@ export function withBoundaryPoints(ids: number[], reg: VertexRegistry, fr: FaceF
     const d: Vec2 = [B[0] - A[0], B[1] - A[1]];
     const L = Math.hypot(d[0], d[1]);
     if (L <= SHELL_TOLERANCE_CM) continue;
-    const on: {u: number; id: number}[] = [];
+    const on: SidePoint[] = [];
     for (const c of boundary) {
       if (c.id === a || c.id === b) continue;
       const w: Vec2 = [c.at[0] - A[0], c.at[1] - A[1]];
@@ -153,7 +181,7 @@ export function withBoundaryPoints(ids: number[], reg: VertexRegistry, fr: FaceF
 const dedupeCyclic = (ids: number[]): number[] => ids.filter((v, i) => v !== ids[(i + 1) % ids.length]);
 
 /** The Cells, the NetEdges along their sides, and each face's lattice frame. */
-export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: (FaceFrame | null)[] }
+export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: FrameTable }
 
 /**
  * Spec decisions 22 to 25: each face with a lattice is intersected, square by square, with the global `cellSize`
@@ -164,8 +192,9 @@ export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: (Fac
  */
 export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cellSize: number): CellNet {
   const {faces} = asm;
-  const frames = faces.map(faceFrame);
-  const pts = ea.edges.map(e => edgePoints(e, frames, reg, cellSize));
+  const frames: FrameTable = faces.map(faceFrame);
+  const ends = [...new Set(ea.edges.flatMap(e => e.v))];
+  const pts = ea.edges.map(e => edgePoints(e, frames, reg, cellSize, ends));
   const faceEdges: number[][] = faces.map(() => []);
   for (const e of ea.edges) for (const f of e.faces) faceEdges[f].push(e.id);
 
@@ -173,7 +202,7 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
   for (const face of faces) {
     const fr = frames[face.id];
     if (!fr) continue;
-    const where = `face ${face.id} (${identityKey(face.tag)})`;
+    const where = `face ${face.id} (${faceIdentity(face)})`;
     const boundary: BoundaryPoint[] = [];
     const seen = new Set<number>();
     for (const e of faceEdges[face.id]) {
@@ -224,12 +253,17 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
             if (a < SHELL_TOLERANCE_CM ** 2) continue;
             let ids = dedupeCyclic(c.map(mapCorner));
             ids = dedupeCyclic(withBoundaryPoints(ids, reg, fr, boundary));
-            if (ids.length < 3) throw new Error(`${where}: lattice square (${i}, ${j}) leaves a piece of area ${a} with ${ids.length} distinct corners`);
-            if (fr.sign < 0) ids.reverse();
-            cells.push({
-              id: cells.length, face: face.id, lattice: [i, j], polygon: ids.map(id => reg.positions[id]), corners: ids, sides: [],
-              whole: cellSize * cellSize - a <= SHELL_TOLERANCE_CM * cellSize,
-            });
+            // A contour touching itself at a vertex is two pieces of the square: one Cell each (journal decision 92).
+            for (const lobe of splitSimpleLoops(ids)) {
+              const area = shoelace(lobe.map(id => to2(fr, reg.positions[id])));
+              if (area < SHELL_TOLERANCE_CM ** 2) continue;
+              if (lobe.length < 3) throw new Error(`${where}: lattice square (${i}, ${j}) leaves a piece of area ${area} with ${lobe.length} distinct corners`);
+              if (fr.sign < 0) lobe.reverse();
+              cells.push({
+                id: cells.length, face: face.id, lattice: [i, j], polygon: lobe.map(id => reg.positions[id]), corners: lobe, sides: [],
+                whole: cellSize * cellSize - area <= SHELL_TOLERANCE_CM * cellSize,
+              });
+            }
           }
         }
       }
@@ -263,7 +297,7 @@ const sideKey = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},$
  * when both its ends are among that edge's vertices; otherwise it must lie on a lattice line of its face.
  */
 function assembleNetEdges(
-  cells: ShellCell[], faces: ShellFace[], frames: (FaceFrame | null)[], edges: ShellEdge[], pts: EdgePoints[],
+  cells: ShellCell[], faces: ShellFace[], frames: FrameTable, edges: ShellEdge[], pts: EdgePoints[],
   faceEdges: number[][], reg: VertexRegistry, cellSize: number,
 ): NetEdge[] {
   const onEdge = pts.map(p => new Set(p.ids));
@@ -309,10 +343,12 @@ interface CornerAt { cell: number; out: number; in: number }
  * - **NetEdges and Cells** are read from the Cells around the vertex, each wound counter-clockwise from outside:
  *   sweeping counter-clockwise, a Cell lies between the side it leaves the vertex by and the side it arrives by, and
  *   the side it arrives by is the next Cell's leaving side. A face with no Cells (Ground) leaves a gap in that chain:
- *   the lists then start at the first NetEdge after the gap and end at the last one before it. Where several gaps split the Cells into runs (a pinch), the runs follow each other in the order their
- *   first Cells' faces take in the manifold's triangle fan; a face meeting the vertex twice there is a hard error.
- * - **Faces** are read from the manifold's triangle fan at a ShellEdge endpoint, are the edge's two faces at a point
- *   inside a ShellEdge, and the one face at a lattice corner inside a face; rotated to start at the first Cell's face.
+ *   the lists then start at the first NetEdge after the gap and end at the last one before it. Where several gaps
+ *   split the Cells into runs (a pinch), the runs follow the manifold's triangle fan: each is placed by the fan
+ *   triangle its first Cell starts in, so a face meeting the vertex twice is ordered too (journal decision 96, F3).
+ * - **Faces** are read from the triangle fan at a ShellEdge endpoint, and may name a face twice there; they are the
+ *   edge's two faces at a point inside a ShellEdge, and the one face at a lattice corner inside a face. They are
+ *   rotated to start at the first Cell's face.
  */
 export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cells: ShellCell[]): ShellVertex[] {
   const at: CornerAt[][] = reg.positions.map(() => []);
@@ -330,11 +366,12 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
       ins.add(k.in);
     }
     const o = reg.origins[id];
-    let faces = o.at === 'mesh' ? faceFan(src, asm, o.vertex) : o.at === 'edge' ? [...ea.edges[o.edge].faces] : [o.face];
+    const fan = o.at === 'mesh' ? faceFan(src, asm, o.vertex) : null;
+    let faces = fan ? fan.faces : o.at === 'edge' ? [...ea.edges[o.edge].faces] : [o.at === 'face' ? o.face : -1];
     const where = `vertex ${id} at (${p.join(', ')})`;
     /** One run of Cells around the vertex, from the NetEdge after a gap to the one before the next. */
-    const walk = (start: number): {edges: number[]; cells: number[]} => {
-      const run = {edges: [] as number[], cells: [] as number[]};
+    const walk = (start: number): CellRun => {
+      const run: CellRun = {edges: [], cells: []};
       let e = start;
       for (;;) {
         run.edges.push(e);
@@ -348,22 +385,49 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
     };
     const starts = [...outOf.keys()].filter(e => !ins.has(e)).sort((a, b) => a - b);
     let runs = corners.length ? (starts.length ? starts : [Math.min(...outOf.keys())]).map(walk) : [];
-    if (runs.length > 1) {
-      // Several gaps: the runs follow each other as their first Cells' faces do in the triangle fan.
-      if (o.at !== 'mesh') throw new Error(`${where}: ${runs.length} gaps in its Cell fan away from a mesh vertex`);
-      const fanAt = (r: {cells: number[]}): number => {
-        const f = cells[r.cells[0]].face;
-        if (faces.filter(x => x === f).length !== 1) throw new Error(`${where}: face ${f} meets it more than once, so its runs have no order`);
-        return faces.indexOf(f);
-      };
-      runs = [...runs].sort((a, b) => fanAt(a) - fanAt(b));
+    if (runs.length > 1 && !fan) throw new Error(`${where}: ${runs.length} gaps in its Cell fan away from a mesh vertex`);
+    if (fan && o.at === 'mesh') {
+      // Journal decision 96, F3: each run sits in one triangle of the fan, read just counter-clockwise of its first
+      // Cell's leaving side, so runs follow the fan even where one face meets the vertex twice.
+      const at = new Map(runs.map(r => [r, fanTriangleOf(src, asm, fan, o.vertex, cells[r.cells[0]], id, reg, where)]));
+      runs = [...runs].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0));
+      if (runs.length) {
+        const first = fan.faceAt[at.get(runs[0]) ?? 0];
+        faces = [...faces.slice(first), ...faces.slice(0, first)];
+      }
     }
     const edges = runs.flatMap(r => r.edges), cellIds = runs.flatMap(r => r.cells);
     if (cellIds.length !== corners.length) throw new Error(`${where}: its Cells form a closed fan and a gap at once`);
-    if (cellIds.length) {
+    if (!fan && cellIds.length) {
       const first = faces.indexOf(cells[cellIds[0]].face);
       if (first > 0) faces = [...faces.slice(first), ...faces.slice(0, first)];
     }
     return {id, p, edges, cells: cellIds, faces};
   });
+}
+
+/** One run of Cells around a vertex, from the NetEdge after a gap to the one before the next, in order. */
+export interface CellRun { edges: number[]; cells: number[] }
+
+/**
+ * The index in `fan` of the triangle holding Cell `c` just counter-clockwise of the side it leaves vertex `v` by:
+ * a direction a hair inside the Cell's corner, tested against each of the Cell's face's fan triangles.
+ */
+function fanTriangleOf(src: FaceSource, asm: FaceAssembly, fan: FaceFan, meshVertex: number, c: ShellCell, v: number, reg: VertexRegistry, where: string): number {
+  const {tris, positions} = src.mesh;
+  const V = meshPoint(positions, meshVertex);
+  const n = asm.faces[c.face].normal;
+  const i = c.corners.indexOf(v);
+  const u = sub3(reg.positions[c.corners[(i + 1) % c.corners.length]], reg.positions[v]);
+  const L = Math.hypot(...u);
+  const side: Vec3 = [u[0] / L, u[1] / L, u[2] / L];
+  const turn = cross3(n, side);
+  const d: Vec3 = [side[0] + 1e-4 * turn[0], side[1] + 1e-4 * turn[1], side[2] + 1e-4 * turn[2]];
+  for (const [k, h] of fan.halves.entries()) {
+    if (asm.triFace[triOf(h)] !== c.face) continue;
+    const a = sub3(meshPoint(positions, destOf(tris, h)), V), b = sub3(meshPoint(positions, originOf(tris, prevHalf(h))), V);
+    const slack = 1e-9 * Math.hypot(...a) * Math.hypot(...b);
+    if (dot3(cross3(a, d), n) >= -slack && dot3(cross3(d, b), n) >= -slack) return k;
+  }
+  throw new Error(`${where}: Cell ${c.id} lies in no triangle of its face's fan`);
 }

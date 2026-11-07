@@ -3,6 +3,7 @@
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {FaceAssembly, FaceSource, destOf, meshPoint, originOf, prevHalf, triOf} from './faces.ts';
 import {FaceTag, ShellKind, Vec3} from './tags.ts';
+import {dot3, sub3} from './vec3.ts';
 import {snapCm} from './weld.ts';
 
 /**
@@ -179,9 +180,6 @@ export interface EdgeAssembly {
   endpoints: Set<number>;
 }
 
-const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-
 /** Distance from `p` to the line through `a` and `b`. */
 function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
   const ab = sub3(b, a), ap = sub3(p, a);
@@ -310,18 +308,38 @@ function makeEdge(
   return {id, kind, a, b, v, faces: [fa, fb]};
 }
 
-/** The faces around a mesh vertex, counter-clockwise seen from outside, read from the manifold's triangle fan. */
-export function faceFan(src: FaceSource, asm: FaceAssembly, vertex: number): number[] {
+/**
+ * The triangles around a mesh vertex, counter-clockwise seen from outside, read from the manifold's triangle fan, and
+ * the faces they make. `faces` drops a face's repeat only where its triangles follow each other, so a face meeting
+ * the vertex twice is named twice (journal decision 96, F3); `faceAt[i]` is the index in `faces` of `halves[i]`'s face.
+ */
+export interface FaceFan {
+  /** Per triangle of the fan: its half-edge leaving the vertex. */
+  halves: number[];
+  faces: number[];
+  faceAt: number[];
+}
+
+export function faceFan(src: FaceSource, asm: FaceAssembly, vertex: number): FaceFan {
   const h0 = asm.topo.out[vertex];
-  const fan: number[] = [];
+  const halves: number[] = [];
   let h = h0;
-  let guard = 0;
   do {
-    fan.push(asm.triFace[triOf(h)]);
+    halves.push(h);
     // The next triangle counter-clockwise owns the reverse of this triangle's edge into the vertex.
     h = asm.topo.twin[prevHalf(h)];
-    if (++guard > src.mesh.tris.length) throw new Error(`faceFan: vertex ${vertex}'s fan does not close`);
+    if (halves.length > src.mesh.tris.length) throw new Error(`faceFan: vertex ${vertex}'s fan does not close`);
   } while (h !== h0);
-  const out = fan.filter((f, i) => f !== fan[(i - 1 + fan.length) % fan.length]);
-  return out.length ? out : [fan[0]];
+  const tf = halves.map(x => asm.triFace[triOf(x)]);
+  // Start the face runs where the face changes, so the first and last run are never one face split by the seam.
+  const n = tf.length;
+  const shift = Math.max(0, tf.findIndex((f, i) => f !== tf[(i - 1 + n) % n]));
+  const order = Array.from({length: n}, (_, i) => (i + shift) % n);
+  const faces: number[] = [];
+  const faceAt = new Array<number>(n);
+  for (const i of order) {
+    if (!faces.length || faces[faces.length - 1] !== tf[i]) faces.push(tf[i]);
+    faceAt[i] = faces.length - 1;
+  }
+  return {halves, faces, faceAt};
 }

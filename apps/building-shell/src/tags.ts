@@ -1,6 +1,7 @@
 // Face tags (spec decision 10), face identity (journal decision 41) and the coplanar re-tag order (spec decision 14).
 import type {Vec3} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
+import {snapCm} from './weld.ts';
 
 /** The app's one 3-vector: manifold-3d's, re-exported so there is a single definition. */
 export type {Vec3};
@@ -60,12 +61,26 @@ export function addFace(tags: ShellTags, tag: FaceTag, plane: Plane3): number {
   return tags.table.length - 1;
 }
 
-/** A face's identity: `(kind, storey, plane)` for Roof, `(kind, storey, wall)` for every other kind. */
-export function identityKey(t: FaceTag): string {
-  return t.kind === 'Roof' ? `Roof|${t.storey}|p${t.plane}` : `${t.kind}|${t.storey}|w${t.wall}`;
+/** An oriented plane's key: its normal and offset on the 1/1024 grid, so one computed plane always keys alike. */
+export const planeKey = (p: Plane3): string => `${p.n.map(snapCm).join(',')}|${snapCm(p.d)}`;
+
+/**
+ * Spec decision 10 as amended (journal decisions 41 and 96), for a face with tag `t` on oriented plane `plane`:
+ * - `(kind, storey, plane)` for Roof, `plane` the storey Building's canonical plane id;
+ * - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek, so collinear walls are one face;
+ * - `(kind, storey)` for Underside, Ground and Internal.
+ * `part` and `wall` are provenance only, and never enter it.
+ */
+export function identityKey(t: FaceTag, plane: Plane3): string {
+  switch (t.kind) {
+    case 'Roof': return `Roof|${t.storey}|p${t.plane}`;
+    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${planeKey(plane)}`;
+    case 'Underside': case 'Ground': case 'Internal': return `${t.kind}|${t.storey}`;
+  }
 }
 
-export const sameIdentity = (a: FaceTag, b: FaceTag): boolean => identityKey(a) === identityKey(b);
+/** Two faces' tags on their planes share one identity. */
+export const sameIdentity = (a: FaceTag, pa: Plane3, b: FaceTag, pb: Plane3): boolean => identityKey(a, pa) === identityKey(b, pb);
 
 /**
  * Spec decision 14's total order as ranks, strongest lowest. A `Record` over `RetaggableKind`, so adding a kind
@@ -77,8 +92,8 @@ export const isRetaggable = (k: ShellKind): k is RetaggableKind => k !== 'Intern
 
 /**
  * Negative when `a` beats `b`. Kind by `RETAG_RANK`, then the lower storey. Two different identities of equal kind
- * and storey (only possible for collinear walls or coplanar planes of separate islands) fall to the lower wall id,
- * then the lower plane id, so the order is total.
+ * and storey on one plane (only possible for coplanar Roof planes of separate islands, since journal decision 96 keys
+ * vertical faces by plane) fall to the lower wall id, then the lower plane id, so the order is total.
  */
 export function retagCompare(a: FaceTag, b: FaceTag): number {
   const ka = a.kind, kb = b.kind;

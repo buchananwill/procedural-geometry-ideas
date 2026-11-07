@@ -7,7 +7,7 @@ import {Wasm} from './manifold.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Wall, buildFromRects, planeAt, polyArea, wallLabel} from './roof/model.ts';
 import {errorMessage} from './errors.ts';
-import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, identityKey, samePlane} from './tags.ts';
+import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
 
 /** One storey's union outline (as a roof-gable `Building`) and its solved roof. */
@@ -373,14 +373,16 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
   // triangle on a wall-line plane is divided at its Gable zone ends first (journal decision 80).
   const id = ctx.parts.length;
   const fullName = `${plan.label} storey ${plan.storey} ${name}`;
-  const ids = new Map<string, number>(); // generating index and tag -> faceID
+  // Generating index and tag -> faceID. Keyed by kind, wall and plane id, not by identity, so each Gable zone keeps
+  // its own wall's provenance (journal decision 96 keys identity by plane, which would merge two walls' zones).
+  const ids = new Map<string, number>();
   const raw: TriSoup = {positions: [...positions], tris: [], faceIDs: []};
   for (let t = 0; t < fromManifold.tris.length / 3; t++) {
     const gi = matchGenerating(fullName, fromManifold, t, gens);
     const corners = [0, 1, 2].map(j => fromManifold.tris[3 * t + j]);
     const pieces = divideAtZoneEnds(corners.map(v => vertexOf(positions, v)), gens[gi], plan.storey);
     for (const {tri, tag} of pieces) {
-      const key = `${gi}|${identityKey({...tag, part: id})}`;
+      const key = `${gi}|${tag.kind}|w${tag.wall}|p${tag.plane}`;
       let f = ids.get(key);
       if (f === undefined) {
         f = addFace(ctx.tags, {...tag, part: id}, gens[gi].plane);

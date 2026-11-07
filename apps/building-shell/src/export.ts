@@ -7,6 +7,7 @@
 import {mkdir, writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import type {InlineConfig} from 'vite';
 import {errorMessage} from './errors.ts';
 import type {ShellFixture} from './fixture.ts';
 import type {BuildingShell} from './shell.ts';
@@ -19,10 +20,11 @@ export const OUT_DIR = path.join(APP_ROOT, 'out');
 /** One fixture's file name. */
 export const shellFileName = (fixture: string): string => `${fixture}.json`;
 
+/** What builds one fixture's shell: `buildShell`, however it was loaded. */
+export type ShellBuilder = (f: ShellFixture) => Promise<BuildingShell>;
+
 /** Writes one JSON file per fixture into `outDir`, and returns the paths written. */
-export async function writeShells(
-  outDir: string, fixtures: readonly ShellFixture[], build: (f: ShellFixture) => Promise<BuildingShell>,
-): Promise<string[]> {
+export async function writeShells(outDir: string, fixtures: readonly ShellFixture[], build: ShellBuilder): Promise<string[]> {
   await mkdir(outDir, {recursive: true});
   const written: string[] = [];
   for (const f of fixtures) {
@@ -36,7 +38,7 @@ export async function writeShells(
 /** The CLI: the fixture roster and the pipeline loaded through Vite's module runner, then every fixture written. */
 async function main(): Promise<void> {
   const {runnerImport} = await import('vite');
-  const config = {root: APP_ROOT, configFile: path.join(APP_ROOT, 'vite.config.ts'), logLevel: 'error' as const};
+  const config: InlineConfig = {root: APP_ROOT, configFile: path.join(APP_ROOT, 'vite.config.ts'), logLevel: 'error'};
   const src = (file: string): string => path.join(APP_ROOT, 'src', file);
   const {module: fixtures} = await runnerImport<typeof import('./fixture.ts')>(src('fixture.ts'), config);
   const {module: shell} = await runnerImport<typeof import('./shell.ts')>(src('shell.ts'), config);

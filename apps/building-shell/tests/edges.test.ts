@@ -1,7 +1,9 @@
 // ShellEdges (spec decisions 19 to 21): the convexity test, the edge table, and the 21-member EdgeKind.
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {EDGE_KINDS, NEW_EDGE_KINDS, buildShellEdges, classifyEdge, edgeShape, liftAcross, makeVertexRegistry} from '../src/edges.ts';
+import {
+  EDGE_KINDS, EdgeGeometry, EdgeShape, NEW_EDGE_KINDS, buildShellEdges, classifyEdge, edgeShape, liftAcross, makeVertexRegistry,
+} from '../src/edges.ts';
 import {FaceSource, assembleFaces, meshPoint} from '../src/faces.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
 import {FaceTag, Plane3, Vec3, addFace, makeShellTags, samePlane} from '../src/tags.ts';
@@ -47,7 +49,7 @@ describe('edgeShape (spec decision 20)', () => {
 });
 
 describe('classifyEdge (spec decision 21)', () => {
-  const g = (shape: 'Flat' | 'Convex' | 'Concave', horizontal = false, vertical = false, z = 0) => ({shape, horizontal, vertical, z});
+  const g = (shape: EdgeShape, horizontal = false, vertical = false, z = 0): EdgeGeometry => ({shape, horizontal, vertical, z});
 
   it.each([
     ['Roof', 'Roof', g('Flat'), 'RoofSeam'],

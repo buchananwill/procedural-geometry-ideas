@@ -2,6 +2,7 @@
 // edge-connected set of triangles sharing one identity (decision 10) and one oriented plane.
 import {FaceTag, Plane3, Vec3, identityKey, samePlane} from './tags.ts';
 import {ShellMesh, ShellUnion, triArea} from './union.ts';
+import {cross3, dot3} from './vec3.ts';
 
 export interface ShellFace {
   id: number;
@@ -55,9 +56,6 @@ export function meshTopology(tris: Uint32Array, numVert: number): MeshTopology {
 /** A mesh vertex's position, with no -0 (it reads as 0 once exported to JSON). */
 export const meshPoint = (positions: Float32Array, v: number): Vec3 => [positions[3 * v] || 0, positions[3 * v + 1] || 0, positions[3 * v + 2] || 0];
 
-const cross3 = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const dot3 = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-
 /** A closed polygon's signed area about `n`: positive when it winds counter-clockwise seen from `n`'s side. */
 export function loopArea(loop: Vec3[], n: Vec3): number {
   let s: Vec3 = [0, 0, 0];
@@ -80,8 +78,10 @@ export interface FaceAssembly {
   loopVerts: number[][][];
 }
 
-/** Union-find over triangles. */
-function makeFind(n: number): {find: (i: number) => number; join: (i: number, j: number) => void} {
+/** Union-find over `n` items: `find` gives a set's lowest member, `join` merges two sets. */
+export interface UnionFind { find: (i: number) => number; join: (i: number, j: number) => void }
+
+function makeUnionFind(n: number): UnionFind {
   const parent = Int32Array.from({length: n}, (_, i) => i);
   const find = (i: number): number => {
     while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
@@ -91,24 +91,50 @@ function makeFind(n: number): {find: (i: number) => number; join: (i: number, j:
 }
 
 /**
+ * Journal decision 96, F2: splits a traced boundary loop at every vertex it visits twice, so a hole touching its
+ * face's outer loop at a vertex comes out as two simple loops, never one self-touching loop.
+ */
+export function splitSimpleLoops(loop: number[]): number[][] {
+  const out: number[][] = [];
+  const stack: number[] = [];
+  const at = new Map<number, number>();
+  for (const v of loop) {
+    const i = at.get(v);
+    if (i !== undefined) {
+      const sub = stack.splice(i);
+      for (const x of sub) at.delete(x);
+      out.push(sub);
+    }
+    at.set(v, stack.length);
+    stack.push(v);
+  }
+  out.push(stack);
+  return out;
+}
+
+/** A face's identity (spec decision 10 as amended), read on its own plane. */
+export const faceIdentity = (f: ShellFace): string => identityKey(f.tag, {n: f.normal, d: f.offset});
+
+/**
  * Spec decision 18: groups the output triangles into faces. Two triangles across a manifold edge join when they share
  * an identity and an oriented plane (`samePlane` on their faceIDs' generating planes); triangles touching only at a
- * vertex never join. Faces are numbered by their lowest triangle. Each face's loops keep every boundary vertex until
- * `reduceFaceLoops` keeps only the ShellEdge endpoints.
+ * vertex never join. Faces are numbered by their lowest triangle. Each face's loops are simple (split where a loop
+ * touches itself) and keep every boundary vertex until `reduceFaceLoops` keeps only the ShellEdge endpoints.
  */
 export function assembleFaces(src: FaceSource): FaceAssembly {
   const {mesh, triTags, tags} = src;
   const nTri = mesh.tris.length / 3;
   const topo = meshTopology(mesh.tris, mesh.positions.length / 3);
   const planeOf = (t: number): Plane3 => tags.planes[mesh.faceIDs[t]];
-  const keys = triTags.map(identityKey);
-  const {find, join} = makeFind(nTri);
+  const keys = triTags.map((tag, t) => identityKey(tag, planeOf(t)));
+  const {find, join} = makeUnionFind(nTri);
   for (let h = 0; h < mesh.tris.length; h++) {
     const g = topo.twin[h];
     if (g < h) continue;
     const t = triOf(h), u = triOf(g);
     if (keys[t] === keys[u] && samePlane(planeOf(t), planeOf(u))) join(t, u);
-  }  const faceOfRoot = new Map<number, number>();
+  }
+  const faceOfRoot = new Map<number, number>();
   const triFace = new Int32Array(nTri);
   const firstTri: number[] = [];
   for (let t = 0; t < nTri; t++) {
@@ -135,7 +161,7 @@ export function assembleFaces(src: FaceSource): FaceAssembly {
       while (!isBoundary(g)) g = nextHalf(topo.twin[g]);
       h = g;
     } while (h !== h0);
-    loopVerts[f].push(loop);
+    loopVerts[f].push(...splitSimpleLoops(loop));
   }
   // No -0 in a plane: it reads as 0 once exported to JSON.
   const unsigned = (n: Vec3): Vec3 => [n[0] || 0, n[1] || 0, n[2] || 0];
@@ -164,7 +190,7 @@ export function reduceFaceLoops(asm: FaceAssembly, positions: Float32Array, isEn
   for (const face of asm.faces) {
     const kept = asm.loopVerts[face.id].map(l => l.filter(isEndpoint));
     for (const [i, l] of kept.entries()) {
-      if (l.length < 3) throw new Error(`face ${face.id} (${identityKey(face.tag)}): loop ${i} keeps ${l.length} ShellEdge endpoints`);
+      if (l.length < 3) throw new Error(`face ${face.id} (${faceIdentity(face)}): loop ${i} keeps ${l.length} ShellEdge endpoints`);
     }
     asm.loopVerts[face.id] = kept;
     setLoops(face, kept, positions);
