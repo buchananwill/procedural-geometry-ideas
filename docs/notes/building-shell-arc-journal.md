@@ -767,6 +767,16 @@ departs from those four steps is a defect.
      - **N11:** `planeKey` is renamed to say it registers (`clusterKeyOf`), and `PlaneClusters` holds `{rep, key}[]`.
      - **N12:** `Partial<Record<…>>` for the residuals; this one may vanish under decision 106.
      - **N13:** `unit` moves to `vec3.ts`, and `CapTri` is named.
+108. **The robustness sweep also varies storey height**, as a grid of pitch × storey height. The grid includes 250
+     and 300, with steps between them. This lands in WP3.4.
+     - **The problem it targets:** fixtures fixed at one parameter value can test a different regime from the
+       content they stand for. Which side of a threshold a fixture falls on (ridge against the plate above it,
+       apex against eave) moves with storey height.
+     - **Prompted by the user** (2026-11-07). They asked whether repeated C++ bugs that tests never flushed out came
+       partly from the C++ fixtures using 300 cm storeys while content uses 250. That is plausible but unverified;
+       F36 shows the same failure mode with pitch in this arc.
+     - **Offered to the user:** ask the spec author which C++ suites hard-code 300, and what a C++ parameter sweep
+       would need.
 
 ## Findings
 
