@@ -37,6 +37,11 @@ departs from those four steps is a defect.
 - `EModularEdgeKind` is at `Source\PistePerfect\Public\Buildables\ModularBuilding\ModularEdgeKind.h` in Piste Perfect:
   16 members, `WallVertical` through `GroundLine`.
 - `@proc-geo/core`'s `package.json` resolves to `dist/`, not source (F9).
+- **`pnpm --filter @proc-geo/building-shell test -- viewer` does not filter.** It runs the whole suite. For the viewer
+  alone, use `pnpm --filter @proc-geo/building-shell exec vitest run viewer`.
+- **Agents running a browser serve a `git archive` snapshot extracted into a new scratch folder**, never the live
+  tree, which holds other agents' uncommitted work. Each uses only tabs it opened itself. The `:5199` tab belongs to
+  another session.
 - **The spec's author is the Claude session `pisteperfect-5-7-27`**, which confirmed it on 2026-11-07. Confer with it
   by cross-session message on anything that touches the C++ project.
 
@@ -975,7 +980,24 @@ departs from those four steps is a defect.
        - winners are read 0.004 cm either side of a raw edge.
      - **For the combined review to probe:** the own-faceID change of interpretation 3. Without a holder, a triangle
        keeps its faceID's tag.
-     - **The combined correctness and type review over WP3.3 to WP3.6** runs after WP3.4 lands. WP3.6 (courtyards
+     - **The combined correctness and type review over WP3.3 to WP3.6** runs after WP3.4 lands.
+     - **WP4.3 returned at `1886b32`:** the viewer's tests are 96/96 and typecheck is clean. All four gates
+       convicted.
+       - `sceneLights()` is the scene's only light source, guarded by a test that pins it and a scan of
+         `scene.ts`'s source.
+       - `LineBiasRig` keeps hover and pin bias correct across rebuilds.
+       - A WCAG luminance floor of 3:1, with a 0.25 margin, applies to Edge colours and gizmo labels:
+         - ExternalCorner becomes `0x008291`;
+         - RoofInterior becomes `0x87b400`;
+         - SoffitEdge becomes `0x735fc3`;
+         - the gizmo Z becomes `0x3b73ff`.
+
+         Every ΔE floor is kept.
+       - Label textures are now in sRGB.
+
+       Because it is a small polish batch, a single targeted type check was dispatched, following decision 80's
+       precedent. **The viewer is "easily good enough to understand the problem and solution space"** (user,
+       2026-11-07), so no further browser rounds are planned. WP3.6 (courtyards
        and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
 
 ## Findings
