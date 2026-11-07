@@ -951,6 +951,26 @@ departs from those four steps is a defect.
        indexed ring-parent"). Spec 3's "whose side lies on a union wall and overlaps it" already covers it. WP3.6
        adds an `OverlapRingConflict` pair: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose x = 1000 sides
        overlap over y 0 to 400 and disagree. Swapping the indices flips the whole x = 1000 wall.
+117. **WP3.5 returned at `f707edf`**: the imprint (spec 15 as amended) and C6.
+     - **NarrowUpperStoreyGabled is green** against the spec's numbers: storey 1 Wall 50000.00, storey 0 Gable
+       105884.57.
+     - **Test figure:** 1913/1913 on a clean snapshot of HEAD plus WP3.5. The one working-tree failure is an
+       untracked file from WP4.3's work in progress.
+     - **All three gates convicted, and no pins moved.**
+     - **Where the imprint splits:** 7 of 660 robustness cases at 300 cm and 2 at 250 cm; among the fixtures, only
+       NarrowUpperStoreyGabled.
+     - **`winningRegionViolations` is handed to WP3.4** for the robustness gate.
+     - **Interpretations stand pending the combined review:**
+       - a straddling triangle is over-cut along the boundary's full line, inside that triangle only;
+       - neighbours are split by an edge record, not by the weld's T-split;
+       - a triangle's own faceID is a candidate only when its raw triangles hold the centroid;
+       - query points are projected onto their plane;
+       - samples are pulled inward to be 0.005 cm inside;
+       - winners are read 0.004 cm either side of a raw edge.
+     - **For the combined review to probe:** the own-faceID change of interpretation 3. Without a holder, a triangle
+       keeps its faceID's tag.
+     - **The combined correctness and type review over WP3.3 to WP3.6** runs after WP3.4 lands. WP3.6 (courtyards
+       and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
 
 ## Findings
 
