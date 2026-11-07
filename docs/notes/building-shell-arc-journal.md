@@ -505,6 +505,13 @@ departs from those four steps is a defect.
     - convexity reads `q` from the run's manifold edge furthest from A's plane;
     - a flat sloped Gable–Gable edge is `Unclassified`;
     - `ShellFace.area` comes from its loops.
+93. **WP4 is dispatched while WP3's reviews run** (user, 2026-11-07). The overlap is safe for these reasons:
+    - The viewer reads `BuildingShell`, whose shapes the spec fixes, so a WP3 review fix is unlikely to touch it.
+    - WP4 owns only `apps/building-shell/index.html`, `src/viewer/`, its tests and the `dev` script. A change it
+      needs elsewhere in `src/` is a stop and a report, never an edit, so it cannot collide with WP3 fixes.
+    - **The delegate is general-purpose on Sonnet**, as decision 57 set: the viewer is low-risk front-end work.
+    - **When it returns**, it gets decision 67's two reviews. The correctness review checks the viewer against
+      spec 26 to 30 in a real browser.
 
 ## Findings
 
