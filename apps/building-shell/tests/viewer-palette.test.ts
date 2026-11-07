@@ -6,11 +6,12 @@ import {EDGE_KINDS, EdgeKind} from '../src/edges.ts';
 import {SHELL_FIXTURES} from '../src/fixture.ts';
 import {buildShell} from '../src/shell.ts';
 import type {ShellKind} from '../src/tags.ts';
-import {deltaE76} from '../src/viewer/colour-metrics.ts';
-import {AMBIENT_LIGHT, DIRECTIONAL_LIGHTS, LIT_NORMALS, lambertFactor, litShade, litShades} from '../src/viewer/lighting.ts';
+import {contrastRatio, deltaE76} from '../src/viewer/colour-metrics.ts';
+import {litShade, litShades} from '../src/viewer/lighting.ts';
 import {
-  BACKGROUND, EDGE_KIND_COLOUR, EDGE_KIND_LIES_ON, FLOOR_EDGE_ON_FILL, FLOOR_EDGE_PAIR, FLOOR_INTERACTION, FLOOR_MARGIN, HOVER_COLOUR, MAGENTA,
-  OUTLINE_COLOUR, PIN_COLOUR, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR, edgeKindsCanMeet, fillShades, lighten, partialColour, tintShades,
+  AXIS_COLOURS, BACKGROUND, CONTRAST_MARGIN, EDGE_KIND_COLOUR, EDGE_KIND_LIES_ON, FLOOR_EDGE_ON_FILL, FLOOR_EDGE_PAIR, FLOOR_INTERACTION,
+  FLOOR_LUMINANCE_CONTRAST, FLOOR_MARGIN, HOVER_COLOUR, MAGENTA, OUTLINE_COLOUR, PIN_COLOUR, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR,
+  edgeKindsCanMeet, fillShades, lighten, partialColour, readsAsGable, tintShades,
 } from '../src/viewer/palette.ts';
 
 /** The spec's decision 10 list, written out so the palette is not checked against a list derived from itself. */
@@ -89,6 +90,19 @@ describe('colour mapping completeness', () => {
   });
 });
 
+describe('readsAsGable (spec 21, journal 77)', () => {
+  it('adds Cheek wherever Gable is named, and nowhere else', () => {
+    expect(readsAsGable(['Gable'])).toEqual(['Gable', 'Cheek']);
+    expect(readsAsGable(['Wall', 'Gable'])).toContain('Cheek');
+    expect(readsAsGable(['Wall'])).toEqual(['Wall']);
+    expect(readsAsGable(['Roof', 'Underside'])).not.toContain('Cheek');
+  });
+
+  it('does not repeat a Cheek that is already there', () => {
+    expect(readsAsGable(['Gable', 'Cheek'])).toEqual(['Gable', 'Cheek']);
+  });
+});
+
 describe('colours are fixed and distinguishable', () => {
   it('magenta belongs to Unclassified and Internal alone', () => {
     expect(SHELL_KINDS.filter(k => SHELL_KIND_COLOUR[k] === MAGENTA)).toEqual(['Internal']);
@@ -112,49 +126,6 @@ describe('colours are fixed and distinguishable', () => {
   it('lighten keeps 0 and reaches white at 1', () => {
     expect(lighten(0x336699, 0)).toBe(0x336699);
     expect(lighten(0x336699, 1)).toBe(0xffffff);
-  });
-});
-
-describe('the scene\'s lighting, as the palette sees it', () => {
-  it('has the two directional lights and the ambient light the scene builds', () => {
-    expect(AMBIENT_LIGHT.intensity).toBeGreaterThan(0);
-    expect(DIRECTIONAL_LIGHTS).toHaveLength(2);
-  });
-
-  it('a Lambert factor is (ambient + sum of intensity * n.l) / pi', () => {
-    // A surface facing straight down gets no directional light from above: ambient alone.
-    expect(lambertFactor([0, 0, -1])).toBeCloseTo(AMBIENT_LIGHT.intensity / Math.PI, 10);
-    // A wall facing -y: the key light (-1, -2, 3) reaches it, the fill (2, 1, 1) does not.
-    const key = DIRECTIONAL_LIGHTS[0];
-    const keyDot = 2 / Math.hypot(...key.position);
-    expect(lambertFactor([0, -1, 0])).toBeCloseTo((AMBIENT_LIGHT.intensity + key.intensity * keyDot) / Math.PI, 10);
-  });
-
-  it('lit shades are linear light scaled and clipped, so a factor over 1 brightens', () => {
-    expect(litShade(0x808080, [0, 0, -1])).toBeLessThan(0x808080);
-    expect(litShade(0x808080, [0, 0, 1])).toBeGreaterThan(0x808080);
-  });
-
-  it('every kind but Internal has a lit range that spans more than one shade, except the ambient-only ones', () => {
-    for (const k of ['Wall', 'Gable', 'Cheek', 'Roof'] as const) expect(litShades(k, SHELL_KIND_COLOUR[k]).length, k).toBeGreaterThan(3);
-    for (const k of ['Underside', 'Ground'] as const) expect(LIT_NORMALS[k], k).toEqual([[0, 0, -1]]);
-    expect(litShades('Underside', SHELL_KIND_COLOUR.Underside)).toHaveLength(1);
-  });
-
-  it('Underside is ambient-only, so it is the darkest it can be', () => {
-    const base = SHELL_KIND_COLOUR.Underside;
-    for (const k of ['Wall', 'Roof'] as const) {
-      const darkest = Math.min(...litShades(k, base));
-      expect(litShade(base, [0, 0, -1]), k).toBeLessThanOrEqual(darkest);
-    }
-  });
-
-  it('a Roof face spans a wider range of light than a Wall', () => {
-    const range = (k: ShellKind): number => {
-      const shades = litShades(k, SHELL_KIND_COLOUR[k]);
-      return deltaE76(Math.min(...shades), Math.max(...shades));
-    };
-    expect(range('Roof')).toBeGreaterThan(range('Wall'));
   });
 });
 
@@ -223,5 +194,38 @@ describe(`the ΔE76 floors (journal decisions 98 and 105), each cleared by at le
   it('convicts two Edge kinds that meet and share a colour', () => {
     const clash = {...EDGE_KIND_COLOUR, Hip: EDGE_KIND_COLOUR.Ridge};
     expect(pairViolations(clash, [['Hip', 'Ridge']]).length).toBe(1);
+  });
+});
+
+describe(`the luminance-contrast floor (journal decision 114), ${FLOOR_LUMINANCE_CONTRAST}:1 against the background, beside the ΔE76 floors`, () => {
+  /** Every colour that falls under the floor (plus the margin), as readable strings. */
+  const contrastViolations = (colours: Readonly<Record<string, number>>): string[] =>
+    Object.entries(colours).flatMap(([name, c]) => {
+      const r = contrastRatio(c, BACKGROUND);
+      return r < FLOOR_LUMINANCE_CONTRAST + CONTRAST_MARGIN ? [`${name}: ${r.toFixed(2)}:1 < ${FLOOR_LUMINANCE_CONTRAST + CONTRAST_MARGIN}`] : [];
+    });
+
+  it('the ratio reads known pairs: black on white is 21:1, a colour on itself 1:1, and it does not depend on the order', () => {
+    expect(contrastRatio(0x000000, 0xffffff)).toBeCloseTo(21, 5);
+    expect(contrastRatio(0x336699, 0x336699)).toBe(1);
+    expect(contrastRatio(0x0000ff, BACKGROUND)).toBe(contrastRatio(BACKGROUND, 0x0000ff));
+  });
+
+  it(`every Edge colour is at least ${FLOOR_LUMINANCE_CONTRAST}:1 against the background`, () => {
+    expect(contrastViolations(EDGE_KIND_COLOUR)).toEqual([]);
+  });
+
+  it(`the gizmo's axis colours, which colour its labels, are at least ${FLOOR_LUMINANCE_CONTRAST}:1 against the background`, () => {
+    expect(contrastViolations(AXIS_COLOURS)).toEqual([]);
+  });
+
+  it('convicts the dark blues ΔE76 let through: the old ExternalCorner, the old pure-blue Z label', () => {
+    const corner = contrastViolations({ExternalCorner: 0x1e0087});
+    expect(corner.length, corner.join('; ')).toBe(1);
+    expect(contrastRatio(0x1e0087, BACKGROUND)).toBeLessThan(1.5);
+    expect(contrastViolations({z: 0x0000ff}).length).toBe(1);
+    expect(contrastRatio(0x0000ff, BACKGROUND)).toBeLessThan(2.1);
+    // The other two Edge colours the floor re-tuned, which the ΔE76 floors passed.
+    expect(contrastViolations({RoofInterior: 0x2d5a3c, SoffitEdge: 0x3c4ba5})).toHaveLength(2);
   });
 });

@@ -6,8 +6,8 @@
 // small distance (`LINE_BIAS`), so an Edge lying in the crease between two faces is not buried in them, while a face
 // that is really in front still hides it.
 import {
-  AmbientLight, BufferAttribute, BufferGeometry, CanvasTexture, Color, DirectionalLight, DoubleSide, FrontSide, Group, Material, Mesh, MeshBasicMaterial,
-  MeshLambertMaterial, Object3D, PerspectiveCamera, Points, PointsMaterial, Raycaster, Scene, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer,
+  BufferAttribute, BufferGeometry, CanvasTexture, Color, DoubleSide, FrontSide, Group, Material, Mesh, MeshBasicMaterial,
+  MeshLambertMaterial, Object3D, PerspectiveCamera, Points, PointsMaterial, Raycaster, SRGBColorSpace, Scene, Sprite, SpriteMaterial, Vector2, Vector3, WebGLRenderer,
 } from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
@@ -19,8 +19,9 @@ import {
   DrawBuffers, cellOutlineSegments, cellTriangles, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, linearRGB, meshBounds, vertexPoints,
 } from './buffers.ts';
 import {GIZMO_AXIS_LENGTH, GIZMO_FOV, GIZMO_LABEL_AT, GIZMO_LABEL_SIZE, GIZMO_MARGIN, GIZMO_SIZE, GIZMO_DISTANCE} from './gizmo.ts';
-import {AMBIENT_LIGHT, DIRECTIONAL_LIGHTS} from './lighting.ts';
-import {makeBiasedLineMaterial} from './line-shader.ts';
+import {LineBiasRig} from './line-bias.ts';
+import {sceneLights} from './lighting.ts';
+import {LineMaterialOptions, makeBiasedLineMaterial} from './line-shader.ts';
 import {AXIS_COLOURS, BACKGROUND, GHOST_OPACITY, GROUND_OPACITY, HOVER_COLOUR, PIN_COLOUR, RAW_SHELL_OPACITY, cssColour} from './palette.ts';
 import type {Hit} from './readout.ts';
 import {ToggleState, visibleStoreys} from './toggles.ts';
@@ -44,11 +45,11 @@ export interface Layers {
   ghostLines?: LineSegments2;
 }
 
-/** The layers a cursor can pick from. */
-export type PickLayer = 'solid' | 'ground' | 'cellPick' | 'edges' | 'vertices';
+/** The layers a cursor can pick from (derived from `Layers`, so a layer renamed there breaks here). */
+export type PickLayer = keyof Pick<Layers, 'solid' | 'ground' | 'cellPick' | 'edges' | 'vertices'>;
 
-/** The record id behind each drawn primitive of a pickable layer (derived from `Layers`, so a layer renamed there breaks here). */
-export type LayerOwners = {[K in PickLayer & keyof Layers]?: Int32Array};
+/** The record id behind each drawn primitive of a pickable layer. */
+export type LayerOwners = {[K in PickLayer]?: Int32Array};
 
 export interface SceneEvents {
   /** The cursor moved over the canvas; `null` when over nothing. */
@@ -100,7 +101,10 @@ function label(text: string, colour: number): Sprite {
     ctx.fillStyle = cssColour(colour);
     ctx.fillText(text, 32, 34);
   }
-  const s = new Sprite(new SpriteMaterial({map: new CanvasTexture(canvas), depthTest: false, transparent: true}));
+  // The canvas holds sRGB pixels: say so, or the sprite shows the label brighter than the palette's colour.
+  const texture = new CanvasTexture(canvas);
+  texture.colorSpace = SRGBColorSpace;
+  const s = new Sprite(new SpriteMaterial({map: texture, depthTest: false, transparent: true}));
   s.scale.setScalar(GIZMO_LABEL_SIZE);
   return s;
 }
@@ -113,11 +117,9 @@ export class ShellScene {
   private readonly content = new Group();
   private readonly highlights = new Group();
   private readonly gizmoScene = new Scene();
-  private readonly gizmoCamera = new PerspectiveCamera(30, 1, 0.1, 20);
-  /** Every LineMaterial, so a resize can set its resolution; the value is its bias fraction (see `LINE_BIAS`). */
-  private readonly lineMaterials = new Map<LineMaterial, number>();
-  /** The LineMaterials the current highlights hold, dropped from `lineMaterials` when they are rebuilt. */
-  private readonly highlightMaterials = new Set<LineMaterial>();
+  private readonly gizmoCamera = new PerspectiveCamera(GIZMO_FOV, 1, 0.1, 20);
+  /** Every LineMaterial of the layers and of the highlights, kept apart so a layer rebuild leaves a pin's bias alone (see `line-bias.ts`). */
+  private readonly lineBias = new LineBiasRig<LineMaterial>();
   private readonly raycaster = new Raycaster();
   private layers: Layers = {};
   private owners: LayerOwners = {};
@@ -142,13 +144,9 @@ export class ShellScene {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = false;
 
-    // The lights come from `lighting.ts`, which the palette's floors are measured against.
-    this.scene.add(new AmbientLight(AMBIENT_LIGHT.color, AMBIENT_LIGHT.intensity), this.content, this.highlights);
-    for (const spec of DIRECTIONAL_LIGHTS) {
-      const light = new DirectionalLight(0xffffff, spec.intensity);
-      light.position.set(spec.position[0], spec.position[1], spec.position[2]);
-      this.scene.add(light);
-    }
+    // The lights come from `sceneLights()`, which the palette's floors are measured against.
+    const lights = sceneLights();
+    this.scene.add(lights.ambient, ...lights.directional, this.content, this.highlights);
 
     this.buildGizmo();
 
@@ -165,8 +163,6 @@ export class ShellScene {
   /** The corner orientation gizmo: three axes in the legend's colours, each with its label beyond the tip. */
   private buildGizmo(): void {
     this.gizmoCamera.up.set(0, 0, 1);
-    this.gizmoCamera.fov = GIZMO_FOV;
-    this.gizmoCamera.updateProjectionMatrix();
     const L = GIZMO_AXIS_LENGTH;
     const axes = [
       {text: 'X', colour: AXIS_COLOURS.x, tip: [L, 0, 0]},
@@ -240,16 +236,16 @@ export class ShellScene {
       this.content.remove(o);
       dispose(o);
     }
-    this.lineMaterials.clear();
+    this.lineBias.clearLayers();
     this.layers = {};
     this.owners = {};
   }
 
-  /** A LineMaterial in vertex colours whose lines are pulled toward the camera by `bias` of the camera distance. */
-  private lineMaterial(options: Parameters<typeof makeBiasedLineMaterial>[0], bias: number): LineMaterial {
+  /** A LineMaterial whose lines are pulled toward the camera by `bias` of the camera distance, tracked by `track`. */
+  private lineMaterial(options: LineMaterialOptions, bias: number, track: 'layer' | 'highlight'): LineMaterial {
     const m = makeBiasedLineMaterial(options);
-    m.resolution.set(this.host.clientWidth, this.host.clientHeight);
-    this.lineMaterials.set(m, bias);
+    if (track === 'layer') this.lineBias.trackLayer(m, bias);
+    else this.lineBias.trackHighlight(m, bias);
     return m;
   }
 
@@ -295,12 +291,12 @@ export class ShellScene {
     }
     const outlines = cellOutlineSegments(build, storeys, netKindOutlines);
     if (outlines.owner.length) {
-      L.outlines = new LineSegments2(segGeometry(outlines), this.lineMaterial({width: 1.3}, LINE_BIAS.outlines));
+      L.outlines = new LineSegments2(segGeometry(outlines), this.lineMaterial({width: 1.3}, LINE_BIAS.outlines, 'layer'));
       L.outlines.renderOrder = 2;
     }
     const edges = edgeSegments(build, storeys);
     if (edges.owner.length) {
-      L.edges = new LineSegments2(segGeometry(edges), this.lineMaterial({width: 3.5}, LINE_BIAS.edges));
+      L.edges = new LineSegments2(segGeometry(edges), this.lineMaterial({width: 3.5}, LINE_BIAS.edges, 'layer'));
       L.edges.renderOrder = 3;
       owners.edges = edges.owner;
     }
@@ -317,7 +313,7 @@ export class ShellScene {
     if (ghost.owner.length) {
       L.ghost = mesh(ghost, new MeshBasicMaterial({vertexColors: true, side: DoubleSide, transparent: true, opacity: GHOST_OPACITY, depthWrite: false}), 5);
       const lines = ghostSegments(build, storeys);
-      if (lines.owner.length) L.ghostLines = new LineSegments2(segGeometry(lines), this.lineMaterial({width: 1.5, opacity: 0.55}, LINE_BIAS.none));
+      if (lines.owner.length) L.ghostLines = new LineSegments2(segGeometry(lines), this.lineMaterial({width: 1.5, opacity: 0.55}, LINE_BIAS.none, 'layer'));
     }
     for (const [name, o] of Object.entries(L)) if (o && name !== 'cellPick') this.content.add(o);
   }
@@ -432,8 +428,7 @@ export class ShellScene {
       this.highlights.remove(o);
       dispose(o);
     }
-    for (const m of this.highlightMaterials) this.lineMaterials.delete(m);
-    this.highlightMaterials.clear();
+    this.lineBias.clearHighlights();
     if (this.pinned) this.highlights.add(...this.highlightOf(this.pinned, PIN_COLOUR, 9));
     if (this.hoverHit) this.highlights.add(...this.highlightOf(this.hoverHit, HOVER_COLOUR, 6));
   }
@@ -450,8 +445,7 @@ export class ShellScene {
     const loop = (points: readonly Readonly<Vec3>[], w: number): void => {
       const g = new LineSegmentsGeometry();
       g.setPositions(points.flatMap((p, i) => [...p, ...points[(i + 1) % points.length]]));
-      const m = this.lineMaterial({width: w, colour}, LINE_BIAS.edges);
-      this.highlightMaterials.add(m);
+      const m = this.lineMaterial({width: w, colour}, LINE_BIAS.edges, 'highlight');
       const l = new LineSegments2(g, m);
       l.renderOrder = 10;
       out.push(l);
@@ -486,13 +480,13 @@ export class ShellScene {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-    for (const m of this.lineMaterials.keys()) m.resolution.set(w, h);
+    this.lineBias.resize(w, h);
   }
 
   private frame(): void {
     this.controls.update();
     const dist = this.camera.position.distanceTo(this.controls.target);
-    for (const [m, bias] of this.lineMaterials) m.uniforms.uBias.value = bias * dist;
+    this.lineBias.update(dist);
     const w = this.host.clientWidth, h = this.host.clientHeight;
     this.renderer.setScissorTest(false);
     this.renderer.setViewport(0, 0, w, h);

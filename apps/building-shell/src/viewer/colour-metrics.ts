@@ -38,6 +38,18 @@ export function deltaE76(a: number, b: number): number {
   return Math.hypot(l1 - l2, a1 - a2, b1 - b2);
 }
 
+/** WCAG relative luminance: 0 for black, 1 for white. */
+export function relativeLuminance(hex: number): number {
+  const [r, g, b] = hexToRgb(hex).map(srgbToLinear);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio of two colours, from 1 (identical luminance) to 21 (black on white). It does not depend on hue, so it catches the dark blues ΔE76 overstates. */
+export function contrastRatio(a: number, b: number): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /** `fg` laid over `bg` at `alpha`, per sRGB channel (the way the browser composites a translucent fill). */
 export function over(fg: number, bg: number, alpha: number): number {
   const f = hexToRgb(fg), g = hexToRgb(bg);

@@ -1,8 +1,9 @@
 // The thick-line depth bias is a string patch on three.js's shader source: it must apply to the installed three.js, and
 // fail loudly when it does not (journal decision 104).
+import {readFileSync} from 'node:fs';
 import {LineMaterial} from 'three/examples/jsm/lines/LineMaterial.js';
 import {describe, expect, it} from 'vitest';
-import {GIZMO_DISTANCE, GIZMO_LABEL_AT, GIZMO_LABEL_SIZE, gizmoWorstExtent} from '../src/viewer/gizmo.ts';
+import {GIZMO_AXIS_LENGTH, GIZMO_DISTANCE, GIZMO_FOV, GIZMO_LABEL_AT, GIZMO_LABEL_SIZE, GIZMO_SHAPE, gizmoWorstExtent} from '../src/viewer/gizmo.ts';
 import {makeBiasedLineMaterial, patchLineShader} from '../src/viewer/line-shader.ts';
 
 describe('line shader patch', () => {
@@ -35,11 +36,25 @@ describe('orientation gizmo', () => {
     expect(gizmoWorstExtent()).toBeLessThan(1);
   });
 
-  it('would clip a label that sat closer to the camera or further out', () => {
-    // The check can fail: the same maths with the labels pushed out reads over 1.
-    const tan = Math.tan((30 * Math.PI) / 360);
-    const out = (2.2 * Math.sin(Math.PI / 2) + GIZMO_LABEL_SIZE / 2) / (GIZMO_DISTANCE * tan);
-    expect(out).toBeGreaterThan(1);
-    expect(GIZMO_LABEL_AT).toBeLessThan(2.2);
+  it('would clip a label that sat further out or a camera that stood closer: the same function reads over 1', () => {
+    expect(gizmoWorstExtent({labelAt: 2.2})).toBeGreaterThan(1);
+    expect(gizmoWorstExtent({distance: 3})).toBeGreaterThan(1);
+    expect(gizmoWorstExtent({labelSize: 1.5})).toBeGreaterThan(1);
+    expect(gizmoWorstExtent({fov: 15})).toBeGreaterThan(1);
+  });
+
+  it('with no overrides it reads the numbers the scene is built from, which the gizmo camera takes (GIZMO_FOV)', () => {
+    expect(gizmoWorstExtent({})).toBe(gizmoWorstExtent(GIZMO_SHAPE));
+    expect(GIZMO_SHAPE).toEqual({fov: GIZMO_FOV, distance: GIZMO_DISTANCE, axisLength: GIZMO_AXIS_LENGTH, labelAt: GIZMO_LABEL_AT, labelSize: GIZMO_LABEL_SIZE});
+    expect(gizmoWorstExtent({labelAt: GIZMO_LABEL_AT})).toBe(gizmoWorstExtent());
+  });
+
+  it('the scene builds its gizmo camera with GIZMO_FOV, so the clip test and the screen share the number', () => {
+    const source = readFileSync(new URL('../src/viewer/scene.ts', import.meta.url), 'utf8');
+    expect(source).toContain('gizmoCamera = new PerspectiveCamera(GIZMO_FOV,');
+  });
+
+  it('a label further out always reaches further', () => {
+    expect(gizmoWorstExtent({labelAt: GIZMO_LABEL_AT + 0.5})).toBeGreaterThan(gizmoWorstExtent());
   });
 });

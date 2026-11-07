@@ -25,7 +25,7 @@ export const HOVER_COLOUR = 0xffff96;
 export const PIN_COLOUR = 0xffd21e;
 
 /** The orientation gizmo's axes: X, Y and Z (up). */
-export const AXIS_COLOURS = {x: 0xff0000, y: 0x00ff00, z: 0x0000ff} as const;
+export const AXIS_COLOURS = {x: 0xff0000, y: 0x00ff00, z: 0x3b73ff} as const;
 
 /** One fill colour per `ShellKind`. `Ground` is drawn translucent (see `GROUND_OPACITY`). */
 export const SHELL_KIND_COLOUR: Readonly<Record<ShellKind, number>> = {
@@ -46,11 +46,11 @@ export const EDGE_KIND_COLOUR: Readonly<Record<EdgeKind, number>> = {
   WallVertical: 0xa5c3ff,
   WallHorizontal: 0x0f96ff,
   FloorLine: 0x00e1ff,
-  ExternalCorner: 0x1e0087,
+  ExternalCorner: 0x008291,
   InternalCorner: 0xf0ff00,
   RingJunction: 0x2d873c,
   Eaves: 0x78ff0f,
-  RoofInterior: 0x2d5a3c,
+  RoofInterior: 0x87b400,
   WallPlate: 0x00c34b,
   GableHorizontal: 0xf05a2d,
   GableVertical: 0xff8787,
@@ -61,7 +61,7 @@ export const EDGE_KIND_COLOUR: Readonly<Record<EdgeKind, number>> = {
   GroundLine: 0xa5f0a5,
   RoofSeam: 0xf078b4,
   GableSloped: 0xa5c32d,
-  SoffitEdge: 0x3c4ba5,
+  SoffitEdge: 0x735fc3,
   SoffitJunction: 0xffc3f0,
   Unclassified: MAGENTA,
 };
@@ -96,32 +96,39 @@ export function fillShades(kind: ShellKind): number[] {
 export const tintShades = (kind: ShellKind): number[] => (kind === 'Ground' || kind === 'Internal' ? [] : litShades(kind, partialColour(kind)));
 
 /**
+ * The face kinds a table row stands for: `kinds`, and Cheek wherever it names Gable, because Cheek reads as Gable (spec
+ * decision 21, journal decision 77). Every row of `EDGE_KIND_LIES_ON` goes through it, so the rule holds by construction.
+ */
+export const readsAsGable = (kinds: readonly ShellKind[]): ShellKind[] =>
+  kinds.includes('Gable') && !kinds.includes('Cheek') ? [...kinds, 'Cheek'] : [...kinds];
+
+/**
  * The face kinds an Edge kind can lie on: its two faces under spec decision 21's table (where the table names Gable,
- * Cheek reads as Gable, journal decision 77), and the face a Cell side lies on under decision 25. `Unclassified` can
+ * Cheek reads as Gable: see `readsAsGable`), and the face a Cell side lies on under decision 25. `Unclassified` can
  * lie on any drawn kind. `Internal` is left out: it is magenta by decision 28.
  */
 export const EDGE_KIND_LIES_ON: Readonly<Record<EdgeKind, readonly ShellKind[]>> = {
-  WallVertical: ['Wall'],
-  WallHorizontal: ['Wall'],
-  FloorLine: ['Wall'],
-  ExternalCorner: ['Wall', 'Gable', 'Cheek'],
-  InternalCorner: ['Wall', 'Gable', 'Cheek'],
-  RingJunction: ['Roof', 'Wall', 'Gable', 'Cheek'],
-  Eaves: ['Roof', 'Wall'],
-  RoofInterior: ['Roof', 'Underside'],
-  WallPlate: ['Wall', 'Gable', 'Cheek'],
-  GableHorizontal: ['Wall', 'Gable', 'Cheek'],
-  GableVertical: ['Wall', 'Gable', 'Cheek'],
-  Verge: ['Roof', 'Gable', 'Cheek'],
-  Ridge: ['Roof'],
-  Hip: ['Roof'],
-  Valley: ['Roof'],
-  GroundLine: ['Wall', 'Gable', 'Cheek', 'Ground'],
-  RoofSeam: ['Roof'],
-  GableSloped: ['Wall', 'Gable', 'Cheek'],
-  SoffitEdge: ['Wall', 'Underside'],
-  SoffitJunction: ['Wall', 'Underside'],
-  Unclassified: ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek'],
+  WallVertical: readsAsGable(['Wall']),
+  WallHorizontal: readsAsGable(['Wall']),
+  FloorLine: readsAsGable(['Wall']),
+  ExternalCorner: readsAsGable(['Wall', 'Gable']),
+  InternalCorner: readsAsGable(['Wall', 'Gable']),
+  RingJunction: readsAsGable(['Roof', 'Wall', 'Gable']),
+  Eaves: readsAsGable(['Roof', 'Wall']),
+  RoofInterior: readsAsGable(['Roof', 'Underside']),
+  WallPlate: readsAsGable(['Wall', 'Gable']),
+  GableHorizontal: readsAsGable(['Wall', 'Gable']),
+  GableVertical: readsAsGable(['Wall', 'Gable']),
+  Verge: readsAsGable(['Roof', 'Gable']),
+  Ridge: readsAsGable(['Roof']),
+  Hip: readsAsGable(['Roof']),
+  Valley: readsAsGable(['Roof']),
+  GroundLine: readsAsGable(['Wall', 'Gable', 'Ground']),
+  RoofSeam: readsAsGable(['Roof']),
+  GableSloped: readsAsGable(['Wall', 'Gable']),
+  SoffitEdge: readsAsGable(['Wall', 'Underside']),
+  SoffitJunction: readsAsGable(['Wall', 'Underside']),
+  Unclassified: readsAsGable(['Wall', 'Gable', 'Roof', 'Underside', 'Ground']),
 };
 
 /** Two Edge kinds can meet at one vertex when some face kind holds both. */
@@ -132,5 +139,12 @@ export const edgeKindsCanMeet = (a: EdgeKind, b: EdgeKind): boolean =>
 export const FLOOR_EDGE_ON_FILL = 30;
 export const FLOOR_EDGE_PAIR = 25;
 export const FLOOR_INTERACTION = 25;
+/**
+ * The luminance-contrast floor (WCAG ratio, journal decision 114): every Edge colour and every gizmo label against the
+ * background. ΔE76 overstates the contrast of a dark blue, which ratio reads plainly. The ratio is cleared by at least
+ * `CONTRAST_MARGIN` for the same reason `FLOOR_MARGIN` exists.
+ */
+export const FLOOR_LUMINANCE_CONTRAST = 3;
+export const CONTRAST_MARGIN = 0.25;
 /** Each floor is cleared by at least this much, so a light or rounding change does not flip a pass (journal decision 105, M1). */
 export const FLOOR_MARGIN = 3;
