@@ -56,15 +56,23 @@ function clearOfWalls(b: Building, p: Pt): boolean {
 
 const holeFree = CASES.filter(c => c.build().comps.every(comp => comp.holes.length === 0));
 
+/**
+ * The union's surviving Cheek identities per case, as measured (journal decision 73, F27); a case not listed has
+ * none. Against roof-gable's B verdict: 2b, 4b and 8b are B CHEEKs; 5a to 5e are B PASSes, whose Cheek is the
+ * monopitch's high-end face.
+ */
+const MEASURED_CHEEKS: Record<string, number> = {'2b': 1, '4b': 1, '5a': 1, '5b': 1, '5c': 1, '5d': 1, '5e': 2, '8b': 1};
+
 describe('solveRoofParts agrees with runB', () => {
-  it('covers every hole-free case', () => {
-    expect(holeFree.length).toBeGreaterThan(40);
+  it('covers every hole-free case: all 53 but the four courtyards', () => {
+    expect(holeFree.length).toBe(49);
   });
 
-  it.each(holeFree.map(c => [c.id, c] as const))('case %s: the union top surface is runB plus the plate', (_id, c) => {
+  it.each(holeFree)('case $id: the union top surface is runB plus the plate', c => {
     const b = c.build();
     const u = unionPlans(wasm, `case ${c.id}`, [planBuilding(`case ${c.id}`, 0, 0, PLATE, b)]);
     expect(u.status).toBe('NoError');
+    expect(u.cheeks).toBe(MEASURED_CHEEKS[c.id] ?? 0);
     const surface = runB(b, {far: 'plane'});
     const misses: string[] = [];
     let checked = 0;

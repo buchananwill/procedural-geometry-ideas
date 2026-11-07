@@ -70,5 +70,6 @@ export function storeysOf(f: ShellFixture): number[] {
 }
 
 /** Spec decision 2: every Ring rectangle with `baseStorey <= n < baseStorey + storeys`. */
-export const storeyRects = (f: ShellFixture, n: number): Rect[] =>
-  f.rings.filter(r => r.baseStorey <= n && n < r.baseStorey + r.storeys).map(r => r.rect);
+export function storeyRects(f: ShellFixture, n: number): Rect[] {
+  return f.rings.filter(r => r.baseStorey <= n && n < r.baseStorey + r.storeys).map(r => r.rect);
+}

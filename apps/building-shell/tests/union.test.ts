@@ -2,9 +2,13 @@
 // fixture, and the tagged-area assertions of decisions 34 and 35.
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {SHELL_FIXTURES, fixtureByName} from '../src/fixture.ts';
-import {FaceTag} from '../src/tags.ts';
-import {ShellUnion, areaByIdentity, taggedArea, triArea, unionShell} from '../src/union.ts';
+import {SHELL_FIXTURES, fixtureByName, storeysOf} from '../src/fixture.ts';
+import {getManifold} from '../src/manifold.ts';
+import {buildStoreyParts, makePartContext, planStorey} from '../src/storey.ts';
+import {FaceTag, makeShellTags} from '../src/tags.ts';
+import {
+  RETAG_SLACK_CM, ShellUnion, areaByIdentity, prepareRawTri, rawTriHolds, taggedArea, triArea, unionRawParts, unionShell,
+} from '../src/union.ts';
 
 /**
  * Tagged areas are asserted to 0.05 cm², half the last digit the spec quotes (95884.6). Every corner here is on the
@@ -16,12 +20,29 @@ const results = new Map<string, ShellUnion>();
 beforeAll(async () => {
   for (const f of SHELL_FIXTURES) results.set(f.name, await unionShell(f));
 }, 120_000);
-const get = (name: string): ShellUnion => results.get(name)!;
+function get(name: string): ShellUnion {
+  const u = results.get(name);
+  if (!u) throw new Error(`no union built for fixture ${name}`);
+  return u;
+}
+
+/**
+ * Spec decision 32 as amended: every clean fixture's genus, and the degenerate twins' as measured (both 0). Bridge's
+ * expected 1 is the spec's and is kept; it measures 0 (see the failing-expected test below).
+ */
+const EXPECTED_GENUS: Record<string, number> = {
+  NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, Bridge: 1, BridgeOverBlock: 1,
+  ValleyWings: 0, SingleStoreyT: 0,
+  OverhangApexOnEave: 0, ValleyWingsPierced: 0, // degenerate twins, measured and pinned
+};
 
 const kindOf = (kind: FaceTag['kind'], storey: number) => (t: FaceTag): boolean => t.kind === kind && t.storey === storey;
 
 /** The output area of `pred`'s triangles lying on the plane y = 0 (outward -y), and off it. */
-function splitByY0(u: ShellUnion, pred: (t: FaceTag) => boolean): {on: number; off: number} {
+/** Tagged area on the plane y = 0 and off it. */
+interface OnOffY0 { on: number; off: number }
+
+function splitByY0(u: ShellUnion, pred: (t: FaceTag) => boolean): OnOffY0 {
   const P = u.mesh.positions;
   const onY0 = (t: number): boolean => [0, 1, 2].every(j => Math.abs(P[3 * u.mesh.tris[3 * t + j] + 1]) <= SHELL_TOLERANCE_CM);
   const out = {on: 0, off: 0};
@@ -38,6 +59,22 @@ describe('decision 32 invariants (WP2 part)', () => {
     expect(u.closed).toBe(true);
     expect(u.survivingInternal).toBe(0);
     expect(u.cheeks).toBe(0);
+  });
+
+  it('pins a genus for every fixture', () => {
+    expect(Object.keys(EXPECTED_GENUS).sort()).toEqual(SHELL_FIXTURES.map(f => f.name).sort());
+  });
+
+  it.each(SHELL_FIXTURES.filter(f => f.name !== 'Bridge').map(f => [f.name]))('%s: has its expected genus', name => {
+    expect(get(name).genus).toBe(EXPECTED_GENUS[name]);
+  });
+
+  // FAILING-EXPECTED, reported in WP2.1: Bridge measures genus 0, one component. Its towers stand on open ground and
+  // the bridge joins their tops, a solid shaped like a capital pi, which is a ball: the gap under the bridge is open at
+  // z = 0 as well as at both y faces. BridgeOverBlock's storey-0 block closes the loop, and it measures 1. The spec's
+  // expectation stands until the arc lead rules on it.
+  it.fails('Bridge: has its expected genus (spec says 1, measures 0)', () => {
+    expect(get('Bridge').genus).toBe(EXPECTED_GENUS.Bridge);
   });
 
   it.each(SHELL_FIXTURES.map(f => [f.name]))('%s: every output triangle carries a faceID some raw part issued', name => {
@@ -72,7 +109,11 @@ describe('NarrowUpperStoreyGabled equals NarrowUpperStorey', () => {
     const ka = areaByIdentity(get('NarrowUpperStorey'), () => true);
     const kb = areaByIdentity(get('NarrowUpperStoreyGabled'), () => true);
     expect([...kb.keys()].sort()).toEqual([...ka.keys()].sort());
-    for (const [k, area] of ka) expect(Math.abs(kb.get(k)! - area)).toBeLessThan(AREA_TOL);
+    for (const [k, area] of ka) {
+      const other = kb.get(k);
+      if (other === undefined) throw new Error(`NarrowUpperStoreyGabled has no ${k}`);
+      expect(Math.abs(other - area)).toBeLessThan(AREA_TOL);
+    }
   });
 });
 
@@ -89,6 +130,41 @@ describe('conflicts (decision 15)', () => {
 
   it('carries every conflict with its fixture name and plane', () => {
     for (const [name, u] of results) for (const c of u.conflicts) expect(c.startsWith(`${name}: n=(`)).toBe(true);
+  });
+});
+
+describe('positive controls (journal decision 73)', () => {
+  it('counts surviving Internal faces when the hip solids are left out', async () => {
+    // Overhang has no gable piece, so without its hip solids every wall prism's Internal top is exposed.
+    const wasm = await getManifold();
+    const f = fixtureByName('Overhang');
+    const tags = makeShellTags();
+    const ctx = makePartContext(wasm, tags);
+    const plans = storeysOf(f).map(n => planStorey(f, n));
+    for (const plan of plans) buildStoreyParts(ctx, plan);
+    const u = unionRawParts(wasm, 'Overhang without hips', plans, ctx.parts.filter(p => p.kind !== 'hip'), tags);
+    expect(u.status).toBe('NoError');
+    expect(u.survivingInternal).toBeGreaterThan(0);
+  });
+});
+
+describe('re-tag containment slack (spec decision 16 as amended)', () => {
+  // A raw triangle on z = 0, its edge y = 0 facing -y. Float32 noise (5e-4 cm outside) is held; a genuine 5e-3 cm
+  // gap, under SHELL_TOLERANCE_CM, is not.
+  const tri = prepareRawTri([0, 0, 0], [100, 0, 0], [0, 100, 0], [0, 0, 1]);
+
+  it('is RETAG_SLACK_CM = 1e-3', () => {
+    expect(RETAG_SLACK_CM).toBe(1e-3);
+  });
+
+  it('holds a centroid 5e-4 cm outside an edge', () => {
+    if (!tri) throw new Error('raw triangle refused');
+    expect(rawTriHolds(tri, [50, -5e-4, 0])).toBe(true);
+  });
+
+  it('does not hold a centroid 5e-3 cm outside an edge', () => {
+    if (!tri) throw new Error('raw triangle refused');
+    expect(rawTriHolds(tri, [50, -5e-3, 0])).toBe(false);
   });
 });
 

@@ -41,7 +41,9 @@ describe('manifold-3d 3.2.1 faceID provenance', () => {
     expect([...ids].some(id => id < 200)).toBe(true);
     expect([...ids].some(id => id >= 200)).toBe(true);
     // Each output triangle lies on the plane its faceID names.
-    const planeOf = (id: number): [number, number] => {
+    /** Which coordinate axis a box face is normal to, and where along it the face lies. */
+    type AxisPlane = [axis: number, at: number];
+    const planeOf = (id: number): AxisPlane => {
       const local = id % 100;
       const off = id >= 200 ? 5 : 0;
       const axis = [2, 2, 1, 0, 1, 0][local];

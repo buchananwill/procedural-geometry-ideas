@@ -1,6 +1,14 @@
 // Face tags (spec decision 10), face identity (journal decision 41) and the coplanar re-tag order (spec decision 14).
+import type {Vec3} from 'manifold-3d';
+import {SHELL_TOLERANCE_CM} from './constants.ts';
+
+/** The app's one 3-vector: manifold-3d's, re-exported so there is a single definition. */
+export type {Vec3};
 
 export type ShellKind = 'Wall' | 'Gable' | 'Roof' | 'Underside' | 'Ground' | 'Cheek' | 'Internal';
+
+/** Every kind that takes part in re-tagging (spec decision 14): all but Internal. */
+export type RetaggableKind = Exclude<ShellKind, 'Internal'>;
 
 export interface FaceTag {
   kind: ShellKind;
@@ -13,13 +21,27 @@ export interface FaceTag {
   part: number;
 }
 
+/** A tag before its part is known: what a generating plane carries. */
+export type PartlessTag = Omit<FaceTag, 'part'>;
+
+/** A tag before its part and storey are filled in: what a part builder writes per face. */
+export type LocalTag = Omit<FaceTag, 'part' | 'storey'>;
+
 /** `faceID` to `FaceTag`: a raw triangle's `faceID` is its index here. */
 export type TagTable = FaceTag[];
 
-export type Vec3 = [number, number, number];
-
 /** An oriented plane: `dot(n, p) = d`, `n` the outward unit normal. */
 export interface Plane3 { n: Vec3; d: number }
+
+/** Normals agree when every component is within this (spec decision 15). */
+export const PLANE_NORMAL_TOL = 1e-5;
+
+/** Normals within `PLANE_NORMAL_TOL`, componentwise. */
+export const sameNormal = (a: Vec3, b: Vec3): boolean =>
+  Math.abs(a[0] - b[0]) <= PLANE_NORMAL_TOL && Math.abs(a[1] - b[1]) <= PLANE_NORMAL_TOL && Math.abs(a[2] - b[2]) <= PLANE_NORMAL_TOL;
+
+/** Same oriented plane: normals within `PLANE_NORMAL_TOL`, offsets within `SHELL_TOLERANCE_CM` (spec decision 15). */
+export const samePlane = (p: Plane3, q: Plane3): boolean => sameNormal(p.n, q.n) && Math.abs(p.d - q.d) <= SHELL_TOLERANCE_CM;
 
 /**
  * The tag table and, per `faceID`, the oriented plane the face was generated on. Every raw part of a building draws
@@ -27,7 +49,9 @@ export interface Plane3 { n: Vec3; d: number }
  */
 export interface ShellTags { table: TagTable; planes: Plane3[] }
 
-export const makeShellTags = (): ShellTags => ({table: [], planes: []});
+export function makeShellTags(): ShellTags {
+  return {table: [], planes: []};
+}
 
 /** Registers one face and returns its `faceID`. */
 export function addFace(tags: ShellTags, tag: FaceTag, plane: Plane3): number {
@@ -43,18 +67,23 @@ export function identityKey(t: FaceTag): string {
 
 export const sameIdentity = (a: FaceTag, b: FaceTag): boolean => identityKey(a) === identityKey(b);
 
-/** Spec decision 14's total order, strongest first. Internal takes no part in re-tagging. */
-export const RETAG_ORDER: readonly ShellKind[] = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek'];
+/**
+ * Spec decision 14's total order as ranks, strongest lowest. A `Record` over `RetaggableKind`, so adding a kind
+ * without ranking it fails to compile.
+ */
+export const RETAG_RANK: Readonly<Record<RetaggableKind, number>> = {Wall: 0, Gable: 1, Roof: 2, Underside: 3, Ground: 4, Cheek: 5};
+
+export const isRetaggable = (k: ShellKind): k is RetaggableKind => k !== 'Internal';
 
 /**
- * Negative when `a` beats `b`. Kind by `RETAG_ORDER`, then the lower storey. Two different identities of equal kind
+ * Negative when `a` beats `b`. Kind by `RETAG_RANK`, then the lower storey. Two different identities of equal kind
  * and storey (only possible for collinear walls or coplanar planes of separate islands) fall to the lower wall id,
  * then the lower plane id, so the order is total.
  */
 export function retagCompare(a: FaceTag, b: FaceTag): number {
-  const ka = RETAG_ORDER.indexOf(a.kind), kb = RETAG_ORDER.indexOf(b.kind);
-  if (ka < 0 || kb < 0) throw new Error(`retagCompare: Internal takes no part in re-tagging (${tagLabel(a)} vs ${tagLabel(b)})`);
-  return ka - kb || a.storey - b.storey || a.wall - b.wall || a.plane - b.plane;
+  const ka = a.kind, kb = b.kind;
+  if (!isRetaggable(ka) || !isRetaggable(kb)) throw new Error(`retagCompare: Internal takes no part in re-tagging (${tagLabel(a)} vs ${tagLabel(b)})`);
+  return RETAG_RANK[ka] - RETAG_RANK[kb] || a.storey - b.storey || a.wall - b.wall || a.plane - b.plane;
 }
 
 export function tagLabel(t: FaceTag): string {

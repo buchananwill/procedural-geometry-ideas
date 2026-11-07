@@ -32,7 +32,9 @@ describe('fixture roster', () => {
 describe('SingleStoreyT is roof-gable case 2a', () => {
   it("its storey-0 Building matches CASES 2a's built Building: walls, forms, planes", () => {
     const ours = planStorey(fixtureByName('SingleStoreyT'), 0).building;
-    const theirs = CASES.find(c => c.id === '2a')!.build();
+    const case2a = CASES.find(c => c.id === '2a');
+    if (!case2a) throw new Error('roof-gable CASES has no case 2a');
+    const theirs = case2a.build();
     // tan(45 degrees) is 1 - 1.1e-16 in double precision, where case 2a passes tan 1: compare within 1e-12.
     const close = (a: number, b: number): void => expect(Math.abs(a - b)).toBeLessThan(1e-12);
     expect(ours.comps.length).toBe(theirs.comps.length);

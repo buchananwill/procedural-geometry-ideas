@@ -52,4 +52,12 @@ describe('weldAndSnap', () => {
     expect(soup.tris.length / 3).toBe(4);
     expect(soup.faceIDs.filter(f => f === 1).length).toBe(2);
   });
+
+  it('drops a sliver whose own third vertex lies on its opposite edge, never splitting it', () => {
+    // (0,0)-(10,0)-(5,0.004): the apex lies within tolerance of the base, so the triangle has no height.
+    const {soup, stats} = weldAndSnap({positions: [0, 0, 0, 10, 0, 0, 5, 0.004, 0], tris: [0, 1, 2], faceIDs: [3]});
+    expect(stats.slivers).toBe(1);
+    expect(stats.splits).toBe(0);
+    expect(soup.tris).toEqual([]);
+  });
 });
