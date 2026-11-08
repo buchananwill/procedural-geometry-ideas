@@ -495,7 +495,7 @@ describe('F37: a Cell corner is placed in the fan by its bisector', () => {
     const n: Vec3 = [0, 0, 1];
     const pos: Vec3[] = [[0, 0, 0], [10, 0, 0], [0, 10, 0], [-10, 0, 0], [0, -10, 0], [10, 0.001, 0]];
     const corner = (prev: number, next: number): Vec3 =>
-      cornerBisector({id: 0, face: 0, lattice: [0, 0], polygon: [], corners: [prev, 0, next], sides: [], whole: false}, 0, pos, n);
+      cornerBisector({id: 0, face: 0, lattice: [0, 0], polygon: [], corners: [prev, 0, next], sides: [], whole: false, source: null}, 0, pos, n);
     // Leaving along +x, arriving from +y: a right angle, bisected at 45 degrees.
     const right = corner(2, 1);
     expect(right[0]).toBeCloseTo(Math.SQRT1_2, 9);

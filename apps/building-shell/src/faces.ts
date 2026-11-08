@@ -1,5 +1,6 @@
 // Step 4, first part: the union's output triangles grouped into ShellFaces (spec decision 18). A face is a maximal
 // edge-connected set of triangles sharing one identity (decision 10) and one oriented plane.
+import type {CellSource} from './provenance.ts';
 import {FaceTag, Plane3, PlaneClusters, Vec3, identityKey, samePlane} from './tags.ts';
 import type {ShellMesh} from './mesh.ts';
 import {ShellUnion, triArea} from './union.ts';
@@ -17,6 +18,11 @@ export interface ShellFace {
   loops: Vec3[][];
   /** The area the loops enclose: outer less holes. */
   area: number;
+  /**
+   * Spec decision 23 as amended (journal decision 130): the distinct sources of the face's Cells, ascending by model
+   * index and then by side. Empty for every kind but Wall and Gable.
+   */
+  sources: CellSource[];
 }
 
 /** What face assembly reads from the union: the output mesh, its re-tagged triangles, and each faceID's plane. */
@@ -164,7 +170,7 @@ export function assembleFaces(src: FaceSource): FaceAssembly {
   // No -0 in a plane: it reads as 0 once exported to JSON.
   const unsigned = (n: Vec3): Vec3 => [n[0] || 0, n[1] || 0, n[2] || 0];
   const faces: ShellFace[] = firstTri.map((t, id) => ({
-    id, tag: triTags[t], normal: unsigned(planes[id].n), offset: planes[id].d || 0, loops: [], area: 0,
+    id, tag: triTags[t], normal: unsigned(planes[id].n), offset: planes[id].d || 0, loops: [], area: 0, sources: [],
   }));
   for (const face of faces) setLoops(face, loopVerts[face.id], mesh.positions);
   const identities = faces.map(f => faceIdentity(f, tags.clusters));

@@ -5,6 +5,7 @@ import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {EdgeAssembly, EdgeKind, NEW_EDGE_KINDS, NetEdge, ShellEdge, ShellVertex, buildShellEdges, makeVertexRegistry} from './edges.ts';
 import {FaceAssembly, ShellFace, assembleFaces, reduceFaceLoops} from './faces.ts';
 import {ShellFixture} from './fixture.ts';
+import {compareSources, faceSourceSpans} from './provenance.ts';
 import {Wasm, getManifold} from './manifold.ts';
 import type {AlongAxis} from './storey.ts';
 import {ShellUnion, unionShell} from './union.ts';
@@ -100,7 +101,14 @@ export function buildShellFromUnion(wasm: Wasm, fixture: ShellFixture, u: ShellU
   const reg = makeVertexRegistry();
   const ea = buildShellEdges(u, asm, reg, fixture.storeyHeight);
   reduceFaceLoops(asm, u.mesh.positions, v => ea.endpoints.has(v));
-  const net = layCells(wasm, u, asm, ea, reg, fixture.cellSize);
+  // Spec decision 23 as amended (journal decision 130): each Wall and Gable face's Ring-side spans, read from the
+  // fixture's rectangles; the Cells are cut at their ends, and each face lists its Cells' distinct sources.
+  const spans = asm.faces.map(f => faceSourceSpans(f, fixture));
+  const net = layCells(wasm, u, asm, ea, reg, fixture.cellSize, spans);
+  for (const face of asm.faces) {
+    const mine = net.cells.flatMap(c => (c.face === face.id && c.source ? [c.source] : []));
+    face.sources = mine.filter((s, i) => mine.findIndex(t => compareSources(s, t) === 0) === i).sort(compareSources);
+  }
   const vertices = vertexRecords(u, asm, ea, reg, net.cells);
   const shell: BuildingShell = {
     fixture: fixture.name,

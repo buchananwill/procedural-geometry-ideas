@@ -3,6 +3,7 @@
 // `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json` (decision 152, the subject sanitised) and the same stem
 // with `.output.json`, in the solve dump's directory, the seed always present. Ingestion pairs them by the stem before `.input.json` or `.output.json`, whatever dots it
 // holds; the subject is read from the input's provenance, never from the name. Browser-safe.
+import type {CellSource} from '../provenance.ts';
 import type {BuildingShell} from '../shell.ts';
 import {DiffReport, baselineReport, canonicalOfShell, diffReport} from './canonical.ts';
 import {readOutput} from './canonical-output-schema.ts';
@@ -35,6 +36,24 @@ export function listDumps(names: readonly string[]): DumpListing {
   });
   const claimed = new Set(dumps.flatMap(d => (d.output ? [d.input, d.output] : [d.input])));
   return {dumps, strays: json.filter(n => !claimed.has(n)).sort()};
+}
+
+/**
+ * Journal decision 140's Q3 note: a shell built from a file's fixture, its provenance naming the file's own model
+ * indices, never the fixture's compressed positions. Every Cell's and face's source is mapped through
+ * `adapted.modelIndices`; their order, by model index, is unchanged, since the fixture is ordered by it.
+ */
+export function withFileModelIndices(shell: BuildingShell, adapted: Pick<AdaptedInput, 'modelIndices'>): BuildingShell {
+  const map = (s: CellSource): CellSource => {
+    const ringModelIndex = adapted.modelIndices[s.ringModelIndex];
+    if (ringModelIndex === undefined) throw new Error(`a source names Ring ${s.ringModelIndex}, which the file does not hold`);
+    return {...s, ringModelIndex};
+  };
+  return {
+    ...shell,
+    cells: shell.cells.map(c => ({...c, source: c.source && map(c.source)})),
+    faces: shell.faces.map(f => ({...f, sources: f.sources.map(map)})),
+  };
 }
 
 /** The diff of a dump's output against the prototype's build of its input: full, or the legacy baseline. */

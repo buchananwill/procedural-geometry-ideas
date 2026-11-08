@@ -7,6 +7,7 @@ import {
 } from './edges.ts';
 import {FaceAssembly, FaceSource, ShellFace, destOf, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
 import {Wasm} from './manifold.ts';
+import {CellSource, SourceSpan, sourceAt} from './provenance.ts';
 import {snapCm} from './weld.ts';
 import {Vec3, tagLabel} from './tags.ts';
 import {add3, cross2, cross3, dist3, dot3, lineDistance, lineOffset, lineParam, scale3, sub3, unit3} from './vec3.ts';
@@ -24,6 +25,11 @@ export interface ShellCell {
   /** `sides[i]` is the NetEdge id of the side from `polygon[i]` to `polygon[i + 1]`. */
   sides: number[];
   whole: boolean;
+  /**
+   * Spec decision 23 as amended (journal decision 130): the Ring side a Wall or Gable Cell's raw wall came from, the
+   * lowest model index winning where several coincide; null for every other kind, a Cheek's included.
+   */
+  source: CellSource | null;
 }
 
 export type Axis = 0 | 1 | 2;
@@ -291,6 +297,32 @@ export function splitAtHoles(region: CrossSection, lo: Vec2, hi: Vec2, out: Spli
   return [...splitAtHoles(region, lo, firstHi, out, where, depth + 1), ...splitAtHoles(region, secondLo, hi, out, where, depth + 1)];
 }
 
+/**
+ * Journal decision 130: a lattice square `lo` to `hi` cut along its `s` axis at every provenance span's end strictly
+ * inside it, so every Cell has exactly one source. Each cut is recorded in `out` as a split line, whose crossings
+ * with ShellEdges become vertices of both faces' Cells, as G3's do. Returns the parts' corners.
+ */
+function provenanceCuts(spans: readonly SourceSpan[], lo: Vec2, hi: Vec2, out: SplitLine[]): [Vec2, Vec2][] {
+  const inner = [...new Set(spans.flatMap(x => [x.lo, x.hi]).map(snapCm))]
+    .filter(c => c > lo[0] + SHELL_TOLERANCE_CM && c < hi[0] - SHELL_TOLERANCE_CM).sort((a, b) => a - b);
+  for (const at of inner) out.push({axis: 0, at, lo: lo[1], hi: hi[1]});
+  const xs = [lo[0], ...inner, hi[0]];
+  return xs.slice(1).map((x, k): [Vec2, Vec2] => [[xs[k], lo[1]], [x, hi[1]]]);
+}
+
+/**
+ * A Cell's source (journal decision 130): the span holding its corners' mean along the face's `s` axis, which lies
+ * inside the Cell, since Cells are cut at every span's end. A Wall or Gable Cell that no Ring side holds is a hard
+ * error naming the square. Every other kind has none.
+ */
+function cellSource(face: ShellFace, spans: readonly SourceSpan[], corners: Vec2[], where: string): CellSource | null {
+  if (face.tag.kind !== 'Wall' && face.tag.kind !== 'Gable') return null;
+  const s = corners.reduce((t, p) => t + p[0], 0) / corners.length;
+  const source = sourceAt(spans, s);
+  if (!source) throw new Error(`${where}: a ${face.tag.kind} Cell at s = ${s} lies on no Ring side of storey ${face.tag.storey}`);
+  return source;
+}
+
 /** How many times one lattice square may be split before its holes are a hard error: far more than any face holds. */
 const MAX_SPLIT_DEPTH = 16;
 
@@ -306,14 +338,17 @@ export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: Fram
  * is mapped to a ShellEdge vertex or an interior lattice corner, every boundary vertex on a side is inserted, and the
  * polygon is wound counter-clockwise seen from outside.
  */
-export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cellSize: number): CellNet {
+export function layCells(
+  wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cellSize: number, spans: readonly (readonly SourceSpan[])[],
+): CellNet {
   const {faces} = asm;
   const frames: FrameTable = faces.map(faceFrame);
   const ends = [...new Set(ea.edges.flatMap(e => e.v))];
   const where = (f: number): string => `face ${f} (${asm.identities[f]})`;
 
-  // Every face's region and its lattice squares' pieces, each square split through any hole it holds (G3), before
-  // any ShellEdge's vertices are fixed, since a split line adds a vertex where it crosses a ShellEdge.
+  // Every face's region and its lattice squares' pieces, each square cut at every provenance boundary inside it
+  // (journal decision 130) and split through any hole it holds (G3), before any ShellEdge's vertices are fixed, since
+  // a split line adds a vertex where it crosses a ShellEdge.
   const splits: SplitTable = faces.map(() => []);
   const squares: SquarePieces[][] = faces.map(() => []);
   for (const face of faces) {
@@ -330,7 +365,9 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
       for (let i = Math.floor(min[0] / cellSize); i * cellSize < max[0]; i++) {
         for (let j = Math.floor(min[1] / cellSize); j * cellSize < max[1]; j++) {
           const lo: Vec2 = [i * cellSize, j * cellSize], hi: Vec2 = [lo[0] + cellSize, lo[1] + cellSize];
-          const pieces = splitAtHoles(region, lo, hi, splits[face.id], `${where(face.id)}: lattice square (${i}, ${j})`);
+          const at = `${where(face.id)}: lattice square (${i}, ${j})`;
+          const pieces = provenanceCuts(spans[face.id], lo, hi, splits[face.id])
+            .flatMap(([a, b]) => splitAtHoles(region, a, b, splits[face.id], at));
           squares[face.id].push({i, j, contours: pieces.flat()});
         }
       }
@@ -404,6 +441,7 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
           cells.push({
             id: cells.length, face: face.id, lattice: [i, j], polygon: lobe.map(id => reg.positions[id]), corners: lobe, sides: [],
             whole: cellSize * cellSize - area <= SHELL_TOLERANCE_CM * cellSize,
+            source: cellSource(face, spans[face.id], lobe.map(id => to2(fr, reg.positions[id])), `${where(face.id)}: lattice square (${i}, ${j})`),
           });
         }
       }

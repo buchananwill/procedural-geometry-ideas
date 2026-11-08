@@ -2,6 +2,7 @@
 import {describe, expect, it} from 'vitest';
 import type {Vec2} from 'manifold-3d';
 import {BoundaryPoint, FaceFrame, contourLobes, faceFrame, interiorSideKind, layCells, originRecord, withBoundaryPoints} from '../src/cells.ts';
+import {faceSourceSpans} from '../src/provenance.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {VertexOrigin, buildShellEdges, makeVertexRegistry, vertexAt} from '../src/edges.ts';
 import {buildShellDetailed} from '../src/shell.ts';
@@ -12,7 +13,7 @@ import {FaceTag, Vec3} from '../src/tags.ts';
 import {unionShell} from '../src/union.ts';
 
 const face = (kind: FaceTag['kind'], normal: Vec3, offset = 0): ShellFace => ({
-  id: 0, tag: {kind, storey: 0, wall: 0, plane: -1, part: 0}, normal, offset, loops: [], area: 0,
+  id: 0, tag: {kind, storey: 0, wall: 0, plane: -1, part: 0}, normal, offset, loops: [], area: 0, sources: [],
 });
 
 describe('faceFrame (decision 22 as amended)', () => {
@@ -60,7 +61,7 @@ describe('NetEdge pairing along a rake, before any vertex is ordered (journal de
     const reg = makeVertexRegistry();
     const ea = buildShellEdges(u, asm, reg, f.storeyHeight);
     reduceFaceLoops(asm, u.mesh.positions, v => ea.endpoints.has(v));
-    const {cells, netEdges} = layCells(wasm, u, asm, ea, reg, f.cellSize);
+    const {cells, netEdges} = layCells(wasm, u, asm, ea, reg, f.cellSize, asm.faces.map(face => faceSourceSpans(face, f)));
     const verges = ea.edges.filter(e => e.kind === 'Verge');
     expect(verges).toHaveLength(2);
     for (const e of verges) {

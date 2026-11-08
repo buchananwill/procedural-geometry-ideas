@@ -42,8 +42,12 @@ import {
  */
 export interface InputReport { flags: string[]; info: string[]; maxCornerDriftCm: number }
 
-/** A file the adapter reads: the fixture it builds, and what the diff report carries. */
-export interface AdaptedInput { ok: true; fixture: ShellFixture; input: BuildingShellInputV1; report: InputReport }
+/**
+ * A file the adapter reads: the fixture it builds, what the diff report carries, and `modelIndices`, each fixture
+ * Ring's model index in the file, by its position in `fixture.rings` (journal decision 140's Q3 note), so a shell's
+ * provenance can name the file's own Rings (`withFileModelIndices`).
+ */
+export interface AdaptedInput { ok: true; fixture: ShellFixture; input: BuildingShellInputV1; report: InputReport; modelIndices: number[] }
 
 export type ReadInputResult = AdaptedInput | RefusedInput;
 
@@ -375,7 +379,7 @@ export function readInput(json: unknown, name: string): ReadInputResult {
   if (noneErrors.length) return {ok: false, errors: noneErrors};
   const maxCornerDriftCm = Math.max(0, ...snapped.map(s => s.drift));
   if (maxCornerDriftCm > 0) info.push(`the largest corner drift snapped is ${maxCornerDriftCm} cm`);
-  return {ok: true, input, fixture, report: {flags: orderFlags(input), info, maxCornerDriftCm}};
+  return {ok: true, input, fixture, report: {flags: orderFlags(input), info, maxCornerDriftCm}, modelIndices: order.map(i => input.rings[i].modelIndex)};
 }
 
 /** The provenance of a file the prototype writes from its own fixture: fixed, so a re-export is byte-identical. */
