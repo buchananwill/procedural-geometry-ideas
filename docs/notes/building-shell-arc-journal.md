@@ -1059,6 +1059,39 @@ departs from those four steps is a defect.
        - *Missing tiles:* storey 0's Roof Cells tile the whole 360000 cm² plan, and no storey-1 Roof survives.
        - *Lost ridge:* the lower Ridge survives whole, and the poking walls survive.
        - Full topology is pinned as reference data.
+122. **The combined correctness review of WP3.3 to WP3.5** (fresh Opus, on a `git archive 3575aa7` snapshot,
+     3432/3435 reproduced). Confirmed sound:
+     - **The imprint:** a dense check of 91 to 325 samples per triangle, over 1331 cases, found 0 straddles, 0
+       mis-tags and 0 unheld samples. The own-faceID rule is sound.
+     - **Sheets:** all 34 constructed pinch shapes pass every invariant, and all 8 orientations of FlushOverReflex give
+       identical signatures.
+     - **C2's flip terminates.**
+     - **WP3.3's re-pins match spec 34 to 40.**
+
+     **Findings, with provisional rulings** (the next package's scope waits on the user, decision 123):
+     - **F-A (Medium).** The winning-region invariant samples 7 points per triangle and misses straddles that the
+       dense check catches (3 reproducers, with the imprint disabled). It becomes an exact polygon test of each
+       triangle against the winning regions.
+     - **F-B (Low).** The invariant shares `regions.ts`'s primitives. Its header claim of independence is corrected.
+     - **F-C and G2 (Medium).** C8's link check, and the 0.005 cm move limit, refuse valid unions: Seed5Fuzz89, and
+       OverhangApexOnEave nudged by 0.5/1024 to 4/1024 cm. Near-coincident vertices are welded by clustering within
+       the tolerance, regardless of connectivity, rather than by edge collapse alone.
+     - **F-D (Low).** An apex merge's in-plane move is unbounded; Seed4Fuzz134 moves 0.0142 cm. The total
+       displacement is bounded and reported in `maxMoveCm`.
+     - **F-E (Medium).** C5's area half is an algebraic identity, so it catches nothing. It goes, the chord check
+       stays, and a loop is compared with its face's triangles by Hausdorff distance (≤ `SHELL_TOLERANCE_CM`).
+     - **F-F (Low).** `IMPRINT_SIDE_CM` and `IMPRINT_MERGE_CM` join spec 16's list of named exceptions.
+     - **G1 (High).** Manifold's own union leaves coincident opposite faces unfused, as a zero-volume pillow or slit
+       (Seed5Fuzz46, Seed12Fuzz17, Seed8Fuzz73). Cleaning removes zero-volume sheets: pairs of coincident,
+       opposite-facing triangles. The mesh then re-enters `ofMesh`.
+     - **G3 (Medium).** A lattice square holding a hole of its face (Seed11Fuzz10) is split by a lattice-parallel line
+       through the hole into simple pieces, each a Cell with that square's index. Spec 23 to be amended.
+     - **G4 (Medium).** A rake 0.017 cm over a lattice corner, foreshortened in the Roof's plan frame, makes
+       `withBoundaryPoints` skip a vertex (P61.866 and P61.866u at 263 cm). **Principle: vertex coincidence is decided
+       in 3D, by vertex identity, never in a projected frame.**
+     - **G5 (Low to Medium).** Sub-tolerance features give `Indeterminate`, and so Unclassified, Edges. These are
+       expected to vanish once F-C's clustering removes the features; any that remain are reported.
+     - **The bitwise-equality note** (pinches are recognised only when exactly equal): covered by F-C's clustering.
 
 ## Findings
 
@@ -1323,3 +1356,14 @@ departs from those four steps is a defect.
   - **Keeping the poke at 250:** on the 50 cm lattice that needs `[100,0,500,200]`, which pokes about 77 cm.
   - This is decision 108's lesson in a real C++ regression. The port lead was told, and advised to carry both
     heights. Hand-computed by the lead.
+- **F45. Fresh-input failure rates fall with each hardening round:**
+  - pitch sweep before WP3.2: 28%;
+  - fresh seeds 2 to 4, at `fb150ed`: 1%;
+  - grid, at `3575aa7`: 3 of 612;
+  - fresh seeds 5 to 12 at 250, 263 and 300 cm, at `3575aa7`: **9 of 3360 (0.27%)**;
+  - sweep at 263 and 275 cm: 2 of 1160.
+
+  Each round surfaces rarer classes, all numerical degeneracies at near-coincidences, and none has been a defect in
+  the model. **The generator is tuned to its own inputs:** a fixed pitch list, a 10 cm footprint grid and whole
+  degrees, so deliberate near-coincidences (δ-nudges of 1/1024 cm) reach classes that random sampling does not.
+  Measured by the combined reviewer (`review-*.test.ts` in the `review-3575aa7` snapshot).
