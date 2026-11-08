@@ -1118,6 +1118,24 @@ departs from those four steps is a defect.
        mapping, and how compass sides map to axes.
      - **Asked of the port lead, 2026-11-08:** axes, side naming, form enums, Ring identity and ordering, and which
        C++ structures it can serialise. The schema is fixed once those answers are in.
+     - **AMENDED 2026-11-08 by decision 125:** the schema's source of truth moves to the C++ USTRUCTs, through the UE
+       project's Zod generator. No JSON Schema files are hand-written here.
+125. **The wire format's schemas are Zod, generated from the UE project's USTRUCTs by its existing reflection
+     generator** (user, 2026-11-08: "a mature system for generating Zod schemas via the UE reflection").
+     - **Ownership.** The port owns the USTRUCTs: input, and output per spec 18, 19, 23 and 33. The generated `.ts`
+       is vendored into `apps/building-shell/`, with a header naming the UE commit and generator version, refreshed
+       by a sync script. A test fails on a missing or edited header.
+     - **TS use.** The prototype validates every playtest file, and its own export, against the generated schemas,
+       and takes input types from `z.infer`.
+     - **Drift guard.** A compile-time test requires the generated output type and the spec-fixed TS types to be
+       mutually assignable, so drift on either side fails `typecheck`.
+     - **Axes.** A single TS adapter converts UE axes (left-handed, cm) to the prototype frame. It is tested with an
+       asymmetric building, an L with one gabled side, so mirroring cannot pass.
+     - **Dependency.** `zod` (MIT) is license-checked and exact-pinned, at the major version the generator targets.
+     - **Sequencing.** WP5 builds the ingestion folder, diff tool and adapter against a hand-written stand-in schema.
+       The generated file replaces the stand-in once it exists.
+     - **Asked of the port lead:** the Zod major version, type mappings, existing input USTRUCTs, the output path,
+       and conventions for version and provenance fields.
 
 ## Findings
 
