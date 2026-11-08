@@ -88,8 +88,10 @@ running subagents.** Their reports arrive as notifications.
   the exact straddle check, Hausdorff loop checks, a move bound, spec 16's constants, the corrected cut rule, and
   F50. Its gate is fresh seeds 5 to 12 at 250, 263 and 300 cm, the δ-nudges, the courtyard and U generators, and
   PortPokeOut250 clean. **After WP3.7, fresh failures are enrolled, not chased.**
-- **WP5's two reviews**, on `3af339b`. WP5 returned at `6a361c0` and `3af339b` (decision 136). Their findings and
-  decision 136's amendments become WP5.1.
+- **WP5.1** (the WP5 delegate, resumed), carrying decisions 136 to 140, within the wire files only. WP5's two
+  reviews returned and were ruled by decisions 138 and 140. When it returns, it gets two fresh reviews.
+- **Asked of the port lead (decision 140):** the dump layout as a pair of files, and whether its exporter writes
+  every field, with each field's USTRUCT default.
 - ~~**Asked of the port lead:** decision 136's three input@1 questions~~: answered and ruled, decision 137.
 
 **Queued:**
