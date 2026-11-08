@@ -1450,6 +1450,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          the bare authored member names (`GetNameStringByIndex`, scope stripped) in declaration order, without the
          `_MAX` sentinel and without StandardizeCase. The stand-in's `z.enum([...])` is what will be generated. **Stand-in
          enums list their members in the UE declaration order.**
+139. **The stand-in's keys follow the C++ input@1 spec, MB.D507** (the port lead's
+     `Notes/buildables/building-shell-wire-input-decisions.md` in Piste Perfect, 2026-11-08). **The generated module stays
+     authoritative.** The port lead reports any difference once it is built. WP5.1 aligns every key:
+     - **Document:** `schemaVersion` (int, 1), `frame`, `storeyHeightCm`, `cellSizeCm`, `rings`, `provenance`.
+     - **Ring:** `ringIndex`, `modelIndex`, `baseStorey`, `storeys`, `wallHeightCm` (0 means no override), `corners`
+       (exactly 4 `{x, y}`) and `sides` (exactly 4). The storey fields sit flat on the Ring, not nested.
+     - **Side:** `request` (`Auto`, `Pitched` or `GableEnd`), and `solved` holding `{form, pitchDegrees, bEmptied,
+       bOutlineRefused}`.
+     - **Provenance:** `gameBuild`, `sessionId`, `timestamp` (ISO 8601 UTC), `subject`, and `location`, `rotation`
+       (degrees) and `scale`, each `{x, y, z}`. This replaces WP5's quaternion transform.
+     - **The C++ exporter refuses** a building whose Levels do not share one storey height, and a side with no plate
+       run or with more than one. So the prototype's own refusals of those cases are a second line of defence, never
+       the first.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
        - N5: arrays of four stay arrays, as the generator emits.
