@@ -146,6 +146,7 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   is unscheduled, waiting on the user.
 - **A courtyard and gable redesign** (decision 172). It is unscheduled.
 - **A module release of the shell** (F54). It is not ready, and would be its own arc if wanted.
+- **A test-side type backlog** (decision 177: B1, B2 and N1 to N5). It touches no behaviour and no goldens.
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
@@ -2384,6 +2385,20 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **`RESIDUE_CLASS_NAMES` gains "courtyard cut collinear with a jutting wall".** That is a new manifest enum
        value, and it goes in the port lead's message.
      - **Next:** two scoped reviews over `fced7a7..6f05f9b`.
+177. **Rulings on WP3.9's type review** (REQUEST CHANGES: 2 blocking, 6 notes, at `6f05f9b`; `tsc` clean). **14 of
+     15 items close, and 163 N5 is partial.**
+     - **Nothing blocks the merge or the port.** B1, B2 and N1 to N5 are test-side types only.
+     - **N6 is port-facing:** the new `residueClass` value. It is covered by naming the value and its entry in the
+       port lead's message, which decision 176 already commits to.
+     - **The test-side items go to §5's backlog,** not to another package before the merge. Each type round has found
+       fewer and smaller items, and none touches behaviour:
+       - B1: `GenusPerComponent` in `playtest-pins.ts` and `shell-invariants.ts`;
+       - B2: an exported `SeededGenerator`, with a `parseSeededKey`;
+       - N1: class-typed pin tables;
+       - N2: a completeness test tying `MODEL_ORDER_CONFLICTS` to `RING_CONFLICT_FIXTURES`;
+       - N3: drop the empty `UNMOVED_BY_FILE_ORDER`;
+       - N4: validated golden reads;
+       - N5: `RunTuple` derived from `RunBounds`.
 
 ## Findings
 
