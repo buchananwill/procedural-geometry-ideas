@@ -1,34 +1,57 @@
-// Journal decision 138, B1: the stand-in's drift guard, two-way. The refined type must equal the generated type made
-// deeply required, on every key and every value type, except the two pinned literals, which are checked apart. A key
-// the refinement adds or drops, or a value type it changes, fails `typecheck`.
+// Journal decisions 138 (B1) and 142 (N1, B4, N5): the stand-in's drift guards. Every check here is a TYPE, so this
+// test RELIES ON `typecheck` (`tsc -p tsconfig.json --noEmit`, which includes tests/): vitest strips the types, and
+// its run only confirms the module loads and the runtime halves hold. A drift fails `typecheck`, not vitest.
 //
-// This is NOT decision 125's output check, which waits on the port's output structs (decision 126). It guards only
-// the input refinement against the generated input schema.
+// The refined input type must equal the generated type made deeply required, strictly, on every key and value type,
+// so an added, dropped or `any`-typed field fails. The two pinned literals are checked apart, two ways. This is NOT
+// decision 125's output check, which waits on the port's output structs (decision 126).
 import type {z} from 'zod';
 import {describe, expect, it} from 'vitest';
+import {RING_SIDES} from '../src/fixture.ts';
+import type {ShellKind} from '../src/tags.ts';
 import {INPUT_USTRUCT_DEFAULTS} from '../src/wire/building-shell-input-defaults.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
-import {BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, refineInput} from '../src/wire/input-types.ts';
-import {BuildingShellInputV1Schema} from '../src/wire/refinements/building-shell-input.ts';
+import {CanonicalFace, SHELL_KINDS} from '../src/wire/canonical.ts';
+import {CanonicalFaceSchema} from '../src/wire/canonical-output-schema.ts';
+import {BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, RING_CORNERS, refineInput} from '../src/wire/input-types.ts';
+import {BuildingShellInputV1Schema, RingV1Schema} from '../src/wire/refinements/building-shell-input.ts';
 
 type DeepRequired<T> = T extends readonly (infer U)[]
   ? DeepRequired<U>[]
   : T extends object ? {[K in keyof T]-?: DeepRequired<NonNullable<T[K]>>} : T;
 
-/** Mutual assignability: neither side has a key, or a value type, the other lacks. */
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+/** Strict type equality: false for `any` against anything but `any`, and for any key or modifier that differs. */
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 
-type Generated = DeepRequired<z.output<typeof FBuildingShellInputSchema>>;
+/** Flattens intersections and mapped types to one object type at every depth, so `Equal` compares shapes, not spellings. */
+type Flat<T> = T extends readonly (infer U)[] ? Flat<U>[] : T extends object ? {[K in keyof T]: Flat<T[K]>} : T;
+
+type Generated = Flat<DeepRequired<z.output<typeof FBuildingShellInputSchema>>>;
+type Refined = Flat<BuildingShellInputV1>;
 type Pinned = 'schemaVersion' | 'frame';
 
-const sameKeysAndTypes: Same<Omit<Generated, Pinned>, Omit<BuildingShellInputV1, Pinned>> = true;
-const sameTopKeys: Same<keyof Generated, keyof BuildingShellInputV1> = true;
-const versionIsGenerated: BuildingShellInputV1['schemaVersion'] extends Generated['schemaVersion'] ? true : false = true;
-const frameIsGenerated: BuildingShellInputV1['frame'] extends Generated['frame'] ? true : false = true;
+const sameShape: Equal<Omit<Generated, Pinned>, Omit<Refined, Pinned>> = true;
+const sameKeys: Equal<keyof Generated, keyof Refined> = true;
+const versionPinned: Equal<Refined['schemaVersion'], 1> = true;
+const versionConstant: Equal<typeof INPUT_SCHEMA_VERSION, Refined['schemaVersion']> = true;
+const versionGenerated: Equal<Generated['schemaVersion'], number> = true;
+const framePinned: Equal<Refined['frame'], 'UE actor-local, cm, Z up, left-handed'> = true;
+const frameConstant: Equal<typeof INPUT_FRAME, Refined['frame']> = true;
+const frameGenerated: Equal<Generated['frame'], string> = true;
 
-describe('the refinement against the generated schema', () => {
-  it('compiles the two-way type check (decision 138, B1)', () => {
-    expect([sameKeysAndTypes, sameTopKeys, versionIsGenerated, frameIsGenerated]).toEqual([true, true, true, true]);
+/** Decision 142, B4: the output's face schema and `CanonicalFace`, strictly equal. */
+const faceSchema: Equal<Flat<z.output<typeof CanonicalFaceSchema>>, Flat<CanonicalFace>> = true;
+
+/** Decision 142, N5: `SHELL_KINDS` and `ShellKind`, equal both ways, until the list moves into tags.ts (WP3.8). */
+const shellKinds: Equal<(typeof SHELL_KINDS)[number], ShellKind> = true;
+
+/** Decision 142, N5: four corners, one per compass side. */
+const fourCorners: Equal<typeof RING_CORNERS, 4> = true;
+
+describe('the stand-in drift guards (relies on typecheck)', () => {
+  it('compiles every strict type equality: refined against generated, pinned literals, faces, kinds and corners', () => {
+    expect([sameShape, sameKeys, versionPinned, versionConstant, versionGenerated, framePinned, frameConstant, frameGenerated, faceSchema, shellKinds, fourCorners])
+      .toEqual(new Array(11).fill(true));
   });
 
   it('pins the literals the prototype names, and defaults omitted ones to them (decision 140, F7)', () => {
@@ -37,5 +60,11 @@ describe('the refinement against the generated schema', () => {
     expect(INPUT_USTRUCT_DEFAULTS.FBuildingShellInput.schemaVersion).toBe(INPUT_SCHEMA_VERSION);
     expect(INPUT_USTRUCT_DEFAULTS.FBuildingShellInput.frame).toBe(INPUT_FRAME);
     expect(refineInput({schemaVersion: 2}).ok).toBe(false);
+  });
+
+  it('takes exactly RING_CORNERS corners and sides, one per compass side (decision 142, N5)', () => {
+    expect(RING_CORNERS).toBe(RING_SIDES.length);
+    const lengths = (n: number) => [RingV1Schema.shape.corners.safeParse(new Array(n).fill({x: 0, y: 0})).success, RingV1Schema.shape.sides.safeParse(new Array(n).fill({})).success];
+    expect([RING_CORNERS - 1, RING_CORNERS, RING_CORNERS + 1].map(lengths)).toEqual([[false, false], [true, true], [false, false]]);
   });
 });

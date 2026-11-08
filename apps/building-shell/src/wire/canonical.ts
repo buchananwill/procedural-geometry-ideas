@@ -34,7 +34,11 @@ const everyShellKind: readonly ShellKind[] extends readonly (typeof SHELL_KINDS)
 void everyShellKind;
 export {EDGE_KINDS};
 
-export interface CanonicalFace { kind: ShellKind; area: number; perimeter: number }
+/**
+ * One face. `perimeter` is absent where an engine carries none, as the legacy Surfaces do (decision 142, N3): the
+ * other side's then sets the tolerance.
+ */
+export interface CanonicalFace { kind: ShellKind; area: number; perimeter?: number }
 export interface CanonicalEdge { kind: EdgeKind; a: Vec3; b: Vec3 }
 
 /** Both multisets, each sorted: faces by kind then area, edges by kind then `a` then `b`. */
@@ -54,7 +58,7 @@ export const CANONICAL_TOLERANCE: CanonicalTolerance = {areaFloorCm2: 0.05, area
 
 /** The area tolerance between two faces: the larger perimeter × the snap step, never less than the floor. */
 export const areaTolerance = (f: CanonicalFace, g: CanonicalFace, tol: CanonicalTolerance = CANONICAL_TOLERANCE): number =>
-  Math.max(tol.areaFloorCm2, Math.max(f.perimeter, g.perimeter) * tol.areaPerPerimeterCm);
+  Math.max(tol.areaFloorCm2, Math.max(f.perimeter ?? 0, g.perimeter ?? 0) * tol.areaPerPerimeterCm);
 
 const cmpPoint = (p: Vec3, q: Vec3): number => p[0] - q[0] || p[1] - q[1] || p[2] - q[2];
 const cmpStr = (s: string, t: string): number => (s < t ? -1 : s > t ? 1 : 0);
@@ -176,16 +180,22 @@ export function diffBaseline(a: CanonicalShell, bFaces: CanonicalFace[], bEdgeKi
 export type EnginePair = readonly [a: string, b: string];
 
 /** A playtest dump's report: the engines, the input side's report, and either the full diff or the legacy baseline. */
-export type DiffReport =
-  | {name: string; engines: EnginePair; input: InputReport; mode: 'full'; diff: CanonicalDiff; same: boolean}
-  | {name: string; engines: EnginePair; input: InputReport; mode: 'baseline'; diff: BaselineDiff};
+export interface DiffReportBase { name: string; engines: EnginePair; input: InputReport }
 
-export function diffReport(name: string, engines: EnginePair, input: InputReport, a: CanonicalShell, b: CanonicalShell, tol: CanonicalTolerance = CANONICAL_TOLERANCE): DiffReport {
+/** The full diff, against an engine whose edges carry ends. */
+export interface FullDiffReport extends DiffReportBase { mode: 'full'; diff: CanonicalDiff; same: boolean }
+
+/** The legacy baseline (decision 140, F9): never a pass or a fail, so it carries no `same`. */
+export interface BaselineDiffReport extends DiffReportBase { mode: 'baseline'; diff: BaselineDiff }
+
+export type DiffReport = FullDiffReport | BaselineDiffReport;
+
+export function diffReport(name: string, engines: EnginePair, input: InputReport, a: CanonicalShell, b: CanonicalShell, tol: CanonicalTolerance = CANONICAL_TOLERANCE): FullDiffReport {
   const diff = diffCanonical(a, b, tol);
   return {name, engines, input, mode: 'full', diff, same: isEmptyDiff(diff)};
 }
 
-export function baselineReport(name: string, engines: EnginePair, input: InputReport, a: CanonicalShell, bFaces: CanonicalFace[], bEdgeKinds: EdgeKind[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): DiffReport {
+export function baselineReport(name: string, engines: EnginePair, input: InputReport, a: CanonicalShell, bFaces: CanonicalFace[], bEdgeKinds: EdgeKind[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): BaselineDiffReport {
   return {name, engines, input, mode: 'baseline', diff: diffBaseline(a, bFaces, bEdgeKinds, tol)};
 }
 

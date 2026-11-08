@@ -6,38 +6,60 @@
 import {z} from 'zod';
 import {EDGE_KINDS, EdgeKind} from '../edges.ts';
 import type {BuildingShell} from '../shell.ts';
+import type {Vec3} from '../tags.ts';
 import {CanonicalFace, CanonicalShell, SHELL_KINDS, canonicalEdge, canonicalOfShell, canonicalShell} from './canonical.ts';
 import {RefusedInput, issueLine} from './input-types.ts';
 
 const PointV1Schema = z.strictObject({x: z.number(), y: z.number(), z: z.number()});
 
+/**
+ * One canonical face (decision 142, B4). `perimeter` is an explicit optional (N3): the legacy Surfaces carry none, and
+ * the other engine's perimeter then sets the tolerance. tests/wire-types.test.ts checks it against `CanonicalFace`.
+ */
+export const CanonicalFaceSchema = z.strictObject({
+  kind: z.enum(SHELL_KINDS),
+  area: z.number().nonnegative(),
+  perimeter: z.number().nonnegative().optional(),
+});
+
+export const CanonicalEdgeOutputSchema = z.strictObject({kind: z.enum(EDGE_KINDS), a: PointV1Schema.optional(), b: PointV1Schema.optional()});
+
 export const CanonicalOutputV1Schema = z.strictObject({
   schemaVersion: z.literal(1),
   /** The producing engine (decision 124). */
   engine: z.string().min(1),
-  /** `perimeter` may be omitted (the legacy Surfaces carry none): the other engine's perimeter then sets the tolerance. */
-  faces: z.array(z.strictObject({kind: z.enum(SHELL_KINDS), area: z.number().nonnegative(), perimeter: z.number().nonnegative().prefault(0)})),
-  edges: z.array(z.strictObject({kind: z.enum(EDGE_KINDS), a: PointV1Schema.optional(), b: PointV1Schema.optional()})),
+  faces: z.array(CanonicalFaceSchema),
+  edges: z.array(CanonicalEdgeOutputSchema),
 });
 
 export type CanonicalOutputV1 = z.output<typeof CanonicalOutputV1Schema>;
+type OutputEdge = z.output<typeof CanonicalEdgeOutputSchema>;
+type OutputPoint = z.output<typeof PointV1Schema>;
 
-/** An output file read: a full canonical shell, or the baseline's faces and edge kinds. */
-export type ReadOutputResult =
-  | {ok: true; mode: 'full'; engine: string; shell: CanonicalShell}
-  | {ok: true; mode: 'baseline'; engine: string; faces: CanonicalFace[]; edgeKinds: EdgeKind[]}
-  | RefusedInput;
+/** An output whose edges all carry ends: the full diff applies. */
+export interface FullOutput { ok: true; mode: 'full'; engine: string; shell: CanonicalShell }
+
+/** An output whose edges carry no ends, as the legacy net's: the baseline applies. */
+export interface BaselineOutput { ok: true; mode: 'baseline'; engine: string; faces: CanonicalFace[]; edgeKinds: EdgeKind[] }
+
+export type ReadOutputResult = FullOutput | BaselineOutput | RefusedInput;
+
+/** An output edge with both ends, typed so (decision 142, B3). */
+interface EndedEdge { kind: EdgeKind; a: OutputPoint; b: OutputPoint }
+
+const endedEdge = (e: OutputEdge): EndedEdge[] => (e.a && e.b ? [{kind: e.kind, a: e.a, b: e.b}] : []);
+const vec = (p: OutputPoint): Vec3 => [p.x, p.y, p.z];
 
 export function readOutput(json: unknown): ReadOutputResult {
   const r = CanonicalOutputV1Schema.safeParse(json);
   if (!r.success) return {ok: false, errors: r.error.issues.map(issueLine)};
   const {engine, faces, edges} = r.data;
-  const ended = edges.filter(e => e.a && e.b).length;
-  if (ended === edges.length) {
-    return {ok: true, mode: 'full', engine, shell: canonicalShell(faces, edges.map(e => canonicalEdge(e.kind, [e.a!.x, e.a!.y, e.a!.z], [e.b!.x, e.b!.y, e.b!.z])))};
+  const ended = edges.flatMap(endedEdge);
+  if (ended.length === edges.length) {
+    return {ok: true, mode: 'full', engine, shell: canonicalShell(faces, ended.map(e => canonicalEdge(e.kind, vec(e.a), vec(e.b))))};
   }
   if (edges.every(e => !e.a && !e.b)) return {ok: true, mode: 'baseline', engine, faces, edgeKinds: edges.map(e => e.kind)};
-  return {ok: false, errors: [`${edges.length - ended} of ${edges.length} edges carry no ends: an output's edges carry ends all or none (journal decision 140)`]};
+  return {ok: false, errors: [`${edges.length - ended.length} of ${edges.length} edges carry no ends: an output's edges carry ends all or none (journal decision 140)`]};
 }
 
 /** One engine's shell as an output file, every edge with its ends. */

@@ -9,21 +9,34 @@
 // counts (−1)^dimension over the open cells of the boxes' coordinate grid that lie inside U: those whose every
 // neighbouring grid box is in the union.
 //
+// One more contact joins solids (journal decision 143, F2): a gable. A box's top storey is roofed above its plate, and
+// a gabled side's gable stands on the side's own plane, so a box one storey up on the far side of that plane, its span
+// overlapping the side's with positive length, touches the gable in a contact of positive area, though the two boxes
+// meet only along an edge. Each such contact is a disc glued between two solids, so it lowers χ by one: it joins two
+// components, or, within one, adds a handle. The side's form is the Ring's own; a gable that a lower-index Ring's form
+// overrides on the union wall is not modelled.
+//
 // Genus is predicted per connected component (spec decision 32 as amended by journal decision 135): a component's
-// genus is 1 − χ of its interior. Manifold's own figure sums over components, 1 − (components) + Σ genus, which is what
-// `invariantViolations` asserts until it asserts per component.
+// genus is 1 − χ of its interior. Manifold's own figure sums over components, 1 − (components) + Σ genus, and the
+// playtest check compares that summed figure (decision 143, F3), never the per-component list: WP3.7's per-component
+// genera count surfaces, a cavity its own surface, while this prediction counts solids. Both sums are Euler
+// characteristics, so they agree.
 //
 // Not covered: a roof tall enough to reach a storey two above its own where the storey between is absent, filling a
 // tunnel the boxes leave open (the correctness review's `TallRoofThroughTunnel60`: predicted 1, measured 0). The genus
 // check reports it.
-import type {ShellFixture} from '../src/fixture.ts';
-import * as invariants from './shell-invariants.ts';
-import type {ShellExpectation} from './shell-invariants.ts';
+import type {RingSide, ShellFixture} from '../src/fixture.ts';
+import type {ShellBuild} from '../src/shell.ts';
+import {componentGenera, invariantViolations} from './shell-invariants.ts';
 
-interface Box { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number }
+/** A Ring's box, in storey units on z, with the sides its Ring gables. */
+interface Box { x0: number; y0: number; z0: number; x1: number; y1: number; z1: number; gables: ReadonlySet<RingSide> }
 
 const boxesOf = (f: ShellFixture): Box[] =>
-  f.rings.map(r => ({x0: r.rect[0], y0: r.rect[1], x1: r.rect[2], y1: r.rect[3], z0: r.baseStorey, z1: r.baseStorey + r.storeys}));
+  f.rings.map(r => ({
+    x0: r.rect[0], y0: r.rect[1], x1: r.rect[2], y1: r.rect[3], z0: r.baseStorey, z1: r.baseStorey + r.storeys,
+    gables: new Set((Object.keys(r.sides ?? {}) as RingSide[]).filter(s => r.sides?.[s]?.form === 'gable')),
+  }));
 
 /** The length of the overlap of two closed intervals, negative when they are apart. */
 const overlap = (a0: number, a1: number, b0: number, b1: number): number => Math.min(a1, b1) - Math.max(a0, b0);
@@ -34,13 +47,40 @@ function joined(a: Box, b: Box): boolean {
   return o.every(v => v >= 0) && o.filter(v => v > 0).length >= 2;
 }
 
-/** The boxes grouped into components by positive-area contact. */
-function components(boxes: Box[]): Box[][] {
+/** Decision 143, F2: whether `lo`'s top-storey gable on a side plane touches `up`, the box one storey up beyond it. */
+function gableTouches(lo: Box, up: Box): boolean {
+  if (lo.z1 !== up.z0) return false;
+  const alongX = overlap(lo.x0, lo.x1, up.x0, up.x1) > 0, alongY = overlap(lo.y0, lo.y1, up.y0, up.y1) > 0;
+  return (lo.gables.has('E') && lo.x1 === up.x0 && alongY) || (lo.gables.has('W') && lo.x0 === up.x1 && alongY)
+    || (lo.gables.has('N') && lo.y1 === up.y0 && alongX) || (lo.gables.has('S') && lo.y0 === up.y1 && alongX);
+}
+
+/** Whether a gable joins the two boxes, either one the lower. */
+const gableJoined = (a: Box, b: Box): boolean => gableTouches(a, b) || gableTouches(b, a);
+
+/** One component: its boxes, and how many gable contacts glue them. */
+interface Component { boxes: Box[]; gableContacts: number }
+
+/** The boxes grouped into components by positive-area contact, a gable's included. */
+function components(boxes: Box[]): Component[] {
   const parent = boxes.map((_, i) => i);
   const find = (i: number): number => (parent[i] === i ? i : (parent[i] = find(parent[i])));
-  boxes.forEach((a, i) => boxes.forEach((b, j) => { if (j > i && joined(a, b)) parent[find(i)] = find(j); }));
-  const groups = new Map<number, Box[]>();
-  boxes.forEach((b, i) => groups.set(find(i), [...(groups.get(find(i)) ?? []), b]));
+  const gablePairs: [number, number][] = [];
+  boxes.forEach((a, i) => boxes.forEach((b, j) => {
+    if (j <= i) return;
+    if (joined(a, b)) parent[find(i)] = find(j);
+    else if (gableJoined(a, b)) { parent[find(i)] = find(j); gablePairs.push([i, j]); }
+  }));
+  const groups = new Map<number, Component>();
+  boxes.forEach((b, i) => {
+    const g = groups.get(find(i)) ?? {boxes: [], gableContacts: 0};
+    g.boxes.push(b);
+    groups.set(find(i), g);
+  });
+  for (const [i] of gablePairs) {
+    const g = groups.get(find(i));
+    if (g) g.gableContacts++;
+  }
   return [...groups.values()];
 }
 
@@ -76,8 +116,12 @@ export function interiorEuler(boxes: Box[]): number {
   return -chiC;
 }
 
-/** Spec decision 32 as amended by decision 135: each component's predicted genus, 1 − χ of its interior, highest first. */
-export const predictedComponentGenera = (f: ShellFixture): number[] => components(boxesOf(f)).map(c => 1 - interiorEuler(c)).sort((a, b) => b - a);
+/**
+ * Each component's predicted genus, highest first: 1 − χ, where χ is its boxes' interior less one per gable contact.
+ * Reported for reading; the playtest check compares the summed figure only (decision 143, F3).
+ */
+export const predictedComponentGenera = (f: ShellFixture): number[] =>
+  components(boxesOf(f)).map(c => 1 - (interiorEuler(c.boxes) - c.gableContacts)).sort((a, b) => b - a);
 
 /** Manifold's single figure, summed over components: 1 − (components) + Σ genus. */
 export function predictedGenus(f: ShellFixture): number {
@@ -86,12 +130,12 @@ export function predictedGenus(f: ShellFixture): number {
 }
 
 /**
- * The genus `invariantViolations` should be handed for a fixture. WP3.7 is landing a per-component
- * `ShellExpectation.genus` (a list, highest first, decision 135) alongside its `componentGenera`; until it lands the
- * expectation is Manifold's one summed figure. The two agree on one component. Once WP3.7 lands, this returns
- * `predictedComponentGenera` alone.
+ * Every invariant of `shell-invariants.ts` for a build from a wire file, with its genus checked summed (decision 143,
+ * F3): Manifold's summed figure against `predictedGenus`. `invariantViolations`'s own per-component genus check is
+ * handed the measured list, so it never fires here; the summed check stands in for it, as its first line.
  */
-export function expectedGenus(f: ShellFixture): ShellExpectation['genus'] {
-  const perComponent = 'componentGenera' in invariants;
-  return (perComponent ? predictedComponentGenera(f) : predictedGenus(f)) as ShellExpectation['genus'];
+export function wireInvariantViolations(b: ShellBuild, f: ShellFixture, cheeks: number): string[] {
+  const out = invariantViolations(b, {genus: componentGenera(b.union.mesh), cheeks});
+  const want = predictedGenus(f);
+  return b.union.genus === want ? out : [`summed genus ${b.union.genus}, predicted ${want} from the Rings (journal decision 143)`, ...out];
 }

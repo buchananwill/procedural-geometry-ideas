@@ -2,18 +2,36 @@
 // refined schema, as decision 125 asks), and refinement as a function. The refinement file holds schemas only, since
 // the vendored UE refinement will overwrite it. Browser-safe.
 import type {z} from 'zod';
+import {RING_SIDES} from '../fixture.ts';
 import {
   BuildingShellInputV1Schema, ProvenanceV1Schema, RingV1Schema, SideV1Schema, Vec2V1Schema,
 } from './refinements/building-shell-input.ts';
 
-/** The `schemaVersion` this prototype reads and writes (decision 127: the prototype pins its value). */
-export const INPUT_SCHEMA_VERSION = 1;
+export type BuildingShellInputV1 = z.output<typeof BuildingShellInputV1Schema>;
 
-/** Decision 126: the frame every file's numbers are in. Geometry is never converted. */
-export const INPUT_FRAME = 'UE actor-local, cm, Z up, left-handed';
+/**
+ * The `schemaVersion` this prototype reads and writes (decision 127: the prototype pins its value), typed from the
+ * refined schema (decision 142, N2).
+ */
+export const INPUT_SCHEMA_VERSION: BuildingShellInputV1['schemaVersion'] = 1;
 
-/** A wire Ring has exactly four corners and four sides (decision 126). */
-export const RING_CORNERS = 4;
+/** Decision 126: the frame every file's numbers are in, typed from the refined schema. Geometry is never converted. */
+export const INPUT_FRAME: BuildingShellInputV1['frame'] = 'UE actor-local, cm, Z up, left-handed';
+
+/**
+ * A wire Ring has one corner per side, four (decision 126), derived from the compass sides (decision 142, N5).
+ * tests/wire-types.test.ts checks the refinement's array lengths against it.
+ */
+export const RING_CORNERS: typeof RING_SIDES.length = RING_SIDES.length;
+
+/**
+ * Journal decision 143, F4: a Pitched side's solved pitch must lie in [WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG], or
+ * it is refused. The open range (0, 90) admitted pitches that crash the build. Decision 144 narrowed the floor from 5°
+ * to 7°: WP3.7's sweep found narrow failing pockets between 5.86° and 6.9°, and is green from 6.91° to 75°. Content's
+ * own pitches are 22.5°, 30° and 45°.
+ */
+export const WIRE_MIN_PITCH_DEG = 7;
+export const WIRE_MAX_PITCH_DEG = 75;
 
 /**
  * Spec decision 16 as amended (journal decision 137): the wire format's corner slack, the second exception to
@@ -23,11 +41,10 @@ export const WIRE_CORNER_SNAP_CM = 1e-6;
 
 /**
  * Journal decision 140, F4: the `defaultDeg` of a wire Ring with no Pitched side. In range by construction, and read
- * only by a gable side and a courtyard cut collinear with no wall.
+ * only by its gable sides (and, until WP3.7's `CUT_FREE_DEG` lands, decision 143, by a cut collinear with no wall).
  */
 export const WIRE_GABLE_ONLY_DEG = 45;
 
-export type BuildingShellInputV1 = z.output<typeof BuildingShellInputV1Schema>;
 export type WireRing = z.output<typeof RingV1Schema>;
 export type WireSide = z.output<typeof SideV1Schema>;
 export type WireVec2 = z.output<typeof Vec2V1Schema>;

@@ -8,6 +8,8 @@ import {diffReportLines} from '../src/wire/canonical.ts';
 import {readOutput, writeOutput} from '../src/wire/canonical-output-schema.ts';
 import {dumpReport, listDumps} from '../src/wire/dump.ts';
 import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {MutableJson, mutableJson} from './wire-json.ts';
+import {expectBaselineShape} from './wire-report-shape.ts';
 
 let shell: BuildingShell;
 let adapted: AdaptedInput;
@@ -20,13 +22,20 @@ beforeAll(async () => {
 }, 60_000);
 
 /** An output as JSON, so a test can change it freely. */
-const outputJson = (): any => JSON.parse(JSON.stringify(writeOutput('cpp-port', shell))); // eslint-disable-line @typescript-eslint/no-explicit-any
+const outputJson = (): MutableJson => mutableJson(writeOutput('cpp-port', shell));
 
 describe('the dump listing', () => {
   it('pairs each input with the output sharing its basename, and names every stray JSON', () => {
     expect(listDumps(['A.input.json', 'A.output.json', 'B.input.json', 'C.output.json', 'D.json', 'notes.txt'])).toEqual({
       dumps: [{subject: 'A', input: 'A.input.json', output: 'A.output.json'}, {subject: 'B', input: 'B.input.json'}],
       strays: ['C.output.json', 'D.json'],
+    });
+  });
+
+  it('refuses an empty subject and a suffix in the wrong case, as strays (decision 143, F7)', () => {
+    expect(listDumps(['.input.json', '.output.json', 'E.Input.json', 'F.input.JSON', 'H.output.input.json'])).toEqual({
+      dumps: [{subject: 'H.output', input: 'H.output.input.json'}],
+      strays: ['.input.json', '.output.json', 'E.Input.json', 'F.input.JSON'],
     });
   });
 });
@@ -53,8 +62,22 @@ describe('a dump with an output', () => {
     for (const f of o.faces) delete f.perimeter;
     const r = dumpReport('T', adapted, shell, o);
     if ('ok' in r) throw new Error(r.errors.join('; '));
-    expect(r.mode).toBe('baseline');
+    if (r.mode !== 'baseline') throw new Error(`expected a baseline, got ${r.mode}`);
+    console.log(diffReportLines(r).join('\n')); // decision 143, F6: printed, never discarded
+    expectBaselineShape(r);
     expect(diffReportLines(r)).toEqual(['T: BASELINE against cpp-port, not a pass or a fail']);
+  });
+
+  it('reports a baseline difference in faces and in edge-kind counts', () => {
+    const o = outputJson();
+    for (const e of o.edges) { delete e.a; delete e.b; }
+    o.faces.pop();
+    o.edges[0].kind = 'Unclassified';
+    const r = dumpReport('T', adapted, shell, o);
+    if ('ok' in r || r.mode !== 'baseline') throw new Error('expected a baseline');
+    expectBaselineShape(r);
+    expect(r.diff.facesOnlyA).toHaveLength(1);
+    expect(r.diff.edgeKindCounts.map(c => c.kind)).toContain('Unclassified');
   });
 
   it('refuses an output whose edges carry ends only in part', () => {

@@ -15,12 +15,16 @@ export const PROTOTYPE_ENGINE = 'prototype @proc-geo/building-shell';
 /** One dump's files by name. */
 export interface DumpFiles { subject: string; input: string; output?: string }
 
-/** A folder's file names as dumps, and every name that belongs to none: a JSON that is not an input, or an output with no input. */
+/**
+ * A folder's file names as dumps, and every name that belongs to none: a JSON that is not an input, an output with no
+ * input, or an input with an empty subject. Suffixes match exactly, case included.
+ */
 export interface DumpListing { dumps: DumpFiles[]; strays: string[] }
 
 export function listDumps(names: readonly string[]): DumpListing {
   const json = names.filter(n => n.toLowerCase().endsWith('.json'));
-  const inputs = json.filter(n => n.endsWith(INPUT_SUFFIX)).sort();
+  // An input with an empty subject, `.input.json` alone, is no dump (decision 143, F7): it stays a stray.
+  const inputs = json.filter(n => n.endsWith(INPUT_SUFFIX) && n.length > INPUT_SUFFIX.length).sort();
   const dumps = inputs.map(input => {
     const subject = input.slice(0, -INPUT_SUFFIX.length);
     const output = `${subject}${OUTPUT_SUFFIX}`;

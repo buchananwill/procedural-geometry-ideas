@@ -9,12 +9,13 @@ import {errorMessage} from '../src/errors.ts';
 import {EXPORTED_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import {diffReportLines} from '../src/wire/canonical.ts';
+import {readOutput} from '../src/wire/canonical-output-schema.ts';
 import {INPUT_SUFFIX, dumpReport, listDumps} from '../src/wire/dump.ts';
 import {PLAYTEST_DIR, SEED_FIXTURES} from '../src/wire/export-playtest.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 import {AcceptedPin, PLAYTEST_PINS} from './playtest-pins.ts';
-import {invariantViolations} from './shell-invariants.ts';
-import {expectedGenus, predictedComponentGenera, predictedGenus} from './slab-genus.ts';
+import {predictedComponentGenera, predictedGenus, wireInvariantViolations} from './slab-genus.ts';
+import {expectBaselineShape} from './wire-report-shape.ts';
 
 const LISTING = listDumps(readdirSync(PLAYTEST_DIR));
 
@@ -48,6 +49,15 @@ describe.each(LISTING.dumps.map(d => [d.subject, d] as const))('%s', (subject, d
   const pin = PLAYTEST_PINS[subject] ?? {kind: 'accepted'};
   const read = readInput(load(dump.input), subject);
 
+  // Decision 143, F6: a dump's output is validated whatever its input's outcome, a refused input's included.
+  if (dump.output) {
+    const output = dump.output;
+    it('has an output that validates against its schema', () => {
+      const out = readOutput(load(output));
+      expect(out.ok ? [] : out.errors).toEqual([]);
+    });
+  }
+
   if (pin.kind === 'refused') {
     it('is refused, with exactly its pinned reasons', () => {
       expect(read.ok ? [] : read.errors).toEqual(pin.refused);
@@ -61,14 +71,20 @@ describe.each(LISTING.dumps.map(d => [d.subject, d] as const))('%s', (subject, d
     expect(read.ok ? read.report.flags : []).toEqual(want.flags ?? []);
   });
 
-  it('keeps every invariant, with the genus its Rings predict, and matches its output where it has one', async () => {
+  it('keeps every invariant, with the summed genus its Rings predict, and matches its output where it has one', async () => {
     if (!read.ok) throw new Error(`refused: ${read.errors.join('; ')}`);
     const b = await buildShellDetailed(read.fixture);
-    expect(invariantViolations(b, {genus: expectedGenus(read.fixture), cheeks: want.cheeks ?? 0})).toEqual(want.violations ?? []);
+    expect(wireInvariantViolations(b, read.fixture, want.cheeks ?? 0)).toEqual(want.violations ?? []);
     if (!dump.output) return;
     const report = dumpReport(subject, read, b.shell, load(dump.output));
     if ('ok' in report) throw new Error(`output refused: ${report.errors.join('; ')}`);
-    if (report.mode === 'full') expect(differences(diffReportLines(report))).toEqual(want.diff ?? []);
+    if (report.mode === 'full') {
+      expect(differences(diffReportLines(report))).toEqual(want.diff ?? []);
+      return;
+    }
+    // Decision 143, F6: a baseline is printed and its structure asserted, never discarded, and never a pass or fail.
+    console.log(diffReportLines(report).join('\n'));
+    expectBaselineShape(report);
   }, 60_000);
 });
 
@@ -103,6 +119,10 @@ describe('the genus prediction (decision 140, F5)', () => {
     [fx('VertexContactAcrossStoreys', [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 400, 800, 800], 1, 1, 30)]), -1],
     [fx('LowRoofUnderTunnel30', [ring([0, 0, 1000, 400], 0, 1, 30), ring([0, 0, 200, 400], 1, 1, 30), ring([800, 0, 1000, 400], 1, 1, 30), ring([0, 0, 1000, 400], 2, 1, 30)]), 1],
     [fx('RoofTouchesBridgeOneUp', [ring([0, 0, 200, 400], 0, 2, 30), ring([800, 0, 1000, 400], 0, 2, 30), ring([200, 0, 800, 400], 0, 1, 70), ring([0, 0, 1000, 400], 2, 1, 30)]), 1],
+    // Decision 143, F2: storey 0's E gable on x = 400 touches the storey-1 box beyond it, which its box meets only along
+    // an edge. The hipped twin stays two solids.
+    [fx('GableContact', [ring([0, 0, 400, 400], 0, 1, 45, {E: {form: 'gable'}}), ring([400, 0, 800, 400], 1, 1, 45)]), 0],
+    [fx('HipContact', [ring([0, 0, 400, 400], 0, 1, 45), ring([400, 0, 800, 400], 1, 1, 45)]), -1],
   ];
   it.each(PROBES.map(([f, g]) => [f.name, f, g] as const))('%s: joins solids only through positive-area contact, as Manifold does', async (_, f, g) => {
     expect(predictedGenus(f)).toBe(g);

@@ -1,5 +1,5 @@
 // `building-shell/input@1` to and from the prototype's Ring-authored `ShellFixture` (spec decisions 1 to 3 and 16;
-// journal decisions 124 to 128 and 136 to 140). Browser-safe: no Node globals.
+// journal decisions 124 to 128 and 136 to 143). Browser-safe: no Node globals.
 //
 // - Frame: none converted. A file's numbers are UE actor-local cm, and the prototype uses the same numbers and the same
 //   signed-area test, so winding agrees (decision 126).
@@ -11,6 +11,11 @@
 //   GableEnd is a gable at the Ring's `defaultDeg`, never at its wire pitch, which the skeleton would read as a weight;
 //   None is an unlisted side, refused only where it wins a union wall. The request is carried, never read.
 // - Rings are ordered by model index, the key the conflict rule reads (spec decision 3, journal decision 128).
+//
+// "Every reason at once" holds within each layer, never across them (decision 143, F7). A file the refinement refuses
+// reports every shape issue and stops there. A file it accepts reports every refusal of the first adapter layer
+// (subject, indices, corners, shape, wall height, solved forms and pitches) together. Only a file clean of those is read
+// into a fixture, where a None side that wins a union wall is the last layer's refusal.
 import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../fixture.ts';
 import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
@@ -19,7 +24,8 @@ import {Rect, unionLoops} from '../roof/model.ts';
 import {snapCm} from '../weld.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, RING_CORNERS, RefusedInput, WIRE_CORNER_SNAP_CM,
-  WIRE_GABLE_ONLY_DEG, WireProvenance, WireRing, WireSide, WireSolvedForm, WireVec2, refineInput,
+  WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireProvenance, WireRequest, WireRing, WireSide,
+  WireSolvedForm, WireVec2, refineInput,
 } from './input-types.ts';
 
 /**
@@ -36,22 +42,27 @@ export interface AdaptedInput { ok: true; fixture: ShellFixture; input: Building
 
 export type ReadInputResult = AdaptedInput | RefusedInput;
 
-/** How one solved side enters the fixture (decision 138, B4). */
-export type SideReading =
-  | {kind: 'listed'; form: RingForm}
-  | {kind: 'unlisted'}
-  | {kind: 'refused'; reason: string};
+/** A solved side the fixture lists, with its Ring form. */
+export interface ListedSide { kind: 'listed'; form: RingForm }
+/** A solved side the fixture leaves unlisted: None (decision 140, F2). */
+export interface UnlistedSide { kind: 'unlisted' }
+/** A solved side the adapter refuses, with why. */
+export interface RefusedSide { kind: 'refused'; reason: string }
 
-/** Decisions 126, 136 and 140: one solved form's reading. */
-export function sideReading(form: WireSolvedForm): SideReading {
-  switch (form) {
-    case 'Pitched': return {kind: 'listed', form: 'hip'};
-    case 'GableEnd': return {kind: 'listed', form: 'gable'};
-    case 'None': return {kind: 'unlisted'};
-    case 'Monopitch': return {kind: 'refused', reason: 'a solved Monopitch, refused until mono is supported (journal decision 126)'};
-    case 'Flat': return {kind: 'refused', reason: 'a solved Flat, which is a polyline clamp, never a run form (journal decision 126)'};
-  }
-}
+/** How one solved side enters the fixture (decisions 138, B4, and 142, B5). */
+export type SideReading = ListedSide | UnlistedSide | RefusedSide;
+
+/** Decisions 126, 136 and 140: every solved form's reading, as an exhaustive table (decision 142, N4). */
+export const SIDE_READINGS: Readonly<Record<WireSolvedForm, SideReading>> = {
+  Pitched: {kind: 'listed', form: 'hip'},
+  GableEnd: {kind: 'listed', form: 'gable'},
+  None: {kind: 'unlisted'},
+  Monopitch: {kind: 'refused', reason: 'a solved Monopitch, refused until mono is supported (journal decision 126)'},
+  Flat: {kind: 'refused', reason: 'a solved Flat, which is a polyline clamp, never a run form (journal decision 126)'},
+};
+
+/** The solved form a fixture's Ring form writes, as an exhaustive table (decision 142, N4). */
+export const WIRE_FORMS: Readonly<Record<RingForm, Extract<WireSolvedForm, WireRequest>>> = {hip: 'Pitched', gable: 'GableEnd'};
 
 const label = (r: WireRing, i: number): string => `Ring ${i} (model index ${r.modelIndex})`;
 
@@ -67,7 +78,7 @@ const signedArea = (cs: WireVec2[]): number =>
   cs.reduce((s, a, i) => { const b = cs[(i + 1) % cs.length]; return s + a.x * b.y - b.x * a.y; }, 0) / 2;
 
 /** A Ring's corners snapped to the 1/1024 cm grid, with their largest drift and a refusal per corner beyond the slack. */
-interface SnappedCorners { corners: WireVec2[]; drift: number; errors: string[] }
+export interface SnappedCorners { corners: WireVec2[]; drift: number; errors: string[] }
 
 function snapCorners(r: WireRing, at: string): SnappedCorners {
   let drift = 0;
@@ -121,8 +132,9 @@ function duplicates(rings: WireRing[], key: (r: WireRing) => number): Map<number
 }
 
 /** The refusals that need no fixture: indices, corners, shape, wall height and solved forms, one line each. */
-function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[]): string[] {
+function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[], name: string): string[] {
   const out: string[] = [];
+  if (!name.trim()) out.push('the dump has an empty subject: a fixture needs a name (journal decision 143)');
   input.rings.forEach((r, i) => {
     for (const field of ['ringIndex', 'modelIndex'] as const) {
       if (r[field] === -1) out.push(`${label(r, i)} has ${field} -1, the USTRUCT default for an unset index: the file does not write it (journal decision 140)`);
@@ -143,10 +155,12 @@ function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[]): 
       out.push(`${at} overrides its wall height to ${w} cm, which differs from the building's storey height ${input.storeyHeightCm} cm (journal decision 126)`);
     }
     r.sides.forEach((s, j) => {
-      const reading = sideReading(s.solved.form);
+      const reading = SIDE_READINGS[s.solved.form];
       if (reading.kind === 'refused') out.push(`${at} side ${j} has ${reading.reason}`);
       const p = s.solved.pitchDegrees;
-      if (s.solved.form === 'Pitched' && !(p > 0 && p < 90)) out.push(`${at} side ${j} is solved Pitched at ${p} degrees, outside (0, 90)`);
+      if (s.solved.form === 'Pitched' && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
+        out.push(`${at} side ${j} is solved Pitched at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143 and 144)`);
+      }
     });
   });
   return out;
@@ -161,7 +175,7 @@ function orderFlags(input: BuildingShellInputV1): string[] {
 }
 
 /** One wire side as read: where it lies on the Ring, and how it enters the fixture. */
-interface ReadSide { slot: number; compass: RingSide; side: WireSide }
+export interface ReadSide { slot: number; compass: RingSide; side: WireSide }
 
 /** A wire Ring's sides by compass side, from its snapped corners. */
 function readSides(r: WireRing, corners: WireVec2[], rect: Rect): ReadSide[] {
@@ -184,21 +198,31 @@ export function wireDefaultDeg(sides: ReadSide[]): number {
 function fixtureRing(r: WireRing, sides: ReadSide[], rect: Rect): FixtureRing {
   const out: RingSides = {};
   for (const {compass, side} of sides) {
-    const reading = sideReading(side.solved.form);
+    const reading = SIDE_READINGS[side.solved.form];
     if (reading.kind !== 'listed') continue;
     out[compass] = reading.form === 'hip' ? {form: 'hip', deg: side.solved.pitchDegrees} : {form: 'gable'};
   }
   return {rect, baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg: wireDefaultDeg(sides), sides: out};
 }
 
+/**
+ * The message prefixes of the plan refusals `unionLoops` and `unionWallForms` throw: a corner-only pinch, a degenerate
+ * loop, and a union wall on no Ring side. The pipeline names no error class, so the prefixes stand in for one.
+ */
+export const PLAN_REFUSAL_PREFIXES: readonly string[] = ['pinch at ', 'a loop with every edge on one line', 'the union wall '];
+
+/** Whether an error is one of the plan refusals the build would also throw (decision 142, N6). */
+export const isPlanRefusal = (e: unknown): boolean => e instanceof Error && PLAN_REFUSAL_PREFIXES.some(p => e.message.startsWith(p));
+
 /** A None side of one fixture Ring, with its file label. */
-interface NoneSide { ring: number; compass: RingSide; text: string }
+export interface NoneSide { ring: number; compass: RingSide; text: string }
 
 /**
  * Journal decision 140, F2: a None side that wins a union wall is refused, since its form there is undefined. The
  * winner is read by spec decision 3's own rule (`unionWallForms`) on a probe fixture in which each None side is listed
  * as a hip at a unique negative sentinel pitch: a wall that takes a sentinel was won by that side. A storey whose plan
- * the pipeline refuses is left to the build, which refuses it too.
+ * the pipeline refuses (`isPlanRefusal`) is left to the build, which refuses it too; any other error is rethrown
+ * (decision 142, N6).
  */
 function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[] {
   if (!nones.length) return [];
@@ -216,8 +240,9 @@ function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[] {
     let walls;
     try {
       walls = unionWallForms(rings, unionLoops(rings.map(r => r.ring.rect)));
-    } catch {
-      continue;
+    } catch (e) {
+      if (isPlanRefusal(e)) continue;
+      throw e;
     }
     for (const w of walls) {
       if (w.deg >= 0) continue;
@@ -247,7 +272,7 @@ export function readInput(json: unknown, name: string): ReadInputResult {
   if (!refined.ok) return refined;
   const input = refined.value;
   const snapped = input.rings.map((r, i) => snapCorners(r, label(r, i)));
-  const errors = inputRefusals(input, snapped);
+  const errors = inputRefusals(input, snapped, name);
   if (errors.length) return {ok: false, errors};
 
   const order = input.rings.map((_, i) => i).sort((a, b) => input.rings[a].modelIndex - input.rings[b].modelIndex);
@@ -286,7 +311,7 @@ export const prototypeProvenance = (subject: string): WireProvenance => ({
 /** One fixture side as a wire side: `Auto` where the fixture lists none, the side's form where it does. */
 function wireSide(ring: FixtureRing, side: RingSide): WireSide {
   const s = ring.sides?.[side];
-  const form: WireSolvedForm = s?.form === 'gable' ? 'GableEnd' : 'Pitched';
+  const form = WIRE_FORMS[s?.form ?? 'hip'];
   return {request: s ? form : 'Auto', solved: {form, pitchDegrees: s?.deg ?? ring.defaultDeg, bEmptied: false, bOutlineRefused: false}};
 }
 

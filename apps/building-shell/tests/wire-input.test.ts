@@ -3,8 +3,11 @@
 import {describe, expect, it} from 'vitest';
 import {COURTYARD_RECTS, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
-import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts';
-import {BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, refineInput} from '../src/wire/input-types.ts';
+import {AdaptedInput, isPlanRefusal, readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {
+  BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, refineInput,
+} from '../src/wire/input-types.ts';
+import {mutableJson} from './wire-json.ts';
 
 /** A valid file: the flush Ring-conflict pair, two Rings whose S sides share y = 0, Ring 0 winning it. */
 const valid = (): BuildingShellInputV1 => writeInput(fixtureByName('FlushRingConflict'));
@@ -23,7 +26,7 @@ const adapted = (json: unknown, name = 'probe'): AdaptedInput => {
 };
 
 /** A JSON copy, so a test can delete fields the types require. */
-const loose = (v: unknown): Record<string, any> => JSON.parse(JSON.stringify(v)); // eslint-disable-line @typescript-eslint/no-explicit-any
+const loose = mutableJson;
 
 /** A file's Rings rotated to start at slot `s`, corners and sides together. */
 function rotated(v: BuildingShellInputV1, s: number): BuildingShellInputV1 {
@@ -171,11 +174,28 @@ describe('the refusals', () => {
   it('validates the pitch of a Pitched side only: a gable solved at 0 or 90 is accepted (decision 136)', () => {
     const v = valid();
     v.rings[0].sides[2].solved.pitchDegrees = 90;
-    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 is solved Pitched at 90 degrees, outside (0, 90)']);
+    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 is solved Pitched at 90 degrees, outside [7, 75] (journal decisions 143 and 144)']);
     const w = valid();
     w.rings[1].sides[0].solved.pitchDegrees = 0; // Ring 1's S side is its GableEnd
     expect(w.rings[1].sides[0].solved.form).toBe('GableEnd');
     expect(errorsOf(w)).toEqual([]);
+  });
+
+  it('refuses a Pitched side outside [WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG], and accepts both bounds (decision 143, F4)', () => {
+    const at = (deg: number): string[] => {
+      const v = valid();
+      v.rings[0].sides[1].solved.pitchDegrees = deg;
+      return errorsOf(v);
+    };
+    expect([WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG]).toEqual([7, 75]);
+    expect(at(6.9)).toEqual(['Ring 0 (model index 0) side 1 is solved Pitched at 6.9 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(at(75.1)).toEqual(['Ring 0 (model index 0) side 1 is solved Pitched at 75.1 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(at(WIRE_MIN_PITCH_DEG)).toEqual([]);
+    expect(at(WIRE_MAX_PITCH_DEG)).toEqual([]);
+  });
+
+  it('refuses an empty subject (decision 143, F7)', () => {
+    expect(readInput(valid(), '')).toEqual({ok: false, errors: ['the dump has an empty subject: a fixture needs a name (journal decision 143)']});
   });
 
   it("refuses a wall-height override that differs from the building's storey height, and accepts 0 or an equal one", () => {
@@ -226,6 +246,21 @@ describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
     expect(errorsOf(v)).toEqual([
       'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
     ]);
+  });
+});
+
+describe("the None probe's error handling (decision 142, N6)", () => {
+  it('leaves a plan the pipeline refuses to the build, and rethrows anything else', () => {
+    expect(isPlanRefusal(new Error('pinch at 400,400: corner-only contact is not a footprint'))).toBe(true);
+    expect(isPlanRefusal(new Error('the union wall x=0 [0,10] lies on no Ring side'))).toBe(true);
+    expect(isPlanRefusal(new Error('Cannot read properties of undefined'))).toBe(false);
+    expect(isPlanRefusal('pinch at 0,0')).toBe(false);
+  });
+
+  it('accepts a None side on a storey whose plan pinches: the build refuses it instead', () => {
+    const v = writeInput({name: 'Pinch', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 400, 800, 800], 0, 1, 30)]});
+    v.rings[0].sides[1].solved.form = 'None';
+    expect(errorsOf(v)).toEqual([]);
   });
 });
 

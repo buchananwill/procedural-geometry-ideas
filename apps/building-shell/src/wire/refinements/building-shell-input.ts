@@ -60,7 +60,8 @@ export const RingV1Schema = z.strictObject({
   modelIndex: int32.min(-1).prefault(D.FShellWireRing.modelIndex),
   baseStorey: int32.nonnegative().prefault(D.FShellWireRing.baseStorey),
   storeys: int32.positive().prefault(D.FShellWireRing.storeys),
-  wallHeightCm: z.number().nonnegative().prefault(D.FShellWireRing.wallHeightCm),  corners: z.array(Vec2V1Schema).length(4).prefault([]),
+  wallHeightCm: z.number().nonnegative().prefault(D.FShellWireRing.wallHeightCm),
+  corners: z.array(Vec2V1Schema).length(4).prefault([]),
   sides: z.array(SideV1Schema).length(4).prefault([]),
 });
 
