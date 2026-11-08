@@ -1427,6 +1427,29 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        generator keys fields through `FJsonObjectConverter::StandardizeCase`, which lowercases only the first letter
        and turns "ID" into "Id". So the stand-in uses the generated keys verbatim, and the swap to the generated module
        changes no key. **Every stand-in key follows that transform of its UE name.**
+138. **Rulings on WP5's type review** (`typescript-type-reviewer`, REQUEST CHANGES: 7 blocking, 5 notes, at
+     `3af339b`). Every production input type is a `z.infer` of a refined schema, as decision 125 asks. **All findings
+     are accepted for WP5.1:**
+     - **B1: the drift guard is vacuous,** because a refinement is always assignable to its all-optional base. It
+       becomes a two-way check: `DeepRequired<generated>` against the refined type, equal on every key and on every
+       value type except the two pinned literals, which are checked apart. **It must not be read as decision 125's
+       output check,** which waits on the port's output structs (decision 126).
+     - **B2:** the refinement file holds schemas only, because the vendored UE refinement will overwrite it. `INPUT_FRAME`,
+       `INPUT_SCHEMA_VERSION`, `RING_CORNERS`, the `Wire*` aliases, `refineInput` and one `RefusedInput` move to a
+       prototype-owned `wire/input-types.ts`.
+     - **B3:** the stand-in exports no type alias that the generator would not emit.
+     - **B4:** `sideForm` returns a discriminated result, and the `as RingForm` cast goes.
+     - **B5:** `WIRE_SIDE_ORDER` is `RING_SIDES`.
+     - **B6:** `CanonicalFace.kind` is `ShellKind`, Internal included, because a surviving Internal face is a real
+       difference the diff must show. `CanonicalEdge.kind` is `EdgeKind`. C++ JSON is validated into those unions at
+       the boundary.
+     - **B7:** the engine pair is a named type.
+     - **N1 to N5:**
+       - N1: schema constants take a `Schema` suffix.
+       - N2: the enum spelling is asked of the port lead.
+       - N3: pins carry an explicit discriminant.
+       - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
+       - N5: arrays of four stay arrays, as the generator emits.
 
 ## Findings
 
