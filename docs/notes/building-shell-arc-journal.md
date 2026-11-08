@@ -2304,6 +2304,10 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - **screenshots of each roof-gable class,** Cheek and cut-piece overshoot, plus one clean neighbour for
          contrast, saved for the lead to send to the user.
      - **WP4.3 runs alongside WP3.9.** It touches only `src/viewer/` and reads `golden/` at run time.
+170. **The user has ruled one form per wall on the C++ side** (reported by the port lead, its MB.D525, 2026-11-08). The
+     lowest Ring index wins a whole wall's form, as it already wins the pitch. The C++ roof solve will tie form across
+     a wall, since today it can solve Hip beside Gable on a split wall under Auto. **Decision 149's refusal of a side
+     whose runs disagree stands as the contract.** Nothing changes here.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
