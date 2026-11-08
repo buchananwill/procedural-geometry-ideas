@@ -70,13 +70,11 @@ export const withWireDefaults = (f: ShellFixture): ShellFixture => ({
 });
 
 /**
- * Decisions 148, F2, and 152: a file written with each Ring's corners rotated to start at a corner of its own (sides
- * rotated with them, so side i keeps corner i and its runs), and its Rings listed in another order under sparse model
- * indices that keep their order. Only `modelIndex` is shuffled: each `ringIndex` stays its array position, as the C++
- * replay requires, so the file's root order disagrees with its model order and is flagged. Ordering is then covered by
- * shell identity too.
+ * Decisions 148, F2, 152 and 156, F1: a file written with each Ring's corners rotated to start at a corner of its own
+ * (sides rotated with them, so side i keeps corner i and its runs), fixture Ring i under the sparse model index
+ * 7 + 13 i. Its Rings are listed in model order, so no flag is raised.
  */
-export function scrambled(f: ShellFixture): BuildingShellInputV1 {
+export function rotatedSparse(f: ShellFixture): BuildingShellInputV1 {
   const w = writeInput(f);
   w.rings.forEach((r, i) => {
     const k = (i + 1) % RING_SIDES.length;
@@ -84,7 +82,19 @@ export function scrambled(f: ShellFixture): BuildingShellInputV1 {
     r.sides = [...r.sides.slice(k), ...r.sides.slice(0, k)];
     r.modelIndex = 7 + 13 * i;
   });
-  w.rings = [...w.rings.slice(1), ...w.rings.slice(0, 1)].reverse();
+  return w;
+}
+
+/**
+ * Decisions 148, F2, 152 and 164, finding 2: `rotatedSparse`, its Rings then listed in reverse, so the file's order
+ * reverses its model order for any two or more Rings. Only the model indices carry the order: each `ringIndex` is its
+ * array position, as the C++ replay requires, so the file's root order disagrees with its model order and is flagged.
+ * Ordering is then covered by shell identity too. (Before decision 164 the list was rotated by one and then reversed,
+ * which leaves a two-Ring list in model order.)
+ */
+export function scrambled(f: ShellFixture): BuildingShellInputV1 {
+  const w = rotatedSparse(f);
+  w.rings.reverse();
   w.rings.forEach((r, i) => { r.ringIndex = i; });
   return w;
 }

@@ -16,7 +16,9 @@ import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
-import {GOLDEN_FIXTURES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles, goldenInput} from './golden-fixtures.ts';
+import {
+  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles, goldenInput,
+} from './golden-fixtures.ts';
 import {throwsOutcome} from './pin-table.ts';
 import {componentGenera} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
@@ -109,11 +111,56 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     expect([...models].sort((a, b) => a - b)).toEqual([7, 20]);
   });
 
+  // Decision 164, finding 1: an island with hips and a gable steeper than every hip, so a hip-first rule moves it.
+  it("SB400-600B100S500g60r0 reads the free cut at its island's steepest wall, a gable at 60° over hips at 30°", () => {
+    const f = oracle('SB400-600B100S500g60r0');
+    expect(f.rings[0].sides?.W).toEqual({form: 'gable', deg: 60});
+    expect(f.rings.every(r => r.defaultDeg === 30)).toBe(true);
+    expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
+  });
+
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
     const e = entry(name);
     expect(e?.clean).toBe(false);
     expect(e && ('error' in e ? e.error : e.violations.join('\n')).length).toBeGreaterThan(0);
   });
+});
+
+/**
+ * Journal decision 164, finding 2: the model-order oracle. Each `*FileReversed` document lists its Rings in reverse model
+ * order, and a reading that keys the conflict rule on file position builds five of the six differently.
+ * CutPitchConflict is the sixth: the one union wall two of its Rings' sides share, x = 1000, is hipped at 30° by all
+ * three, so its winner's order cannot show. It is kept, since its cut-pitch conflict is one the port must also read.
+ */
+describe('the model-order oracle (journal decision 164, finding 2)', () => {
+  const reversedName = (name: string): string => `${name}FileReversed`;
+  const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
+
+  it.each(MODEL_ORDER_CONFLICTS.map(reversedName))('%s: its document lists the Rings in reverse model order, each ringIndex its position, and is flagged', name => {
+    const doc = JSON.parse(committed(`${name}.input.json`)) as BuildingShellInputV1;
+    const models = doc.rings.map(r => r.modelIndex);
+    expect(models.length).toBeGreaterThan(1);
+    expect(models.every((m, i) => i === 0 || m < models[i - 1])).toBe(true);
+    expect(doc.rings.map(r => r.ringIndex)).toEqual(models.map((_, i) => i));
+    const read = readInput(doc, name);
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    expect(read.report.flags).toHaveLength(1);
+    expect(read.report.flags[0]).toMatch(ORDER_FLAG);
+  });
+
+  it('a reading that orders the Rings by file position moves five of the six shells: all but CutPitchConflict', async () => {
+    const moved: string[] = [];
+    for (const g of MODEL_ORDER_ORACLES) {
+      if (!g.file) throw new Error(`${g.fixture.name} is not read from a document`);
+      const {read} = g.file;
+      // The file lists the Rings in reverse model order, so file order is the read fixture's reversed.
+      const fileOrder: ShellFixture = {...read.fixture, rings: [...read.fixture.rings].reverse()};
+      const b = await buildShellDetailed(fileOrder);
+      const shell = withFileModelIndices(b.shell, {modelIndices: [...read.modelIndices].reverse(), sideSlots: [...read.sideSlots].reverse()});
+      if (goldenText(shell) !== committed(`${g.fixture.name}.json`)) moved.push(g.fixture.name);
+    }
+    expect(moved).toEqual(MODEL_ORDER_CONFLICTS.filter(n => n !== 'CutPitchConflict').map(reversedName));
+  }, 120_000);
 });
 
 describe("the manifest's residue classes and genus (journal decision 161, finding 5 and Info)", () => {

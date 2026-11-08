@@ -435,8 +435,21 @@ describe('runs per side (journal decision 149)', () => {
     expect(adapted(v).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 20});
   });
 
-  // Journal decision 156, F5: a run end carries the C++ transforms' double round-off as a corner does, so an end within
-  // WIRE_CORNER_SNAP_CM of 0 or of the snapped side's length is taken as that end; anything further is refused.
+  /** Spec 16's refusal of run `k` on Ring 0's side `side` after snapping (journal decisions 149, 156, 161 and 164). */
+  const spanError = (side: number, k: number, a: number, b: number, len: number): string =>
+    `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, each start at or after the previous run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156, 161 and 164)`;
+  /** Spec 16's first test, before any snap: run `k`'s raw start is not below its raw end (journal decision 164). */
+  const reversedError = (side: number, k: number, a: number, b: number): string =>
+    `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a run's raw start lies below its raw end, tested before any snap (journal decision 164)`;
+  /** The errors of a 1000 cm S side (a 1000 by 400 Ring) holding `runs`, each Pitched at 45°. */
+  const longSide = (runs: [number, number][]): string[] => {
+    const v = writeInput(shellFixture('Long', [ring([0, 0, 1000, 400], 0, 1, 45)]));
+    v.rings[0].sides[0].runs = runs.map(([a, b]) => run(a, b, 'Pitched'));
+    return errorsOf(v);
+  };
+
+  // Journal decision 156, F5: a run end carries the C++ transforms' double round-off as a corner does, so a side's end
+  // within WIRE_CORNER_SNAP_CM of 0 or of the snapped side's length is taken as that end; anything further is refused.
   it("snaps a run end within WIRE_CORNER_SNAP_CM of 0 or of the side's length, and refuses one beyond", () => {
     const at = (start: number, end: number): string[] => {
       const v = valid();
@@ -446,9 +459,7 @@ describe('runs per side (journal decision 149)', () => {
     expect(at(0, 500 + 4e-7)).toEqual([]);
     expect(at(-1e-9, 500)).toEqual([]);
     expect(at(0, 500 - 4e-7)).toEqual([]);
-    expect(at(0, 500 + 2e-6)).toEqual([
-      "Ring 0 (model index 0) side 0 run 0 spans 0 to 500.000002 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 500 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)",
-    ]);
+    expect(at(0, 500 + 2e-6)).toEqual([spanError(0, 0, 0, 500.000002, 500)]);
     // Corners written with round-off within the slack, and the run at the unsnapped length, read as the C++ wrote them.
     const w = valid();
     w.rings[0].corners[1].x += 4e-7;
@@ -461,15 +472,39 @@ describe('runs per side (journal decision 149)', () => {
   // WIRE_CORNER_SNAP_CM of each other meet at one point; further apart, they overlap and are refused. The gate: on a
   // 1000 cm side, [0, 500 + 4e-7] and [500 - 4e-7, 1000] are accepted, [0, 500 + 2e-6] and [500 - 2e-6, 1000] refused.
   it('snaps two adjacent run ends within WIRE_CORNER_SNAP_CM of each other to one point, and refuses ends further apart', () => {
-    const junction = (end: number, start: number): string[] => {
-      const v = writeInput(shellFixture('Long', [ring([0, 0, 1000, 400], 0, 1, 45)]));
-      v.rings[0].sides[0].runs = [run(0, end, 'Pitched'), run(start, 1000, 'Pitched')];
-      return errorsOf(v);
-    };
+    const junction = (end: number, start: number): string[] => longSide([[0, end], [start, 1000]]);
     expect(junction(500 + 4e-7, 500 - 4e-7)).toEqual([]);
     expect(junction(500 - 4e-7, 500 + 4e-7)).toEqual([]);
-    expect(junction(500 + 2e-6, 500 - 2e-6)).toEqual([
-      "Ring 0 (model index 0) side 0 run 1 spans 499.999998 to 1000 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 1000 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)",
+    expect(junction(500 + 2e-6, 500 - 2e-6)).toEqual([spanError(0, 1, 499.999998, 1000, 1000)]);
+  });
+
+  // Journal decision 164, finding 3: the order test runs on the raw values, before any snap. The gate: the middle run
+  // [500 + 5e-7, 500 + 2e-7] is reversed by 3e-7, within the slack of the junction it starts at, and is refused; snapped
+  // first, its start would have become 500 and passed.
+  it('refuses a reversed run on its raw values, even where a snap would have put it in order', () => {
+    expect(longSide([[0, 500], [500 + 5e-7, 500 + 2e-7], [500 + 2e-7, 1000]])).toEqual([reversedError(0, 1, 500 + 5e-7, 500 + 2e-7)]);
+    expect(longSide([[0, 500], [500 + 5e-6, 500 + 2e-6], [500 + 2e-6, 1000]])).toEqual([reversedError(0, 1, 500 + 5e-6, 500 + 2e-6)]);
+    expect(longSide([[0, 500], [500, 500], [500, 1000]])).toEqual([reversedError(0, 1, 500, 500)]);
+  });
+
+  // Journal decision 164, finding 4: spec 16's snap order. Only the first start snaps to 0, a later start snaps to the
+  // previous run's end and never to 0, only the last end snaps to the side's length, and interior ends stay as written.
+  // The gates: [0, 1.5e-6] then [8e-7, 1000] is adjacent and accepted, its second start snapping to 1.5e-6, not to 0; a
+  // 5 cm gap between runs is accepted.
+  it("snaps a later run's start to the previous run's end, never to 0, and accepts a gap between runs", () => {
+    expect(longSide([[0, 1.5e-6], [8e-7, 1000]])).toEqual([]);
+    expect(longSide([[0, 500], [505, 1000]])).toEqual([]);
+    expect(longSide([[0, 500], [500 + 1e-6, 1000]])).toEqual([]);
+    // A cascade: each start meets the end before it.
+    expect(longSide([[0, 500], [500 - 9e-7, 700], [700 - 9e-7, 1000]])).toEqual([]);
+  });
+
+  it('snaps only the last end to the length: an interior end is read as written', () => {
+    // The last end, 5e-7 past the length, snaps to it; the same end on the first of two runs is interior and leaves the
+    // side, and the run after it, snapped to start there, then starts past its own snapped end.
+    expect(longSide([[0, 500], [500, 1000 + 5e-7]])).toEqual([]);
+    expect(longSide([[0, 1000 + 5e-7], [1000 + 5e-7, 1000 + 9e-7]])).toEqual([
+      spanError(0, 0, 0, 1000 + 5e-7, 1000), spanError(0, 1, 1000 + 5e-7, 1000 + 9e-7, 1000),
     ]);
   });
 
@@ -479,9 +514,7 @@ describe('runs per side (journal decision 149)', () => {
     v.rings[0].sides[1].runs = [run(0, 300, 'Pitched'), run(250, 400, 'Pitched')];
     v.rings[0].sides[2].runs = [run(100, 100, 'Pitched')];
     v.rings[0].sides[3].runs = [run(0, 400.5, 'Pitched')];
-    const span = (side: number, k: number, a: number, b: number, len: number): string =>
-      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)`;
-    expect(errorsOf(v)).toEqual([span(0, 1, 100, 200, 500), span(1, 1, 250, 400, 400), span(2, 0, 100, 100, 500), span(3, 0, 0, 400.5, 400)]);
+    expect(errorsOf(v)).toEqual([spanError(0, 1, 100, 200, 500), spanError(1, 1, 250, 400, 400), reversedError(2, 0, 100, 100), spanError(3, 0, 0, 400.5, 400)]);
   });
 
   it('reads a side with no run, or only None runs, as formless: unlisted, and refused only where it wins a union wall', () => {

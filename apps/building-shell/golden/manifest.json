@@ -1492,6 +1492,191 @@
    "violations": []
   },
   {
+   "fixture": "SB400-600B100S500g60r0",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "SB400-600B100S500g60r0.json",
+   "union": "SB400-600B100S500g60r0.union.json",
+   "input": "SB400-600B100S500g60r0.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 92,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FlushRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "FlushRingConflictFileReversed.json",
+   "union": "FlushRingConflictFileReversed.union.json",
+   "input": "FlushRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OverlapRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "OverlapRingConflictFileReversed.json",
+   "union": "OverlapRingConflictFileReversed.union.json",
+   "input": "OverlapRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 64,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PitchRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "PitchRingConflictFileReversed.json",
+   "union": "PitchRingConflictFileReversed.union.json",
+   "input": "PitchRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 70,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "ThreeRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "ThreeRingConflictFileReversed.json",
+   "union": "ThreeRingConflictFileReversed.union.json",
+   "input": "ThreeRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "StoreyRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "StoreyRingConflictFileReversed.json",
+   "union": "StoreyRingConflictFileReversed.union.json",
+   "input": "StoreyRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 54,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CutPitchConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "CutPitchConflictFileReversed.json",
+   "union": "CutPitchConflictFileReversed.union.json",
+   "input": "CutPitchConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 120,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
    "fixture": "Court14Seed1h250",
    "cppReplayable": true,
    "expectedGenus": [

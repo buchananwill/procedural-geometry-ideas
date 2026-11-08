@@ -206,37 +206,55 @@ export const sideLength = (cs: WireVec2[], j: number): number => {
   return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
 };
 
-/**
- * Journal decision 156, F5: a run end within `WIRE_CORNER_SNAP_CM` of 0 or of the snapped side's `length` is taken as
- * that end, the slack decision 137 gives a corner, since the C++ transforms carry the same double round-off into both.
- * Anything further is read as written, and the order test refuses it.
- */
-export const snapRunEnd = (v: number, length: number): number =>
-  (Math.abs(v) <= WIRE_CORNER_SNAP_CM ? 0 : Math.abs(v - length) <= WIRE_CORNER_SNAP_CM ? length : v);
+/** One run's span along its side after spec 16's snap order: where it starts and ends, in cm from corner i. */
+export interface RunSpan { start: number; end: number }
+
+/** Whether `v` lies within `WIRE_CORNER_SNAP_CM` of `at`: decision 137's slack. */
+const withinSnap = (v: number, at: number): boolean => Math.abs(v - at) <= WIRE_CORNER_SNAP_CM;
 
 /**
- * Journal decision 161, finding 4: decision 137's slack at an interior run junction. A run's start within
- * `WIRE_CORNER_SNAP_CM` of `reach`, the furthest end of the runs before it, is taken as that end, so two adjacent ends
- * carrying round-off meet at one point. Anything further is read as written, and the order test refuses an overlap.
- * Pitch agreement stays exact (decision 149): the C++ shares one value per wall group, so a difference disagrees.
+ * Spec decision 16's snap order for a side's runs as listed (journal decisions 156, F5, 161, finding 4, and 164,
+ * finding 4), on a side of snapped `length`. Decision 137's slack covers the C++ transforms' double round-off, which
+ * reaches run ends as it reaches corners:
+ * 1. the first run's start, within `WIRE_CORNER_SNAP_CM` of 0, becomes 0;
+ * 2. each later run's start, within it of the previous run's end, becomes that end, never 0;
+ * 3. the last run's end, within it of `length`, becomes `length`;
+ * 4. every interior end is read as written.
+ *
+ * Nothing else snaps. The raw order test (`start < end` before any snap) and the overlap test are `runRefusals`'.
  */
-export const snapRunStart = (v: number, reach: number): number => (Math.abs(v - reach) <= WIRE_CORNER_SNAP_CM ? reach : v);
+export function snapRunSpans(runs: readonly Pick<WireRun, 'startCm' | 'endCm'>[], length: number): RunSpan[] {
+  const spans: RunSpan[] = [];
+  runs.forEach((run, k) => {
+    const before = k === 0 ? 0 : spans[k - 1].end;
+    const start = withinSnap(run.startCm, before) ? before : run.startCm;
+    const end = k === runs.length - 1 && withinSnap(run.endCm, length) ? length : run.endCm;
+    spans.push({start, end});
+  });
+  return spans;
+}
 
 /**
  * Decision 149's per-run refusals for side `j`: run geometry (when the side's length is known, `length`), each run's
- * solved form and pitch bounds, and runs that disagree.
+ * solved form and pitch bounds, and runs that disagree. Run geometry is tested in spec 16's order (journal decision
+ * 164): a run whose raw start is not below its raw end is refused before any snap; after `snapRunSpans`, a run is
+ * refused where it leaves the side, is empty, or overlaps the run before it. A gap between runs is accepted, since a
+ * party wall or a missing run leaves one. Pitch agreement stays exact (decision 149): the C++ shares one value per wall
+ * group, so a difference disagrees.
  */
 function runRefusals(at: string, j: number, side: WireSide, length: number | null): string[] {
   const out: string[] = [];
-  let reach = 0;
+  const spans = length === null ? null : snapRunSpans(side.runs, length);
   side.runs.forEach((run, k) => {
     const where = `${at} side ${j} run ${k}`;
-    if (length !== null) {
-      const [start, end] = [snapRunStart(snapRunEnd(run.startCm, length), reach), snapRunEnd(run.endCm, length)];
-      if (!(start >= reach && start < end && end <= length)) {
-        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149, 156 and 161)`);
+    if (length !== null && spans) {
+      const {start, end} = spans[k];
+      const before = k === 0 ? 0 : spans[k - 1].end;
+      if (!(run.startCm < run.endCm)) {
+        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a run's raw start lies below its raw end, tested before any snap (journal decision 164)`);
+      } else if (!(start >= before && start < end && end <= length)) {
+        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, each start at or after the previous run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149, 156, 161 and 164)`);
       }
-      reach = Math.max(reach, end);
     }
     const reading = SIDE_READINGS[run.form];
     if (reading.kind === 'refused') out.push(`${where} has ${reading.reason}`);

@@ -149,6 +149,16 @@ describe('every exported fixture through the wire', () => {
     expect(JSON.stringify(await buildShell(read(scrambled(f), f.name, ORDER_FLAG)))).toBe(want);
   }, 60_000);
 
+  // Decision 164, finding 2: the scrambled file reverses model order for every fixture of two or more Rings, so the
+  // identity above covers Ring order, and the file is flagged.
+  it.each(IDENTITY_FIXTURES.filter(f => f.rings.length > 1).map(f => [f.name, f] as const))('%s: its scrambled file lists the Rings in reverse model order, and is flagged', (_, f) => {
+    const w = scrambled(f);
+    expect(w.rings.map(r => r.modelIndex)).toEqual(f.rings.map((_, i) => 7 + 13 * i).reverse());
+    const r = readInput(JSON.parse(JSON.stringify(w)), f.name);
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    expect(r.report.flags).toEqual([expect.stringMatching(ORDER_FLAG)]);
+  });
+
   it.each(IDENTITY_FIXTURES.map(f => [f.name, f] as const))('%s: builds the shell it was authored as, or exactly its measured difference', async (name, f) => {
     const authored = await buildShell(f), read = await buildShell(withWireDefaults(f));
     const counts = JSON.stringify(authored) === JSON.stringify(read) ? undefined : diffCounts(diffCanonical(canonicalOfShell(authored), canonicalOfShell(read)));

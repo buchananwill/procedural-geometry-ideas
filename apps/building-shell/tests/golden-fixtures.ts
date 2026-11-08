@@ -30,7 +30,7 @@ import {
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
-import {ASYMMETRIC_L, scrambled} from './wire-round-trip-cases.ts';
+import {ASYMMETRIC_L, rotatedSparse, scrambled} from './wire-round-trip-cases.ts';
 
 /**
  * A golden fixture read from an `input@1` document rather than written from a fixture (journal decision 161, finding
@@ -138,8 +138,35 @@ const allGabled = (f: ShellFixture): ShellFixture =>
   ({...f, rings: f.rings.map(r => ({...r, sides: Object.fromEntries(RING_SIDES.map(s => [s, {form: 'gable'}])) as RingSides}))});
 
 /**
- * Journal decisions 156, F3, and 161, findings 2 and 3: the oracles of the rules WP3.8 changed, each a clean golden
- * that a rejected variant of its rule moves.
+ * Journal decision 164, finding 1: the reviewer's `SB400-600B100S500g60r0`, a split-band courtyard hipped at 30° with the
+ * cutting Ring's W side (the whole x = 0 wall) gabled at 60°, steeper than every hip on the island.
+ */
+function gableSteeperThanHips(): ShellFixture {
+  const f = splitBandFixture('SB400-600B100S500g60r0', 400, 600, 100, 500, {a: 30, w: 30});
+  f.rings[0] = {...f.rings[0], sides: {...f.rings[0].sides, W: {form: 'gable', deg: 60}}};
+  return f;
+}
+
+/**
+ * Journal decision 164, finding 2: the Ring-conflict fixtures whose conflicts the user's lowest-index rule (spec
+ * decisions 3 and 128) decides, the six the correctness review measured.
+ */
+export const MODEL_ORDER_CONFLICTS = [
+  'FlushRingConflict', 'OverlapRingConflict', 'PitchRingConflict', 'ThreeRingConflict', 'StoreyRingConflict', 'CutPitchConflict',
+] as const;
+
+/**
+ * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
+ * file order reverses its model order (`scrambled`), named `<fixture>FileReversed`. `readInput` orders the Rings by model
+ * index, so each reads back as its fixture, and its shell names the file's own model indices and side slots
+ * (`withFileModelIndices`). A reader that keys the conflict rule on file position builds the reversed fixture instead.
+ */
+export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS.map(name =>
+  fileGolden(`${name}FileReversed`, scrambled(named(fixtureByName(name), `${name}FileReversed`)), rosterGenus(name)));
+
+/**
+ * Journal decisions 156, F3, 161, findings 2 and 3, and 164, findings 1 and 2: the oracles of the rules WP3.8 changed,
+ * each a clean golden that a rejected variant of its rule moves.
  * - `SplitBandFreeCut`: decision 151's counter-case `H300-700B200S500s30n45a30w60`, a split-band courtyard whose cut,
  *   the split's buried wall, is collinear with no wall, so it reads the free branch. The cutting Ring's walls at the
  *   cut's ends stand at 30° and 45° and the wings and far band at 60°, so the cut takes the island's steepest, 60°.
@@ -152,9 +179,14 @@ const allGabled = (f: ShellFixture): ShellFixture =>
  *   is geometry (decision 153), and here, unlike a single gable, it moves the shell: read at the Rings' 30° default, the
  *   gables change it.
  * - `AsymmetricLScrambled` (decision 161, finding 3, decision 156's F1 rule): the asymmetric L read from a document
- *   whose Rings each start at a non-canonical corner, listed in another order under model indices 7 and 20 that are not
- *   their array positions (`scrambled`). Its shell is built through `readInput`, and its provenance names the file's own
- *   model indices and side slots: the W gable is model index 7's side 2.
+ *   whose Rings each start at a non-canonical corner, under model indices 7 and 20 that are not their array positions
+ *   (`rotatedSparse`). Its Rings are listed in model order, so it is the oracle for the file's model indices and side
+ *   slots, not for Ring order: the `*FileReversed` goldens are that. Its shell is built through `readInput`, and its
+ *   provenance names the file's own model indices and side slots: the W gable is model index 7's side 2.
+ * - `SB400-600B100S500g60r0` (decision 164, finding 1, the reviewer's reproducer): the split-band layout
+ *   `H400-600B100S500` hipped at 30° throughout, with the cutting Ring's W side gabled at 60°, so the island has hips and
+ *   a gable steeper than every hip. Its free cut takes the gable's 60°; a hip-first rule takes the hips' 30° and moves it.
+ * - The `*FileReversed` goldens (`MODEL_ORDER_ORACLES`).
  */
 export const RULE_ORACLES: readonly CleanGolden[] = [
   cleanGolden(splitBandFixture('SplitBandFreeCut', 300, 700, 200, 500, {a: 30, s: 30, n: 45, w: 60}), [1]),
@@ -164,7 +196,9 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
     ring([0, 0, 1000, 400], 0, 1, 30, {W: {form: 'gable', deg: 60}}),
     ring([600, 0, 1000, 800], 0, 1, 30, {N: {form: 'gable', deg: 20}}),
   ]), [0]),
-  fileGolden('AsymmetricLScrambled', scrambled(named(ASYMMETRIC_L, 'AsymmetricLScrambled')), [0]),
+  fileGolden('AsymmetricLScrambled', rotatedSparse(named(ASYMMETRIC_L, 'AsymmetricLScrambled')), [0]),
+  cleanGolden(gableSteeperThanHips(), [1]),
+  ...MODEL_ORDER_ORACLES,
 ];
 
 /**
@@ -200,7 +234,8 @@ export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
 /**
  * Journal decision 129: every named fixture, the roster, the Ring-conflict pairs, the four Port fixtures and the
  * courtyard first, then every enrolled robustness fixture that builds, each at the storey heights its tests read, then
- * the rule oracles (decisions 156, F3, and 161, findings 2 and 3) and residue classes (decision 156, F4).
+ * the rule oracles (decisions 156, F3, 161, findings 2 and 3, and 164, findings 1 and 2) and residue classes (decision
+ * 156, F4).
  */
 export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...EXPORTED_FIXTURES.map(fixture => cleanGolden(fixture, rosterGenus(fixture.name))),
