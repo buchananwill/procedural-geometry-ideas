@@ -22,7 +22,8 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  pitchEndFixtures, randomFixtures, randomSplitCourtyards, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
+  pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, seededFixture, sweepFixture,
+  sweepFixtures,
 } from './robustness-fixtures.ts';
 import {planStorey} from '../src/storey.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
@@ -87,31 +88,74 @@ const PER_COURTYARD_SEED = 40;
 /** A courtyard runs from the ground to the sky: genus 1. */
 const COURTYARD_EXPECTED: ShellExpectation = {genus: 1, cheeks: 0};
 
+/** A generated case's key: its seed, storey height and name. */
+type SeededKey = `s${number}h${number}/${string}`;
+
+/** A pin table: every case of one generator that breaks an invariant, with exactly its outcome. */
+type PinTable<K extends string> = Readonly<Partial<Record<K, readonly string[]>>>;
+
 /**
- * Measured at WP3.7, findings, not waivers: every random courtyard that breaks an invariant, keyed `s<seed>h<height>/
- * <name>`, with exactly its violations (or `throws:` and the error a build raised). A case not listed keeps every
- * invariant. A cure breaks the suite as surely as a new defect, and either is re-measured, never softened.
- * - A surviving Cheek face (Court14), and a surviving Internal cut face with Unclassified Edges (Court15): roof-gable
- *   algorithm B's inherited defects, its CHEEK class and its cut-piece overshoot (`CutOvershootProbe`), in the frozen
- *   copy (spec decision 31).
- * - Court25: two storeys' faces touching face to face on one plane over part of each, a Gable facing +x against a Wall
- *   facing -x, which the union leaves unfused and the cleaning's sheet removal (journal decision 122, G1) does not
- *   reach, since the two regions differ.
+ * Why a pinned residue fails (journal decisions 150, F3 and F4): each pinned case carries its class explicitly, so an
+ * inherited defect and a regression a rule exposes are never confused.
+ */
+type DefectCause =
+  | 'roof-gable algorithm B, Cheek class (inherited)'
+  | 'roof-gable algorithm B, cut-piece overshoot (inherited)'
+  | "decision 132's cut rule exposes algorithm B's Cheek class (a regression)"
+  | 'partial face-to-face contact of two storeys on one plane (Court25 class)'
+  | 'edge contact between opposite coplanar faces (U8 class)'
+  | 'cleanMesh stuck cap';
+
+/**
+ * Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm, findings, not waivers: every random courtyard that
+ * breaks an invariant, with exactly its violations (or `throws:` and the error a build raised). A case not listed keeps
+ * every invariant. A cure breaks the suite as surely as a new defect, and either is re-measured, never softened. The
+ * gated run reads seeds 1 and 2 at 300 and 250; the opt-in run (`SHELL_COURT_SEEDS`) asserts against the same table.
+ * Every count-only signature names its place (journal decision 150, F4), so a defect that moves fails its pin.
  * WP3.6's table (decision 135, F2) held two `cleanMesh` refusals that floor-standing holed hip solids caused, s1h300/
  * Court5 (a stuck cap) and s1h250/Court16 (a pinching collapse); clustering (decision 122, F-C) cures both, and they are
  * kept as named regressions below, since the generator now draws other layouts under those names.
  */
-const COURTYARD_DEFECTS: Readonly<Record<string, readonly string[]>> = {
-  's1h300/Court14': ["cheeks 1, expected 0"],
-  's1h300/Court25': ["throws: cell 847: side 24-292 reads ShellEdge 63, its NetEdge -1"],
-  's1h250/Court14': ["cheeks 1, expected 0"],
+const COURTYARD_DEFECTS: PinTable<SeededKey> = {
+  's1h250/Court14': ["cheeks 1, expected 0, at (150, 400, 250)"],
   's1h250/Court25': ["throws: cell 729: side 24-278 reads ShellEdge 63, its NetEdge -1"],
-  's2h300/Court15': ["survivingInternal 1","3 Unclassified Edges"],
-  's2h250/Court15': ["survivingInternal 1","3 Unclassified Edges"],
+  's1h263/Court14': ["cheeks 1, expected 0, at (150, 400, 263)"],
+  's1h263/Court25': ["throws: cell 871: side 24-318 reads ShellEdge 63, its NetEdge -1"],
+  's1h300/Court14': ["cheeks 1, expected 0, at (150, 400, 300)"],
+  's1h300/Court25': ["throws: cell 847: side 24-292 reads ShellEdge 63, its NetEdge -1"],
+  's2h250/Court15': ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"],
+  's2h263/Court15': ["survivingInternal 1 at (275, 100, 588.546875)","3 Unclassified Edges: (250, 100, 583.7353515625) to (275, 100, 598.1689453125); (250, 100, 583.7353515625) to (300, 100, 583.7353515625); (275, 100, 598.1689453125) to (300, 100, 583.7353515625)"],
+  's2h300/Court15': ["survivingInternal 1 at (275, 100, 662.546875)","3 Unclassified Edges: (250, 100, 657.7353515625) to (275, 100, 672.1689453125); (250, 100, 657.7353515625) to (300, 100, 657.7353515625); (275, 100, 672.1689453125) to (300, 100, 657.7353515625)"],
+  's4h250/Court7': ["survivingInternal 1 at (606.4326171875, 300, 263.3369140625)","3 Unclassified Edges: (550, 300, 250) to (619.298828125, 300, 290.009765625); (550, 300, 250) to (650, 300, 250); (619.298828125, 300, 290.009765625) to (650, 300, 250)"],
+  's4h263/Court7': ["survivingInternal 1 at (606.4326171875, 300, 276.3369140625)","3 Unclassified Edges: (550, 300, 263) to (619.298828125, 300, 303.009765625); (550, 300, 263) to (650, 300, 263); (619.298828125, 300, 303.009765625) to (650, 300, 263)"],
+  's4h300/Court7': ["survivingInternal 1 at (606.4326171875, 300, 313.3369140625)","3 Unclassified Edges: (550, 300, 300) to (619.298828125, 300, 340.009765625); (550, 300, 300) to (650, 300, 300); (619.298828125, 300, 340.009765625) to (650, 300, 300)"],
+  's5h250/Court34': ["cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)"],
+  's5h263/Court34': ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)"],
+  's5h300/Court34': ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)"],
+  's6h250/Court23': ["cheeks 2, expected 0, at (100, 300, 380.322265625); (350, 300, 250)"],
+  's6h263/Court23': ["cheeks 2, expected 0, at (100, 300, 393.322265625); (350, 300, 263)"],
+  's6h300/Court23': ["cheeks 2, expected 0, at (100, 300, 430.322265625); (350, 300, 300)"],
 };
 
-/** Measured at WP3.7: every U-shape case that breaks an invariant, in the same form. None does. */
-const U_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+/** Each courtyard residue's class (journal decision 150, F3 and F4). */
+const COURTYARD_CAUSES: Readonly<Record<string, DefectCause>> = {
+  Court14: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)",
+  Court23: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)",
+  Court34: 'roof-gable algorithm B, Cheek class (inherited)',
+  Court15: 'roof-gable algorithm B, cut-piece overshoot (inherited)',
+  Court7: 'roof-gable algorithm B, cut-piece overshoot (inherited)',
+  Court25: 'partial face-to-face contact of two storeys on one plane (Court25 class)',
+};
+
+/** Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
+const U_DEFECTS: PinTable<SeededKey> = {
+  's6h263/U8': ["throws: vertex 286: two Cells run the same way along one NetEdge"],
+  's6h300/U8': ["throws: vertex 285: two Cells run the same way along one NetEdge"],
+};
+
+/** Each U residue's class. */
+const U_CAUSES: Readonly<Record<string, DefectCause>> = {
+  U8: 'edge contact between opposite coplanar faces (U8 class)',
 };
 
 /** A build's measured outcome: its invariant violations, or the error it raised. */
@@ -133,16 +177,32 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
 });
 
 /**
- * Measured at WP3.8: every split-band courtyard (journal decisions 150 and 151) that breaks an invariant, in the same
- * form. Split mode makes the free cut, collinear with no wall, the shortest, so every one of these reads the free
- * branch and takes the island's steepest hip wall.
+ * Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm: every split-band courtyard (journal decisions 150 and
+ * 151) that breaks an invariant, in the same form. Split mode makes the free cut, collinear with no wall, the shortest,
+ * so every one of these reads the free branch and takes the island's steepest hip wall. Each fails at every free-cut
+ * pitch tried (the island's, 45 degrees, and the cut-ends rule's), so none is the cut's pitch.
  */
-const SPLIT_COURTYARD_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+const SPLIT_COURTYARD_DEFECTS: PinTable<SeededKey> = {
   's2h250/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
   's2h263/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
   's2h300/SplitCourt10': ["throws: cleanMesh: cap 38 (31-37, apex 34) can neither flip nor merge its apex into its long edge"],
   's5h250/SplitCourt29': ["throws: cell 790: side 334-11 reads ShellEdge 59, its NetEdge -1"],
 };
+
+/** Each split-band residue's class. */
+const SPLIT_CAUSES: Readonly<Record<string, DefectCause>> = {
+  SplitCourt10: 'cleanMesh stuck cap',
+  SplitCourt29: 'partial face-to-face contact of two storeys on one plane (Court25 class)',
+};
+
+describe('the pin tables (journal decision 150, F4)', () => {
+  it.each([
+    ['courtyards', COURTYARD_DEFECTS, COURTYARD_CAUSES], ['U shapes', U_DEFECTS, U_CAUSES], ['split bands', SPLIT_COURTYARD_DEFECTS, SPLIT_CAUSES],
+  ] as const)('every %s residue carries its cause, and every cause a residue', (_, pins, causes) => {
+    const names = [...new Set(Object.keys(pins).map(k => k.slice(k.indexOf('/') + 1)))].sort();
+    expect(names).toEqual(Object.keys(causes).sort());
+  });
+});
 
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random split-band courtyards (journal decisions 150 and 151): seed %i at %i cm storeys', (seed, h) => {
   const draws = randomSplitCourtyards(seed, PER_COURTYARD_SEED, h);
@@ -173,16 +233,16 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
  * cm across, above the cleaning's tolerance and at the shell's, whose Edges read Indeterminate, so Unclassified. The
  * nudges of 0.5/1024 to 4/1024 cm, which C8's link check and the 0.005 cm move limit refused (F-C, G2), all build.
  */
-const NUDGE_DEFECTS: Readonly<Record<string, readonly string[]>> = {
-  ApexEdge5: ["1 Unclassified Edges","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 15,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 576 on ShellEdge 18 borders faces 9, expected 7,9","NetEdge 577 on ShellEdge 23 borders faces 9, expected 15,9","interior NetEdge 921 borders cells 450","interior NetEdge 924 borders cells 451"],
-  RidgeEdge5: ["2 Unclassified Edges"],
-  OverhangApexOnEave5: ["1 Unclassified Edges","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 14,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 686 on ShellEdge 18 borders faces 10, expected 10,7","NetEdge 687 on ShellEdge 23 borders faces 10, expected 10,14","interior NetEdge 1016 borders cells 494","interior NetEdge 1019 borders cells 495"],
-  ApexEdge8: ["4 Unclassified Edges"],
-  RidgeEdge8: ["3 Unclassified Edges"],
-  OverhangApexOnEave8: ["5 Unclassified Edges"],
-  ApexEdge12: ["4 Unclassified Edges"],
-  RidgeEdge12: ["3 Unclassified Edges"],
-  OverhangApexOnEave12: ["4 Unclassified Edges"],
+const NUDGE_DEFECTS: PinTable<string> = {
+  'ApexEdge5': ["1 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0048828125)","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 15,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 576 on ShellEdge 18 borders faces 9, expected 7,9","NetEdge 577 on ShellEdge 23 borders faces 9, expected 15,9","interior NetEdge 921 borders cells 450","interior NetEdge 924 borders cells 451"],
+  'ApexEdge8': ["4 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0078125); (250, 0, 500) to (250, 249.9921875, 500); (250, 250, 500.0078125) to (250.00390625, 249.99609375, 500.00390625); (250, 250, 500.0078125) to (250.00390625, 250.00390625, 500.00390625)"],
+  'ApexEdge12': ["4 Unclassified Edges: (0, 500, 250) to (250, 250, 500.01171875); (250, 0, 500) to (250, 249.98828125, 500); (250, 250, 500.01171875) to (250.005859375, 249.994140625, 500.005859375); (250, 250, 500.01171875) to (250.005859375, 250.005859375, 500.005859375)"],
+  'OverhangApexOnEave5': ["1 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0048828125)","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 14,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 686 on ShellEdge 18 borders faces 10, expected 10,7","NetEdge 687 on ShellEdge 23 borders faces 10, expected 10,14","interior NetEdge 1016 borders cells 494","interior NetEdge 1019 borders cells 495"],
+  'OverhangApexOnEave8': ["5 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0078125); (250, 0, 500) to (250, 249.9921875, 500); (250, 250, 500.0078125) to (250.00390625, 249.99609375, 500.00390625); (250, 250, 500.0078125) to (250.00390625, 250.00390625, 500.00390625); (250, 250.0078125, 500) to (250, 500, 500)"],
+  'OverhangApexOnEave12': ["4 Unclassified Edges: (0, 500, 250) to (250, 250, 500.01171875); (250, 250, 500.01171875) to (250.005859375, 249.994140625, 500.005859375); (250, 250, 500.01171875) to (250.005859375, 250.005859375, 500.005859375); (250, 250.01171875, 500) to (250, 500, 500)"],
+  'RidgeEdge5': ["2 Unclassified Edges: (450, 250, 500.0048828125) to (450.0048828125, 250, 500); (450, 250, 500.0048828125) to (700, 500, 250)"],
+  'RidgeEdge8': ["3 Unclassified Edges: (100, 250, 500) to (249.9921875, 250, 500); (450, 250, 500.0078125) to (450.00390625, 249.99609375, 500.00390625); (450, 250, 500.0078125) to (700, 500, 250)"],
+  'RidgeEdge12': ["3 Unclassified Edges: (100, 250, 500) to (249.98828125, 250, 500); (450, 250, 500.01171875) to (450.005859375, 249.994140625, 500.005859375); (450, 250, 500.01171875) to (700, 500, 250)"],
 };
 
 describe("journal decision 122's δ-nudges at 250 cm storeys: an apex or ridge a hair under, at or over the floor above", () => {
@@ -251,29 +311,30 @@ describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vert
  * exactly its violations. Below 7 degrees the 0.173 degree sweep and finer scans find narrow pockets, all but one a
  * Cell side that lies on no ShellEdge, lattice line or split line; from 6.91 degrees up, every case scanned is green.
  */
-const PITCH_END_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+const PITCH_END_DEFECTS: PinTable<string> = {
   'G5.86h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.86h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.86h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.86h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.87h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.87h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.87h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.87h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.02h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.02h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.02h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.02h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.9h250u': ["2 Unclassified Edges: (400, 200, 274.203125) to (400, 200, 500); (400, 200, 274.203125) to (600, 400, 250)"],
+  'G6.015h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.15h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.15h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.27h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.27h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.38h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
@@ -281,7 +342,6 @@ const PITCH_END_DEFECTS: Readonly<Record<string, readonly string[]>> = {
   'G6.48h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.57h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.66h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.9h250u': ["2 Unclassified Edges"],
 };
 
 describe("the wire format's pitch ends (journal decision 143): the sweep's box from 5 to 20 and from 70 to 75 degrees", () => {
@@ -334,6 +394,33 @@ describe("journal decision 135, F2: floor-standing holed hip solids' two cleanMe
   });
 });
 
+/**
+ * Journal decision 150, F6: the correctness reviewer's near-touching islands, `[0,0,500,400]` and a second island a gap
+ * of k/1024 cm beyond x = 500, its corners aligned with the first's or offset to y 100 to 300. Each is two islands as
+ * authored, genus 0 each. Measured at WP3.8:
+ * - aligned, at gaps under `CLEAN_TOLERANCE_CM` (1 and 3), the cleaning clusters the facing corners and fuses the two
+ *   into one component;
+ * - offset, at those gaps, no corner meets a corner, so the two stay apart within the tolerance: loud, by the
+ *   near-contact invariant, never fused;
+ * - at 5/1024 and beyond, two components, clean.
+ * Integer-quantum C++ corners cannot produce either, and the wire's 1/1024 snap makes them mis-authoring.
+ */
+const GAP_DEFECTS: PinTable<`Gap${'Aligned' | 'Offset'}${number}`> = {
+  'GapAligned1': ["genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"],
+  'GapAligned3': ["genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"],
+  'GapOffset1': ["two components lie 9.766e-4 cm apart, within CLEAN_TOLERANCE_CM, at (500.0009765625, 100, 0) and (500, 100, 0)"],
+  'GapOffset3': ["two components lie 2.930e-3 cm apart, within CLEAN_TOLERANCE_CM, at (500.0029296875, 100, 0) and (500, 100, 0)"],
+};
+
+describe('near-touching islands (journal decision 150, F6)', () => {
+  const cases = [1, 3, 5, 8, 12].flatMap(k => ([['Aligned', [0, 400]], ['Offset', [100, 300]]] as const).map(([kind, [y0, y1]]) =>
+    [`Gap${kind}${k}` as `Gap${'Aligned' | 'Offset'}${number}`, k, y0, y1] as const));
+  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, k, y0, y1) => {
+    const f: ShellFixture = {name, cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 400], 0, 1, 45), ring([500 + k / 1024, y0, 1000, y1], 0, 1, 45)]};
+    expect(await outcome(f, {genus: [0, 0], cheeks: 0})).toEqual(GAP_DEFECTS[name] ?? []);
+  });
+});
+
 describe('journal decision 140, F5: storeys joined by edge contact', () => {
   // WP5's review: storey 1's U stands on storey 0 by its wings, and its band touches storey 0 only along storey 0's
   // north eave, y = 400 at z = 250. The band's Underside runs straight past the U's inner corners there, so a Cell
@@ -371,11 +458,15 @@ if (FUZZ_SEEDS.length) {
 
 if (COURT_FUZZ_SEEDS.length) {
   describe.each(COURT_FUZZ_SEEDS.flatMap(s => FUZZ_HEIGHTS.map(h => [s, h] as const)))('the opt-in courtyard and U fuzz: seed %i at %i cm storeys', (seed, h) => {
-    it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('courtyard %s', async (_, f) => {
-      expect(await courtyardOutcome(f)).toEqual([]);
+    // Journal decision 150, F4: the opt-in run asserts against the same pins as the gated run.
+    it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('courtyard %s', async (name, f) => {
+      expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
     });
-    it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('U %s', async (_, f) => {
-      expect(await outcome(f, EXPECTED)).toEqual([]);
+    it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('U %s', async (name, f) => {
+      expect(await outcome(f, EXPECTED)).toEqual(U_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+    });
+    it.each(randomSplitCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('split-band courtyard %s', async (name, f) => {
+      expect(await courtyardOutcome(f)).toEqual(SPLIT_COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
     });
   });
 }

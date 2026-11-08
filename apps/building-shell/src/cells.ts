@@ -97,6 +97,13 @@ export interface SplitLine { axis: 0 | 1; at: number; lo: number; hi: number }
 export type SplitTable = SplitLine[][];
 
 /**
+ * Whether a point of the face's lattice frame, `held` on `axis` and `other` on the other, lies on split line `x`: on
+ * its line and within its extent, both within `SHELL_TOLERANCE_CM` (journal decision 150, F8).
+ */
+export const onSplitLine = (x: SplitLine, axis: 0 | 1, held: number, other: number): boolean =>
+  x.axis === axis && Math.abs(held - x.at) <= SHELL_TOLERANCE_CM && other >= x.lo - SHELL_TOLERANCE_CM && other <= x.hi + SHELL_TOLERANCE_CM;
+
+/**
  * A point found inside a ShellEdge, at parameter `t` from `a`: a vertex already registered (`id`, a ShellEdge end
  * lying inside this edge) or a lattice crossing still to register (`p`).
  */
@@ -353,11 +360,15 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
       }
     }
     const faceSplits = splits[face.id];
-    /** A Cell corner's lattice coordinate: on a lattice line, or on one of the face's split lines (G3). */
-    const onLine = (v: number, axis: 0 | 1): number | null => {
+    /**
+     * A Cell corner's lattice coordinate on `axis`: on a lattice line, or on one of the face's split lines (G3) within
+     * that line's extent (journal decision 150, F8).
+     */
+    const onLine = (q: Vec2, axis: 0 | 1): number | null => {
+      const v = q[axis];
       const k = Math.round(v / cellSize);
       if (Math.abs(v - k * cellSize) <= SHELL_TOLERANCE_CM) return k * cellSize;
-      const sp = faceSplits.find(x => x.axis === axis && Math.abs(v - x.at) <= SHELL_TOLERANCE_CM);
+      const sp = faceSplits.find(x => onSplitLine(x, axis, v, q[1 - axis]));
       return sp ? sp.at : null;
     };
     /** The face-interior vertices made on split lines, which neighbouring Cells' sides must carry too (G3). */
@@ -371,7 +382,7 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
         if (d <= bestD) { best = c.id; bestD = d; }
       }
       if (best >= 0) return best;
-      const s0 = onLine(q[0], 0), t0 = onLine(q[1], 1);
+      const s0 = onLine(q, 0), t0 = onLine(q, 1);
       if (s0 !== null && t0 !== null) {
         const id = vertexAt(reg, lift(face, fr, s0, t0), {at: 'face', face: face.id});
         if (!onLattice(s0, cellSize) || !onLattice(t0, cellSize)) splitVerts.add(id);
@@ -475,9 +486,13 @@ function assembleNetEdges(
         }
         const A = reg.positions[a], B = reg.positions[b];
         if (shellEdge < 0) {
-          const onSplit = (axis: 0 | 1, v: number): boolean => splits[cell.face].some(x => x.axis === axis && Math.abs(v - x.at) <= SHELL_TOLERANCE_CM);
-          const alongS = Math.abs(A[fr.s] - B[fr.s]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.s], cellSize) || onSplit(0, A[fr.s]));
-          const alongT = Math.abs(A[fr.t] - B[fr.t]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.t], cellSize) || onSplit(1, A[fr.t]));
+          // Journal decision 150, F8: a side lies on a split line only within that line's extent.
+          const onSplit = (axis: 0 | 1): boolean => {
+            const [held, other] = axis === 0 ? [fr.s, fr.t] : [fr.t, fr.s];
+            return splits[cell.face].some(x => onSplitLine(x, axis, A[held], A[other]) && onSplitLine(x, axis, B[held], B[other]));
+          };
+          const alongS = Math.abs(A[fr.s] - B[fr.s]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.s], cellSize) || onSplit(0));
+          const alongT = Math.abs(A[fr.t] - B[fr.t]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.t], cellSize) || onSplit(1));
           if (!alongS && !alongT) throw new Error(`cell ${cell.id}: side ${a}-${b} is neither on a ShellEdge, a lattice line nor a split line`);
         }
         id = netEdges.length;

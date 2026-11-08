@@ -5,7 +5,9 @@ import {snapPoint} from '../src/edges.ts';
 import {ShellFace, loopArea, meshPoint} from '../src/faces.ts';
 import type {ShellBuild} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
-import {dist3, lineDistance} from '../src/vec3.ts';
+import {CLEAN_TOLERANCE_CM} from '../src/clean.ts';
+import {makeUnionFind, UnionFind} from '../src/halfedge.ts';
+import {Segment, dist3, lineDistance, nearestOnSegments, nearestOnTriangle, segmentDistance} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {winningRegionViolations} from './winning-regions.ts';
 
@@ -49,21 +51,21 @@ export interface ShellExpectation { genus: number | readonly number[]; cheeks: n
  * components (journal decision 140). Each one's genus is `1 - (V - E + F) / 2`.
  */
 export function componentGenera(mesh: Pick<ShellBuild['union']['mesh'], 'tris'>): number[] {
+  return componentRecords(mesh).map(c => c.genus);
+}
+
+/** One connected component of a mesh: its genus and its least vertex (x, then y, then z), snapped. */
+export interface ComponentRecord { genus: number; at: Vec3 }
+
+/**
+ * Every connected component's genus and place, highest genus first, then by place. A component's place is its least
+ * vertex, so a component that moves fails a pin that names it (journal decision 150, F4).
+ */
+export function componentRecords(mesh: Pick<ShellBuild['union']['mesh'], 'tris'> & Partial<Pick<ShellBuild['union']['mesh'], 'positions'>>): ComponentRecord[] {
   const T = mesh.tris;
-  const nTri = T.length / 3;
-  const up = Int32Array.from({length: nTri}, (_, i) => i);
-  const find = (t: number): number => { while (up[t] !== t) { up[t] = up[up[t]]; t = up[t]; } return t; };
-  const byEdge = new Map<string, number>();
-  for (let t = 0; t < nTri; t++) {
-    for (let j = 0; j < 3; j++) {
-      const a = T[3 * t + j], b = T[3 * t + (j + 1) % 3];
-      const k = a < b ? `${a},${b}` : `${b},${a}`;
-      const u = byEdge.get(k);
-      if (u === undefined) byEdge.set(k, t); else up[find(t)] = find(u);
-    }
-  }
+  const {find, byEdge} = triangleComponents(T);
   const comps = new Map<number, {v: Set<number>; e: number; f: number}>();
-  for (let t = 0; t < nTri; t++) {
+  for (let t = 0; t < T.length / 3; t++) {
     const r = find(t);
     let c = comps.get(r);
     if (!c) { c = {v: new Set(), e: 0, f: 0}; comps.set(r, c); }
@@ -74,8 +76,114 @@ export function componentGenera(mesh: Pick<ShellBuild['union']['mesh'], 'tris'>)
     const c = comps.get(find(t));
     if (c) c.e++;
   }
-  return [...comps.values()].map(c => 1 - (c.v.size - c.e + c.f) / 2).sort((a, b) => b - a);
+  const P = mesh.positions;
+  const least = (vs: Set<number>): Vec3 => {
+    if (!P) return [0, 0, 0];
+    const pts = [...vs].map(v => meshPoint(P, v));
+    return snapPoint(pts.reduce((m, p) => (cmpPoint(p, m) < 0 ? p : m)));
+  };
+  return [...comps.values()].map(c => ({genus: 1 - (c.v.size - c.e + c.f) / 2, at: least(c.v)}))
+    .sort((a, b) => b.genus - a.genus || cmpPoint(a.at, b.at));
 }
+
+/** A mesh's triangles joined across shared edges: each triangle's component root, and one triangle per edge. */
+export interface TriangleComponents { find: UnionFind['find']; byEdge: Map<string, number> }
+
+/** The triangles joined across shared edges (journal decision 145, B1: `makeUnionFind`, not a hand loop). */
+export function triangleComponents(T: ArrayLike<number>): TriangleComponents {
+  const uf = makeUnionFind(T.length / 3);
+  const byEdge = new Map<string, number>();
+  for (let t = 0; t < T.length / 3; t++) {
+    for (let j = 0; j < 3; j++) {
+      const a = T[3 * t + j], b = T[3 * t + (j + 1) % 3];
+      const k = a < b ? `${a},${b}` : `${b},${a}`;
+      const u = byEdge.get(k);
+      if (u === undefined) byEdge.set(k, t); else uf.join(t, u);
+    }
+  }
+  return {find: uf.find, byEdge};
+}
+
+/** The nearest pair of points found between two components so far, and their distance. */
+interface NearestPair { d: number; at: Segment | null }
+
+/** One component's geometry for the near-contact test: its triangles, its edges and its box. */
+interface ComponentGeometry { tris: number[]; edges: [number, number][]; lo: Vec3; hi: Vec3 }
+
+/**
+ * Journal decision 150, F6: no two distinct components lie within `CLEAN_TOLERANCE_CM` of each other without touching.
+ * A near contact closer than the cleaning's radius, with extents offset so that no vertex meets a vertex, leaves two
+ * components that the cleaning cannot fuse: loud, not fused. Components that touch (distance 0, as Manifold writes
+ * solids meeting only along an edge or at a point) are legitimate (journal decision 140). The distance is the least of
+ * every vertex to every triangle of the other component, and every edge to every edge.
+ */
+export function nearContactViolations(mesh: Pick<ShellBuild['union']['mesh'], 'tris' | 'positions'>): string[] {
+  const T = mesh.tris, P = (v: number): Vec3 => meshPoint(mesh.positions, v);
+  const {find} = triangleComponents(T);
+  const geo = new Map<number, ComponentGeometry>();
+  for (let t = 0; t < T.length / 3; t++) {
+    const r = find(t);
+    let g = geo.get(r);
+    if (!g) { g = {tris: [], edges: [], lo: [Infinity, Infinity, Infinity], hi: [-Infinity, -Infinity, -Infinity]}; geo.set(r, g); }
+    g.tris.push(t);
+    for (let j = 0; j < 3; j++) {
+      const a = T[3 * t + j], b = T[3 * t + (j + 1) % 3];
+      if (a < b) g.edges.push([a, b]);
+      const p = P(a);
+      for (let k = 0; k < 3; k++) { g.lo[k] = Math.min(g.lo[k], p[k]); g.hi[k] = Math.max(g.hi[k], p[k]); }
+    }
+  }
+  const comps = [...geo.values()];
+  if (comps.length < 2) return [];
+  const tol = CLEAN_TOLERANCE_CM;
+  const out: string[] = [];
+  const near = (p: Vec3, g: ComponentGeometry): boolean => [0, 1, 2].every(k => p[k] >= g.lo[k] - tol && p[k] <= g.hi[k] + tol);
+  for (let i = 0; i < comps.length; i++) {
+    for (let j = i + 1; j < comps.length; j++) {
+      const A = comps[i], B = comps[j];
+      if ([0, 1, 2].some(k => A.lo[k] > B.hi[k] + tol || B.lo[k] > A.hi[k] + tol)) continue;
+      const nearest: NearestPair = {d: Infinity, at: null};
+      const consider = (p: Vec3, q: Vec3): void => { const d = dist(p, q); if (d < nearest.d) { nearest.d = d; nearest.at = [p, q]; } };
+      for (const [X, Y] of [[A, B], [B, A]] as const) {
+        const verts = new Set(X.tris.flatMap(t => [T[3 * t], T[3 * t + 1], T[3 * t + 2]]));
+        for (const v of verts) {
+          const p = P(v);
+          if (!near(p, Y)) continue;
+          for (const t of Y.tris) consider(p, nearestOnTriangle(p, P(T[3 * t]), P(T[3 * t + 1]), P(T[3 * t + 2])));
+        }
+      }
+      const aEdges = A.edges.filter(([a, b]) => near(P(a), B) || near(P(b), B));
+      const bEdges = B.edges.filter(([a, b]) => near(P(a), A) || near(P(b), A));
+      for (const [a, b] of aEdges) for (const [c, d] of bEdges) { const [p, q] = nearestOnSegments(P(a), P(b), P(c), P(d)); consider(p, q); }
+      if (nearest.at && nearest.d > 0 && nearest.d <= tol) {
+        const [p, q] = nearest.at;
+        out.push(`two components lie ${nearest.d.toExponential(3)} cm apart, within CLEAN_TOLERANCE_CM, at ${placeText(p)} and ${placeText(q)}`);
+      }
+    }
+  }
+  return out;
+}
+
+/** An output triangle's centroid. */
+const triCentroid = (mesh: ShellBuild['union']['mesh'], t: number): Vec3 => {
+  const [a, b, c] = [0, 1, 2].map(j => meshPoint(mesh.positions, mesh.tris[3 * t + j]));
+  return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+};
+
+/** Points in order of x, then y, then z. */
+const cmpPoint = (p: Vec3, q: Vec3): number => p[0] - q[0] || p[1] - q[1] || p[2] - q[2];
+
+/** A point as a pin names it: snapped to the 1/1024 cm grid (journal decision 150, F4). */
+export const placeText = (p: Vec3): string => `(${snapPoint(p).join(', ')})`;
+
+/** A segment as a pin names it: both ends snapped, the lesser first. */
+const segmentText = (p: Vec3, q: Vec3): string => {
+  const [a, b] = [snapPoint(p), snapPoint(q)].sort(cmpPoint);
+  return `${placeText(a)} to ${placeText(b)}`;
+};
+
+/** Distinct texts, sorted, joined: one defect list as a pin line carries it. */
+const places = (xs: string[]): string => [...new Set(xs)].sort().join('; ');
 
 /**
  * Float epsilon for an area sum, in cm² per cm² summed: double arithmetic over float32 positions of a few thousand cm
@@ -83,16 +191,7 @@ export function componentGenera(mesh: Pick<ShellBuild['union']['mesh'], 'tris'>)
  */
 export const AREA_EPS_PER_CM2 = 1e-9;
 
-/** A straight segment between two points. */
-export type Segment = [Vec3, Vec3];
-
-/** Distance from `p` to segment `s`. */
-function segmentDistance(p: Vec3, [a, b]: Segment): number {
-  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
-  const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-  const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * ab[0] + (p[1] - a[1]) * ab[1] + (p[2] - a[2]) * ab[2]) / L2)) : 0;
-  return Math.hypot(a[0] + t * ab[0] - p[0], a[1] + t * ab[1] - p[1], a[2] + t * ab[2] - p[2]);
-}
+export type {Segment};
 
 /** Iterations of each one-dimensional search: halves the interval 40 times, far finer than any tolerance here. */
 const SEARCH_STEPS = 40;
@@ -274,10 +373,20 @@ export function invariantViolations(b: ShellBuild, want: ShellExpectation): stri
   const {union: u, shell} = b;
   if (u.status !== 'NoError') out.push(`status ${u.status}`);
   if (!u.closed) out.push('not closed');
-  const genera = componentGenera(u.mesh), wanted = typeof want.genus === 'number' ? [want.genus] : [...want.genus];
-  if (genera.join(',') !== wanted.join(',')) out.push(`genus per component ${genera.join(',')}, expected ${wanted.join(',')}`);
-  if (u.survivingInternal !== 0) out.push(`survivingInternal ${u.survivingInternal}`);
-  if (shell.report.cheeks !== want.cheeks) out.push(`cheeks ${shell.report.cheeks}, expected ${want.cheeks}`);
+  // Journal decision 150, F4: every count-only defect names where it is, so one moved with the same count fails its pin.
+  const comps = componentRecords(u.mesh), wanted = typeof want.genus === 'number' ? [want.genus] : [...want.genus];
+  if (comps.map(c => c.genus).join(',') !== wanted.join(',')) {
+    out.push(`genus per component ${comps.map(c => c.genus).join(',')}, expected ${wanted.join(',')}: ${comps.map(c => `genus ${c.genus} at ${placeText(c.at)}`).join('; ')}`);
+  }
+  out.push(...nearContactViolations(u.mesh));
+  if (u.survivingInternal !== 0) {
+    const at = u.triTags.flatMap((t, i) => (t.kind === 'Internal' ? [placeText(triCentroid(u.mesh, i))] : []));
+    out.push(`survivingInternal ${u.survivingInternal} at ${places(at)}`);
+  }
+  if (shell.report.cheeks !== want.cheeks) {
+    const at = shell.faces.filter(f => f.tag.kind === 'Cheek').map(f => placeText(f.loops[0].reduce((m, p) => (cmpPoint(p, m) < 0 ? p : m))));
+    out.push(`cheeks ${shell.report.cheeks}, expected ${want.cheeks}${at.length ? `, at ${places(at)}` : ''}`);
+  }
 
   const tiled = new Map<number, number>();
   for (const c of shell.cells) {
@@ -296,7 +405,10 @@ export function invariantViolations(b: ShellBuild, want: ShellExpectation): stri
     tiled.set(c.face, (tiled.get(c.face) ?? 0) + Math.abs(area));
   }
   out.push(...faceLoopViolations(b), ...tagPlaneViolations(b), ...winningRegionViolations(u), ...cutPlaneViolations(u));
-  if (shell.report.unclassifiedEdges !== 0) out.push(`${shell.report.unclassifiedEdges} Unclassified Edges`);
+  if (shell.report.unclassifiedEdges !== 0) {
+    const at = shell.edges.filter(e => e.kind === 'Unclassified').map(e => segmentText(e.a, e.b));
+    out.push(`${shell.report.unclassifiedEdges} Unclassified Edges: ${places(at)}`);
+  }
   for (const e of shell.edges) {
     if (b.faces.identities[e.faces[0]] === b.faces.identities[e.faces[1]]) out.push(`ShellEdge ${e.id} joins two faces of one identity`);
   }

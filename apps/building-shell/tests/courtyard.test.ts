@@ -336,7 +336,10 @@ describe('layouts the rule refuses (spec decision 2 as amended)', () => {
     const got = runB(plan.building, {far: 'plane'}).eval(at);
     expect(got?.h ?? NaN).toBeCloseTo(122.7 * Math.tan(Math.PI / 6), 1);
     expect(truth(at.x, at.y)).toBeCloseTo(101.7 * Math.tan(Math.PI / 6), 1);
-    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual(['survivingInternal 1', '3 Unclassified Edges']);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([
+      'survivingInternal 1 at (125, 250, 312.546875)',
+      '3 Unclassified Edges: (100, 250, 307.7353515625) to (125, 250, 322.1689453125); (100, 250, 307.7353515625) to (150, 250, 307.7353515625); (125, 250, 322.1689453125) to (150, 250, 307.7353515625)',
+    ]);
   });
 
   it('builds the Courtyard from COURTYARD_RECTS', () => {

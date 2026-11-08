@@ -1,15 +1,15 @@
 // The cleaning between the union and step 4 (journal decision 101, F36): near-coincident vertices merge, caps flip
 // away, the result stays a closed manifold, and every triangle keeps a tag whose plane holds it.
 import {describe, expect, it} from 'vitest';
-import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, meshOf} from '../src/clean.ts';
+import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, float32Ulp, meetMargin, meshOf} from '../src/clean.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import type {ShellMesh} from '../src/mesh.ts';
 import {ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
-import {randomFixtures} from './robustness-fixtures.ts';
-import {AREA_TOL} from './shell-invariants.ts';
+import {CAP_CHAIN_SEED, randomFixtures, seededFixture} from './robustness-fixtures.ts';
+import {AREA_TOL, nearContactViolations} from './shell-invariants.ts';
 
 /** `probe10.mjs`'s fixture: its union leaves four vertex pairs 7.6e-5 to 2.3e-4 cm apart. */
 const NEAR_PAIRS: ShellFixture = {
@@ -164,5 +164,55 @@ describe('cleanMesh', () => {
     const {mesh: out, stats} = cleanMesh(mesh);
     expect(stats.sheetTris).toBe(2);
     expect(out.tris.length / 3).toBe(4);
+  });
+});
+
+describe('the move bound on the float32 positions as written (journal decision 150, F5)', () => {
+  const [seed, index] = CAP_CHAIN_SEED;
+
+  it('aims the meeting point short of the bound by more than the float32 write can carry it', () => {
+    for (const x of [1, 300, 1000, 4000, 1e5]) expect(meetMargin(x)).toBeGreaterThan((Math.sqrt(3) / 2) * float32Ulp(x));
+    expect(float32Ulp(1000)).toBe(2 ** -14);
+  });
+
+  // Seed4Fuzz134 is the corpus's one meeting point (scanned over every gated and opt-in generator at WP3.8). Every
+  // union vertex's move is read here from the two float32 meshes themselves, never from the cleaning's own figure.
+  it.each([[250], [263], [300]] as const)(`Seed${seed}Fuzz${index} at %i cm: every vertex moves within CLEAN_MAX_MOVE_CM, read in float32`, async h => {
+    const u = await unionShell(seededFixture(seed, index, h));
+    const raw = await rawUnion(u);
+    const {mesh, stats, vertexOf} = cleanMesh(raw, u.tags.planes);
+    if (h !== 263) expect(stats.met).toBeGreaterThan(0);
+    let worst = 0;
+    vertexOf.forEach((w, o) => {
+      if (w < 0) return;
+      const d = Math.hypot(...[0, 1, 2].map(k => mesh.positions[3 * w + k] - raw.positions[3 * o + k]));
+      worst = Math.max(worst, d);
+    });
+    expect(worst).toBeLessThanOrEqual(CLEAN_MAX_MOVE_CM);
+    expect(stats.maxMoveCm).toBe(worst);
+  });
+});
+
+describe('the near-contact invariant (journal decision 150, F6)', () => {
+  /** Two unit-ish boxes along x, the second `gap` cm beyond the first and offset in y and z, so no corners meet. */
+  const boxes = (gap: number): ShellMesh => {
+    const box = (x0: number, y0: number, z0: number, s: number): number[] =>
+      [0, 1].flatMap(k => [0, 1].flatMap(j => [0, 1].flatMap(i => [x0 + i * s, y0 + j * s, z0 + k * s])));
+    const quads = [[0, 2, 3, 1], [4, 5, 7, 6], [0, 1, 5, 4], [2, 6, 7, 3], [0, 4, 6, 2], [1, 3, 7, 5]];
+    const tris = (o: number): number[] => quads.flatMap(([a, b, c, d]) => [o + a, o + b, o + c, o + a, o + c, o + d]);
+    return {
+      positions: Float32Array.from([...box(0, 0, 0, 10), ...box(10 + gap, 2, 2, 6)]),
+      tris: Uint32Array.from([...tris(0), ...tris(8)]),
+      faceIDs: new Uint32Array(24),
+    };
+  };
+
+  it('is violated by two components 2/1024 cm apart, extents offset', () => {
+    expect(nearContactViolations(boxes(2 / SNAP_STEPS_PER_CM))).toHaveLength(1);
+  });
+
+  it('holds for components that touch, and for components further apart than CLEAN_TOLERANCE_CM', () => {
+    expect(nearContactViolations(boxes(0))).toEqual([]);
+    expect(nearContactViolations(boxes(1.5 * CLEAN_TOLERANCE_CM))).toEqual([]);
   });
 });

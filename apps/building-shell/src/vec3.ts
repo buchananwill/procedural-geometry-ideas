@@ -37,3 +37,52 @@ export function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
   if (dot3(ab, ab) === 0) return Math.hypot(...sub3(p, a));
   return lineOffset(p, a, b, lineParam(p, a, b));
 }
+
+/** A straight segment between two points. */
+export type Segment = [Vec3, Vec3];
+
+/** Distance from `p` to segment `s` (journal decision 145, B4: the app's one copy). */
+export function segmentDistance(p: Vec3, [a, b]: Segment): number {
+  const ab = sub3(b, a);
+  const L2 = dot3(ab, ab);
+  const t = L2 ? Math.max(0, Math.min(1, dot3(sub3(p, a), ab) / L2)) : 0;
+  return dist3(add3(a, scale3(ab, t)), p);
+}
+
+/** The point of triangle `a`, `b`, `c` nearest `p` (Ericson, Real-Time Collision Detection, 5.1.5). */
+export function nearestOnTriangle(p: Vec3, a: Vec3, b: Vec3, c: Vec3): Vec3 {
+  const ab = sub3(b, a), ac = sub3(c, a), ap = sub3(p, a);
+  const d1 = dot3(ab, ap), d2 = dot3(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return a;
+  const bp = sub3(p, b), d3 = dot3(ab, bp), d4 = dot3(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return b;
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) return add3(a, scale3(ab, d1 / (d1 - d3)));
+  const cp = sub3(p, c), d5 = dot3(ab, cp), d6 = dot3(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return c;
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) return add3(a, scale3(ac, d2 / (d2 - d6)));
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) return add3(b, scale3(sub3(c, b), (d4 - d3) / ((d4 - d3) + (d5 - d6))));
+  const denom = 1 / (va + vb + vc);
+  return add3(a, add3(scale3(ab, vb * denom), scale3(ac, vc * denom)));
+}
+
+/** The nearest points of segments `p`-`q` and `r`-`s`, first on `p`-`q` (Ericson, 5.1.9). */
+export function nearestOnSegments(p: Vec3, q: Vec3, r: Vec3, s: Vec3): Segment {
+  const d1 = sub3(q, p), d2 = sub3(s, r), w = sub3(p, r);
+  const a = dot3(d1, d1), e = dot3(d2, d2), f = dot3(d2, w);
+  const clamp = (x: number): number => Math.max(0, Math.min(1, x));
+  let u: number, v: number;
+  if (a === 0 && e === 0) return [p, r];
+  if (a === 0) { u = 0; v = clamp(f / e); } else {
+    const c = dot3(d1, w);
+    if (e === 0) { v = 0; u = clamp(-c / a); } else {
+      const b = dot3(d1, d2), den = a * e - b * b;
+      u = den !== 0 ? clamp((b * f - c * e) / den) : 0;
+      v = (b * u + f) / e;
+      if (v < 0) { v = 0; u = clamp(-c / a); } else if (v > 1) { v = 1; u = clamp((b - c) / a); }
+    }
+  }
+  return [add3(p, scale3(d1, u)), add3(r, scale3(d2, v))];
+}

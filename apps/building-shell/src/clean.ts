@@ -54,14 +54,36 @@ export interface CleanStats {
   sheetTris: number;
   /** Cap chains dropped as zero-area pairs, where sliding the apex would pass the move bound (F-D). */
   pairs: number;
-  /** Largest total displacement of any vertex from its union position, every step together, in cm (F-D). */
+  /** Cap apexes that met their long edge's end part way, the bound short of the end (F-D). */
+  met: number;
+  /**
+   * Largest total displacement of any vertex from its union position, every step together, in cm (F-D), read on the
+   * float32 positions as written (journal decision 150, F5).
+   */
   maxMoveCm: number;
 }
 
 /** The stats of a mesh the cleaning leaves as it is (journal decision 107, N10). */
-export const NO_CLEAN: Readonly<CleanStats> = {merged: 0, collapsed: 0, flipped: 0, sheetTris: 0, pairs: 0, maxMoveCm: 0};
+export const NO_CLEAN: Readonly<CleanStats> = {merged: 0, collapsed: 0, flipped: 0, sheetTris: 0, pairs: 0, met: 0, maxMoveCm: 0};
 
-export interface CleanResult { mesh: ShellMesh; stats: CleanStats }
+/**
+ * The cleaned mesh, what the cleaning did, and `vertexOf`: each input vertex's vertex in the cleaned mesh, or -1 where
+ * no triangle keeps it, so a test can measure every move on the float32 positions as written (journal decision 150, F5).
+ */
+export interface CleanResult { mesh: ShellMesh; stats: CleanStats; vertexOf: Int32Array }
+
+/** One float32 unit in the last place at `x`: the spacing of float32 values of `x`'s magnitude. */
+export function float32Ulp(x: number): number {
+  const a = Math.abs(x);
+  return a < 2 ** -126 ? 2 ** -149 : 2 ** (Math.floor(Math.log2(a)) - 23);
+}
+
+/**
+ * Journal decision 150, F5: how far short of the move bound the meeting point aims, for points of magnitude up to
+ * `largest`: four float32 ulps there, wider than the rounding of the float32 write (half an ulp per axis, √3/2 in all),
+ * so a point placed within the bound in double stays within it as written.
+ */
+export const meetMargin = (largest: number): number => 4 * float32Ulp(largest);
 
 /** Journal decision 107, N10: a Manifold mesh read as a `ShellMesh`: float32 positions, triangles, faceIDs. */
 export function meshOf(out: Mesh): ShellMesh {
@@ -296,16 +318,20 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
     const keep = dist(c, a) <= dist(c, b) ? a : b;
     if (!linkHolds(c, keep)) return false;
     let to = pt(keep);
+    let meeting = false;
     if (reach(c, to) > CLEAN_MAX_MOVE_CM) {
       if (!meet) return false;
       // F-D: the apex goes as far towards the end as the bound allows, and the end comes the rest of the way.
       const P = pt(c), K = to;
-      // A millionth short of the bound, so rounding cannot carry the apex past it.
-      const s = Math.max(0, 1 - (CLEAN_MAX_MOVE_CM * (1 - 1e-6) - reach(c, P)) / dist(c, keep));
+      // Short of the bound by a margin wider than a float32 ulp (F5), so the float32 write cannot carry it past.
+      const margin = meetMargin(Math.max(...P.map(Math.abs), ...K.map(Math.abs)));
+      const s = Math.max(0, 1 - (CLEAN_MAX_MOVE_CM - margin - reach(c, P)) / dist(c, keep));
       to = [K[0] + s * (P[0] - K[0]), K[1] + s * (P[1] - K[1]), K[2] + s * (P[2] - K[2])];
       if (reach(c, to) > CLEAN_MAX_MOVE_CM || reach(keep, to) > CLEAN_MAX_MOVE_CM || !moveKeepsSurface(keep, to, c)) return false;
+      meeting = true;
     }
     if (!moveKeepsSurface(c, to, keep)) return false;
+    if (meeting) stats.met++;
     setPos(keep, to);
     into.join(keep, c);
     const root = into.find(keep);
@@ -332,19 +358,23 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
     throw new Error(`cleanMesh: cap ${t} (${cap.a}-${cap.b}, apex ${cap.c}) can neither flip nor merge its apex into its long edge`);
   }
 
-  // ---- The move bound (F-D) ----
+  // ---- The move bound (F-D), on the float32 positions as written (journal decision 150, F5) ----
   const used = new Set<number>();
   for (const [a, b, c] of work) { used.add(a); used.add(b); used.add(c); }
+  const f32 = Math.fround;
   for (let o = 0; o < nV; o++) {
     const r = into.find(o);
     if (!used.has(r)) continue;
-    const d = Math.hypot(X[3 * r] - O[3 * o], X[3 * r + 1] - O[3 * o + 1], X[3 * r + 2] - O[3 * o + 2]);
+    const d = Math.hypot(f32(X[3 * r]) - O[3 * o], f32(X[3 * r + 1]) - O[3 * o + 1], f32(X[3 * r + 2]) - O[3 * o + 2]);
     stats.maxMoveCm = Math.max(stats.maxMoveCm, d);
     if (d > CLEAN_MAX_MOVE_CM) {
       throw new Error(`cleanMesh: vertex ${o} would move ${d.toExponential(3)} cm onto vertex ${r}, past ${CLEAN_MAX_MOVE_CM} cm`);
     }
   }
-  if (!moved) return {mesh, stats};
+  if (!moved) {
+    const vertexOf = Int32Array.from({length: nV}, (_, v) => (used.has(v) ? v : -1));
+    return {mesh, stats, vertexOf};
+  }
 
   const index = new Int32Array(nV).fill(-1);
   const positions: number[] = [];
@@ -355,7 +385,8 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
     return index[v];
   };
   for (const [a, b, c, f] of work) { tris.push(keepVertex(a), keepVertex(b), keepVertex(c)); faceIDs.push(f); }
-  return {mesh: {positions: Float32Array.from(positions), tris: Uint32Array.from(tris), faceIDs: Uint32Array.from(faceIDs)}, stats};
+  const vertexOf = Int32Array.from({length: nV}, (_, o) => index[into.find(o)]);
+  return {mesh: {positions: Float32Array.from(positions), tris: Uint32Array.from(tris), faceIDs: Uint32Array.from(faceIDs)}, stats, vertexOf};
 }
 
 /** What the sheet pass leaves: the triangles kept and how many it dropped. */
