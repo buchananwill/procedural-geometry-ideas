@@ -1402,6 +1402,27 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - what a GableEnd run's `PitchDegrees` holds;
        - when a side is solved `None`;
        - whether Ring corners are exactly on the lattice in actor-local doubles, or carry float noise.
+137. **The port lead's input@1 answers, ruled** (port lead, 2026-11-08, read from the C++; untraced points marked as
+     such).
+     - **A GableEnd run's `PitchDegrees` is its Type row's pitch, not 0** (`RenderedPitchDegrees`,
+       `ModularRoofProblem.cpp:67`). A later pass may overwrite it by wall group (`ModularRoofWallPitch.cpp:156`).
+       **The field stays in the file as solved, and the diff report carries it.** The shell never reads a gable's
+       pitch, and it is validated on Pitched sides only (decision 136).
+     - **A side solved `None` means a run the solve did not solve:** its outline was refused, or the run was emptied.
+       The solver writes every solved run from an option's form (`ModularRoofSolver.cpp:508-511`). This is not traced
+       end to end. Decision 136's rule stands. **The stand-in gains per-side `emptied` and `outlineRefused`
+       booleans,** which the port's exporter will write, and the diff report carries them.
+     - **Ring corners lie on the snap lattice by construction** (an integer `GridQuantumCm`), unproven end to end. Any
+       noise would be double round-off, about 1e-12 relative.
+       - **Ruling: a corner within `WIRE_CORNER_SNAP_CM = 1e-6` of the 1/1024 grid is snapped by `snapCm`,** and the
+         diff report states the largest drift. **Beyond that, it is refused.** Rectangularity is then tested exactly,
+         on the snapped corners.
+       - This amends decision 136's "exact rectangularity". Spec 16 lists the new constant as its second exception.
+       - The port's exporter writes corners as stored, so any drift stays visible.
+     - **The `frame` literal and the clockwise refusal agree with the C++.** The generator emits `frame` as
+       `z.string()`, and the refinement pins it. The C++ validator requires a simple counter-clockwise Ring
+       (`ArchitectureRings.h:142,154`).
+     - **These go to WP5.1,** with decision 136's amendments and the reviews' findings.
 
 ## Findings
 
