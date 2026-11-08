@@ -14,7 +14,7 @@ import {
   ASYMMETRIC_L, CUT_REPRODUCERS, DiffCounts, IDENTITY_FIXTURES, diffCounts, expectedDefaultDeg, scrambled, withWireDefaults,
 } from './wire-round-trip-cases.ts';
 import {rosterGenus} from './roster-genus.ts';
-import {invariantViolations} from './shell-invariants.ts';
+import {invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 
 /** The L reflected in x = 500: the W gable becomes an E gable on x = 1000. */
 const MIRRORED_L: ShellFixture = {
@@ -172,12 +172,17 @@ describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, 
    * Pinned exactly, so a cure or a narrowed bound breaks it.
    */
   const KNOWN: Readonly<Partial<Record<`${string} at ${number}°`, string[]>>> = {
-    'BridgeOverBlock at 75°': ['genus per component 0, expected 1: genus 0 at (0, 0, 0)'],
+    'BridgeOverBlock at 75°': [
+      'genus per component 0, expected 1: genus 0 at (0, 0, 0)',
+      '2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)',
+    ],
   };
 
   it.each(CASES)('%s', async (name, f, deg) => {
     const g = atPitch(f, deg);
     const genus = f.name === 'Ring1000x400' ? [0] : rosterGenus(f.name);
-    expect(invariantViolations(await buildShellDetailed(g), {genus, cheeks: 0})).toEqual(KNOWN[name] ?? []);
+    const b = await buildShellDetailed(g);
+    // Decision 156, F8: a pin on a roof meeting the floor above carries those edges' ends.
+    expect([...invariantViolations(b, {genus, cheeks: 0}), ...roofUndersideLines(b)]).toEqual(KNOWN[name] ?? []);
   }, 60_000);
 });

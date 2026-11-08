@@ -3,15 +3,15 @@
 // The independent check reads the fixture's Ring rectangles here, never the pipeline's spans.
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, ShellFixture, fixtureByName, storeyRings} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, RING_SIDES, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
 import type {CellSource} from '../src/provenance.ts';
 import {ringSideLines} from '../src/ring-forms.ts';
 import type {BuildingShell} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
-import {readInput} from '../src/wire/input-adapter.ts';
+import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {randomFixtures} from './robustness-fixtures.ts';
-import {memoBuilds} from './test-builds.ts';
-import {scrambled} from './wire-round-trip-cases.ts';
+import {memoBuilds, shellFixture} from './test-builds.ts';
+import {ASYMMETRIC_L, scrambled} from './wire-round-trip-cases.ts';
 
 const build = memoBuilds();
 const shellOf = async (f: ShellFixture): Promise<BuildingShell> => (await build(f)).shell;
@@ -101,15 +101,58 @@ describe('wall provenance (journal decision 130, spec decision 23 as amended)', 
   });
 });
 
-describe("a shell from input@1 names the file's own model indices (journal decision 140's Q3 note)", () => {
-  it.each(['FlushRingConflict', 'OverlapRingConflictSwapped', 'Courtyard'])('%s: every source maps back to the Ring it came from in the file', async name => {
+describe("a shell from input@1 names the file's own Rings and sides (journal decisions 140's Q3 note and 156, F1)", () => {
+  it.each(['FlushRingConflict', 'OverlapRingConflictSwapped', 'Courtyard'])('%s: every source maps back to the Ring and the side slot it came from in the file', async name => {
     const f = fixtureByName(name);
     const file = scrambled(f);
     const read = readInput(JSON.parse(JSON.stringify(file)), name);
     if (!read.ok) throw new Error(read.errors.join('; '));
     const shell = withFileModelIndices(await shellOf(read.fixture), read);
-    // The scrambled file gives the fixture's Ring i the model index 7 + 13 i.
+    // The scrambled file gives the fixture's Ring i the model index 7 + 13 i, and starts it at corner (i + 1) mod 4, so
+    // its compass side k is the file's slot (k - i - 1) mod 4.
     const authored = await shellOf(f);
-    expect(shell.cells.map(c => c.source)).toEqual(authored.cells.map(c => c.source && {...c.source, ringModelIndex: 7 + 13 * c.source.ringModelIndex}));
+    const slot = (ring: number, k: number): number => (((k - ring - 1) % 4) + 4) % 4;
+    expect(shell.cells.map(c => c.source)).toEqual(authored.cells.map(c => c.source && {ringModelIndex: 7 + 13 * c.source.ringModelIndex, side: slot(c.source.ringModelIndex, c.source.side)}));
+  });
+
+  // The gate (decision 156, F1): Ring 0 of the asymmetric L, written starting at its SE corner, holds its W gable at
+  // file side 2, not compass side 3.
+  it("the rotated L's W gable reports the file's side 2", async () => {
+    const w = writeInput(ASYMMETRIC_L);
+    const r = w.rings[0];
+    r.corners = [...r.corners.slice(1), ...r.corners.slice(0, 1)];
+    r.sides = [...r.sides.slice(1), ...r.sides.slice(0, 1)];
+    const read = readInput(JSON.parse(JSON.stringify(w)), 'RotatedL');
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    const shell = withFileModelIndices(await shellOf(read.fixture), read);
+    expect(shell.faces.filter(x => x.tag.kind === 'Gable').map(x => x.sources)).toEqual([[{ringModelIndex: 0, side: 2}]]);
+  });
+});
+
+/**
+ * Journal decision 156, F9: the T probe. SingleStoreyT's bar authored as two Rings split along y at 200, both gabling
+ * their E sides; the stem buries x = 1000 from y 150 to 350. The visible stretches are Ring 0's from 0 to 150 and Ring
+ * 1's from 350 to 500. The Gable's band reaches over the buried stretch, and its Cells there take the nearest visible
+ * stretch: the gap from 150 to 350 splits at its middle, 250, not at the Rings' split, 200.
+ */
+describe('provenance from visible stretches only (journal decision 156, F9)', () => {
+  const T = shellFixture('TProbeSplit200', [
+    ring([0, 0, 1000, 200], 0, 1, 45, {E: {form: 'gable'}}), ring([0, 200, 1000, 500], 0, 1, 45, {E: {form: 'gable'}}), ring([1000, 150, 1400, 350], 0, 1, 45),
+  ]);
+
+  it("splits the buried stretch's Gable Cells at the gap's middle: Ring 0 below y = 250, Ring 1 above", async () => {
+    const shell = await shellOf(T);
+    const gable = shell.faces.find(x => x.tag.kind === 'Gable' && Math.abs(x.normal[0] - 1) < 1e-9 && Math.abs(x.offset - 1000) <= SHELL_TOLERANCE_CM);
+    if (!gable) throw new Error('no Gable on x = 1000');
+    const cells = shell.cells.filter(c => c.face === gable.id);
+    expect(cells.some(c => Math.min(...cellS(shell, c.id)) >= 200 - SHELL_TOLERANCE_CM && Math.max(...cellS(shell, c.id)) <= 250 + SHELL_TOLERANCE_CM)).toBe(true);
+    for (const c of cells) {
+      const s = cellS(shell, c.id), mid = s.reduce((t, x) => t + x, 0) / s.length;
+      expect(c.source, `cell over y ${Math.min(...s)} to ${Math.max(...s)}`).toEqual({ringModelIndex: mid < 250 ? 0 : 1, side: 1});
+    }
+  });
+
+  it('keeps every Cell on its independent reading', async () => {
+    expect(provenanceViolations(T, await shellOf(T))).toEqual([]);
   });
 });

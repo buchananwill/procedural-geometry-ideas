@@ -7,7 +7,7 @@ import {
 } from './edges.ts';
 import {FaceAssembly, FaceSource, ShellFace, destOf, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
 import {Wasm} from './manifold.ts';
-import {CellSource, SourceSpan, sourceAt} from './provenance.ts';
+import {CellSource, SourceSpan, reachesOut, sourceAt, sourceBoundaries} from './provenance.ts';
 import {snapCm} from './weld.ts';
 import {Vec3, tagLabel} from './tags.ts';
 import {add3, cross2, cross3, dist3, dot3, lineDistance, lineOffset, lineParam, scale3, sub3, unit3} from './vec3.ts';
@@ -298,12 +298,12 @@ export function splitAtHoles(region: CrossSection, lo: Vec2, hi: Vec2, out: Spli
 }
 
 /**
- * Journal decision 130: a lattice square `lo` to `hi` cut along its `s` axis at every provenance span's end strictly
- * inside it, so every Cell has exactly one source. Each cut is recorded in `out` as a split line, whose crossings
- * with ShellEdges become vertices of both faces' Cells, as G3's do. Returns the parts' corners.
+ * Journal decision 130: a lattice square `lo` to `hi` cut along its `s` axis at every provenance boundary strictly
+ * inside it (`sourceBoundaries`), so every Cell has exactly one source. Each cut is recorded in `out` as a split line,
+ * whose crossings with ShellEdges become vertices of both faces' Cells, as G3's do. Returns the parts' corners.
  */
-function provenanceCuts(spans: readonly SourceSpan[], lo: Vec2, hi: Vec2, out: SplitLine[]): [Vec2, Vec2][] {
-  const inner = [...new Set(spans.flatMap(x => [x.lo, x.hi]).map(snapCm))]
+function provenanceCuts(boundaries: readonly number[], lo: Vec2, hi: Vec2, out: SplitLine[]): [Vec2, Vec2][] {
+  const inner = [...new Set(boundaries.map(snapCm))]
     .filter(c => c > lo[0] + SHELL_TOLERANCE_CM && c < hi[0] - SHELL_TOLERANCE_CM).sort((a, b) => a - b);
   for (const at of inner) out.push({axis: 0, at, lo: lo[1], hi: hi[1]});
   const xs = [lo[0], ...inner, hi[0]];
@@ -311,14 +311,14 @@ function provenanceCuts(spans: readonly SourceSpan[], lo: Vec2, hi: Vec2, out: S
 }
 
 /**
- * A Cell's source (journal decision 130): the span holding its corners' mean along the face's `s` axis, which lies
- * inside the Cell, since Cells are cut at every span's end. A Wall or Gable Cell that no Ring side holds is a hard
- * error naming the square. Every other kind has none.
+ * A Cell's source (journal decisions 130 and 156): the span holding its corners' mean along the face's `s` axis, which
+ * lies inside the Cell, since Cells are cut at every provenance boundary; a Gable Cell beyond every span takes the
+ * nearest. A Wall or Gable Cell that no Ring side holds is a hard error naming the square. Every other kind has none.
  */
 function cellSource(face: ShellFace, spans: readonly SourceSpan[], corners: Vec2[], where: string): CellSource | null {
   if (face.tag.kind !== 'Wall' && face.tag.kind !== 'Gable') return null;
   const s = corners.reduce((t, p) => t + p[0], 0) / corners.length;
-  const source = sourceAt(spans, s);
+  const source = sourceAt(spans, s, reachesOut(face));
   if (!source) throw new Error(`${where}: a ${face.tag.kind} Cell at s = ${s} lies on no Ring side of storey ${face.tag.storey}`);
   return source;
 }
@@ -359,6 +359,7 @@ export function layCells(
       if (id === undefined) throw new Error(`${where(face.id)}: loop vertex ${v} is no ShellEdge endpoint`);
       return to2(fr, reg.positions[id]);
     }));
+    const boundaries = sourceBoundaries(spans[face.id], reachesOut(face));
     const region = new wasm.CrossSection(loops, 'EvenOdd');
     try {
       const {min, max} = region.bounds();
@@ -366,7 +367,7 @@ export function layCells(
         for (let j = Math.floor(min[1] / cellSize); j * cellSize < max[1]; j++) {
           const lo: Vec2 = [i * cellSize, j * cellSize], hi: Vec2 = [lo[0] + cellSize, lo[1] + cellSize];
           const at = `${where(face.id)}: lattice square (${i}, ${j})`;
-          const pieces = provenanceCuts(spans[face.id], lo, hi, splits[face.id])
+          const pieces = provenanceCuts(boundaries, lo, hi, splits[face.id])
             .flatMap(([a, b]) => splitAtHoles(region, a, b, splits[face.id], at));
           squares[face.id].push({i, j, contours: pieces.flat()});
         }
@@ -477,6 +478,9 @@ export function interiorSideKind(face: ShellFace, a: Vec3, b: Vec3): EdgeKind {
 
 const sideKey = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},${a}`);
 
+/** A Cell side's place for an error (journal decision 156, F8): its two vertices' snapped positions. */
+const sideAt = (reg: VertexRegistry, a: number, b: number): string => `(${reg.positions[a].join(', ')}) to (${reg.positions[b].join(', ')})`;
+
 /**
  * Two ShellEdges sharing a segment: one segment of a pinch, written on each of its two sheets. At an overhang's foot
  * (journal decision 110, C1) they run between the same two vertices; where two storeys' solids touch along an edge
@@ -513,7 +517,7 @@ function assembleNetEdges(
     cell.sides = cell.corners.map((a, i) => {
       const b = cell.corners[(i + 1) % cell.corners.length];
       const hits = faceEdges[cell.face].filter(e => onEdge[e].has(a) && onEdge[e].has(b));
-      if (hits.length > 1) throw new Error(`cell ${cell.id}: side ${a}-${b} lies on ShellEdges ${hits.join(' and ')}`);
+      if (hits.length > 1) throw new Error(`cell ${cell.id}: side ${a}-${b} ${sideAt(reg, a, b)} lies on ShellEdges ${hits.join(' and ')}`);
       const shellEdge = hits.length ? hits[0] : -1;
       const pair = sideKey(a, b);
       const k = `${pair}|${shellEdge}`;
@@ -522,7 +526,7 @@ function assembleNetEdges(
         for (const other of byPair.get(pair) ?? []) {
           const s = netEdges[other].shellEdge;
           if (shellEdge < 0 || s < 0 || !coincident(edges[shellEdge], edges[s])) {
-            throw new Error(`cell ${cell.id}: side ${a}-${b} reads ShellEdge ${shellEdge}, its NetEdge ${s}`);
+            throw new Error(`cell ${cell.id}: side ${a}-${b} ${sideAt(reg, a, b)} reads ShellEdge ${shellEdge}, its NetEdge ${s}`);
           }
         }
         const A = reg.positions[a], B = reg.positions[b];
@@ -534,7 +538,7 @@ function assembleNetEdges(
           };
           const alongS = Math.abs(A[fr.s] - B[fr.s]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.s], cellSize) || onSplit(0));
           const alongT = Math.abs(A[fr.t] - B[fr.t]) <= SHELL_TOLERANCE_CM && (onLattice(A[fr.t], cellSize) || onSplit(1));
-          if (!alongS && !alongT) throw new Error(`cell ${cell.id}: side ${a}-${b} is neither on a ShellEdge, a lattice line nor a split line`);
+          if (!alongS && !alongT) throw new Error(`cell ${cell.id}: side ${a}-${b} ${sideAt(reg, a, b)} is neither on a ShellEdge, a lattice line nor a split line`);
         }
         id = netEdges.length;
         byKey.set(k, id);
@@ -575,7 +579,7 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
     const outOf = new Map<number, CornerAt>();
     const ins = new Set<number>();
     for (const k of corners) {
-      if (outOf.has(k.out) || ins.has(k.in)) throw new Error(`vertex ${id}: two Cells run the same way along one NetEdge`);
+      if (outOf.has(k.out) || ins.has(k.in)) throw new Error(`vertex ${id} at (${p.join(', ')}): two Cells run the same way along one NetEdge`);
       outOf.set(k.out, k);
       ins.add(k.in);
     }

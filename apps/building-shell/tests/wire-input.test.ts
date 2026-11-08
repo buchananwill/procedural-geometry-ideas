@@ -413,8 +413,42 @@ describe('runs per side (journal decision 149)', () => {
     v.rings[1].sides[1].runs = [run(0, 200, 'Pitched'), run(200, 400, 'GableEnd')];
     expect(errorsOf(v)).toEqual([
       "Ring 0 (model index 0) side 1's runs disagree (Pitched 30, Pitched 45): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
-      "Ring 1 (model index 1) side 1's runs disagree (Pitched 45, GableEnd): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
+      "Ring 1 (model index 1) side 1's runs disagree (Pitched 45, GableEnd 45): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
     ]);
+  });
+
+  // Journal decision 156, F2: a gable's pitch is geometry (decision 153), so two GableEnd runs at different pitches
+  // disagree as two Pitched runs do. The gate: runs at 20 and 70 degrees are refused.
+  it('refuses GableEnd runs that disagree in pitch', () => {
+    const v = valid();
+    v.rings[1].sides[0].runs = [run(0, 250, 'GableEnd', 20), run(250, 500, 'GableEnd', 70)];
+    expect(errorsOf(v)).toEqual([
+      "Ring 1 (model index 1) side 0's runs disagree (GableEnd 20, GableEnd 70): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
+    ]);
+    v.rings[1].sides[0].runs = [run(0, 250, 'GableEnd', 20), run(250, 500, 'GableEnd', 20)];
+    expect(adapted(v).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 20});
+  });
+
+  // Journal decision 156, F5: a run end carries the C++ transforms' double round-off as a corner does, so an end within
+  // WIRE_CORNER_SNAP_CM of 0 or of the snapped side's length is taken as that end; anything further is refused.
+  it("snaps a run end within WIRE_CORNER_SNAP_CM of 0 or of the side's length, and refuses one beyond", () => {
+    const at = (start: number, end: number): string[] => {
+      const v = valid();
+      v.rings[0].sides[0].runs = [run(start, end, 'Pitched')];
+      return errorsOf(v);
+    };
+    expect(at(0, 500 + 4e-7)).toEqual([]);
+    expect(at(-1e-9, 500)).toEqual([]);
+    expect(at(0, 500 - 4e-7)).toEqual([]);
+    expect(at(0, 500 + 2e-6)).toEqual([
+      "Ring 0 (model index 0) side 0 run 0 spans 0 to 500.000002 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 500 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149 and 156)",
+    ]);
+    // Corners written with round-off within the slack, and the run at the unsnapped length, read as the C++ wrote them.
+    const w = valid();
+    w.rings[0].corners[1].x += 4e-7;
+    w.rings[0].corners[2].x += 4e-7;
+    w.rings[0].sides[0].runs = [run(0, 500 + 4e-7, 'Pitched')];
+    expect(errorsOf(w)).toEqual([]);
   });
 
   it('refuses a run out of order, overlapping, empty, or past the side', () => {
@@ -424,7 +458,7 @@ describe('runs per side (journal decision 149)', () => {
     v.rings[0].sides[2].runs = [run(100, 100, 'Pitched')];
     v.rings[0].sides[3].runs = [run(0, 400.5, 'Pitched')];
     const span = (side: number, k: number, a: number, b: number, len: number): string =>
-      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap (journal decision 149)`;
+      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149 and 156)`;
     expect(errorsOf(v)).toEqual([span(0, 1, 100, 200, 500), span(1, 1, 250, 400, 400), span(2, 0, 100, 100, 500), span(3, 0, 0, 400.5, 400)]);
   });
 

@@ -37,18 +37,27 @@ import {
 /**
  * What the diff report carries from the input side (decisions 126, 136, 137 and 140):
  * - `flags`: what is raised with the user, and pinned by a playtest file (model-index and root order disagreeing);
- * - `info`: what is carried as information, never asserted (a request that disagrees with its solve, `bEmptied`,
- *   `bOutlineRefused`, and every gable's wire pitch the fixture does not use);
+ * - `info`: what is carried as information, never asserted (a run whose request disagrees with its solve, and each
+ *   run's `bEmptied` and `bOutlineRefused`);
  * - `maxCornerDriftCm`: the largest distance any corner coordinate was snapped.
  */
 export interface InputReport { flags: string[]; info: string[]; maxCornerDriftCm: number }
 
 /**
- * A file the adapter reads: the fixture it builds, what the diff report carries, and `modelIndices`, each fixture
- * Ring's model index in the file, by its position in `fixture.rings` (journal decision 140's Q3 note), so a shell's
- * provenance can name the file's own Rings (`withFileModelIndices`).
+ * A file the adapter reads: the fixture it builds, what the diff report carries, and how the fixture's Rings name the
+ * file's own, so a shell's provenance can (`withFileModelIndices`, journal decisions 140's Q3 note and 156, F1):
+ * - `modelIndices`: each fixture Ring's model index in the file, by its position in `fixture.rings`;
+ * - `sideSlots`: each fixture Ring's file slot for each compass side, `sideSlots[ring][k]` the slot of `RING_SIDES[k]`,
+ *   so a Ring that starts at another corner keeps its own side indices.
  */
-export interface AdaptedInput { ok: true; fixture: ShellFixture; input: BuildingShellInputV1; report: InputReport; modelIndices: number[] }
+export interface AdaptedInput {
+  ok: true;
+  fixture: ShellFixture;
+  input: BuildingShellInputV1;
+  report: InputReport;
+  modelIndices: number[];
+  sideSlots: number[][];
+}
 
 export type ReadInputResult = AdaptedInput | RefusedInput;
 
@@ -159,14 +168,15 @@ export interface FormlessSide { kind: 'formless' }
 export interface DisagreeingRuns { kind: 'disagree'; runs: WireRun[] }
 
 /**
- * Decision 149: a side's runs, None runs left out. The rest must agree in form, and in pitch where Pitched, and then
- * give the side its one form. A side with no run, or with only None runs, is formless.
+ * Decisions 149 and 156 (F2): a side's runs, None runs left out. The rest must agree in form and in pitch, a gable's
+ * included since its pitch is geometry (decision 153), and then give the side its one form. A side with no run, or with
+ * only None runs, is formless.
  */
 export function sideRuns(side: WireSide): SideRuns {
   const formed = side.runs.filter(r => r.form !== 'None');
   if (!formed.length) return {kind: 'formless'};
   const [first] = formed;
-  const agree = formed.every(r => r.form === first.form && (r.form !== 'Pitched' || r.pitchDegrees === first.pitchDegrees));
+  const agree = formed.every(r => r.form === first.form && r.pitchDegrees === first.pitchDegrees);
   return agree ? {kind: 'run', run: first} : {kind: 'disagree', runs: formed};
 }
 
@@ -177,6 +187,14 @@ export const sideLength = (cs: WireVec2[], j: number): number => {
 };
 
 /**
+ * Journal decision 156, F5: a run end within `WIRE_CORNER_SNAP_CM` of 0 or of the snapped side's `length` is taken as
+ * that end, the slack decision 137 gives a corner, since the C++ transforms carry the same double round-off into both.
+ * Anything further is read as written, and the order test refuses it.
+ */
+export const snapRunEnd = (v: number, length: number): number =>
+  (Math.abs(v) <= WIRE_CORNER_SNAP_CM ? 0 : Math.abs(v - length) <= WIRE_CORNER_SNAP_CM ? length : v);
+
+/**
  * Decision 149's per-run refusals for side `j`: run geometry (when the side's length is known, `length`), each run's
  * solved form and pitch bounds, and runs that disagree.
  */
@@ -185,10 +203,13 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
   let reach = 0;
   side.runs.forEach((run, k) => {
     const where = `${at} side ${j} run ${k}`;
-    if (length !== null && !(run.startCm >= reach && run.startCm < run.endCm && run.endCm <= length)) {
-      out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap (journal decision 149)`);
+    if (length !== null) {
+      const [start, end] = [snapRunEnd(run.startCm, length), snapRunEnd(run.endCm, length)];
+      if (!(start >= reach && start < end && end <= length)) {
+        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149 and 156)`);
+      }
+      reach = Math.max(reach, end);
     }
-    reach = Math.max(reach, run.endCm);
     const reading = SIDE_READINGS[run.form];
     if (reading.kind === 'refused') out.push(`${where} has ${reading.reason}`);
     const p = run.pitchDegrees;
@@ -199,7 +220,7 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
   });
   const read = sideRuns(side);
   if (read.kind === 'disagree') {
-    const forms = read.runs.map(r => (r.form === 'Pitched' ? `Pitched ${r.pitchDegrees}` : r.form)).join(', ');
+    const forms = read.runs.map(r => (r.form === 'Pitched' || r.form === 'GableEnd' ? `${r.form} ${r.pitchDegrees}` : r.form)).join(', ');
     out.push(`${at} side ${j}'s runs disagree (${forms}): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)`);
   }
   return out;
@@ -364,12 +385,14 @@ export function readInput(json: unknown, name: string): ReadInputResult {
   const order = input.rings.map((_, i) => i).sort((a, b) => input.rings[a].modelIndex - input.rings[b].modelIndex);
   const info: string[] = [];
   const nones: NoneSide[] = [];
+  const sideSlots: number[][] = [];
   const rings = order.map((i, position) => {
     const r = input.rings[i];
     const corners = snapped[i].corners;
     const xs = corners.map(c => c.x), ys = corners.map(c => c.y);
     const rect: Rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     const sides = readSides(r, corners, rect);
+    sideSlots.push(RING_SIDES.map(c => sides.findIndex(s => s.compass === c)));
     const ring = fixtureRing(r, sides, rect);
     info.push(...sideInfo(label(r, i), sides));
     // Decision 149: a formless side (no run, or only None runs) is treated as decision 140's F2 treats a None side.
@@ -381,7 +404,7 @@ export function readInput(json: unknown, name: string): ReadInputResult {
   if (noneErrors.length) return {ok: false, errors: noneErrors};
   const maxCornerDriftCm = Math.max(0, ...snapped.map(s => s.drift));
   if (maxCornerDriftCm > 0) info.push(`the largest corner drift snapped is ${maxCornerDriftCm} cm`);
-  return {ok: true, input, fixture, report: {flags: orderFlags(input), info, maxCornerDriftCm}, modelIndices: order.map(i => input.rings[i].modelIndex)};
+  return {ok: true, input, fixture, report: {flags: orderFlags(input), info, maxCornerDriftCm}, modelIndices: order.map(i => input.rings[i].modelIndex), sideSlots};
 }
 
 /** The provenance of a file the prototype writes from its own fixture: fixed, so a re-export is byte-identical. */

@@ -365,6 +365,17 @@ export function cyclicOrderViolations(b: ShellBuild): string[] {
  *   counter-clockwise from outside; vertices are distinct grid points; every vertex names only real faces, and lists
  *   its NetEdges and Cells in decision 60's cyclic order.
  */
+/**
+ * Journal decision 156, F8: a roof rising into the floor above names its edges. Every Roof-Underside ShellEdge (F52,
+ * `SoffitJunction` by decision 146) as one line with its ends, so a pin on such a shell carries where they are; none
+ * when the shell has none.
+ */
+export function roofUndersideLines(b: Pick<ShellBuild, 'shell'>): string[] {
+  const {faces, edges} = b.shell;
+  const met = edges.filter(e => e.faces.map(f => faces[f].tag.kind).sort().join('-') === 'Roof-Underside');
+  return met.length ? [`${met.length} Roof-Underside Edges: ${places(met.map(e => `${e.kind} ${segmentText(e.a, e.b)}`))}`] : [];
+}
+
 export function invariantViolations(b: ShellBuild, want: ShellExpectation): string[] {
   const out: string[] = [];
   const {union: u, shell} = b;

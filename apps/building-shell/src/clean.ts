@@ -21,7 +21,7 @@ import {Plane3, Vec3, samePlane} from './tags.ts';
 import type {ShellMesh} from './mesh.ts';
 import {UnionFind, makeUnionFind} from './halfedge.ts';
 import {add3, cross3, dist3, dot3, lineOffset, lineParam, pointAt, scale3, sub3, unit3} from './vec3.ts';
-import {SNAP_STEPS_PER_CM, TriIndices, WorkTri} from './weld.ts';
+import {SNAP_STEPS_PER_CM, TriIndices, WorkTri, snapCm} from './weld.ts';
 
 /**
  * The cleaning tolerance, in cm: four 1/1024 cm grid steps, about 3.9e-3 cm. Measured over the raw unions of the ten
@@ -351,7 +351,7 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
     if (caps.some(({cap}) => tryMerge(cap, true))) continue;
     if (caps.some(({t, cap}) => tryDropPair(t, cap))) continue;
     const {t, cap} = caps[0];
-    throw new Error(`cleanMesh: cap ${t} (${cap.a}-${cap.b}, apex ${cap.c}) can neither flip nor merge its apex into its long edge`);
+    throw new Error(`cleanMesh: cap ${t} (${cap.a}-${cap.b}, apex ${cap.c} at (${pt(cap.c).map(snapCm).join(', ')})) can neither flip nor merge its apex into its long edge`);
   }
 
   // ---- The move bound (F-D), on the float32 positions as written (journal decision 150, F5) ----

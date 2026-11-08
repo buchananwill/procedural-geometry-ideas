@@ -26,9 +26,10 @@ import {
   sweepFixtures,
 } from './robustness-fixtures.ts';
 import {planStorey} from '../src/storey.ts';
+import {CausedPinTable, PinTable, causeOf, pinnedOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
-import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
+import {ShellExpectation, dist, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 
 /**
  * Every sweep, grid and random case as measured: genus 0 and no Cheek face (a box with a storey on its wall, or
@@ -92,71 +93,88 @@ const COURTYARD_EXPECTED: ShellExpectation = {genus: 1, cheeks: 0};
 /** A generated case's key: its seed, storey height and name. */
 type SeededKey = `s${number}h${number}/${string}`;
 
-/** A pin table: every case of one generator that breaks an invariant, with exactly its outcome. */
-type PinTable<K extends string> = Readonly<Partial<Record<K, readonly string[]>>>;
-
 /**
- * Why a pinned residue fails (journal decisions 150, F3 and F4): each pinned case carries its class explicitly, so an
- * inherited defect and a regression a rule exposes are never confused.
- */
-type DefectCause =
-  | 'roof-gable algorithm B, Cheek class (inherited)'
-  | 'roof-gable algorithm B, cut-piece overshoot (inherited)'
-  | "decision 132's cut rule exposes algorithm B's Cheek class (a regression)"
-  | 'partial face-to-face contact of two storeys on one plane (Court25 class)'
-  | 'edge contact between opposite coplanar faces (U8 class)'
-  | 'cleanMesh stuck cap';
-
-/**
- * Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm, findings, not waivers: every random courtyard that
- * breaks an invariant, with exactly its violations (or `throws:` and the error a build raised). A case not listed keeps
- * every invariant. A cure breaks the suite as surely as a new defect, and either is re-measured, never softened. The
- * gated run reads seeds 1 and 2 at 300 and 250; the opt-in run (`SHELL_COURT_SEEDS`) asserts against the same table.
- * Every count-only signature names its place (journal decision 150, F4), so a defect that moves fails its pin.
+ * Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm (journal decision 156, F7), findings, not waivers:
+ * every random courtyard that breaks an invariant, with its class and exactly its violations (or `throws:` and the
+ * error a build raised, naming where). A case not listed keeps every invariant. A cure breaks the suite as surely as a
+ * new defect, and either is re-measured, never softened. The default run builds every case listed here (decision 156,
+ * F6) as well as seeds 1 and 2 at 300 and 250 whole; the opt-in run (`SHELL_COURT_SEEDS`) asserts against the same
+ * table. Every count-only signature names its place (decision 150, F4), so a defect that moves fails its pin.
+ * Seeds 1 to 14 fail 63 of 1680 (3.75%); seeds 7 to 14 alone, 45 of 960.
  * WP3.6's table (decision 135, F2) held two `cleanMesh` refusals that floor-standing holed hip solids caused, s1h300/
  * Court5 (a stuck cap) and s1h250/Court16 (a pinching collapse); clustering (decision 122, F-C) cures both, and they are
  * kept as named regressions below, since the generator now draws other layouts under those names.
  */
-const COURTYARD_DEFECTS: PinTable<SeededKey> = {
-  's1h250/Court14': ["cheeks 1, expected 0, at (150, 400, 250)"],
-  's1h250/Court25': ["throws: cell 729: side 24-278 reads ShellEdge 63, its NetEdge -1"],
-  's1h263/Court14': ["cheeks 1, expected 0, at (150, 400, 263)"],
-  's1h263/Court25': ["throws: cell 871: side 24-318 reads ShellEdge 63, its NetEdge -1"],
-  's1h300/Court14': ["cheeks 1, expected 0, at (150, 400, 300)"],
-  's1h300/Court25': ["throws: cell 847: side 24-292 reads ShellEdge 63, its NetEdge -1"],
-  's2h250/Court15': ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"],
-  's2h263/Court15': ["survivingInternal 1 at (275, 100, 588.546875)","3 Unclassified Edges: (250, 100, 583.7353515625) to (275, 100, 598.1689453125); (250, 100, 583.7353515625) to (300, 100, 583.7353515625); (275, 100, 598.1689453125) to (300, 100, 583.7353515625)"],
-  's2h300/Court15': ["survivingInternal 1 at (275, 100, 662.546875)","3 Unclassified Edges: (250, 100, 657.7353515625) to (275, 100, 672.1689453125); (250, 100, 657.7353515625) to (300, 100, 657.7353515625); (275, 100, 672.1689453125) to (300, 100, 657.7353515625)"],
-  's4h250/Court7': ["survivingInternal 1 at (606.4326171875, 300, 263.3369140625)","3 Unclassified Edges: (550, 300, 250) to (619.298828125, 300, 290.009765625); (550, 300, 250) to (650, 300, 250); (619.298828125, 300, 290.009765625) to (650, 300, 250)"],
-  's4h263/Court7': ["survivingInternal 1 at (606.4326171875, 300, 276.3369140625)","3 Unclassified Edges: (550, 300, 263) to (619.298828125, 300, 303.009765625); (550, 300, 263) to (650, 300, 263); (619.298828125, 300, 303.009765625) to (650, 300, 263)"],
-  's4h300/Court7': ["survivingInternal 1 at (606.4326171875, 300, 313.3369140625)","3 Unclassified Edges: (550, 300, 300) to (619.298828125, 300, 340.009765625); (550, 300, 300) to (650, 300, 300); (619.298828125, 300, 340.009765625) to (650, 300, 300)"],
-  's5h250/Court34': ["cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)"],
-  's5h263/Court34': ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)"],
-  's5h300/Court34': ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)"],
-  's6h250/Court23': ["cheeks 2, expected 0, at (100, 300, 380.322265625); (350, 300, 250)"],
-  's6h263/Court23': ["cheeks 2, expected 0, at (100, 300, 393.322265625); (350, 300, 263)"],
-  's6h300/Court23': ["cheeks 2, expected 0, at (100, 300, 430.322265625); (350, 300, 300)"],
+const COURTYARD_DEFECTS: CausedPinTable<SeededKey> = {
+  's1h250/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 250)"]},
+  's1h250/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 729: side 24-278 (100, 500, 500) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"]},
+  's1h263/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 263)"]},
+  's1h263/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 871: side 24-318 (100, 500, 526) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"]},
+  's1h300/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 300)"]},
+  's1h300/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 847: side 24-292 (100, 500, 600) to (100, 500, 650) reads ShellEdge 63, its NetEdge -1"]},
+  's2h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"]},
+  's2h263/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 588.546875)","3 Unclassified Edges: (250, 100, 583.7353515625) to (275, 100, 598.1689453125); (250, 100, 583.7353515625) to (300, 100, 583.7353515625); (275, 100, 598.1689453125) to (300, 100, 583.7353515625)"]},
+  's2h300/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 662.546875)","3 Unclassified Edges: (250, 100, 657.7353515625) to (275, 100, 672.1689453125); (250, 100, 657.7353515625) to (300, 100, 657.7353515625); (275, 100, 672.1689453125) to (300, 100, 657.7353515625)"]},
+  's4h250/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 263.3369140625)","3 Unclassified Edges: (550, 300, 250) to (619.298828125, 300, 290.009765625); (550, 300, 250) to (650, 300, 250); (619.298828125, 300, 290.009765625) to (650, 300, 250)"]},
+  's4h263/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 276.3369140625)","3 Unclassified Edges: (550, 300, 263) to (619.298828125, 300, 303.009765625); (550, 300, 263) to (650, 300, 263); (619.298828125, 300, 303.009765625) to (650, 300, 263)"]},
+  's4h300/Court7': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (606.4326171875, 300, 313.3369140625)","3 Unclassified Edges: (550, 300, 300) to (619.298828125, 300, 340.009765625); (550, 300, 300) to (650, 300, 300); (619.298828125, 300, 340.009765625) to (650, 300, 300)"]},
+  's5h250/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)"]},
+  's5h263/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)"]},
+  's5h300/Court34': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)"]},
+  's6h250/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 380.322265625); (350, 300, 250)"]},
+  's6h263/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 393.322265625); (350, 300, 263)"]},
+  's6h300/Court23': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 2, expected 0, at (100, 300, 430.322265625); (350, 300, 300)"]},
+  's7h250/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (291.83203125, 250, 500)"]},
+  's7h250/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 275.1181640625)","3 Unclassified Edges: (750, 500, 250) to (850, 500, 325.35546875); (750, 500, 250) to (950, 500, 250); (850, 500, 325.35546875) to (950, 500, 250)"]},
+  's7h250/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 578.5283203125)","3 Unclassified Edges: (657.822265625, 100, 575.35546875) to (665.1259765625, 100, 584.8740234375); (657.822265625, 100, 575.35546875) to (674.64453125, 100, 575.35546875); (665.1259765625, 100, 584.8740234375) to (674.64453125, 100, 575.35546875)"]},
+  's7h263/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (301.806640625, 250, 526)"]},
+  's7h263/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 288.1181640625)","3 Unclassified Edges: (750, 500, 263) to (850, 500, 338.35546875); (750, 500, 263) to (950, 500, 263); (850, 500, 338.35546875) to (950, 500, 263)"]},
+  's7h263/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 604.5283203125)","3 Unclassified Edges: (657.822265625, 100, 601.35546875) to (665.1259765625, 100, 610.8740234375); (657.822265625, 100, 601.35546875) to (674.64453125, 100, 601.35546875); (665.1259765625, 100, 610.8740234375) to (674.64453125, 100, 601.35546875)"]},
+  's7h300/Court14': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (330.1982421875, 250, 600)"]},
+  's7h300/Court22': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (850, 500, 325.1181640625)","3 Unclassified Edges: (750, 500, 300) to (850, 500, 375.35546875); (750, 500, 300) to (950, 500, 300); (850, 500, 375.35546875) to (950, 500, 300)"]},
+  's7h300/Court38': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (665.8642578125, 100, 678.5283203125)","3 Unclassified Edges: (657.822265625, 100, 675.35546875) to (665.1259765625, 100, 684.8740234375); (657.822265625, 100, 675.35546875) to (674.64453125, 100, 675.35546875); (665.1259765625, 100, 684.8740234375) to (674.64453125, 100, 675.35546875)"]},
+  's8h250/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 264.32421875)","3 Unclassified Edges: (450, 300, 250) to (492.97265625, 300, 292.97265625); (450, 300, 250) to (550, 300, 250); (492.97265625, 300, 292.97265625) to (550, 300, 250)"]},
+  's8h263/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 277.32421875)","3 Unclassified Edges: (450, 300, 263) to (492.97265625, 300, 305.97265625); (450, 300, 263) to (550, 300, 263); (492.97265625, 300, 305.97265625) to (550, 300, 263)"]},
+  's8h300/Court4': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (497.6572265625, 300, 314.32421875)","3 Unclassified Edges: (450, 300, 300) to (492.97265625, 300, 342.97265625); (450, 300, 300) to (550, 300, 300); (492.97265625, 300, 342.97265625) to (550, 300, 300)"]},
+  's9h250/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 695.4833984375)"]},
+  's9h250/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 325)"]},
+  's9h263/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 721.4833984375)"]},
+  's9h263/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 338)"]},
+  's9h300/Court0': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (250, 250, 795.4833984375)"]},
+  's9h300/Court27': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (175, 300, 375)"]},
+  's10h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 265.916015625)","3 Unclassified Edges: (550, 100, 250) to (586.6376953125, 100, 297.7470703125); (550, 100, 250) to (650, 100, 250); (586.6376953125, 100, 297.7470703125) to (650, 100, 250)"]},
+  's10h250/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 331.7236328125)"]},
+  's10h250/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"]},
+  's10h263/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 278.916015625)","3 Unclassified Edges: (550, 100, 263) to (586.6376953125, 100, 310.7470703125); (550, 100, 263) to (650, 100, 263); (586.6376953125, 100, 310.7470703125) to (650, 100, 263)"]},
+  's10h263/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 344.7236328125)"]},
+  's10h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"]},
+  's10h300/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 315.916015625)","3 Unclassified Edges: (550, 100, 300) to (586.6376953125, 100, 347.7470703125); (550, 100, 300) to (650, 100, 300); (586.6376953125, 100, 347.7470703125) to (650, 100, 300)"]},
+  's10h300/Court18': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 108.451171875, 381.7236328125)"]},
+  's10h300/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"]},
+  's11h250/Court35': {cause: "a Cell corner in no triangle of its face's fan", outcome: ["throws: vertex 219 at (200, 550, 300): Cell 563 lies in no triangle of its face's fan"]},
+  's11h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (197.8056640625, 550, 281.861328125)","3 Unclassified Edges: (150, 550, 263) to (193.4169921875, 550, 319.5830078125); (150, 550, 263) to (250, 550, 263); (193.4169921875, 550, 319.5830078125) to (250, 550, 263)"]},
+  's11h300/Court35': {cause: "a Cell corner in no triangle of its face's fan", outcome: ["throws: vertex 227 at (200, 550, 350): Cell 667 lies in no triangle of its face's fan"]},
+  's12h250/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 391.45703125)"]},
+  's12h250/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 537.677734375)"]},
+  's12h263/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 404.45703125)"]},
+  's12h263/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 563.677734375)"]},
+  's12h300/Court1': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (241.45703125, 300, 441.45703125)"]},
+  's12h300/Court2': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (200, 150, 637.677734375)"]},
+  's13h250/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 310.0146484375); (400, 250, 250)"]},
+  's13h250/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 589.56640625)","3 Unclassified Edges: (516.4521484375, 200, 586.6025390625) to (523.275390625, 200, 595.494140625); (516.4521484375, 200, 586.6025390625) to (535.07421875, 200, 586.6025390625); (523.275390625, 200, 595.494140625) to (535.07421875, 200, 586.6025390625)"]},
+  's13h250/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 500)"]},
+  's13h263/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 323.0146484375); (400, 250, 263)"]},
+  's13h263/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 615.56640625)","3 Unclassified Edges: (516.4521484375, 200, 612.6025390625) to (523.275390625, 200, 621.494140625); (516.4521484375, 200, 612.6025390625) to (535.07421875, 200, 612.6025390625); (523.275390625, 200, 621.494140625) to (535.07421875, 200, 612.6025390625)"]},
+  's13h263/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 526)"]},
+  's13h300/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 360.0146484375); (400, 250, 300)"]},
+  's13h300/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 689.56640625)","3 Unclassified Edges: (516.4521484375, 200, 686.6025390625) to (523.275390625, 200, 695.494140625); (516.4521484375, 200, 686.6025390625) to (535.07421875, 200, 686.6025390625); (523.275390625, 200, 695.494140625) to (535.07421875, 200, 686.6025390625)"]},
+  's13h300/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 600)"]},
 };
 
-/** Each courtyard residue's class (journal decision 150, F3 and F4). */
-const COURTYARD_CAUSES: Readonly<Record<string, DefectCause>> = {
-  Court14: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)",
-  Court23: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)",
-  Court34: 'roof-gable algorithm B, Cheek class (inherited)',
-  Court15: 'roof-gable algorithm B, cut-piece overshoot (inherited)',
-  Court7: 'roof-gable algorithm B, cut-piece overshoot (inherited)',
-  Court25: 'partial face-to-face contact of two storeys on one plane (Court25 class)',
-};
-
-/** Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
-const U_DEFECTS: PinTable<SeededKey> = {
-  's6h263/U8': ["throws: vertex 286: two Cells run the same way along one NetEdge"],
-  's6h300/U8': ["throws: vertex 285: two Cells run the same way along one NetEdge"],
-};
-
-/** Each U residue's class. */
-const U_CAUSES: Readonly<Record<string, DefectCause>> = {
-  U8: 'edge contact between opposite coplanar faces (U8 class)',
+/** Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
+const U_DEFECTS: CausedPinTable<SeededKey> = {
+  's6h263/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"]},
+  's6h300/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"]},
 };
 
 /** A build's measured outcome: its invariant violations, or the error it raised. */
@@ -168,40 +186,45 @@ async function outcome(f: ShellFixture, want: ShellExpectation): Promise<string[
   }
 }
 
+/**
+ * A build's measured outcome with its Roof-Underside edges named (journal decision 156, F8): BridgeOverBlock's pins,
+ * where its block's roof meets the bridge's floor, carry those edges' ends.
+ */
+async function locatedOutcome(f: ShellFixture, want: ShellExpectation): Promise<string[]> {
+  try {
+    const b = await buildShellDetailed(f);
+    return [...invariantViolations(b, want), ...roofUndersideLines(b)];
+  } catch (e) {
+    return [`throws: ${errorMessage(e)}`];
+  }
+}
+
 /** A courtyard's measured outcome. */
 const courtyardOutcome = (f: ShellFixture): Promise<string[]> => outcome(f, COURTYARD_EXPECTED);
 
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decisions 115, 132 and 135): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
   });
 });
 
 /**
- * Measured at WP3.8 over seeds 1 to 6 at 250, 263 and 300 cm: every split-band courtyard (journal decisions 150 and
- * 151) that breaks an invariant, in the same form. Split mode makes the free cut, collinear with no wall, the shortest,
- * so every one of these reads the free branch and takes the island's steepest hip wall. Each fails at every free-cut
- * pitch tried (the island's, 45 degrees, and the cut-ends rule's), so none is the cut's pitch.
+ * Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every split-band courtyard (journal decisions 150,
+ * 151 and 153) that breaks an invariant, in the same form, 6 of 1680. Split mode makes the free cut, collinear with no
+ * wall, the shortest, so every one of these reads the free branch and takes the island's steepest wall.
  */
-const SPLIT_COURTYARD_DEFECTS: PinTable<SeededKey> = {
-  's2h250/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
-  's2h263/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
-  's2h300/SplitCourt10': ["throws: cleanMesh: cap 38 (31-37, apex 34) can neither flip nor merge its apex into its long edge"],
-  's5h250/SplitCourt29': ["throws: cell 790: side 334-11 reads ShellEdge 59, its NetEdge -1"],
+const SPLIT_COURTYARD_DEFECTS: CausedPinTable<SeededKey> = {
+  's2h250/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 297.3251953125)) can neither flip nor merge its apex into its long edge"]},
+  's2h263/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 310.3251953125)) can neither flip nor merge its apex into its long edge"]},
+  's2h300/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-37, apex 34 at (712.802734375, 231.9697265625, 347.3251953125)) can neither flip nor merge its apex into its long edge"]},
+  's5h250/SplitCourt29': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 790: side 334-11 (750, 450, 300) to (750, 450, 250) reads ShellEdge 59, its NetEdge -1"]},
+  's7h250/SplitCourt9': {cause: "a Gable-Wall edge, Unclassified (SplitCourt9 class)", outcome: ["2 Unclassified Edges: (191.8310546875, 400, 500) to (200, 400, 500); (200, 400, 500) to (200, 400, 510.6455078125)"]},
+  's13h250/SplitCourt30': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 131 (63-72, apex 64 at (500.4453125, 736.64453125, 510.064453125)) can neither flip nor merge its apex into its long edge"]},
 };
 
-/** Each split-band residue's class. */
-const SPLIT_CAUSES: Readonly<Record<string, DefectCause>> = {
-  SplitCourt10: 'cleanMesh stuck cap',
-  SplitCourt29: 'partial face-to-face contact of two storeys on one plane (Court25 class)',
-};
-
-describe('the pin tables (journal decision 150, F4)', () => {
-  it.each([
-    ['courtyards', COURTYARD_DEFECTS, COURTYARD_CAUSES], ['U shapes', U_DEFECTS, U_CAUSES], ['split bands', SPLIT_COURTYARD_DEFECTS, SPLIT_CAUSES],
-  ] as const)('every %s residue carries its cause, and every cause a residue', (_, pins, causes) => {
-    const names = [...new Set(Object.keys(pins).map(k => k.slice(k.indexOf('/') + 1)))].sort();
-    expect(names).toEqual(Object.keys(causes).sort());
+describe("the pin tables' causes (journal decisions 150, F4, and 156, F7)", () => {
+  it.each([['courtyards', COURTYARD_DEFECTS], ['U shapes', U_DEFECTS], ['split bands', SPLIT_COURTYARD_DEFECTS]] as const)('every %s residue carries the class its signature reads', (_, pins) => {
+    for (const [key, pin] of Object.entries(pins)) expect(pin && causeOf(key, pin.outcome), key).toBe(pin?.cause);
   });
 });
 
@@ -216,13 +239,13 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
   });
 
   it.each(draws.map(d => [d.fixture.name, d.fixture] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await courtyardOutcome(f)).toEqual(SPLIT_COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
   });
 });
 
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random U shapes (F50): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await outcome(f, EXPECTED)).toEqual(U_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+    expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, `s${seed}h${h}/${name}`));
   });
 });
 
@@ -313,36 +336,36 @@ describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vert
  * Cell side that lies on no ShellEdge, lattice line or split line; from 6.91 degrees up, every case scanned is green.
  */
 const PITCH_END_DEFECTS: PinTable<string> = {
-  'G5.86h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.86h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.86h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.86h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.87h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.87h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.87h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.87h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G5.865h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.02h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.02h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.02h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.02h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h250': ["throws: cell 276: side 107-109 (450, 150, 265.3955078125) to (499.9970703125, 100, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h250u': ["throws: cell 201: side 109-111 (50, 50, 255.1318359375) to (100, 99.9970703125, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h300': ["throws: cell 316: side 111-113 (450, 150, 315.3955078125) to (499.9970703125, 100, 310.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h300u': ["throws: cell 241: side 113-115 (50, 50, 305.1318359375) to (100, 99.9970703125, 310.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h250': ["throws: cell 276: side 107-109 (450, 150, 265.421875) to (499.9970703125, 100, 260.28125) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h250u': ["throws: cell 201: side 109-111 (50, 50, 255.140625) to (100, 99.9970703125, 260.28125) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h300': ["throws: cell 316: side 111-113 (450, 150, 315.421875) to (499.9970703125, 100, 310.28125) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h300u': ["throws: cell 241: side 113-115 (50, 50, 305.140625) to (100, 99.9970703125, 310.28125) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250': ["throws: cell 276: side 107-109 (450, 150, 265.4091796875) to (499.9970703125, 100, 260.2724609375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250u': ["throws: cell 201: side 109-111 (50, 50, 255.13671875) to (100, 99.9970703125, 260.2724609375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300': ["throws: cell 316: side 111-113 (450, 150, 315.4091796875) to (499.9970703125, 100, 310.2724609375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300u': ["throws: cell 241: side 113-115 (50, 50, 305.13671875) to (100, 99.9970703125, 310.2724609375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h250': ["throws: cell 276: side 107-109 (450, 150, 265.8193359375) to (499.9970703125, 100, 260.5458984375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h250u': ["throws: cell 201: side 109-111 (50, 50, 255.2734375) to (100, 99.9970703125, 260.5458984375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h300': ["throws: cell 316: side 111-113 (450, 150, 315.8193359375) to (499.9970703125, 100, 310.5458984375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h300u': ["throws: cell 241: side 113-115 (50, 50, 305.2734375) to (100, 99.9970703125, 310.5458984375) is neither on a ShellEdge, a lattice line nor a split line"],
   'G6.9h250u': ["2 Unclassified Edges: (400, 200, 274.203125) to (400, 200, 500); (400, 200, 274.203125) to (600, 400, 250)"],
-  'G6.015h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.15h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.15h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.015h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.27h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.27h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.38h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.38h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.48h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.57h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
-  'G6.66h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h250': ["throws: cell 276: side 107-109 (450, 150, 265.8056640625) to (499.9970703125, 100, 260.537109375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.15h250': ["throws: cell 276: side 107-109 (450, 150, 266.1630859375) to (499.9970703125, 100, 260.775390625) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h250u': ["throws: cell 201: side 109-111 (50, 50, 255.2685546875) to (100, 99.9970703125, 260.537109375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.15h250u': ["throws: cell 201: side 109-111 (50, 50, 255.3876953125) to (100, 99.9970703125, 260.775390625) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300': ["throws: cell 316: side 111-113 (450, 150, 315.8056640625) to (499.9970703125, 100, 310.537109375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300u': ["throws: cell 241: side 113-115 (50, 50, 305.2685546875) to (100, 99.9970703125, 310.537109375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.27h250': ["throws: cell 276: side 107-109 (450, 150, 266.4814453125) to (499.9970703125, 100, 260.9873046875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.27h250u': ["throws: cell 201: side 109-111 (50, 50, 255.494140625) to (100, 99.9970703125, 260.9873046875) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.38h250': ["throws: cell 276: side 107-109 (450, 150, 266.7724609375) to (499.9970703125, 100, 261.181640625) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.38h250u': ["throws: cell 201: side 109-111 (50, 50, 255.5908203125) to (100, 99.9970703125, 261.181640625) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.48h250u': ["throws: cell 201: side 109-111 (50, 50, 255.6796875) to (100, 99.9970703125, 261.3583984375) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.57h250u': ["throws: cell 201: side 109-111 (50, 50, 255.7587890625) to (100, 99.9970703125, 261.517578125) is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.66h250u': ["throws: cell 201: side 109-111 (50, 50, 255.8388671875) to (100, 99.9970703125, 261.6767578125) is neither on a ShellEdge, a lattice line nor a split line"],
 };
 
 describe("the wire format's pitch ends (journal decision 143): the sweep's box from 5 to 20 and from 70 to 75 degrees", () => {
@@ -444,13 +467,13 @@ if (COURT_FUZZ_SEEDS.length) {
   describe.each(COURT_FUZZ_SEEDS.flatMap(s => FUZZ_HEIGHTS.map(h => [s, h] as const)))('the opt-in courtyard and U fuzz: seed %i at %i cm storeys', (seed, h) => {
     // Journal decision 150, F4: the opt-in run asserts against the same pins as the gated run.
     it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('courtyard %s', async (name, f) => {
-      expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
     });
     it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('U %s', async (name, f) => {
-      expect(await outcome(f, EXPECTED)).toEqual(U_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+      expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, `s${seed}h${h}/${name}`));
     });
     it.each(randomSplitCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('split-band courtyard %s', async (name, f) => {
-      expect(await courtyardOutcome(f)).toEqual(SPLIT_COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
     });
   });
 }
@@ -505,60 +528,70 @@ describe('F37: a Cell corner is placed in the fan by its bisector', () => {
  * - **BridgeOverBlock from 40 degrees** (F52): the block's hip rises through the tunnel and meets the bridge's floor.
  *   From 40 to 51 the contact is a ring and the genus 2, from 51.5 two lines and the genus 0. The edge there is now
  *   `SoffitJunction` (decision 146), so only the genus remains: real geometry, a roof touching the floor above it.
+ *   Every pin of a shell whose roof meets the floor above carries those edges' ends (decision 156, F8), so 8 mixed
+ *   cases whose invariants hold are listed too, with their edges alone.
  * - **Courtyard at mixed pitch**: one or two Internal triangles survive on the cut's plane, y = 300, with their
  *   Unclassified Edges, the cut pieces' faces across the slit no longer matching. Roof-gable algorithm B's cut-piece
  *   overshoot class (`CutOvershootProbe`), inherited. Content's own 22.5/45 reaches it (decision 148, F3).
  */
 const ROSTER_PITCH_DEFECTS: PinTable<`${string}@${string}`> = {
-  'BridgeOverBlock@40': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@41': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@42': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@43': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@44': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@45': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@45/22.5r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@45/30r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@45/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@45/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@45/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@46': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@47': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@48': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@49': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@50': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@51': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@52': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@53': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@54': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@55': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@56': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@57': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@58': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@59': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@60': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@60/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@60/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@60/75r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@60/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@61': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@62': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@63': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@64': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@65': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@66': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@67': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@68': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@69': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@70': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@71': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@72': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@73': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@74': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@75': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@75/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@75/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
-  'BridgeOverBlock@75/60r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
-  'BridgeOverBlock@75/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@40': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (297.9384765625, 297.9384765625, 500) to (297.9384765625, 302.0615234375, 500); SoffitJunction (297.9384765625, 297.9384765625, 500) to (702.0615234375, 297.9384765625, 500); SoffitJunction (297.9384765625, 302.0615234375, 500) to (702.0615234375, 302.0615234375, 500); SoffitJunction (702.0615234375, 297.9384765625, 500) to (702.0615234375, 302.0615234375, 500)"],
+  'BridgeOverBlock@41': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (287.591796875, 287.591796875, 500) to (287.591796875, 312.408203125, 500); SoffitJunction (287.591796875, 287.591796875, 500) to (712.408203125, 287.591796875, 500); SoffitJunction (287.591796875, 312.408203125, 500) to (712.408203125, 312.408203125, 500); SoffitJunction (712.408203125, 287.591796875, 500) to (712.408203125, 312.408203125, 500)"],
+  'BridgeOverBlock@42': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (277.6533203125, 277.6533203125, 500) to (277.6533203125, 322.3466796875, 500); SoffitJunction (277.6533203125, 277.6533203125, 500) to (722.3466796875, 277.6533203125, 500); SoffitJunction (277.6533203125, 322.3466796875, 500) to (722.3466796875, 322.3466796875, 500); SoffitJunction (722.3466796875, 277.6533203125, 500) to (722.3466796875, 322.3466796875, 500)"],
+  'BridgeOverBlock@43': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (268.091796875, 268.091796875, 500) to (268.091796875, 331.908203125, 500); SoffitJunction (268.091796875, 268.091796875, 500) to (731.908203125, 268.091796875, 500); SoffitJunction (268.091796875, 331.908203125, 500) to (731.908203125, 331.908203125, 500); SoffitJunction (731.908203125, 268.091796875, 500) to (731.908203125, 331.908203125, 500)"],
+  'BridgeOverBlock@44': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (258.8818359375, 258.8818359375, 500) to (258.8818359375, 341.1181640625, 500); SoffitJunction (258.8818359375, 258.8818359375, 500) to (741.1181640625, 258.8818359375, 500); SoffitJunction (258.8818359375, 341.1181640625, 500) to (741.1181640625, 341.1181640625, 500); SoffitJunction (741.1181640625, 258.8818359375, 500) to (741.1181640625, 341.1181640625, 500)"],
+  'BridgeOverBlock@45': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (750, 250, 500); SoffitJunction (250, 350, 500) to (750, 350, 500); SoffitJunction (750, 250, 500) to (750, 350, 500)"],
+  'BridgeOverBlock@45/22.5r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (396.447265625, 250, 500); SoffitJunction (250, 350, 500) to (396.447265625, 350, 500); SoffitJunction (396.447265625, 250, 500) to (396.447265625, 350, 500)"],
+  'BridgeOverBlock@45/30r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (566.9873046875, 250, 500); SoffitJunction (250, 350, 500) to (566.9873046875, 350, 500); SoffitJunction (566.9873046875, 250, 500) to (566.9873046875, 350, 500)"],
+  'BridgeOverBlock@45/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (433.013671875, 250, 500) to (433.013671875, 350, 500); SoffitJunction (433.013671875, 250, 500) to (566.9873046875, 250, 500); SoffitJunction (433.013671875, 350, 500) to (566.9873046875, 350, 500); SoffitJunction (566.9873046875, 250, 500) to (566.9873046875, 350, 500)"],
+  'BridgeOverBlock@45/60r': ["3 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (800, 250, 500); SoffitJunction (250, 350, 500) to (800, 350, 500)"],
+  'BridgeOverBlock@45/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 250, 500) to (800, 250, 500); SoffitJunction (200, 350, 500) to (800, 350, 500)"],
+  'BridgeOverBlock@45/75r': ["3 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (800, 250, 500); SoffitJunction (250, 350, 500) to (800, 350, 500)"],
+  'BridgeOverBlock@45/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 250, 500) to (800, 250, 500); SoffitJunction (200, 350, 500) to (800, 350, 500)"],
+  'BridgeOverBlock@46': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (241.421875, 241.421875, 500) to (241.421875, 358.578125, 500); SoffitJunction (241.421875, 241.421875, 500) to (758.578125, 241.421875, 500); SoffitJunction (241.421875, 358.578125, 500) to (758.578125, 358.578125, 500); SoffitJunction (758.578125, 241.421875, 500) to (758.578125, 358.578125, 500)"],
+  'BridgeOverBlock@47': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (233.12890625, 233.12890625, 500) to (233.12890625, 366.87109375, 500); SoffitJunction (233.12890625, 233.12890625, 500) to (766.87109375, 233.12890625, 500); SoffitJunction (233.12890625, 366.87109375, 500) to (766.87109375, 366.87109375, 500); SoffitJunction (766.87109375, 233.12890625, 500) to (766.87109375, 366.87109375, 500)"],
+  'BridgeOverBlock@48': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (225.1015625, 225.1015625, 500) to (225.1015625, 374.8984375, 500); SoffitJunction (225.1015625, 225.1015625, 500) to (774.8984375, 225.1015625, 500); SoffitJunction (225.1015625, 374.8984375, 500) to (774.8984375, 374.8984375, 500); SoffitJunction (774.8984375, 225.1015625, 500) to (774.8984375, 374.8984375, 500)"],
+  'BridgeOverBlock@49': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (217.322265625, 217.322265625, 500) to (217.322265625, 382.6787109375, 500); SoffitJunction (217.322265625, 217.322265625, 500) to (782.6787109375, 217.322265625, 500); SoffitJunction (217.322265625, 382.6787109375, 500) to (782.6787109375, 382.6787109375, 500); SoffitJunction (782.6787109375, 217.322265625, 500) to (782.6787109375, 382.6787109375, 500)"],
+  'BridgeOverBlock@50': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (209.7744140625, 209.7744140625, 500) to (209.7744140625, 390.2255859375, 500); SoffitJunction (209.7744140625, 209.7744140625, 500) to (790.2255859375, 209.7744140625, 500); SoffitJunction (209.7744140625, 390.2255859375, 500) to (790.2255859375, 390.2255859375, 500); SoffitJunction (790.2255859375, 209.7744140625, 500) to (790.2255859375, 390.2255859375, 500)"],
+  'BridgeOverBlock@51': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (202.4462890625, 202.4462890625, 500) to (202.4462890625, 397.5537109375, 500); SoffitJunction (202.4462890625, 202.4462890625, 500) to (797.5537109375, 202.4462890625, 500); SoffitJunction (202.4462890625, 397.5537109375, 500) to (797.5537109375, 397.5537109375, 500); SoffitJunction (797.5537109375, 202.4462890625, 500) to (797.5537109375, 397.5537109375, 500)"],
+  'BridgeOverBlock@52': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 195.3212890625, 500) to (800, 195.3212890625, 500); SoffitJunction (200, 404.6787109375, 500) to (800, 404.6787109375, 500)"],
+  'BridgeOverBlock@53': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 188.388671875, 500) to (800, 188.388671875, 500); SoffitJunction (200, 411.611328125, 500) to (800, 411.611328125, 500)"],
+  'BridgeOverBlock@54': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 181.6357421875, 500) to (800, 181.6357421875, 500); SoffitJunction (200, 418.3642578125, 500) to (800, 418.3642578125, 500)"],
+  'BridgeOverBlock@55': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 175.0517578125, 500) to (800, 175.0517578125, 500); SoffitJunction (200, 424.9482421875, 500) to (800, 424.9482421875, 500)"],
+  'BridgeOverBlock@56': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 168.626953125, 500) to (800, 168.626953125, 500); SoffitJunction (200, 431.373046875, 500) to (800, 431.373046875, 500)"],
+  'BridgeOverBlock@57': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 162.3515625, 500) to (800, 162.3515625, 500); SoffitJunction (200, 437.6484375, 500) to (800, 437.6484375, 500)"],
+  'BridgeOverBlock@58': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 156.216796875, 500) to (800, 156.216796875, 500); SoffitJunction (200, 443.783203125, 500) to (800, 443.783203125, 500)"],
+  'BridgeOverBlock@59': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 150.21484375, 500) to (800, 150.21484375, 500); SoffitJunction (200, 449.78515625, 500) to (800, 449.78515625, 500)"],
+  'BridgeOverBlock@60': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (800, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (800, 455.662109375, 500)"],
+  'BridgeOverBlock@60/22.5r': ["3 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (396.447265625, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (396.447265625, 455.662109375, 500); SoffitJunction (396.447265625, 144.337890625, 500) to (396.447265625, 455.662109375, 500)"],
+  'BridgeOverBlock@60/30r': ["3 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (566.9873046875, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (566.9873046875, 455.662109375, 500); SoffitJunction (566.9873046875, 144.337890625, 500) to (566.9873046875, 455.662109375, 500)"],
+  'BridgeOverBlock@60/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (433.013671875, 144.337890625, 500) to (433.013671875, 455.662109375, 500); SoffitJunction (433.013671875, 144.337890625, 500) to (566.9873046875, 144.337890625, 500); SoffitJunction (433.013671875, 455.662109375, 500) to (566.9873046875, 455.662109375, 500); SoffitJunction (566.9873046875, 144.337890625, 500) to (566.9873046875, 455.662109375, 500)"],
+  'BridgeOverBlock@60/45r': ["3 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (750, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (750, 455.662109375, 500); SoffitJunction (750, 144.337890625, 500) to (750, 455.662109375, 500)"],
+  'BridgeOverBlock@60/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 144.337890625, 500) to (250, 455.6630859375, 500); SoffitJunction (250, 144.337890625, 500) to (750, 144.337890625, 500); SoffitJunction (250, 455.6630859375, 500) to (750, 455.6630859375, 500); SoffitJunction (750, 144.337890625, 500) to (750, 455.6630859375, 500)"],
+  'BridgeOverBlock@60/75r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (800, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (800, 455.662109375, 500)"],
+  'BridgeOverBlock@60/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 144.337890625, 500) to (800, 144.337890625, 500); SoffitJunction (200, 455.662109375, 500) to (800, 455.662109375, 500)"],
+  'BridgeOverBlock@61': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 138.5771484375, 500) to (800, 138.5771484375, 500); SoffitJunction (200, 461.4228515625, 500) to (800, 461.4228515625, 500)"],
+  'BridgeOverBlock@62': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 132.927734375, 500) to (800, 132.927734375, 500); SoffitJunction (200, 467.072265625, 500) to (800, 467.072265625, 500)"],
+  'BridgeOverBlock@63': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 127.3818359375, 500) to (800, 127.3818359375, 500); SoffitJunction (200, 472.619140625, 500) to (800, 472.619140625, 500)"],
+  'BridgeOverBlock@64': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 121.93359375, 500) to (800, 121.93359375, 500); SoffitJunction (200, 478.06640625, 500) to (800, 478.06640625, 500)"],
+  'BridgeOverBlock@65': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 116.5771484375, 500) to (800, 116.5771484375, 500); SoffitJunction (200, 483.4228515625, 500) to (800, 483.4228515625, 500)"],
+  'BridgeOverBlock@66': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 111.3076171875, 500) to (800, 111.3076171875, 500); SoffitJunction (200, 488.6923828125, 500) to (800, 488.6923828125, 500)"],
+  'BridgeOverBlock@67': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 106.119140625, 500) to (800, 106.119140625, 500); SoffitJunction (200, 493.880859375, 500) to (800, 493.880859375, 500)"],
+  'BridgeOverBlock@68': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 101.0068359375, 500) to (800, 101.0068359375, 500); SoffitJunction (200, 498.9931640625, 500) to (800, 498.9931640625, 500)"],
+  'BridgeOverBlock@69': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 504.0341796875, 500) to (800, 504.0341796875, 500); SoffitJunction (200, 95.9658203125, 500) to (800, 95.9658203125, 500)"],
+  'BridgeOverBlock@70': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 509.0078125, 500) to (800, 509.0078125, 500); SoffitJunction (200, 90.9921875, 500) to (800, 90.9921875, 500)"],
+  'BridgeOverBlock@71': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 513.91796875, 500) to (800, 513.91796875, 500); SoffitJunction (200, 86.08203125, 500) to (800, 86.08203125, 500)"],
+  'BridgeOverBlock@72': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 518.7705078125, 500) to (800, 518.7705078125, 500); SoffitJunction (200, 81.2294921875, 500) to (800, 81.2294921875, 500)"],
+  'BridgeOverBlock@73': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 523.5673828125, 500) to (800, 523.5673828125, 500); SoffitJunction (200, 76.4326171875, 500) to (800, 76.4326171875, 500)"],
+  'BridgeOverBlock@74': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 528.3134765625, 500) to (800, 528.3134765625, 500); SoffitJunction (200, 71.6865234375, 500) to (800, 71.6865234375, 500)"],
+  'BridgeOverBlock@75': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)"],
+  'BridgeOverBlock@75/22.5r': ["3 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (396.4462890625, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (396.4462890625, 66.9873046875, 500); SoffitJunction (396.4462890625, 66.9873046875, 500) to (396.4462890625, 533.0126953125, 500)"],
+  'BridgeOverBlock@75/30r': ["3 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (566.9873046875, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (566.9873046875, 66.9873046875, 500); SoffitJunction (566.9873046875, 66.9873046875, 500) to (566.9873046875, 533.0126953125, 500)"],
+  'BridgeOverBlock@75/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (433.013671875, 533.0126953125, 500) to (566.9873046875, 533.0126953125, 500); SoffitJunction (433.013671875, 66.9873046875, 500) to (433.013671875, 533.0126953125, 500); SoffitJunction (433.013671875, 66.9873046875, 500) to (566.9873046875, 66.9873046875, 500); SoffitJunction (566.9873046875, 66.9873046875, 500) to (566.9873046875, 533.0126953125, 500)"],
+  'BridgeOverBlock@75/45r': ["3 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (750, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (750, 66.9873046875, 500); SoffitJunction (750, 66.9873046875, 500) to (750, 533.0126953125, 500)"],
+  'BridgeOverBlock@75/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (250, 533.0126953125, 500) to (750, 533.0126953125, 500); SoffitJunction (250, 66.9873046875, 500) to (250, 533.0126953125, 500); SoffitJunction (250, 66.9873046875, 500) to (750, 66.9873046875, 500); SoffitJunction (750, 66.9873046875, 500) to (750, 533.0126953125, 500)"],
+  'BridgeOverBlock@75/60r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)"],
+  'BridgeOverBlock@75/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)","2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)"],
   'Courtyard@7/22.5s': ["survivingInternal 1 at (150, 300, 295.267578125)","3 Unclassified Edges: (150, 300, 312.1318359375) to (211.0712890625, 300, 286.8349609375); (88.9287109375, 300, 286.8349609375) to (150, 300, 312.1318359375); (88.9287109375, 300, 286.8349609375) to (211.0712890625, 300, 286.8349609375)"],
   'Courtyard@7/30s': ["survivingInternal 2 at (121.2666015625, 300, 319.578125); (150.376953125, 300, 303.2060546875)","4 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (151.1318359375, 300, 335.94921875) to (236.19921875, 300, 286.8349609375); (63.80078125, 300, 286.8349609375) to (148.8681640625, 300, 335.94921875); (63.80078125, 300, 286.8349609375) to (236.19921875, 300, 286.8349609375)"],
   'Courtyard@7/45s': ["survivingInternal 2 at (112.2783203125, 300, 319.578125); (171.3505859375, 300, 303.2060546875)","4 Unclassified Edges: (214.05078125, 300, 335.94921875) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (85.94921875, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"],
@@ -587,6 +620,54 @@ describe('the widened pitch sweep (journal decisions 146 and 148, F3): every ros
   });
 
   it.each(cases.map(c => [c.name, c] as const))('%s keeps every invariant, or exactly its measured defect', async (name, c) => {
-    expect(await outcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name as `${string}@${string}`] ?? []);
+    expect(await locatedOutcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name as `${string}@${string}`] ?? []);
+  });
+});
+
+// ---- Journal decision 156, F6 and F7: every pinned case on the default run, and the two new signatures -------------
+
+/**
+ * Journal decision 156, F6: the default run asserts every pinned case of the seeded generators, building the pinned
+ * cases themselves rather than their whole generators, so a pin the gated seeds do not reach is still held. The
+ * opt-in path (`SHELL_COURT_SEEDS`) stays for discovering new failures.
+ */
+describe('every pinned case of the seeded generators, built on the default run (journal decision 156, F6)', () => {
+  const seededCase = (gen: (seed: number, count: number, h: number) => ShellFixture[], key: string): ShellFixture => {
+    const m = /^s(\d+)h(\d+)\/(.+)$/.exec(key);
+    if (!m) throw new Error(`a pin key ${key} names no seed, height and case`);
+    const f = gen(Number(m[1]), PER_COURTYARD_SEED, Number(m[2])).find(x => x.name === m[3]);
+    if (!f) throw new Error(`no case ${key}`);
+    return f;
+  };
+  const tables = [
+    ['courtyard', COURTYARD_DEFECTS, randomCourtyardFixtures, COURTYARD_EXPECTED],
+    ['U shape', U_DEFECTS, randomUFixtures, EXPECTED],
+    ['split-band courtyard', SPLIT_COURTYARD_DEFECTS, randomSplitCourtyardFixtures, COURTYARD_EXPECTED],
+  ] as const;
+  const cases = tables.flatMap(([kind, pins, gen, want]) => Object.entries(pins).map(([key, pin]) => [`${kind} ${key}`, key, pin?.outcome ?? [], gen, want] as const));
+  it.each(cases)('%s: exactly its pin', async (_, key, pin, gen, want) => {
+    expect(await outcome(seededCase(gen, key), want)).toEqual(pin);
+  });
+});
+
+/**
+ * Journal decision 156, F7: the two signatures the seeds 7 to 14 measurement found that no earlier pin holds, enrolled
+ * as named cases on the default run. Their pins are in the tables above too, where the opt-in run reads them.
+ * - s11 Court35 at 250 and 300: a Cell corner that lies in no triangle of its face's fan;
+ * - s7h250 SplitCourt9: a Gable-Wall edge, a gable's rake meeting a wall at the storey above's plate, Unclassified.
+ */
+describe("decision 156, F7's two new signatures", () => {
+  it.each([[250], [300]] as const)('s11h%i/Court35: its Cell-fan throw', async h => {
+    const f = randomCourtyardFixtures(11, PER_COURTYARD_SEED, h).find(x => x.name === 'Court35');
+    if (!f) throw new Error('no Court35');
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s11h${h}/Court35`));
+    expect(COURTYARD_DEFECTS[`s11h${h}/Court35`]?.cause).toBe("a Cell corner in no triangle of its face's fan");
+  });
+
+  it('s7h250/SplitCourt9: its Gable-Wall Unclassified Edges', async () => {
+    const f = randomSplitCourtyardFixtures(7, PER_COURTYARD_SEED, 250).find(x => x.name === 'SplitCourt9');
+    if (!f) throw new Error('no SplitCourt9');
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, 's7h250/SplitCourt9'));
+    expect(SPLIT_COURTYARD_DEFECTS['s7h250/SplitCourt9']?.cause).toBe('a Gable-Wall edge, Unclassified (SplitCourt9 class)');
   });
 });

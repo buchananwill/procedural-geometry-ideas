@@ -3,7 +3,7 @@
 // `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json` (decision 152, the subject sanitised) and the same stem
 // with `.output.json`, in the solve dump's directory, the seed always present. Ingestion pairs them by the stem before `.input.json` or `.output.json`, whatever dots it
 // holds; the subject is read from the input's provenance, never from the name. Browser-safe.
-import type {CellSource} from '../provenance.ts';
+import {CellSource, compareSources} from '../provenance.ts';
 import type {BuildingShell} from '../shell.ts';
 import {DiffReport, baselineReport, canonicalOfShell, diffReport} from './canonical.ts';
 import {readOutput} from './canonical-output-schema.ts';
@@ -39,20 +39,22 @@ export function listDumps(names: readonly string[]): DumpListing {
 }
 
 /**
- * Journal decision 140's Q3 note: a shell built from a file's fixture, its provenance naming the file's own model
- * indices, never the fixture's compressed positions. Every Cell's and face's source is mapped through
- * `adapted.modelIndices`; their order, by model index, is unchanged, since the fixture is ordered by it.
+ * Journal decisions 140's Q3 note and 156, F1: a shell built from a file's fixture, its provenance naming the file's own
+ * Rings and sides, never the fixture's compressed positions or its compass order. Every Cell's and face's source is
+ * mapped through `adapted.modelIndices` and `adapted.sideSlots`, and each face's sources are sorted again, by model
+ * index then side.
  */
-export function withFileModelIndices(shell: BuildingShell, adapted: Pick<AdaptedInput, 'modelIndices'>): BuildingShell {
+export function withFileModelIndices(shell: BuildingShell, adapted: Pick<AdaptedInput, 'modelIndices' | 'sideSlots'>): BuildingShell {
   const map = (s: CellSource): CellSource => {
     const ringModelIndex = adapted.modelIndices[s.ringModelIndex];
-    if (ringModelIndex === undefined) throw new Error(`a source names Ring ${s.ringModelIndex}, which the file does not hold`);
-    return {...s, ringModelIndex};
+    const side = adapted.sideSlots[s.ringModelIndex]?.[s.side];
+    if (ringModelIndex === undefined || side === undefined || side < 0) throw new Error(`a source names Ring ${s.ringModelIndex} side ${s.side}, which the file does not hold`);
+    return {ringModelIndex, side};
   };
   return {
     ...shell,
     cells: shell.cells.map(c => ({...c, source: c.source && map(c.source)})),
-    faces: shell.faces.map(f => ({...f, sources: f.sources.map(map)})),
+    faces: shell.faces.map(f => ({...f, sources: f.sources.map(map).sort(compareSources)})),
   };
 }
 
