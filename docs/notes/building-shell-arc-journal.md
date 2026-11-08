@@ -146,7 +146,8 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   is unscheduled, waiting on the user.
 - **A courtyard and gable redesign** (decision 172). It is unscheduled.
 - **A module release of the shell** (F54). It is not ready, and would be its own arc if wanted.
-- **A test-side type backlog** (decision 177: B1, B2 and N1 to N5). It touches no behaviour and no goldens.
+- **A test-side type backlog** (decision 177: B1, B2 and N1 to N5, plus decision 184's `RunShapeCase`). It touches
+  no behaviour and no goldens.
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
@@ -2500,6 +2501,9 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        (`snappedSides`), and only when the reader accepts.
      - **The playtest README and the `.gitattributes` entry** are in.
      - **Next:** two closure-only reviews of `adf5dac`, then decision 174's merge.
+184. **The type closure of `adf5dac`: all seven of decision 181's items are closed,** and the port-facing surface is
+     clean. The one blocking item, a test-local `RunShapeCase` declared inside a `describe`, is cosmetic. It goes to
+     §5's test-side backlog. Its note, that the throw in `snappedSides` is unreachable, is recorded.
 
 ## Findings
 
