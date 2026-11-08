@@ -91,6 +91,8 @@ running subagents.** Their reports arrive as notifications.
 - ~~**WP5.2's two reviews**~~ and ~~**WP3.7's two reviews**~~: all returned, ruled by decisions 145 to 148 and 150.
 - **WP3.8 and WP3.8.1 have landed** (`809b6aa`..`40cffce`; decisions 153 and 154), and both reviews are back,
   ruled by decisions 155 and 156.
+- **MERGED INTO `main` AT `5d82526`** (decision 186), not pushed. The last code commit is `adf5dac` (WP3.9.3). What
+  remains is §5's open items, and the demo's pre-existing lint failure, which is the user's to schedule.
 - **PORT-READY DECLARED AT `f1d91fb`** (decision 167), and the port lead has been messaged.
   - **Nothing is in flight.**
   - **Queued: WP3.9,** the post-port-ready tidy-up: the deferred type notes of decisions 160, 163 and 166, plus
@@ -2517,6 +2519,21 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        short section of its own, and the root README's package table and layout, marked private.
      - **Step 3 next:** a verifier runs every workspace package's tests and builds on the branch tip. `main` is still
        at the branch base `f7b6091`, so the merge's tree equals the branch tip's.
+186. **THE ARC BRANCH IS MERGED INTO `main` AT `5d82526`** (`--no-ff`, not pushed, 2026-11-08), by decision 174, with
+     the user's agreement.
+     - **The verifier's record, on `6a541a7`,** whose tree is the merge's:
+       - `pnpm install --frozen-lockfile` accepts the lockfile, and `git status` stays clean;
+       - core Jest passes 5810 of 5819 (9 skipped);
+       - building-shell Vitest passes 8275/8275, and `typecheck` is clean;
+       - the root build passes: core, test-fixtures and dashboard, ESM, CJS and DTS, plus the demo's `next build` with
+         10 of 10 pages;
+       - the golden set re-exports with no diff.
+     - **One red step, outside this arc: the demo's lint fails,** with `no-explicit-any` at
+       `apps/demo/src/app/dol-system/page.tsx:51` and an unused variable at `AppShellLayout.tsx:17`.
+       - The branch does not touch `apps/demo` (`git diff main HEAD -- apps/demo` is empty), so the defect almost
+         certainly predates the arc and is on `main` already. That is inferred: lint was not run on `main` itself.
+       - **By the arc branch rule, it is the user's to schedule, and is not fixed here.**
+     - **The port lead is sent the WP3.9 hash, `adf5dac`, with the merge commit and what changed since `f1d91fb`.**
 
 ## Findings
 
