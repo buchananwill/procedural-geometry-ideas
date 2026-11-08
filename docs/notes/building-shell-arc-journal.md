@@ -1936,6 +1936,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          - that the golden drift test is re-run, with every moved golden byte explained.
      - **Its spec wording lands in spec 16, 21, 23 and 32.**
      - **The residual rates, to be re-measured after WP3.8.1, are F53.**
+154. **WP3.8.1 returned at `40cffce`: 7665/7665, `typecheck` clean, and all three gates convicted**, per the
+     delegate.
+     - **What it cured:** the 27 gable-weight split bands, which now round-trip byte-identical, and the 10 all-gable
+       60° failures. Both pin tables are empty.
+     - **Shell identity:** only the 23 all-gable split-band layouts moved, by design (17 canonically, 6 in raw bytes).
+       Nothing broke.
+     - **The golden set re-exported byte-identical:** 0 of 134 files changed.
+     - **F53's table holds at `40cffce`,** with two rows added:
+       - split-band uniform, mixed, 7°/22.5°/75° and all-gable families: 0 of 1300 fail;
+       - the split-band far-wall family: 27 of 189 fail, the b75/w7 scheme, which fails at every cut pitch.
+     - **Next: two fresh reviews over `65a7fa2..40cffce`, then port-ready.**
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
