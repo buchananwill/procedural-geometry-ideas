@@ -1711,7 +1711,39 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **N4:** the pin tables are keyed by template-literal unions.
      - **N5:** an `any` canary, and no hard-coded count.
      - **N6:** `makeUnionFind`.
-     - **N7:** both `SHELL_KINDS` lists fold into `tags.ts` with decision 142's N5 move. Its scope is decisions 136 to 140. It stays within the wire
+     - **N7:** both `SHELL_KINDS` lists fold into `tags.ts` with decision 142's N5 move.
+148. **Rulings on WP5.2's correctness review** (fresh Opus, on a `git archive 55c1e66` snapshot, 4594/4594 reproduced).
+     Decision 143's F1, F3, F6 and F7 are closed. F4 is closed for one pitch per building. **All findings are accepted
+     and fold into WP3.8:**
+     - **F1 (Medium): the slab-genus prediction is RETIRED from playtest ingestion.**
+       - Its gable join failed four more ordinary layouts (G1, G2, G3 and G5), and each fix has grown a heuristic
+         that re-derives the union walls by hand.
+       - **A playtest file's genus is measured at enrolment and pinned, per component,** by the same rule as a
+         degenerate twin's genus (spec 32: "measured, then pinned"). The seeds take their roster pins.
+       - `slab-genus.ts` is deleted. Decision 143's F2 and F3 rulings on it lapse.
+       - The per-component check inside `invariantViolations` then runs against the pinned list, which closes F5's
+         blind spot.
+     - **F2 (Medium-Low): the round-trip test cannot see Cells,** because the canonical form excludes them.
+       - The same engine on both sides is deterministic, so **the wire round trip asserts that the `BuildingShell`
+         JSON is byte-identical**, not merely canonically equal.
+       - It also writes with rotated start corners and shuffled model indices, so ordering is covered by shell
+         identity.
+       - Gate: hard-coding `cellSize: 50` in `readInput` must fail it.
+     - **F3 (Low-Medium): mixed pitches inside the bounds fail on seeds**, among them Courtyard at content's own
+       22.5°/45°. They are F50, F51 and F52's classes.
+       - **The wire bounds stay [7°, 75°],** because narrowing cannot cure a mixed-pitch defect.
+       - **WP3.8's widened pitch sweep includes mixed pairs,** content's {22.5, 30, 45} and the fixtures' 60, plus both
+         bounds, on every roster fixture. Every failure is enrolled with its pin.
+       - F52's switch from genus 2 to genus 0 is at 51.5°, not 55°: it was sampled in 5° steps. F52 and the test
+         comment are corrected.
+       - **For the port-ready message:** content-reachable mixed-pitch courtyards are among the enrolled residues.
+     - **F4 (Low):** a mutation test convicts the rethrow branch in `noneWinnerRefusals`, not only the predicate.
+     - **F6 (Low): an output with an empty edge list is refused as malformed.** A shell always has edges, and a
+       zero-length list would otherwise be read as `full`.
+     - **F7 (Info):**
+       - one playtest seed gains an output, the prototype's own canonical shell, so that pair ingestion runs end to
+         end in the ingestion test;
+       - the stale `WIRE_GABLE_ONLY_DEG` comment is fixed. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
@@ -2071,5 +2103,6 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     - **the pitch pockets** between 5.86° and 6.9° (addendum 6).
 - **F52. A Roof–Underside edge arises: BridgeOverBlock at 40° and above.** The block's hip rises through the tunnel and
   meets the bridge's floor (WP5.2's bound test, decision 146). The edge reads `Unclassified`, since spec 21 has no row
-  for the pair. At 40° to 50° there are 4 such edges and the genus is 2; at 55° to 75° there are 2 and the genus is 0.
+  for the pair. From 40° to 51° there are 4 such edges and the genus is 2; from 51.5° to 75° there are 2 and the genus
+  is 0 (**AMENDED 2026-11-08** by decision 148: the switch had been put at 55° from 5° sampling).
   Content's 45° roofs can reach this under a bridge.
