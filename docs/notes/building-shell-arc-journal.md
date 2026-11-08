@@ -162,8 +162,8 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   - ~~**Courtyards.**~~ Roofed by decision 115's cut, corrected by decision 132. A layout with no qualifying wall
     segment stays a hard error, and WP3.7's courtyard generator measures whether content can reach one.
   - **A straight-skeleton refusal is a hard error with no fallback.** The risk lives in mixed-pitch weights.
-  - **No sliver-Cell policy.** Exact cuts keep partial Cells down to 1e-4 cm², with no merge rule or minimum size for
-    content.
+  - ~~**No sliver-Cell policy.**~~ Closed by decision 178: every Cell is kept, and content decides (F56 measured
+    them as rare).
   - **Edge-table pairs that would be `Unclassified`** if they ever arose: Roof–Underside and Gable–Underside, neither
     seen yet. The sloped flat Gable–Gable pair did arise (F50's U class), and is `GableSloped` by decision 144.
   - **The enrolled residues of F51:** partial coplanar contact (Court25), edge contact between opposite coplanar faces
@@ -2399,6 +2399,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - N3: drop the empty `UNMOVED_BY_FILE_ORDER`;
        - N4: validated golden reads;
        - N5: `RunTuple` derived from `RunBounds`.
+178. **The sliver-Cell policy is settled: the geometry keeps every Cell, and the C++ content rules decide what to place
+     on small ones** (user, 2026-11-08: "Yes, acceptable", after F56's measurement).
+     - **Decision 119's existence rule stands.** A Cell exists when it has three or more distinct snapped vertices.
+     - **A minimum usable size is a content rule per piece type,** on the C++ side.
+     - **No per-Cell size field is added to the output.** Area and thickness follow from each Cell's polygon, so the
+       port computes them, and the golden bytes do not move.
+     - **The evidence (F56):**
+       - on the 50 cm lattice, the smallest Cell measured is 1.86 cm²;
+       - a building holds at most a few Cells under 25 cm²;
+       - count falls with size.
+     - **§5's sliver item is closed.** The port lead is told, since its increments 5 and 6 waited on this.
 
 ## Findings
 
