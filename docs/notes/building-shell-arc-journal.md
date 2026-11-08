@@ -2194,6 +2194,25 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        inserts had anchored mid-line, which pushed each tail to the end of the decisions. **Restored to their places in
        the same edit as this decision.** From now on, journal inserts anchor on whole entries.
      - **WP3.8.5 goes to a fresh delegate.** Its two scoped reviews check the new goldens and the snap rule.
+165. **WP3.8.5 landed at `f1d91fb`: 8212/8212, `typecheck` clean, and every gate convicted on a snapshot of its own
+     tree**, per the delegate.
+     - **Shell identity:** 0 of 9883 shells moved.
+     - **The golden set** is now 70 fixtures in 192 files. It gained 21 new files, and the manifest gained 7 entries
+       with no deletions.
+     - **Reading Rings in file order moves the five `*FileReversed` goldens it should.**
+     - **The `hybrid` and `struck151` cut rules each move the new free-cut golden.**
+     - **The snap order follows spec 16 step by step,** and four mutants each fail their own test.
+
+     **Its choices, ruled:**
+     - **`AsymmetricLScrambled` keeps its bytes through a split-out `rotatedSparse()`: accepted.** It is the side-slot
+       and model-index oracle. The six `*FileReversed` goldens are the Ring-order oracle.
+     - **CutPitchConflict as the sixth: accepted.** It cannot move under file order, because all three Rings on its one
+       shared wall agree. That is measured, not assumed.
+     - **The other two of `RING_CONFLICT_FIXTURES`' eight pairs gain `FileReversed` goldens in WP3.9,** for
+       completeness. Five moving goldens already convict the mutant.
+     - **Note for later delegates:** WP3.8.5's scratch `snap\` and `head\` trees link `node_modules` into the live repo.
+       Never delete them recursively.
+     - **Next: two scoped reviews of `f1d91fb`, then port-ready.**
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
