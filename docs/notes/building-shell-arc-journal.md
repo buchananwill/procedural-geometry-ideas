@@ -1928,6 +1928,13 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          - `storeyHeight` is a whole number of Cells (port lead, amended): 250 and 300 pass, 263 does not;
          - every Ring's `baseStorey + storeys` is at most 32, the C++ validator's cap.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice").
+       - **AMENDED 2026-11-08 (decisions 158, 179 and 182): the full list is seven conditions.** Two more were added
+         after this list:
+         - 6. the prototype's own `readInput` accepts `writeInput(f)`;
+         - 7. every side carries exactly one run, from 0 to its snapped length, within `WIRE_CORNER_SNAP_CM`.
+
+         **The flag means "shown to replay", a conservative subset.** It is not the exact set the C++ accepts. A
+         split-run document that the C++ would contain is still marked false.
 153. **WP3.8 returned in seven commits, `65a7fa2` to `ec2421f`: 7663/7663, `typecheck` clean, every named gate
      convicted**, per the delegate. The golden set is committed: 47 fixtures, 39 of them `cppReplayable`.
      - **Shell identity over 10,315 shells:** shape items moved 0; F5 moved 2 (Seed4Fuzz134's margin); provenance
@@ -2461,6 +2468,31 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **N5:**
        - the stale `MULTI_RUN_SEED` comment is fixed;
        - the port lead's message says the multi-run seed in `fixtures/playtest/` is deliberately not C++-replayable.
+182. **Rulings on WP3.9.2's correctness review** (fresh Opus, on `git archive cb208b9` with its parent; 0 High, Medium
+     or Low).
+
+     **Confirmed:**
+     - all 64 replayable entries meet the seven conditions;
+     - an estimate of the C++ plate runs finds every split or partial side contained in its single whole run. That
+       includes NarrowUpperStorey's known [0,4) and [8,12) split;
+     - all 201 files match a fresh build, and every manifest field re-derives;
+     - the seed is value-equal to the removed golden input;
+     - every snap-order mutant fails it.
+
+     **All six Info findings are accepted:**
+     - **1:** decision 152 is amended in place to list all seven conditions.
+     - **2, 3 and 6 go to WP3.9.3,** with decision 181's items:
+       - a short `fixtures/playtest/README.md` saying which seeds are C++-replayable (those `writeInput` writes) and
+         which are not (the hand-edited multi-run seed);
+       - `export-playtest.ts`'s stale header is fixed;
+       - `cppReplayabilityOf`'s doc says "shown to replay, a conservative subset";
+       - a `.gitattributes` entry for `fixtures/playtest/` like `golden/`'s, so the seeds' bytes do not depend on the
+         checkout.
+     - **4 and 5 go in the port lead's message:** spec 16's permissive failures have their oracle in the unit tests,
+       not in any file, and the seed is checked for invariants and genus only.
+     - **The reviewer's one unchecked assumption,** that a C++ plate run never extends past its own Ring's side, goes
+       to the port lead as a question.
+     - **WP3.9.3 is a fresh delegate.** Its two reviews are closure checks only.
 
 ## Findings
 
