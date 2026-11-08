@@ -291,7 +291,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       4. the last run's end, if within it of the snapped side length, becomes that length;
       5. interior ends are not snapped.
 
-      After snapping, a run that overlaps the one before it is refused. A gap between runs is accepted, because a
+      After snapping, a run that does not satisfy `0 ≤ start < end ≤ length`, or that overlaps a run before it, is
+      refused (**AMENDED 2026-11-08**, journal decision 167). A gap between runs is accepted, because a
       party wall or a missing run leaves one. Pitch agreement between runs is exact.
 17. **A surviving `Internal` triangle is a defect, not a face**: it is drawn magenta and counted in
     `ShellReport.survivingInternal`, and every fixture asserts that count is zero.

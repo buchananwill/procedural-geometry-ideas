@@ -91,7 +91,14 @@ running subagents.** Their reports arrive as notifications.
 - ~~**WP5.2's two reviews**~~ and ~~**WP3.7's two reviews**~~: all returned, ruled by decisions 145 to 148 and 150.
 - **WP3.8 and WP3.8.1 have landed** (`809b6aa`..`40cffce`; decisions 153 and 154), and both reviews are back,
   ruled by decisions 155 and 156.
-- **WP3.8.2 is running** (the same delegate, resumed). It carries decision 156's behaviour items, decision 155's
+- **PORT-READY DECLARED AT `f1d91fb`** (decision 167), and the port lead has been messaged.
+  - **Nothing is in flight.**
+  - **Queued: WP3.9,** the post-port-ready tidy-up: the deferred type notes of decisions 160, 163 and 166, plus
+    decisions 165 and 167's oracle and doc items.
+  - **For the user:**
+    - whether algorithm B's inherited defects (the Cheek class and the cut-piece overshoot) become a roof-gable arc;
+    - merging the arc branch to `main` when the user agrees.
+- ~~**WP3.8.2 is running**~~ (historical) (the same delegate, resumed). It carries decision 156's behaviour items, decision 155's
   shape items, and the golden additions. When it returns, it gets decision 155's scoped reviews: one type-closure
   reviewer, and one correctness reviewer covering closure of decision 156 plus golden stability. **Then port-ready.**
 - **WP3.8's original brief** (general-purpose, Opus, fresh, dispatched 2026-11-08). It is the only package in flight and owns both the
@@ -2222,6 +2229,44 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - N3: one `ORDER_FLAG`;
        - N4: `sparseModelIndex`;
        - N5: a named run tuple.
+167. **Rulings on WP3.8.5's correctness review, and PORT-READY DECLARED AT `f1d91fb`** (2026-11-08).
+
+     **The review** (fresh Opus, on `git archive f1d91fb` with its parent beside it; 0 High) **confirmed:**
+     - all six `*FileReversed` inputs reverse model order and read back as their fixtures;
+     - all 61 inputs replay;
+     - reading Rings in file order moves exactly five goldens, and CutPitchConflict's invariance holds over all 24
+       orders;
+     - the free-cut golden convicts `hybrid`, `struck151` and `min`;
+     - the snap order agrees with an independent reading of spec 16 on 34 boundary cases;
+     - nothing existing moved, over all 192 files and 4942 shells.
+
+     **Rulings:**
+     - **Finding 1 (Medium): no golden carries a multi-run side or exercises the snap order. It does not block
+       port-ready.**
+       - The C++ replay matches runs by containment (decision 152), so the port never reproduces the prototype's run
+         splitting against a golden.
+       - The snap order is the TS reader's rule for C++-written files. The port's own playtest dumps will exercise it.
+       - **WP3.9 adds a replayable hand-edited golden** with a gap, a junction inside the slack, and end slack.
+       - **`writeInput`'s doc is wrong** ("as the C++ exporter writes them"): it writes one run per side. WP3.9
+         corrects it, and the port-ready message says so.
+     - **Finding 2 (Low): spec 16 gains the refusal after snapping,** `0 ≤ start < end ≤ length`, amended in the same
+       edit as this decision.
+     - **Finding 3 (Info): WP3.9 restores the overlap test** against the furthest end so far, so that every reason is
+       reported at once (decision 143 F7). The verdicts are unchanged.
+     - **Finding 4 (Info), for WP3.9:**
+       - the manifest marks CutPitchConflictFileReversed as order-invariant;
+       - the comment at `golden.test.ts:132` is corrected;
+       - **CutPitchConflict and its Swapped twin build identically,** so the cut-pitch conflict pair proves nothing.
+         WP3.9 redesigns it, so that swapping the indices moves the shell.
+
+     **Port-ready is declared at `f1d91fb`.** WP3.6, WP3.7, WP5 to WP5.2 and WP3.8 to WP3.8.5 are accepted. Every
+     port-facing finding is closed: the golden files, the manifest, the input@1 reader and provenance. What remains is
+     WP3.9 and the enrolled residues of F53. **The port lead is sent the promised message** (decision 129):
+     - the commit;
+     - the golden set: 70 fixtures in 192 files, 56 clean and 61 replayable;
+     - the residual rates;
+     - the inherited residue classes;
+     - the caveats above.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
