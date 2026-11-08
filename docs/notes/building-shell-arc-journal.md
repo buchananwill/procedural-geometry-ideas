@@ -2493,6 +2493,13 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **The reviewer's one unchecked assumption,** that a C++ plate run never extends past its own Ring's side, goes
        to the port lead as a question.
      - **WP3.9.3 is a fresh delegate.** Its two reviews are closure checks only.
+183. **WP3.9.3 landed at `adf5dac`: 8275/8275 on a snapshot, `typecheck` clean, both gates convicted**, per the
+     delegate.
+     - **What moved:** 0 shells, 0 golden bytes and 0 seed bytes.
+     - **`cppReplayabilityOf` no longer throws.** It measures the seventh condition on snapped sides
+       (`snappedSides`), and only when the reader accepts.
+     - **The playtest README and the `.gitattributes` entry** are in.
+     - **Next:** two closure-only reviews of `adf5dac`, then decision 174's merge.
 
 ## Findings
 
