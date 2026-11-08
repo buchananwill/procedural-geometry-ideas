@@ -94,7 +94,7 @@ running subagents.** Their reports arrive as notifications.
 - **WP5**, the wire format (decisions 124 to 126): it starts after WP3.6 and may run alongside WP3.7, since it only adds
   new files. It builds the ingestion folder and the diff tool against a hand-written stand-in schema until the UE
   Zod file exists.
-- **WP3.8**, after WP3.7 (decisions 129 and 130): wall provenance on Cells and faces, and the committed golden export
+- **WP3.8**, after WP3.7 (decisions 129 to 131): the union-stage export, wall provenance on Cells and faces, and the committed golden export
   with its manifest and drift test. Port-ready is declared at the commit that lands it, once reviewed.
 
 **Waiting on the C++ port lead (`pisteperfect-5-7-4f`):**
@@ -1256,6 +1256,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **`ShellFace.sources`** lists the distinct sources of its Cells, ascending by model index then side.
      - **Delivered by WP3.8**, after WP3.7 and before port-ready, with decision 129's golden set. It touches
        `cells.ts`, so it cannot overlap WP3.7.
+131. **The golden set also carries each fixture's union stages** (the port lead's ask, 2026-11-08). The C++ now
+     vendors manifold master `69f3c2fe`, not 3.2.1. With these stages it can tell a difference in the boolean from a
+     difference in its raw-part builder. It is cheap, because every stage already exists inside `union.ts`.
+     - **Raw parts:** the exact meshes handed to Manifold, after weld and snap, in union order. Each has positions,
+       triangles and faceIDs, and every faceID has its tag and plane.
+     - **Boolean output:** Manifold's union, before cleaning, imprint and re-tag. This isolates the boolean.
+     - **Union output:** the final tagged mesh, after cleaning, imprint and re-tag, which step 4 reads.
+     - **Stored as one `<fixture>.union.json` beside each shell golden.** The drift test covers it.
+     - **The C++ diff is geometric, never byte-wise,** because the two Manifold versions may differ in float order and
+       triangulation. That tolerance is the port's to choose.
+     - **Delivered by WP3.8.**
 
 ## Findings
 
