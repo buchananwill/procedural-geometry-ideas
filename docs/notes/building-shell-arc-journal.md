@@ -1224,6 +1224,9 @@ reviewed. It must include the measured residual fresh-input failure rate.
      - **The model index meets it,** because each Ring is its own root (F46). The wire format's ingestion rejects a
        file with two Rings sharing a model index.
      - **Spec 3 is amended to state the requirement.**
+     - **The rule is decided, not discovered** (user, 2026-11-08: "That just means it hasn't been implemented yet. I've
+       definitely stated that more than one time."). Its absence from today's C++ is an implementation gap for the
+       port to close, not an open design question. F48's second consequence is closed.
 
 ## Findings
 
