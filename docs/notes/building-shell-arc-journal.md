@@ -74,6 +74,37 @@ departs from those four steps is a defect.
    union, and the re-tag pass (decisions 43 and 41). It also carries decision 64's `notes` change and spec 32's
    invariants on all nine fixtures.
 
+### In flight at 2026-11-08 sign-off (for a compacted or fresh context)
+
+The user signed off for the night, and the lead's context was compacted afterwards. **Use `ListAgents` to find the
+running subagents.** Their reports arrive as notifications.
+
+**Running:**
+- **WP3.6** (general-purpose, Opus, fresh).
+  - Its brief: courtyards (decision 115), Ring forms (decision 116 and its addenda), F43's Cell-existence rule with the
+    three 270 cm regressions enrolled, and decision 107's N10/N11 leftovers.
+  - Addendum 1: decision 120's type items.
+  - Addendum 2: decision 121's four port-regression fixtures.
+  - When it returns: decision 67's two reviews, on fresh reviewers. The previous ones have full contexts.
+
+**Queued, in order:**
+- **WP3.7**, after WP3.6 lands (decisions 122 and 123): pillow removal, vertex clustering, holed Cells, 3D vertex
+  identity, the exact straddle check, Hausdorff loop checks, a move bound, and spec 16's constants. Its gate is fresh
+  seeds 5 to 12 at 250, 263 and 300 cm, plus δ-nudges. **After WP3.7, fresh failures are enrolled, not chased.**
+- **WP5**, the wire format (decisions 124 to 126): it starts after WP3.6 and may run alongside WP3.7, since it only adds
+  new files. It builds the ingestion folder and the diff tool against a hand-written stand-in schema until the UE
+  Zod file exists.
+
+**Waiting on the C++ port lead (`pisteperfect-5-7-4f`):**
+- the Zod generator's details (version, mappings, output path, versioning conventions);
+- whether the C++ conflict rule keys on model index or root order;
+- the C++-to-prototype structure mapping from its read-only comparison.
+
+**Promised:** a message to the port lead when the pipeline is port-ready, after WP3.6 and WP3.7 have landed and been
+reviewed. It must include the measured residual fresh-input failure rate.
+
+**The branch is red on nothing committed.** The 3 F43 tests at `3575aa7` are WP3.6's to turn green.
+
 ## 5. Open items
 
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
