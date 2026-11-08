@@ -99,7 +99,8 @@ running subagents.** Their reports arrive as notifications.
 - ~~the Zod generator's details~~: answered, see F47 and decision 127;
 - the wire family's name, and its first USTRUCTs (these arrive with the port's first increment);
 - ~~whether the C++ conflict rule keys on model index or root order~~: the same in production (F48);
-- **for the user:** F48's two consequences (index reuse, and whether the rule exists in C++ today);
+- ~~**for the user:** F48's two consequences~~. Index reuse was ruled by the user (decision 128). Whether the rule
+  exists in today's C++ stays with the port lead's comparison, and changes nothing here;
 - the C++-to-prototype structure mapping from its read-only comparison.
 
 **Promised:** a message to the port lead when the pipeline is port-ready, after WP3.6 and WP3.7 have landed and been
@@ -1215,6 +1216,14 @@ reviewed. It must include the measured residual fresh-input failure rate.
      - **The output document grows from `FModularSolveDump`,** the existing tooling-only mirror.
      - **The wire USTRUCTs arrive with the port's first increment;** the family name is to follow. WP5 builds against
        a stand-in until then.
+128. **What the wall-conflict rule must guarantee is determinism, not creation order** (user, 2026-11-08: "Not that
+     important. The key thing is that the behaviour is always deterministic, so any set of walls are totally
+     ordered."). Reusing a freed index, which lets a newer Ring win, is accepted.
+     - **The requirement:** Rings are totally ordered by a unique key, so every set of coinciding walls has exactly one
+       winner.
+     - **The model index meets it,** because each Ring is its own root (F46). The wire format's ingestion rejects a
+       file with two Rings sharing a model index.
+     - **Spec 3 is amended to state the requirement.**
 
 ## Findings
 

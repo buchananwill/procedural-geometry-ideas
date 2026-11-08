@@ -119,6 +119,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    - **What the roof sees.** The derived forms become roof-gable `Sel`s over each union wall's span, so roof-gable is
      unchanged.
    - **Buried sides.** A Ring side lying inside the union produces no union wall, and its form is dropped.
+   - **The requirement behind the rule is determinism.** Rings are totally ordered by a unique key, so every set of
+     coinciding walls has exactly one winner. Creation order is not required, and a reused index may let a newer Ring
+     win. Two Rings with one index is an error (**AMENDED 2026-11-08**, journal decision 128).
 4. **Every storey is roofed as if it were the top storey**, whether or not a storey stands over it. A middle storey's
    roof is always built, and the union removes whatever of it lies inside the storey above.
 
