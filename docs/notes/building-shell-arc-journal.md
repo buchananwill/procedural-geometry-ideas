@@ -2044,6 +2044,29 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        item.
      - **The same delegate had carried WP3.8 to WP3.8.2 through four resumptions.** For a package this size, a fresh
        delegate per item is the safer default.
+158. **WP3.8.2 finished at `12ba450` (item 2, shape only) and `19f4757` (item 3, the golden additions):
+     7797/7797, `typecheck` clean**, per the fresh delegate.
+     - **Item 2 moved 0 shells** by raw hash over 10,315 shells, and the golden set stayed byte-identical.
+     - **Item 3:**
+       - **What it added:** two rule oracles, `SplitBandFreeCut` and `GablePitchL`, and nine residue fixtures,
+         bringing the set to 58 fixtures, 155 files, 46 of them clean.
+       - **What changed in the existing files:** each of the 47 existing manifest entries gains a `clean` line;
+         nothing else moved.
+     - **The gates convicted.** A manifest entry holding both files and an error passes `typecheck`, because of how
+       TypeScript checks unions, so it is now refused by a schema parse at write time and in the drift test.
+     - **F53 holds at `19f4757`.** The widened sweep also has 8 cases with Roof–Underside edges that keep their
+       invariants.
+
+     **Its three points, ruled:**
+     - **The two classes that F7 enrolled join the golden set:** Court35's Cell-fan throw and SplitCourt9's Gable–Wall
+       `Unclassified`. F4's "every residue class" covers them, and the lead's list was written before they were found.
+     - **`cppReplayable` gains a sixth condition: the prototype's own reader accepts `writeInput(f)`.** G5.86h250
+       (5.86°, outside [7°, 75°]) is then not replayable, with the reason "pitch outside the wire's bounds". A file our
+       own reader refuses cannot be offered to the port as replayable.
+     - **A residue's manifest violations equal its robustness pin verbatim,** located signatures included (decision
+       156 F8). BridgeOverBlockAt45 carries its Roof–Underside edge ends.
+     - **These go to WP3.8.3** (the same fresh delegate, resumed). They are small. Then decision 155's scoped reviews
+       run over `7ca3d59..` WP3.8.3's commit.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
