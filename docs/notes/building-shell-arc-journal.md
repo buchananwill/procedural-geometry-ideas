@@ -1472,6 +1472,9 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          the bare authored member names (`GetNameStringByIndex`, scope stripped) in declaration order, without the
          `_MAX` sentinel and without StandardizeCase. The stand-in's `z.enum([...])` is what will be generated. **Stand-in
          enums list their members in the UE declaration order.**
+       - N3: pins carry an explicit discriminant.
+       - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
+       - N5: arrays of four stay arrays, as the generator emits.
 139. **The stand-in's keys follow the C++ input@1 spec, MB.D507** (the port lead's
      `Notes/buildables/building-shell-wire-input-decisions.md` in Piste Perfect, 2026-11-08). **The generated module stays
      authoritative.** The port lead reports any difference once it is built. WP5.1 aligns every key:
@@ -1546,7 +1549,8 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **Ruling: a Ring index of -1 is the "unset" sentinel, and a file with one is refused,** naming the field, so an
        omitted index never silently takes part in the total order.
 
-     **WP5.1 is dispatched to the WP5 delegate, resumed.**
+     **WP5.1 is dispatched to the WP5 delegate, resumed.** Its scope is decisions 136 to 140. It stays within the wire
+     files and their tests.
 141. **WP5.1 returned at `f6b17df`: 3904/3904 on a clean worktree at `be98043` with its files laid over, `typecheck`
      clean, and all seven gates convicted**, per the delegate. It changed no pipeline file. **Its acceptance is
      provisional until decision 67's two reviews return.** Its four points, ruled:
@@ -1907,6 +1911,7 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          - the fixture's `cellSize` is 50;
          - `storeyHeight` is a whole number of Cells (port lead, amended): 250 and 300 pass, 263 does not;
          - every Ring's `baseStorey + storeys` is at most 32, the C++ validator's cap.
+       - Otherwise it is false, with the reason (for example "corner off the Cell lattice").
 153. **WP3.8 returned in seven commits, `65a7fa2` to `ec2421f`: 7663/7663, `typecheck` clean, every named gate
      convicted**, per the delegate. The golden set is committed: 47 fixtures, 39 of them `cppReplayable`.
      - **Shell identity over 10,315 shells:** shape items moved 0; F5 moved 2 (Seed4Fuzz134's margin); provenance
@@ -2156,12 +2161,39 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - N3: uncaused pins carry their `ResidueClass`;
        - N4: a type predicate in place of the casts;
        - N5: one `GenusPerComponent` type.
-       - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
-     files and their tests.
-       - N3: pins carry an explicit discriminant.
-       - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
-       - N5: arrays of four stay arrays, as the generator emits.
+164. **Rulings on WP3.8.4's correctness review** (fresh Opus, on `git archive 1df6f51`, 8023/8023; no High or Medium).
+     **Confirmed:**
+     - all 171 golden files match a fresh build;
+     - every manifest field is right against an independent derivation, on all 63 entries;
+     - all 54 inputs replay;
+     - nothing existing moved;
+     - the junction slack never joins a real overlap.
 
+     **Two findings are oracle gaps on rules the port must get right, so they block port-ready. WP3.8.5:**
+     - **Finding 2: no golden lists Rings out of model order,** so the user's lowest-index rule (decisions 3 and 128)
+       has no wire oracle. A port keying conflicts on file position passes every golden, and 5 of 6 conflict
+       fixtures build differently under file order.
+       - `scrambled()` is fixed, since a reversal of a rotated two-element list is a no-op.
+       - The comment at `golden-fixtures.ts:154-156` is corrected.
+       - **Each of the six conflict fixtures gains a replayable golden whose file order reverses model order.**
+       - Gate: reading Rings in file order moves at least five clean goldens.
+     - **Finding 1: no golden has a free cut on an island with hips and a gable steeper than every hip,** so the
+       hip-first rule passes every golden.
+       - The reviewer's `SB400-600B100S500g60r0` joins as a clean golden.
+       - Gate: its `hybrid` and `struck151` mutants each move it.
+     - **Finding 3: a reversed run is refused.** The test `start < end` runs on the raw values, before any snap.
+     - **Finding 4: the snap order is fixed, and spec 16 is corrected:**
+       - only the first run's start snaps to 0;
+       - each later run's start snaps to the previous run's end, never to 0;
+       - only the last run's end snaps to the side's length;
+       - interior ends are not snapped;
+       - gaps between runs are accepted, since a party wall or a missing run leaves one.
+
+       The reviewer's `[0, 1.5e-6], [8e-7, 1000]` is then accepted as adjacent.
+     - **Finding 5:** the journal's stray fragments were the tails of lines in decisions 138, 140 and 152. Earlier
+       inserts had anchored mid-line, which pushed each tail to the end of the decisions. **Restored to their places in
+       the same edit as this decision.** From now on, journal inserts anchor on whole entries.
+     - **WP3.8.5 goes to a fresh delegate.** Its two scoped reviews check the new goldens and the snap rule.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled

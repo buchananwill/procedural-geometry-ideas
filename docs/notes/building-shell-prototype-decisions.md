@@ -283,10 +283,16 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       and the diff report states the largest drift.
     - A corner beyond it is refused.
     - The slack covers double round-off in the C++ transforms, and it does not cover mis-authoring.
-    - **AMENDED 2026-11-08** (journal decisions 156 F5 and 161 finding 4): the slack also applies to run ends. A run
-      end within `WIRE_CORNER_SNAP_CM` of 0, or of the snapped side length, is taken as that end. A run start within
-      it of the previous run's end is taken as that end, so adjacent runs meet at one point. Anything further is
-      refused. Pitch agreement between runs is exact.
+    - **AMENDED 2026-11-08** (journal decisions 156 F5, 161 finding 4 and 164): the slack also applies to run ends,
+      in this order, on a side's runs as listed:
+      1. every run must have its raw start below its raw end, or the file is refused;
+      2. the first run's start, if within `WIRE_CORNER_SNAP_CM` of 0, becomes 0;
+      3. each later run's start, if within it of the previous run's end, becomes that end, never 0;
+      4. the last run's end, if within it of the snapped side length, becomes that length;
+      5. interior ends are not snapped.
+
+      After snapping, a run that overlaps the one before it is refused. A gap between runs is accepted, because a
+      party wall or a missing run leaves one. Pitch agreement between runs is exact.
 17. **A surviving `Internal` triangle is a defect, not a face**: it is drawn magenta and counted in
     `ShellReport.survivingInternal`, and every fixture asserts that count is zero.
 
