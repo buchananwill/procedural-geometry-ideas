@@ -12,6 +12,7 @@ import {
 } from '../src/wire/input-types.ts';
 import {shellFixture} from './test-builds.ts';
 import {mutableJson} from './wire-json.ts';
+import type {RunTuple} from './wire-round-trip-cases.ts';
 
 /** A valid file: the flush Ring-conflict pair, two Rings whose S sides share y = 0, Ring 0 winning it. */
 const valid = (): BuildingShellInputV1 => writeInput(fixtureByName('FlushRingConflict'));
@@ -31,10 +32,6 @@ const adapted = (json: unknown, name = 'probe'): AdaptedInput => {
 
 /** A JSON copy, so a test can delete fields the types require. */
 const loose = mutableJson;
-
-/** One run's raw start and end along its side, in cm, as a file writes them (journal decision 166, N5). */
-type RunTuple = readonly [start: number, end: number];
-
 /** A file's Rings rotated to start at slot `s`, corners and sides together. */
 function rotated(v: BuildingShellInputV1, s: number): BuildingShellInputV1 {
   const w = structuredClone(v);
@@ -438,9 +435,9 @@ describe('runs per side (journal decision 149)', () => {
     expect(adapted(v).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 20});
   });
 
-  /** Spec 16's refusal of run `k` on Ring 0's side `side` after snapping (journal decisions 149, 156, 161 and 164). */
+  /** Spec 16's refusal of run `k` on Ring 0's side `side` after snapping (journal decisions 149, 156, 161, 164 and 167). */
   const spanError = (side: number, k: number, a: number, b: number, len: number): string =>
-    `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, each start at or after the previous run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156, 161 and 164)`;
+    `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, each start at or after every earlier run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156, 161, 164 and 167)`;
   /** Spec 16's first test, before any snap: run `k`'s raw start is not below its raw end (journal decision 164). */
   const reversedError = (side: number, k: number, a: number, b: number): string =>
     `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a run's raw start lies below its raw end, tested before any snap (journal decision 164)`;
@@ -509,6 +506,14 @@ describe('runs per side (journal decision 149)', () => {
     expect(longSide([[0, 1000 + 5e-7], [1000 + 5e-7, 1000 + 9e-7]])).toEqual([
       spanError(0, 0, 0, 1000 + 5e-7, 1000), spanError(0, 1, 1000 + 5e-7, 1000 + 9e-7, 1000),
     ]);
+  });
+
+  // Journal decision 167, finding 3 (decision 143, F7's every reason at once): the overlap test reads the furthest end
+  // of every earlier run, not only the previous run's. The gate: in [0, 800], [100, 200], [300, 1000], run 2 starts after
+  // run 1's end but inside run 0, and is reported with run 1. The file was refused either way: only the reasons widen.
+  it('reports every run that overlaps an earlier run, not only its neighbour', () => {
+    expect(longSide([[0, 800], [100, 200], [300, 1000]])).toEqual([spanError(0, 1, 100, 200, 1000), spanError(0, 2, 300, 1000, 1000)]);
+    expect(longSide([[0, 800], [800, 1000]])).toEqual([]);
   });
 
   it('refuses a run out of order, overlapping, empty, or past the side', () => {

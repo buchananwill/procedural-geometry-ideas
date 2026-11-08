@@ -758,7 +758,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
-    "partialCells": 120,
+    "partialCells": 146,
     "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
@@ -1671,6 +1671,86 @@
     "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "DistantRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "DistantRingConflictFileReversed.json",
+   "union": "DistantRingConflictFileReversed.union.json",
+   "input": "DistantRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "HoleRingConflictFileReversed",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "HoleRingConflictFileReversed.json",
+   "union": "HoleRingConflictFileReversed.union.json",
+   "input": "HoleRingConflictFileReversed.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "MultiRunSide",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "MultiRunSide.json",
+   "union": "MultiRunSide.union.json",
+   "input": "MultiRunSide.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
     ]
    },

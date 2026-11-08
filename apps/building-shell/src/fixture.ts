@@ -121,10 +121,14 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   // - A courtyard whose hole's S wall, y = 300, is two Rings' N sides at different pitches.
   const holeBandW = ring([0, 0, 500, 300], 0, 1, 30), holeBandE = ring([500, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 45}});
   const court = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
-  // - A courtyard whose shortest cut, y = 300 over x 0 to 300, is collinear at its two ends with walls of different
-  //   pitch: the W wing juts out to x = -200 at 45 degrees, the hole's S wall is at 30. That cut does not qualify
-  //   (spec decision 2 as amended, journal decision 135), and the next is taken.
+  // - A cut-pitch conflict (spec decision 2's cut pitch read through spec decision 3's lowest index; journal decisions
+  //   135 and 167, finding 4). The courtyard's shortest cut, y = 300 over x 0 to 300, is collinear at its two ends with
+  //   walls of different pitch whichever Ring wins: the W wing juts out to x = -200 at 45 degrees, and the hole's S wall
+  //   is at 30 or 60. That cut never qualifies, and the next, y = 300 over x 700 to 1000, takes the pitch of the hole's
+  //   S wall, which two Rings of one rectangle contest: `bandS` hips it at 30, `bandS60` at 60, every other side of
+  //   both at 30. The lowest index wins, so the swap moves the hole wall and the cut from 30 to 60.
   const jutW = ring([-200, 300, 300, 700], 0, 1, 45), bandS = ring([0, 0, 1000, 300], 0, 1, 30);
+  const bandS60 = ring([0, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 60}});
   const jutRest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
   return [
     fixture('FlushRingConflict', [flushHip, flushGable]),
@@ -141,8 +145,8 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
     fixture('StoreyRingConflictSwapped', [tallGable, lowHip]),
     fixture('HoleRingConflict', [holeBandW, holeBandE, ...court]),
     fixture('HoleRingConflictSwapped', [holeBandE, holeBandW, ...court]),
-    fixture('CutPitchConflict', [bandS, jutW, ...jutRest]),
-    fixture('CutPitchConflictSwapped', [jutW, bandS, ...jutRest]),
+    fixture('CutPitchConflict', [bandS, bandS60, jutW, ...jutRest]),
+    fixture('CutPitchConflictSwapped', [bandS60, bandS, jutW, ...jutRest]),
   ];
 })();
 

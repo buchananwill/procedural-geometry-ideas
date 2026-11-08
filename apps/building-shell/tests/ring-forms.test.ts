@@ -137,11 +137,17 @@ describe('journal decision 135, F6: the conflict pairs beyond two adjacent Rings
     }
   });
 
-  it('CutPitchConflict: the shortest cut, collinear with 45 and 30 degree walls at its ends, is passed over', () => {
-    for (const name of ['CutPitchConflict', 'CutPitchConflictSwapped']) {
-      const cuts = planStorey(fixtureByName(name), 0).building.walls.filter(w => w.form === 'cut');
+  // Journal decision 167, finding 4: the pair moves the shell. The shortest cut is passed over in both, and the next takes
+  // the hole's S wall's pitch, which the lowest index decides.
+  it("CutPitchConflict: the shortest cut, collinear with walls of different pitch at its ends, is passed over, and the next takes the lowest index's pitch", () => {
+    for (const [name, deg] of [['CutPitchConflict', 30], ['CutPitchConflictSwapped', 60]] as const) {
+      const walls = planStorey(fixtureByName(name), 0).building.walls;
+      const hole = walls.filter(w => w.a.y === 300 && w.b.y === 300 && w.form !== 'cut' && Math.min(w.a.x, w.b.x) >= 300 && Math.max(w.a.x, w.b.x) <= 700);
+      expect(hole.length).toBeGreaterThan(0);
+      for (const w of hole) expect(close(w.tan, tanDeg(deg))).toBe(true);
+      const cuts = walls.filter(w => w.form === 'cut');
       expect(cuts.map(w => [w.a, w.b])).toEqual([[pt(1000, 300), pt(700, 300)], [pt(700, 300), pt(1000, 300)]]);
-      for (const w of cuts) expect(close(w.tan, tanDeg(30))).toBe(true);
+      for (const w of cuts) expect(close(w.tan, tanDeg(deg))).toBe(true);
     }
   });
 });

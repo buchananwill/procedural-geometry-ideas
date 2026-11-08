@@ -225,6 +225,7 @@ const withinSnap = (v: number, at: number): boolean => Math.abs(v - at) <= WIRE_
  * 4. every interior end is read as written.
  *
  * Nothing else snaps. The raw order test (`start < end` before any snap) and the overlap test are `runRefusals`'.
+ * The snap reads only the previous run's end; the overlap test reads the furthest end of every run before.
  */
 export function snapRunSpans(runs: readonly RunBounds[], length: number): RunSpan[] {
   const spans: RunSpan[] = [];
@@ -241,7 +242,9 @@ export function snapRunSpans(runs: readonly RunBounds[], length: number): RunSpa
  * Decision 149's per-run refusals for side `j`: run geometry (when the side's length is known, `length`), each run's
  * solved form and pitch bounds, and runs that disagree. Run geometry is tested in spec 16's order (journal decision
  * 164): a run whose raw start is not below its raw end is refused before any snap; after `snapRunSpans`, a run is
- * refused where it leaves the side, is empty, or overlaps the run before it. A gap between runs is accepted, since a
+ * refused where it leaves the side, is empty, or overlaps any run before it. The overlap test reads the furthest end
+ * of every earlier run (journal decisions 143, F7, and 167, finding 3), so a run overlapping one that is not its
+ * neighbour is reported too: every reason at once, with the verdicts unchanged. A gap between runs is accepted, since a
  * party wall or a missing run leaves one. Pitch agreement stays exact (decision 149): the C++ shares one value per wall
  * group, so a difference disagrees.
  */
@@ -252,11 +255,11 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
     const where = `${at} side ${j} run ${k}`;
     if (length !== null && spans) {
       const {start, end} = spans[k];
-      const before = k === 0 ? 0 : spans[k - 1].end;
+      const furthest = Math.max(0, ...spans.slice(0, k).map(s => s.end));
       if (!(run.startCm < run.endCm)) {
         out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a run's raw start lies below its raw end, tested before any snap (journal decision 164)`);
-      } else if (!(start >= before && start < end && end <= length)) {
-        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, each start at or after the previous run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149, 156, 161 and 164)`);
+      } else if (!(start >= furthest && start < end && end <= length)) {
+        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, each start at or after every earlier run's end, the side's ends and each junction within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149, 156, 161, 164 and 167)`);
       }
     }
     const reading = SIDE_READINGS[run.form];
@@ -479,9 +482,12 @@ function wireSide(ring: FixtureRing, side: RingSide): WireSide {
 }
 
 /**
- * A fixture as `input@1`, every field written, as the C++ exporter writes them. Corners run in the prototype's
- * canonical order, (x0,y0), (x1,y0), (x1,y1), (x0,y1), positive in signed area, so side 0 is y = y0 (decision 126).
- * The fixture's ring index is both the ring index and the model index. No Ring overrides its wall height.
+ * A fixture as `input@1`, every field written in the C++ exporter's shape, but with exactly one run per side, the
+ * side's whole length from 0, with no round-off (journal decision 167, finding 1). The C++ exporter may write several
+ * runs per side, with gaps between them and double round-off at their ends, which `readInput` reads by spec 16's snap
+ * order; no file this writes exercises that. Corners run in the prototype's canonical order, (x0,y0), (x1,y0), (x1,y1),
+ * (x0,y1), positive in signed area, so side 0 is y = y0 (decision 126). The fixture's ring index is both the ring index
+ * and the model index. No Ring overrides its wall height.
  */
 export function writeInput(f: ShellFixture, provenance: WireProvenance = prototypeProvenance(f.name)): BuildingShellInputV1 {
   return {

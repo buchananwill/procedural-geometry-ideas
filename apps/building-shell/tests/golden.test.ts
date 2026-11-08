@@ -13,11 +13,11 @@ import {
 } from '../src/golden.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
-import {readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {readInput, snapRunSpans, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
 import {
-  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
+  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, MULTI_RUN_SIDE_LENGTH_CM, MULTI_RUN_SLOTS, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
   goldenInput,
 } from './golden-fixtures.ts';
 import {ORDER_FLAG} from './wire-round-trip-cases.ts';
@@ -130,6 +130,25 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
   });
 
+  // Decision 167, finding 1: the only golden with multi-run sides, read through spec 16's snap order. Each feature leans
+  // on one snap step: as written, side 0's first start lies below 0, its second start inside the first run and its last
+  // end past the side, and side 2's second start within the slack of 0, so a reader that skipped or misordered a step
+  // would refuse the file the fixture is built from.
+  it('MultiRunSide: its S side holds end slack, a junction inside the slack and a gap, its N side the reviewer\'s sliver, and each snaps by spec 16', () => {
+    const doc = JSON.parse(committed('MultiRunSide.input.json')) as BuildingShellInputV1;
+    const sides = doc.rings[0].sides;
+    expect(sides.map(s => s.runs.length)).toEqual([3, 1, 2, 1]);
+    for (const {slot, runs} of MULTI_RUN_SLOTS) {
+      expect(sides[slot].runs.map(r => [r.startCm, r.endCm])).toEqual(runs.map(t => [...t]));
+      expect(sides[slot].runs.map(r => [r.form, r.pitchDegrees])).toEqual(runs.map(() => ['Pitched', 45]));
+    }
+    const [first, second, last] = sides[0].runs;
+    expect([first.startCm < 0, second.startCm < first.endCm, last.endCm > MULTI_RUN_SIDE_LENGTH_CM]).toEqual([true, true, true]);
+    expect(snapRunSpans(sides[0].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 400}, {start: 400, end: 600}, {start: 700, end: MULTI_RUN_SIDE_LENGTH_CM}]);
+    expect(snapRunSpans(sides[2].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 1.5e-6}, {start: 1.5e-6, end: MULTI_RUN_SIDE_LENGTH_CM}]);
+    expect(oracle('MultiRunSide').rings[0].sides).toMatchObject({S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}});
+  });
+
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
     const e = entry(name);
     expect(e?.clean).toBe(false);
@@ -138,10 +157,12 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
 });
 
 /**
- * Journal decision 164, finding 2: the model-order oracle. Each `*FileReversed` document lists its Rings in reverse model
- * order, and a reading that keys the conflict rule on file position builds every one differently but those of
- * `UNMOVED_BY_FILE_ORDER`, measured (decision 165): CutPitchConflict, whose one union wall that two of its Rings' sides
- * share, x = 1000, is hipped at 30° by all three, so its winner's order cannot show.
+ * Journal decisions 164, finding 2, and 165: the model-order oracle. Each `*FileReversed` document lists its Rings in
+ * reverse model order, and a reading that keys the conflict rule on file position builds every one differently but
+ * those of `UNMOVED_BY_FILE_ORDER`, measured. Since WP3.9 that list is empty and all eight move: CutPitchConflict,
+ * redesigned (decision 167, finding 4), contests the hole's S wall, so its reversal moves the wall and the cut that
+ * takes its pitch. Before, its only shared wall, x = 1000, was hipped at 30° by all three Rings on it, and the
+ * reversal could not show.
  */
 describe('the model-order oracle (journal decision 164, finding 2)', () => {
   it.each(MODEL_ORDER_CONFLICTS.map(fileReversedName))('%s: its document lists the Rings in reverse model order, each ringIndex its position, and is flagged', name => {

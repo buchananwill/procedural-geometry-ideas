@@ -75,6 +75,9 @@ export const withWireDefaults = (f: ShellFixture): ShellFixture => ({
  */
 export const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
 
+/** One run's raw start and end along its side, in cm, as a file writes them (journal decision 166, N5). */
+export type RunTuple = readonly [start: number, end: number];
+
 /** The sparse model index `rotatedSparse` gives fixture Ring `i`: 7 + 13 i (journal decision 166, N4). */
 export const sparseModelIndex = (i: number): number => 7 + 13 * i;
 
