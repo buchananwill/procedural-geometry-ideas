@@ -16,16 +16,17 @@ import {describe, expect, it} from 'vitest';
 import {cornerBisector} from '../src/cells.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {errorMessage} from '../src/errors.ts';
-import {STOREY_HEIGHT_CM, ShellFixture} from '../src/fixture.ts';
+import {SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture} from '../src/fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, seededFixture, sweepFixture,
+  pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures,
 } from './robustness-fixtures.ts';
 import {planStorey} from '../src/storey.ts';
+import {rosterGenus} from './roster-genus.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
 import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
 
@@ -509,5 +510,100 @@ describe('F37: a Cell corner is placed in the fan by its bisector', () => {
     const thin = corner(5, 1);
     expect(thin[1]).toBeGreaterThan(0);
     expect(thin[1] / thin[0]).toBeLessThan(0.001 / 10);
+  });
+});
+
+// ---- Journal decisions 146 and 148: the widened pitch sweep ---------------------------------------------------------
+
+/**
+ * Measured at WP3.8: every roster fixture through the wire with every Pitched side at each whole degree of the wire's
+ * range, [7, 75], and at 22.5, and at every ordered pair of 7, 22.5, 30, 45, 60 and 75 laid by Ring and by side axis
+ * (`rosterPitchCases`), against its roster genus. Every case that breaks an invariant, with exactly its outcome:
+ * - **BridgeOverBlock from 40 degrees** (F52): the block's hip rises through the tunnel and meets the bridge's floor.
+ *   From 40 to 51 the contact is a ring and the genus 2, from 51.5 two lines and the genus 0. The edge there is now
+ *   `SoffitJunction` (decision 146), so only the genus remains: real geometry, a roof touching the floor above it.
+ * - **Courtyard at mixed pitch**: one or two Internal triangles survive on the cut's plane, y = 300, with their
+ *   Unclassified Edges, the cut pieces' faces across the slit no longer matching. Roof-gable algorithm B's cut-piece
+ *   overshoot class (`CutOvershootProbe`), inherited. Content's own 22.5/45 reaches it (decision 148, F3).
+ */
+const ROSTER_PITCH_DEFECTS: PinTable<`${string}@${string}`> = {
+  'BridgeOverBlock@40': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@41': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@42': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@43': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@44': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@45': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@45/22.5r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@45/30r': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@45/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@45/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@45/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@46': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@47': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@48': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@49': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@50': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@51': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@52': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@53': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@54': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@55': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@56': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@57': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@58': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@59': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@60': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@60/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@60/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@60/75r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@60/75s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@61': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@62': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@63': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@64': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@65': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@66': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@67': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@68': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@69': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@70': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@71': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@72': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@73': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@74': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@75': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@75/30s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@75/45s': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)"],
+  'BridgeOverBlock@75/60r': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'BridgeOverBlock@75/60s': ["genus per component 0, expected 1: genus 0 at (0, 0, 0)"],
+  'Courtyard@7/22.5s': ["survivingInternal 1 at (150, 300, 295.267578125)","3 Unclassified Edges: (150, 300, 312.1318359375) to (211.0712890625, 300, 286.8349609375); (88.9287109375, 300, 286.8349609375) to (150, 300, 312.1318359375); (88.9287109375, 300, 286.8349609375) to (211.0712890625, 300, 286.8349609375)"],
+  'Courtyard@7/30s': ["survivingInternal 2 at (121.2666015625, 300, 319.578125); (150.376953125, 300, 303.2060546875)","4 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (151.1318359375, 300, 335.94921875) to (236.19921875, 300, 286.8349609375); (63.80078125, 300, 286.8349609375) to (148.8681640625, 300, 335.94921875); (63.80078125, 300, 286.8349609375) to (236.19921875, 300, 286.8349609375)"],
+  'Courtyard@7/45s': ["survivingInternal 2 at (112.2783203125, 300, 319.578125); (171.3505859375, 300, 303.2060546875)","4 Unclassified Edges: (214.05078125, 300, 335.94921875) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (263.1650390625, 300, 286.8349609375); (36.8349609375, 300, 286.8349609375) to (85.94921875, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"],
+  'Courtyard@7/60s': ["survivingInternal 2 at (107.0888671875, 300, 319.578125); (183.458984375, 300, 303.2060546875)","4 Unclassified Edges: (21.2666015625, 300, 286.8349609375) to (278.7333984375, 300, 286.8349609375); (21.2666015625, 300, 286.8349609375) to (49.623046875, 300, 335.94921875); (250.376953125, 300, 335.94921875) to (278.7333984375, 300, 286.8349609375); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"],
+  'Courtyard@7/75s': ["survivingInternal 2 at (103.2900390625, 300, 319.578125); (192.3232421875, 300, 303.2060546875)","4 Unclassified Edges: (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875); (276.9697265625, 300, 335.94921875) to (290.1298828125, 300, 286.8349609375); (9.8701171875, 300, 286.8349609375) to (23.0302734375, 300, 335.94921875); (9.8701171875, 300, 286.8349609375) to (290.1298828125, 300, 286.8349609375)"],
+  'Courtyard@22.5/45s': ["survivingInternal 1 at (150, 300, 382.8427734375)","3 Unclassified Edges: (124.263671875, 300, 374.263671875) to (150, 300, 400); (124.263671875, 300, 374.263671875) to (175.736328125, 300, 374.263671875); (150, 300, 400) to (175.736328125, 300, 374.263671875)"],
+  'Courtyard@22.5/60s': ["survivingInternal 1 at (150, 300, 419.4453125)","3 Unclassified Edges: (150, 300, 509.8076171875) to (228.255859375, 300, 374.263671875); (71.744140625, 300, 374.263671875) to (150, 300, 509.8076171875); (71.744140625, 300, 374.263671875) to (228.255859375, 300, 374.263671875)"],
+  'Courtyard@22.5/75s': ["survivingInternal 2 at (111.0986328125, 300, 484.720703125); (174.1025390625, 300, 429.4921875)","4 Unclassified Edges: (222.30859375, 300, 539.94921875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (266.703125, 300, 374.263671875); (33.296875, 300, 374.263671875) to (77.69140625, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"],
+  'Courtyard@30/7r': ["survivingInternal 1 at (150, 300, 336.1669921875)","3 Unclassified Edges: (148.8681640625, 300, 335.94921875) to (150, 300, 336.6025390625); (148.8681640625, 300, 335.94921875) to (151.1318359375, 300, 335.94921875); (150, 300, 336.6025390625) to (151.1318359375, 300, 335.94921875)"],
+  'Courtyard@30/60s': ["survivingInternal 1 at (150, 300, 452.072265625)","3 Unclassified Edges: (100, 300, 423.205078125) to (150, 300, 509.8076171875); (100, 300, 423.205078125) to (200, 300, 423.205078125); (150, 300, 509.8076171875) to (200, 300, 423.205078125)"],
+  'Courtyard@30/75s': ["survivingInternal 2 at (115.4697265625, 300, 577.1650390625); (163.9033203125, 300, 500.185546875)","4 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (191.7099609375, 300, 654.1455078125) to (253.58984375, 300, 423.205078125); (46.41015625, 300, 423.205078125) to (108.2900390625, 300, 654.1455078125); (46.41015625, 300, 423.205078125) to (253.58984375, 300, 423.205078125)"],
+  'Courtyard@45/7r': ["survivingInternal 1 at (150, 300, 357.2998046875)","3 Unclassified Edges: (150, 300, 400) to (214.05078125, 300, 335.94921875); (85.94921875, 300, 335.94921875) to (150, 300, 400); (85.94921875, 300, 335.94921875) to (214.05078125, 300, 335.94921875)"],
+  'Courtyard@45/75s': ["survivingInternal 1 at (150, 300, 636.6025390625)","3 Unclassified Edges: (150, 300, 809.8076171875) to (219.615234375, 300, 550); (80.384765625, 300, 550) to (150, 300, 809.8076171875); (80.384765625, 300, 550) to (219.615234375, 300, 550)"],
+  'Courtyard@60/7r': ["survivingInternal 1 at (150, 300, 393.90234375)","3 Unclassified Edges: (150, 300, 509.8076171875) to (250.376953125, 300, 335.94921875); (49.623046875, 300, 335.94921875) to (150, 300, 509.8076171875); (49.623046875, 300, 335.94921875) to (250.376953125, 300, 335.94921875)"],
+  'Courtyard@60/75s': ["survivingInternal 1 at (150, 300, 783.0126953125)","3 Unclassified Edges: (139.23046875, 300, 769.615234375) to (150, 300, 809.8076171875); (139.23046875, 300, 769.615234375) to (160.76953125, 300, 769.615234375); (150, 300, 809.8076171875) to (160.76953125, 300, 769.615234375)"],
+  'Courtyard@75/7r': ["survivingInternal 1 at (150, 300, 493.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (276.9697265625, 300, 335.94921875); (23.0302734375, 300, 335.94921875) to (150, 300, 809.8076171875); (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875)"],
+  'Courtyard@75/22.5r': ["survivingInternal 1 at (150, 300, 629.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (222.30859375, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (150, 300, 809.8076171875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"],
+  'Courtyard@75/30r': ["survivingInternal 1 at (150, 300, 706.033203125)","3 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (150, 300, 809.8076171875); (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (150, 300, 809.8076171875) to (191.7099609375, 300, 654.1455078125)"],
+};
+
+describe('the widened pitch sweep (journal decisions 146 and 148, F3): every roster fixture over [7, 75] degrees, uniform and in mixed pairs', () => {
+  const cases = rosterPitchCases(SHELL_FIXTURES);
+
+  it('has 130 cases per roster fixture', () => {
+    expect(cases).toHaveLength(130 * SHELL_FIXTURES.length);
+  });
+
+  it.each(cases.map(c => [c.name, c] as const))('%s keeps every invariant, or exactly its measured defect', async (name, c) => {
+    expect(await outcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name as `${string}@${string}`] ?? []);
   });
 });

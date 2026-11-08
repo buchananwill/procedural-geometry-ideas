@@ -3,7 +3,8 @@
 // index wins, and the whole wall takes that side's form and pitch. The result is roof-gable `Sel`s, so roof-gable is
 // unchanged. No Ring identity passes this point: the roof, the parts and the union see only the walls' forms.
 import {RING_SIDES, RingForm, RingSide, SideForm, StoreyRing} from './fixture.ts';
-import {Pt, Rect, Sel} from './roof/model.ts';
+import {PlanRefusal} from './errors.ts';
+import {Pt, Rect, Sel, unionLoops} from './roof/model.ts';
 
 /** A wall's inward normal, as roof-gable's `Sel.n` names it. */
 export type InwardNormal = NonNullable<Sel['n']>;
@@ -40,7 +41,7 @@ const sameLine = (p: WallLine, q: WallLine): boolean => p.axis === q.axis && p.a
 export function loopRuns(loop: Pt[]): WallLine[] {
   const lines = loop.map((a, i) => edgeLine(a, loop[(i + 1) % loop.length]));
   const start = lines.findIndex((l, i) => !sameLine(l, lines[(i - 1 + lines.length) % lines.length]));
-  if (start < 0) throw new Error('a loop with every edge on one line');
+  if (start < 0) throw new PlanRefusal('a loop with every edge on one line');
   const runs: WallLine[] = [];
   for (let k = 0; k < lines.length; k++) {
     const l = lines[(start + k) % lines.length];
@@ -80,8 +81,25 @@ export function unionWallForms(rings: StoreyRing[], loops: Pt[][]): UnionWall[] 
         return {...run, form: s?.form ?? 'hip', deg: s?.deg ?? ring.defaultDeg};
       }
     }
-    throw new Error(`the union wall ${run.axis}=${run.at} [${run.lo},${run.hi}] lies on no Ring side`);
+    throw new PlanRefusal(`the union wall ${run.axis}=${run.at} [${run.lo},${run.hi}] lies on no Ring side`);
   });
+}
+
+/** The message prefix of roof-gable's `unionLoops` corner-only pinch, whose copied file throws a plain `Error`. */
+const PINCH_PREFIX = 'pinch at ';
+
+/**
+ * Spec decision 2: a storey's union loops, traced by roof-gable's `unionLoops`, with its corner-only pinch refused as a
+ * `PlanRefusal` (journal decision 146). The copied roof-gable file stays unchanged, so its message is matched here, at
+ * the one place the pipeline calls it.
+ */
+export function storeyLoops(rects: Rect[]): Pt[][] {
+  try {
+    return unionLoops(rects);
+  } catch (e) {
+    if (e instanceof Error && e.message.startsWith(PINCH_PREFIX)) throw new PlanRefusal(e.message);
+    throw e;
+  }
 }
 
 /** Spec decision 3: one roof-gable `Sel` over each union wall's span, carrying its form and pitch. */

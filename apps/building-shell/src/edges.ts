@@ -219,6 +219,11 @@ export function classifyEdge(ta: FaceTag, tb: FaceTag, g: EdgeGeometry, storeyHe
   }
   if (is('Wall', 'Ground') || is('Gable', 'Ground')) return byShape(null, 'GroundLine', null);
   if (is('Wall', 'Underside')) return byShape(null, 'SoffitEdge', 'SoffitJunction');
+  // Journal decision 146, F52 (for the lead's ruling on spec 21): a roof rising into the storey floor above it, as
+  // BridgeOverBlock's block hip meets the bridge's floor from 40 degrees up. Every such edge measured is concave and
+  // horizontal, at the floor. The Underside row's precedent names its concave junction `SoffitJunction`, so a soffit's
+  // every concave boundary takes one name, whatever meets it; no convex or flat Roof-Underside edge has been seen.
+  if (is('Roof', 'Underside')) return byShape(null, null, 'SoffitJunction');
   return 'Unclassified';
 }
 

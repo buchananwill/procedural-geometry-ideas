@@ -2,6 +2,8 @@
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
 import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
+import {readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG} from '../src/wire/input-types.ts';
 
 /**
  * The storey height the reviewer's reproducers ran at, in cm. They are kept at it so their measured cases (F36's
@@ -335,3 +337,52 @@ export function flushOverReflexFixture(storeyHeight: number = REVIEWER_STOREY_HE
 /** Journal decision 110: the named regression fixtures, each the seed and index the WP3 correctness reviewer found. */
 export const PINCH_SEEDS: readonly [seed: number, index: number][] = [[2, 109], [3, 3]];
 export const CAP_CHAIN_SEED: readonly [seed: number, index: number] = [4, 134];
+
+/**
+ * Journal decisions 146 and 148, F3: the pitches the widened sweep pairs, content's 22.5, 30 and 45, the fixtures' 60,
+ * and the wire's two bounds.
+ */
+export const SWEEP_PAIR_PITCHES: readonly number[] = [WIRE_MIN_PITCH_DEG, 22.5, 30, 45, 60, WIRE_MAX_PITCH_DEG];
+
+/** How a pitch pair is laid on a fixture: by Ring (even index the first pitch, odd the second), or by side axis. */
+export type PitchMix = 'ring' | 'side';
+
+/** One widened-sweep case: a roster fixture with every Pitched side set, as the wire carries it. */
+export interface RosterPitchCase { name: string; roster: string; fixture: ShellFixture }
+
+/**
+ * A roster fixture through the wire with every Pitched side at a pitch: `pitchOf(ring, slot)` gives Ring `ring`'s side
+ * `slot` (0 to 3, S, E, N, W as `writeInput` writes them) its pitch. A gable side takes its Ring's default, the first
+ * Pitched side's in compass order, as every wire file does (decision 140, F1 and F4).
+ */
+function throughWireAt(f: ShellFixture, name: string, pitchOf: (ring: number, slot: number) => number): ShellFixture {
+  const wire = writeInput(f);
+  wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { if (s.solved.form === 'Pitched') s.solved.pitchDegrees = pitchOf(i, j); }));
+  const read = readInput(JSON.parse(JSON.stringify(wire)), name);
+  if (!read.ok) throw new Error(`${name} refused: ${read.errors.join('; ')}`);
+  return read.fixture;
+}
+
+/**
+ * Journal decisions 146 and 148, F3: every roster fixture (`SHELL_FIXTURES`) over the wire's whole pitch range, every
+ * Pitched side at each whole degree from 7 to 75 and at 22.5, and at every ordered pair of `SWEEP_PAIR_PITCHES` laid by
+ * Ring and by side axis. Named `<fixture>@<deg>`, `<fixture>@<p>/<q>r` (by Ring) and `<fixture>@<p>/<q>s` (by side).
+ */
+export function rosterPitchCases(fixtures: readonly ShellFixture[]): RosterPitchCase[] {
+  const uniform = [...Array.from({length: WIRE_MAX_PITCH_DEG - WIRE_MIN_PITCH_DEG + 1}, (_, i) => WIRE_MIN_PITCH_DEG + i), 22.5].sort((a, b) => a - b);
+  return fixtures.flatMap(f => {
+    const out: RosterPitchCase[] = uniform.map(d => {
+      const name = `${f.name}@${d}`;
+      return {name, roster: f.name, fixture: throughWireAt(f, name, () => d)};
+    });
+    for (const p of SWEEP_PAIR_PITCHES) for (const q of SWEEP_PAIR_PITCHES) {
+      if (p === q) continue;
+      const mixes: [PitchMix, (ring: number, slot: number) => number][] = [['ring', ring => (ring % 2 ? q : p)], ['side', (_, slot) => (slot % 2 ? q : p)]];
+      for (const [mix, pitchOf] of mixes) {
+        const name = `${f.name}@${p}/${q}${mix === 'ring' ? 'r' : 's'}`;
+        out.push({name, roster: f.name, fixture: throughWireAt(f, name, pitchOf)});
+      }
+    }
+    return out;
+  });
+}

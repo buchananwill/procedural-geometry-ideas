@@ -5,12 +5,12 @@ import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {selectCut, spliceCourtyard} from './courtyard.ts';
 import {ShellFixture, StoreyRing, storeyRings} from './fixture.ts';
 import {Wasm} from './manifold.ts';
-import {selPicks, tanDeg, unionWallForms, wallSel} from './ring-forms.ts';
+import {selPicks, storeyLoops, tanDeg, unionWallForms, wallSel} from './ring-forms.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {
-  Building, Comp, Plane, Pt, Sel, Wall, buildFromRects, finishBuilding, planeAt, polyArea, unionLoops, wallLabel,
+  Building, Comp, Plane, Pt, Sel, Wall, buildFromRects, finishBuilding, planeAt, polyArea, wallLabel,
 } from './roof/model.ts';
-import {errorMessage} from './errors.ts';
+import {PlanRefusal, errorMessage} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
 import {add3, dot3, scale3, sub3} from './vec3.ts';
@@ -77,7 +77,7 @@ function pickedAttrs(sels: Sel[], a: Pt, b: Pt): Partial<Wall> {
  */
 export function storeyBuilding(rings: StoreyRing[]): Building {
   const rects = rings.map(r => r.ring.rect);
-  const loops = unionLoops(rects);
+  const loops = storeyLoops(rects);
   const walls = unionWallForms(rings, loops);
   const sels = walls.map(wallSel);
   const outers = loops.filter(l => polyArea(l) > 0);
@@ -135,7 +135,9 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
   try {
     building = storeyBuilding(rings);
   } catch (e) {
-    throw new Error(`${f.name} storey ${n}: ${errorMessage(e)}`);
+    // A plan refusal keeps its class through the label (journal decision 146).
+    const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
+    throw e instanceof PlanRefusal ? new PlanRefusal(message) : new Error(message);
   }
   return planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, building);
 }

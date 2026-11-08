@@ -10,6 +10,10 @@ import {FaceSource, assembleFaces, meshPoint} from '../src/faces.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
 import {FaceTag, Plane3, Vec3, addFace, makeShellTags, samePlane} from '../src/tags.ts';
 import type {ShellMesh} from '../src/mesh.ts';
+import type {ShellEdge} from '../src/edges.ts';
+import {ShellFixture, fixtureByName} from '../src/fixture.ts';
+import {buildShellDetailed} from '../src/shell.ts';
+import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 
 let wasm: Wasm;
 beforeAll(async () => { wasm = await getManifold(); });
@@ -81,7 +85,13 @@ describe('classifyEdge (spec decision 21)', () => {
     ['Wall', 'Ground', g('Concave'), 'Unclassified'],
     ['Underside', 'Wall', g('Convex'), 'SoffitEdge'],
     ['Wall', 'Underside', g('Concave'), 'SoffitJunction'],
+    // Journal decision 146, F52: a roof rising into the floor above, concave and horizontal, as the Underside row's
+    // concave junction. Convex and flat stay unseen, and none.
+    ['Roof', 'Underside', g('Concave', true), 'SoffitJunction'],
+    ['Underside', 'Roof', g('Concave', true), 'SoffitJunction'],
     ['Roof', 'Underside', g('Convex'), 'Unclassified'],
+    ['Roof', 'Underside', g('Flat', true), 'Unclassified'],
+    ['Gable', 'Underside', g('Concave'), 'Unclassified'],
     ['Roof', 'Ground', g('Convex'), 'Unclassified'],
   ] as const)('%s, %s, %o: %s', (a, b, geo, kind) => {
     expect(classifyEdge(tag(a), tag(b), geo, 300)).toBe(kind);
@@ -201,5 +211,26 @@ describe('vertexAt at a pinch (journal decision 110, C1)', () => {
     const q: Vec3 = [10, 10, 10.0002];
     vertexAt(reg, [10, 10, 10], meshOrigin(1, [10, 10, 10]));
     expect(() => vertexAt(reg, q, meshOrigin(2, q))).toThrow(/snap to one grid point/);
+  });
+});
+
+describe('F52: a roof rising into the floor above (journal decision 146)', () => {
+  /** BridgeOverBlock through the wire with every Pitched side at `deg`. */
+  const at = (deg: number): ShellFixture => {
+    const wire = writeInput(fixtureByName('BridgeOverBlock'));
+    for (const r of wire.rings) for (const s of r.sides) if (s.solved.form === 'Pitched') s.solved.pitchDegrees = deg;
+    const read = readInput(JSON.parse(JSON.stringify(wire)), `BridgeOverBlockAt${deg}`);
+    if (!read.ok) throw new Error(read.errors.join('; '));
+    return read.fixture;
+  };
+
+  // From 40 to 51 degrees the block's hip meets the bridge's floor in a ring of four edges, from 51.5 in two lines.
+  it.each([[45, 4], [60, 2]] as const)('at %i degrees: %i Roof-Underside ShellEdges, each SoffitJunction, horizontal at the bridge floor', async (deg, n) => {
+    const {shell} = await buildShellDetailed(at(deg));
+    const kinds = (e: ShellEdge): string => e.faces.map(f => shell.faces[f].tag.kind).sort().join('-');
+    const met = shell.edges.filter(e => kinds(e) === 'Roof-Underside');
+    expect(met.map(e => e.kind)).toEqual(new Array(n).fill('SoffitJunction'));
+    for (const e of met) expect([e.a[2], e.b[2]].map(z => Math.abs(z - 500) <= SHELL_TOLERANCE_CM)).toEqual([true, true]);
+    expect(shell.report.unclassifiedEdges).toBe(0);
   });
 });

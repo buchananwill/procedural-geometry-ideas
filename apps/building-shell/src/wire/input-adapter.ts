@@ -19,8 +19,9 @@
 import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../fixture.ts';
 import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
-import {unionWallForms} from '../ring-forms.ts';
-import {Rect, unionLoops} from '../roof/model.ts';
+import {PlanRefusal} from '../errors.ts';
+import {storeyLoops, unionWallForms} from '../ring-forms.ts';
+import type {Rect} from '../roof/model.ts';
 import {snapCm} from '../weld.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, RING_CORNERS, RefusedInput, WIRE_CORNER_SNAP_CM,
@@ -206,13 +207,10 @@ function fixtureRing(r: WireRing, sides: ReadSide[], rect: Rect): FixtureRing {
 }
 
 /**
- * The message prefixes of the plan refusals `unionLoops` and `unionWallForms` throw: a corner-only pinch, a degenerate
- * loop, and a union wall on no Ring side. The pipeline names no error class, so the prefixes stand in for one.
+ * Whether an error is one of the plan refusals the build would also throw (decisions 142, N6, and 146): the pipeline's
+ * named `PlanRefusal`, from `storeyLoops` and `unionWallForms`.
  */
-export const PLAN_REFUSAL_PREFIXES: readonly string[] = ['pinch at ', 'a loop with every edge on one line', 'the union wall '];
-
-/** Whether an error is one of the plan refusals the build would also throw (decision 142, N6). */
-export const isPlanRefusal = (e: unknown): boolean => e instanceof Error && PLAN_REFUSAL_PREFIXES.some(p => e.message.startsWith(p));
+export const isPlanRefusal = (e: unknown): e is PlanRefusal => e instanceof PlanRefusal;
 
 /** A None side of one fixture Ring, with its file label. */
 export interface NoneSide { ring: number; compass: RingSide; text: string }
@@ -224,7 +222,7 @@ export interface NoneSide { ring: number; compass: RingSide; text: string }
  * the pipeline refuses (`isPlanRefusal`) is left to the build, which refuses it too; any other error is rethrown
  * (decision 142, N6).
  */
-function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[] {
+export function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[] {
   if (!nones.length) return [];
   const probe: ShellFixture = {
     ...f,
@@ -239,7 +237,7 @@ function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[] {
     const rings = storeyRings(probe, storey);
     let walls;
     try {
-      walls = unionWallForms(rings, unionLoops(rings.map(r => r.ring.rect)));
+      walls = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect)));
     } catch (e) {
       if (isPlanRefusal(e)) continue;
       throw e;

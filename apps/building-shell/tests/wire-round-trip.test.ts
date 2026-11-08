@@ -158,12 +158,12 @@ describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, 
   /**
    * Measured at WP5.2, a finding, not a waiver: BridgeOverBlock's block roof, steep enough (40° and up), reaches the
    * bridge's floor across the tunnel between the towers. From 40° to 50° the shell measures genus 2 with 4 Unclassified
-   * Edges, from 55° genus 0 with 2. Its Rings predict 1: a roof reaching the storey two above is the slab prediction's
+   * Edges, from 51.5° genus 0 with 2, now SoffitJunction (decision 146, F52). Its Rings predict 1: a roof reaching the storey two above is the slab prediction's
    * documented gap (`TallRoofThroughTunnel60`), and the Unclassified Edges are the pipeline's. Every other seed, and
    * the 1000×400 Ring, is clean at both bounds. Pinned exactly, so a cure or a narrowed bound breaks it.
    */
   const KNOWN: Readonly<Record<string, string[]>> = {
-    'BridgeOverBlock at 75°': ['summed genus 0, predicted 1 from the Rings (journal decision 143)', '2 Unclassified Edges: (200, 533.0126953125, 500) to (800, 533.0126953125, 500); (200, 66.9873046875, 500) to (800, 66.9873046875, 500)'],
+    'BridgeOverBlock at 75°': ['summed genus 0, predicted 1 from the Rings (journal decision 143)'],
   };
 
   it.each(CASES)('%s', async (name, f, deg) => {

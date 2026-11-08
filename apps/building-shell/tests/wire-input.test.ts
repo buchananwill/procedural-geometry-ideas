@@ -1,9 +1,12 @@
 // `building-shell/input@1` (journal decisions 124 to 128 and 136 to 140): the stand-in generated schema, its
 // refinement layer with the USTRUCT defaults, and the adapter's refusals, snapping, flags and information.
 import {describe, expect, it} from 'vitest';
-import {COURTYARD_RECTS, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {PlanRefusal} from '../src/errors.ts';
+import {COURTYARD_RECTS, RING_SIDES, RingForm, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {storeyLoops} from '../src/ring-forms.ts';
+import {planStorey} from '../src/storey.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
-import {AdaptedInput, isPlanRefusal, readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {AdaptedInput, isPlanRefusal, noneWinnerRefusals, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, refineInput,
 } from '../src/wire/input-types.ts';
@@ -249,12 +252,25 @@ describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
   });
 });
 
-describe("the None probe's error handling (decision 142, N6)", () => {
-  it('leaves a plan the pipeline refuses to the build, and rethrows anything else', () => {
-    expect(isPlanRefusal(new Error('pinch at 400,400: corner-only contact is not a footprint'))).toBe(true);
-    expect(isPlanRefusal(new Error('the union wall x=0 [0,10] lies on no Ring side'))).toBe(true);
+describe("the None probe's error handling (decisions 142, N6, 146 and 148, F4)", () => {
+  it("knows a plan refusal by the pipeline's named class, never by its message", () => {
+    expect(isPlanRefusal(new PlanRefusal('pinch at 400,400: corner-only contact is not a footprint'))).toBe(true);
+    expect(isPlanRefusal(new Error('pinch at 400,400: corner-only contact is not a footprint'))).toBe(false);
     expect(isPlanRefusal(new Error('Cannot read properties of undefined'))).toBe(false);
     expect(isPlanRefusal('pinch at 0,0')).toBe(false);
+  });
+
+  it('is what the pipeline throws for a pinch, through the storey label too', () => {
+    const pinch: ShellFixture = {name: 'Pinch', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 400, 800, 800], 0, 1, 30)]};
+    expect(() => storeyLoops(pinch.rings.map(r => r.rect))).toThrow(PlanRefusal);
+    expect(() => planStorey(pinch, 0)).toThrow(PlanRefusal);
+  });
+
+  // Decision 148, F4: the rethrow branch, convicted by mutation. A Ring side authored `cut` is no plan refusal (the
+  // wire never writes one), so the probe must throw it rather than skip the storey.
+  it('rethrows an error that is no plan refusal', () => {
+    const f: ShellFixture = {name: 'CutSide', cellSize: 50, storeyHeight: 250, rings: [{...ring([0, 0, 400, 400], 0, 1, 30), sides: {S: {form: 'cut' as RingForm}}}]};
+    expect(() => noneWinnerRefusals(f, [{ring: 0, compass: 'N', text: 'Ring 0 side 2 (N)'}])).toThrow(/authored cut/);
   });
 
   it('accepts a None side on a storey whose plan pinches: the build refuses it instead', () => {
