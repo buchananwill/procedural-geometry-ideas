@@ -1603,7 +1603,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - a baseline report is printed and its structure asserted, never discarded.
      - **F7 (Info):** an empty subject is refused. The "every reason at once" scope, within each layer, is stated in
        the adapter. Kuhn's speed needs no change.
-     - **WP5.2 carries decisions 142 and 143,** except F1's pipeline part, which goes to WP3.7 as addendum 5. Its scope is decisions 136 to 140. It stays within the wire
+     - **WP5.2 carries decisions 142 and 143,** except F1's pipeline part, which goes to WP3.7 as addendum 5.
+     - **AMENDED 2026-11-08: the port lead reports content's pitch range.**
+       - **Content:** the only content file with roof pitches is `tagged_modular_piece_type.json`. Its Pitched rows are
+         22.5°, 30° and 45°, and its GableEnd row is 22.5°.
+       - **The player sets no pitch number,** only Auto, Hip or Gable. The pitch comes from the Type the solve picks.
+       - **The C++ fixtures** use 45° and 60°.
+       - **Not checked:** the content branch, which may add rows. The port lead will report any row outside the
+         range.
+       - **[5°, 75°] stands, on one condition: the robustness pitch sweep must reach both ends.** The wire must not
+         accept pitches the sweeps never build. WP3.7 measures the sweep at 5° and 75°, as addendum 6. If either end
+         fails, the bounds narrow to the measured green range, and the failures are enrolled. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
