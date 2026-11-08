@@ -1743,7 +1743,28 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **F7 (Info):**
        - one playtest seed gains an output, the prototype's own canonical shell, so that pair ingestion runs end to
          end in the ingestion test;
-       - the stale `WIRE_GABLE_ONLY_DEG` comment is fixed. Its scope is decisions 136 to 140. It stays within the wire
+       - the stale `WIRE_GABLE_ONLY_DEG` comment is fixed.
+149. **A side carries zero, one or several solved runs** (the port lead's correction, 2026-11-08: its implementer read
+     the net, and the port lead's spec decisions 10, 11, 16 and 17 now say so).
+     - **Why:** an upper Ring flush on a wall splits that wall's plate run in two (`CellNetFixtureSpec.cpp:250-252`).
+       NarrowUpperStorey's lower side 0 holds runs over columns [0,4) and [8,12). A party wall holds no run.
+     - **The stand-in:** `solved` becomes `runs: [{startCm, endCm, form, pitchDegrees, bEmptied, bOutlineRefused}]`,
+       ordered along the side from corner i, with each distance measured from corner i. `request` stays per side.
+       `schemaVersion` stays 1. A dump's basename is the solve dump's own.
+     - **The reader's rulings:**
+       - **Run geometry:** `0 ≤ startCm < endCm ≤` the side's length, ordered, with no overlap, or the file is refused.
+       - **A run solved `None`** carries no form, and is left out of the agreement test below.
+       - **The remaining runs must agree in form, and in pitch where Pitched.** They then give the Ring side its one
+         form, the prototype's model, since spec 4 roofs every storey as if it were the top and the union removes the
+         part under the upper Ring.
+       - **Runs that disagree are refused,** with the reason "side i's runs disagree". The diff report flags this as
+         a C++ inconsistency against spec 3's rule, the user's "the whole wall takes whatever it asks for". It is
+         raised with the port lead and never read silently.
+       - **A side with no run, or with only None runs, is formless.** It is treated as decision 140's F2 treats a None
+         side: an unlisted side, refused only if it wins a union wall.
+       - **Pitch bounds and the request-against-solve flag apply per run.** A run's `bEmptied` and `bOutlineRefused`
+         go into the report's information lines.
+     - **Delivered by WP3.8,** with the wire items of decisions 147 and 148. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
