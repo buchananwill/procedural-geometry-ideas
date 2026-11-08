@@ -82,8 +82,8 @@ running subagents.** Their reports arrive as notifications.
 **Landed:** WP3.6 at `7847a48`, provisionally accepted (decision 132).
 
 **Running** (decision 133):
-- **WP3.6's two reviews** (type, and correctness), each on a snapshot of `7847a48`. Their accepted findings join
-  WP3.7 as an addendum.
+- ~~**WP3.6's two reviews**~~: both returned, ruled by decisions 134 and 135, and sent to WP3.7 as addenda 1 and 2.
+  WP3.6 is accepted once WP3.7 lands those addenda and is reviewed.
 - **WP3.7** (decisions 122, 123, 132 and 133): pillow removal, vertex clustering, holed Cells, 3D vertex identity,
   the exact straddle check, Hausdorff loop checks, a move bound, spec 16's constants, the corrected cut rule, and
   F50. Its gate is fresh seeds 5 to 12 at 250, 263 and 300 cm, the δ-nudges, the courtyard and U generators, and
