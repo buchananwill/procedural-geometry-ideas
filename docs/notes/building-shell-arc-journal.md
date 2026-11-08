@@ -84,10 +84,8 @@ running subagents.** Their reports arrive as notifications.
 **Running** (decision 133):
 - ~~**WP3.6's two reviews**~~: both returned, ruled by decisions 134 and 135, and sent to WP3.7 as addenda 1 and 2.
   WP3.6 is accepted once WP3.7 lands those addenda and is reviewed.
-- **WP3.7** (decisions 122, 123, 132 and 133): pillow removal, vertex clustering, holed Cells, 3D vertex identity,
-  the exact straddle check, Hausdorff loop checks, a move bound, spec 16's constants, the corrected cut rule, and
-  F50. Its gate is fresh seeds 5 to 12 at 250, 263 and 300 cm, the δ-nudges, the courtyard and U generators, and
-  PortPokeOut250 clean. **After WP3.7, fresh failures are enrolled, not chased.**
+- **WP3.7's two reviews** (WP3.7 landed at `2f3e639`, `d885276` and `040c93e`; decision 144, F51). WP3.6 and WP3.7
+  are accepted together when the reviews are ruled on. **Fresh failures are now enrolled, not chased.**
 - **WP5.2** (the WP5 delegate, resumed again), carrying decisions 142 and 143, within the wire files only. WP5.1
   landed at `f6b17df`, and its two reviews were ruled by decisions 142 and 143. When WP5.2 returns, it gets two fresh
   reviews.
@@ -134,8 +132,10 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   - **A straight-skeleton refusal is a hard error with no fallback.** The risk lives in mixed-pitch weights.
   - **No sliver-Cell policy.** Exact cuts keep partial Cells down to 1e-4 cm², with no merge rule or minimum size for
     content.
-  - **Edge-table pairs that would be `Unclassified`** if they ever arose: Roof–Underside, Gable–Underside, and sloped
-    flat Gable–Gable. None has been seen yet.
+  - **Edge-table pairs that would be `Unclassified`** if they ever arose: Roof–Underside and Gable–Underside, neither
+    seen yet. The sloped flat Gable–Gable pair did arise (F50's U class), and is `GableSloped` by decision 144.
+  - **The enrolled residues of F51:** partial coplanar contact (Court25), edge contact between opposite coplanar faces
+    (U8), sub-tolerance features (G5), and the low-pitch pockets. A C++ port inherits them unless it does better.
   - **The cleaning tolerance was measured on manifold-3d's float32 output.** It must be re-measured on whichever C++
     boolean is chosen, by decision 109's sweeps, with this prototype as the oracle.
   - **Divergences listed in `newConventions`:** roof-line cuts, Underside Cells, the Cheek kind, inward-corner naming,
@@ -1613,7 +1613,38 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          range.
        - **[5°, 75°] stands, on one condition: the robustness pitch sweep must reach both ends.** The wire must not
          accept pitches the sweeps never build. WP3.7 measures the sweep at 5° and 75°, as addendum 6. If either end
-         fails, the bounds narrow to the measured green range, and the failures are enrolled. Its scope is decisions 136 to 140. It stays within the wire
+         fails, the bounds narrow to the measured green range, and the failures are enrolled.
+144. **WP3.7 returned in three commits:** `2f3e639` (addendum 1, shape only, with 0 of 7963 shells moved), `d885276`
+     (the hardening round, 4232/4232, `typecheck` clean) and `040c93e` (addenda 4 to 6), per the delegate.
+     - **Shell identity:** 7523 shells are comparable. 7485 are identical and 27 are cured, and **0 clean shells
+       broke.** Five clean shells moved, each for a stated reason: ApexEdgeBelow4, 5 and 8 gained a sheet, and
+       Seed4Fuzz134's apex move is now bounded.
+     - **All of its mutation gates convicted.**
+     - **The measured residuals are F51.**
+     - **Its acceptance, and WP3.6's, is provisional until decision 67's two reviews return.**
+
+     **Its three rulings for the lead:**
+     - **The F-D bound: confirmed.** `CLEAN_MAX_MOVE_CM` equals `SHELL_TOLERANCE_CM` and bounds every vertex's total
+       move. Caps are resolved within it in two ways: the meeting point, and the pair drop with sheet stitching. That
+       adds no tolerance, and it removes a 22.9 cm apex slide. Spec 16 is amended.
+     - **Spec 21: a sloped flat Gable–Gable edge is `GableSloped`, accepted.** It mirrors the Wall–Gable row, and it
+       was F50's whole U class. Spec 21 is amended, and §5's list of pairs that would be `Unclassified` loses this
+       one.
+     - **Floor-standing hip solids on every storey: not adopted, accepted.** They move 8652 shells, cure 10 and break
+       5, which fails decision 135's zero-regression bar. They stay on holed storeys only.
+
+     **The pitch bound narrows: `WIRE_MIN_PITCH_DEG = 7`** (addendum 6).
+     - Narrow failing pockets lie between 5.86° and 6.9°, all enrolled. From 6.91° to 75° everything scanned is green.
+     - This amends decision 143's [5°, 75°] to **[7°, 75°]**, and WP5.2 is told.
+
+     **The spec wording WP3.7 supplied lands in spec 15, 16, 23 and 32.**
+     - Spec 15: the winning-region test is exact.
+     - Spec 16: the named exceptions and the cleaning's order.
+     - Spec 23: G3's split and G4's identity principle, plus the T-point sheet.
+     - Spec 32: the Hausdorff loop check replaces the area identity.
+
+     **Next:** WP3.7's two reviews, on fresh reviewers, over `7847a48..040c93e` with WP5's commits excluded. WP3.8 is
+     queued behind them. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
@@ -1949,3 +1980,25 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     PortPokeOut250 (decision 132, finding 3).
   - **The lesson, the same as the 300 cm one (decision 102):** a sweep gives assurance only over the layout families
     its generator can reach. Every generator's reach is to be stated beside its measured rate.
+- **F51. The residual fresh-input failure rates after the last hardening round** (WP3.7 at `d885276`, per the
+  delegate; heights in cm). This is the figure promised to the port lead. After this round, failures are enrolled,
+  not chased (decision 123).
+
+  | Generator | Its reach | Before | After |
+  |---|---|---|---|
+  | Fresh random seeds 5 to 12 × {250, 263, 300} × 140 | 1 or 2 storey-0 Rings on a 10 cm grid; at most one storey-1 Ring; at most one gabled side; one pitch per storey from {22.5 … 60} and {30, 45, 55}; no holes, nothing above storey 1 | 9/3360 | **0/3360** |
+  | δ-nudges (decision 122's six shapes × 14 steps, at 250) | sub-millimetre near-coincidences | 23/84 | **9/84**, all G5 |
+  | Courtyards, seeds 1 to 6 × 3 heights × 40 | four Rings around one hole, from the full family (band, wing or both at each corner); 1 to 3 storeys; gables at 0.2; shuffled indices; half with mixed pitch | — | **18/720** (6 layouts of 240) |
+  | U shapes (one wing removed), same seeds | as above, no hole | — | **2/720** (1 layout) |
+  | PortPokeOut250 | the C++ in-game regression | defective | **clean** |
+
+  - **No generator reaches** a second island, holes starting above storey 0, upper storeys over a hole, or more than
+    four Rings.
+  - **The residues, all enrolled with exact pins:**
+    - **algorithm B's inherited classes:** Cheek faces (Court14, 23, 34) and the cut overshoot (Court15, Court7);
+    - **Court25:** a partial face-to-face contact of two storeys on one plane, a Gable against a Wall. It is G1's
+      family, but sheet removal handles only twin regions with identical ground;
+    - **U8:** an edge contact between opposite coplanar faces;
+    - **the 9 nudges:** G5, where features of 5/1024 to 12/1024 cm sit between the cleaning and shell tolerances and
+      read Indeterminate;
+    - **the pitch pockets** between 5.86° and 6.9° (addendum 6).

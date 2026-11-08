@@ -243,7 +243,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - the mesh re-enters through `Manifold.ofMesh`, which must accept it as closed.
 
     After imprinting, every output triangle lies wholly within one winning region, which is asserted on every fixture
-    and robustness case. The steps below then apply per triangle.
+    and robustness case. The steps below then apply per triangle. **AMENDED 2026-11-08** (journal decision 144): the
+    assertion is exact. Each triangle, eroded by 0.005 cm, is clipped against the raw triangles; a seven-point sample
+    had missed straddles.
 
     **The re-tag pass:**
     - for each output triangle, collect every raw triangle on the same oriented plane (normals within `1e-5`, offsets
@@ -255,6 +257,19 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     in one constant, `SHELL_TOLERANCE_CM`. **AMENDED 2026-11-07** (journal decision 73): one exception, the re-tag
     pass's containment slack. It is `RETAG_SLACK_CM = 1e-3`, its own named constant, above float32 noise but small
     enough not to relabel a genuine thin face.
+
+    **AMENDED 2026-11-08** (journal decision 144): the full list of named exceptions, all in `constants.ts`, is:
+    - `RETAG_SLACK_CM`;
+    - `IMPRINT_SIDE_CM` and `IMPRINT_MERGE_CM`;
+    - `CLEAN_TOLERANCE_CM`, the cleaning's clustering radius (4/1024);
+    - `CLEAN_MAX_MOVE_CM`, the bound on any vertex's total move in cleaning, now equal to `SHELL_TOLERANCE_CM`.
+
+    The cleaning's order is:
+    1. vertices cluster within `CLEAN_TOLERANCE_CM`, whatever their connectivity;
+    2. zero-volume sheets (coincident opposite triangles) are removed, and the edges they leave are stitched;
+    3. caps are resolved, by an apex meeting its edge's end within the move bound, or by dropping a pair of caps that
+       share a long edge;
+    4. the move bound is checked.
 
     **AMENDED 2026-11-08** (journal decision 137): a second exception, the wire format's corner slack,
     `WIRE_CORNER_SNAP_CM = 1e-6`.
@@ -336,7 +351,7 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     | Roof, Gable | none | `Verge` | `RingJunction` |
     | Wall, Wall | `FloorLine` if horizontal, else `WallVertical` | `ExternalCorner` | `InternalCorner` |
     | Wall, Gable | `WallPlate` if horizontal at the Gable's own plate, else `GableHorizontal` if horizontal, `GableVertical` if vertical, `GableSloped` otherwise | `ExternalCorner` | `InternalCorner` |
-    | Gable, Gable | `GableVertical` or `GableHorizontal` | `ExternalCorner` | `InternalCorner` |
+    | Gable, Gable | `GableVertical` if vertical, `GableHorizontal` if horizontal, `GableSloped` otherwise (**AMENDED 2026-11-08**, journal decision 144) | `ExternalCorner` | `InternalCorner` |
     | Wall or Gable, Ground | none | `GroundLine` | none |
     | Wall, Underside | none | `SoffitEdge` | `SoffitJunction` |
 
@@ -389,6 +404,18 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     left NetEdges with nothing on one side. **AMENDED 2026-11-08** (journal decision 135): a polygon of at least three
     distinct snapped vertices whose snapped area is not positive (all collinear, or wound backwards) is a hard error,
     never silently dropped. No case reaches it yet; one that does is enrolled and ruled on.
+
+    **AMENDED 2026-11-08** (journal decisions 122 and 144, G3 and G4):
+    - **A lattice square holding a hole of its face** is split by a lattice-parallel line. A hole is a piece of
+      negative area of at least `SHELL_TOLERANCE_CM`². The line runs through the middle of the hole's extent along its
+      wider axis, snapped to the 1/1024 cm grid, and splitting repeats until no part holds a hole.
+      - Each part is a Cell with the square's index.
+      - A split line's crossings with ShellEdges are vertices on both faces' Cells.
+      - Its ends on lattice lines lie on the neighbouring Cells' sides.
+    - **A Cell side lying on one ShellEdge carries exactly that edge's vertices between its ends, by identity.** Corners
+      match in 3D, in the face's own plane, never in a projected frame.
+    - **A mesh vertex lying inside a ShellEdge whose faces its triangle fans miss** gains that edge's faces as one more
+      sheet (decision 19's sheets).
 
     **AMENDED 2026-11-08** (journal decision 130): wall provenance, which the union otherwise drops.
     - `ShellCell` gains `source: {ringModelIndex: number; side: number} | null`, where `side` is the Ring side index
@@ -461,10 +488,13 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - `cheeks` equals the fixture's pinned, measured count, which is 0 for all ten. A Cheek is a legitimate face
       (**AMENDED 2026-11-07**, journal decisions 46 and 77; decision 46's "is 0" is struck);
     - every Cell's polygon lies on its face;
-    - every vertex that loop reduction drops lies within `SHELL_TOLERANCE_CM` of the chord it is dropped onto, and each
-      `ShellFace`'s loop area equals its own triangles' area minus the exact area those dropped vertices cut off,
-      within float epsilon. **AMENDED 2026-11-07 twice** (journal decisions 106 and 110): a flat 0.05 cm² sum bound
-      was arbitrary, and a bound scaled by perimeter could hide a lost notch;
+    - every vertex that loop reduction drops lies within `SHELL_TOLERANCE_CM` of the chord it is dropped onto, and
+      ~~each `ShellFace`'s loop area equals its own triangles' area minus the exact area those dropped vertices cut
+      off, within float epsilon~~ **each `ShellFace`'s loops lie within `SHELL_TOLERANCE_CM` of its triangles' boundary,
+      and that boundary within them, by Hausdorff distance**. **AMENDED 2026-11-07 twice** (journal decisions 106 and
+      110): a flat 0.05 cm² sum bound was arbitrary, and a bound scaled by perimeter could hide a lost notch.
+      **AMENDED 2026-11-08** (journal decisions 122 and 144): the area equality was an algebraic identity, so it
+      caught nothing;
     - every output triangle lies on its tag's generating plane; no ShellEdge joins two faces of one identity
       (**AMENDED 2026-11-07**, journal decision 110).
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
