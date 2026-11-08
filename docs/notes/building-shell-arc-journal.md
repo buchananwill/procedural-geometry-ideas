@@ -2355,6 +2355,26 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      3. A verifier runs the full suite of every workspace package on the merged tree.
      4. A `--no-ff` merge into `main`, never pushed, with the merge commit recorded here.
      5. The port lead is told the WP3.9 hash.
+175. **WP3.9 landed at `fced7a7` (shape only) and `6369a5c` (port-facing): 8261/8261, `typecheck` clean, and every gate
+     convicted**, per the delegate.
+     - **Commit 1 moved 0 of 9883 shells and 0 golden bytes.**
+     - **Commit 2:**
+       - added `MultiRunSide` (start, end and junction slack, and a gap), so that all three snap-order mutants refuse
+         to load the golden set;
+       - redesigned CutPitchConflict, so that swapping the indices now moves the shell;
+       - added `FileReversed` goldens for the last two conflict pairs, so that file order now moves all eight;
+       - made the overlap check run against the furthest end so far.
+     - **The golden set is 201 files.** The moved bytes are CutPitchConflict's three inputs and its shells:
+       provenance only for two, and a new shell for Swapped.
+
+     **Rulings:**
+     - **Decision 167's order-invariant manifest mark lapses.** Since the redesign, every conflict pair moves under file
+       order, and `UNMOVED_BY_FILE_ORDER` is empty. No manifest field is added.
+     - **A new courtyard residue shape (F55) is enrolled, not chased, under decision 172's best effort.** The
+       courtyard and gable redesign inherits it. **WP3.9.1** (the same delegate, resumed) pins it with its located
+       signature, and adds a golden residue entry for it, by F4's rule that every residue class has one.
+     - **Next:** two scoped reviews over `fced7a7..` WP3.9.1's commit. Then the port lead gets the hash, and the merge
+       follows decision 174's order.
 
 ## Findings
 
@@ -2757,3 +2777,12 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     - `src/roof/` is a byte-identical copy of the Piste Perfect roof-gable prototype, whose release under MIT would be
       the user's call.
   - **It does share the repo's strict tsconfig base, and its enrol-don't-exclude test discipline.**
+- **F55. A courtyard cut that qualifies while collinear with a jutting wall, both at one pitch (30° or 45°), builds
+  defective** (WP3.9's CutPitchConflict design probe, `scratchpad\wp39\cutpitch-probe.mts`).
+  - **Its signature:**
+    - `survivingInternal 2` at (42.26, 300, 432.14);
+    - 1 to 2 Cheeks at (0, 300, 250);
+    - 4 Unclassified Edges along y = 300, from x 0 to 127.
+  - **Reproducer:** `[bandS, jut45, jut[-200,300,0,700] S@30, …]`, and its swap.
+  - **Ruled best effort and enrolled** (decisions 172 and 175). Spec 2's collinear-cut rule is a question for the
+    courtyard redesign.
