@@ -2130,6 +2130,21 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          midpoint rule for Gable Cells.
      - **WP3.8.4 goes to a fresh delegate** (decision 157), carrying decisions 160 and 161. Its two reviews are scoped
        to its own items.
+162. **WP3.8.4 landed at `21e3a4b` (decision 160) and `1df6f51` (decision 161): 8023/8023, `typecheck` clean, all five
+     gates convicted on a snapshot**, per the delegate.
+     - **Shell identity** moved 0 of 9883 shells.
+     - **The golden set:** no existing shell, union or input file changed, and only `manifest.json` moved. It is now 63
+       fixtures in 171 files: 49 clean, 54 replayable, 54 inputs.
+     - **The free-cut oracles now convict both rejected rules:**
+       - the hip-only rule throws on `SplitBandAllGable75`;
+       - the constant 60 moves two clean goldens.
+     - **`AsymmetricLScrambled` is the oracle for the file's side slots.**
+     - **The writer now refuses to write a clean golden that measures a defect.** Accepted, as a guard against an
+       unattributed residue.
+     - **The schema tag stays `building-shell/golden@1`,** because nothing has shipped. This is the same reasoning
+       that keeps `input@1`'s `schemaVersion` at 1 (decision 149). The port lead is told the shape.
+     - **Its spec 16 wording for the run-end and run-junction slack lands.**
+     - **Next: two scoped reviews over `21e3a4b..1df6f51`, then port-ready.**
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
