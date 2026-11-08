@@ -1526,7 +1526,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **Ruling: a Ring index of -1 is the "unset" sentinel, and a file with one is refused,** naming the field, so an
        omitted index never silently takes part in the total order.
 
-     **WP5.1 is dispatched to the WP5 delegate, resumed.** Its scope is decisions 136 to 140. It stays within the wire
+     **WP5.1 is dispatched to the WP5 delegate, resumed.**
+141. **WP5.1 returned at `f6b17df`: 3904/3904 on a clean worktree at `be98043` with its files laid over, `typecheck`
+     clean, and all seven gates convicted**, per the delegate. It changed no pipeline file. **Its acceptance is
+     provisional until decision 67's two reviews return.** Its four points, ruled:
+     - **The stand-in output schema** (`canonical-output-schema.ts`, one engine's shell in canonical form, with an
+       optional `perimeter`): **accepted as a stand-in.** The port's output structs replace it.
+     - **The names `FShellWireSolvedRunSchema` and `ScaleV1Schema`: accepted.**
+     - **A None side is never counted as Pitched for `defaultDeg`: accepted,** as decision 140 intends.
+     - **The reviewer's mixed-pitch Courtyard throws `door-turn` when built** (sides S 30, E 35, N 40, W 45). That is
+       the cut's pitch, the pipeline's matter. It joins WP3.7's gate under decision 135's F1 as one more reproducer.
+     - **The live tree's `typecheck` failure is WP3.7's in-flight work,** not WP5.1's.
+     - **The genus prediction moves to per component** in one line once WP3.7 exports `componentGenera`. That is
+       WP3.7's to make or WP3.8's to pick up. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
