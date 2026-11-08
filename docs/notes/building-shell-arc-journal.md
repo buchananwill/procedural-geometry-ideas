@@ -1869,7 +1869,27 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - Spec 2 is amended.
      - **The gate needs targeted split positions.** Random split draws read the free branch in only 24 of 720 shells,
        so the generator's split-band mode places splits that are certain to make the free cut the shortest.
-     - **WP3.8 resumes** with this ruling. The round-trip identity test must include gabled split-band courtyards. Its scope is decisions 136 to 140. It stays within the wire
+     - **WP3.8 resumes** with this ruling. The round-trip identity test must include gabled split-band courtyards.
+152. **Three input@1 changes from the port's safety review** (port lead, its spec decisions 16 to 18), ruled:
+     - **The file name is `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json`,** with the subject sanitised.
+       Ingestion still pairs by the whole stem.
+     - **The C++ exporter refuses a building whose Grammar's massing adds Rings** (`ProblemShellMassed`). No massed
+       building reaches us until the port specifies them.
+     - **The C++ replay is strict, and the prototype matches where the rule is the format's:**
+       - **`ringIndex` must equal the Ring's array position.** The TS reader refuses otherwise too. Decision 148's
+         shuffled round trip shuffles `modelIndex` only.
+       - **Corners must lie on the Cell lattice** (`cellSizeCm`), within 1e-6 cm, in the C++. The TS reader keeps the
+         1/1024 grid (decision 137), because the prototype can build off-lattice Rings and its fixtures use them. A
+         lattice point lies on the 1/1024 grid, so the two snaps agree wherever the C++ accepts a file.
+       - **Every document run must match a C++ plate run, and every C++ plate run a document run.** So the TS
+         `writeInput`'s one run per side replays red wherever the net splits or omits a run.
+     - **The golden set therefore marks C++ replayability per fixture.** A fixture is replayable when its corners lie
+       on its Cell lattice and its runs are written by the C++'s own plate-run rule. The manifest carries a
+       `cppReplayable` flag. A replayable fixture gets a `<fixture>.input.json` beside its shell golden, so the port
+       can replay the prototype's own fixtures.
+     - **Asked of the port lead:** the plate-run derivation rule, precise enough for `writeInput` to reproduce. If it
+       cannot be stated by the time WP3.8 writes the golden set, the input files are left out and
+       `cppReplayable` reads false, with the reason. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
