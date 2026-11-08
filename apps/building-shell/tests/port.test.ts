@@ -5,6 +5,7 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {PORT_FIXTURES, ShellFixture} from '../src/fixture.ts';
 import {CONVENTION_ROOF_LINES_CUT, ShellBuild, ShellReport, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
+import {ClassedPinTable, pinnedOutcome} from './pin-table.ts';
 import {dist, invariantViolations} from './shell-invariants.ts';
 
 const TAN60 = Math.sqrt(3);
@@ -65,7 +66,7 @@ const PINS: Record<PortName, PortPin> = {
  * coincident opposite Internal triangles each, over x 455.66 to 500 at the plate z = 500. Since WP3.7 the cleaning
  * removes them as a zero-volume sheet, so no port fixture carries a known violation; the table stays for the next.
  */
-const KNOWN_VIOLATIONS: Partial<Record<PortName, string[]>> = {};
+const KNOWN_VIOLATIONS: ClassedPinTable<PortName> = {};
 
 it("removes PortPokeOut250's pillow as a zero-volume sheet of four triangles (journal decision 122, G1)", () => {
   expect(get('PortPokeOut250').union.clean.sheetTris).toBe(4);
@@ -84,7 +85,7 @@ it('lists every port fixture by name', () => {
 
 describe.each(PORT_NAMES.map(name => [name, portFixture(name)] as const))('%s', (name, f) => {
   it("keeps spec decision 32's invariants, with its genus as measured", () => {
-    expect(invariantViolations(get(name), {genus: PINS[name].genus, cheeks: 0})).toEqual(KNOWN_VIOLATIONS[name] ?? []);
+    expect(invariantViolations(get(name), {genus: PINS[name].genus, cheeks: 0})).toEqual(pinnedOutcome(KNOWN_VIOLATIONS, name));
   });
 
   it('has its pinned topology and report (reference data for the C++ port)', () => {

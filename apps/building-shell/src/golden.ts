@@ -137,16 +137,25 @@ export const RESIDUE_CLASS_NAMES = [
 export type ResidueClass = typeof RESIDUE_CLASS_NAMES[number];
 
 /**
- * What every manifest entry carries: the fixture's name and the genus per component its pin expects, highest first
- * (journal decision 161, finding 5: an expectation, never the shell's own genus).
+ * A genus per connected component, highest first (spec decision 32 as amended; journal decision 163, N5): one name for
+ * the manifest's expected and measured genus and the tests' pinned expectations.
  */
-const EntryBaseSchema = z.strictObject({fixture: z.string().min(1), expectedGenus: z.array(z.number())});
+export const GenusPerComponentSchema = z.array(z.number());
+
+/** A genus per connected component, highest first (`GenusPerComponentSchema`). */
+export type GenusPerComponent = Readonly<z.output<typeof GenusPerComponentSchema>>;
 
 /**
- * A fixture whose build succeeded: the genus per component its union measures, highest first (decision 161, finding 5),
- * its files and its pinned report.
+ * What every manifest entry carries: the fixture's name and the genus per component its pin expects (journal decision
+ * 161, finding 5: an expectation, never the shell's own genus).
  */
-const FilesSchema = z.strictObject({measuredGenus: z.array(z.number()), shell: z.string(), union: z.string(), report: ShellReportSchema});
+const EntryBaseSchema = z.strictObject({fixture: z.string().min(1), expectedGenus: GenusPerComponentSchema});
+
+/**
+ * A fixture whose build succeeded: the genus per component its union measures (decision 161, finding 5), its files and
+ * its pinned report.
+ */
+const FilesSchema = z.strictObject({measuredGenus: GenusPerComponentSchema, shell: z.string(), union: z.string(), report: ShellReportSchema});
 
 /**
  * A replayable fixture names its `input@1` file (journal decision 152), whether it builds or throws (decision 161,

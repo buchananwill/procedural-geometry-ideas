@@ -5,8 +5,10 @@
 // (decision 155, N7): `src/fixture.ts` types every roster fixture `ShellFixture`, so its names carry no literal type to
 // key by, and the name-set test in playtest-ingest.test.ts holds the table to the roster instead.
 
+import type {GenusPerComponent} from '../src/golden.ts';
+
 /** Per component, highest first: what `componentGenera` measured for each named fixture at WP3.8. */
-const ROSTER_GENUS: Readonly<Record<string, readonly number[]>> = {
+const ROSTER_GENUS: Readonly<Record<string, GenusPerComponent>> = {
   NarrowUpperStorey: [0], NarrowUpperStoreyGabled: [0], TallerUpper: [0], Overhang: [0], OverhangApexOnEave: [0], Bridge: [0],
   BridgeOverBlock: [1], ValleyWings: [0], ValleyWingsPierced: [0], SingleStoreyT: [0], DefaultChalet: [0], Courtyard: [1],
   FlushRingConflict: [0], FlushRingConflictSwapped: [0], OverlapRingConflict: [0], OverlapRingConflictSwapped: [0],
@@ -18,7 +20,7 @@ const ROSTER_GENUS: Readonly<Record<string, readonly number[]>> = {
 };
 
 /** A named fixture's pinned genus per component. Throws on a fixture with no measurement. */
-export function rosterGenus(name: string): readonly number[] {
+export function rosterGenus(name: string): GenusPerComponent {
   const g = ROSTER_GENUS[name];
   if (!g) throw new Error(`no measured genus for ${name}`);
   return g;

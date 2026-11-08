@@ -12,7 +12,7 @@ import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {randomFixtures} from './robustness-fixtures.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
-import {ASYMMETRIC_L, scrambled} from './wire-round-trip-cases.ts';
+import {ASYMMETRIC_L, scrambled, sparseModelIndex} from './wire-round-trip-cases.ts';
 
 const build = memoBuilds();
 const shellOf = async (f: ShellFixture): Promise<BuildingShell> => (await build(f)).shell;
@@ -109,11 +109,11 @@ describe("a shell from input@1 names the file's own Rings and sides (journal dec
     const read = readInput(JSON.parse(JSON.stringify(file)), name);
     if (!read.ok) throw new Error(read.errors.join('; '));
     const shell = withFileModelIndices(await shellOf(read.fixture), read);
-    // The scrambled file gives the fixture's Ring i the model index 7 + 13 i, and starts it at corner (i + 1) mod 4, so
-    // its compass side k is the file's slot (k - i - 1) mod 4.
+    // The scrambled file gives the fixture's Ring i the model index `sparseModelIndex(i)`, and starts it at corner
+    // (i + 1) mod 4, so its compass side k is the file's slot (k - i - 1) mod 4.
     const authored = await shellOf(f);
     const slot = (ring: number, k: number): number => (((k - ring - 1) % 4) + 4) % 4;
-    expect(shell.cells.map(c => c.source)).toEqual(authored.cells.map(c => c.source && {ringModelIndex: 7 + 13 * c.source.ringModelIndex, side: slot(c.source.ringModelIndex, c.source.side)}));
+    expect(shell.cells.map(c => c.source)).toEqual(authored.cells.map(c => c.source && {ringModelIndex: sparseModelIndex(c.source.ringModelIndex), side: slot(c.source.ringModelIndex, c.source.side)}));
   });
 
   // The gate (decision 156, F1): Ring 0 of the asymmetric L, written starting at its SE corner, holds its W gable at

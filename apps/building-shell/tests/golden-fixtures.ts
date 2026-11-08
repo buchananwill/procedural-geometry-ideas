@@ -12,7 +12,8 @@
 import {errorMessage} from '../src/errors.ts';
 import {EXPORTED_FIXTURES, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {
-  GOLDEN_SCHEMA, GoldenEntry, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, ResidueClass, cppReplayabilityOf, goldenText, unionStages,
+  GOLDEN_SCHEMA, GenusPerComponent, GoldenEntry, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, ResidueClass, cppReplayabilityOf, goldenText,
+  unionStages,
 } from '../src/golden.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
@@ -24,9 +25,10 @@ import {
   randomUFixtures, rosterPitchCases, seededFixture, splitBandFixture,
 } from './robustness-fixtures.ts';
 import {rosterGenus} from './roster-genus.ts';
-import {CausedPinTable, DefectCause, PinTable, throwsOutcome} from './pin-table.ts';
+import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS,
+  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
+  U_DEFECTS, seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
@@ -40,10 +42,10 @@ import {ASYMMETRIC_L, rotatedSparse, scrambled} from './wire-round-trip-cases.ts
 export interface GoldenFile { document: BuildingShellInputV1; read: AdaptedInput }
 
 /**
- * What every golden fixture carries: the fixture it builds, the genus per component its pin expects, and, for one read
- * from a document, that document.
+ * What every golden fixture carries: the fixture it builds, the genus per component its pin expects, the manifest's
+ * `expectedGenus` (journal decision 163, N2), and, for one read from a document, that document.
  */
-export interface GoldenBase { fixture: ShellFixture; genus: readonly number[]; file?: GoldenFile }
+export interface GoldenBase { fixture: ShellFixture; expectedGenus: GenusPerComponent; file?: GoldenFile }
 
 /** A golden fixture that keeps every invariant: it has no pin (journal decision 160, B2). */
 export interface CleanGolden extends GoldenBase { clean: true }
@@ -53,54 +55,32 @@ export interface CleanGolden extends GoldenBase { clean: true }
  * verbatim, its violations or `throwsOutcome` of its error, as the robustness sweeps measure it, and `located` where
  * that measure names its Roof-Underside edges (`roofUndersideLines`, decision 156, F8).
  */
-export interface ResidueGolden extends GoldenBase { clean: false; residueClass: ResidueClass; pin: readonly string[]; located: boolean }
+export interface ResidueGolden extends GoldenBase { clean: false; residueClass: ResidueClass; pin: PinOutcome; located: boolean }
 
 /** One golden fixture: clean, or a residue with its class and pin (journal decision 160, B2). */
 export type GoldenFixture = CleanGolden | ResidueGolden;
 
-const cleanGolden = (fixture: ShellFixture, genus: readonly number[]): CleanGolden => ({clean: true, fixture, genus});
+const cleanGolden = (fixture: ShellFixture, expectedGenus: GenusPerComponent): CleanGolden => ({clean: true, fixture, expectedGenus});
 
-/** A residue whose pin table carries no cause: its class is named here. */
-const residueGolden = (fixture: ShellFixture, genus: readonly number[], pin: readonly string[], residueClass: ResidueClass, located = false): ResidueGolden =>
-  ({clean: false, fixture, genus, residueClass, pin, located});
+/** A residue from its pin: the pin's outcome, and its class, its cause's or its own (`pinClass`, decision 163, N3). */
+const residueOfPin = (fixture: ShellFixture, expectedGenus: GenusPerComponent, pin: ResiduePin, located = false): ResidueGolden =>
+  ({clean: false, fixture, expectedGenus, residueClass: pinClass(pin), pin: pin.outcome, located});
 
-/**
- * Each pinned cause's residue class (journal decision 161, Info). Exhaustive over `DefectCause`, so a cause added to the
- * pins without a class fails `typecheck`. Decision 132's regressions are the Cheek class, exposed by the cut rule.
- */
-const CAUSE_CLASSES: {readonly [C in DefectCause]: ResidueClass} = {
-  'roof-gable algorithm B, Cheek class': 'algorithm-B Cheek',
-  "decision 132's cut rule exposes algorithm B's Cheek class (a regression)": 'algorithm-B Cheek',
-  'roof-gable algorithm B, cut-piece overshoot': 'algorithm-B cut-piece overshoot',
-  'partial face-to-face contact of two storeys on one plane (Court25 class)': 'partial coplanar contact of two storeys',
-  'edge contact between opposite coplanar faces (U8 class)': 'edge contact between opposite coplanar faces',
-  'cleanMesh stuck cap': 'cleanMesh stuck cap',
-  "a Cell corner in no triangle of its face's fan": 'Cell outside its face fan',
-  'a Gable-Wall edge, Unclassified (SplitCourt9 class)': 'Gable-Wall edge Unclassified',
-};
-
-/** A residue's pin from its table: it must be there, since a residue golden with no pin ties to nothing. */
-function pinOf<K extends string>(table: PinTable<K>, key: K): readonly string[] {
+/** A residue from its pin table: the pin must be there, since a residue golden with no pin ties to nothing. */
+function residueGolden<K extends string>(fixture: ShellFixture, expectedGenus: GenusPerComponent, table: PinRecord<K, ResiduePin>, key: K, located = false): ResidueGolden {
   const pin = table[key];
   if (!pin) throw new Error(`no pin ${key}`);
-  return pin;
-}
-
-/** A residue from a table whose every pin carries its cause: its class is the cause's (`CAUSE_CLASSES`). */
-function causedResidue<K extends string>(fixture: ShellFixture, genus: readonly number[], table: CausedPinTable<K>, key: K): ResidueGolden {
-  const pin = table[key];
-  if (!pin) throw new Error(`no pin ${key}`);
-  return residueGolden(fixture, genus, pin.outcome, CAUSE_CLASSES[pin.cause]);
+  return residueOfPin(fixture, expectedGenus, pin, located);
 }
 
 /**
  * A golden fixture read from a document (journal decision 161, finding 3), named `name`. The document must be one the
  * prototype's own reader accepts.
  */
-function fileGolden(name: string, document: BuildingShellInputV1, genus: readonly number[]): CleanGolden {
+function fileGolden(name: string, document: BuildingShellInputV1, expectedGenus: GenusPerComponent): CleanGolden {
   const read = readInput(JSON.parse(JSON.stringify(document)), name);
   if (!read.ok) throw new Error(`${name}: readInput refuses its document: ${read.errors.join('; ')}`);
-  return {clean: true, fixture: read.fixture, genus, file: {document, read}};
+  return {clean: true, fixture: read.fixture, expectedGenus, file: {document, read}};
 }
 
 /** A golden fixture's `input@1`: the document it was read from, or `writeInput` of its fixture. */
@@ -109,21 +89,36 @@ export const goldenInput = (g: GoldenFixture): BuildingShellInputV1 => g.file?.d
 /** A fixture renamed for the golden set, where its tests build it at several storey heights under one name. */
 const named = (f: ShellFixture, name: string): ShellFixture => ({...f, name});
 
+/** A seeded case's golden name, `<name>Seed<seed>h<height>`: a file name, where its pin key holds `/`. */
+const seededName = (name: string, seed: number | string, h: number | string): string => `${name}Seed${seed}h${h}`;
+
 /** The draws per seed the robustness tests measure the seeded generators' pins over. */
 const DRAWS_PER_SEED = 40;
 
-/** One pinned case of a seeded generator, renamed `<name>Seed<seed>h<height>` as `F2_COURTYARDS` are. */
-function seededCase<N extends string>(gen: (seed: number, count: number, h: number) => NamedFixture<N>[], seed: number, name: N, h: number): ShellFixture {
+/** A seeded generator: `count` draws of `seed` at storey height `h`, named by the name type `N`. */
+type SeededGenerator<N extends string> = (seed: number, count: number, h: number) => NamedFixture<N>[];
+
+/**
+ * One pinned case of a seeded generator, stated once (journal decision 160, N1): its fixture, renamed by `seededName`,
+ * and its pin, keyed by `seededKey`.
+ */
+function seededResidue<N extends string>(gen: SeededGenerator<N>, table: PinRecord<SeededKey<N>, ResiduePin>, seed: number, name: N, h: number, expectedGenus: GenusPerComponent): ResidueGolden {
+  const key = seededKey(seed, h, name);
   const f = gen(seed, DRAWS_PER_SEED, h).find(x => x.name === name);
-  if (!f) throw new Error(`no case s${seed}h${h}/${name}`);
-  return named(f, `${name}Seed${seed}h${h}`);
+  if (!f) throw new Error(`no case ${key}`);
+  return residueGolden(named(f, seededName(name, seed, h)), expectedGenus, table, key);
 }
 
-/** One case of the widened pitch sweep (`rosterPitchCases`), renamed without its `@` and `/` for a file name. */
-function rosterPitchCase(roster: string, name: RosterPitchName, as: string): ShellFixture {
+/**
+ * One case of the widened pitch sweep (`rosterPitchCases`), stated once (journal decision 160, N1): its roster fixture
+ * and genus read from its name, renamed `as` without its `@` and `/` for a file name, and its pin, located, as the sweep
+ * measures it.
+ */
+function rosterPitchResidue(name: RosterPitchName, as: string): ResidueGolden {
+  const roster = name.slice(0, name.indexOf('@'));
   const c = rosterPitchCases([fixtureByName(roster)]).find(x => x.name === name);
   if (!c) throw new Error(`no roster pitch case ${name}`);
-  return named(c.fixture, as);
+  return residueGolden(named(c.fixture, as), rosterGenus(roster), ROSTER_PITCH_DEFECTS, name, true);
 }
 
 /** One case of a named generator by its name. */
@@ -155,14 +150,30 @@ export const MODEL_ORDER_CONFLICTS = [
   'FlushRingConflict', 'OverlapRingConflict', 'PitchRingConflict', 'ThreeRingConflict', 'StoreyRingConflict', 'CutPitchConflict',
 ] as const;
 
+/** One of `MODEL_ORDER_CONFLICTS`. */
+export type ModelOrderConflict = typeof MODEL_ORDER_CONFLICTS[number];
+
+/** A model-order oracle's golden name (journal decision 166, N2). */
+export type FileReversedName = `${ModelOrderConflict}FileReversed`;
+
+/** The one builder of a model-order oracle's name: `<fixture>FileReversed` (journal decision 166, N2). */
+export const fileReversedName = (name: ModelOrderConflict): FileReversedName => `${name}FileReversed`;
+
+/**
+ * Journal decisions 165 and 166, N2: the conflicts whose shell reading the Rings in file order cannot move, measured,
+ * not assumed. CutPitchConflict's one union wall that two of its Rings' sides share, x = 1000, is hipped at 30° by all
+ * three, so its winner's order cannot show.
+ */
+export const UNMOVED_BY_FILE_ORDER: readonly ModelOrderConflict[] = ['CutPitchConflict'];
+
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
- * file order reverses its model order (`scrambled`), named `<fixture>FileReversed`. `readInput` orders the Rings by model
- * index, so each reads back as its fixture, and its shell names the file's own model indices and side slots
+ * file order reverses its model order (`scrambled`), named `fileReversedName` of it. `readInput` orders the Rings by
+ * model index, so each reads back as its fixture, and its shell names the file's own model indices and side slots
  * (`withFileModelIndices`). A reader that keys the conflict rule on file position builds the reversed fixture instead.
  */
 export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS.map(name =>
-  fileGolden(`${name}FileReversed`, scrambled(named(fixtureByName(name), `${name}FileReversed`)), rosterGenus(name)));
+  fileGolden(fileReversedName(name), scrambled(named(fixtureByName(name), fileReversedName(name))), rosterGenus(name)));
 
 /**
  * Journal decisions 156, F3, 161, findings 2 and 3, and 164, findings 1 and 2: the oracles of the rules WP3.8 changed,
@@ -218,17 +229,17 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
  *   Unclassified Gable-Wall edges.
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
-  causedResidue(seededCase(randomCourtyardFixtures, 1, 'Court14', 250), [1], COURTYARD_DEFECTS, 's1h250/Court14'),
-  causedResidue(seededCase(randomCourtyardFixtures, 6, 'Court23', 250), [1], COURTYARD_DEFECTS, 's6h250/Court23'),
-  causedResidue(seededCase(randomCourtyardFixtures, 1, 'Court25', 250), [1], COURTYARD_DEFECTS, 's1h250/Court25'),
-  causedResidue(seededCase(randomUFixtures, 6, 'U8', 300), [0], U_DEFECTS, 's6h300/U8'),
-  causedResidue(seededCase(randomSplitCourtyardFixtures, 2, 'SplitCourt10', 250), [1], SPLIT_COURTYARD_DEFECTS, 's2h250/SplitCourt10'),
-  residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], pinOf(NUDGE_DEFECTS, 'ApexEdge5'), 'sub-tolerance roof feature'),
-  residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], pinOf(PITCH_END_DEFECTS, 'G5.86h250'), 'low-pitch pocket'),
-  residueGolden(rosterPitchCase('Courtyard', 'Courtyard@22.5/45s', 'CourtyardAt22.5-45s'), rosterGenus('Courtyard'), pinOf(ROSTER_PITCH_DEFECTS, 'Courtyard@22.5/45s'), 'algorithm-B cut-piece overshoot', true),
-  residueGolden(rosterPitchCase('BridgeOverBlock', 'BridgeOverBlock@45', 'BridgeOverBlockAt45'), rosterGenus('BridgeOverBlock'), pinOf(ROSTER_PITCH_DEFECTS, 'BridgeOverBlock@45'), 'roof meets the floor above', true),
-  causedResidue(seededCase(randomCourtyardFixtures, 11, 'Court35', 250), [1], COURTYARD_DEFECTS, 's11h250/Court35'),
-  causedResidue(seededCase(randomSplitCourtyardFixtures, 7, 'SplitCourt9', 250), [1], SPLIT_COURTYARD_DEFECTS, 's7h250/SplitCourt9'),
+  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court14', 250, [1]),
+  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 6, 'Court23', 250, [1]),
+  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court25', 250, [1]),
+  seededResidue(randomUFixtures, U_DEFECTS, 6, 'U8', 300, [0]),
+  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 2, 'SplitCourt10', 250, [1]),
+  residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], NUDGE_DEFECTS, 'ApexEdge5'),
+  residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
+  rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
+  rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
+  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 11, 'Court35', 250, [1]),
+  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 7, 'SplitCourt9', 250, [1]),
 ];
 
 /**
@@ -244,9 +255,9 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...[300, 250].map(h => cleanGolden(named(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h), `Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]}h${h}`), [0])),
   cleanGolden(UPPER_U_EDGE_CONTACT, [0]),
   cleanGolden(FULL_WINGS_PROBE, [1]),
-  residueGolden(CUT_OVERSHOOT_PROBE, [1], CUT_OVERSHOOT_DEFECTS, 'algorithm-B cut-piece overshoot'),
-  ...F2_COURTYARDS.map(f => cleanGolden(named(f, f.name.replace(/^s(\d)h(\d+)\/(.*)$/, '$3Seed$1h$2')), [1])),
-  ...(['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, 1)).map(f => residueGolden(f, [0, 0], pinOf(GAP_DEFECTS, f.name), 'near-touching islands')),
+  residueOfPin(CUT_OVERSHOOT_PROBE, [1], CUT_OVERSHOOT_DEFECTS),
+  ...F2_COURTYARDS.map(f => cleanGolden(named(f, f.name.replace(/^s(\d)h(\d+)\/(.*)$/, (_, s: string, h: string, n: string) => seededName(n, s, h))), [1])),
+  ...(['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, 1)).map(f => residueGolden(f, [0, 0], GAP_DEFECTS, f.name)),
   ...RULE_ORACLES,
   ...RESIDUE_CLASSES,
 ];
@@ -255,7 +266,7 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
  * A golden fixture's class where it measures a defect. A clean golden that measures one is enrolled by no pin, so the
  * writer refuses to write it: an unattributed defect never reaches the oracle.
  */
-function residueClassOf(g: GoldenFixture, outcome: readonly string[]): ResidueClass {
+function residueClassOf(g: GoldenFixture, outcome: PinOutcome): ResidueClass {
   if (g.clean) throw new Error(`${g.fixture.name} measures ${outcome[0]}, but no pin enrols it: re-measure, then enrol or fix it`);
   return g.residueClass;
 }
@@ -270,7 +281,7 @@ export async function goldenFiles(): Promise<Map<string, string>> {
   const files = new Map<string, string>();
   const entries: GoldenEntry[] = [];
   for (const g of GOLDEN_FIXTURES) {
-    const f = g.fixture, fixture = f.name, expectedGenus = [...g.genus], located = !g.clean && g.located;
+    const f = g.fixture, fixture = f.name, expectedGenus = [...g.expectedGenus], located = !g.clean && g.located;
     const document = goldenInput(g), replay = cppReplayabilityOf(document), input = `${fixture}.input.json`;
     // Decision 161, finding 1: a replayable fixture ships its input whether it builds or throws.
     if (replay.cppReplayable) files.set(input, goldenText(document));

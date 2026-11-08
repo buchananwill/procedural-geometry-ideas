@@ -70,9 +70,18 @@ export const withWireDefaults = (f: ShellFixture): ShellFixture => ({
 });
 
 /**
+ * The one flag a file whose Rings are listed out of model order raises (decisions 126 and 152): its root order no longer
+ * follows its model order (journal decision 166, N3).
+ */
+export const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
+
+/** The sparse model index `rotatedSparse` gives fixture Ring `i`: 7 + 13 i (journal decision 166, N4). */
+export const sparseModelIndex = (i: number): number => 7 + 13 * i;
+
+/**
  * Decisions 148, F2, 152 and 156, F1: a file written with each Ring's corners rotated to start at a corner of its own
  * (sides rotated with them, so side i keeps corner i and its runs), fixture Ring i under the sparse model index
- * 7 + 13 i. Its Rings are listed in model order, so no flag is raised.
+ * `sparseModelIndex(i)`. Its Rings are listed in model order, so no flag is raised.
  */
 export function rotatedSparse(f: ShellFixture): BuildingShellInputV1 {
   const w = writeInput(f);
@@ -80,7 +89,7 @@ export function rotatedSparse(f: ShellFixture): BuildingShellInputV1 {
     const k = (i + 1) % RING_SIDES.length;
     r.corners = [...r.corners.slice(k), ...r.corners.slice(0, k)];
     r.sides = [...r.sides.slice(k), ...r.sides.slice(0, k)];
-    r.modelIndex = 7 + 13 * i;
+    r.modelIndex = sparseModelIndex(i);
   });
   return w;
 }

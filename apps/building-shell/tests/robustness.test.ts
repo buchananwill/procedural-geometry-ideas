@@ -25,7 +25,7 @@ import {
   F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures,
 } from './robustness-fixtures.ts';
-import {COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS} from './residue-pins.ts';
+import {COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS, seededKey} from './residue-pins.ts';
 import {planStorey} from '../src/storey.ts';
 import {causeOf, pinnedOutcome, throwsOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
@@ -118,7 +118,7 @@ const courtyardOutcome = (f: ShellFixture): Promise<string[]> => outcome(f, COUR
 
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decisions 115, 132 and 135): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, seededKey(seed, h, name)));
   });
 });
 
@@ -139,13 +139,13 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
   });
 
   it.each(draws.map(d => [d.fixture.name, d.fixture] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, seededKey(seed, h, name)));
   });
 });
 
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random U shapes (F50): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, `s${seed}h${h}/${name}`));
+    expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, seededKey(seed, h, name)));
   });
 });
 
@@ -153,7 +153,7 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
 
 describe("journal decision 122's δ-nudges at 250 cm storeys: an apex or ridge a hair under, at or over the floor above", () => {
   it.each(nudgeFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await outcome(f, EXPECTED)).toEqual(NUDGE_DEFECTS[name] ?? []);
+    expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(NUDGE_DEFECTS, name));
   });
 });
 
@@ -214,7 +214,7 @@ describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vert
 
 describe("the wire format's pitch ends (journal decision 143): the sweep's box from 5 to 20 and from 70 to 75 degrees", () => {
   it.each(pitchEndFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
-    expect(await outcome(f, EXPECTED)).toEqual(PITCH_END_DEFECTS[name] ?? []);
+    expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(PITCH_END_DEFECTS, name));
   });
 });
 
@@ -251,9 +251,10 @@ describe("journal decision 135, F2: floor-standing holed hip solids' two cleanMe
 });
 
 describe('near-touching islands (journal decision 150, F6)', () => {
-  const cases = [1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => [`Gap${kind}${k}` as const, kind, k] as const));
-  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, kind, k) => {
-    expect(await outcome(gapFixture(kind, k), {genus: [0, 0], cheeks: 0})).toEqual(GAP_DEFECTS[name] ?? []);
+  // Journal decision 163, N1: each pin is read by the fixture's own name.
+  const cases = [1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, k))).map(f => [f.name, f] as const);
+  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (_, f) => {
+    expect(await outcome(f, {genus: [0, 0], cheeks: 0})).toEqual(pinnedOutcome(GAP_DEFECTS, f.name));
   });
 });
 
@@ -293,13 +294,13 @@ if (COURT_FUZZ_SEEDS.length) {
   describe.each(COURT_FUZZ_SEEDS.flatMap(s => FUZZ_HEIGHTS.map(h => [s, h] as const)))('the opt-in courtyard and U fuzz: seed %i at %i cm storeys', (seed, h) => {
     // Journal decision 150, F4: the opt-in run asserts against the same pins as the gated run.
     it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('courtyard %s', async (name, f) => {
-      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
+      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, seededKey(seed, h, name)));
     });
     it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('U %s', async (name, f) => {
-      expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, `s${seed}h${h}/${name}`));
+      expect(await outcome(f, EXPECTED)).toEqual(pinnedOutcome(U_DEFECTS, seededKey(seed, h, name)));
     });
     it.each(randomSplitCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('split-band courtyard %s', async (name, f) => {
-      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, `s${seed}h${h}/${name}`));
+      expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, seededKey(seed, h, name)));
     });
   });
 }
@@ -355,7 +356,7 @@ describe('the widened pitch sweep (journal decisions 146 and 148, F3): every ros
   });
 
   it.each(cases.map(c => [c.name, c] as const))('%s keeps every invariant, or exactly its measured defect', async (name, c) => {
-    expect(await locatedOutcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name] ?? []);
+    expect(await locatedOutcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(pinnedOutcome(ROSTER_PITCH_DEFECTS, name));
   });
 });
 
@@ -395,14 +396,14 @@ describe("decision 156, F7's two new signatures", () => {
   it.each([[250], [300]] as const)('s11h%i/Court35: its Cell-fan throw', async h => {
     const f = randomCourtyardFixtures(11, PER_COURTYARD_SEED, h).find(x => x.name === 'Court35');
     if (!f) throw new Error('no Court35');
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, `s11h${h}/Court35`));
-    expect(COURTYARD_DEFECTS[`s11h${h}/Court35`]?.cause).toBe("a Cell corner in no triangle of its face's fan");
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, seededKey(11, h, 'Court35')));
+    expect(COURTYARD_DEFECTS[seededKey(11, h, 'Court35')]?.cause).toBe("a Cell corner in no triangle of its face's fan");
   });
 
   it('s7h250/SplitCourt9: its Gable-Wall Unclassified Edges', async () => {
     const f = randomSplitCourtyardFixtures(7, PER_COURTYARD_SEED, 250).find(x => x.name === 'SplitCourt9');
     if (!f) throw new Error('no SplitCourt9');
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, 's7h250/SplitCourt9'));
-    expect(SPLIT_COURTYARD_DEFECTS['s7h250/SplitCourt9']?.cause).toBe('a Gable-Wall edge, Unclassified (SplitCourt9 class)');
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(SPLIT_COURTYARD_DEFECTS, seededKey(7, 250, 'SplitCourt9')));
+    expect(SPLIT_COURTYARD_DEFECTS[seededKey(7, 250, 'SplitCourt9')]?.cause).toBe('a Gable-Wall edge, Unclassified (SplitCourt9 class)');
   });
 });

@@ -14,7 +14,7 @@ import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
-import {PinTable, throwsOutcome} from './pin-table.ts';
+import {ClassedPinTable, pinnedOutcome, throwsOutcome} from './pin-table.ts';
 import {CUT_OVERSHOOT_DEFECTS} from './residue-pins.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
@@ -196,7 +196,7 @@ describe("decision 151's counter-cases to the cut-ends rule: the far band and wi
  * all-gable layouts at 60 degrees with a hole 100 cm wide or narrower were refused by the skeleton, the cut shallower
  * than its gables; decision 153 cures all ten.
  */
-const ALL_GABLE_DEFECTS: PinTable<`${string}D${number}${'g' | 'n'}`> = {
+const ALL_GABLE_DEFECTS: ClassedPinTable<`${string}D${number}${'g' | 'n'}`> = {
 };
 
 describe('all-gable split bands (journal decisions 151 and 153): the free cut takes the gables\' pitch', () => {
@@ -206,8 +206,9 @@ describe('all-gable split bands (journal decisions 151 and 153): the free cut ta
   it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, l, d, farHip) => {
     const f = splitBandFixture(name, ...l, {a: d, w: d});
     f.rings = f.rings.map((r, i) => ({...r, sides: farHip && i === 4 ? {} : {S: G, E: G, N: G, W: G}}));
-    if (!ALL_GABLE_DEFECTS[name]) expectSplitCut(f, l, d);
-    expect(await outcomeOf(f)).toEqual(ALL_GABLE_DEFECTS[name] ?? []);
+    const pin = pinnedOutcome(ALL_GABLE_DEFECTS, name);
+    if (!pin.length) expectSplitCut(f, l, d);
+    expect(await outcomeOf(f)).toEqual(pin);
   });
 });
 
@@ -319,7 +320,7 @@ describe('layouts the rule refuses (spec decision 2 as amended)', () => {
     const got = runB(plan.building, {far: 'plane'}).eval(at);
     expect(got?.h ?? NaN).toBeCloseTo(122.7 * Math.tan(Math.PI / 6), 1);
     expect(truth(at.x, at.y)).toBeCloseTo(101.7 * Math.tan(Math.PI / 6), 1);
-    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual(CUT_OVERSHOOT_DEFECTS);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual(CUT_OVERSHOOT_DEFECTS.outcome);
   });
 
   it('builds the Courtyard from COURTYARD_RECTS', () => {

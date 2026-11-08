@@ -11,9 +11,10 @@ import {SEED_FIXTURES} from '../src/wire/export-playtest.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireVec2} from '../src/wire/input-types.ts';
 import {
-  ASYMMETRIC_L, CUT_REPRODUCERS, DiffCounts, IDENTITY_FIXTURES, diffCounts, expectedDefaultDeg, scrambled, withWireDefaults,
+  ASYMMETRIC_L, CUT_REPRODUCERS, DiffCounts, IDENTITY_FIXTURES, ORDER_FLAG, diffCounts, expectedDefaultDeg, scrambled, sparseModelIndex,
+  withWireDefaults,
 } from './wire-round-trip-cases.ts';
-import type {PinRecord, PinTable} from './pin-table.ts';
+import {ClassedPinTable, PinRecord, pinnedOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 
@@ -33,8 +34,6 @@ function read(json: unknown, name: string, allowed?: RegExp): ShellFixture {
   return r.fixture;
 }
 
-/** A scrambled file's one flag (decision 152): its root order no longer follows its model order. */
-const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
 const throughWire = (f: ShellFixture): ShellFixture => read(writeInput(f), f.name);
 
 /**
@@ -153,7 +152,7 @@ describe('every exported fixture through the wire', () => {
   // identity above covers Ring order, and the file is flagged.
   it.each(IDENTITY_FIXTURES.filter(f => f.rings.length > 1).map(f => [f.name, f] as const))('%s: its scrambled file lists the Rings in reverse model order, and is flagged', (_, f) => {
     const w = scrambled(f);
-    expect(w.rings.map(r => r.modelIndex)).toEqual(f.rings.map((_, i) => 7 + 13 * i).reverse());
+    expect(w.rings.map(r => r.modelIndex)).toEqual(f.rings.map((_, i) => sparseModelIndex(i)).reverse());
     const r = readInput(JSON.parse(JSON.stringify(w)), f.name);
     if (!r.ok) throw new Error(r.errors.join('; '));
     expect(r.report.flags).toEqual([expect.stringMatching(ORDER_FLAG)]);
@@ -183,11 +182,11 @@ describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, 
    * seed, and the 1000×400 Ring, is clean at both bounds. The widened sweep in robustness.test.ts holds the rest.
    * Pinned exactly, so a cure or a narrowed bound breaks it.
    */
-  const KNOWN: PinTable<`${string} at ${number}°`> = {
-    'BridgeOverBlock at 75°': [
+  const KNOWN: ClassedPinTable<`${string} at ${number}°`> = {
+    'BridgeOverBlock at 75°': {residueClass: 'roof meets the floor above', outcome: [
       'genus per component 0, expected 1: genus 0 at (0, 0, 0)',
       '2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)',
-    ],
+    ]},
   };
 
   it.each(CASES)('%s', async (name, f, deg) => {
@@ -195,6 +194,6 @@ describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, 
     const genus = f.name === 'Ring1000x400' ? [0] : rosterGenus(f.name);
     const b = await buildShellDetailed(g);
     // Decision 156, F8: a pin on a roof meeting the floor above carries those edges' ends.
-    expect([...invariantViolations(b, {genus, cheeks: 0}), ...roofUndersideLines(b)]).toEqual(KNOWN[name] ?? []);
+    expect([...invariantViolations(b, {genus, cheeks: 0}), ...roofUndersideLines(b)]).toEqual(pinnedOutcome(KNOWN, name));
   }, 60_000);
 });

@@ -9,7 +9,7 @@ import {beforeAll, describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
 import {RING_SIDES, ShellFixture, ring} from '../src/fixture.ts';
 import {
-  GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, RESIDUE_CLASS_NAMES, UnionStages, cppReplayability, cppReplayabilityOf, goldenText, unionStages,
+  GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, RESIDUE_CLASS_NAMES, UnionStages, cppReplayability, cppReplayabilityOf, goldenText, unionStages,
 } from '../src/golden.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
@@ -17,8 +17,10 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
 import {
-  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles, goldenInput,
+  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
+  goldenInput,
 } from './golden-fixtures.ts';
+import {ORDER_FLAG} from './wire-round-trip-cases.ts';
 import {throwsOutcome} from './pin-table.ts';
 import {componentGenera} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
@@ -26,8 +28,17 @@ import {shellFixture} from './test-builds.ts';
 const GOLDEN_DIR = fileURLToPath(new URL('../golden', import.meta.url));
 const committed = (name: string): string => readFileSync(path.join(GOLDEN_DIR, name), 'utf8');
 const COMMITTED = readdirSync(GOLDEN_DIR).filter(n => n.endsWith('.json')).sort();
-/** The committed manifest, parsed against its schema (journal decision 155, N5): a malformed entry fails here, by name. */
+/**
+ * The committed manifest, parsed against its schema (journal decision 155, N5). A malformed entry fails here, at module
+ * load before any test runs, by its index: zod names the path, `fixtures.<index>`, not the fixture (decision 160, N5).
+ */
 const MANIFEST: GoldenManifest = GoldenManifestSchema.parse(JSON.parse(committed(MANIFEST_FILE)));
+
+/** A replayable manifest entry, which names its input whether it builds or throws (journal decision 161, finding 1). */
+type ReplayableEntry = Extract<GoldenEntry, {cppReplayable: true}>;
+
+/** Narrows a manifest entry to a replayable one (journal decision 163, N4: a type predicate in place of casts). */
+const isReplayableEntry = (e: GoldenEntry): e is ReplayableEntry => e.cppReplayable;
 
 let fresh: Map<string, string>;
 beforeAll(async () => { fresh = await goldenFiles(); }, 300_000);
@@ -56,17 +67,17 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
   // The gate (journal decision 161, finding 1): the schema member that let a replayable residue that throws go without
   // its input is gone, so the port can always check whether its own build throws too.
   it('refuses a replayable entry without its input, whether it builds or throws (journal decision 161, finding 1)', () => {
-    const throwing = MANIFEST.fixtures.filter(e => e.cppReplayable && 'error' in e);
+    const replayable = MANIFEST.fixtures.filter(isReplayableEntry);
+    const throwing = replayable.filter(e => 'error' in e);
     expect(throwing.map(e => e.fixture)).toEqual(['Court25Seed1h250', 'U8Seed6h300', 'SplitCourt10Seed2h250', 'Court35Seed11h250']);
-    for (const e of throwing) {
-      expect(e).toMatchObject({input: `${e.fixture}.input.json`});
-      const {input: _, ...bare} = e as typeof e & {input: string};
+    const built = replayable.find(e => 'shell' in e);
+    expect(built).toBeDefined();
+    for (const e of [...throwing, ...(built ? [built] : [])]) {
+      expect(e.input).toBe(`${e.fixture}.input.json`);
+      const {input: _, ...bare} = e;
       expect(GoldenEntrySchema.safeParse(e).success).toBe(true);
       expect(GoldenEntrySchema.safeParse(bare).success).toBe(false);
     }
-    const built = MANIFEST.fixtures.find(e => e.cppReplayable && 'shell' in e);
-    const {input: _, ...bare} = built as NonNullable<typeof built> & {input: string};
-    expect(GoldenEntrySchema.safeParse(bare).success).toBe(false);
   });
 });
 
@@ -128,15 +139,12 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
 
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each `*FileReversed` document lists its Rings in reverse model
- * order, and a reading that keys the conflict rule on file position builds five of the six differently.
- * CutPitchConflict is the sixth: the one union wall two of its Rings' sides share, x = 1000, is hipped at 30° by all
- * three, so its winner's order cannot show. It is kept, since its cut-pitch conflict is one the port must also read.
+ * order, and a reading that keys the conflict rule on file position builds every one differently but those of
+ * `UNMOVED_BY_FILE_ORDER`, measured (decision 165): CutPitchConflict, whose one union wall that two of its Rings' sides
+ * share, x = 1000, is hipped at 30° by all three, so its winner's order cannot show.
  */
 describe('the model-order oracle (journal decision 164, finding 2)', () => {
-  const reversedName = (name: string): string => `${name}FileReversed`;
-  const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
-
-  it.each(MODEL_ORDER_CONFLICTS.map(reversedName))('%s: its document lists the Rings in reverse model order, each ringIndex its position, and is flagged', name => {
+  it.each(MODEL_ORDER_CONFLICTS.map(fileReversedName))('%s: its document lists the Rings in reverse model order, each ringIndex its position, and is flagged', name => {
     const doc = JSON.parse(committed(`${name}.input.json`)) as BuildingShellInputV1;
     const models = doc.rings.map(r => r.modelIndex);
     expect(models.length).toBeGreaterThan(1);
@@ -148,7 +156,7 @@ describe('the model-order oracle (journal decision 164, finding 2)', () => {
     expect(read.report.flags[0]).toMatch(ORDER_FLAG);
   });
 
-  it('a reading that orders the Rings by file position moves five of the six shells: all but CutPitchConflict', async () => {
+  it('a reading that orders the Rings by file position moves every shell but those of UNMOVED_BY_FILE_ORDER', async () => {
     const moved: string[] = [];
     for (const g of MODEL_ORDER_ORACLES) {
       if (!g.file) throw new Error(`${g.fixture.name} is not read from a document`);
@@ -159,7 +167,7 @@ describe('the model-order oracle (journal decision 164, finding 2)', () => {
       const shell = withFileModelIndices(b.shell, {modelIndices: [...read.modelIndices].reverse(), sideSlots: [...read.sideSlots].reverse()});
       if (goldenText(shell) !== committed(`${g.fixture.name}.json`)) moved.push(g.fixture.name);
     }
-    expect(moved).toEqual(MODEL_ORDER_CONFLICTS.filter(n => n !== 'CutPitchConflict').map(reversedName));
+    expect(moved).toEqual(MODEL_ORDER_CONFLICTS.filter(n => !UNMOVED_BY_FILE_ORDER.includes(n)).map(fileReversedName));
   }, 120_000);
 });
 

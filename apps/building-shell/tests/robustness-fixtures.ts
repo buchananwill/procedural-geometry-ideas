@@ -386,8 +386,11 @@ export type PitchMix = 'ring' | 'side';
 /** A pitch pair's laying: how it is laid, and the pitch it gives each side. */
 export type PitchLaying = [mix: PitchMix, pitchOf: PitchOf];
 
-/** A widened-sweep case's name: `<fixture>@<deg>`, or `<fixture>@<p>/<q>` with `r` or `s` (`rosterPitchCases`). */
-export type RosterPitchName = `${string}@${string}`;
+/**
+ * A widened-sweep case's name, exactly as `rosterPitchCases` emits it (journal decision 160, N4): `<fixture>@<deg>`, or
+ * `<fixture>@<p>/<q>` with `r` (laid by Ring) or `s` (by side axis).
+ */
+export type RosterPitchName = `${string}@${number}` | `${string}@${number}/${number}${'r' | 's'}`;
 
 /** One widened-sweep case: a roster fixture with every Pitched side set, as the wire carries it. */
 export interface RosterPitchCase { name: RosterPitchName; roster: string; fixture: ShellFixture }

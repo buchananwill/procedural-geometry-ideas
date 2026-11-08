@@ -32,6 +32,9 @@ const adapted = (json: unknown, name = 'probe'): AdaptedInput => {
 /** A JSON copy, so a test can delete fields the types require. */
 const loose = mutableJson;
 
+/** One run's raw start and end along its side, in cm, as a file writes them (journal decision 166, N5). */
+type RunTuple = readonly [start: number, end: number];
+
 /** A file's Rings rotated to start at slot `s`, corners and sides together. */
 function rotated(v: BuildingShellInputV1, s: number): BuildingShellInputV1 {
   const w = structuredClone(v);
@@ -442,7 +445,7 @@ describe('runs per side (journal decision 149)', () => {
   const reversedError = (side: number, k: number, a: number, b: number): string =>
     `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a run's raw start lies below its raw end, tested before any snap (journal decision 164)`;
   /** The errors of a 1000 cm S side (a 1000 by 400 Ring) holding `runs`, each Pitched at 45°. */
-  const longSide = (runs: [number, number][]): string[] => {
+  const longSide = (runs: readonly RunTuple[]): string[] => {
     const v = writeInput(shellFixture('Long', [ring([0, 0, 1000, 400], 0, 1, 45)]));
     v.rings[0].sides[0].runs = runs.map(([a, b]) => run(a, b, 'Pitched'));
     return errorsOf(v);

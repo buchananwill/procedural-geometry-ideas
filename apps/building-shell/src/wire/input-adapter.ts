@@ -206,8 +206,11 @@ export const sideLength = (cs: WireVec2[], j: number): number => {
   return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
 };
 
+/** One run's bounds as the file writes them, in cm from corner i, before any snap (journal decision 166, N1). */
+export type RunBounds = Pick<WireRun, 'startCm' | 'endCm'>;
+
 /** One run's span along its side after spec 16's snap order: where it starts and ends, in cm from corner i. */
-export interface RunSpan { start: number; end: number }
+export interface RunSpan { start: WireRun['startCm']; end: WireRun['endCm'] }
 
 /** Whether `v` lies within `WIRE_CORNER_SNAP_CM` of `at`: decision 137's slack. */
 const withinSnap = (v: number, at: number): boolean => Math.abs(v - at) <= WIRE_CORNER_SNAP_CM;
@@ -223,7 +226,7 @@ const withinSnap = (v: number, at: number): boolean => Math.abs(v - at) <= WIRE_
  *
  * Nothing else snaps. The raw order test (`start < end` before any snap) and the overlap test are `runRefusals`'.
  */
-export function snapRunSpans(runs: readonly Pick<WireRun, 'startCm' | 'endCm'>[], length: number): RunSpan[] {
+export function snapRunSpans(runs: readonly RunBounds[], length: number): RunSpan[] {
   const spans: RunSpan[] = [];
   runs.forEach((run, k) => {
     const before = k === 0 ? 0 : spans[k - 1].end;
