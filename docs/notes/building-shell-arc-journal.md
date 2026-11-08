@@ -2032,6 +2032,18 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - the stale `InputReport.info` comment is fixed;
        - a delegate's mutation gates run in its own working tree are acceptable only when no other agent shares the
          tree, as here.
+157. **The WP3.8 delegate ran out of context partway through WP3.8.2.** It had committed item 1, decision 156's
+     behaviour items, as `7ca3d59`.
+     - **Its own record of `7ca3d59`:** shell identity moved 0 canonically and broke 0. The golden set is unchanged.
+       The courtyard pins now cover seeds 1 to 14.
+     - **Item 2 (decision 155's shape items) was in progress, and uncommitted,** across 9 `src/` files: `golden.ts`,
+       `input-adapter.ts`, `cells.ts` and others. No test file was touched yet.
+     - **Item 3 (the golden additions) was not started.**
+     - **A fresh delegate finishes WP3.8.2 from that tree.** It reviews the uncommitted diff as its own starting
+       point, keeps what is right, and commits each item on its own, so that another context loss costs at most one
+       item.
+     - **The same delegate had carried WP3.8 to WP3.8.2 through four resumptions.** For a package this size, a fresh
+       delegate per item is the safer default.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
