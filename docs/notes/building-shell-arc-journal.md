@@ -1558,7 +1558,48 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **N5:** `RING_CORNERS` is derived from `RING_SIDES` and checked against the schema. Moving `SHELL_KINDS` into
        `tags.ts`, a pipeline file, is deferred to WP3.8. It is guarded both ways meanwhile.
      - **N6:** the probe catches only plan refusals, by a named error class or message prefix, and rethrows the rest.
-     - **N7:** one shared `MutableJson` test helper in place of the two `any`s. Its scope is decisions 136 to 140. It stays within the wire
+     - **N7:** one shared `MutableJson` test helper in place of the two `any`s.
+143. **Rulings on WP5.1's correctness review** (fresh Opus, on a `git archive f6b17df` snapshot, 3904/3904 reproduced;
+     no High finding). **Confirmed:**
+     - the pinned defaults are exact;
+     - the -1 refusal is reachable and complete;
+     - F2's sentinel can neither collide nor leak;
+     - `defaultDeg` is independent of the start corner;
+     - the corner slack holds exactly at its boundary;
+     - the scaled tolerance and Kuhn matching are sound in both directions;
+     - every dump layout is handled.
+
+     **Rulings:**
+     - **F1 (Medium): a fixture that builds clean can throw after the wire round trip.** The wire carries no
+       `defaultDeg`, and the cut that is collinear with no wall reads it. **The fix is in the pipeline, not the wire:**
+       - **a cut that is collinear with no wall takes `CUT_FREE_DEG = 45`,** a named constant, never a Ring's
+         `defaultDeg`. Spec 2 is amended. A Ring's `defaultDeg` is then an authoring convenience only, read by
+         unlisted sides;
+       - **WP3.7 must measure that the constant changes no output:** varying it from 20° to 70° leaves every courtyard
+         shell identical. Gable pitch was measured the same way (5° to 45°, identical). If it does change output,
+         WP3.7 stops and reports;
+       - **the round-trip test asserts shell identity.** Every exported fixture, and this reproducer, gives an empty
+         canonical diff between the shell as authored and the shell after `readInput(writeInput(f))`.
+     - **F2 (Medium-Low): gable-to-wall contact.** The slab prediction also joins a storey-N solid to a storey-N+1 box
+       across a shared vertical plane, where storey N's side on that plane is gabled and the spans overlap with
+       positive length. A roof reaching beyond the next storey stays the documented `TallRoofThroughTunnel60` gap.
+     - **F3 (Low-Medium): the playtest genus check stays summed,** and never switches to per component. WP3.7 counts
+       surfaces, and a cavity is its own surface, while the prediction counts solids. The two summed figures agree,
+       because both are Euler characteristics. **This amends decision 142's B1:** `predictedGenus` stays summed, and
+       no per-component switch is made on the wire side.
+     - **F4 (Low): a Pitched side's pitch must lie in [5°, 75°],** named `WIRE_MIN_PITCH_DEG` and `WIRE_MAX_PITCH_DEG`,
+       or it is refused. The open range (0, 90) admitted pitches that crash the build. WP5.2 checks that the range
+       builds clean on the seeds. The port lead is asked for content's real range, and the bounds narrow or widen
+       on measurement.
+     - **F5 (Low): the TS side stays stricter than the C++ import codec** for null, case-variant keys, unknown keys,
+       non-integers and numeric strings. The C++ exporter writes none of these, so only a hand-written file can.
+       Refusing a malformed hand-written file with a clear message beats mimicking leniency. Recorded, and no change.
+     - **F6 (Low):**
+       - a dump's output is validated even when its input is pinned refused;
+       - a baseline report is printed and its structure asserted, never discarded.
+     - **F7 (Info):** an empty subject is refused. The "every reason at once" scope, within each layer, is stated in
+       the adapter. Kuhn's speed needs no change.
+     - **WP5.2 carries decisions 142 and 143,** except F1's pipeline part, which goes to WP3.7 as addendum 5. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
