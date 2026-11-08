@@ -66,67 +66,48 @@ export function randomFixtures(seed: number, count: number, storeyHeight: number
   return out;
 }
 
-/**
- * Journal decision 115: random courtyards within the Grammar's caps of 3 storeys and 4 Rings, right angles only. Each
- * is an outer box of 4 Rings about a hole: an S and an N band across the whole width, and a W and an E wing standing
- * between the bands, so each wing's S and N sides cross the ring from the hole to the outer loop and spec decision 2
- * always finds a cut. (Wings at full height with the bands between them have no such wall, and are refused:
- * `courtyard.test.ts`.) Every Ring stands from storey 0 for 1 to 3 storeys, so the hole runs from the ground to the
- * sky and the genus is 1. The Rings come in a random order, each side hipped or gabled, at one pitch per fixture.
- * A generator of its own, so `randomFixtures`' seeds, and the regression fixtures named by them, keep their draws.
- */
-export function randomCourtyardFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
-  let s = seed;
-  const rnd = (): number => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
-  const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
-  const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
-  const out: ShellFixture[] = [];
-  for (let k = 0; k < count; k++) {
-    const x0 = 50 * Math.floor(rnd() * 4), y0 = 50 * Math.floor(rnd() * 4);
-    const bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
-    const x1 = x0 + wingW + span(100, 6) + wingE, y1 = y0 + bandS + span(100, 6) + bandN;
-    const rects: Rect[] = [
-      [x0, y0, x1, y0 + bandS], [x0, y1 - bandN, x1, y1],
-      [x0, y0 + bandS, x0 + wingW, y1 - bandN], [x1 - wingE, y0 + bandS, x1, y1 - bandN],
-    ];
-    const deg = pick([30, 37, 45, 52.5]);
-    const rings = rects.map(r => {
-      const sides: RingSides = {};
-      for (const side of RING_SIDES) if (rnd() < 0.2) sides[side] = {form: 'gable'};
-      return ring(r, 0, 1 + Math.floor(rnd() * 3), deg, sides);
-    });
-    // A random order: the index is the C++ parent model index, and the lowest wins each union wall.
-    for (let i = rings.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [rings[i], rings[j]] = [rings[j], rings[i]];
-    }
-    out.push({name: `Court${k}`, cellSize: 50, storeyHeight, rings});
-  }
-  return out;
-}
-
 /** A corner of a courtyard's ring of four Rings: which of the two Rings meeting there covers it. */
 export type CornerOwner = 'band' | 'wing' | 'both';
 
 const CORNER_OWNERS: readonly CornerOwner[] = ['band', 'wing', 'both'];
 
-/**
- * TEMP (WP3.7 baseline): the courtyard generator drawing from the full Ring family (journal decision 132).
- */
-export function randomFamilyCourtyardFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
+/** The pitches the courtyard generator draws, in degrees. */
+const COURTYARD_PITCHES: readonly number[] = [30, 37, 45, 52.5];
+
+/** One generated courtyard, and its two wings (the Rings standing on its W and E sides) by identity. */
+interface CourtyardDraw { fixture: ShellFixture; wings: [FixtureRing, FixtureRing] }
+
+/** A deterministic stream of draws in [0, 1), from `fuzz3.mjs`'s linear congruential generator. */
+function stream(seed: number): () => number {
   let s = seed;
-  const rnd = (): number => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
-  let fs = seed + 7919;
-  const frnd = (): number => { fs = (fs * 1103515245 + 12345) % 2147483648; return fs / 2147483648; };
-  const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
+  return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+}
+
+/**
+ * Journal decisions 115, 132 and 135: random courtyards within the Grammar's caps of 3 storeys and 4 Rings, right
+ * angles only, drawn from the full family of four Rings about a hole: an S and an N band, a W and an E wing, and at
+ * each corner the band, the wing or both covering it. Wings at full height with the bands between them are included,
+ * so a layout no raw Ring wall segment can cut would be measured, not avoided (decision 132).
+ * - Every Ring stands from storey 0 for 1 to 3 storeys, so the hole runs from the ground to the sky and the genus is 1.
+ * - Each side is gabled with probability 0.2, and the Rings come in a random order: the index is the C++ parent model
+ *   index, and the lowest wins each union wall.
+ * - Pitch (decision 135, F1): half the fixtures keep one pitch for every Ring; in the other half each Ring draws its
+ *   own default, and each hipped side is authored a pitch of its own with probability 0.2.
+ * Three streams draw independently: the layout as `randomCourtyardFixtures` first drew it (seed `seed`), the corners
+ * (seed `seed + 7919`), and the pitches (seed `seed + 15485863`). A fixture whose corners and pitches both fall to the
+ * classic draw is the one the generator first made. A generator of its own, so `randomFixtures`' seeds keep their draws.
+ */
+function drawCourtyards(seed: number, count: number, storeyHeight: number): CourtyardDraw[] {
+  const rnd = stream(seed), frnd = stream(seed + 7919), prnd = stream(seed + 15485863);
+  const pick = <T>(a: readonly T[], r: () => number = rnd): T => a[Math.floor(r() * a.length)];
   const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
-  const out: ShellFixture[] = [];
+  const out: CourtyardDraw[] = [];
   for (let k = 0; k < count; k++) {
     const x0 = 50 * Math.floor(rnd() * 4), y0 = 50 * Math.floor(rnd() * 4);
     const bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
     const x1 = x0 + wingW + span(100, 6) + wingE, y1 = y0 + bandS + span(100, 6) + bandN;
     // Corners SW, SE, NE, NW. The classic layout gives every corner to the band; otherwise each is drawn.
-    const corners: CornerOwner[] = frnd() < 0.5 ? ['band', 'band', 'band', 'band'] : [0, 1, 2, 3].map(() => CORNER_OWNERS[Math.floor(frnd() * 3)]);
+    const corners: CornerOwner[] = frnd() < 0.5 ? ['band', 'band', 'band', 'band'] : [0, 1, 2, 3].map(() => pick(CORNER_OWNERS, frnd));
     const band = (c: CornerOwner): boolean => c !== 'wing';
     const wing = (c: CornerOwner): boolean => c !== 'band';
     const [sw, se, ne, nw] = corners;
@@ -136,35 +117,38 @@ export function randomFamilyCourtyardFixtures(seed: number, count: number, store
       [x0, wing(sw) ? y0 : y0 + bandS, x0 + wingW, wing(nw) ? y1 : y1 - bandN],
       [x1 - wingE, wing(se) ? y0 : y0 + bandS, x1, wing(ne) ? y1 : y1 - bandN],
     ];
-    const deg = pick([30, 37, 45, 52.5]);
+    const deg = pick(COURTYARD_PITCHES);
+    const mixed = prnd() >= 0.5;
     const rings = rects.map(r => {
       const sides: RingSides = {};
       for (const side of RING_SIDES) if (rnd() < 0.2) sides[side] = {form: 'gable'};
-      return ring(r, 0, 1 + Math.floor(rnd() * 3), deg, sides);
+      const own = mixed ? pick(COURTYARD_PITCHES, prnd) : deg;
+      if (mixed) for (const side of RING_SIDES) if (!sides[side] && prnd() < 0.2) sides[side] = {form: 'hip', deg: pick(COURTYARD_PITCHES, prnd)};
+      return ring(r, 0, 1 + Math.floor(rnd() * 3), own, sides);
     });
+    const wings: [FixtureRing, FixtureRing] = [rings[2], rings[3]];
     for (let i = rings.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       [rings[i], rings[j]] = [rings[j], rings[i]];
     }
-    out.push({name: `Court${k}`, cellSize: 50, storeyHeight, rings});
+    out.push({fixture: {name: `Court${k}`, cellSize: 50, storeyHeight, rings}, wings});
   }
   return out;
 }
 
+/** Journal decisions 115, 132 and 135: random courtyards from the full Ring family (`drawCourtyards`). */
+export const randomCourtyardFixtures = (seed: number, count: number, storeyHeight: number): ShellFixture[] =>
+  drawCourtyards(seed, count, storeyHeight).map(d => d.fixture);
+
 /**
  * F50's second family: each courtyard of `randomCourtyardFixtures` with one wing removed, the E wing for an even index
- * and the W wing for an odd one. The three Rings left form a U with no hole, so the genus is 0, and the class of gables
- * over several storeys is measured apart from the courtyard's own.
+ * and the W wing for an odd one. The three Rings left have no hole, so the genus is 0, and the class of gables over
+ * several storeys is measured apart from the courtyard's own.
  */
 export function randomUFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
-  return randomCourtyardFixtures(seed, count, storeyHeight).map((f, k) => {
-    const xs = f.rings.map(r => r.rect);
-    const x0 = Math.min(...xs.map(r => r[0])), x1 = Math.max(...xs.map(r => r[2]));
-    const y0 = Math.min(...xs.map(r => r[1])), y1 = Math.max(...xs.map(r => r[3]));
-    // A wing touches neither y0 nor y1 (classic layout) and stands on x0 (W) or x1 (E).
-    const isWing = (r: Rect, w: boolean): boolean => r[1] > y0 && r[3] < y1 && (w ? r[0] === x0 : r[2] === x1);
-    const drop = f.rings.findIndex(r => isWing(r.rect, k % 2 === 1));
-    return {...f, name: `U${k}`, rings: f.rings.filter((_, i) => i !== drop)};
+  return drawCourtyards(seed, count, storeyHeight).map(({fixture, wings}, k) => {
+    const drop = wings[k % 2 === 1 ? 0 : 1];
+    return {...fixture, name: `U${k}`, rings: fixture.rings.filter(r => r !== drop)};
   });
 }
 

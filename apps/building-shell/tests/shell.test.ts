@@ -20,7 +20,7 @@ import {FaceTag, Vec3, clusterKeyOf} from '../src/tags.ts';
 import {unionPlans} from '../src/union.ts';
 import {cross2} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
-import {AREA_TOL, SNAP_MOVE, dist, faceAreaViolations, planHolds, tagPlaneViolations} from './shell-invariants.ts';
+import {AREA_TOL, SNAP_MOVE, dist, faceLoopViolations, planHolds, tagPlaneViolations} from './shell-invariants.ts';
 
 const TAN30 = Math.tan(Math.PI / 6);
 const TAN60 = Math.sqrt(3);
@@ -124,9 +124,9 @@ describe('decision 32 invariants (WP3 part)', () => {
     }
   });
 
-  // Spec decision 32 as amended (journal decision 110, C5): the loop area accounted for exactly.
-  it.each(ALL)("%s: every ShellFace's loop area is its own triangles' less the chains loop reduction dropped", name => {
-    expect(faceAreaViolations(get(name))).toEqual([]);
+  // Spec decision 32 as amended (journal decisions 110 and 122, F-E): each face's loops against its own triangles.
+  it.each(ALL)("%s: every ShellFace's loops lie within tolerance of its triangles' boundary, by Hausdorff distance", name => {
+    expect(faceLoopViolations(get(name))).toEqual([]);
   });
 
   // Journal decision 110, C3.

@@ -43,6 +43,6 @@ describe('the export (decision 33)', () => {
   it('covers the whole roster, the Ring-conflict pairs and the port fixtures, each under its own name', () => {
     expect(SHELL_FIXTURES).toHaveLength(12);
     expect(EXPORTED_FIXTURES).toEqual([...SHELL_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES]);
-    expect(new Set(EXPORTED_FIXTURES.map(f => shellFileName(f.name))).size).toBe(12 + 6 + 4);
+    expect(new Set(EXPORTED_FIXTURES.map(f => shellFileName(f.name))).size).toBe(12 + 16 + 4);
   });
 });

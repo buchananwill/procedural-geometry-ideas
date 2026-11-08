@@ -67,22 +67,23 @@ function pickedAttrs(sels: Sel[], a: Pt, b: Pt): Partial<Wall> {
 }
 
 /**
- * Spec decisions 2 and 3 as amended (journal decisions 115 and 116): one storey's Building from its Rings. Every union
- * wall takes its Rings' form and pitch as a roof-gable `Sel`.
+ * Spec decisions 2 and 3 as amended (journal decisions 115, 116, 132 and 135): one storey's Building from its Rings.
+ * Every union wall takes its Rings' form and pitch as a roof-gable `Sel`.
  * - With no hole, the plan goes through roof-gable's own `buildFromRects` with those `Sel`s.
  * - An island with a hole is spliced through its cut into a slit polygon, its walls picked by the same `Sel`s and its
- *   two cut sides `form: 'cut'` at the cutting Ring's default pitch. An island with more than one hole, or a hole no
- *   raw Ring wall can cut, is a hard error.
+ *   two cut sides `form: 'cut'` at the cut's pitch: that of the union wall it is collinear with, else the cutting
+ *   Ring's default. An island with more than one hole, or a hole no raw Ring wall segment can cut, is a hard error.
  */
 export function storeyBuilding(rings: StoreyRing[]): Building {
   const rects = rings.map(r => r.ring.rect);
   const loops = unionLoops(rects);
-  const sels = unionWallForms(rings, loops).map(wallSel);
+  const walls = unionWallForms(rings, loops);
+  const sels = walls.map(wallSel);
   const outers = loops.filter(l => polyArea(l) > 0);
   const holes = loops.filter(l => polyArea(l) < 0);
   if (!holes.length) return buildFromRects(rects, sels);
   const cuts = holes.map(h => {
-    const cut = selectCut(rings, outers, h);
+    const cut = selectCut(rings, outers, h, walls);
     if (!cut) throw new Error(`no raw Ring wall cuts the courtyard ring from the hole at (${h[0].x}, ${h[0].y}) to its outer loop`);
     return cut;
   });
@@ -95,9 +96,7 @@ export function storeyBuilding(rings: StoreyRing[]): Building {
     if (k < 0) return {ring: outer, outer, holes: [], attrs: outer.map((a, j) => pickedAttrs(sels, a, outer[(j + 1) % outer.length]))};
     const cut = cuts[k];
     const {ring, cutWalls} = spliceCourtyard(outer, holes[k], cut);
-    const cutting = rings.find(r => r.index === cut.ring);
-    if (!cutting) throw new Error(`the cut names Ring ${cut.ring}, which holds no side of this storey`);
-    const cutAttrs: Partial<Wall> = {form: 'cut', tan: tanDeg(cutting.ring.defaultDeg)};
+    const cutAttrs: Partial<Wall> = {form: 'cut', tan: tanDeg(cut.deg)};
     const attrs = ring.map((a, j) => (cutWalls.includes(j) ? cutAttrs : pickedAttrs(sels, a, ring[(j + 1) % ring.length])));
     return {ring, outer, holes: [holes[k]], attrs};
   }));

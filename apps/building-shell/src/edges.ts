@@ -71,7 +71,17 @@ export const copyNonEmpty = <T>(xs: NonEmpty<T>): NonEmpty<T> => [xs[0], ...xs.s
  * position `point` where Manifold writes a non-manifold pinch as coincident vertices with no edge between them
  * (journal decision 110, C1): each is one sheet of the surface through the point.
  */
-export interface MeshOrigin { at: 'mesh'; vertices: NonEmpty<number>; point: Vec3 }
+export interface MeshOrigin {
+  at: 'mesh';
+  vertices: NonEmpty<number>;
+  point: Vec3;
+  /**
+   * The ShellEdges this vertex lies inside, as a T-point (journal decision 96, F1). Where two storeys' solids touch
+   * along an edge (journal decision 140, F5), the face across can run straight past the vertex without it in its
+   * triangles, so its fans miss that edge's faces.
+   */
+  inside?: number[];
+}
 
 /**
  * A vertex of the net found inside ShellEdges: one, or two coincident ones where a pinch's two sheets share a segment
@@ -200,8 +210,11 @@ export function classifyEdge(ta: FaceTag, tb: FaceTag, g: EdgeGeometry, storeyHe
     return byShape(flat, 'ExternalCorner', 'InternalCorner');
   }
   if (is('Gable', 'Gable')) {
-    // Interpretation: the table gives a flat Gable-Gable edge only as vertical or horizontal; a sloped one is none.
-    const flat: EdgeKind | null = vertical ? 'GableVertical' : horizontal ? 'GableHorizontal' : null;
+    // WP3.7, F50 (for the lead's ruling on spec 21): a flat Gable-Gable edge that is neither vertical nor horizontal is
+    // `GableSloped`, as the Wall-Gable row reads it. It arises wherever a lower storey's gable rises above the plate of
+    // the storey over it on the same wall line: the lower Gable wins its own triangle (decision 14), and its rake is a
+    // sloped seam between two storeys' Gable faces on one plane. The table gave such an edge as none.
+    const flat: EdgeKind = vertical ? 'GableVertical' : horizontal ? 'GableHorizontal' : 'GableSloped';
     return byShape(flat, 'ExternalCorner', 'InternalCorner');
   }
   if (is('Wall', 'Ground') || is('Gable', 'Ground')) return byShape(null, 'GroundLine', null);
@@ -368,8 +381,8 @@ export interface FaceFan {
   faceAt: number[];
 }
 
-export function faceFan(src: FaceSource, asm: FaceAssembly, vertex: number): FaceFan {
-  const h0 = asm.topo.out[vertex];
+export function faceFan(src: FaceSource, asm: FaceAssembly, vertex: number, start: number = asm.topo.out[vertex]): FaceFan {
+  const h0 = start;
   const halves: number[] = [];
   let h = h0;
   do {
@@ -390,4 +403,22 @@ export function faceFan(src: FaceSource, asm: FaceAssembly, vertex: number): Fac
     faceAt[i] = faces.length - 1;
   }
   return {halves, faces, faceAt};
+}
+
+/**
+ * Every triangle fan around a mesh vertex. A manifold vertex has one. Where two solids touch only along an edge or at
+ * a point, Manifold can write both sheets through one vertex (journal decision 140, F5), whose half-edges then form
+ * one fan per sheet: each is read from its own first half-edge, the fans in order of that half-edge.
+ */
+export function vertexFans(src: FaceSource, asm: FaceAssembly, vertex: number): FaceFan[] {
+  const {tris} = src.mesh;
+  const fans: FaceFan[] = [];
+  const seen = new Set<number>();
+  for (let h = 0; h < tris.length; h++) {
+    if (originOf(tris, h) !== vertex || seen.has(h)) continue;
+    const fan = faceFan(src, asm, vertex, h);
+    fan.halves.forEach(x => seen.add(x));
+    fans.push(fan);
+  }
+  return fans;
 }

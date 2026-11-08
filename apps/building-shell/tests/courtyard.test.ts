@@ -1,15 +1,17 @@
-// Spec decision 2 as amended (journal decision 115): a storey plan with a hole is roofed through a cut along a raw Ring
-// wall. The cut's selection, its splice, the Courtyard fixture's assertions, and the layouts the rule refuses.
-import {beforeAll, describe, expect, it} from 'vitest';
+// Spec decision 2 as amended (journal decisions 115, 132 and 135): a storey plan with a hole is roofed through a cut
+// along a segment of a raw Ring wall. The cut's selection and pitch, its splice, the courtyard fixtures' assertions, the
+// reviewers' courtyard probes, and the layouts the rule refuses.
+import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {selectCut, spliceCourtyard} from '../src/courtyard.ts';
-import {COURTYARD_RECTS, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
+import {COURTYARD_RECTS, FixtureRing, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
+import {tanDeg, unionWallForms} from '../src/ring-forms.ts';
 import {runB} from '../src/roof/algoB.ts';
-import {Pt, polyArea, pt, unionLoops} from '../src/roof/model.ts';
+import {Pt, Rect, polyArea, pt, unionLoops} from '../src/roof/model.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import type {Vec3} from '../src/tags.ts';
-import {invariantViolations} from './shell-invariants.ts';
+import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 
 /** A storey plan's union loops, split into outer loops and holes. */
 interface CourtyardLoops { outers: Pt[][]; holes: Pt[][] }
@@ -19,20 +21,37 @@ const courtyardLoops = (f: ShellFixture): CourtyardLoops => {
   return {outers: loops.filter(l => polyArea(l) > 0), holes: loops.filter(l => polyArea(l) < 0)};
 };
 
-/** The Courtyard's cut, as decision 2 chooses it: the shortest raw Ring wall across the ring, then the lowest x, then y. */
-const CUT = {a: pt(0, 300), b: pt(300, 300)};
+/** Storey 0's cut for a fixture's one hole, as spec decision 2 chooses it. */
+const cutOf = (f: ShellFixture): ReturnType<typeof selectCut> => {
+  const {outers, holes} = courtyardLoops(f);
+  const rings = storeyRings(f, 0);
+  return selectCut(rings, outers, holes[0], unionWallForms(rings, unionLoops(rings.map(r => r.ring.rect))));
+};
+
 const tol = SHELL_TOLERANCE_CM;
 
-let b: ShellBuild;
-beforeAll(async () => { b = await buildShellDetailed(fixtureByName('Courtyard')); }, 60_000);
+/** A one-storey layout at 250 cm storeys, every Ring at `deg` unless given its own Rings. */
+const layout = (name: string, rings: FixtureRing[]): ShellFixture => ({name, cellSize: 50, storeyHeight: 250, rings});
+const courtyard = (name: string, rects: Rect[], deg = 30): ShellFixture => layout(name, rects.map(r => ring(r, 0, 1, deg)));
+
+/**
+ * Journal decision 132: the corrected cut rule's layout. Wings at full depth with the bands between them: no whole raw
+ * wall crosses the ring, but each band's inner side has a segment that does.
+ */
+const FULL_WINGS = courtyard('FullWingsProbe', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]]);
+
+/** Each build, made once, on the first test that asks for it, so a crash fails that test alone. */
+const builds = new Map<string, Promise<ShellBuild>>();
+const build = (f: ShellFixture): Promise<ShellBuild> => {
+  let b = builds.get(f.name);
+  if (!b) { b = buildShellDetailed(f); builds.set(f.name, b); }
+  return b;
+};
 
 describe('the cut (spec decision 2 as amended)', () => {
-  it("runs along the west wing's S side, y = 300 over x 0 to 300: of four 300 cm walls, the lowest x, then the lowest y", () => {
-    const f = fixtureByName('Courtyard');
-    const {outers, holes} = courtyardLoops(f);
-    expect(holes).toHaveLength(1);
-    const cut = selectCut(storeyRings(f, 0), outers, holes[0]);
-    expect(cut).toEqual({...CUT, ring: 2, side: 'S', outer: 0});
+  it("runs along the S band's N side, y = 300 over x 0 to 300: of the 300 cm segments, the lowest x, then y, then Ring", () => {
+    // The W wing's S side is the same segment; the S band's index, 0, beats the wing's, 2.
+    expect(cutOf(fixtureByName('Courtyard'))).toEqual({a: pt(0, 300), b: pt(300, 300), ring: 0, side: 'N', outer: 0, deg: 30});
   });
 
   it('is what the storey Building is spliced through: two cut walls on it, every other wall hipped at 30 degrees', () => {
@@ -41,7 +60,7 @@ describe('the cut (spec decision 2 as amended)', () => {
     const [comp] = building.comps;
     expect(comp.holes).toHaveLength(1);
     const cuts = comp.walls.filter(w => w.form === 'cut');
-    expect(cuts.map(w => [w.a, w.b])).toEqual([[CUT.a, CUT.b], [CUT.b, CUT.a]]);
+    expect(cuts.map(w => [w.a, w.b])).toEqual([[pt(0, 300), pt(300, 300)], [pt(300, 300), pt(0, 300)]]);
     for (const w of comp.walls) {
       if (w.form !== 'cut') expect(w.form).toBe('hip');
       expect(Math.abs(w.tan - Math.tan(Math.PI / 6))).toBeLessThan(1e-12);
@@ -51,18 +70,45 @@ describe('the cut (spec decision 2 as amended)', () => {
   it("splices like roof-gable's buildCourtyard at slit 0: A, the outer loop, A, B, the hole's loop, B", () => {
     const outer = [pt(0, 0), pt(10, 0), pt(10, 10), pt(0, 10)];
     const hole = [pt(4, 4), pt(4, 6), pt(6, 6), pt(6, 4)];
-    const {ring: r, cutWalls} = spliceCourtyard(outer, hole, {a: pt(10, 0), b: pt(6, 4), ring: 0, side: 'S', outer: 0});
+    const {ring: r, cutWalls} = spliceCourtyard(outer, hole, {a: pt(10, 0), b: pt(6, 4), ring: 0, side: 'S', outer: 0, deg: 30});
     expect(r).toEqual([pt(10, 0), pt(10, 10), pt(0, 10), pt(0, 0), pt(10, 0), pt(6, 4), pt(4, 4), pt(4, 6), pt(6, 6), pt(6, 4)]);
     expect(cutWalls).toEqual([4, 9]);
   });
+
+  // No whole raw wall of FullWingsProbe crosses the ring, so decision 115's whole-wall rule refused it.
+  it("FullWingsProbe (journal decision 132): cut along a segment of the S band's 1000 cm N side, from the outer loop to the hole's corner", () => {
+    expect(cutOf(FULL_WINGS)).toEqual({a: pt(0, 300), b: pt(300, 300), ring: 0, side: 'N', outer: 0, deg: 30});
+  });
 });
 
-describe('Courtyard (journal decision 115)', () => {
-  it("keeps spec decision 32's invariants with genus 1", () => {
-    expect(invariantViolations(b, {genus: 1, cheeks: 0})).toEqual([]);
+describe('the cut\'s pitch (spec decision 2 as amended, journal decision 135, F1)', () => {
+  const C = COURTYARD_RECTS;
+  const rings = (degs: number[], sides: Parameters<typeof ring>[4][] = []): FixtureRing[] => C.map((r, i) => ring(r, 0, 1, degs[i], sides[i]));
+  // The correctness reviewer's reproducers (probes/zz-court2.test.ts). The cut, y = 300 over x 0 to 300, is collinear
+  // at (300, 300) with the hole's S wall, the S band's N side.
+  it.each([
+    ['CutWing50', rings([30, 30, 50, 30]), 30],
+    ['Bands50', rings([50, 50, 30, 30]), 50],
+    ['HoleSide45', rings([30, 30, 30, 30], [{N: {form: 'hip', deg: 45}}]), 45],
+    ['HoleSideGabled', rings([30, 30, 30, 30], [{N: {form: 'gable'}}]), 30],
+    ['OtherWing50', rings([30, 30, 30, 50]), 30],
+  ] as const)('%s: the cut takes the hole wall\'s derived pitch, %i degrees, and the building keeps every invariant', async (name, rs, deg) => {
+    const f = layout(name, [...rs]);
+    const cut = cutOf(f);
+    expect(cut?.deg).toBe(deg);
+    for (const w of planStorey(f, 0).building.walls.filter(x => x.form === 'cut')) expect(Math.abs(w.tan - tanDeg(deg))).toBeLessThan(1e-12);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([]);
+  });
+});
+
+/** The courtyard fixtures asserted as the roster is: the Courtyard, and FullWingsProbe under decision 132's rule. */
+describe.each([['Courtyard', () => fixtureByName('Courtyard')], ['FullWingsProbe', () => FULL_WINGS]] as const)('%s (journal decisions 115 and 132)', (_, fixture) => {
+  it("keeps spec decision 32's invariants with genus 1", async () => {
+    expect(invariantViolations(await build(fixture()), {genus: 1, cheeks: 0})).toEqual([]);
   });
 
-  it('has a Wall face on each of the four courtyard walls, each 400 by 250', () => {
+  it('has a Wall face on each of the four courtyard walls, each 400 by 250', async () => {
+    const b = await build(fixture());
     const walls: [Vec3, number][] = [[[1, 0, 0], 300], [[-1, 0, 0], -700], [[0, 1, 0], 300], [[0, -1, 0], -700]];
     for (const [n, d] of walls) {
       const on = b.shell.faces.filter(f => f.tag.kind === 'Wall' && f.normal.every((c, i) => Math.abs(c - n[i]) < 1e-9) && Math.abs(f.offset - d) <= tol);
@@ -71,8 +117,8 @@ describe('Courtyard (journal decision 115)', () => {
     }
   });
 
-  it("tags every raw face on the cut's vertical plane Internal, and none survives", () => {
-    const {parts, tags, survivingInternal} = b.union;
+  it("tags every raw face on the cut's vertical plane Internal, and none survives", async () => {
+    const {parts, tags, survivingInternal} = (await build(fixture())).union;
     let onCut = 0;
     for (const p of parts) {
       const P = p.soup.positions;
@@ -88,7 +134,8 @@ describe('Courtyard (journal decision 115)', () => {
     expect(survivingInternal).toBe(0);
   });
 
-  it("leaves no trace: no ShellEdge on the cut's line within its span, and none ending inside it", () => {
+  it("leaves no trace: no ShellEdge on the cut's line within its span, and none ending inside it", async () => {
+    const b = await build(fixture());
     const onCutPlane = (p: Vec3): boolean => Math.abs(p[1] - 300) <= tol && p[0] >= -tol && p[0] <= 300 + tol;
     const inside = (p: Vec3): boolean => onCutPlane(p) && p[0] > tol && p[0] < 300 - tol;
     const along = b.shell.edges.filter(e => onCutPlane(e.a) && onCutPlane(e.b) && inside([(e.a[0] + e.b[0]) / 2, (e.a[1] + e.b[1]) / 2, 0]));
@@ -96,23 +143,46 @@ describe('Courtyard (journal decision 115)', () => {
     expect(b.shell.edges.filter(e => inside(e.a) || inside(e.b)).map(e => `${e.kind} (${e.a}) to (${e.b})`)).toEqual([]);
   });
 
-  it("has an empty report in spec decision 40's sense", () => {
-    const {report} = b.shell;
+  it("has an empty report in spec decision 40's sense", async () => {
+    const {report} = (await build(fixture())).shell;
     expect([report.conflicts, report.survivingInternal, report.unclassifiedEdges, report.cheeks, report.newEdgeKinds]).toEqual([[], 0, 0, 0, []]);
   });
 });
 
-describe('layouts the rule refuses (spec decision 2 as amended)', () => {
-  const courtyard = (name: string, rects: [number, number, number, number][]): ShellFixture => ({
-    name, cellSize: 50, storeyHeight: 250, rings: rects.map(r => ring(r, 0, 1, 30)),
+/**
+ * The correctness reviewers' courtyard probes (WP3.6's, `probes/zz-court.test.ts`), each built and checked against
+ * spec decision 32, with its genus per connected component (journal decision 135).
+ */
+describe('the courtyard probes (journal decision 135)', () => {
+  const C = COURTYARD_RECTS;
+  const all = (deg: number, storeys = 1): FixtureRing[] => C.map(r => ring(r, 0, storeys, deg));
+  const cases: [string, FixtureRing[], ShellExpectation['genus']][] = [
+    ['CourtOnBlock', [ring([0, 0, 1000, 1000], 0, 1, 30), ...C.map(r => ring(r, 1, 1, 30))], 0],
+    ['CourtTwoStorey', all(30, 2), 1],
+    ['CourtGabled', [ring(C[0], 0, 1, 30, {S: {form: 'gable'}, N: {form: 'gable'}}), ...C.slice(1).map(r => ring(r, 0, 1, 30))], 1],
+    ['CourtCollinear', [ring([0, 0, 1000, 300], 0, 1, 30), ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 200, 1000, 700], 0, 1, 30)], 1],
+    // A courtyard island beside a plain island: Manifold's one figure sums to 0; per component it is 1 and 0.
+    ['CourtTwoIslands', [...all(30), ring([1200, 0, 1600, 400], 0, 1, 30)], [1, 0]],
+    ['CourtL', [...all(30), ring([1000, 0, 1400, 300], 0, 1, 30)], 1],
+    ['CourtCovered', [...all(30), ring([0, 0, 1000, 1000], 1, 1, 30)], 0],
+    // An island standing in the courtyard: two components again.
+    ['CourtIslandInHole', [...all(30), ring([450, 450, 550, 550], 0, 1, 30)], [1, 0]],
+    ['Court45', all(45), 1],
+    ['Court60', all(60), 1],
+    ['CourtNarrow', [ring([0, 0, 1000, 100], 0, 1, 30), ring([0, 900, 1000, 1000], 0, 1, 30), ring([0, 100, 100, 900], 0, 1, 30), ring([900, 100, 1000, 900], 0, 1, 30)], 1],
+    ['CourtCutSideGabled', [ring(C[0], 0, 1, 30), ring(C[1], 0, 1, 30), ring(C[2], 0, 1, 30, {S: {form: 'gable'}}), ring(C[3], 0, 1, 30)], 1],
+  ];
+  it.each(cases)('%s keeps every invariant, with its genus per component', async (name, rings, genus) => {
+    expect(invariantViolations(await build(layout(name, rings)), {genus, cheeks: 0})).toEqual([]);
   });
+});
 
-  // WP3.6's stop-and-report finding: wings at full height and bands between them. Every raw Ring wall touching the hole
-  // runs along it (the bands' inner sides, the wings' inner sides), and every other one lies on the outline, so no raw
-  // Ring wall crosses the ring with the interior on both sides along its whole length.
-  it('refuses wings at full height with the bands between them: no raw Ring wall crosses the ring', () => {
-    const f = courtyard('FullWingsProbe', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]]);
-    expect(() => planStorey(f, 0)).toThrow(/FullWingsProbe storey 0: no raw Ring wall cuts the courtyard ring from the hole at/);
+describe('layouts the rule refuses (spec decision 2 as amended)', () => {
+  it('refuses a hole every segment of whose cuts is collinear with walls of different pitch at its two ends', () => {
+    // Both wings jut out past the bands at 45 degrees; every segment from the hole to the outer loop is collinear at
+    // its outer end with a wing's exposed 45 degree side and at its hole end with a 30 degree band side.
+    const f = layout('NoCutProbe', [ring([0, 0, 1000, 300], 0, 1, 30), ring([0, 700, 1000, 1000], 0, 1, 30), ring([-200, 300, 300, 700], 0, 1, 45), ring([700, 300, 1200, 700], 0, 1, 45)]);
+    expect(() => planStorey(f, 0)).toThrow(/NoCutProbe storey 0: no raw Ring wall cuts the courtyard ring from the hole at/);
   });
 
   it('refuses an island with two holes', () => {
@@ -139,7 +209,7 @@ describe('layouts the rule refuses (spec decision 2 as amended)', () => {
     const got = runB(plan.building, {far: 'plane'}).eval(at);
     expect(got?.h ?? NaN).toBeCloseTo(122.7 * Math.tan(Math.PI / 6), 1);
     expect(truth(at.x, at.y)).toBeCloseTo(101.7 * Math.tan(Math.PI / 6), 1);
-    expect(invariantViolations(await buildShellDetailed(f), {genus: 1, cheeks: 0})).toEqual(['survivingInternal 1', '3 Unclassified Edges']);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual(['survivingInternal 1', '3 Unclassified Edges']);
   });
 
   it('builds the Courtyard from COURTYARD_RECTS', () => {

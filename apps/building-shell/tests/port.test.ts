@@ -40,7 +40,10 @@ const flushWall = (name: string): string => `${name}: n=(0.000000, -1.000000, 0.
 const PORT_NAMES = ['PortNarrowUpper300', 'PortNarrowUpperGabled300', 'PortPokeOut300', 'PortPokeOut250'] as const;
 type PortName = typeof PORT_NAMES[number];
 
-/** Measured at WP3.6. PortPokeOut250 carries a defect: see `KNOWN_VIOLATIONS`. */
+/**
+ * Measured at WP3.6, and at WP3.7 for PortPokeOut250, which now builds clean (journal decision 132, finding 3): the
+ * cleaning drops the zero-volume pillow Manifold's union left at its plate (decision 122, G1).
+ */
 const PINS: Record<PortName, PortPin> = {
   PortNarrowUpper300: {genus: 0, faces: 10, edges: 22, netEdges: 1065, cells: 522, vertices: 544, report: report({conflicts: [flushWall('PortNarrowUpper300')], partialCells: 56})},
   PortNarrowUpperGabled300: {
@@ -54,24 +57,19 @@ const PINS: Record<PortName, PortPin> = {
     }),
   },
   PortPokeOut300: {genus: 0, faces: 22, edges: 48, netEdges: 1121, cells: 552, vertices: 570, report: report({conflicts: [flushWall('PortPokeOut300')], partialCells: 96})},
-  PortPokeOut250: {
-    genus: 0, faces: 24, edges: 52, netEdges: 1054, cells: 518, vertices: 532,
-    report: report({conflicts: [flushWall('PortPokeOut250')], partialCells: 104, survivingInternal: 4, unclassifiedEdges: 6, newEdgeKinds: ['Unclassified']}),
-  },
+  PortPokeOut250: {genus: 0, faces: 22, edges: 48, netEdges: 1049, cells: 518, vertices: 532, report: report({conflicts: [flushWall('PortPokeOut250')], partialCells: 104})},
 };
 
 /**
- * Measured at WP3.6, a finding, not a waiver: PortPokeOut250's raw Manifold union keeps storey 1's wall-prism top and
- * hip-solid bottom as two coincident opposite Internal triangles each, over x 455.66 to 500 at the plate z = 500,
- * where storey 0's 60 degree roof passes below the plate. The same pair cancels on the mirror side (x 100 to 144.34),
- * and at 300 cm. The fixture asserts exactly this signature, so a cure breaks it as surely as a new defect does.
+ * WP3.6 measured PortPokeOut250's raw Manifold union keeping storey 1's wall-prism top and hip-solid bottom as two
+ * coincident opposite Internal triangles each, over x 455.66 to 500 at the plate z = 500. Since WP3.7 the cleaning
+ * removes them as a zero-volume sheet, so no port fixture carries a known violation; the table stays for the next.
  */
-const KNOWN_VIOLATIONS: Partial<Record<PortName, string[]>> = {
-  PortPokeOut250: [
-    'survivingInternal 4', '6 Unclassified Edges',
-    'ShellEdge 40 joins two faces of one identity', 'ShellEdge 41 joins two faces of one identity',
-  ],
-};
+const KNOWN_VIOLATIONS: Partial<Record<PortName, string[]>> = {};
+
+it("removes PortPokeOut250's pillow as a zero-volume sheet of four triangles (journal decision 122, G1)", () => {
+  expect(get('PortPokeOut250').union.clean.sheetTris).toBe(4);
+});
 
 /** The port fixture of each name. */
 const portFixture = (name: PortName): ShellFixture => {

@@ -100,6 +100,8 @@ export const SHELL_FIXTURES: ShellFixture[] = [
  * - Flush: `[0,0,500,400]` and `[500,0,1000,400]`, one hipping its S side, the other gabling it; y = 0 is one wall.
  * - Overlap: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose E sides overlap over y 0 to 400 and disagree.
  * - Pitch: the flush pair, both hipping their S sides, at 30 and 45 degrees.
+ * - Journal decision 135, F6: a three-Ring tie, non-adjacent indices, Rings across storeys, a conflict on a hole loop,
+ *   and a cut-pitch conflict, each described where it is built.
  */
 export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   const flushHip = ring([0, 0, 500, 400], 0, 1, 45);
@@ -108,6 +110,22 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   const tallWing = ring([600, 0, 1000, 1000], 0, 1, 45);
   const pitch30 = ring([0, 0, 500, 400], 0, 1, 45, {S: {form: 'hip', deg: 30}});
   const pitch45 = ring([500, 0, 1000, 400], 0, 1, 45, {S: {form: 'hip', deg: 45}});
+  // Journal decision 135, F6: five more pairs.
+  // - Three Rings on one wall line, y = 0, each with its own form or pitch; the swap rotates the indices.
+  const tieHip = ring([0, 0, 300, 400], 0, 1, 45), tieGable = ring([300, 0, 600, 400], 0, 1, 45, {S: gable});
+  const tieHip30 = ring([600, 0, 900, 400], 0, 1, 45, {S: {form: 'hip', deg: 30}});
+  // - The two disagreeing Rings at indices 0 and 3, two others between them.
+  const wingW = ring([0, 400, 300, 700], 0, 1, 45), wingE = ring([700, 400, 1000, 700], 0, 1, 45);
+  // - A two-storey Ring gabling y = 0 against a one-storey Ring hipping it, on storey 0 only.
+  const lowHip = ring([0, 0, 1000, 400], 0, 1, 45), tallGable = ring([0, 0, 500, 400], 0, 2, 45, {S: gable});
+  // - A courtyard whose hole's S wall, y = 300, is two Rings' N sides at different pitches.
+  const holeBandW = ring([0, 0, 500, 300], 0, 1, 30), holeBandE = ring([500, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 45}});
+  const court = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
+  // - A courtyard whose shortest cut, y = 300 over x 0 to 300, is collinear at its two ends with walls of different
+  //   pitch: the W wing juts out to x = -200 at 45 degrees, the hole's S wall is at 30. That cut does not qualify
+  //   (spec decision 2 as amended, journal decision 135), and the next is taken.
+  const jutW = ring([-200, 300, 300, 700], 0, 1, 45), bandS = ring([0, 0, 1000, 300], 0, 1, 30);
+  const jutRest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
   return [
     fixture('FlushRingConflict', [flushHip, flushGable]),
     fixture('FlushRingConflictSwapped', [flushGable, flushHip]),
@@ -115,6 +133,16 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
     fixture('OverlapRingConflictSwapped', [tallWing, longWing]),
     fixture('PitchRingConflict', [pitch30, pitch45]),
     fixture('PitchRingConflictSwapped', [pitch45, pitch30]),
+    fixture('ThreeRingConflict', [tieHip, tieGable, tieHip30]),
+    fixture('ThreeRingConflictSwapped', [tieGable, tieHip30, tieHip]),
+    fixture('DistantRingConflict', [flushHip, wingW, wingE, flushGable]),
+    fixture('DistantRingConflictSwapped', [flushGable, wingW, wingE, flushHip]),
+    fixture('StoreyRingConflict', [lowHip, tallGable]),
+    fixture('StoreyRingConflictSwapped', [tallGable, lowHip]),
+    fixture('HoleRingConflict', [holeBandW, holeBandE, ...court]),
+    fixture('HoleRingConflictSwapped', [holeBandE, holeBandW, ...court]),
+    fixture('CutPitchConflict', [bandS, jutW, ...jutRest]),
+    fixture('CutPitchConflictSwapped', [jutW, bandS, ...jutRest]),
   ];
 })();
 

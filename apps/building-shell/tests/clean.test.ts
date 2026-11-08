@@ -61,7 +61,8 @@ describe('the cleaning tolerance (journal decision 101, F36)', () => {
   it('lies above the 1/1024 cm grid cell\'s diagonal and at most half the shell tolerance', () => {
     expect(CLEAN_TOLERANCE_CM).toBeGreaterThan(Math.sqrt(3) / SNAP_STEPS_PER_CM);
     expect(CLEAN_TOLERANCE_CM).toBeLessThanOrEqual(SHELL_TOLERANCE_CM / 2);
-    expect(CLEAN_MAX_MOVE_CM).toBeLessThan(SHELL_TOLERANCE_CM);
+    // Journal decision 122, G2 and F-D: every vertex's total move is bounded by the shell's tolerance itself.
+    expect(CLEAN_MAX_MOVE_CM).toBe(SHELL_TOLERANCE_CM);
   });
 
   it("is beyond manifold-3d 3.2.1's own simplify, whose short-edge collapse stops at the mesh's float32 epsilon", async () => {
@@ -110,25 +111,58 @@ describe('cleanMesh', () => {
     expect(u.clean).toEqual(NO_CLEAN);
   });
 
-  it('refuses a chain of short edges reaching past CLEAN_MAX_MOVE_CM', () => {
-    // Four vertices 3e-3 cm apart along x, each fanned to a far apex: every step is short, the chain 9e-3 cm long.
+  it('refuses a cluster reaching past CLEAN_MAX_MOVE_CM', () => {
+    // Five vertices 3e-3 cm apart along x: every step is short, the cluster 1.2e-2 cm long. The two ends carry two
+    // triangles to far corners, so the end that would move onto the other is kept.
     const step = 3e-3;
     const mesh: ShellMesh = {
-      positions: Float32Array.from([0, 0, 0, step, 0, 0, 2 * step, 0, 0, 3 * step, 0, 0, 0, 100, 0]),
-      tris: Uint32Array.from([0, 1, 4, 1, 2, 4, 2, 3, 4]),
-      faceIDs: Uint32Array.from([0, 0, 0]),
+      positions: Float32Array.from([0, 0, 0, step, 0, 0, 2 * step, 0, 0, 3 * step, 0, 0, 4 * step, 0, 0, 0, 100, 0, 0, 0, 100]),
+      tris: Uint32Array.from([0, 5, 6, 4, 6, 5]),
+      faceIDs: Uint32Array.from([0, 0]),
     };
     expect(() => cleanMesh(mesh)).toThrow(/past/);
   });
 
-  it('refuses a short-edge collapse that would pinch the surface (journal decision 110, C8)', () => {
-    // A triangular bipyramid: equator 0, 1, 2 with 0-1 only 1e-3 cm long, apexes 3 and 4. Vertices 0 and 1 share the
-    // neighbour 2 through no triangle of their edge, so collapsing it would join two sheets at one edge.
+  // Journal decision 122, F-C: decision 110's link check refused this collapse as a pinch. Clustered, the two equator
+  // vertices are one, the bipyramid's two halves fold onto each other as pairs of opposite triangles on one vertex
+  // triple, and the zero-volume solid left is dropped whole (G1).
+  it('dissolves a bipyramid whose equator edge is 1e-3 cm long, where the link check refused it (F-C, G1)', () => {
     const mesh: ShellMesh = {
       positions: Float32Array.from([0, 0, 0, 1e-3, 0, 0, 50, 80, 0, 25, 30, 50, 25, 30, -50]),
       tris: Uint32Array.from([0, 1, 3, 1, 2, 3, 2, 0, 3, 1, 0, 4, 2, 1, 4, 0, 2, 4]),
       faceIDs: new Uint32Array(6),
     };
-    expect(() => cleanMesh(mesh)).toThrow(/would pinch the surface/);
+    const {mesh: out, stats} = cleanMesh(mesh);
+    expect(out.tris.length).toBe(0);
+    expect(stats).toMatchObject({merged: 1, sheetTris: 4});
+  });
+
+  it('clusters near vertices whatever their connectivity: two sheets 2e-4 cm apart keep a vertex each, at one position (F-C)', () => {
+    // Two tetrahedra touching at a corner, their touching corners 2e-4 cm apart and joined by no edge: a pinch.
+    const d = 2e-4;
+    const tet = (o: number[], s: number): number[] => [o[0], o[1], o[2], o[0] + s, o[1], o[2], o[0], o[1] + s, o[2], o[0], o[1], o[2] + s];
+    const mesh: ShellMesh = {
+      positions: Float32Array.from([...tet([0, 0, 0], 10), ...tet([d, 0, 0], -10)]),
+      tris: Uint32Array.from([0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3, 4, 5, 6, 4, 7, 5, 4, 6, 7, 5, 7, 6]),
+      faceIDs: new Uint32Array(8),
+    };
+    const {mesh: out, stats} = cleanMesh(mesh);
+    expect(stats.merged).toBe(0);
+    expect(out.positions.length / 3).toBe(8);
+    expect([out.positions[0], out.positions[1], out.positions[2]]).toEqual([out.positions[12], out.positions[13], out.positions[14]]);
+    expect(stats.maxMoveCm).toBeCloseTo(d, 6);
+  });
+
+  it('drops a zero-volume pillow, two coincident opposite triangles, and leaves the closed solid beside it (G1)', () => {
+    const tet = [0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0, 10];
+    const pillow = [20, 0, 0, 30, 0, 0, 20, 10, 0];
+    const mesh: ShellMesh = {
+      positions: Float32Array.from([...tet, ...pillow]),
+      tris: Uint32Array.from([0, 2, 1, 0, 1, 3, 0, 3, 2, 1, 2, 3, 4, 5, 6, 4, 6, 5]),
+      faceIDs: Uint32Array.from([0, 0, 0, 0, 1, 2]),
+    };
+    const {mesh: out, stats} = cleanMesh(mesh);
+    expect(stats.sheetTris).toBe(2);
+    expect(out.tris.length / 3).toBe(4);
   });
 });

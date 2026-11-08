@@ -102,6 +102,13 @@ describe('contourLobes (journal decisions 92 and 101)', () => {
   it('gives no Cell for a lobe of fewer than three distinct vertices', () => {
     expect(contourLobes([0, 1, 0, 1], at(pts), 'test')).toEqual([]);
   });
+
+  // Spec decision 23 as amended (journal decision 135, F7): three distinct snapped vertices with no positive area are a
+  // hard error, never silently dropped.
+  it('refuses three distinct vertices that are collinear: no positive snapped area', () => {
+    const line: Vec2[] = [[0, 0], [1 / 1024, 0], [2 / 1024, 0]];
+    expect(() => contourLobes([0, 1, 2], at(line), 'test')).toThrow(/a lobe of 3 distinct corners winds clockwise or has no area/);
+  });
 });
 
 describe('originRecord (journal decision 100, B8)', () => {
@@ -121,8 +128,31 @@ describe('withBoundaryPoints (journal decision 59)', () => {
     const at = (p: Vec3): number => vertexAt(reg, p, {at: 'face', face: 0});
     const [a, b, c] = [at([0, 0, 300]), at([50, 0, 386.6]), at([0, 0, 350])];
     const t1 = at([28.8675, 0, 350]), t2 = at([10, 0, 317.32]), off = at([25, 0, 320]);
-    const fr: FaceFrame = {s: 0, t: 2, r: 1, sign: 1};
     const boundary: BoundaryPoint[] = [t1, t2, off].map(id => ({id, at: [reg.positions[id][0], reg.positions[id][2]]}));
-    expect(withBoundaryPoints([a, b, c], reg, fr, boundary)).toEqual([a, t2, t1, b, c]);
+    expect(withBoundaryPoints([a, b, c], reg, boundary)).toEqual([a, t2, t1, b, c]);
+  });
+
+  // Journal decision 122, G4 (P61.866 at 263 cm): on a steep Roof, a Gable's lattice crossing lies 0.019 cm from the
+  // Roof's own crossing along the verge, but 0.0089 cm from it in plan. Decided in 3D by identity, it is inserted.
+  it('inserts a vertex 0.019 cm from a side end in 3D though 0.0089 cm from it in plan (G4)', () => {
+    const reg = makeVertexRegistry();
+    const at = (p: Vec3): number => vertexAt(reg, p, {at: 'face', face: 0});
+    const B: Vec3 = [100, 0, 188.02];
+    const L = Math.hypot(B[0], B[2]);
+    const near: Vec3 = [B[0] - 0.019 * B[0] / L, 0, B[2] - 0.019 * B[2] / L];
+    expect(Math.abs(near[0] - B[0])).toBeLessThan(SHELL_TOLERANCE_CM);
+    const [a, b, c, n] = [at([0, 0, 0]), at(B), at([B[0], 50, B[2]]), at(near)];
+    const plan = (id: number): BoundaryPoint => ({id, at: [reg.positions[id][0], reg.positions[id][1]]});
+    expect(withBoundaryPoints([a, b, c], reg, [plan(n)])).toEqual([a, n, b, c]);
+  });
+
+  it("reads a side on one ShellEdge from that edge's own vertices, by identity, however near its ends (G4)", () => {
+    const reg = makeVertexRegistry();
+    const at = (p: Vec3): number => vertexAt(reg, p, {at: 'face', face: 0});
+    const [a, b, c] = [at([0, 0, 0]), at([100, 0, 0]), at([0, 50, 0])];
+    // 0.005 cm from b along the edge, and an off-edge point within tolerance of the side, from another edge.
+    const n = at([99.995, 0, 0]), other = at([60, 0.008, 0]);
+    const plan = (id: number): BoundaryPoint => ({id, at: [reg.positions[id][0], reg.positions[id][1]]});
+    expect(withBoundaryPoints([a, b, c], reg, [plan(n), plan(other)], [[a, n, b]])).toEqual([a, n, b, c]);
   });
 });

@@ -14,7 +14,7 @@ import type {ShellMesh} from './mesh.ts';
 import {ImprintStats, imprintRegions} from './imprint.ts';
 import {RegionModel, makeRegionModel} from './regions.ts';
 import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
-import {FaceTag, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, tagLabel} from './tags.ts';
+import {FaceTag, Plane3, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, tagLabel} from './tags.ts';
 import {cross3, sub3} from './vec3.ts';
 
 export {RETAG_SLACK_CM, prepareRawTri, rawTriHolds} from './regions.ts';
@@ -96,8 +96,12 @@ function isClosed(tris: Uint32Array): boolean {
   return true;
 }
 
-/** The one union over every raw part. Every Manifold it makes is freed, whether or not a part is refused. */
-export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
+/**
+ * The one union over every raw part, then the cleaning, which reads each faceID's generating plane in `planes` to
+ * find zero-volume sheets (journal decision 122, G1). Every Manifold it makes is freed, whether or not a part is
+ * refused.
+ */
+export function unionParts(wasm: Wasm, parts: RawPart[], planes: readonly Plane3[]): UnionPartsResult {
   const ms: Manifold[] = [];
   let u: Manifold | undefined;
   try {
@@ -110,7 +114,7 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
     if (status !== 'NoError') {
       return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {...NO_CLEAN}};
     }
-    const {mesh, stats} = cleanMesh(raw);
+    const {mesh, stats} = cleanMesh(raw, planes);
     const genus = mesh === raw ? u.genus() : remeshedGenus(wasm, mesh, 'cleaned');
     return {status, closed: mesh.tris.length > 0 && isClosed(mesh.tris), genus, mesh, clean: stats};
   } finally {
@@ -221,7 +225,7 @@ function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, mode
 /** Unions raw parts already built: the one union, the imprint, the re-tag pass, and the defect counts. */
 export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], parts: RawPart[], tags: ShellTags): ShellUnion {
   const model = makeRegionModel(parts, tags);
-  const {status, closed, genus, mesh, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts), model);
+  const {status, closed, genus, mesh, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts, tags.planes), model);
   const {triTags, conflicts} = retagPass(label, mesh, model);
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
   const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;

@@ -2,7 +2,7 @@
 // before any tag is decided, so every output triangle lies wholly within one winning region. The invariant runs on
 // every fixture and on the robustness sets; the 300 cm cases a corner probe found mislabelled are named regressions.
 import {beforeAll, describe, expect, it} from 'vitest';
-import {SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture} from '../src/fixture.ts';
+import {SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import {makeRegionModel} from '../src/regions.ts';
 import {FaceTag} from '../src/tags.ts';
@@ -32,7 +32,7 @@ const REGRESSIONS = ['P36.089u', 'P39.376u', 'P49.583u', 'P55.984u', 'Fuzz47'];
 /** The region invariant's verdict on the same union with the imprint left out: cleaned, then re-tagged as it stands. */
 async function withoutImprint(u: ShellUnion): Promise<string[]> {
   const wasm = await getManifold();
-  const bare = unionParts(wasm, u.parts);
+  const bare = unionParts(wasm, u.parts, u.tags.planes);
   const {triTags} = retagPass(u.label, bare.mesh, makeRegionModel(u.parts, u.tags));
   return winningRegionViolations({...u, mesh: bare.mesh, triTags});
 }
@@ -102,6 +102,27 @@ describe('the corner probe\'s mislabelled cases (journal decision 111): named re
     expect((await withoutImprint(u)).some(v => v.includes('straddles'))).toBe(true);
     expect(u.imprint.split).toBeGreaterThan(0);
     expect(u.closed).toBe(true);
+    expect(winningRegionViolations(u)).toEqual([]);
+  });
+});
+
+/**
+ * Journal decision 122, F-A: the combined reviewer's off-centre cases (probe A), storey 0 `[0,0,600,600]` gabled on
+ * y = 0 at 60 degrees under a gabled storey 1. With the imprint left out, seven sample points per triangle found no
+ * straddle in these three, and a dense check did; the exact polygon test finds it.
+ */
+const offCentre = (name: string, upper: [number, number, number, number]): ShellFixture => ({
+  name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM,
+  rings: [ring([0, 0, 600, 600], 0, 1, 60, {S: {form: 'gable'}}), ring(upper, 1, 1, 45, {S: {form: 'gable'}})],
+});
+
+describe.each([
+  ['OffE60', [150, 0, 250, 200]], ['OffF60', [160, 0, 290, 200]], ['OffG60', [350, 0, 450, 200]],
+] as const)("F-A's reproducer %s", (name, upper) => {
+  it('straddles without the imprint, by the exact test; with it, every triangle lies within one region', async () => {
+    const u = await unionShell(offCentre(name, [...upper]));
+    expect((await withoutImprint(u)).some(v => v.includes('straddles'))).toBe(true);
+    expect(u.imprint.split).toBeGreaterThan(0);
     expect(winningRegionViolations(u)).toEqual([]);
   });
 });

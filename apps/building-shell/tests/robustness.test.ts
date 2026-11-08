@@ -3,10 +3,14 @@
 // - the WP3 correctness reviewer's pitch sweep (F36, F37), at 300 and 250 cm storeys;
 // - decision 108's grid of pitch by storey height;
 // - random Ring fixtures, seeds 1 to 4 at both storey heights (C4);
-// - random courtyards, seeds 1 and 2 at both storey heights (journal decision 115), each measured defect enrolled with
-//   exactly its signature;
-// - the named regression fixtures C1 and C2 enrolled;
-// - with `SHELL_FUZZ_SEEDS` set (for example `5-20`), a larger seeded fuzz, opt-in.
+// - random courtyards from the full Ring family, and the same layouts with one wing removed (U shapes), seeds 1 and 2
+//   at both storey heights (journal decisions 115, 132 and 135, F50), each measured defect enrolled with exactly its
+//   signature;
+// - journal decision 122's δ-nudge sweeps, each measured defect enrolled the same way;
+// - the named regression fixtures C1 and C2, decision 122's and decision 135's reproducers, and decision 140's;
+// - opt-in: with `SHELL_FUZZ_SEEDS` set (for example `5-12`), a larger seeded fuzz of `SHELL_FUZZ_COUNT` Ring fixtures
+//   per seed at the storey heights `SHELL_FUZZ_HEIGHTS` (default `300,250`); with `SHELL_COURT_SEEDS` set, the
+//   courtyard and U generators the same way, 40 per seed.
 // No case is skipped and no sweep is thinned.
 import {describe, expect, it} from 'vitest';
 import {cornerBisector} from '../src/cells.ts';
@@ -17,15 +21,16 @@ import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
-  CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, randomCourtyardFixtures,
-  randomFixtures, seededFixture, sweepFixture, sweepFixtures,
+  CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
+  randomFixtures, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
 } from './robustness-fixtures.ts';
+import {FixtureRing, ring} from '../src/fixture.ts';
 import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
 
 /**
  * Every sweep, grid and random case as measured: genus 0 and no Cheek face (a box with a storey on its wall, or
  * rectangles overlapping at a corner, never close a tunnel). Fuzz46, whose 559 cm Hip passes through one mesh vertex
- * 2.47e-4 cm off its chord, is held by C5's area accounting like every other case, with no pin of its own.
+ * 2.47e-4 cm off its chord, is held by the loop checks like every other case, with no pin of its own.
  */
 const EXPECTED: ShellExpectation = {genus: 0, cheeks: 0};
 
@@ -82,51 +87,79 @@ const PER_COURTYARD_SEED = 40;
 const COURTYARD_EXPECTED: ShellExpectation = {genus: 1, cheeks: 0};
 
 /**
- * Measured at WP3.6, findings, not waivers: every random courtyard that breaks an invariant, keyed `s<seed>h<height>/
+ * Measured at WP3.7, findings, not waivers: every random courtyard that breaks an invariant, keyed `s<seed>h<height>/
  * <name>`, with exactly its violations (or `throws:` and the error a build raised). A case not listed keeps every
  * invariant. A cure breaks the suite as surely as a new defect, and either is re-measured, never softened.
- * - Unclassified Edges, with gables over several storeys: the same class appears on these layouts with one wing removed
- *   (a U, no hole), so it is not the courtyard's.
- * - `cleanMesh` refusals (a pinching collapse, a stuck cap), with gables on one storey: courtyard-only, none on the Us.
- * - A Cheek face, and a surviving Internal cut face with Unclassified Edges, on gabled or multi-storey courtyards.
+ * - A surviving Cheek face (Court14), and a surviving Internal cut face with Unclassified Edges (Court15): roof-gable
+ *   algorithm B's inherited defects, its CHEEK class and its cut-piece overshoot (`CutOvershootProbe`), in the frozen
+ *   copy (spec decision 31).
+ * - Court25: two storeys' faces touching face to face on one plane over part of each, a Gable facing +x against a Wall
+ *   facing -x, which the union leaves unfused and the cleaning's sheet removal (journal decision 122, G1) does not
+ *   reach, since the two regions differ.
+ * WP3.6's table (decision 135, F2) held two `cleanMesh` refusals that floor-standing holed hip solids caused, s1h300/
+ * Court5 (a stuck cap) and s1h250/Court16 (a pinching collapse); clustering (decision 122, F-C) cures both, and they are
+ * kept as named regressions below, since the generator now draws other layouts under those names.
  */
 const COURTYARD_DEFECTS: Readonly<Record<string, readonly string[]>> = {
-  's1h250/Court1': ['2 Unclassified Edges'],
-  's1h250/Court4': ['2 Unclassified Edges'],
-  's1h250/Court7': ['6 Unclassified Edges'],
-  's1h250/Court16': ['throws: cleanMesh: collapsing the short edge 35-37 would pinch the surface'],
-  's1h250/Court19': ['4 Unclassified Edges'],
-  's1h250/Court20': ['4 Unclassified Edges'],
-  's1h250/Court22': ['throws: cleanMesh: collapsing the short edge 50-52 would pinch the surface'],
-  's1h250/Court29': ['4 Unclassified Edges'],
-  's1h250/Court36': ['2 Unclassified Edges'],
-  's1h300/Court4': ['2 Unclassified Edges'],
-  's1h300/Court5': ['throws: cleanMesh: cap 114 (55-14, apex 47) can neither flip nor merge its apex into its long edge'],
-  's1h300/Court7': ['4 Unclassified Edges'],
-  's1h300/Court16': ['throws: cleanMesh: collapsing the short edge 36-38 would pinch the surface'],
-  's1h300/Court19': ['4 Unclassified Edges'],
-  's1h300/Court22': ['throws: cleanMesh: collapsing the short edge 51-53 would pinch the surface'],
-  's1h300/Court29': ['4 Unclassified Edges'],
-  's2h250/Court15': ['survivingInternal 1', '3 Unclassified Edges'],
-  's2h250/Court29': ['cheeks 1, expected 0'],
-  's2h250/Court37': ['2 Unclassified Edges'],
-  's2h300/Court15': ['survivingInternal 1', '3 Unclassified Edges'],
-  's2h300/Court29': ['cheeks 1, expected 0'],
-  's2h300/Court37': ['2 Unclassified Edges'],
+  's1h300/Court14': ["cheeks 1, expected 0"],
+  's1h300/Court25': ["throws: cell 847: side 24-292 reads ShellEdge 63, its NetEdge -1"],
+  's1h250/Court14': ["cheeks 1, expected 0"],
+  's1h250/Court25': ["throws: cell 729: side 24-278 reads ShellEdge 63, its NetEdge -1"],
+  's2h300/Court15': ["survivingInternal 1","3 Unclassified Edges"],
+  's2h250/Court15': ["survivingInternal 1","3 Unclassified Edges"],
 };
 
-/** A courtyard's measured outcome: its invariant violations, or the error its build raised. */
-async function courtyardOutcome(f: ShellFixture): Promise<string[]> {
+/** Measured at WP3.7: every U-shape case that breaks an invariant, in the same form. None does. */
+const U_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+};
+
+/** A build's measured outcome: its invariant violations, or the error it raised. */
+async function outcome(f: ShellFixture, want: ShellExpectation): Promise<string[]> {
   try {
-    return invariantViolations(await buildShellDetailed(f), COURTYARD_EXPECTED);
+    return invariantViolations(await buildShellDetailed(f), want);
   } catch (e) {
     return [`throws: ${errorMessage(e)}`];
   }
 }
 
-describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decision 115): seed %i at %i cm storeys', (seed, h) => {
+/** A courtyard's measured outcome. */
+const courtyardOutcome = (f: ShellFixture): Promise<string[]> => outcome(f, COURTYARD_EXPECTED);
+
+describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decisions 115, 132 and 135): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
     expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+  });
+});
+
+describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random U shapes (F50): seed %i at %i cm storeys', (seed, h) => {
+  it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
+    expect(await outcome(f, EXPECTED)).toEqual(U_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+  });
+});
+
+// ---- Journal decision 122's δ-nudge sweeps ------------------------------------------------------------------------
+
+/**
+ * Measured at WP3.7: every nudge that breaks an invariant, with exactly its violations. All are decision 122's G5:
+ * an apex or ridge 5/1024 to 12/1024 cm through the floor above, under its eave, leaves roof features 0.004 to 0.012
+ * cm across, above the cleaning's tolerance and at the shell's, whose Edges read Indeterminate, so Unclassified. The
+ * nudges of 0.5/1024 to 4/1024 cm, which C8's link check and the 0.005 cm move limit refused (F-C, G2), all build.
+ */
+const NUDGE_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+  ApexEdge5: ["1 Unclassified Edges","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 15,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 576 on ShellEdge 18 borders faces 9, expected 7,9","NetEdge 577 on ShellEdge 23 borders faces 9, expected 15,9","interior NetEdge 921 borders cells 450","interior NetEdge 924 borders cells 451"],
+  RidgeEdge5: ["2 Unclassified Edges"],
+  OverhangApexOnEave5: ["1 Unclassified Edges","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 14,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 686 on ShellEdge 18 borders faces 10, expected 10,7","NetEdge 687 on ShellEdge 23 borders faces 10, expected 10,14","interior NetEdge 1016 borders cells 494","interior NetEdge 1019 borders cells 495"],
+  ApexEdge8: ["4 Unclassified Edges"],
+  RidgeEdge8: ["3 Unclassified Edges"],
+  OverhangApexOnEave8: ["5 Unclassified Edges"],
+  ApexEdge12: ["4 Unclassified Edges"],
+  RidgeEdge12: ["3 Unclassified Edges"],
+  OverhangApexOnEave12: ["4 Unclassified Edges"],
+};
+
+describe("journal decision 122's δ-nudges at 250 cm storeys: an apex or ridge a hair under, at or over the floor above", () => {
+  it.each(nudgeFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
+    expect(await outcome(f, EXPECTED)).toEqual(NUDGE_DEFECTS[name] ?? []);
   });
 });
 
@@ -176,21 +209,99 @@ describe.each(HEIGHTS)('C2: two caps sharing a long edge (journal decision 110) 
   });
 });
 
+describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vertex further than the bound', h => {
+  it(`Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]} moves no vertex further than SHELL_TOLERANCE_CM`, async () => {
+    const b = await holds(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h));
+    expect(b.union.clean.maxMoveCm).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
+  });
+});
+
+// ---- Journal decision 122's reproducers, and decisions 135's and 140's ---------------------------------------------
+
+describe("journal decision 122's fresh-seed reproducers, each cured", () => {
+  it.each([[250], [263], [300]] as const)('G1: Seed5Fuzz46 at %i cm, its unfused pillow dropped as a zero-volume sheet', async h => {
+    expect((await holds(seededFixture(5, 46, h))).union.clean.sheetTris).toBeGreaterThan(0);
+  });
+
+  it.each([[12, 17, 250], [8, 73, 300]] as const)('G1: Seed%iFuzz%i at %i cm, its prism top and gable bottom left unfused, dropped and stitched', async (s, k, h) => {
+    expect((await holds(seededFixture(s, k, h))).union.clean.sheetTris).toBeGreaterThan(0);
+  });
+
+  it.each([[250], [263], [300]] as const)('F-C: Seed5Fuzz89 at %i cm, three vertices 1.2e-4 cm apart clustered, where the link check refused the collapse', async h => {
+    expect((await holds(seededFixture(5, 89, h))).union.clean.merged).toBeGreaterThan(0);
+  });
+
+  it('G3: Seed11Fuzz10 at 300 cm, a lattice square holding a hole of its Roof, split into pieces of one lattice index', async () => {
+    const b = await holds(seededFixture(11, 10, 300));
+    const keys = b.shell.cells.map(c => `${c.face}|${c.lattice}`);
+    expect(keys.length).toBeGreaterThan(new Set(keys).size);
+  });
+
+  it.each([[false], [true]] as const)('G4: P61.866 at 263 cm (upper storey %s), a rake vertex 0.0089 cm from a lattice crossing in plan, 0.019 in 3D', async upper => {
+    await holds(sweepFixture(61.866, upper, 263));
+  });
+});
+
+/** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
+const F2_COURTYARDS: [string, number, FixtureRing[]][] = [
+  ['s1h300/Court5', 300, [
+    ring([300, 200, 500, 550], 0, 1, 37), ring([50, 550, 500, 650], 0, 1, 37),
+    ring([50, 50, 500, 200], 0, 3, 37, {E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}}), ring([50, 200, 200, 550], 0, 2, 37),
+  ]],
+  ['s1h250/Court16', 250, [
+    ring([100, 450, 650, 550], 0, 3, 30, {N: {form: 'gable'}, W: {form: 'gable'}}), ring([500, 200, 650, 450], 0, 1, 30, {S: {form: 'gable'}, W: {form: 'gable'}}),
+    ring([100, 100, 650, 200], 0, 2, 30, {W: {form: 'gable'}}), ring([100, 200, 300, 450], 0, 2, 30, {E: {form: 'gable'}}),
+  ]],
+];
+
+describe("journal decision 135, F2: floor-standing holed hip solids' two cleanMesh refusals, cured", () => {
+  it.each(F2_COURTYARDS)('%s keeps every invariant', async (name, storeyHeight, rings) => {
+    expect(await courtyardOutcome({name, cellSize: 50, storeyHeight, rings})).toEqual([]);
+  });
+});
+
+describe('journal decision 140, F5: storeys joined by edge contact', () => {
+  // WP5's review: storey 1's U stands on storey 0 by its wings, and its band touches storey 0 only along storey 0's
+  // north eave, y = 400 at z = 250. The band's Underside runs straight past the U's inner corners there, so a Cell
+  // corner at a corner lies inside a ShellEdge whose faces the corner's own triangle fans never reach.
+  it('UpperUJoinedByEdgeContact keeps every invariant', async () => {
+    await holds({
+      name: 'UpperUJoinedByEdgeContact', cellSize: 50, storeyHeight: 250,
+      rings: [ring([0, 0, 1000, 400], 0, 1, 45), ring([0, 0, 200, 400], 1, 1, 45), ring([800, 0, 1000, 400], 1, 1, 45), ring([0, 400, 1000, 600], 1, 1, 45)],
+    });
+  });
+});
+
 // ---- The opt-in fuzz (journal decision 110, C4) ---------------------------------------------------------------------
 
-/** `SHELL_FUZZ_SEEDS`, a test-only setting: `a-b` or a comma list of seeds, each run at both storey heights. */
-function fuzzSeeds(): number[] {
-  const spec = process.env.SHELL_FUZZ_SEEDS ?? '';
+/** A test-only seed setting: `a-b` or a comma list of seeds. */
+function seedList(spec: string): number[] {
   if (!spec) return [];
   const range = /^(\d+)-(\d+)$/.exec(spec);
   if (range) return Array.from({length: Number(range[2]) - Number(range[1]) + 1}, (_, i) => Number(range[1]) + i);
   return spec.split(',').map(Number);
 }
 
-if (fuzzSeeds().length) {
-  describe.each(fuzzSeeds().flatMap(s => HEIGHTS.map(h => [s, h] as const)))('the opt-in fuzz: seed %i at %i cm storeys', (seed, h) => {
+/** `SHELL_FUZZ_HEIGHTS`, a test-only setting: the opt-in fuzz's storey heights, a comma list, by default both heights. */
+const FUZZ_HEIGHTS: number[] = process.env.SHELL_FUZZ_HEIGHTS ? process.env.SHELL_FUZZ_HEIGHTS.split(',').map(Number) : HEIGHTS;
+const FUZZ_SEEDS = seedList(process.env.SHELL_FUZZ_SEEDS ?? '');
+const COURT_FUZZ_SEEDS = seedList(process.env.SHELL_COURT_SEEDS ?? '');
+
+if (FUZZ_SEEDS.length) {
+  describe.each(FUZZ_SEEDS.flatMap(s => FUZZ_HEIGHTS.map(h => [s, h] as const)))('the opt-in fuzz: seed %i at %i cm storeys', (seed, h) => {
     it.each(randomFixtures(seed, Number(process.env.SHELL_FUZZ_COUNT ?? PER_SEED), h).map(f => [f.name, f] as const))('%s', async (_, f) => {
       await holds(f);
+    });
+  });
+}
+
+if (COURT_FUZZ_SEEDS.length) {
+  describe.each(COURT_FUZZ_SEEDS.flatMap(s => FUZZ_HEIGHTS.map(h => [s, h] as const)))('the opt-in courtyard and U fuzz: seed %i at %i cm storeys', (seed, h) => {
+    it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('courtyard %s', async (_, f) => {
+      expect(await courtyardOutcome(f)).toEqual([]);
+    });
+    it.each(randomUFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('U %s', async (_, f) => {
+      expect(await outcome(f, EXPECTED)).toEqual([]);
     });
   });
 }

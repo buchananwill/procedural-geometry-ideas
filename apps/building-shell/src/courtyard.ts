@@ -1,12 +1,15 @@
-// Spec decision 2 as amended (journal decision 115): a storey plan with a hole is roofed through a cut along one raw
-// Ring wall, spliced into a slit polygon of width 0 exactly as roof-gable's `buildCourtyard` does. Every test here is
+// Spec decision 2 as amended (journal decisions 115, 132 and 135): a storey plan with a hole is roofed through a cut
+// along a segment of one raw Ring wall, spliced into a slit polygon of width 0 exactly as roof-gable's `buildCourtyard` does. Every test here is
 // segment arithmetic on the plan's own loops: no point is tested for lying inside anything.
 import {RING_SIDES, RingSide, StoreyRing} from './fixture.ts';
-import {ringSideLines} from './ring-forms.ts';
+import {UnionWall, ringSideLines} from './ring-forms.ts';
 import {Pt, pt} from './roof/model.ts';
 
-/** The chosen cut: `a` on the island's outer loop, `b` on the hole's loop, and the Ring wall it runs along. */
-export interface CourtyardCut { a: Pt; b: Pt; ring: number; side: RingSide; outer: number }
+/**
+ * The chosen cut: `a` on the island's outer loop, `b` on the hole's loop, the Ring wall it runs along, the index of
+ * the outer loop it reaches, and the pitch its two cut walls take (spec decision 2 as amended, journal decision 135).
+ */
+export interface CourtyardCut { a: Pt; b: Pt; ring: number; side: RingSide; outer: number; deg: number }
 
 /** An axis-aligned segment's ends. */
 export interface Seg { p: Pt; q: Pt }
@@ -35,13 +38,52 @@ function touchesOpen(s: Seg, e: Seg): boolean {
 
 const segLength = (s: Seg): number => Math.abs(s.q.x - s.p.x) + Math.abs(s.q.y - s.p.y);
 
+/** Every point of segment `s` that some loop segment touches, in order along `s` and each once. */
+function breakpoints(s: Seg, segs: readonly Seg[]): Pt[] {
+  const sv = s.p.x === s.q.x;
+  const found: Pt[] = [];
+  for (const e of segs) {
+    const ev = e.p.x === e.q.x;
+    if (sv === ev) {
+      if (sv ? e.p.x !== s.p.x : e.p.y !== s.p.y) continue;
+      for (const x of [e.p, e.q, s.p, s.q]) if (onSeg(x, s) && onSeg(x, e)) found.push(x);
+    } else {
+      const x = pt(sv ? s.p.x : e.p.x, sv ? e.p.y : s.p.y);
+      if (onSeg(x, s) && onSeg(x, e)) found.push(x);
+    }
+  }
+  const along = (p: Pt): number => (sv ? p.y : p.x);
+  return found.sort((m, n) => along(m) - along(n)).filter((x, k, xs) => k === 0 || !samePt(x, xs[k - 1]));
+}
+
 /**
- * Spec decision 2's cut for one hole: among the storey's raw Ring walls, those with one end on the hole's loop, the
- * other on an outer loop, and nothing of any loop on the open wall between, so the island's interior lies on both
- * sides along its whole length. The shortest wins, then the lowest x, then the lowest y (each read at the wall's lower
- * end), then the lowest Ring index. Undefined when none qualifies.
+ * The pitch the cut from `a` to `b` takes (spec decision 2 as amended, journal decision 135): the derived pitch of
+ * the union wall it is collinear with at an end, or `fallback`, the cutting Ring's default, where it is collinear with
+ * none. Undefined where it is collinear with walls of different pitch at its two ends, so the segment does not
+ * qualify: the skeleton refuses a weight change at a straight vertex.
  */
-export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[]): CourtyardCut | undefined {
+function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], fallback: number): number | undefined {
+  const vertical = a.x === b.x;
+  const at = vertical ? a.x : a.y;
+  const degs = new Set<number>();
+  for (const end of [a, b]) {
+    const along = vertical ? end.y : end.x;
+    for (const w of walls) if (w.axis === (vertical ? 'x' : 'y') && w.at === at && (w.lo === along || w.hi === along)) degs.add(w.deg);
+  }
+  if (degs.size > 1) return undefined;
+  return degs.size ? [...degs][0] : fallback;
+}
+
+/**
+ * Spec decision 2's cut for one hole (as amended by journal decisions 132 and 135): a segment of one of the storey's
+ * raw Ring walls, within that wall's span, with one end on the hole's loop, the other on an outer loop, and nothing
+ * of any loop on the open segment between, so the island's interior lies on both sides along its whole length. Its
+ * ends are consecutive points where loops touch the wall, so either may be a loop vertex. The shortest wins, then the
+ * lowest x, then the lowest y (each read at its lower end), then the lowest Ring index; a segment whose two ends are
+ * collinear with walls of different pitch (`walls`, the storey's derived union walls) does not qualify, and the next
+ * is tried. Undefined when none qualifies.
+ */
+export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls: readonly UnionWall[]): CourtyardCut | undefined {
   const holeSegs = loopSegs(hole);
   const outerSegs = outers.map(loopSegs);
   const all = [holeSegs, ...outerSegs].flat();
@@ -50,12 +92,18 @@ export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[]): Cour
     const lines = ringSideLines(ring.rect);
     for (const side of RING_SIDES) {
       const l = lines[side];
-      const s: Seg = l.axis === 'x' ? {p: pt(l.at, l.lo), q: pt(l.at, l.hi)} : {p: pt(l.lo, l.at), q: pt(l.hi, l.at)};
-      if (all.some(e => touchesOpen(s, e))) continue;
-      for (const [b, a] of [[s.p, s.q], [s.q, s.p]]) {
-        if (!holeSegs.some(e => onSeg(b, e))) continue;
-        const outer = outerSegs.findIndex(segs => segs.some(e => onSeg(a, e)));
-        if (outer >= 0) found.push({a, b, ring: index, side, outer});
+      const wall: Seg = l.axis === 'x' ? {p: pt(l.at, l.lo), q: pt(l.at, l.hi)} : {p: pt(l.lo, l.at), q: pt(l.hi, l.at)};
+      const stops = breakpoints(wall, all);
+      for (let k = 0; k + 1 < stops.length; k++) {
+        const s: Seg = {p: stops[k], q: stops[k + 1]};
+        if (all.some(e => touchesOpen(s, e))) continue;
+        for (const [b, a] of [[s.p, s.q], [s.q, s.p]]) {
+          if (!holeSegs.some(e => onSeg(b, e))) continue;
+          const outer = outerSegs.findIndex(segs => segs.some(e => onSeg(a, e)));
+          if (outer < 0) continue;
+          const deg = cutPitch(a, b, walls, ring.defaultDeg);
+          if (deg !== undefined) found.push({a, b, ring: index, side, outer, deg});
+        }
       }
     }
   }

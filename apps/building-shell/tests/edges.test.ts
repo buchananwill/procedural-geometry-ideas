@@ -73,6 +73,8 @@ describe('classifyEdge (spec decision 21)', () => {
     ['Wall', 'Gable', g('Flat'), 'GableSloped'],
     ['Gable', 'Gable', g('Flat', false, true), 'GableVertical'],
     ['Gable', 'Gable', g('Flat', true), 'GableHorizontal'],
+    // WP3.7, F50: the sloped seam between two storeys' Gables on one wall line, as the Wall-Gable row reads it.
+    ['Gable', 'Gable', g('Flat'), 'GableSloped'],
     ['Gable', 'Gable', g('Convex'), 'ExternalCorner'],
     ['Wall', 'Ground', g('Convex'), 'GroundLine'],
     ['Ground', 'Gable', g('Convex'), 'GroundLine'],

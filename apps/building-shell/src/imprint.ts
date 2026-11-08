@@ -22,11 +22,15 @@ export const IMPRINT_TOLERANCE_CM = SHELL_TOLERANCE_CM;
 
 /**
  * How far either side of a raw edge its two winners are read, in cm: beyond `RETAG_SLACK_CM`, so each side point is
- * held only by the faces truly on its side, and under half of `SHELL_TOLERANCE_CM`, the thinnest genuine face.
+ * held only by the faces truly on its side, and under half of `SHELL_TOLERANCE_CM`, the thinnest genuine face. One of
+ * spec decision 16's named exceptions (journal decision 122, F-F).
  */
 export const IMPRINT_SIDE_CM = 4 * RETAG_SLACK_CM;
 
-/** New vertices nearer than this to one already made on the same edge, or in the same triangle, are that vertex. */
+/**
+ * New vertices nearer than this to one already made on the same edge, or in the same triangle, are that vertex: the
+ * cleaning's tolerance. One of spec decision 16's named exceptions (journal decision 122, F-F).
+ */
 export const IMPRINT_MERGE_CM = CLEAN_TOLERANCE_CM;
 
 export interface ImprintStats {
