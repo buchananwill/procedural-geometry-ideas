@@ -57,12 +57,19 @@ function breakpoints(s: Seg, segs: readonly Seg[]): Pt[] {
 }
 
 /**
- * The pitch the cut from `a` to `b` takes (spec decision 2 as amended, journal decision 135): the derived pitch of
- * the union wall it is collinear with at an end, or `fallback`, the cutting Ring's default, where it is collinear with
- * none. Undefined where it is collinear with walls of different pitch at its two ends, so the segment does not
- * qualify: the skeleton refuses a weight change at a straight vertex.
+ * The pitch, in degrees, of a cut collinear with no union wall (spec decision 2 as amended, journal decision 143, F1).
+ * It was the cutting Ring's default, which the wire format does not carry, so a shell exported and read back could
+ * roof differently. Such a cut meets walls only at right angles, so no weight change at a straight vertex follows.
  */
-function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], fallback: number): number | undefined {
+export const CUT_FREE_DEG = 45;
+
+/**
+ * The pitch the cut from `a` to `b` takes (spec decision 2 as amended, journal decisions 135 and 143): the derived
+ * pitch of the union wall it is collinear with at an end, or `CUT_FREE_DEG` where it is collinear with none. Undefined
+ * where it is collinear with walls of different pitch at its two ends, so the segment does not qualify: the skeleton
+ * refuses a weight change at a straight vertex.
+ */
+function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[]): number | undefined {
   const vertical = a.x === b.x;
   const at = vertical ? a.x : a.y;
   const degs = new Set<number>();
@@ -71,7 +78,7 @@ function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], fallback: number): 
     for (const w of walls) if (w.axis === (vertical ? 'x' : 'y') && w.at === at && (w.lo === along || w.hi === along)) degs.add(w.deg);
   }
   if (degs.size > 1) return undefined;
-  return degs.size ? [...degs][0] : fallback;
+  return degs.size ? [...degs][0] : CUT_FREE_DEG;
 }
 
 /**
@@ -81,7 +88,7 @@ function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], fallback: number): 
  * ends are consecutive points where loops touch the wall, so either may be a loop vertex. The shortest wins, then the
  * lowest x, then the lowest y (each read at its lower end), then the lowest Ring index; a segment whose two ends are
  * collinear with walls of different pitch (`walls`, the storey's derived union walls) does not qualify, and the next
- * is tried. Undefined when none qualifies.
+ * is tried. Its pitch is `cutPitch`'s. Undefined when none qualifies.
  */
 export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls: readonly UnionWall[]): CourtyardCut | undefined {
   const holeSegs = loopSegs(hole);
@@ -101,7 +108,7 @@ export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls
           if (!holeSegs.some(e => onSeg(b, e))) continue;
           const outer = outerSegs.findIndex(segs => segs.some(e => onSeg(a, e)));
           if (outer < 0) continue;
-          const deg = cutPitch(a, b, walls, ring.defaultDeg);
+          const deg = cutPitch(a, b, walls);
           if (deg !== undefined) found.push({a, b, ring: index, side, outer, deg});
         }
       }

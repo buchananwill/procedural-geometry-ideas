@@ -3,13 +3,14 @@
 // reviewers' courtyard probes, and the layouts the rule refuses.
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {selectCut, spliceCourtyard} from '../src/courtyard.ts';
+import {CUT_FREE_DEG, selectCut, spliceCourtyard} from '../src/courtyard.ts';
 import {COURTYARD_RECTS, FixtureRing, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
 import {tanDeg, unionWallForms} from '../src/ring-forms.ts';
 import {runB} from '../src/roof/algoB.ts';
 import {Pt, Rect, polyArea, pt, unionLoops} from '../src/roof/model.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
+import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 
@@ -92,11 +93,33 @@ describe('the cut\'s pitch (spec decision 2 as amended, journal decision 135, F1
     ['HoleSide45', rings([30, 30, 30, 30], [{N: {form: 'hip', deg: 45}}]), 45],
     ['HoleSideGabled', rings([30, 30, 30, 30], [{N: {form: 'gable'}}]), 30],
     ['OtherWing50', rings([30, 30, 30, 50]), 30],
+    // Journal decision 141: every side pitched, S 30, E 35, N 40, W 45. The cut runs along the S band's N side, and is
+    // collinear at the hole's corner with that side, 40 degrees.
+    ['CourtyardMixedPitch', rings([30, 30, 30, 30], [0, 1, 2, 3].map(() => ({S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'hip', deg: 40}, W: {form: 'hip', deg: 45}}))), 40],
   ] as const)('%s: the cut takes the hole wall\'s derived pitch, %i degrees, and the building keeps every invariant', async (name, rs, deg) => {
     const f = layout(name, [...rs]);
     const cut = cutOf(f);
     expect(cut?.deg).toBe(deg);
     for (const w of planStorey(f, 0).building.walls.filter(x => x.form === 'cut')) expect(Math.abs(w.tan - tanDeg(deg))).toBeLessThan(1e-12);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([]);
+  });
+});
+
+describe('a cut collinear with no wall (spec decision 2 as amended, journal decision 143, F1)', () => {
+  it("takes CUT_FREE_DEG, 45 degrees, never the cutting Ring's default, which the wire format does not carry", () => {
+    expect(CUT_FREE_DEG).toBe(45);
+  });
+
+  // The WP5.1 correctness reviewer's reproducer: every Ring at 30 degrees, its S side authored at 45. Read back from
+  // the wire, the Rings' defaults are derived from their sides, so a pitch read off a Ring's default could change and
+  // the skeleton refuse it (door-turn). Built directly and built from its own export, the shell is one shell.
+  it('builds the S-side-45 Courtyard the same directly and after readInput(writeInput(f))', async () => {
+    const f = layout('CourtyardS45', COURTYARD_RECTS.map(r => ring(r, 0, 1, 30, {S: {form: 'hip', deg: 45}})));
+    const back = readInput(writeInput(f), f.name);
+    if (!back.ok) throw new Error(`refused: ${back.errors.join('; ')}`);
+    const direct = (await build(f)).shell;
+    const read = (await buildShellDetailed(back.fixture)).shell;
+    expect(read).toEqual(direct);
     expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([]);
   });
 });

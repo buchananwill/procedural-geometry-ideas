@@ -22,7 +22,7 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  randomFixtures, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
+  pitchEndFixtures, randomFixtures, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
 } from './robustness-fixtures.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
 import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
@@ -213,6 +213,52 @@ describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vert
   it(`Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]} moves no vertex further than SHELL_TOLERANCE_CM`, async () => {
     const b = await holds(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h));
     expect(b.union.clean.maxMoveCm).toBeLessThanOrEqual(SHELL_TOLERANCE_CM);
+  });
+});
+
+// ---- Journal decision 143: the wire format's pitch ends -------------------------------------------------------------
+
+/**
+ * Measured at WP3.7 for the wire format's proposed pitch bounds, 5 to 75 degrees: every failing case found, with
+ * exactly its violations. Below 7 degrees the 0.173 degree sweep and finer scans find narrow pockets, all but one a
+ * Cell side that lies on no ShellEdge, lattice line or split line; from 6.91 degrees up, every case scanned is green.
+ */
+const PITCH_END_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+  'G5.86h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.86h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.865h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G5.87h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.015h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h300': ["throws: cell 316: side 111-113 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.02h300u': ["throws: cell 241: side 113-115 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.15h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.15h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.27h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.27h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.38h250': ["throws: cell 276: side 107-109 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.38h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.48h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.57h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.66h250u': ["throws: cell 201: side 109-111 is neither on a ShellEdge, a lattice line nor a split line"],
+  'G6.9h250u': ["2 Unclassified Edges"],
+};
+
+describe("the wire format's pitch ends (journal decision 143): the sweep's box from 5 to 20 and from 70 to 75 degrees", () => {
+  it.each(pitchEndFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
+    expect(await outcome(f, EXPECTED)).toEqual(PITCH_END_DEFECTS[name] ?? []);
   });
 });
 

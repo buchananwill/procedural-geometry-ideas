@@ -198,6 +198,19 @@ export const GRID_PITCHES_DEG: readonly number[] = Array.from({length: 51}, (_, 
 export const gridFixtures = (): ShellFixture[] => GRID_STOREY_HEIGHTS_CM.flatMap(h => GRID_PITCHES_DEG.flatMap(deg =>
   [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: `G${deg}h${h}${upper ? 'u' : ''}`}))));
 
+/**
+ * Journal decision 143, addendum 6: the sweep's box at the wire format's pitch ends. Every whole degree from 5 to 20
+ * and from 70 to 75 at every grid storey height, alone and with its upper storey, and the pitches the 0.173 and finer
+ * scans found failing below 7 degrees, at the heights they were found at.
+ */
+export function pitchEndFixtures(): ShellFixture[] {
+  const whole = [...Array.from({length: 16}, (_, i) => 5 + i), ...Array.from({length: 6}, (_, i) => 70 + i)];
+  const cases: [number, number][] = whole.flatMap(deg => GRID_STOREY_HEIGHTS_CM.map((h): [number, number] => [deg, h]));
+  for (const deg of [5.86, 5.865, 5.87, 6.015, 6.02]) for (const h of [250, 300]) cases.push([deg, h]);
+  for (const deg of [6.15, 6.27, 6.38, 6.48, 6.57, 6.66, 6.9]) cases.push([deg, 250]);
+  return cases.flatMap(([deg, h]) => [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: `G${deg}h${h}${upper ? 'u' : ''}`})));
+}
+
 /** One random fixture of a seed's run, named for its seed so two seeds' `Fuzz<k>` never collide. */
 export function seededFixture(seed: number, index: number, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture {
   const f = randomFixtures(seed, index + 1, storeyHeight)[index];
