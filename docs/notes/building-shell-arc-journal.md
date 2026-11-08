@@ -2410,6 +2410,36 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - a building holds at most a few Cells under 25 cm²;
        - count falls with size.
      - **§5's sliver item is closed.** The port lead is told, since its increments 5 and 6 waited on this.
+179. **Rulings on WP3.9's correctness review** (fresh Opus, on its own snapshots of every commit: 8272/8272).
+     **Confirmed:**
+     - `fced7a7` moves 0 shells, 0 golden bytes and 0 of 189 pins;
+     - all 204 golden files and every manifest field re-derive independently, with 0 notes;
+     - all 65 inputs replay;
+     - only CutPitchConflict's bytes moved;
+     - the file-order mutant moves all eight `*FileReversed` goldens;
+     - the furthest-end overlap check agrees with the old check on every verdict, over 200,000 random documents;
+     - F55's pin is exact, and `CourtyardJutCut` is clean.
+
+     **Rulings:**
+     - **Finding 1 (High): `MultiRunSide` claims `cppReplayable`, but the C++ replay must refuse it.** The fault is the
+       lead's own: decision 168 asked for a "replayable" multi-run golden. Under containment replay (decision 152), a
+       lone box's plate run is the whole side, and no split run contains it.
+       - **`cppReplayable` gains a seventh condition: every side carries exactly one run, from 0 to the side's length,
+         within the slack.** That is what `writeInput` writes, and the only run shape this prototype can show the
+         C++ will contain. The C++ plate runs are not derivable here (decision 152).
+       - **`MultiRunSide` leaves the golden set and becomes a playtest seed dump in `fixtures/playtest/`.** That is the
+         TS reader's own oracle path, and it keeps its input file. It never claimed C++ replay value: the C++ does not
+         snap.
+       - **The golden-set doc** says that the golden holds only accepted files, so spec 16's refusals have their
+         oracle in the unit tests (the reviewer's Info under finding 5).
+     - **Finding 8 (Low):** the code numbers the snap steps to match spec 16 (steps 2 to 5).
+     - **Findings 4, 7, 9 and 10 (Info) go into the port lead's message:**
+       - `CourtyardJutCutSwapped`'s class is assigned by design. By signature it reads as overshoot;
+       - CutPitchConflictFileReversed's provenance also moves side slots (the commit message understated this);
+       - CutPitchConflict is the first golden with two Rings of identical footprint, resolved by index;
+       - `cut-own-ring` is convicted by the wider set, not by the pair.
+     - **WP3.9.2, a fresh delegate,** lands findings 1 and 8. Its two reviews are scoped to it. Then come the hash for
+       the port lead, and the merge.
 
 ## Findings
 
