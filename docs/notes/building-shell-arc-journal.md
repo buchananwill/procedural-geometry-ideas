@@ -1538,7 +1538,27 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        the cut's pitch, the pipeline's matter. It joins WP3.7's gate under decision 135's F1 as one more reproducer.
      - **The live tree's `typecheck` failure is WP3.7's in-flight work,** not WP5.1's.
      - **The genus prediction moves to per component** in one line once WP3.7 exports `componentGenera`. That is
-       WP3.7's to make or WP3.8's to pick up. Its scope is decisions 136 to 140. It stays within the wire
+       WP3.7's to make or WP3.8's to pick up.
+142. **Rulings on WP5.1's type review** (REQUEST CHANGES: 5 blocking, 7 notes, at `f6b17df`). Decision 138's items are
+     all closed in substance. **All findings are accepted for WP5.2,** which goes out once the correctness review has
+     been ruled on:
+     - **B1:** the cast and the runtime probe in `expectedGenus` go. A named `expectedComponentGenera` is added, and
+       the call site switches when WP3.7 lands. **This supersedes decision 141's one-line switch for WP3.7:** WP3.7
+       exports `componentGenera`, and WP5.2 or WP3.8 makes the switch.
+     - **B2:** `ReadSide`, `SnappedCorners` and `NoneSide` are exported.
+     - **B3:** the four `!` assertions go, by building a typed list of ended edges.
+     - **B4:** a named `CanonicalFaceSchema`, with a two-way type check against `CanonicalFace`.
+     - **B5:** `DiffReportBase` with named members `FullDiffReport` and `BaselineDiffReport`. `SideReading` and
+       `ReadOutputResult` also get named members.
+     - **N1:** strict type equality that rejects `any`, and two-way literal checks. The test title states that it
+       relies on `typecheck`, or the test uses `expectTypeOf` under vitest's `--typecheck`.
+     - **N2:** the pinned literals are typed from the schema.
+     - **N3:** the stand-in output's `perimeter` is an explicit optional, not a 0 sentinel.
+     - **N4:** form mappings use exhaustive tables.
+     - **N5:** `RING_CORNERS` is derived from `RING_SIDES` and checked against the schema. Moving `SHELL_KINDS` into
+       `tags.ts`, a pipeline file, is deferred to WP3.8. It is guarded both ways meanwhile.
+     - **N6:** the probe catches only plan refusals, by a named error class or message prefix, and rethrows the rest.
+     - **N7:** one shared `MutableJson` test helper in place of the two `any`s. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
