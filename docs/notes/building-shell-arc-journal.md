@@ -2447,6 +2447,20 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **The golden set is 201 files.** Only `MultiRunSide`'s three files and its manifest entry went.
      - **Shell identity:** 0 shells move.
      - **Next:** two scoped reviews of `cb208b9`.
+181. **Rulings on WP3.9.2's type review** (REQUEST CHANGES: 2 blocking, 5 notes, at `cb208b9`). **All are accepted
+     for WP3.9.3,** which is small and batched with whatever the correctness review finds:
+     - **B1 (port-facing): `cppReplayabilityOf` can throw on a malformed ring,** where it should list reasons. The
+       seventh condition runs only when `readInput` accepts the file.
+     - **N1, ruled: the seventh condition measures against the snapped side length,** as spec 16 does. It is read from
+       `readInput`'s adapted result, not from the raw corners. That also settles B1's order: when `readInput` refuses,
+       its reasons stand alone.
+     - **B2:** `RunTuple`, and named cases instead of a cast.
+     - **N2:** `import type`.
+     - **N3:** `NOT_ONE_WHOLE_RUN` where the production reason is asserted.
+     - **N4:** the seed is parsed through `readInput`.
+     - **N5:**
+       - the stale `MULTI_RUN_SEED` comment is fixed;
+       - the port lead's message says the multi-run seed in `fixtures/playtest/` is deliberately not C++-replayable.
 
 ## Findings
 
