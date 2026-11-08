@@ -91,7 +91,10 @@ export interface EdgePoints { ids: number[] }
  * of the face. It runs along the face's lattice axis `axis` (0 for `s`, 1 for `t`) held at `at`, over `[lo, hi]` of
  * the other axis: the square's (or a piece's) extent.
  */
-export interface SplitLine { axis: 0 | 1; at: number; lo: number; hi: number }
+export interface SplitLine { axis: LatticeAxis; at: number; lo: number; hi: number }
+
+/** One of a face's two lattice axes: 0 for `s`, 1 for `t` (journal decision 145, B6). */
+export type LatticeAxis = 0 | 1;
 
 /** Per face: the lines its lattice squares are split along (G3). */
 export type SplitTable = SplitLine[][];
@@ -100,7 +103,7 @@ export type SplitTable = SplitLine[][];
  * Whether a point of the face's lattice frame, `held` on `axis` and `other` on the other, lies on split line `x`: on
  * its line and within its extent, both within `SHELL_TOLERANCE_CM` (journal decision 150, F8).
  */
-export const onSplitLine = (x: SplitLine, axis: 0 | 1, held: number, other: number): boolean =>
+export const onSplitLine = (x: SplitLine, axis: LatticeAxis, held: number, other: number): boolean =>
   x.axis === axis && Math.abs(held - x.at) <= SHELL_TOLERANCE_CM && other >= x.lo - SHELL_TOLERANCE_CM && other <= x.hi + SHELL_TOLERANCE_CM;
 
 /**
@@ -276,9 +279,9 @@ export function splitAtHoles(region: CrossSection, lo: Vec2, hi: Vec2, out: Spli
   }
   const hole = contours.find(c => shoelace(c) <= -(SHELL_TOLERANCE_CM ** 2));
   if (!hole) return [contours.filter(c => shoelace(c) >= 0)];
-  const ext = (ax: 0 | 1): [number, number] => [Math.min(...hole.map(p => p[ax])), Math.max(...hole.map(p => p[ax]))];
+  const ext = (ax: LatticeAxis): [number, number] => [Math.min(...hole.map(p => p[ax])), Math.max(...hole.map(p => p[ax]))];
   const [xs, ys] = [ext(0), ext(1)];
-  const axis: 0 | 1 = xs[1] - xs[0] >= ys[1] - ys[0] ? 0 : 1;
+  const axis: LatticeAxis = xs[1] - xs[0] >= ys[1] - ys[0] ? 0 : 1;
   const [a, b] = axis === 0 ? xs : ys;
   const at = snapCm((a + b) / 2);
   if (depth > MAX_SPLIT_DEPTH || !(at > lo[axis] && at < hi[axis])) throw new Error(`${where} holds a hole of the face that no split line divides`);
@@ -364,7 +367,7 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
      * A Cell corner's lattice coordinate on `axis`: on a lattice line, or on one of the face's split lines (G3) within
      * that line's extent (journal decision 150, F8).
      */
-    const onLine = (q: Vec2, axis: 0 | 1): number | null => {
+    const onLine = (q: Vec2, axis: LatticeAxis): number | null => {
       const v = q[axis];
       const k = Math.round(v / cellSize);
       if (Math.abs(v - k * cellSize) <= SHELL_TOLERANCE_CM) return k * cellSize;
@@ -487,7 +490,7 @@ function assembleNetEdges(
         const A = reg.positions[a], B = reg.positions[b];
         if (shellEdge < 0) {
           // Journal decision 150, F8: a side lies on a split line only within that line's extent.
-          const onSplit = (axis: 0 | 1): boolean => {
+          const onSplit = (axis: LatticeAxis): boolean => {
             const [held, other] = axis === 0 ? [fr.s, fr.t] : [fr.t, fr.s];
             return splits[cell.face].some(x => onSplitLine(x, axis, A[held], A[other]) && onSplitLine(x, axis, B[held], B[other]));
           };

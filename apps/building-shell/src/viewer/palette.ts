@@ -2,7 +2,7 @@
 // pipeline without a colour fails to compile; `tests/viewer-palette.test.ts` checks the same at run time against the
 // spec's own kind lists, and measures the floors below (journal decision 98, F4).
 import type {EdgeKind} from '../edges.ts';
-import type {ShellKind} from '../tags.ts';
+import {SHELL_KINDS, ShellKind} from '../tags.ts';
 import {over} from './colour-metrics.ts';
 import {litShades} from './lighting.ts';
 
@@ -38,8 +38,8 @@ export const SHELL_KIND_COLOUR: Readonly<Record<ShellKind, number>> = {
   Internal: MAGENTA,
 };
 
-/** Every `ShellKind`, read from the colour table whose completeness the compiler enforces. */
-export const SHELL_KINDS: readonly ShellKind[] = Object.keys(SHELL_KIND_COLOUR) as ShellKind[];
+/** Every `ShellKind`: `tags.ts`'s one list (journal decision 147, N7), re-exported for the legend. */
+export {SHELL_KINDS};
 
 /** One line colour per `EdgeKind`. */
 export const EDGE_KIND_COLOUR: Readonly<Record<EdgeKind, number>> = {

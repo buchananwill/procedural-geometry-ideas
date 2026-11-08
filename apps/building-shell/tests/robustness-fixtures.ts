@@ -2,6 +2,7 @@
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
 import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
+import {shellFixture} from './test-builds.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG} from '../src/wire/input-types.ts';
 
@@ -26,7 +27,7 @@ export function sweepPitches(): number[] {
 export function sweepFixture(deg: number, upper: boolean, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture {
   const rings: FixtureRing[] = [ring([0, 0, 600, 400], 0, 1, deg, {S: {form: 'gable'}})];
   if (upper) rings.push(ring([200, 0, 400, 200], 1, 1, 45));
-  return {name: `P${deg.toFixed(3)}${upper ? 'u' : ''}`, cellSize: 50, storeyHeight, rings};
+  return shellFixture(`P${deg.toFixed(3)}${upper ? 'u' : ''}`, rings, storeyHeight);
 }
 
 /** Every sweep case: each pitch alone and with the upper storey, 580 in all. */
@@ -41,9 +42,8 @@ export const sweepFixtures = (storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM):
  * in the same order; only what is built from the draws changed.
  */
 export function randomFixtures(seed: number, count: number, storeyHeight: number = REVIEWER_STOREY_HEIGHT_CM): ShellFixture[] {
-  let s = seed;
-  const rnd = (): number => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
-  const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
+  const rnd = stream(seed);
+  const pick = <T>(a: readonly T[]): T => pickFrom(a, rnd);
   const out: ShellFixture[] = [];
   for (let k = 0; k < count; k++) {
     const x0 = 10 * Math.floor(rnd() * 20), y0 = 10 * Math.floor(rnd() * 20);
@@ -63,15 +63,16 @@ export function randomFixtures(seed: number, count: number, storeyHeight: number
     const lowerDeg = pick([22.5, 30, 37, 45, 52.5, 60]);
     const rings: FixtureRing[] = lower.map((r, i) => ring(r, 0, 1, lowerDeg, i === 0 ? sides : {}));
     if (upper) rings.push(ring(upper, 1, 1, pick([30, 45, 55])));
-    out.push({name: `Fuzz${k}`, cellSize: 50, storeyHeight, rings});
+    out.push(shellFixture(`Fuzz${k}`, rings, storeyHeight));
   }
   return out;
 }
 
-/** A corner of a courtyard's ring of four Rings: which of the two Rings meeting there covers it. */
-export type CornerOwner = 'band' | 'wing' | 'both';
+/** Who may cover a corner of a courtyard's ring of four Rings: the band, the wing, or both. */
+const CORNER_OWNERS = ['band', 'wing', 'both'] as const;
 
-const CORNER_OWNERS: readonly CornerOwner[] = ['band', 'wing', 'both'];
+/** A corner of a courtyard's ring of four Rings: which of the two Rings meeting there covers it. */
+export type CornerOwner = typeof CORNER_OWNERS[number];
 
 /** The pitches the courtyard generator draws, in degrees. */
 const COURTYARD_PITCHES: readonly number[] = [30, 37, 45, 52.5];
@@ -88,11 +89,14 @@ interface CourtyardDraw { fixture: ShellFixture; wings: [FixtureRing, FixtureRin
 /** Which of the courtyard's four Rings the split mode cuts in two: the S or N band, or the W or E wing. */
 const SPLIT_RINGS = ['S', 'N', 'W', 'E'] as const;
 
-/** A deterministic stream of draws in [0, 1), from `fuzz3.mjs`'s linear congruential generator. */
-function stream(seed: number): () => number {
+/** A deterministic stream of draws in [0, 1), from `fuzz3.mjs`'s linear congruential generator: the tests' one LCG. */
+export function stream(seed: number): () => number {
   let s = seed;
   return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
 }
+
+/** One member of `a`, drawn from the stream `r`: the tests' one pick (journal decision 145, B12). */
+export const pickFrom = <T>(a: readonly T[], r: () => number): T => a[Math.floor(r() * a.length)];
 
 /**
  * Journal decisions 115, 132 and 135: random courtyards within the Grammar's caps of 3 storeys and 4 Rings, right
@@ -118,7 +122,7 @@ function stream(seed: number): () => number {
  */
 function drawCourtyards(seed: number, count: number, storeyHeight: number, splitMode = false): CourtyardDraw[] {
   const rnd = stream(seed), frnd = stream(seed + 7919), prnd = stream(seed + 15485863), srnd = stream(seed + 104729);
-  const pick = <T>(a: readonly T[], r: () => number = rnd): T => a[Math.floor(r() * a.length)];
+  const pick = <T>(a: readonly T[], r: () => number = rnd): T => pickFrom(a, r);
   const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
   const out: CourtyardDraw[] = [];
   for (let k = 0; k < count; k++) {
@@ -164,7 +168,7 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number, split
       [rings[i], rings[j]] = [rings[j], rings[i]];
     }
     if (!which || !toSplit) {
-      out.push({fixture: {name: `Court${k}`, cellSize: 50, storeyHeight, rings}, wings});
+      out.push({fixture: shellFixture(`Court${k}`, rings, storeyHeight), wings});
       continue;
     }
     // The split: a band across at an x, a wing across at a y, strictly inside the hole's span.
@@ -182,7 +186,7 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number, split
     const second = half(across ? [at, ry0, rx1, ry1] : [rx0, at, rx1, ry1], inner1, mixed ? pick(COURTYARD_PITCHES, srnd) : toSplit.defaultDeg);
     const split = rings.map(r => (r === toSplit ? first : r));
     split.splice(Math.floor(srnd() * (split.length + 1)), 0, second);
-    out.push({fixture: {name: `SplitCourt${k}`, cellSize: 50, storeyHeight, rings: split}, wings, split: {axis: across ? 'x' : 'y', at}});
+    out.push({fixture: shellFixture(`SplitCourt${k}`, split, storeyHeight), wings, split: {axis: across ? 'x' : 'y', at}});
   }
   return out;
 }
@@ -299,7 +303,11 @@ export const GRID_PITCHES_DEG: readonly number[] = Array.from({length: 51}, (_, 
  * at one height. 612 cases.
  */
 export const gridFixtures = (): ShellFixture[] => GRID_STOREY_HEIGHTS_CM.flatMap(h => GRID_PITCHES_DEG.flatMap(deg =>
-  [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: `G${deg}h${h}${upper ? 'u' : ''}`}))));
+  [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: gridName(deg, h, upper)}))));
+
+/** A grid case's name (journal decision 145, N6): `G<deg>h<height>`, and `u` with the upper storey. */
+export const gridName = (deg: number, storeyHeight: number, upper: boolean): `G${number}h${number}${'' | 'u'}` =>
+  `G${deg}h${storeyHeight}${upper ? 'u' : ''}`;
 
 /**
  * Journal decision 143, addendum 6: the sweep's box at the wire format's pitch ends. Every whole degree from 5 to 20
@@ -311,7 +319,7 @@ export function pitchEndFixtures(): ShellFixture[] {
   const cases: [number, number][] = whole.flatMap(deg => GRID_STOREY_HEIGHTS_CM.map((h): [number, number] => [deg, h]));
   for (const deg of [5.86, 5.865, 5.87, 6.015, 6.02]) for (const h of [250, 300]) cases.push([deg, h]);
   for (const deg of [6.15, 6.27, 6.38, 6.48, 6.57, 6.66, 6.9]) cases.push([deg, 250]);
-  return cases.flatMap(([deg, h]) => [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: `G${deg}h${h}${upper ? 'u' : ''}`})));
+  return cases.flatMap(([deg, h]) => [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: gridName(deg, h, upper)})));
 }
 
 /** One random fixture of a seed's run, named for its seed so two seeds' `Fuzz<k>` never collide. */

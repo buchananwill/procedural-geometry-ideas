@@ -6,7 +6,9 @@
 import {FaceTag, Vec3, identityKey, retagCompare, samePlane, tagLabel} from '../src/tags.ts';
 import {ShellUnion, prepareRawTri} from '../src/union.ts';
 import {cross3, dot3, sub3, unit3} from '../src/vec3.ts';
+import type {Vec2} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
+import {AREA_EPS_PER_CM2} from './test-constants.ts';
 
 /**
  * How far inside every side of its triangle the region test reads, in cm: half the shell's tolerance, beyond the
@@ -15,22 +17,15 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
  */
 export const REGION_SAMPLE_INSET_CM = SHELL_TOLERANCE_CM / 2;
 
-/**
- * Float epsilon for an overlap area, in cm² per cm² of the eroded triangle: `shell-invariants.ts`'s
- * `AREA_EPS_PER_CM2`, restated here so the two helpers do not import each other.
- */
-const AREA_EPS_PER_CM2 = 1e-9;
 
 /** What the region invariant reads of a union. */
 export type RegionSource = Pick<ShellUnion, 'label' | 'mesh' | 'triTags' | 'tags' | 'parts'>;
 
-/** A point in a plane's own 2D frame. */
-type P2 = [number, number];
+/** A convex polygon in a plane's own 2D frame, counter-clockwise. */
+export type Convex = Vec2[];
 
-/** A convex polygon in a plane's 2D frame, counter-clockwise. */
-type Convex = P2[];
-
-const cross2 = (o: P2, a: P2, b: P2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+/** The orientation of `a` and `b` about `o`: positive when `o`, `a`, `b` turn counter-clockwise. */
+const orient2 = (o: Vec2, a: Vec2, b: Vec2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
 const area2 = (poly: Convex): number => {
   let s = 0;
   for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length]; s += a[0] * b[1] - a[1] * b[0]; }
@@ -38,11 +33,11 @@ const area2 = (poly: Convex): number => {
 };
 
 /** The part of a convex polygon on the left of the directed line `a` to `b` (Sutherland-Hodgman). */
-function clipLeft(poly: Convex, a: P2, b: P2): Convex {
+function clipLeft(poly: Convex, a: Vec2, b: Vec2): Convex {
   const out: Convex = [];
   for (let i = 0; i < poly.length; i++) {
     const p = poly[i], q = poly[(i + 1) % poly.length];
-    const sp = cross2(a, b, p), sq = cross2(a, b, q);
+    const sp = orient2(a, b, p), sq = orient2(a, b, q);
     if (sp >= 0) out.push(p);
     if ((sp > 0 && sq < 0) || (sp < 0 && sq > 0)) {
       const t = sp / (sp - sq);
@@ -81,9 +76,9 @@ function erode(tri: Convex, d: number): Convex | null {
     const a = tri[i], b = tri[(i + 1) % 3];
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const nx = -(b[1] - a[1]) / L, ny = (b[0] - a[0]) / L;
-    return {p: [a[0] + d * nx, a[1] + d * ny] as P2, v: [b[0] - a[0], b[1] - a[1]] as P2};
+    return {p: [a[0] + d * nx, a[1] + d * ny] as Vec2, v: [b[0] - a[0], b[1] - a[1]] as Vec2};
   });
-  const meet = (l: typeof lines[number], m: typeof lines[number]): P2 => {
+  const meet = (l: typeof lines[number], m: typeof lines[number]): Vec2 => {
     const den = l.v[0] * m.v[1] - l.v[1] * m.v[0];
     const t = ((m.p[0] - l.p[0]) * m.v[1] - (m.p[1] - l.p[1]) * m.v[0]) / den;
     return [l.p[0] + t * l.v[0], l.p[1] + t * l.v[1]];
@@ -92,9 +87,9 @@ function erode(tri: Convex, d: number): Convex | null {
 }
 
 /** Whether point `q` lies in the counter-clockwise triangle, allowing `slack` outside each side. */
-const holds = (tri: Convex, q: P2, slack: number): boolean => [0, 1, 2].every(i => {
+const holds = (tri: Convex, q: Vec2, slack: number): boolean => [0, 1, 2].every(i => {
   const a = tri[i], b = tri[(i + 1) % 3];
-  return cross2(a, b, q) / Math.hypot(b[0] - a[0], b[1] - a[1]) >= -slack;
+  return orient2(a, b, q) / Math.hypot(b[0] - a[0], b[1] - a[1]) >= -slack;
 });
 
 /**
@@ -135,7 +130,7 @@ export function winningRegionViolations(u: RegionSource): string[] {
     // The plane's own 2D frame, unforeshortened: every point is read in it after projection onto the plane.
     const e1 = unit3(cross3(n, Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
     const e2 = cross3(n, e1);
-    const to2 = (p: Vec3): P2 => { const off = dot3(n, p) - d; const q = sub3(p, [off * n[0], off * n[1], off * n[2]]); return [dot3(q, e1), dot3(q, e2)]; };
+    const to2 = (p: Vec3): Vec2 => { const off = dot3(n, p) - d; const q = sub3(p, [off * n[0], off * n[1], off * n[2]]); return [dot3(q, e1), dot3(q, e2)]; };
     const ccw = (poly: Convex): Convex => (area2(poly) < 0 ? [...poly].reverse() : poly);
 
     // Each identity on the plane with its raw triangles, strongest first.
@@ -155,7 +150,7 @@ export function winningRegionViolations(u: RegionSource): string[] {
     let winner: string | undefined;
     if (!eroded) {
       // Too thin to erode: read at the centroid, as the re-tag pass does.
-      const c: P2 = [(tri2[0][0] + tri2[1][0] + tri2[2][0]) / 3, (tri2[0][1] + tri2[1][1] + tri2[2][1]) / 3];
+      const c: Vec2 = [(tri2[0][0] + tri2[1][0] + tri2[2][0]) / 3, (tri2[0][1] + tri2[1][1] + tri2[2][1]) / 3];
       winner = identities.find(([, e]) => e.tris.some(r => holds(r, c, 0)))?.[0];
       if (!winner) { out.push(`${where}: its centroid lies on no raw face`); continue; }
     } else {

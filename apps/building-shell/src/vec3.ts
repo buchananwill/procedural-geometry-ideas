@@ -2,6 +2,9 @@
 import type {Vec2} from 'manifold-3d';
 import type {Vec3} from './tags.ts';
 
+/** Vertex `v`'s point in a flat xyz array: the app's one point reader (journal decision 145, B3). */
+export const pointAt = (P: ArrayLike<number>, v: number): Vec3 => [P[3 * v], P[3 * v + 1], P[3 * v + 2]];
+
 export const sub3 = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 export const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 export const scale3 = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];

@@ -108,7 +108,10 @@ export function splitSimpleLoops(loop: number[]): number[][] {
 }
 
 /** A face's identity (spec decision 10 as amended), read on its own plane, its plane keyed by the build's clusters. */
-export const faceIdentity = (f: ShellFace, clusters: PlaneClusters): string => identityKey(f.tag, {n: f.normal, d: f.offset}, clusters);
+/** A face's oriented plane, from its own normal and offset (journal decision 145, B2): the one place it is built. */
+export const facePlane = (f: Pick<ShellFace, 'normal' | 'offset'>): Plane3 => ({n: f.normal, d: f.offset});
+
+export const faceIdentity = (f: ShellFace, clusters: PlaneClusters): string => identityKey(f.tag, facePlane(f), clusters);
 
 /**
  * Spec decision 18: groups the output triangles into faces. Two triangles across a manifold edge join when they share

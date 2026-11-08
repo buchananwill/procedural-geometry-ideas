@@ -19,7 +19,8 @@ import type {Mesh} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {Plane3, Vec3, samePlane} from './tags.ts';
 import type {ShellMesh} from './mesh.ts';
-import {cross3, dot3, lineOffset, lineParam, sub3, unit3} from './vec3.ts';
+import {UnionFind, makeUnionFind} from './halfedge.ts';
+import {add3, cross3, dist3, dot3, lineOffset, lineParam, pointAt, scale3, sub3, unit3} from './vec3.ts';
 import {SNAP_STEPS_PER_CM, TriIndices, WorkTri} from './weld.ts';
 
 /**
@@ -108,18 +109,12 @@ type Positions = Float64Array;
 /** The undirected key of an edge between two vertices. */
 const undirected = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},${a}`);
 
-/** A union-find over vertex indices whose root is always the lowest index of its set. */
-function lowestRootFind(n: number): {find: (v: number) => number; join: (a: number, b: number) => void} {
-  const up = Int32Array.from({length: n}, (_, i) => i);
-  const find = (v: number): number => {
-    while (up[v] !== v) { up[v] = up[up[v]]; v = up[v]; }
-    return v;
-  };
-  const join = (a: number, b: number): void => {
-    const ra = find(a), rb = find(b);
-    if (ra < rb) up[rb] = ra; else if (rb < ra) up[ra] = rb;
-  };
-  return {find, join};
+/**
+ * Journal decision 145, N2: `stitchOpen` cannot close what a dropped cap pair leaves open. `tryDropPair` catches
+ * exactly this, and every other error still fails the build.
+ */
+export class StitchRefusal extends Error {
+  override name = 'StitchRefusal';
 }
 
 /**
@@ -128,7 +123,7 @@ function lowestRootFind(n: number): {find: (v: number) => number; join: (a: numb
  */
 function clusterVertices(X: Positions, tol: number): (v: number) => number {
   const nV = X.length / 3;
-  const uf = lowestRootFind(nV);
+  const uf = makeUnionFind(nV);
   const cell = (v: number, a: number): number => Math.floor(X[3 * v + a] / tol);
   const grid = new Map<string, number[]>();
   for (let v = 0; v < nV; v++) {
@@ -172,12 +167,12 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
   const T = mesh.tris;
   const nV = O.length / 3;
   const X: Positions = Float64Array.from(O);
-  const pt = (v: number): Vec3 => [X[3 * v], X[3 * v + 1], X[3 * v + 2]];
-  const dist = (i: number, j: number): number => Math.hypot(X[3 * i] - X[3 * j], X[3 * i + 1] - X[3 * j + 1], X[3 * i + 2] - X[3 * j + 2]);
+  const pt = (v: number): Vec3 => pointAt(X, v);
+  const dist = (i: number, j: number): number => dist3(pt(i), pt(j));
   const setPos = (v: number, p: Vec3): void => { X[3 * v] = p[0]; X[3 * v + 1] = p[1]; X[3 * v + 2] = p[2]; };
   const stats: CleanStats = {...NO_CLEAN};
   /** Every original vertex's current vertex: its own, or the one it merged into. */
-  const into = lowestRootFind(nV);
+  const into = makeUnionFind(nV);
   let moved = false;
 
   let work: WorkTri[] = [];
@@ -263,7 +258,7 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
   /** The furthest any original vertex now merged into `v`, `v` itself included, would lie from where it started at `p`. */
   const reach = (v: number, p: Vec3): number => {
     let m = 0;
-    for (let o = 0; o < nV; o++) if (into.find(o) === v) m = Math.max(m, Math.hypot(p[0] - O[3 * o], p[1] - O[3 * o + 1], p[2] - O[3 * o + 2]));
+    for (let o = 0; o < nV; o++) if (into.find(o) === v) m = Math.max(m, dist3(p, pointAt(O, o)));
     return m;
   };
 
@@ -287,8 +282,9 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
     let stitched: WorkTri[];
     try {
       stitched = stitchOpen(kept, X, tol, into);
-    } catch {
-      return false;
+    } catch (e) {
+      if (e instanceof StitchRefusal) return false;
+      throw e;
     }
     work = stitched;
     reown();
@@ -326,7 +322,7 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
       // Short of the bound by a margin wider than a float32 ulp (F5), so the float32 write cannot carry it past.
       const margin = meetMargin(Math.max(...P.map(Math.abs), ...K.map(Math.abs)));
       const s = Math.max(0, 1 - (CLEAN_MAX_MOVE_CM - margin - reach(c, P)) / dist(c, keep));
-      to = [K[0] + s * (P[0] - K[0]), K[1] + s * (P[1] - K[1]), K[2] + s * (P[2] - K[2])];
+      to = add3(K, scale3(sub3(P, K), s));
       if (reach(c, to) > CLEAN_MAX_MOVE_CM || reach(keep, to) > CLEAN_MAX_MOVE_CM || !moveKeepsSurface(keep, to, c)) return false;
       meeting = true;
     }
@@ -365,7 +361,7 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
   for (let o = 0; o < nV; o++) {
     const r = into.find(o);
     if (!used.has(r)) continue;
-    const d = Math.hypot(f32(X[3 * r]) - O[3 * o], f32(X[3 * r + 1]) - O[3 * o + 1], f32(X[3 * r + 2]) - O[3 * o + 2]);
+    const d = dist3(pointAt(X, r).map(f32) as Vec3, pointAt(O, o));
     stats.maxMoveCm = Math.max(stats.maxMoveCm, d);
     if (d > CLEAN_MAX_MOVE_CM) {
       throw new Error(`cleanMesh: vertex ${o} would move ${d.toExponential(3)} cm onto vertex ${r}, past ${CLEAN_MAX_MOVE_CM} cm`);
@@ -400,9 +396,9 @@ interface SheetRegion { tris: number[]; boundary: [number, number][]; area: numb
  * `cleanMesh`). Welds made while stitching are recorded in `into`.
  */
 function removeSheets(
-  work: WorkTri[], X: Positions, planes: readonly Plane3[] | null, tol: number, into: VertexMerges,
+  work: WorkTri[], X: Positions, planes: readonly Plane3[] | null, tol: number, into: UnionFind,
 ): SheetResult {
-  const pt = (v: number): Vec3 => [X[3 * v], X[3 * v + 1], X[3 * v + 2]];
+  const pt = (v: number): Vec3 => pointAt(X, v);
   const area = (t: WorkTri): number => Math.hypot(...cross3(sub3(pt(t[1]), pt(t[0])), sub3(pt(t[2]), pt(t[0])))) / 2;
   const drop = new Set<number>();
 
@@ -446,7 +442,6 @@ function removeSheets(
 }
 
 /** A union-find over vertices, as `cleanMesh` records merges in it. */
-interface VertexMerges { find: (v: number) => number; join: (a: number, b: number) => void }
 
 /**
  * Closes what dropping zero-volume triangles left open (journal decision 122, G1 and F-D): the open boundary's
@@ -454,8 +449,8 @@ interface VertexMerges { find: (v: number) => number; join: (a: number, b: numbe
  * vertex within `tol` of it is split there, as the weld's T-junction split is, until every edge has its twin. A
  * boundary that will not close is a hard error, and leaves `X` and `into` as they were.
  */
-function stitchOpen(work: WorkTri[], X: Positions, tol: number, into: VertexMerges): WorkTri[] {
-  const pt = (v: number): Vec3 => [X[3 * v], X[3 * v + 1], X[3 * v + 2]];
+function stitchOpen(work: WorkTri[], X: Positions, tol: number, into: UnionFind): WorkTri[] {
+  const pt = (v: number): Vec3 => pointAt(X, v);
   let kept = work;
   /** Welds made here, applied to `into` and `X` only once the boundary closes. */
   const weld = new Map<number, number>();
@@ -484,7 +479,7 @@ function stitchOpen(work: WorkTri[], X: Positions, tol: number, into: VertexMerg
     return a === b || b === c || c === a ? [] : [[a, b, c, f]];
   });
   for (let guard = 0; ; guard++) {
-    if (guard > 4 * kept.length) throw new Error('cleanMesh: stitching a removed sheet does not terminate');
+    if (guard > 4 * kept.length) throw new StitchRefusal('cleanMesh: stitching a removed sheet does not terminate');
     open = openEdges();
     if (!open.length) break;
     const vs = [...new Set(open.flatMap(([u, v]) => [u, v]))];
@@ -504,7 +499,7 @@ function stitchOpen(work: WorkTri[], X: Positions, tol: number, into: VertexMerg
       split = true;
       break;
     }
-    if (!split) throw new Error(`cleanMesh: a removed zero-volume sheet leaves ${open.length} edges open`);
+    if (!split) throw new StitchRefusal(`cleanMesh: a removed zero-volume sheet leaves ${open.length} edges open`);
   }
   for (const [v, r] of weld) {
     into.join(v, r);
@@ -557,7 +552,7 @@ function regionsOf(work: WorkTri[], drop: Set<number>, ids: Set<number>, area: (
  * boundary, and every boundary vertex of each lies within `tol` of the other's boundary.
  */
 function sameGround(a: SheetRegion, b: SheetRegion, X: Positions, tol: number): boolean {
-  const pt = (v: number): Vec3 => [X[3 * v], X[3 * v + 1], X[3 * v + 2]];
+  const pt = (v: number): Vec3 => pointAt(X, v);
   const perimeter = (r: SheetRegion): number => r.boundary.reduce((s, [u, v]) => s + Math.hypot(...sub3(pt(v), pt(u))), 0);
   if (Math.abs(a.area - b.area) > tol * Math.max(perimeter(a), perimeter(b))) return false;
   const onBoundary = (v: number, r: SheetRegion): boolean => r.boundary.some(([p, q]) => {

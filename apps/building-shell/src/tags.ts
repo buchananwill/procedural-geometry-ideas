@@ -7,7 +7,13 @@ import {snapCm} from './weld.ts';
 /** The app's one 3-vector: manifold-3d's, re-exported so there is a single definition. */
 export type {Vec3};
 
-export type ShellKind = 'Wall' | 'Gable' | 'Roof' | 'Underside' | 'Ground' | 'Cheek' | 'Internal';
+/**
+ * Every face kind (spec decision 10), the app's one list (journal decisions 142, N5, and 147, N7): the viewer's legend,
+ * the output boundary's validation and the type all read it.
+ */
+export const SHELL_KINDS = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal'] as const;
+
+export type ShellKind = typeof SHELL_KINDS[number];
 
 /** Every kind that takes part in re-tagging (spec decision 14): all but Internal. */
 export type RetaggableKind = Exclude<ShellKind, 'Internal'>;

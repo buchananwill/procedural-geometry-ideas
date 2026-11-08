@@ -5,7 +5,7 @@ import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {CUT_ALL_GABLE_DEG, freeCutPitch, selectCut, spliceCourtyard} from '../src/courtyard.ts';
 import {errorMessage} from '../src/errors.ts';
-import {COURTYARD_RECTS, FixtureRing, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
+import {COURTYARD_RECTS, FixtureRing, RingSides, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
 import {UnionWall, tanDeg, unionWallForms} from '../src/ring-forms.ts';
 import {runB} from '../src/roof/algoB.ts';
 import {Pt, Rect, polyArea, pt, unionLoops} from '../src/roof/model.ts';
@@ -15,6 +15,7 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
+import {memoBuilds, shellFixture} from './test-builds.ts';
 
 /** A storey plan's union loops, split into outer loops and holes. */
 interface CourtyardLoops { outers: Pt[][]; holes: Pt[][] }
@@ -34,7 +35,7 @@ const cutOf = (f: ShellFixture): ReturnType<typeof selectCut> => {
 const tol = SHELL_TOLERANCE_CM;
 
 /** A one-storey layout at 250 cm storeys, every Ring at `deg` unless given its own Rings. */
-const layout = (name: string, rings: FixtureRing[]): ShellFixture => ({name, cellSize: 50, storeyHeight: 250, rings});
+const layout = (name: string, rings: FixtureRing[]): ShellFixture => shellFixture(name, rings);
 const courtyard = (name: string, rects: Rect[], deg = 30): ShellFixture => layout(name, rects.map(r => ring(r, 0, 1, deg)));
 
 /**
@@ -44,12 +45,7 @@ const courtyard = (name: string, rects: Rect[], deg = 30): ShellFixture => layou
 const FULL_WINGS = courtyard('FullWingsProbe', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]]);
 
 /** Each build, made once, on the first test that asks for it, so a crash fails that test alone. */
-const builds = new Map<string, Promise<ShellBuild>>();
-const build = (f: ShellFixture): Promise<ShellBuild> => {
-  let b = builds.get(f.name);
-  if (!b) { b = buildShellDetailed(f); builds.set(f.name, b); }
-  return b;
-};
+const build = memoBuilds();
 
 describe('the cut (spec decision 2 as amended)', () => {
   it("runs along the S band's N side, y = 300 over x 0 to 300: of the 300 cm segments, the lowest x, then y, then Ring", () => {
@@ -86,7 +82,7 @@ describe('the cut (spec decision 2 as amended)', () => {
 
 describe('the cut\'s pitch (spec decision 2 as amended, journal decision 135, F1)', () => {
   const C = COURTYARD_RECTS;
-  const rings = (degs: number[], sides: Parameters<typeof ring>[4][] = []): FixtureRing[] => C.map((r, i) => ring(r, 0, 1, degs[i], sides[i]));
+  const rings = (degs: number[], sides: RingSides[] = []): FixtureRing[] => C.map((r, i) => ring(r, 0, 1, degs[i], sides[i]));
   // The correctness reviewer's reproducers (probes/zz-court2.test.ts). The cut, y = 300 over x 0 to 300, is collinear
   // at (300, 300) with the hole's S wall, the S band's N side.
   it.each([

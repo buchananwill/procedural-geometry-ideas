@@ -33,8 +33,8 @@ export const CanonicalOutputV1Schema = z.strictObject({
 });
 
 export type CanonicalOutputV1 = z.output<typeof CanonicalOutputV1Schema>;
-type OutputEdge = z.output<typeof CanonicalEdgeOutputSchema>;
-type OutputPoint = z.output<typeof PointV1Schema>;
+export type OutputEdge = z.output<typeof CanonicalEdgeOutputSchema>;
+export type OutputPoint = z.output<typeof PointV1Schema>;
 
 /** An output whose edges all carry ends: the full diff applies. */
 export interface FullOutput { ok: true; mode: 'full'; engine: string; shell: CanonicalShell }
@@ -44,8 +44,8 @@ export interface BaselineOutput { ok: true; mode: 'baseline'; engine: string; fa
 
 export type ReadOutputResult = FullOutput | BaselineOutput | RefusedInput;
 
-/** An output edge with both ends, typed so (decision 142, B3). */
-interface EndedEdge { kind: EdgeKind; a: OutputPoint; b: OutputPoint }
+/** An output edge with both ends, typed so (decisions 142, B3, and 147, B1). */
+export type EndedEdge = Required<OutputEdge>;
 
 const endedEdge = (e: OutputEdge): EndedEdge[] => (e.a && e.b ? [{kind: e.kind, a: e.a, b: e.b}] : []);
 const vec = (p: OutputPoint): Vec3 => [p.x, p.y, p.z];

@@ -3,10 +3,11 @@
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {snapPoint} from '../src/edges.ts';
 import {ShellFace, loopArea, meshPoint} from '../src/faces.ts';
+import type {ShellMesh} from '../src/mesh.ts';
 import type {ShellBuild} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CLEAN_TOLERANCE_CM} from '../src/clean.ts';
-import {makeUnionFind, UnionFind} from '../src/halfedge.ts';
+import {UnionFind, makeUnionFind, nextHalf, triOf} from '../src/halfedge.ts';
 import {Segment, dist3, lineDistance, nearestOnSegments, nearestOnTriangle, segmentDistance} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {winningRegionViolations} from './winning-regions.ts';
@@ -50,7 +51,7 @@ export interface ShellExpectation { genus: number | readonly number[]; cheeks: n
  * so solids touching only at a point or along an edge, which Manifold writes on separate vertices, are separate
  * components (journal decision 140). Each one's genus is `1 - (V - E + F) / 2`.
  */
-export function componentGenera(mesh: Pick<ShellBuild['union']['mesh'], 'tris'>): number[] {
+export function componentGenera(mesh: Pick<ShellMesh, 'tris'>): number[] {
   return componentRecords(mesh).map(c => c.genus);
 }
 
@@ -61,7 +62,7 @@ export interface ComponentRecord { genus: number; at: Vec3 }
  * Every connected component's genus and place, highest genus first, then by place. A component's place is its least
  * vertex, so a component that moves fails a pin that names it (journal decision 150, F4).
  */
-export function componentRecords(mesh: Pick<ShellBuild['union']['mesh'], 'tris'> & Partial<Pick<ShellBuild['union']['mesh'], 'positions'>>): ComponentRecord[] {
+export function componentRecords(mesh: Pick<ShellMesh, 'tris'> & Partial<Pick<ShellMesh, 'positions'>>): ComponentRecord[] {
   const T = mesh.tris;
   const {find, byEdge} = triangleComponents(T);
   const comps = new Map<number, {v: Set<number>; e: number; f: number}>();
@@ -117,7 +118,7 @@ interface ComponentGeometry { tris: number[]; edges: [number, number][]; lo: Vec
  * solids meeting only along an edge or at a point) are legitimate (journal decision 140). The distance is the least of
  * every vertex to every triangle of the other component, and every edge to every edge.
  */
-export function nearContactViolations(mesh: Pick<ShellBuild['union']['mesh'], 'tris' | 'positions'>): string[] {
+export function nearContactViolations(mesh: Pick<ShellMesh, 'tris' | 'positions'>): string[] {
   const T = mesh.tris, P = (v: number): Vec3 => meshPoint(mesh.positions, v);
   const {find} = triangleComponents(T);
   const geo = new Map<number, ComponentGeometry>();
@@ -165,7 +166,7 @@ export function nearContactViolations(mesh: Pick<ShellBuild['union']['mesh'], 't
 }
 
 /** An output triangle's centroid. */
-const triCentroid = (mesh: ShellBuild['union']['mesh'], t: number): Vec3 => {
+const triCentroid = (mesh: ShellMesh, t: number): Vec3 => {
   const [a, b, c] = [0, 1, 2].map(j => meshPoint(mesh.positions, mesh.tris[3 * t + j]));
   return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
 };
@@ -185,11 +186,7 @@ const segmentText = (p: Vec3, q: Vec3): string => {
 /** Distinct texts, sorted, joined: one defect list as a pin line carries it. */
 const places = (xs: string[]): string => [...new Set(xs)].sort().join('; ');
 
-/**
- * Float epsilon for an area sum, in cm² per cm² summed: double arithmetic over float32 positions of a few thousand cm
- * rounds each term at about 1e-13 of its size, so a sum of a few hundred terms keeps 1e-9 of headroom.
- */
-export const AREA_EPS_PER_CM2 = 1e-9;
+export {AREA_EPS_PER_CM2} from './test-constants.ts';
 
 export type {Segment};
 
@@ -248,9 +245,9 @@ export function faceLoopViolations(b: ShellBuild): string[] {
   const P = (v: number): Vec3 => meshPoint(mesh.positions, v);
   const boundary: Segment[][] = b.shell.faces.map(() => []);
   for (let h = 0; h < mesh.tris.length; h++) {
-    const f = b.faces.triFace[Math.floor(h / 3)];
-    if (b.faces.triFace[Math.floor(b.faces.topo.twin[h] / 3)] === f) continue;
-    boundary[f].push([P(mesh.tris[h]), P(mesh.tris[3 * Math.floor(h / 3) + (h % 3 + 1) % 3])]);
+    const f = b.faces.triFace[triOf(h)];
+    if (b.faces.triFace[triOf(b.faces.topo.twin[h])] === f) continue;
+    boundary[f].push([P(mesh.tris[h]), P(mesh.tris[nextHalf(h)])]);
   }
   const out: string[] = [];
   for (const face of b.shell.faces) {

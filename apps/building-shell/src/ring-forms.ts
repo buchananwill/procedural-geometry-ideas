@@ -56,11 +56,13 @@ export function loopRuns(loop: Pt[]): WallLine[] {
   return runs;
 }
 
-/** A side form outside `RingForm` is a hard error: only the courtyard rule places a cut (spec decision 2). */
-function checkedSide(index: number, side: RingSide, s: SideForm): asserts s is SideForm & {form: RingForm} {
-  const form: string = s.form;
-  if (form !== 'hip' && form !== 'gable') {
-    throw new Error(`Ring ${index} side ${side} is authored ${form}; a Ring side is hip or gable, and only the courtyard rule places a cut`);
+/**
+ * A side form outside `RingForm` is a hard error: only the courtyard rule places a cut (spec decision 2). It reads the
+ * form as any string, as an authored file may hold (journal decision 145, N1), and asserts a `SideForm`.
+ */
+function checkedSide(index: number, side: RingSide, s: {form: string}): asserts s is SideForm {
+  if (s.form !== 'hip' && s.form !== 'gable') {
+    throw new Error(`Ring ${index} side ${side} is authored ${s.form}; a Ring side is hip or gable, and only the courtyard rule places a cut`);
   }
 }
 

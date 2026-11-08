@@ -9,14 +9,11 @@ import {Wall, pt, unionLoops} from '../src/roof/model.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import {invariantViolations} from './shell-invariants.ts';
+import {memoBuilds} from './test-builds.ts';
 
 /** Each fixture's build, made once, on the first test that asks for it. */
-const builds = new Map<string, Promise<ShellBuild>>();
-const build = (name: string): Promise<ShellBuild> => {
-  let b = builds.get(name);
-  if (!b) { b = buildShellDetailed(fixtureByName(name)); builds.set(name, b); }
-  return b;
-};
+const memo = memoBuilds();
+const build = (name: string): Promise<ShellBuild> => memo(fixtureByName(name));
 
 /** Storey `n`'s walls on one line: `x = at` or `y = at`. */
 const wallsOn = (f: ShellFixture, axis: 'x' | 'y', at: number, n = 0): Wall[] =>

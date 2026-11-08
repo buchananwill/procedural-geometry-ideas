@@ -24,7 +24,7 @@ import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../
 import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
 import {PlanRefusal} from '../errors.ts';
-import {ringSideLines, storeyLoops, unionWallForms} from '../ring-forms.ts';
+import {UnionWall, ringSideLines, storeyLoops, unionWallForms} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 import {snapCm} from '../weld.ts';
 import {
@@ -68,6 +68,14 @@ export const SIDE_READINGS: Readonly<Record<WireSolvedForm, SideReading>> = {
 
 /** The solved form a fixture's Ring form writes, as an exhaustive table (decision 142, N4). */
 export const WIRE_FORMS: Readonly<Record<RingForm, Extract<WireSolvedForm, WireRequest>>> = {hip: 'Pitched', gable: 'GableEnd'};
+
+/**
+ * Journal decision 147, N1: `WIRE_FORMS` tied to `SIDE_READINGS`, so each written form reads back as its Ring form.
+ * Compile-time on the type; tests/wire-input.test.ts asserts it on the values.
+ */
+type ReadsBack = {[F in RingForm]: (typeof SIDE_READINGS)[(typeof WIRE_FORMS)[F]] extends SideReading ? true : never};
+const readsBack: ReadsBack = {hip: true, gable: true};
+void readsBack;
 
 const label = (r: WireRing, i: number): string => `Ring ${i} (model index ${r.modelIndex})`;
 
@@ -115,7 +123,7 @@ function ringShapeErrors(cs: WireVec2[], at: string): string[] {
     const [a, b] = ends(i);
     return a.x === b.x && a.y !== b.y ? 'x' : a.y === b.y && a.x !== b.x ? 'y' : null;
   };
-  const axes = [0, 1, 2, 3].map(fixedAxis);
+  const axes = RING_SIDES.map((_, i) => fixedAxis(i));
   const out = axes.flatMap((ax, i) => {
     const [a, b] = ends(i);
     return ax ? [] : [`${at} side ${i} runs (${a.x}, ${a.y}) to (${b.x}, ${b.y}), not along one axis: the Ring ${notRect}`];
@@ -304,7 +312,7 @@ export function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[]
   const out: string[] = [];
   for (const storey of storeysOf(probe)) {
     const rings = storeyRings(probe, storey);
-    let walls;
+    let walls: UnionWall[];
     try {
       walls = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect)));
     } catch (e) {

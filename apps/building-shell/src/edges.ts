@@ -139,13 +139,13 @@ export function vertexAt(reg: VertexRegistry, p: Vec3, origin: VertexOrigin): nu
         o.vertices.push(v);
       }
     } else if (origin.at === 'mesh') {
-      reg.origins[got] = {at: 'mesh', vertices: copyNonEmpty(origin.vertices), point: origin.point};
+      reg.origins[got] = {...origin, vertices: copyNonEmpty(origin.vertices)};
     } else if (origin.at === 'edge' && o.at === 'edge') {
       for (const e of origin.edges) if (!o.edges.includes(e)) o.edges.push(e);
     }
     return got;
   }
-  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: copyNonEmpty(origin.vertices), point: origin.point};
+  if (origin.at === 'mesh') origin = {...origin, vertices: copyNonEmpty(origin.vertices)};
   if (origin.at === 'edge') origin = {at: 'edge', edges: copyNonEmpty(origin.edges)};
   reg.positions.push(s);
   reg.origins.push(origin);

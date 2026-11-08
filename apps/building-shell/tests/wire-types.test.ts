@@ -42,16 +42,20 @@ const frameGenerated: Equal<Generated['frame'], string> = true;
 /** Decision 142, B4: the output's face schema and `CanonicalFace`, strictly equal. */
 const faceSchema: Equal<Flat<z.output<typeof CanonicalFaceSchema>>, Flat<CanonicalFace>> = true;
 
-/** Decision 142, N5: `SHELL_KINDS` and `ShellKind`, equal both ways, until the list moves into tags.ts (WP3.8). */
+/** Decisions 142, N5, and 147, N7: `SHELL_KINDS` (tags.ts's one list) and `ShellKind`, equal both ways. */
 const shellKinds: Equal<(typeof SHELL_KINDS)[number], ShellKind> = true;
+
+/** Decision 147, N5: the canary. `Equal` rejects `any`, so a drift that types a field `any` cannot pass. */
+const anyCanary: Equal<any, number> = false; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /** Decision 142, N5: four corners, one per compass side. */
 const fourCorners: Equal<typeof RING_CORNERS, 4> = true;
 
 describe('the stand-in drift guards (relies on typecheck)', () => {
   it('compiles every strict type equality: refined against generated, pinned literals, faces, kinds and corners', () => {
-    expect([sameShape, sameKeys, versionPinned, versionConstant, versionGenerated, framePinned, frameConstant, frameGenerated, faceSchema, shellKinds, fourCorners])
-      .toEqual(new Array(11).fill(true));
+    const checks = [sameShape, sameKeys, versionPinned, versionConstant, versionGenerated, framePinned, frameConstant, frameGenerated, faceSchema, shellKinds, fourCorners];
+    expect(checks.every(c => c === true)).toBe(true);
+    expect(anyCanary).toBe(false);
   });
 
   it('pins the literals the prototype names, and defaults omitted ones to them (decision 140, F7)', () => {

@@ -22,17 +22,12 @@
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
 import {EDGE_KINDS, EdgeKind, snapPoint} from '../edges.ts';
 import type {BuildingShell} from '../shell.ts';
-import type {ShellKind, Vec3} from '../tags.ts';
+import {SHELL_KINDS, ShellKind, Vec3} from '../tags.ts';
 import {dist3} from '../vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../weld.ts';
 import type {InputReport} from './input-adapter.ts';
 
-/** Every `ShellKind`, as a runtime list for the output boundary's validation. */
-export const SHELL_KINDS = ['Wall', 'Gable', 'Roof', 'Underside', 'Ground', 'Cheek', 'Internal'] as const satisfies readonly ShellKind[];
-/** Compile-time: `SHELL_KINDS` names every `ShellKind`. */
-const everyShellKind: readonly ShellKind[] extends readonly (typeof SHELL_KINDS)[number][] ? true : never = true;
-void everyShellKind;
-export {EDGE_KINDS};
+export {EDGE_KINDS, SHELL_KINDS};
 
 /**
  * One face. `perimeter` is absent where an engine carries none, as the legacy Surfaces do (decision 142, N3): the
@@ -104,15 +99,18 @@ function maximumMatching<A, B>(a: A[], b: B[], fits: (x: A, y: B) => boolean): n
   return match;
 }
 
+/** What each side holds unpaired after a matching: the left's records, then the right's (journal decision 147, B5). */
+export type Unmatched<TLeft, TRight> = [left: TLeft[], right: TRight[]];
+
 /** What `a` and `b` hold unpaired under a maximum matching. */
-function unmatched<A, B>(a: A[], b: B[], fits: (x: A, y: B) => boolean): [A[], B[]] {
+function unmatched<A, B>(a: A[], b: B[], fits: (x: A, y: B) => boolean): Unmatched<A, B> {
   const match = maximumMatching(a, b, fits);
   const paired = new Set(match.filter(i => i >= 0));
   return [a.filter((_, i) => !paired.has(i)), b.filter((_, j) => match[j] < 0)];
 }
 
 /** Faces of one kind, each list sorted here, whatever order it came in. */
-export function matchAreas(a: CanonicalFace[], b: CanonicalFace[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): [CanonicalFace[], CanonicalFace[]] {
+export function matchAreas(a: CanonicalFace[], b: CanonicalFace[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): Unmatched<CanonicalFace, CanonicalFace> {
   return unmatched([...a].sort(byFace), [...b].sort(byFace), (f, g) => Math.abs(f.area - g.area) <= areaTolerance(f, g, tol));
 }
 
@@ -120,7 +118,7 @@ const near = (p: Vec3, q: Vec3, tol: number): boolean =>
   Math.abs(p[0] - q[0]) <= tol && Math.abs(p[1] - q[1]) <= tol && Math.abs(p[2] - q[2]) <= tol;
 
 /** Edges of one kind: an edge fits another when both ends lie within tolerance, either way round. */
-export function matchEdges(a: CanonicalEdge[], b: CanonicalEdge[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): [CanonicalEdge[], CanonicalEdge[]] {
+export function matchEdges(a: CanonicalEdge[], b: CanonicalEdge[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): Unmatched<CanonicalEdge, CanonicalEdge> {
   const t = tol.pointCm;
   return unmatched([...a].sort(byEdge), [...b].sort(byEdge), (e, f) => (near(e.a, f.a, t) && near(e.b, f.b, t)) || (near(e.a, f.b, t) && near(e.b, f.a, t)));
 }
@@ -143,7 +141,7 @@ function groupBy<T extends {kind: string}>(xs: T[]): Map<string, T[]> {
 }
 
 /** Runs `match` on each kind either side holds, and gathers what it leaves. */
-function byKind<T extends {kind: string}>(a: T[], b: T[], match: (x: T[], y: T[]) => [T[], T[]]): [T[], T[]] {
+function byKind<T extends {kind: string}>(a: T[], b: T[], match: (x: T[], y: T[]) => Unmatched<T, T>): Unmatched<T, T> {
   const ga = groupBy(a), gb = groupBy(b);
   const onlyA: T[] = [], onlyB: T[] = [];
   for (const k of [...new Set([...ga.keys(), ...gb.keys()])].sort()) {
@@ -165,7 +163,7 @@ export function diffCanonical(a: CanonicalShell, b: CanonicalShell, tol: Canonic
 export interface EdgeKindCount { kind: EdgeKind; a: number; b: number }
 
 /** Decision 140, F9: the legacy baseline's diff. Face kind and area, and edge-kind counts, nothing else. */
-export interface BaselineDiff { facesOnlyA: CanonicalFace[]; facesOnlyB: CanonicalFace[]; edgeKindCounts: EdgeKindCount[] }
+export interface BaselineDiff extends Pick<CanonicalDiff, 'facesOnlyA' | 'facesOnlyB'> { edgeKindCounts: EdgeKindCount[] }
 
 /** The baseline diff of a canonical shell against faces and edge kinds with no ends. */
 export function diffBaseline(a: CanonicalShell, bFaces: CanonicalFace[], bEdgeKinds: EdgeKind[], tol: CanonicalTolerance = CANONICAL_TOLERANCE): BaselineDiff {
