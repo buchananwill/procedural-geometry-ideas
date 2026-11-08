@@ -2795,3 +2795,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   - **Reproducer:** `[bandS, jut45, jut[-200,300,0,700] S@30, …]`, and its swap.
   - **Ruled best effort and enrolled** (decisions 172 and 175). Spec 2's collinear-cut rule is a question for the
     courtyard redesign.
+- **F56. Sliver Cells are rare, and their count falls with size: there is no power-law tail** (a Sonnet measurement
+  on `git archive 6369a5c`, 2026-11-08; scripts and data in `scratchpad\slivers\`).
+  - **The data:** the golden set (68 shells, 6,352 partial Cells), and a corpus of 5,396 shells at 250 cm storeys, with
+    pitches snapped to content's 22.5°, 30° and 45°.
+  - **Every size bin holds fewer Cells than the bin above it.** None is under 0.01 cm² or 0.01 cm thick anywhere.
+  - **In the corpus:** 0.03% of partials are under 1 cm² (196 Cells), and 0.3% are under 25 cm², 1% of a Cell. The
+    median shell has none. The worst shell has 3 under 1 cm² and 8 under 25 cm².
+  - **On the 50 cm lattice, where the C++ puts every corner** (the `family` and `u` generators), no Cell is under
+    1.86 cm². Every sub-1 cm² Cell comes from the 10 cm-grid random generator, which content cannot produce.
+  - **The cause:** a roof line at 30° or 22.5° grazes a lattice corner. tan 30° and tan 22.5° are irrational, so
+    `run · tan` lands near a multiple of 50 cm only by chance. At 45° the runs are exact, and no sliver was seen. A
+    sliver's area goes as the square of the miss, which keeps the cumulative count small.
+  - **By face:**
+    - Gable and Wall carry all the sub-1 cm² Cells.
+    - Roof Cells never fall below about 4 cm².
+    - Under 25 cm² there are Gable 1,448, Wall 691 and Roof 426.
