@@ -22,7 +22,7 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
+  F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures,
 } from './robustness-fixtures.ts';
 import {planStorey} from '../src/storey.ts';
@@ -377,21 +377,9 @@ describe("journal decision 122's fresh-seed reproducers, each cured", () => {
   });
 });
 
-/** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
-const F2_COURTYARDS: [string, number, FixtureRing[]][] = [
-  ['s1h300/Court5', 300, [
-    ring([300, 200, 500, 550], 0, 1, 37), ring([50, 550, 500, 650], 0, 1, 37),
-    ring([50, 50, 500, 200], 0, 3, 37, {E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}}), ring([50, 200, 200, 550], 0, 2, 37),
-  ]],
-  ['s1h250/Court16', 250, [
-    ring([100, 450, 650, 550], 0, 3, 30, {N: {form: 'gable'}, W: {form: 'gable'}}), ring([500, 200, 650, 450], 0, 1, 30, {S: {form: 'gable'}, W: {form: 'gable'}}),
-    ring([100, 100, 650, 200], 0, 2, 30, {W: {form: 'gable'}}), ring([100, 200, 300, 450], 0, 2, 30, {E: {form: 'gable'}}),
-  ]],
-];
-
 describe("journal decision 135, F2: floor-standing holed hip solids' two cleanMesh refusals, cured", () => {
-  it.each(F2_COURTYARDS)('%s keeps every invariant', async (name, storeyHeight, rings) => {
-    expect(await courtyardOutcome({name, cellSize: 50, storeyHeight, rings})).toEqual([]);
+  it.each(F2_COURTYARDS.map(f => [f.name, f] as const))('%s keeps every invariant', async (_, f) => {
+    expect(await courtyardOutcome(f)).toEqual([]);
   });
 });
 
@@ -414,11 +402,9 @@ const GAP_DEFECTS: PinTable<`Gap${'Aligned' | 'Offset'}${number}`> = {
 };
 
 describe('near-touching islands (journal decision 150, F6)', () => {
-  const cases = [1, 3, 5, 8, 12].flatMap(k => ([['Aligned', [0, 400]], ['Offset', [100, 300]]] as const).map(([kind, [y0, y1]]) =>
-    [`Gap${kind}${k}` as `Gap${'Aligned' | 'Offset'}${number}`, k, y0, y1] as const));
-  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, k, y0, y1) => {
-    const f: ShellFixture = {name, cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 400], 0, 1, 45), ring([500 + k / 1024, y0, 1000, y1], 0, 1, 45)]};
-    expect(await outcome(f, {genus: [0, 0], cheeks: 0})).toEqual(GAP_DEFECTS[name] ?? []);
+  const cases = [1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => [`Gap${kind}${k}` as const, kind, k] as const));
+  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, kind, k) => {
+    expect(await outcome(gapFixture(kind, k), {genus: [0, 0], cheeks: 0})).toEqual(GAP_DEFECTS[name] ?? []);
   });
 });
 
@@ -427,10 +413,7 @@ describe('journal decision 140, F5: storeys joined by edge contact', () => {
   // north eave, y = 400 at z = 250. The band's Underside runs straight past the U's inner corners there, so a Cell
   // corner at a corner lies inside a ShellEdge whose faces the corner's own triangle fans never reach.
   it('UpperUJoinedByEdgeContact keeps every invariant', async () => {
-    await holds({
-      name: 'UpperUJoinedByEdgeContact', cellSize: 50, storeyHeight: 250,
-      rings: [ring([0, 0, 1000, 400], 0, 1, 45), ring([0, 0, 200, 400], 1, 1, 45), ring([800, 0, 1000, 400], 1, 1, 45), ring([0, 400, 1000, 600], 1, 1, 45)],
-    });
+    await holds(UPPER_U_EDGE_CONTACT);
   });
 });
 

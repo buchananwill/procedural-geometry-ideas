@@ -13,7 +13,7 @@ import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
-import {SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
+import {CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -42,7 +42,7 @@ const courtyard = (name: string, rects: Rect[], deg = 30): ShellFixture => layou
  * Journal decision 132: the corrected cut rule's layout. Wings at full depth with the bands between them: no whole raw
  * wall crosses the ring, but each band's inner side has a segment that does.
  */
-const FULL_WINGS = courtyard('FullWingsProbe', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]]);
+const FULL_WINGS = FULL_WINGS_PROBE;
 
 /** Each build, made once, on the first test that asks for it, so a crash fails that test alone. */
 const build = memoBuilds();
@@ -325,7 +325,7 @@ describe('layouts the rule refuses (spec decision 2 as amended)', () => {
   // far wall is the far band's, so nothing caps it at the near band's depth, 100. Its face on the cut then stands
   // higher than its partner's across the slit, and survives.
   it('enrols the cut-piece overshoot (CutOvershootProbe): runB stands 21 cm above the true roof, and one Internal cut face survives', async () => {
-    const f = courtyard('CutOvershootProbe', [[0, 250, 250, 600], [0, 600, 650, 850], [400, 250, 650, 600], [0, 150, 650, 250]]);
+    const f = CUT_OVERSHOOT_PROBE;
     const plan = planStorey(f, 0);
     const truth = (x: number, y: number): number => Math.tan(Math.PI / 6) * Math.min(Math.min(x, 650 - x, y - 150, 850 - y), Math.max(250 - x, x - 400, 250 - y, y - 600));
     const at = {x: 127.3, y: 251.7};

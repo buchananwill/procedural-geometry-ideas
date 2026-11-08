@@ -1,0 +1,1152 @@
+{
+ "schema": "building-shell/golden@1",
+ "fixtures": [
+  {
+   "fixture": "NarrowUpperStorey",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "NarrowUpperStorey.json",
+   "union": "NarrowUpperStorey.union.json",
+   "input": "NarrowUpperStorey.input.json",
+   "report": {
+    "conflicts": [
+     "NarrowUpperStorey: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "NarrowUpperStoreyGabled",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "NarrowUpperStoreyGabled.json",
+   "union": "NarrowUpperStoreyGabled.union.json",
+   "input": "NarrowUpperStoreyGabled.input.json",
+   "report": {
+    "conflicts": [
+     "NarrowUpperStoreyGabled: n=(0.000000, -1.000000, 0.000000) d=0.000: Gable storey 0 wall 0 (part 2) over Gable storey 1 wall 0 (part 5)",
+     "NarrowUpperStoreyGabled: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "TallerUpper",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "TallerUpper.json",
+   "union": "TallerUpper.union.json",
+   "input": "TallerUpper.input.json",
+   "report": {
+    "conflicts": [
+     "TallerUpper: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 66,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Overhang",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "Overhang.json",
+   "union": "Overhang.union.json",
+   "input": "Overhang.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 90,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OverhangApexOnEave",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "OverhangApexOnEave.json",
+   "union": "OverhangApexOnEave.union.json",
+   "input": "OverhangApexOnEave.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 70,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Bridge",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "Bridge.json",
+   "union": "Bridge.union.json",
+   "input": "Bridge.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "BridgeOverBlock",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "BridgeOverBlock.json",
+   "union": "BridgeOverBlock.union.json",
+   "input": "BridgeOverBlock.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 96,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "ValleyWings",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "ValleyWings.json",
+   "union": "ValleyWings.union.json",
+   "input": "ValleyWings.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 54,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "ValleyWingsPierced",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "ValleyWingsPierced.json",
+   "union": "ValleyWingsPierced.union.json",
+   "input": "ValleyWingsPierced.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 124,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "SingleStoreyT",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "SingleStoreyT.json",
+   "union": "SingleStoreyT.union.json",
+   "input": "SingleStoreyT.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 42,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "DefaultChalet",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "DefaultChalet.json",
+   "union": "DefaultChalet.union.json",
+   "input": "DefaultChalet.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": []
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Courtyard",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "Courtyard.json",
+   "union": "Courtyard.union.json",
+   "input": "Courtyard.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FlushRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "FlushRingConflict.json",
+   "union": "FlushRingConflict.union.json",
+   "input": "FlushRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FlushRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "FlushRingConflictSwapped.json",
+   "union": "FlushRingConflictSwapped.union.json",
+   "input": "FlushRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OverlapRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "OverlapRingConflict.json",
+   "union": "OverlapRingConflict.union.json",
+   "input": "OverlapRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 64,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OverlapRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "OverlapRingConflictSwapped.json",
+   "union": "OverlapRingConflictSwapped.union.json",
+   "input": "OverlapRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PitchRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PitchRingConflict.json",
+   "union": "PitchRingConflict.union.json",
+   "input": "PitchRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 70,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PitchRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PitchRingConflictSwapped.json",
+   "union": "PitchRingConflictSwapped.union.json",
+   "input": "PitchRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "ThreeRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "ThreeRingConflict.json",
+   "union": "ThreeRingConflict.union.json",
+   "input": "ThreeRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 32,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "ThreeRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "ThreeRingConflictSwapped.json",
+   "union": "ThreeRingConflictSwapped.union.json",
+   "input": "ThreeRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "DistantRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "DistantRingConflict.json",
+   "union": "DistantRingConflict.union.json",
+   "input": "DistantRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "DistantRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "DistantRingConflictSwapped.json",
+   "union": "DistantRingConflictSwapped.union.json",
+   "input": "DistantRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 72,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "StoreyRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "StoreyRingConflict.json",
+   "union": "StoreyRingConflict.union.json",
+   "input": "StoreyRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 54,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "StoreyRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "StoreyRingConflictSwapped.json",
+   "union": "StoreyRingConflictSwapped.union.json",
+   "input": "StoreyRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [
+     "StoreyRingConflictSwapped: n=(0.000000, -1.000000, 0.000000) d=0.000: Gable storey 0 wall 0 (part 2) over Gable storey 1 wall 0 (part 5)",
+     "StoreyRingConflictSwapped: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 69,
+    "newEdgeKinds": [
+     "GableSloped"
+    ],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "HoleRingConflict",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "HoleRingConflict.json",
+   "union": "HoleRingConflict.union.json",
+   "input": "HoleRingConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "HoleRingConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "HoleRingConflictSwapped.json",
+   "union": "HoleRingConflictSwapped.union.json",
+   "input": "HoleRingConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 84,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CutPitchConflict",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "CutPitchConflict.json",
+   "union": "CutPitchConflict.union.json",
+   "input": "CutPitchConflict.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 120,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CutPitchConflictSwapped",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "CutPitchConflictSwapped.json",
+   "union": "CutPitchConflictSwapped.union.json",
+   "input": "CutPitchConflictSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 120,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PortNarrowUpper300",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PortNarrowUpper300.json",
+   "union": "PortNarrowUpper300.union.json",
+   "input": "PortNarrowUpper300.input.json",
+   "report": {
+    "conflicts": [
+     "PortNarrowUpper300: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PortNarrowUpperGabled300",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PortNarrowUpperGabled300.json",
+   "union": "PortNarrowUpperGabled300.union.json",
+   "input": "PortNarrowUpperGabled300.input.json",
+   "report": {
+    "conflicts": [
+     "PortNarrowUpperGabled300: n=(0.000000, -1.000000, 0.000000) d=0.000: Gable storey 0 wall 0 (part 2) over Gable storey 1 wall 0 (part 5)",
+     "PortNarrowUpperGabled300: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 56,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PortPokeOut300",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PortPokeOut300.json",
+   "union": "PortPokeOut300.union.json",
+   "input": "PortPokeOut300.input.json",
+   "report": {
+    "conflicts": [
+     "PortPokeOut300: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 96,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "PortPokeOut250",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "PortPokeOut250.json",
+   "union": "PortPokeOut250.union.json",
+   "input": "PortPokeOut250.input.json",
+   "report": {
+    "conflicts": [
+     "PortPokeOut250: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 104,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FlushOverReflex300",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "FlushOverReflex300.json",
+   "union": "FlushOverReflex300.union.json",
+   "input": "FlushOverReflex300.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 54,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FlushOverReflex250",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "FlushOverReflex250.json",
+   "union": "FlushOverReflex250.union.json",
+   "input": "FlushOverReflex250.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 54,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed2Fuzz109h300",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed2Fuzz109h300.json",
+   "union": "Seed2Fuzz109h300.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 244,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed2Fuzz109h250",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed2Fuzz109h250.json",
+   "union": "Seed2Fuzz109h250.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 225,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed3Fuzz3h300",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed3Fuzz3h300.json",
+   "union": "Seed3Fuzz3h300.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 257,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed3Fuzz3h250",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed3Fuzz3h250.json",
+   "union": "Seed3Fuzz3h250.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 235,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed4Fuzz134h300",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed4Fuzz134h300.json",
+   "union": "Seed4Fuzz134h300.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 267,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Seed4Fuzz134h250",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0
+   ],
+   "shell": "Seed4Fuzz134h250.json",
+   "union": "Seed4Fuzz134h250.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 247,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "UpperUJoinedByEdgeContact",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "shell": "UpperUJoinedByEdgeContact.json",
+   "union": "UpperUJoinedByEdgeContact.union.json",
+   "input": "UpperUJoinedByEdgeContact.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "FullWingsProbe",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "FullWingsProbe.json",
+   "union": "FullWingsProbe.union.json",
+   "input": "FullWingsProbe.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CutOvershootProbe",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "CutOvershootProbe.json",
+   "union": "CutOvershootProbe.union.json",
+   "input": "CutOvershootProbe.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 1,
+    "unclassifiedEdges": 3,
+    "cheeks": 0,
+    "partialCells": 91,
+    "newEdgeKinds": [
+     "Unclassified"
+    ],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "survivingInternal 1 at (125, 250, 312.546875)",
+    "3 Unclassified Edges: (100, 250, 307.7353515625) to (125, 250, 322.1689453125); (100, 250, 307.7353515625) to (150, 250, 307.7353515625); (125, 250, 322.1689453125) to (150, 250, 307.7353515625)"
+   ]
+  },
+  {
+   "fixture": "Court5Seed1h300",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "Court5Seed1h300.json",
+   "union": "Court5Seed1h300.union.json",
+   "input": "Court5Seed1h300.input.json",
+   "report": {
+    "conflicts": [
+     "Court5Seed1h300: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 2 wall 3 (part 10) over Gable storey 1 wall 5 (part 7)",
+     "Court5Seed1h300: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 2 wall 3 (part 10) over Gable storey 1 wall 5 (part 9)",
+     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 5) over Gable storey 0 wall 12 (part 2)",
+     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 8)",
+     "Court5Seed1h300: n=(1.000000, 0.000000, 0.000000) d=500.000: Wall storey 2 wall 1 (part 10) over Gable storey 1 wall 1 (part 7)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 85,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Court16Seed1h250",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "shell": "Court16Seed1h250.json",
+   "union": "Court16Seed1h250.union.json",
+   "input": "Court16Seed1h250.input.json",
+   "report": {
+    "conflicts": [
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 7 (part 8) over Gable storey 0 wall 3 (part 3)",
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 8 (part 8) over Gable storey 0 wall 3 (part 3)",
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 9 (part 8) over Gable storey 0 wall 3 (part 3)",
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 2 wall 3 (part 13) over Gable storey 1 wall 7 (part 10)",
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 8) over Gable storey 0 wall 2 (part 2)",
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 8) over Gable storey 0 wall 2 (part 7)",
+     "Court16Seed1h250: n=(1.000000, 0.000000, 0.000000) d=300.000: Wall storey 1 wall 3 (part 8) over Gable storey 0 wall 10 (part 3)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 75,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "GapAligned1",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0,
+    0
+   ],
+   "shell": "GapAligned1.json",
+   "union": "GapAligned1.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 64,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"
+   ]
+  },
+  {
+   "fixture": "GapOffset1",
+   "cppReplayable": false,
+   "reason": "corner off the Cell lattice",
+   "genus": [
+    0,
+    0
+   ],
+   "shell": "GapOffset1.json",
+   "union": "GapOffset1.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 48,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "two components lie 9.766e-4 cm apart, within CLEAN_TOLERANCE_CM, at (500.0009765625, 100, 0) and (500, 100, 0)"
+   ]
+  }
+ ]
+}

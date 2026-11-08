@@ -34,6 +34,11 @@ export interface ShellUnion {
    * re-tag pass and step 4 read.
    */
   mesh: ShellMesh;
+  /**
+   * Manifold's union as it came out, before the cleaning, imprint and re-tag (journal decision 131): the golden set's
+   * boolean stage, so the port can tell a difference in the boolean from one in its raw parts.
+   */
+  boolean: ShellMesh;
   /** What the cleaning merged and dropped. */
   clean: CleanStats;
   /** What the imprint cut and added. */
@@ -53,7 +58,7 @@ export interface ShellUnion {
 }
 
 /** What the union alone yields. */
-export type UnionPartsResult = Pick<ShellUnion, 'status' | 'closed' | 'genus' | 'mesh' | 'clean'>;
+export type UnionPartsResult = Pick<ShellUnion, 'status' | 'closed' | 'genus' | 'mesh' | 'boolean' | 'clean'>;
 
 /** What the re-tag pass yields. */
 export type RetagResult = Pick<ShellUnion, 'triTags' | 'conflicts'>;
@@ -112,11 +117,11 @@ export function unionParts(wasm: Wasm, parts: RawPart[], planes: readonly Plane3
     const raw = meshOf(u.getMesh());
     // A union Manifold refuses is reported as it stands, uncleaned.
     if (status !== 'NoError') {
-      return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {...NO_CLEAN}};
+      return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, boolean: raw, clean: {...NO_CLEAN}};
     }
     const {mesh, stats} = cleanMesh(raw, planes);
     const genus = mesh === raw ? u.genus() : remeshedGenus(wasm, mesh, 'cleaned');
-    return {status, closed: mesh.tris.length > 0 && isClosed(mesh.tris), genus, mesh, clean: stats};
+    return {status, closed: mesh.tris.length > 0 && isClosed(mesh.tris), genus, mesh, boolean: raw, clean: stats};
   } finally {
     ms.forEach(m => m.delete());
     u?.delete();
@@ -225,11 +230,11 @@ function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, mode
 /** Unions raw parts already built: the one union, the imprint, the re-tag pass, and the defect counts. */
 export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], parts: RawPart[], tags: ShellTags): ShellUnion {
   const model = makeRegionModel(parts, tags);
-  const {status, closed, genus, mesh, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts, tags.planes), model);
+  const {status, closed, genus, mesh, boolean, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts, tags.planes), model);
   const {triTags, conflicts} = retagPass(label, mesh, model);
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
   const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
-  return {label, status, closed, genus, mesh, clean, imprint, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
+  return {label, status, closed, genus, mesh, boolean, clean, imprint, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
 }
 
 /** Unions already-planned storeys: builds every raw part, then `unionRawParts`. */

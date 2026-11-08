@@ -7,7 +7,8 @@
     "dev": "vite",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "export": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/export.ts"
+    "export": "node --experimental-strip-types --disable-warning=ExperimentalWarning src/export.ts",
+    "golden": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/export-golden.ts"
   },
   "dependencies": {
     "@proc-geo/core": "workspace:*",

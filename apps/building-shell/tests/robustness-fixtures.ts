@@ -394,3 +394,43 @@ export function rosterPitchCases(fixtures: readonly ShellFixture[]): RosterPitch
     return out;
   });
 }
+
+// ---- The named enrolled layouts (each its test's, and the golden set's) ------------------------------------------
+
+/**
+ * Journal decision 132: the corrected cut rule's layout. Wings at full depth with the bands between them: no whole raw
+ * wall crosses the ring, but each band's inner side has a segment that does.
+ */
+export const FULL_WINGS_PROBE: ShellFixture = shellFixture('FullWingsProbe',
+  ([[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 0, 300, 1000], [700, 0, 1000, 1000]] as Rect[]).map(r => ring(r, 0, 1, 30)));
+
+/** WP3.6's finding, enrolled: roof-gable algorithm B's cut-piece overshoot, one Internal cut face surviving. */
+export const CUT_OVERSHOOT_PROBE: ShellFixture = shellFixture('CutOvershootProbe',
+  ([[0, 250, 250, 600], [0, 600, 650, 850], [400, 250, 650, 600], [0, 150, 650, 250]] as Rect[]).map(r => ring(r, 0, 1, 30)));
+
+/** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
+export const F2_COURTYARDS: readonly ShellFixture[] = [
+  shellFixture('s1h300/Court5', [
+    ring([300, 200, 500, 550], 0, 1, 37), ring([50, 550, 500, 650], 0, 1, 37),
+    ring([50, 50, 500, 200], 0, 3, 37, {E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}}), ring([50, 200, 200, 550], 0, 2, 37),
+  ], 300),
+  shellFixture('s1h250/Court16', [
+    ring([100, 450, 650, 550], 0, 3, 30, {N: {form: 'gable'}, W: {form: 'gable'}}), ring([500, 200, 650, 450], 0, 1, 30, {S: {form: 'gable'}, W: {form: 'gable'}}),
+    ring([100, 100, 650, 200], 0, 2, 30, {W: {form: 'gable'}}), ring([100, 200, 300, 450], 0, 2, 30, {E: {form: 'gable'}}),
+  ], 250),
+];
+
+/**
+ * Journal decision 140, F5: storey 1's U stands on storey 0 by its wings, and its band touches storey 0 only along
+ * storey 0's north eave, y = 400 at z = 250.
+ */
+export const UPPER_U_EDGE_CONTACT: ShellFixture = shellFixture('UpperUJoinedByEdgeContact',
+  [ring([0, 0, 1000, 400], 0, 1, 45), ring([0, 0, 200, 400], 1, 1, 45), ring([800, 0, 1000, 400], 1, 1, 45), ring([0, 400, 1000, 600], 1, 1, 45)]);
+
+/** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
+export type GapKind = 'Aligned' | 'Offset';
+
+export const gapFixture = (kind: GapKind, k: number): ShellFixture => {
+  const [y0, y1] = kind === 'Aligned' ? [0, 400] : [100, 300];
+  return shellFixture(`Gap${kind}${k}`, [ring([0, 0, 500, 400], 0, 1, 45), ring([500 + k / 1024, y0, 1000, y1], 0, 1, 45)]);
+};
