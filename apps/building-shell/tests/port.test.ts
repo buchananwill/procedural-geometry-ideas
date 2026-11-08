@@ -2,10 +2,10 @@
 // each defect's assertions, and the full measured topology pinned as reference data for the port.
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {PORT_FIXTURES} from '../src/fixture.ts';
+import {PORT_FIXTURES, ShellFixture} from '../src/fixture.ts';
 import {CONVENTION_ROOF_LINES_CUT, ShellBuild, ShellReport, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
-import {invariantViolations} from './shell-invariants.ts';
+import {dist, invariantViolations} from './shell-invariants.ts';
 
 const TAN60 = Math.sqrt(3);
 
@@ -18,7 +18,7 @@ const get = (name: string): ShellBuild => {
   if (!b) throw new Error(`no shell built for ${name}`);
   return b;
 };
-const near = (p: Vec3, q: Vec3): boolean => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) <= SHELL_TOLERANCE_CM;
+const near = (p: Vec3, q: Vec3): boolean => dist(p, q) <= SHELL_TOLERANCE_CM;
 
 /** A port fixture's measured topology: its record counts, its genus and its report. */
 interface PortPin {
@@ -36,8 +36,12 @@ const report = (r: Partial<ShellReport> & Pick<ShellReport, 'conflicts' | 'parti
 });
 const flushWall = (name: string): string => `${name}: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)`;
 
+/** The port fixtures' names, as `PORT_FIXTURES` lists them. */
+const PORT_NAMES = ['PortNarrowUpper300', 'PortNarrowUpperGabled300', 'PortPokeOut300', 'PortPokeOut250'] as const;
+type PortName = typeof PORT_NAMES[number];
+
 /** Measured at WP3.6. PortPokeOut250 carries a defect: see `KNOWN_VIOLATIONS`. */
-const PINS: Record<string, PortPin> = {
+const PINS: Record<PortName, PortPin> = {
   PortNarrowUpper300: {genus: 0, faces: 10, edges: 22, netEdges: 1065, cells: 522, vertices: 544, report: report({conflicts: [flushWall('PortNarrowUpper300')], partialCells: 56})},
   PortNarrowUpperGabled300: {
     genus: 0, faces: 10, edges: 22, netEdges: 1065, cells: 522, vertices: 544,
@@ -62,14 +66,25 @@ const PINS: Record<string, PortPin> = {
  * where storey 0's 60 degree roof passes below the plate. The same pair cancels on the mirror side (x 100 to 144.34),
  * and at 300 cm. The fixture asserts exactly this signature, so a cure breaks it as surely as a new defect does.
  */
-const KNOWN_VIOLATIONS: Record<string, string[]> = {
+const KNOWN_VIOLATIONS: Partial<Record<PortName, string[]>> = {
   PortPokeOut250: [
     'survivingInternal 4', '6 Unclassified Edges',
     'ShellEdge 40 joins two faces of one identity', 'ShellEdge 41 joins two faces of one identity',
   ],
 };
 
-describe.each(PORT_FIXTURES.map(f => [f.name, f] as const))('%s', (name, f) => {
+/** The port fixture of each name. */
+const portFixture = (name: PortName): ShellFixture => {
+  const f = PORT_FIXTURES.find(x => x.name === name);
+  if (!f) throw new Error(`no port fixture named ${name}`);
+  return f;
+};
+
+it('lists every port fixture by name', () => {
+  expect(PORT_FIXTURES.map(f => f.name)).toEqual([...PORT_NAMES]);
+});
+
+describe.each(PORT_NAMES.map(name => [name, portFixture(name)] as const))('%s', (name, f) => {
   it("keeps spec decision 32's invariants, with its genus as measured", () => {
     expect(invariantViolations(get(name), {genus: PINS[name].genus, cheeks: 0})).toEqual(KNOWN_VIOLATIONS[name] ?? []);
   });

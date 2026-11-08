@@ -7,8 +7,11 @@ import {Rect} from './roof/model.ts';
  */
 export type RingForm = 'hip' | 'gable';
 
-/** A Ring rectangle's four sides: S on y = y0, E on x = x1, N on y = y1, W on x = x0. */
-export type RingSide = 'S' | 'E' | 'N' | 'W';
+/** A Ring rectangle's four sides, in side order: S on y = y0, E on x = x1, N on y = y1, W on x = x0. */
+export const RING_SIDES = ['S', 'E', 'N', 'W'] as const;
+
+/** One side of a Ring rectangle (`RING_SIDES`). */
+export type RingSide = typeof RING_SIDES[number];
 
 /** One Ring side's form, and its pitch in degrees when it is not the Ring's default. */
 export interface SideForm { form: RingForm; deg?: number }

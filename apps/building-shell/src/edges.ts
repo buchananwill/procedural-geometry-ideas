@@ -60,18 +60,24 @@ export interface ShellVertex {
 
 // ---- Vertices ---------------------------------------------------------------------------------------------------
 
+/** A list with at least one member. */
+export type NonEmpty<T> = [T, ...T[]];
+
+/** A fresh copy of a non-empty list, so a registered origin never shares its list with the caller's. */
+export const copyNonEmpty = <T>(xs: NonEmpty<T>): NonEmpty<T> => [xs[0], ...xs.slice(1)];
+
 /**
  * A vertex of the net found at mesh vertices ending ShellEdges. `vertices` is one mesh vertex, or several at one exact
  * position `point` where Manifold writes a non-manifold pinch as coincident vertices with no edge between them
  * (journal decision 110, C1): each is one sheet of the surface through the point.
  */
-export interface MeshOrigin { at: 'mesh'; vertices: [number, ...number[]]; point: Vec3 }
+export interface MeshOrigin { at: 'mesh'; vertices: NonEmpty<number>; point: Vec3 }
 
 /**
  * A vertex of the net found inside ShellEdges: one, or two coincident ones where a pinch's two sheets share a segment
  * (journal decision 110, C1).
  */
-export interface EdgeOrigin { at: 'edge'; edges: [number, ...number[]] }
+export interface EdgeOrigin { at: 'edge'; edges: NonEmpty<number> }
 
 /** A vertex of the net found inside a face: an interior lattice corner. */
 export interface FaceOrigin { at: 'face'; face: number }
@@ -123,14 +129,14 @@ export function vertexAt(reg: VertexRegistry, p: Vec3, origin: VertexOrigin): nu
         o.vertices.push(v);
       }
     } else if (origin.at === 'mesh') {
-      reg.origins[got] = {at: 'mesh', vertices: [origin.vertices[0], ...origin.vertices.slice(1)], point: origin.point};
+      reg.origins[got] = {at: 'mesh', vertices: copyNonEmpty(origin.vertices), point: origin.point};
     } else if (origin.at === 'edge' && o.at === 'edge') {
       for (const e of origin.edges) if (!o.edges.includes(e)) o.edges.push(e);
     }
     return got;
   }
-  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: [origin.vertices[0], ...origin.vertices.slice(1)], point: origin.point};
-  if (origin.at === 'edge') origin = {at: 'edge', edges: [origin.edges[0], ...origin.edges.slice(1)]};
+  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: copyNonEmpty(origin.vertices), point: origin.point};
+  if (origin.at === 'edge') origin = {at: 'edge', edges: copyNonEmpty(origin.edges)};
   reg.positions.push(s);
   reg.origins.push(origin);
   reg.byKey.set(k, reg.positions.length - 1);
@@ -153,7 +159,7 @@ export type EdgeShape = 'Flat' | 'Convex' | 'Concave' | 'Indeterminate';
  * `p` on the edge and `q` the vertex of B's incident triangle opposite the edge. The flat test runs first.
  */
 export function edgeShape(nA: Vec3, nB: Vec3, lift: number): EdgeShape {
-  if (Math.abs(nA[0] * nB[0] + nA[1] * nB[1] + nA[2] * nB[2] - 1) < FLAT_DOT_TOL) return 'Flat';
+  if (Math.abs(dot3(nA, nB) - 1) < FLAT_DOT_TOL) return 'Flat';
   if (lift < -SHELL_TOLERANCE_CM) return 'Convex';
   if (lift > SHELL_TOLERANCE_CM) return 'Concave';
   return 'Indeterminate';

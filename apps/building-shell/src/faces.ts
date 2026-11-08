@@ -1,9 +1,10 @@
 // Step 4, first part: the union's output triangles grouped into ShellFaces (spec decision 18). A face is a maximal
 // edge-connected set of triangles sharing one identity (decision 10) and one oriented plane.
 import {FaceTag, Plane3, PlaneClusters, Vec3, identityKey, samePlane} from './tags.ts';
-import {ShellMesh, ShellUnion, triArea} from './union.ts';
+import type {ShellMesh} from './mesh.ts';
+import {ShellUnion, triArea} from './union.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {cross3, dot3, lineDistance} from './vec3.ts';
+import {add3, cross3, dot3, lineDistance} from './vec3.ts';
 import {makeUnionFind, nextHalf, triOf} from './halfedge.ts';
 
 export interface ShellFace {
@@ -62,8 +63,7 @@ export const meshPoint = (positions: Float32Array, v: number): Vec3 => [position
 export function loopArea(loop: Vec3[], n: Vec3): number {
   let s: Vec3 = [0, 0, 0];
   for (let i = 0; i < loop.length; i++) {
-    const c = cross3(loop[i], loop[(i + 1) % loop.length]);
-    s = [s[0] + c[0], s[1] + c[1], s[2] + c[2]];
+    s = add3(s, cross3(loop[i], loop[(i + 1) % loop.length]));
   }
   return dot3(s, n) / 2;
 }

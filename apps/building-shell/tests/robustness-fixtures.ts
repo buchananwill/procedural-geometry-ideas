@@ -1,6 +1,6 @@
 // The WP3 correctness reviewer's robustness inputs (journal decision 101, F36 and F37), restated from its scratchpad
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
-import {FixtureRing, RingSides, ShellFixture, ring} from '../src/fixture.ts';
+import {FixtureRing, RING_SIDES, RingSides, ShellFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
 
 /**
@@ -92,7 +92,7 @@ export function randomCourtyardFixtures(seed: number, count: number, storeyHeigh
     const deg = pick([30, 37, 45, 52.5]);
     const rings = rects.map(r => {
       const sides: RingSides = {};
-      for (const side of ['S', 'E', 'N', 'W'] as const) if (rnd() < 0.2) sides[side] = {form: 'gable'};
+      for (const side of RING_SIDES) if (rnd() < 0.2) sides[side] = {form: 'gable'};
       return ring(r, 0, 1 + Math.floor(rnd() * 3), deg, sides);
     });
     // A random order: the index is the C++ parent model index, and the lowest wins each union wall.
@@ -104,6 +104,101 @@ export function randomCourtyardFixtures(seed: number, count: number, storeyHeigh
   }
   return out;
 }
+
+/** A corner of a courtyard's ring of four Rings: which of the two Rings meeting there covers it. */
+export type CornerOwner = 'band' | 'wing' | 'both';
+
+const CORNER_OWNERS: readonly CornerOwner[] = ['band', 'wing', 'both'];
+
+/**
+ * TEMP (WP3.7 baseline): the courtyard generator drawing from the full Ring family (journal decision 132).
+ */
+export function randomFamilyCourtyardFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
+  let s = seed;
+  const rnd = (): number => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+  let fs = seed + 7919;
+  const frnd = (): number => { fs = (fs * 1103515245 + 12345) % 2147483648; return fs / 2147483648; };
+  const pick = <T>(a: readonly T[]): T => a[Math.floor(rnd() * a.length)];
+  const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
+  const out: ShellFixture[] = [];
+  for (let k = 0; k < count; k++) {
+    const x0 = 50 * Math.floor(rnd() * 4), y0 = 50 * Math.floor(rnd() * 4);
+    const bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
+    const x1 = x0 + wingW + span(100, 6) + wingE, y1 = y0 + bandS + span(100, 6) + bandN;
+    // Corners SW, SE, NE, NW. The classic layout gives every corner to the band; otherwise each is drawn.
+    const corners: CornerOwner[] = frnd() < 0.5 ? ['band', 'band', 'band', 'band'] : [0, 1, 2, 3].map(() => CORNER_OWNERS[Math.floor(frnd() * 3)]);
+    const band = (c: CornerOwner): boolean => c !== 'wing';
+    const wing = (c: CornerOwner): boolean => c !== 'band';
+    const [sw, se, ne, nw] = corners;
+    const rects: Rect[] = [
+      [band(sw) ? x0 : x0 + wingW, y0, band(se) ? x1 : x1 - wingE, y0 + bandS],
+      [band(nw) ? x0 : x0 + wingW, y1 - bandN, band(ne) ? x1 : x1 - wingE, y1],
+      [x0, wing(sw) ? y0 : y0 + bandS, x0 + wingW, wing(nw) ? y1 : y1 - bandN],
+      [x1 - wingE, wing(se) ? y0 : y0 + bandS, x1, wing(ne) ? y1 : y1 - bandN],
+    ];
+    const deg = pick([30, 37, 45, 52.5]);
+    const rings = rects.map(r => {
+      const sides: RingSides = {};
+      for (const side of RING_SIDES) if (rnd() < 0.2) sides[side] = {form: 'gable'};
+      return ring(r, 0, 1 + Math.floor(rnd() * 3), deg, sides);
+    });
+    for (let i = rings.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [rings[i], rings[j]] = [rings[j], rings[i]];
+    }
+    out.push({name: `Court${k}`, cellSize: 50, storeyHeight, rings});
+  }
+  return out;
+}
+
+/**
+ * F50's second family: each courtyard of `randomCourtyardFixtures` with one wing removed, the E wing for an even index
+ * and the W wing for an odd one. The three Rings left form a U with no hole, so the genus is 0, and the class of gables
+ * over several storeys is measured apart from the courtyard's own.
+ */
+export function randomUFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
+  return randomCourtyardFixtures(seed, count, storeyHeight).map((f, k) => {
+    const xs = f.rings.map(r => r.rect);
+    const x0 = Math.min(...xs.map(r => r[0])), x1 = Math.max(...xs.map(r => r[2]));
+    const y0 = Math.min(...xs.map(r => r[1])), y1 = Math.max(...xs.map(r => r[3]));
+    // A wing touches neither y0 nor y1 (classic layout) and stands on x0 (W) or x1 (E).
+    const isWing = (r: Rect, w: boolean): boolean => r[1] > y0 && r[3] < y1 && (w ? r[0] === x0 : r[2] === x1);
+    const drop = f.rings.findIndex(r => isWing(r.rect, k % 2 === 1));
+    return {...f, name: `U${k}`, rings: f.rings.filter((_, i) => i !== drop)};
+  });
+}
+
+/** The pitch in degrees whose rise over `run` is `rise`. */
+export const pitchFor = (rise: number, run: number): number => (Math.atan(rise / run) * 180) / Math.PI;
+
+/** Journal decision 122's δ-nudges, in 1/1024 cm steps: a hair under, at and over each coincidence. */
+export const NUDGE_STEPS: readonly number[] = [-3, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 12];
+
+/**
+ * Journal decision 122's δ-nudge sweeps, restated from the combined reviewer's probe C at 250 cm storeys: a 45 degree
+ * apex or ridge raised `k / 1024` cm above (or below) the floor of the storey above, under its middle (Apex, Ridge),
+ * under its eave (ApexEdge, ApexEdgeBelow, RidgeEdge), and OverhangApexOnEave itself with its apex nudged.
+ */
+export function nudgeFixtures(): ShellFixture[] {
+  const h = STOREY_HEIGHT_CM_FOR_NUDGES;
+  const fx = (name: string, lower: Rect, upper: Rect, d0: number): ShellFixture => ({
+    name, cellSize: 50, storeyHeight: h, rings: [ring(lower, 0, 1, d0), ring(upper, 1, 1, 45)],
+  });
+  return NUDGE_STEPS.flatMap(k => {
+    const delta = k / 1024;
+    return [
+      fx(`Apex${k}`, [0, 0, 500, 500], [100, 100, 400, 400], pitchFor(h + delta, 250)),
+      fx(`Ridge${k}`, [0, 0, 700, 500], [100, 100, 600, 400], pitchFor(h + delta, 250)),
+      fx(`ApexEdge${k}`, [0, 0, 500, 500], [250, 0, 600, 500], pitchFor(h + delta, 250)),
+      fx(`ApexEdgeBelow${k}`, [0, 0, 500, 500], [250, 0, 600, 500], pitchFor(h - delta, 250)),
+      fx(`RidgeEdge${k}`, [0, 0, 700, 500], [100, 0, 600, 250], pitchFor(h + delta, 250)),
+      fx(`OverhangApexOnEave${k}`, [0, 0, 500, 500], [250, 0, 750, 500], pitchFor(h + delta, 250)),
+    ];
+  });
+}
+
+/** The reviewer's probe C ran at 250 cm, where a 45 degree apex 250 cm in rises exactly to the plate above. */
+const STOREY_HEIGHT_CM_FOR_NUDGES = 250;
 
 /** Journal decision 108's storey heights: 250 to 300 in 10 cm steps, both ends included. */
 export const GRID_STOREY_HEIGHTS_CM: readonly number[] = [250, 260, 270, 280, 290, 300];

@@ -10,6 +10,7 @@ import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeysOf} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
 import {errorMessage} from './errors.ts';
+import type {ShellMesh} from './mesh.ts';
 import {ImprintStats, imprintRegions} from './imprint.ts';
 import {RegionModel, makeRegionModel} from './regions.ts';
 import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
@@ -19,8 +20,6 @@ import {cross3, sub3} from './vec3.ts';
 export {RETAG_SLACK_CM, prepareRawTri, rawTriHolds} from './regions.ts';
 export type {RawTri, RawTriEdge} from './regions.ts';
 
-/** The union's output mesh: float32 positions, vertex indices, one input faceID per triangle. */
-export interface ShellMesh { positions: Float32Array; tris: Uint32Array; faceIDs: Uint32Array }
 
 export interface ShellUnion {
   label: string;

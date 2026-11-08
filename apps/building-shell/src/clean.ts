@@ -17,9 +17,9 @@ import type {Mesh} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {nextHalf} from './halfedge.ts';
 import type {Vec3} from './tags.ts';
-import type {ShellMesh} from './union.ts';
-import {cross3, dot3, sub3} from './vec3.ts';
-import {SNAP_STEPS_PER_CM} from './weld.ts';
+import type {ShellMesh} from './mesh.ts';
+import {cross3, dot3, sub3, unit3} from './vec3.ts';
+import {SNAP_STEPS_PER_CM, TriIndices, WorkTri} from './weld.ts';
 
 /**
  * The cleaning tolerance, in cm: four 1/1024 cm grid steps, about 3.9e-3 cm. Measured over the raw unions of the ten
@@ -64,8 +64,6 @@ export function meshOf(out: Mesh): ShellMesh {
   return {positions, tris: Uint32Array.from(out.triVerts), faceIDs: Uint32Array.from(out.faceID)};
 }
 
-/** A triangle being cleaned: three vertex indices and its faceID. */
-type CleanTri = [a: number, b: number, c: number, faceID: number];
 
 /** A cap (journal decision 107, N13): its long edge `a` to `b`, in winding order, and the apex `c` lying on it. */
 export interface CapTri { a: number; b: number; c: number }
@@ -98,7 +96,7 @@ export function cleanMesh(mesh: ShellMesh, tol: number = CLEAN_TOLERANCE_CM): Cl
   const dist = (i: number, j: number): number => Math.hypot(P[3 * i] - P[3 * j], P[3 * i + 1] - P[3 * j + 1], P[3 * i + 2] - P[3 * j + 2]);
   const stats: CleanStats = {...NO_CLEAN};
 
-  let work: CleanTri[] = [];
+  let work: WorkTri[] = [];
   for (let t = 0; t < T.length / 3; t++) work.push([T[3 * t], T[3 * t + 1], T[3 * t + 2], mesh.faceIDs[t]]);
 
   /** The link condition for edge `a`-`b` in `work`: their common neighbours are the far corners of its triangles. */
@@ -116,7 +114,7 @@ export function cleanMesh(mesh: ShellMesh, tol: number = CLEAN_TOLERANCE_CM): Cl
   };
   /** Replaces vertex `gone` by `keep` everywhere, dropping the triangles that collapse. */
   const merge = (gone: number, keep: number): void => {
-    const next: CleanTri[] = [];
+    const next: WorkTri[] = [];
     for (const [p, q, r, f] of work) {
       const [a, b, c] = [p, q, r].map(v => (v === gone ? keep : v));
       if (a === b || b === c || c === a) { stats.collapsed++; continue; }
@@ -170,17 +168,13 @@ export function cleanMesh(mesh: ShellMesh, tol: number = CLEAN_TOLERANCE_CM): Cl
   reown();
   /** The cap among triangle `p`, `q`, `r`: its long edge and apex, when its height over that edge is under `tol`. */
   const capOfCorners = (p: number, q: number, r: number): CapTri | null => {
-    const rot: [number, number, number][] = [[p, q, r], [q, r, p], [r, p, q]];
+    const rot: TriIndices[] = [[p, q, r], [q, r, p], [r, p, q]];
     const [a, b, c] = rot.reduce((best, x) => (dist(x[0], x[1]) > dist(best[0], best[1]) ? x : best));
     const twice = Math.hypot(...cross3(sub3(pt(b), pt(a)), sub3(pt(c), pt(a))));
     return twice / dist(a, b) < tol ? {a, b, c} : null;
   };
   const capOf = (t: number): CapTri | null => capOfCorners(work[t][0], work[t][1], work[t][2]);
-  const normal = (p: number, q: number, r: number): Vec3 => {
-    const n = cross3(sub3(pt(q), pt(p)), sub3(pt(r), pt(p)));
-    const L = Math.hypot(...n);
-    return [n[0] / L, n[1] / L, n[2] / L];
-  };
+  const normal = (p: number, q: number, r: number): Vec3 => unit3(cross3(sub3(pt(q), pt(p)), sub3(pt(r), pt(p))));
   /** Whether merging `gone` into `keep` keeps every surviving triangle facing its way and within `tol` of its plane. */
   const mergeKeepsSurface = (gone: number, keep: number): boolean => work.every(([p, q, r]) => {
     const vs = [p, q, r];

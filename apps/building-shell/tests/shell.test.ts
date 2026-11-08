@@ -57,9 +57,12 @@ type BuildOutcome = ShellBuild | Error;
 
 /** Each build, or the error it threw: a fixture that fails to build fails its own tests, not the whole file. */
 const builds = new Map<string, BuildOutcome>();
+/** One named build to run before the tests: the fixture's name and how to build it. */
+type BuildJob = [name: string, build: () => Promise<ShellBuild>];
+
 beforeAll(async () => {
-  const jobs: [string, () => Promise<ShellBuild>][] = [
-    ...[...SHELL_FIXTURES, ...FIXTURE_PROBES].map(f => [f.name, () => buildShellDetailed(f)] as [string, () => Promise<ShellBuild>]),
+  const jobs: BuildJob[] = [
+    ...[...SHELL_FIXTURES, ...FIXTURE_PROBES].map((f): BuildJob => [f.name, () => buildShellDetailed(f)]),
     [U_PROBE.name, buildUProbe],
   ];
   for (const [name, build] of jobs) {

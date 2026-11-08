@@ -11,7 +11,7 @@ import {CLEAN_TOLERANCE_CM} from './clean.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {RETAG_SLACK_CM, RegionModel} from './regions.ts';
 import {Vec3, identityKey} from './tags.ts';
-import type {ShellMesh} from './union.ts';
+import type {ShellMesh} from './mesh.ts';
 import {add3, cross3, dist3, dot3, scale3, sub3, unit3} from './vec3.ts';
 
 /**
@@ -43,17 +43,17 @@ export interface ImprintStats {
 export interface ImprintResult { mesh: ShellMesh; stats: ImprintStats }
 
 /** A stretch of winner boundary on one plane, from `p` to `q`. */
-interface Boundary { p: Vec3; q: Vec3 }
+export interface Boundary { p: Vec3; q: Vec3 }
 
 /** A convex piece of an output triangle: vertex indices counter-clockwise about its plane's normal, and per side the
  * output edge it lies on (`edgeKey`), or null for a side along a cut. */
-interface Piece { vs: number[]; sides: (string | null)[] }
+export interface Piece { vs: number[]; sides: (string | null)[] }
 
 /**
  * One vertex of a piece being split: its index, whether it is one of the piece's own corners (`orig`) or a crossing of
  * the cut line, and the piece side it sits on (an original vertex starts side `i`; a crossing lies on it).
  */
-interface PieceVertex { v: number; orig: boolean; i: number }
+export interface PieceVertex { v: number; orig: boolean; i: number }
 
 const edgeKey = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},${a}`);
 

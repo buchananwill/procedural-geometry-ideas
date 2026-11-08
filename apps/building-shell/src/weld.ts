@@ -3,6 +3,7 @@
 // through it, and nothing else rounds positions by hand.
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import type {Vec3} from './tags.ts';
+import {dot3, lineOffset, lineParam, sub3} from './vec3.ts';
 
 /** Grid steps per centimetre. 1/1024 cm is exact in float32 for every coordinate under 16384 cm. */
 export const SNAP_STEPS_PER_CM = 1024;
@@ -52,14 +53,11 @@ function liesOn(positions: number[], v: number, a: number, b: number, tol: numbe
 /** Where vertex `v` lies along segment `ab` (0 to 1), if it lies on it within `tol` and clear of both ends. */
 function edgeParam(positions: number[], v: number, a: number, b: number, tol: number): number | null {
   const A = vertexAt(positions, a), B = vertexAt(positions, b), V = vertexAt(positions, v);
-  const ab: Vec3 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]];
-  const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-  const L = Math.sqrt(L2);
-  const av: Vec3 = [V[0] - A[0], V[1] - A[1], V[2] - A[2]];
-  const t = (av[0] * ab[0] + av[1] * ab[1] + av[2] * ab[2]) / L2;
+  const ab = sub3(B, A);
+  const L = Math.sqrt(dot3(ab, ab));
+  const t = lineParam(V, A, B);
   if (t * L <= tol || (1 - t) * L <= tol) return null;
-  const off = Math.hypot(av[0] - t * ab[0], av[1] - t * ab[1], av[2] - t * ab[2]);
-  return off <= tol ? t : null;
+  return lineOffset(V, A, B, t) <= tol ? t : null;
 }
 
 /**

@@ -5,7 +5,8 @@ import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, meshOf} from
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
-import {ShellMesh, ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
+import type {ShellMesh} from '../src/mesh.ts';
+import {ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {randomFixtures} from './robustness-fixtures.ts';
 import {AREA_TOL} from './shell-invariants.ts';

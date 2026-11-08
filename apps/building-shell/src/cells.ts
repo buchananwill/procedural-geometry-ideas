@@ -8,7 +8,7 @@ import {
 import {FaceAssembly, FaceSource, ShellFace, destOf, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
 import {Wasm} from './manifold.ts';
 import {Vec3, tagLabel} from './tags.ts';
-import {cross2, cross3, dot3, sub3, unit3} from './vec3.ts';
+import {add3, cross2, cross3, dot3, lineOffset, lineParam, scale3, sub3, unit3} from './vec3.ts';
 
 /** Spec decision 23 as amended (journal decisions 44, 58 and 59). */
 export interface ShellCell {
@@ -102,11 +102,9 @@ export function edgePoints(edge: ShellEdge, frames: FrameTable, reg: VertexRegis
   const found: EdgeCrossing[] = [];
   for (const id of ends) {
     if (id === edge.v[0] || id === edge.v[1]) continue;
-    const w = sub3(reg.positions[id], A);
-    const t = dot3(w, AB) / (L * L);
+    const t = lineParam(reg.positions[id], A, B);
     if (!inside(t)) continue;
-    const off = Math.hypot(w[0] - t * AB[0], w[1] - t * AB[1], w[2] - t * AB[2]);
-    if (off <= SHELL_TOLERANCE_CM) found.push({t, id});
+    if (lineOffset(reg.positions[id], A, B, t) <= SHELL_TOLERANCE_CM) found.push({t, id});
   }
   const axes = new Set<Axis>();
   for (const f of edge.faces) {
@@ -121,7 +119,7 @@ export function edgePoints(edge: ShellEdge, frames: FrameTable, reg: VertexRegis
       const value = k * cellSize;
       const t = (value - c0) / (c1 - c0);
       if (!inside(t)) continue;
-      const p: Vec3 = [A[0] + t * AB[0], A[1] + t * AB[1], A[2] + t * AB[2]];
+      const p = add3(A, scale3(AB, t));
       p[ax] = value;
       found.push({t, p});
     }
@@ -144,7 +142,7 @@ export function edgePoints(edge: ShellEdge, frames: FrameTable, reg: VertexRegis
 export interface BoundaryPoint { id: number; at: Vec2 }
 
 /** A boundary vertex found on a Cell side, `u` along it from its start. */
-interface SidePoint { u: number; id: number }
+export interface SidePoint { u: number; id: number }
 
 /** A closed 2D polygon's signed area: positive when it winds counter-clockwise. */
 export const shoelace = (poly: Vec2[]): number => poly.reduce((s, p, i) => s + cross2(p, poly[(i + 1) % poly.length]), 0) / 2;
@@ -371,7 +369,7 @@ function assembleNetEdges(
 }
 
 /** One Cell's corner at a vertex: the side leaving the vertex and the side arriving at it. */
-interface CornerAt { cell: number; out: number; in: number }
+export interface CornerAt { cell: number; out: number; in: number }
 
 /**
  * Journal decision 60: each vertex's NetEdges, Cells and faces, counter-clockwise seen from outside.
@@ -518,7 +516,7 @@ export function cornerBisector(c: ShellCell, v: number, positions: readonly Vec3
   let angle = Math.atan2(dot3(cross3(out, back), n), dot3(out, back));
   if (angle <= 0) angle += 2 * Math.PI;
   const cs = Math.cos(angle / 2), sn = Math.sin(angle / 2);
-  return [cs * out[0] + sn * turn[0], cs * out[1] + sn * turn[1], cs * out[2] + sn * turn[2]];
+  return add3(scale3(out, cs), scale3(turn, sn));
 }
 
 /**

@@ -5,7 +5,7 @@
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import type {RawPart} from './storey.ts';
 import {FaceTag, Plane3, ShellTags, Vec3, identityKey, retagCompare, samePlane} from './tags.ts';
-import {cross3, dot3, sub3} from './vec3.ts';
+import {cross3, dot3, scale3, sub3, unit3} from './vec3.ts';
 
 /**
  * The re-tag pass's containment slack, in cm: how far outside a raw triangle's edge a point may lie and still count as
@@ -24,11 +24,7 @@ export interface RawTri { edges: RawTriEdge[]; lo: Vec3; hi: Vec3 }
 export function prepareRawTri(a: Vec3, b: Vec3, c: Vec3, n: Vec3): RawTri | null {
   const area = Math.hypot(...cross3(sub3(b, a), sub3(c, a))) / 2;
   if (area < SHELL_TOLERANCE_CM ** 2) return null;
-  const edges = [[a, b], [b, c], [c, a]].map(([o, e]): RawTriEdge => {
-    const m = cross3(n, sub3(e, o));
-    const L = Math.hypot(...m);
-    return {o, m: [m[0] / L, m[1] / L, m[2] / L]};
-  });
+  const edges = [[a, b], [b, c], [c, a]].map(([o, e]): RawTriEdge => ({o, m: unit3(cross3(n, sub3(e, o)))}));
   const lo: Vec3 = [Math.min(a[0], b[0], c[0]) - RETAG_SLACK_CM, Math.min(a[1], b[1], c[1]) - RETAG_SLACK_CM, Math.min(a[2], b[2], c[2]) - RETAG_SLACK_CM];
   const hi: Vec3 = [Math.max(a[0], b[0], c[0]) + RETAG_SLACK_CM, Math.max(a[1], b[1], c[1]) + RETAG_SLACK_CM, Math.max(a[2], b[2], c[2]) + RETAG_SLACK_CM];
   return {edges, lo, hi};
@@ -45,8 +41,7 @@ export const rawTriHolds = (t: RawTri, q: Vec3): boolean =>
  * the slack bounds the in-plane test only.
  */
 export function ontoPlane(q: Vec3, p: Plane3): Vec3 {
-  const off = dot3(p.n, q) - p.d;
-  return [q[0] - off * p.n[0], q[1] - off * p.n[1], q[2] - off * p.n[2]];
+  return sub3(q, scale3(p.n, dot3(p.n, q) - p.d));
 }
 
 /** One build's raw faces, prepared for reading winning regions on any face's plane. */

@@ -9,7 +9,8 @@ import {CASES} from '../src/roof/cases.ts';
 import {runB} from '../src/roof/algoB.ts';
 import {Building, Pt, cross, dot, sub} from '../src/roof/model.ts';
 import {planBuilding} from '../src/storey.ts';
-import {ShellMesh, unionPlans} from '../src/union.ts';
+import type {ShellMesh} from '../src/mesh.ts';
+import {unionPlans} from '../src/union.ts';
 
 const PLATE = 300;
 const STEP = 25;

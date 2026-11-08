@@ -6,6 +6,7 @@ import {EdgeAssembly, EdgeKind, NEW_EDGE_KINDS, NetEdge, ShellEdge, ShellVertex,
 import {FaceAssembly, ShellFace, assembleFaces, reduceFaceLoops} from './faces.ts';
 import {ShellFixture} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
+import type {AlongAxis} from './storey.ts';
 import {ShellUnion, unionShell} from './union.ts';
 
 export interface ShellReport {
@@ -68,7 +69,7 @@ function cutsRoofCell(faces: ShellFace[], net: CellNet, vertices: ShellVertex[],
     if (n.shellEdge < 0 || !ROOF_LINE_KINDS.includes(edges[n.shellEdge].kind)) return false;
     if (!n.cells.some(c => faces[net.cells[c].face].tag.kind === 'Roof')) return false;
     const a = vertices[n.v[0]].p, b = vertices[n.v[1]].p;
-    const along = (ax: 0 | 1): boolean => Math.abs(a[ax] - b[ax]) <= SHELL_TOLERANCE_CM && onLattice(a[ax], cellSize);
+    const along = (ax: AlongAxis): boolean => Math.abs(a[ax] - b[ax]) <= SHELL_TOLERANCE_CM && onLattice(a[ax], cellSize);
     return !along(0) && !along(1);
   });
 }

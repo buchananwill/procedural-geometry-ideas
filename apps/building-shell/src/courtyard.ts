@@ -1,15 +1,15 @@
 // Spec decision 2 as amended (journal decision 115): a storey plan with a hole is roofed through a cut along one raw
 // Ring wall, spliced into a slit polygon of width 0 exactly as roof-gable's `buildCourtyard` does. Every test here is
 // segment arithmetic on the plan's own loops: no point is tested for lying inside anything.
-import {RingSide, StoreyRing} from './fixture.ts';
-import {RING_SIDES, ringSideLines} from './ring-forms.ts';
+import {RING_SIDES, RingSide, StoreyRing} from './fixture.ts';
+import {ringSideLines} from './ring-forms.ts';
 import {Pt, pt} from './roof/model.ts';
 
 /** The chosen cut: `a` on the island's outer loop, `b` on the hole's loop, and the Ring wall it runs along. */
 export interface CourtyardCut { a: Pt; b: Pt; ring: number; side: RingSide; outer: number }
 
 /** An axis-aligned segment's ends. */
-interface Seg { p: Pt; q: Pt }
+export interface Seg { p: Pt; q: Pt }
 
 const samePt = (p: Pt, q: Pt): boolean => p.x === q.x && p.y === q.y;
 const between = (v: number, a: number, b: number): boolean => v >= Math.min(a, b) && v <= Math.max(a, b);
@@ -75,12 +75,15 @@ function from(loop: Pt[], at: Pt, what: string): Pt[] {
   return [...loop.slice(k + 1), ...loop.slice(0, k)];
 }
 
+/** A courtyard's slit ring, and the indices of its two cut walls in it. */
+export interface SplicedCourtyard { ring: Pt[]; cutWalls: [number, number] }
+
 /**
  * Roof-gable's `buildCourtyard` with a slit width of 0, on any outer loop and hole: the outer loop and the hole's loop
  * spliced at the cut's two ends, as `[A, outer..., A, B, hole..., B]`. Returns the ring and the indices of its two cut
  * walls, `A -> B` and `B -> A`.
  */
-export function spliceCourtyard(outer: Pt[], hole: Pt[], cut: CourtyardCut): {ring: Pt[]; cutWalls: [number, number]} {
+export function spliceCourtyard(outer: Pt[], hole: Pt[], cut: CourtyardCut): SplicedCourtyard {
   const outerSeq = from(outer, cut.a, 'outer');
   const holeSeq = from(hole, cut.b, 'hole');
   const ring = [cut.a, ...outerSeq, cut.a, cut.b, ...holeSeq, cut.b];

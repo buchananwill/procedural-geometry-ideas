@@ -20,7 +20,7 @@ import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, randomCourtyardFixtures,
   randomFixtures, seededFixture, sweepFixture, sweepFixtures,
 } from './robustness-fixtures.ts';
-import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
+import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
 
 /**
  * Every sweep, grid and random case as measured: genus 0 and no Cheek face (a box with a storey on its wall, or
@@ -132,7 +132,7 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
 
 // ---- The named regression fixtures (journal decision 110) ---------------------------------------------------------
 
-const near = (p: Vec3, q: Vec3): boolean => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) <= SHELL_TOLERANCE_CM;
+const near = (p: Vec3, q: Vec3): boolean => dist(p, q) <= SHELL_TOLERANCE_CM;
 
 /**
  * C1's pinch at `p`: one ShellVertex whose faces are its sheets' faces, sheet by sheet, the sheets in order of lowest
@@ -209,7 +209,7 @@ describe('F37: a Cell corner is placed in the fan by its bisector', () => {
     expect(verges).toHaveLength(2);
     for (const n of verges) {
       const o = vertices[n.v[0] === apex.id ? n.v[1] : n.v[0]].p;
-      expect(Math.hypot(o[0] - apex.p[0], o[1] - apex.p[1], o[2] - apex.p[2])).toBeCloseTo(0.131, 3);
+      expect(dist(o, apex.p)).toBeCloseTo(0.131, 3);
     }
     expect(apex.cells.length).toBeGreaterThan(0);
   });

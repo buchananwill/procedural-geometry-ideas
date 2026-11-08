@@ -2,7 +2,7 @@
 // union walls before step 1's roof solve. Among the Rings whose side lies on a union wall and overlaps it, the lowest
 // index wins, and the whole wall takes that side's form and pitch. The result is roof-gable `Sel`s, so roof-gable is
 // unchanged. No Ring identity passes this point: the roof, the parts and the union see only the walls' forms.
-import {RingForm, RingSide, SideForm, StoreyRing} from './fixture.ts';
+import {RING_SIDES, RingForm, RingSide, SideForm, StoreyRing} from './fixture.ts';
 import {Pt, Rect, Sel} from './roof/model.ts';
 
 /** A wall's inward normal, as roof-gable's `Sel.n` names it. */
@@ -27,8 +27,6 @@ export function ringSideLines(r: Rect): Record<RingSide, WallLine> {
     W: {axis: 'x', at: x0, n: '+x', lo: y0, hi: y1},
   };
 }
-
-export const RING_SIDES: readonly RingSide[] = ['S', 'E', 'N', 'W'];
 
 /** The line one loop edge `a` to `b` stands on; the footprint lies to its left, as `unionLoops` traces it. */
 export function edgeLine(a: Pt, b: Pt): WallLine {
@@ -58,12 +56,11 @@ export function loopRuns(loop: Pt[]): WallLine[] {
 }
 
 /** A side form outside `RingForm` is a hard error: only the courtyard rule places a cut (spec decision 2). */
-function checkedSide(index: number, side: RingSide, s: SideForm): SideForm {
+function checkedSide(index: number, side: RingSide, s: SideForm): asserts s is SideForm & {form: RingForm} {
   const form: string = s.form;
   if (form !== 'hip' && form !== 'gable') {
     throw new Error(`Ring ${index} side ${side} is authored ${form}; a Ring side is hip or gable, and only the courtyard rule places a cut`);
   }
-  return s;
 }
 
 /**

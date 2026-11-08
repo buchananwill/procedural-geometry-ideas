@@ -13,6 +13,7 @@ import {
 import {errorMessage} from './errors.ts';
 import {LocalTag, PartlessTag, Plane3, ShellTags, Vec3, addFace, samePlane} from './tags.ts';
 import {TriIndices, TriSoup, WeldStats, triCross, weldAndSnap} from './weld.ts';
+import {add3, dot3, scale3, sub3} from './vec3.ts';
 
 /** One storey's union outline (as a roof-gable `Building`) and its solved roof. */
 export interface StoreyPlan {
@@ -315,7 +316,7 @@ export function matchGenerating(partName: string, soup: TriSoup, t: number, gens
   const corners = [0, 1, 2].map(j => soup.tris[3 * t + j]);
   const at = (): string => [0, 1, 2].map(ax => (corners.reduce((s, v) => s + soup.positions[3 * v + ax], 0) / 3).toFixed(3)).join(', ');
   const hits = gens.flatMap((g, gi) => {
-    const facing = cr[0] * g.plane.n[0] + cr[1] * g.plane.n[1] + cr[2] * g.plane.n[2];
+    const facing = dot3(cr, g.plane.n);
     if (twiceArea / 2 > NORMAL_AREA_FLOOR && facing <= 0) return [];
     const dist = Math.max(...corners.map(v => Math.abs(
       g.plane.n[0] * soup.positions[3 * v] + g.plane.n[1] * soup.positions[3 * v + 1] + g.plane.n[2] * soup.positions[3 * v + 2] - g.plane.d)));
@@ -348,7 +349,7 @@ function splitPolygon(poly: Vec3[], axis: AlongAxis, c: number): Vec3[][] {
     if (sp >= 0) above.push(p);
     if (sp * sq < 0) {
       const t = (c - p[axis]) / (q[axis] - p[axis]);
-      const x: Vec3 = [p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]), p[2] + t * (q[2] - p[2])];
+      const x = add3(p, scale3(sub3(q, p), t));
       below.push(x);
       above.push(x);
     }
@@ -411,7 +412,7 @@ export function gableGenerating(plan: StoreyPlan, piece: Piece, far: number): Ge
   const lineD = inward[0] * w.a.x + inward[1] * w.a.y;
   const vertical: Plane3[] = [
     wallPlane(w), ...comp.walls.map(wallPlane),
-    {n: [-axis[0], -axis[1], -axis[2]], d: -piece.bandLo},
+    {n: scale3(axis, -1), d: -piece.bandLo},
     {n: axis, d: piece.bandHi},
     {n: inward, d: lineD + far},
   ];

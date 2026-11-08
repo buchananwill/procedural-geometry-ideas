@@ -9,7 +9,7 @@ import {
 import {FaceSource, assembleFaces, meshPoint} from '../src/faces.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
 import {FaceTag, Plane3, Vec3, addFace, makeShellTags, samePlane} from '../src/tags.ts';
-import {ShellMesh} from '../src/union.ts';
+import type {ShellMesh} from '../src/mesh.ts';
 
 let wasm: Wasm;
 beforeAll(async () => { wasm = await getManifold(); });

@@ -11,7 +11,10 @@ import {planStorey} from '../src/storey.ts';
 import type {Vec3} from '../src/tags.ts';
 import {invariantViolations} from './shell-invariants.ts';
 
-const courtyardLoops = (f: ShellFixture): {outers: Pt[][]; holes: Pt[][]} => {
+/** A storey plan's union loops, split into outer loops and holes. */
+interface CourtyardLoops { outers: Pt[][]; holes: Pt[][] }
+
+const courtyardLoops = (f: ShellFixture): CourtyardLoops => {
   const loops = unionLoops(storeyRings(f, 0).map(r => r.ring.rect));
   return {outers: loops.filter(l => polyArea(l) > 0), holes: loops.filter(l => polyArea(l) < 0)};
 };

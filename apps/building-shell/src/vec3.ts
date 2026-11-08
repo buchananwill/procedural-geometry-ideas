@@ -16,14 +16,24 @@ export const unit3 = (u: Vec3): Vec3 => {
   return [u[0] / L, u[1] / L, u[2] / L];
 };
 
+/** Where `p`'s foot falls on the line through `a` and `b`, as a fraction of `a` to `b` (0 at `a`, 1 at `b`). */
+export function lineParam(p: Vec3, a: Vec3, b: Vec3): number {
+  const ab = sub3(b, a);
+  return dot3(sub3(p, a), ab) / dot3(ab, ab);
+}
+
+/** Distance from `p` to the point at fraction `t` of `a` to `b`: `p`'s offset from the line, when `t` is its foot. */
+export function lineOffset(p: Vec3, a: Vec3, b: Vec3, t: number): number {
+  const ab = sub3(b, a), ap = sub3(p, a);
+  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
+}
+
 /**
  * Distance from `p` to the line through `a` and `b`, or to `a` itself when the two coincide: the app's one copy (the
  * type review of WP3.3 to WP3.5, N14).
  */
 export function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
-  const ab = sub3(b, a), ap = sub3(p, a);
-  const L2 = dot3(ab, ab);
-  if (L2 === 0) return Math.hypot(...ap);
-  const t = dot3(ap, ab) / L2;
-  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
+  const ab = sub3(b, a);
+  if (dot3(ab, ab) === 0) return Math.hypot(...sub3(p, a));
+  return lineOffset(p, a, b, lineParam(p, a, b));
 }
