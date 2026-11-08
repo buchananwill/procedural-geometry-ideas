@@ -7,6 +7,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "NarrowUpperStorey.json",
    "union": "NarrowUpperStorey.union.json",
    "input": "NarrowUpperStorey.input.json",
@@ -31,6 +32,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "NarrowUpperStoreyGabled.json",
    "union": "NarrowUpperStoreyGabled.union.json",
    "input": "NarrowUpperStoreyGabled.input.json",
@@ -56,6 +58,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "TallerUpper.json",
    "union": "TallerUpper.union.json",
    "input": "TallerUpper.input.json",
@@ -80,6 +83,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Overhang.json",
    "union": "Overhang.union.json",
    "input": "Overhang.input.json",
@@ -106,6 +110,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "OverhangApexOnEave.json",
    "union": "OverhangApexOnEave.union.json",
    "input": "OverhangApexOnEave.input.json",
@@ -132,6 +137,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Bridge.json",
    "union": "Bridge.union.json",
    "input": "Bridge.input.json",
@@ -158,6 +164,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "BridgeOverBlock.json",
    "union": "BridgeOverBlock.union.json",
    "input": "BridgeOverBlock.input.json",
@@ -184,6 +191,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "ValleyWings.json",
    "union": "ValleyWings.union.json",
    "input": "ValleyWings.input.json",
@@ -207,6 +215,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "ValleyWingsPierced.json",
    "union": "ValleyWingsPierced.union.json",
    "input": "ValleyWingsPierced.input.json",
@@ -230,6 +239,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "SingleStoreyT.json",
    "union": "SingleStoreyT.union.json",
    "input": "SingleStoreyT.input.json",
@@ -253,6 +263,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "DefaultChalet.json",
    "union": "DefaultChalet.union.json",
    "input": "DefaultChalet.input.json",
@@ -273,6 +284,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "Courtyard.json",
    "union": "Courtyard.union.json",
    "input": "Courtyard.input.json",
@@ -296,6 +308,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "FlushRingConflict.json",
    "union": "FlushRingConflict.union.json",
    "input": "FlushRingConflict.input.json",
@@ -318,6 +331,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "FlushRingConflictSwapped.json",
    "union": "FlushRingConflictSwapped.union.json",
    "input": "FlushRingConflictSwapped.input.json",
@@ -340,6 +354,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "OverlapRingConflict.json",
    "union": "OverlapRingConflict.union.json",
    "input": "OverlapRingConflict.input.json",
@@ -363,6 +378,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "OverlapRingConflictSwapped.json",
    "union": "OverlapRingConflictSwapped.union.json",
    "input": "OverlapRingConflictSwapped.input.json",
@@ -386,6 +402,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PitchRingConflict.json",
    "union": "PitchRingConflict.union.json",
    "input": "PitchRingConflict.input.json",
@@ -408,6 +425,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PitchRingConflictSwapped.json",
    "union": "PitchRingConflictSwapped.union.json",
    "input": "PitchRingConflictSwapped.input.json",
@@ -430,6 +448,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "ThreeRingConflict.json",
    "union": "ThreeRingConflict.union.json",
    "input": "ThreeRingConflict.input.json",
@@ -452,6 +471,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "ThreeRingConflictSwapped.json",
    "union": "ThreeRingConflictSwapped.union.json",
    "input": "ThreeRingConflictSwapped.input.json",
@@ -474,6 +494,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "DistantRingConflict.json",
    "union": "DistantRingConflict.union.json",
    "input": "DistantRingConflict.input.json",
@@ -497,6 +518,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "DistantRingConflictSwapped.json",
    "union": "DistantRingConflictSwapped.union.json",
    "input": "DistantRingConflictSwapped.input.json",
@@ -520,6 +542,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "StoreyRingConflict.json",
    "union": "StoreyRingConflict.union.json",
    "input": "StoreyRingConflict.input.json",
@@ -542,6 +565,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "StoreyRingConflictSwapped.json",
    "union": "StoreyRingConflictSwapped.union.json",
    "input": "StoreyRingConflictSwapped.input.json",
@@ -569,6 +593,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "HoleRingConflict.json",
    "union": "HoleRingConflict.union.json",
    "input": "HoleRingConflict.input.json",
@@ -592,6 +617,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "HoleRingConflictSwapped.json",
    "union": "HoleRingConflictSwapped.union.json",
    "input": "HoleRingConflictSwapped.input.json",
@@ -615,6 +641,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "CutPitchConflict.json",
    "union": "CutPitchConflict.union.json",
    "input": "CutPitchConflict.input.json",
@@ -638,6 +665,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "CutPitchConflictSwapped.json",
    "union": "CutPitchConflictSwapped.union.json",
    "input": "CutPitchConflictSwapped.input.json",
@@ -661,6 +689,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PortNarrowUpper300.json",
    "union": "PortNarrowUpper300.union.json",
    "input": "PortNarrowUpper300.input.json",
@@ -685,6 +714,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PortNarrowUpperGabled300.json",
    "union": "PortNarrowUpperGabled300.union.json",
    "input": "PortNarrowUpperGabled300.input.json",
@@ -710,6 +740,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PortPokeOut300.json",
    "union": "PortPokeOut300.union.json",
    "input": "PortPokeOut300.input.json",
@@ -734,6 +765,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "PortPokeOut250.json",
    "union": "PortPokeOut250.union.json",
    "input": "PortPokeOut250.input.json",
@@ -758,6 +790,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "FlushOverReflex300.json",
    "union": "FlushOverReflex300.union.json",
    "input": "FlushOverReflex300.input.json",
@@ -785,6 +818,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "FlushOverReflex250.json",
    "union": "FlushOverReflex250.union.json",
    "input": "FlushOverReflex250.input.json",
@@ -813,6 +847,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed2Fuzz109h300.json",
    "union": "Seed2Fuzz109h300.union.json",
    "report": {
@@ -840,6 +875,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed2Fuzz109h250.json",
    "union": "Seed2Fuzz109h250.union.json",
    "report": {
@@ -867,6 +903,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed3Fuzz3h300.json",
    "union": "Seed3Fuzz3h300.union.json",
    "report": {
@@ -894,6 +931,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed3Fuzz3h250.json",
    "union": "Seed3Fuzz3h250.union.json",
    "report": {
@@ -921,6 +959,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed4Fuzz134h300.json",
    "union": "Seed4Fuzz134h300.union.json",
    "report": {
@@ -944,6 +983,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "Seed4Fuzz134h250.json",
    "union": "Seed4Fuzz134h250.union.json",
    "report": {
@@ -966,6 +1006,7 @@
    "genus": [
     0
    ],
+   "clean": true,
    "shell": "UpperUJoinedByEdgeContact.json",
    "union": "UpperUJoinedByEdgeContact.union.json",
    "input": "UpperUJoinedByEdgeContact.input.json",
@@ -993,6 +1034,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "FullWingsProbe.json",
    "union": "FullWingsProbe.union.json",
    "input": "FullWingsProbe.input.json",
@@ -1016,6 +1058,7 @@
    "genus": [
     1
    ],
+   "clean": false,
    "shell": "CutOvershootProbe.json",
    "union": "CutOvershootProbe.union.json",
    "input": "CutOvershootProbe.input.json",
@@ -1044,6 +1087,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "Court5Seed1h300.json",
    "union": "Court5Seed1h300.union.json",
    "input": "Court5Seed1h300.input.json",
@@ -1073,6 +1117,7 @@
    "genus": [
     1
    ],
+   "clean": true,
    "shell": "Court16Seed1h250.json",
    "union": "Court16Seed1h250.union.json",
    "input": "Court16Seed1h250.input.json",
@@ -1106,6 +1151,7 @@
     0,
     0
    ],
+   "clean": false,
    "shell": "GapAligned1.json",
    "union": "GapAligned1.union.json",
    "report": {
@@ -1131,6 +1177,7 @@
     0,
     0
    ],
+   "clean": false,
    "shell": "GapOffset1.json",
    "union": "GapOffset1.union.json",
    "report": {
@@ -1146,6 +1193,243 @@
    },
    "violations": [
     "two components lie 9.766e-4 cm apart, within CLEAN_TOLERANCE_CM, at (500.0009765625, 100, 0) and (500, 100, 0)"
+   ]
+  },
+  {
+   "fixture": "SplitBandFreeCut",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": true,
+   "shell": "SplitBandFreeCut.json",
+   "union": "SplitBandFreeCut.union.json",
+   "input": "SplitBandFreeCut.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 124,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "GablePitchL",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "clean": true,
+   "shell": "GablePitchL.json",
+   "union": "GablePitchL.union.json",
+   "input": "GablePitchL.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 40,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "Court14Seed1h250",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "shell": "Court14Seed1h250.json",
+   "union": "Court14Seed1h250.union.json",
+   "input": "Court14Seed1h250.input.json",
+   "report": {
+    "conflicts": [
+     "Court14Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 7) over Gable storey 0 wall 6 (part 3)",
+     "Court14Seed1h250: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 14 (part 4)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 1,
+    "partialCells": 104,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Cheek faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "cheeks 1, expected 0, at (150, 400, 250)"
+   ]
+  },
+  {
+   "fixture": "Court23Seed6h250",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "shell": "Court23Seed6h250.json",
+   "union": "Court23Seed6h250.union.json",
+   "input": "Court23Seed6h250.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 2,
+    "partialCells": 118,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Cheek faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "cheeks 2, expected 0, at (100, 300, 380.322265625); (350, 300, 250)"
+   ]
+  },
+  {
+   "fixture": "Court25Seed1h250",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "error": "cell 729: side 24-278 (100, 500, 500) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"
+  },
+  {
+   "fixture": "U8Seed6h300",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "clean": false,
+   "error": "vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"
+  },
+  {
+   "fixture": "SplitCourt10Seed2h250",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "error": "cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 297.3251953125)) can neither flip nor merge its apex into its long edge"
+  },
+  {
+   "fixture": "ApexEdge5",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "clean": false,
+   "shell": "ApexEdge5.json",
+   "union": "ApexEdge5.union.json",
+   "input": "ApexEdge5.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 1,
+    "cheeks": 0,
+    "partialCells": 64,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction",
+     "Unclassified"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "1 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0048828125)",
+    "interior NetEdge 469 borders cells 214",
+    "interior NetEdge 537 borders cells 255",
+    "NetEdge 574 on ShellEdge 20 borders faces 8, expected 15,8",
+    "NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8",
+    "NetEdge 576 on ShellEdge 18 borders faces 9, expected 7,9",
+    "NetEdge 577 on ShellEdge 23 borders faces 9, expected 15,9",
+    "interior NetEdge 921 borders cells 450",
+    "interior NetEdge 924 borders cells 451"
+   ]
+  },
+  {
+   "fixture": "G5.86h250",
+   "cppReplayable": true,
+   "genus": [
+    0
+   ],
+   "clean": false,
+   "error": "cell 276: side 107-109 (450, 150, 265.3955078125) to (499.9970703125, 100, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"
+  },
+  {
+   "fixture": "CourtyardAt22.5-45s",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "shell": "CourtyardAt22.5-45s.json",
+   "union": "CourtyardAt22.5-45s.union.json",
+   "input": "CourtyardAt22.5-45s.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 1,
+    "unclassifiedEdges": 3,
+    "cheeks": 0,
+    "partialCells": 148,
+    "newEdgeKinds": [
+     "Unclassified"
+    ],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "survivingInternal 1 at (150, 300, 382.8427734375)",
+    "3 Unclassified Edges: (124.263671875, 300, 374.263671875) to (150, 300, 400); (124.263671875, 300, 374.263671875) to (175.736328125, 300, 374.263671875); (150, 300, 400) to (175.736328125, 300, 374.263671875)"
+   ]
+  },
+  {
+   "fixture": "BridgeOverBlockAt45",
+   "cppReplayable": true,
+   "genus": [
+    1
+   ],
+   "clean": false,
+   "shell": "BridgeOverBlockAt45.json",
+   "union": "BridgeOverBlockAt45.union.json",
+   "input": "BridgeOverBlockAt45.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 72,
+    "newEdgeKinds": [
+     "SoffitEdge",
+     "SoffitJunction"
+    ],
+    "newConventions": [
+     "RoofInterior on Underside faces",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "genus per component 2, expected 1: genus 2 at (0, 0, 0)"
    ]
   }
  ]

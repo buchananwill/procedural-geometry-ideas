@@ -10,7 +10,8 @@ import {GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, 
 import {buildShell} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
-import {GOLDEN_FIXTURES, goldenFiles} from './golden-fixtures.ts';
+import {planStorey} from '../src/storey.ts';
+import {GOLDEN_FIXTURES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles} from './golden-fixtures.ts';
 import {shellFixture} from './test-builds.ts';
 
 const GOLDEN_DIR = fileURLToPath(new URL('../golden', import.meta.url));
@@ -44,6 +45,26 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
   });
 });
 
+describe("decision 156's golden additions: F3's rule oracles and F4's residue classes", () => {
+  const entry = (name: string) => MANIFEST.fixtures.find(e => e.fixture === name);
+
+  it.each(RULE_ORACLES.map(g => g.fixture.name))('%s: a clean, replayable oracle with its files', name => {
+    expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
+  });
+
+  it('SplitBandFreeCut reads the free cut: its cut is collinear with no wall, at the island\'s steepest 60°', () => {
+    const f = RULE_ORACLES[0].fixture;
+    const cuts = planStorey(f, 0).building.walls.filter(w => w.form === 'cut');
+    expect(cuts.map(w => [w.a.x, w.b.x, Math.round((Math.atan(w.tan) * 180) / Math.PI)])).toEqual([[500, 500, 60], [500, 500, 60]]);
+  });
+
+  it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
+    const e = entry(name);
+    expect(e?.clean).toBe(false);
+    expect(e && ('error' in e ? e.error : e.violations.join('\n')).length).toBeGreaterThan(0);
+  });
+});
+
 describe('C++ replayability (journal decision 152, amended)', () => {
   /** The rule restated: every reason a fixture's written input is not replayable, in the rule's order. */
   function reasons(f: ShellFixture): string[] {
@@ -58,11 +79,12 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     ];
   }
 
-  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g.fixture] as const))('%s: its flag and reason agree with the rule, and its input is written exactly when replayable', (name, f) => {
+  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g.fixture] as const))('%s: its flag and reason agree with the rule, and its input is written exactly when replayable and built', (name, f) => {
     const e = MANIFEST.fixtures.find(x => x.fixture === name);
     const why = reasons(f);
+    const built = e !== undefined && !('error' in e);
     expect(e && {cppReplayable: e.cppReplayable, reason: 'reason' in e ? e.reason : undefined, input: 'input' in e ? e.input : undefined}).toEqual(
-      why.length ? {cppReplayable: false, reason: why.join('; '), input: undefined} : {cppReplayable: true, reason: undefined, input: `${name}.input.json`});
+      why.length ? {cppReplayable: false, reason: why.join('; '), input: undefined} : {cppReplayable: true, reason: undefined, input: built ? `${name}.input.json` : undefined});
   });
 
   it('refuses each condition by its own reason', () => {
