@@ -2,6 +2,7 @@
 import {describe, expect, it} from 'vitest';
 import type {Vec2} from 'manifold-3d';
 import {BoundaryPoint, FaceFrame, contourLobes, faceFrame, interiorSideKind, layCells, originRecord, withBoundaryPoints} from '../src/cells.ts';
+import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {VertexOrigin, buildShellEdges, makeVertexRegistry, vertexAt} from '../src/edges.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import {ShellFace, assembleFaces, reduceFaceLoops} from '../src/faces.ts';
@@ -87,6 +88,19 @@ describe('contourLobes (journal decisions 92 and 101)', () => {
 
   it('refuses a lobe wound clockwise, as it refuses a contour hole', () => {
     expect(() => contourLobes([0, 1, 2, 0, 3, 4], at(pts), 'test')).toThrow(/winds clockwise/);
+  });
+
+  // Spec decision 23 as amended (journal decision 119, F43): existence follows the snap grid, never an area.
+  it('keeps a sliver of three distinct vertices, however small its area', () => {
+    // 0.02 cm long, 0.002 cm high: 2e-5 cm², a fifth of `SHELL_TOLERANCE_CM`², as F43's 9.35e-5 cm² piece was under it.
+    const sliver: Vec2[] = [[0, 0], [0.02, 0], [0.01, 0.002]];
+    const lobes = contourLobes([0, 1, 2], at(sliver), 'test');
+    expect(lobes.map(l => l.ids)).toEqual([[0, 1, 2]]);
+    expect(lobes[0].area).toBeLessThan(SHELL_TOLERANCE_CM ** 2);
+  });
+
+  it('gives no Cell for a lobe of fewer than three distinct vertices', () => {
+    expect(contourLobes([0, 1, 0, 1], at(pts), 'test')).toEqual([]);
   });
 });
 

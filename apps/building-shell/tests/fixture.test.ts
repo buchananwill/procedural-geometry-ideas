@@ -1,19 +1,27 @@
 // The fixture roster (spec decisions 1 to 4, 34 to 40) and SingleStoreyT's tie to roof-gable case 2a.
 import {describe, expect, it} from 'vitest';
-import {SHELL_FIXTURES, fixtureByName, storeysOf} from '../src/fixture.ts';
+import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, SHELL_FIXTURES, fixtureByName, storeysOf} from '../src/fixture.ts';
 import {CASES} from '../src/roof/cases.ts';
 import {planStorey} from '../src/storey.ts';
 
 describe('fixture roster', () => {
-  it('holds every fixture spec decisions 34 to 40 name, cellSize 50 and storeyHeight 250 (journal decision 102)', () => {
+  it('holds every fixture spec decisions 34 to 40 name and Courtyard (journal decision 115), cellSize 50 and storeyHeight 250 (journal decision 102)', () => {
     expect(SHELL_FIXTURES.map(f => f.name)).toEqual([
       'NarrowUpperStorey', 'NarrowUpperStoreyGabled', 'TallerUpper', 'Overhang', 'OverhangApexOnEave',
-      'Bridge', 'BridgeOverBlock', 'ValleyWings', 'ValleyWingsPierced', 'SingleStoreyT', 'DefaultChalet',
+      'Bridge', 'BridgeOverBlock', 'ValleyWings', 'ValleyWingsPierced', 'SingleStoreyT', 'DefaultChalet', 'Courtyard',
     ]);
     for (const f of SHELL_FIXTURES) {
       expect(f.cellSize).toBe(50);
       expect(f.storeyHeight).toBe(250);
-      expect(Object.keys(f.roofs).map(Number)).toEqual(storeysOf(f));
+    }
+  });
+
+  it('authors every Ring with a default pitch, and every side form as hip or gable (spec decision 3 as amended)', () => {
+    for (const f of [...SHELL_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES]) {
+      for (const r of f.rings) {
+        expect(r.defaultDeg).toBeGreaterThan(0);
+        for (const s of Object.values(r.sides ?? {})) expect(['hip', 'gable']).toContain(s.form);
+      }
     }
   });
 

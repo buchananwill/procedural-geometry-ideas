@@ -12,7 +12,7 @@ import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {RETAG_SLACK_CM, RegionModel} from './regions.ts';
 import {Vec3, identityKey} from './tags.ts';
 import type {ShellMesh} from './union.ts';
-import {cross3, dot3, sub3} from './vec3.ts';
+import {add3, cross3, dist3, dot3, scale3, sub3, unit3} from './vec3.ts';
 
 /**
  * How far a vertex may lie from a cut line and count as on it, how far inside a piece a boundary must run to cut it,
@@ -49,11 +49,13 @@ interface Boundary { p: Vec3; q: Vec3 }
  * output edge it lies on (`edgeKey`), or null for a side along a cut. */
 interface Piece { vs: number[]; sides: (string | null)[] }
 
+/**
+ * One vertex of a piece being split: its index, whether it is one of the piece's own corners (`orig`) or a crossing of
+ * the cut line, and the piece side it sits on (an original vertex starts side `i`; a crossing lies on it).
+ */
+interface PieceVertex { v: number; orig: boolean; i: number }
+
 const edgeKey = (a: number, b: number): string => (a < b ? `${a},${b}` : `${b},${a}`);
-const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const scale3 = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-const dist3 = (a: Vec3, b: Vec3): number => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-const unit3 = (u: Vec3): Vec3 => { const L = Math.hypot(...u); return [u[0] / L, u[1] / L, u[2] / L]; };
 
 /**
  * The winner boundaries among faceID `f`'s peers: every stretch of a peer's raw triangle edge whose two sides, read
@@ -174,24 +176,22 @@ export function imprintRegions(mesh: ShellMesh, model: RegionModel): ImprintResu
     const side = unit3(cross3(n, sub3(b.q, b.p)));
     const ds = pc.vs.map(v => { const d = dot3(side, sub3(at(v), b.p)); return Math.abs(d) <= tol ? 0 : d; });
     if (!ds.some(d => d > 0) || !ds.some(d => d < 0)) return [pc];
-    // Each entry: a vertex and the piece side it sits on (an original vertex starts side i; a crossing lies on it).
-    type Entry = {v: number; orig: boolean; i: number};
-    const pos0: Entry[] = [], neg: Entry[] = [];
+    const pos0: PieceVertex[] = [], neg: PieceVertex[] = [];
     const m = pc.vs.length;
     for (let i = 0; i < m; i++) {
       const j = (i + 1) % m;
-      const e: Entry = {v: pc.vs[i], orig: true, i};
+      const e: PieceVertex = {v: pc.vs[i], orig: true, i};
       if (ds[i] >= 0) pos0.push(e);
       if (ds[i] <= 0) neg.push(e);
       if ((ds[i] > 0 && ds[j] < 0) || (ds[i] < 0 && ds[j] > 0)) {
         const A = at(pc.vs[i]), B = at(pc.vs[j]);
         const x = add3(A, scale3(sub3(B, A), ds[i] / (ds[i] - ds[j])));
-        const c: Entry = {v: vertexAt(x, pc.sides[i], t), orig: false, i};
+        const c: PieceVertex = {v: vertexAt(x, pc.sides[i], t), orig: false, i};
         pos0.push(c);
         neg.push(c);
       }
     }
-    const make = (es: Entry[]): Piece => {
+    const make = (es: PieceVertex[]): Piece => {
       const sides = es.map((e, k) => {
         const nx = es[(k + 1) % es.length];
         const along = (e.orig && !nx.orig && nx.i === e.i) || (!e.orig && nx.orig && nx.i === (e.i + 1) % m)

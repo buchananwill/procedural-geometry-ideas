@@ -3,7 +3,7 @@
 import {FaceTag, Plane3, PlaneClusters, Vec3, identityKey, samePlane} from './tags.ts';
 import {ShellMesh, ShellUnion, triArea} from './union.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {cross3, dot3, sub3} from './vec3.ts';
+import {cross3, dot3, lineDistance} from './vec3.ts';
 import {makeUnionFind, nextHalf, triOf} from './halfedge.ts';
 
 export interface ShellFace {
@@ -194,7 +194,7 @@ export function reduceFaceLoops(asm: FaceAssembly, positions: Float32Array, isEn
     for (const d of dropped) {
       const a = meshPoint(positions, d.from), b = meshPoint(positions, d.to);
       for (const v of d.dropped) {
-        const off = chordDistance(meshPoint(positions, v), a, b);
+        const off = lineDistance(meshPoint(positions, v), a, b);
         if (off > SHELL_TOLERANCE_CM) throw new Error(`${where}: loop reduction drops vertex ${v}, ${off} cm off its chord`);
       }
     }
@@ -227,15 +227,6 @@ export function droppedChains(loop: number[], isEndpoint: (v: number) => boolean
     run = [];
   }
   return out;
-}
-
-/** Distance from `p` to the segment's chord, the line through `a` and `b`. */
-function chordDistance(p: Vec3, a: Vec3, b: Vec3): number {
-  const ab = sub3(b, a), ap = sub3(p, a);
-  const L2 = dot3(ab, ab);
-  if (L2 === 0) return Math.hypot(...ap);
-  const t = dot3(ap, ab) / L2;
-  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
 }
 
 /** The sum of the output triangles' areas: the mesh's surface area. */

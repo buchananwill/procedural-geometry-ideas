@@ -4,7 +4,7 @@
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {FaceTag, Vec3, identityKey, retagCompare, samePlane, tagLabel} from '../src/tags.ts';
 import {RawTri, ShellUnion, prepareRawTri, rawTriHolds} from '../src/union.ts';
-import {cross3, dot3, sub3} from '../src/vec3.ts';
+import {cross3, dot3, sub3, unit3} from '../src/vec3.ts';
 
 /**
  * How far inside every side of its triangle each sample point is read, in cm. A corner or edge midpoint lies on the
@@ -14,8 +14,6 @@ import {cross3, dot3, sub3} from '../src/vec3.ts';
  * only by the faces on the triangle's side.
  */
 export const REGION_SAMPLE_INSET_CM = SHELL_TOLERANCE_CM / 2;
-
-const unit3 = (u: Vec3): Vec3 => { const L = Math.hypot(...u); return [u[0] / L, u[1] / L, u[2] / L]; };
 
 /** What the region invariant reads of a union. */
 export type RegionSource = Pick<ShellUnion, 'label' | 'mesh' | 'triTags' | 'tags' | 'parts'>;
@@ -65,7 +63,7 @@ export function winningRegionViolations(u: RegionSource): string[] {
       const off = dot3(n, p) - d;
       return [p[0] - off * n[0], p[1] - off * n[1], p[2] - off * n[2]];
     });
-    const c: Vec3 = [0, 1, 2].map(a => (vs[0][a] + vs[1][a] + vs[2][a]) / 3) as Vec3;
+    const c: Vec3 = [(vs[0][0] + vs[1][0] + vs[2][0]) / 3, (vs[0][1] + vs[1][1] + vs[2][1]) / 3, (vs[0][2] + vs[1][2] + vs[2][2]) / 3];
     const mid = (p: Vec3, q: Vec3): Vec3 => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
     // Per side: its inward unit normal in the plane, and a point on it.
     const sides = [0, 1, 2].map(k => ({o: vs[k], w: unit3(cross3(n, sub3(vs[(k + 1) % 3], vs[k])))}));

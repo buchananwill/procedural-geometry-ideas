@@ -70,6 +70,12 @@ type CleanTri = [a: number, b: number, c: number, faceID: number];
 /** A cap (journal decision 107, N13): its long edge `a` to `b`, in winding order, and the apex `c` lying on it. */
 export interface CapTri { a: number; b: number; c: number }
 
+/** The triangle `u` across a cap's long edge, and its corner `d` off that edge. */
+export interface CapAcross { u: number; d: number }
+
+/** A cap found in the working triangles: its index `t` and its shape. */
+export interface CapAt { t: number; cap: CapTri }
+
 /**
  * Cleans the union's output at `tol`, in two passes.
  * - **Collapse.** Edges shorter than `tol` collapse one at a time, each into its lower-numbered end, whose position is
@@ -187,7 +193,7 @@ export function cleanMesh(mesh: ShellMesh, tol: number = CLEAN_TOLERANCE_CM): Cl
   });
 
   /** The triangle across cap `t`'s long edge and its far corner. */
-  const across = (t: number, {a, b}: CapTri): {u: number; d: number} => {
+  const across = (t: number, {a, b}: CapTri): CapAcross => {
     const u = owner.get(key(b, a));
     if (u === undefined) throw new Error(`cleanMesh: cap ${t}'s long edge ${a}-${b} has no twin: the union is not closed`);
     const d = work[u].slice(0, 3).find(x => x !== a && x !== b);
@@ -223,7 +229,7 @@ export function cleanMesh(mesh: ShellMesh, tol: number = CLEAN_TOLERANCE_CM): Cl
   const limit = 4 * work.length;
   for (let steps = 0; ; steps++) {
     if (steps > limit) throw new Error(`cleanMesh: caps still changing after ${limit} steps`);
-    const caps = work.map((_, t) => ({t, cap: capOf(t)})).filter((x): x is {t: number; cap: CapTri} => x.cap !== null);
+    const caps = work.map((_, t) => ({t, cap: capOf(t)})).filter((x): x is CapAt => x.cap !== null);
     if (!caps.length) break;
     if (caps.some(({t, cap}) => tryFlip(t, cap))) continue;
     if (caps.some(({cap}) => tryMerge(cap))) continue;

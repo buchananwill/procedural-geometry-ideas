@@ -1,13 +1,14 @@
 // Raw parts (spec decisions 5 to 11) and the storey's hard errors (decision 2, journal decisions 51, 64 and 73).
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {SHELL_FIXTURES, ShellFixture, fixtureByName, storeysOf} from '../src/fixture.ts';
+import {RingSides, SHELL_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeysOf} from '../src/fixture.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
+import {tanDeg} from '../src/ring-forms.ts';
 import {Piece, solveRoofParts} from '../src/roof/algoB.ts';
 import {Building, Rect, Sel, Wall, buildFromRects} from '../src/roof/model.ts';
 import {
   Generating, RawPart, StoreyPlan, buildStoreyParts, divideAtZoneEnds, gableGenerating, makePartContext,
-  matchGenerating, planBuilding, planStorey,
+  matchGenerating, planBuilding, planChecked, planStorey,
 } from '../src/storey.ts';
 import {FaceTag, ShellTags, Vec3, makeShellTags} from '../src/tags.ts';
 import {ShellUnion, partManifold, triArea, unionPlans} from '../src/union.ts';
@@ -18,11 +19,17 @@ beforeAll(async () => { wasm = await getManifold(); });
 
 const RECT_400_300: Rect[] = [[0, 0, 400, 300]];
 
-const oneStorey = (name: string, sels: Sel[], rects: Rect[] = RECT_400_300): ShellFixture => ({
-  name, cellSize: 50, storeyHeight: 300,
-  rings: rects.map(rect => ({rect, baseStorey: 0, storeys: 1})),
-  roofs: {0: {sels, defaultDeg: 45}},
+/** A one-storey fixture of 45 degree Rings, each with its own sides. */
+const oneStorey = (name: string, rects: Rect[] = RECT_400_300, sides: RingSides[] = []): ShellFixture => ({
+  name, cellSize: 50, storeyHeight: 300, rings: rects.map((rect, i) => ring(rect, 0, 1, 45, sides[i])),
 });
+
+/**
+ * A one-storey plan at 300 cm built from roof-gable `Sel`s at 45 degrees, below the fixture layer: for forms Ring
+ * authoring cannot express (a monopitch, an authored cut, a line gabled over part of its length).
+ */
+const selPlan = (name: string, sels: Sel[], rects: Rect[] = RECT_400_300): StoreyPlan =>
+  planChecked(name, 0, 0, 300, buildFromRects(rects, sels, tanDeg(45)));
 
 /**
  * Two monopitches, each rising from the other's dead high-end wall: x = 400 rises from (400, 0), which kills y = 300;
@@ -75,23 +82,24 @@ describe('storey hard errors', () => {
   });
 
   it('a dropped piece is a hard error naming the fixture, storey and line', () => {
-    expect(() => planStorey(oneStorey('NoPlaneProbe', NO_PLANE_SELS), 0))
-      .toThrow(/NoPlaneProbe storey 0: gable piece dropped: .*line x=/);
+    expect(() => selPlan('NoPlaneProbe', NO_PLANE_SELS)).toThrow(/NoPlaneProbe storey 0: gable piece dropped: .*line x=/);
   });
 
-  it('a cut wall is a hard error naming the fixture, storey and wall', () => {
-    expect(() => planStorey(oneStorey('CutProbe', [{y: 0, form: 'cut'}]), 0))
-      .toThrow(/CutProbe storey 0: a cut wall needs a courtyard, which is deferred: y=0 x\[0,400\]/);
+  it('a cut wall outside a courtyard is a hard error naming the fixture, storey and wall', () => {
+    expect(() => selPlan('CutProbe', [{y: 0, form: 'cut'}]))
+      .toThrow(/CutProbe storey 0: a cut wall stands outside a courtyard's cut: y=0 x\[0,400\]/);
   });
 
-  it('a hole is refused with an error naming the fixture and storey', () => {
-    const ring: Rect[] = [[0, 0, 300, 100], [0, 200, 300, 300], [0, 100, 100, 200], [200, 100, 300, 200]];
-    expect(() => planStorey(oneStorey('HoleProbe', [], ring), 0)).toThrow(/HoleProbe storey 0: holes need a cut/);
+  it('an authored cut side is a hard error naming the fixture, storey, Ring and side (spec decision 2 as amended)', () => {
+    const cut = {form: 'cut'} as unknown as SideForm;
+    expect(() => planStorey(oneStorey('AuthoredCutProbe', RECT_400_300, [{S: cut}]), 0))
+      .toThrow(/AuthoredCutProbe storey 0: Ring 0 side S is authored cut/);
   });
 
-  it('a storey with no roof authored is refused', () => {
-    const f = {...oneStorey('NoRoofProbe', []), roofs: {}};
-    expect(() => planStorey(f, 0)).toThrow(/NoRoofProbe storey 0: no roof authored/);
+  it('an authored cut on a buried side is refused too', () => {
+    const cut = {form: 'cut'} as unknown as SideForm;
+    expect(() => planStorey(oneStorey('BuriedCutProbe', [[0, 0, 200, 300], [200, 0, 400, 300]], [{E: cut}]), 0))
+      .toThrow(/BuriedCutProbe storey 0: Ring 0 side E is authored cut/);
   });
 });
 
@@ -144,9 +152,8 @@ describe('wall-line Gable is bounded by the wall (journal decision 80)', () => {
   const U_SELS: Sel[] = [{y: 0, to: 200, form: 'gable'}];
 
   it('has one surviving Cheek, on x = 200 over the spine, and Gable on the arm wall only within its span', () => {
-    const f = oneStorey('UProbe', U_SELS, U_RECTS);
-    const plan = planStorey(f, 0);
-    const u = unionPlans(wasm, f.name, [plan]);
+    const plan = selPlan('UProbe', U_SELS, U_RECTS);
+    const u = unionPlans(wasm, 'UProbe', [plan]);
     expect(u.cheeks).toBe(1);
     const cheek = onX200(u, t => t.kind === 'Cheek');
     expect(cheek.off).toBeLessThan(SHELL_TOLERANCE_CM ** 2);
@@ -160,13 +167,13 @@ describe('wall-line Gable is bounded by the wall (journal decision 80)', () => {
 
 describe('span-end division (journal decision 82)', () => {
   it("divides one triangle crossing the arm wall's span end on the U's band-end plane, changing its tag", () => {
-    const plan = planStorey(oneStorey('USplitProbe', [{y: 0, to: 200, form: 'gable'}], [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]]), 0);
+    const plan = selPlan('USplitProbe', [{y: 0, to: 200, form: 'gable'}], [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]]);
     const [piece] = plan.roof.pieces;
     const arm = wallOn(plan.building, w => w.a.x === 200 && w.b.x === 200, 'on x = 200');
     // The band's high end, x = 200 facing +x: Cheek over the spine, Gable on the arm wall from y = 200.
     const bandEnd = gableGenerating(plan, piece, piece.farDist).find(g => g.plane.n[0] > 0.5 && Math.abs(g.plane.d - 200) <= SHELL_TOLERANCE_CM);
     if (!bandEnd?.along) throw new Error('no zoned band-end plane at x = 200');
-    expect(bandEnd.along.zones).toEqual([{wall: arm.id, lo: 200, hi: 600}]);
+    expect(bandEnd.along.zones).toEqual([{kind: 'Gable', wall: arm.id, lo: 200, hi: 600}]);
 
     // One triangle from y = 100 to y = 400, its centroid at y = 300 on the arm side.
     const tri: Vec3[] = [[200, 100, 300], [200, 400, 300], [200, 250, 450]];
@@ -220,8 +227,12 @@ describe('span-end split through buildStoreyParts (journal decision 85)', () => 
 
 describe('storey-wide own-wall zones (journal decision 82)', () => {
   it('gives a gabled box of three rects one identity per face: 0 conflicts', () => {
-    const f = oneStorey('Box3Probe', [{y: 0, form: 'gable'}, {y: 300, form: 'gable'}], [[0, 0, 130, 300], [130, 0, 270, 300], [270, 0, 400, 300]]);
-    const box = {...f, roofs: {0: {...f.roofs[0], defaultDeg: 50}}};
+    // The first Ring's S and N sides win the whole y = 0 and y = 300 walls (spec decision 3).
+    const rects: Rect[] = [[0, 0, 130, 300], [130, 0, 270, 300], [270, 0, 400, 300]];
+    const box: ShellFixture = {
+      name: 'Box3Probe', cellSize: 50, storeyHeight: 300,
+      rings: rects.map((r, i) => ring(r, 0, 1, 50, i === 0 ? {S: {form: 'gable'}, N: {form: 'gable'}} : {})),
+    };
     const u = unionPlans(wasm, box.name, [planStorey(box, 0)]);
     expect(u.status).toBe('NoError');
     expect(u.conflicts).toEqual([]);

@@ -5,7 +5,7 @@
 // cleaned mesh is then imprinted with the winner boundaries (`imprint.ts`, spec decision 15 as amended, journal
 // decision 111) before any tag is decided.
 import type {ErrorStatus, Manifold} from 'manifold-3d';
-import {CleanStats, cleanMesh} from './clean.ts';
+import {CleanStats, NO_CLEAN, cleanMesh, meshOf} from './clean.ts';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {ShellFixture, storeysOf} from './fixture.ts';
 import {Wasm, getManifold} from './manifold.ts';
@@ -106,14 +106,10 @@ export function unionParts(wasm: Wasm, parts: RawPart[]): UnionPartsResult {
     u = wasm.Manifold.union(ms);
     const status = u.status();
     // numProp is 3, so the output has no property seams and no merge vectors.
-    const out = u.getMesh();
-    const np = out.numProp;
-    const positions = new Float32Array(3 * out.numVert);
-    for (let v = 0; v < out.numVert; v++) for (let a = 0; a < 3; a++) positions[3 * v + a] = out.vertProperties[np * v + a];
-    const raw: ShellMesh = {positions, tris: Uint32Array.from(out.triVerts), faceIDs: Uint32Array.from(out.faceID)};
+    const raw = meshOf(u.getMesh());
     // A union Manifold refuses is reported as it stands, uncleaned.
     if (status !== 'NoError') {
-      return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {merged: 0, collapsed: 0, flipped: 0, maxMoveCm: 0}};
+      return {status, closed: raw.tris.length > 0 && isClosed(raw.tris), genus: u.genus(), mesh: raw, clean: {...NO_CLEAN}};
     }
     const {mesh, stats} = cleanMesh(raw);
     const genus = mesh === raw ? u.genus() : remeshedGenus(wasm, mesh, 'cleaned');
@@ -209,7 +205,7 @@ const NO_IMPRINT: ImprintStats = {split: 0, neighbours: 0, added: 0, boundaries:
  * imprinted mesh must come back from `Manifold.ofMesh` as a closed manifold of the cleaned mesh's genus, or it is a
  * hard error naming the fixture.
  */
-function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, model: RegionModel): UnionPartsResult & {imprint: ImprintStats} {
+function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, model: RegionModel): UnionPartsResult & Pick<ShellUnion, 'imprint'> {
   if (cleaned.status !== 'NoError') return {...cleaned, imprint: NO_IMPRINT};
   const {mesh, stats} = imprintRegions(cleaned.mesh, model);
   if (mesh === cleaned.mesh) return {...cleaned, imprint: stats};

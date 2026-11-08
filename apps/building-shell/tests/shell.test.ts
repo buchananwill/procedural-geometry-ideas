@@ -6,35 +6,48 @@ import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
 import type {Vec2} from 'manifold-3d';
 import {errorMessage} from '../src/errors.ts';
 import {ShellFace, loopArea} from '../src/faces.ts';
-import {FixtureRing, SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, fixtureByName} from '../src/fixture.ts';
+import {FixtureRing, RingSides, SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {getManifold} from '../src/manifold.ts';
+import {tanDeg} from '../src/ring-forms.ts';
 import {CASES} from '../src/roof/cases.ts';
-import {Rect, Sel} from '../src/roof/model.ts';
+import {Rect, Sel, buildFromRects} from '../src/roof/model.ts';
 import {
   CONVENTION_CHEEK, CONVENTION_CORNER_BY_GEOMETRY, CONVENTION_ROOF_LINES_CUT, CONVENTION_UNDERSIDE_ROOF_INTERIOR, ROOF_LINE_KINDS,
-  ShellBuild, ShellReport, buildShellDetailed,
+  ShellBuild, ShellReport, buildShellDetailed, buildShellFromUnion,
 } from '../src/shell.ts';
-import {FaceTag, Vec3, planeKey} from '../src/tags.ts';
+import {planChecked} from '../src/storey.ts';
+import {FaceTag, Vec3, clusterKeyOf} from '../src/tags.ts';
+import {unionPlans} from '../src/union.ts';
 import {cross2} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
-import {AREA_TOL, SNAP_MOVE, faceAreaViolations, planHolds, tagPlaneViolations} from './shell-invariants.ts';
+import {AREA_TOL, SNAP_MOVE, dist, faceAreaViolations, planHolds, tagPlaneViolations} from './shell-invariants.ts';
 
 const TAN30 = Math.tan(Math.PI / 6);
 const TAN60 = Math.sqrt(3);
 
-/** The correctness reviewer's U (storey.test.ts): one surviving Cheek, on x = 200 over the spine. */
+/**
+ * The correctness reviewer's U (storey.test.ts): one surviving Cheek, on x = 200 over the spine. Its y = 0 line is
+ * gabled over [0, 200] only, which Ring authoring cannot say (the whole union wall takes one form, spec decision 3), so
+ * its storey is built from roof-gable `Sel`s, below the fixture layer, exactly as before Ring forms.
+ */
 const U_RECTS: Rect[] = [[0, 0, 200, 600], [0, 0, 1000, 200], [800, 0, 1000, 600]];
 const U_SELS: Sel[] = [{y: 0, to: 200, form: 'gable'}];
-const oneStoreyRings = (rects: Rect[]): FixtureRing[] => rects.map(rect => ({rect, baseStorey: 0, storeys: 1}));
-const U_PROBE: ShellFixture = {name: 'UProbe', cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings(U_RECTS), roofs: {0: {sels: U_SELS, defaultDeg: 45}}};
+const oneStoreyRings = (rects: Rect[], deg: number, sides: RingSides[] = []): FixtureRing[] =>
+  rects.map((rect, i) => ring(rect, 0, 1, deg, sides[i]));
+const U_PROBE: ShellFixture = {name: 'UProbe', cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings(U_RECTS, 45)};
+
+async function buildUProbe(): Promise<ShellBuild> {
+  const wasm = await getManifold();
+  const plan = planChecked(U_PROBE.name, 0, 0, STOREY_HEIGHT_CM, buildFromRects(U_RECTS, U_SELS, tanDeg(45)));
+  return buildShellFromUnion(wasm, U_PROBE, unionPlans(wasm, U_PROBE.name, [plan]));
+}
 
 /**
  * The correctness reviewer's hip-touch probes (journal decision 96, F1 and F2): storey 1 stands on storey 0's 45
  * degree hip with one corner on the hip line x = y, at (70, 70) off the lattice and at (100, 100) on it.
  */
 const hipTouch = (name: string, upper: Rect): ShellFixture => ({
-  name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM,
-  rings: [{rect: [0, 0, 600, 600], baseStorey: 0, storeys: 1}, {rect: upper, baseStorey: 1, storeys: 1}],
-  roofs: {0: {sels: [], defaultDeg: 45}, 1: {sels: [], defaultDeg: 45}},
+  name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: [ring([0, 0, 600, 600], 0, 1, 45), ring(upper, 1, 1, 45)],
 });
 const HIP_TOUCH_OFF = hipTouch('HipTouchOffLattice', [30, 70, 70, 170]);
 const HIP_TOUCH_ON = hipTouch('HipTouchOnLattice', [50, 100, 100, 200]);
@@ -45,11 +58,15 @@ type BuildOutcome = ShellBuild | Error;
 /** Each build, or the error it threw: a fixture that fails to build fails its own tests, not the whole file. */
 const builds = new Map<string, BuildOutcome>();
 beforeAll(async () => {
-  for (const f of [...SHELL_FIXTURES, ...PROBES]) {
+  const jobs: [string, () => Promise<ShellBuild>][] = [
+    ...[...SHELL_FIXTURES, ...FIXTURE_PROBES].map(f => [f.name, () => buildShellDetailed(f)] as [string, () => Promise<ShellBuild>]),
+    [U_PROBE.name, buildUProbe],
+  ];
+  for (const [name, build] of jobs) {
     try {
-      builds.set(f.name, await buildShellDetailed(f));
+      builds.set(name, await build());
     } catch (e) {
-      builds.set(f.name, e instanceof Error ? e : new Error(errorMessage(e)));
+      builds.set(name, e instanceof Error ? e : new Error(errorMessage(e)));
     }
   }
 }, 120_000);
@@ -59,12 +76,11 @@ function get(name: string): ShellBuild {
   if (b instanceof Error) throw b;
   return b;
 }
-const PROBES = [U_PROBE, HIP_TOUCH_OFF, HIP_TOUCH_ON];
-const ALL = [...SHELL_FIXTURES, ...PROBES].map(f => f.name);
+const FIXTURE_PROBES = [HIP_TOUCH_OFF, HIP_TOUCH_ON];
+const ALL = [...SHELL_FIXTURES.map(f => f.name), U_PROBE.name, ...FIXTURE_PROBES.map(f => f.name)];
 
 // ---- Helpers ----------------------------------------------------------------------------------------------------
 
-const dist = (p: Vec3, q: Vec3): number => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
 const near = (p: Vec3, q: Vec3): boolean => dist(p, q) <= SHELL_TOLERANCE_CM;
 
 /** The ShellEdges of `kind` running between `p` and `q`, either way round. */
@@ -286,6 +302,8 @@ const REPORTS: Record<string, ReportPin> = {
   ValleyWingsPierced: {conflicts: 0, partialCells: 124, ...CORNERED},
   SingleStoreyT: {conflicts: 0, partialCells: 42, ...CORNERED},
   DefaultChalet: {conflicts: 0, partialCells: 56, ...NONE},
+  // Journal decision 115: the courtyard's four inner corners are InternalCorners, and its hips cut Roof Cells.
+  Courtyard: {conflicts: 0, partialCells: 48, ...CORNERED},
 };
 
 describe('the report (decision 33)', () => {
@@ -750,8 +768,7 @@ describe('F4: every Cell\'s lattice index', () => {
 
 describe('F5: the exact roof cut is a new convention', () => {
   const box = (name: string, depth: number): ShellFixture => ({
-    name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings([[0, 0, 400, depth]]),
-    roofs: {0: {sels: [{x: 0, form: 'gable'}, {x: 400, form: 'gable'}], defaultDeg: 45}},
+    name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings: oneStoreyRings([[0, 0, 400, depth]], 45, [{W: {form: 'gable'}, E: {form: 'gable'}}]),
   });
 
   it('is not listed for a gabled box whose only roof line, its Ridge, runs on a Cell line', async () => {
@@ -771,7 +788,7 @@ describe('F6: the shell does not depend on how the plan was split into Rings', (
   /** A face by what it is: identity on its plane, area, and its loops' points; never its id, wall or part. */
   const faceSig = (b: ShellBuild, f: ShellFace): string => {
     const loops = f.loops.map(l => l.map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort().join(' ')).sort();
-    return `${f.tag.kind}|${f.tag.storey}|${planeKey({n: f.normal, d: f.offset}, b.union.tags.clusters)}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
+    return `${f.tag.kind}|${f.tag.storey}|${clusterKeyOf({n: f.normal, d: f.offset}, b.union.tags.clusters)}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
   };
   const edgeSig = (b: ShellBuild, e: ShellEdge): string => {
     const ends = [e.a, e.b].map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort();
@@ -783,10 +800,7 @@ describe('F6: the shell does not depend on how the plan was split into Rings', (
     const bridge = fixtureByName('Bridge');
     const one = await buildShellDetailed({
       ...bridge, name: 'BridgeOneRing',
-      rings: [
-        {rect: [0, 0, 200, 600], baseStorey: 0, storeys: 2}, {rect: [800, 0, 1000, 600], baseStorey: 0, storeys: 2},
-        {rect: [0, 0, 1000, 600], baseStorey: 2, storeys: 1},
-      ],
+      rings: [ring([0, 0, 200, 600], 0, 2, 30), ring([800, 0, 1000, 600], 0, 2, 30), ring([0, 0, 1000, 600], 2, 1, 30)],
     });
     expect(three.shell.faces.map(f => faceSig(three, f)).sort()).toEqual(one.shell.faces.map(f => faceSig(one, f)).sort());
     expect(three.shell.edges.map(e => edgeSig(three, e)).sort()).toEqual(one.shell.edges.map(e => edgeSig(one, e)).sort());

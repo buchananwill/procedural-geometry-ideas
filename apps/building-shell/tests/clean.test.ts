@@ -3,7 +3,7 @@
 import {describe, expect, it} from 'vitest';
 import {CLEAN_MAX_MOVE_CM, CLEAN_TOLERANCE_CM, NO_CLEAN, cleanMesh, meshOf} from '../src/clean.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {SHELL_FIXTURES, ShellFixture} from '../src/fixture.ts';
+import {SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import {ShellMesh, ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
@@ -13,8 +13,7 @@ import {AREA_TOL} from './shell-invariants.ts';
 /** `probe10.mjs`'s fixture: its union leaves four vertex pairs 7.6e-5 to 2.3e-4 cm apart. */
 const NEAR_PAIRS: ShellFixture = {
   name: 'NearPairs', cellSize: 50, storeyHeight: 300,
-  rings: [{rect: [100, 50, 410, 580], baseStorey: 0, storeys: 1}, {rect: [280, 80, 640, 380], baseStorey: 0, storeys: 1}, {rect: [140, 440, 240, 530], baseStorey: 1, storeys: 1}],
-  roofs: {0: {sels: [{x: 100, form: 'gable'}], defaultDeg: 52.5}, 1: {sels: [], defaultDeg: 45}},
+  rings: [ring([100, 50, 410, 580], 0, 1, 52.5, {W: {form: 'gable'}}), ring([280, 80, 640, 380], 0, 1, 52.5), ring([140, 440, 240, 530], 1, 1, 45)],
 };
 /** Random fixture 14: its union leaves a cap 3.3e-4 cm high on a storey-0 hip, and no short edge. */
 const CAP = randomFixtures(1, 80)[14];

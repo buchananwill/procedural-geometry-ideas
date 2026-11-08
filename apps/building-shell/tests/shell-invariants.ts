@@ -5,6 +5,7 @@ import {snapPoint} from '../src/edges.ts';
 import {ShellFace, loopArea, meshPoint} from '../src/faces.ts';
 import type {ShellBuild} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
+import {dist3, lineDistance} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {winningRegionViolations} from './winning-regions.ts';
 
@@ -13,7 +14,8 @@ export const AREA_TOL = 0.05;
 /** The furthest `snapCm` moves a 3D point: half a 1/1024 cm step on each axis. */
 export const SNAP_MOVE = Math.sqrt(3) / (2 * SNAP_STEPS_PER_CM);
 
-const dist = (p: Vec3, q: Vec3): number => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+/** Distance between two points: `vec3.ts`'s `dist3`, under the name the test files read it by (N8). */
+export const dist = dist3;
 
 /** Whether plan point (x, y) lies in a face's plan projection, its boundary within tolerance included. */
 export function planHolds(f: ShellFace, x: number, y: number): boolean {
@@ -42,14 +44,6 @@ export interface ShellExpectation { genus: number; cheeks: number }
  * rounds each term at about 1e-13 of its size, so a sum of a few hundred terms keeps 1e-9 of headroom.
  */
 export const AREA_EPS_PER_CM2 = 1e-9;
-
-/** Distance from `p` to the line through `a` and `b`. */
-function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
-  const ab: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], ap: Vec3 = [p[0] - a[0], p[1] - a[1], p[2] - a[2]];
-  const L2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
-  const t = L2 ? (ap[0] * ab[0] + ap[1] * ab[1] + ap[2] * ab[2]) / L2 : 0;
-  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
-}
 
 /**
  * Spec decision 32 as amended (journal decision 110, C5): every vertex loop reduction drops lies within

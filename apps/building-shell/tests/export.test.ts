@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {OUT_DIR, shellFileName, writeShells} from '../src/export.ts';
-import {SHELL_FIXTURES, fixtureByName} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, SHELL_FIXTURES, fixtureByName} from '../src/fixture.ts';
 import {BuildingShell, buildShell} from '../src/shell.ts';
 
 describe('the export (decision 33)', () => {
@@ -40,7 +40,9 @@ describe('the export (decision 33)', () => {
     }
   }, 60_000);
 
-  it('covers the whole roster', () => {
-    expect(SHELL_FIXTURES.map(f => shellFileName(f.name))).toHaveLength(11);
+  it('covers the whole roster, the Ring-conflict pairs and the port fixtures, each under its own name', () => {
+    expect(SHELL_FIXTURES).toHaveLength(12);
+    expect(EXPORTED_FIXTURES).toEqual([...SHELL_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES]);
+    expect(new Set(EXPORTED_FIXTURES.map(f => shellFileName(f.name))).size).toBe(12 + 6 + 4);
   });
 });

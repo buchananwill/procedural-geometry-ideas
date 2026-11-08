@@ -1,6 +1,7 @@
 // `solveRoofParts` re-types `runB`'s logic (the weights, the solve loop, the default faces, the pieces loop), so this
-// checks the two agree: every hole-free roof-gable case, built as one storey of raw parts from `solveRoofParts` and
-// unioned, must stand at `runB`'s height plus the plate at every grid point strictly inside its footprint.
+// checks the two agree: every roof-gable case, built as one storey of raw parts from `solveRoofParts` and unioned, must
+// stand at `runB`'s height plus the plate at every grid point strictly inside its footprint. The courtyards 9a to 9d
+// go through their own cut (journal decision 115).
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
@@ -54,7 +55,8 @@ function clearOfWalls(b: Building, p: Pt): boolean {
   });
 }
 
-const holeFree = CASES.filter(c => c.build().comps.every(comp => comp.holes.length === 0));
+/** Cases 9a to 9d, the courtyards: each roofed through its own cut, as `buildCourtyard` places it (journal decision 115). */
+const courtyards = CASES.filter(c => c.build().comps.some(comp => comp.holes.length > 0));
 
 /**
  * The union's surviving Cheek identities per case, as measured after journal decision 75 put every wall-line face
@@ -69,14 +71,21 @@ const holeFree = CASES.filter(c => c.build().comps.every(comp => comp.holes.leng
 const MEASURED_CHEEKS: Record<string, number> = {'2b': 1, '4b': 2, '8b': 1};
 
 describe('solveRoofParts agrees with runB', () => {
-  it('covers every hole-free case: all 53 but the four courtyards', () => {
-    expect(holeFree.length).toBe(49);
+  it('covers every case: all 53, the four courtyards 9a to 9d among them', () => {
+    expect(CASES.length).toBe(53);
+    expect(courtyards.map(c => c.id)).toEqual(['9a', '9b', '9c', '9d']);
   });
 
-  it.each(holeFree)('case $id: the union top surface is runB plus the plate', c => {
+  it.each(CASES)('case $id: the union top surface is runB plus the plate', c => {
     const b = c.build();
     const u = unionPlans(wasm, `case ${c.id}`, [planBuilding(`case ${c.id}`, 0, 0, PLATE, b)]);
     expect(u.status).toBe('NoError');
+    expect(u.closed).toBe(true);
+    // A courtyard's ring is one tunnel from the ground to the sky. (Other cases are not pinned here: 8e is two islands,
+    // which Manifold counts as genus -1.)
+    if (courtyards.includes(c)) expect(u.genus).toBe(1);
+    // The cut's faces are Internal, and each has its partner across the slit, so none survives (spec decision 2).
+    expect(u.survivingInternal).toBe(0);
     expect(u.cheeks).toBe(MEASURED_CHEEKS[c.id] ?? 0);
     const surface = runB(b, {far: 'plane'});
     const misses: string[] = [];

@@ -3,19 +3,22 @@
 // - the WP3 correctness reviewer's pitch sweep (F36, F37), at 300 and 250 cm storeys;
 // - decision 108's grid of pitch by storey height;
 // - random Ring fixtures, seeds 1 to 4 at both storey heights (C4);
+// - random courtyards, seeds 1 and 2 at both storey heights (journal decision 115), each measured defect enrolled with
+//   exactly its signature;
 // - the named regression fixtures C1 and C2 enrolled;
 // - with `SHELL_FUZZ_SEEDS` set (for example `5-20`), a larger seeded fuzz, opt-in.
 // No case is skipped and no sweep is thinned.
 import {describe, expect, it} from 'vitest';
 import {cornerBisector} from '../src/cells.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {STOREY_HEIGHT_CM} from '../src/fixture.ts';
+import {errorMessage} from '../src/errors.ts';
+import {STOREY_HEIGHT_CM, ShellFixture} from '../src/fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
-  CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, randomFixtures, seededFixture,
-  sweepFixture, sweepFixtures,
+  CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, randomCourtyardFixtures,
+  randomFixtures, seededFixture, sweepFixture, sweepFixtures,
 } from './robustness-fixtures.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 
@@ -33,7 +36,7 @@ const HEIGHTS = [REVIEWER_STOREY_HEIGHT_CM, STOREY_HEIGHT_CM];
 const SEEDS = [1, 2, 3, 4];
 const PER_SEED = 140;
 
-const holds = async (f: Parameters<typeof buildShellDetailed>[0]): Promise<ShellBuild> => {
+const holds = async (f: ShellFixture): Promise<ShellBuild> => {
   const b = await buildShellDetailed(f);
   expect(invariantViolations(b, EXPECTED)).toEqual([]);
   return b;
@@ -66,6 +69,64 @@ describe('the pitch by storey-height grid (journal decision 108): 250 to 300 cm 
 describe.each(SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('the random Ring fixtures (journal decision 110, C4): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomFixtures(seed, PER_SEED, h).map(f => [f.name, f] as const))('%s builds and keeps every invariant', async (_, f) => {
     await holds(f);
+  });
+});
+
+// ---- Random courtyards (journal decision 115) -----------------------------------------------------------------------
+
+/** The courtyard seeds gated on every run, 40 fixtures each, at both storey heights. */
+const COURTYARD_SEEDS = [1, 2];
+const PER_COURTYARD_SEED = 40;
+
+/** A courtyard runs from the ground to the sky: genus 1. */
+const COURTYARD_EXPECTED: ShellExpectation = {genus: 1, cheeks: 0};
+
+/**
+ * Measured at WP3.6, findings, not waivers: every random courtyard that breaks an invariant, keyed `s<seed>h<height>/
+ * <name>`, with exactly its violations (or `throws:` and the error a build raised). A case not listed keeps every
+ * invariant. A cure breaks the suite as surely as a new defect, and either is re-measured, never softened.
+ * - Unclassified Edges, with gables over several storeys: the same class appears on these layouts with one wing removed
+ *   (a U, no hole), so it is not the courtyard's.
+ * - `cleanMesh` refusals (a pinching collapse, a stuck cap), with gables on one storey: courtyard-only, none on the Us.
+ * - A Cheek face, and a surviving Internal cut face with Unclassified Edges, on gabled or multi-storey courtyards.
+ */
+const COURTYARD_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+  's1h250/Court1': ['2 Unclassified Edges'],
+  's1h250/Court4': ['2 Unclassified Edges'],
+  's1h250/Court7': ['6 Unclassified Edges'],
+  's1h250/Court16': ['throws: cleanMesh: collapsing the short edge 35-37 would pinch the surface'],
+  's1h250/Court19': ['4 Unclassified Edges'],
+  's1h250/Court20': ['4 Unclassified Edges'],
+  's1h250/Court22': ['throws: cleanMesh: collapsing the short edge 50-52 would pinch the surface'],
+  's1h250/Court29': ['4 Unclassified Edges'],
+  's1h250/Court36': ['2 Unclassified Edges'],
+  's1h300/Court4': ['2 Unclassified Edges'],
+  's1h300/Court5': ['throws: cleanMesh: cap 114 (55-14, apex 47) can neither flip nor merge its apex into its long edge'],
+  's1h300/Court7': ['4 Unclassified Edges'],
+  's1h300/Court16': ['throws: cleanMesh: collapsing the short edge 36-38 would pinch the surface'],
+  's1h300/Court19': ['4 Unclassified Edges'],
+  's1h300/Court22': ['throws: cleanMesh: collapsing the short edge 51-53 would pinch the surface'],
+  's1h300/Court29': ['4 Unclassified Edges'],
+  's2h250/Court15': ['survivingInternal 1', '3 Unclassified Edges'],
+  's2h250/Court29': ['cheeks 1, expected 0'],
+  's2h250/Court37': ['2 Unclassified Edges'],
+  's2h300/Court15': ['survivingInternal 1', '3 Unclassified Edges'],
+  's2h300/Court29': ['cheeks 1, expected 0'],
+  's2h300/Court37': ['2 Unclassified Edges'],
+};
+
+/** A courtyard's measured outcome: its invariant violations, or the error its build raised. */
+async function courtyardOutcome(f: ShellFixture): Promise<string[]> {
+  try {
+    return invariantViolations(await buildShellDetailed(f), COURTYARD_EXPECTED);
+  } catch (e) {
+    return [`throws: ${errorMessage(e)}`];
+  }
+}
+
+describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decision 115): seed %i at %i cm storeys', (seed, h) => {
+  it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
+    expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
   });
 });
 

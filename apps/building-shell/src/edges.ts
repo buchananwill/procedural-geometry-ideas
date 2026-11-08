@@ -3,7 +3,7 @@
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {FaceAssembly, FaceSource, destOf, meshPoint, originOf, prevHalf, triOf} from './faces.ts';
 import {FaceTag, ShellKind, Vec3} from './tags.ts';
-import {dot3, sub3} from './vec3.ts';
+import {dot3, lineDistance, sub3} from './vec3.ts';
 import {snapCm} from './weld.ts';
 
 /**
@@ -65,16 +65,19 @@ export interface ShellVertex {
  * position `point` where Manifold writes a non-manifold pinch as coincident vertices with no edge between them
  * (journal decision 110, C1): each is one sheet of the surface through the point.
  */
-export interface MeshOrigin { at: 'mesh'; vertices: number[]; point: Vec3 }
+export interface MeshOrigin { at: 'mesh'; vertices: [number, ...number[]]; point: Vec3 }
 
 /**
  * A vertex of the net found inside ShellEdges: one, or two coincident ones where a pinch's two sheets share a segment
  * (journal decision 110, C1).
  */
-export interface EdgeOrigin { at: 'edge'; edges: number[] }
+export interface EdgeOrigin { at: 'edge'; edges: [number, ...number[]] }
+
+/** A vertex of the net found inside a face: an interior lattice corner. */
+export interface FaceOrigin { at: 'face'; face: number }
 
 /** Where a vertex was first found: at mesh vertices ending ShellEdges, inside ShellEdges, or inside a face. */
-export type VertexOrigin = MeshOrigin | EdgeOrigin | {at: 'face'; face: number};
+export type VertexOrigin = MeshOrigin | EdgeOrigin | FaceOrigin;
 
 /** The origin of a vertex first found at mesh vertex `vertex`, at `point`. */
 export const meshOrigin = (vertex: number, point: Vec3): MeshOrigin => ({at: 'mesh', vertices: [vertex], point});
@@ -120,14 +123,14 @@ export function vertexAt(reg: VertexRegistry, p: Vec3, origin: VertexOrigin): nu
         o.vertices.push(v);
       }
     } else if (origin.at === 'mesh') {
-      reg.origins[got] = {at: 'mesh', vertices: [...origin.vertices], point: origin.point};
+      reg.origins[got] = {at: 'mesh', vertices: [origin.vertices[0], ...origin.vertices.slice(1)], point: origin.point};
     } else if (origin.at === 'edge' && o.at === 'edge') {
       for (const e of origin.edges) if (!o.edges.includes(e)) o.edges.push(e);
     }
     return got;
   }
-  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: [...origin.vertices], point: origin.point};
-  if (origin.at === 'edge') origin = {at: 'edge', edges: [...origin.edges]};
+  if (origin.at === 'mesh') origin = {at: 'mesh', vertices: [origin.vertices[0], ...origin.vertices.slice(1)], point: origin.point};
+  if (origin.at === 'edge') origin = {at: 'edge', edges: [origin.edges[0], ...origin.edges.slice(1)]};
   reg.positions.push(s);
   reg.origins.push(origin);
   reg.byKey.set(k, reg.positions.length - 1);
@@ -211,15 +214,6 @@ export interface EdgeAssembly {
   halves: number[][];
   /** Every mesh vertex that ends a ShellEdge. */
   endpoints: Set<number>;
-}
-
-/** Distance from `p` to the line through `a` and `b`. */
-function lineDistance(p: Vec3, a: Vec3, b: Vec3): number {
-  const ab = sub3(b, a), ap = sub3(p, a);
-  const L2 = dot3(ab, ab);
-  if (L2 === 0) return Math.hypot(...ap);
-  const t = dot3(ap, ab) / L2;
-  return Math.hypot(ap[0] - t * ab[0], ap[1] - t * ab[1], ap[2] - t * ab[2]);
 }
 
 /**

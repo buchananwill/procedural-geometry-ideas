@@ -157,17 +157,17 @@ export const onLattice = (v: number, cellSize: number): boolean =>
 export interface ContourLobe { ids: number[]; area: number }
 
 /**
- * A Cell contour's corner ids split into simple lobes, each one Cell (journal decision 92). A lobe under
- * `SHELL_TOLERANCE_CM`² is dropped. A lobe of negative area, a piece wound the wrong way, is a hard error, as a
- * contour hole is (journal decision 101).
+ * A Cell contour's corner ids split into simple lobes, each one Cell (journal decision 92). Spec decision 23 as amended
+ * (journal decision 119, F43): a lobe is a Cell exactly when it has at least three distinct vertices, ids being
+ * positions on the 1/1024 cm snap grid, however small its area. A lobe of fewer is no Cell. A Cell that winds
+ * clockwise, or has no area, is a hard error, as a contour hole is (journal decision 101).
  */
 export function contourLobes(ids: number[], at: (id: number) => Vec2, where: string): ContourLobe[] {
   const out: ContourLobe[] = [];
   for (const lobe of splitSimpleLoops(ids)) {
+    if (new Set(lobe).size < 3) continue;
     const area = shoelace(lobe.map(at));
-    if (-area >= SHELL_TOLERANCE_CM ** 2) throw new Error(`${where}: a lobe of area ${area} winds clockwise`);
-    if (area < SHELL_TOLERANCE_CM ** 2) continue;
-    if (lobe.length < 3) throw new Error(`${where}: a piece of area ${area} has ${lobe.length} distinct corners`);
+    if (!(area > 0)) throw new Error(`${where}: a lobe of ${lobe.length} distinct corners winds clockwise or has no area (${area})`);
     out.push({ids: lobe, area});
   }
   return out;
@@ -210,7 +210,9 @@ export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: Fram
 /**
  * Spec decisions 22 to 25: each face with a lattice is intersected, square by square, with the global `cellSize`
  * lattice by `CrossSection.intersect`; each piece is one Cell (a square the face cuts into several pieces gives one
- * Cell per piece, all with that square's lattice index). A piece under `SHELL_TOLERANCE_CM`² is dropped. Each corner
+ * Cell per piece, all with that square's lattice index). A piece is a Cell exactly when it keeps at least three
+ * distinct snapped vertices (spec decision 23 as amended, journal decision 119); a contour of negative area, a hole
+ * piece, is a hard error unless it is under `SHELL_TOLERANCE_CM`², float noise. Each corner
  * is mapped to a ShellEdge vertex or an interior lattice corner, every boundary vertex on a side is inserted, and the
  * polygon is wound counter-clockwise seen from outside.
  */
@@ -274,7 +276,6 @@ export function layCells(wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: Edg
               if (-a >= SHELL_TOLERANCE_CM ** 2) throw new Error(`${where}: lattice square (${i}, ${j}) holds a hole of the face`);
               continue;
             }
-            if (a < SHELL_TOLERANCE_CM ** 2) continue;
             let ids = dedupeCyclic(c.map(mapCorner));
             ids = dedupeCyclic(withBoundaryPoints(ids, reg, fr, boundary));
             // A contour touching itself at a vertex is two pieces of the square: one Cell each (journal decision 92).
@@ -430,7 +431,11 @@ export function vertexRecords(src: FaceSource, asm: FaceAssembly, ea: EdgeAssemb
     // corner, so runs follow the fan even where one face meets the vertex twice. Journal decision 110, C1: at a pinch
     // the runs go sheet by sheet, the sheets in order of lowest face id, and each sheet's faces start at its first run.
     const placed = new Map(runs.map(r => [r, placeRun(src, asm, sheets, cells[r.cells[0]], id, reg, where)]));
-    const place = (r: CellRun): RunPlace => placed.get(r) ?? {sheet: 0, triangle: 0};
+    const place = (r: CellRun): RunPlace => {
+      const got = placed.get(r);
+      if (!got) throw new Error(`${where}: a Cell run was never placed in the fan`);
+      return got;
+    };
     for (const [s, sheet] of sheets.entries()) {
       const n = runs.filter(r => place(r).sheet === s).length;
       if (n > 1 && !sheet.fan) throw new Error(`${where}: ${n} gaps in its Cell fan away from a mesh vertex`);

@@ -8,9 +8,9 @@ import {makeRegionModel} from '../src/regions.ts';
 import {FaceTag} from '../src/tags.ts';
 import {ShellUnion, retagPass, taggedArea, unionParts, unionShell} from '../src/union.ts';
 import {REVIEWER_STOREY_HEIGHT_CM, randomFixtures, sweepFixtures} from './robustness-fixtures.ts';
+import {AREA_TOL} from './shell-invariants.ts';
 import {winningRegionViolations} from './winning-regions.ts';
 
-const AREA_TOL = 0.05;
 const kindOf = (kind: FaceTag['kind'], storey: number) => (t: FaceTag): boolean => t.kind === kind && t.storey === storey;
 
 /** Every robustness case, as the robustness gate runs them: the pitch sweep and seed 1's 80 random fixtures. */

@@ -1,5 +1,6 @@
 // ShellEdges (spec decisions 19 to 21): the convexity test, the edge table, and the 21-member EdgeKind.
 import {beforeAll, describe, expect, it} from 'vitest';
+import {meshOf} from '../src/clean.ts';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {
   EDGE_KINDS, EdgeGeometry, EdgeShape, NEW_EDGE_KINDS, buildShellEdges, classifyEdge, edgeShape, liftAcross, makeVertexRegistry, meshOrigin,
@@ -109,11 +110,9 @@ function notchedSolid(): FaceSource {
   const bar0 = wasm.Manifold.cube([10, 2, 2]);
   const bar = bar0.translate([0, 0, 10]);
   const u = cube.add(bar);
-  const out = u.getMesh();
+  // N16 and N10's test half: the one Manifold-mesh reader. Its faceIDs are replaced below, plane by plane.
+  const {positions, tris} = meshOf(u.getMesh());
   [cube, bar0, bar, u].forEach(m => m.delete());
-  const positions = new Float32Array(3 * out.numVert);
-  for (let v = 0; v < out.numVert; v++) for (let a = 0; a < 3; a++) positions[3 * v + a] = out.vertProperties[out.numProp * v + a];
-  const tris = Uint32Array.from(out.triVerts);
   const tags = makeShellTags();
   const faceIDs = new Uint32Array(tris.length / 3);
   const triTags: FaceTag[] = [];

@@ -2,7 +2,7 @@
 // alone, and the clusters are the `samePlane` graph's connected components, whatever the order (C6).
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {Plane3, PlaneClusters, addFace, addPlane, makePlaneClusters, makeShellTags, planeKey} from '../src/tags.ts';
+import {Plane3, PlaneClusters, addFace, addPlane, clusterKeyOf, makePlaneClusters, makeShellTags} from '../src/tags.ts';
 import {SNAP_STEPS_PER_CM, snapCm} from '../src/weld.ts';
 
 /** Fresh clusters with `planes` registered in that order. */
@@ -12,7 +12,7 @@ function registered(planes: Plane3[]): PlaneClusters {
   return c;
 }
 
-describe('planeKey (journal decision 101)', () => {
+describe('clusterKeyOf (journal decision 101)', () => {
   it('keys two near-equal planes straddling a 1/1024 cm rounding boundary alike', () => {
     const half = 0.5 / SNAP_STEPS_PER_CM;
     const p: Plane3 = {n: [0, -1, 0], d: 300 + half - 1e-6};
@@ -21,9 +21,9 @@ describe('planeKey (journal decision 101)', () => {
     expect(snapCm(p.d)).not.toBe(snapCm(q.d));
     // ... clustering does not, in either order. Keys are read once both planes are registered, as a build's are.
     const one = registered([q, p]);
-    expect(planeKey(q, one)).toBe(planeKey(p, one));
+    expect(clusterKeyOf(q, one)).toBe(clusterKeyOf(p, one));
     const two = registered([p, q]);
-    expect(planeKey(p, two)).toBe(planeKey(q, two));
+    expect(clusterKeyOf(p, two)).toBe(clusterKeyOf(q, two));
   });
 
   it('keys two normals straddling a rounding boundary alike', () => {
@@ -32,15 +32,15 @@ describe('planeKey (journal decision 101)', () => {
     const p: Plane3 = {n: [half - 1e-7, -1, 0], d: 0};
     const q: Plane3 = {n: [half + 1e-7, -1, 0], d: 0};
     expect(snapCm(p.n[0])).not.toBe(snapCm(q.n[0]));
-    expect(planeKey(p, c)).toBe(planeKey(q, c));
+    expect(clusterKeyOf(p, c)).toBe(clusterKeyOf(q, c));
   });
 
   it('parts planes further apart than SHELL_TOLERANCE_CM, or of opposite orientation', () => {
     const c = makePlaneClusters();
-    const k = planeKey({n: [0, -1, 0], d: 0}, c);
-    expect(planeKey({n: [0, -1, 0], d: 2 * SHELL_TOLERANCE_CM}, c)).not.toBe(k);
-    expect(planeKey({n: [0, 1, 0], d: 0}, c)).not.toBe(k);
-    expect(planeKey({n: [0, -1, 0], d: 0}, c)).toBe(k);
+    const k = clusterKeyOf({n: [0, -1, 0], d: 0}, c);
+    expect(clusterKeyOf({n: [0, -1, 0], d: 2 * SHELL_TOLERANCE_CM}, c)).not.toBe(k);
+    expect(clusterKeyOf({n: [0, 1, 0], d: 0}, c)).not.toBe(k);
+    expect(clusterKeyOf({n: [0, -1, 0], d: 0}, c)).toBe(k);
   });
 
   it('never gives two clusters one key, even where their rounded text agrees', () => {
@@ -48,7 +48,7 @@ describe('planeKey (journal decision 101)', () => {
     // Normals 1e-4 apart: not samePlane (PLANE_NORMAL_TOL is 1e-5), yet both round to the same 1/1024 grid text.
     const p: Plane3 = {n: [0, -1, 0], d: 0};
     const q: Plane3 = {n: [1e-4, -1, 0], d: 0};
-    expect(planeKey(p, c)).not.toBe(planeKey(q, c));
+    expect(clusterKeyOf(p, c)).not.toBe(clusterKeyOf(q, c));
   });
 });
 
@@ -62,14 +62,14 @@ describe('plane clusters are connected components (journal decision 110, C6)', (
   it('puts three planes chained by samePlane in one cluster, registered and queried in any order', () => {
     const keys = orders.map(order => {
       const c = registered(order);
-      return order.map(p => planeKey(p, c));
+      return order.map(p => clusterKeyOf(p, c));
     });
     for (const k of keys) expect(new Set(k).size).toBe(1);
     expect(new Set(keys.map(k => k[0])).size).toBe(1);
   });
 
   it('keys the chain by its least grid text, whatever the order', () => {
-    for (const order of orders) expect(planeKey(p3, registered(order))).toBe('0,-1,0|0');
+    for (const order of orders) expect(clusterKeyOf(p3, registered(order))).toBe('0,-1,0|0');
   });
 
   it('re-keys once a plane joining two clusters is registered, as addFace does for its face', () => {
@@ -77,8 +77,8 @@ describe('plane clusters are connected components (journal decision 110, C6)', (
     const wall = (plane: Plane3): number => addFace(tags, {kind: 'Wall', storey: 0, wall: 0, plane: -1, part: 0}, plane);
     wall(p1);
     wall(p3);
-    expect(planeKey(p1, tags.clusters)).not.toBe(planeKey(p3, tags.clusters));
+    expect(clusterKeyOf(p1, tags.clusters)).not.toBe(clusterKeyOf(p3, tags.clusters));
     wall(p2);
-    expect(planeKey(p1, tags.clusters)).toBe(planeKey(p3, tags.clusters));
+    expect(clusterKeyOf(p1, tags.clusters)).toBe(clusterKeyOf(p3, tags.clusters));
   });
 });

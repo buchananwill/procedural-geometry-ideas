@@ -9,12 +9,10 @@ import {FaceTag, makeShellTags} from '../src/tags.ts';
 import {
   RETAG_SLACK_CM, ShellUnion, areaByIdentity, prepareRawTri, rawTriHolds, taggedArea, triArea, unionRawParts, unionShell,
 } from '../src/union.ts';
+import {AREA_TOL} from './shell-invariants.ts';
 
-/**
- * Tagged areas are asserted to 0.05 cm², half the last digit the spec quotes (95884.6). Every corner here is on the
- * 1/1024 cm grid; the Gable apex's snap moves its area by 0.0024 cm².
- */
-const AREA_TOL = 0.05;
+// Tagged areas are asserted to `AREA_TOL`, 0.05 cm², half the last digit the spec quotes (95884.6). Every corner here
+// is on the 1/1024 cm grid; the Gable apex's snap moves its area by 0.0024 cm².
 
 const results = new Map<string, ShellUnion>();
 beforeAll(async () => {
@@ -34,6 +32,7 @@ function get(name: string): ShellUnion {
 const EXPECTED_GENUS: Record<string, number> = {
   NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, Bridge: 0, BridgeOverBlock: 1,
   ValleyWings: 0, SingleStoreyT: 0, DefaultChalet: 0,
+  Courtyard: 1, // journal decision 115: the courtyard runs from the ground to the sky
   OverhangApexOnEave: 0, ValleyWingsPierced: 0, // degenerate twins, measured and pinned
 };
 

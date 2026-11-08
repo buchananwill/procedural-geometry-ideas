@@ -35,14 +35,17 @@ export async function writeShells(outDir: string, fixtures: readonly ShellFixtur
   return written;
 }
 
-/** The CLI: the fixture roster and the pipeline loaded through Vite's module runner, then every fixture written. */
+/**
+ * The CLI: the fixtures and the pipeline loaded through Vite's module runner, then every exported fixture written: the
+ * roster, the Ring-conflict pairs and the C++ port's regression layouts.
+ */
 async function main(): Promise<void> {
   const {runnerImport} = await import('vite');
   const config: InlineConfig = {root: APP_ROOT, configFile: path.join(APP_ROOT, 'vite.config.ts'), logLevel: 'error'};
   const src = (file: string): string => path.join(APP_ROOT, 'src', file);
   const {module: fixtures} = await runnerImport<typeof import('./fixture.ts')>(src('fixture.ts'), config);
   const {module: shell} = await runnerImport<typeof import('./shell.ts')>(src('shell.ts'), config);
-  const written = await writeShells(OUT_DIR, fixtures.SHELL_FIXTURES, shell.buildShell);
+  const written = await writeShells(OUT_DIR, fixtures.EXPORTED_FIXTURES, shell.buildShell);
   for (const file of written) console.log(`wrote ${path.relative(APP_ROOT, file)}`);
 }
 

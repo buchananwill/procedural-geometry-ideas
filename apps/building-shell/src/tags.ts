@@ -1,6 +1,7 @@
 // Face tags (spec decision 10), face identity (journal decision 41) and the coplanar re-tag order (spec decision 14).
 import type {Vec3} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from './constants.ts';
+import {makeUnionFind} from './halfedge.ts';
 import {snapCm} from './weld.ts';
 
 /** The app's one 3-vector: manifold-3d's, re-exported so there is a single definition. */
@@ -52,15 +53,18 @@ export const samePlane = (p: Plane3, q: Plane3): boolean => sameNormal(p.n, q.n)
  * planes were registered or queried in.
  */
 export interface PlaneClusters {
-  /** Every distinct registered plane, in registration order. */
-  planes: Plane3[];
-  /** A plane's exact text to its index in `planes`. */
+  /** Every distinct registered plane (`rep`), in registration order, with its cluster's key (journal decision 107, N11). */
+  entries: ClusterEntry[];
+  /** A plane's exact text to its index in `entries`. */
   index: Map<string, number>;
-  /** Per registered plane: its cluster's key, or null when a registration has made the keys stale. */
-  keys: string[] | null;
+  /** Whether a registration has made the keys stale; they are recomputed on the next key read. */
+  stale: boolean;
 }
 
-export const makePlaneClusters = (): PlaneClusters => ({planes: [], index: new Map(), keys: null});
+/** One registered plane and its cluster's key, which is meaningful only while the clusters are not stale. */
+export interface ClusterEntry { rep: Plane3; key: string }
+
+export const makePlaneClusters = (): PlaneClusters => ({entries: [], index: new Map(), stale: false});
 
 /** A plane's exact text: every component as JavaScript prints it, round-tripping, with -0 read as 0. */
 const exactText = (p: Plane3): string => `${p.n[0]},${p.n[1]},${p.n[2]}|${p.d}`;
@@ -73,10 +77,10 @@ export function addPlane(clusters: PlaneClusters, p: Plane3): number {
   const k = exactText(p);
   let i = clusters.index.get(k);
   if (i === undefined) {
-    i = clusters.planes.length;
-    clusters.planes.push(p);
+    i = clusters.entries.length;
+    clusters.entries.push({rep: p, key: ''});
     clusters.index.set(k, i);
-    clusters.keys = null;
+    clusters.stale = true;
   }
   return i;
 }
@@ -88,27 +92,19 @@ export function addPlane(clusters: PlaneClusters, p: Plane3): number {
  * by their least member's exact text, and all but the first take a `~k` suffix.
  */
 function clusterKeys(planes: Plane3[]): string[] {
-  const parent = planes.map((_, i) => i);
-  const find = (i: number): number => {
-    while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; }
-    return i;
-  };
+  const uf = makeUnionFind(planes.length);
   const buckets = new Map<number, number[]>();
   planes.forEach((p, i) => {
     const b = Math.floor(p.d / SHELL_TOLERANCE_CM);
     for (let c = b - 1; c <= b + 1; c++) {
-      for (const j of buckets.get(c) ?? []) {
-        if (!samePlane(planes[j], p)) continue;
-        const ri = find(i), rj = find(j);
-        if (ri !== rj) parent[Math.max(ri, rj)] = Math.min(ri, rj);
-      }
+      for (const j of buckets.get(c) ?? []) if (samePlane(planes[j], p)) uf.join(i, j);
     }
     const list = buckets.get(b);
     if (list) list.push(i); else buckets.set(b, [i]);
   });
   const members = new Map<number, number[]>();
   planes.forEach((_, i) => {
-    const r = find(i);
+    const r = uf.find(i);
     const l = members.get(r);
     if (l) l.push(i); else members.set(r, [i]);
   });
@@ -149,14 +145,18 @@ export function addFace(tags: ShellTags, tag: FaceTag, plane: Plane3): number {
 /**
  * An oriented plane's key, by `samePlane` clustering (journal decisions 101 and 110), never by rounding alone: two
  * planes within tolerance key alike even where rounding would part them, as at a 1/1024 cm boundary, and so do two
- * planes joined through a third. The key is readable, and alike across builds for one exact plane. A plane not yet
- * registered is registered first, which can change keys read before: every face's plane is registered as the face is
- * added, so a build's keys are fixed before anything reads them.
+ * planes joined through a third. The key is readable, and alike across builds for one exact plane. Named for what it
+ * does first (journal decision 107, N11): a plane not yet registered is registered, which can change keys read before.
+ * Every face's plane is registered as the face is added, so a build's keys are fixed before anything reads them.
  */
-export function planeKey(p: Plane3, clusters: PlaneClusters): string {
+export function clusterKeyOf(p: Plane3, clusters: PlaneClusters): string {
   const i = addPlane(clusters, p);
-  if (!clusters.keys) clusters.keys = clusterKeys(clusters.planes);
-  return clusters.keys[i];
+  if (clusters.stale) {
+    const keys = clusterKeys(clusters.entries.map(e => e.rep));
+    clusters.entries.forEach((e, k) => { e.key = keys[k]; });
+    clusters.stale = false;
+  }
+  return clusters.entries[i].key;
 }
 
 /**
@@ -170,7 +170,7 @@ export function planeKey(p: Plane3, clusters: PlaneClusters): string {
 export function identityKey(t: FaceTag, plane: Plane3, clusters: PlaneClusters): string {
   switch (t.kind) {
     case 'Roof': return `Roof|${t.storey}|p${t.plane}`;
-    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${planeKey(plane, clusters)}`;
+    case 'Wall': case 'Gable': case 'Cheek': return `${t.kind}|${t.storey}|${clusterKeyOf(plane, clusters)}`;
     case 'Underside': case 'Ground': case 'Internal': return `${t.kind}|${t.storey}`;
   }
 }
