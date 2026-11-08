@@ -2270,6 +2270,22 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - the residual rates;
      - the inherited residue classes;
      - the caveats above.
+168. **WP3.9 is dispatched** (user, 2026-11-08: "Yes"), to a fresh delegate in two commits.
+     - **Commit 1, shape only, moving zero shells and zero golden bytes:**
+       - decision 160's N1, N3, N4 and N5;
+       - decision 163's B1 and N1 to N5;
+       - decision 166's N1 to N5.
+     - **Commit 2, port-facing:**
+       - **a replayable hand-edited multi-run golden**, with a gap, a junction inside the slack and end slack
+         (decision 167, finding 1);
+       - **`writeInput`'s doc corrected;**
+       - **the overlap check against the furthest end so far,** with the same verdicts and every reason reported;
+       - **the manifest marks CutPitchConflictFileReversed as order-invariant,** and the comment at
+         `golden.test.ts:132` is corrected;
+       - **CutPitchConflict is redesigned so that swapping its indices moves the shell.** Its existing golden bytes
+         change, and each change is explained;
+       - **`FileReversed` goldens for the other two conflict pairs** (decision 165).
+     - **When commit 2 lands, the port lead gets its hash.**
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
