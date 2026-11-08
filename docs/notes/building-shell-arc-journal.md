@@ -1049,6 +1049,18 @@ departs from those four steps is a defect.
      - **N17:** non-empty origin tuples.
      - **N18:** `FaceOrigin`, a `Pick`-based return type, `ShellFixture`, a throw instead of a default, and a tuple
        literal.
+121. **The C++ port's two in-game regressions become four Ring-authored fixtures,** added to WP3.6 as a second
+     addendum. The port lead (`pisteperfect-5-7-4f`) sent the C++ fixtures that reproduce its defects (MB.D486).
+     - **`PortNarrowUpper300` and `PortNarrowUpperGabled300`:** NarrowUpperStorey and its gabled variant at their
+       native 300 cm.
+     - **`PortPokeOut300`:** upper Ring `[150,0,450,200]`. It pokes about 40 cm out of the 60° lower roof.
+     - **`PortPokeOut250`:** upper Ring widened to `[100,0,500,200]`, to keep the poke-out on the lattice (F44).
+     - **Assertions:**
+       - *Missing tiles:* storey 0's Roof Cells tile the whole 360000 cm² plan, and no storey-1 Roof survives.
+       - *Lost ridge:* the lower Ridge survives whole, and the poking walls survive.
+       - Full topology is pinned as reference data.
+
+## Findings
 
 ## Findings WP3.6 (courtyards
        and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
@@ -1304,3 +1316,10 @@ departs from those four steps is a defect.
   - The same happens at x = 550, and in G52h270u and G58h270u.
   - Found by decision 108's storey-height grid at 270 cm, a height no fixture or earlier sweep used. Measured by
     the WP3.4 delegate.
+- **F44. The C++ poke-out regression fixture tests a different regime at content's 250 cm storeys.**
+  - **At 300:** Ring 1 `[150,0,450,200]` pokes about 40 cm out of the 60° lower roof (559.8 at x = 150, under the
+    600 plate).
+  - **At 250:** it is fully enclosed (509.8 at x = 150, over the 500 plate).
+  - **Keeping the poke at 250:** on the 50 cm lattice that needs `[100,0,500,200]`, which pokes about 77 cm.
+  - This is decision 108's lesson in a real C++ regression. The port lead was told, and advised to carry both
+    heights. Hand-computed by the lead.
