@@ -131,6 +131,7 @@ export const RESIDUE_CLASS_NAMES = [
   'low-pitch pocket',
   'roof meets the floor above',
   'near-touching islands',
+  'courtyard cut collinear with a jutting wall',
 ] as const;
 
 /** One residue class's stable name. */

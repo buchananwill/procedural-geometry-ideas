@@ -2026,6 +2026,41 @@
    "violations": [
     "2 Unclassified Edges: (191.8310546875, 400, 500) to (200, 400, 500); (200, 400, 500) to (200, 400, 510.6455078125)"
    ]
+  },
+  {
+   "fixture": "CourtyardJutCutSwapped",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": false,
+   "residueClass": "courtyard cut collinear with a jutting wall",
+   "shell": "CourtyardJutCutSwapped.json",
+   "union": "CourtyardJutCutSwapped.union.json",
+   "input": "CourtyardJutCutSwapped.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 2,
+    "unclassifiedEdges": 4,
+    "cheeks": 1,
+    "partialCells": 124,
+    "newEdgeKinds": [
+     "Unclassified"
+    ],
+    "newConventions": [
+     "Cheek faces",
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": [
+    "survivingInternal 2 at (42.2646484375, 300, 432.13671875); (58.931640625, 300, 457.7353515625)",
+    "cheeks 1, expected 0, at (0, 300, 250)",
+    "4 Unclassified Edges: (0, 300, 423.205078125) to (0, 300, 450); (0, 300, 423.205078125) to (126.794921875, 300, 423.205078125); (0, 300, 450) to (50, 300, 500); (50, 300, 500) to (126.794921875, 300, 423.205078125)"
+   ]
   }
  ]
 }

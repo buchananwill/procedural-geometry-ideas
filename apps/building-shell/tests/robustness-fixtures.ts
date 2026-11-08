@@ -466,6 +466,30 @@ export const F2_COURTYARDS: readonly ShellFixture[] = [
 export const UPPER_U_EDGE_CONTACT: ShellFixture = shellFixture('UpperUJoinedByEdgeContact',
   [ring([0, 0, 1000, 400], 0, 1, 45), ring([0, 0, 200, 400], 1, 1, 45), ring([800, 0, 1000, 400], 1, 1, 45), ring([0, 400, 1000, 600], 1, 1, 45)]);
 
+/** A jutting-wall cut case's name (`jutCutFixtures`): the design, and its swap. */
+export type JutCutName = 'CourtyardJutCut' | 'CourtyardJutCutSwapped';
+
+/**
+ * Journal decision 175 and F55: WP3.9's rejected CutPitchConflict design, enrolled. CutPitchConflict's courtyard, its W
+ * wing jutting out to x = -200 at 45 degrees, with a second Ring, `[-200,300,0,700]`, hipped at 45 but at 30 on its S
+ * side, contesting the jut's S wall, y = 300 over x -200 to 0. The shortest cut, y = 300 over x 0 to 300, is collinear
+ * with that wall at its outer end and with the hole's S wall, at 30, at its hole end.
+ * - `CourtyardJutCut`: the 45 degree jut wins, the cut's ends disagree and it does not qualify, and the next cut,
+ *   x 700 to 1000, is taken. Clean.
+ * - `CourtyardJutCutSwapped`: the 30 degree Ring wins, both ends are at 30, and the shortest cut qualifies while
+ *   collinear with the jutting wall. Defective (F55).
+ */
+export function jutCutFixtures(): NamedFixture<JutCutName>[] {
+  const bandS = ring([0, 0, 1000, 300], 0, 1, 30);
+  const jut45 = ring([-200, 300, 300, 700], 0, 1, 45);
+  const jut30S = ring([-200, 300, 0, 700], 0, 1, 45, {S: {form: 'hip', deg: 30}});
+  const rest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
+  return [
+    shellFixture('CourtyardJutCut', [bandS, jut45, jut30S, ...rest]),
+    shellFixture('CourtyardJutCutSwapped', [bandS, jut30S, jut45, ...rest]),
+  ];
+}
+
 /** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
 export type GapKind = 'Aligned' | 'Offset';
 

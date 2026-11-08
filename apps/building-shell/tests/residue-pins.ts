@@ -3,7 +3,7 @@
 // a residue golden's manifest entry equals its pin here, verbatim. Every pin carries its class: a cause `causeOf` reads
 // (`CausedPinTable`), or its residue class where no cause applies (`ClassedPinTable`, journal decision 163, N3).
 import type {CausedPinTable, ClassedPin, ClassedPinTable} from './pin-table.ts';
-import type {CourtName, GapName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
+import type {CourtName, GapName, GridName, JutCutName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
 
 /** A generated case's key: its seed, storey height and name, of the name type `N` its generator emits (decision 155, B4). */
 export type SeededKey<N extends string> = `s${number}h${number}/${N}`;
@@ -272,6 +272,17 @@ export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
   'Courtyard@75/7r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 493.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (276.9697265625, 300, 335.94921875); (23.0302734375, 300, 335.94921875) to (150, 300, 809.8076171875); (23.0302734375, 300, 335.94921875) to (276.9697265625, 300, 335.94921875)"]},
   'Courtyard@75/22.5r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 629.90234375)","3 Unclassified Edges: (150, 300, 809.8076171875) to (222.30859375, 300, 539.94921875); (77.69140625, 300, 539.94921875) to (150, 300, 809.8076171875); (77.69140625, 300, 539.94921875) to (222.30859375, 300, 539.94921875)"]},
   'Courtyard@75/30r': {residueClass: 'algorithm-B cut-piece overshoot', outcome: ["survivingInternal 1 at (150, 300, 706.033203125)","3 Unclassified Edges: (108.2900390625, 300, 654.1455078125) to (150, 300, 809.8076171875); (108.2900390625, 300, 654.1455078125) to (191.7099609375, 300, 654.1455078125); (150, 300, 809.8076171875) to (191.7099609375, 300, 654.1455078125)"]},
+};
+
+/**
+ * Journal decision 175 and F55, measured at WP3.9.1 at 250 cm storeys, genus 1, enrolled as best effort (decision
+ * 172): a courtyard cut that qualifies while collinear with a jutting wall, both at 30 degrees (`jutCutFixtures`). Its
+ * signature names its places: two Internal triangles surviving on the cut's plane, y = 300, a Cheek at the cut's outer
+ * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJutCut`, whose cut does not
+ * qualify, is clean, so it is not listed.
+ */
+export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {
+  'CourtyardJutCutSwapped': {residueClass: 'courtyard cut collinear with a jutting wall', outcome: ["survivingInternal 2 at (42.2646484375, 300, 432.13671875); (58.931640625, 300, 457.7353515625)","cheeks 1, expected 0, at (0, 300, 250)","4 Unclassified Edges: (0, 300, 423.205078125) to (0, 300, 450); (0, 300, 423.205078125) to (126.794921875, 300, 423.205078125); (0, 300, 450) to (50, 300, 500); (50, 300, 500) to (126.794921875, 300, 423.205078125)"]},
 };
 
 /**

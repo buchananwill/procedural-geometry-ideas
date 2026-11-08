@@ -22,10 +22,12 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
+  F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, jutCutFixtures, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures,
 } from './robustness-fixtures.ts';
-import {COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS, seededKey} from './residue-pins.ts';
+import {
+  COURTYARD_DEFECTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS, seededKey,
+} from './residue-pins.ts';
 import {planStorey} from '../src/storey.ts';
 import {causeOf, pinnedOutcome, throwsOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
@@ -255,6 +257,12 @@ describe('near-touching islands (journal decision 150, F6)', () => {
   const cases = [1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, k))).map(f => [f.name, f] as const);
   it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (_, f) => {
     expect(await outcome(f, {genus: [0, 0], cheeks: 0})).toEqual(pinnedOutcome(GAP_DEFECTS, f.name));
+  });
+});
+
+describe('a courtyard cut collinear with a jutting wall (journal decision 175, F55)', () => {
+  it.each(jutCutFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (_, f) => {
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(JUT_CUT_DEFECTS, f.name));
   });
 });
 

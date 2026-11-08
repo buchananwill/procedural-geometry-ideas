@@ -21,13 +21,13 @@ import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts'
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {
   CAP_CHAIN_SEED, CUT_OVERSHOOT_PROBE, F2_COURTYARDS, FULL_WINGS_PROBE, PINCH_SEEDS, RosterPitchName, UPPER_U_EDGE_CONTACT,
-  flushOverReflexFixture, gapFixture, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
+  flushOverReflexFixture, gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
   randomUFixtures, rosterPitchCases, seededFixture, splitBandFixture,
 } from './robustness-fixtures.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
+  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
   U_DEFECTS, seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
@@ -269,8 +269,9 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
  * - Courtyard at content's 22.5° and 45°, laid by side axis (decision 148, F3): its cut-piece overshoot;
  * - BridgeOverBlock at 45° (F52): its block's roof meeting the bridge's floor, genus 2 against 1, with its
  *   Roof-Underside edges' ends, as its pin carries them;
- * - and decision 156, F7's two classes (decision 158, 1): s11h250 Court35's Cell-fan throw, and s7h250 SplitCourt9's
- *   Unclassified Gable-Wall edges.
+ * - decision 156, F7's two classes (decision 158, 1): s11h250 Court35's Cell-fan throw, and s7h250 SplitCourt9's
+ *   Unclassified Gable-Wall edges;
+ * - and decision 175's F55: CourtyardJutCutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
   seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court14', 250, [1]),
@@ -284,6 +285,7 @@ export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
   seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 11, 'Court35', 250, [1]),
   seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 7, 'SplitCourt9', 250, [1]),
+  residueGolden(namedCase(jutCutFixtures(), 'CourtyardJutCutSwapped'), [1], JUT_CUT_DEFECTS, 'CourtyardJutCutSwapped'),
 ];
 
 /**
