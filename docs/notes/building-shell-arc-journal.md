@@ -2078,6 +2078,22 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        phrase, because it names the exact field.
      - **Next: decision 155's scoped reviews over `7ca3d59..1a6ebff`,** then port-ready at `1a6ebff` or at the commit
        that closes their findings.
+160. **Rulings on the type-closure review of WP3.8.2 and WP3.8.3** (at `1a6ebff`). **All 17 of decision 155's items are
+     closed.** For the new code it reports 2 blocking findings and 6 notes, all accepted.
+     - **N6 bears on the port's contract, so it lands before port-ready:** the manifest's `reason`, a string joined
+       with `'; '`, becomes `reasons: string[]`. `readInput`'s own refusals contain `'; '`, so a port could not split
+       the joined form. This amends decision 152's "with the reason".
+     - **B1 and B2 are test-side types only.** They do not touch golden bytes, but they are cheap and sit on the
+       pin-to-manifest tie, so they land with N6:
+       - B1: a `GapName` type, and `gapFixture` returns `NamedFixture<GapName>`;
+       - B2: `GoldenFixture` becomes a `CleanGolden | ResidueGolden` union.
+     - **N2 lands with them:** one `throwsOutcome`.
+     - **N1, N3, N4 and N5 are deferred to WP3.9,** a post-port-ready tidy-up:
+       - N1: a key builder for seeded pins;
+       - N3: one pin accessor and a `PinOutcome` type;
+       - N4: a tighter `RosterPitchName`;
+       - N5: the comment's "by index".
+     - **WP3.8.4 carries N6, B1, B2 and N2,** together with whatever the correctness closure review finds.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
