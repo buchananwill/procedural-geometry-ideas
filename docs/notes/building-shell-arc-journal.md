@@ -2375,6 +2375,15 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        signature, and adds a golden residue entry for it, by F4's rule that every residue class has one.
      - **Next:** two scoped reviews over `fced7a7..` WP3.9.1's commit. Then the port lead gets the hash, and the merge
        follows decision 174's order.
+176. **WP3.9.1 landed at `6f05f9b`: 8272/8272, `typecheck` clean, and its gate convicted**, per the delegate.
+     - **F55 is pinned** as `CourtyardJutCutSwapped`, with a located signature, and has a replayable golden residue
+       entry.
+     - **The golden set is 204 files.** The manifest gained only the new entry, plus 3 new files.
+     - **F55 is corrected:** only the swap is defective. In the original, the 45° jut wins its wall, the short cut
+       does not qualify, and the shell is clean. That case is held clean.
+     - **`RESIDUE_CLASS_NAMES` gains "courtyard cut collinear with a jutting wall".** That is a new manifest enum
+       value, and it goes in the port lead's message.
+     - **Next:** two scoped reviews over `fced7a7..6f05f9b`.
 
 ## Findings
 
