@@ -1101,6 +1101,23 @@ departs from those four steps is a defect.
        suite either way.
      - **Port-ready** is declared once WP3.6 and WP3.7 have landed and been reviewed, with the measured residual
        fresh-input failure rate published to the port lead.
+124. **The C++ port and this prototype share a versioned JSON wire format**, so that edge cases found by playtesters
+     flow back to TS for hardening (user, 2026-11-08: "That would continue to repay the investment in this
+     prototype."). This is work package **WP5**, after WP3.6, in parallel with WP3.7, since it only adds new files.
+     - **`building-shell/input@1`** is the building as authored. It is WP3.6's Ring-authored fixture shape, plus the
+       parent model index, storey height, cell size, units and provenance (game build, session id, timestamp).
+     - **`building-shell/output@1`** is today's `BuildingShell` export, plus the producing engine.
+     - **A playtest dump carries both,** input and the C++ output, so TS can diff the two engines.
+     - **The diff compares a canonical, id-free form:** multisets of face kind and area, and edge kind with snapped
+       endpoints, within tolerance.
+     - **Ingestion:** a JSON dropped in `fixtures/playtest/` is loaded automatically, validated against the schema,
+       and run through every invariant. A failure is shrunk and enrolled per decision 123.
+     - **The schema lives in this repo as JSON Schema files,** the source of truth for both sides. The TS tests
+       validate every fixture and export against it.
+     - **Main risk: axis conventions.** UE is left-handed, with X forward, Y right and Z up. The schema pins one
+       mapping, and how compass sides map to axes.
+     - **Asked of the port lead, 2026-11-08:** axes, side naming, form enums, Ring identity and ordering, and which
+       C++ structures it can serialise. The schema is fixed once those answers are in.
 
 ## Findings
 
