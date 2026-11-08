@@ -1509,6 +1509,23 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **Q3's forward note, for WP3.8:** `ShellCell.source.ringModelIndex` carries the file's model index, mapped back
        through the adapter, never the compressed position.
 
+     **AMENDED 2026-11-08: the port lead agreed both points** (its wire-input spec, decisions 13, 14 and 16):
+     - **The dump is a pair of files,** `<subject>.input.json` and an optional `<subject>.output.json`, which the
+       exporter writes beside each subject's solve dump.
+     - **The exporter writes every field, defaults included** (`FJsonObjectConverter` writes every UPROPERTY). Only a
+       hand-written file omits one.
+     - **The pinned USTRUCT defaults.** The general rule is 0, false, "", [], and the enum's first member, so
+       `request` is `Auto` and `solved.form` is `None`. The exceptions:
+       - `schemaVersion` 1;
+       - `frame` "UE actor-local, cm, Z up, left-handed";
+       - `ringIndex` and `modelIndex` -1;
+       - `storeys` 1;
+       - `provenance.scale` {1, 1, 1}.
+
+       A C++ test asserts each default.
+     - **Ruling: a Ring index of -1 is the "unset" sentinel, and a file with one is refused,** naming the field, so an
+       omitted index never silently takes part in the total order.
+
      **WP5.1 is dispatched to the WP5 delegate, resumed.** Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
