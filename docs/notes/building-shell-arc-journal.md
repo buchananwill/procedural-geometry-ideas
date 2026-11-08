@@ -88,13 +88,18 @@ running subagents.** Their reports arrive as notifications.
   WP3.6 is accepted once WP3.7 lands those addenda and is reviewed.
 - **WP3.7's two reviews** (WP3.7 landed at `2f3e639`, `d885276` and `040c93e`; decision 144, F51). WP3.6 and WP3.7
   are accepted together when the reviews are ruled on. **Fresh failures are now enrolled, not chased.**
-- **WP5.2's two reviews**, on `55c1e66` (decision 146).
-- **Queued: WP3.8**, after WP3.7's correctness review is ruled on. Its scope:
-  - decision 145's shape fixes;
-  - decisions 129 to 131: the golden set, union stages and provenance;
-  - decision 146: F52's Roof–Underside kind proposal, the pitch sweep over every roster fixture across [7°, 75°], and
-    a named error class for plan refusals;
-  - WP3.7's correctness review findings.
+- ~~**WP5.2's two reviews**~~ and ~~**WP3.7's two reviews**~~: all returned, ruled by decisions 145 to 148 and 150.
+- **WP3.8** (general-purpose, Opus, fresh), dispatched 2026-11-08. It is the only package in flight and owns both the
+  pipeline and the wire files. Its scope, in order:
+  1. decision 150's cut pitch, measured, with a stop condition;
+  2. decision 150's other rulings;
+  3. decision 146: F52's edge kind, the full pitch sweep, and the plan-refusal error class;
+  4. decisions 148 and 149 on the wire side;
+  5. decisions 145 and 147's shape fixes;
+  6. decision 130's provenance;
+  7. decisions 129 and 131's golden set.
+  - When it returns: two fresh reviews. Then WP3.6, WP3.7, WP5.x and WP3.8 are accepted together, and port-ready
+    is declared at the commit that lands the golden set.
 - **WP3.7's addenda so far:** 1 (decision 134), 2 (135), 3 (140 F5), 4 (141, amended by 142) and 5 (143 F1,
   `CUT_FREE_DEG`).
 - **Asked of the port lead (decision 143):** content's roof pitch range.
