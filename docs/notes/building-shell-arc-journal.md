@@ -96,7 +96,8 @@ running subagents.** Their reports arrive as notifications.
   Zod file exists.
 
 **Waiting on the C++ port lead (`pisteperfect-5-7-4f`):**
-- the Zod generator's details (version, mappings, output path, versioning conventions);
+- ~~the Zod generator's details~~: answered, see F47 and decision 127;
+- the wire family's name, and its first USTRUCTs (these arrive with the port's first increment);
 - whether the C++ conflict rule keys on model index or root order;
 - the C++-to-prototype structure mapping from its read-only comparison.
 
@@ -1196,6 +1197,23 @@ reviewed. It must include the measured residual fresh-input failure rate.
        output structs implement the spec shapes.
      - **Versioning:** the generated schema's version is bumped on the C++ side, which owns the USTRUCTs. The prototype
        re-vendors on each bump, and the port lead is told of any spec change that implies a bump.
+127. **Rulings on the Zod generator's facts** (F47):
+     - **Zod v4**, exact-pinned after the license check.
+     - **No `TOptional` in the wire USTRUCTs,** since the generator cannot emit it. Unset values are explicit:
+       - a side's request enum includes `Auto`;
+       - `wallHeightCm` 0 means "no override".
+     - **Vectors are explicit `double` fields** (or arrays of double). Never `FVector`, whose emitted shape is
+       unverified.
+     - **Required-field policy lives in a refinement layer.** Every generated field is `.optional()` by design, so
+       decision 125's mutual-assignability test runs against a refinement that tightens the generated types to the
+       spec's required shapes. The UE repo's `generated-interop/src/refinements/<family>.ts` is the established
+       place. The prototype vendors that refinement alongside the generated file once it exists, and writes its own
+       stand-in until then.
+     - **`SchemaVersion` is the first field, as an `int32`,** the UE convention. The prototype pins its value.
+     - **Provenance is a nested USTRUCT:** game build, session id, timestamp, actor transform.
+     - **The output document grows from `FModularSolveDump`,** the existing tooling-only mirror.
+     - **The wire USTRUCTs arrive with the port's first increment;** the family name is to follow. WP5 builds against
+       a stand-in until then.
 
 ## Findings
 
@@ -1481,3 +1499,14 @@ reviewed. It must include the measured residual fresh-input failure rate.
   - **Storeys:** `FCellNetRingStoreys {BaseStorey, Storeys, WallHeightCm}`.
   - **The current C++ net has no vertices.** Its Cells, Edges, Surfaces and roof faces are cheap to serialise.
   - **Not verified by the port lead:** that ascending component index always matches root order.
+- **F47. The UE Zod generator** (`PistePerfectEditor/Interop/ZodSchemaGenerator.cpp`, port lead, 2026-11-08):
+  - **Output:** Zod v4, one `<family>-schema.zod.ts` per family, under `generated-interop/`.
+  - **Mapping:**
+    - a USTRUCT becomes `z.strictObject`; a UENUM becomes `z.enum`;
+    - TArray becomes `z.array`; TMap becomes `z.record`;
+    - field names are camelCased;
+    - **every field is `.optional()`, on purpose:** a field the import codec omits stays at its C++ default.
+  - **Not supported:** `TOptional`. `FVector`'s emitted shape is not traced.
+  - **Input USTRUCTs are new.** The C++ Ring and storey types cannot be reflected, so the wire structs are a
+    dedicated mirror. The precedent is `FModularSolveDump`.
+  - **Conventions:** versioning is an `int32 SchemaVersion` first field. No provenance convention exists.
