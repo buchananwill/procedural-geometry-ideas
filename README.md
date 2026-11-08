@@ -13,6 +13,7 @@ you can take the maths without the UI — or drop a ready-made explorer into an 
 | [`@proc-geo/test-fixtures`](./packages/test-fixtures) | [![npm](https://img.shields.io/npm/v/@proc-geo/test-fixtures.svg)](https://www.npmjs.com/package/@proc-geo/test-fixtures) | 56 named polygon fixtures in two rosters — clean and known-defect — plus solver test helpers, for regression testing and benchmarking. |
 | [`@proc-geo/dashboard`](./packages/dashboard) | [![npm](https://img.shields.io/npm/v/@proc-geo/dashboard.svg)](https://www.npmjs.com/package/@proc-geo/dashboard) | React components (Mantine + Konva) that visualise every algorithm. |
 | [`@proc-geo/demo`](./apps/demo) | — | Next.js app wiring the components together. Not published. |
+| [`@proc-geo/building-shell`](./apps/building-shell) | — | Building-shell prototype: storeys of Ring rectangles roofed by the straight skeleton, unioned in Manifold, then faces, Edges, Cells and vertices read off the final mesh. A three.js viewer, a JSON wire format, and a committed golden set that serves as the oracle for a C++ port. Not published. |
 
 ## What's in here
 
@@ -82,10 +83,16 @@ packages/core/            # algorithms — the published library
 packages/test-fixtures/   # polygon fixtures
 packages/dashboard/       # React components
 apps/demo/                # Next.js demo app
+apps/building-shell/      # building-shell prototype (Vite, Vitest, three.js, manifold-3d); private
 docs/notes/               # design notes and algorithm write-ups
 ```
 
-**Dependency graph:** `demo → dashboard → core`, `demo → test-fixtures → core`
+**Dependency graph:** `demo → dashboard → core`, `demo → test-fixtures → core`, `building-shell → core` (read from
+source)
+
+`apps/building-shell` keeps its own tests, run under Vitest with `pnpm --filter @proc-geo/building-shell test`, and
+`pnpm --filter @proc-geo/building-shell dev` serves its viewer. Its spec is
+[building-shell-prototype-decisions.md](./docs/notes/building-shell-prototype-decisions.md).
 
 Tests live in `packages/core/tests/` and run under Jest via `ts-jest`. Jest resolves the workspace packages to source,
 so tests pick up changes without a rebuild.

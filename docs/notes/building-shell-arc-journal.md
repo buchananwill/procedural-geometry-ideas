@@ -2504,6 +2504,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
 184. **The type closure of `adf5dac`: all seven of decision 181's items are closed,** and the port-facing surface is
      clean. The one blocking item, a test-local `RunShapeCase` declared inside a `describe`, is cosmetic. It goes to
      §5's test-side backlog. Its note, that the throw in `snappedSides` is unreachable, is recorded.
+185. **WP3.9 is accepted. The correctness closure of `adf5dac` is clean**: 0 High, Medium or Low.
+     - **What it confirmed:**
+       - `cppReplayabilityOf` threw on 0 of 4,140 type-valid malformed documents, where the parent threw on 9;
+       - `snappedSides` maps every one of 72 goldens correctly, including 24 Rings that start at other corners;
+       - every golden and seed byte is identical to the parent's;
+       - the README's claims are true;
+       - `.gitattributes` gives LF seeds under this machine's `core.autocrlf`.
+     - **Its Info I-1 is recorded:** inputs that break the type (null corners, for example) can still throw, as in the
+       parent. Every caller passes a typed document.
+     - **Merge step 2 (decision 174) is done in the same edit:** the app joins `CLAUDE.md`'s monorepo table, with a
+       short section of its own, and the root README's package table and layout, marked private.
+     - **Step 3 next:** a verifier runs every workspace package's tests and builds on the branch tip. `main` is still
+       at the branch base `f7b6091`, so the merge's tree equals the branch tip's.
 
 ## Findings
 
