@@ -2440,6 +2440,13 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - `cut-own-ring` is convicted by the wider set, not by the pair.
      - **WP3.9.2, a fresh delegate,** lands findings 1 and 8. Its two reviews are scoped to it. Then come the hash for
        the port lead, and the merge.
+180. **WP3.9.2 landed at `cb208b9`: 8268/8268, `typecheck` clean, and both gates convicted**, per the delegate.
+     - **The seventh condition is `isOneWholeRun`,** with the reason "a side not one run from 0 to its length".
+     - **`MultiRunSide` is now the playtest seed `prototype-seed.0.MultiRunSide.0.input.json`,** and all seven
+       snap-order mutants fail its ingestion.
+     - **The golden set is 201 files.** Only `MultiRunSide`'s three files and its manifest entry went.
+     - **Shell identity:** 0 shells move.
+     - **Next:** two scoped reviews of `cb208b9`.
 
 ## Findings
 
