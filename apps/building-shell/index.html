@@ -25,7 +25,10 @@
     .readout p { margin: 0 0 6px; }
     .readout p:last-child { margin: 0; }
     .readout .line { display: block; color: var(--text); }
-    .readout .empty { color: var(--dim); }
+    .readout .empty, .readout .dim { color: var(--dim); }
+    .readout.case { margin-top: 8px; border-color: var(--bad); }
+    .readout.case ul { margin: 2px 0 6px; padding-left: 18px; }
+    .readout .bad { color: var(--bad); }
     table { border-collapse: collapse; width: 100%; }
     td, th { text-align: left; padding: 1px 4px 1px 0; vertical-align: top; }
     th { font-weight: 600; color: var(--dim); padding-top: 6px; }
@@ -45,8 +48,10 @@
   <div id="view"><div id="status">Loading manifold-3d...</div></div>
   <aside id="panel">
     <h2>Fixture</h2>
-    <select id="fixture" aria-label="Fixture"></select>
+    <select id="fixture" aria-label="Fixture or defect case"></select>
+    <div id="manifest-note" class="hint bad"></div>
     <div id="buildline" class="hint"></div>
+    <div id="case" class="readout case" hidden></div>
 
     <h2>Readout</h2>
     <div id="pinned" class="readout pinned" hidden></div>
@@ -56,7 +61,7 @@
     <h2>Show</h2>
     <div id="layers"></div>
     <div id="storeys"></div>
-    <div><button id="reset" type="button">Reset view</button></div>
+    <div><button id="reset" type="button">Reset view</button> <button id="frame-all" type="button">Frame whole shell</button></div>
 
     <h2>Legend</h2>
     <div id="legend"></div>

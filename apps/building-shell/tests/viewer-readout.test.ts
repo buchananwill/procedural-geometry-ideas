@@ -141,7 +141,7 @@ describe('legend', () => {
 
   it('lists the two magenta defects, ShellEdges and NetEdges counted separately, and Internal triangles', () => {
     const defects = entries(base()).filter(x => x.group === 'Defects');
-    expect(defects.map(d => d.label)).toEqual(['Unclassified Edge', 'Surviving Internal face']);
+    expect(defects.map(d => d.label)).toEqual(['Unclassified Edge (drawn heavy, white-cased)','Surviving Internal face']);
     expect(defects[0].count).toBe(b.shell.report.unclassifiedEdges);
     expect(defects[0].netCount).toBe(b.shell.netEdges.filter(n => n.kind === 'Unclassified').length);
     expect(defects[1].count).toBe(b.shell.report.survivingInternal);

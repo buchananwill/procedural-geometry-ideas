@@ -5,7 +5,7 @@ import {EDGE_KINDS, EdgeKind} from '../edges.ts';
 import type {ShellBuild} from '../shell.ts';
 import type {ShellKind} from '../tags.ts';
 import {
-  AXIS_COLOURS, EDGE_KIND_COLOUR, GHOST_LINE_COLOUR, HOVER_COLOUR, OUTLINE_COLOUR, PIN_COLOUR, RAW_INTERNAL_GREY, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR, partialColour,
+  AXIS_COLOURS, DEFECT_CASING_COLOUR, EDGE_KIND_COLOUR, GHOST_LINE_COLOUR, HOVER_COLOUR, OUTLINE_COLOUR, PIN_COLOUR, RAW_INTERNAL_GREY, SHELL_KIND_COLOUR, SHELL_KINDS, VERTEX_COLOUR, partialColour,
 } from './palette.ts';
 import {ToggleState, visibleStoreys} from './toggles.ts';
 import {cellShown, edgeShown, faceShown, netEdgeShown, vertexShown} from './visibility.ts';
@@ -19,6 +19,8 @@ export interface LegendEntry {
   group: LegendGroup;
   label: string;
   colour: number;
+  /** A casing colour round the swatch, for the heavy mark of the Unclassified Edges (journal decision 169). */
+  casing?: number;
   /** How many of the thing are drawn; null for a colour with nothing to count. */
   count: number | null;
   /** Edge entries and the Unclassified defect: how many NetEdges of this kind are shown. */
@@ -86,7 +88,7 @@ function defectEntries(build: ShellBuild, storeys: ReadonlySet<number>): LegendE
   const unclassifiedNet = build.shell.netEdges.filter(n => n.kind === 'Unclassified' && netEdgeShown(build, storeys, n.id)).length;
   const internal = build.union.triTags.filter(t => t.kind === 'Internal' && storeys.has(t.storey)).length;
   return [
-    {group: 'Defects', label: 'Unclassified Edge', colour: EDGE_KIND_COLOUR.Unclassified, count: unclassifiedEdges, netCount: unclassifiedNet},
+    {group: 'Defects', label: 'Unclassified Edge (drawn heavy, white-cased)', colour: EDGE_KIND_COLOUR.Unclassified, casing: DEFECT_CASING_COLOUR, count: unclassifiedEdges, netCount: unclassifiedNet},
     {group: 'Defects', label: 'Surviving Internal face', colour: SHELL_KIND_COLOUR.Internal, count: internal, note: 'triangles'},
   ];
 }

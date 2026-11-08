@@ -124,6 +124,18 @@ export function edgeSegments(build: ShellBuild, storeys: StoreySet): DrawBuffers
   return w.done();
 }
 
+/**
+ * The `Unclassified` ShellEdges alone, every one in `hex`: the heavy mark of a defect (journal decision 169), drawn over the
+ * Edge layer. `owner` is the ShellEdge id.
+ */
+export function defectEdgeSegments(build: ShellBuild, storeys: StoreySet, hex: number): DrawBuffers {
+  const w = new Writer();
+  for (const e of build.shell.edges) {
+    if (e.kind === 'Unclassified' && edgeShown(build, storeys, e.id)) w.push([e.a, e.b], hex, e.id);
+  }
+  return w.done();
+}
+
 /** ShellVertices with at least one face of a shown storey. `owner` is the ShellVertex id. */
 export function vertexPoints(build: ShellBuild, storeys: StoreySet): DrawBuffers {
   const w = new Writer();

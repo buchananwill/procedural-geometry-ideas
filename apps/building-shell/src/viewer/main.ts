@@ -6,7 +6,9 @@ import {errorMessage} from '../errors.ts';
 import {SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
-import {fixtureFromHash} from './hash.ts';
+import {readInput} from '../wire/input-adapter.ts';
+import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
+import {Selection, selectionFromHash, selectionName} from './hash.ts';
 import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
@@ -138,6 +140,7 @@ function renderLegend(): void {
     const name = el('td');
     const sw = el('span', undefined, 'swatch');
     sw.style.background = cssColour(e.colour);
+    if (e.casing !== undefined) sw.style.border = `3px solid ${cssColour(e.casing)}`;
     if (e.note === 'translucent') sw.style.opacity = '0.5';
     name.append(sw, document.createTextNode(e.label));
     tr.append(name, el('td', countText(e), 'count'));
@@ -182,15 +185,94 @@ function renderReport(b: ShellBuild): void {
   box.append(details);
 }
 
+// ---- Defect cases (journal decision 169) --------------------------------------------------------------------------------
+
+/** The defect cases, read from `golden/manifest.json` at start-up. Empty when the manifest could not be read. */
+let cases: DefectCase[] = [];
+
+/** How a loaded case ended, for the case box: a line of text, and whether it is bad news. */
+interface CaseOutcome { text: string; bad: boolean }
+
+/** The case box: the entry's residue class, its pinned violations, and how the load ended. */
+function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
+  const box = $('case');
+  box.replaceChildren();
+  box.hidden = !c;
+  if (!c) return;
+  box.append(el('div', c.name, 'title'));
+  box.append(el('div', `residue class: ${c.residueClass}`, 'line'));
+  if (c.violations.length) {
+    box.append(el('div', 'Pinned violations:', 'line dim'));
+    const ul = el('ul');
+    for (const v of c.violations) ul.append(el('li', v));
+    box.append(ul);
+  } else box.append(el('div', c.error === undefined ? 'No violations pinned.' : 'No violations pinned: the entry pins a build error instead.', 'line dim'));
+  if (c.error !== undefined) box.append(el('div', `Pinned build error: ${c.error}`, 'line bad'));
+  if (outcome) box.append(el('div', outcome.text, outcome.bad ? 'line bad' : 'line dim'));
+}
+
+/** A case's fixture, read from its `golden/<name>.input.json`. Throws, with the reason, when it cannot be. */
+async function fixtureOfCase(c: DefectCase): Promise<ShellFixture> {
+  if (c.input === undefined) {
+    const why = c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason';
+    throw new Error(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
+  }
+  const res = await fetch(new URL(`golden/${c.input}`, document.baseURI));
+  if (!res.ok) throw new Error(`golden/${c.input}: ${res.status} ${res.statusText}`);
+  const read = readInput(await res.json(), c.name);
+  if (!read.ok) throw new Error(`readInput refuses golden/${c.input}: ${read.errors.join('; ')}`);
+  return read.fixture;
+}
+
+async function loadManifest(): Promise<void> {
+  try {
+    const res = await fetch(new URL('golden/manifest.json', document.baseURI));
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    cases = parseDefectCases(await res.json());
+  } catch (e) {
+    cases = [];
+    console.error('golden/manifest.json could not be read', e);
+    $('manifest-note').textContent = `Defect cases unavailable: golden/manifest.json could not be read (${errorMessage(e)}).`;
+  }
+}
+
 // ---- Loading ------------------------------------------------------------------------------------------------------
 
-async function load(fixture: ShellFixture): Promise<void> {
+function showFailure(name: string, message: string, defect?: DefectCase): void {
+  console.error(`${name}: ${message}`);
+  // Journal decision 98, F8: a failed build leaves no stale shell behind, only its error.
+  build = undefined;
+  pinned = null;
+  hovered = null;
+  scene.clearBuild();
+  const status = $('status');
+  status.textContent = `${name}: ${message}`;
+  status.style.color = 'var(--bad)';
+  $('report').replaceChildren(el('div', `${name}: ${message}`, 'bad'));
+  $('legend').replaceChildren();
+  $('buildline').textContent = '';
+  renderCaseBox(defect, {text: `Nothing is drawn: ${message}`, bad: true});
+  renderReadouts();
+}
+
+async function load(sel: Selection): Promise<void> {
   const mine = ++token;
+  const name = selectionName(sel);
+  const defect = sel.kind === 'case' ? sel.defect : undefined;
   const status = $('status');
   status.style.color = '';
-  status.textContent = `Building ${fixture.name}...`;
+  status.textContent = `Building ${name}...`;
   $('buildline').textContent = '';
+  renderCaseBox(defect);
+  let stage = 'build failed';
   try {
+    let fixture: ShellFixture;
+    if (sel.kind === 'fixture') fixture = sel.fixture;
+    else {
+      stage = 'load failed';
+      fixture = await fixtureOfCase(sel.defect);
+      stage = 'build failed';
+    }
     const t0 = performance.now();
     const built = await buildShellDetailed(fixture);
     if (mine !== token) return;
@@ -199,55 +281,65 @@ async function load(fixture: ShellFixture): Promise<void> {
     pinned = null;
     hovered = null;
     toggles = withStoreys(toggles, storeysOf(fixture));
-    scene.setBuild(built, toggles);
+    scene.setBuild(built, toggles, defect ? focusOfCase(defect) : undefined);
     renderToggles();
     renderLegend();
     renderReport(built);
     renderReadouts();
     const s = built.shell;
     $('buildline').textContent = `${s.faces.length} faces, ${s.edges.length} Edges, ${s.cells.length} Cells, ${s.vertices.length} vertices; built in ${ms} ms`;
-    status.textContent = fixture.name;
+    status.textContent = name;
+    renderCaseBox(defect, defect?.error === undefined ? undefined : {text: 'The build succeeded, though the manifest pins an error: the pin has moved.', bad: true});
   } catch (e) {
     if (mine !== token) return;
-    console.error(`${fixture.name}: build failed`, e);
-    // Journal decision 98, F8: a failed build leaves no stale shell behind, only its error.
-    build = undefined;
-    pinned = null;
-    hovered = null;
-    scene.clearBuild();
-    const message = `${fixture.name}: build failed: ${errorMessage(e)}`;
-    status.textContent = message;
-    status.style.color = 'var(--bad)';
-    $('report').replaceChildren(el('div', message, 'bad'));
-    $('legend').replaceChildren();
-    renderReadouts();
+    // A case that cannot be loaded is not a failed build: its message already says why.
+    const message = defect && stage === 'load failed' ? errorMessage(e) : `${stage}: ${errorMessage(e)}`;
+    showFailure(name, message, defect);
   }
 }
 
+// ---- Selector -----------------------------------------------------------------------------------------------------
+
 const select = $<HTMLSelectElement>('fixture');
-for (const f of SHELL_FIXTURES) select.append(new Option(f.name, f.name));
+
+function fillSelector(): void {
+  select.replaceChildren();
+  const fixtures = document.createElement('optgroup');
+  fixtures.label = 'Fixtures';
+  for (const f of SHELL_FIXTURES) fixtures.append(new Option(f.name, f.name));
+  select.append(fixtures);
+  if (!cases.length) return;
+  const defects = document.createElement('optgroup');
+  defects.label = 'Defect cases';
+  for (const c of cases) {
+    const note = c.input === undefined ? ' (cannot be loaded)' : c.error !== undefined ? ' (build throws)' : '';
+    defects.append(new Option(`${c.name}: ${c.residueClass}${note}`, c.name));
+  }
+  select.append(defects);
+}
+
+/** The selection a listed name stands for. */
+function selectionNamed(name: string): Selection {
+  return selectionFromHash(`#${encodeURIComponent(name)}`, SHELL_FIXTURES, cases);
+}
+
+function show(sel: Selection): void {
+  select.value = selectionName(sel);
+  void load(sel);
+}
+
 select.addEventListener('change', () => {
-  const f = SHELL_FIXTURES.find(x => x.name === select.value);
-  if (!f) return;
-  history.replaceState(null, '', `#${encodeURIComponent(f.name)}`);
-  void load(f);
+  const sel = selectionNamed(select.value);
+  history.replaceState(null, '', `#${encodeURIComponent(selectionName(sel))}`);
+  show(sel);
 });
-// Journal decision 98, F8: a hash change loads that fixture.
-window.addEventListener('hashchange', () => {
-  const f = fixtureFromHash(location.hash, SHELL_FIXTURES);
-  select.value = f.name;
-  void load(f);
-});
+// Journal decision 98, F8, and decision 169: a hash change loads that fixture or case.
+window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, SHELL_FIXTURES, cases)));
 $('reset').addEventListener('click', () => scene.resetView());
+$('frame-all').addEventListener('click', () => scene.resetView(true));
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { pinned = null; scene.unpin(); renderReadouts(); }
 });
-
-const start = fixtureFromHash(location.hash, SHELL_FIXTURES);
-select.value = start.name;
-renderToggles();
-renderReadouts();
-void load(start);
 
 window.__viewer = {
   get build() { return build; },
@@ -255,3 +347,11 @@ window.__viewer = {
   project: p => scene.project(p),
   setView: (position, target) => scene.setView(position, target),
 };
+
+renderToggles();
+renderReadouts();
+// The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
+void loadManifest().then(() => {
+  fillSelector();
+  show(selectionFromHash(location.hash, SHELL_FIXTURES, cases));
+});

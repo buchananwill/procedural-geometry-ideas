@@ -24,6 +24,15 @@ export const VERTEX_COLOUR = 0x00001e;
 export const HOVER_COLOUR = 0xffff96;
 export const PIN_COLOUR = 0xffd21e;
 
+/**
+ * Journal decision 169: an `Unclassified` Edge is also drawn heavy, as a magenta core inside a white casing. The palette
+ * has no free hue left for a new colour (every hue is within a measured floor of a fill or an Edge kind), so the mark is
+ * set apart by its weight and its casing, which no Edge kind and no magenta Internal face has. Widths are in pixels.
+ */
+export const DEFECT_CASING_COLOUR = 0xffffff;
+export const DEFECT_CASING_WIDTH = 11;
+export const DEFECT_CORE_WIDTH = 6;
+
 /** The orientation gizmo's axes: X, Y and Z (up). */
 export const AXIS_COLOURS = {x: 0xff0000, y: 0x00ff00, z: 0x3b73ff} as const;
 

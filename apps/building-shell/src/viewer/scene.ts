@@ -16,13 +16,17 @@ import {LineSegmentsGeometry} from 'three/examples/jsm/lines/LineSegmentsGeometr
 import type {ShellBuild} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {
-  DrawBuffers, cellOutlineSegments, cellTriangles, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, linearRGB, meshBounds, vertexPoints,
+  DrawBuffers, cellOutlineSegments, cellTriangles, defectEdgeSegments, edgeSegments, faceTriangles, ghostSegments, ghostTriangles, linearRGB, meshBounds, vertexPoints,
 } from './buffers.ts';
 import {GIZMO_AXIS_LENGTH, GIZMO_FOV, GIZMO_LABEL_AT, GIZMO_LABEL_SIZE, GIZMO_MARGIN, GIZMO_SIZE, GIZMO_DISTANCE} from './gizmo.ts';
 import {LineBiasRig} from './line-bias.ts';
 import {sceneLights} from './lighting.ts';
 import {LineMaterialOptions, makeBiasedLineMaterial} from './line-shader.ts';
-import {AXIS_COLOURS, BACKGROUND, GHOST_OPACITY, GROUND_OPACITY, HOVER_COLOUR, PIN_COLOUR, RAW_SHELL_OPACITY, cssColour} from './palette.ts';
+import {DefectFocus} from './defect-cases.ts';
+import {
+  AXIS_COLOURS, BACKGROUND, DEFECT_CASING_COLOUR, DEFECT_CASING_WIDTH, DEFECT_CORE_WIDTH, GHOST_OPACITY, GROUND_OPACITY, HOVER_COLOUR, MAGENTA, PIN_COLOUR,
+  RAW_SHELL_OPACITY, cssColour,
+} from './palette.ts';
 import type {Hit} from './readout.ts';
 import {ToggleState, visibleStoreys} from './toggles.ts';
 
@@ -39,6 +43,9 @@ export interface Layers {
   tint?: Mesh;
   cellPick?: Mesh;
   edges?: LineSegments2;
+  /** The heavy mark of the `Unclassified` Edges (journal decision 169): a white casing under a magenta core. */
+  defectCasing?: LineSegments2;
+  defectCore?: LineSegments2;
   outlines?: LineSegments2;
   vertices?: Points;
   ghost?: Mesh;
@@ -68,7 +75,7 @@ function dispose(o: Object3D): void {
 }
 
 /** How far a line is pulled toward the camera, as a fraction of the camera's distance to its target. */
-const LINE_BIAS = {edges: 0.006, outlines: 0.003, none: 0} as const;
+const LINE_BIAS = {edges: 0.006, defectCore: 0.0075, outlines: 0.003, none: 0} as const;
 const PICK_TOLERANCE = 0.009;
 
 function triGeometry(b: DrawBuffers, withColours: boolean): BufferGeometry {
@@ -124,6 +131,7 @@ export class ShellScene {
   private layers: Layers = {};
   private owners: LayerOwners = {};
   private build: ShellBuild | undefined;
+  private focus: DefectFocus | undefined;
   private toggles: ToggleState | undefined;
   private builtKey = '';
   private hoverKey = '';
@@ -184,10 +192,11 @@ export class ShellScene {
 
   // ---- Loading and layers ------------------------------------------------------------------------------------------
 
-  /** Shows a new build: rebuilds every layer and frames the camera on it. */
-  setBuild(build: ShellBuild, toggles: ToggleState): void {
+  /** Shows a new build: rebuilds every layer and frames the camera on `focus` (a defect case's place), else on the whole shell. */
+  setBuild(build: ShellBuild, toggles: ToggleState, focus?: DefectFocus): void {
     this.clearBuild();
     this.build = build;
+    this.focus = focus;
     this.toggles = toggles;
     this.rebuildLayers();
     this.resetView();
@@ -196,6 +205,7 @@ export class ShellScene {
   /** Empties the scene, as a failed build does (journal decision 98, F8). */
   clearBuild(): void {
     this.build = undefined;
+    this.focus = undefined;
     this.pinned = null;
     this.hoverHit = null;
     this.hoverKey = '';
@@ -210,13 +220,17 @@ export class ShellScene {
     this.rebuildLayers();
   }
 
-  resetView(): void {
+  /** Frames the defect when the build has a focus and `wholeShell` is false, else the whole shell. */
+  resetView(wholeShell = false): void {
     if (!this.build) return;
     const {min, max} = meshBounds(this.build);
-    const c: Vec3 = [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
-    const size = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
-    this.camera.near = size * 0.01;
-    this.camera.far = size * 30;
+    const shellSize = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+    const focus = wholeShell ? undefined : this.focus;
+    const c: Vec3 = focus ? focus.centre : [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
+    // A focus is framed from 1.5 of its extent away, in the same direction the whole shell is.
+    const size = focus ? focus.extent * 1.5 : shellSize;
+    this.camera.near = Math.min(size, shellSize) * 0.01;
+    this.camera.far = shellSize * 30;
     this.camera.updateProjectionMatrix();
     this.controls.target.set(c[0], c[1], c[2]);
     this.camera.position.set(c[0] + size * 0.7, c[1] - size * 1.2, c[2] + size * 0.75);
@@ -300,6 +314,13 @@ export class ShellScene {
       L.edges.renderOrder = 3;
       owners.edges = edges.owner;
     }
+    const casing = defectEdgeSegments(build, storeys, DEFECT_CASING_COLOUR);
+    if (casing.owner.length) {
+      L.defectCasing = new LineSegments2(segGeometry(casing), this.lineMaterial({width: DEFECT_CASING_WIDTH}, LINE_BIAS.edges, 'layer'));
+      L.defectCasing.renderOrder = 3.1;
+      L.defectCore = new LineSegments2(segGeometry(defectEdgeSegments(build, storeys, MAGENTA)), this.lineMaterial({width: DEFECT_CORE_WIDTH}, LINE_BIAS.defectCore, 'layer'));
+      L.defectCore.renderOrder = 3.2;
+    }
     const verts = vertexPoints(build, storeys);
     if (verts.owner.length) {
       const g = new BufferGeometry();
@@ -324,7 +345,7 @@ export class ShellScene {
     const L = this.layers;
     for (const o of [L.solid, L.ground]) if (o) o.visible = t.layers.faces;
     if (L.tint) L.tint.visible = t.layers.faces && t.highlightPartial;
-    if (L.edges) L.edges.visible = t.layers.edges;
+    for (const o of [L.edges, L.defectCasing, L.defectCore]) if (o) o.visible = t.layers.edges;
     if (L.outlines) L.outlines.visible = t.layers.cellOutlines;
     if (L.vertices) L.vertices.visible = t.layers.vertices;
     for (const o of [L.ghost, L.ghostLines]) if (o) o.visible = t.raw;
