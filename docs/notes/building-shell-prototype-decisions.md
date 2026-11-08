@@ -122,9 +122,12 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
        is tried;
      - ~~where it is collinear with no wall, it takes the cutting Ring's default pitch~~ ~~it takes `CUT_FREE_DEG =
        45`~~ (journal decision 143; STRUCK by decision 150: no measured shell had read it, and at 45° it broke
-       courtyards with bands at 60°) **where it is collinear with no wall, it takes the steepest derived pitch among the
-       union walls it meets at its two ends** (**AMENDED 2026-11-08**, journal decision 150, provisional until WP3.8's
-       measurement). The pitch is derived from union walls only, so it survives the wire format.
+       courtyards with bands at 60°) ~~it takes the steepest derived pitch among the union walls it meets at its two
+       ends~~ (journal decision 150; STRUCK by decision 151: it failed 96 of 1057 measured layouts) **where it is
+       collinear with no wall, it takes the steepest derived pitch among the hip walls of its island**, that is, of
+       the outer loop and the hole's loop the cut joins, **or `CUT_ALL_GABLE_DEG = 45` if the island has no hip wall**
+       (**AMENDED 2026-11-08**, journal decision 151). It was green on all 1057 layouts. Gable walls are left out,
+       because a gable's pitch is only a weight and is not stable across the wire round trip.
    - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
      width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
      `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's

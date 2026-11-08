@@ -1840,7 +1840,36 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        `configFile`. No result changed. The operational manual is corrected.
      - **F8 (Low):** split-line matching checks each line's `lo`/`hi` extent.
      - **Shell-identity checks that claim invariance compare the canonical diff, not the hash,** where face order may
-       permute (12 of 15 invariant shells differed only in Roof face order). Its scope is decisions 136 to 140. It stays within the wire
+       permute (12 of 15 invariant shells differed only in Roof face order).
+151. **WP3.8's stop condition fired, and decision 150's provisional cut rule is STRUCK** (WP3.8, at `ae88f4c`, nothing
+     landed).
+     - **The rule failed on the split-band family.** The cut-ends rule was green on 961 of 1057 layouts (85 uniform
+       and 972 mixed). The old Ring default was green on 32 of the layouts where it failed.
+     - **Where it failed:** every one of its 96 failures had the far band and the wings steeper than both walls at
+       the cut's ends.
+     - **The other variants:**
+
+       | Variant | Green of 1057 |
+       |---|---|
+       | Outer-end wall | 835 |
+       | Ring default | 831 |
+       | Old 45 | 737 |
+       | A constant 60 | 1057, but it fails 75° bands (59 of 81) |
+       | Steepest of the island | **1057** |
+
+       The steepest-of-the-island variant has 0 counter-cases, and is also 81/81 on uniform bands at 7°, 22.5° and
+       75°. Its only failures anywhere are the b75/w7 far-wall scheme, which fails at every cut pitch tried with the
+       cut-overshoot signature, so its cause is not the cut's pitch.
+     - **The golden bytes do not depend on this,** since no exported, family or U shell reads the free branch.
+     - **Ruled:** a cut collinear with no wall takes **the steepest derived pitch among the hip walls of its island**,
+       that is, of the outer loop and the hole's loop the cut joins.
+       - **Gable walls are left out,** because a gable's pitch is only a weight (decision 140), and its derived value
+         can differ after the wire round trip. Including it would break decision 148's byte-identical round trip.
+       - **An island with no hip wall takes `CUT_ALL_GABLE_DEG = 45`,** a named constant. WP3.8 measures that case.
+       - Spec 2 is amended.
+     - **The gate needs targeted split positions.** Random split draws read the free branch in only 24 of 720 shells,
+       so the generator's split-band mode places splits that are certain to make the free cut the shortest.
+     - **WP3.8 resumes** with this ruling. The round-trip identity test must include gabled split-band courtyards. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
