@@ -2308,6 +2308,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      lowest Ring index wins a whole wall's form, as it already wins the pitch. The C++ roof solve will tie form across
      a wall, since today it can solve Hip beside Gable on a split wall under Auto. **Decision 149's refusal of a side
      whose runs disagree stands as the contract.** Nothing changes here.
+171. **WP4.3 landed at `12b7c9b` and `2a17eea`: the viewer's tests pass (114) and `typecheck` is clean**, per the
+     delegate.
+     - **What it adds:** the viewer lists all 14 non-clean golden entries under "Defect cases", with their class and
+       pinned violations. Throwing and unloadable cases show their error or reasons, and the camera frames the pinned
+       defect.
+     - **The lead viewed the close-ups before sending them to the user:**
+       - the overshoot shows as a magenta Internal triangle breaking the roof plane, in CourtyardAt22.5-45s and
+         CutOvershootProbe;
+       - the Cheek shows as a purple triangle beside the Gable, in Court14Seed1h250.
+     - **Unclassified edges are marked by weight and a white casing, not a new hue: accepted.** Spec 28's measured
+       palette floors leave only magenta, which is pinned to Unclassified and Internal.
+     - **Note:** the delegate's first snapshot attempt wrote vite cache files into the live
+       `apps/building-shell/node_modules` (gitignored). The `:5199` server may re-optimise its dependencies once.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
