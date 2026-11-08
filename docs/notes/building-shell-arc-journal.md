@@ -88,8 +88,9 @@ running subagents.** Their reports arrive as notifications.
   the exact straddle check, Hausdorff loop checks, a move bound, spec 16's constants, the corrected cut rule, and
   F50. Its gate is fresh seeds 5 to 12 at 250, 263 and 300 cm, the δ-nudges, the courtyard and U generators, and
   PortPokeOut250 clean. **After WP3.7, fresh failures are enrolled, not chased.**
-- **WP5**, the wire format (decisions 124 to 128). It adds only new files. It builds the ingestion folder and the diff
-  tool against a hand-written stand-in schema until the UE Zod file exists.
+- **WP5's two reviews**, on `3af339b`. WP5 returned at `6a361c0` and `3af339b` (decision 136). Their findings and
+  decision 136's amendments become WP5.1.
+- **Asked of the port lead:** decision 136's three input@1 questions.
 
 **Queued:**
 - **WP3.8**, after WP3.7 (decisions 129 to 131): the union-stage export, wall provenance on Cells and faces, and the committed golden export
