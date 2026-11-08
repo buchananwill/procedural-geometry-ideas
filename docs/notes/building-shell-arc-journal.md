@@ -1667,7 +1667,31 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **N3:** `MeshOrigin` is copied by spread.
      - **N4:** `Pick<ShellMesh, 'tris'>`.
      - **N5:** one exported fixture constructor and one memoised build helper.
-     - **N6:** one `gridName`. Its scope is decisions 136 to 140. It stays within the wire
+     - **N6:** one `gridName`.
+146. **WP5.2 returned at `55c1e66`: 4594/4594 at `4b1c81c` plus its files, `typecheck` clean, and all five gates
+     convicted**, per the delegate. Every exported fixture, and both courtyard cut reproducers, round-trips to an
+     identical shell. **Its acceptance is provisional until decision 67's two reviews return.**
+
+     **BridgeOverBlock fails from 40° up** (the bound test sets every Pitched side to the bound):
+     - from 40° to 50°: genus 2 and 4 Unclassified Edges;
+     - from 55° to 75°: genus 0 and 2 Unclassified Edges.
+
+     The block's roof rises through the tunnel and meets the bridge's floor. Ruled:
+     - **The wire bounds stay [7°, 75°].** The layout is ordinary, and the defect is the pipeline's, not the
+       format's. Enrolled with its exact signature, as the delegate did.
+     - **The Unclassified Edges are F52:** a Roof–Underside edge, one of §5's pairs that would be `Unclassified`,
+       now seen. **WP3.8 measures the geometry and proposes its kind from the edge table's precedent, for the lead to
+       rule on.**
+     - **The genus mismatch is real geometry,** a roof touching a floor above it. The slab prediction cannot see it
+       (the documented `TallRoofThroughTunnel60` gap), so the pin covers it.
+     - **F50's lesson again:** the pitch sweep's fixtures did not include BridgeOverBlock. **WP3.8 widens the pitch
+       sweep to every roster fixture over [7°, 75°].**
+
+     **Its points, ruled:**
+     - `isPlanRefusal` matching message prefixes: accepted, until WP3.8 gives the pipeline's plan refusals a named
+       error class. Then the wire uses the class.
+     - The gable-contact join reads each side's own authored form, so a gable that a lower-index Ring overrides is
+       not modelled: accepted, stated in the header. A mismatch it causes gets a pin. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
@@ -2025,3 +2049,7 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     - **the 9 nudges:** G5, where features of 5/1024 to 12/1024 cm sit between the cleaning and shell tolerances and
       read Indeterminate;
     - **the pitch pockets** between 5.86° and 6.9° (addendum 6).
+- **F52. A Roof–Underside edge arises: BridgeOverBlock at 40° and above.** The block's hip rises through the tunnel and
+  meets the bridge's floor (WP5.2's bound test, decision 146). The edge reads `Unclassified`, since spec 21 has no row
+  for the pair. At 40° to 50° there are 4 such edges and the genus is 2; at 55° to 75° there are 2 and the genus is 0.
+  Content's 45° roofs can reach this under a bridge.
