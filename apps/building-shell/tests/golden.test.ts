@@ -9,7 +9,8 @@ import {beforeAll, describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
 import {RING_SIDES, ShellFixture, ring} from '../src/fixture.ts';
 import {
-  GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, RESIDUE_CLASS_NAMES, UnionStages, cppReplayability, cppReplayabilityOf, goldenText, unionStages,
+  GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, cppReplayability, cppReplayabilityOf,
+  goldenText, unionStages,
 } from '../src/golden.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
@@ -21,6 +22,7 @@ import {
   goldenInput,
 } from './golden-fixtures.ts';
 import {ORDER_FLAG, multiRunDocument} from './wire-round-trip-cases.ts';
+import type {RunTuple} from './wire-round-trip-cases.ts';
 import {throwsOutcome} from './pin-table.ts';
 import {componentGenera} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
@@ -211,28 +213,36 @@ describe('the tie between the manifest and the robustness pins (journal decision
 });
 
 describe('C++ replayability (journal decision 152, amended)', () => {
-  /** The rule restated: every reason a fixture's input is not replayable, in the rule's order. */
+  /**
+   * The rule restated: every reason a fixture's input is not replayable, in the rule's order. The reader's refusals
+   * stand alone: the run shape is read only when it accepts (decision 181, B1).
+   */
   function reasons(w: BuildingShellInputV1): string[] {
     const on = (v: number): boolean => Math.abs(v - 50 * Math.round(v / 50)) <= 1e-6;
+    const refusals = readBack(w);
     return [
       ...(w.rings.every(r => r.corners.every(c => on(c.x) && on(c.y))) ? [] : ['corner off the Cell lattice']),
       ...(w.rings.every((r, i) => r.ringIndex === i) ? [] : ['ringIndex not its array position']),
       ...(w.cellSizeCm === 50 ? [] : ['cellSize not 50']),
       ...(on(w.storeyHeightCm) ? [] : ['storey height not a whole number of Cells']),
       ...(w.rings.every(r => r.baseStorey + r.storeys <= 32) ? [] : ['a Ring reaching past storey 32']),
-      ...readBack(w),
-      ...(w.rings.every(r => r.sides.every((s, j) => oneWholeRun(r.corners, j, s.runs))) ? [] : ['a side not one run from 0 to its length']),
+      ...(refusals.length ? refusals : runShape(w)),
     ];
   }
 
   /**
-   * Decision 179, finding 1's condition: side `j` carries exactly one run, from 0 to the length between its corners,
-   * each end within the wire's 1e-6 cm slack.
+   * Decisions 179, finding 1, and 181 (B1, N1): the run-shape condition, read only on a document the reader accepts.
+   * Side `j` carries exactly one run, from 0 to the length between its corners snapped to the 1/1024 cm grid, each end
+   * within the wire's 1e-6 cm slack.
    */
-  function oneWholeRun(corners: readonly WireVec2[], j: number, runs: readonly WireRun[]): boolean {
-    const a = corners[j], b = corners[(j + 1) % corners.length];
-    const length = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-    return runs.length === 1 && Math.abs(runs[0].startCm) <= 1e-6 && Math.abs(runs[0].endCm - length) <= 1e-6;
+  function runShape(w: BuildingShellInputV1): string[] {
+    const snap = (v: number): number => Math.round(v * 1024) / 1024;
+    const oneWholeRun = (corners: readonly WireVec2[], j: number, runs: readonly WireRun[]): boolean => {
+      const a = corners[j], b = corners[(j + 1) % corners.length];
+      const length = Math.abs(snap(b.x) - snap(a.x)) + Math.abs(snap(b.y) - snap(a.y));
+      return runs.length === 1 && Math.abs(runs[0].startCm) <= 1e-6 && Math.abs(runs[0].endCm - length) <= 1e-6;
+    };
+    return w.rings.every(r => r.sides.every((s, j) => oneWholeRun(r.corners, j, s.runs))) ? [] : ['a side not one run from 0 to its length'];
   }
 
   /** Decision 158, 2's condition: the prototype's own reader accepts the written file, or each refusal is a reason. */
@@ -270,24 +280,71 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     for (const r of 'reasons' in steep ? steep.reasons : []) expect(r).toMatch(/^readInput refuses it: Ring 0 \(model index 0\) side \d run 0 .*outside \[7, 75\]/);
   });
 
+  /** The seventh condition's one reason, as `cppReplayabilityOf` gives it alone. */
+  const notWhole: Replayability = {cppReplayable: false, reasons: [NOT_ONE_WHOLE_RUN]};
+
+  /** The 500 by 400 box hipped at 45°, as `writeInput` writes it, its side 0 (S) holding `runs` as written. */
+  const withSide0 = (runs: readonly RunTuple[]): BuildingShellInputV1 => {
+    const w = writeInput(shellFixture('Box', [ring([0, 0, 500, 400], 0, 1, 45)]));
+    const [whole] = w.rings[0].sides[0].runs;
+    w.rings[0].sides[0].runs = runs.map(([startCm, endCm]) => ({...whole, startCm, endCm}));
+    return w;
+  };
+
+  /** One run shape the seventh condition refuses on side 0 of `withSide0`'s box, by name. */
+  interface RunShapeCase { name: string; runs: readonly RunTuple[] }
+
+  /** Decision 179, finding 1: run shapes `readInput` accepts that are not one run from 0 to the side's length, 500. */
+  const NOT_WHOLE_CASES: readonly RunShapeCase[] = [
+    {name: 'two runs meeting at 250', runs: [[0, 250], [250, 500]]},
+    {name: 'an end 2e-6 short of the length, beyond the slack', runs: [[0, 500 - 2e-6]]},
+    {name: 'a start 2e-6 past 0, beyond the slack', runs: [[2e-6, 500]]},
+    {name: 'a run stopping at 450', runs: [[0, 450]]},
+    {name: 'a run starting at 50', runs: [[50, 500]]},
+  ];
+
   // Decision 179, finding 1: the seventh condition. Each document here is one `readInput` accepts, so the run shape is
   // its only reason; within the slack of 0 and of the side's length, one run is replayable.
-  it('refuses a side that is not one run from 0 to its length, within the slack, by its own reason', () => {
-    const notWhole = {cppReplayable: false, reasons: ['a side not one run from 0 to its length']};
-    const withSide0 = (runs: [number, number][]): BuildingShellInputV1 => {
-      const w = writeInput(shellFixture('Box', [ring([0, 0, 500, 400], 0, 1, 45)]));
-      const [whole] = w.rings[0].sides[0].runs;
-      w.rings[0].sides[0].runs = runs.map(([startCm, endCm]) => ({...whole, startCm, endCm}));
-      return w;
-    };
+  it('replays one run from 0 to its length, within the slack, and refuses the multi-run document by the run shape alone', () => {
     expect(readBack(multiRunDocument())).toEqual([]);
     expect(cppReplayabilityOf(multiRunDocument())).toEqual(notWhole);
     expect(cppReplayabilityOf(withSide0([[0, 500]]))).toEqual({cppReplayable: true});
     expect(cppReplayabilityOf(withSide0([[-4e-7, 500 + 3e-7]]))).toEqual({cppReplayable: true});
-    for (const runs of [[[0, 250], [250, 500]], [[0, 500 - 2e-6]], [[2e-6, 500]], [[0, 450]], [[50, 500]]] as [number, number][][]) {
-      expect(readBack(withSide0(runs))).toEqual([]);
-      expect(cppReplayabilityOf(withSide0(runs))).toEqual(notWhole);
-    }
+  });
+
+  it.each(NOT_WHOLE_CASES)('refuses a side that is not one run from 0 to its length by its own reason: $name', ({runs}) => {
+    expect(readBack(withSide0(runs))).toEqual([]);
+    expect(cppReplayabilityOf(withSide0(runs))).toEqual(notWhole);
+  });
+
+  // Decision 181, B1: a Ring of three corners is malformed. `readInput` refuses it, so its refusals stand alone, and
+  // the run shape, which reads a side's two corners, is never read.
+  it('gives a three-corner Ring the reader\'s refusals alone, and never throws (decision 181, B1)', () => {
+    const w = withSide0([[0, 500]]);
+    w.rings[0].corners.pop();
+    const refusals = readBack(w);
+    expect(refusals.length).toBeGreaterThan(0);
+    expect(() => cppReplayabilityOf(w)).not.toThrow();
+    expect(cppReplayabilityOf(w)).toEqual({cppReplayable: false, reasons: refusals});
+  });
+
+  // Decision 181, N1: the run shape is measured along the snapped corners, as spec 16 measures it. Side 0's corners lie
+  // 9e-7 cm off the grid, inward at both ends, so its length as written falls 1.8e-6 cm short of its snapped 500, beyond
+  // the slack. A run ending at the snapped length is one whole run; one ending at the length as written is not.
+  it('measures a side against its snapped length, not its corners as written (decision 181, N1)', () => {
+    const offGrid = (runs: readonly RunTuple[]): BuildingShellInputV1 => {
+      const w = withSide0(runs);
+      const [c0, c1] = w.rings[0].corners;
+      c0.x = 9e-7;
+      c1.x = 500 - 9e-7;
+      return w;
+    };
+    const asWritten = (500 - 9e-7) - 9e-7;
+    expect(500 - asWritten).toBeGreaterThan(1e-6);
+    expect(readBack(offGrid([[0, 500]]))).toEqual([]);
+    expect(readBack(offGrid([[0, asWritten]]))).toEqual([]);
+    expect(cppReplayabilityOf(offGrid([[0, 500]]))).toEqual({cppReplayable: true});
+    expect(cppReplayabilityOf(offGrid([[0, asWritten]]))).toEqual(notWhole);
   });
 
   // Decision 160, N6: `readInput`'s own refusals contain '; ', so each is a reason of its own and none is joined.

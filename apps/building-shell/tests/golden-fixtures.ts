@@ -206,8 +206,10 @@ export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS
  *   a gable steeper than every hip. Its free cut takes the gable's 60°; a hip-first rule takes the hips' 30° and moves it.
  * - The `*FileReversed` goldens (`MODEL_ORDER_ORACLES`).
  *
- * Spec 16's run snap order has no golden: since journal decision 179, finding 1, a multi-run document is never
- * C++-replayable, and its oracle is the playtest seed `MultiRunSide` (`MULTI_RUN_SEED`).
+ * Spec 16's run snap order has no golden: since journal decision 179, finding 1, a document with a multi-run side is
+ * never flagged C++-replayable, so it never joins the golden set. Its oracle is the hand-edited playtest seed
+ * `fixtures/playtest/prototype-seed.0.MultiRunSide.0.input.json`, the dump `seedStem(MULTI_RUN_SEED)` of subject
+ * `MULTI_RUN_SEED`, held to `multiRunDocument` by tests/wire-seeds.test.ts and ingested by tests/playtest-ingest.test.ts.
  */
 export const RULE_ORACLES: readonly CleanGolden[] = [
   cleanGolden(splitBandFixture('SplitBandFreeCut', 300, 700, 200, 500, {a: 30, s: 30, n: 45, w: 60}), [1]),

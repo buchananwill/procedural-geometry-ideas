@@ -6,12 +6,13 @@ import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {fixtureByName} from '../src/fixture.ts';
-import {cppReplayabilityOf} from '../src/golden.ts';
+import {NOT_ONE_WHOLE_RUN, cppReplayabilityOf} from '../src/golden.ts';
 import {buildShell} from '../src/shell.ts';
 import {writeOutput} from '../src/wire/canonical-output-schema.ts';
 import {INPUT_SUFFIX, OUTPUT_SUFFIX, PROTOTYPE_ENGINE} from '../src/wire/dump.ts';
 import {PLAYTEST_DIR, SEED_FIXTURES, SEED_WITH_OUTPUT, seedStem, seedText} from '../src/wire/export-playtest.ts';
 import {readInput, snapRunSpans, writeInput} from '../src/wire/input-adapter.ts';
+import type {AdaptedInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {playtestPin} from './playtest-pins.ts';
 import {MULTI_RUN_SEED, MULTI_RUN_SIDE_LENGTH_CM, MULTI_RUN_SLOTS, multiRunDocument} from './wire-round-trip-cases.ts';
@@ -38,7 +39,13 @@ describe('the playtest seeds', () => {
 // or misordered a step refuses it, and its ingestion (tests/playtest-ingest.test.ts) fails.
 describe(`the hand-edited seed ${MULTI_RUN_SEED}`, () => {
   const stem = seedStem(MULTI_RUN_SEED);
-  const doc = (): BuildingShellInputV1 => JSON.parse(seedFile(`${stem}${INPUT_SUFFIX}`)) as BuildingShellInputV1;
+  /** The seed as `readInput` reads it (journal decision 181, N4): its accepted document, never a cast of the JSON. */
+  const read = (): AdaptedInput => {
+    const r = readInput(JSON.parse(seedFile(`${stem}${INPUT_SUFFIX}`)), stem);
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    return r;
+  };
+  const doc = (): BuildingShellInputV1 => read().input;
 
   it('is multiRunDocument, named <basename>.<SolveIndex>.<Subject>.<Seed>.input.json, its subject its provenance\'s, and pinned', () => {
     expect(stem).toMatch(new RegExp(`^[^.]+\\.\\d+\\.${MULTI_RUN_SEED}\\.\\d+$`));
@@ -58,13 +65,11 @@ describe(`the hand-edited seed ${MULTI_RUN_SEED}`, () => {
     expect([first.startCm < 0, second.startCm < first.endCm, last.endCm > MULTI_RUN_SIDE_LENGTH_CM]).toEqual([true, true, true]);
     expect(snapRunSpans(sides[0].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 400}, {start: 400, end: 600}, {start: 700, end: MULTI_RUN_SIDE_LENGTH_CM}]);
     expect(snapRunSpans(sides[2].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 1.5e-6}, {start: 1.5e-6, end: MULTI_RUN_SIDE_LENGTH_CM}]);
-    const read = readInput(doc(), stem);
-    if (!read.ok) throw new Error(read.errors.join('; '));
-    expect(read.fixture.rings[0].sides).toMatchObject({S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}});
+    expect(read().fixture.rings[0].sides).toMatchObject({S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}});
   });
 
   // Decision 179, finding 1: a multi-run side is never C++-replayable, so the seed never joins the golden set.
   it('is not C++-replayable, by the run-shape reason alone', () => {
-    expect(cppReplayabilityOf(doc())).toEqual({cppReplayable: false, reasons: ['a side not one run from 0 to its length']});
+    expect(cppReplayabilityOf(doc())).toEqual({cppReplayable: false, reasons: [NOT_ONE_WHOLE_RUN]});
   });
 });

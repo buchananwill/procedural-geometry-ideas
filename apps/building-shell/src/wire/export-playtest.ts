@@ -1,8 +1,11 @@
 // A node CLI seeding `fixtures/playtest/` with real `input@1` files written from the prototype's own fixtures, so the
-// ingestion test (tests/playtest-ingest.test.ts) is never vacuous (journal decision 124). Each seed is a dump named
-// per solve, `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json` (decisions 140, F6, 149 and 152), and one seed also carries its
-// output, the prototype's own canonical shell, so pair ingestion runs end to end (decision 148, F7).
-// tests/wire-seeds.test.ts holds every seed to `writeInput` and the output to `writeOutput`.
+// ingestion test (tests/playtest-ingest.test.ts) is never vacuous (journal decision 124). It writes one seed per
+// `SEED_FIXTURES` entry, each a dump named per solve, `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json`
+// (decisions 140, F6, 149 and 152), and one seed also carries its output, the prototype's own canonical shell, so pair
+// ingestion runs end to end (decision 148, F7). tests/wire-seeds.test.ts holds each of these seeds to `writeInput` and
+// the output to `writeOutput`. The folder's one other seed, the hand-edited multi-run `MultiRunSide` (decision 179,
+// finding 1), is not written here, and this CLI never touches it: the test holds it to `multiRunDocument` instead.
+// fixtures/playtest/README.md says which seeds are C++-replayable and why (decision 182).
 //
 // Run from the app as `node --experimental-strip-types --disable-warning=ExperimentalWarning src/wire/export-playtest.ts`.
 // As `export.ts` does, it loads the pipeline through Vite's module runner with the core-source alias restated, since
