@@ -211,11 +211,14 @@ function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
   if (outcome) box.append(el('div', outcome.text, outcome.bad ? 'line bad' : 'line dim'));
 }
 
+/** A case with no input file: not a failed build, so its message is shown as it stands. */
+class CaseUnloadable extends Error {}
+
 /** A case's fixture, read from its `golden/<name>.input.json`. Throws, with the reason, when it cannot be. */
 async function fixtureOfCase(c: DefectCase): Promise<ShellFixture> {
   if (c.input === undefined) {
     const why = c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason';
-    throw new Error(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
+    throw new CaseUnloadable(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
   }
   const res = await fetch(new URL(`golden/${c.input}`, document.baseURI));
   if (!res.ok) throw new Error(`golden/${c.input}: ${res.status} ${res.statusText}`);
@@ -238,17 +241,18 @@ async function loadManifest(): Promise<void> {
 
 // ---- Loading ------------------------------------------------------------------------------------------------------
 
-function showFailure(name: string, message: string, defect?: DefectCase): void {
-  console.error(`${name}: ${message}`);
+/** Shows a load or build that failed: only its error, with no stale shell behind it. `message` names the fixture. */
+function showFailure(message: string, defect?: DefectCase): void {
+  console.error(message);
   // Journal decision 98, F8: a failed build leaves no stale shell behind, only its error.
   build = undefined;
   pinned = null;
   hovered = null;
   scene.clearBuild();
   const status = $('status');
-  status.textContent = `${name}: ${message}`;
+  status.textContent = message;
   status.style.color = 'var(--bad)';
-  $('report').replaceChildren(el('div', `${name}: ${message}`, 'bad'));
+  $('report').replaceChildren(el('div', message, 'bad'));
   $('legend').replaceChildren();
   $('buildline').textContent = '';
   renderCaseBox(defect, {text: `Nothing is drawn: ${message}`, bad: true});
@@ -292,9 +296,7 @@ async function load(sel: Selection): Promise<void> {
     renderCaseBox(defect, defect?.error === undefined ? undefined : {text: 'The build succeeded, though the manifest pins an error: the pin has moved.', bad: true});
   } catch (e) {
     if (mine !== token) return;
-    // A case that cannot be loaded is not a failed build: its message already says why.
-    const message = defect && stage === 'load failed' ? errorMessage(e) : `${stage}: ${errorMessage(e)}`;
-    showFailure(name, message, defect);
+    showFailure(e instanceof CaseUnloadable ? e.message : `${name}: ${stage}: ${errorMessage(e)}`, defect);
   }
 }
 
