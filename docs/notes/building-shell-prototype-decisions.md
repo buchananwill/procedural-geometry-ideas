@@ -109,6 +109,12 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
      hole in its middle, but both of its buried ends cross a band.
    - **Which segment, when several qualify:** the shortest, then the lowest x of its lower end, then that end's
      lowest y, then the lowest Ring index. If none qualifies, it is a hard error naming the fixture and storey.
+   - **The cut's pitch** (**AMENDED 2026-11-08**, journal decision 135; it was the cutting Ring's default):
+     - where the cut is collinear with a union wall at one of its ends, it takes that wall's derived pitch (decision 3),
+       because a weight change at a straight vertex is refused by the skeleton;
+     - where it is collinear with walls of different pitch at both ends, the segment does not qualify, and the next one
+       is tried;
+     - where it is collinear with no wall, it takes the cutting Ring's default pitch.
    - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
      width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
      `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's
@@ -364,7 +370,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     at least three distinct vertices on the 1/1024 cm snap grid**, however small its area, and the report counts
     partial Cells. **AMENDED 2026-11-07** (journal decision 119): a Cell under `SHELL_TOLERANCE_CM²` was dropped,
     which disagreed with vertex identity. Its vertices, kept because they lie more than `SHELL_TOLERANCE_CM` apart,
-    left NetEdges with nothing on one side.
+    left NetEdges with nothing on one side. **AMENDED 2026-11-08** (journal decision 135): a polygon of at least three
+    distinct snapped vertices whose snapped area is not positive (all collinear, or wound backwards) is a hard error,
+    never silently dropped. No case reaches it yet; one that does is enrolled and ruled on.
 
     **AMENDED 2026-11-08** (journal decision 130): wall provenance, which the union otherwise drops.
     - `ShellCell` gains `source: {ringModelIndex: number; side: number} | null`, where `side` is the Ring side index
@@ -431,7 +439,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - the output is closed, with its expected genus. That is 1 for `BridgeOverBlock`, whose block closes a tunnel under
       the bridge, and 0 for every other clean fixture, `Bridge` included: its towers on open ground form a ∏, which has
       no tunnel. A degenerate twin's genus is measured, then pinned (**AMENDED 2026-11-07**, journal decisions 73 and
-      74);
+      74). **AMENDED 2026-11-08** (journal decision 135): genus is asserted per connected component. Manifold's single
+      figure sums over components, so a courtyard beside a separate island reads 0;
     - `survivingInternal` is 0;
     - `cheeks` equals the fixture's pinned, measured count, which is 0 for all ten. A Cheek is a legitimate face
       (**AMENDED 2026-11-07**, journal decisions 46 and 77; decision 46's "is 0" is struck);

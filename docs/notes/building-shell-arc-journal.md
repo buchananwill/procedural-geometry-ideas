@@ -1334,6 +1334,44 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - N7: the axis literal is named.
        - N8: the named types are exported.
      - **No figure may move.** Every change here is a change of shape only, and WP3.7's shell-identity check covers it.
+135. **Rulings on WP3.6's correctness review** (fresh Opus, on a `git archive 7847a48` snapshot, 3764/3764 reproduced).
+     **What it confirmed:**
+     - the identity claim, over 3472 shells (560 of them beyond the delegate's set): only the three F43 shells changed;
+     - that Ring forms are deterministic and total;
+     - that the cut faces cancel inside Manifold's boolean itself;
+     - the port pins;
+     - nothing that breaks the four-step model.
+
+     It could not find WP3.6's four gates, because they were in the hand-back only. They were: cut chosen by highest x;
+     highest index wins; area drop restored; and cut-plane faces tagged Wall. All four convicted. The reviewer's five
+     equivalent mutations convicted too. **Every finding is accepted, and goes to WP3.7 as addendum 2:**
+     - **F1 (High): decision 132's "the cut takes the cutting Ring's default pitch" is STRUCK.** A cut is collinear
+       with a hole wall at the hole's corner. Where their pitches differ, the skeleton refuses the weight change at a
+       straight vertex. Ordinary authoring, with Rings at different pitches, reaches this.
+       - **The cut takes the derived pitch of the union wall it is collinear with.**
+       - A segment collinear with walls of different pitch at both ends does not qualify.
+       - A cut collinear with no wall keeps the cutting Ring's default.
+       - Spec 2 is amended. The courtyard generator varies the default pitch per Ring and authors side pitches.
+     - **F2 (Medium): the floor-standing holed hip solid stays.** Over 80 random courtyards it cures 11 and breaks 2:
+       `s1h300/Court5`, where a cap can neither flip nor merge, and `s1h250/Court16`, where a short-edge collapse
+       would pinch.
+       - **Both are `cleanMesh` refusals,** F-C's family, and WP3.7's gate must cure them.
+       - The `COURTYARD_DEFECTS` comment names floor-standing as their cause.
+       - **Extending floor-standing to every storey (decision 132) needs zero regressions as well as a cure,** measured
+         case by case, as this reviewer did.
+     - **F3 (Low):** the Internal tag on the cut plane becomes an invariant on every holed storey, not only on
+       Courtyard's hard-coded plane. With the tag mis-set, cut residue goes silent.
+     - **F4 (Low):** the port fixtures' full geometry is pinned through WP3.8's golden set (decision 129). Today's
+       count pins stay until then.
+     - **F5 (Low):** `7847a48`'s commit message overstates the identity claim. The accurate record is decision 132, and
+       history is not rewritten.
+     - **F6 (Low):** the conflict pairs gain a three-Ring tie, non-adjacent indices, Rings across storeys, a conflict on
+       a hole loop, and a cut-pitch conflict. `ring-forms.test.ts` builds each fixture in its own test, so that a
+       crash fails one test and never skips the file's assertions. Mutation M2 then convicts by assertion.
+     - **F7 (Note):** spec 23 is amended to say what the code does. A polygon with three or more distinct snapped
+       vertices but no positive area is a hard error.
+     - **The genus observation:** spec 32's genus is asserted per connected component (spec amended).
+       CourtTwoIslands and CourtIslandInHole join the courtyard probes.
 
 ## Findings
 
