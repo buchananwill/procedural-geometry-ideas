@@ -98,7 +98,8 @@ running subagents.** Their reports arrive as notifications.
 **Waiting on the C++ port lead (`pisteperfect-5-7-4f`):**
 - ~~the Zod generator's details~~: answered, see F47 and decision 127;
 - the wire family's name, and its first USTRUCTs (these arrive with the port's first increment);
-- whether the C++ conflict rule keys on model index or root order;
+- ~~whether the C++ conflict rule keys on model index or root order~~: the same in production (F48);
+- **for the user:** F48's two consequences (index reuse, and whether the rule exists in C++ today);
 - the C++-to-prototype structure mapping from its read-only comparison.
 
 **Promised:** a message to the port lead when the pipeline is port-ready, after WP3.6 and WP3.7 have landed and been
@@ -1510,3 +1511,16 @@ reviewed. It must include the measured residual fresh-input failure rate.
   - **Input USTRUCTs are new.** The C++ Ring and storey types cannot be reflected, so the wire structs are a
     dedicated mirror. The precedent is `FModularSolveDump`.
   - **Conventions:** versioning is an `int32 SchemaVersion` first field. No provenance convention exists.
+- **F48. Root order is ascending model index in production** (port lead, 2026-11-08). `AddToCacheIfRoot` sorts the
+  list (`BuildableModelOps.cpp:76-77`), and `ResetRootIndexCache` rebuilds it in ascending order
+  (`BuildableComponentLayoutOps.cpp:109-119`). So the lowest model index and the lowest Ring index pick the same Ring.
+  - **Not traced:** composition's own rebuild (`BuildableCompositionOps.cpp:160`). The out-of-order roots the port
+    lead found were in hand-built test fixtures.
+  - **Two consequences to raise with the user:**
+    1. **Freed component indices are reused.** A Ring added after another is deleted can take a lower index than older
+       Rings, and so win their shared walls. That is the rule working as stated, but it is not creation order.
+    2. **As far as the port lead knows, the C++ has no "lowest index wins the whole wall" rule yet.** The user had
+       said "this has already been answered in C++". The port implements the rule as the user stated it either way.
+       The port lead confirms the C++'s actual coincident-wall behaviour when its pipeline comparison lands.
+  - **Schema:** the generator route is confirmed. The port's USTRUCTs own the schema, and the port lead reports the
+    family file name and every `SchemaVersion` bump.
