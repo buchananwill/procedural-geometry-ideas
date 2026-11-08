@@ -1899,7 +1899,9 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - **`cppReplayable` is true exactly when:**
          - every corner lies on the 50 cm Cell lattice, within 1e-6 cm;
          - every `ringIndex` equals its array position;
-         - the fixture's `cellSize` is 50.
+         - the fixture's `cellSize` is 50;
+         - `storeyHeight` is a whole number of Cells (port lead, amended): 250 and 300 pass, 263 does not;
+         - every Ring's `baseStorey + storeys` is at most 32, the C++ validator's cap.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
