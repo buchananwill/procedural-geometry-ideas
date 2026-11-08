@@ -1887,9 +1887,20 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        on its Cell lattice and its runs are written by the C++'s own plate-run rule. The manifest carries a
        `cppReplayable` flag. A replayable fixture gets a `<fixture>.input.json` beside its shell golden, so the port
        can replay the prototype's own fixtures.
-     - **Asked of the port lead:** the plate-run derivation rule, precise enough for `writeInput` to reproduce. If it
-       cannot be stated by the time WP3.8 writes the golden set, the input files are left out and
-       `cppReplayable` reads false, with the reason. Its scope is decisions 136 to 140. It stays within the wire
+     - ~~**Asked of the port lead:** the plate-run derivation rule~~. **AMENDED 2026-11-08: the port changed its
+       replay instead** (MB.D516, its spec decision 17).
+       - **The rule, for reference:** a plate run is a maximal stretch of whole Cells along one Ring's own wall face,
+         at its own top storey, where the top wall Cell exists and its upper edge is Eaves, meaning it meets that
+         Ring's own roof at its own top height (`CellNetEdges.cpp:286`). It is quantised per Ring by plan rules the
+         prototype does not have, so a copy would be fragile.
+       - **The replay now matches by containment.** Each C++ plate run takes the document run on its side that
+         contains its extent, within 1e-6 cm. Only a plate run that no document run contains is refused.
+       - **So `writeInput` keeps one run per side, from 0 to the side's length, with the side's form.**
+       - **`cppReplayable` is true exactly when:**
+         - every corner lies on the 50 cm Cell lattice, within 1e-6 cm;
+         - every `ringIndex` equals its array position;
+         - the fixture's `cellSize` is 50.
+       - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
