@@ -1769,7 +1769,15 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        `<dump basename>.<Subject>.<Seed>.input.json`, written in the solve dump's directory, and the seed is always
        present. An output pairs by the same stem, `….output.json`. Ingestion pairs dumps by the stem before
        `.input.json` or `.output.json`, whatever dots it holds. The empty-subject refusal reads provenance's
-       `subject`, not the file name. Its scope is decisions 136 to 140. It stays within the wire
+       `subject`, not the file name.
+     - **AMENDED 2026-11-08 (port lead, read from `ModularRoofWallPitch.cpp`, not tested): can a wall's runs disagree?**
+       - **Pitch: no.** `ShareModularWallPitches` (145-160) gives one pitch to a whole wall group, ordered by Ring and
+         then run (`PitchOfGroups`, 87-115). A lowest-Ring pitch rule already exists.
+       - **Form: possibly.** `ShareModularLineForms` (117-143) unifies only promoted forms. Under Auto, each run is
+         solved alone, so a wall with one Pitched run and one GableEnd run looks possible.
+       - **The refusal and flag stand.** The port lead records "apply the whole-wall rule to form as well as pitch"
+         as a port requirement, with a C++ test that constructs the case. **This closes the user's whole-wall rule
+         on the C++ side.** Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
