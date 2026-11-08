@@ -432,6 +432,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - Every other Cell, a Cheek Cell included, has `null`.
     - **AMENDED 2026-11-08** (journal decision 153): a Gable Cell beyond its line's walls takes the Ring side of the
       nearest wall on its line. A gap between two walls is split at its middle.
+    - **AMENDED 2026-11-08** (journal decision 156):
+      - A Ring side's provenance span is the stretch of that side lying on the storey's union walls, the visible
+        stretch, never its buried part.
+      - `side` is the compass index (S = 0, E = 1, N = 2, W = 3) for a prototype-native fixture. For a shell read from
+        `input@1`, it is the file's own side index, mapped back with the model index.
     - Cells are cut at provenance boundaries, so every Cell has exactly one source.
     - `ShellFace` gains `sources`, the distinct sources of its Cells, ascending by model index and then by side.
 24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable

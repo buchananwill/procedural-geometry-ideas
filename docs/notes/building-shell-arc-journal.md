@@ -1977,7 +1977,59 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - the correctness reviewer of WP3.8 confirms the golden drift test and the shell-identity hash at WP3.8.2's
          commit.
 
-       This is still decision 67's two reviewers, scoped to what changed.
+       This is still decision 67's two reviewers, scoped to what changed. **AMENDED by decision 156:** WP3.8.2 also
+       carries behaviour and golden changes, so the correctness reviewer checks closure of decision 156's items as
+       well, and the golden set is expected to grow.
+156. **Rulings on WP3.8's correctness review** (fresh Opus, on `git archive 40cffce`, 7665/7665 reproduced; 0 High).
+     **Confirmed:**
+     - every golden re-runs exactly from its own stages, and raw parts are float32-exact;
+     - replayable inputs replay byte for byte;
+     - provenance has 0 errors over 3.72M Wall and 268k Gable Cells;
+     - all 160 `SoffitJunction` edges are concave soffit junctions;
+     - the island-steepest cut is clean on 495 of 495 cases outside the measured families;
+     - decision 149's refusals are all present;
+     - all 24 pins are exact.
+
+     **All findings are accepted for WP3.8.2, and F1, F3 and F4 block port-ready:**
+     - **F1 (Medium-High): `source.side` is the compass index, not the file's side index.**
+       - A C++ Ring that starts at another corner (decision 126 allows it) would get wrong door and Stroke keys.
+       - **`withFileModelIndices` maps the side back to the file's own side index too.** Spec 23's two definitions are
+         separated: a prototype-native fixture uses the compass order (S = 0), and a shell from `input@1` uses the
+         file's slots.
+       - `provenance.test.ts:105-114` locks the defect in, and is corrected. Gate: the rotated L's W gable reports
+         file side 2.
+     - **F2 (Medium): two GableEnd runs on one side at different pitches are refused,** like Pitched runs. Decision
+       153 made a gable's pitch geometry, and decision 149's agreement test is amended to match.
+     - **F3 (Medium): the golden set gains oracles for the two rules WP3.8 changed:**
+       - a split-band courtyard that reads the free cut, at mixed pitch;
+       - a building whose gables differ in pitch from its hips.
+     - **F4 (Medium-Low): the golden set gains one representative of every residue class,** as decision 129 asked.
+       - **The classes:** the Cheek class (Court14 and Court23 as decision 132's regressions), the Court25 throw, U8,
+         a split-band failure, a nudge, a pitch-end throw, Courtyard at content's 22.5°/45°, and BridgeOverBlock at
+         45°.
+       - **Each manifest entry gains `clean: boolean`,** and a failure carries its pinned violations or error, so
+         that a port reading the shell alone cannot take a defect for truth.
+     - **F5 (Medium-Low): run extents get decision 137's slack.** A run end within `WIRE_CORNER_SNAP_CM` of the snapped
+       side length, or of 0, is snapped, and anything beyond is refused.
+     - **F6 (Low-Medium): the default `vitest run` asserts every pinned case,** by building the pinned cases
+       themselves rather than their whole generators. The opt-in path stays for discovering new failures.
+     - **F7 (Low): F53's courtyard rate is restated over seeds 1 to 14.**
+       - Seeds 7 to 14 fail 45 of 960 (4.7%), so seeds 1 to 14 fail **63 of 1680 (3.75%)**. Split bands fail 6 of
+         1680.
+       - The two new signatures are enrolled as named cases: s11 Court35's Cell-fan throw, and s7h250 SplitCourt9's
+         Gable–Wall `Unclassified`.
+       - The rest go into the opt-in pin table.
+     - **F8 (Low):**
+       - throw pins name the position of the element that threw, where one exists;
+       - BridgeOverBlock's pins carry its `SoffitJunction` edges' ends.
+     - **F9 (Low): provenance spans are the stretches of each Ring side that lie on the storey's union walls,** the
+       visible stretches. A gable Cell beyond its walls takes the nearest such stretch on its line, and a gap is
+       split at its middle. The T probe and a gap-split case are added. Spec 23 is amended.
+     - **Info:**
+       - `65a7fa2` in decision 153 resolves through its twin `809b6aa`, with an identical tree;
+       - the stale `InputReport.info` comment is fixed;
+       - a delegate's mutation gates run in its own working tree are acceptable only when no other agent shares the
+         tree, as here.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
