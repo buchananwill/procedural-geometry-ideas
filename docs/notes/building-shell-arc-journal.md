@@ -2541,6 +2541,19 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - **Pending on its side:** whether its reader and net accept two Rings of identical footprint. Its replay of
          `CutPitchConflictSwapped` will answer that, together with any replayable golden that misses zero residual. It
          reports once its increment-3a revision lands, and its user grants a fresh read-only waiver.
+     - **AMENDED 2026-11-08: the port's first replay is green** (its commit `d4dc61c7e`, MB.F118). It vendored 30
+       goldens:
+       - the four Port fixtures;
+       - the eight conflict bases, with their `FileReversed` twins and their `Swapped` goldens;
+       - `AsymmetricLScrambled` and `CourtyardJutCutSwapped`.
+
+       **Every one reaches zero residual at its stage 1** (raw parts, 109/109), and all eight Ring-order pairs are
+       green. **Its reader and storey plan accept two Rings of identical footprint.**
+       - **The lead's error, corrected:** the duplicate footprint is in all three CutPitchConflict files (models 0 and 1,
+         and 7 and 20 in the reversed file), not in Swapped alone, as the lead's message said.
+       - **Its observation:** at stage 1, each Swapped golden's wall prisms equal its base's, so raw parts alone cannot
+         tell the lowest-index rule from another. The goldens discriminate at its increment 3b, where every part is
+         compared. No action here.
 
 ## Findings
 
