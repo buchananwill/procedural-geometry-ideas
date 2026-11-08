@@ -10,7 +10,7 @@ import type {ShellReport} from './shell.ts';
 import type {RawPart} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
-import {writeInput} from './wire/input-adapter.ts';
+import {readInput, writeInput} from './wire/input-adapter.ts';
 import type {BuildingShellInputV1} from './wire/input-types.ts';
 
 /** A mesh's flat arrays, as `manifold-3d`'s `Mesh` carries them. */
@@ -76,9 +76,14 @@ export type Replayability = z.output<typeof ReplayableSchema> | z.output<typeof 
  * Journal decision 152, amended: a fixture is C++-replayable exactly when its `input@1` (as `writeInput` writes it,
  * one run per side the side's whole length, which the C++ replay matches by containment) has every corner on the
  * 50 cm Cell lattice within 1e-6 cm, every `ringIndex` its array position, a cell size of 50, a storey height of a
- * whole number of Cells, and no Ring reaching past storey 32. Otherwise every reason is given, in that order.
+ * whole number of Cells, and no Ring reaching past storey 32, and (journal decision 158, 2) when the prototype's own
+ * `readInput` accepts it, so a fixture the wire's bounds refuse (a pitch outside [7°, 75°]) is never offered to the
+ * C++ as replayable. Otherwise every reason is given, in that order, the last being `readInput`'s refusal itself.
  */
 export const cppReplayability = (f: ShellFixture): Replayability => cppReplayabilityOf(writeInput(f));
+
+/** The reason `cppReplayability` gives for a document `readInput` refuses: its refusals, every one. */
+export const readInputRefusal = (errors: readonly string[]): string => `readInput refuses it: ${errors.join('; ')}`;
 
 /** `cppReplayability` of an `input@1` document as written. */
 export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
@@ -89,6 +94,9 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   if (input.cellSizeCm !== CPP_CELL_CM) reasons.push(`cellSize not ${CPP_CELL_CM}`);
   if (!onLattice(input.storeyHeightCm)) reasons.push('storey height not a whole number of Cells');
   if (!input.rings.every(r => r.baseStorey + r.storeys <= CPP_MAX_STOREY)) reasons.push(`a Ring reaching past storey ${CPP_MAX_STOREY}`);
+  // Read through JSON, as a file is: `readInput` never sees the writer's own objects.
+  const read = readInput(JSON.parse(JSON.stringify(input)), 'cppReplayability');
+  if (!read.ok) reasons.push(readInputRefusal(read.errors));
   return reasons.length ? {cppReplayable: false, reason: reasons.join('; ')} : {cppReplayable: true};
 }
 

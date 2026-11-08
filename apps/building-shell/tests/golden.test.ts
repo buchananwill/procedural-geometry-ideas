@@ -10,6 +10,7 @@ import {GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, 
 import {buildShell} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
+import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
 import {GOLDEN_FIXTURES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles} from './golden-fixtures.ts';
 import {shellFixture} from './test-builds.ts';
@@ -65,6 +66,20 @@ describe("decision 156's golden additions: F3's rule oracles and F4's residue cl
   });
 });
 
+/**
+ * Journal decision 158, 3: every golden fixture's manifest outcome is its robustness pin, verbatim: a residue's
+ * violations, or `throws: ` and its error, as the sweeps measure it (located signatures included), and a fixture with no
+ * pin clean. An edited pin, or a manifest entry that disagrees with its pin, fails here.
+ */
+describe('the tie between the manifest and the robustness pins (journal decision 158, 3)', () => {
+  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g] as const))('%s: its manifest outcome is its pin', (name, g) => {
+    const e = MANIFEST.fixtures.find(x => x.fixture === name);
+    const outcome = e && ('error' in e ? [`throws: ${e.error}`] : e.violations);
+    expect(outcome).toEqual(g.pin ?? []);
+    expect(e?.clean).toBe(g.pin === undefined);
+  });
+});
+
 describe('C++ replayability (journal decision 152, amended)', () => {
   /** The rule restated: every reason a fixture's written input is not replayable, in the rule's order. */
   function reasons(f: ShellFixture): string[] {
@@ -76,7 +91,14 @@ describe('C++ replayability (journal decision 152, amended)', () => {
       ...(w.cellSizeCm === 50 ? [] : ['cellSize not 50']),
       ...(on(w.storeyHeightCm) ? [] : ['storey height not a whole number of Cells']),
       ...(w.rings.every(r => r.baseStorey + r.storeys <= 32) ? [] : ['a Ring reaching past storey 32']),
+      ...readBack(w),
     ];
+  }
+
+  /** Decision 158, 2's condition: the prototype's own reader accepts the written file, or its refusal is the reason. */
+  function readBack(w: BuildingShellInputV1): string[] {
+    const r = readInput(JSON.parse(JSON.stringify(w)), 'readBack');
+    return r.ok ? [] : [`readInput refuses it: ${r.errors.join('; ')}`];
   }
 
   it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g.fixture] as const))('%s: its flag and reason agree with the rule, and its input is written exactly when replayable and built', (name, f) => {
@@ -99,7 +121,16 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     const misIndexed = writeInput(shellFixture('Two', [box([0, 0, 500, 400]), box([500, 0, 1000, 400])]));
     misIndexed.rings[0].ringIndex = 1;
     misIndexed.rings[1].ringIndex = 0;
-    expect(cppReplayabilityOf(misIndexed)).toEqual({cppReplayable: false, reason: 'ringIndex not its array position'});
+    expect(cppReplayabilityOf(misIndexed)).toEqual({cppReplayable: false, reason: `ringIndex not its array position; ${readBack(misIndexed)[0]}`});
+    expect(readBack(misIndexed)).toHaveLength(1);
+    const steep = cppReplayability(shellFixture('Pitch80', [ring([0, 0, 500, 400], 0, 1, 80)]));
+    expect(steep.cppReplayable).toBe(false);
+    expect('reason' in steep && steep.reason).toMatch(/^readInput refuses it: .*outside \[7, 75\]/);
+  });
+
+  it('G5.86h250 is not replayable: its 5.86° pitch is outside the wire\'s bounds, so our own reader refuses it (decision 158, 2)', () => {
+    const e = MANIFEST.fixtures.find(x => x.fixture === 'G5.86h250');
+    expect(e && e.cppReplayable === false ? e.reason : undefined).toMatch(/^readInput refuses it: .*5\.86 degrees, outside \[7, 75\]/);
   });
 
   const replayable = MANIFEST.fixtures.flatMap(e => ('input' in e ? [e] : []));

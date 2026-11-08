@@ -15,6 +15,7 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
 import type {PinTable} from './pin-table.ts';
+import {CUT_OVERSHOOT_DEFECTS} from './residue-pins.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -318,10 +319,7 @@ describe('layouts the rule refuses (spec decision 2 as amended)', () => {
     const got = runB(plan.building, {far: 'plane'}).eval(at);
     expect(got?.h ?? NaN).toBeCloseTo(122.7 * Math.tan(Math.PI / 6), 1);
     expect(truth(at.x, at.y)).toBeCloseTo(101.7 * Math.tan(Math.PI / 6), 1);
-    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([
-      'survivingInternal 1 at (125, 250, 312.546875)',
-      '3 Unclassified Edges: (100, 250, 307.7353515625) to (125, 250, 322.1689453125); (100, 250, 307.7353515625) to (150, 250, 307.7353515625); (125, 250, 322.1689453125) to (150, 250, 307.7353515625)',
-    ]);
+    expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual(CUT_OVERSHOOT_DEFECTS);
   });
 
   it('builds the Courtyard from COURTYARD_RECTS', () => {

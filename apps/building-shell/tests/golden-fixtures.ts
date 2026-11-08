@@ -17,11 +17,27 @@ import {
   randomUFixtures, rosterPitchCases, seededFixture, splitBandFixture,
 } from './robustness-fixtures.ts';
 import {rosterGenus} from './roster-genus.ts';
-import {invariantViolations} from './shell-invariants.ts';
+import type {CausedPin, PinRecord} from './pin-table.ts';
+import {
+  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS,
+} from './residue-pins.ts';
+import {invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
 
-/** One golden fixture and the genus per component its pin expects. */
-export interface GoldenFixture { fixture: ShellFixture; genus: readonly number[] }
+/**
+ * One golden fixture and the genus per component its pin expects. A residue (journal decision 158, 3) also carries its
+ * robustness pin, verbatim: its violations, or `throws: ` and its error, as the robustness sweeps measure it, and
+ * `located` where that measure names its Roof-Underside edges (`roofUndersideLines`, decision 156, F8). A fixture with
+ * no pin is clean.
+ */
+export interface GoldenFixture { fixture: ShellFixture; genus: readonly number[]; pin?: readonly string[]; located?: boolean }
+
+/** A residue's pin from its table: it must be there, since a residue golden with no pin ties to nothing. */
+function pinOf<K extends string>(table: PinRecord<K, readonly string[] | CausedPin>, key: K): readonly string[] {
+  const pin = table[key];
+  if (!pin) throw new Error(`no pin ${key}`);
+  return 'outcome' in pin ? pin.outcome : pin;
+}
 
 /** A fixture renamed for the golden set, where its tests build it at several storey heights under one name. */
 const named = (f: ShellFixture, name: string): ShellFixture => ({...f, name});
@@ -80,18 +96,23 @@ export const RULE_ORACLES: readonly GoldenFixture[] = [
  * - a δ-nudge (decision 122's G5): ApexEdge5;
  * - a pitch-end throw (decision 143): G5.86h250;
  * - Courtyard at content's 22.5° and 45°, laid by side axis (decision 148, F3): its cut-piece overshoot;
- * - BridgeOverBlock at 45° (F52): its block's roof meeting the bridge's floor, genus 2 against 1.
+ * - BridgeOverBlock at 45° (F52): its block's roof meeting the bridge's floor, genus 2 against 1, with its
+ *   Roof-Underside edges' ends, as its pin carries them;
+ * - and decision 156, F7's two classes (decision 158, 1): s11h250 Court35's Cell-fan throw, and s7h250 SplitCourt9's
+ *   Unclassified Gable-Wall edges.
  */
 export const RESIDUE_CLASSES: readonly GoldenFixture[] = [
-  {fixture: seededCase(randomCourtyardFixtures, 1, 'Court14', 250), genus: [1]},
-  {fixture: seededCase(randomCourtyardFixtures, 6, 'Court23', 250), genus: [1]},
-  {fixture: seededCase(randomCourtyardFixtures, 1, 'Court25', 250), genus: [1]},
-  {fixture: seededCase(randomUFixtures, 6, 'U8', 300), genus: [0]},
-  {fixture: seededCase(randomSplitCourtyardFixtures, 2, 'SplitCourt10', 250), genus: [1]},
-  {fixture: namedCase(nudgeFixtures(), 'ApexEdge5'), genus: [0]},
-  {fixture: namedCase(pitchEndFixtures(), 'G5.86h250'), genus: [0]},
-  {fixture: rosterPitchCase('Courtyard', 'Courtyard@22.5/45s', 'CourtyardAt22.5-45s'), genus: rosterGenus('Courtyard')},
-  {fixture: rosterPitchCase('BridgeOverBlock', 'BridgeOverBlock@45', 'BridgeOverBlockAt45'), genus: rosterGenus('BridgeOverBlock')},
+  {fixture: seededCase(randomCourtyardFixtures, 1, 'Court14', 250), genus: [1], pin: pinOf(COURTYARD_DEFECTS, 's1h250/Court14')},
+  {fixture: seededCase(randomCourtyardFixtures, 6, 'Court23', 250), genus: [1], pin: pinOf(COURTYARD_DEFECTS, 's6h250/Court23')},
+  {fixture: seededCase(randomCourtyardFixtures, 1, 'Court25', 250), genus: [1], pin: pinOf(COURTYARD_DEFECTS, 's1h250/Court25')},
+  {fixture: seededCase(randomUFixtures, 6, 'U8', 300), genus: [0], pin: pinOf(U_DEFECTS, 's6h300/U8')},
+  {fixture: seededCase(randomSplitCourtyardFixtures, 2, 'SplitCourt10', 250), genus: [1], pin: pinOf(SPLIT_COURTYARD_DEFECTS, 's2h250/SplitCourt10')},
+  {fixture: namedCase(nudgeFixtures(), 'ApexEdge5'), genus: [0], pin: pinOf(NUDGE_DEFECTS, 'ApexEdge5')},
+  {fixture: namedCase(pitchEndFixtures(), 'G5.86h250'), genus: [0], pin: pinOf(PITCH_END_DEFECTS, 'G5.86h250')},
+  {fixture: rosterPitchCase('Courtyard', 'Courtyard@22.5/45s', 'CourtyardAt22.5-45s'), genus: rosterGenus('Courtyard'), pin: pinOf(ROSTER_PITCH_DEFECTS, 'Courtyard@22.5/45s'), located: true},
+  {fixture: rosterPitchCase('BridgeOverBlock', 'BridgeOverBlock@45', 'BridgeOverBlockAt45'), genus: rosterGenus('BridgeOverBlock'), pin: pinOf(ROSTER_PITCH_DEFECTS, 'BridgeOverBlock@45'), located: true},
+  {fixture: seededCase(randomCourtyardFixtures, 11, 'Court35', 250), genus: [1], pin: pinOf(COURTYARD_DEFECTS, 's11h250/Court35')},
+  {fixture: seededCase(randomSplitCourtyardFixtures, 7, 'SplitCourt9', 250), genus: [1], pin: pinOf(SPLIT_COURTYARD_DEFECTS, 's7h250/SplitCourt9')},
 ];
 
 /**
@@ -106,9 +127,9 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...[300, 250].map(h => ({fixture: named(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h), `Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]}h${h}`), genus: [0]})),
   {fixture: UPPER_U_EDGE_CONTACT, genus: [0]},
   {fixture: FULL_WINGS_PROBE, genus: [1]},
-  {fixture: CUT_OVERSHOOT_PROBE, genus: [1]},
+  {fixture: CUT_OVERSHOOT_PROBE, genus: [1], pin: CUT_OVERSHOOT_DEFECTS},
   ...F2_COURTYARDS.map(f => ({fixture: named(f, f.name.replace(/^s(\d)h(\d+)\/(.*)$/, '$3Seed$1h$2')), genus: [1]})),
-  ...(['Aligned', 'Offset'] as const).map(kind => ({fixture: gapFixture(kind, 1), genus: [0, 0]})),
+  ...(['Aligned', 'Offset'] as const).map(kind => ({fixture: gapFixture(kind, 1), genus: [0, 0], pin: pinOf(GAP_DEFECTS, `Gap${kind}1`)})),
   ...RULE_ORACLES,
   ...RESIDUE_CLASSES,
 ];
@@ -122,7 +143,7 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
 export async function goldenFiles(): Promise<Map<string, string>> {
   const files = new Map<string, string>();
   const entries: GoldenEntry[] = [];
-  for (const {fixture: f, genus: pinned} of GOLDEN_FIXTURES) {
+  for (const {fixture: f, genus: pinned, located} of GOLDEN_FIXTURES) {
     const replay = cppReplayability(f);
     const fixture = f.name, genus = [...pinned];
     let b: ShellBuild;
@@ -136,7 +157,8 @@ export async function goldenFiles(): Promise<Map<string, string>> {
       continue;
     }
     const shell = `${f.name}.json`, union = `${f.name}.union.json`;
-    const report = b.shell.report, violations = invariantViolations(b, {genus, cheeks: 0});
+    // Measured as its pin is (decision 158, 3): a located residue names its Roof-Underside edges too.
+    const report = b.shell.report, violations = [...invariantViolations(b, {genus, cheeks: 0}), ...(located ? roofUndersideLines(b) : [])];
     files.set(shell, goldenText(b.shell));
     files.set(union, goldenText(unionStages(f.name, b.union)));
     if (replay.cppReplayable) {
