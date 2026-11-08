@@ -142,6 +142,10 @@ been reviewed, naming the commit (decision 129). It must include the measured re
 
 ## 5. Open items
 
+- **An algorithm-A (weak-wall) roof shell** (decision 173). It is a prerequisite for the C++ port's algorithm A, and
+  is unscheduled, waiting on the user.
+- **A courtyard and gable redesign** (decision 172). It is unscheduled.
+- **A module release of the shell** (F54). It is not ready, and would be its own arc if wanted.
 - ~~**Bridge (spec decision 38).**~~ Closed by decision 55.
 - ~~**Fixture corrections in decisions 49 and 50.**~~ Closed by decision 56.
 - ~~**What a surviving Cheek is (F32).**~~ Closed by decision 77.
@@ -2333,6 +2337,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **A redesign of courtyards and gables is a future arc of its own,** not a patch to algorithm B. §5's question
        is closed by this ruling.
      - The port lead is told, because its inherited-residue list reads the same way.
+173. **An algorithm-A shell is on this prototype's road map** (user ruling reported by the port lead, its MB.D527,
+     2026-11-08).
+     - **The C++ roof stage offers two generators,** chosen per roof by a Grammar rule, with a console override:
+       - algorithm A, the weak-wall generator;
+       - algorithm B, projected intersection, the one this shell copies (`src/roof/algoB.ts`; no `algoA`).
+     - **The port builds B only.** A is deferred until B works end to end in the game, and until this prototype has
+       built an A shell.
+     - **The reference** is roof-gable's `src` in Piste Perfect (algorithm A, the weak walls), and the C++ roof-model
+       spec, from its decision 49.
+     - **Not scheduled.** It waits on the user. It is listed in §5.
+
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
