@@ -44,6 +44,11 @@ departs from those four steps is a defect.
   another session.
 - **The spec's author is the Claude session `pisteperfect-5-7-27`**, which confirmed it on 2026-11-07. Confer with it
   by cross-session message on anything that touches the C++ project.
+- **The C++ port's arc lead is the Claude session `pisteperfect-5-7-4f`** (contact made 2026-11-08). It cannot read
+  this repo, so send it essentials as text. It was sent a handover: location, the spec as the contract, the export as
+  oracle, answers on clipping, straddling Cells and soffits, and the lessons for the port. It was promised a message
+  when the pipeline is port-ready, and asked for the Ring layouts of its two in-game regressions (MB.D486) so they
+  can become fixtures.
 
 ## 4. Next work
 
