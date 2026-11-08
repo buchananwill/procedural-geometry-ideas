@@ -115,37 +115,71 @@ export const ShellReportSchema = z.strictObject({
   newConventions: z.array(z.string()),
 });
 
-/** What every manifest entry carries: the fixture's name and its pinned genus per component, highest first. */
-const EntryBaseSchema = z.strictObject({fixture: z.string().min(1), genus: z.array(z.number())});
+/**
+ * Journal decision 161 (Info): every residue class the golden set enrols, by a stable name. A residue's violation
+ * strings carry prototype-internal ids, so the port keys on this name instead.
+ */
+export const RESIDUE_CLASS_NAMES = [
+  'algorithm-B Cheek',
+  'algorithm-B cut-piece overshoot',
+  'partial coplanar contact of two storeys',
+  'edge contact between opposite coplanar faces',
+  'cleanMesh stuck cap',
+  'Cell outside its face fan',
+  'Gable-Wall edge Unclassified',
+  'sub-tolerance roof feature',
+  'low-pitch pocket',
+  'roof meets the floor above',
+  'near-touching islands',
+] as const;
 
-/** A fixture whose build succeeded: its files and its pinned report. */
-const FilesSchema = z.strictObject({shell: z.string(), union: z.string(), report: ShellReportSchema});
+/** One residue class's stable name. */
+export type ResidueClass = typeof RESIDUE_CLASS_NAMES[number];
 
-/** A replayable fixture that builds also names its `input@1` file (journal decision 152). */
+/**
+ * What every manifest entry carries: the fixture's name and the genus per component its pin expects, highest first
+ * (journal decision 161, finding 5: an expectation, never the shell's own genus).
+ */
+const EntryBaseSchema = z.strictObject({fixture: z.string().min(1), expectedGenus: z.array(z.number())});
+
+/**
+ * A fixture whose build succeeded: the genus per component its union measures, highest first (decision 161, finding 5),
+ * its files and its pinned report.
+ */
+const FilesSchema = z.strictObject({measuredGenus: z.array(z.number()), shell: z.string(), union: z.string(), report: ShellReportSchema});
+
+/**
+ * A replayable fixture names its `input@1` file (journal decision 152), whether it builds or throws (decision 161,
+ * finding 1), so the port can check whether its own build throws too.
+ */
 const InputSchema = z.strictObject({input: z.string()});
 
 /**
  * Journal decision 156, F4: every entry says whether its fixture is clean, so a port reading a shell alone cannot take a
- * defect for truth. A clean build keeps every invariant against `genus`.
+ * defect for truth. A clean build keeps every invariant against `expectedGenus`.
  */
 const CleanSchema = z.strictObject({clean: z.literal(true), violations: z.tuple([])});
 
-/** A build that breaks an invariant: exactly its violations, its enrolled defect. */
-const DefectSchema = z.strictObject({clean: z.literal(false), violations: z.array(z.string()).min(1)});
+/** A residue's class, by its stable name (journal decision 161, Info). */
+const ResidueClassSchema = z.strictObject({residueClass: z.enum(RESIDUE_CLASS_NAMES)});
 
-/** A fixture whose build throws: its error, in place of its files (journal decision 129). */
-const RefusedSchema = z.strictObject({clean: z.literal(false), error: z.string().min(1)});
+/** A build that breaks an invariant: its class and exactly its violations, its enrolled defect. */
+const DefectSchema = z.strictObject({clean: z.literal(false), ...ResidueClassSchema.shape, violations: z.array(z.string()).min(1)});
+
+/** A fixture whose build throws: its class and its error, in place of its shell and union (journal decision 129). */
+const RefusedSchema = z.strictObject({clean: z.literal(false), ...ResidueClassSchema.shape, error: z.string().min(1)});
 
 /**
- * Journal decisions 129, 152, 155 (B10, N5) and 156 (F4): one manifest entry, built on its replayability, as a union of
- * its files and outcome, clean or defective, or its error.
+ * Journal decisions 129, 152, 155 (B10, N5), 156 (F4) and 161 (finding 1): one manifest entry, built on its
+ * replayability, as a union of its files and outcome, clean or defective, or its error. Every replayable entry names its
+ * input, a throwing one included.
  */
 export const GoldenEntrySchema = z.union([
   EntryBaseSchema.extend(ReplayableSchema.shape).extend(FilesSchema.shape).extend(InputSchema.shape).extend(CleanSchema.shape),
   EntryBaseSchema.extend(ReplayableSchema.shape).extend(FilesSchema.shape).extend(InputSchema.shape).extend(DefectSchema.shape),
   EntryBaseSchema.extend(NotReplayableSchema.shape).extend(FilesSchema.shape).extend(CleanSchema.shape),
   EntryBaseSchema.extend(NotReplayableSchema.shape).extend(FilesSchema.shape).extend(DefectSchema.shape),
-  EntryBaseSchema.extend(ReplayableSchema.shape).extend(RefusedSchema.shape),
+  EntryBaseSchema.extend(ReplayableSchema.shape).extend(InputSchema.shape).extend(RefusedSchema.shape),
   EntryBaseSchema.extend(NotReplayableSchema.shape).extend(RefusedSchema.shape),
 ]);
 

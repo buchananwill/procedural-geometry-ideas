@@ -215,6 +215,14 @@ export const snapRunEnd = (v: number, length: number): number =>
   (Math.abs(v) <= WIRE_CORNER_SNAP_CM ? 0 : Math.abs(v - length) <= WIRE_CORNER_SNAP_CM ? length : v);
 
 /**
+ * Journal decision 161, finding 4: decision 137's slack at an interior run junction. A run's start within
+ * `WIRE_CORNER_SNAP_CM` of `reach`, the furthest end of the runs before it, is taken as that end, so two adjacent ends
+ * carrying round-off meet at one point. Anything further is read as written, and the order test refuses an overlap.
+ * Pitch agreement stays exact (decision 149): the C++ shares one value per wall group, so a difference disagrees.
+ */
+export const snapRunStart = (v: number, reach: number): number => (Math.abs(v - reach) <= WIRE_CORNER_SNAP_CM ? reach : v);
+
+/**
  * Decision 149's per-run refusals for side `j`: run geometry (when the side's length is known, `length`), each run's
  * solved form and pitch bounds, and runs that disagree.
  */
@@ -224,9 +232,9 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
   side.runs.forEach((run, k) => {
     const where = `${at} side ${j} run ${k}`;
     if (length !== null) {
-      const [start, end] = [snapRunEnd(run.startCm, length), snapRunEnd(run.endCm, length)];
+      const [start, end] = [snapRunStart(snapRunEnd(run.startCm, length), reach), snapRunEnd(run.endCm, length)];
       if (!(start >= reach && start < end && end <= length)) {
-        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149 and 156)`);
+        out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = ${WIRE_CORNER_SNAP_CM} cm (journal decisions 149, 156 and 161)`);
       }
       reach = Math.max(reach, end);
     }

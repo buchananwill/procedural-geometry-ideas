@@ -10,6 +10,7 @@ import {AdaptedInput, SIDE_READINGS, WIRE_FORMS, isPlanRefusal, noneWinnerRefusa
 import {
   BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireRun, refineInput,
 } from '../src/wire/input-types.ts';
+import {shellFixture} from './test-builds.ts';
 import {mutableJson} from './wire-json.ts';
 
 /** A valid file: the flush Ring-conflict pair, two Rings whose S sides share y = 0, Ring 0 winning it. */
@@ -446,7 +447,7 @@ describe('runs per side (journal decision 149)', () => {
     expect(at(-1e-9, 500)).toEqual([]);
     expect(at(0, 500 - 4e-7)).toEqual([]);
     expect(at(0, 500 + 2e-6)).toEqual([
-      "Ring 0 (model index 0) side 0 run 0 spans 0 to 500.000002 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 500 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149 and 156)",
+      "Ring 0 (model index 0) side 0 run 0 spans 0 to 500.000002 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 500 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)",
     ]);
     // Corners written with round-off within the slack, and the run at the unsnapped length, read as the C++ wrote them.
     const w = valid();
@@ -456,6 +457,22 @@ describe('runs per side (journal decision 149)', () => {
     expect(errorsOf(w)).toEqual([]);
   });
 
+  // Journal decision 161, finding 4: the slack reaches an interior run junction. Two adjacent run ends within
+  // WIRE_CORNER_SNAP_CM of each other meet at one point; further apart, they overlap and are refused. The gate: on a
+  // 1000 cm side, [0, 500 + 4e-7] and [500 - 4e-7, 1000] are accepted, [0, 500 + 2e-6] and [500 - 2e-6, 1000] refused.
+  it('snaps two adjacent run ends within WIRE_CORNER_SNAP_CM of each other to one point, and refuses ends further apart', () => {
+    const junction = (end: number, start: number): string[] => {
+      const v = writeInput(shellFixture('Long', [ring([0, 0, 1000, 400], 0, 1, 45)]));
+      v.rings[0].sides[0].runs = [run(0, end, 'Pitched'), run(start, 1000, 'Pitched')];
+      return errorsOf(v);
+    };
+    expect(junction(500 + 4e-7, 500 - 4e-7)).toEqual([]);
+    expect(junction(500 - 4e-7, 500 + 4e-7)).toEqual([]);
+    expect(junction(500 + 2e-6, 500 - 2e-6)).toEqual([
+      "Ring 0 (model index 0) side 0 run 1 spans 499.999998 to 1000 cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length 1000 cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)",
+    ]);
+  });
+
   it('refuses a run out of order, overlapping, empty, or past the side', () => {
     const v = valid();
     v.rings[0].sides[0].runs = [run(200, 500, 'Pitched'), run(100, 200, 'Pitched')];
@@ -463,7 +480,7 @@ describe('runs per side (journal decision 149)', () => {
     v.rings[0].sides[2].runs = [run(100, 100, 'Pitched')];
     v.rings[0].sides[3].runs = [run(0, 400.5, 'Pitched')];
     const span = (side: number, k: number, a: number, b: number, len: number): string =>
-      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149 and 156)`;
+      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap, each end within WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decisions 149, 156 and 161)`;
     expect(errorsOf(v)).toEqual([span(0, 1, 100, 200, 500), span(1, 1, 250, 400, 400), span(2, 0, 100, 100, 500), span(3, 0, 0, 400.5, 400)]);
   });
 

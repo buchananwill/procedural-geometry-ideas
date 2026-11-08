@@ -1,19 +1,24 @@
-// Journal decisions 129, 131 and 152: the committed golden set, `golden/`, is exactly what a fresh export writes, byte
-// for byte, so the commit's hash names the oracle. Each C++-replayability flag agrees with the rule, and every
-// replayable input round-trips to its shell golden. Re-export with `pnpm --filter @proc-geo/building-shell golden`.
+// Journal decisions 129, 131, 152 and 161: the committed golden set, `golden/`, is exactly what a fresh export writes,
+// byte for byte, so the commit's hash names the oracle. Each C++-replayability flag agrees with the rule, and every
+// replayable input replays to its shell and union goldens, or to its error. Re-export with
+// `pnpm --filter @proc-geo/building-shell golden`.
 import {readFileSync, readdirSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {ShellFixture, ring} from '../src/fixture.ts';
-import {GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, cppReplayability, cppReplayabilityOf, goldenText} from '../src/golden.ts';
-import {buildShell} from '../src/shell.ts';
+import {errorMessage} from '../src/errors.ts';
+import {RING_SIDES, ShellFixture, ring} from '../src/fixture.ts';
+import {
+  GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, RESIDUE_CLASS_NAMES, UnionStages, cppReplayability, cppReplayabilityOf, goldenText, unionStages,
+} from '../src/golden.ts';
+import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
-import {GOLDEN_FIXTURES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles} from './golden-fixtures.ts';
+import {GOLDEN_FIXTURES, RESIDUE_CLASSES, RULE_ORACLES, goldenFiles, goldenInput} from './golden-fixtures.ts';
 import {throwsOutcome} from './pin-table.ts';
+import {componentGenera} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
 
 const GOLDEN_DIR = fileURLToPath(new URL('../golden', import.meta.url));
@@ -45,25 +50,92 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
     expect(GoldenEntrySchema.safeParse({...built, error: 'a build error'}).success).toBe(false);
     expect(GoldenEntrySchema.safeParse(built).success).toBe(true);
   });
+
+  // The gate (journal decision 161, finding 1): the schema member that let a replayable residue that throws go without
+  // its input is gone, so the port can always check whether its own build throws too.
+  it('refuses a replayable entry without its input, whether it builds or throws (journal decision 161, finding 1)', () => {
+    const throwing = MANIFEST.fixtures.filter(e => e.cppReplayable && 'error' in e);
+    expect(throwing.map(e => e.fixture)).toEqual(['Court25Seed1h250', 'U8Seed6h300', 'SplitCourt10Seed2h250', 'Court35Seed11h250']);
+    for (const e of throwing) {
+      expect(e).toMatchObject({input: `${e.fixture}.input.json`});
+      const {input: _, ...bare} = e as typeof e & {input: string};
+      expect(GoldenEntrySchema.safeParse(e).success).toBe(true);
+      expect(GoldenEntrySchema.safeParse(bare).success).toBe(false);
+    }
+    const built = MANIFEST.fixtures.find(e => e.cppReplayable && 'shell' in e);
+    const {input: _, ...bare} = built as NonNullable<typeof built> & {input: string};
+    expect(GoldenEntrySchema.safeParse(bare).success).toBe(false);
+  });
 });
 
-describe("decision 156's golden additions: F3's rule oracles and F4's residue classes", () => {
+describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 156's F4 residue classes", () => {
   const entry = (name: string) => MANIFEST.fixtures.find(e => e.fixture === name);
+  const oracle = (name: string) => {
+    const g = RULE_ORACLES.find(x => x.fixture.name === name);
+    if (!g) throw new Error(`no oracle ${name}`);
+    return g.fixture;
+  };
+  const cutsOf = (f: ShellFixture): number[][] =>
+    planStorey(f, 0).building.walls.filter(w => w.form === 'cut').map(w => [w.a.x, w.b.x, Math.round((Math.atan(w.tan) * 180) / Math.PI)]);
 
   it.each(RULE_ORACLES.map(g => g.fixture.name))('%s: a clean, replayable oracle with its files', name => {
     expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
   });
 
   it('SplitBandFreeCut reads the free cut: its cut is collinear with no wall, at the island\'s steepest 60°', () => {
-    const f = RULE_ORACLES[0].fixture;
-    const cuts = planStorey(f, 0).building.walls.filter(w => w.form === 'cut');
-    expect(cuts.map(w => [w.a.x, w.b.x, Math.round((Math.atan(w.tan) * 180) / Math.PI)])).toEqual([[500, 500, 60], [500, 500, 60]]);
+    expect(cutsOf(oracle('SplitBandFreeCut'))).toEqual([[500, 500, 60], [500, 500, 60]]);
+  });
+
+  // Decision 161, finding 2: an island whose steepest pitch is not 60°, so the rejected constant 60 moves a clean golden.
+  it('SplitBandFreeCut45 reads the free cut at its island\'s steepest, 45°', () => {
+    expect(cutsOf(oracle('SplitBandFreeCut45'))).toEqual([[500, 500, 45], [500, 500, 45]]);
+  });
+
+  // Decision 161, finding 2: every wall is a gable, so the struck hip-only rule finds no hip; the cut reads the gables.
+  it('SplitBandAllGable75 reads the free cut at its island\'s steepest wall, a gable at 75°', () => {
+    const f = oracle('SplitBandAllGable75');
+    expect(f.rings.every(r => RING_SIDES.every(s => r.sides?.[s]?.form === 'gable'))).toBe(true);
+    expect(cutsOf(f)).toEqual([[500, 500, 75], [500, 500, 75]]);
+  });
+
+  // Decision 161, finding 3: the committed shell names the document's own Rings and sides, not the fixture's positions or
+  // compass order. Ring 0 of the L is model index 7, written from its corner 1, so its W gable (compass 3) is its side 2.
+  it("AsymmetricLScrambled: its document starts each Ring at another corner under sparse model indices, and its shell names the file's own sides", () => {
+    const doc = JSON.parse(committed('AsymmetricLScrambled.input.json')) as BuildingShellInputV1;
+    expect(doc.rings.map(r => [r.ringIndex, r.modelIndex, r.corners[0]])).toEqual([[0, 7, {x: 1000, y: 0}], [1, 20, {x: 1000, y: 800}]]);
+    const shell = JSON.parse(committed('AsymmetricLScrambled.json')) as BuildingShell;
+    expect(shell.faces.filter(x => x.tag.kind === 'Gable').map(x => x.sources)).toEqual([[{ringModelIndex: 7, side: 2}]]);
+    const models = new Set(shell.cells.flatMap(c => (c.source ? [c.source.ringModelIndex] : [])));
+    expect([...models].sort((a, b) => a - b)).toEqual([7, 20]);
   });
 
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
     const e = entry(name);
     expect(e?.clean).toBe(false);
     expect(e && ('error' in e ? e.error : e.violations.join('\n')).length).toBeGreaterThan(0);
+  });
+});
+
+describe("the manifest's residue classes and genus (journal decision 161, finding 5 and Info)", () => {
+  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g] as const))('%s: carries its residue class exactly when it is a residue', (name, g) => {
+    const e = MANIFEST.fixtures.find(x => x.fixture === name);
+    expect(e && ('residueClass' in e ? e.residueClass : undefined)).toEqual(g.clean ? undefined : g.residueClass);
+  });
+
+  it('every residue class is represented, and every class is a stable name with no prototype id in it', () => {
+    const classes = new Set(MANIFEST.fixtures.flatMap(e => ('residueClass' in e ? [e.residueClass] : [])));
+    expect([...classes].sort()).toEqual([...RESIDUE_CLASS_NAMES].sort());
+  });
+
+  // The pin's genus is an expectation: a port must not read it as the shell's own (finding 5).
+  it.each(MANIFEST.fixtures.flatMap(e => ('measuredGenus' in e ? [[e.fixture, e] as const] : [])))('%s: its measured genus is its union output\'s, and a clean entry measures what it expects', (name, e) => {
+    const u = JSON.parse(committed(`${name}.union.json`)) as UnionStages;
+    expect(e.measuredGenus).toEqual(componentGenera({tris: Uint32Array.from(u.unionOutput.tris)}));
+    if (e.clean) expect(e.measuredGenus).toEqual(e.expectedGenus);
+  });
+
+  it('BridgeOverBlockAt45 measures genus 2 where its pin expects 1', () => {
+    expect(MANIFEST.fixtures.find(x => x.fixture === 'BridgeOverBlockAt45')).toMatchObject({expectedGenus: [1], measuredGenus: [2]});
   });
 });
 
@@ -82,10 +154,9 @@ describe('the tie between the manifest and the robustness pins (journal decision
 });
 
 describe('C++ replayability (journal decision 152, amended)', () => {
-  /** The rule restated: every reason a fixture's written input is not replayable, in the rule's order. */
-  function reasons(f: ShellFixture): string[] {
+  /** The rule restated: every reason a fixture's input is not replayable, in the rule's order. */
+  function reasons(w: BuildingShellInputV1): string[] {
     const on = (v: number): boolean => Math.abs(v - 50 * Math.round(v / 50)) <= 1e-6;
-    const w = writeInput(f);
     return [
       ...(w.rings.every(r => r.corners.every(c => on(c.x) && on(c.y))) ? [] : ['corner off the Cell lattice']),
       ...(w.rings.every((r, i) => r.ringIndex === i) ? [] : ['ringIndex not its array position']),
@@ -102,12 +173,13 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     return r.ok ? [] : r.errors.map(x => `readInput refuses it: ${x}`);
   }
 
-  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g.fixture] as const))('%s: its flag and reasons agree with the rule, and its input is written exactly when replayable and built', (name, f) => {
+  // Decision 161, finding 1: a replayable fixture's input is written whether it builds or throws.
+  it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g] as const))('%s: its flag and reasons agree with the rule, and its input is written exactly when replayable', (name, g) => {
     const e = MANIFEST.fixtures.find(x => x.fixture === name);
-    const why = reasons(f);
-    const built = e !== undefined && !('error' in e);
+    const why = reasons(goldenInput(g));
     expect(e && {cppReplayable: e.cppReplayable, reasons: 'reasons' in e ? e.reasons : undefined, input: 'input' in e ? e.input : undefined}).toEqual(
-      why.length ? {cppReplayable: false, reasons: why, input: undefined} : {cppReplayable: true, reasons: undefined, input: built ? `${name}.input.json` : undefined});
+      why.length ? {cppReplayable: false, reasons: why, input: undefined} : {cppReplayable: true, reasons: undefined, input: `${name}.input.json`});
+    if (!why.length) expect(committed(`${name}.input.json`)).toBe(goldenText(goldenInput(g)));
   });
 
   it('refuses each condition by its own reason', () => {
@@ -143,9 +215,16 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     expect(replayable.length).toBeGreaterThan(0);
   });
 
-  it.each(replayable.map(e => [e.fixture, e] as const))('%s: its input round-trips to its shell golden, byte for byte', async (name, e) => {
+  // A replayable residue that throws replays to the same error (decision 161, finding 1).
+  it.each(replayable.map(e => [e.fixture, e] as const))('%s: its input replays to its shell and union goldens byte for byte, or to its error', async (name, e) => {
     const read = readInput(JSON.parse(committed(e.input)), name);
     if (!read.ok) throw new Error(read.errors.join('; '));
-    expect(goldenText(withFileModelIndices(await buildShell(read.fixture), read)) === committed(e.shell)).toBe(true);
+    if ('error' in e) {
+      expect(await buildShellDetailed(read.fixture).then(() => 'built', (x: unknown) => errorMessage(x))).toBe(e.error);
+      return;
+    }
+    const b = await buildShellDetailed(read.fixture);
+    expect(goldenText(withFileModelIndices(b.shell, read)) === committed(e.shell)).toBe(true);
+    expect(goldenText(unionStages(name, b.union)) === committed(e.union)).toBe(true);
   }, 60_000);
 });

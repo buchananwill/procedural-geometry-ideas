@@ -4,7 +4,10 @@
   {
    "fixture": "NarrowUpperStorey",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -29,7 +32,10 @@
   {
    "fixture": "NarrowUpperStoreyGabled",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -55,7 +61,10 @@
   {
    "fixture": "TallerUpper",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -80,7 +89,10 @@
   {
    "fixture": "Overhang",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -107,7 +119,10 @@
   {
    "fixture": "OverhangApexOnEave",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -134,7 +149,10 @@
   {
    "fixture": "Bridge",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -161,7 +179,10 @@
   {
    "fixture": "BridgeOverBlock",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -188,7 +209,10 @@
   {
    "fixture": "ValleyWings",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -212,7 +236,10 @@
   {
    "fixture": "ValleyWingsPierced",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -236,7 +263,10 @@
   {
    "fixture": "SingleStoreyT",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -260,7 +290,10 @@
   {
    "fixture": "DefaultChalet",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -281,7 +314,10 @@
   {
    "fixture": "Courtyard",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -305,7 +341,10 @@
   {
    "fixture": "FlushRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -328,7 +367,10 @@
   {
    "fixture": "FlushRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -351,7 +393,10 @@
   {
    "fixture": "OverlapRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -375,7 +420,10 @@
   {
    "fixture": "OverlapRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -399,7 +447,10 @@
   {
    "fixture": "PitchRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -422,7 +473,10 @@
   {
    "fixture": "PitchRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -445,7 +499,10 @@
   {
    "fixture": "ThreeRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -468,7 +525,10 @@
   {
    "fixture": "ThreeRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -491,7 +551,10 @@
   {
    "fixture": "DistantRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -515,7 +578,10 @@
   {
    "fixture": "DistantRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -539,7 +605,10 @@
   {
    "fixture": "StoreyRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -562,7 +631,10 @@
   {
    "fixture": "StoreyRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -590,7 +662,10 @@
   {
    "fixture": "HoleRingConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -614,7 +689,10 @@
   {
    "fixture": "HoleRingConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -638,7 +716,10 @@
   {
    "fixture": "CutPitchConflict",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -662,7 +743,10 @@
   {
    "fixture": "CutPitchConflictSwapped",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -686,7 +770,10 @@
   {
    "fixture": "PortNarrowUpper300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -711,7 +798,10 @@
   {
    "fixture": "PortNarrowUpperGabled300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -737,7 +827,10 @@
   {
    "fixture": "PortPokeOut300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -762,7 +855,10 @@
   {
    "fixture": "PortPokeOut250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -787,7 +883,10 @@
   {
    "fixture": "FlushOverReflex300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -815,7 +914,10 @@
   {
    "fixture": "FlushOverReflex250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -846,7 +948,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -876,7 +981,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -906,7 +1014,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -936,7 +1047,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -966,7 +1080,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -992,7 +1109,10 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -1015,7 +1135,10 @@
   {
    "fixture": "UpperUJoinedByEdgeContact",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -1043,7 +1166,10 @@
   {
    "fixture": "FullWingsProbe",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -1067,10 +1193,14 @@
   {
    "fixture": "CutOvershootProbe",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "algorithm-B cut-piece overshoot",
    "shell": "CutOvershootProbe.json",
    "union": "CutOvershootProbe.union.json",
    "input": "CutOvershootProbe.input.json",
@@ -1096,7 +1226,10 @@
   {
    "fixture": "Court5Seed1h300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -1126,7 +1259,10 @@
   {
    "fixture": "Court16Seed1h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -1161,11 +1297,15 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
     0,
     0
    ],
+   "measuredGenus": [
+    0
+   ],
    "clean": false,
+   "residueClass": "near-touching islands",
    "shell": "GapAligned1.json",
    "union": "GapAligned1.union.json",
    "report": {
@@ -1189,11 +1329,16 @@
    "reasons": [
     "corner off the Cell lattice"
    ],
-   "genus": [
+   "expectedGenus": [
+    0,
+    0
+   ],
+   "measuredGenus": [
     0,
     0
    ],
    "clean": false,
+   "residueClass": "near-touching islands",
    "shell": "GapOffset1.json",
    "union": "GapOffset1.union.json",
    "report": {
@@ -1214,7 +1359,10 @@
   {
    "fixture": "SplitBandFreeCut",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": true,
@@ -1236,9 +1384,66 @@
    "violations": []
   },
   {
+   "fixture": "SplitBandFreeCut45",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "SplitBandFreeCut45.json",
+   "union": "SplitBandFreeCut45.union.json",
+   "input": "SplitBandFreeCut45.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 64,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "SplitBandAllGable75",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "SplitBandAllGable75.json",
+   "union": "SplitBandAllGable75.union.json",
+   "input": "SplitBandAllGable75.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 644,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
    "fixture": "GablePitchL",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": true,
@@ -1260,12 +1465,43 @@
    "violations": []
   },
   {
+   "fixture": "AsymmetricLScrambled",
+   "cppReplayable": true,
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "AsymmetricLScrambled.json",
+   "union": "AsymmetricLScrambled.union.json",
+   "input": "AsymmetricLScrambled.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 46,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
    "fixture": "Court14Seed1h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "algorithm-B Cheek",
    "shell": "Court14Seed1h250.json",
    "union": "Court14Seed1h250.union.json",
    "input": "Court14Seed1h250.input.json",
@@ -1292,10 +1528,14 @@
   {
    "fixture": "Court23Seed6h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "algorithm-B Cheek",
    "shell": "Court23Seed6h250.json",
    "union": "Court23Seed6h250.union.json",
    "input": "Court23Seed6h250.input.json",
@@ -1319,37 +1559,47 @@
   {
    "fixture": "Court25Seed1h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "partial coplanar contact of two storeys",
+   "input": "Court25Seed1h250.input.json",
    "error": "cell 729: side 24-278 (100, 500, 500) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"
   },
   {
    "fixture": "U8Seed6h300",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
     0
    ],
    "clean": false,
+   "residueClass": "edge contact between opposite coplanar faces",
+   "input": "U8Seed6h300.input.json",
    "error": "vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"
   },
   {
    "fixture": "SplitCourt10Seed2h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "cleanMesh stuck cap",
+   "input": "SplitCourt10Seed2h250.input.json",
    "error": "cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 297.3251953125)) can neither flip nor merge its apex into its long edge"
   },
   {
    "fixture": "ApexEdge5",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
     0
    ],
    "clean": false,
+   "residueClass": "sub-tolerance roof feature",
    "shell": "ApexEdge5.json",
    "union": "ApexEdge5.union.json",
    "input": "ApexEdge5.input.json",
@@ -1390,19 +1640,24 @@
     "readInput refuses it: Ring 0 (model index 0) side 2 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)",
     "readInput refuses it: Ring 0 (model index 0) side 3 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)"
    ],
-   "genus": [
+   "expectedGenus": [
     0
    ],
    "clean": false,
+   "residueClass": "low-pitch pocket",
    "error": "cell 276: side 107-109 (450, 150, 265.3955078125) to (499.9970703125, 100, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"
   },
   {
    "fixture": "CourtyardAt22.5-45s",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "algorithm-B cut-piece overshoot",
    "shell": "CourtyardAt22.5-45s.json",
    "union": "CourtyardAt22.5-45s.union.json",
    "input": "CourtyardAt22.5-45s.input.json",
@@ -1428,10 +1683,14 @@
   {
    "fixture": "BridgeOverBlockAt45",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
     1
    ],
+   "measuredGenus": [
+    2
+   ],
    "clean": false,
+   "residueClass": "roof meets the floor above",
    "shell": "BridgeOverBlockAt45.json",
    "union": "BridgeOverBlockAt45.union.json",
    "input": "BridgeOverBlockAt45.input.json",
@@ -1458,19 +1717,25 @@
   {
    "fixture": "Court35Seed11h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "Cell outside its face fan",
+   "input": "Court35Seed11h250.input.json",
    "error": "vertex 219 at (200, 550, 300): Cell 563 lies in no triangle of its face's fan"
   },
   {
    "fixture": "SplitCourt9Seed7h250",
    "cppReplayable": true,
-   "genus": [
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
     1
    ],
    "clean": false,
+   "residueClass": "Gable-Wall edge Unclassified",
    "shell": "SplitCourt9Seed7h250.json",
    "union": "SplitCourt9Seed7h250.union.json",
    "input": "SplitCourt9Seed7h250.input.json",
