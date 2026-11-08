@@ -1136,6 +1136,35 @@ departs from those four steps is a defect.
        The generated file replaces the stand-in once it exists.
      - **Asked of the port lead:** the Zod major version, type mappings, existing input USTRUCTs, the output path,
        and conventions for version and provenance fields.
+126. **The wire format is settled against the C++ facts** (F46). This amends decisions 124 and 125.
+     - **Frame: no conversion.** Files carry UE actor-local centimetres: x = X, y = Y, z = Z up. The schema declares
+       "frame: UE actor-local, cm, Z up, left-handed". The actor's world transform goes in provenance only. The
+       prototype already uses the same numbers and the same counter-clockwise test, so winding agrees. **Decision
+       125's axis adapter is STRUCK**; the viewer may offer a mirrored "as in game" display. The asymmetric-building
+       test stays, now asserting that winding and side ownership survive the round trip.
+     - **Rings are four corners, not a rectangle.** Side i runs from corner i to corner i+1 and belongs to corner i.
+       - The prototype's canonical order for a rect `[x0,y0,x1,y1]` is (x0,y0), (x1,y0), (x1,y1), (x0,y1), counter-
+         clockwise from above, so side 0 is y = y0.
+       - Fixtures may keep compass names as an authoring convenience, mapped onto that order.
+       - A Ring that is not an axis-aligned rectangle is refused with a reported error, never silently snapped.
+     - **Per side, both the request and the solve are carried.** The request is `auto`, `Pitched` or `GableEnd`. The
+       solved run is `{form, pitchDegrees}`. TS builds from the solve, mapping Pitched to hip and GableEnd to gable.
+       A solved `Monopitch` is refused and reported until mono is supported. `Flat` is a polyline clamp, never a run
+       form.
+     - **Ordering: both keys are carried.** Each Ring carries its ring index (root order) and its parent
+       `FBuildableComponentModel` index. **The conflict rule keys on the model index, as the user stated it.** The port
+       lead says it is unverified that model index always matches root order. A file where the two orders disagree is
+       accepted, flagged in the diff report, and raised with the user.
+     - **Storeys are per Ring:** `{baseStorey, storeys, wallHeightCm?}`. A per-Ring wall-height override that differs
+       from the building's storey height is refused and reported. Stacked storeys at one height are the four-step
+       model's premise, content fixes 250 cm (F38), and per-storey overrides stay deferred (spec §3).
+     - **Output: one contract per engine; the input is the only shared shape.** The TS export is the spec's
+       `BuildingShell`. The first C++ export serialises the legacy pipeline's net (Cells, Edges, Surfaces) and its
+       roof faces and runs, with no vertices. The diff maps each to the canonical id-free form, and the legacy export
+       serves as a before-the-port baseline. Decision 125's mutual-assignability test applies once the port's
+       output structs implement the spec shapes.
+     - **Versioning:** the generated schema's version is bumped on the C++ side, which owns the USTRUCTs. The prototype
+       re-vendors on each bump, and the port lead is told of any spec change that implies a bump.
 
 ## Findings
 
@@ -1411,3 +1440,13 @@ departs from those four steps is a defect.
   the model. **The generator is tuned to its own inputs:** a fixed pitch list, a 10 cm footprint grid and whole
   degrees, so deliberate near-coincidences (δ-nudges of 1/1024 cm) reach classes that random sampling does not.
   Measured by the combined reviewer (`review-*.test.ts` in the `review-3575aa7` snapshot).
+- **F46. The C++ facts for the wire format** (`pisteperfect-5-7-4f`, 2026-11-08, read from its headers):
+  - **Geometry** is actor-local plan cm. A Ring is a root component with exactly four Corner children in slot
+    order; side i runs from corner i to corner i+1 and is owned by corner i (`ModularRingOps.h`, `ArchitectureRings.h`).
+  - **Forms:** `EModularRoofForm {None, Pitched, GableEnd, Monopitch, Flat}`.
+    - The player's per-wall request is a PlateRun Stroke: auto, Hip or Gable.
+    - Pitch comes from the solved Type, per run (`FModularRoofRun {Form, PitchDegrees}`).
+  - **Ordering:** the ring index is root order, and each Ring is its own root.
+  - **Storeys:** `FCellNetRingStoreys {BaseStorey, Storeys, WallHeightCm}`.
+  - **The current C++ net has no vertices.** Its Cells, Edges, Surfaces and roof faces are cheap to serialise.
+  - **Not verified by the port lead:** that ascending component index always matches root order.
