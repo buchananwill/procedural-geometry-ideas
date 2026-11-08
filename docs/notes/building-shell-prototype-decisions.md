@@ -351,6 +351,15 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     partial Cells. **AMENDED 2026-11-07** (journal decision 119): a Cell under `SHELL_TOLERANCE_CM²` was dropped,
     which disagreed with vertex identity. Its vertices, kept because they lie more than `SHELL_TOLERANCE_CM` apart,
     left NetEdges with nothing on one side.
+
+    **AMENDED 2026-11-08** (journal decision 130): wall provenance, which the union otherwise drops.
+    - `ShellCell` gains `source: {ringModelIndex: number; side: number} | null`, where `side` is the Ring side index
+      (side i runs from corner i to corner i + 1).
+    - A Wall Cell takes the Ring side whose raw wall it lies on, and a Gable Cell takes the Ring side whose wall line its
+      gable piece stands on. Where several Rings' raw walls coincide, the lowest model index wins.
+    - Every other Cell, a Cheek Cell included, has `null`.
+    - Cells are cut at provenance boundaries, so every Cell has exactly one source.
+    - `ShellFace` gains `sources`, the distinct sources of its Cells, ascending by model index and then by side.
 24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable
     junction cuts Cells along it, exactly as the shell does.
 25. **A Cell side on a `ShellEdge` takes that Edge's kind.** Any other side takes:

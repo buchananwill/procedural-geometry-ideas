@@ -94,6 +94,8 @@ running subagents.** Their reports arrive as notifications.
 - **WP5**, the wire format (decisions 124 to 126): it starts after WP3.6 and may run alongside WP3.7, since it only adds
   new files. It builds the ingestion folder and the diff tool against a hand-written stand-in schema until the UE
   Zod file exists.
+- **WP3.8**, after WP3.7 (decisions 129 and 130): wall provenance on Cells and faces, and the committed golden export
+  with its manifest and drift test. Port-ready is declared at the commit that lands it, once reviewed.
 
 **Waiting on the C++ port lead (`pisteperfect-5-7-4f`):**
 - ~~the Zod generator's details~~: answered, see F47 and decision 127;
@@ -101,10 +103,10 @@ running subagents.** Their reports arrive as notifications.
 - ~~whether the C++ conflict rule keys on model index or root order~~: the same in production (F48);
 - ~~**for the user:** F48's two consequences~~. Index reuse was ruled by the user (decision 128). Whether the rule
   exists in today's C++ stays with the port lead's comparison, and changes nothing here;
-- the C++-to-prototype structure mapping from its read-only comparison.
+- ~~the C++-to-prototype structure mapping from its read-only comparison~~: received, see F49.
 
-**Promised:** a message to the port lead when the pipeline is port-ready, after WP3.6 and WP3.7 have landed and been
-reviewed. It must include the measured residual fresh-input failure rate.
+**Promised:** a message to the port lead when the pipeline is port-ready, after WP3.6, WP3.7 and WP3.8 have landed and
+been reviewed, naming the commit (decision 129). It must include the measured residual fresh-input failure rate.
 
 **The branch is red on nothing committed.** The 3 F43 tests at `3575aa7` are WP3.6's to turn green.
 
@@ -1227,21 +1229,33 @@ reviewed. It must include the measured residual fresh-input failure rate.
      - **The rule is decided, not discovered** (user, 2026-11-08: "That just means it hasn't been implemented yet. I've
        definitely stated that more than one time."). Its absence from today's C++ is an implementation gap for the
        port to close, not an open design question. F48's second consequence is closed.
-
-## Findings
-
-## Findings WP3.6 (courtyards
-       and Ring forms) is dispatched after the combined review, or alongside it if the reviewers' rosters allow.
-
-## Findings
-
-## Findings
-
-## Findings
-
-## Findings
-
-## Findings
+129. **Port-ready is named by a commit whose golden export is committed with it** (answering the port lead's two
+     asks, F49).
+     - **No hash is named yet.** The working tree's uncommitted files are WP3.6 in flight, and nothing in them is
+       port material until it lands and is reviewed. `40aac60` is the last committed tree; it is fit for reading
+       structure, not as the oracle.
+     - **The oracle is a committed golden set,** not the gitignored `out/`. It lives at `apps/building-shell/golden/`:
+       - one JSON per named fixture: the roster, the Ring-conflict pairs, the four Port fixtures, the courtyard, and
+         every enrolled robustness fixture that builds;
+       - a `manifest.json` listing every named fixture with its pinned report, and, for an enrolled failure, its
+         pinned error in place of a file.
+     - **A test fails when a fresh export differs from the committed golden,** so the hash identifies the bytes. `out/`
+       stays scratch output.
+     - **Port-ready is declared at the commit that lands this,** after WP3.6, WP3.7 and WP3.8 have been reviewed.
+130. **Every wall-kind Cell carries the Ring and side its raw wall came from** (the port lead's ask, F49: doors and
+     Strokes key on them, and a merged union wall loses them).
+     - **`ShellCell.source: {ringModelIndex, side} | null`.** `side` is the decision 126 side index (side i runs from
+       corner i to corner i+1).
+     - **Wall Cells** take the Ring side whose raw wall prism face they lie on. **Gable Cells** take the Ring side whose
+       wall line the gable piece stands on (spec 8). **Cheek Cells** have `null`, since a Cheek is on no wall.
+       Non-wall kinds have `null`.
+     - **Where several Rings' raw walls coincide, the lowest model index wins** (decision 128's total order), the same
+       rule as the wall's form.
+     - **Cells are cut at provenance boundaries,** so every Cell has exactly one source. Ring corners sit on the
+       lattice in content, so this rarely adds a partial Cell.
+     - **`ShellFace.sources`** lists the distinct sources of its Cells, ascending by model index then side.
+     - **Delivered by WP3.8**, after WP3.7 and before port-ready, with decision 129's golden set. It touches
+       `cells.ts`, so it cannot overlap WP3.7.
 
 ## Findings
 
@@ -1536,3 +1550,23 @@ reviewed. It must include the measured residual fresh-input failure rate.
        The port lead confirms the C++'s actual coincident-wall behaviour when its pipeline comparison lands.
   - **Schema:** the generator route is confirmed. The port's USTRUCTs own the schema, and the port lead reports the
     family file name and every `SchemaVersion` bump.
+- **F49. The C++-to-prototype structure mapping** (port lead, 2026-11-08, from a delegate's read-only comparison; the
+  port lead has not re-read every claim):
+  - **Step 1 exists only in part.** Storey plans are traced from plan Cells (`SliceCellsAt`, `PlanModularRoofs`), and
+    roof forms come from the constraint solve, upstream of the shell; that solve fills input@1's `solved` field. Roof
+    geometry is 2.5D `FModularRoofPiece`. Nothing builds wall prisms, closed tagged solids or a weld.
+  - **Step 2:** per-storey height rows, more general than the prototype's (Grammar storey heights, per-Ring
+    `WallHeightCm` for dormers). Decision 126's refusal of a differing wall height is the right first contract.
+  - **Step 3 has no counterpart.** Four separate rules decide the C++ exterior today, the root of both in-game defects.
+  - **Cells** are whole lattice squares laid before any roof exists, with no vertices, no partial Cells and Edges
+    without endpoints. `FCellNetCell` has fixed `Edges[4]` and `Neighbours[8]`; n-sided Cells are the deepest change.
+  - **Mapping:** ShellVertex → new `FCellNet::Vertices`; ShellEdge and NetEdge → `FCellNet` Edges gaining endpoints;
+    ShellFace → Surfaces gaining kind, storey, plane and loops; ShellCell → `FCellNetCell` generalised; Roof faces →
+    `FModularRoof` faces, which tile courses read alone (the cleanest seam).
+  - **The port needs Ring and Corner provenance per wall part,** which the union drops (decision 130). The C++ Edges'
+    unit-segment assumption, broken by partial Cells, is the port's to fix.
+  - **Port plan:** vendor manifold (underway); wire USTRUCTs and a dump of today's net; raw parts, union, faces, then
+    Cells and vertices; all beside the old exterior behind a selectable adapter, the old path the default until the
+    prototype's fixtures and the port's sweep agree.
+  - **The port lead's two asks:** a named commit, and `out/` re-exported (it held 10 files for 21 fixtures, with no
+    Port fixture). Ruled by decision 129.
