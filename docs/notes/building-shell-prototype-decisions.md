@@ -120,10 +120,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
        because a weight change at a straight vertex is refused by the skeleton;
      - where it is collinear with walls of different pitch at both ends, the segment does not qualify, and the next one
        is tried;
-     - ~~where it is collinear with no wall, it takes the cutting Ring's default pitch~~ **where it is collinear with
-       no wall, it takes `CUT_FREE_DEG = 45`** (**AMENDED 2026-11-08**, journal decision 143). A Ring's default pitch
-       does not survive the wire format, so a cut that read it changed after a round trip. The constant is measured
-       to change no shell output.
+     - ~~where it is collinear with no wall, it takes the cutting Ring's default pitch~~ ~~it takes `CUT_FREE_DEG =
+       45`~~ (journal decision 143; STRUCK by decision 150: no measured shell had read it, and at 45° it broke
+       courtyards with bands at 60°) **where it is collinear with no wall, it takes the steepest derived pitch among the
+       union walls it meets at its two ends** (**AMENDED 2026-11-08**, journal decision 150, provisional until WP3.8's
+       measurement). The pitch is derived from union walls only, so it survives the wire format.
    - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
      width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
      `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's

@@ -37,6 +37,8 @@ departs from those four steps is a defect.
 - `EModularEdgeKind` is at `Source\PistePerfect\Public\Buildables\ModularBuilding\ModularEdgeKind.h` in Piste Perfect:
   16 members, `WallVertical` through `GroundLine`.
 - `@proc-geo/core`'s `package.json` resolves to `dist/`, not source (F9).
+- **A scratch measurement script run through `vite.runnerImport` must restate the core-source alias inline.**
+  `runnerImport` ignores `configFile`, so it silently measures core's `dist/` (decision 150, F7).
 - **`pnpm --filter @proc-geo/building-shell test -- viewer` does not filter.** It runs the whole suite. For the viewer
   alone, use `pnpm --filter @proc-geo/building-shell exec vitest run viewer`.
 - **Agents running a browser serve a `git archive` snapshot extracted into a new scratch folder**, never the live
@@ -1777,7 +1779,63 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          solved alone, so a wall with one Pitched run and one GableEnd run looks possible.
        - **The refusal and flag stand.** The port lead records "apply the whole-wall rule to form as well as pitch"
          as a port requirement, with a C++ test that constructs the case. **This closes the user's whole-wall rule
-         on the C++ side.** Its scope is decisions 136 to 140. It stays within the wire
+         on the C++ side.**
+150. **Rulings on WP3.7's correctness review** (fresh Opus, on `git archive 040c93e`, 4533/4533 reproduced, with
+     baseline `2f3e639` built on the same fixture objects).
+
+     **Confirmed:**
+     - fresh seeds at 0/3360, and seeds 13 to 28 at 250 cm at 0/2240;
+     - the nudge, courtyard, U and PortPokeOut250 figures;
+     - the cleaning removes only true degeneracies, with F6 the exception;
+     - G3's split, over 14 chimney probes with NetEdges paired one to one;
+     - per-component genus, over about 13k shells, cavities included;
+     - `GableSloped` in all 264 cases that reach it.
+
+     **Rulings:**
+     - **F1 and F2 (High): decision 143's `CUT_FREE_DEG = 45` is STRUCK.** The lead's ruling, not the delegate's work,
+       was at fault.
+       - Its invariance held only because no measured shell read it: a sentinel value moved 0 of 752 shells, and
+         removing the branch failed 0 tests.
+       - A band authored as two Rings makes the free branch the shortest cut. Over 85 such layouts, the result
+         depends on the value in 70.
+       - At 45° it breaks every layout whose bands stand at 60°. Those built clean at `2f3e639`.
+       - **The cut's pitch matters, so it must come from the building.** It must be derived from union walls alone,
+         which keeps it round-trip safe (decision 143's reason).
+       - **The provisional rule: a cut collinear with no wall takes the steepest derived pitch among the union walls
+         it meets at its two ends.** The evidence is that failures appear only when the cut is shallower than the
+         bands.
+       - **WP3.8 measures it** against the outer-end wall's pitch and against the old cutting-Ring default, on the
+         split-band family at uniform and mixed pitch. It lands the rule only if no alternative is green where the
+         rule fails. Otherwise it stops and reports.
+       - **The courtyard generator gains split bands,** more than one Ring per band, so the free branch is reached.
+       - **A gate:** removing the free branch must fail tests.
+       - Spec 2 is amended.
+     - **F3 (Medium): F51's "0 clean shells broke" and "5 moved" are CORRECTED.**
+       - On identical inputs, **six clean shells broke:** `family1/Court14` and `family6/Court23` at three heights
+         each. Decision 132's segment-cut rule picks a different, equally short or newly qualifying, cut. That cut
+         then trips algorithm B's inherited Cheek class.
+       - **139 clean shells moved.** Most are courtyards changed by the cut rules, by design. Court28, U10, U11 and
+         U36 changed only loop start or edge order, through the pair drop.
+       - **Ruled:** they are enrolled as regressions that decision 132 exposes, never as inherited residues. The cut
+         tie-break stands, because the defect is algorithm B's Cheek class in the frozen copy. **This joins the
+         user's open question about a roof-gable arc** (decision 132, finding 2).
+     - **F4 (Medium): F51's "all enrolled with exact pins" is CORRECTED.** Twelve of 18 courtyard residues and both U8
+       cases were not in the suite. **WP3.8:**
+       - every measured residue goes into a pin table;
+       - the opt-in `SHELL_COURT_SEEDS` path asserts against the same pins;
+       - **signatures gain location:** each defect's kind with its snapped position, so a moved defect with the same
+         count fails.
+     - **F5 (Low):** the move bound is checked on the float32 positions as written, and the meeting point aims with a
+       margin wider than a float32 ulp. The test reads float32.
+     - **F6 (Medium-Low): near contact closer than tolerance with offset extents leaves two components silently.**
+       Integer-quantum C++ corners cannot produce it, and the wire's 1/1024 snap makes it mis-authoring.
+       **Ruled: loud, not fused.** A new invariant: no two distinct components lie within `CLEAN_TOLERANCE_CM` of each
+       other. The probes GapOffset and GapAligned are enrolled.
+     - **F7 (Low): measurement scripts must restate the core-source alias,** because `runnerImport` ignores
+       `configFile`. No result changed. The operational manual is corrected.
+     - **F8 (Low):** split-line matching checks each line's `lo`/`hi` extent.
+     - **Shell-identity checks that claim invariance compare the canonical diff, not the hash,** where face order may
+       permute (12 of 15 invariant shells differed only in Roof face order). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
