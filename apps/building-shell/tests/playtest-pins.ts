@@ -36,9 +36,14 @@ const isDumpStem = (stem: string): stem is DumpStem => /^.+\.\d+\..+\.\d+$/.test
 
 /**
  * By dump stem, the name both files share before `.input.json` (decision 149), keyed by decision 152's stem type
- * (decision 155, B4). Empty: every dump today is a seed.
+ * (decision 155, B4). Every roster seed takes its roster pin, so only the hand-edited seed is pinned:
+ * - `MultiRunSide` (decisions 167, finding 1, and 179, finding 1), the oracle for spec 16's run snap order
+ *   (`multiRunDocument`): accepted with no flag, and clean, a box of genus 0. Its subject names no roster fixture, so
+ *   its pin carries its genus.
  */
-export const PLAYTEST_PINS: PinRecord<DumpStem, PlaytestPin> = {};
+export const PLAYTEST_PINS: PinRecord<DumpStem, PlaytestPin> = {
+  'prototype-seed.0.MultiRunSide.0': {kind: 'accepted', genus: [0]},
+};
 
 /** A listed dump's pin by its stem; none for a stem outside decision 152's naming, which no pin can name. */
 export const playtestPin = (stem: string): PlaytestPin | undefined => (isDumpStem(stem) ? PLAYTEST_PINS[stem] : undefined);

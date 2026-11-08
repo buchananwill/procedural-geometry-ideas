@@ -1,10 +1,12 @@
-// The fixtures the wire round-trip identity test builds twice (journal decisions 143, F1, 148, F2, and 151), and the
-// fixture as the wire reads it back. A module of its own, so a measurement script reads exactly the test's cases.
+// The fixtures the wire round-trip identity test builds twice (journal decisions 143, F1, 148, F2, and 151), the
+// fixture as the wire reads it back, and the hand-edited documents written from fixtures (decisions 152, 164 and 179).
+// A module of its own, so a measurement script reads exactly the test's cases.
 import {COURTYARD_RECTS, EXPORTED_FIXTURES, FixtureRing, RING_SIDES, ShellFixture, ring} from '../src/fixture.ts';
 import type {CanonicalDiff} from '../src/wire/canonical.ts';
 import {writeInput} from '../src/wire/input-adapter.ts';
 import {BuildingShellInputV1, WIRE_GABLE_ONLY_DEG} from '../src/wire/input-types.ts';
 import {SPLIT_BAND_LAYOUTS, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
+import {shellFixture} from './test-builds.ts';
 
 /**
  * The asymmetric L: a 1000 by 400 wing and a 400 by 800 wing, so no reflection or rotation maps it onto itself, gabled
@@ -108,6 +110,52 @@ export function scrambled(f: ShellFixture): BuildingShellInputV1 {
   const w = rotatedSparse(f);
   w.rings.reverse();
   w.rings.forEach((r, i) => { r.ringIndex = i; });
+  return w;
+}
+
+/**
+ * The subject of the hand-edited multi-run playtest seed (journal decisions 167, finding 1, and 179, finding 1), its
+ * dump `seedStem(MULTI_RUN_SEED)`.
+ */
+export const MULTI_RUN_SEED = 'MultiRunSide';
+
+/** The length of both sides the multi-run seed splits into runs, its 1000 cm S and N sides. */
+export const MULTI_RUN_SIDE_LENGTH_CM = 1000;
+
+/** One side of the multi-run seed, by its file slot, and the runs it holds as written. */
+export interface MultiRunSlot { slot: number; runs: readonly RunTuple[] }
+
+/**
+ * Journal decision 167, finding 1: the multi-run seed's split sides, each run Pitched at its Ring's 45°, in spec 16's
+ * order. Each feature leans on one snap step, so a reader that skips or misorders it refuses the file:
+ * - side 0 (S), three runs:
+ *   - the first start, 4e-7 below 0, within `WIRE_CORNER_SNAP_CM` of it: step 2 snaps it to 0;
+ *   - a junction inside the slack: the second start, 6e-7 below the first run's end, 400, overlaps it as written, and
+ *     step 3 snaps it to 400;
+ *   - a gap, 600 to 700, accepted, since a party wall or a missing run leaves one;
+ *   - end slack: the last end, 3e-7 past the side's length, which step 4 snaps to it;
+ * - side 2 (N), decision 164's reviewer case: a first run 1.5e-6 cm long, then a run starting 8e-7 from 0, within the
+ *   slack of both 0 and the first run's end. Step 3 snaps it to that end, never to 0, where it would overlap the first.
+ */
+export const MULTI_RUN_SLOTS: readonly MultiRunSlot[] = [
+  {slot: 0, runs: [[-4e-7, 400], [400 - 6e-7, 600], [700, MULTI_RUN_SIDE_LENGTH_CM + 3e-7]]},
+  {slot: 2, runs: [[0, 1.5e-6], [8e-7, MULTI_RUN_SIDE_LENGTH_CM]]},
+];
+
+/**
+ * Journal decisions 167, finding 1, and 179, finding 1: the hand-edited multi-run document, `writeInput` of a 1000 by
+ * 400 box hipped at 45° with its S and N sides split as `MULTI_RUN_SLOTS` lists. `writeInput` writes one run per side,
+ * so no other file the prototype writes exercises spec 16's snap order. Every run of a side agrees, so each side reads
+ * as the box's own hip. It is a playtest seed, never a golden: the C++ does not snap, and under containment replay
+ * (decision 152) a lone box's plate run is its whole side, which no split run contains, so it is not C++-replayable.
+ */
+export function multiRunDocument(): BuildingShellInputV1 {
+  const w = writeInput(shellFixture(MULTI_RUN_SEED, [ring([0, 0, MULTI_RUN_SIDE_LENGTH_CM, 400], 0, 1, 45)]));
+  for (const {slot, runs} of MULTI_RUN_SLOTS) {
+    const side = w.rings[0].sides[slot];
+    const [whole] = side.runs;
+    side.runs = runs.map(([startCm, endCm]) => ({...whole, startCm, endCm}));
+  }
   return w;
 }
 

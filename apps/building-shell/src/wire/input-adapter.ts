@@ -201,7 +201,7 @@ export function sideRuns(side: WireSide): SideRuns {
 }
 
 /** A side's length along its own line, from its two snapped corners: the span its runs must lie within. */
-export const sideLength = (cs: WireVec2[], j: number): number => {
+export const sideLength = (cs: readonly WireVec2[], j: number): number => {
   const a = cs[j], b = cs[(j + 1) % RING_CORNERS];
   return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
 };
@@ -218,13 +218,14 @@ const withinSnap = (v: number, at: number): boolean => Math.abs(v - at) <= WIRE_
 /**
  * Spec decision 16's snap order for a side's runs as listed (journal decisions 156, F5, 161, finding 4, and 164,
  * finding 4), on a side of snapped `length`. Decision 137's slack covers the C++ transforms' double round-off, which
- * reaches run ends as it reaches corners:
- * 1. the first run's start, within `WIRE_CORNER_SNAP_CM` of 0, becomes 0;
- * 2. each later run's start, within it of the previous run's end, becomes that end, never 0;
- * 3. the last run's end, within it of `length`, becomes `length`;
- * 4. every interior end is read as written.
+ * reaches run ends as it reaches corners. Spec 16's step 1, the raw order test (`start < end` before any snap), is
+ * `runRefusals`'; this is steps 2 to 5:
+ * 2. the first run's start, within `WIRE_CORNER_SNAP_CM` of 0, becomes 0;
+ * 3. each later run's start, within it of the previous run's end, becomes that end, never 0;
+ * 4. the last run's end, within it of `length`, becomes `length`;
+ * 5. every interior end is read as written.
  *
- * Nothing else snaps. The raw order test (`start < end` before any snap) and the overlap test are `runRefusals`'.
+ * Nothing else snaps. The overlap test after snapping is `runRefusals`' too.
  * The snap reads only the previous run's end; the overlap test reads the furthest end of every run before.
  */
 export function snapRunSpans(runs: readonly RunBounds[], length: number): RunSpan[] {

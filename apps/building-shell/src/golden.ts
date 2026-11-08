@@ -10,8 +10,8 @@ import type {ShellReport} from './shell.ts';
 import type {RawPart} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
-import {readInput, writeInput} from './wire/input-adapter.ts';
-import type {BuildingShellInputV1} from './wire/input-types.ts';
+import {readInput, sideLength, writeInput} from './wire/input-adapter.ts';
+import {BuildingShellInputV1, WIRE_CORNER_SNAP_CM, WireSide, WireVec2} from './wire/input-types.ts';
 
 /** A mesh's flat arrays, as `manifold-3d`'s `Mesh` carries them. */
 type MeshArrays = Pick<ShellMesh, 'positions' | 'tris' | 'faceIDs'>;
@@ -81,13 +81,29 @@ export type Replayability = z.output<typeof ReplayableSchema> | z.output<typeof 
  * 50 cm Cell lattice within 1e-6 cm, every `ringIndex` its array position, a cell size of 50, a storey height of a
  * whole number of Cells, and no Ring reaching past storey 32, and (journal decision 158, 2) when the prototype's own
  * `readInput` accepts it, so a fixture the wire's bounds refuse (a pitch outside [7°, 75°]) is never offered to the
- * C++ as replayable. Otherwise every reason is given, in that order, the last being `readInput`'s refusals themselves,
- * one reason each (journal decision 160, N6).
+ * C++ as replayable, and (journal decision 179, finding 1) when every side carries exactly one run, from 0 to the
+ * side's length, within `WIRE_CORNER_SNAP_CM` (`isOneWholeRun`). Otherwise every reason is given, in that order:
+ * `readInput`'s refusals one reason each (journal decision 160, N6), then the run shape's one reason.
  */
 export const cppReplayability = (f: ShellFixture): Replayability => cppReplayabilityOf(writeInput(f));
 
 /** The reasons `cppReplayability` gives for a document `readInput` refuses: one per refusal, every one. */
 export const readInputRefusals = (errors: readonly string[]): string[] => errors.map(e => `readInput refuses it: ${e}`);
+
+/** The reason `cppReplayability` gives for a document with a side that is not one run of its whole length. */
+export const NOT_ONE_WHOLE_RUN = 'a side not one run from 0 to its length';
+
+/**
+ * Journal decision 179, finding 1: whether side `j` of a Ring with these corners carries exactly one run, from 0 to the
+ * side's length between its corners as written, each end within `WIRE_CORNER_SNAP_CM`. That is the run shape `writeInput` writes, and the only one
+ * this prototype can show the C++ replay will contain: a lone box's plate run is its whole side, which no split run
+ * contains, and the C++ plate runs are not derivable here (decision 152).
+ */
+export function isOneWholeRun(corners: readonly WireVec2[], j: number, side: WireSide): boolean {
+  if (side.runs.length !== 1) return false;
+  const [run] = side.runs, length = sideLength(corners, j);
+  return Math.abs(run.startCm) <= WIRE_CORNER_SNAP_CM && Math.abs(run.endCm - length) <= WIRE_CORNER_SNAP_CM;
+}
 
 /** `cppReplayability` of an `input@1` document as written. */
 export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
@@ -101,6 +117,7 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   // Read through JSON, as a file is: `readInput` never sees the writer's own objects.
   const read = readInput(JSON.parse(JSON.stringify(input)), 'cppReplayability');
   if (!read.ok) reasons.push(...readInputRefusals(read.errors));
+  if (!input.rings.every(r => r.sides.every((s, j) => isOneWholeRun(r.corners, j, s)))) reasons.push(NOT_ONE_WHOLE_RUN);
   return reasons.length ? {cppReplayable: false, reasons} : {cppReplayable: true};
 }
 

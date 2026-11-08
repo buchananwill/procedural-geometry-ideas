@@ -9,6 +9,11 @@
 //   (decision 161, finding 5), whether it is clean (decision 156, F4), a residue's class (decision 161, Info), its
 //   files and pinned report and invariant violations, or, for a fixture whose build throws, its error in place of its
 //   shell, union, report and violations.
+//
+// The golden set holds only files the prototype's reader accepts (journal decision 179): every input it ships is
+// C++-replayable, and so is read by `readInput` (decision 158, 2), and a fixture read from a document is read from one
+// `readInput` accepts (`fileGolden`). So spec 16's refusals have no golden: their oracle is the unit tests
+// (tests/wire-input.test.ts).
 import {errorMessage} from '../src/errors.ts';
 import {EXPORTED_FIXTURES, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {
@@ -32,7 +37,7 @@ import {
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
-import {ASYMMETRIC_L, RunTuple, rotatedSparse, scrambled} from './wire-round-trip-cases.ts';
+import {ASYMMETRIC_L, rotatedSparse, scrambled} from './wire-round-trip-cases.ts';
 
 /**
  * A golden fixture read from an `input@1` document rather than written from a fixture (journal decision 161, finding
@@ -142,45 +147,6 @@ function gableSteeperThanHips(): ShellFixture {
   return f;
 }
 
-/** The length of both sides `MultiRunSide`'s document splits into runs, its 1000 cm S and N sides. */
-export const MULTI_RUN_SIDE_LENGTH_CM = 1000;
-
-/** One side of the multi-run document, by its file slot, and the runs it holds as written. */
-export interface MultiRunSlot { slot: number; runs: readonly RunTuple[] }
-
-/**
- * Journal decision 167, finding 1: `MultiRunSide`'s split sides, each run Pitched at its Ring's 45°, in spec 16's order.
- * Each feature leans on one snap step, so a reader that skips or misorders it refuses the file:
- * - side 0 (S), three runs:
- *   - the first start, 4e-7 below 0, within `WIRE_CORNER_SNAP_CM` of it: step 2 snaps it to 0;
- *   - a junction inside the slack: the second start, 6e-7 below the first run's end, 400, overlaps it as written, and
- *     step 3 snaps it to 400;
- *   - a gap, 600 to 700, accepted, since a party wall or a missing run leaves one;
- *   - end slack: the last end, 3e-7 past the side's length, which step 4 snaps to it;
- * - side 2 (N), decision 164's reviewer case: a first run 1.5e-6 cm long, then a run starting 8e-7 from 0, within the
- *   slack of both 0 and the first run's end. Step 3 snaps it to that end, never to 0, where it would overlap the first.
- */
-export const MULTI_RUN_SLOTS: readonly MultiRunSlot[] = [
-  {slot: 0, runs: [[-4e-7, 400], [400 - 6e-7, 600], [700, MULTI_RUN_SIDE_LENGTH_CM + 3e-7]]},
-  {slot: 2, runs: [[0, 1.5e-6], [8e-7, MULTI_RUN_SIDE_LENGTH_CM]]},
-];
-
-/**
- * Journal decision 167, finding 1: the hand-edited multi-run document, `writeInput` of a 1000 by 400 box hipped at 45°
- * with its S and N sides split as `MULTI_RUN_SLOTS` lists. `writeInput` writes one run per side, so no other golden
- * carries a multi-run side or exercises the snap order. Every run of a side agrees, so each side reads as the box's own
- * hip, and the C++ replay, matching runs by containment (decision 152), builds the box.
- */
-function multiRunDocument(): BuildingShellInputV1 {
-  const w = writeInput(shellFixture('MultiRunSide', [ring([0, 0, MULTI_RUN_SIDE_LENGTH_CM, 400], 0, 1, 45)]));
-  for (const {slot, runs} of MULTI_RUN_SLOTS) {
-    const side = w.rings[0].sides[slot];
-    const [whole] = side.runs;
-    side.runs = runs.map(([startCm, endCm]) => ({...whole, startCm, endCm}));
-  }
-  return w;
-}
-
 /**
  * Journal decisions 164, finding 2, and 165: the Ring-conflict fixtures whose conflicts the user's lowest-index rule
  * (spec decisions 3 and 128) decides, all eight of `RING_CONFLICT_FIXTURES`' pairs: the six the correctness review
@@ -239,8 +205,9 @@ export const MODEL_ORDER_ORACLES: readonly CleanGolden[] = MODEL_ORDER_CONFLICTS
  *   `H400-600B100S500` hipped at 30° throughout, with the cutting Ring's W side gabled at 60°, so the island has hips and
  *   a gable steeper than every hip. Its free cut takes the gable's 60°; a hip-first rule takes the hips' 30° and moves it.
  * - The `*FileReversed` goldens (`MODEL_ORDER_ORACLES`).
- * - `MultiRunSide` (decision 167, finding 1): the oracle for spec 16's run snap order, read from a hand-edited
- *   document (`multiRunDocument`).
+ *
+ * Spec 16's run snap order has no golden: since journal decision 179, finding 1, a multi-run document is never
+ * C++-replayable, and its oracle is the playtest seed `MultiRunSide` (`MULTI_RUN_SEED`).
  */
 export const RULE_ORACLES: readonly CleanGolden[] = [
   cleanGolden(splitBandFixture('SplitBandFreeCut', 300, 700, 200, 500, {a: 30, s: 30, n: 45, w: 60}), [1]),
@@ -253,7 +220,6 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
   fileGolden('AsymmetricLScrambled', rotatedSparse(named(ASYMMETRIC_L, 'AsymmetricLScrambled')), [0]),
   cleanGolden(gableSteeperThanHips(), [1]),
   ...MODEL_ORDER_ORACLES,
-  fileGolden('MultiRunSide', multiRunDocument(), [0]),
 ];
 
 /**

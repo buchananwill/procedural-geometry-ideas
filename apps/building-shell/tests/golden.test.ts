@@ -13,14 +13,14 @@ import {
 } from '../src/golden.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
-import {readInput, snapRunSpans, writeInput} from '../src/wire/input-adapter.ts';
-import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
+import {readInput, writeInput} from '../src/wire/input-adapter.ts';
+import type {BuildingShellInputV1, WireRun, WireVec2} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
 import {
-  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, MULTI_RUN_SIDE_LENGTH_CM, MULTI_RUN_SLOTS, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
+  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
   goldenInput,
 } from './golden-fixtures.ts';
-import {ORDER_FLAG} from './wire-round-trip-cases.ts';
+import {ORDER_FLAG, multiRunDocument} from './wire-round-trip-cases.ts';
 import {throwsOutcome} from './pin-table.ts';
 import {componentGenera} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
@@ -130,25 +130,6 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
   });
 
-  // Decision 167, finding 1: the only golden with multi-run sides, read through spec 16's snap order. Each feature leans
-  // on one snap step: as written, side 0's first start lies below 0, its second start inside the first run and its last
-  // end past the side, and side 2's second start within the slack of 0, so a reader that skipped or misordered a step
-  // would refuse the file the fixture is built from.
-  it('MultiRunSide: its S side holds end slack, a junction inside the slack and a gap, its N side the reviewer\'s sliver, and each snaps by spec 16', () => {
-    const doc = JSON.parse(committed('MultiRunSide.input.json')) as BuildingShellInputV1;
-    const sides = doc.rings[0].sides;
-    expect(sides.map(s => s.runs.length)).toEqual([3, 1, 2, 1]);
-    for (const {slot, runs} of MULTI_RUN_SLOTS) {
-      expect(sides[slot].runs.map(r => [r.startCm, r.endCm])).toEqual(runs.map(t => [...t]));
-      expect(sides[slot].runs.map(r => [r.form, r.pitchDegrees])).toEqual(runs.map(() => ['Pitched', 45]));
-    }
-    const [first, second, last] = sides[0].runs;
-    expect([first.startCm < 0, second.startCm < first.endCm, last.endCm > MULTI_RUN_SIDE_LENGTH_CM]).toEqual([true, true, true]);
-    expect(snapRunSpans(sides[0].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 400}, {start: 400, end: 600}, {start: 700, end: MULTI_RUN_SIDE_LENGTH_CM}]);
-    expect(snapRunSpans(sides[2].runs, MULTI_RUN_SIDE_LENGTH_CM)).toEqual([{start: 0, end: 1.5e-6}, {start: 1.5e-6, end: MULTI_RUN_SIDE_LENGTH_CM}]);
-    expect(oracle('MultiRunSide').rings[0].sides).toMatchObject({S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}});
-  });
-
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
     const e = entry(name);
     expect(e?.clean).toBe(false);
@@ -240,7 +221,18 @@ describe('C++ replayability (journal decision 152, amended)', () => {
       ...(on(w.storeyHeightCm) ? [] : ['storey height not a whole number of Cells']),
       ...(w.rings.every(r => r.baseStorey + r.storeys <= 32) ? [] : ['a Ring reaching past storey 32']),
       ...readBack(w),
+      ...(w.rings.every(r => r.sides.every((s, j) => oneWholeRun(r.corners, j, s.runs))) ? [] : ['a side not one run from 0 to its length']),
     ];
+  }
+
+  /**
+   * Decision 179, finding 1's condition: side `j` carries exactly one run, from 0 to the length between its corners,
+   * each end within the wire's 1e-6 cm slack.
+   */
+  function oneWholeRun(corners: readonly WireVec2[], j: number, runs: readonly WireRun[]): boolean {
+    const a = corners[j], b = corners[(j + 1) % corners.length];
+    const length = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+    return runs.length === 1 && Math.abs(runs[0].startCm) <= 1e-6 && Math.abs(runs[0].endCm - length) <= 1e-6;
   }
 
   /** Decision 158, 2's condition: the prototype's own reader accepts the written file, or each refusal is a reason. */
@@ -276,6 +268,26 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     expect(steep.cppReplayable).toBe(false);
     expect('reasons' in steep && steep.reasons).toHaveLength(4);
     for (const r of 'reasons' in steep ? steep.reasons : []) expect(r).toMatch(/^readInput refuses it: Ring 0 \(model index 0\) side \d run 0 .*outside \[7, 75\]/);
+  });
+
+  // Decision 179, finding 1: the seventh condition. Each document here is one `readInput` accepts, so the run shape is
+  // its only reason; within the slack of 0 and of the side's length, one run is replayable.
+  it('refuses a side that is not one run from 0 to its length, within the slack, by its own reason', () => {
+    const notWhole = {cppReplayable: false, reasons: ['a side not one run from 0 to its length']};
+    const withSide0 = (runs: [number, number][]): BuildingShellInputV1 => {
+      const w = writeInput(shellFixture('Box', [ring([0, 0, 500, 400], 0, 1, 45)]));
+      const [whole] = w.rings[0].sides[0].runs;
+      w.rings[0].sides[0].runs = runs.map(([startCm, endCm]) => ({...whole, startCm, endCm}));
+      return w;
+    };
+    expect(readBack(multiRunDocument())).toEqual([]);
+    expect(cppReplayabilityOf(multiRunDocument())).toEqual(notWhole);
+    expect(cppReplayabilityOf(withSide0([[0, 500]]))).toEqual({cppReplayable: true});
+    expect(cppReplayabilityOf(withSide0([[-4e-7, 500 + 3e-7]]))).toEqual({cppReplayable: true});
+    for (const runs of [[[0, 250], [250, 500]], [[0, 500 - 2e-6]], [[2e-6, 500]], [[0, 450]], [[50, 500]]] as [number, number][][]) {
+      expect(readBack(withSide0(runs))).toEqual([]);
+      expect(cppReplayabilityOf(withSide0(runs))).toEqual(notWhole);
+    }
   });
 
   // Decision 160, N6: `readInput`'s own refusals contain '; ', so each is a reason of its own and none is joined.
