@@ -1902,6 +1902,37 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          - the fixture's `cellSize` is 50;
          - `storeyHeight` is a whole number of Cells (port lead, amended): 250 and 300 pass, 263 does not;
          - every Ring's `baseStorey + storeys` is at most 32, the C++ validator's cap.
+153. **WP3.8 returned in seven commits, `65a7fa2` to `ec2421f`: 7663/7663, `typecheck` clean, every named gate
+     convicted**, per the delegate. The golden set is committed: 47 fixtures, 39 of them `cppReplayable`.
+     - **Shell identity over 10,315 shells:** shape items moved 0; F5 moved 2 (Seed4Fuzz134's margin); provenance
+       moved 0 canonically.
+     - **Its acceptance is provisional until decision 67's two reviews return.** They review WP3.8 together with
+       WP3.8.1 below.
+
+     **Its three questions, ruled:**
+     - **F52: a concave Roof–Underside edge is `SoffitJunction`. Accepted.** This follows the Underside row's own
+       precedent, and needs no new `EdgeKind`. Convex and flat stay none, and Gable–Underside stays `Unclassified`
+       until one is seen. Spec 21 gains the row.
+     - **Gable provenance past a wall's end: accepted.** A Gable band can reach past its wall, over the roof beside
+       it, as measured in 195 builds that crashed before the fix. A Gable Cell beyond its line's walls takes the Ring
+       side of the nearest wall on its line, and a gap between two walls is split at its middle. Spec 23 is amended.
+     - **A gable's skeleton weight changes the shell. Decision 140's F1 premise and remedy are STRUCK.**
+       - On 27 split-band islands, gabled on all sides but one, the gable weight changes 11/11 faces and 21/21 edges.
+         So a gable's pitch is geometry in algorithm B, not an inert weight.
+       - The C++ writes a real pitch for a GableEnd run, its Type row's (decision 137).
+       - **Ruled: a gable side takes its wire run's pitch,** which is validated to [7°, 75°] like a Pitched run.
+         `writeInput` writes a gable's effective pitch, so the round trip is identical.
+       - **`defaultDeg` is read only by unlisted sides.**
+       - **Decision 151's exclusion of gables from the island-steepest cut is STRUCK with it,** since the exclusion
+         existed only because the gable pitch was unstable across the wire. **A free cut takes the steepest derived
+         pitch among all the walls of its island, hip and gable.** `CUT_ALL_GABLE_DEG` is retired. WP3.8's own first
+         measurement of the island variant used every wall, and was green on 1057 of 1057.
+       - **WP3.8.1** (the WP3.8 delegate, resumed) lands this. It must show:
+         - no regression on the corpus;
+         - that the 27 gable-weight cases and the 10 all-gable failures are cured or re-pinned;
+         - that the golden drift test is re-run, with every moved golden byte explained.
+     - **Its spec wording lands in spec 16, 21, 23 and 32.**
+     - **The residual rates, to be re-measured after WP3.8.1, are F53.**
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
@@ -2263,5 +2294,31 @@ been reviewed, naming the commit (decision 129). It must include the measured re
 - **F52. A Roof–Underside edge arises: BridgeOverBlock at 40° and above.** The block's hip rises through the tunnel and
   meets the bridge's floor (WP5.2's bound test, decision 146). The edge reads `Unclassified`, since spec 21 has no row
   for the pair. From 40° to 51° there are 4 such edges and the genus is 2; from 51.5° to 75° there are 2 and the genus
-  is 0 (**AMENDED 2026-11-08** by decision 148: the switch had been put at 55° from 5° sampling).
+  is 0 (**AMENDED 2026-11-08** by decision 148: the switch had been put at 55° from 5° sampling). **Kind ruled by
+  decision 153: `SoffitJunction`.**
+- **F53. The residual failure rates at `ec2421f`** (WP3.8, per the delegate; every residue pinned, with a stated cause
+  and a location-bearing signature). This supersedes F51's table where they differ. It is re-measured after WP3.8.1.
+
+  | Generator | Failing |
+  |---|---|
+  | Fresh seeds 5 to 12 × 3 heights | 0/3360 |
+  | Random seeds 1 to 4 | 0/1120 |
+  | Pitch sweep | 0/1160 |
+  | Pitch × storey-height grid | 0/612 |
+  | Courtyards, seeds 1 to 6 × 3 heights | 18/720 |
+  | U shapes | 2/720 |
+  | Split-band courtyards (generator mode) | 4/720 |
+  | Widened sweep, every roster fixture over [7°, 75°] and mixed pairs | 67/1560 |
+  | δ-nudges | 9/84 |
+  | Pitch ends | 30/298 |
+
+  - **The widened sweep's 67:** BridgeOverBlock from 40° (49, a genus mismatch only), and Courtyard at mixed pitch
+    (18, the cut-piece overshoot class). Content's own 22.5°/45° reaches the second.
+  - **Causes across all residues:**
+    - algorithm B's inherited Cheek and cut-overshoot classes, including decision 132's regressions Court14 and
+      Court23;
+    - G1's partial coplanar contact (Court25) and edge contact (U8);
+    - G5's sub-tolerance features (the nudges);
+    - the low-pitch pockets;
+    - stuck caps on 4 split bands.
   Content's 45° roofs can reach this under a bridge.

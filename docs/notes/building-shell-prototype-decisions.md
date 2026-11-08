@@ -99,9 +99,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    four sides with their solved form and pitch. Its `defaultDeg`, which only a courtyard cut collinear with no wall
    reads (decision 2), ~~is the pitch of its first `Auto` side in slot order, or else of side 0~~ **is the solved
    pitch of its first `Pitched` side in compass order (S, E, N, W), or 45° when no side is Pitched** (amended again by
-   journal decision 140, because the first rule depended on the Ring's start corner). A gable side takes the Ring's
-   `defaultDeg`, because the roof's skeleton reads a gable's pitch as a weight, and a wire gable pitch of 0 or 90
-   would break it.
+   journal decision 140, because the first rule depended on the Ring's start corner). ~~A gable side takes the Ring's
+   `defaultDeg`~~ (STRUCK by journal decision 153) **A gable side takes its wire run's pitch, validated to [7°, 75°]**,
+   because algorithm B reads a gable's pitch as real geometry. `defaultDeg` is read only by unlisted sides.
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
    `unionLoops`. Several islands are allowed, each its own `Comp`.
 
@@ -124,10 +124,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
        45`~~ (journal decision 143; STRUCK by decision 150: no measured shell had read it, and at 45° it broke
        courtyards with bands at 60°) ~~it takes the steepest derived pitch among the union walls it meets at its two
        ends~~ (journal decision 150; STRUCK by decision 151: it failed 96 of 1057 measured layouts) **where it is
-       collinear with no wall, it takes the steepest derived pitch among the hip walls of its island**, that is, of
-       the outer loop and the hole's loop the cut joins, **or `CUT_ALL_GABLE_DEG = 45` if the island has no hip wall**
-       (**AMENDED 2026-11-08**, journal decision 151). It was green on all 1057 layouts. Gable walls are left out,
-       because a gable's pitch is only a weight and is not stable across the wire round trip.
+       collinear with no wall, it takes the steepest derived pitch among all the walls of its island, hip and
+       gable**, that is, of the outer loop and the hole's loop the cut joins (**AMENDED 2026-11-08**, journal
+       decisions 151 and 153). It was green on all 1057 layouts. Decision 151 had left gables out and used a 45° constant
+       for an all-gable island. Decision 153 struck that, because a gable's pitch is real geometry and now survives the
+       wire.
    - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
      width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
      `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's
@@ -273,7 +274,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     2. zero-volume sheets (coincident opposite triangles) are removed, and the edges they leave are stitched;
     3. caps are resolved, by an apex meeting its edge's end within the move bound, or by dropping a pair of caps that
        share a long edge;
-    4. the move bound is checked.
+    4. the move bound is checked, on the float32 positions as written. The meeting point aims four float32 ulps short
+       of the bound (**AMENDED 2026-11-08**, journal decision 153).
 
     **AMENDED 2026-11-08** (journal decision 137): a second exception, the wire format's corner slack,
     `WIRE_CORNER_SNAP_CM = 1e-6`.
@@ -356,6 +358,7 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     | Wall, Wall | `FloorLine` if horizontal, else `WallVertical` | `ExternalCorner` | `InternalCorner` |
     | Wall, Gable | `WallPlate` if horizontal at the Gable's own plate, else `GableHorizontal` if horizontal, `GableVertical` if vertical, `GableSloped` otherwise | `ExternalCorner` | `InternalCorner` |
     | Gable, Gable | `GableVertical` if vertical, `GableHorizontal` if horizontal, `GableSloped` otherwise (**AMENDED 2026-11-08**, journal decision 144) | `ExternalCorner` | `InternalCorner` |
+    | Roof, Underside (**AMENDED 2026-11-08**, journal decision 153) | none | none | `SoffitJunction` |
     | Wall or Gable, Ground | none | `GroundLine` | none |
     | Wall, Underside | none | `SoffitEdge` | `SoffitJunction` |
 
@@ -427,6 +430,8 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - A Wall Cell takes the Ring side whose raw wall it lies on, and a Gable Cell takes the Ring side whose wall line its
       gable piece stands on. Where several Rings' raw walls coincide, the lowest model index wins.
     - Every other Cell, a Cheek Cell included, has `null`.
+    - **AMENDED 2026-11-08** (journal decision 153): a Gable Cell beyond its line's walls takes the Ring side of the
+      nearest wall on its line. A gap between two walls is split at its middle.
     - Cells are cut at provenance boundaries, so every Cell has exactly one source.
     - `ShellFace` gains `sources`, the distinct sources of its Cells, ascending by model index and then by side.
 24. **A Cell takes its face's tag and never spans two faces**, so a Cell's kind is always unambiguous. A Wall-Gable
@@ -500,7 +505,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       **AMENDED 2026-11-08** (journal decisions 122 and 144): the area equality was an algebraic identity, so it
       caught nothing;
     - every output triangle lies on its tag's generating plane; no ShellEdge joins two faces of one identity
-      (**AMENDED 2026-11-07**, journal decision 110).
+      (**AMENDED 2026-11-07**, journal decision 110);
+    - no two distinct components lie within `CLEAN_TOLERANCE_CM` of each other without touching (**AMENDED
+      2026-11-08**, journal decisions 150 and 153).
 33. **`pnpm --filter @proc-geo/building-shell export` writes `out/<fixture>.json`**, one `BuildingShell` per fixture:
 
     ```ts
