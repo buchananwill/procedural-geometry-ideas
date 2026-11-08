@@ -97,7 +97,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    Ring's `defaultDeg`. The compass sides map onto the wire format's corner order as S = side 0, E = 1, N = 2,
    W = 3 (journal decision 126). **AMENDED 2026-11-08** (journal decision 136): a Ring read from `input@1` lists all
    four sides with their solved form and pitch. Its `defaultDeg`, which only a courtyard cut collinear with no wall
-   reads (decision 2), is the pitch of its first `Auto` side in slot order, or else of side 0.
+   reads (decision 2), ~~is the pitch of its first `Auto` side in slot order, or else of side 0~~ **is the solved
+   pitch of its first `Pitched` side in compass order (S, E, N, W), or 45° when no side is Pitched** (amended again by
+   journal decision 140, because the first rule depended on the Ring's start corner). A gable side takes the Ring's
+   `defaultDeg`, because the roof's skeleton reads a gable's pitch as a weight, and a wire gable pitch of 0 or 90
+   would break it.
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
    `unionLoops`. Several islands are allowed, each its own `Comp`.
 

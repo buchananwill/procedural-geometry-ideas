@@ -1463,6 +1463,52 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **The C++ exporter refuses** a building whose Levels do not share one storey height, and a side with no plate
        run or with more than one. So the prototype's own refusals of those cases are a second line of defence, never
        the first.
+140. **Rulings on WP5's correctness review** (fresh Opus, on a `git archive 3af339b` snapshot: 3860/3860; the
+     delegate's figure was 3859). **Confirmed:**
+     - winding and side ownership survive 832 reads, and a mirror cannot pass;
+     - every refusal is present and fires alone;
+     - the total order survives index compression;
+     - the license and lockfile are clean.
+
+     **All findings are accepted for WP5.1:**
+     - **F1 (High): a gable's pitch is read**, as a skeleton weight `1 / tan`, though between 20° and 89° it changes
+       nothing. At 0° or 90° the build crashes.
+       - **Decision 136's "a gable's pitch is never read" is STRUCK as a premise.**
+       - **The adapter never passes a wire gable pitch into the fixture:** a gable side takes the Ring's
+         `defaultDeg`. The file keeps the value, and the diff report carries it (decision 137).
+     - **F4 (Medium-Low): decision 136's `defaultDeg` rule is STRUCK,** because it depended on the Ring's start corner.
+       - **A wire Ring's `defaultDeg` is the solved pitch of its first `Pitched` side in compass order (S, E, N, W).**
+       - **With no Pitched side, it is `WIRE_GABLE_ONLY_DEG = 45`,** which is in range by construction and read only
+         by a cut collinear with no wall.
+       - Spec 1 is amended.
+     - **F2 (Medium):** a `None` side maps to an unlisted side in the fixture. After the union-wall forms are derived,
+       the file is refused if a `None` side won a wall. The `as RingForm` cast goes (decision 138's B4).
+     - **F3 (Medium): the area tolerance scales.**
+       - **A canonical face carries its perimeter,** and areas match within the larger perimeter × 1/1024 cm, never
+         less than 0.05 cm². That bounds the 1/1024 snap's area shift, so an exact double-precision engine is not
+         reported as different.
+       - The perimeter is used for the tolerance only, and is never matched.
+     - **F5 (Medium-Low):** the slab-genus prediction connects solids only through a contact of positive area, as
+       Manifold does. It is per component, following decision 135. **`UpperUJoinedByEdgeContact`'s pipeline throw goes
+       to WP3.7** as addendum 3, to be cured if it falls in one of WP3.7's families and enrolled if not.
+     - **F6 (Medium): a playtest dump is a pair of files,** `<name>.input.json` and an optional `<name>.output.json`,
+       each its own schema document. Ingestion diffs the pair when both are present. This is put to the port lead.
+     - **F7 (Low-Medium): the refinement mirrors the C++ import codec.** An omitted field takes its USTRUCT default,
+       listed once beside the stand-in, and the existing refusals then catch an empty Ring. The port lead is asked
+       whether its exporter writes every field.
+     - **F8 (Low):** edges match by maximum bipartite matching within tolerance, and `matchAreas` sorts its own input.
+     - **F9 (Low): the legacy C++ baseline compares face kind and area, and edge-kind counts, and nothing else.** Its
+       Edges have no endpoints (F49), and it staircases roof lines. It is labelled a baseline, never a pass or fail.
+       Once the port's output exists, the full diff applies.
+     - **F10 (Low):** the refusal text names the test itself, "signed area x·y′ − x′·y ≤ 0, the C++'s `SignedArea`",
+       and drops the word "clockwise", which misleads in UE's left-handed frame.
+     - **F11 (Low):** a test checks that every seed equals `writeInput` of its fixture, ignoring line endings.
+       Consistent corner noise is covered by decision 137's snap.
+     - **Q3's forward note, for WP3.8:** `ShellCell.source.ringModelIndex` carries the file's model index, mapped back
+       through the adapter, never the compressed position.
+
+     **WP5.1 is dispatched to the WP5 delegate, resumed.** Its scope is decisions 136 to 140. It stays within the wire
+     files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
        - N5: arrays of four stay arrays, as the generator emits.
