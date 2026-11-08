@@ -1092,6 +1092,15 @@ departs from those four steps is a defect.
      - **G5 (Low to Medium).** Sub-tolerance features give `Indeterminate`, and so Unclassified, Edges. These are
        expected to vanish once F-C's clustering removes the features; any that remain are reported.
      - **The bitwise-equality note** (pinches are recognised only when exactly equal): covered by F-C's clustering.
+123. **One more hardening round, then enrol** (user, 2026-11-08, choosing over "harden to zero" and "stop now").
+     - **WP3.7** carries decision 122's rulings and goes out after WP3.6 lands, since both touch the pipeline. It
+       covers G1 (pillow removal), F-C (clustering), G3, G4, F-A, F-D, F-E and F-F. Its gate is the combined
+       reviewer's fresh seeds 5 to 12 at 250, 263 and 300 cm, plus its δ-nudge sweeps.
+     - **After WP3.7,** a fresh-seed failure is never chased by default. It is shrunk to a minimal case and enrolled,
+       with its failure pinned, under this repo's enrol-don't-exclude rule. A cure or a regression then breaks the
+       suite either way.
+     - **Port-ready** is declared once WP3.6 and WP3.7 have landed and been reviewed, with the measured residual
+       fresh-input failure rate published to the port lead.
 
 ## Findings
 
