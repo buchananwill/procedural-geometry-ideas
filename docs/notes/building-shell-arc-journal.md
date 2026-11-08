@@ -2145,6 +2145,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        that keeps `input@1`'s `schemaVersion` at 1 (decision 149). The port lead is told the shape.
      - **Its spec 16 wording for the run-end and run-junction slack lands.**
      - **Next: two scoped reviews over `21e3a4b..1df6f51`, then port-ready.**
+163. **Rulings on WP3.8.4's type review** (REQUEST CHANGES: 1 blocking, 5 notes, at `1df6f51`; `tsc` clean).
+     **Decision 160's N6, B1, B2 and N2 are closed,** and the schema member change is real.
+     - **None of the findings blocks port-ready.** Each is a test-side type, touching neither the golden bytes nor the
+       port-facing schema.
+     - **All are accepted for WP3.9,** the post-port-ready tidy-up, with decision 160's N1, N3, N4 and N5:
+       - B1: a named `CauseClasses = Readonly<Record<DefectCause, ResidueClass>>`;
+       - N1: the gap test reads `fixture.name`;
+       - N2: `GoldenBase.genus` becomes `expectedGenus`;
+       - N3: uncaused pins carry their `ResidueClass`;
+       - N4: a type predicate in place of the casts;
+       - N5: one `GenusPerComponent` type.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
