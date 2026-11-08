@@ -1947,6 +1947,37 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - split-band uniform, mixed, 7°/22.5°/75° and all-gable families: 0 of 1300 fail;
        - the split-band far-wall family: 27 of 189 fail, the b75/w7 scheme, which fails at every cut pitch.
      - **Next: two fresh reviews over `65a7fa2..40cffce`, then port-ready.**
+155. **Rulings on WP3.8's type review** (REQUEST CHANGES: 10 blocking, 7 notes, at `40cffce`). Decisions 145 and
+     147 are mostly closed, but 145's B2, B5, B6 (in part), B9, B10 and B12's pin-table half, and 147's N1 and N4,
+     are not. **All findings are accepted for WP3.8.2.**
+     - **Three bear on the port's contract, so they block port-ready:**
+       - **B8:** the golden types derive from the source. `GoldenFaceID = {faceID} & FaceTag & Plane3`, `triTags:
+         PartlessTag[]`, the status typed as `ShellUnion['status']`, and the stages named. The port reads these
+         shapes.
+       - **B10 and N5:** `GoldenEntry` is built on `Replayability`, as a union of files or error. The manifest types
+         move beside `src/golden.ts`, and the manifest is parsed against a schema.
+       - **B1:** the `WIRE_FORMS`↔`SIDE_READINGS` tie is vacuous, and its comment names a test that does not exist.
+         Both become literal tables, with one derived from the other.
+     - **The rest:**
+       - B2: `ontoPlane(p, facePlane(f))`.
+       - B3: the vector helpers.
+       - B4: pin tables keyed by their generators' template types, with the cast removed.
+       - B5: one exported `PinTable`.
+       - B6 and B7: the new types are exported and named.
+       - B9: shapes derived, not copied.
+       - N1: one axis type, or a stated difference.
+       - N2: the test's `SplitLine` is renamed.
+       - N3: stray docs fixed.
+       - N4: the cast and the sentinel go.
+       - N6: `{cause: e}`.
+       - N7: as B4, where the names allow.
+     - **They are shape only:** zero shells move, and the golden set stays byte-identical.
+     - **WP3.8.2's review is narrowed, because it is shape only:**
+       - one type reviewer checks closure of these items alone;
+       - the correctness reviewer of WP3.8 confirms the golden drift test and the shell-identity hash at WP3.8.2's
+         commit.
+
+       This is still decision 67's two reviewers, scoped to what changed.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
