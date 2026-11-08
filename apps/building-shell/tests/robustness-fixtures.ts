@@ -359,13 +359,13 @@ export type PitchMix = 'ring' | 'side';
 export interface RosterPitchCase { name: string; roster: string; fixture: ShellFixture }
 
 /**
- * A roster fixture through the wire with every Pitched side at a pitch: `pitchOf(ring, slot)` gives Ring `ring`'s side
- * `slot` (0 to 3, S, E, N, W as `writeInput` writes them) its pitch. A gable side takes its Ring's default, the first
- * Pitched side's in compass order, as every wire file does (decision 140, F1 and F4).
+ * A roster fixture through the wire with every roof side, Pitched and GableEnd, at a pitch: `pitchOf(ring, slot)` gives
+ * Ring `ring`'s side `slot` (0 to 3, S, E, N, W as `writeInput` writes them) its pitch. A gable's pitch is geometry
+ * and the wire carries it (decision 153), so the sweep sets it too.
  */
 function throughWireAt(f: ShellFixture, name: string, pitchOf: (ring: number, slot: number) => number): ShellFixture {
   const wire = writeInput(f);
-  wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { for (const run of s.runs) if (run.form === 'Pitched') run.pitchDegrees = pitchOf(i, j); }));
+  wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { for (const run of s.runs) if (run.form === 'Pitched' || run.form === 'GableEnd') run.pitchDegrees = pitchOf(i, j); }));
   const read = readInput(JSON.parse(JSON.stringify(wire)), name);
   if (!read.ok) throw new Error(`${name} refused: ${read.errors.join('; ')}`);
   return read.fixture;

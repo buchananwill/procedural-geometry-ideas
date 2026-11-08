@@ -72,7 +72,7 @@ function pickedAttrs(sels: Sel[], a: Pt, b: Pt): Partial<Wall> {
  * - With no hole, the plan goes through roof-gable's own `buildFromRects` with those `Sel`s.
  * - An island with a hole is spliced through its cut into a slit polygon, its walls picked by the same `Sel`s and its
  *   two cut sides `form: 'cut'` at the cut's pitch: that of the union wall it is collinear with, else the island's
- *   steepest hip wall's (`freeCutPitch`, journal decision 151).
+ *   steepest wall's, hip or gable (`freeCutPitch`, journal decisions 151 and 153).
  *   An island with more than one hole, or a hole no raw Ring wall segment can cut, is a hard error.
  */
 export function storeyBuilding(rings: StoreyRing[]): Building {

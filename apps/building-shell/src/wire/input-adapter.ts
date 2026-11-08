@@ -11,9 +11,10 @@
 //   checked, a run solved None is left out, and the rest must agree in form, and in pitch where Pitched, or the file is
 //   refused: they give the Ring side its one form (spec 3's whole-wall rule). A side with no run, or only None runs,
 //   is formless.
-// - The fixture is built from each side's agreed run (decisions 126, 136 and 140): Pitched is a hip at its solved
-//   pitch; GableEnd is a gable at the Ring's `defaultDeg`, never at its wire pitch, which the skeleton would read as a
-//   weight; a formless side is unlisted, refused only where it wins a union wall. The request is carried, never read.
+// - The fixture is built from each side's agreed run (decisions 126, 136, 140 and 153): Pitched is a hip at its
+//   solved pitch; GableEnd is a gable at its solved pitch, which is geometry in algorithm B, not an inert weight (decision
+//   140's F1 is struck); a formless side is unlisted, refused only where it wins a union wall. The request is carried,
+//   never read. A Ring's `defaultDeg` is read only by its unlisted sides.
 // - Rings are ordered by model index, the key the conflict rule reads (spec decision 3, journal decision 128).
 //
 // "Every reason at once" holds within each layer, never across them (decision 143, F7). A file the refinement refuses
@@ -191,8 +192,9 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
     const reading = SIDE_READINGS[run.form];
     if (reading.kind === 'refused') out.push(`${where} has ${reading.reason}`);
     const p = run.pitchDegrees;
-    if (run.form === 'Pitched' && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
-      out.push(`${where} is solved Pitched at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143 and 144)`);
+    // Decision 153: a gable's pitch is validated as a Pitched run's is, since the shell builds it.
+    if ((run.form === 'Pitched' || run.form === 'GableEnd') && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
+      out.push(`${where} is solved ${run.form} at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143, 144 and 153)`);
     }
   });
   const read = sideRuns(side);
@@ -264,8 +266,9 @@ function readSides(r: WireRing, corners: WireVec2[], rect: Rect): ReadSide[] {
 }
 
 /**
- * Journal decision 140, F1 and F4: a wire Ring's `defaultDeg` is the solved pitch of its first Pitched side in compass
- * order (S, E, N, W), or `WIRE_GABLE_ONLY_DEG` with no Pitched side. It never depends on the Ring's start corner.
+ * Journal decisions 140 (F4) and 153: a wire Ring's `defaultDeg` is the solved pitch of its first Pitched side in
+ * compass order (S, E, N, W), or `WIRE_GABLE_ONLY_DEG` with no Pitched side. It never depends on the Ring's start
+ * corner, and only an unlisted side (a formless one) reads it: every listed side carries its own pitch.
  */
 export function wireDefaultDeg(sides: ReadSide[]): number {
   for (const c of RING_SIDES) {
@@ -275,14 +278,14 @@ export function wireDefaultDeg(sides: ReadSide[]): number {
   return WIRE_GABLE_ONLY_DEG;
 }
 
-/** One wire Ring as a `FixtureRing`: Pitched sides listed as hips at their pitch, GableEnd as gables, formless unlisted. */
+/** One wire Ring as a `FixtureRing`: Pitched sides listed as hips, GableEnd as gables, each at its pitch; formless unlisted. */
 function fixtureRing(r: WireRing, sides: ReadSide[], rect: Rect): FixtureRing {
   const out: RingSides = {};
   for (const {compass, run} of sides) {
     if (!run) continue;
     const reading = SIDE_READINGS[run.form];
     if (reading.kind !== 'listed') continue;
-    out[compass] = reading.form === 'hip' ? {form: 'hip', deg: run.pitchDegrees} : {form: 'gable'};
+    out[compass] = {form: reading.form, deg: run.pitchDegrees};
   }
   return {rect, baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg: wireDefaultDeg(sides), sides: out};
 }
@@ -332,17 +335,16 @@ export function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[]
 }
 
 /**
- * Decisions 136, 137, 140 and 149: what each run carries as information. The request is the side's, and is compared
- * with each run's solve; `bEmptied`, `bOutlineRefused` and a gable's unused wire pitch are each run's own.
+ * Decisions 136, 137, 140, 149 and 153: what each run carries as information. The request is the side's, and is
+ * compared with each run's solve; `bEmptied` and `bOutlineRefused` are each run's own.
  */
-function sideInfo(at: string, sides: ReadSide[], defaultDeg: number): string[] {
+function sideInfo(at: string, sides: ReadSide[]): string[] {
   return sides.flatMap(({slot, compass, side}) => side.runs.flatMap((r, k) => {
     const where = `${at} side ${slot} (${compass}) run ${k}`;
     const out: string[] = [];
     if (side.request !== 'Auto' && side.request !== r.form) out.push(`${where} requests ${side.request} but is solved ${r.form}`);
     if (r.bEmptied) out.push(`${where} is bEmptied`);
     if (r.bOutlineRefused) out.push(`${where} is bOutlineRefused`);
-    if (r.form === 'GableEnd' && r.pitchDegrees !== defaultDeg) out.push(`${where} is a gable solved at ${r.pitchDegrees} degrees; the shell builds it at the Ring's default ${defaultDeg}`);
     return out;
   }));
 }
@@ -369,7 +371,7 @@ export function readInput(json: unknown, name: string): ReadInputResult {
     const rect: Rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     const sides = readSides(r, corners, rect);
     const ring = fixtureRing(r, sides, rect);
-    info.push(...sideInfo(label(r, i), sides, ring.defaultDeg));
+    info.push(...sideInfo(label(r, i), sides));
     // Decision 149: a formless side (no run, or only None runs) is treated as decision 140's F2 treats a None side.
     for (const s of sides) if (!s.run) nones.push({ring: position, compass: s.compass, text: `${label(r, i)} side ${s.slot} (${s.compass})`});
     return ring;

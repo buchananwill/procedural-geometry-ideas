@@ -37,15 +37,12 @@ const ORDER_FLAG = /^model-index order and ring \(root\) order disagree/;
 const throughWire = (f: ShellFixture): ShellFixture => read(writeInput(f), f.name);
 
 /**
- * A Ring's meaning as spec decision 3 reads it: its rect and storeys, each compass side's form, a hip's pitch and the
- * default pitch, which a gable takes (decision 140, F1). A fixture gable's own `deg` is not part of it.
+ * A Ring's meaning as spec decision 3 reads it: its rect and storeys, each compass side's form and effective pitch,
+ * its own or the Ring's default, a gable's included (decision 153: a gable's pitch is geometry), and the default.
  */
 const resolved = (r: FixtureRing, defaultDeg: number) => ({
   rect: r.rect, baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg,
-  sides: Object.fromEntries(RING_SIDES.map(s => {
-    const form = r.sides?.[s]?.form ?? 'hip';
-    return [s, form === 'gable' ? {form} : {form, deg: r.sides?.[s]?.deg ?? r.defaultDeg}];
-  })),
+  sides: Object.fromEntries(RING_SIDES.map(s => [s, {form: r.sides?.[s]?.form ?? 'hip', deg: r.sides?.[s]?.deg ?? r.defaultDeg}])),
 });
 const meaning = (f: ShellFixture, defaults: (r: FixtureRing) => number) =>
   ({name: f.name, cellSize: f.cellSize, storeyHeight: f.storeyHeight, rings: f.rings.map(r => resolved(r, defaults(r)))});
@@ -105,53 +102,34 @@ describe('the asymmetric L round trip', () => {
   });
 });
 
-describe('a wire gable pitch the skeleton would refuse (decision 140, F1)', () => {
-  it.each([0, 90])('builds the L clean with its gable solved at %s degrees, at the Ring default instead', async deg => {
+describe("a wire gable's pitch (journal decision 153: it is geometry, and the shell builds it)", () => {
+  /** The L with its one gable solved at `deg`. */
+  const gableAt = (deg: number): unknown => {
     const wire = writeInput(ASYMMETRIC_L);
     wire.rings[0].sides[3].runs[0].pitchDegrees = deg;
-    const f = read(wire, `AsymmetricLGable${deg}`);
-    const b = await buildShellDetailed(f);
-    expect(invariantViolations(b, {genus: [0], cheeks: 0})).toEqual([]);
-    expect(isEmptyDiff(diffCanonical(canonicalOfShell(get('original')), canonicalOfShell(b.shell)))).toBe(true);
+    return wire;
+  };
+
+  it.each([0, 6.9, 75.1, 90])('refuses a gable solved at %s degrees, outside [7, 75], as a Pitched run is', deg => {
+    const r = readInput(gableAt(deg), 'GableOut');
+    expect(r.ok ? [] : r.errors).toEqual([`Ring 0 (model index 0) side 3 run 0 is solved GableEnd at ${deg} degrees, outside [7, 75] (journal decisions 143, 144 and 153)`]);
+  });
+
+  it.each([7, 75])('builds the L clean with its gable solved at %s degrees, at that pitch', async deg => {
+    const f = read(gableAt(deg), `AsymmetricLGable${deg}`);
+    expect(f.rings[0].sides?.W).toEqual({form: 'gable', deg});
+    expect(invariantViolations(await buildShellDetailed(f), {genus: [0], cheeks: 0})).toEqual([]);
   });
 });
 
 /**
- * Measured at WP3.8, a finding, not a waiver: where a fixture's shell depends on what the wire does not carry, the
- * authored shell and the one the wire reads back differ, with these canonical diff counts. Each is a split-band
- * courtyard every side of whose Rings is gabled but the far band's, authored at a Ring default of 60: the wire carries
- * no default, so an all-gable Ring reads its gables' skeleton weight as `WIRE_GABLE_ONLY_DEG = 45` (decision 140, F4),
- * and on an island whose gables meet one another the weight moves the roof. This contradicts decision 140, F1's
- * "between 20° and 89° it changes nothing" on such islands; no exported fixture reaches it.
+ * Where a fixture's shell depends on what the wire does not carry, the authored shell and the one the wire reads back
+ * differ, with these canonical diff counts. Measured at WP3.8: 27 split-band courtyards gabled on every side but the
+ * far band's, authored at a 60 degree default, whose gables the wire read at `WIRE_GABLE_ONLY_DEG = 45`, a shell
+ * change (11/11 faces, 21/21 edges) that struck decision 140, F1. Decision 153 puts a gable's pitch on the wire, and
+ * all 27 now round-trip to the authored shell. Empty: any entry is a new finding.
  */
 const WIRE_UNCARRIED: Readonly<Partial<Record<string, DiffCounts>>> = {
-  'H300-700B100S310D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H300-700B100S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H300-700B150S310D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H300-700B150S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H300-700B200S310D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H300-700B200S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B100S410D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B100S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B150S410D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B150S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B200S410D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H400-600B200S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B100S460D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B100S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B150S460D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B150S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B200S460D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H450-550B200S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B100S480D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B100S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B150S480D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B150S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B200S480D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H470-530B200S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H490-510B100S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H490-510B150S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
-  'H490-510B200S500D60n': {"facesOnlyA":11,"facesOnlyB":11,"edgesOnlyA":21,"edgesOnlyB":21},
 };
 
 describe('every exported fixture through the wire', () => {
@@ -177,10 +155,10 @@ describe('every exported fixture through the wire', () => {
 });
 
 describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, F4)", () => {
-  /** A file with every Pitched side solved at `deg`. */
+  /** A file with every roof side, Pitched and GableEnd, solved at `deg` (decision 153: both are validated and built). */
   const atPitch = (f: ShellFixture, deg: number): ShellFixture => {
     const wire = writeInput(f);
-    for (const r of wire.rings) for (const s of r.sides) for (const run of s.runs) if (run.form === 'Pitched') run.pitchDegrees = deg;
+    for (const r of wire.rings) for (const s of r.sides) for (const run of s.runs) if (run.form === 'Pitched' || run.form === 'GableEnd') run.pitchDegrees = deg;
     return read(wire, `${f.name}At${deg}`);
   };
   const CASES = [...SEED_FIXTURES.map(fixtureByName), {name: 'Ring1000x400', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 400], 0, 1, 30)]}]

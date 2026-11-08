@@ -174,14 +174,16 @@ describe('the refusals', () => {
     ]);
   });
 
-  it('validates the pitch of a Pitched side only: a gable solved at 0 or 90 is accepted (decision 136)', () => {
+  it("validates a gable's pitch as a Pitched side's: the shell builds it (decision 153, striking decision 136's exemption)", () => {
     const v = valid();
     v.rings[0].sides[2].runs[0].pitchDegrees = 90;
-    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 run 0 is solved Pitched at 90 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 run 0 is solved Pitched at 90 degrees, outside [7, 75] (journal decisions 143, 144 and 153)']);
     const w = valid();
-    w.rings[1].sides[0].runs[0].pitchDegrees = 0; // Ring 1's S side is its GableEnd
+    w.rings[1].sides[0].runs[0].pitchDegrees = 6.9; // Ring 1's S side is its GableEnd
     expect(w.rings[1].sides[0].runs[0].form).toBe('GableEnd');
-    expect(errorsOf(w)).toEqual([]);
+    expect(errorsOf(w)).toEqual(['Ring 1 (model index 1) side 0 run 0 is solved GableEnd at 6.9 degrees, outside [7, 75] (journal decisions 143, 144 and 153)']);
+    w.rings[1].sides[0].runs[0].pitchDegrees = 7;
+    expect(adapted(w).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 7});
   });
 
   it('refuses a Pitched side outside [WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG], and accepts both bounds (decision 143, F4)', () => {
@@ -191,8 +193,8 @@ describe('the refusals', () => {
       return errorsOf(v);
     };
     expect([WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG]).toEqual([7, 75]);
-    expect(at(6.9)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 6.9 degrees, outside [7, 75] (journal decisions 143 and 144)']);
-    expect(at(75.1)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 75.1 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(at(6.9)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 6.9 degrees, outside [7, 75] (journal decisions 143, 144 and 153)']);
+    expect(at(75.1)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 75.1 degrees, outside [7, 75] (journal decisions 143, 144 and 153)']);
     expect(at(WIRE_MIN_PITCH_DEG)).toEqual([]);
     expect(at(WIRE_MAX_PITCH_DEG)).toEqual([]);
   });
@@ -335,12 +337,6 @@ describe('information the diff report carries, never refused', () => {
       'Ring 1 (model index 1) side 3 (W) run 0 is bEmptied',
     ]);
   });
-
-  it("carries a gable's wire pitch, which the shell does not use", () => {
-    const v = valid();
-    v.rings[1].sides[0].runs[0].pitchDegrees = 0;
-    expect(adapted(v).report.info).toEqual(["Ring 1 (model index 1) side 0 (S) run 0 is a gable solved at 0 degrees; the shell builds it at the Ring's default 45"]);
-  });
 });
 
 describe('ordering', () => {
@@ -373,10 +369,10 @@ describe('side mapping and defaultDeg (decision 140, F1 and F4)', () => {
     expect(r.sides.map(s => s.request)).toEqual(['Auto', 'Auto', 'GableEnd', 'Auto']);
   });
 
-  it('reads a Ring starting at any corner by where each side lies; gables take the Ring default, hips their pitch', () => {
+  it('reads a Ring starting at any corner by where each side lies; every side, a gable included, at its own pitch (decision 153)', () => {
     const r = adapted(rotated(writeInput(one({N: {form: 'gable', deg: 40}, E: {form: 'hip', deg: 35}})), 1));
     expect(r.fixture.rings[0].rect).toEqual([10, 20, 110, 220]);
-    expect(r.fixture.rings[0].sides).toEqual({S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'gable'}, W: {form: 'hip', deg: 30}});
+    expect(r.fixture.rings[0].sides).toEqual({S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'gable', deg: 40}, W: {form: 'hip', deg: 30}});
     expect(r.fixture.rings[0].defaultDeg).toBe(30);
   });
 
@@ -450,8 +446,8 @@ describe('runs per side (journal decision 149)', () => {
     v.rings[0].sides[1].request = 'Pitched';
     v.rings[0].sides[0].runs = [run(0, 250, 'Pitched', 80), run(250, 500, 'Pitched', 80)];
     expect(errorsOf(v)).toEqual([
-      'Ring 0 (model index 0) side 0 run 0 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143 and 144)',
-      'Ring 0 (model index 0) side 0 run 1 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143 and 144)',
+      'Ring 0 (model index 0) side 0 run 0 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143, 144 and 153)',
+      'Ring 0 (model index 0) side 0 run 1 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143, 144 and 153)',
     ]);
     v.rings[0].sides[0].runs = [run(0, 500, 'Pitched')];
     expect(adapted(v).report.info).toEqual([

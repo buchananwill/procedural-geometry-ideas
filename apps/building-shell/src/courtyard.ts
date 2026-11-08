@@ -57,22 +57,14 @@ function breakpoints(s: Seg, segs: readonly Seg[]): Pt[] {
 }
 
 /**
- * The pitch, in degrees, of a cut collinear with no union wall on an island with no hip wall (spec decision 2 as
- * amended, journal decision 151). Such an island has no pitch of its own to give the cut: a gable's pitch is only a
- * skeleton weight (decision 140), never read from the wire, so it cannot stand in.
- */
-export const CUT_ALL_GABLE_DEG = 45;
-
-/**
- * The pitch a cut collinear with no union wall takes (spec decision 2 as amended, journal decision 151): the steepest
- * derived pitch among the hip walls of its island, the outer loop and the hole's loop it joins (`islandWalls`), or
- * `CUT_ALL_GABLE_DEG` when the island has none. A cut shallower than the island's steepest walls breaks the roof
- * beside it (decision 150's split bands, 96 of 1057), and gable walls are left out because their derived pitch is a
- * weight the wire round trip need not keep.
+ * The pitch a cut collinear with no union wall takes (spec decision 2 as amended, journal decisions 151 and 153): the
+ * steepest derived pitch among all the walls of its island, hip and gable, the outer loop and the hole's loop it joins
+ * (`islandWalls`). A cut shallower than the island's steepest walls breaks the roof beside it (decision 150's split
+ * bands, 96 of 1057). A gable's pitch is geometry in algorithm B, and the wire carries it (decision 153), so it counts.
  */
 export function freeCutPitch(islandWalls: readonly UnionWall[]): number {
-  const hips = islandWalls.filter(w => w.form === 'hip').map(w => w.deg);
-  return hips.length ? Math.max(...hips) : CUT_ALL_GABLE_DEG;
+  if (!islandWalls.length) throw new Error('a free cut on an island with no wall');
+  return Math.max(...islandWalls.map(w => w.deg));
 }
 
 /**

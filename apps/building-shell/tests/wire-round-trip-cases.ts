@@ -56,19 +56,16 @@ export function expectedDefaultDeg(r: FixtureRing): number {
 }
 
 /**
- * A fixture as the wire reads it back (decisions 136 and 140, F4): every side listed, a hip at its own pitch or its
- * Ring's default, a gable with none, and each Ring's default replaced by the one the wire derives. Only a gable reads
- * the default then, as its skeleton weight, so this is the fixture whose gables the wire builds.
+ * A fixture as the wire reads it back (decisions 136, 140, F4, and 153): every side listed at its own pitch or its
+ * Ring's default, a gable's included, and each Ring's default replaced by the one the wire derives, which no listed
+ * side then reads.
  */
 export const withWireDefaults = (f: ShellFixture): ShellFixture => ({
   ...f,
   rings: f.rings.map(r => ({
     ...r,
     defaultDeg: expectedDefaultDeg(r),
-    sides: Object.fromEntries(RING_SIDES.map(s => {
-      const form = r.sides?.[s]?.form ?? 'hip';
-      return [s, form === 'gable' ? {form} : {form, deg: r.sides?.[s]?.deg ?? r.defaultDeg}];
-    })),
+    sides: Object.fromEntries(RING_SIDES.map(s => [s, {form: r.sides?.[s]?.form ?? 'hip', deg: r.sides?.[s]?.deg ?? r.defaultDeg}])),
   })),
 });
 
