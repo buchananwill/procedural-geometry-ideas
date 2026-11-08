@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Building shell viewer</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { color-scheme: dark; --bg: #14181f; --panel: #1c222b; --line: #313a47; --text: #e6eaf0; --dim: #98a3b3; --bad: #ff5c8a; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.4 system-ui, sans-serif; }
+    #app { display: flex; height: 100%; }
+    #view { flex: 1; min-width: 0; position: relative; }
+    #view canvas { display: block; }
+    #status { position: absolute; left: 164px; bottom: 10px; color: var(--dim); pointer-events: none; }
+    #panel { width: 380px; flex: none; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 12px 14px 24px; }
+    h2 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 16px 0 6px; }
+    h2:first-child { margin-top: 0; }
+    select, button { font: inherit; color: var(--text); background: #262e3a; border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; }
+    select { width: 100%; }
+    label.toggle { display: inline-flex; align-items: center; gap: 5px; margin: 0 12px 4px 0; cursor: pointer; }
+    .readout { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-height: 3.2em; background: #171c24; }
+    .readout.pinned { border-color: #fff176; }
+    .readout .title { font-weight: 600; }
+    .readout p { margin: 0 0 6px; }
+    .readout p:last-child { margin: 0; }
+    .readout .line { display: block; color: var(--text); }
+    .readout .empty, .readout .dim { color: var(--dim); }
+    .readout.case { margin-top: 8px; border-color: var(--bad); }
+    .readout.case ul { margin: 2px 0 6px; padding-left: 18px; }
+    .readout .bad { color: var(--bad); }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { text-align: left; padding: 1px 4px 1px 0; vertical-align: top; }
+    th { font-weight: 600; color: var(--dim); padding-top: 6px; }
+    .swatch { display: inline-block; width: 22px; height: 11px; border: 1px solid #0006; vertical-align: middle; margin-right: 6px; }
+    .count { color: var(--dim); text-align: right; white-space: nowrap; }
+    .zero { opacity: .5; }
+    .bad { color: var(--bad); }
+    .report dt { color: var(--dim); }
+    .report dd { margin: 0 0 4px 0; }
+    .report ul { margin: 0; padding-left: 18px; }
+    pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; font-size: 11px; color: var(--dim); }
+    .hint { color: var(--dim); font-size: 12px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="view"><div id="status">Loading manifold-3d...</div></div>
+  <aside id="panel">
+    <h2>Fixture</h2>
+    <select id="fixture" aria-label="Fixture or defect case"></select>
+    <div id="manifest-note" class="hint bad"></div>
+    <div id="buildline" class="hint"></div>
+    <div id="case" class="readout case" hidden></div>
+
+    <h2>Readout</h2>
+    <div id="pinned" class="readout pinned" hidden></div>
+    <div id="hover" class="readout" style="margin-top:6px"></div>
+    <div class="hint">Drag orbits, wheel dollies, right-drag tracks. Hover to read; click pins, Esc or empty space unpins.</div>
+
+    <h2>Show</h2>
+    <div id="layers"></div>
+    <div id="storeys"></div>
+    <div><button id="reset" type="button">Reset view</button> <button id="frame-all" type="button">Frame whole shell</button></div>
+
+    <h2>Legend</h2>
+    <div id="legend"></div>
+
+    <h2>Shell report</h2>
+    <div id="report" class="report"></div>
+  </aside>
+</div>
+<script type="module" src="/src/viewer/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "frame": "UE actor-local, cm, Z up, left-handed",
+  "storeyHeightCm": 250,
+  "cellSizeCm": 50,
+  "rings": [
+    {
+      "ringIndex": 0,
+      "modelIndex": 0,
+      "baseStorey": 0,
+      "storeys": 1,
+      "wallHeightCm": 0,
+      "corners": [
+        {
+          "x": 0,
+          "y": 0
+        },
+        {
+          "x": 1000,
+          "y": 0
+        },
+        {
+          "x": 1000,
+          "y": 400
+        },
+        {
+          "x": 0,
+          "y": 400
+        }
+      ],
+      "sides": [
+        {
+          "request": "Auto",
+          "runs": [
+            {
+              "startCm": -4e-7,
+              "endCm": 400,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            },
+            {
+              "startCm": 399.9999994,
+              "endCm": 600,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            },
+            {
+              "startCm": 700,
+              "endCm": 1000.0000003,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
+        },
+        {
+          "request": "Auto",
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 400,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
+        },
+        {
+          "request": "Auto",
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 0.0000015,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            },
+            {
+              "startCm": 8e-7,
+              "endCm": 1000,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
+        },
+        {
+          "request": "Auto",
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 400,
+              "form": "Pitched",
+              "pitchDegrees": 45,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "gameBuild": "prototype @proc-geo/building-shell",
+    "sessionId": "fixture-export",
+    "timestamp": "2026-11-08T00:00:00Z",
+    "subject": "MultiRunSide",
+    "location": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  }
+}

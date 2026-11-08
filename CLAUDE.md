@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Monorepo Structure
 
-This is a **pnpm workspaces** monorepo with four packages:
+This is a **pnpm workspaces** monorepo with five packages:
 
 ```
 procedural-geometry-ideas/
@@ -18,7 +18,8 @@ procedural-geometry-ideas/
 │   ├── test-fixtures/   # @proc-geo/test-fixtures — polygon fixtures for testing
 │   └── dashboard/       # @proc-geo/dashboard — React component library
 ├── apps/
-│   └── demo/            # @proc-geo/demo — Next.js demo app
+│   ├── demo/            # @proc-geo/demo — Next.js demo app
+│   └── building-shell/  # @proc-geo/building-shell — building-shell prototype (private)
 ├── docs/notes/          # Design notes and algorithm documentation
 ├── pnpm-workspace.yaml
 ├── tsconfig.base.json   # Shared TS compiler options
@@ -31,8 +32,22 @@ procedural-geometry-ideas/
 | `@proc-geo/test-fixtures` | 59 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
+| `@proc-geo/building-shell` | Building-shell prototype: Ring storeys → Manifold union → faces, Edges, Cells; three.js viewer; JSON wire format; golden oracle for a C++ port. Vite + Vitest. | No (private) |
 
-**Dependency graph:** `demo -> dashboard -> core`, `demo -> test-fixtures -> core`, `core <-(devDep) test-fixtures`
+**Dependency graph:** `demo -> dashboard -> core`, `demo -> test-fixtures -> core`, `core <-(devDep) test-fixtures`,
+`building-shell -> core` (aliased to core's source, not `dist/`)
+
+### `@proc-geo/building-shell` (`apps/building-shell/`)
+
+A private prototype, not a publishable module (see `docs/notes/building-shell-arc-journal.md`, F54). Its spec is
+`docs/notes/building-shell-prototype-decisions.md`, and its arc journal is the head of its thread.
+
+- `pnpm --filter @proc-geo/building-shell test` runs Vitest. `... typecheck` runs `tsc --noEmit`. `... dev` serves the
+  three.js viewer. `... golden` re-exports the committed golden set in `golden/`, which a drift test holds byte-exact.
+- `src/roof/` is a byte-identical copy of the Piste Perfect roof-gable prototype. A copy-integrity test pins it, so
+  do not edit it.
+- Scratch scripts that load the pipeline through `vite.runnerImport` must restate the `@proc-geo/core` alias to core's
+  source, because `runnerImport` ignores `configFile`.
 
 ## Commands
 

@@ -1,0 +1,2 @@
+# Journal decision 182: a playtest seed's bytes do not depend on the checkout. No line-ending conversion on any platform.
+*.json -text

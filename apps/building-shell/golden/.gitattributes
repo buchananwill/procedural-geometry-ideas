@@ -1,0 +1,2 @@
+# Journal decision 129: the golden set is the oracle, byte for byte. No line-ending conversion on any platform.
+*.json -text
