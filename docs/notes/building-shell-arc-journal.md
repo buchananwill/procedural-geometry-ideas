@@ -1315,6 +1315,25 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      Its gate: the fresh seeds 5 to 12 at 250, 263 and 300 cm, plus the δ-nudges, plus the courtyard and U
      generators, plus PortPokeOut250 clean. After it, decision 123's enrol-don't-chase rule applies. **WP5 goes out
      alongside it,** since it adds only new files.
+134. **Rulings on WP3.6's type review** (`typescript-type-reviewer`, REQUEST CHANGES: 4 blocking, 8 notes, read at
+     `7847a48`). Decision 120's items are all confirmed closed. **Every finding is accepted and goes to WP3.7 as
+     addendum 1:**
+     - **B1:** `spliceCourtyard` returns a named, exported `SplicedCourtyard`.
+     - **B2:** the two hand-copied `unit3` bodies (`clean.ts:179`, `regions.ts:28`) call `unit3`.
+     - **B3:** `CleanTri` becomes `WorkTri`, and `rot` becomes `TriIndices[]`. Both names move into the leaf module
+       `halfedge.ts` if that removes an import.
+     - **B4:** `RING_SIDES` is defined `as const` in `fixture.ts`, with `RingSide` derived from it, the `EDGE_KINDS`
+       pattern. Spec 1's shape is unchanged.
+     - **Notes N1 to N8:**
+       - N1: a `NonEmpty` type and a copy helper.
+       - N2: a `lineParam`/`lineOffset` pair, shared with `weld.ts`'s `edgeParam`.
+       - N3: inline vector arithmetic uses the helpers wherever one already fits.
+       - N4: the test-side types are named, `near` uses `dist`, and the pin tables are keyed by fixture-name unions.
+       - N5: `checkedSide` becomes an `asserts` function.
+       - N6: `ShellMesh` moves to a leaf module.
+       - N7: the axis literal is named.
+       - N8: the named types are exported.
+     - **No figure may move.** Every change here is a change of shape only, and WP3.7's shell-identity check covers it.
 
 ## Findings
 
