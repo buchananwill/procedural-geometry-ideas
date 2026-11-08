@@ -2094,6 +2094,42 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        - N4: a tighter `RosterPitchName`;
        - N5: the comment's "by index".
      - **WP3.8.4 carries N6, B1, B2 and N2,** together with whatever the correctness closure review finds.
+161. **Rulings on the correctness closure review of WP3.8.2 and WP3.8.3** (fresh Opus, on `git archive 1a6ebff`:
+     7866/7866, and the opt-in sweep over seeds 3 to 14 at 4320/4320; 0 High).
+
+     **Confirmed:**
+     - F1, F2 and F5 to F9 are closed;
+     - all 158 golden files match a fresh build;
+     - `cppReplayable` is right on all 60 entries;
+     - all 47 inputs replay to their shell and union goldens;
+     - shell identity holds over 4,942 shells;
+     - an independent provenance reader agrees on every Cell of 3,509 shells.
+
+     **All findings are accepted for WP3.8.4:**
+     - **Finding 1 (Medium): a replayable residue that throws ships its input too.** Four replayable residue classes
+       had none: Court25, U8, SplitCourt10 and Court35. The port must be able to check whether its own build throws.
+       The schema member that allowed this goes.
+     - **Finding 2 (Medium-Low): the free-cut oracles are widened.** Two goldens are added:
+       - an island whose steepest pitch is not 60°, so that the rejected constant 60 moves a clean golden;
+       - an all-gable split band at 75° whose steepest wall is a gable, the reviewer's reproducer, so that decision
+         151's hip-only rule moves a clean golden.
+
+       Gate: both rejected variants each move at least one clean golden.
+     - **Finding 3 (Low): F1 gets a golden oracle.** A replayable golden input starts at a non-canonical corner, with
+       model indices that are not array positions. Its shell golden is built through `readInput` and carries the
+       file's own sides and model indices.
+     - **Finding 4 (Low): decision 137's slack reaches interior run junctions.** Two adjacent run ends within
+       `WIRE_CORNER_SNAP_CM` of each other snap to one point. **Pitch agreement stays exact:** the C++ shares one value
+       per wall group (decision 149), so a difference is a real disagreement.
+     - **Finding 5 (Low): the manifest's `genus` is renamed `expectedGenus`, and gains `measuredGenus`.** A port must
+       not read a pinned expectation as the shell's own genus.
+     - **Info:**
+       - each residue entry gains `residueClass`, a stable name such as "algorithm-B Cheek", because its violation
+         strings carry prototype-internal ids;
+       - the port-ready message notes that the pitch-end class cannot reach the wire, and states spec 23's gap
+         midpoint rule for Gable Cells.
+     - **WP3.8.4 goes to a fresh delegate** (decision 157), carrying decisions 160 and 161. Its two reviews are scoped
+       to its own items.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
