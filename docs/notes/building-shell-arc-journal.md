@@ -2286,6 +2286,24 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          change, and each change is explained;
        - **`FileReversed` goldens for the other two conflict pairs** (decision 165).
      - **When commit 2 lands, the port lead gets its hash.**
+169. **The viewer gains the defect cases, so that the user can judge the roof-gable question by eye** (user,
+     2026-11-08: "I can't make any decision without seeing this in the demo render. None of the selectable fixtures
+     have any visible defect.").
+     - **The cause:** the selector lists only `SHELL_FIXTURES`, the clean roster, which is pinned to empty reports.
+       Every residue lives in a test-side list or in `golden/`.
+     - **WP4.3 (Sonnet, viewer only):**
+       - **a second selector group,** "Defect cases", lists every golden entry with `clean: false`. The cases are
+         read from `golden/*.input.json` through `readInput`, which is browser-safe. Each shows its `residueClass` and
+         pinned violations in the readout;
+       - **a case whose build throws** shows its error text, and renders nothing it cannot build;
+       - **the defect is marked where it is,** not left to the user to find:
+         - surviving Internal faces in magenta (spec 17);
+         - Cheek faces in their own legend colour;
+         - Unclassified edges drawn heavy;
+         - the camera framed on the pinned location.
+       - **screenshots of each roof-gable class,** Cheek and cut-piece overshoot, plus one clean neighbour for
+         contrast, saved for the lead to send to the user.
+     - **WP4.3 runs alongside WP3.9.** It touches only `src/viewer/` and reads `golden/` at run time.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
