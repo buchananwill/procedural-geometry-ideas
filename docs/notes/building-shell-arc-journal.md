@@ -2067,6 +2067,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        156 F8). BridgeOverBlockAt45 carries its Roof–Underside edge ends.
      - **These go to WP3.8.3** (the same fresh delegate, resumed). They are small. Then decision 155's scoped reviews
        run over `7ca3d59..` WP3.8.3's commit.
+159. **WP3.8.3 landed at `1a6ebff`: 7866/7866, `typecheck` clean, and both gates convicted**, per the delegate.
+     - **The golden set** is now 60 fixtures in 158 files: 46 clean and 51 replayable.
+     - **Only `manifest.json` moved:** G5.86h250 is no longer replayable, BridgeOverBlockAt45 gains its located
+       Soffit line, and two entries are new.
+     - **The robustness sweeps and the golden set now read one copy of the pins,** `tests/residue-pins.ts`, and a tie
+       test holds each manifest outcome equal to its pin.
+     - **Shell identity:** all 13,195 shells hash the same as at `19f4757`, and F53 is unchanged.
+     - **The not-replayable reason is `readInput`'s refusal text verbatim. Accepted,** as better than the lead's short
+       phrase, because it names the exact field.
+     - **Next: decision 155's scoped reviews over `7ca3d59..1a6ebff`,** then port-ready at `1a6ebff` or at the commit
+       that closes their findings.
        - Otherwise it is false, with the reason (for example "corner off the Cell lattice"). Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
