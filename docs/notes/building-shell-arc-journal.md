@@ -1372,6 +1372,35 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        vertices but no positive area is a hard error.
      - **The genus observation:** spec 32's genus is asserted per connected component (spec amended).
        CourtTwoIslands and CourtIslandInHole join the courtyard probes.
+136. **WP5 returned at `6a361c0` (zod 4.3.6, MIT, no dependencies, already in the workspace lockfile) and `3af339b`
+     (all new files)**, per the delegate.
+     - **Figures:** 3859/3859 on a clean worktree, `typecheck` clean. The 95 WP5 tests pass on both the clean and the live tree.
+     - **Gates:** all four convicted.
+     - **Seeds:** seven playtest files, re-exported byte-identical.
+     - **Its acceptance is provisional until decision 67's two reviews return.**
+     - **Its stand-in inventions, ruled:**
+       - **The `frame` field, refined to its one literal: accepted.**
+       - **The added refusals:**
+         - **accepted:** a clockwise Ring (what a mirrored transform writes), a duplicate ring index, and a side solved
+           `Flat` (decision 126: never a run form);
+         - **amended: a side solved `None` is accepted.** It is refused only if that side wins a union wall, where its
+           form would be undefined. A buried or losing side may legitimately carry no run;
+         - **amended: a pitch is validated on `Pitched` sides only.** A gable has no sloped plane, so its pitch is never
+           read, and refusing a GableEnd at 0 would refuse every gabled file.
+       - **Exact rectangularity stays,** per "never silently snapped". It is revisited against the first real dump.
+       - **The wall-height override within `SHELL_TOLERANCE_CM`: accepted.**
+       - **A wire Ring's `defaultDeg`: accepted.** It is the pitch of its first `Auto` side in slot order, or else of
+         side 0. Since decision 135 it is read only by a cut collinear with no wall. Spec 1 is amended.
+       - **Model indices compressed to positions: accepted,** since compression preserves the total order.
+         **Amended:** a request that disagrees with its solve is flagged in `diffReport` as information, never refused,
+         because the C++ solve may legitimately override a request.
+       - **The stand-in names `FShellWire*`, `ERoofSideRequest` and `building-shell-input`: accepted** until the port
+         names its family.
+     - **The amendments are WP5.1,** together with the reviews' accepted findings.
+     - **Asked of the port lead:**
+       - what a GableEnd run's `PitchDegrees` holds;
+       - when a side is solved `None`;
+       - whether Ring corners are exactly on the lattice in actor-local doubles, or carry float noise.
 
 ## Findings
 

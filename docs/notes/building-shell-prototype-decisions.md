@@ -95,7 +95,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    **AMENDED 2026-11-08** (journal decision 132, recording WP3.6's shape): forms are authored per Ring (decision 3).
    The per-storey `roofs: Record<number, StoreyRoof>` of roof-gable `Sel`s is gone. A side not listed is a hip at the
    Ring's `defaultDeg`. The compass sides map onto the wire format's corner order as S = side 0, E = 1, N = 2,
-   W = 3 (journal decision 126).
+   W = 3 (journal decision 126). **AMENDED 2026-11-08** (journal decision 136): a Ring read from `input@1` lists all
+   four sides with their solved form and pitch. Its `defaultDeg`, which only a courtyard cut collinear with no wall
+   reads (decision 2), is the pitch of its first `Auto` side in slot order, or else of side 0.
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
    `unionLoops`. Several islands are allowed, each its own `Comp`.
 
