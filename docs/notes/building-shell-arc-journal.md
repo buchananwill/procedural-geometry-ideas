@@ -99,7 +99,8 @@ running subagents.** Their reports arrive as notifications.
     **Owed to it:** the WP3.9 commit hash, if WP3.9 changes anything the port relies on: the multi-run golden, the
     reader's snap order, or the CutPitchConflict redesign. Its next step is the C++ spec for raw parts and the union.
   - **For the user:**
-    - whether algorithm B's inherited defects (the Cheek class and the cut-piece overshoot) become a roof-gable arc;
+    - ~~whether algorithm B's inherited defects~~ (closed by decision 172: deferred; a courtyard and gable redesign
+      later) (the Cheek class and the cut-piece overshoot) become a roof-gable arc;
     - merging the arc branch to `main` when the user agrees.
 - ~~**WP3.8.2 is running**~~ (historical) (the same delegate, resumed). It carries decision 156's behaviour items, decision 155's
   shape items, and the golden additions. When it returns, it gets decision 155's scoped reviews: one type-closure
@@ -2321,6 +2322,17 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        palette floors leave only magenta, which is pinned to Unclassified and Internal.
      - **Note:** the delegate's first snapshot attempt wrote vite cache files into the live
        `apps/building-shell/node_modules` (gitignored). The `:5199` server may re-optimise its dependencies once.
+172. **No roof-gable arc for now. The courtyard and gable residues are accepted as best-effort outcomes** (user,
+     2026-11-08, after seeing them rendered).
+     - **The user's words:** "Some of these courtyard outcomes look mad. I think they push into the bounds of 'if the
+       player discovers this they're really trying hard and we can be forgiven for returning a "best effort"
+       outcome'. It's clear that the overall approach to courtyards and gables needs a better design, but it can
+       wait."
+     - **The residues stay enrolled with their pins,** as F53 records them. They are known and best effort, not
+       defects to chase.
+     - **A redesign of courtyards and gables is a future arc of its own,** not a patch to algorithm B. §5's question
+       is closed by this ruling.
+     - The port lead is told, because its inherited-residue list reads the same way.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
