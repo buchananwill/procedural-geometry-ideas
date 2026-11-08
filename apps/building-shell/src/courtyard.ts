@@ -2,7 +2,7 @@
 // along a segment of one raw Ring wall, spliced into a slit polygon of width 0 exactly as roof-gable's `buildCourtyard` does. Every test here is
 // segment arithmetic on the plan's own loops: no point is tested for lying inside anything.
 import {RING_SIDES, RingSide, StoreyRing} from './fixture.ts';
-import {UnionWall, ringSideLines} from './ring-forms.ts';
+import {UnionWall, ringSideLines, unionWallForms} from './ring-forms.ts';
 import {Pt, pt} from './roof/model.ts';
 
 /**
@@ -57,19 +57,31 @@ function breakpoints(s: Seg, segs: readonly Seg[]): Pt[] {
 }
 
 /**
- * The pitch, in degrees, of a cut collinear with no union wall (spec decision 2 as amended, journal decision 143, F1).
- * It was the cutting Ring's default, which the wire format does not carry, so a shell exported and read back could
- * roof differently. Such a cut meets walls only at right angles, so no weight change at a straight vertex follows.
+ * The pitch, in degrees, of a cut collinear with no union wall on an island with no hip wall (spec decision 2 as
+ * amended, journal decision 151). Such an island has no pitch of its own to give the cut: a gable's pitch is only a
+ * skeleton weight (decision 140), never read from the wire, so it cannot stand in.
  */
-export const CUT_FREE_DEG = 45;
+export const CUT_ALL_GABLE_DEG = 45;
 
 /**
- * The pitch the cut from `a` to `b` takes (spec decision 2 as amended, journal decisions 135 and 143): the derived
- * pitch of the union wall it is collinear with at an end, or `CUT_FREE_DEG` where it is collinear with none. Undefined
- * where it is collinear with walls of different pitch at its two ends, so the segment does not qualify: the skeleton
- * refuses a weight change at a straight vertex.
+ * The pitch a cut collinear with no union wall takes (spec decision 2 as amended, journal decision 151): the steepest
+ * derived pitch among the hip walls of its island, the outer loop and the hole's loop it joins (`islandWalls`), or
+ * `CUT_ALL_GABLE_DEG` when the island has none. A cut shallower than the island's steepest walls breaks the roof
+ * beside it (decision 150's split bands, 96 of 1057), and gable walls are left out because their derived pitch is a
+ * weight the wire round trip need not keep.
  */
-function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[]): number | undefined {
+export function freeCutPitch(islandWalls: readonly UnionWall[]): number {
+  const hips = islandWalls.filter(w => w.form === 'hip').map(w => w.deg);
+  return hips.length ? Math.max(...hips) : CUT_ALL_GABLE_DEG;
+}
+
+/**
+ * The pitch the cut from `a` to `b` takes (spec decision 2 as amended, journal decisions 135, 143 and 151): the derived
+ * pitch of the union wall it is collinear with at an end, or `freeCutPitch` of its island where it is collinear with
+ * none. Undefined where it is collinear with walls of different pitch at its two ends, so the segment does not qualify:
+ * the skeleton refuses a weight change at a straight vertex.
+ */
+function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], islandWalls: () => readonly UnionWall[]): number | undefined {
   const vertical = a.x === b.x;
   const at = vertical ? a.x : a.y;
   const degs = new Set<number>();
@@ -78,7 +90,7 @@ function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[]): number | undefined
     for (const w of walls) if (w.axis === (vertical ? 'x' : 'y') && w.at === at && (w.lo === along || w.hi === along)) degs.add(w.deg);
   }
   if (degs.size > 1) return undefined;
-  return degs.size ? [...degs][0] : CUT_FREE_DEG;
+  return degs.size ? [...degs][0] : freeCutPitch(islandWalls());
 }
 
 /**
@@ -94,6 +106,13 @@ export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls
   const holeSegs = loopSegs(hole);
   const outerSegs = outers.map(loopSegs);
   const all = [holeSegs, ...outerSegs].flat();
+  // Each island's union walls (its outer loop and this hole's), derived once, on the first free cut that reads them.
+  const islands = new Map<number, readonly UnionWall[]>();
+  const islandWalls = (outer: number) => (): readonly UnionWall[] => {
+    let w = islands.get(outer);
+    if (!w) { w = unionWallForms(rings, [outers[outer], hole]); islands.set(outer, w); }
+    return w;
+  };
   const found: CourtyardCut[] = [];
   for (const {index, ring} of rings) {
     const lines = ringSideLines(ring.rect);
@@ -108,7 +127,7 @@ export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls
           if (!holeSegs.some(e => onSeg(b, e))) continue;
           const outer = outerSegs.findIndex(segs => segs.some(e => onSeg(a, e)));
           if (outer < 0) continue;
-          const deg = cutPitch(a, b, walls);
+          const deg = cutPitch(a, b, walls, islandWalls(outer));
           if (deg !== undefined) found.push({a, b, ring: index, side, outer, deg});
         }
       }

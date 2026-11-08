@@ -1,6 +1,6 @@
 // The WP3 correctness reviewer's robustness inputs (journal decision 101, F36 and F37), restated from its scratchpad
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
-import {FixtureRing, RING_SIDES, RingSides, ShellFixture, ring} from '../src/fixture.ts';
+import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
 
 /**
@@ -74,8 +74,17 @@ const CORNER_OWNERS: readonly CornerOwner[] = ['band', 'wing', 'both'];
 /** The pitches the courtyard generator draws, in degrees. */
 const COURTYARD_PITCHES: readonly number[] = [30, 37, 45, 52.5];
 
-/** One generated courtyard, and its two wings (the Rings standing on its W and E sides) by identity. */
-interface CourtyardDraw { fixture: ShellFixture; wings: [FixtureRing, FixtureRing] }
+/** A split Ring's buried shared wall: the line `axis = at` (`x` for a band split across, `y` for a wing). */
+export interface SplitLine { axis: 'x' | 'y'; at: number }
+
+/**
+ * One generated courtyard, its two wings (the Rings standing on its W and E sides) by identity, and, in split mode,
+ * the line its split Ring was cut along.
+ */
+interface CourtyardDraw { fixture: ShellFixture; wings: [FixtureRing, FixtureRing]; split?: SplitLine }
+
+/** Which of the courtyard's four Rings the split mode cuts in two: the S or N band, or the W or E wing. */
+const SPLIT_RINGS = ['S', 'N', 'W', 'E'] as const;
 
 /** A deterministic stream of draws in [0, 1), from `fuzz3.mjs`'s linear congruential generator. */
 function stream(seed: number): () => number {
@@ -96,18 +105,38 @@ function stream(seed: number): () => number {
  * Three streams draw independently: the layout as `randomCourtyardFixtures` first drew it (seed `seed`), the corners
  * (seed `seed + 7919`), and the pitches (seed `seed + 15485863`). A fixture whose corners and pitches both fall to the
  * classic draw is the one the generator first made. A generator of its own, so `randomFixtures`' seeds keep their draws.
+ *
+ * Split mode (journal decisions 150 and 151) cuts one of the four Rings in two across its depth, at a 50 cm lattice
+ * line strictly inside the hole's span, so the buried shared wall crosses the ring from the outer loop to the hole and
+ * is collinear with no wall: the free cut. A fourth stream (seed `seed + 104729`) picks the Ring, the line, the second
+ * half's place in the index order and, with mixed pitch, its default. The draw is placed so that the free cut is
+ * certain to be the shortest qualifying segment: the split Ring's two corners are its own, so no wing or band side
+ * runs along a hole wall's line through it, and every other Ring's depth is made deeper than the split Ring's. Every
+ * other draw is made as in the classic mode, in the same order.
  */
-function drawCourtyards(seed: number, count: number, storeyHeight: number): CourtyardDraw[] {
-  const rnd = stream(seed), frnd = stream(seed + 7919), prnd = stream(seed + 15485863);
+function drawCourtyards(seed: number, count: number, storeyHeight: number, splitMode = false): CourtyardDraw[] {
+  const rnd = stream(seed), frnd = stream(seed + 7919), prnd = stream(seed + 15485863), srnd = stream(seed + 104729);
   const pick = <T>(a: readonly T[], r: () => number = rnd): T => a[Math.floor(r() * a.length)];
   const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
   const out: CourtyardDraw[] = [];
   for (let k = 0; k < count; k++) {
     const x0 = 50 * Math.floor(rnd() * 4), y0 = 50 * Math.floor(rnd() * 4);
-    const bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
-    const x1 = x0 + wingW + span(100, 6) + wingE, y1 = y0 + bandS + span(100, 6) + bandN;
+    let bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
+    const holeW = span(100, 6), holeD = span(100, 6);
     // Corners SW, SE, NE, NW. The classic layout gives every corner to the band; otherwise each is drawn.
     const corners: CornerOwner[] = frnd() < 0.5 ? ['band', 'band', 'band', 'band'] : [0, 1, 2, 3].map(() => pick(CORNER_OWNERS, frnd));
+    const which = splitMode ? pick(SPLIT_RINGS, srnd) : undefined;
+    if (which) {
+      const depth = {S: bandS, N: bandN, W: wingW, E: wingE}[which];
+      const deeper = (d: number, own: boolean): number => (own || d > depth ? d : depth + 50);
+      [bandS, bandN, wingW, wingE] = [deeper(bandS, which === 'S'), deeper(bandN, which === 'N'), deeper(wingW, which === 'W'), deeper(wingE, which === 'E')];
+      // The split Ring's own two corners (SW, SE, NE, NW are 0 to 3).
+      const own: Record<typeof which, [number, number, CornerOwner]> = {S: [0, 1, 'band'], N: [2, 3, 'band'], W: [3, 0, 'wing'], E: [1, 2, 'wing']};
+      const [c0, c1, owner] = own[which];
+      corners[c0] = owner;
+      corners[c1] = owner;
+    }
+    const x1 = x0 + wingW + holeW + wingE, y1 = y0 + bandS + holeD + bandN;
     const band = (c: CornerOwner): boolean => c !== 'wing';
     const wing = (c: CornerOwner): boolean => c !== 'band';
     const [sw, se, ne, nw] = corners;
@@ -127,11 +156,31 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number): Cour
       return ring(r, 0, 1 + Math.floor(rnd() * 3), own, sides);
     });
     const wings: [FixtureRing, FixtureRing] = [rings[2], rings[3]];
+    const toSplit = which ? rings[SPLIT_RINGS.indexOf(which)] : undefined;
     for (let i = rings.length - 1; i > 0; i--) {
       const j = Math.floor(rnd() * (i + 1));
       [rings[i], rings[j]] = [rings[j], rings[i]];
     }
-    out.push({fixture: {name: `Court${k}`, cellSize: 50, storeyHeight, rings}, wings});
+    if (!which || !toSplit) {
+      out.push({fixture: {name: `Court${k}`, cellSize: 50, storeyHeight, rings}, wings});
+      continue;
+    }
+    // The split: a band across at an x, a wing across at a y, strictly inside the hole's span.
+    const across = which === 'S' || which === 'N';
+    const [lo, hi] = across ? [x0 + wingW, x1 - wingE] : [y0 + bandS, y1 - bandN];
+    const at = lo + 50 * (1 + Math.floor(srnd() * ((hi - lo) / 50 - 1)));
+    const [rx0, ry0, rx1, ry1] = toSplit.rect;
+    const [inner0, inner1]: [RingSide, RingSide] = across ? ['E', 'W'] : ['N', 'S'];
+    const half = (rect: Rect, buried: RingSide, deg: number): FixtureRing => {
+      const sides: RingSides = {...toSplit.sides};
+      delete sides[buried];
+      return ring(rect, toSplit.baseStorey, toSplit.storeys, deg, sides);
+    };
+    const first = half(across ? [rx0, ry0, at, ry1] : [rx0, ry0, rx1, at], inner0, toSplit.defaultDeg);
+    const second = half(across ? [at, ry0, rx1, ry1] : [rx0, at, rx1, ry1], inner1, mixed ? pick(COURTYARD_PITCHES, srnd) : toSplit.defaultDeg);
+    const split = rings.map(r => (r === toSplit ? first : r));
+    split.splice(Math.floor(srnd() * (split.length + 1)), 0, second);
+    out.push({fixture: {name: `SplitCourt${k}`, cellSize: 50, storeyHeight, rings: split}, wings, split: {axis: across ? 'x' : 'y', at}});
   }
   return out;
 }
@@ -139,6 +188,58 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number): Cour
 /** Journal decisions 115, 132 and 135: random courtyards from the full Ring family (`drawCourtyards`). */
 export const randomCourtyardFixtures = (seed: number, count: number, storeyHeight: number): ShellFixture[] =>
   drawCourtyards(seed, count, storeyHeight).map(d => d.fixture);
+
+/** A split-band courtyard and the line its split Ring was cut along: the free cut's line. */
+export interface SplitCourtyard { fixture: ShellFixture; split: SplitLine }
+
+/**
+ * Journal decisions 150 and 151: random courtyards in split mode (`drawCourtyards`), one Ring cut in two so that the
+ * free cut, collinear with no wall, is certain to be the shortest, so a sweep of them reads the free branch.
+ */
+export function randomSplitCourtyards(seed: number, count: number, storeyHeight: number): SplitCourtyard[] {
+  return drawCourtyards(seed, count, storeyHeight, true).flatMap(d => (d.split ? [{fixture: d.fixture, split: d.split}] : []));
+}
+
+/** The fixtures of `randomSplitCourtyards`. */
+export const randomSplitCourtyardFixtures = (seed: number, count: number, storeyHeight: number): ShellFixture[] =>
+  randomSplitCourtyards(seed, count, storeyHeight).map(d => d.fixture);
+
+/** The S band of a 1000 × 1000 courtyard authored as two Rings, and its pitches (`splitBandFixture`). */
+export interface SplitBandPitches {
+  /** Ring 0's default: the S band's west half, which wins both walls the free cut meets. */
+  a: number;
+  /** Ring 0's S side (the outer wall at y = 0) and N side (the hole's S wall), when authored. */
+  s?: number;
+  n?: number;
+  /** Every other Ring's default. */
+  w: number;
+}
+
+/**
+ * Journal decision 150's split-band courtyard, the correctness reviewer's (`cfd.mts`): an S band of depth `bandS`
+ * authored as two Rings split at x = `split`, wings either side of a hole from x = `holeLo` to `holeHi` up to y = 800,
+ * and an N band. The split's buried shared wall, `bandS` long, is the shortest cut and collinear with no wall.
+ */
+export function splitBandFixture(name: string, holeLo: number, holeHi: number, bandS: number, split: number, p: SplitBandPitches): ShellFixture {
+  const own: RingSides = {...(p.s !== undefined ? {S: {form: 'hip', deg: p.s}} : {}), ...(p.n !== undefined ? {N: {form: 'hip', deg: p.n}} : {})};
+  return {
+    name, cellSize: 50, storeyHeight: 250, rings: [
+      ring([0, 0, split, bandS], 0, 1, p.a, own), ring([split, 0, 1000, bandS], 0, 1, p.w),
+      ring([0, bandS, holeLo, 800], 0, 1, p.w), ring([holeHi, bandS, 1000, 800], 0, 1, p.w),
+      ring([0, 800, 1000, 1000], 0, 1, p.w),
+    ],
+  };
+}
+
+/** One split-band layout: the hole's x span, the S band's depth, and the split's x. */
+export type SplitBandLayout = readonly [holeLo: number, holeHi: number, bandS: number, split: number];
+
+/** The split-band family's 27 layouts: the reviewer's, its duplicates dropped. */
+export const SPLIT_BAND_LAYOUTS: readonly SplitBandLayout[] = [[300, 700], [400, 600], [450, 550], [470, 530], [490, 510]]
+  .flatMap(([lo, hi]) => [100, 150, 200].flatMap(bandS => [...new Set([lo + 10, 500])].map((split): SplitBandLayout => [lo, hi, bandS, split])));
+
+/** One split-band layout's name stem. */
+export const splitBandName = ([lo, hi, bandS, split]: SplitBandLayout): string => `H${lo}-${hi}B${bandS}S${split}`;
 
 /**
  * F50's second family: each courtyard of `randomCourtyardFixtures` with one wing removed, the E wing for an even index

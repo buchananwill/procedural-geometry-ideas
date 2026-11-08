@@ -41,7 +41,7 @@ export const WIRE_CORNER_SNAP_CM = 1e-6;
 
 /**
  * Journal decision 140, F4: the `defaultDeg` of a wire Ring with no Pitched side. In range by construction, and read
- * only by its gable sides (and, until WP3.7's `CUT_FREE_DEG` lands, decision 143, by a cut collinear with no wall).
+ * only by its gable sides, as a skeleton weight. A cut collinear with no wall reads union walls only (decision 151).
  */
 export const WIRE_GABLE_ONLY_DEG = 45;
 

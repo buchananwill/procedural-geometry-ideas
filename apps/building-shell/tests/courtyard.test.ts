@@ -3,15 +3,17 @@
 // reviewers' courtyard probes, and the layouts the rule refuses.
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
-import {CUT_FREE_DEG, selectCut, spliceCourtyard} from '../src/courtyard.ts';
+import {CUT_ALL_GABLE_DEG, freeCutPitch, selectCut, spliceCourtyard} from '../src/courtyard.ts';
+import {errorMessage} from '../src/errors.ts';
 import {COURTYARD_RECTS, FixtureRing, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
-import {tanDeg, unionWallForms} from '../src/ring-forms.ts';
+import {UnionWall, tanDeg, unionWallForms} from '../src/ring-forms.ts';
 import {runB} from '../src/roof/algoB.ts';
 import {Pt, Rect, polyArea, pt, unionLoops} from '../src/roof/model.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
+import {SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 
 /** A storey plan's union loops, split into outer loops and holes. */
@@ -105,9 +107,16 @@ describe('the cut\'s pitch (spec decision 2 as amended, journal decision 135, F1
   });
 });
 
-describe('a cut collinear with no wall (spec decision 2 as amended, journal decision 143, F1)', () => {
-  it("takes CUT_FREE_DEG, 45 degrees, never the cutting Ring's default, which the wire format does not carry", () => {
-    expect(CUT_FREE_DEG).toBe(45);
+describe('a cut collinear with no wall (spec decision 2 as amended, journal decisions 143, 150 and 151)', () => {
+  const wall = (form: 'hip' | 'gable', deg: number): UnionWall => ({axis: 'y', at: 0, n: '+y', lo: 0, hi: 100, form, deg});
+
+  it("takes the steepest derived pitch among its island's hip walls, its gable walls left out", () => {
+    expect(freeCutPitch([wall('hip', 30), wall('hip', 52.5), wall('gable', 75), wall('hip', 45)])).toBe(52.5);
+  });
+
+  it('takes CUT_ALL_GABLE_DEG, 45 degrees, on an island with no hip wall', () => {
+    expect(CUT_ALL_GABLE_DEG).toBe(45);
+    expect(freeCutPitch([wall('gable', 60), wall('gable', 30)])).toBe(CUT_ALL_GABLE_DEG);
   });
 
   // The WP5.1 correctness reviewer's reproducer: every Ring at 30 degrees, its S side authored at 45. Read back from
@@ -121,6 +130,101 @@ describe('a cut collinear with no wall (spec decision 2 as amended, journal deci
     const read = (await buildShellDetailed(back.fixture)).shell;
     expect(read).toEqual(direct);
     expect(invariantViolations(await build(f), {genus: 1, cheeks: 0})).toEqual([]);
+  });
+});
+
+/** A build's measured outcome: its invariant violations with genus 1, or the error it raised. */
+async function outcomeOf(f: ShellFixture): Promise<string[]> {
+  try {
+    return invariantViolations(await build(f), {genus: 1, cheeks: 0});
+  } catch (e) {
+    return [`throws: ${errorMessage(e)}`];
+  }
+}
+
+/** A split-band layout's cut: the split Ring's buried shared wall, x = split, from the outer loop to the hole. */
+function expectSplitCut(f: ShellFixture, [, , bandS, split]: SplitBandLayout, deg: number): void {
+  const cut = cutOf(f);
+  expect(cut && {a: cut.a, b: cut.b, deg: cut.deg}).toEqual({a: pt(split, 0), b: pt(split, bandS), deg});
+}
+
+/**
+ * Journal decision 150, F1 and F2: the correctness reviewer's 85 split-band layouts. The S band is authored as two
+ * Rings, so their buried shared wall is the shortest cut and collinear with no wall. Every Ring stands at one pitch,
+ * or (the four W layouts) the wings at another. `CUT_FREE_DEG = 45` broke 20 of the 27 at 60 degrees.
+ */
+describe("decision 150's split-band reproducers: the free cut at the island's steepest hip wall", () => {
+  const uniform = SPLIT_BAND_LAYOUTS.flatMap(l => [30, 45, 60].map(d => [`${splitBandName(l)}D${d}`, l, d] as const));
+  it.each(uniform)('%s takes its split as the cut, at the bands\' pitch', (name, l, d) => {
+    expectSplitCut(splitBandFixture(name, ...l, {a: d, w: d}), l, d);
+  });
+  it.each(uniform)('%s keeps every invariant', async (name, l, d) => {
+    expect(await outcomeOf(splitBandFixture(name, ...l, {a: d, w: d}))).toEqual([]);
+  });
+
+  /** The reviewer's four layouts with the wings at another pitch from the bands. */
+  const wingsDiffer = (name: string, lo: number, hi: number, d: number, wd: number): ShellFixture => {
+    const f = splitBandFixture(name, lo, hi, 150, 500, {a: d, w: wd});
+    f.rings[1] = {...f.rings[1], defaultDeg: d};
+    f.rings[4] = {...f.rings[4], defaultDeg: d};
+    return f;
+  };
+  const wingCases = [[400, 600], [450, 550]].flatMap(([lo, hi]) => [[30, 60], [60, 30]].map(([d, wd]) => [`W${lo}-${hi}D${d}w${wd}`, lo, hi, d, wd] as const));
+  it.each(wingCases)('%s, its wings at another pitch, takes the steeper of the two', (name, lo, hi, d, wd) => {
+    expectSplitCut(wingsDiffer(name, lo, hi, d, wd), [lo, hi, 150, 500], Math.max(d, wd));
+  });
+  it.each(wingCases)('%s keeps every invariant', async (name, lo, hi, d, wd) => {
+    expect(await outcomeOf(wingsDiffer(name, lo, hi, d, wd))).toEqual([]);
+  });
+});
+
+/**
+ * Journal decision 151: the counter-cases that struck decision 150's provisional cut-ends rule. The cutting Ring wins
+ * both walls the free cut meets, at 30 and 45 degrees, while the far band and the wings stand at 60. The cut-ends rule
+ * took 45, the steeper of the two walls at the cut's ends, and broke 96 of these 162; the island's steepest hip wall
+ * takes 60.
+ */
+describe("decision 151's counter-cases to the cut-ends rule: the far band and wings steeper than both walls at the cut's ends", () => {
+  const cases = SPLIT_BAND_LAYOUTS.flatMap(l => [[30, 45], [45, 30]].flatMap(([s, n]) => [30, 45, 60].map(a =>
+    [`${splitBandName(l)}s${s}n${n}a${a}w60`, l, {a, s, n, w: 60}] as const)));
+  it.each(cases)('%s takes 60 degrees', (name, l, p) => {
+    expectSplitCut(splitBandFixture(name, ...l, p), l, 60);
+  });
+  it.each(cases)('%s keeps every invariant', async (name, l, p) => {
+    expect(await outcomeOf(splitBandFixture(name, ...l, p))).toEqual([]);
+  });
+});
+
+/**
+ * Journal decision 151, measured: split-band courtyards with every side gabled, so the island has no hip wall and the
+ * free cut takes `CUT_ALL_GABLE_DEG`, and the same with the far N band hipped, so it takes that band's pitch. Every
+ * layout not listed keeps every invariant. Each listed one is all-gable with its Rings' default at 60 degrees and a
+ * hole 100 cm wide or narrower: its gables' skeleton weights stand at 60 while the cut is 45, and the skeleton refuses
+ * the default hip. Through the wire an all-gable Ring reads its default as `WIRE_GABLE_ONLY_DEG = 45` (decision 140,
+ * F4), which matches the cut, so only a hand-authored fixture reaches this.
+ */
+const ALL_GABLE_DEFECTS: Readonly<Partial<Record<`${string}D${number}${'g' | 'n'}`, readonly string[]>>> = {
+  'H450-550B150S500D60g': ["throws: H450-550B150S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H450-550B200S500D60g': ["throws: H450-550B200S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H470-530B100S500D60g': ["throws: H470-530B100S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H470-530B150S480D60g': ["throws: H470-530B150S480D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 25, 27, 29, 31."],
+  'H470-530B150S500D60g': ["throws: H470-530B150S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H470-530B200S480D60g': ["throws: H470-530B200S480D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 25, 27, 29, 31."],
+  'H470-530B200S500D60g': ["throws: H470-530B200S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H490-510B100S500D60g': ["throws: H490-510B100S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H490-510B150S500D60g': ["throws: H490-510B150S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+  'H490-510B200S500D60g': ["throws: H490-510B200S500D60g storey 0: solveRoofParts: default hip refused by the skeleton: incomplete: vertices-canonicalised: 4 vertex(es) removed before solving as invisible at the 0.000001 unit-space noise floor; largest discarded deviation 0. 12 vertices remain. | step-failure: Unable to generate any collisions from graph context. Skeleton remains incomplete. | unresolved-edges: 4 interior edge(s) finished without a target node: 26, 27, 30, 31."],
+};
+
+describe('all-gable split bands (journal decision 151): no hip wall, so CUT_ALL_GABLE_DEG', () => {
+  const G = {form: 'gable'} as const;
+  const cases = SPLIT_BAND_LAYOUTS.flatMap(l => [30, 45, 60].flatMap(d => [false, true].map(farHip =>
+    [`${splitBandName(l)}D${d}${farHip ? 'n' : 'g'}` as const, l, d, farHip] as const)));
+  it.each(cases)('%s keeps every invariant, or exactly its measured defect', async (name, l, d, farHip) => {
+    const f = splitBandFixture(name, ...l, {a: d, w: d});
+    f.rings = f.rings.map((r, i) => ({...r, sides: farHip && i === 4 ? {} : {S: G, E: G, N: G, W: G}}));
+    if (!ALL_GABLE_DEFECTS[name]) expectSplitCut(f, l, farHip ? d : CUT_ALL_GABLE_DEG);
+    expect(await outcomeOf(f)).toEqual(ALL_GABLE_DEFECTS[name] ?? []);
   });
 });
 

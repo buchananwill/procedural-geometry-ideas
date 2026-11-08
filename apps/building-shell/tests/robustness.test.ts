@@ -22,8 +22,9 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  pitchEndFixtures, randomFixtures, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
+  pitchEndFixtures, randomFixtures, randomSplitCourtyards, randomUFixtures, seededFixture, sweepFixture, sweepFixtures,
 } from './robustness-fixtures.ts';
+import {planStorey} from '../src/storey.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
 import {ShellExpectation, dist, invariantViolations} from './shell-invariants.ts';
 
@@ -128,6 +129,33 @@ const courtyardOutcome = (f: ShellFixture): Promise<string[]> => outcome(f, COUR
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random courtyards (journal decisions 115, 132 and 135): seed %i at %i cm storeys', (seed, h) => {
   it.each(randomCourtyardFixtures(seed, PER_COURTYARD_SEED, h).map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
     expect(await courtyardOutcome(f)).toEqual(COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
+  });
+});
+
+/**
+ * Measured at WP3.8: every split-band courtyard (journal decisions 150 and 151) that breaks an invariant, in the same
+ * form. Split mode makes the free cut, collinear with no wall, the shortest, so every one of these reads the free
+ * branch and takes the island's steepest hip wall.
+ */
+const SPLIT_COURTYARD_DEFECTS: Readonly<Record<string, readonly string[]>> = {
+  's2h250/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
+  's2h263/SplitCourt10': ["throws: cleanMesh: cap 38 (31-36, apex 34) can neither flip nor merge its apex into its long edge"],
+  's2h300/SplitCourt10': ["throws: cleanMesh: cap 38 (31-37, apex 34) can neither flip nor merge its apex into its long edge"],
+  's5h250/SplitCourt29': ["throws: cell 790: side 334-11 reads ShellEdge 59, its NetEdge -1"],
+};
+
+describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random split-band courtyards (journal decisions 150 and 151): seed %i at %i cm storeys', (seed, h) => {
+  const draws = randomSplitCourtyards(seed, PER_COURTYARD_SEED, h);
+
+  // The gate on the free branch: removing it moves every cut off its split line.
+  it.each(draws.map(d => [d.fixture.name, d] as const))('%s is cut along its split, the free cut', (_, {fixture, split}) => {
+    const cuts = planStorey(fixture, 0).building.walls.filter(w => w.form === 'cut');
+    expect(cuts).toHaveLength(2);
+    for (const w of cuts) expect([w.a, w.b].map(p => (split.axis === 'x' ? p.x : p.y))).toEqual([split.at, split.at]);
+  });
+
+  it.each(draws.map(d => [d.fixture.name, d.fixture] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
+    expect(await courtyardOutcome(f)).toEqual(SPLIT_COURTYARD_DEFECTS[`s${seed}h${h}/${name}`] ?? []);
   });
 });
 
