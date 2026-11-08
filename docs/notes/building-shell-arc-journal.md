@@ -1695,7 +1695,23 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - `isPlanRefusal` matching message prefixes: accepted, until WP3.8 gives the pipeline's plan refusals a named
        error class. Then the wire uses the class.
      - The gable-contact join reads each side's own authored form, so a gable that a lower-index Ring overrides is
-       not modelled: accepted, stated in the header. A mismatch it causes gets a pin. Its scope is decisions 136 to 140. It stays within the wire
+       not modelled: accepted, stated in the header. A mismatch it causes gets a pin.
+147. **Rulings on WP5.2's type review** (REQUEST CHANGES: 5 blocking, 7 notes, at `55c1e66`). Decision 142's twelve items
+     are closed in substance. **All findings are accepted, and they fold into WP3.8,** not a WP5.3. WP3.8 is the only
+     package left in flight, so one delegate owning both the pipeline and the wire files removes the overlap that
+     kept them apart, and saves a review round.
+     - **B1:** `EndedEdge = Required<OutputEdge>`, with `OutputEdge` and `OutputPoint` exported.
+     - **B2:** `Box` and `Component` are exported.
+     - **B3:** `AxisGrid` and `GridCell` are named, and `gablePairs` is named or dropped.
+     - **B4:** gables come from `RING_SIDES.filter`, with no cast.
+     - **B5:** `Unmatched<TLeft, TRight>` is named.
+     - **N1:** `WIRE_FORMS` is derived from `SIDE_READINGS`, or tied to it.
+     - **N2:** `BaselineDiff` picks from `CanonicalDiff`.
+     - **N3:** `walls` is annotated, and `RING_SIDES.map` replaces the hard-coded indices.
+     - **N4:** the pin tables are keyed by template-literal unions.
+     - **N5:** an `any` canary, and no hard-coded count.
+     - **N6:** `makeUnionFind`.
+     - **N7:** both `SHELL_KINDS` lists fold into `tags.ts` with decision 142's N5 move. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
