@@ -23,9 +23,6 @@ export const compareSources = (a: CellSource, b: CellSource): number => a.ringMo
 
 const sameSource = (a: CellSource, b: CellSource): boolean => a.ringModelIndex === b.ringModelIndex && a.side === b.side;
 
-/** A Ring side lying on a face's line and facing its way, with its stretch along the line. */
-interface Candidate { lo: number; hi: number; source: CellSource }
-
 /** Whether a straight line `l` is the face's line: its axis, its place, and an inward normal opposite the face's. */
 function onFaceLine(l: WallLine, axis: 'x' | 'y', at: number, outward: number): boolean {
   return l.axis === axis && l.n === (outward > 0 ? `-${axis}` : `+${axis}`) && Math.abs(l.at - at) <= SHELL_TOLERANCE_CM;
@@ -54,7 +51,7 @@ export function makeSourceSpans(fixture: ShellFixture): (face: ShellFace) => Sou
     const outward = axis === 'y' ? ny : nx;
     const at = face.offset * outward;
     const visible = wallsOf(face.tag.storey).filter(l => onFaceLine(l, axis, at, outward));
-    const candidates: Candidate[] = storeyRings(fixture, face.tag.storey).flatMap(({index, ring}) => {
+    const candidates: SourceSpan[] = storeyRings(fixture, face.tag.storey).flatMap(({index, ring}) => {
       const lines = ringSideLines(ring.rect);
       return RING_SIDES.flatMap((side, k) => {
         const l = lines[side];

@@ -361,7 +361,8 @@ export function cleanMesh(mesh: ShellMesh, planes: readonly Plane3[] | null = nu
   for (let o = 0; o < nV; o++) {
     const r = into.find(o);
     if (!used.has(r)) continue;
-    const d = dist3(pointAt(X, r).map(f32) as Vec3, pointAt(O, o));
+    const [x, y, z] = pointAt(X, r);
+    const d = dist3([f32(x), f32(y), f32(z)], pointAt(O, o));
     stats.maxMoveCm = Math.max(stats.maxMoveCm, d);
     if (d > CLEAN_MAX_MOVE_CM) {
       throw new Error(`cleanMesh: vertex ${o} would move ${d.toExponential(3)} cm onto vertex ${r}, past ${CLEAN_MAX_MOVE_CM} cm`);
@@ -440,8 +441,6 @@ function removeSheets(
 
   return {work: stitchOpen(work.filter((_, i) => !drop.has(i)), X, tol, into), dropped: drop.size};
 }
-
-/** A union-find over vertices, as `cleanMesh` records merges in it. */
 
 /**
  * Closes what dropping zero-volume triangles left open (journal decision 122, G1 and F-D): the open boundary's

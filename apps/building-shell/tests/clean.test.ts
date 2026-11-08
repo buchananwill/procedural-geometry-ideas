@@ -7,6 +7,7 @@ import {SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import type {ShellMesh} from '../src/mesh.ts';
 import {ShellUnion, partManifold, triArea, unionShell} from '../src/union.ts';
+import {dist3, pointAt} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {CAP_CHAIN_SEED, randomFixtures, seededFixture} from './robustness-fixtures.ts';
 import {AREA_TOL, nearContactViolations} from './shell-invariants.ts';
@@ -37,7 +38,7 @@ const edgeLengths = (mesh: ShellMesh): number[] => {
   const out: number[] = [];
   for (let h = 0; h < T.length; h++) {
     const a = T[h], b = T[3 * Math.floor(h / 3) + (h % 3 + 1) % 3];
-    out.push(Math.hypot(P[3 * a] - P[3 * b], P[3 * a + 1] - P[3 * b + 1], P[3 * a + 2] - P[3 * b + 2]));
+    out.push(dist3(pointAt(P, a), pointAt(P, b)));
   }
   return out;
 };
@@ -185,7 +186,7 @@ describe('the move bound on the float32 positions as written (journal decision 1
     let worst = 0;
     vertexOf.forEach((w, o) => {
       if (w < 0) return;
-      const d = Math.hypot(...[0, 1, 2].map(k => mesh.positions[3 * w + k] - raw.positions[3 * o + k]));
+      const d = dist3(pointAt(mesh.positions, w), pointAt(raw.positions, o));
       worst = Math.max(worst, d);
     });
     expect(worst).toBeLessThanOrEqual(CLEAN_MAX_MOVE_CM);

@@ -1,48 +1,59 @@
-// Journal decisions 129, 131 and 152: the golden set's records, built from a fixture's build. The port diffs against
-// these; port-ready is named by the commit that lands them. Browser-safe: the writer and the drift test do the I/O.
+// Journal decisions 129, 131 and 152: the golden set's records, built from a fixture's build, and the manifest's schema.
+// The port diffs against these and reads their shapes (decision 155, B8, B10 and N5), so each derives from the
+// pipeline's own types. Port-ready is named by the commit that lands them. Browser-safe: the writer and the drift test
+// do the I/O.
+import {z} from 'zod';
+import {EDGE_KINDS} from './edges.ts';
 import type {ShellFixture} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
+import type {ShellReport} from './shell.ts';
+import type {RawPart} from './storey.ts';
+import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
 import {writeInput} from './wire/input-adapter.ts';
 import type {BuildingShellInputV1} from './wire/input-types.ts';
 
-/** One mesh as the golden set writes it: flat arrays, as `manifold-3d`'s `Mesh` carries them. */
-export interface GoldenMesh { positions: number[]; tris: number[]; faceIDs: number[] }
+/** A mesh's flat arrays, as `manifold-3d`'s `Mesh` carries them. */
+type MeshArrays = Pick<ShellMesh, 'positions' | 'tris' | 'faceIDs'>;
+
+/** One mesh as the golden set writes it: the same arrays, as plain lists. */
+export type GoldenMesh = {[K in keyof MeshArrays]: number[]};
 
 /** One raw part as handed to Manifold, after weld and snap, in union order. */
-export interface GoldenPart extends GoldenMesh { id: number; name: string }
+export type GoldenPart = Pick<RawPart, 'id' | 'name'> & GoldenMesh;
 
-/** One faceID's tag and generating plane. */
-export interface GoldenFaceID { faceID: number; kind: string; storey: number; wall: number; plane: number; part: number; n: number[]; d: number }
+/** One faceID with its tag and its generating plane. */
+export type GoldenFaceID = {faceID: number} & FaceTag & Plane3;
+
+/** Decision 131's first stage: the raw parts as handed to Manifold, and every faceID's tag and plane. */
+export interface RawPartsStage { faceIDs: GoldenFaceID[]; rawParts: GoldenPart[] }
+
+/** Decision 131's second stage: Manifold's union, before cleaning, imprint and re-tag. */
+export type BooleanStage = {status: ShellUnion['status']} & GoldenMesh;
+
+/** Decision 131's third stage: the final tagged mesh, after cleaning, imprint and re-tag, which step 4 reads. */
+export type UnionOutputStage = Pick<ShellUnion, 'genus'> & GoldenMesh & {triTags: PartlessTag[]};
 
 /**
  * Journal decision 131: a fixture's union stages, so the C++ can tell a difference in the boolean from one in its
  * raw-part builder.
- * - `faceIDs`: every faceID's tag and plane.
- * - `rawParts`: the meshes handed to Manifold, after weld and snap, in union order.
- * - `booleanOutput`: Manifold's union, before cleaning, imprint and re-tag.
- * - `unionOutput`: the final tagged mesh, after cleaning, imprint and re-tag, which step 4 reads, with each
- *   triangle's re-tagged kind, storey and wall.
  */
-export interface UnionStages {
-  fixture: string;
-  faceIDs: GoldenFaceID[];
-  rawParts: GoldenPart[];
-  booleanOutput: GoldenMesh & {status: string};
-  unionOutput: GoldenMesh & {genus: number; triTags: {kind: string; storey: number; wall: number; plane: number}[]};
-}
+export type UnionStages = {fixture: string} & RawPartsStage & {booleanOutput: BooleanStage; unionOutput: UnionOutputStage};
 
-const meshRecord = (m: Pick<ShellMesh, 'positions' | 'tris' | 'faceIDs'>): GoldenMesh =>
+const meshRecord = (m: MeshArrays): GoldenMesh =>
   ({positions: Array.from(m.positions), tris: Array.from(m.tris), faceIDs: Array.from(m.faceIDs)});
 
 /** Journal decision 131: a union's three stages. */
 export function unionStages(fixture: string, u: ShellUnion): UnionStages {
   return {
     fixture,
-    faceIDs: u.tags.table.map((t, faceID) => ({faceID, kind: t.kind, storey: t.storey, wall: t.wall, plane: t.plane, part: t.part, n: [...u.tags.planes[faceID].n], d: u.tags.planes[faceID].d})),
-    rawParts: u.parts.map(p => ({id: p.id, name: p.name, positions: [...p.soup.positions], tris: [...p.soup.tris], faceIDs: [...p.soup.faceIDs]})),
+    faceIDs: u.tags.table.map((t, faceID): GoldenFaceID => {
+      const {n, d} = u.tags.planes[faceID];
+      return {faceID, kind: t.kind, storey: t.storey, wall: t.wall, plane: t.plane, part: t.part, n: [n[0], n[1], n[2]], d};
+    }),
+    rawParts: u.parts.map((p): GoldenPart => ({id: p.id, name: p.name, positions: [...p.soup.positions], tris: [...p.soup.tris], faceIDs: [...p.soup.faceIDs]})),
     booleanOutput: {status: u.status, ...meshRecord(u.boolean)},
-    unionOutput: {genus: u.genus, ...meshRecord(u.mesh), triTags: u.triTags.map(t => ({kind: t.kind, storey: t.storey, wall: t.wall, plane: t.plane}))},
+    unionOutput: {genus: u.genus, ...meshRecord(u.mesh), triTags: u.triTags.map((t): PartlessTag => ({kind: t.kind, storey: t.storey, wall: t.wall, plane: t.plane}))},
   };
 }
 
@@ -53,8 +64,13 @@ export const CPP_LATTICE_SLACK_CM = 1e-6;
 /** The C++ replay's storey cap: a Ring's `baseStorey + storeys` at most this. */
 export const CPP_MAX_STOREY = 32;
 
+/** A replayable fixture (journal decision 152, amended). */
+export const ReplayableSchema = z.strictObject({cppReplayable: z.literal(true)});
+/** A fixture the C++ cannot replay, and every reason. */
+export const NotReplayableSchema = z.strictObject({cppReplayable: z.literal(false), reason: z.string().min(1)});
+
 /** Whether the C++ can replay a fixture's input (journal decision 152, amended), and every reason it cannot. */
-export type Replayability = {cppReplayable: true} | {cppReplayable: false; reason: string};
+export type Replayability = z.output<typeof ReplayableSchema> | z.output<typeof NotReplayableSchema>;
 
 /**
  * Journal decision 152, amended: a fixture is C++-replayable exactly when its `input@1` (as `writeInput` writes it,
@@ -75,6 +91,54 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   if (!input.rings.every(r => r.baseStorey + r.storeys <= CPP_MAX_STOREY)) reasons.push(`a Ring reaching past storey ${CPP_MAX_STOREY}`);
   return reasons.length ? {cppReplayable: false, reason: reasons.join('; ')} : {cppReplayable: true};
 }
+
+/** Spec decision 33's `ShellReport`, as the manifest pins it, checked against the type below. */
+export const ShellReportSchema = z.strictObject({
+  conflicts: z.array(z.string()),
+  survivingInternal: z.number(),
+  unclassifiedEdges: z.number(),
+  cheeks: z.number(),
+  partialCells: z.number(),
+  newEdgeKinds: z.array(z.enum(EDGE_KINDS)),
+  newConventions: z.array(z.string()),
+});
+
+/** What every manifest entry carries: the fixture's name and its pinned genus per component, highest first. */
+const EntryBaseSchema = z.strictObject({fixture: z.string().min(1), genus: z.array(z.number())});
+
+/** A fixture whose build succeeded: its files, its pinned report, and its invariant outcome against `genus`. */
+const BuiltSchema = z.strictObject({shell: z.string(), union: z.string(), report: ShellReportSchema, violations: z.array(z.string())});
+
+/** A fixture whose build throws: its error, in place of its files (journal decision 129). */
+const RefusedSchema = z.strictObject({violations: z.array(z.string()).length(0), error: z.string().min(1)});
+
+/**
+ * Journal decisions 129, 152 and 155 (B10, N5): one manifest entry, built on its replayability, as a union of its files
+ * or its error. A replayable fixture that builds also names its `input@1` file.
+ */
+export const GoldenEntrySchema = z.union([
+  EntryBaseSchema.extend(ReplayableSchema.shape).extend(BuiltSchema.shape).extend({input: z.string()}),
+  EntryBaseSchema.extend(NotReplayableSchema.shape).extend(BuiltSchema.shape),
+  EntryBaseSchema.extend(ReplayableSchema.shape).extend(RefusedSchema.shape),
+  EntryBaseSchema.extend(NotReplayableSchema.shape).extend(RefusedSchema.shape),
+]);
+
+export type GoldenEntry = z.output<typeof GoldenEntrySchema>;
+
+/** The manifest's file name in the golden set (journal decision 129). */
+export const MANIFEST_FILE = 'manifest.json';
+
+/** The manifest's schema tag. */
+export const GOLDEN_SCHEMA = 'building-shell/golden@1';
+
+/** The manifest: every named fixture, in the golden set's order. */
+export const GoldenManifestSchema = z.strictObject({schema: z.literal(GOLDEN_SCHEMA), fixtures: z.array(GoldenEntrySchema)});
+
+export type GoldenManifest = z.output<typeof GoldenManifestSchema>;
+
+/** Compile-time (decision 155, N5): the report schema is `ShellReport`, both ways. */
+const reportMatches: [z.output<typeof ShellReportSchema>] extends [ShellReport] ? ([ShellReport] extends [z.output<typeof ShellReportSchema>] ? true : never) : never = true;
+void reportMatches;
 
 /** A golden file's text: compact JSON and a final newline, so its bytes are its hash. */
 export const goldenText = (x: unknown): string => `${JSON.stringify(x)}\n`;

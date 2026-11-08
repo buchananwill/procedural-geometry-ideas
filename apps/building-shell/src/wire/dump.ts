@@ -3,6 +3,7 @@
 // `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json` (decision 152, the subject sanitised) and the same stem
 // with `.output.json`, in the solve dump's directory, the seed always present. Ingestion pairs them by the stem before `.input.json` or `.output.json`, whatever dots it
 // holds; the subject is read from the input's provenance, never from the name. Browser-safe.
+import {RING_SIDES} from '../fixture.ts';
 import {CellSource, compareSources} from '../provenance.ts';
 import type {BuildingShell} from '../shell.ts';
 import {DiffReport, baselineReport, canonicalOfShell, diffReport} from './canonical.ts';
@@ -47,8 +48,9 @@ export function listDumps(names: readonly string[]): DumpListing {
 export function withFileModelIndices(shell: BuildingShell, adapted: Pick<AdaptedInput, 'modelIndices' | 'sideSlots'>): BuildingShell {
   const map = (s: CellSource): CellSource => {
     const ringModelIndex = adapted.modelIndices[s.ringModelIndex];
-    const side = adapted.sideSlots[s.ringModelIndex]?.[s.side];
-    if (ringModelIndex === undefined || side === undefined || side < 0) throw new Error(`a source names Ring ${s.ringModelIndex} side ${s.side}, which the file does not hold`);
+    const compass = RING_SIDES[s.side];
+    const side = compass && adapted.sideSlots[s.ringModelIndex]?.[compass];
+    if (ringModelIndex === undefined || side === undefined) throw new Error(`a source names Ring ${s.ringModelIndex} side ${s.side}, which the file does not hold`);
     return {ringModelIndex, side};
   };
   return {

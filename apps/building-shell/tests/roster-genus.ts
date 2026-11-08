@@ -1,7 +1,9 @@
 // The measured genus of every named fixture, per connected component, highest first (spec decision 32 as amended:
 // "measured, then pinned"; journal decision 148, F1). The playtest seeds take these roster pins, and every sweep that
 // rebuilds a roster fixture at other pitches expects them. Keyed by fixture name; a missing name throws (decision
-// 150's N4), so a fixture added without its measurement fails loudly.
+// 150's N4), so a fixture added without its measurement fails loudly. The key is `string`, not a template type
+// (decision 155, N7): `src/fixture.ts` types every roster fixture `ShellFixture`, so its names carry no literal type to
+// key by, and the name-set test in playtest-ingest.test.ts holds the table to the roster instead.
 
 /** Per component, highest first: what `componentGenera` measured for each named fixture at WP3.8. */
 const ROSTER_GENUS: Readonly<Record<string, readonly number[]>> = {

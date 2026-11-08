@@ -113,10 +113,10 @@ export function splitSimpleLoops(loop: number[]): number[][] {
   return out;
 }
 
-/** A face's identity (spec decision 10 as amended), read on its own plane, its plane keyed by the build's clusters. */
 /** A face's oriented plane, from its own normal and offset (journal decision 145, B2): the one place it is built. */
 export const facePlane = (f: Pick<ShellFace, 'normal' | 'offset'>): Plane3 => ({n: f.normal, d: f.offset});
 
+/** A face's identity (spec decision 10 as amended), read on its own plane, its plane keyed by the build's clusters. */
 export const faceIdentity = (f: ShellFace, clusters: PlaneClusters): string => identityKey(f.tag, facePlane(f), clusters);
 
 /**

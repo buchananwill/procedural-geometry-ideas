@@ -5,7 +5,7 @@ import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {EdgeKind, ShellEdge, ShellVertex, snapPoint} from '../src/edges.ts';
 import type {Vec2} from 'manifold-3d';
 import {errorMessage} from '../src/errors.ts';
-import {ShellFace, loopArea} from '../src/faces.ts';
+import {ShellFace, facePlane, loopArea} from '../src/faces.ts';
 import {FixtureRing, RingSides, SHELL_FIXTURES, STOREY_HEIGHT_CM, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {getManifold} from '../src/manifold.ts';
 import {tanDeg} from '../src/ring-forms.ts';
@@ -791,7 +791,7 @@ describe('F6: the shell does not depend on how the plan was split into Rings', (
   /** A face by what it is: identity on its plane, area, and its loops' points; never its id, wall or part. */
   const faceSig = (b: ShellBuild, f: ShellFace): string => {
     const loops = f.loops.map(l => l.map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort().join(' ')).sort();
-    return `${f.tag.kind}|${f.tag.storey}|${clusterKeyOf({n: f.normal, d: f.offset}, b.union.tags.clusters)}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
+    return `${f.tag.kind}|${f.tag.storey}|${clusterKeyOf(facePlane(f), b.union.tags.clusters)}|${f.area.toFixed(1)}|${loops.join(' / ')}`;
   };
   const edgeSig = (b: ShellBuild, e: ShellEdge): string => {
     const ends = [e.a, e.b].map(p => snapPoint(p).map(x => x.toFixed(2)).join(',')).sort();

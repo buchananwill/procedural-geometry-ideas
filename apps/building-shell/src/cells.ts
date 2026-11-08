@@ -5,7 +5,8 @@ import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {
   EdgeAssembly, EdgeKind, FaceFan, NetEdge, ShellEdge, ShellVertex, VertexOrigin, VertexRegistry, findVertex, snapPoint, vertexAt, vertexFans,
 } from './edges.ts';
-import {FaceAssembly, FaceSource, ShellFace, destOf, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
+import {FaceAssembly, FaceSource, ShellFace, destOf, facePlane, meshPoint, originOf, prevHalf, splitSimpleLoops, triOf} from './faces.ts';
+import {ontoPlane} from './regions.ts';
 import {Wasm} from './manifold.ts';
 import {CellSource, SourceSpan, reachesOut, sourceAt, sourceBoundaries} from './provenance.ts';
 import {snapCm} from './weld.ts';
@@ -84,7 +85,7 @@ const to2 = (fr: FaceFrame, p: Vec3): Vec2 => [p[fr.s], p[fr.t]];
  * `p` projected along the face's normal onto its plane: distances to a point lifted onto the plane are then measured
  * in the plane itself, never foreshortened (journal decision 122, G4), and blind to a vertex's float32 offset off it.
  */
-const onFace = (face: ShellFace, p: Vec3): Vec3 => sub3(p, scale3(face.normal, dot3(face.normal, p) - face.offset));
+const onFace = (face: ShellFace, p: Vec3): Vec3 => ontoPlane(p, facePlane(face));
 
 /** Per face: the lattice frame its Cells are laid in, or null for a face with no Cells. */
 export type FrameTable = (FaceFrame | null)[];
@@ -99,11 +100,20 @@ export interface EdgePoints { ids: number[] }
  */
 export interface SplitLine { axis: LatticeAxis; at: number; lo: number; hi: number }
 
-/** One of a face's two lattice axes: 0 for `s`, 1 for `t` (journal decision 145, B6). */
+/**
+ * One of a face's two lattice axes: 0 for `s`, 1 for `t` (journal decision 145, B6). Not storey.ts's `AlongAxis`,
+ * which names a world axis, x or y, along a vertical plane (decision 155, N1): the two share values, not meaning.
+ */
 export type LatticeAxis = 0 | 1;
+
+/** A lattice-aligned rectangle of a face's frame, by its low and high corners. */
+export type LatticeRect = [lo: Vec2, hi: Vec2];
 
 /** Per face: the lines its lattice squares are split along (G3). */
 export type SplitTable = SplitLine[][];
+
+/** Per face: its Ring-side provenance spans, in order along its line (journal decision 130); none for a non-wall face. */
+export type SpanTable = readonly (readonly SourceSpan[])[];
 
 /**
  * Whether a point of the face's lattice frame, `held` on `axis` and `other` on the other, lies on split line `x`: on
@@ -302,12 +312,12 @@ export function splitAtHoles(region: CrossSection, lo: Vec2, hi: Vec2, out: Spli
  * inside it (`sourceBoundaries`), so every Cell has exactly one source. Each cut is recorded in `out` as a split line,
  * whose crossings with ShellEdges become vertices of both faces' Cells, as G3's do. Returns the parts' corners.
  */
-function provenanceCuts(boundaries: readonly number[], lo: Vec2, hi: Vec2, out: SplitLine[]): [Vec2, Vec2][] {
+function provenanceCuts(boundaries: readonly number[], lo: Vec2, hi: Vec2, out: SplitLine[]): LatticeRect[] {
   const inner = [...new Set(boundaries.map(snapCm))]
     .filter(c => c > lo[0] + SHELL_TOLERANCE_CM && c < hi[0] - SHELL_TOLERANCE_CM).sort((a, b) => a - b);
   for (const at of inner) out.push({axis: 0, at, lo: lo[1], hi: hi[1]});
   const xs = [lo[0], ...inner, hi[0]];
-  return xs.slice(1).map((x, k): [Vec2, Vec2] => [[xs[k], lo[1]], [x, hi[1]]]);
+  return xs.slice(1).map((x, k): LatticeRect => [[xs[k], lo[1]], [x, hi[1]]]);
 }
 
 /**
@@ -339,7 +349,7 @@ export interface CellNet { cells: ShellCell[]; netEdges: NetEdge[]; frames: Fram
  * polygon is wound counter-clockwise seen from outside.
  */
 export function layCells(
-  wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cellSize: number, spans: readonly (readonly SourceSpan[])[],
+  wasm: Wasm, src: FaceSource, asm: FaceAssembly, ea: EdgeAssembly, reg: VertexRegistry, cellSize: number, spans: SpanTable,
 ): CellNet {
   const {faces} = asm;
   const frames: FrameTable = faces.map(faceFrame);

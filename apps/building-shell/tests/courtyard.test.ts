@@ -14,6 +14,7 @@ import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
+import type {PinTable} from './pin-table.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -194,7 +195,7 @@ describe("decision 151's counter-cases to the cut-ends rule: the far band and wi
  * all-gable layouts at 60 degrees with a hole 100 cm wide or narrower were refused by the skeleton, the cut shallower
  * than its gables; decision 153 cures all ten.
  */
-const ALL_GABLE_DEFECTS: Readonly<Partial<Record<`${string}D${number}${'g' | 'n'}`, readonly string[]>>> = {
+const ALL_GABLE_DEFECTS: PinTable<`${string}D${number}${'g' | 'n'}`> = {
 };
 
 describe('all-gable split bands (journal decisions 151 and 153): the free cut takes the gables\' pitch', () => {

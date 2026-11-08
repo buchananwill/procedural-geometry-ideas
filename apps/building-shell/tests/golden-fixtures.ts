@@ -7,8 +7,8 @@
 //   replayability with the reason when false, and, for a fixture whose build throws, its error in place of files.
 import {errorMessage} from '../src/errors.ts';
 import {EXPORTED_FIXTURES, ShellFixture} from '../src/fixture.ts';
-import {goldenText, cppReplayability, unionStages} from '../src/golden.ts';
-import {ShellReport, buildShellDetailed} from '../src/shell.ts';
+import {GOLDEN_SCHEMA, GoldenEntry, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, cppReplayability, goldenText, unionStages} from '../src/golden.ts';
+import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {writeInput} from '../src/wire/input-adapter.ts';
 import {
   CAP_CHAIN_SEED, CUT_OVERSHOOT_PROBE, F2_COURTYARDS, FULL_WINGS_PROBE, PINCH_SEEDS, UPPER_U_EDGE_CONTACT, flushOverReflexFixture,
@@ -39,51 +39,44 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...(['Aligned', 'Offset'] as const).map(kind => ({fixture: gapFixture(kind, 1), genus: [0, 0]})),
 ];
 
-/** One fixture's manifest entry (journal decisions 129 and 152). */
-export interface GoldenEntry {
-  fixture: string;
-  /** Its files, absent for a fixture whose build throws. */
-  shell?: string;
-  union?: string;
-  /** Its `input@1`, written only when it is C++-replayable. */
-  input?: string;
-  cppReplayable: boolean;
-  /** Why it is not replayable. */
-  reason?: string;
-  /** Its pinned genus per component, highest first. */
-  genus: readonly number[];
-  /** Its pinned report (spec decision 33), absent for a fixture whose build throws. */
-  report?: ShellReport;
-  /** Its invariant outcome against `genus`: empty when clean, its enrolled defect otherwise. */
-  violations: string[];
-  /** The error its build raised, in place of its files. */
-  error?: string;
-}
-
-/** The manifest: every named fixture, in `GOLDEN_FIXTURES` order. */
-export interface GoldenManifest { schema: 'building-shell/golden@1'; fixtures: GoldenEntry[] }
-
-export const MANIFEST_FILE = 'manifest.json';
-
-/** Every golden file by name, with its text: what the writer writes and the drift test compares byte for byte. */
+/**
+ * Every golden file by name, with its text: what the writer writes and the drift test compares byte for byte. Each
+ * manifest entry is built as one member of `GoldenEntry`'s union (journal decision 155, B10), in the manifest's key
+ * order: the fixture, its replayability, its genus, then its files and report or its error.
+ */
 export async function goldenFiles(): Promise<Map<string, string>> {
   const files = new Map<string, string>();
   const entries: GoldenEntry[] = [];
-  for (const {fixture: f, genus} of GOLDEN_FIXTURES) {
+  for (const {fixture: f, genus: pinned} of GOLDEN_FIXTURES) {
     const replay = cppReplayability(f);
-    const base = {fixture: f.name, cppReplayable: replay.cppReplayable, ...(replay.cppReplayable ? {} : {reason: replay.reason}), genus};
+    const fixture = f.name, genus = [...pinned];
+    let b: ShellBuild;
     try {
-      const b = await buildShellDetailed(f);
-      const shell = `${f.name}.json`, union = `${f.name}.union.json`, input = `${f.name}.input.json`;
-      files.set(shell, goldenText(b.shell));
-      files.set(union, goldenText(unionStages(f.name, b.union)));
-      if (replay.cppReplayable) files.set(input, goldenText(writeInput(f)));
-      entries.push({...base, shell, union, ...(replay.cppReplayable ? {input} : {}), report: b.shell.report, violations: invariantViolations(b, {genus, cheeks: 0})});
+      b = await buildShellDetailed(f);
     } catch (e) {
-      entries.push({...base, violations: [], error: errorMessage(e)});
+      const error = errorMessage(e);
+      entries.push(replay.cppReplayable
+        ? {fixture, cppReplayable: true, genus, violations: [], error}
+        : {fixture, cppReplayable: false, reason: replay.reason, genus, violations: [], error});
+      continue;
+    }
+    const shell = `${f.name}.json`, union = `${f.name}.union.json`;
+    const report = b.shell.report, violations = invariantViolations(b, {genus, cheeks: 0});
+    files.set(shell, goldenText(b.shell));
+    files.set(union, goldenText(unionStages(f.name, b.union)));
+    if (replay.cppReplayable) {
+      const input = `${f.name}.input.json`;
+      files.set(input, goldenText(writeInput(f)));
+      entries.push({fixture, cppReplayable: true, genus, shell, union, input, report, violations});
+    } else {
+      entries.push({fixture, cppReplayable: false, reason: replay.reason, genus, shell, union, report, violations});
     }
   }
-  const manifest: GoldenManifest = {schema: 'building-shell/golden@1', fixtures: entries};
+  const manifest: GoldenManifest = {schema: GOLDEN_SCHEMA, fixtures: entries};
+  // The type cannot refuse an entry holding both files and an error, since some member of the union holds each key;
+  // the schema does (decision 155, B10 and N5), so the writer never writes one. Its output is discarded: the text keeps
+  // the entries' own key order.
+  GoldenManifestSchema.parse(manifest);
   files.set(MANIFEST_FILE, `${JSON.stringify(manifest, null, 1)}\n`);
   return files;
 }

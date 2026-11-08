@@ -7,6 +7,7 @@
 // measured outcome, its genus per component included, so a cure breaks the suite as surely as a regression does. A pin
 // leaves by its dump being fixed, never by a softened signature. Information lines and a legacy baseline are carried,
 // never pinned (decisions 136 and 140).
+import type {PinRecord} from './pin-table.ts';
 
 /** A dump whose input the adapter refuses: exactly these reasons. */
 export interface RefusedPin { kind: 'refused'; refused: string[] }
@@ -27,5 +28,17 @@ export interface AcceptedPin {
 
 export type PlaytestPin = RefusedPin | AcceptedPin;
 
-/** By dump stem, the name both files share before `.input.json` (decision 149). Empty: every dump today is a seed. */
-export const PLAYTEST_PINS: Readonly<Record<string, PlaytestPin>> = {};
+/** A dump's stem as decision 152 names it: `<dump basename>.<SolveIndex>.<Subject>.<Seed>`. */
+export type DumpStem = `${string}.${number}.${string}.${number}`;
+
+/** Whether a listed stem follows decision 152's naming, and so may carry a pin. */
+const isDumpStem = (stem: string): stem is DumpStem => /^.+\.\d+\..+\.\d+$/.test(stem);
+
+/**
+ * By dump stem, the name both files share before `.input.json` (decision 149), keyed by decision 152's stem type
+ * (decision 155, B4). Empty: every dump today is a seed.
+ */
+export const PLAYTEST_PINS: PinRecord<DumpStem, PlaytestPin> = {};
+
+/** A listed dump's pin by its stem; none for a stem outside decision 152's naming, which no pin can name. */
+export const playtestPin = (stem: string): PlaytestPin | undefined => (isDumpStem(stem) ? PLAYTEST_PINS[stem] : undefined);

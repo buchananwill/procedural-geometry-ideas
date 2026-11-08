@@ -25,6 +25,7 @@ import {
   F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures,
 } from './robustness-fixtures.ts';
+import type {CourtName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
 import {planStorey} from '../src/storey.ts';
 import {CausedPinTable, PinTable, causeOf, pinnedOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
@@ -90,8 +91,8 @@ const PER_COURTYARD_SEED = 40;
 /** A courtyard runs from the ground to the sky: genus 1. */
 const COURTYARD_EXPECTED: ShellExpectation = {genus: 1, cheeks: 0};
 
-/** A generated case's key: its seed, storey height and name. */
-type SeededKey = `s${number}h${number}/${string}`;
+/** A generated case's key: its seed, storey height and name, of the name type `N` its generator emits (decision 155, B4). */
+type SeededKey<N extends string> = `s${number}h${number}/${N}`;
 
 /**
  * Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm (journal decision 156, F7), findings, not waivers:
@@ -105,7 +106,7 @@ type SeededKey = `s${number}h${number}/${string}`;
  * Court5 (a stuck cap) and s1h250/Court16 (a pinching collapse); clustering (decision 122, F-C) cures both, and they are
  * kept as named regressions below, since the generator now draws other layouts under those names.
  */
-const COURTYARD_DEFECTS: CausedPinTable<SeededKey> = {
+const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   's1h250/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 250)"]},
   's1h250/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 729: side 24-278 (100, 500, 500) to (100, 500, 550) reads ShellEdge 63, its NetEdge -1"]},
   's1h263/Court14': {cause: "decision 132's cut rule exposes algorithm B's Cheek class (a regression)", outcome: ["cheeks 1, expected 0, at (150, 400, 263)"]},
@@ -172,7 +173,7 @@ const COURTYARD_DEFECTS: CausedPinTable<SeededKey> = {
 };
 
 /** Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
-const U_DEFECTS: CausedPinTable<SeededKey> = {
+const U_DEFECTS: CausedPinTable<SeededKey<UName>> = {
   's6h263/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"]},
   's6h300/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"]},
 };
@@ -213,7 +214,7 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
  * 151 and 153) that breaks an invariant, in the same form, 6 of 1680. Split mode makes the free cut, collinear with no
  * wall, the shortest, so every one of these reads the free branch and takes the island's steepest wall.
  */
-const SPLIT_COURTYARD_DEFECTS: CausedPinTable<SeededKey> = {
+const SPLIT_COURTYARD_DEFECTS: CausedPinTable<SeededKey<SplitCourtName>> = {
   's2h250/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 297.3251953125)) can neither flip nor merge its apex into its long edge"]},
   's2h263/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-36, apex 34 at (712.802734375, 231.9697265625, 310.3251953125)) can neither flip nor merge its apex into its long edge"]},
   's2h300/SplitCourt10': {cause: "cleanMesh stuck cap", outcome: ["throws: cleanMesh: cap 38 (31-37, apex 34 at (712.802734375, 231.9697265625, 347.3251953125)) can neither flip nor merge its apex into its long edge"]},
@@ -257,7 +258,7 @@ describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('
  * cm across, above the cleaning's tolerance and at the shell's, whose Edges read Indeterminate, so Unclassified. The
  * nudges of 0.5/1024 to 4/1024 cm, which C8's link check and the 0.005 cm move limit refused (F-C, G2), all build.
  */
-const NUDGE_DEFECTS: PinTable<string> = {
+const NUDGE_DEFECTS: PinTable<NudgeName> = {
   'ApexEdge5': ["1 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0048828125)","interior NetEdge 469 borders cells 214","interior NetEdge 537 borders cells 255","NetEdge 574 on ShellEdge 20 borders faces 8, expected 15,8","NetEdge 575 on ShellEdge 14 borders faces 8, expected 5,8","NetEdge 576 on ShellEdge 18 borders faces 9, expected 7,9","NetEdge 577 on ShellEdge 23 borders faces 9, expected 15,9","interior NetEdge 921 borders cells 450","interior NetEdge 924 borders cells 451"],
   'ApexEdge8': ["4 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0078125); (250, 0, 500) to (250, 249.9921875, 500); (250, 250, 500.0078125) to (250.00390625, 249.99609375, 500.00390625); (250, 250, 500.0078125) to (250.00390625, 250.00390625, 500.00390625)"],
   'ApexEdge12': ["4 Unclassified Edges: (0, 500, 250) to (250, 250, 500.01171875); (250, 0, 500) to (250, 249.98828125, 500); (250, 250, 500.01171875) to (250.005859375, 249.994140625, 500.005859375); (250, 250, 500.01171875) to (250.005859375, 250.005859375, 500.005859375)"],
@@ -335,7 +336,7 @@ describe.each(HEIGHTS)('C2 and F-D at %i cm storeys: the cap chain moves no vert
  * exactly its violations. Below 7 degrees the 0.173 degree sweep and finer scans find narrow pockets, all but one a
  * Cell side that lies on no ShellEdge, lattice line or split line; from 6.91 degrees up, every case scanned is green.
  */
-const PITCH_END_DEFECTS: PinTable<string> = {
+const PITCH_END_DEFECTS: PinTable<GridName> = {
   'G5.86h250': ["throws: cell 276: side 107-109 (450, 150, 265.3955078125) to (499.9970703125, 100, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.86h250u': ["throws: cell 201: side 109-111 (50, 50, 255.1318359375) to (100, 99.9970703125, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
   'G5.86h300': ["throws: cell 316: side 111-113 (450, 150, 315.3955078125) to (499.9970703125, 100, 310.263671875) is neither on a ShellEdge, a lattice line nor a split line"],
@@ -534,7 +535,7 @@ describe('F37: a Cell corner is placed in the fan by its bisector', () => {
  *   Unclassified Edges, the cut pieces' faces across the slit no longer matching. Roof-gable algorithm B's cut-piece
  *   overshoot class (`CutOvershootProbe`), inherited. Content's own 22.5/45 reaches it (decision 148, F3).
  */
-const ROSTER_PITCH_DEFECTS: PinTable<`${string}@${string}`> = {
+const ROSTER_PITCH_DEFECTS: PinTable<RosterPitchName> = {
   'BridgeOverBlock@40': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (297.9384765625, 297.9384765625, 500) to (297.9384765625, 302.0615234375, 500); SoffitJunction (297.9384765625, 297.9384765625, 500) to (702.0615234375, 297.9384765625, 500); SoffitJunction (297.9384765625, 302.0615234375, 500) to (702.0615234375, 302.0615234375, 500); SoffitJunction (702.0615234375, 297.9384765625, 500) to (702.0615234375, 302.0615234375, 500)"],
   'BridgeOverBlock@41': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (287.591796875, 287.591796875, 500) to (287.591796875, 312.408203125, 500); SoffitJunction (287.591796875, 287.591796875, 500) to (712.408203125, 287.591796875, 500); SoffitJunction (287.591796875, 312.408203125, 500) to (712.408203125, 312.408203125, 500); SoffitJunction (712.408203125, 287.591796875, 500) to (712.408203125, 312.408203125, 500)"],
   'BridgeOverBlock@42': ["genus per component 2, expected 1: genus 2 at (0, 0, 0)","4 Roof-Underside Edges: SoffitJunction (277.6533203125, 277.6533203125, 500) to (277.6533203125, 322.3466796875, 500); SoffitJunction (277.6533203125, 277.6533203125, 500) to (722.3466796875, 277.6533203125, 500); SoffitJunction (277.6533203125, 322.3466796875, 500) to (722.3466796875, 322.3466796875, 500); SoffitJunction (722.3466796875, 277.6533203125, 500) to (722.3466796875, 322.3466796875, 500)"],
@@ -620,7 +621,7 @@ describe('the widened pitch sweep (journal decisions 146 and 148, F3): every ros
   });
 
   it.each(cases.map(c => [c.name, c] as const))('%s keeps every invariant, or exactly its measured defect', async (name, c) => {
-    expect(await locatedOutcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name as `${string}@${string}`] ?? []);
+    expect(await locatedOutcome(c.fixture, {genus: rosterGenus(c.roster), cheeks: 0})).toEqual(ROSTER_PITCH_DEFECTS[name] ?? []);
   });
 });
 

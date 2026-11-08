@@ -99,7 +99,7 @@ export function storeyLoops(rects: Rect[]): Pt[][] {
   try {
     return unionLoops(rects);
   } catch (e) {
-    if (e instanceof Error && e.message.startsWith(PINCH_PREFIX)) throw new PlanRefusal(e.message);
+    if (e instanceof Error && e.message.startsWith(PINCH_PREFIX)) throw new PlanRefusal(e.message, {cause: e});
     throw e;
   }
 }

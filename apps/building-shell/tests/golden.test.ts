@@ -6,17 +6,18 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {ShellFixture, ring} from '../src/fixture.ts';
-import {cppReplayability, cppReplayabilityOf, goldenText} from '../src/golden.ts';
+import {GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, cppReplayability, cppReplayabilityOf, goldenText} from '../src/golden.ts';
 import {buildShell} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
-import {GOLDEN_FIXTURES, GoldenManifest, MANIFEST_FILE, goldenFiles} from './golden-fixtures.ts';
+import {GOLDEN_FIXTURES, goldenFiles} from './golden-fixtures.ts';
 import {shellFixture} from './test-builds.ts';
 
 const GOLDEN_DIR = fileURLToPath(new URL('../golden', import.meta.url));
 const committed = (name: string): string => readFileSync(path.join(GOLDEN_DIR, name), 'utf8');
 const COMMITTED = readdirSync(GOLDEN_DIR).filter(n => n.endsWith('.json')).sort();
-const MANIFEST: GoldenManifest = JSON.parse(committed(MANIFEST_FILE));
+/** The committed manifest, parsed against its schema (journal decision 155, N5): a malformed entry fails here, by name. */
+const MANIFEST: GoldenManifest = GoldenManifestSchema.parse(JSON.parse(committed(MANIFEST_FILE)));
 
 let fresh: Map<string, string>;
 beforeAll(async () => { fresh = await goldenFiles(); }, 300_000);
@@ -30,9 +31,16 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
     expect(committed(name) === fresh.get(name), `${name} differs from a fresh export: re-export, and say why it moved`).toBe(true);
   });
 
-  it('names every golden fixture once, with its files or its error', () => {
+  // Each entry holds its files or its error, never both and never neither: the schema's union, parsed above.
+  it('names every golden fixture once', () => {
     expect(MANIFEST.fixtures.map(e => e.fixture)).toEqual(GOLDEN_FIXTURES.map(g => g.fixture.name));
-    for (const e of MANIFEST.fixtures) expect(e.error === undefined, e.fixture).toBe(e.shell !== undefined && e.union !== undefined);
+  });
+
+  it('refuses a manifest entry that holds both its files and an error (journal decision 155, B10)', () => {
+    const built = MANIFEST.fixtures.find(e => 'shell' in e);
+    expect(built).toBeDefined();
+    expect(GoldenEntrySchema.safeParse({...built, error: 'a build error'}).success).toBe(false);
+    expect(GoldenEntrySchema.safeParse(built).success).toBe(true);
   });
 });
 
@@ -53,7 +61,7 @@ describe('C++ replayability (journal decision 152, amended)', () => {
   it.each(GOLDEN_FIXTURES.map(g => [g.fixture.name, g.fixture] as const))('%s: its flag and reason agree with the rule, and its input is written exactly when replayable', (name, f) => {
     const e = MANIFEST.fixtures.find(x => x.fixture === name);
     const why = reasons(f);
-    expect(e && {cppReplayable: e.cppReplayable, reason: e.reason, input: e.input}).toEqual(
+    expect(e && {cppReplayable: e.cppReplayable, reason: 'reason' in e ? e.reason : undefined, input: 'input' in e ? e.input : undefined}).toEqual(
       why.length ? {cppReplayable: false, reason: why.join('; '), input: undefined} : {cppReplayable: true, reason: undefined, input: `${name}.input.json`});
   });
 
@@ -72,14 +80,14 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     expect(cppReplayabilityOf(misIndexed)).toEqual({cppReplayable: false, reason: 'ringIndex not its array position'});
   });
 
-  const replayable = MANIFEST.fixtures.filter(e => e.input);
+  const replayable = MANIFEST.fixtures.flatMap(e => ('input' in e ? [e] : []));
   it('holds replayable fixtures', () => {
     expect(replayable.length).toBeGreaterThan(0);
   });
 
   it.each(replayable.map(e => [e.fixture, e] as const))('%s: its input round-trips to its shell golden, byte for byte', async (name, e) => {
-    const read = readInput(JSON.parse(committed(`${name}.input.json`)), name);
+    const read = readInput(JSON.parse(committed(e.input)), name);
     if (!read.ok) throw new Error(read.errors.join('; '));
-    expect(goldenText(withFileModelIndices(await buildShell(read.fixture), read)) === committed(e.shell ?? '')).toBe(true);
+    expect(goldenText(withFileModelIndices(await buildShell(read.fixture), read)) === committed(e.shell)).toBe(true);
   }, 60_000);
 });

@@ -79,7 +79,7 @@ export function partManifold(wasm: Wasm, part: RawPart): Manifold {
     });
     m = wasm.Manifold.ofMesh(mesh);
   } catch (e) {
-    throw new Error(`${part.name}: Manifold refuses the part: ${errorMessage(e)}`);
+    throw new Error(`${part.name}: Manifold refuses the part: ${errorMessage(e)}`, {cause: e});
   }
   const status = m.status();
   if (status !== 'NoError') { m.delete(); throw new Error(`${part.name}: Manifold refuses the part as ${status}`); }
@@ -137,7 +137,7 @@ function remeshedGenus(wasm: Wasm, mesh: ShellMesh, what: string): number {
   try {
     m = wasm.Manifold.ofMesh(new wasm.Mesh({numProp: 3, vertProperties: mesh.positions, triVerts: mesh.tris, faceID: mesh.faceIDs}));
   } catch (e) {
-    throw new Error(`the ${what} union is no manifold: ${errorMessage(e)}`);
+    throw new Error(`the ${what} union is no manifold: ${errorMessage(e)}`, {cause: e});
   }
   try {
     const status = m.status();
@@ -221,7 +221,7 @@ function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, mode
   try {
     genus = remeshedGenus(wasm, mesh, 'imprinted');
   } catch (e) {
-    throw new Error(`${label}: ${errorMessage(e)}`);
+    throw new Error(`${label}: ${errorMessage(e)}`, {cause: e});
   }
   if (genus !== cleaned.genus) throw new Error(`${label}: the imprint changed the genus from ${cleaned.genus} to ${genus}`);
   return {...cleaned, closed: isClosed(mesh.tris), genus, mesh, imprint: stats};

@@ -14,7 +14,7 @@ import {readOutput} from '../src/wire/canonical-output-schema.ts';
 import {INPUT_SUFFIX, OUTPUT_SUFFIX, dumpReport, listDumps} from '../src/wire/dump.ts';
 import {PLAYTEST_DIR, SEED_FIXTURES, SEED_WITH_OUTPUT, seedStem} from '../src/wire/export-playtest.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
-import {AcceptedPin, PLAYTEST_PINS} from './playtest-pins.ts';
+import {AcceptedPin, PLAYTEST_PINS, playtestPin} from './playtest-pins.ts';
 import {ROSTER_GENUS_NAMES, rosterGenus} from './roster-genus.ts';
 import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {expectBaselineShape} from './wire-report-shape.ts';
@@ -49,7 +49,7 @@ describe('the playtest folder', () => {
 });
 
 describe.each(LISTING.dumps.map(d => [d.stem, d] as const))('%s', (stem, dump) => {
-  const pin = PLAYTEST_PINS[stem] ?? {kind: 'accepted'};
+  const pin = playtestPin(stem) ?? {kind: 'accepted'};
   const read = readInput(load(dump.input), stem);
 
   // Decision 143, F6: a dump's output is validated whatever its input's outcome, a refused input's included.

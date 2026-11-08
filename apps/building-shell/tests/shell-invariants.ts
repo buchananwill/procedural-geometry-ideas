@@ -8,7 +8,7 @@ import type {ShellBuild} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CLEAN_TOLERANCE_CM} from '../src/clean.ts';
 import {UnionFind, makeUnionFind, nextHalf, triOf} from '../src/halfedge.ts';
-import {Segment, dist3, lineDistance, nearestOnSegments, nearestOnTriangle, segmentDistance} from '../src/vec3.ts';
+import {Segment, add3, dist3, dot3, lineDistance, nearestOnSegments, nearestOnTriangle, scale3, segmentDistance, sub3} from '../src/vec3.ts';
 import {SNAP_STEPS_PER_CM} from '../src/weld.ts';
 import {winningRegionViolations} from './winning-regions.ts';
 
@@ -52,20 +52,16 @@ export interface ShellExpectation { genus: number | readonly number[]; cheeks: n
  * components (journal decision 140). Each one's genus is `1 - (V - E + F) / 2`.
  */
 export function componentGenera(mesh: Pick<ShellMesh, 'tris'>): number[] {
-  return componentRecords(mesh).map(c => c.genus);
+  return componentTallies(mesh.tris).map(genusOf).sort((a, b) => b - a);
 }
 
-/** One connected component of a mesh: its genus and its least vertex (x, then y, then z), snapped. */
-export interface ComponentRecord { genus: number; at: Vec3 }
+/** One connected component's Euler tally: its vertices, and its edge and triangle counts. */
+export interface ComponentTally { v: Set<number>; e: number; f: number }
 
-/**
- * Every connected component's genus and place, highest genus first, then by place. A component's place is its least
- * vertex, so a component that moves fails a pin that names it (journal decision 150, F4).
- */
-export function componentRecords(mesh: Pick<ShellMesh, 'tris'> & Partial<Pick<ShellMesh, 'positions'>>): ComponentRecord[] {
-  const T = mesh.tris;
+/** Every connected component's tally, one per component of `triangleComponents`. */
+function componentTallies(T: ArrayLike<number>): ComponentTally[] {
   const {find, byEdge} = triangleComponents(T);
-  const comps = new Map<number, {v: Set<number>; e: number; f: number}>();
+  const comps = new Map<number, ComponentTally>();
   for (let t = 0; t < T.length / 3; t++) {
     const r = find(t);
     let c = comps.get(r);
@@ -77,13 +73,24 @@ export function componentRecords(mesh: Pick<ShellMesh, 'tris'> & Partial<Pick<Sh
     const c = comps.get(find(t));
     if (c) c.e++;
   }
+  return [...comps.values()];
+}
+
+/** A component's genus, `1 - (V - E + F) / 2`. */
+const genusOf = (c: ComponentTally): number => 1 - (c.v.size - c.e + c.f) / 2;
+
+/** One connected component of a mesh: its genus and its least vertex (x, then y, then z), snapped. */
+export interface ComponentRecord { genus: number; at: Vec3 }
+
+/**
+ * Every connected component's genus and place, highest genus first, then by place. A component's place is its least
+ * vertex, so a component that moves fails a pin that names it (journal decision 150, F4). A place needs positions,
+ * so they are required (journal decision 155, N4).
+ */
+export function componentRecords(mesh: Pick<ShellMesh, 'tris' | 'positions'>): ComponentRecord[] {
   const P = mesh.positions;
-  const least = (vs: Set<number>): Vec3 => {
-    if (!P) return [0, 0, 0];
-    const pts = [...vs].map(v => meshPoint(P, v));
-    return snapPoint(pts.reduce((m, p) => (cmpPoint(p, m) < 0 ? p : m)));
-  };
-  return [...comps.values()].map(c => ({genus: 1 - (c.v.size - c.e + c.f) / 2, at: least(c.v)}))
+  const least = (vs: Set<number>): Vec3 => snapPoint([...vs].map(v => meshPoint(P, v)).reduce((m, p) => (cmpPoint(p, m) < 0 ? p : m)));
+  return componentTallies(mesh.tris).map(c => ({genus: genusOf(c), at: least(c.v)}))
     .sort((a, b) => b.genus - a.genus || cmpPoint(a.at, b.at));
 }
 
@@ -106,10 +113,13 @@ export function triangleComponents(T: ArrayLike<number>): TriangleComponents {
 }
 
 /** The nearest pair of points found between two components so far, and their distance. */
-interface NearestPair { d: number; at: Segment | null }
+export interface NearestPair { d: number; at: Segment | null }
+
+/** A mesh edge by its two vertex indices, the lesser first. */
+export type VertexPair = [a: number, b: number];
 
 /** One component's geometry for the near-contact test: its triangles, its edges and its box. */
-interface ComponentGeometry { tris: number[]; edges: [number, number][]; lo: Vec3; hi: Vec3 }
+export interface ComponentGeometry { tris: number[]; edges: VertexPair[]; lo: Vec3; hi: Vec3 }
 
 /**
  * Journal decision 150, F6: no two distinct components lie within `CLEAN_TOLERANCE_CM` of each other without touching.
@@ -165,10 +175,11 @@ export function nearContactViolations(mesh: Pick<ShellMesh, 'tris' | 'positions'
   return out;
 }
 
-/** An output triangle's centroid. */
+/** An output triangle's centroid: its corners' sum, divided by three. */
 const triCentroid = (mesh: ShellMesh, t: number): Vec3 => {
   const [a, b, c] = [0, 1, 2].map(j => meshPoint(mesh.positions, mesh.tris[3 * t + j]));
-  return [(a[0] + b[0] + c[0]) / 3, (a[1] + b[1] + c[1]) / 3, (a[2] + b[2] + c[2]) / 3];
+  const [x, y, z] = add3(add3(a, b), c);
+  return [x / 3, y / 3, z / 3];
 };
 
 /** Points in order of x, then y, then z. */
@@ -199,7 +210,8 @@ const SEARCH_STEPS = 40;
  * point and a bisection either side; `s` is covered when those intervals leave no gap.
  */
 function segmentCovered(s: Segment, targets: readonly Segment[], tol: number): boolean {
-  const at = (u: number): Vec3 => [s[0][0] + u * (s[1][0] - s[0][0]), s[0][1] + u * (s[1][1] - s[0][1]), s[0][2] + u * (s[1][2] - s[0][2])];
+  const along = sub3(s[1], s[0]);
+  const at = (u: number): Vec3 => add3(s[0], scale3(along, u));
   const lo = [0, 1, 2].map(k => Math.min(s[0][k], s[1][k]) - tol), hi = [0, 1, 2].map(k => Math.max(s[0][k], s[1][k]) + tol);
   const spans: [number, number][] = [];
   for (const t of targets) {
@@ -314,7 +326,7 @@ export function tagPlaneViolations(b: ShellBuild): string[] {
     const {n, d} = tags.planes[mesh.faceIDs[t]];
     for (let j = 0; j < 3; j++) {
       const p = meshPoint(mesh.positions, mesh.tris[3 * t + j]);
-      const off = Math.abs(n[0] * p[0] + n[1] * p[1] + n[2] * p[2] - d);
+      const off = Math.abs(dot3(n, p) - d);
       if (off > SHELL_TOLERANCE_CM) { out.push(`triangle ${t} lies ${off} cm off its tag's plane`); break; }
     }
   }
@@ -402,7 +414,7 @@ export function invariantViolations(b: ShellBuild, want: ShellExpectation): stri
     const fr = b.frames[c.face];
     if (!fr) { out.push(`cell ${c.id} on face ${c.face}, which has no lattice`); continue; }
     for (const p of c.polygon) {
-      const off = Math.abs(f.normal[0] * p[0] + f.normal[1] * p[1] + f.normal[2] * p[2] - f.offset);
+      const off = Math.abs(dot3(f.normal, p) - f.offset);
       if (off > SHELL_TOLERANCE_CM) out.push(`cell ${c.id} corner (${p}) lies ${off} off its face's plane`);
     }
     const flat = (p: Vec3): Vec3 => [p[fr.s], p[fr.t], 0];

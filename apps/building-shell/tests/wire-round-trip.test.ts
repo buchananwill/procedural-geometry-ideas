@@ -13,6 +13,7 @@ import {WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireVec2} from '../src/wire/inpu
 import {
   ASYMMETRIC_L, CUT_REPRODUCERS, DiffCounts, IDENTITY_FIXTURES, diffCounts, expectedDefaultDeg, scrambled, withWireDefaults,
 } from './wire-round-trip-cases.ts';
+import type {PinRecord, PinTable} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 
@@ -127,9 +128,10 @@ describe("a wire gable's pitch (journal decision 153: it is geometry, and the sh
  * differ, with these canonical diff counts. Measured at WP3.8: 27 split-band courtyards gabled on every side but the
  * far band's, authored at a 60 degree default, whose gables the wire read at `WIRE_GABLE_ONLY_DEG = 45`, a shell
  * change (11/11 faces, 21/21 edges) that struck decision 140, F1. Decision 153 puts a gable's pitch on the wire, and
- * all 27 now round-trip to the authored shell. Empty: any entry is a new finding.
+ * all 27 now round-trip to the authored shell. Empty: any entry is a new finding. Keyed by `string`: the identity
+ * fixtures are `ShellFixture`s, whose names carry no literal type (journal decision 155, N7).
  */
-const WIRE_UNCARRIED: Readonly<Partial<Record<string, DiffCounts>>> = {
+const WIRE_UNCARRIED: PinRecord<string, DiffCounts> = {
 };
 
 describe('every exported fixture through the wire', () => {
@@ -171,7 +173,7 @@ describe("a Pitched side at the wire's pitch bounds builds clean (decision 143, 
    * seed, and the 1000×400 Ring, is clean at both bounds. The widened sweep in robustness.test.ts holds the rest.
    * Pinned exactly, so a cure or a narrowed bound breaks it.
    */
-  const KNOWN: Readonly<Partial<Record<`${string} at ${number}°`, string[]>>> = {
+  const KNOWN: PinTable<`${string} at ${number}°`> = {
     'BridgeOverBlock at 75°': [
       'genus per component 0, expected 1: genus 0 at (0, 0, 0)',
       '2 Roof-Underside Edges: SoffitJunction (200, 533.0126953125, 500) to (800, 533.0126953125, 500); SoffitJunction (200, 66.9873046875, 500) to (800, 66.9873046875, 500)',

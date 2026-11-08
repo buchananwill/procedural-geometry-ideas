@@ -4,7 +4,8 @@
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {EXPORTED_FIXTURES, RING_SIDES, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
-import type {CellSource} from '../src/provenance.ts';
+import type {CellSource, SourceSpan} from '../src/provenance.ts';
+import type {Vec3} from '../src/tags.ts';
 import {ringSideLines} from '../src/ring-forms.ts';
 import type {BuildingShell} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
@@ -16,11 +17,11 @@ import {ASYMMETRIC_L, scrambled} from './wire-round-trip-cases.ts';
 const build = memoBuilds();
 const shellOf = async (f: ShellFixture): Promise<BuildingShell> => (await build(f)).shell;
 
-/** A Ring side on a face's plane at its storey, facing out the face's way, with its span along the face's `s` axis. */
-interface SideOnPlane { source: CellSource; lo: number; hi: number }
-
-/** Independently: every Ring side of the face's storey on its plane, facing out its way, lowest model index first. */
-function sidesOnPlane(f: ShellFixture, shell: BuildingShell, face: number): SideOnPlane[] {
+/**
+ * Independently: every Ring side of the face's storey on its plane, facing out its way, lowest model index first, each
+ * with its span along the face's `s` axis. The oracle's logic is its own; its shape is `SourceSpan` (decision 155, B9).
+ */
+function sidesOnPlane(f: ShellFixture, shell: BuildingShell, face: number): SourceSpan[] {
   const {normal, offset, tag} = shell.faces[face];
   const alongY = Math.abs(normal[0]) > Math.abs(normal[1]);
   const outward = alongY ? normal[0] : normal[1];
@@ -82,7 +83,7 @@ describe('wall provenance (journal decision 130, spec decision 23 as amended)', 
   });
 
   /** Every source a fixture's Cells on one wall plane carry, by plane. */
-  const sourcesOn = (shell: BuildingShell, kind: string, normal: [number, number, number], offset: number): CellSource[] =>
+  const sourcesOn = (shell: BuildingShell, kind: string, normal: Vec3, offset: number): CellSource[] =>
     shell.faces.filter(x => x.tag.kind === kind && x.normal.every((v, i) => Math.abs(v - normal[i]) < 1e-9) && Math.abs(x.offset - offset) <= SHELL_TOLERANCE_CM)
       .flatMap(x => x.sources);
 

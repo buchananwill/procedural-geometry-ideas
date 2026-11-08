@@ -54,7 +54,7 @@ export function planBuilding(label: string, storey: number, floor: number, plate
   try {
     roof = solveRoofParts(building, {far: 'plane'});
   } catch (e) {
-    throw new Error(`${label} storey ${storey}: ${errorMessage(e)}`);
+    throw new Error(`${label} storey ${storey}: ${errorMessage(e)}`, {cause: e});
   }
   return {label, storey, floor, plate, building, roof};
 }
@@ -137,7 +137,7 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
   } catch (e) {
     // A plan refusal keeps its class through the label (journal decision 146).
     const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
-    throw e instanceof PlanRefusal ? new PlanRefusal(message) : new Error(message);
+    throw e instanceof PlanRefusal ? new PlanRefusal(message, {cause: e}) : new Error(message, {cause: e});
   }
   return planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, building);
 }
@@ -289,7 +289,10 @@ function bboxReach(b: Building, w: Wall): number {
  */
 export interface GableZone { kind: 'Gable' | 'Internal'; wall: number; lo: number; hi: number }
 
-/** Which world coordinate runs along a vertical plane: 0 (x) or 1 (y). */
+/**
+ * Which world coordinate runs along a vertical plane: 0 (x) or 1 (y). Not cells.ts's `LatticeAxis`, which names a
+ * face's own lattice axis, s or t (journal decision 155, N1): the two share values, not meaning.
+ */
 export type AlongAxis = 0 | 1;
 
 /** A vertical plane's Gable zones, in priority order, and the coordinate they are measured along. */

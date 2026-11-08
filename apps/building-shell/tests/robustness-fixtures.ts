@@ -2,7 +2,7 @@
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
 import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
-import {shellFixture} from './test-builds.ts';
+import {NamedFixture, shellFixture} from './test-builds.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG} from '../src/wire/input-types.ts';
 
@@ -77,14 +77,28 @@ export type CornerOwner = typeof CORNER_OWNERS[number];
 /** The pitches the courtyard generator draws, in degrees. */
 const COURTYARD_PITCHES: readonly number[] = [30, 37, 45, 52.5];
 
-/** A split Ring's buried shared wall: the line `axis = at` (`x` for a band split across, `y` for a wing). */
-export interface SplitLine { axis: 'x' | 'y'; at: number }
+/**
+ * A split Ring's buried shared wall: the world line `axis = at` (`x` for a band split across, `y` for a wing). Not
+ * cells.ts's `SplitLine`, a lattice square's split (journal decision 155, N2).
+ */
+export interface SplitWallLine { axis: 'x' | 'y'; at: number }
+
+/** A classic courtyard's name, `Court<k>`. */
+export type CourtName = `Court${number}`;
+/** A split-band courtyard's name, `SplitCourt<k>`. */
+export type SplitCourtName = `SplitCourt${number}`;
+/** A U shape's name, `U<k>`. */
+export type UName = `U${number}`;
+
+const courtName = (k: number): CourtName => `Court${k}`;
+const splitCourtName = (k: number): SplitCourtName => `SplitCourt${k}`;
+const uName = (k: number): UName => `U${k}`;
 
 /**
- * One generated courtyard, its two wings (the Rings standing on its W and E sides) by identity, and, in split mode,
- * the line its split Ring was cut along.
+ * One generated courtyard, named `N`, its two wings (the Rings standing on its W and E sides) by identity, and, in
+ * split mode, the line its split Ring was cut along.
  */
-interface CourtyardDraw { fixture: ShellFixture; wings: [FixtureRing, FixtureRing]; split?: SplitLine }
+export interface CourtyardDraw<N extends string = string> { fixture: NamedFixture<N>; wings: [FixtureRing, FixtureRing]; split?: SplitWallLine }
 
 /** Which of the courtyard's four Rings the split mode cuts in two: the S or N band, or the W or E wing. */
 const SPLIT_RINGS = ['S', 'N', 'W', 'E'] as const;
@@ -119,12 +133,14 @@ export const pickFrom = <T>(a: readonly T[], r: () => number): T => a[Math.floor
  * certain to be the shortest qualifying segment: the split Ring's two corners are its own, so no wing or band side
  * runs along a hole wall's line through it, and every other Ring's depth is made deeper than the split Ring's. Every
  * other draw is made as in the classic mode, in the same order.
+ *
+ * `name` names the k-th draw: `Court<k>` in classic mode, `SplitCourt<k>` in split mode, where every draw is split.
  */
-function drawCourtyards(seed: number, count: number, storeyHeight: number, splitMode = false): CourtyardDraw[] {
+function drawCourtyards<N extends string>(seed: number, count: number, storeyHeight: number, name: (k: number) => N, splitMode = false): CourtyardDraw<N>[] {
   const rnd = stream(seed), frnd = stream(seed + 7919), prnd = stream(seed + 15485863), srnd = stream(seed + 104729);
   const pick = <T>(a: readonly T[], r: () => number = rnd): T => pickFrom(a, r);
   const span = (lo: number, steps: number): number => lo + 50 * Math.floor(rnd() * steps);
-  const out: CourtyardDraw[] = [];
+  const out: CourtyardDraw<N>[] = [];
   for (let k = 0; k < count; k++) {
     const x0 = 50 * Math.floor(rnd() * 4), y0 = 50 * Math.floor(rnd() * 4);
     let bandS = span(100, 4), bandN = span(100, 4), wingW = span(100, 4), wingE = span(100, 4);
@@ -168,7 +184,7 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number, split
       [rings[i], rings[j]] = [rings[j], rings[i]];
     }
     if (!which || !toSplit) {
-      out.push({fixture: shellFixture(`Court${k}`, rings, storeyHeight), wings});
+      out.push({fixture: shellFixture(name(k), rings, storeyHeight), wings});
       continue;
     }
     // The split: a band across at an x, a wing across at a y, strictly inside the hole's span.
@@ -186,28 +202,28 @@ function drawCourtyards(seed: number, count: number, storeyHeight: number, split
     const second = half(across ? [at, ry0, rx1, ry1] : [rx0, at, rx1, ry1], inner1, mixed ? pick(COURTYARD_PITCHES, srnd) : toSplit.defaultDeg);
     const split = rings.map(r => (r === toSplit ? first : r));
     split.splice(Math.floor(srnd() * (split.length + 1)), 0, second);
-    out.push({fixture: shellFixture(`SplitCourt${k}`, split, storeyHeight), wings, split: {axis: across ? 'x' : 'y', at}});
+    out.push({fixture: shellFixture(name(k), split, storeyHeight), wings, split: {axis: across ? 'x' : 'y', at}});
   }
   return out;
 }
 
 /** Journal decisions 115, 132 and 135: random courtyards from the full Ring family (`drawCourtyards`). */
-export const randomCourtyardFixtures = (seed: number, count: number, storeyHeight: number): ShellFixture[] =>
-  drawCourtyards(seed, count, storeyHeight).map(d => d.fixture);
+export const randomCourtyardFixtures = (seed: number, count: number, storeyHeight: number): NamedFixture<CourtName>[] =>
+  drawCourtyards(seed, count, storeyHeight, courtName).map(d => d.fixture);
 
 /** A split-band courtyard and the line its split Ring was cut along: the free cut's line. */
-export interface SplitCourtyard { fixture: ShellFixture; split: SplitLine }
+export type SplitCourtyard = Pick<CourtyardDraw<SplitCourtName>, 'fixture'> & Required<Pick<CourtyardDraw<SplitCourtName>, 'split'>>;
 
 /**
  * Journal decisions 150 and 151: random courtyards in split mode (`drawCourtyards`), one Ring cut in two so that the
  * free cut, collinear with no wall, is certain to be the shortest, so a sweep of them reads the free branch.
  */
 export function randomSplitCourtyards(seed: number, count: number, storeyHeight: number): SplitCourtyard[] {
-  return drawCourtyards(seed, count, storeyHeight, true).flatMap(d => (d.split ? [{fixture: d.fixture, split: d.split}] : []));
+  return drawCourtyards(seed, count, storeyHeight, splitCourtName, true).flatMap(d => (d.split ? [{fixture: d.fixture, split: d.split}] : []));
 }
 
 /** The fixtures of `randomSplitCourtyards`. */
-export const randomSplitCourtyardFixtures = (seed: number, count: number, storeyHeight: number): ShellFixture[] =>
+export const randomSplitCourtyardFixtures = (seed: number, count: number, storeyHeight: number): NamedFixture<SplitCourtName>[] =>
   randomSplitCourtyards(seed, count, storeyHeight).map(d => d.fixture);
 
 /** The S band of a 1000 × 1000 courtyard authored as two Rings, and its pitches (`splitBandFixture`). */
@@ -252,10 +268,10 @@ export const splitBandName = ([lo, hi, bandS, split]: SplitBandLayout): string =
  * and the W wing for an odd one. The three Rings left have no hole, so the genus is 0, and the class of gables over
  * several storeys is measured apart from the courtyard's own.
  */
-export function randomUFixtures(seed: number, count: number, storeyHeight: number): ShellFixture[] {
-  return drawCourtyards(seed, count, storeyHeight).map(({fixture, wings}, k) => {
+export function randomUFixtures(seed: number, count: number, storeyHeight: number): NamedFixture<UName>[] {
+  return drawCourtyards(seed, count, storeyHeight, courtName).map(({fixture, wings}, k) => {
     const drop = wings[k % 2 === 1 ? 0 : 1];
-    return {...fixture, name: `U${k}`, rings: fixture.rings.filter(r => r !== drop)};
+    return {...fixture, name: uName(k), rings: fixture.rings.filter(r => r !== drop)};
   });
 }
 
@@ -265,14 +281,17 @@ export const pitchFor = (rise: number, run: number): number => (Math.atan(rise /
 /** Journal decision 122's δ-nudges, in 1/1024 cm steps: a hair under, at and over each coincidence. */
 export const NUDGE_STEPS: readonly number[] = [-3, -1, -0.5, 0, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 8, 12];
 
+/** A δ-nudge case's name: its coincidence, then its step `k` in 1/1024 cm (`nudgeFixtures`). */
+export type NudgeName = `${'Apex' | 'Ridge' | 'ApexEdge' | 'ApexEdgeBelow' | 'RidgeEdge' | 'OverhangApexOnEave'}${number}`;
+
 /**
  * Journal decision 122's δ-nudge sweeps, restated from the combined reviewer's probe C at 250 cm storeys: a 45 degree
  * apex or ridge raised `k / 1024` cm above (or below) the floor of the storey above, under its middle (Apex, Ridge),
  * under its eave (ApexEdge, ApexEdgeBelow, RidgeEdge), and OverhangApexOnEave itself with its apex nudged.
  */
-export function nudgeFixtures(): ShellFixture[] {
+export function nudgeFixtures(): NamedFixture<NudgeName>[] {
   const h = STOREY_HEIGHT_CM_FOR_NUDGES;
-  const fx = (name: string, lower: Rect, upper: Rect, d0: number): ShellFixture => ({
+  const fx = (name: NudgeName, lower: Rect, upper: Rect, d0: number): NamedFixture<NudgeName> => ({
     name, cellSize: 50, storeyHeight: h, rings: [ring(lower, 0, 1, d0), ring(upper, 1, 1, 45)],
   });
   return NUDGE_STEPS.flatMap(k => {
@@ -302,21 +321,27 @@ export const GRID_PITCHES_DEG: readonly number[] = Array.from({length: 51}, (_, 
  * threshold that moves with storey height (ridge against the plate above, apex against eave) is crossed, not sampled
  * at one height. 612 cases.
  */
-export const gridFixtures = (): ShellFixture[] => GRID_STOREY_HEIGHTS_CM.flatMap(h => GRID_PITCHES_DEG.flatMap(deg =>
+export const gridFixtures = (): NamedFixture<GridName>[] => GRID_STOREY_HEIGHTS_CM.flatMap(h => GRID_PITCHES_DEG.flatMap(deg =>
   [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: gridName(deg, h, upper)}))));
 
-/** A grid case's name (journal decision 145, N6): `G<deg>h<height>`, and `u` with the upper storey. */
-export const gridName = (deg: number, storeyHeight: number, upper: boolean): `G${number}h${number}${'' | 'u'}` =>
+/** A grid or pitch-end case's name: `G<deg>h<height>`, and `u` with the upper storey. */
+export type GridName = `G${number}h${number}${'' | 'u'}`;
+
+/** A grid case's name (journal decision 145, N6). */
+export const gridName = (deg: number, storeyHeight: number, upper: boolean): GridName =>
   `G${deg}h${storeyHeight}${upper ? 'u' : ''}`;
+
+/** A pitch-end case: a pitch in degrees, at a storey height in cm. */
+export type PitchAtHeight = [deg: number, storeyHeight: number];
 
 /**
  * Journal decision 143, addendum 6: the sweep's box at the wire format's pitch ends. Every whole degree from 5 to 20
  * and from 70 to 75 at every grid storey height, alone and with its upper storey, and the pitches the 0.173 and finer
  * scans found failing below 7 degrees, at the heights they were found at.
  */
-export function pitchEndFixtures(): ShellFixture[] {
+export function pitchEndFixtures(): NamedFixture<GridName>[] {
   const whole = [...Array.from({length: 16}, (_, i) => 5 + i), ...Array.from({length: 6}, (_, i) => 70 + i)];
-  const cases: [number, number][] = whole.flatMap(deg => GRID_STOREY_HEIGHTS_CM.map((h): [number, number] => [deg, h]));
+  const cases: PitchAtHeight[] = whole.flatMap(deg => GRID_STOREY_HEIGHTS_CM.map((h): PitchAtHeight => [deg, h]));
   for (const deg of [5.86, 5.865, 5.87, 6.015, 6.02]) for (const h of [250, 300]) cases.push([deg, h]);
   for (const deg of [6.15, 6.27, 6.38, 6.48, 6.57, 6.66, 6.9]) cases.push([deg, 250]);
   return cases.flatMap(([deg, h]) => [false, true].map(upper => ({...sweepFixture(deg, upper, h), name: gridName(deg, h, upper)})));
@@ -342,9 +367,12 @@ export function flushOverReflexFixture(storeyHeight: number = REVIEWER_STOREY_HE
   };
 }
 
+/** A random fixture by its seed and its index in that seed's run (`seededFixture`). */
+export type SeedIndex = readonly [seed: number, index: number];
+
 /** Journal decision 110: the named regression fixtures, each the seed and index the WP3 correctness reviewer found. */
-export const PINCH_SEEDS: readonly [seed: number, index: number][] = [[2, 109], [3, 3]];
-export const CAP_CHAIN_SEED: readonly [seed: number, index: number] = [4, 134];
+export const PINCH_SEEDS: readonly SeedIndex[] = [[2, 109], [3, 3]];
+export const CAP_CHAIN_SEED: SeedIndex = [4, 134];
 
 /**
  * Journal decisions 146 and 148, F3: the pitches the widened sweep pairs, content's 22.5, 30 and 45, the fixtures' 60,
@@ -355,15 +383,23 @@ export const SWEEP_PAIR_PITCHES: readonly number[] = [WIRE_MIN_PITCH_DEG, 22.5, 
 /** How a pitch pair is laid on a fixture: by Ring (even index the first pitch, odd the second), or by side axis. */
 export type PitchMix = 'ring' | 'side';
 
+/** A pitch pair's laying: how it is laid, and the pitch it gives each side. */
+export type PitchLaying = [mix: PitchMix, pitchOf: PitchOf];
+
+/** A widened-sweep case's name: `<fixture>@<deg>`, or `<fixture>@<p>/<q>` with `r` or `s` (`rosterPitchCases`). */
+export type RosterPitchName = `${string}@${string}`;
+
 /** One widened-sweep case: a roster fixture with every Pitched side set, as the wire carries it. */
-export interface RosterPitchCase { name: string; roster: string; fixture: ShellFixture }
+export interface RosterPitchCase { name: RosterPitchName; roster: string; fixture: ShellFixture }
+
+/** A pitch per side: Ring `ring`'s side `slot` (0 to 3, S, E, N, W as `writeInput` writes them). */
+export type PitchOf = (ring: number, slot: number) => number;
 
 /**
  * A roster fixture through the wire with every roof side, Pitched and GableEnd, at a pitch: `pitchOf(ring, slot)` gives
- * Ring `ring`'s side `slot` (0 to 3, S, E, N, W as `writeInput` writes them) its pitch. A gable's pitch is geometry
- * and the wire carries it (decision 153), so the sweep sets it too.
+ * each side its pitch. A gable's pitch is geometry and the wire carries it (decision 153), so the sweep sets it too.
  */
-function throughWireAt(f: ShellFixture, name: string, pitchOf: (ring: number, slot: number) => number): ShellFixture {
+function throughWireAt(f: ShellFixture, name: string, pitchOf: PitchOf): ShellFixture {
   const wire = writeInput(f);
   wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { for (const run of s.runs) if (run.form === 'Pitched' || run.form === 'GableEnd') run.pitchDegrees = pitchOf(i, j); }));
   const read = readInput(JSON.parse(JSON.stringify(wire)), name);
@@ -380,14 +416,14 @@ export function rosterPitchCases(fixtures: readonly ShellFixture[]): RosterPitch
   const uniform = [...Array.from({length: WIRE_MAX_PITCH_DEG - WIRE_MIN_PITCH_DEG + 1}, (_, i) => WIRE_MIN_PITCH_DEG + i), 22.5].sort((a, b) => a - b);
   return fixtures.flatMap(f => {
     const out: RosterPitchCase[] = uniform.map(d => {
-      const name = `${f.name}@${d}`;
+      const name: RosterPitchName = `${f.name}@${d}`;
       return {name, roster: f.name, fixture: throughWireAt(f, name, () => d)};
     });
     for (const p of SWEEP_PAIR_PITCHES) for (const q of SWEEP_PAIR_PITCHES) {
       if (p === q) continue;
-      const mixes: [PitchMix, (ring: number, slot: number) => number][] = [['ring', ring => (ring % 2 ? q : p)], ['side', (_, slot) => (slot % 2 ? q : p)]];
+      const mixes: PitchLaying[] = [['ring', ring => (ring % 2 ? q : p)], ['side', (_, slot) => (slot % 2 ? q : p)]];
       for (const [mix, pitchOf] of mixes) {
-        const name = `${f.name}@${p}/${q}${mix === 'ring' ? 'r' : 's'}`;
+        const name: RosterPitchName = `${f.name}@${p}/${q}${mix === 'ring' ? 'r' : 's'}`;
         out.push({name, roster: f.name, fixture: throughWireAt(f, name, pitchOf)});
       }
     }

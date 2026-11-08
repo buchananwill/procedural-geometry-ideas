@@ -6,7 +6,7 @@ import {COURTYARD_RECTS, RING_SIDES, RingForm, RingSides, ShellFixture, fixtureB
 import {storeyLoops} from '../src/ring-forms.ts';
 import {planStorey} from '../src/storey.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
-import {AdaptedInput, isPlanRefusal, noneWinnerRefusals, readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {AdaptedInput, SIDE_READINGS, WIRE_FORMS, isPlanRefusal, noneWinnerRefusals, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireRun, refineInput,
 } from '../src/wire/input-types.ts';
@@ -380,6 +380,11 @@ describe('side mapping and defaultDeg (decision 140, F1 and F4)', () => {
     expect(adapted(writeInput(one({S: {form: 'gable'}, E: {form: 'hip', deg: 35}}))).fixture.rings[0].defaultDeg).toBe(35);
     const allGable = one({S: {form: 'gable'}, E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}}, 60);
     expect(adapted(writeInput(allGable)).fixture.rings[0].defaultDeg).toBe(WIRE_GABLE_ONLY_DEG);
+  });
+
+  it('reads every form it writes back as that Ring form (decision 155, B1: the tables tied by value as well as by type)', () => {
+    const forms: RingForm[] = ['hip', 'gable'];
+    expect(forms.map(f => SIDE_READINGS[WIRE_FORMS[f]])).toEqual(forms.map(form => ({kind: 'listed', form})));
   });
 
   it("gives the reviewer's mixed-pitch Courtyard one defaultDeg at all four start corners", () => {

@@ -1,8 +1,14 @@
 // Journal decisions 72, 150 (F4) and 155 (B5): the tests' one pin-table shape. A pin is a measured outcome, enrolled,
 // never excluded: a case not listed keeps every invariant, and a cure or a moved defect breaks its test.
 
+/**
+ * The tests' one pin-record shape: every case that measures other than clean, with exactly its measured value `V`,
+ * keyed by the name type `K` its generator emits (journal decision 155, B4 and B5). A case not listed is clean.
+ */
+export type PinRecord<K extends string, V> = Readonly<Partial<Record<K, V>>>;
+
 /** Every case of one generator that breaks an invariant, with exactly its outcome, keyed by the generator's name type. */
-export type PinTable<K extends string> = Readonly<Partial<Record<K, readonly string[]>>>;
+export type PinTable<K extends string> = PinRecord<K, readonly string[]>;
 
 /**
  * Why a pinned residue fails (journal decisions 150, F3, and 156, F7), read from its signature: each pinned case
@@ -22,7 +28,7 @@ export type DefectCause =
 export interface CausedPin { cause: DefectCause; outcome: readonly string[] }
 
 /** A pin table whose every entry carries its class. */
-export type CausedPinTable<K extends string> = Readonly<Partial<Record<K, CausedPin>>>;
+export type CausedPinTable<K extends string> = PinRecord<K, CausedPin>;
 
 /** Decision 150, F3: decision 132's two regressions, by seed and case, at every height. */
 const REGRESSIONS_132 = new Set(['s1/Court14', 's6/Court23']);

@@ -47,8 +47,8 @@ export interface InputReport { flags: string[]; info: string[]; maxCornerDriftCm
  * A file the adapter reads: the fixture it builds, what the diff report carries, and how the fixture's Rings name the
  * file's own, so a shell's provenance can (`withFileModelIndices`, journal decisions 140's Q3 note and 156, F1):
  * - `modelIndices`: each fixture Ring's model index in the file, by its position in `fixture.rings`;
- * - `sideSlots`: each fixture Ring's file slot for each compass side, `sideSlots[ring][k]` the slot of `RING_SIDES[k]`,
- *   so a Ring that starts at another corner keeps its own side indices.
+ * - `sideSlots`: each fixture Ring's file slot for each compass side, so a Ring that starts at another corner keeps its
+ *   own side indices.
  */
 export interface AdaptedInput {
   ok: true;
@@ -56,7 +56,20 @@ export interface AdaptedInput {
   input: BuildingShellInputV1;
   report: InputReport;
   modelIndices: number[];
-  sideSlots: number[][];
+  sideSlots: SideSlots[];
+}
+
+/** One Ring's file slot for each compass side (journal decision 156, F1). */
+export type SideSlots = Readonly<Record<RingSide, number>>;
+
+/** A read Ring's slots by compass side. Its corners are a rectangle (`inputRefusals`), so each compass side is one slot. */
+function slotsOf(sides: readonly ReadSide[]): SideSlots {
+  const slot = (c: RingSide): number => {
+    const s = sides.find(x => x.compass === c);
+    if (!s) throw new Error(`a Ring with no ${c} side`);
+    return s.slot;
+  };
+  return {S: slot('S'), E: slot('E'), N: slot('N'), W: slot('W')};
 }
 
 export type ReadInputResult = AdaptedInput | RefusedInput;
@@ -71,25 +84,32 @@ export interface RefusedSide { kind: 'refused'; reason: string }
 /** How one solved side enters the fixture (decisions 138, B4, and 142, B5). */
 export type SideReading = ListedSide | UnlistedSide | RefusedSide;
 
-/** Decisions 126, 136 and 140: every solved form's reading, as an exhaustive table (decision 142, N4). */
-export const SIDE_READINGS: Readonly<Record<WireSolvedForm, SideReading>> = {
-  Pitched: {kind: 'listed', form: 'hip'},
-  GableEnd: {kind: 'listed', form: 'gable'},
+/**
+ * Decisions 126, 136, 140 and 155 (B1): the solved forms a Ring form is written as and read back from, the one
+ * literal table both directions derive from.
+ */
+export const LISTED_FORMS = {Pitched: 'hip', GableEnd: 'gable'} as const satisfies Partial<Record<WireSolvedForm, RingForm>>;
+
+/** `LISTED_FORMS`'s type: each listed solved form and the Ring form it reads as. */
+export type ListedForms = typeof LISTED_FORMS;
+
+/**
+ * Decisions 126, 136 and 140: every solved form's reading, as an exhaustive table (decision 142, N4). Typed from
+ * `LISTED_FORMS` (decision 155, B1), so a listed row that reads as another Ring form fails `typecheck`.
+ */
+export const SIDE_READINGS: {readonly [F in WireSolvedForm]: F extends keyof ListedForms ? ListedSide & {form: ListedForms[F]} : UnlistedSide | RefusedSide} = {
+  Pitched: {kind: 'listed', form: LISTED_FORMS.Pitched},
+  GableEnd: {kind: 'listed', form: LISTED_FORMS.GableEnd},
   None: {kind: 'unlisted'},
   Monopitch: {kind: 'refused', reason: 'a solved Monopitch, refused until mono is supported (journal decision 126)'},
   Flat: {kind: 'refused', reason: 'a solved Flat, which is a polyline clamp, never a run form (journal decision 126)'},
 };
 
-/** The solved form a fixture's Ring form writes, as an exhaustive table (decision 142, N4). */
-export const WIRE_FORMS: Readonly<Record<RingForm, Extract<WireSolvedForm, WireRequest>>> = {hip: 'Pitched', gable: 'GableEnd'};
-
 /**
- * Journal decision 147, N1: `WIRE_FORMS` tied to `SIDE_READINGS`, so each written form reads back as its Ring form.
- * Compile-time on the type; tests/wire-input.test.ts asserts it on the values.
+ * The solved form a fixture's Ring form writes (decision 155, B1): a literal table typed as `LISTED_FORMS`'s inverse, so
+ * every written form reads back as its own Ring form, and a swapped entry fails `typecheck`. It covers every Ring form.
  */
-type ReadsBack = {[F in RingForm]: (typeof SIDE_READINGS)[(typeof WIRE_FORMS)[F]] extends SideReading ? true : never};
-const readsBack: ReadsBack = {hip: true, gable: true};
-void readsBack;
+export const WIRE_FORMS: {readonly [F in keyof ListedForms as ListedForms[F]]: F} = {hip: 'Pitched', gable: 'GableEnd'} satisfies Record<RingForm, WireSolvedForm>;
 
 const label = (r: WireRing, i: number): string => `Ring ${i} (model index ${r.modelIndex})`;
 
@@ -385,14 +405,14 @@ export function readInput(json: unknown, name: string): ReadInputResult {
   const order = input.rings.map((_, i) => i).sort((a, b) => input.rings[a].modelIndex - input.rings[b].modelIndex);
   const info: string[] = [];
   const nones: NoneSide[] = [];
-  const sideSlots: number[][] = [];
+  const sideSlots: SideSlots[] = [];
   const rings = order.map((i, position) => {
     const r = input.rings[i];
     const corners = snapped[i].corners;
     const xs = corners.map(c => c.x), ys = corners.map(c => c.y);
     const rect: Rect = [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
     const sides = readSides(r, corners, rect);
-    sideSlots.push(RING_SIDES.map(c => sides.findIndex(s => s.compass === c)));
+    sideSlots.push(slotsOf(sides));
     const ring = fixtureRing(r, sides, rect);
     info.push(...sideInfo(label(r, i), sides));
     // Decision 149: a formless side (no run, or only None runs) is treated as decision 140's F2 treats a None side.

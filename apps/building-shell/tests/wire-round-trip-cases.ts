@@ -89,8 +89,11 @@ export function scrambled(f: ShellFixture): BuildingShellInputV1 {
   return w;
 }
 
-/** How many records a canonical diff holds on each side: the pin a gable-weight dependence carries. */
-export interface DiffCounts { facesOnlyA: number; facesOnlyB: number; edgesOnlyA: number; edgesOnlyB: number }
+/**
+ * How many records a canonical diff holds on each side: the pin a gable-weight dependence carries. Mapped from
+ * `CanonicalDiff` (journal decision 155, B9), so `diffCounts` fails `typecheck` if a field is added and not counted.
+ */
+export type DiffCounts = {[K in keyof CanonicalDiff]: number};
 
 export const diffCounts = (d: CanonicalDiff): DiffCounts =>
   ({facesOnlyA: d.facesOnlyA.length, facesOnlyB: d.facesOnlyB.length, edgesOnlyA: d.edgesOnlyA.length, edgesOnlyB: d.edgesOnlyB.length});

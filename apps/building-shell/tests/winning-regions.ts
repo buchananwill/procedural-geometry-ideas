@@ -5,7 +5,8 @@
 // and the build's plane clusters for identity, but none of `regions.ts`'s containment reads (F-B).
 import {FaceTag, Vec3, identityKey, retagCompare, samePlane, tagLabel} from '../src/tags.ts';
 import {ShellUnion, prepareRawTri} from '../src/union.ts';
-import {cross3, dot3, sub3, unit3} from '../src/vec3.ts';
+import {ontoPlane} from '../src/regions.ts';
+import {cross3, dot3, pointAt, unit3} from '../src/vec3.ts';
 import type {Vec2} from 'manifold-3d';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {AREA_EPS_PER_CM2} from './test-constants.ts';
@@ -130,7 +131,7 @@ export function winningRegionViolations(u: RegionSource): string[] {
     // The plane's own 2D frame, unforeshortened: every point is read in it after projection onto the plane.
     const e1 = unit3(cross3(n, Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
     const e2 = cross3(n, e1);
-    const to2 = (p: Vec3): Vec2 => { const off = dot3(n, p) - d; const q = sub3(p, [off * n[0], off * n[1], off * n[2]]); return [dot3(q, e1), dot3(q, e2)]; };
+    const to2 = (p: Vec3): Vec2 => { const q = ontoPlane(p, {n, d}); return [dot3(q, e1), dot3(q, e2)]; };
     const ccw = (poly: Convex): Convex => (area2(poly) < 0 ? [...poly].reverse() : poly);
 
     // Each identity on the plane with its raw triangles, strongest first.
@@ -143,7 +144,7 @@ export function winningRegionViolations(u: RegionSource): string[] {
     }
     const identities = [...byIdentity.entries()].sort((a, b) => retagCompare(a[1].tag, b[1].tag));
 
-    const corners = [0, 1, 2].map(j => to2([P[3 * T[3 * t + j]], P[3 * T[3 * t + j] + 1], P[3 * T[3 * t + j] + 2]]));
+    const corners = [0, 1, 2].map(j => to2(pointAt(P, T[3 * t + j])));
     const tri2 = ccw(corners);
     const where = `${u.label}: triangle ${t} (${[0, 1, 2].map(j => [0, 1, 2].map(a => P[3 * T[3 * t + j] + a].toFixed(2)).join(',')).join(' / ')})`;
     const eroded = erode(tri2, REGION_SAMPLE_INSET_CM);
