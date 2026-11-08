@@ -2534,6 +2534,13 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          certainly predates the arc and is on `main` already. That is inferred: lint was not run on `main` itself.
        - **By the arc branch rule, it is the user's to schedule, and is not fixed here.**
      - **The port lead is sent the WP3.9 hash, `adf5dac`, with the merge commit and what changed since `f1d91fb`.**
+     - **AMENDED 2026-11-08: the port lead moves to `adf5dac`** (its MB.F116 and MB.D537).
+       - **Confirmed from its code:** a C++ plate run never extends past its own Ring's side. `FCellNetPlateRun` is a
+         column range of one wall-face surface, which is one Ring's one side, measured from that side's first corner.
+         This closes decision 182's one unchecked assumption.
+       - **Pending on its side:** whether its reader and net accept two Rings of identical footprint. Its replay of
+         `CutPitchConflictSwapped` will answer that, together with any replayable golden that misses zero residual. It
+         reports once its increment-3a revision lands, and its user grants a fresh read-only waiver.
 
 ## Findings
 
