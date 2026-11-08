@@ -1644,7 +1644,30 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - Spec 32: the Hausdorff loop check replaces the area identity.
 
      **Next:** WP3.7's two reviews, on fresh reviewers, over `7847a48..040c93e` with WP5's commits excluded. WP3.8 is
-     queued behind them. Its scope is decisions 136 to 140. It stays within the wire
+     queued behind them.
+145. **Rulings on WP3.7's type review** (REQUEST CHANGES: 12 blocking, 6 notes, at `040c93e`). Most of decision 134 is
+     closed. N3, N7, N8 and N4's pin-table half are not, and they reappear below. **All findings are accepted. They
+     are shape only, and they go to WP3.8 as its first item,** gated by the shell-identity comparison with zero shells
+     moved, because B1, B3 and B4 touch the cleaning.
+     - **B1:** `makeUnionFind`/`UnionFind` from `halfedge.ts` replace `lowestRootFind`, `VertexMerges` and
+       `componentGenera`'s hand loop.
+     - **B2:** one `facePlane(f)` beside `faceIdentity`, used with `ontoPlane`.
+     - **B3:** one point reader over `ArrayLike<number>`, shared by all four `clean.ts` sites.
+     - **B4:** `segmentDistance` lives in `vec3.ts`.
+     - **B5:** the remaining inline vector arithmetic uses the helpers.
+     - **B6:** one named lattice axis.
+     - **B7:** `triOf` and `nextHalf` in the Hausdorff check.
+     - **B8:** `AREA_EPS_PER_CM2` moves to a leaf test module.
+     - **B9:** the new types are exported, `P2` becomes `Vec2`, and the local `cross2` is renamed `orient2`.
+     - **B10:** the anonymous tuples and objects are named, and the courtyard helper's parameter uses `RingSides`.
+     - **B11:** `CORNER_OWNERS` is `as const`, with the type derived from it.
+     - **B12:** one LCG and one `pick`, and the pin tables are keyed by template-literal unions.
+     - **N1:** `checkedSide` takes `{form: string}` and asserts `SideForm`.
+     - **N2:** `tryDropPair` catches only a dedicated error class.
+     - **N3:** `MeshOrigin` is copied by spread.
+     - **N4:** `Pick<ShellMesh, 'tris'>`.
+     - **N5:** one exported fixture constructor and one memoised build helper.
+     - **N6:** one `gridName`. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
