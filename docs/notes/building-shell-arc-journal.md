@@ -89,9 +89,11 @@ running subagents.** Their reports arrive as notifications.
 - **WP3.7's two reviews** (WP3.7 landed at `2f3e639`, `d885276` and `040c93e`; decision 144, F51). WP3.6 and WP3.7
   are accepted together when the reviews are ruled on. **Fresh failures are now enrolled, not chased.**
 - ~~**WP5.2's two reviews**~~ and ~~**WP3.7's two reviews**~~: all returned, ruled by decisions 145 to 148 and 150.
-- **WP3.8 landed at `65a7fa2` to `ec2421f` (decision 153). WP3.8.1 is running** (the same delegate, resumed): gable
-  pitch from the wire, the island-steepest cut over hip and gable walls, and the golden set regenerated. Then come
-  two fresh reviews over `65a7fa2` to WP3.8.1's last commit, and port-ready.
+- **WP3.8 and WP3.8.1 have landed** (`809b6aa`..`40cffce`; decisions 153 and 154), and both reviews are back,
+  ruled by decisions 155 and 156.
+- **WP3.8.2 is running** (the same delegate, resumed). It carries decision 156's behaviour items, decision 155's
+  shape items, and the golden additions. When it returns, it gets decision 155's scoped reviews: one type-closure
+  reviewer, and one correctness reviewer covering closure of decision 156 plus golden stability. **Then port-ready.**
 - **WP3.8's original brief** (general-purpose, Opus, fresh, dispatched 2026-11-08). It is the only package in flight and owns both the
   pipeline and the wire files. Its scope, in order:
   1. decision 150's cut pitch, measured, with a stop condition;
