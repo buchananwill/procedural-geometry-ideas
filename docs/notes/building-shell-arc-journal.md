@@ -1570,3 +1570,8 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     prototype's fixtures and the port's sweep agree.
   - **The port lead's two asks:** a named commit, and `out/` re-exported (it held 10 files for 21 fixtures, with no
     Port fixture). Ruled by decision 129.
+  - **Decision 130's `(ringModelIndex, side)` is confirmed sufficient** (port lead, 2026-11-08). The C++ keys are
+    int32 indices: the door anchor holds `Ring` and `Corner` (`ModularDoorAnchors.h:22-30`), and wall Strokes key on
+    (Form, Ring, Corner). Corner is the side's owning corner, so it equals the side index. Ring is root order, which
+    maps one-to-one onto ascending model index (F48). A Stroke's position is in its wall's own surface frame, which the
+    port derives from input@1's corners and storeys. **Nothing more is needed through input@1 or the output.**
