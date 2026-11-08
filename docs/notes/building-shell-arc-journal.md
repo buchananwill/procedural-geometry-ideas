@@ -1423,6 +1423,10 @@ been reviewed, naming the commit (decision 129). It must include the measured re
        `z.string()`, and the refinement pins it. The C++ validator requires a simple counter-clockwise Ring
        (`ArchitectureRings.h:142,154`).
      - **These go to WP5.1,** with decision 136's amendments and the reviews' findings.
+     - **AMENDED 2026-11-08 (port lead's naming note): the booleans are `bEmptied` and `bOutlineRefused`.** The UE
+       generator keys fields through `FJsonObjectConverter::StandardizeCase`, which lowercases only the first letter
+       and turns "ID" into "Id". So the stand-in uses the generated keys verbatim, and the swap to the generated module
+       changes no key. **Every stand-in key follows that transform of its UE name.**
 
 ## Findings
 
