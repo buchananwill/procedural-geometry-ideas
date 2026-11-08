@@ -2213,6 +2213,15 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **Note for later delegates:** WP3.8.5's scratch `snap\` and `head\` trees link `node_modules` into the live repo.
        Never delete them recursively.
      - **Next: two scoped reviews of `f1d91fb`, then port-ready.**
+166. **WP3.8.5's type review APPROVES `f1d91fb`** (0 blocking, 5 notes, none port-facing).
+     - It confirms that `snapRunSpans` follows spec 16's steps, and that the reader's accept/refuse behaviour is
+       unchanged apart from diagnostics.
+     - **All five notes go to WP3.9:**
+       - N1: a named `RunBounds`;
+       - N2: `fileReversedName`, and an `UNMOVED_BY_FILE_ORDER` constant;
+       - N3: one `ORDER_FLAG`;
+       - N4: `sparseModelIndex`;
+       - N5: a named run tuple.
 ## Findings
 
 - **F1. `FaceTag` includes `part`, so coplanar triangles from two parts of one storey never group.** In every gabled
