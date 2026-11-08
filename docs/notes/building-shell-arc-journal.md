@@ -95,6 +95,9 @@ running subagents.** Their reports arrive as notifications.
   - **Nothing is in flight.**
   - **Queued: WP3.9,** the post-port-ready tidy-up: the deferred type notes of decisions 160, 163 and 166, plus
     decisions 165 and 167's oracle and doc items.
+  - **The port lead acknowledged port-ready (its MB.F113)** and reads this repo only at `f1d91fb`, through `git show`.
+    **Owed to it:** the WP3.9 commit hash, if WP3.9 changes anything the port relies on: the multi-run golden, the
+    reader's snap order, or the CutPitchConflict redesign. Its next step is the C++ spec for raw parts and the union.
   - **For the user:**
     - whether algorithm B's inherited defects (the Cheek class and the cut-piece overshoot) become a roof-gable arc;
     - merging the arc branch to `main` when the user agrees.
