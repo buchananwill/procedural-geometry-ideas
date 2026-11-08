@@ -1764,7 +1764,12 @@ been reviewed, naming the commit (decision 129). It must include the measured re
          side: an unlisted side, refused only if it wins a union wall.
        - **Pitch bounds and the request-against-solve flag apply per run.** A run's `bEmptied` and `bOutlineRefused`
          go into the report's information lines.
-     - **Delivered by WP3.8,** with the wire items of decisions 147 and 148. Its scope is decisions 136 to 140. It stays within the wire
+     - **Delivered by WP3.8,** with the wire items of decisions 147 and 148.
+     - **AMENDED 2026-11-08 (port lead): dump file names.** An input document is
+       `<dump basename>.<Subject>.<Seed>.input.json`, written in the solve dump's directory, and the seed is always
+       present. An output pairs by the same stem, `….output.json`. Ingestion pairs dumps by the stem before
+       `.input.json` or `.output.json`, whatever dots it holds. The empty-subject refusal reads provenance's
+       `subject`, not the file name. Its scope is decisions 136 to 140. It stays within the wire
      files and their tests.
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
