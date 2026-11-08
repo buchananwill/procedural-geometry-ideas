@@ -2689,7 +2689,7 @@ been reviewed, naming the commit (decision 129). It must include the measured re
   meets the bridge's floor (WP5.2's bound test, decision 146). The edge reads `Unclassified`, since spec 21 has no row
   for the pair. From 40° to 51° there are 4 such edges and the genus is 2; from 51.5° to 75° there are 2 and the genus
   is 0 (**AMENDED 2026-11-08** by decision 148: the switch had been put at 55° from 5° sampling). **Kind ruled by
-  decision 153: `SoffitJunction`.**
+  decision 153: `SoffitJunction`.** Content's 45° roofs can reach this under a bridge.
 - **F53. The residual failure rates at `ec2421f`** (WP3.8, per the delegate; every residue pinned, with a stated cause
   and a location-bearing signature). This supersedes F51's table where they differ. It is re-measured after WP3.8.1.
 
@@ -2715,4 +2715,22 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     - G5's sub-tolerance features (the nudges);
     - the low-pitch pockets;
     - stuck caps on 4 split bands.
-  Content's 45° roofs can reach this under a bridge.
+- **F54. The app against the repo's release envelope** (the lead's read, 2026-11-08, for the user's merge question).
+  - **The branch touches nothing outside `apps/building-shell/`, `docs/notes/` and `pnpm-lock.yaml`.** `main` is still
+    at the branch base `f7b6091`.
+  - **The envelope set by core, test-fixtures and dashboard** (`d4e8d72`, `929f084`, `7926475`, `69947e4`):
+    - publish metadata;
+    - a tsup ESM+CJS build with `.d.ts`, an `exports` map, `files: dist` and `sideEffects: false`;
+    - a README per package;
+    - ES2023 stated as the floor;
+    - minimal runtime dependencies (core has only `loglevel`), and no browser dependencies in core;
+    - lockstep 0.x versions;
+    - consumers resolve `dist`.
+  - **The app meets none of the packaging:**
+    - it is `private`, with `noEmit` and `.ts` import specifiers, and no build;
+    - `src/` mixes the pipeline with the three.js viewer, Node CLIs and the golden writer;
+    - it carries a manifold-3d WASM runtime with async initialisation, and zod;
+    - it reads core from source, which has 60-odd commits since the 0.3.0 release;
+    - `src/roof/` is a byte-identical copy of the Piste Perfect roof-gable prototype, whose release under MIT would be
+      the user's call.
+  - **It does share the repo's strict tsconfig base, and its enrol-don't-exclude test discipline.**
