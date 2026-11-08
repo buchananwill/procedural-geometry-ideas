@@ -90,7 +90,7 @@ running subagents.** Their reports arrive as notifications.
   PortPokeOut250 clean. **After WP3.7, fresh failures are enrolled, not chased.**
 - **WP5's two reviews**, on `3af339b`. WP5 returned at `6a361c0` and `3af339b` (decision 136). Their findings and
   decision 136's amendments become WP5.1.
-- **Asked of the port lead:** decision 136's three input@1 questions.
+- ~~**Asked of the port lead:** decision 136's three input@1 questions~~: answered and ruled, decision 137.
 
 **Queued:**
 - **WP3.8**, after WP3.7 (decisions 129 to 131): the union-stage export, wall provenance on Cells and faces, and the committed golden export

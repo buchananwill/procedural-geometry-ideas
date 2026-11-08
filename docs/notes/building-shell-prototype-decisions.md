@@ -248,6 +248,13 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     in one constant, `SHELL_TOLERANCE_CM`. **AMENDED 2026-11-07** (journal decision 73): one exception, the re-tag
     pass's containment slack. It is `RETAG_SLACK_CM = 1e-3`, its own named constant, above float32 noise but small
     enough not to relabel a genuine thin face.
+
+    **AMENDED 2026-11-08** (journal decision 137): a second exception, the wire format's corner slack,
+    `WIRE_CORNER_SNAP_CM = 1e-6`.
+    - A Ring corner read from `input@1` within it of the 1/1024 cm grid is snapped by `snapCm`, the app's one rounding,
+      and the diff report states the largest drift.
+    - A corner beyond it is refused.
+    - The slack covers double round-off in the C++ transforms, and it does not cover mis-authoring.
 17. **A surviving `Internal` triangle is a defect, not a face**: it is drawn magenta and counted in
     `ShellReport.survivingInternal`, and every fixture asserts that count is zero.
 
