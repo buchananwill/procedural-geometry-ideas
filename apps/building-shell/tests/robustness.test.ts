@@ -27,7 +27,7 @@ import {
 } from './robustness-fixtures.ts';
 import {COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS} from './residue-pins.ts';
 import {planStorey} from '../src/storey.ts';
-import {causeOf, pinnedOutcome} from './pin-table.ts';
+import {causeOf, pinnedOutcome, throwsOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
 import {FixtureRing, ring} from '../src/fixture.ts';
 import {ShellExpectation, dist, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
@@ -96,7 +96,7 @@ async function outcome(f: ShellFixture, want: ShellExpectation): Promise<string[
   try {
     return invariantViolations(await buildShellDetailed(f), want);
   } catch (e) {
-    return [`throws: ${errorMessage(e)}`];
+    return [throwsOutcome(errorMessage(e))];
   }
 }
 
@@ -109,7 +109,7 @@ async function locatedOutcome(f: ShellFixture, want: ShellExpectation): Promise<
     const b = await buildShellDetailed(f);
     return [...invariantViolations(b, want), ...roofUndersideLines(b)];
   } catch (e) {
-    return [`throws: ${errorMessage(e)}`];
+    return [throwsOutcome(errorMessage(e))];
   }
 }
 

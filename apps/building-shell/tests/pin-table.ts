@@ -50,5 +50,11 @@ export function causeOf(key: string, outcome: readonly string[]): DefectCause | 
   return null;
 }
 
+/**
+ * A build that throws, as its one outcome line (journal decision 160, N2): `throws: ` and the error's message. The one
+ * form the sweeps measure, the pins hold and the golden tie reads a manifest error back as.
+ */
+export const throwsOutcome = (error: string): string => `throws: ${error}`;
+
 /** A pinned outcome, or none for a case the table does not list. */
 export const pinnedOutcome = <K extends string>(table: CausedPinTable<K>, key: K): readonly string[] => table[key]?.outcome ?? [];

@@ -66,8 +66,11 @@ export const CPP_MAX_STOREY = 32;
 
 /** A replayable fixture (journal decision 152, amended). */
 export const ReplayableSchema = z.strictObject({cppReplayable: z.literal(true)});
-/** A fixture the C++ cannot replay, and every reason. */
-export const NotReplayableSchema = z.strictObject({cppReplayable: z.literal(false), reason: z.string().min(1)});
+/**
+ * A fixture the C++ cannot replay, and every reason, one string each (journal decision 160, N6): `readInput`'s own
+ * refusals contain `'; '`, so a joined string could not be split.
+ */
+export const NotReplayableSchema = z.strictObject({cppReplayable: z.literal(false), reasons: z.array(z.string().min(1)).min(1)});
 
 /** Whether the C++ can replay a fixture's input (journal decision 152, amended), and every reason it cannot. */
 export type Replayability = z.output<typeof ReplayableSchema> | z.output<typeof NotReplayableSchema>;
@@ -78,12 +81,13 @@ export type Replayability = z.output<typeof ReplayableSchema> | z.output<typeof 
  * 50 cm Cell lattice within 1e-6 cm, every `ringIndex` its array position, a cell size of 50, a storey height of a
  * whole number of Cells, and no Ring reaching past storey 32, and (journal decision 158, 2) when the prototype's own
  * `readInput` accepts it, so a fixture the wire's bounds refuse (a pitch outside [7°, 75°]) is never offered to the
- * C++ as replayable. Otherwise every reason is given, in that order, the last being `readInput`'s refusal itself.
+ * C++ as replayable. Otherwise every reason is given, in that order, the last being `readInput`'s refusals themselves,
+ * one reason each (journal decision 160, N6).
  */
 export const cppReplayability = (f: ShellFixture): Replayability => cppReplayabilityOf(writeInput(f));
 
-/** The reason `cppReplayability` gives for a document `readInput` refuses: its refusals, every one. */
-export const readInputRefusal = (errors: readonly string[]): string => `readInput refuses it: ${errors.join('; ')}`;
+/** The reasons `cppReplayability` gives for a document `readInput` refuses: one per refusal, every one. */
+export const readInputRefusals = (errors: readonly string[]): string[] => errors.map(e => `readInput refuses it: ${e}`);
 
 /** `cppReplayability` of an `input@1` document as written. */
 export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
@@ -96,8 +100,8 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   if (!input.rings.every(r => r.baseStorey + r.storeys <= CPP_MAX_STOREY)) reasons.push(`a Ring reaching past storey ${CPP_MAX_STOREY}`);
   // Read through JSON, as a file is: `readInput` never sees the writer's own objects.
   const read = readInput(JSON.parse(JSON.stringify(input)), 'cppReplayability');
-  if (!read.ok) reasons.push(readInputRefusal(read.errors));
-  return reasons.length ? {cppReplayable: false, reason: reasons.join('; ')} : {cppReplayable: true};
+  if (!read.ok) reasons.push(...readInputRefusals(read.errors));
+  return reasons.length ? {cppReplayable: false, reasons} : {cppReplayable: true};
 }
 
 /** Spec decision 33's `ShellReport`, as the manifest pins it, checked against the type below. */

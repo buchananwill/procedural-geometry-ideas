@@ -843,7 +843,9 @@
   {
    "fixture": "Seed2Fuzz109h300",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -871,7 +873,9 @@
   {
    "fixture": "Seed2Fuzz109h250",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -899,7 +903,9 @@
   {
    "fixture": "Seed3Fuzz3h300",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -927,7 +933,9 @@
   {
    "fixture": "Seed3Fuzz3h250",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -955,7 +963,9 @@
   {
    "fixture": "Seed4Fuzz134h300",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -979,7 +989,9 @@
   {
    "fixture": "Seed4Fuzz134h250",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0
    ],
@@ -1146,7 +1158,9 @@
   {
    "fixture": "GapAligned1",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0,
     0
@@ -1172,7 +1186,9 @@
   {
    "fixture": "GapOffset1",
    "cppReplayable": false,
-   "reason": "corner off the Cell lattice",
+   "reasons": [
+    "corner off the Cell lattice"
+   ],
    "genus": [
     0,
     0
@@ -1368,7 +1384,12 @@
   {
    "fixture": "G5.86h250",
    "cppReplayable": false,
-   "reason": "readInput refuses it: Ring 0 (model index 0) side 0 run 0 is solved GableEnd at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153); Ring 0 (model index 0) side 1 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153); Ring 0 (model index 0) side 2 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153); Ring 0 (model index 0) side 3 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)",
+   "reasons": [
+    "readInput refuses it: Ring 0 (model index 0) side 0 run 0 is solved GableEnd at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)",
+    "readInput refuses it: Ring 0 (model index 0) side 1 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)",
+    "readInput refuses it: Ring 0 (model index 0) side 2 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)",
+    "readInput refuses it: Ring 0 (model index 0) side 3 run 0 is solved Pitched at 5.86 degrees, outside [7, 75] (journal decisions 143, 144 and 153)"
+   ],
    "genus": [
     0
    ],

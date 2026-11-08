@@ -466,7 +466,10 @@ export const UPPER_U_EDGE_CONTACT: ShellFixture = shellFixture('UpperUJoinedByEd
 /** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
 export type GapKind = 'Aligned' | 'Offset';
 
-export const gapFixture = (kind: GapKind, k: number): ShellFixture => {
+/** A near-touching pair's name: its kind and its gap in 1/1024 cm, the key its pin table reads (journal decision 160, B1). */
+export type GapName = `Gap${GapKind}${number}`;
+
+export const gapFixture = (kind: GapKind, k: number): NamedFixture<GapName> => {
   const [y0, y1] = kind === 'Aligned' ? [0, 400] : [100, 300];
   return shellFixture(`Gap${kind}${k}`, [ring([0, 0, 500, 400], 0, 1, 45), ring([500 + k / 1024, y0, 1000, y1], 0, 1, 45)]);
 };

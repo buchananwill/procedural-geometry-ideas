@@ -14,7 +14,7 @@ import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, SplitBandLayout, splitBandFixture, splitBandName} from './robustness-fixtures.ts';
-import type {PinTable} from './pin-table.ts';
+import {PinTable, throwsOutcome} from './pin-table.ts';
 import {CUT_OVERSHOOT_DEFECTS} from './residue-pins.ts';
 import {ShellExpectation, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
@@ -132,7 +132,7 @@ async function outcomeOf(f: ShellFixture): Promise<string[]> {
   try {
     return invariantViolations(await build(f), {genus: 1, cheeks: 0});
   } catch (e) {
-    return [`throws: ${errorMessage(e)}`];
+    return [throwsOutcome(errorMessage(e))];
   }
 }
 

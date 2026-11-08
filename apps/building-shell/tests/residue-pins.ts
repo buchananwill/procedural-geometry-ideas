@@ -2,7 +2,7 @@
 // its outcome. One module, so the robustness sweeps and the golden set's tie test (golden.test.ts) read the same pins:
 // a residue golden's manifest entry equals its pin here, verbatim.
 import type {CausedPinTable, PinTable} from './pin-table.ts';
-import type {CourtName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
+import type {CourtName, GapName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
 
 /** A generated case's key: its seed, storey height and name, of the name type `N` its generator emits (decision 155, B4). */
 export type SeededKey<N extends string> = `s${number}h${number}/${N}`;
@@ -172,7 +172,7 @@ export const PITCH_END_DEFECTS: PinTable<GridName> = {
  * - at 5/1024 and beyond, two components, clean.
  * Integer-quantum C++ corners cannot produce either, and the wire's 1/1024 snap makes them mis-authoring.
  */
-export const GAP_DEFECTS: PinTable<`Gap${'Aligned' | 'Offset'}${number}`> = {
+export const GAP_DEFECTS: PinTable<GapName> = {
   'GapAligned1': ["genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"],
   'GapAligned3': ["genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"],
   'GapOffset1': ["two components lie 9.766e-4 cm apart, within CLEAN_TOLERANCE_CM, at (500.0009765625, 100, 0) and (500, 100, 0)"],
