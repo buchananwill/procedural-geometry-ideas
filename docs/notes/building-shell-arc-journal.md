@@ -2347,6 +2347,14 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **The reference** is roof-gable's `src` in Piste Perfect (algorithm A, the weak walls), and the C++ roof-model
        spec, from its decision 49.
      - **Not scheduled.** It waits on the user. It is listed in §5.
+174. **The arc branch merges to `main` as a private app, and the app is not published** (user, 2026-11-08: "Yes" to
+     "merge it as a private app", and "Agreed" to "don't publish it now; a module later is a small arc of its own").
+     **The merge happens in this order:**
+     1. WP3.9 lands, and its two reviews are ruled on.
+     2. The app joins `CLAUDE.md`'s monorepo table and the root README, as a private app.
+     3. A verifier runs the full suite of every workspace package on the merged tree.
+     4. A `--no-ff` merge into `main`, never pushed, with the merge commit recorded here.
+     5. The port lead is told the WP3.9 hash.
 
 ## Findings
 
