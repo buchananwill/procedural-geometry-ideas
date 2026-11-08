@@ -86,9 +86,13 @@ running subagents.** Their reports arrive as notifications.
   WP3.6 is accepted once WP3.7 lands those addenda and is reviewed.
 - **WP3.7's two reviews** (WP3.7 landed at `2f3e639`, `d885276` and `040c93e`; decision 144, F51). WP3.6 and WP3.7
   are accepted together when the reviews are ruled on. **Fresh failures are now enrolled, not chased.**
-- **WP5.2** (the WP5 delegate, resumed again), carrying decisions 142 and 143, within the wire files only. WP5.1
-  landed at `f6b17df`, and its two reviews were ruled by decisions 142 and 143. When WP5.2 returns, it gets two fresh
-  reviews.
+- **WP5.2's two reviews**, on `55c1e66` (decision 146).
+- **Queued: WP3.8**, after WP3.7's correctness review is ruled on. Its scope:
+  - decision 145's shape fixes;
+  - decisions 129 to 131: the golden set, union stages and provenance;
+  - decision 146: F52's Roof–Underside kind proposal, the pitch sweep over every roster fixture across [7°, 75°], and
+    a named error class for plan refusals;
+  - WP3.7's correctness review findings.
 - **WP3.7's addenda so far:** 1 (decision 134), 2 (135), 3 (140 F5), 4 (141, amended by 142) and 5 (143 F1,
   `CUT_FREE_DEG`).
 - **Asked of the port lead (decision 143):** content's roof pitch range.
