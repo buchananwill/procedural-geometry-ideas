@@ -50,7 +50,10 @@ into `apps/building-shell/src/roof/`:
 **New, in `apps/building-shell/src/`:**
 
 - `constants.ts`: `SHELL_TOLERANCE_CM` (decision 16).
-- `fixture.ts`: `ShellFixture`, `FixtureRing`, `StoreyRoof`, and the fixture list `SHELL_FIXTURES`.
+- `fixture.ts`: `ShellFixture`, `FixtureRing`, and the fixture list `SHELL_FIXTURES`. **AMENDED 2026-11-08** (journal
+  decision 132): `StoreyRoof` is gone with Ring-authored forms (decision 3). The Ring-conflict and port fixtures live
+  in their own lists, `RING_CONFLICT_FIXTURES` and `PORT_FIXTURES`. `courtyard.ts` places decision 2's cut, and
+  `ring-forms.ts` derives decision 3's forms.
 - `manifold.ts`: the one `manifold-3d` WASM loader. `weld.ts`: decision 11's weld-and-snap primitive, the only rounding
   in the app (journal decision 71).
 - `storey.ts`: `StoreyPlan` (one storey's union outline and its solved roof) and `buildStoreyParts` (one storey's
@@ -77,26 +80,35 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 1. **A fixture is a value**, and every length is in centimetres:
 
    ```ts
-   interface FixtureRing { rect: Rect; baseStorey: number; storeys: number }
-   interface StoreyRoof { sels: Sel[]; defaultDeg: number }   // roof-gable's selector DSL, on the storey's union outline
+   type RingForm = 'hip' | 'gable';
+   type RingSide = 'S' | 'E' | 'N' | 'W';   // S on y = y0, E on x = x1, N on y = y1, W on x = x0
+   interface SideForm { form: RingForm; deg?: number }
+   interface FixtureRing { rect: Rect; baseStorey: number; storeys: number; defaultDeg: number; sides?: Partial<Record<RingSide, SideForm>> }
    interface ShellFixture {
      name: string;
      cellSize: number;        // 50
      storeyHeight: number;    // 250 (AMENDED 2026-11-07 from 300, journal decision 102); storey N's floor at N * storeyHeight, its plate at (N + 1) * storeyHeight
      rings: FixtureRing[];
-     roofs: Record<number, StoreyRoof>;   // one per storey index present
    }
    ```
+
+   **AMENDED 2026-11-08** (journal decision 132, recording WP3.6's shape): forms are authored per Ring (decision 3).
+   The per-storey `roofs: Record<number, StoreyRoof>` of roof-gable `Sel`s is gone. A side not listed is a hip at the
+   Ring's `defaultDeg`. The compass sides map onto the wire format's corner order as S = side 0, E = 1, N = 2,
+   W = 3 (journal decision 126).
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
    `unionLoops`. Several islands are allowed, each its own `Comp`.
 
    **A hole (a courtyard) is roofed through a cut, the user's sanctioned solution** (**AMENDED 2026-11-07**, journal
    decision 115; a hole was refused before).
-   - **Where the cut goes.** The cut runs along one raw Ring wall: a wall of one of the storey's Ring rectangles,
-     before the union, that crosses the island's ring from the hole's loop to the outer loop with the island's
-     interior on both sides along its whole length.
-   - **Which wall, when several qualify:** the shortest, then the lowest x, then the lowest y. If none qualifies, it
-     is a hard error naming the fixture and storey.
+   - **Where the cut goes.** The cut runs along a segment of one raw Ring wall, within that wall's span. A raw Ring
+     wall is a side of one of the storey's Ring rectangles, before the union. The segment crosses the island's ring
+     from the hole's loop to the outer loop, with the island's interior on both sides along its whole length, and
+     either end may be a loop vertex. **AMENDED 2026-11-08** (journal decision 132): this asked for a whole wall, which
+     no wall satisfies when two full-depth wings meet two full-width bands. Each wing's inner wall runs along the
+     hole in its middle, but both of its buried ends cross a band.
+   - **Which segment, when several qualify:** the shortest, then the lowest x of its lower end, then that end's
+     lowest y, then the lowest Ring index. If none qualifies, it is a hard error naming the fixture and storey.
    - **The roof.** The roof is solved on the slit polygon, exactly as roof-gable's `buildCourtyard` does with a slit
      width of 0. The outer loop and the hole's loop are spliced at the cut's two ends, both slit sides are
      `form: 'cut'`, and algorithm B's cut pieces raise the rake across the slit. Neither the solver nor roof-gable's
@@ -133,7 +145,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 6. **The wall prism** is the island's outline extruded from the storey's floor to its plate. Its side faces are tagged
    `Wall`, each with the union wall it lies on. Its bottom face is tagged `Ground` on storey 0 and `Underside` on every
    storey above. Its top face is tagged `Internal`.
-7. **The hip solid** is one closed mesh: bottom face the island's outline at plate height, top faces the skeleton's
+7. **AMENDED 2026-11-08** (journal decision 132): **on a storey with a hole, the hip solid stands from the storey's
+   floor**, its sides the prism's own Wall sides and its bottom the prism's floor. With a bottom at plate height,
+   Manifold can triangulate the cut as a diagonal, giving one edge four half-edges. **The hip solid** is one closed mesh: bottom face the island's outline at plate height, top faces the skeleton's
    faces from `solveFaces`, each lifted to `z = plate + planeAt(plane, p)`. Each top face is tagged `Roof` with its
    `RawFace.wall`, and the bottom face is tagged `Internal`.
 8. **A gable piece's solid** is the piece's band rectangle in plan: along the wall over `[bandLo, bandHi]`, inward from
@@ -454,11 +468,12 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 
 ### The fixtures
 
-All eleven use `cellSize` 50 and `storeyHeight` 250, Piste Perfect's default. Coordinates are `[x0, y0, x1, y1]`.
+All twelve use `cellSize` 50 and `storeyHeight` 250, Piste Perfect's default. Coordinates are `[x0, y0, x1, y1]`.
 **AMENDED 2026-11-07:**
 - the storey height was 300; every height below is recomputed for 250 (journal decision 102);
 - the roster grew from seven (first miscounted as six) to ten (journal decision 70), then to eleven with
-  `DefaultChalet` (journal decision 103);
+  `DefaultChalet` (journal decision 103), then to twelve with `Courtyard` (journal decisions 115 and 132; genus 1, its
+  report empty but for 48 partial Cells and the InternalCorner and roof-line conventions);
 - decision 38 now holds two fixtures (journal decision 55);
 - decisions 37 and 39 each hold a clean twin and a degenerate twin (journal decision 56).
 

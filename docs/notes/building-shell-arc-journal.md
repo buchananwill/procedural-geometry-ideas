@@ -79,21 +79,19 @@ departs from those four steps is a defect.
 The user signed off for the night, and the lead's context was compacted afterwards. **Use `ListAgents` to find the
 running subagents.** Their reports arrive as notifications.
 
-**Running:**
-- **WP3.6** (general-purpose, Opus, fresh).
-  - Its brief: courtyards (decision 115), Ring forms (decision 116 and its addenda), F43's Cell-existence rule with the
-    three 270 cm regressions enrolled, and decision 107's N10/N11 leftovers.
-  - Addendum 1: decision 120's type items.
-  - Addendum 2: decision 121's four port-regression fixtures.
-  - When it returns: decision 67's two reviews, on fresh reviewers. The previous ones have full contexts.
+**Landed:** WP3.6 at `7847a48`, provisionally accepted (decision 132).
 
-**Queued, in order:**
-- **WP3.7**, after WP3.6 lands (decisions 122 and 123): pillow removal, vertex clustering, holed Cells, 3D vertex
-  identity, the exact straddle check, Hausdorff loop checks, a move bound, and spec 16's constants. Its gate is fresh
-  seeds 5 to 12 at 250, 263 and 300 cm, plus δ-nudges. **After WP3.7, fresh failures are enrolled, not chased.**
-- **WP5**, the wire format (decisions 124 to 126): it starts after WP3.6 and may run alongside WP3.7, since it only adds
-  new files. It builds the ingestion folder and the diff tool against a hand-written stand-in schema until the UE
-  Zod file exists.
+**Running** (decision 133):
+- **WP3.6's two reviews** (type, and correctness), each on a snapshot of `7847a48`. Their accepted findings join
+  WP3.7 as an addendum.
+- **WP3.7** (decisions 122, 123, 132 and 133): pillow removal, vertex clustering, holed Cells, 3D vertex identity,
+  the exact straddle check, Hausdorff loop checks, a move bound, spec 16's constants, the corrected cut rule, and
+  F50. Its gate is fresh seeds 5 to 12 at 250, 263 and 300 cm, the δ-nudges, the courtyard and U generators, and
+  PortPokeOut250 clean. **After WP3.7, fresh failures are enrolled, not chased.**
+- **WP5**, the wire format (decisions 124 to 128). It adds only new files. It builds the ingestion folder and the diff
+  tool against a hand-written stand-in schema until the UE Zod file exists.
+
+**Queued:**
 - **WP3.8**, after WP3.7 (decisions 129 to 131): the union-stage export, wall provenance on Cells and faces, and the committed golden export
   with its manifest and drift test. Port-ready is declared at the commit that lands it, once reviewed.
 
@@ -118,12 +116,14 @@ been reviewed, naming the commit (decision 129). It must include the measured re
 - ~~**Roof lines in the C++ port: exact cut or staircase (F20, point 2).**~~ Closed by decision 89: exact cuts.
 - ~~**Corners between two Rings (F20, point 1).**~~ Closed by decision 90: named by geometry.
 - **Unsolved problems the C++ port inherits** (the user asked on 2026-11-07; the lead's inventory):
-  - **Courtyards.** A storey plan with a hole is refused. Roof-gable needs a cut to roof one, and up to 4 Rings can
-    enclose one, so content can reach this.
-  - **Roof forms per union wall, not per Ring** (spec §3 deferred). The rule for a wall run merged from several Rings
-    is undecided.
+  - ~~**Roof forms per union wall, not per Ring.**~~ Ruled by the user (decisions 116 and 128): the lowest index wins
+    the whole union wall. Built by WP3.6.
   - **Roof-gable algorithm B's measured defects** are inherited unchanged: 3 FAIL (7g to 7i, all mixed pitch) and 6
-    CHEEK.
+    CHEEK. Also its courtyard overshoot (decision 132, finding 2): a cut longer than twice the depth of the band beyond
+    it leaves the wing-side cut piece uncapped, 21 cm high in `CutOvershootProbe`. **For the user:** whether that fix
+    becomes its own roof-gable arc.
+  - ~~**Courtyards.**~~ Roofed by decision 115's cut, corrected by decision 132. A layout with no qualifying wall
+    segment stays a hard error, and WP3.7's courtyard generator measures whether content can reach one.
   - **A straight-skeleton refusal is a hard error with no fallback.** The risk lives in mixed-pitch weights.
   - **No sliver-Cell policy.** Exact cuts keep partial Cells down to 1e-4 cm², with no merge rule or minimum size for
     content.
@@ -1267,6 +1267,54 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **The C++ diff is geometric, never byte-wise,** because the two Manifold versions may differ in float order and
        triangulation. That tolerance is the port's to choose.
      - **Delivered by WP3.8.**
+132. **WP3.6 returned at `7847a48`: 3764/3764, `typecheck` clean, all four gates convicted**, per the delegate. Over
+     2998 hashed shells, only the three F43 shells changed, plus the new Courtyard. **Its acceptance is provisional
+     until decision 67's two reviews return.** Rulings on its four findings:
+     - **Finding 1, `FullWingsProbe`: the lead's spec 2 wording was too narrow, and is corrected.**
+       - The layout: four Rings, two bands at full width and two wings at full depth, with the hole between them.
+       - Spec 2 asked for a whole raw wall with interior on both sides "along its whole length". A wing's inner wall
+         runs along the hole in its middle, so no whole wall qualifies.
+       - Its two ends are buried in the bands, though, and each end crosses a band from the outer loop to a corner of
+         the hole. That is the user's "use one of the raw rings walls to make a cut across the courtyard's building
+         ring" exactly.
+       - **The cut is a segment of a raw Ring wall, within that wall's span.** The segment has the island's interior
+         on both sides along its whole length, and runs from the hole's loop to the outer loop; either end may be a
+         loop vertex. The tie-break is unchanged: shortest first, then lowest x of the lower end, then its lowest y,
+         then Ring index.
+       - **`FullWingsProbe` must then roof, genus 1, and joins the roster's assertions.**
+       - A layout with no qualifying segment stays a hard error. **The courtyard generator draws from the full Ring
+         family**, wings at full height included, so that any such residual is measured, not avoided.
+     - **Finding 2, algorithm B's overshoot on long cuts, is an inherited roof-gable defect.** It is pinned as
+       `CutOvershootProbe` and joins §5's list of problems the port inherits. The copy stays frozen under spec 31, and
+       the fix belongs to roof-gable's own algorithm (its cut pieces' end planes). Raised with the user: whether that
+       becomes its own arc.
+     - **Finding 3, PortPokeOut250's uncancelled coincident pair, is G1's family** (decision 122). It goes to WP3.7,
+       and **WP3.7's gate requires PortPokeOut250, a C++ in-game regression, to build clean.** Its pin is today's
+       signature until then.
+     - **Finding 4, the random courtyard defects, is recorded as F50.** It goes to WP3.7, whose gate widens to the
+       courtyard and U generators.
+     - **Interpretations, all accepted:**
+       - **A holed storey's hip solid stands from the floor,** so that Manifold cannot triangulate the cut as a
+         diagonal. Spec 7 is amended for holed storeys. WP3.7 may extend this to every storey, if the 2998-shell
+         identity check shows it removes a defect class and moves nothing else.
+       - Only the cut pieces' faces on the cut plane are tagged `Internal`.
+       - The cut walls take the cutting Ring's default pitch.
+       - An island with more than one hole is a hard error.
+       - UProbe, USplitProbe, NoPlane and CutProbe stay built from `Sel`s below the fixture layer, because Ring
+         authoring cannot express part of a line.
+       - The conflict and port fixtures live in their own lists, outside the roster, and the export writes them.
+     - **The spec's §1 roster and fixture interface, and spec 34 to 40's count, are the lead's to fix.** They are
+       fixed in the same commit as this decision.
+133. **WP3.7 goes out now, with WP3.6's reviews running alongside it on a snapshot of `7847a48`.** The reviews' accepted
+     findings join WP3.7 as an addendum, as decision 120's items joined WP3.6. That precedent means no second round
+     on the same files. WP3.7's scope:
+     - decision 122's rulings: G1, F-C, G3, G4, G5, F-A, F-D, F-E and F-F;
+     - decision 132's corrected cut rule, with `FullWingsProbe` roofed;
+     - findings 3 and 4 of decision 132 (F50).
+
+     Its gate: the fresh seeds 5 to 12 at 250, 263 and 300 cm, plus the δ-nudges, plus the courtyard and U
+     generators, plus PortPokeOut250 clean. After it, decision 123's enrol-don't-chase rule applies. **WP5 goes out
+     alongside it,** since it adds only new files.
 
 ## Findings
 
@@ -1586,3 +1634,15 @@ been reviewed, naming the commit (decision 129). It must include the measured re
     (Form, Ring, Corner). Corner is the side's owning corner, so it equals the side index. Ring is root order, which
     maps one-to-one onto ascending model index (F48). A Stroke's position is in its wall's own surface frame, which the
     port derives from input@1's corners and storeys. **Nothing more is needed through input@1 or the output.**
+- **F50. The earlier random generator never covered a whole layout family, so F45's 0.27% holds only for its own
+  family.** WP3.6's courtyard generator found measured defects in 22 of 160 cases, each pinned in `robustness.test.ts`.
+  - **The general class is gables over several storeys,** which give Unclassified Edges. It recurs with one wing
+    removed (a U shape, no hole): 12 of 160. It is older than courtyards.
+  - **The courtyard-only classes:**
+    - `cleanMesh` pinch or stuck-cap refusals with gables (5);
+    - a Cheek face (2);
+    - a surviving Internal cut face with Unclassified Edges (2).
+  - **Unpinned probes:** multi-storey hipped courtyards leave uncancelled coincident cut faces, the same family as
+    PortPokeOut250 (decision 132, finding 3).
+  - **The lesson, the same as the 300 cm one (decision 102):** a sweep gives assurance only over the layout families
+    its generator can reach. Every generator's reach is to be stated beside its measured rate.
