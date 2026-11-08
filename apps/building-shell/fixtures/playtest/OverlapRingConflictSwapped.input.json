@@ -1,35 +1,15 @@
 {
   "schemaVersion": 1,
   "frame": "UE actor-local, cm, Z up, left-handed",
-  "provenance": {
-    "gameBuild": "prototype @proc-geo/building-shell",
-    "sessionId": "fixture-export",
-    "timestamp": "2026-11-08T00:00:00Z",
-    "actorTransform": {
-      "translation": {
-        "x": 0,
-        "y": 0,
-        "z": 0
-      },
-      "rotation": {
-        "x": 0,
-        "y": 0,
-        "z": 0,
-        "w": 1
-      },
-      "scale3D": {
-        "x": 1,
-        "y": 1,
-        "z": 1
-      }
-    }
-  },
   "storeyHeightCm": 250,
   "cellSizeCm": 50,
   "rings": [
     {
       "ringIndex": 0,
       "modelIndex": 0,
+      "baseStorey": 0,
+      "storeys": 1,
+      "wallHeightCm": 0,
       "corners": [
         {
           "x": 600,
@@ -48,38 +28,41 @@
           "y": 1000
         }
       ],
-      "storeys": {
-        "baseStorey": 0,
-        "storeys": 1,
-        "wallHeightCm": 0
-      },
       "sides": [
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         }
       ]
@@ -87,6 +70,9 @@
     {
       "ringIndex": 1,
       "modelIndex": 1,
+      "baseStorey": 0,
+      "storeys": 1,
+      "wallHeightCm": 0,
       "corners": [
         {
           "x": 0,
@@ -105,41 +91,65 @@
           "y": 400
         }
       ],
-      "storeys": {
-        "baseStorey": 0,
-        "storeys": 1,
-        "wallHeightCm": 0
-      },
       "sides": [
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "GableEnd",
           "solved": {
             "form": "GableEnd",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         },
         {
           "request": "Auto",
           "solved": {
             "form": "Pitched",
-            "pitchDegrees": 45
+            "pitchDegrees": 45,
+            "bEmptied": false,
+            "bOutlineRefused": false
           }
         }
       ]
     }
-  ]
+  ],
+  "provenance": {
+    "gameBuild": "prototype @proc-geo/building-shell",
+    "sessionId": "fixture-export",
+    "timestamp": "2026-11-08T00:00:00Z",
+    "subject": "OverlapRingConflictSwapped",
+    "location": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "rotation": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "scale": {
+      "x": 1,
+      "y": 1,
+      "z": 1
+    }
+  }
 }

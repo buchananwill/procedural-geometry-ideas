@@ -1,23 +1,25 @@
 // STAND-IN, HAND-WRITTEN. Not generated.
 //
-// Journal decisions 125 to 127: the wire format's schemas are generated from the C++ port's wire USTRUCTs by the UE
-// project's Zod generator (`PistePerfectEditor/Interop/ZodSchemaGenerator.cpp`), one `<family>-schema.zod.ts` per
-// family. Those USTRUCTs arrive with the port's first increment and do not exist yet, so this file stands in for the
-// generated one, written to the generator's mapping as journal F47 records it:
-// - a USTRUCT is a `z.strictObject`, a UENUM a `z.enum`, a TArray a `z.array`;
-// - field names are camelCased;
-// - every field is `.optional()`, on purpose: a field the import codec omits stays at its C++ default;
-// - no `TOptional`: an unset value is explicit (a side's request includes `Auto`; `wallHeightCm` 0 is no override);
-// - vectors are explicit `double` fields, never `FVector`.
+// Journal decisions 125 to 127 and 137 to 139: the wire format's schemas are generated from the C++ port's wire
+// USTRUCTs by the UE project's Zod generator (`PistePerfectEditor/Interop/ZodSchemaGenerator.cpp`), one
+// `<family>-schema.zod.ts` per family. Those USTRUCTs arrive with the port's first increment, so this file stands in
+// for the generated one. It is written to the generator's mapping as journal F47 and decisions 137 and 138 record it:
+// - a USTRUCT is a `z.strictObject`, a UENUM a `z.enum` of its bare member names in declaration order, a TArray a
+//   `z.array`;
+// - every key is `FJsonObjectConverter::StandardizeCase` of its UE name: the first letter lowercased, "ID" as "Id",
+//   so `bEmptied` stays `bEmptied`;
+// - every field is `.optional()`, on purpose: a field the import codec omits keeps its USTRUCT default
+//   (`building-shell-input-defaults.ts`);
+// - no `TOptional`, and vectors are explicit `double` fields, never `FVector`.
 //
-// The generated file replaces this one when it exists, vendored with a header naming the UE commit and generator
-// version. Required-field policy does not live here: see `refinements/building-shell-input.ts`.
+// The keys follow the C++ input@1 spec, MB.D507 (decision 139). The generated module stays authoritative: the port
+// lead reports any difference once it is built. This file exports schemas only, as the generator does.
 import {z} from 'zod';
 
-/** The player's per-wall request: a PlateRun Stroke (journal F46), with `Auto` as the explicit unset value. */
+/** The player's per-wall request, a PlateRun Stroke (journal F46), `Auto` first as the explicit unset value. */
 export const ERoofSideRequestSchema = z.enum(['Auto', 'Pitched', 'GableEnd']);
 
-/** `EModularRoofForm` (journal F46), the solved run's form. */
+/** `EModularRoofForm` (journal F46), in its declaration order. */
 export const EModularRoofFormSchema = z.enum(['None', 'Pitched', 'GableEnd', 'Monopitch', 'Flat']);
 
 /** A plan point in actor-local cm. */
@@ -32,69 +34,58 @@ export const FShellWireVec3Schema = z.strictObject({
   z: z.number().optional(),
 });
 
-export const FShellWireQuatSchema = z.strictObject({
-  x: z.number().optional(),
-  y: z.number().optional(),
-  z: z.number().optional(),
-  w: z.number().optional(),
-});
-
-/** The actor's world transform, carried for provenance only: no geometry is converted by it (journal decision 126). */
-export const FShellWireTransformSchema = z.strictObject({
-  translation: FShellWireVec3Schema.optional(),
-  rotation: FShellWireQuatSchema.optional(),
-  scale3D: FShellWireVec3Schema.optional(),
-});
-
-/** Journal decision 127: provenance is a nested USTRUCT. */
+/**
+ * Decision 139: provenance only, never used to convert geometry (decision 126). `timestamp` is ISO 8601 UTC,
+ * `rotation` is in degrees, and `subject` names the dump.
+ */
 export const FShellWireProvenanceSchema = z.strictObject({
   gameBuild: z.string().optional(),
   sessionId: z.string().optional(),
-  /** ISO 8601. */
   timestamp: z.string().optional(),
-  actorTransform: FShellWireTransformSchema.optional(),
+  subject: z.string().optional(),
+  location: FShellWireVec3Schema.optional(),
+  rotation: FShellWireVec3Schema.optional(),
+  scale: FShellWireVec3Schema.optional(),
 });
 
-/** `FModularRoofRun {Form, PitchDegrees}` (journal F46): the solved run of one side. */
-export const FModularRoofRunSchema = z.strictObject({
+/**
+ * One side's solved run: `FModularRoofRun {Form, PitchDegrees}` (journal F46), plus the two booleans the port's
+ * exporter writes for a run the solve did not solve (decision 137).
+ */
+export const FShellWireSolvedRunSchema = z.strictObject({
   form: EModularRoofFormSchema.optional(),
   pitchDegrees: z.number().optional(),
+  bEmptied: z.boolean().optional(),
+  bOutlineRefused: z.boolean().optional(),
 });
 
 /** Journal decision 126: per side, both the request and the solve. */
 export const FShellWireSideSchema = z.strictObject({
   request: ERoofSideRequestSchema.optional(),
-  solved: FModularRoofRunSchema.optional(),
-});
-
-/** `FCellNetRingStoreys {BaseStorey, Storeys, WallHeightCm}` (journal F46); `wallHeightCm` 0 is no override. */
-export const FCellNetRingStoreysSchema = z.strictObject({
-  baseStorey: z.number().optional(),
-  storeys: z.number().optional(),
-  wallHeightCm: z.number().optional(),
+  solved: FShellWireSolvedRunSchema.optional(),
 });
 
 /**
- * One Ring: four corners in slot order, side i from corner i to corner i + 1, owned by corner i (journal F46). It
- * carries both its ring index (root order) and its parent `FBuildableComponentModel` index (journal decision 126).
+ * One Ring (decision 139): its ring index (root order) and parent `FBuildableComponentModel` index, its storeys flat
+ * on the Ring (`wallHeightCm` 0 is no override), and four corners in slot order. Side i runs from corner i to
+ * corner i + 1 and is owned by corner i (journal F46).
  */
 export const FShellWireRingSchema = z.strictObject({
   ringIndex: z.number().optional(),
   modelIndex: z.number().optional(),
+  baseStorey: z.number().optional(),
+  storeys: z.number().optional(),
+  wallHeightCm: z.number().optional(),
   corners: z.array(FShellWireVec2Schema).optional(),
-  storeys: FCellNetRingStoreysSchema.optional(),
   sides: z.array(FShellWireSideSchema).optional(),
 });
 
-/** `building-shell/input@1`: the building as authored. `schemaVersion` is the int32 first field (journal decision 127). */
+/** `building-shell/input@1`: the building as authored. `schemaVersion` is the int32 first field (decision 127). */
 export const FBuildingShellInputSchema = z.strictObject({
   schemaVersion: z.number().optional(),
-  /** Journal decision 126: the frame the file's numbers are in, declared. */
   frame: z.string().optional(),
-  provenance: FShellWireProvenanceSchema.optional(),
   storeyHeightCm: z.number().optional(),
   cellSizeCm: z.number().optional(),
   rings: z.array(FShellWireRingSchema).optional(),
+  provenance: FShellWireProvenanceSchema.optional(),
 });
-
-export type FBuildingShellInput = z.infer<typeof FBuildingShellInputSchema>;

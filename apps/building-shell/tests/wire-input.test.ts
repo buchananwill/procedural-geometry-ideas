@@ -1,16 +1,12 @@
-// `building-shell/input@1` (journal decisions 124 to 128, as amended by 126): the stand-in generated schema, its
-// refinement layer, and the adapter's refusals and flags.
+// `building-shell/input@1` (journal decisions 124 to 128 and 136 to 140): the stand-in generated schema, its
+// refinement layer with the USTRUCT defaults, and the adapter's refusals, snapping, flags and information.
 import {describe, expect, it} from 'vitest';
-import {fixtureByName, ring} from '../src/fixture.ts';
-import {FBuildingShellInput, FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
-import {WIRE_SIDE_ORDER, readInput, writeInput} from '../src/wire/input-adapter.ts';
-import {BuildingShellInputV1, INPUT_FRAME, refineInput} from '../src/wire/refinements/building-shell-input.ts';
+import {COURTYARD_RECTS, RING_SIDES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
+import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts';
+import {BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, refineInput} from '../src/wire/input-types.ts';
 
-/** Decision 125's drift guard, in its stand-in form: the refined type is a generated value, so `typecheck` fails on drift. */
-const refinedIsGenerated = (v: BuildingShellInputV1): FBuildingShellInput => v;
-void refinedIsGenerated;
-
-/** A valid file: the flush Ring-conflict pair, two Rings whose S sides share y = 0. */
+/** A valid file: the flush Ring-conflict pair, two Rings whose S sides share y = 0, Ring 0 winning it. */
 const valid = (): BuildingShellInputV1 => writeInput(fixtureByName('FlushRingConflict'));
 
 /** The adapter's errors for a file, or [] when it is accepted. */
@@ -19,31 +15,89 @@ const errorsOf = (json: unknown): string[] => {
   return r.ok ? [] : r.errors;
 };
 
+/** The adapted file, or a throw naming its errors. */
+const adapted = (json: unknown, name = 'probe'): AdaptedInput => {
+  const r = readInput(json, name);
+  if (!r.ok) throw new Error(r.errors.join('; '));
+  return r;
+};
+
+/** A JSON copy, so a test can delete fields the types require. */
+const loose = (v: unknown): Record<string, any> => JSON.parse(JSON.stringify(v)); // eslint-disable-line @typescript-eslint/no-explicit-any
+
+/** A file's Rings rotated to start at slot `s`, corners and sides together. */
+function rotated(v: BuildingShellInputV1, s: number): BuildingShellInputV1 {
+  const w = structuredClone(v);
+  for (const r of w.rings) {
+    r.corners = [...r.corners.slice(s), ...r.corners.slice(0, s)];
+    r.sides = [...r.sides.slice(s), ...r.sides.slice(0, s)];
+  }
+  return w;
+}
+
 describe('the stand-in generated schema', () => {
   it('makes every field optional, as the UE generator emits: an empty document parses', () => {
     expect(FBuildingShellInputSchema.safeParse({}).success).toBe(true);
-    expect(FBuildingShellInputSchema.safeParse({rings: [{corners: [{}]}]}).success).toBe(true);
+    expect(FBuildingShellInputSchema.safeParse({rings: [{corners: [{}], sides: [{solved: {}}]}]}).success).toBe(true);
   });
 
   it('is strict, as a USTRUCT is: an unknown field is refused', () => {
     expect(FBuildingShellInputSchema.safeParse({schemaVersion: 1, colour: 'red'}).success).toBe(false);
   });
+
+  it('keys every field as MB.D507 lists it (decision 139)', () => {
+    const v = valid();
+    expect(Object.keys(v)).toEqual(['schemaVersion', 'frame', 'storeyHeightCm', 'cellSizeCm', 'rings', 'provenance']);
+    expect(Object.keys(v.rings[0])).toEqual(['ringIndex', 'modelIndex', 'baseStorey', 'storeys', 'wallHeightCm', 'corners', 'sides']);
+    expect(Object.keys(v.rings[0].sides[0])).toEqual(['request', 'solved']);
+    expect(Object.keys(v.rings[0].sides[0].solved)).toEqual(['form', 'pitchDegrees', 'bEmptied', 'bOutlineRefused']);
+    expect(Object.keys(v.provenance)).toEqual(['gameBuild', 'sessionId', 'timestamp', 'subject', 'location', 'rotation', 'scale']);
+  });
 });
 
 describe('the refinement layer', () => {
-  it('accepts a file the prototype writes, with schemaVersion its int32 first field', () => {
+  it('accepts a file the prototype writes, with schemaVersion its first field', () => {
     const v = valid();
-    expect(refineInput(JSON.parse(JSON.stringify(v)))).toEqual({ok: true, value: v});
-    expect(Object.keys(v)[0]).toBe('schemaVersion');
+    expect(refineInput(loose(v))).toEqual({ok: true, value: v});
     expect(v.frame).toBe(INPUT_FRAME);
   });
 
-  it('requires every field', () => {
-    const {cellSizeCm: _, ...rest} = valid();
-    expect(errorsOf(rest)).toEqual(['cellSizeCm: Invalid input: expected number, received undefined']);
-    const v = valid();
-    delete (v.rings[1].sides[2] as Partial<typeof v.rings[1]['sides'][2]>).request;
-    expect(errorsOf(v)).toEqual(['rings.1.sides.2.request: Invalid input: expected nonoptional, received undefined']);
+  it('gives an omitted field its USTRUCT default, as the C++ import codec does (decision 140, F7)', () => {
+    const v = loose(valid());
+    delete v.schemaVersion;
+    delete v.frame;
+    delete v.provenance;
+    delete v.rings[0].baseStorey;
+    delete v.rings[0].storeys;
+    delete v.rings[0].wallHeightCm;
+    delete v.rings[0].sides[1].request;
+    delete v.rings[0].sides[1].solved.bEmptied;
+    const r = refineInput(v);
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    // Every deleted ring and side field held its default already; the provenance comes back default-constructed.
+    const want = valid();
+    want.provenance = {gameBuild: '', sessionId: '', timestamp: '', subject: '', location: {x: 0, y: 0, z: 0}, rotation: {x: 0, y: 0, z: 0}, scale: {x: 1, y: 1, z: 1}};
+    expect(r.value).toEqual(want);
+  });
+
+  it('refuses through its defaults what a default cannot be: no storey height, no cell size, no Rings', () => {
+    expect(errorsOf({})).toEqual([
+      'storeyHeightCm: Too small: expected number to be >0',
+      'cellSizeCm: Too small: expected number to be >0',
+      'rings: Too small: expected array to have >=1 items',
+    ]);
+  });
+
+  it('refuses an empty Ring through its defaults: no corners, no sides', () => {
+    const v = loose(valid());
+    v.rings[1] = {};
+    expect(errorsOf(v)).toEqual(['rings.1.corners: Too small: expected array to have >=4 items', 'rings.1.sides: Too small: expected array to have >=4 items']);
+  });
+
+  it('refuses an unknown key at any depth', () => {
+    const v = loose(valid());
+    v.rings[0].sides[0].stroke = 3;
+    expect(errorsOf(v)).toEqual(['rings.0.sides.0: Unrecognized key: "stroke"']);
   });
 
   it('pins schemaVersion 1 and the frame', () => {
@@ -58,26 +112,37 @@ describe('the refinement layer', () => {
     expect(errorsOf(v)).toEqual(['rings.0.corners: Too small: expected array to have >=4 items', 'rings.1.sides: Too big: expected array to have <=4 items']);
   });
 
-  it('requires integer storeys and indices', () => {
+  it('requires integer storeys and indices no lower than the unset sentinel -1', () => {
     const v = valid();
-    v.rings[0].storeys.storeys = 1.5;
-    v.rings[1].modelIndex = -1;
-    expect(errorsOf(v)).toEqual(['rings.0.storeys.storeys: Invalid input: expected int, received number', 'rings.1.modelIndex: Too small: expected number to be >=0']);
+    v.rings[0].storeys = 1.5;
+    v.rings[1].modelIndex = -2;
+    expect(errorsOf(v)).toEqual(['rings.0.storeys: Invalid input: expected int, received number', 'rings.1.modelIndex: Too small: expected number to be >=-1']);
   });
 });
 
 describe('the refusals', () => {
-  it('refuses a Ring that is not an axis-aligned rectangle, never snapping it', () => {
-    const v = valid();
-    v.rings[0].corners[2] = {x: 500.001, y: 400};
+  it('refuses a Ring whose ringIndex or modelIndex is the unset sentinel -1, naming the field (decision 140)', () => {
+    const v = loose(writeInput(fixtureByName('DefaultChalet')));
+    delete v.rings[0].ringIndex;
+    delete v.rings[0].modelIndex;
     expect(errorsOf(v)).toEqual([
-      'Ring 0 (model index 0) side 1 runs (500, 0) to (500.001, 400), not along one axis: the Ring is not an axis-aligned rectangle (journal decision 126)',
+      'Ring 0 (model index -1) has ringIndex -1, the USTRUCT default for an unset index: the file does not write it (journal decision 140)',
+      'Ring 0 (model index -1) has modelIndex -1, the USTRUCT default for an unset index: the file does not write it (journal decision 140)',
+    ]);
+  });
+
+  it('refuses a Ring that is not an axis-aligned rectangle, tested on its snapped corners', () => {
+    const v = valid();
+    v.rings[0].corners[2] = {x: 500.5, y: 400};
+    expect(errorsOf(v)).toEqual([
+      'Ring 0 (model index 0) side 1 runs (500, 0) to (500.5, 400), not along one axis: the Ring is not an axis-aligned rectangle (journal decision 126)',
     ]);
   });
 
   it('refuses a degenerate Ring and a Ring whose consecutive sides lie on one axis', () => {
     const v = valid();
     v.rings[0].corners = [{x: 0, y: 0}, {x: 500, y: 0}, {x: 500, y: 0}, {x: 0, y: 0}];
+    expect(errorsOf(v).length).toBeGreaterThan(0);
     expect(errorsOf(v).every(e => e.includes('not an axis-aligned rectangle'))).toBe(true);
     const w = valid();
     w.rings[0].corners = [{x: 0, y: 0}, {x: 200, y: 0}, {x: 500, y: 0}, {x: 500, y: 400}];
@@ -85,35 +150,39 @@ describe('the refusals', () => {
     expect(errorsOf(w).every(e => e.includes('not an axis-aligned rectangle'))).toBe(true);
   });
 
-  it('refuses a Ring winding clockwise, as a mirrored frame would write it', () => {
+  it("refuses a Ring of non-positive signed area, by the C++'s own test (decision 140, F10)", () => {
     const v = valid();
     v.rings[1].corners.reverse();
-    expect(errorsOf(v)).toEqual(["Ring 1 (model index 1) winds clockwise from above; a Ring's corners run counter-clockwise (journal decision 126)"]);
-  });
-
-  it('refuses a solved Monopitch, a solved Flat and a side with no solved run', () => {
-    const v = valid();
-    v.rings[0].sides[0].solved.form = 'Monopitch';
-    v.rings[0].sides[1].solved.form = 'Flat';
-    v.rings[1].sides[3].solved.form = 'None';
     expect(errorsOf(v)).toEqual([
-      'Ring 0 (model index 0) side 0 has a solved Monopitch, refused until mono is supported (journal decision 126)',
-      'Ring 0 (model index 0) side 1 has a solved Flat, which is a polyline clamp, never a run form (journal decision 126)',
-      'Ring 1 (model index 1) side 3 has no solved run (form None)',
+      "Ring 1 (model index 1) has signed area x·y′ − x′·y ≤ 0 (-200000 cm²), the C++'s SignedArea test; a Ring's corners run with positive signed area (journal decisions 126 and 140)",
     ]);
   });
 
-  it('refuses a pitch outside (0, 90)', () => {
+  it('refuses a solved Monopitch and a solved Flat', () => {
+    const v = valid();
+    v.rings[0].sides[0].solved.form = 'Monopitch';
+    v.rings[0].sides[1].solved.form = 'Flat';
+    expect(errorsOf(v)).toEqual([
+      'Ring 0 (model index 0) side 0 has a solved Monopitch, refused until mono is supported (journal decision 126)',
+      'Ring 0 (model index 0) side 1 has a solved Flat, which is a polyline clamp, never a run form (journal decision 126)',
+    ]);
+  });
+
+  it('validates the pitch of a Pitched side only: a gable solved at 0 or 90 is accepted (decision 136)', () => {
     const v = valid();
     v.rings[0].sides[2].solved.pitchDegrees = 90;
-    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 is solved at 90 degrees, outside (0, 90)']);
+    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 is solved Pitched at 90 degrees, outside (0, 90)']);
+    const w = valid();
+    w.rings[1].sides[0].solved.pitchDegrees = 0; // Ring 1's S side is its GableEnd
+    expect(w.rings[1].sides[0].solved.form).toBe('GableEnd');
+    expect(errorsOf(w)).toEqual([]);
   });
 
   it("refuses a wall-height override that differs from the building's storey height, and accepts 0 or an equal one", () => {
     const v = valid();
-    v.rings[1].storeys.wallHeightCm = 300;
+    v.rings[1].wallHeightCm = 300;
     expect(errorsOf(v)).toEqual(["Ring 1 (model index 1) overrides its wall height to 300 cm, which differs from the building's storey height 250 cm (journal decision 126)"]);
-    v.rings[1].storeys.wallHeightCm = 250;
+    v.rings[1].wallHeightCm = 250;
     expect(errorsOf(v)).toEqual([]);
   });
 
@@ -137,44 +206,120 @@ describe('the refusals', () => {
   });
 });
 
+describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
+  it('is an unlisted side when it loses its union wall: FlushRingConflict\'s Ring 1 loses y = 0 to Ring 0', () => {
+    const v = valid();
+    v.rings[1].sides[0].solved.form = 'None';
+    const r = adapted(v);
+    expect(r.fixture.rings[1].sides?.S).toBeUndefined();
+  });
+
+  it('is an unlisted side when it is buried: SingleStoreyT\'s stem W side lies inside the union', () => {
+    const v = writeInput(fixtureByName('SingleStoreyT'));
+    v.rings[1].sides[3].solved.form = 'None';
+    expect(adapted(v).fixture.rings[1].sides?.W).toBeUndefined();
+  });
+
+  it('is refused when it wins a union wall, where its form would be undefined', () => {
+    const v = valid();
+    v.rings[0].sides[2].solved.form = 'None';
+    expect(errorsOf(v)).toEqual([
+      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
+    ]);
+  });
+});
+
+describe('corner snapping (decision 137, spec 16)', () => {
+  it('snaps double round-off onto the grid and reports the largest drift', () => {
+    const v = valid();
+    v.rings[0].corners[1].x = 500.00000000000006;
+    const r = adapted(v);
+    expect(r.fixture.rings[0].rect).toEqual([0, 0, 500, 400]);
+    expect(r.report.maxCornerDriftCm).toBeCloseTo(5.7e-14, 15);
+    expect(r.report.info).toContain(`the largest corner drift snapped is ${r.report.maxCornerDriftCm} cm`);
+  });
+
+  it('reports no drift for a file on the grid', () => {
+    expect(adapted(valid()).report.maxCornerDriftCm).toBe(0);
+  });
+
+  it('refuses a corner beyond WIRE_CORNER_SNAP_CM of the grid, never snapping it', () => {
+    const v = valid();
+    v.rings[0].corners[1].x = 500.00001;
+    expect(errorsOf(v)).toEqual([
+      "Ring 0 (model index 0) corner 1's x = 500.00001 lies 0.000009999999974752427 cm off the 1/1024 cm grid, beyond WIRE_CORNER_SNAP_CM = 0.000001 cm (journal decision 137)",
+    ]);
+  });
+});
+
+describe('information the diff report carries, never refused', () => {
+  it('carries a request that disagrees with its solve, bEmptied and bOutlineRefused', () => {
+    const v = valid();
+    v.rings[0].sides[1].request = 'GableEnd';
+    v.rings[1].sides[3].solved.bEmptied = true;
+    v.rings[1].sides[2].solved.bOutlineRefused = true;
+    const r = adapted(v);
+    expect(r.report.flags).toEqual([]);
+    expect(r.report.info).toEqual([
+      'Ring 0 (model index 0) side 1 (E) requests GableEnd but is solved Pitched',
+      'Ring 1 (model index 1) side 2 (N) is bOutlineRefused',
+      'Ring 1 (model index 1) side 3 (W) is bEmptied',
+    ]);
+  });
+
+  it("carries a gable's wire pitch, which the shell does not use", () => {
+    const v = valid();
+    v.rings[1].sides[0].solved.pitchDegrees = 0;
+    expect(adapted(v).report.info).toEqual(["Ring 1 (model index 1) side 0 (S) is a gable solved at 0 degrees; the shell builds it at the Ring's default 45"]);
+  });
+});
+
 describe('ordering', () => {
-  it('orders the fixture by model index, so the conflict rule keys on it, whatever order the file lists the Rings in', () => {
+  it('orders the fixture by model index, whatever order the file lists the Rings in', () => {
     const v = valid();
     v.rings.reverse();
-    const r = readInput(v, 'listed backwards');
-    if (!r.ok) throw new Error(r.errors.join('; '));
+    const r = adapted(v, 'listed backwards');
     expect(r.fixture.rings.map(x => x.rect)).toEqual(fixtureByName('FlushRingConflict').rings.map(x => x.rect));
-    expect(r.flags).toEqual([]);
+    expect(r.report.flags).toEqual([]);
   });
 
   it('accepts a file whose model-index order disagrees with its root order, flagged, and follows the model index', () => {
     const v = valid();
     v.rings[0].modelIndex = 7;
     v.rings[1].modelIndex = 3;
-    const r = readInput(v, 'disagreeing');
-    if (!r.ok) throw new Error(r.errors.join('; '));
-    expect(r.flags).toEqual(['model-index order and ring (root) order disagree: by model index the ring indices run 1, 0; the conflict rule keys on the model index (journal decision 126)']);
+    const r = adapted(v, 'disagreeing');
+    expect(r.report.flags).toEqual(['model-index order and ring (root) order disagree: by model index the ring indices run 1, 0; the conflict rule keys on the model index (journal decision 126)']);
     expect(r.fixture.rings.map(x => x.rect)).toEqual(fixtureByName('FlushRingConflictSwapped').rings.map(x => x.rect));
   });
 });
 
-describe('side mapping', () => {
+describe('side mapping and defaultDeg (decision 140, F1 and F4)', () => {
+  const one = (sides: RingSides, deg = 30): ShellFixture => ({name: 'One', cellSize: 50, storeyHeight: 250, rings: [ring([10, 20, 110, 220], 0, 1, deg, sides)]});
+
   it('writes side i from corner i to corner i + 1 on the compass side S, E, N, W in turn', () => {
-    const [r] = writeInput({name: 'One', cellSize: 50, storeyHeight: 250, rings: [ring([10, 20, 110, 220], 0, 1, 30, {N: {form: 'gable'}})]}).rings;
+    const [r] = writeInput(one({N: {form: 'gable'}})).rings;
     expect(r.corners).toEqual([{x: 10, y: 20}, {x: 110, y: 20}, {x: 110, y: 220}, {x: 10, y: 220}]);
-    expect(WIRE_SIDE_ORDER).toEqual(['S', 'E', 'N', 'W']);
+    expect(RING_SIDES).toEqual(['S', 'E', 'N', 'W']);
     expect(r.sides.map(s => s.request)).toEqual(['Auto', 'Auto', 'GableEnd', 'Auto']);
   });
 
-  it('reads a Ring starting at any corner by where each side lies, not by its slot', () => {
-    const v = writeInput({name: 'One', cellSize: 50, storeyHeight: 250, rings: [ring([10, 20, 110, 220], 0, 1, 30, {N: {form: 'gable', deg: 40}})]});
-    const r0 = v.rings[0];
-    r0.corners = [...r0.corners.slice(1), r0.corners[0]];
-    r0.sides = [...r0.sides.slice(1), r0.sides[0]];
-    const r = readInput(v, 'rotated');
-    if (!r.ok) throw new Error(r.errors.join('; '));
+  it('reads a Ring starting at any corner by where each side lies; gables take the Ring default, hips their pitch', () => {
+    const r = adapted(rotated(writeInput(one({N: {form: 'gable', deg: 40}, E: {form: 'hip', deg: 35}})), 1));
     expect(r.fixture.rings[0].rect).toEqual([10, 20, 110, 220]);
-    expect(r.fixture.rings[0].sides).toEqual({S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 30}, N: {form: 'gable', deg: 40}, W: {form: 'hip', deg: 30}});
+    expect(r.fixture.rings[0].sides).toEqual({S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'gable'}, W: {form: 'hip', deg: 30}});
     expect(r.fixture.rings[0].defaultDeg).toBe(30);
+  });
+
+  it('takes defaultDeg from the first Pitched side in compass order, and WIRE_GABLE_ONLY_DEG with none', () => {
+    expect(adapted(writeInput(one({S: {form: 'gable'}, E: {form: 'hip', deg: 35}}))).fixture.rings[0].defaultDeg).toBe(35);
+    const allGable = one({S: {form: 'gable'}, E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}}, 60);
+    expect(adapted(writeInput(allGable)).fixture.rings[0].defaultDeg).toBe(WIRE_GABLE_ONLY_DEG);
+  });
+
+  it("gives the reviewer's mixed-pitch Courtyard one defaultDeg at all four start corners", () => {
+    const sides: RingSides = {S: {form: 'hip', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'hip', deg: 40}, W: {form: 'hip', deg: 45}};
+    const f: ShellFixture = {name: 'MixedCourtyard', cellSize: 50, storeyHeight: 250, rings: COURTYARD_RECTS.map(r => ring(r, 0, 1, 30, sides))};
+    const degs = [0, 1, 2, 3].map(s => adapted(rotated(writeInput(f), s)).fixture.rings.map(x => x.defaultDeg));
+    expect(degs).toEqual([[30, 30, 30, 30], [30, 30, 30, 30], [30, 30, 30, 30], [30, 30, 30, 30]]);
   });
 });
