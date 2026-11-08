@@ -7,9 +7,13 @@
 //   beyond it is refused. Rectangularity is then tested exactly on the snapped corners (decision 137).
 // - A Ring is four corners; side i runs from corner i to corner i + 1 and is owned by corner i. Each side is matched to
 //   the compass side of the Ring's rect it lies on, so a Ring may start at any corner.
-// - The fixture is built from each side's solve (decisions 126, 136 and 140): Pitched is a hip at its solved pitch;
-//   GableEnd is a gable at the Ring's `defaultDeg`, never at its wire pitch, which the skeleton would read as a weight;
-//   None is an unlisted side, refused only where it wins a union wall. The request is carried, never read.
+// - A side's solve is zero, one or several runs, ordered along it from corner i (decision 149). Their geometry is
+//   checked, a run solved None is left out, and the rest must agree in form, and in pitch where Pitched, or the file is
+//   refused: they give the Ring side its one form (spec 3's whole-wall rule). A side with no run, or only None runs,
+//   is formless.
+// - The fixture is built from each side's agreed run (decisions 126, 136 and 140): Pitched is a hip at its solved
+//   pitch; GableEnd is a gable at the Ring's `defaultDeg`, never at its wire pitch, which the skeleton would read as a
+//   weight; a formless side is unlisted, refused only where it wins a union wall. The request is carried, never read.
 // - Rings are ordered by model index, the key the conflict rule reads (spec decision 3, journal decision 128).
 //
 // "Every reason at once" holds within each layer, never across them (decision 143, F7). A file the refinement refuses
@@ -20,12 +24,12 @@ import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../
 import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
 import {PlanRefusal} from '../errors.ts';
-import {storeyLoops, unionWallForms} from '../ring-forms.ts';
+import {ringSideLines, storeyLoops, unionWallForms} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 import {snapCm} from '../weld.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, RING_CORNERS, RefusedInput, WIRE_CORNER_SNAP_CM,
-  WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireProvenance, WireRequest, WireRing, WireSide,
+  WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireProvenance, WireRequest, WireRing, WireRun, WireSide,
   WireSolvedForm, WireVec2, refineInput,
 } from './input-types.ts';
 
@@ -132,10 +136,66 @@ function duplicates(rings: WireRing[], key: (r: WireRing) => number): Map<number
   return new Map([...at].filter(([, is]) => is.length > 1));
 }
 
-/** The refusals that need no fixture: indices, corners, shape, wall height and solved forms, one line each. */
-function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[], name: string): string[] {
+/** A side's runs read together (decision 149): one agreed run, none (formless), or runs that disagree. */
+export type SideRuns = AgreedRun | FormlessSide | DisagreeingRuns;
+/** Every run solved other than None agrees: the side takes this one's form and pitch. */
+export interface AgreedRun { kind: 'run'; run: WireRun }
+/** No run, or only None runs. */
+export interface FormlessSide { kind: 'formless' }
+/** Runs that differ in form, or in pitch where Pitched. */
+export interface DisagreeingRuns { kind: 'disagree'; runs: WireRun[] }
+
+/**
+ * Decision 149: a side's runs, None runs left out. The rest must agree in form, and in pitch where Pitched, and then
+ * give the side its one form. A side with no run, or with only None runs, is formless.
+ */
+export function sideRuns(side: WireSide): SideRuns {
+  const formed = side.runs.filter(r => r.form !== 'None');
+  if (!formed.length) return {kind: 'formless'};
+  const [first] = formed;
+  const agree = formed.every(r => r.form === first.form && (r.form !== 'Pitched' || r.pitchDegrees === first.pitchDegrees));
+  return agree ? {kind: 'run', run: first} : {kind: 'disagree', runs: formed};
+}
+
+/** A side's length along its own line, from its two snapped corners: the span its runs must lie within. */
+export const sideLength = (cs: WireVec2[], j: number): number => {
+  const a = cs[j], b = cs[(j + 1) % RING_CORNERS];
+  return Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+};
+
+/**
+ * Decision 149's per-run refusals for side `j`: run geometry (when the side's length is known, `length`), each run's
+ * solved form and pitch bounds, and runs that disagree.
+ */
+function runRefusals(at: string, j: number, side: WireSide, length: number | null): string[] {
   const out: string[] = [];
-  if (!name.trim()) out.push('the dump has an empty subject: a fixture needs a name (journal decision 143)');
+  let reach = 0;
+  side.runs.forEach((run, k) => {
+    const where = `${at} side ${j} run ${k}`;
+    if (length !== null && !(run.startCm >= reach && run.startCm < run.endCm && run.endCm <= length)) {
+      out.push(`${where} spans ${run.startCm} to ${run.endCm} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${length} cm, with no overlap (journal decision 149)`);
+    }
+    reach = Math.max(reach, run.endCm);
+    const reading = SIDE_READINGS[run.form];
+    if (reading.kind === 'refused') out.push(`${where} has ${reading.reason}`);
+    const p = run.pitchDegrees;
+    if (run.form === 'Pitched' && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
+      out.push(`${where} is solved Pitched at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143 and 144)`);
+    }
+  });
+  const read = sideRuns(side);
+  if (read.kind === 'disagree') {
+    const forms = read.runs.map(r => (r.form === 'Pitched' ? `Pitched ${r.pitchDegrees}` : r.form)).join(', ');
+    out.push(`${at} side ${j}'s runs disagree (${forms}): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)`);
+  }
+  return out;
+}
+
+/** The refusals that need no fixture: subject, indices, corners, shape, wall height and runs, one line each. */
+function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[]): string[] {
+  const out: string[] = [];
+  // Decision 149: the empty-subject refusal reads provenance's subject, never the file name.
+  if (!input.provenance.subject.trim()) out.push('the dump has an empty subject: a fixture needs a name (journal decision 143)');
   input.rings.forEach((r, i) => {
     for (const field of ['ringIndex', 'modelIndex'] as const) {
       if (r[field] === -1) out.push(`${label(r, i)} has ${field} -1, the USTRUCT default for an unset index: the file does not write it (journal decision 140)`);
@@ -147,22 +207,23 @@ function inputRefusals(input: BuildingShellInputV1, snapped: SnappedCorners[], n
   for (const [k, is] of duplicates(input.rings, r => r.ringIndex)) {
     if (k !== -1) out.push(`Rings at file positions ${is.join(', ')} share ring index ${k}; root order needs a unique index per Ring`);
   }
+  // Journal decision 152: the C++ replay is strict, and the format's rule is the prototype's too.
+  input.rings.forEach((r, i) => {
+    if (r.ringIndex !== -1 && r.ringIndex !== i) {
+      out.push(`${label(r, i)} has ringIndex ${r.ringIndex} at file position ${i}: a Ring's ringIndex is its array position, as the C++ replay requires (journal decision 152)`);
+    }
+  });
   input.rings.forEach((r, i) => {
     const at = label(r, i);
     out.push(...snapped[i].errors);
-    if (!snapped[i].errors.length) out.push(...ringShapeErrors(snapped[i].corners, at));
+    const shape = snapped[i].errors.length ? null : ringShapeErrors(snapped[i].corners, at);
+    if (shape) out.push(...shape);
     const w = r.wallHeightCm;
     if (w !== 0 && Math.abs(w - input.storeyHeightCm) > SHELL_TOLERANCE_CM) {
       out.push(`${at} overrides its wall height to ${w} cm, which differs from the building's storey height ${input.storeyHeightCm} cm (journal decision 126)`);
     }
-    r.sides.forEach((s, j) => {
-      const reading = SIDE_READINGS[s.solved.form];
-      if (reading.kind === 'refused') out.push(`${at} side ${j} has ${reading.reason}`);
-      const p = s.solved.pitchDegrees;
-      if (s.solved.form === 'Pitched' && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
-        out.push(`${at} side ${j} is solved Pitched at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143 and 144)`);
-      }
-    });
+    const shapeOk = shape !== null && !shape.length;
+    r.sides.forEach((s, j) => out.push(...runRefusals(at, j, s, shapeOk ? sideLength(snapped[i].corners, j) : null)));
   });
   return out;
 }
@@ -175,12 +236,19 @@ function orderFlags(input: BuildingShellInputV1): string[] {
   return [`model-index order and ring (root) order disagree: by model index the ring indices run ${byModel.join(', ')}; the conflict rule keys on the model index (journal decision 126)`];
 }
 
-/** One wire side as read: where it lies on the Ring, and how it enters the fixture. */
-export interface ReadSide { slot: number; compass: RingSide; side: WireSide }
+/**
+ * One wire side as read: where it lies on the Ring, the side itself, and the run it enters the fixture by (decision
+ * 149's agreed run), absent for a formless side.
+ */
+export interface ReadSide { slot: number; compass: RingSide; side: WireSide; run?: WireRun }
 
-/** A wire Ring's sides by compass side, from its snapped corners. */
+/** A wire Ring's sides by compass side, from its snapped corners. Its runs are known to agree (`inputRefusals`). */
 function readSides(r: WireRing, corners: WireVec2[], rect: Rect): ReadSide[] {
-  return r.sides.map((side, slot) => ({slot, side, compass: compassOf(corners[slot], corners[(slot + 1) % RING_CORNERS], rect)}));
+  return r.sides.map((side, slot) => {
+    const read = sideRuns(side);
+    const compass = compassOf(corners[slot], corners[(slot + 1) % RING_CORNERS], rect);
+    return read.kind === 'run' ? {slot, side, compass, run: read.run} : {slot, side, compass};
+  });
 }
 
 /**
@@ -190,18 +258,19 @@ function readSides(r: WireRing, corners: WireVec2[], rect: Rect): ReadSide[] {
 export function wireDefaultDeg(sides: ReadSide[]): number {
   for (const c of RING_SIDES) {
     const s = sides.find(x => x.compass === c);
-    if (s?.side.solved.form === 'Pitched') return s.side.solved.pitchDegrees;
+    if (s?.run?.form === 'Pitched') return s.run.pitchDegrees;
   }
   return WIRE_GABLE_ONLY_DEG;
 }
 
-/** One wire Ring as a `FixtureRing`: Pitched sides listed as hips at their pitch, GableEnd as gables, None unlisted. */
+/** One wire Ring as a `FixtureRing`: Pitched sides listed as hips at their pitch, GableEnd as gables, formless unlisted. */
 function fixtureRing(r: WireRing, sides: ReadSide[], rect: Rect): FixtureRing {
   const out: RingSides = {};
-  for (const {compass, side} of sides) {
-    const reading = SIDE_READINGS[side.solved.form];
+  for (const {compass, run} of sides) {
+    if (!run) continue;
+    const reading = SIDE_READINGS[run.form];
     if (reading.kind !== 'listed') continue;
-    out[compass] = reading.form === 'hip' ? {form: 'hip', deg: side.solved.pitchDegrees} : {form: 'gable'};
+    out[compass] = reading.form === 'hip' ? {form: 'hip', deg: run.pitchDegrees} : {form: 'gable'};
   }
   return {rect, baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg: wireDefaultDeg(sides), sides: out};
 }
@@ -250,27 +319,32 @@ export function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[]
   return out;
 }
 
-/** Decisions 136, 137 and 140: what each side carries as information. */
+/**
+ * Decisions 136, 137, 140 and 149: what each run carries as information. The request is the side's, and is compared
+ * with each run's solve; `bEmptied`, `bOutlineRefused` and a gable's unused wire pitch are each run's own.
+ */
 function sideInfo(at: string, sides: ReadSide[], defaultDeg: number): string[] {
-  return sides.flatMap(({slot, compass, side}) => {
-    const where = `${at} side ${slot} (${compass})`;
-    const s = side.solved;
+  return sides.flatMap(({slot, compass, side}) => side.runs.flatMap((r, k) => {
+    const where = `${at} side ${slot} (${compass}) run ${k}`;
     const out: string[] = [];
-    if (side.request !== 'Auto' && side.request !== s.form) out.push(`${where} requests ${side.request} but is solved ${s.form}`);
-    if (s.bEmptied) out.push(`${where} is bEmptied`);
-    if (s.bOutlineRefused) out.push(`${where} is bOutlineRefused`);
-    if (s.form === 'GableEnd' && s.pitchDegrees !== defaultDeg) out.push(`${where} is a gable solved at ${s.pitchDegrees} degrees; the shell builds it at the Ring's default ${defaultDeg}`);
+    if (side.request !== 'Auto' && side.request !== r.form) out.push(`${where} requests ${side.request} but is solved ${r.form}`);
+    if (r.bEmptied) out.push(`${where} is bEmptied`);
+    if (r.bOutlineRefused) out.push(`${where} is bOutlineRefused`);
+    if (r.form === 'GableEnd' && r.pitchDegrees !== defaultDeg) out.push(`${where} is a gable solved at ${r.pitchDegrees} degrees; the shell builds it at the Ring's default ${defaultDeg}`);
     return out;
-  });
+  }));
 }
 
-/** Reads one parsed JSON value as `input@1`: the fixture named `name` it builds, or every reason it is refused. */
+/**
+ * Reads one parsed JSON value as `input@1`: the fixture named `name` it builds, or every reason it is refused. A dump
+ * passes its file stem as `name`; its subject is read from its provenance (decision 149).
+ */
 export function readInput(json: unknown, name: string): ReadInputResult {
   const refined = refineInput(json);
   if (!refined.ok) return refined;
   const input = refined.value;
   const snapped = input.rings.map((r, i) => snapCorners(r, label(r, i)));
-  const errors = inputRefusals(input, snapped, name);
+  const errors = inputRefusals(input, snapped);
   if (errors.length) return {ok: false, errors};
 
   const order = input.rings.map((_, i) => i).sort((a, b) => input.rings[a].modelIndex - input.rings[b].modelIndex);
@@ -284,7 +358,8 @@ export function readInput(json: unknown, name: string): ReadInputResult {
     const sides = readSides(r, corners, rect);
     const ring = fixtureRing(r, sides, rect);
     info.push(...sideInfo(label(r, i), sides, ring.defaultDeg));
-    for (const s of sides) if (s.side.solved.form === 'None') nones.push({ring: position, compass: s.compass, text: `${label(r, i)} side ${s.slot} (${s.compass})`});
+    // Decision 149: a formless side (no run, or only None runs) is treated as decision 140's F2 treats a None side.
+    for (const s of sides) if (!s.run) nones.push({ring: position, compass: s.compass, text: `${label(r, i)} side ${s.slot} (${s.compass})`});
     return ring;
   });
   const fixture: ShellFixture = {name, cellSize: input.cellSizeCm, storeyHeight: input.storeyHeightCm, rings};
@@ -306,11 +381,15 @@ export const prototypeProvenance = (subject: string): WireProvenance => ({
   scale: {x: 1, y: 1, z: 1},
 });
 
-/** One fixture side as a wire side: `Auto` where the fixture lists none, the side's form where it does. */
+/**
+ * One fixture side as a wire side: `Auto` where the fixture lists none, the side's form where it does, and one run the
+ * side's whole length (decision 149).
+ */
 function wireSide(ring: FixtureRing, side: RingSide): WireSide {
   const s = ring.sides?.[side];
   const form = WIRE_FORMS[s?.form ?? 'hip'];
-  return {request: s ? form : 'Auto', solved: {form, pitchDegrees: s?.deg ?? ring.defaultDeg, bEmptied: false, bOutlineRefused: false}};
+  const l = ringSideLines(ring.rect)[side];
+  return {request: s ? form : 'Auto', runs: [{startCm: 0, endCm: l.hi - l.lo, form, pitchDegrees: s?.deg ?? ring.defaultDeg, bEmptied: false, bOutlineRefused: false}]};
 }
 
 /**

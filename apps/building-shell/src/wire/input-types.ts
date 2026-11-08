@@ -49,7 +49,9 @@ export type WireRing = z.output<typeof RingV1Schema>;
 export type WireSide = z.output<typeof SideV1Schema>;
 export type WireVec2 = z.output<typeof Vec2V1Schema>;
 export type WireProvenance = z.output<typeof ProvenanceV1Schema>;
-export type WireSolvedForm = WireSide['solved']['form'];
+/** One solved run along a side (decision 149). */
+export type WireRun = WireSide['runs'][number];
+export type WireSolvedForm = WireRun['form'];
 export type WireRequest = WireSide['request'];
 
 /** A file refused, with every reason found, one line each. */

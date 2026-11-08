@@ -31,39 +31,55 @@
       "sides": [
         {
           "request": "Auto",
-          "solved": {
-            "form": "Pitched",
-            "pitchDegrees": 22.5,
-            "bEmptied": false,
-            "bOutlineRefused": false
-          }
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 1000,
+              "form": "Pitched",
+              "pitchDegrees": 22.5,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
         },
         {
           "request": "GableEnd",
-          "solved": {
-            "form": "GableEnd",
-            "pitchDegrees": 22.5,
-            "bEmptied": false,
-            "bOutlineRefused": false
-          }
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 1000,
+              "form": "GableEnd",
+              "pitchDegrees": 22.5,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
         },
         {
           "request": "Auto",
-          "solved": {
-            "form": "Pitched",
-            "pitchDegrees": 22.5,
-            "bEmptied": false,
-            "bOutlineRefused": false
-          }
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 1000,
+              "form": "Pitched",
+              "pitchDegrees": 22.5,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
         },
         {
           "request": "GableEnd",
-          "solved": {
-            "form": "GableEnd",
-            "pitchDegrees": 22.5,
-            "bEmptied": false,
-            "bOutlineRefused": false
-          }
+          "runs": [
+            {
+              "startCm": 0,
+              "endCm": 1000,
+              "form": "GableEnd",
+              "pitchDegrees": 22.5,
+              "bEmptied": false,
+              "bOutlineRefused": false
+            }
+          ]
         }
       ]
     }

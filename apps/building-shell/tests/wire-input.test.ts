@@ -8,7 +8,7 @@ import {planStorey} from '../src/storey.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
 import {AdaptedInput, isPlanRefusal, noneWinnerRefusals, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
-  BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, refineInput,
+  BuildingShellInputV1, INPUT_FRAME, WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireRun, refineInput,
 } from '../src/wire/input-types.ts';
 import {mutableJson} from './wire-json.ts';
 
@@ -44,7 +44,7 @@ function rotated(v: BuildingShellInputV1, s: number): BuildingShellInputV1 {
 describe('the stand-in generated schema', () => {
   it('makes every field optional, as the UE generator emits: an empty document parses', () => {
     expect(FBuildingShellInputSchema.safeParse({}).success).toBe(true);
-    expect(FBuildingShellInputSchema.safeParse({rings: [{corners: [{}], sides: [{solved: {}}]}]}).success).toBe(true);
+    expect(FBuildingShellInputSchema.safeParse({rings: [{corners: [{}], sides: [{runs: [{}]}]}]}).success).toBe(true);
   });
 
   it('is strict, as a USTRUCT is: an unknown field is refused', () => {
@@ -55,8 +55,8 @@ describe('the stand-in generated schema', () => {
     const v = valid();
     expect(Object.keys(v)).toEqual(['schemaVersion', 'frame', 'storeyHeightCm', 'cellSizeCm', 'rings', 'provenance']);
     expect(Object.keys(v.rings[0])).toEqual(['ringIndex', 'modelIndex', 'baseStorey', 'storeys', 'wallHeightCm', 'corners', 'sides']);
-    expect(Object.keys(v.rings[0].sides[0])).toEqual(['request', 'solved']);
-    expect(Object.keys(v.rings[0].sides[0].solved)).toEqual(['form', 'pitchDegrees', 'bEmptied', 'bOutlineRefused']);
+    expect(Object.keys(v.rings[0].sides[0])).toEqual(['request', 'runs']);
+    expect(Object.keys(v.rings[0].sides[0].runs[0])).toEqual(['startCm', 'endCm', 'form', 'pitchDegrees', 'bEmptied', 'bOutlineRefused']);
     expect(Object.keys(v.provenance)).toEqual(['gameBuild', 'sessionId', 'timestamp', 'subject', 'location', 'rotation', 'scale']);
   });
 });
@@ -77,7 +77,7 @@ describe('the refinement layer', () => {
     delete v.rings[0].storeys;
     delete v.rings[0].wallHeightCm;
     delete v.rings[0].sides[1].request;
-    delete v.rings[0].sides[1].solved.bEmptied;
+    delete v.rings[0].sides[1].runs[0].bEmptied;
     const r = refineInput(v);
     if (!r.ok) throw new Error(r.errors.join('; '));
     // Every deleted ring and side field held its default already; the provenance comes back default-constructed.
@@ -166,39 +166,43 @@ describe('the refusals', () => {
 
   it('refuses a solved Monopitch and a solved Flat', () => {
     const v = valid();
-    v.rings[0].sides[0].solved.form = 'Monopitch';
-    v.rings[0].sides[1].solved.form = 'Flat';
+    v.rings[0].sides[0].runs[0].form = 'Monopitch';
+    v.rings[0].sides[1].runs[0].form = 'Flat';
     expect(errorsOf(v)).toEqual([
-      'Ring 0 (model index 0) side 0 has a solved Monopitch, refused until mono is supported (journal decision 126)',
-      'Ring 0 (model index 0) side 1 has a solved Flat, which is a polyline clamp, never a run form (journal decision 126)',
+      'Ring 0 (model index 0) side 0 run 0 has a solved Monopitch, refused until mono is supported (journal decision 126)',
+      'Ring 0 (model index 0) side 1 run 0 has a solved Flat, which is a polyline clamp, never a run form (journal decision 126)',
     ]);
   });
 
   it('validates the pitch of a Pitched side only: a gable solved at 0 or 90 is accepted (decision 136)', () => {
     const v = valid();
-    v.rings[0].sides[2].solved.pitchDegrees = 90;
-    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 is solved Pitched at 90 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    v.rings[0].sides[2].runs[0].pitchDegrees = 90;
+    expect(errorsOf(v)).toEqual(['Ring 0 (model index 0) side 2 run 0 is solved Pitched at 90 degrees, outside [7, 75] (journal decisions 143 and 144)']);
     const w = valid();
-    w.rings[1].sides[0].solved.pitchDegrees = 0; // Ring 1's S side is its GableEnd
-    expect(w.rings[1].sides[0].solved.form).toBe('GableEnd');
+    w.rings[1].sides[0].runs[0].pitchDegrees = 0; // Ring 1's S side is its GableEnd
+    expect(w.rings[1].sides[0].runs[0].form).toBe('GableEnd');
     expect(errorsOf(w)).toEqual([]);
   });
 
   it('refuses a Pitched side outside [WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG], and accepts both bounds (decision 143, F4)', () => {
     const at = (deg: number): string[] => {
       const v = valid();
-      v.rings[0].sides[1].solved.pitchDegrees = deg;
+      v.rings[0].sides[1].runs[0].pitchDegrees = deg;
       return errorsOf(v);
     };
     expect([WIRE_MIN_PITCH_DEG, WIRE_MAX_PITCH_DEG]).toEqual([7, 75]);
-    expect(at(6.9)).toEqual(['Ring 0 (model index 0) side 1 is solved Pitched at 6.9 degrees, outside [7, 75] (journal decisions 143 and 144)']);
-    expect(at(75.1)).toEqual(['Ring 0 (model index 0) side 1 is solved Pitched at 75.1 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(at(6.9)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 6.9 degrees, outside [7, 75] (journal decisions 143 and 144)']);
+    expect(at(75.1)).toEqual(['Ring 0 (model index 0) side 1 run 0 is solved Pitched at 75.1 degrees, outside [7, 75] (journal decisions 143 and 144)']);
     expect(at(WIRE_MIN_PITCH_DEG)).toEqual([]);
     expect(at(WIRE_MAX_PITCH_DEG)).toEqual([]);
   });
 
-  it('refuses an empty subject (decision 143, F7)', () => {
-    expect(readInput(valid(), '')).toEqual({ok: false, errors: ['the dump has an empty subject: a fixture needs a name (journal decision 143)']});
+  it("refuses an empty subject, read from provenance's subject (decisions 143, F7, and 149)", () => {
+    const v = valid();
+    v.provenance.subject = ' ';
+    expect(readInput(v, 'a-stem.Subject.0')).toEqual({ok: false, errors: ['the dump has an empty subject: a fixture needs a name (journal decision 143)']});
+    // Decision 149: the subject is provenance's, never the file name.
+    expect(readInput(valid(), '').ok).toBe(true);
   });
 
   it("refuses a wall-height override that differs from the building's storey height, and accepts 0 or an equal one", () => {
@@ -218,13 +222,27 @@ describe('the refusals', () => {
   it('refuses two Rings sharing a ring index', () => {
     const v = valid();
     v.rings[1].ringIndex = 0;
-    expect(errorsOf(v)).toEqual(['Rings at file positions 0, 1 share ring index 0; root order needs a unique index per Ring']);
+    expect(errorsOf(v)).toEqual([
+      'Rings at file positions 0, 1 share ring index 0; root order needs a unique index per Ring',
+      "Ring 1 (model index 1) has ringIndex 0 at file position 1: a Ring's ringIndex is its array position, as the C++ replay requires (journal decision 152)",
+    ]);
+  });
+
+  // Journal decision 152: the gate. Removing the refusal lets this file through.
+  it("refuses a Ring whose ringIndex is not its array position, naming the field", () => {
+    const v = valid();
+    v.rings[0].ringIndex = 1;
+    v.rings[1].ringIndex = 0;
+    expect(errorsOf(v)).toEqual([
+      "Ring 0 (model index 0) has ringIndex 1 at file position 0: a Ring's ringIndex is its array position, as the C++ replay requires (journal decision 152)",
+      "Ring 1 (model index 1) has ringIndex 0 at file position 1: a Ring's ringIndex is its array position, as the C++ replay requires (journal decision 152)",
+    ]);
   });
 
   it('reports every reason at once', () => {
     const v = valid();
     v.rings[1].modelIndex = 0;
-    v.rings[0].sides[0].solved.form = 'Monopitch';
+    v.rings[0].sides[0].runs[0].form = 'Monopitch';
     expect(errorsOf(v)).toHaveLength(2);
   });
 });
@@ -232,20 +250,20 @@ describe('the refusals', () => {
 describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
   it('is an unlisted side when it loses its union wall: FlushRingConflict\'s Ring 1 loses y = 0 to Ring 0', () => {
     const v = valid();
-    v.rings[1].sides[0].solved.form = 'None';
+    v.rings[1].sides[0].runs[0].form = 'None';
     const r = adapted(v);
     expect(r.fixture.rings[1].sides?.S).toBeUndefined();
   });
 
   it('is an unlisted side when it is buried: SingleStoreyT\'s stem W side lies inside the union', () => {
     const v = writeInput(fixtureByName('SingleStoreyT'));
-    v.rings[1].sides[3].solved.form = 'None';
+    v.rings[1].sides[3].runs[0].form = 'None';
     expect(adapted(v).fixture.rings[1].sides?.W).toBeUndefined();
   });
 
   it('is refused when it wins a union wall, where its form would be undefined', () => {
     const v = valid();
-    v.rings[0].sides[2].solved.form = 'None';
+    v.rings[0].sides[2].runs[0].form = 'None';
     expect(errorsOf(v)).toEqual([
       'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
     ]);
@@ -275,7 +293,7 @@ describe("the None probe's error handling (decisions 142, N6, 146 and 148, F4)",
 
   it('accepts a None side on a storey whose plan pinches: the build refuses it instead', () => {
     const v = writeInput({name: 'Pinch', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 400, 800, 800], 0, 1, 30)]});
-    v.rings[0].sides[1].solved.form = 'None';
+    v.rings[0].sides[1].runs[0].form = 'None';
     expect(errorsOf(v)).toEqual([]);
   });
 });
@@ -307,21 +325,21 @@ describe('information the diff report carries, never refused', () => {
   it('carries a request that disagrees with its solve, bEmptied and bOutlineRefused', () => {
     const v = valid();
     v.rings[0].sides[1].request = 'GableEnd';
-    v.rings[1].sides[3].solved.bEmptied = true;
-    v.rings[1].sides[2].solved.bOutlineRefused = true;
+    v.rings[1].sides[3].runs[0].bEmptied = true;
+    v.rings[1].sides[2].runs[0].bOutlineRefused = true;
     const r = adapted(v);
     expect(r.report.flags).toEqual([]);
     expect(r.report.info).toEqual([
-      'Ring 0 (model index 0) side 1 (E) requests GableEnd but is solved Pitched',
-      'Ring 1 (model index 1) side 2 (N) is bOutlineRefused',
-      'Ring 1 (model index 1) side 3 (W) is bEmptied',
+      'Ring 0 (model index 0) side 1 (E) run 0 requests GableEnd but is solved Pitched',
+      'Ring 1 (model index 1) side 2 (N) run 0 is bOutlineRefused',
+      'Ring 1 (model index 1) side 3 (W) run 0 is bEmptied',
     ]);
   });
 
   it("carries a gable's wire pitch, which the shell does not use", () => {
     const v = valid();
-    v.rings[1].sides[0].solved.pitchDegrees = 0;
-    expect(adapted(v).report.info).toEqual(["Ring 1 (model index 1) side 0 (S) is a gable solved at 0 degrees; the shell builds it at the Ring's default 45"]);
+    v.rings[1].sides[0].runs[0].pitchDegrees = 0;
+    expect(adapted(v).report.info).toEqual(["Ring 1 (model index 1) side 0 (S) run 0 is a gable solved at 0 degrees; the shell builds it at the Ring's default 45"]);
   });
 });
 
@@ -329,12 +347,13 @@ describe('ordering', () => {
   it('orders the fixture by model index, whatever order the file lists the Rings in', () => {
     const v = valid();
     v.rings.reverse();
+    v.rings.forEach((r, i) => { r.ringIndex = i; });
     const r = adapted(v, 'listed backwards');
     expect(r.fixture.rings.map(x => x.rect)).toEqual(fixtureByName('FlushRingConflict').rings.map(x => x.rect));
-    expect(r.report.flags).toEqual([]);
+    expect(r.report.flags).toEqual(['model-index order and ring (root) order disagree: by model index the ring indices run 1, 0; the conflict rule keys on the model index (journal decision 126)']);
   });
 
-  it('accepts a file whose model-index order disagrees with its root order, flagged, and follows the model index', () => {
+  it('accepts a file whose model-index order disagrees with its root order, flagged, and follows the model index (decision 152: modelIndex shuffled only)', () => {
     const v = valid();
     v.rings[0].modelIndex = 7;
     v.rings[1].modelIndex = 3;
@@ -372,5 +391,72 @@ describe('side mapping and defaultDeg (decision 140, F1 and F4)', () => {
     const f: ShellFixture = {name: 'MixedCourtyard', cellSize: 50, storeyHeight: 250, rings: COURTYARD_RECTS.map(r => ring(r, 0, 1, 30, sides))};
     const degs = [0, 1, 2, 3].map(s => adapted(rotated(writeInput(f), s)).fixture.rings.map(x => x.defaultDeg));
     expect(degs).toEqual([[30, 30, 30, 30], [30, 30, 30, 30], [30, 30, 30, 30], [30, 30, 30, 30]]);
+  });
+});
+
+describe('runs per side (journal decision 149)', () => {
+  /** A Pitched or GableEnd run over [start, end) of a side. */
+  const run = (startCm: number, endCm: number, form: WireRun['form'], pitchDegrees = 45): WireRun =>
+    ({startCm, endCm, form, pitchDegrees, bEmptied: false, bOutlineRefused: false});
+
+  it("writes one run per side, the side's whole length, measured from its corner i", () => {
+    const [r] = valid().rings;
+    expect(r.sides.map(s => s.runs.map(x => [x.startCm, x.endCm]))).toEqual([[[0, 500]], [[0, 400]], [[0, 500]], [[0, 400]]]);
+  });
+
+  it("reads runs that agree, a None run among them left out, as the side's one form", () => {
+    // NarrowUpperStorey's lower side 0 holds two runs either side of the flush upper Ring, as the C++ net writes it.
+    const v = valid();
+    v.rings[0].sides[1].runs = [run(0, 150, 'Pitched'), run(150, 250, 'None'), run(250, 400, 'Pitched')];
+    expect(adapted(v).fixture.rings[0].sides?.E).toEqual({form: 'hip', deg: 45});
+  });
+
+  it("refuses runs that disagree in pitch or in form, as a C++ inconsistency against spec 3's whole-wall rule", () => {
+    const v = valid();
+    v.rings[0].sides[1].runs = [run(0, 200, 'Pitched', 30), run(200, 400, 'Pitched', 45)];
+    v.rings[1].sides[1].runs = [run(0, 200, 'Pitched'), run(200, 400, 'GableEnd')];
+    expect(errorsOf(v)).toEqual([
+      "Ring 0 (model index 0) side 1's runs disagree (Pitched 30, Pitched 45): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
+      "Ring 1 (model index 1) side 1's runs disagree (Pitched 45, GableEnd): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
+    ]);
+  });
+
+  it('refuses a run out of order, overlapping, empty, or past the side', () => {
+    const v = valid();
+    v.rings[0].sides[0].runs = [run(200, 500, 'Pitched'), run(100, 200, 'Pitched')];
+    v.rings[0].sides[1].runs = [run(0, 300, 'Pitched'), run(250, 400, 'Pitched')];
+    v.rings[0].sides[2].runs = [run(100, 100, 'Pitched')];
+    v.rings[0].sides[3].runs = [run(0, 400.5, 'Pitched')];
+    const span = (side: number, k: number, a: number, b: number, len: number): string =>
+      `Ring 0 (model index 0) side ${side} run ${k} spans ${a} to ${b} cm: a side's runs lie in order along it, 0 ≤ start < end ≤ its length ${len} cm, with no overlap (journal decision 149)`;
+    expect(errorsOf(v)).toEqual([span(0, 1, 100, 200, 500), span(1, 1, 250, 400, 400), span(2, 0, 100, 100, 500), span(3, 0, 0, 400.5, 400)]);
+  });
+
+  it('reads a side with no run, or only None runs, as formless: unlisted, and refused only where it wins a union wall', () => {
+    const v = valid();
+    v.rings[1].sides[0].runs = [];
+    expect(adapted(v).fixture.rings[1].sides?.S).toBeUndefined();
+    const w = valid();
+    w.rings[0].sides[2].runs = [run(0, 500, 'None')];
+    expect(errorsOf(w)).toEqual([
+      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
+    ]);
+  });
+
+  it("applies the pitch bounds and the request-against-solve flag per run, and carries each run's bEmptied and bOutlineRefused", () => {
+    const v = valid();
+    v.rings[0].sides[1].runs = [run(0, 200, 'Pitched'), run(200, 400, 'None', 0)];
+    v.rings[0].sides[1].runs[1].bEmptied = true;
+    v.rings[0].sides[1].request = 'Pitched';
+    v.rings[0].sides[0].runs = [run(0, 250, 'Pitched', 80), run(250, 500, 'Pitched', 80)];
+    expect(errorsOf(v)).toEqual([
+      'Ring 0 (model index 0) side 0 run 0 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143 and 144)',
+      'Ring 0 (model index 0) side 0 run 1 is solved Pitched at 80 degrees, outside [7, 75] (journal decisions 143 and 144)',
+    ]);
+    v.rings[0].sides[0].runs = [run(0, 500, 'Pitched')];
+    expect(adapted(v).report.info).toEqual([
+      'Ring 0 (model index 0) side 1 (E) run 1 requests Pitched but is solved None',
+      'Ring 0 (model index 0) side 1 (E) run 1 is bEmptied',
+    ]);
   });
 });

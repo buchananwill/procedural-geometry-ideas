@@ -54,6 +54,8 @@ export function readOutput(json: unknown): ReadOutputResult {
   const r = CanonicalOutputV1Schema.safeParse(json);
   if (!r.success) return {ok: false, errors: r.error.issues.map(issueLine)};
   const {engine, faces, edges} = r.data;
+  // Decision 148, F6: a shell always has edges, and an empty list would otherwise read as the full diff of nothing.
+  if (!edges.length) return {ok: false, errors: ['edges: an output with no edges is malformed: a shell always has edges (journal decision 148)']};
   const ended = edges.flatMap(endedEdge);
   if (ended.length === edges.length) {
     return {ok: true, mode: 'full', engine, shell: canonicalShell(faces, ended.map(e => canonicalEdge(e.kind, vec(e.a), vec(e.b))))};

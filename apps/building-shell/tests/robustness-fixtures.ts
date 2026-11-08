@@ -357,7 +357,7 @@ export interface RosterPitchCase { name: string; roster: string; fixture: ShellF
  */
 function throughWireAt(f: ShellFixture, name: string, pitchOf: (ring: number, slot: number) => number): ShellFixture {
   const wire = writeInput(f);
-  wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { if (s.solved.form === 'Pitched') s.solved.pitchDegrees = pitchOf(i, j); }));
+  wire.rings.forEach((r, i) => r.sides.forEach((s, j) => { for (const run of s.runs) if (run.form === 'Pitched') run.pitchDegrees = pitchOf(i, j); }));
   const read = readInput(JSON.parse(JSON.stringify(wire)), name);
   if (!read.ok) throw new Error(`${name} refused: ${read.errors.join('; ')}`);
   return read.fixture;

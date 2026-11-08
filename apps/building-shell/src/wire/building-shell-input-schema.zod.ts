@@ -49,20 +49,26 @@ export const FShellWireProvenanceSchema = z.strictObject({
 });
 
 /**
- * One side's solved run: `FModularRoofRun {Form, PitchDegrees}` (journal F46), plus the two booleans the port's
- * exporter writes for a run the solve did not solve (decision 137).
+ * One solved run along a side: `FModularRoofRun {Form, PitchDegrees}` (journal F46), the stretch of the side it covers
+ * (decision 149: `startCm` to `endCm`, each measured along the side from its corner i), and the two booleans the
+ * port's exporter writes for a run the solve did not solve (decision 137).
  */
 export const FShellWireSolvedRunSchema = z.strictObject({
+  startCm: z.number().optional(),
+  endCm: z.number().optional(),
   form: EModularRoofFormSchema.optional(),
   pitchDegrees: z.number().optional(),
   bEmptied: z.boolean().optional(),
   bOutlineRefused: z.boolean().optional(),
 });
 
-/** Journal decision 126: per side, both the request and the solve. */
+/**
+ * Journal decisions 126 and 149: per side, the request, and the solve as zero, one or several runs, ordered along the
+ * side from corner i. An upper Ring flush on a wall splits that wall's plate run in two; a party wall holds none.
+ */
 export const FShellWireSideSchema = z.strictObject({
   request: ERoofSideRequestSchema.optional(),
-  solved: FShellWireSolvedRunSchema.optional(),
+  runs: z.array(FShellWireSolvedRunSchema).optional(),
 });
 
 /**

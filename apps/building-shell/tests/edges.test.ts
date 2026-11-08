@@ -218,7 +218,7 @@ describe('F52: a roof rising into the floor above (journal decision 146)', () =>
   /** BridgeOverBlock through the wire with every Pitched side at `deg`. */
   const at = (deg: number): ShellFixture => {
     const wire = writeInput(fixtureByName('BridgeOverBlock'));
-    for (const r of wire.rings) for (const s of r.sides) if (s.solved.form === 'Pitched') s.solved.pitchDegrees = deg;
+    for (const r of wire.rings) for (const s of r.sides) if (s.runs[0].form === 'Pitched') s.runs[0].pitchDegrees = deg;
     const read = readInput(JSON.parse(JSON.stringify(wire)), `BridgeOverBlockAt${deg}`);
     if (!read.ok) throw new Error(read.errors.join('; '));
     return read.fixture;

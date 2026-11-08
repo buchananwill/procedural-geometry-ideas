@@ -44,6 +44,8 @@ export const ProvenanceV1Schema = z.strictObject({
 });
 
 export const SolvedRunV1Schema = z.strictObject({
+  startCm: z.number().prefault(D.FShellWireSolvedRun.startCm),
+  endCm: z.number().prefault(D.FShellWireSolvedRun.endCm),
   form: EModularRoofFormSchema.prefault(D.FShellWireSolvedRun.form),
   pitchDegrees: z.number().prefault(D.FShellWireSolvedRun.pitchDegrees),
   bEmptied: z.boolean().prefault(D.FShellWireSolvedRun.bEmptied),
@@ -52,7 +54,7 @@ export const SolvedRunV1Schema = z.strictObject({
 
 export const SideV1Schema = z.strictObject({
   request: ERoofSideRequestSchema.prefault(D.FShellWireSide.request),
-  solved: SolvedRunV1Schema.prefault({}),
+  runs: z.array(SolvedRunV1Schema).prefault([]),
 });
 
 export const RingV1Schema = z.strictObject({

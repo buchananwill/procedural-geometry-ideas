@@ -1,20 +1,22 @@
-// Journal decisions 124 and 140 (F6): every dump in `fixtures/playtest/`, `<subject>.input.json` plus an optional
-// `<subject>.output.json`, is loaded automatically. Its input is validated against `input@1`, adapted to a fixture and
-// run through every invariant of `shell-invariants.ts`; its output, when present, is diffed against the build. A
-// dump's outcome must be clean, or exactly its pin in `playtest-pins.ts`.
+// Journal decisions 124, 140 (F6), 148 (F1) and 149: every dump in `fixtures/playtest/`, an input document plus an
+// optional output paired by stem, is loaded automatically. Its input is validated against `input@1`, adapted to a
+// fixture and run through every invariant of `shell-invariants.ts`, its genus per component against its pin, measured
+// at enrolment (the slab-genus prediction is retired); its output, when present, is diffed against the build. A dump's
+// outcome must be clean, or exactly its pin in `playtest-pins.ts`.
 import {readFileSync, readdirSync} from 'node:fs';
 import path from 'node:path';
 import {describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES} from '../src/fixture.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import {diffReportLines} from '../src/wire/canonical.ts';
 import {readOutput} from '../src/wire/canonical-output-schema.ts';
-import {INPUT_SUFFIX, dumpReport, listDumps} from '../src/wire/dump.ts';
-import {PLAYTEST_DIR, SEED_FIXTURES} from '../src/wire/export-playtest.ts';
+import {INPUT_SUFFIX, OUTPUT_SUFFIX, dumpReport, listDumps} from '../src/wire/dump.ts';
+import {PLAYTEST_DIR, SEED_FIXTURES, SEED_WITH_OUTPUT, seedStem} from '../src/wire/export-playtest.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 import {AcceptedPin, PLAYTEST_PINS} from './playtest-pins.ts';
-import {predictedComponentGenera, predictedGenus, wireInvariantViolations} from './slab-genus.ts';
+import {ROSTER_GENUS_NAMES, rosterGenus} from './roster-genus.ts';
+import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {expectBaselineShape} from './wire-report-shape.ts';
 
 const LISTING = listDumps(readdirSync(PLAYTEST_DIR));
@@ -32,8 +34,9 @@ function load(file: string): unknown {
 const differences = (lines: string[]): string[] => lines.filter(l => !/^[^:]*: (FLAG|INFO) /.test(l));
 
 describe('the playtest folder', () => {
-  it('holds the seeded dumps, so the ingestion is never vacuous', () => {
-    expect(LISTING.dumps.map(d => d.input)).toEqual(expect.arrayContaining(SEED_FIXTURES.map(n => `${n}${INPUT_SUFFIX}`)));
+  it('holds the seeded dumps, one with its output, so the ingestion is never vacuous', () => {
+    expect(LISTING.dumps.map(d => d.input)).toEqual(expect.arrayContaining(SEED_FIXTURES.map(n => `${seedStem(n)}${INPUT_SUFFIX}`)));
+    expect(LISTING.dumps.find(d => d.stem === seedStem(SEED_WITH_OUTPUT))?.output).toBe(`${seedStem(SEED_WITH_OUTPUT)}${OUTPUT_SUFFIX}`);
   });
 
   it('holds no JSON that is neither an input nor the output of one', () => {
@@ -41,13 +44,13 @@ describe('the playtest folder', () => {
   });
 
   it('pins only dumps it holds', () => {
-    expect(Object.keys(PLAYTEST_PINS).filter(k => !LISTING.dumps.some(d => d.subject === k))).toEqual([]);
+    expect(Object.keys(PLAYTEST_PINS).filter(k => !LISTING.dumps.some(d => d.stem === k))).toEqual([]);
   });
 });
 
-describe.each(LISTING.dumps.map(d => [d.subject, d] as const))('%s', (subject, dump) => {
-  const pin = PLAYTEST_PINS[subject] ?? {kind: 'accepted'};
-  const read = readInput(load(dump.input), subject);
+describe.each(LISTING.dumps.map(d => [d.stem, d] as const))('%s', (stem, dump) => {
+  const pin = PLAYTEST_PINS[stem] ?? {kind: 'accepted'};
+  const read = readInput(load(dump.input), stem);
 
   // Decision 143, F6: a dump's output is validated whatever its input's outcome, a refused input's included.
   if (dump.output) {
@@ -71,12 +74,14 @@ describe.each(LISTING.dumps.map(d => [d.subject, d] as const))('%s', (subject, d
     expect(read.ok ? read.report.flags : []).toEqual(want.flags ?? []);
   });
 
-  it('keeps every invariant, with the summed genus its Rings predict, and matches its output where it has one', async () => {
+  it('keeps every invariant, with its pinned genus per component, and matches its output where it has one', async () => {
     if (!read.ok) throw new Error(`refused: ${read.errors.join('; ')}`);
     const b = await buildShellDetailed(read.fixture);
-    expect(wireInvariantViolations(b, read.fixture, want.cheeks ?? 0)).toEqual(want.violations ?? []);
+    // Decision 148, F1: a seed takes its roster pin by its provenance subject; any other dump must carry its own.
+    const genus = want.genus ?? rosterGenus(read.input.provenance.subject);
+    expect(invariantViolations(b, {genus, cheeks: want.cheeks ?? 0})).toEqual(want.violations ?? []);
     if (!dump.output) return;
-    const report = dumpReport(subject, read, b.shell, load(dump.output));
+    const report = dumpReport(stem, read, b.shell, load(dump.output));
     if ('ok' in report) throw new Error(`output refused: ${report.errors.join('; ')}`);
     if (report.mode === 'full') {
       expect(differences(diffReportLines(report))).toEqual(want.diff ?? []);
@@ -88,59 +93,16 @@ describe.each(LISTING.dumps.map(d => [d.subject, d] as const))('%s', (subject, d
   }, 60_000);
 });
 
-describe('the genus prediction (decision 140, F5)', () => {
-  // N4: every exported fixture by name, as union.test.ts, ring-forms.test.ts and port.test.ts measure it.
-  const MEASURED: Readonly<Record<string, number>> = {
-    NarrowUpperStorey: 0, NarrowUpperStoreyGabled: 0, TallerUpper: 0, Overhang: 0, OverhangApexOnEave: 0, Bridge: 0,
-    BridgeOverBlock: 1, ValleyWings: 0, ValleyWingsPierced: 0, SingleStoreyT: 0, DefaultChalet: 0, Courtyard: 1,
-    FlushRingConflict: 0, FlushRingConflictSwapped: 0, OverlapRingConflict: 0, OverlapRingConflictSwapped: 0,
-    PitchRingConflict: 0, PitchRingConflictSwapped: 0,
-    PortNarrowUpper300: 0, PortNarrowUpperGabled300: 0, PortPokeOut300: 0, PortPokeOut250: 0,
-    // WP3.7's addendum-2 conflict fixtures (journal decision 135, F6), as ring-forms.test.ts measures them.
-    ThreeRingConflict: 0, ThreeRingConflictSwapped: 0, DistantRingConflict: 0, DistantRingConflictSwapped: 0,
-    StoreyRingConflict: 0, StoreyRingConflictSwapped: 0, HoleRingConflict: 1, HoleRingConflictSwapped: 1,
-    CutPitchConflict: 1, CutPitchConflictSwapped: 1,
-  };
-  const measured = (name: string): number => {
-    const g = MEASURED[name];
-    if (g === undefined) throw new Error(`no measured genus for ${name}`);
-    return g;
-  };
-
-  it.each(EXPORTED_FIXTURES.map(f => [f.name, f] as const))('%s: predicts the genus the suite measures', (name, f) => {
-    expect(predictedGenus(f)).toBe(measured(name));
+describe('the roster genus pins (journal decision 148, F1; decision 150, N4)', () => {
+  it('pins every exported fixture, and nothing else', () => {
+    expect([...ROSTER_GENUS_NAMES].sort()).toEqual(EXPORTED_FIXTURES.map(f => f.name).sort());
   });
 
-  const fx = (name: string, rings: ShellFixture['rings']): ShellFixture => ({name, cellSize: 50, storeyHeight: 250, rings});
-  /** The correctness review's probes that build, each with the genus Manifold measures. */
-  const PROBES: [ShellFixture, number][] = [
-    [fx('Apart', [ring([0, 0, 100, 100], 0, 1, 45), ring([200, 0, 300, 100], 0, 1, 45)]), -1],
-    [fx('EdgeContactAcrossStoreys', [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 0, 800, 400], 1, 1, 30)]), -1],
-    [fx('VertexContactAcrossStoreys', [ring([0, 0, 400, 400], 0, 1, 30), ring([400, 400, 800, 800], 1, 1, 30)]), -1],
-    [fx('LowRoofUnderTunnel30', [ring([0, 0, 1000, 400], 0, 1, 30), ring([0, 0, 200, 400], 1, 1, 30), ring([800, 0, 1000, 400], 1, 1, 30), ring([0, 0, 1000, 400], 2, 1, 30)]), 1],
-    [fx('RoofTouchesBridgeOneUp', [ring([0, 0, 200, 400], 0, 2, 30), ring([800, 0, 1000, 400], 0, 2, 30), ring([200, 0, 800, 400], 0, 1, 70), ring([0, 0, 1000, 400], 2, 1, 30)]), 1],
-    // Decision 143, F2: storey 0's E gable on x = 400 touches the storey-1 box beyond it, which its box meets only along
-    // an edge. The hipped twin stays two solids.
-    [fx('GableContact', [ring([0, 0, 400, 400], 0, 1, 45, {E: {form: 'gable'}}), ring([400, 0, 800, 400], 1, 1, 45)]), 0],
-    [fx('HipContact', [ring([0, 0, 400, 400], 0, 1, 45), ring([400, 0, 800, 400], 1, 1, 45)]), -1],
-  ];
-  it.each(PROBES.map(([f, g]) => [f.name, f, g] as const))('%s: joins solids only through positive-area contact, as Manifold does', async (_, f, g) => {
-    expect(predictedGenus(f)).toBe(g);
-    expect((await buildShellDetailed(f)).union.genus).toBe(g);
-  }, 60_000);
-
-  it('predicts per component: a courtyard beside a separate island is genera 1 and 0, which Manifold sums to 0', () => {
-    const f = fx('CourtyardBesideIsland', [
-      ring([0, 0, 1000, 300], 0, 1, 30), ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30),
-      ring([1500, 0, 1800, 300], 0, 1, 30),
-    ]);
-    expect(predictedComponentGenera(f)).toEqual([1, 0]);
-    expect(predictedGenus(f)).toBe(0);
+  it('throws on a fixture with no measurement', () => {
+    expect(() => rosterGenus('NoSuchFixture')).toThrow(/no measured genus for NoSuchFixture/);
   });
 
-  it('enrols the case it does not cover: a 60° roof filling the tunnel above it (predicted 1, measured 0)', async () => {
-    const f = fx('TallRoofThroughTunnel60', [ring([0, 0, 1000, 400], 0, 1, 60), ring([0, 0, 200, 400], 1, 1, 30), ring([800, 0, 1000, 400], 1, 1, 30), ring([0, 0, 1000, 400], 2, 1, 30)]);
-    expect(predictedGenus(f)).toBe(1);
-    expect((await buildShellDetailed(f)).union.genus).toBe(0);
+  it.each(EXPORTED_FIXTURES.map(f => [f.name, f] as const))('%s: measures its pinned genus per component', async (name, f) => {
+    expect(componentGenera((await buildShellDetailed(f)).union.mesh)).toEqual(rosterGenus(name));
   }, 60_000);
 });

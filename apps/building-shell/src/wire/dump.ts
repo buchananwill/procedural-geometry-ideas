@@ -1,5 +1,8 @@
-// A playtest dump (journal decision 140, F6, agreed with the port lead): `<subject>.input.json` plus an optional
-// `<subject>.output.json`, sharing a basename, each its own schema document with its own `schemaVersion`. Browser-safe.
+// A playtest dump (journal decisions 140, F6, and 149, agreed with the port lead): an input document plus an optional
+// output, each its own schema document with its own `schemaVersion`. The exporter names them per solve,
+// `<dump basename>.<SolveIndex>.<Subject>.<Seed>.input.json` (decision 152, the subject sanitised) and the same stem
+// with `.output.json`, in the solve dump's directory, the seed always present. Ingestion pairs them by the stem before `.input.json` or `.output.json`, whatever dots it
+// holds; the subject is read from the input's provenance, never from the name. Browser-safe.
 import type {BuildingShell} from '../shell.ts';
 import {DiffReport, baselineReport, canonicalOfShell, diffReport} from './canonical.ts';
 import {readOutput} from './canonical-output-schema.ts';
@@ -12,35 +15,35 @@ export const OUTPUT_SUFFIX = '.output.json';
 /** The engine name the prototype's side of every diff carries. */
 export const PROTOTYPE_ENGINE = 'prototype @proc-geo/building-shell';
 
-/** One dump's files by name. */
-export interface DumpFiles { subject: string; input: string; output?: string }
+/** One dump's files by name, and the stem they share: everything before `.input.json` (decision 149). */
+export interface DumpFiles { stem: string; input: string; output?: string }
 
 /**
- * A folder's file names as dumps, and every name that belongs to none: a JSON that is not an input, an output with no
- * input, or an input with an empty subject. Suffixes match exactly, case included.
+ * A folder's file names as dumps, paired by stem, and every name that belongs to none: a JSON that is not an input, an
+ * output with no input, or an input with an empty stem. Suffixes match exactly, case included.
  */
 export interface DumpListing { dumps: DumpFiles[]; strays: string[] }
 
 export function listDumps(names: readonly string[]): DumpListing {
   const json = names.filter(n => n.toLowerCase().endsWith('.json'));
-  // An input with an empty subject, `.input.json` alone, is no dump (decision 143, F7): it stays a stray.
+  // An input with an empty stem, `.input.json` alone, is no dump (decision 143, F7): it stays a stray.
   const inputs = json.filter(n => n.endsWith(INPUT_SUFFIX) && n.length > INPUT_SUFFIX.length).sort();
   const dumps = inputs.map(input => {
-    const subject = input.slice(0, -INPUT_SUFFIX.length);
-    const output = `${subject}${OUTPUT_SUFFIX}`;
-    return json.includes(output) ? {subject, input, output} : {subject, input};
+    const stem = input.slice(0, -INPUT_SUFFIX.length);
+    const output = `${stem}${OUTPUT_SUFFIX}`;
+    return json.includes(output) ? {stem, input, output} : {stem, input};
   });
   const claimed = new Set(dumps.flatMap(d => (d.output ? [d.input, d.output] : [d.input])));
   return {dumps, strays: json.filter(n => !claimed.has(n)).sort()};
 }
 
 /** The diff of a dump's output against the prototype's build of its input: full, or the legacy baseline. */
-export function dumpReport(subject: string, adapted: AdaptedInput, shell: BuildingShell, outputJson: unknown): DiffReport | RefusedInput {
+export function dumpReport(stem: string, adapted: AdaptedInput, shell: BuildingShell, outputJson: unknown): DiffReport | RefusedInput {
   const out = readOutput(outputJson);
   if (!out.ok) return out;
   const engines = [PROTOTYPE_ENGINE, out.engine] as const;
   const mine = canonicalOfShell(shell);
   return out.mode === 'full'
-    ? diffReport(subject, engines, adapted.report, mine, out.shell)
-    : baselineReport(subject, engines, adapted.report, mine, out.faces, out.edgeKinds);
+    ? diffReport(stem, engines, adapted.report, mine, out.shell)
+    : baselineReport(stem, engines, adapted.report, mine, out.faces, out.edgeKinds);
 }
