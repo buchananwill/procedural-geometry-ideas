@@ -1446,7 +1446,10 @@ been reviewed, naming the commit (decision 129). It must include the measured re
      - **B7:** the engine pair is a named type.
      - **N1 to N5:**
        - N1: schema constants take a `Schema` suffix.
-       - N2: the enum spelling is asked of the port lead.
+       - N2: **answered by the port lead, so no change is needed.** `EmitEnum` (`ZodSchemaGenerator.cpp:572-588`) writes
+         the bare authored member names (`GetNameStringByIndex`, scope stripped) in declaration order, without the
+         `_MAX` sentinel and without StandardizeCase. The stand-in's `z.enum([...])` is what will be generated. **Stand-in
+         enums list their members in the UE declaration order.**
        - N3: pins carry an explicit discriminant.
        - N4: the measured-genus table is keyed by fixture name, and throws on a missing key.
        - N5: arrays of four stay arrays, as the generator emits.
