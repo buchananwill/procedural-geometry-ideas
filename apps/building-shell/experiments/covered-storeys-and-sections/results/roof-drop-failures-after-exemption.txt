@@ -1,0 +1,32 @@
+8 x robustness.test.ts :: AssertionError: expected [] to deeply equal [ …(N) ]
+4 x robustness.test.ts :: AssertionError: expected [] to deeply equal [ Array(N) ]
+2 x golden.test.ts :: AssertionError: expected true to be false // Object.is equality
+2 x golden.test.ts :: AssertionError: expected [] to deeply equal [ Array(N) ]
+1 x golden.test.ts :: AssertionError: expected [ 'CourtNSeedNhN', …(N) ] to deeply equal [ 'CourtNSeedNhN', …(N) ]
+1 x golden.test.ts :: AssertionError: expected undefined to deeply equal 'edge contact between opposite coplana…'
+1 x golden.test.ts :: AssertionError: expected undefined to deeply equal 'Gable-Wall edge Unclassified'
+1 x golden.test.ts :: AssertionError: expected [ 'Cell outside its face fan', …(N) ] to deeply equal [ 'Cell outside its face fan', 
+1 x robustness.test.ts :: AssertionError: expected [ Array(N) ] to deeply equal [ Array(N) ]
+
+ALL FAILING:
+  [expected [ 'Court25Seed1h250', …(2) ] to deeply equal [ 'Court25Seed1h] golden.test.ts: the golden set (journal decisions 129 and 131): a fresh export is the committed bytes refuses a replayable entry without its input, whether it builds 
+  [expected true to be false // Object.is equality] golden.test.ts: the golden additions: decisions 156's F3 and 161's rule oracles, and 156's F4 residue classes U8Seed6h300: not clean, carrying its violations or its e
+  [expected true to be false // Object.is equality] golden.test.ts: the golden additions: decisions 156's F3 and 161's rule oracles, and 156's F4 residue classes SplitCourt9Seed7h250: not clean, carrying its violations
+  [expected undefined to deeply equal 'edge contact between opposite copl] golden.test.ts: the manifest's residue classes and genus (journal decision 161, finding 5 and Info) U8Seed6h300: carries its residue class exactly when it is a residu
+  [expected undefined to deeply equal 'Gable-Wall edge Unclassified'] golden.test.ts: the manifest's residue classes and genus (journal decision 161, finding 5 and Info) SplitCourt9Seed7h250: carries its residue class exactly when it is
+  [expected [ 'Cell outside its face fan', …(9) ] to deeply equal [ 'Cell] golden.test.ts: the manifest's residue classes and genus (journal decision 161, finding 5 and Info) every residue class is represented, and every class is a stable na
+  [expected [] to deeply equal [ Array(1) ]] golden.test.ts: the tie between the manifest and the robustness pins (journal decision 158, 3) U8Seed6h300: its manifest outcome is its pin
+  [expected [] to deeply equal [ Array(1) ]] golden.test.ts: the tie between the manifest and the robustness pins (journal decision 158, 3) SplitCourt9Seed7h250: its manifest outcome is its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: random courtyards (journal decisions 115, 132 and 135): seed 2 at 300 cm storeys Court15 keeps every invariant, or exactly its measured defect
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: random courtyards (journal decisions 115, 132 and 135): seed 2 at 250 cm storeys Court15 keeps every invariant, or exactly its measured defect
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s2h250/Court15: exactly its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s2h263/Court15: exactly its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s2h300/Court15: exactly its pin
+  [expected [ Array(1) ] to deeply equal [ Array(1) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s5h250/Court34: exactly its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s7h250/Court22: exactly its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s7h263/Court22: exactly its pin
+  [expected [] to deeply equal [ …(2) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) courtyard s7h300/Court22: exactly its pin
+  [expected [] to deeply equal [ Array(1) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) U shape s6h263/U8: exactly its pin
+  [expected [] to deeply equal [ Array(1) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) U shape s6h300/U8: exactly its pin
+  [expected [] to deeply equal [ Array(1) ]] robustness.test.ts: every pinned case of the seeded generators, built on the default run (journal decision 156, F6) split-band courtyard s7h250/SplitCourt9: exactly its p
+  [expected [] to deeply equal [ Array(1) ]] robustness.test.ts: decision 156, F7's two new signatures s7h250/SplitCourt9: its Gable-Wall Unclassified Edges

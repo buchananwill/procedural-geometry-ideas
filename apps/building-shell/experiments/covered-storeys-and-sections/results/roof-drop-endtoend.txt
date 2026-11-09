@@ -1,0 +1,14 @@
+reported input, upper 22.5 hip: maxZ=707.11 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Roof@s1":4} parts=3 genus=0 closed=true internal=0 unclassified=0 cells=1240
+reported input, upper 22.5 chalet: maxZ=707.11 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Roof@s1":2,"Gable@s1":2} parts=5 genus=0 closed=true internal=0 unclassified=0 cells=1312
+reported input, upper 30 hip, 1200 span: maxZ=846.41 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Roof@s1":4} parts=3 genus=0 closed=true internal=0 unclassified=0 cells=1584
+upper overhangs all sides: maxZ=748.53 {"Wall@s0":4,"Ground@s0":1,"Underside@s1":1,"Wall@s1":4,"Roof@s1":4} parts=3 genus=0 closed=true internal=0 unclassified=0 cells=1680
+frame above, plate open: must not drop: REFUSED
+  Ring 0 (model index 0) side 0 (S) is solved None but wins the union wall y = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+  Ring 0 (model index 0) side 1 (E) is solved None but wins the union wall x = 1000 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+  Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 1000 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+  Ring 0 (model index 0) side 3 (W) is solved None but wins the union wall x = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+strip above W only: partial, still refused: REFUSED
+  Ring 0 (model index 0) side 3 (W) is solved None but wins the union wall x = 0 [0, 1000] on storey 0, where its form is undefined (journal decision 140)
+three stacked Rings, lower two formless: maxZ=957.11 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Wall@s2":4,"Roof@s2":4} parts=4 genus=0 closed=true internal=0 unclassified=0 cells=1640
+authored lower 45, upper 22.5, same plan: maxZ=707.11 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Roof@s1":4} parts=3 genus=0 closed=true internal=0 unclassified=0 cells=1240
+one two-storey Ring at 22.5: maxZ=707.11 {"Wall@s0":4,"Ground@s0":1,"Wall@s1":4,"Roof@s1":4} parts=3 genus=0 closed=true internal=0 unclassified=0 cells=1240

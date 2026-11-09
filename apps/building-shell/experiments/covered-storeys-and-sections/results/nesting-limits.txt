@@ -1,0 +1,36 @@
+--- S1. a small uncovered strip (50 cm on N only)
+strip lower45 upper22.5: maxZ=750.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+250.0 upperWallArea=927500 upperRoofArea=996187 unclassified=0
+strip lower45 upper30: maxZ=774.2 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=927500 upperRoofArea=1096965 unclassified=0
+strip both22.5: maxZ=696.8 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=955325 upperRoofArea=1028272 unclassified=0
+strip both30: maxZ=774.2 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=947576 upperRoofArea=1096965 unclassified=0
+strip both45: maxZ=975.0 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=927500 upperRoofArea=1343503 unclassified=0
+--- S2. matched pitch, a centred upper storey set back on all sides; the threshold is h / tan(pitch)
+both45 inset200: maxZ=800.0 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=120000 upperRoofArea=509117 unclassified=0
+both45 inset240: maxZ=760.0 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=20800 upperRoofArea=382403 unclassified=0
+both45 inset260: maxZ=750.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+250.0 upperWallArea=0 upperRoofArea=0 unclassified=0
+both45 inset300: maxZ=750.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+250.0 upperWallArea=0 upperRoofArea=0 unclassified=0
+both45 inset400: maxZ=750.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+250.0 upperWallArea=0 upperRoofArea=0 unclassified=0
+both30 inset400: maxZ=557.7 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=15248 upperRoofArea=46188 unclassified=0
+both30 inset430: maxZ=540.4 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=974 upperRoofArea=22632 unclassified=0
+both30 inset440: maxZ=538.7 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+38.7 upperWallArea=0 upperRoofArea=0 unclassified=0
+both30 inset450: maxZ=538.7 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+38.7 upperWallArea=0 upperRoofArea=0 unclassified=0
+both22.5 inset400: maxZ=541.4 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=67452 upperRoofArea=43296 unclassified=0
+both22.5 inset450: maxZ=520.7 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=25442 upperRoofArea=10824 unclassified=0
+3000sq both22.5 inset500: maxZ=914.2 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=343146 upperRoofArea=4329569 unclassified=0
+3000sq both22.5 inset600: maxZ=872.8 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=10597 upperRoofArea=3506950 unclassified=0
+3000sq both22.5 inset620: maxZ=871.3 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+371.3 upperWallArea=0 upperRoofArea=0 unclassified=0
+3000sq both22.5 inset800: maxZ=871.3 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+371.3 upperWallArea=0 upperRoofArea=0 unclassified=0
+--- S3. flush plans, content pitch differences, by span; the threshold is 2h / (tan lower - tan upper)
+flush lower30 upper22.5 span2000: maxZ=914.2 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=2000000 upperRoofArea=4329569 unclassified=0
+flush lower30 upper22.5 span3000: maxZ=1121.3 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=3000000 upperRoofArea=9741530 unclassified=0
+flush lower30 upper22.5 span3200: maxZ=1173.8 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+673.8 upperWallArea=3200000 upperRoofArea=11063946 unclassified=0
+flush lower45 upper30 span1000: maxZ=788.7 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=1000000 upperRoofArea=1154700 unclassified=0
+flush lower45 upper30 span1100: maxZ=817.5 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=1100000 upperRoofArea=1397188 unclassified=0
+flush lower45 upper30 span1200: maxZ=850.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+350.0 upperWallArea=1200000 upperRoofArea=1662436 unclassified=0
+flush lower45 upper22.5 span800: maxZ=665.7 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=800000 upperRoofArea=692731 unclassified=0
+flush lower45 upper22.5 span850: maxZ=676.0 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=850000 upperRoofArea=782029 unclassified=0
+flush lower45 upper22.5 span900: maxZ=700.0 lowerFacesAboveUpperPlateInUpperPlan=4 upTo=+200.0 upperWallArea=900000 upperRoofArea=874403 unclassified=0
+flush lower22.5 upper45 span3000: maxZ=2000.0 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=3000000 upperRoofArea=12727922 unclassified=0
+--- S4. a real gable on the lower storey under a flush hip, matched at 30 degrees
+lower W gable, upper hip: maxZ=730.9 lowerFacesAboveUpperPlateInUpperPlan=2 upTo=+38.7 upperWallArea=760252 upperRoofArea=872391 unclassified=0
+lower W hip, upper hip: maxZ=730.9 lowerFacesAboveUpperPlateInUpperPlan=0 upTo=+0.0 upperWallArea=760973 upperRoofArea=877573 unclassified=0

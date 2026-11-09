@@ -1,0 +1,2 @@
+# Patches must stay byte-exact, or `git apply` can reject them after a CRLF checkout.
+*.patch -text

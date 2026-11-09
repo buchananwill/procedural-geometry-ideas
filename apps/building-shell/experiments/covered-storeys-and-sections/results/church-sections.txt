@@ -1,0 +1,28 @@
+
+===== pitch 45
+nave alone: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=8
+  x=1000 profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:-Infinity 950:-Infinity 1000:-Infinity 1050:-Infinity 1150:-Infinity
+  x=25   profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:-Infinity 950:-Infinity 1000:-Infinity 1050:-Infinity 1150:-Infinity
+MERGED at HEAD (the extension shares storey 0 with the nave): status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=10
+  x=1000 profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:800 750:700 850:600 950:500 1000:450 1050:400 1150:300
+  x=25   profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:800 750:700 850:600 950:500 1000:450 1050:400 1150:300
+SECTIONS: nave + extension gabled at its ends, ridge parallel: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=8
+  x=1000 profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:300 950:400 1000:450 1050:400 1150:300
+  x=25   profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:300 950:400 1000:450 1050:400 1150:300
+SECTIONS: nave + extension with its abutting S side gabled too: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=8
+  x=1000 profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:600 950:500 1000:450 1050:400 1150:300
+  x=25   profile  50:300 150:550 250:800 350:900 400:950 450:900 550:800 650:550 750:300 850:300 950:400 1000:450 1050:400 1150:300
+
+===== pitch 30
+nave alone: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=4
+  x=1000 profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:-Infinity 950:-Infinity 1000:-Infinity 1050:-Infinity 1150:-Infinity
+  x=25   profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:-Infinity 950:-Infinity 1000:-Infinity 1050:-Infinity 1150:-Infinity
+MERGED at HEAD (the extension shares storey 0 with the nave): status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=8
+  x=1000 profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:568 750:510 850:452 950:394 1000:365 1050:337 1150:279
+  x=25   profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:568 750:510 850:452 950:394 1000:365 1050:337 1150:279
+SECTIONS: nave + extension gabled at its ends, ridge parallel: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=4
+  x=1000 profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:279 950:337 1000:365 1050:337 1150:279
+  x=25   profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:279 950:337 1000:365 1050:337 1150:279
+SECTIONS: nave + extension with its abutting S side gabled too: status=NoError closed=true genus=0 internal=0 cheeks=0 conflicts=4
+  x=1000 profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:452 950:394 1000:365 1050:337 1150:279
+  x=25   profile  50:279 150:529 250:779 350:837 400:865 450:837 550:779 650:529 750:279 850:279 950:337 1000:365 1050:337 1150:279

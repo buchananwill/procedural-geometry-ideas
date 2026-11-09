@@ -1,0 +1,18 @@
+--- covered courtyards under the rule
+CourtCovered parts 3 violations ["CourtCovered storey 0 island 0: no raw face lies on its cut's plane"]
+CourtTwoStorey parts 5 violations ["CourtTwoStorey storey 0 island 0: no raw face lies on its cut's plane"]
+Plain2Storey parts 3 violations []
+--- s5/Court34
+[{"rect":[0,500,600,700],"baseStorey":0,"storeys":2,"defaultDeg":52.5,"sides":{"E":{"form":"gable"},"W":{"form":"gable"}}},{"rect":[0,0,250,700],"baseStorey":0,"storeys":2,"defaultDeg":30,"sides":{"W":{"form":"gable"},"S":{"form":"hip","deg":52.5},"E":{"form":"hip","deg":30}}},{"rect":[0,0,600,200],"baseStorey":0,"storeys":2,"defaultDeg":52.5,"sides":{"N":{"form":"hip","deg":45}}},{"rect":[400,0,600,700],"baseStorey":0,"storeys":3,"defaultDeg":37,"sides":{"E":{"form":"hip","deg":37}}}]
+h=250 HEAD parts=14 cheeks=[s0 A=24.6 n=1.00,0.00,0.00 ; s1 A=14723.4 n=1.00,0.00,0.00 ; s0 A=21.7 n=1.00,0.00,0.00 ; s1 A=13010.5 n=1.00,0.00,0.00]
+  HEAD: ["cheeks 4, expected 0, at (250, 195.3779296875, 504.6220703125); (250, 500, 500); (250, 500, 510.6455078125); (250, 86.8349609375, 613.1650390625)"]
+h=250 RULE parts=9 cheeks=[s1 A=14748.0 n=1.00,0.00,0.00 ; s1 A=13032.3 n=1.00,0.00,0.00]
+  RULE: ["cheeks 2, expected 0, at (250, 500, 500); (250, 86.8349609375, 613.1650390625)","Court34 storey 0 island 0: no raw face lies on its cut's plane"]
+h=263 HEAD parts=14 cheeks=[s1 A=14748.0 n=1.00,0.00,0.00 ; s1 A=13032.3 n=1.00,0.00,0.00]
+  HEAD: ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)"]
+h=263 RULE parts=9 cheeks=[s1 A=14748.0 n=1.00,0.00,0.00 ; s1 A=13032.3 n=1.00,0.00,0.00]
+  RULE: ["cheeks 2, expected 0, at (250, 500, 526); (250, 86.8349609375, 639.1650390625)","Court34 storey 0 island 0: no raw face lies on its cut's plane"]
+h=300 HEAD parts=14 cheeks=[s1 A=14748.0 n=1.00,0.00,0.00 ; s1 A=13032.3 n=1.00,0.00,0.00]
+  HEAD: ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)"]
+h=300 RULE parts=9 cheeks=[s1 A=14748.0 n=1.00,0.00,0.00 ; s1 A=13032.3 n=1.00,0.00,0.00]
+  RULE: ["cheeks 2, expected 0, at (250, 500, 600); (250, 86.8349609375, 713.1650390625)","Court34 storey 0 island 0: no raw face lies on its cut's plane"]

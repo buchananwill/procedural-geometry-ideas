@@ -1,0 +1,101 @@
+diff --git a/apps/building-shell/src/covered.ts b/apps/building-shell/src/covered.ts
+new file mode 100644
+index 0000000..554ee13
+--- /dev/null
++++ b/apps/building-shell/src/covered.ts
+@@ -0,0 +1,28 @@
++// EXPERIMENT ONLY, not adopted: the candidate rule's plan-cover test, exact on the rectilinear coordinate grid of both plans.
++import type {Pt} from './roof/model.ts';
++
++const inside = (p: Pt, loops: Pt[][]): boolean => {
++  let odd = false;
++  for (const l of loops) {
++    for (let i = 0; i < l.length; i++) {
++      const a = l[i], b = l[(i + 1) % l.length];
++      if ((a.y > p.y) !== (b.y > p.y) && p.x < a.x + ((p.y - a.y) / (b.y - a.y)) * (b.x - a.x)) odd = !odd;
++    }
++  }
++  return odd;
++};
++
++/** Whether every part of the plan bounded by `loops` lies inside the plan bounded by `upper`. */
++export function planCovered(loops: Pt[][], upper: Pt[][]): boolean {
++  if (!upper.length) return false;
++  const all = [...loops, ...upper].flat();
++  const xs = [...new Set(all.map(p => p.x))].sort((a, b) => a - b);
++  const ys = [...new Set(all.map(p => p.y))].sort((a, b) => a - b);
++  for (let i = 0; i + 1 < xs.length; i++) {
++    for (let j = 0; j + 1 < ys.length; j++) {
++      const c = {x: (xs[i] + xs[i + 1]) / 2, y: (ys[j] + ys[j + 1]) / 2};
++      if (inside(c, loops) && !inside(c, upper)) return false;
++    }
++  }
++  return true;
++}
+diff --git a/apps/building-shell/src/storey.ts b/apps/building-shell/src/storey.ts
+index 127bf25..1c859af 100644
+--- a/apps/building-shell/src/storey.ts
++++ b/apps/building-shell/src/storey.ts
+@@ -2,6 +2,7 @@
+ // (spec decisions 2 to 11). Parts are never pre-unioned: the one union is `union.ts`'s.
+ import type {Mesh, Vec2} from 'manifold-3d';
+ import {SHELL_TOLERANCE_CM} from './constants.ts';
++import {planCovered} from './covered.ts';
+ import {selectCut, spliceCourtyard} from './courtyard.ts';
+ import {ShellFixture, StoreyRing, storeyRings} from './fixture.ts';
+ import {Wasm} from './manifold.ts';
+@@ -521,12 +522,14 @@ function gablePiece(ctx: PartContext, plan: StoreyPlan, k: number, piece: Piece)
+ }
+ 
+ /** Spec decision 5: one wall prism and one hip solid per island, and one solid per gable piece. */
+-export function buildStoreyParts(ctx: PartContext, plan: StoreyPlan): RawPart[] {
++export function buildStoreyParts(ctx: PartContext, plan: StoreyPlan, above?: StoreyPlan): RawPart[] {
+   const out: RawPart[] = [];
++  const upper = above ? above.building.comps.flatMap(c => [c.outer, ...c.holes]) : [];
++  const covered = plan.building.comps.map(c => planCovered([c.outer, ...c.holes], upper));
+   plan.building.comps.forEach((comp, ci) => {
+     out.push(wallPrism(ctx, plan, ci, comp));
+-    out.push(hipSolid(ctx, plan, ci, comp));
++    if (!covered[ci]) out.push(hipSolid(ctx, plan, ci, comp));
+   });
+-  plan.roof.pieces.forEach((piece, k) => out.push(gablePiece(ctx, plan, k, piece)));
++  plan.roof.pieces.forEach((piece, k) => { if (!covered[piece.wall.comp]) out.push(gablePiece(ctx, plan, k, piece)); });
+   return out;
+ }
+diff --git a/apps/building-shell/src/union.ts b/apps/building-shell/src/union.ts
+index ae06396..e4fb572 100644
+--- a/apps/building-shell/src/union.ts
++++ b/apps/building-shell/src/union.ts
+@@ -241,7 +241,7 @@ export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], pa
+ export function unionPlans(wasm: Wasm, label: string, plans: StoreyPlan[]): ShellUnion {
+   const tags = makeShellTags();
+   const ctx: PartContext = makePartContext(wasm, tags);
+-  for (const plan of plans) buildStoreyParts(ctx, plan);
++  for (const plan of plans) buildStoreyParts(ctx, plan, plans.find(p => p.storey === plan.storey + 1));
+   return unionRawParts(wasm, label, plans, ctx.parts, tags);
+ }
+ 
+diff --git a/apps/building-shell/src/wire/input-adapter.ts b/apps/building-shell/src/wire/input-adapter.ts
+index 3bb3ab8..d5efa0e 100644
+--- a/apps/building-shell/src/wire/input-adapter.ts
++++ b/apps/building-shell/src/wire/input-adapter.ts
+@@ -24,6 +24,7 @@
+ import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../fixture.ts';
+ import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
+ import {SHELL_TOLERANCE_CM} from '../constants.ts';
++import {planCovered} from '../covered.ts';
+ import {PlanRefusal} from '../errors.ts';
+ import {UnionWall, ringSideLines, storeyLoops, unionWallForms} from '../ring-forms.ts';
+ import type {Rect} from '../roof/model.ts';
+@@ -395,7 +396,10 @@ export function noneWinnerRefusals(f: ShellFixture, nones: NoneSide[]): string[]
+     const rings = storeyRings(probe, storey);
+     let walls: UnionWall[];
+     try {
+-      walls = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect)));
++      const loops = storeyLoops(rings.map(r => r.ring.rect));
++      const upperRings = storeyRings(probe, storey + 1);
++      if (upperRings.length && planCovered(loops, storeyLoops(upperRings.map(r => r.ring.rect)))) continue;
++      walls = unionWallForms(rings, loops);
+     } catch (e) {
+       if (isPlanRefusal(e)) continue;
+       throw e;

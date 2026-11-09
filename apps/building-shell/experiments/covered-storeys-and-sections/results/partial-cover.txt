@@ -1,0 +1,99 @@
+--- P1. strip above the W wall; Ring 0 all hip 30: does the covered W wall plane show?
+  hip-all-30: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=[]
+    Roof@s0 n=(-0.500,0.000,0.866) tilt=30.0 area=103923
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=265581
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=265581
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=103923
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=103923
+--- P1b. the covered W wall at 7 and 60 degrees, the others 30
+  W-hip-7: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=[]
+    Roof@s0 n=(-0.122,0.000,0.993) tilt=7.0 area=492185
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=96340
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=96340
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=166990
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=103923
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=103923
+  W-hip-60: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=[]
+    Roof@s0 n=(-0.866,0.000,0.500) tilt=60.0 area=425
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=319643
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=319643
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=103923
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=99477
+--- P2. the covered W wall as a gable, its pitch varied
+  W-gable-7: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=["W-gable-7: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 3) over Gable storey 0 wall 3 (part 2)"]
+    Gable@s0 n=(-1.000,0.000,0.000) tilt=90.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=98742
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=98742
+  W-gable-30: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=["W-gable-30: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 3) over Gable storey 0 wall 3 (part 2)"]
+    Gable@s0 n=(-1.000,0.000,0.000) tilt=90.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=98742
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=98742
+  W-gable-60: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=["W-gable-60: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 3) over Gable storey 0 wall 3 (part 2)"]
+    Gable@s0 n=(-1.000,0.000,0.000) tilt=90.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=98742
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=98742
+  W-gable-75: maxZ=557.74 internal=0 unclassified=0 cheeks=0 conflicts=["W-gable-75: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 3) over Gable storey 0 wall 3 (part 2)"]
+    Gable@s0 n=(-1.000,0.000,0.000) tilt=90.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,-0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=2591
+    Roof@s0 n=(0.000,0.500,0.866) tilt=30.0 area=320133
+    Roof@s0 n=(0.500,0.000,0.866) tilt=30.0 area=288675
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=98742
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=11547
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=98742
+--- P3. the conflicts on a gable taken from the storey above, and on the same chalet as one two-storey Ring
+  inherit-gable: maxZ=707.11 internal=0 unclassified=0 cheeks=0 conflicts=["inherit-gable: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 4) over Gable storey 0 wall 3 (part 2)","inherit-gable: n=(1.000000, 0.000000, 0.000000) d=1000.000: Wall storey 1 wall 1 (part 4) over Gable storey 0 wall 1 (part 2)"]
+    Gable@s1 n=(-1.000,0.000,0.000) tilt=90.0 area=103553
+    Gable@s1 n=(1.000,0.000,0.000) tilt=90.0 area=103553
+    Roof@s1 n=(0.000,-0.383,0.924) tilt=22.5 area=541196
+    Roof@s1 n=(0.000,0.383,0.924) tilt=22.5 area=541196
+  one-ring-2-storeys: maxZ=707.11 internal=0 unclassified=0 cheeks=0 conflicts=["one-ring-2-storeys: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 4) over Gable storey 0 wall 3 (part 2)","one-ring-2-storeys: n=(1.000000, 0.000000, 0.000000) d=1000.000: Wall storey 1 wall 1 (part 4) over Gable storey 0 wall 1 (part 2)"]
+    Gable@s1 n=(-1.000,0.000,0.000) tilt=90.0 area=103553
+    Gable@s1 n=(1.000,0.000,0.000) tilt=90.0 area=103553
+    Roof@s1 n=(0.000,-0.383,0.924) tilt=22.5 area=541196
+    Roof@s1 n=(0.000,0.383,0.924) tilt=22.5 area=541196
+--- P4. a frame above: every wall of Ring 0 covered, its plate open in the middle
+  frame-45: maxZ=750.00 internal=0 unclassified=0 cheeks=0 conflicts=[]
+    Roof@s0 n=(-0.707,0.000,0.707) tilt=45.0 area=75921
+    Roof@s0 n=(0.000,-0.707,0.707) tilt=45.0 area=75921
+    Roof@s0 n=(0.000,0.707,0.707) tilt=45.0 area=75921
+    Roof@s0 n=(0.707,0.000,0.707) tilt=45.0 area=75921
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=147224
+    Roof@s1 n=(-0.500,0.000,0.866) tilt=30.0 area=79462
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=147224
+    Roof@s1 n=(0.000,-0.500,0.866) tilt=30.0 area=79462
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=147224
+    Roof@s1 n=(0.000,0.500,0.866) tilt=30.0 area=79462
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=147224
+    Roof@s1 n=(0.500,0.000,0.866) tilt=30.0 area=79462

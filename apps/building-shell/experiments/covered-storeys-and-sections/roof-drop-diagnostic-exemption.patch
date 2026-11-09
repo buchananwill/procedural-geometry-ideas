@@ -1,0 +1,12 @@
+diff --git a/apps/building-shell/tests/shell-invariants.ts b/apps/building-shell/tests/shell-invariants.ts
+--- a/apps/building-shell/tests/shell-invariants.ts
++++ b/apps/building-shell/tests/shell-invariants.ts
+@@ -312,7 +312,7 @@ export function cutPlaneViolations(u: Pick<ShellBuild['union'], 'plans' | 'parts
+           if (u.tags.table[f].kind !== 'Internal') out.push(`${part.name}: triangle ${t} on the cut plane is ${u.tags.table[f].kind}, not Internal`);
+         });
+       }
+-      if (!onCut) out.push(`${prefix}island ${ci}: no raw face lies on its cut's plane`);
++      if (!onCut && u.parts.some(p => p.name === `${prefix}hip solid island ${ci}`)) out.push(`${prefix}island ${ci}: no raw face lies on its cut's plane`);
+     });
+   }
+   return out;
