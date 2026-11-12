@@ -84,6 +84,15 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
    **WP-E1.1 returned at `4e969a5`** (one commit, eight roster files; the lead checked `git diff --stat`). Its
    record on that tree: 8,436 passed in 38 files, typecheck clean, the golden drift test inside the run, and five
    mutation gates convicted. **The correctness reviewer was resumed on `c00b8cf..4e969a5` on 2026-11-12.**
+   **Accepted at `4e969a5` (decision 201). Notes committed at `2b941cb`.**
+   - ~~**WP-E1.2 dispatched 2026-11-12** to the same delegate: the reload mark survives every save. The lead reads
+     its diff; no further review.~~ Accepted at `e4de021` (decision 202). **The editor is done for this version.**
+   - **WP-G1, the rise measurement sweep, dispatched 2026-11-12** (general-purpose, Opus) at `2b941cb`. It owns
+     `apps/building-shell/experiments/gable-rises/` and a new note `building-shell-gable-rise-findings.md`, and
+     changes no production code. It must first reproduce F60 and F61. **When it returns**: record its classes as
+     findings, amend the gable rise proposal where a decision did not hold, and build the rise only if every
+     class is clean or clean under a stated condition. A class that is not clean waits for the user
+     (decision 200).
 8. **The message to the C++ side was sent to `claude-work-ec` on 2026-11-12**, which the user thinks is the UI/UX
    polish lead ("I think"). The message asks it to say so if it is not. It carries decisions 191, 192, 194 and
    195, the consequences for the port, and two questions: whether the game UI can request a form on part of one
@@ -217,6 +226,12 @@ ruled" list in the covered-storeys findings.
        ask still guards it.
      - **The reviewers are satisfied in the sense of decision 199**, so the rise sweep is dispatched alongside
        WP-E1.2. The two touch disjoint files.
+202. **WP-E1.2 is accepted at `e4de021`, and the editor is complete for this version** (the lead, 2026-11-12). The
+     lead read the diff: one pure `saveMark` decides the mark from the held state and the in-flight count, every
+     save asks it, and `act` clears the held state before its save when the fixture changed. The delegate's record
+     on that tree: 8,437 passed in 38 files, typecheck clean, and the new test fails under both mutations. **Not
+     exercised in a browser**: the fix was tested only through the pure function. One type nit is left for the
+     backlog: `saveMark` takes an inline object type.
 
 ## Findings
 
