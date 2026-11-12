@@ -7,8 +7,10 @@
 //   `gablePiece`, union and step 4 run.
 // - Decision 9: rake and cap planes take an existing plane's id when they coincide (`canonicalise`).
 // - Decision 10: at a convex corner the rise takes the end wall's plane as its rake (`cornerRule`).
-// - Decision 11: `farSlope` adds the far wall's hip plane, the far wall chosen by the existing piece rule (`farWall`).
-// - Decision 12: the floor cap of an overhanging storey, and an optional `maxHeight`, as horizontal planes.
+// - Decision 11 as amended by journal decision 203: `ridgeSlope` by default (see `Limit`); WP-G1's struck `farSlope`
+//   (the far wall's hip plane, by algorithm B's `farWall`) and the other candidates on request.
+// - Decision 12: the floor cap of an overhanging storey, and an optional `maxHeight`, as horizontal planes; WP-G1.1's
+//   candidates, a gap below the floor (`floorGap`) and a cap at the plate of the storey directly above (`capWallTop`).
 // - Decision 19: the oracle `max(hip surface, min(rake A, rake B, limit planes))`, sampled against the built mesh.
 import {getManifold} from '../../src/manifold.ts';
 import {unionPlans, type ShellUnion} from '../../src/union.ts';
@@ -31,10 +33,29 @@ import {componentGenera, invariantViolations} from '../../tests/shell-invariants
 // ---- Authoring (decisions 1, 2, 11, 12) ---------------------------------------------------------------------------
 
 /**
- * `farSlope` is decision 11's default. `none` drops it (for the harness check). `ridgeSlope` is the probe's own, not in
- * the proposal: the plane of the face the band's midline meets just past the first ridge it crosses on the hip surface.
+ * Decision 11's limit policies, as the probe builds them. `ridgeSlope` is the default since journal decision 203
+ * (WP-G1.1); every variant reads the storey's solved hip roof (the skeleton faces, every wall a hip) unless it says
+ * otherwise, and walks the rise's centreline (the line square to the wall through the band's middle) inward from the wall.
+ * - `ridgeSlope`: the plane of the first face on the centreline that falls away from the wall (its slope descends in the
+ *   walking direction). Never empty on an axis-aligned footprint (the face where the line leaves the footprint falls).
+ * - `ridgeStrict`: the plane of a falling face met directly from a rising one, so the centreline crosses a ridge edge;
+ *   a rising face followed by a level one (a hip line) does not count. Can be empty: the rise is then unlimited.
+ * - `ridgeRoof`: as `ridgeSlope`, read on the roof as built before any rise (hip roof raised by the storey's whole-wall
+ *   gable pieces). Can be empty: the rise is then unlimited.
+ * - `ridgeSplit`: `ridgeSlope` read along every line of the band (1 cm apart), the rise split into one piece per run of
+ *   lines sharing a plane.
+ * - `ridgeAll`: every distinct `ridgeSlope` plane across the band, all bounding one piece.
+ * - `peakCap`: a candidate fallback, not a slope: a horizontal cap at the highest point of the hip roof on the
+ *   centreline (the main ridge's height where the centreline meets it).
+ * - `farSlope`: struck by decision 203; WP-G1's default: algorithm B's far wall's hip plane. `none`: no limit.
+ *
+ * `ridgeSlope` is empty only where the centreline leaves the footprint without meeting a falling face, as when it runs
+ * along a courtyard cut and leaves through the hole's corner (measured, WP-G1.1).
  */
-export type Limit = 'farSlope' | 'none' | 'ridgeSlope';
+export type Limit = 'farSlope' | 'none' | 'ridgeSlope' | 'ridgeStrict' | 'ridgeRoof' | 'ridgeSplit' | 'ridgeAll' | 'peakCap';
+
+/** The default limit: `ridgeSlope`, or `RISE_LIMIT` from the environment (run.mjs `--limit farSlope` reproduces WP-G1). */
+export const DEFAULT_LIMIT: Limit = (process.env.RISE_LIMIT as Limit | undefined) ?? 'ridgeSlope';
 
 /** One run of a Ring side, in cm from the side's start (side i runs from corner i to corner i + 1). */
 export interface Run { from: number; to: number; form: RingForm; deg?: number; maxHeight?: number; limit?: Limit }
@@ -61,8 +82,19 @@ export interface RiseOptions {
   floorCap: boolean;
   /** Not the lead's reading of decision 12: the storey directly above caps too (its floor is this storey's plate). */
   capDirectlyAbove: boolean;
+  /** WP-G1.1 item 4: the floor cap stands this many cm below the overhanging floor (0 is decision 12 as written). */
+  floorGap: number;
+  /** WP-G1.1 item 5, a candidate only: a storey directly above that overlaps the rise caps it at that storey's plate. */
+  capWallTop: boolean;
+  /** The limit of a rise whose run names none. */
+  defaultLimit: Limit;
+  /** Also build each case under `farSlope` and say whether the shell differs. */
+  compareFarSlope: boolean;
 }
-export const DEFAULTS: RiseOptions = {perExtent: true, canonicalise: true, cornerRule: true, floorCap: true, capDirectlyAbove: false};
+export const DEFAULTS: RiseOptions = {
+  perExtent: true, canonicalise: true, cornerRule: true, floorCap: true, capDirectlyAbove: false, floorGap: 0, capWallTop: false,
+  defaultLimit: DEFAULT_LIMIT, compareFarSlope: DEFAULT_LIMIT !== 'farSlope',
+};
 
 // ---- Derivation (decisions 3 to 6) --------------------------------------------------------------------------------
 
@@ -74,7 +106,8 @@ function sideWorld(r: FixtureRing, side: RingSide, s: number): number {
 
 const sameLine = (p: WallLine, q: WallLine): boolean => p.axis === q.axis && p.at === q.at && p.n === q.n;
 
-interface Claim { form: RingForm; deg: number; maxHeight?: number; limit: Limit; ring: number; side: RingSide }
+/** `limit` undefined means the build's default limit. */
+interface Claim { form: RingForm; deg: number; maxHeight?: number; limit?: Limit; ring: number; side: RingSide }
 
 /** What Ring `index`'s side says at world coordinate `m` on its line: the run there, else the side's own form. */
 function claimAt(index: number, r: RunRing, side: RingSide, m: number): Claim {
@@ -84,10 +117,10 @@ function claimAt(index: number, r: RunRing, side: RingSide, m: number): Claim {
     const a = sideWorld(r, side, run.from), b = sideWorld(r, side, run.to);
     if (m > Math.min(a, b) && m < Math.max(a, b)) {
       // Interpretation: a run with no `deg` takes its side's pitch, then the Ring's default.
-      return {form: run.form, deg: run.deg ?? deg, maxHeight: run.maxHeight, limit: run.limit ?? 'farSlope', ring: index, side};
+      return {form: run.form, deg: run.deg ?? deg, maxHeight: run.maxHeight, limit: run.limit, ring: index, side};
     }
   }
-  return {form: sf?.form ?? 'hip', deg, limit: 'farSlope', ring: index, side};
+  return {form: sf?.form ?? 'hip', deg, ring: index, side};
 }
 
 /** Every Ring side end and run end on a line, as world coordinates along it. */
@@ -238,7 +271,10 @@ function addPlane(b: Building, comp: number, gx: number, gy: number, c: number, 
 
 export interface RisePiece {
   spec: RiseSpec;
+  /** The first of `pieces`. */
   piece: Piece;
+  /** One piece, or one per sub-band under `ridgeSplit`. */
+  pieces: Piece[];
   wall: Wall;
   far?: Wall;
   /** Which planes bound it, by role. */
@@ -246,10 +282,15 @@ export interface RisePiece {
   cap?: number;
   /** Planes that decision 9 matched to an existing id. */
   canonicalised: string[];
+  /** The limit policy's planes, and the plane `farSlope` would have used. */
+  limitPlanes: number[];
+  farPlane?: number;
+  /** Why the limit policy gave no plane, when it gave none somewhere. */
+  empty?: string;
 }
 
-/** Decision 8 to 12: the synthetic gable piece for one rise. */
-export function risePiece(f: RunFixture, plan: StoreyPlan, spec: RiseSpec, opt: RiseOptions): RisePiece {
+/** Decision 8 to 12: the synthetic gable piece for one rise. `base` is the storey's pieces before any rise. */
+export function risePiece(f: RunFixture, plan: StoreyPlan, spec: RiseSpec, opt: RiseOptions, base: Piece[] = plan.roof.pieces): RisePiece {
   const b = plan.building;
   const inward = inwardOf(spec.line.n);
   const mid = (spec.lo + spec.hi) / 2;
@@ -281,38 +322,104 @@ export function risePiece(f: RunFixture, plan: StoreyPlan, spec: RiseSpec, opt: 
 
   const far = farWall(comp, wall, spec.lo, spec.hi);
   const farDist = far ? dot(sub(far.a, wall.a), wall.n) : Infinity;
-  if (spec.limit === 'farSlope' && far && far.form === 'hip' && !far.dead) {
-    if (!planes.includes(far.plane)) planes.push(far.plane);
-    roles.push(`farSlope=${wallLabel(far)} p${far.plane}`);
-  }
-  if (spec.limit === 'ridgeSlope') {
-    const beyond = slopeBeyondRidge(plan, wall, mid);
-    if (beyond) {
-      if (!planes.includes(beyond.plane)) planes.push(beyond.plane);
-      roles.push(`ridgeSlope=p${beyond.plane} (${b.planes[beyond.plane].label})`);
+  const limit = spec.limit ?? opt.defaultLimit;
+  const farPlane = far && far.form === 'hip' && !far.dead ? far.plane : undefined;
+  let limitPlanes: number[] = [];
+  let empty: string | undefined;
+  /** For `ridgeSplit`: sub-bands, each with its own limit plane. */
+  let split: {lo: number; hi: number; plane: number}[] = [];
+  if (limit === 'farSlope') {
+    if (farPlane !== undefined) limitPlanes = [farPlane];
+    else empty = `far wall ${far ? `${wallLabel(far)} is ${far.form}` : 'missing'}`;
+  } else if (limit === 'ridgeSlope' || limit === 'ridgeStrict' || limit === 'ridgeRoof') {
+    const hit = walkCentreline(plan, wall, mid, limit === 'ridgeRoof' ? base : [], limit === 'ridgeStrict');
+    if ('plane' in hit) limitPlanes = [hit.plane];
+    else empty = hit.none;
+  } else if (limit === 'ridgeSplit' || limit === 'ridgeAll') {
+    for (let s = spec.lo + 0.5; s < spec.hi; s += 1) {
+      const hit = walkCentreline(plan, wall, s, [], false);
+      if (!('plane' in hit)) { empty = `line ${s}: ${hit.none}`; continue; }
+      const last = split[split.length - 1];
+      if (last && last.plane === hit.plane) last.hi = s + 0.5;
+      else split.push({lo: s - 0.5, hi: s + 0.5, plane: hit.plane});
     }
+    if (split.length) { split[0].lo = spec.lo; split[split.length - 1].hi = spec.hi; }
+    limitPlanes = [...new Set(split.map(x => x.plane))];
+    if (limit === 'ridgeAll' || split.length < 2) split = [];
+  } else if (limit === 'peakCap') {
+    let peak = 0;
+    for (let d = 0.25; d < bboxReach(b, wall); d += 0.5) {
+      const p = atAlong(wall, mid, d);
+      if (!b.inside(p)) break;
+      peak = Math.max(peak, evalFaces(plan.roof.defaults, p)?.h ?? 0);
+    }
+    const before = b.planes.length;
+    const id = addPlane(b, wall.comp, 0, 0, peak, `peak ${peak.toFixed(1)}`, opt.canonicalise);
+    if (b.planes.length === before) canonicalised.push(`peak cap -> plane ${id}`);
+    limitPlanes = [id];
   }
+  if (limit !== 'ridgeSplit' || !split.length) for (const id of limitPlanes) if (!planes.includes(id)) planes.push(id);
+  roles.push(`${limit}=${limitPlanes.map(id => `p${id} (${b.planes[id].label})`).join(' & ') || `NOTHING (${empty})`}`);
+  if (split.length) roles.push(`split ${split.map(x => `[${x.lo},${x.hi}]:p${x.plane}`).join(' ')}`);
 
-  // Decision 12: the floor of a storey that overhangs the rise, and the rise's own maxHeight.
+  // Decision 12: the floor of a storey that overhangs the rise, and the rise's own maxHeight; WP-G1.1's candidates.
   const H = f.storeyHeight;
   const reach = Math.min(farDist, bboxReach(b, wall));
   const corners = [atAlong(wall, spec.lo, 0), atAlong(wall, spec.hi, reach)];
   const rx0 = Math.min(corners[0].x, corners[1].x), rx1 = Math.max(corners[0].x, corners[1].x);
   const ry0 = Math.min(corners[0].y, corners[1].y), ry1 = Math.max(corners[0].y, corners[1].y);
+  const overlaps = (m: number): boolean => storeyRings(f, m).some(({ring: r}) => Math.min(r.rect[2], rx1) - Math.max(r.rect[0], rx0) > EPS && Math.min(r.rect[3], ry1) - Math.max(r.rect[1], ry0) > EPS);
   let cap: number | undefined;
   if (opt.floorCap) {
     const first = opt.capDirectlyAbove ? plan.storey + 1 : plan.storey + 2;
     for (const m of storeysOf(f).filter(s => s >= first)) {
-      const over = storeyRings(f, m).some(({ring: r}) => Math.min(r.rect[2], rx1) - Math.max(r.rect[0], rx0) > EPS && Math.min(r.rect[3], ry1) - Math.max(r.rect[1], ry0) > EPS);
-      if (over) { cap = m * H - (plan.storey + 1) * H; break; }
+      if (overlaps(m)) { cap = m * H - (plan.storey + 1) * H - opt.floorGap; break; }
     }
-    if (cap !== undefined) roles.push(`floorCap=${cap}`);
+    if (cap !== undefined) roles.push(`floorCap=${cap}${opt.floorGap ? ` (gap ${opt.floorGap})` : ''}`);
+  }
+  if (opt.capWallTop && storeysOf(f).includes(plan.storey + 1) && overlaps(plan.storey + 1)) {
+    roles.push(`wallTopCap=${H}`);
+    cap = Math.min(cap ?? Infinity, H);
   }
   if (spec.maxHeight !== undefined) { roles.push(`maxHeight=${spec.maxHeight}`); cap = Math.min(cap ?? Infinity, spec.maxHeight); }
   if (cap !== undefined) add(0, 0, cap, `cap ${cap}`);
 
-  const piece: Piece = {wall, bandLo: spec.lo, bandHi: spec.hi, farDist, planes, label: `rise [${spec.lo},${spec.hi}] on ${spec.line.axis}=${spec.line.at} at ${spec.deg}`};
-  return {spec, piece, wall, far, roles, cap, canonicalised};
+  const label = `rise [${spec.lo},${spec.hi}] on ${spec.line.axis}=${spec.line.at} at ${spec.deg}`;
+  const pieces: Piece[] = split.length
+    ? split.map(x => ({wall, bandLo: x.lo, bandHi: x.hi, farDist, planes: [...planes, x.plane], label: `${label} part [${x.lo},${x.hi}]`}))
+    : [{wall, bandLo: spec.lo, bandHi: spec.hi, farDist, planes, label}];
+  return {spec, piece: pieces[0], pieces, wall, far, roles, cap, canonicalised, limitPlanes, farPlane, empty};
+}
+
+/**
+ * Walks the line square to `w` at `s` inward over the storey's solved hip roof, raised by `raise` (pieces built before
+ * any rise, for `ridgeRoof`). Returns the first face whose plane falls in the walking direction; `strict` only one met
+ * directly from a rising face (a ridge crossing). Samples every 0.5 cm, starting 0.25 cm in.
+ */
+export function walkCentreline(plan: StoreyPlan, w: Wall, s: number, raise: Piece[], strict: boolean): {plane: number; d: number} | {none: string} {
+  const b = plan.building;
+  const reach = bboxReach(b, w);
+  let prev: 'rising' | 'level' | 'falling' | undefined;
+  let sawLevel = false;
+  for (let d = 0.25; d < reach; d += 0.5) {
+    const p = atAlong(w, s, d);
+    if (!b.inside(p)) return {none: `the line leaves the footprint at d=${d.toFixed(1)}${strict && sawLevel ? ' having crossed only hip or valley lines' : ''}`};
+    let sample = evalFaces(plan.roof.defaults, p);
+    for (const q of raise) {
+      const h = pieceHeight(b, q, p);
+      if (h === null || (sample && h <= sample.h + 1e-9)) continue;
+      const id = q.planes.reduce((m, k) => (planeAt(b.planes[k], p) < planeAt(b.planes[m], p) ? k : m));
+      sample = {h, plane: id};
+    }
+    if (!sample) continue;
+    const pl = b.planes[sample.plane];
+    const slope = pl.gx * w.n.x + pl.gy * w.n.y;
+    const cls = slope > 1e-9 ? 'rising' : slope < -1e-9 ? 'falling' : 'level';
+    if (cls === 'falling' && (!strict || prev === 'rising')) return {plane: sample.plane, d};
+    if (cls === 'level') sawLevel = true;
+    prev = cls;
+  }
+  return {none: 'no falling face before the bounding box'};
 }
 
 // ---- Building ------------------------------------------------------------------------------------------------------
@@ -335,10 +442,11 @@ export async function buildWithRises(f: RunFixture, opt: RiseOptions = DEFAULTS,
     const d = deriveWalls(rings, loops, n, opt);
     derived.push(d);
     const plan = planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, storeyBuildingWith(rings, loops, d.walls));
+    const base = [...plan.roof.pieces];
     if (withRises) for (const spec of d.rises) {
-      const rp = risePiece(f, plan, spec, opt);
+      const rp = risePiece(f, plan, spec, opt, base);
       rises.push(rp);
-      plan.roof.pieces.push(rp.piece);
+      plan.roof.pieces.push(...rp.pieces);
     }
     plans.push(plan);
   }
@@ -506,33 +614,39 @@ export function flatTops(rb: RiseBuild): string[] {
   });
 }
 
-/**
- * The far-wall question: walking the band's middle line inward over the hip surface, the face it meets just past the
- * first ridge it crosses, against the plane the existing piece rule (`farWall`) chose.
- */
-export function ridgeFar(plan: StoreyPlan, rp: RisePiece): string {
+/** The limit the policy chose against the plane `farSlope` (struck) would have used, and the strict reading's answer. */
+export function limitText(plan: StoreyPlan, rp: RisePiece): string {
   const b = plan.building;
-  const beyond = slopeBeyondRidge(plan, rp.wall, (rp.spec.lo + rp.spec.hi) / 2);
-  if (!beyond) return 'no ridge crossed on the midline inside the footprint';
-  const rule = rp.far && rp.far.form === 'hip' && !rp.far.dead ? rp.far.plane : -1;
-  const ruleText = rule < 0 ? `rule far ${rp.far ? `${wallLabel(rp.far)} (${rp.far.form}, no plane)` : 'none'}` : `rule far p${rule} (${b.planes[rule].label})`;
-  return `beyond the ridge (d=${beyond.d.toFixed(1)}, h=${beyond.h.toFixed(1)}): p${beyond.plane} (${b.planes[beyond.plane].label}); ${ruleText}; ${beyond.plane === rule ? 'SAME' : 'DIFFERENT'}`;
+  const name = (id: number | undefined): string => (id === undefined ? 'none' : `p${id} (${b.planes[id].label})`);
+  const same = rp.limitPlanes.length === 1 && rp.limitPlanes[0] === rp.farPlane;
+  const strict = walkCentreline(plan, rp.wall, (rp.spec.lo + rp.spec.hi) / 2, [], true);
+  return `limit ${rp.limitPlanes.map(name).join(' & ') || 'NOTHING'}; farSlope would be ${name(rp.farPlane)}${rp.far && rp.farPlane === undefined ? ` (far wall ${wallLabel(rp.far)} is ${rp.far.form})` : ''}: ${same ? 'same plane' : 'DIFFERENT plane'}; `
+    + `strict reading: ${'plane' in strict ? name(strict.plane) : `NOTHING (${strict.none})`}`;
 }
 
-/** Walks the line `s = mid` inward over the hip surface; the face it meets just past the first ridge, and where. */
-function slopeBeyondRidge(plan: StoreyPlan, w: Wall, mid: number): {plane: number; d: number; h: number} | undefined {
-  const b = plan.building;
-  const reach = bboxReach(b, w);
-  let prev = -Infinity;
-  for (let d = 0.5; d < reach; d += 1) {
-    const p = atAlong(w, mid, d);
-    if (!b.inside(p)) return undefined;
-    const s = evalFaces(plan.roof.defaults, p);
-    if (!s) continue;
-    if (s.h < prev - 1e-6) return {plane: s.plane, d: d - 1, h: prev};
-    prev = s.h;
+/**
+ * A structural signature of a shell: faces by kind, plane and area (0.1 cm²); Edge kinds; Cell count. The triangle
+ * count is left out: geometry buried under the roof changes the triangulation without changing a face.
+ */
+export function signature(b: ShellBuild): string {
+  const faces = b.shell.faces.map(f => `${f.tag.kind}|${f.normal.map(v => v.toFixed(5)).join(',')}|${f.offset.toFixed(3)}|${f.area.toFixed(1)}`).sort();
+  const edges = b.shell.edges.map(e => e.kind).sort();
+  return JSON.stringify({faces, edges, cells: b.shell.cells.length});
+}
+
+/** Every ShellEdge between a Roof or Gable face and an Underside face, by kind; and faces under 10 cm². */
+export function soffitsAndSlivers(b: ShellBuild): string[] {
+  const {faces, edges} = b.shell;
+  const out: string[] = [];
+  const pairs = new Map<string, number>();
+  for (const e of edges) {
+    const kinds = e.faces.map(f => faces[f].tag.kind).sort().join('-');
+    if (kinds === 'Roof-Underside' || kinds === 'Gable-Underside' || kinds === 'Cheek-Underside') pairs.set(`${kinds} ${e.kind}`, (pairs.get(`${kinds} ${e.kind}`) ?? 0) + 1);
   }
-  return undefined;
+  if (pairs.size) out.push(`Underside pairs: ${[...pairs].map(([k, n]) => `${k} x${n}`).join(', ')}`);
+  const small = faces.filter(f => f.area < 10);
+  if (small.length) out.push(`faces under 10 cm²: ${small.map(f => `${f.tag.kind} f${f.id} ${f.area.toFixed(3)}`).join(', ')}`);
+  return out;
 }
 
 /** How far back the rise stands proud of the rest of its storey's roof on its band's midline, and how high it is there. */
@@ -543,10 +657,11 @@ export function riseReach(plan: StoreyPlan, rp: RisePiece): string {
   let last = 0, top = 0;
   for (let d = 0.5; d < reach; d += 0.5) {
     const p = atAlong(w, mid, d);
-    const own = pieceHeight(b, rp.piece, p);
-    if (own === null) break;
+    const owns = rp.pieces.map(q => pieceHeight(b, q, p)).filter((h): h is number => h !== null);
+    if (!owns.length) break;
+    const own = Math.max(...owns);
     let other = evalFaces(plan.roof.defaults, p)?.h ?? 0;
-    for (const q of plan.roof.pieces) if (q !== rp.piece) { const h = pieceHeight(b, q, p); if (h !== null && h > other) other = h; }
+    for (const q of plan.roof.pieces) if (!rp.pieces.includes(q)) { const h = pieceHeight(b, q, p); if (h !== null && h > other) other = h; }
     if (own <= other + 1e-6) break;
     last = d; top = Math.max(top, own);
   }
@@ -578,16 +693,30 @@ export async function measure(f: RunFixture, opt: RiseOptions = DEFAULTS, oracle
   const bt = breakthrough(rb);
   const precondition = bt.withRise <= oracleTol;
   const clean = !viol.length && !r.conflicts.length && oracleOk && precondition;
-  const line = `${clean ? 'CLEAN' : 'NOT CLEAN'} closed=${b.union.closed} genus=${componentGenera(b.union.mesh).join(',')} (baseline ${genus.join(',')}) cheeks=${r.cheeks} conflicts=${r.conflicts.length} `
+  // The re-run's "differs from farSlope" column.
+  let vsFar = '';
+  if (opt.compareFarSlope && rb.rises.length) {
+    if (rb.rises.every(rp => rp.limitPlanes.length === 1 && rp.limitPlanes[0] === rp.farPlane && rp.pieces.length === 1)) vsFar = 'vs farSlope: same plane';
+    else {
+      try {
+        const fb = await buildWithRises(f, {...opt, defaultLimit: 'farSlope'});
+        vsFar = `vs farSlope: ${signature(fb.build) === signature(b) ? 'different plane, same shell' : 'SHELL DIFFERS'}`;
+      } catch (e) {
+        vsFar = `vs farSlope: farSlope throws ${(e as Error).message.slice(0, 100)}`;
+      }
+    }
+  }
+  const line = `${clean ? 'CLEAN' : 'NOT CLEAN'}${vsFar ? ` [${vsFar}]` : ''} closed=${b.union.closed} genus=${componentGenera(b.union.mesh).join(',')} (baseline ${genus.join(',')}) cheeks=${r.cheeks} conflicts=${r.conflicts.length} `
     + `unclassified=${r.unclassifiedEdges} internal=${r.survivingInternal} oracle band ${fmt(o.bandWorst)} over ${o.bandSamples} / footprint ${fmt(o.worst)} over ${o.samples}${o.covered ? `, ${o.covered} covered` : ''}`
     + `${bt.withRise > 0 || bt.hipOnly > 0 ? `; breaks through the storey above by ${fmt(bt.withRise)} (hip alone ${fmt(bt.hipOnly)}) at ${bt.at}` : ''}`;
   for (const rp of rb.rises) details.push(`rise ${rp.piece.label}: wall ${wallLabel(rp.wall)} far ${rp.far ? wallLabel(rp.far) : 'none'} farDist ${rp.piece.farDist}; ${rp.roles.join(', ')}${rp.canonicalised.length ? `; canonicalised ${rp.canonicalised.join('; ')}` : ''}`);
   for (const rp of rb.rises) details.push(`  ${riseGables(rb, rp)}`);
-  for (const rp of rb.rises) details.push(`  far slope: ${ridgeFar(rb.plans.find(p => p.storey === rp.spec.storey)!, rp)}`);
+  for (const rp of rb.rises) details.push(`  ${limitText(rb.plans.find(p => p.storey === rp.spec.storey)!, rp)}`);
   for (const rp of rb.rises) details.push(`  ${riseReach(rb.plans.find(p => p.storey === rp.spec.storey)!, rp)}`);
   details.push(`edges ${edgeHistogram(b)}`);
   details.push(`faces ${faceHistogram(b)}`);
   details.push(...flatTops(rb));
+  details.push(...soffitsAndSlivers(b));
   for (const c of r.conflicts) details.push(`conflict ${c}`);
   for (const v of viol.slice(0, 8)) details.push(`violation ${v.slice(0, 400)}`);
   if (viol.length > 8) details.push(`... ${viol.length - 8} more violations`);

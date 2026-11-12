@@ -64,7 +64,7 @@ async function buildWide(rise: number, wall: number, cornerRule: boolean): Promi
   const d = deriveWalls(rings, loops, 0, DEFAULTS);
   const plan = planChecked('wide', 0, 0, 250, storeyBuildingWith(rings, loops, d.walls));
   const line = d.walls.find(w => w.axis === 'y' && w.at === 0)!;
-  const rp = risePiece(f, plan, {form: 'gable', deg: rise, limit: 'farSlope', ring: 0, side: 'S', lo: 0, hi: 1000, storey: 0, line}, {...DEFAULTS, cornerRule});
+  const rp = risePiece(f, plan, {form: 'gable', deg: rise, ring: 0, side: 'S', lo: 0, hi: 1000, storey: 0, line}, {...DEFAULTS, cornerRule});
   plan.roof.pieces.push(rp.piece);
   const build = buildShellFromUnion(wasm, f, unionPlans(wasm, 'wide', [plan]));
   const r = build.shell.report;

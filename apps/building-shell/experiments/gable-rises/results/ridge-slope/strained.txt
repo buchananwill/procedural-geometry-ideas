@@ -1,0 +1,1490 @@
+
+# A. No ridge crosses the rise's path
+
+== N gabled, S [300,700]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f10 [300.0,700.0] apex 750.0, 64 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 499.5 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Valley=3 Verge=5 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@75 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f10 [300.0,700.0] apex 750.0, 64 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 499.5 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Valley=3 Verge=5 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@75 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeRoof=NOTHING (no falling face before the bounding box)
+    Gable f11 [300.0,700.0] apex 996.4, 78 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=499.5 of 500, highest 746.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=4 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, farSlope=NOTHING (far wall y=500 x[0,1000] is gable)
+    Gable f11 [300.0,700.0] apex 996.4, 78 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=499.5 of 500, highest 746.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=4 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@75 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, peakCap=p6 (peak 249.7)
+    Gable f9 [300.0,700.0] apex 499.8, 38 Cells from R0S
+    limit p6 (peak 249.7); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 249.7 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=2 Valley=3 Verge=5 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 66473; edges Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof); 30 Cells (16 whole), sources none
+
+== N gabled, S [400,600]@60 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 173.2 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=3 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [400,600]@60 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 173.2 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=3 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [400,600]@60 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=NOTHING (no falling face before the bounding box)
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=2 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=5 Wall=4
+
+== N gabled, S [400,600]@60 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=NOTHING (far wall y=500 x[0,1000] is gable)
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=2 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=5 Wall=4
+
+== N gabled, S [400,600]@60 on 30, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, peakCap=p6 (peak 144.2)
+    Gable f9 [400.0,600.0] apex 394.2, 10 Cells from R0S
+    limit p6 (peak 144.2); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 144.2 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=2 Valley=3 Verge=5 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 144.2) z=394.19 area 8367; edges Valley(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof); 10 Cells (0 whole), sources none
+
+== hip end: E side y[150,350]@75 on 45 (centreline along the main ridge), limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 75: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeSlope=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@75 on 45 (centreline along the main ridge), limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 75: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f14 [150.0,350.0] apex 623.2, 24 Cells from R0E
+    limit NOTHING; farSlope would be p3 (x=0 y[0,500]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=999.5 of 1000, highest 373.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=6 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=8 Wall=4
+
+== hip end: E side y[150,350]@75 on 45 (centreline along the main ridge), limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 75: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeRoof=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@75 on 45 (centreline along the main ridge), limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 75: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, farSlope=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@75 on 45 (centreline along the main ridge), limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 75: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, peakCap=p6 (peak 250.0)
+    Gable f15 [150.0,350.0] apex 500.0, 18 Cells from R0E
+    limit p6 (peak 250.0); farSlope would be p3 (x=0 y[0,500]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=249.5 of 1000, highest 250.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=6 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+  flat top f14 tag Roof storey 0 plane p6 (peak 250.0) z=500.00 area 66025; edges Verge(Gable) Ridge(Roof) Verge(Gable) Ridge(Roof); 40 Cells (0 whole), sources none
+
+== hip end: E side y[150,350]@60 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 60: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeSlope=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@60 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 60: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f14 [150.0,350.0] apex 423.2, 12 Cells from R0E
+    limit NOTHING; farSlope would be p3 (x=0 y[0,500]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=999.5 of 1000, highest 173.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=6 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=8 Wall=4
+
+== hip end: E side y[150,350]@60 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 60: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, ridgeRoof=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@60 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [150,350] on x=1000 at 60: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, farSlope=p3 (x=0 y[0,500])
+    Gable f12 [150.0,350.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=0 y[0,500]); farSlope would be p3 (x=0 y[0,500]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=749.5 of 1000, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== hip end: E side y[150,350]@60 on 30, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1999 / footprint 0.001 over 800
+  rise rise [150,350] on x=1000 at 60: wall x=1000 y[0,500] far x=0 y[0,500] farDist 1000; rake from 150=p4, rake from 350=p5, peakCap=p6 (peak 144.3)
+    Gable f15 [150.0,350.0] apex 394.3, 10 Cells from R0E
+    limit p6 (peak 144.3); farSlope would be p3 (x=0 y[0,500]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=249.5 of 1000, highest 144.3 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=6 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+  flat top f14 tag Roof storey 0 plane p6 (peak 144.3) z=394.34 area 33334; edges Ridge(Roof) Verge(Gable) Verge(Gable) Ridge(Roof); 40 Cells (0 whole), sources none
+
+== L wing end: stem N y=1000 x[700,900]@75 on 45 (centreline along the stem ridge), limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 1024
+  rise rise [700,900] on y=1000 at 75: wall y=1000 x[600,1000] far y=0 x[600,1000] farDist 1000; rake from 700=p6, rake from 900=p7, ridgeSlope=p0 (y=0 x[0,600])
+    Gable f16 [700.0,900.0] apex 623.2, 24 Cells from R0N
+    limit p0 (y=0 x[0,600]); farSlope would be p0 (y=0 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=799.5 of 1000, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L wing end: stem N y=1000 x[700,900]@75 on 45 (centreline along the stem ridge), limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 1024
+  rise rise [700,900] on y=1000 at 75: wall y=1000 x[600,1000] far y=0 x[600,1000] farDist 1000; rake from 700=p6, rake from 900=p7, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f18 [700.0,900.0] apex 623.2, 24 Cells from R0N
+    limit NOTHING; farSlope would be p0 (y=0 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=999.5 of 1000, highest 373.2 above the plate
+  edges Eaves=8 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=2 Valley=8 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=10 Wall=6
+
+== L wing end: stem N y=1000 x[700,900]@75 on 45 (centreline along the stem ridge), limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 1024
+  rise rise [700,900] on y=1000 at 75: wall y=1000 x[600,1000] far y=0 x[600,1000] farDist 1000; rake from 700=p6, rake from 900=p7, ridgeRoof=p0 (y=0 x[0,600])
+    Gable f16 [700.0,900.0] apex 623.2, 24 Cells from R0N
+    limit p0 (y=0 x[0,600]); farSlope would be p0 (y=0 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=799.5 of 1000, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L wing end: stem N y=1000 x[700,900]@75 on 45 (centreline along the stem ridge), limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 1024
+  rise rise [700,900] on y=1000 at 75: wall y=1000 x[600,1000] far y=0 x[600,1000] farDist 1000; rake from 700=p6, rake from 900=p7, farSlope=p0 (y=0 x[0,600])
+    Gable f16 [700.0,900.0] apex 623.2, 24 Cells from R0N
+    limit p0 (y=0 x[0,600]); farSlope would be p0 (y=0 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=799.5 of 1000, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L wing end: stem N y=1000 x[700,900]@75 on 45 (centreline along the stem ridge), limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 1024
+  rise rise [700,900] on y=1000 at 75: wall y=1000 x[600,1000] far y=0 x[600,1000] farDist 1000; rake from 700=p6, rake from 900=p7, peakCap=p8 (peak 200.0)
+    Gable f20 [700.0,900.0] apex 450.0, 16 Cells from R0N
+    limit p8 (peak 200.0); farSlope would be p0 (y=0 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=199.5 of 1000, highest 200.0 above the plate
+  edges Eaves=8 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=4 Valley=8 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=12 Wall=6
+  flat top f19 tag Roof storey 0 plane p8 (peak 200.0) z=450.00 area 92820; edges Ridge(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof) Verge(Gable); 40 Cells (0 whole), sources none
+
+== L E x=1000 y[250,450]@75 on 45 (centreline into the bar, along its ridge), limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 800 / footprint 0.000 over 1024
+  rise rise [250,450] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 250=p6, rake from 450=p7, ridgeSlope=p3 (x=600 y[400,1000])
+    Gable f14 [250.0,450.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[250,450]@75 on 45 (centreline into the bar, along its ridge), limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 800 / footprint 0.000 over 1024
+  rise rise [250,450] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 250=p6, rake from 450=p7, ridgeStrict=p3 (x=600 y[400,1000])
+    Gable f14 [250.0,450.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[250,450]@75 on 45 (centreline into the bar, along its ridge), limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 800 / footprint 0.000 over 1024
+  rise rise [250,450] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 250=p6, rake from 450=p7, ridgeRoof=p3 (x=600 y[400,1000])
+    Gable f14 [250.0,450.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[250,450]@75 on 45 (centreline into the bar, along its ridge), limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 800 / footprint 0.000 over 1024
+  rise rise [250,450] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 250=p6, rake from 450=p7, farSlope=p3 (x=600 y[400,1000])
+    Gable f14 [250.0,450.0] apex 623.2, 24 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 373.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[250,450]@75 on 45 (centreline into the bar, along its ridge), limit peakCap
+  NOT CLEAN closed=true genus=0 (baseline 0) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 800 / footprint 0.001 over 1024
+  rise rise [250,450] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 250=p6, rake from 450=p7, peakCap=p8 (peak 199.8)
+    Gable f18 [250.0,450.0] apex 449.8, 16 Cells from R0E
+    limit p8 (peak 199.8); farSlope would be p3 (x=600 y[400,1000]): DIFFERENT plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 199.8 above the plate
+  edges Eaves=7 ExternalCorner=5 GableVertical=1 GroundLine=6 Hip=5 InternalCorner=1 Ridge=6 RingJunction=1 Valley=8 Verge=7 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=6
+  flat top f16 tag Roof storey 0 plane p8 (peak 199.8) z=449.75 area 18568; edges Valley(Roof) Verge(Cheek) Ridge(Roof) Ridge(Roof); 8 Cells (0 whole), sources none
+  flat top f19 tag Roof storey 0 plane p8 (peak 199.8) z=449.75 area 18568; edges Valley(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 8 Cells (0 whole), sources none
+  violation cheeks 1, expected 0, at (600, 281.6982421875, 368.3017578125)
+
+# B. The centreline meets a hip or valley line, or a reflex corner, not a ridge
+
+== near corner S [850,950]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 500 / footprint 0.000 over 800
+  rise rise [850,950] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 850=p4, rake from 950=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f11 [850.0,950.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [850,950]@75 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 500 / footprint 0.000 over 800
+  rise rise [850,950] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 850=p4, rake from 950=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f12 [850.0,950.0] apex 436.6, 8 Cells from R0S
+    limit NOTHING; farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=499.5 of 500, highest 186.6 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=6 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== near corner S [850,950]@75 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 500 / footprint 0.000 over 800
+  rise rise [850,950] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 850=p4, rake from 950=p5, ridgeRoof=p2 (y=500 x[0,1000])
+    Gable f11 [850.0,950.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [850,950]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 500 / footprint 0.000 over 800
+  rise rise [850,950] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 850=p4, rake from 950=p5, farSlope=p2 (y=500 x[0,1000])
+    Gable f11 [850.0,950.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [850,950]@75 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 500 / footprint 0.000 over 800
+  rise rise [850,950] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 850=p4, rake from 950=p5, peakCap=p6 (peak 100.0)
+    Gable f13 [850.0,950.0] apex 350.0, 4 Cells from R0S
+    limit p6 (peak 100.0); farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=99.5 of 500, highest 100.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=8 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=11 Wall=4
+  flat top f15 tag Roof storey 0 plane p6 (peak 100.0) z=350.00 area 16244; edges Valley(Roof) Valley(Roof) Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof) Verge(Gable); 14 Cells (0 whole), sources none
+
+== near corner S [820,980]@60 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 800
+  rise rise [820,980] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 820=p4, rake from 980=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f12 [820.0,980.0] apex 388.6, 10 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 138.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [820,980]@60 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 800
+  rise rise [820,980] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 820=p4, rake from 980=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f13 [820.0,980.0] apex 388.6, 10 Cells from R0S
+    limit NOTHING; farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=499.5 of 500, highest 138.6 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=6 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== near corner S [820,980]@60 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 800
+  rise rise [820,980] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 820=p4, rake from 980=p5, ridgeRoof=p2 (y=500 x[0,1000])
+    Gable f12 [820.0,980.0] apex 388.6, 10 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 138.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [820,980]@60 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 800
+  rise rise [820,980] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 820=p4, rake from 980=p5, farSlope=p2 (y=500 x[0,1000])
+    Gable f12 [820.0,980.0] apex 388.6, 10 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 500, highest 138.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=2 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== near corner S [820,980]@60 on 30, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 799 / footprint 0.000 over 800
+  rise rise [820,980] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 820=p4, rake from 980=p5, peakCap=p6 (peak 57.7)
+    Gable f13 [820.0,980.0] apex 307.7, 8 Cells from R0S
+    limit p6 (peak 57.7); farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=99.5 of 500, highest 57.7 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=8 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=11 Wall=4
+  flat top f15 tag Roof storey 0 plane p6 (peak 57.7) z=307.74 area 32667; edges Valley(Roof) Valley(Roof) Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof) Verge(Gable); 14 Cells (0 whole), sources none
+
+== L E x=1000 y[300,500]@60 on 45 (centreline to the reflex corner), limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 60: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeSlope=p3 (x=600 y[400,1000])
+    Gable f13 [300.0,500.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=173.0 of 400, highest 173.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=3 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=6
+
+== L E x=1000 y[300,500]@60 on 45 (centreline to the reflex corner), limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 60: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeStrict=p3 (x=600 y[400,1000])
+    Gable f13 [300.0,500.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=173.0 of 400, highest 173.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=3 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=6
+
+== L E x=1000 y[300,500]@60 on 45 (centreline to the reflex corner), limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 60: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeRoof=p3 (x=600 y[400,1000])
+    Gable f13 [300.0,500.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=173.0 of 400, highest 173.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=3 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=6
+
+== L E x=1000 y[300,500]@60 on 45 (centreline to the reflex corner), limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 60: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, farSlope=p3 (x=600 y[400,1000])
+    Gable f13 [300.0,500.0] apex 423.2, 12 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=173.0 of 400, highest 173.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=3 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=6
+
+== L E x=1000 y[300,500]@60 on 45 (centreline to the reflex corner), limit peakCap
+  NOT CLEAN closed=true genus=0 (baseline 0) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 799 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 60: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, peakCap=p8 (peak 199.8)
+    Gable f17 [300.0,500.0] apex 423.2, 12 Cells from R0E
+    limit p8 (peak 199.8); farSlope would be p3 (x=600 y[400,1000]): DIFFERENT plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=173.0 of 400, highest 173.2 above the plate
+  edges Eaves=7 ExternalCorner=5 GableVertical=1 GroundLine=6 Hip=5 InternalCorner=1 Ridge=4 RingJunction=1 Valley=6 Verge=4 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=10 Wall=6
+  violation cheeks 1, expected 0, at (600, 336.6025390625, 313.3974609375)
+
+== L E x=1000 y[300,500]@75 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 800 / footprint 0.001 over 1024
+  rise rise [300,500] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeSlope=p3 (x=600 y[400,1000])
+    Gable f14 [300.0,500.0] apex 480.9, 18 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[300,500]@75 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 800 / footprint 0.001 over 1024
+  rise rise [300,500] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeStrict=p3 (x=600 y[400,1000])
+    Gable f14 [300.0,500.0] apex 480.9, 18 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[300,500]@75 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 800 / footprint 0.001 over 1024
+  rise rise [300,500] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, ridgeRoof=p3 (x=600 y[400,1000])
+    Gable f14 [300.0,500.0] apex 480.9, 18 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[300,500]@75 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 800 / footprint 0.001 over 1024
+  rise rise [300,500] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, farSlope=p3 (x=600 y[400,1000])
+    Gable f14 [300.0,500.0] apex 480.9, 18 Cells from R0E
+    limit p3 (x=600 y[400,1000]); farSlope would be p3 (x=600 y[400,1000]): same plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L E x=1000 y[300,500]@75 on 30, limit peakCap
+  NOT CLEAN closed=true genus=0 (baseline 0) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 800 / footprint 0.000 over 1024
+  rise rise [300,500] on x=1000 at 75: wall x=1000 y[0,400] far x=600 y[400,1000] farDist 400; rake from 300=p6, rake from 500=p7, peakCap=p8 (peak 115.3)
+    Gable f18 [300.0,500.0] apex 365.3, 12 Cells from R0E
+    limit p8 (peak 115.3); farSlope would be p3 (x=600 y[400,1000]): DIFFERENT plane; strict reading: p3 (x=600 y[400,1000])
+    stands proud on its midline to d=199.5 of 400, highest 115.3 above the plate
+  edges Eaves=7 ExternalCorner=5 GableVertical=1 GroundLine=6 Hip=5 InternalCorner=1 Ridge=6 RingJunction=1 Valley=8 Verge=7 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=6
+  flat top f16 tag Roof storey 0 plane p8 (peak 115.3) z=365.33 area 27605; edges Valley(Roof) Verge(Cheek) Verge(Gable) Ridge(Roof) Ridge(Roof); 16 Cells (6 whole), sources none
+  flat top f19 tag Roof storey 0 plane p8 (peak 115.3) z=365.33 area 27605; edges Valley(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 16 Cells (6 whole), sources none
+  violation cheeks 1, expected 0, at (600, 313.3974609375, 300)
+
+# C. The centreline meets a pyramid apex (square plan)
+
+== square, centred S [250,350]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [250,350] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 250=p4, rake from 350=p5, ridgeSlope=p2 (y=600 x[0,600])
+    Gable f10 [250.0,350.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, centred S [250,350]@75 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [250,350] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 250=p4, rake from 350=p5, ridgeStrict=p2 (y=600 x[0,600])
+    Gable f10 [250.0,350.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, centred S [250,350]@75 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [250,350] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 250=p4, rake from 350=p5, ridgeRoof=p2 (y=600 x[0,600])
+    Gable f10 [250.0,350.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, centred S [250,350]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [250,350] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 250=p4, rake from 350=p5, farSlope=p2 (y=600 x[0,600])
+    Gable f10 [250.0,350.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, centred S [250,350]@75 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [250,350] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 250=p4, rake from 350=p5, peakCap=p6 (peak 299.7)
+    Gable f11 [250.0,350.0] apex 436.6, 8 Cells from R0S
+    limit p6 (peak 299.7); farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=8 Wall=4
+
+== square, centred S [200,400]@60 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [200,400] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 200=p4, rake from 400=p5, ridgeSlope=p2 (y=600 x[0,600])
+    Gable f11 [200.0,400.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=299.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== square, centred S [200,400]@60 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [200,400] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 200=p4, rake from 400=p5, ridgeStrict=p2 (y=600 x[0,600])
+    Gable f11 [200.0,400.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=299.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== square, centred S [200,400]@60 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [200,400] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 200=p4, rake from 400=p5, ridgeRoof=p2 (y=600 x[0,600])
+    Gable f11 [200.0,400.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=299.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== square, centred S [200,400]@60 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [200,400] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 200=p4, rake from 400=p5, farSlope=p2 (y=600 x[0,600])
+    Gable f11 [200.0,400.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=299.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== square, centred S [200,400]@60 on 30, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1199 / footprint 0.001 over 576
+  rise rise [200,400] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 200=p4, rake from 400=p5, peakCap=p6 (peak 173.1)
+    Gable f9 [200.0,400.0] apex 423.1, 12 Cells from R0S
+    limit p6 (peak 173.1); farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: p2 (y=600 x[0,600])
+    stands proud on its midline to d=299.5 of 600, highest 173.1 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=4 Valley=6 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=10 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 173.1) z=423.06 area 50; edges Valley(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof); 12 Cells (0 whole), sources none
+  flat top f12 tag Roof storey 0 plane p6 (peak 173.1) z=423.06 area 50; edges Valley(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 12 Cells (0 whole), sources none
+
+== square, off-centre S [150,250]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [150,250] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 150=p4, rake from 250=p5, ridgeSlope=p2 (y=600 x[0,600])
+    Gable f9 [150.0,250.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, off-centre S [150,250]@75 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [150,250] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 150=p4, rake from 250=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f9 [150.0,250.0] apex 436.6, 8 Cells from R0S
+    limit NOTHING; farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=8 Wall=4
+
+== square, off-centre S [150,250]@75 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [150,250] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 150=p4, rake from 250=p5, ridgeRoof=p2 (y=600 x[0,600])
+    Gable f9 [150.0,250.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, off-centre S [150,250]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [150,250] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 150=p4, rake from 250=p5, farSlope=p2 (y=600 x[0,600])
+    Gable f9 [150.0,250.0] apex 436.6, 8 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== square, off-centre S [150,250]@75 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 576
+  rise rise [150,250] on y=0 at 75: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 150=p4, rake from 250=p5, peakCap=p6 (peak 200.0)
+    Gable f9 [150.0,250.0] apex 436.6, 8 Cells from R0S
+    limit p6 (peak 200.0); farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=186.5 of 600, highest 186.6 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=8 Wall=4
+
+== square, off-centre S [100,300]@60 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 100=p4, rake from 300=p5, ridgeSlope=p2 (y=600 x[0,600])
+    Gable f11 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== square, off-centre S [100,300]@60 on 30, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 100=p4, rake from 300=p5, ridgeStrict=NOTHING (no falling face before the bounding box)
+    Gable f12 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit NOTHING; farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=599.5 of 600, highest 173.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=1 Valley=6 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== square, off-centre S [100,300]@60 on 30, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 100=p4, rake from 300=p5, ridgeRoof=p2 (y=600 x[0,600])
+    Gable f11 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== square, off-centre S [100,300]@60 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 100=p4, rake from 300=p5, farSlope=p2 (y=600 x[0,600])
+    Gable f11 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=600 x[0,600]); farSlope would be p2 (y=600 x[0,600]): same plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=399.5 of 600, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=1 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=8 Wall=4
+
+== square, off-centre S [100,300]@60 on 30, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1199 / footprint 0.001 over 576
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,600] far y=600 x[0,600] farDist 600; rake from 100=p4, rake from 300=p5, peakCap=p6 (peak 115.5)
+    Gable f13 [100.0,300.0] apex 365.5, 10 Cells from R0S
+    limit p6 (peak 115.5); farSlope would be p2 (y=600 x[0,600]): DIFFERENT plane; strict reading: NOTHING (no falling face before the bounding box)
+    stands proud on its midline to d=199.5 of 600, highest 115.5 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=8 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=11 Wall=4
+  flat top f14 tag Roof storey 0 plane p6 (peak 115.5) z=365.47 area 33333; edges Valley(Roof) Valley(Roof) Valley(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 20 Cells (0 whole), sources none
+
+# D. A wide band facing more than one slope
+
+== L S [300,900]@60 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2399 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 60: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeSlope=p4 (y=400 x[0,600])
+    Gable f15 [300.0,900.0] apex 650.0, 70 Cells from R0S
+    limit p4 (y=400 x[0,600]); farSlope would be p4 (y=400 x[0,600]): same plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@60 on 45, limit ridgeSplit
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2399 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 60 part [300,800]: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeSplit=p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]), split [300,800]:p4 [800,900]:p2
+    Gable f15 [300.0,900.0] apex 650.0, 70 Cells from R0S
+    limit p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]); farSlope would be p4 (y=400 x[0,600]): DIFFERENT plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@60 on 45, limit ridgeAll
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2399 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 60: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeAll=p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000])
+    Gable f15 [300.0,900.0] apex 650.0, 70 Cells from R0S
+    limit p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]); farSlope would be p4 (y=400 x[0,600]): DIFFERENT plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@60 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2399 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 60: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, farSlope=p4 (y=400 x[0,600])
+    Gable f15 [300.0,900.0] apex 650.0, 70 Cells from R0S
+    limit p4 (y=400 x[0,600]); farSlope would be p4 (y=400 x[0,600]): same plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=3 Valley=3 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@75 on 30, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 2400 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 75: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeSlope=p4 (y=400 x[0,600])
+    Gable f15 [300.0,900.0] apex 480.9, 58 Cells from R0S
+    limit p4 (y=400 x[0,600]); farSlope would be p4 (y=400 x[0,600]): same plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=5 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@75 on 30, limit ridgeSplit
+  NOT CLEAN closed=true genus=0 (baseline 0) cheeks=2 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 2400 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 75 part [300,800]: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeSplit=p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]), split [300,800]:p4 [800,900]:p2
+    Gable f15 [300.0,900.0] apex 623.2, 61 Cells from R0S
+    limit p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]); farSlope would be p4 (y=400 x[0,600]): DIFFERENT plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=7 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 RingJunction=3 Valley=4 Verge=7 WallPlate=1
+  faces Cheek=2 Gable=1 Ground=1 Roof=10 Wall=6
+  violation cheeks 2, expected 0, at (800, 0, 480.9404296875); (800, 400, 365.4697265625)
+
+== L S [300,900]@75 on 30, limit ridgeAll
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 2400 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 75: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, ridgeAll=p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000])
+    Gable f15 [300.0,900.0] apex 480.9, 58 Cells from R0S
+    limit p4 (y=400 x[0,600]) & p2 (y=1000 x[600,1000]); farSlope would be p4 (y=400 x[0,600]): DIFFERENT plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=5 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== L S [300,900]@75 on 30, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.002 over 2400 / footprint 0.001 over 1024
+  rise rise [300,900] on y=0 at 75: wall y=0 x[0,600] far y=400 x[0,600] farDist 400; rake from 300=p6, rake from 900=p7, farSlope=p4 (y=400 x[0,600])
+    Gable f15 [300.0,900.0] apex 480.9, 58 Cells from R0S
+    limit p4 (y=400 x[0,600]); farSlope would be p4 (y=400 x[0,600]): same plane; strict reading: p4 (y=400 x[0,600])
+    stands proud on its midline to d=199.5 of 400, highest 230.7 above the plate
+  edges Eaves=7 ExternalCorner=5 GroundLine=6 Hip=7 InternalCorner=1 Ridge=2 Valley=5 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=6
+
+== U S [200,800]@60 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1799 / footprint 0.000 over 864
+  rise rise [200,800] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[400,600] farDist 300; rake from 200=p7, rake from 800=p8, ridgeSlope=p4 (y=300 x[400,600])
+    Gable f19 [200.0,800.0] apex 550.0, 60 Cells from R0S
+    limit p4 (y=300 x[400,600]); farSlope would be p4 (y=300 x[400,600]): same plane; strict reading: p4 (y=300 x[400,600])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=10 InternalCorner=2 Ridge=4 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== U S [200,800]@60 on 45, limit ridgeSplit
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1799 / footprint 0.000 over 864
+  rise rise [200,800] on y=0 at 60 part [200,250]: wall y=0 x[0,1000] far y=300 x[400,600] farDist 300; rake from 200=p7, rake from 800=p8, ridgeSplit=p2 (y=600 x[600,1000]) & p4 (y=300 x[400,600]), split [200,250]:p2 [250,750]:p4 [750,800]:p2
+    Gable f18 [200.0,800.0] apex 550.0, 60 Cells from R0S
+    limit p2 (y=600 x[600,1000]) & p4 (y=300 x[400,600]); farSlope would be p4 (y=300 x[400,600]): DIFFERENT plane; strict reading: p4 (y=300 x[400,600])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=10 InternalCorner=2 Ridge=4 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== U S [200,800]@60 on 45, limit ridgeAll
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1799 / footprint 0.000 over 864
+  rise rise [200,800] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[400,600] farDist 300; rake from 200=p7, rake from 800=p8, ridgeAll=p2 (y=600 x[600,1000]) & p4 (y=300 x[400,600])
+    Gable f19 [200.0,800.0] apex 550.0, 60 Cells from R0S
+    limit p2 (y=600 x[600,1000]) & p4 (y=300 x[400,600]); farSlope would be p4 (y=300 x[400,600]): DIFFERENT plane; strict reading: p4 (y=300 x[400,600])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=10 InternalCorner=2 Ridge=4 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== U S [200,800]@60 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1799 / footprint 0.000 over 864
+  rise rise [200,800] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[400,600] farDist 300; rake from 200=p7, rake from 800=p8, farSlope=p4 (y=300 x[400,600])
+    Gable f19 [200.0,800.0] apex 550.0, 60 Cells from R0S
+    limit p4 (y=300 x[400,600]); farSlope would be p4 (y=300 x[400,600]): same plane; strict reading: p4 (y=300 x[400,600])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=10 InternalCorner=2 Ridge=4 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== T S [250,750]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 832
+  rise rise [250,750] on y=0 at 75: wall y=0 x[0,1000] far y=400 x[600,1000] farDist 400; rake from 250=p7, rake from 750=p8, ridgeSlope=p2 (y=400 x[600,1000])
+    Gable f18 [250.0,750.0] apex 650.0, 72 Cells from R0S
+    limit p2 (y=400 x[600,1000]); farSlope would be p2 (y=400 x[600,1000]): same plane; strict reading: p2 (y=400 x[600,1000])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=3 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=10 Wall=8
+
+== T S [250,750]@75 on 45, limit ridgeSplit
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 832
+  rise rise [250,750] on y=0 at 75: wall y=0 x[0,1000] far y=400 x[600,1000] farDist 400; rake from 250=p7, rake from 750=p8, ridgeSplit=p2 (y=400 x[600,1000])
+    Gable f18 [250.0,750.0] apex 650.0, 72 Cells from R0S
+    limit p2 (y=400 x[600,1000]); farSlope would be p2 (y=400 x[600,1000]): same plane; strict reading: p2 (y=400 x[600,1000])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=3 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=10 Wall=8
+
+== T S [250,750]@75 on 45, limit ridgeAll
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 832
+  rise rise [250,750] on y=0 at 75: wall y=0 x[0,1000] far y=400 x[600,1000] farDist 400; rake from 250=p7, rake from 750=p8, ridgeAll=p2 (y=400 x[600,1000])
+    Gable f18 [250.0,750.0] apex 650.0, 72 Cells from R0S
+    limit p2 (y=400 x[600,1000]); farSlope would be p2 (y=400 x[600,1000]): same plane; strict reading: p2 (y=400 x[600,1000])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=3 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=10 Wall=8
+
+== T S [250,750]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 832
+  rise rise [250,750] on y=0 at 75: wall y=0 x[0,1000] far y=400 x[600,1000] farDist 400; rake from 250=p7, rake from 750=p8, farSlope=p2 (y=400 x[600,1000])
+    Gable f18 [250.0,750.0] apex 650.0, 72 Cells from R0S
+    limit p2 (y=400 x[600,1000]); farSlope would be p2 (y=400 x[600,1000]): same plane; strict reading: p2 (y=400 x[600,1000])
+    stands proud on its midline to d=199.5 of 400, highest 399.5 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=3 Valley=4 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=10 Wall=8
+
+# E. The slope beyond the ridge is a gabled wall's, a courtyard cut's, or near another rise
+
+== N gabled, S [300,700]@60 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f10 [300.0,700.0] apex 596.4, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 346.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=3 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@60 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f10 [300.0,700.0] apex 596.4, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 346.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1 Valley=3 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+
+== N gabled, S [300,700]@60 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeRoof=NOTHING (no falling face before the bounding box)
+    Gable f9 [300.0,700.0] apex 596.4, 38 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=346.0 of 500, highest 346.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=2 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=5 Wall=4
+
+== N gabled, S [300,700]@60 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, farSlope=NOTHING (far wall y=500 x[0,1000] is gable)
+    Gable f9 [300.0,700.0] apex 596.4, 38 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=346.0 of 500, highest 346.4 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=1 Valley=2 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=5 Wall=4
+
+== N gabled, S [300,700]@60 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 800
+  rise rise [300,700] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, peakCap=p6 (peak 249.7)
+    Gable f9 [300.0,700.0] apex 499.8, 32 Cells from R0S
+    limit p6 (peak 249.7); farSlope would be none (far wall y=500 x[0,1000] is gable): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 249.7 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=2 Ridge=2 Valley=3 Verge=5 WallPlate=2
+  faces Gable=2 Ground=1 Roof=6 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 27875; edges Valley(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof); 20 Cells (8 whole), sources none
+
+== courtyard 30, S [100,300]@60 (beyond the ridge: the cut), limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeSlope=p8 (y=300 x[300,700])
+    Gable f18 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, S [100,300]@60 (beyond the ridge: the cut), limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeStrict=p8 (y=300 x[300,700])
+    Gable f18 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, S [100,300]@60 (beyond the ridge: the cut), limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeRoof=p8 (y=300 x[300,700])
+    Gable f18 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, S [100,300]@60 (beyond the ridge: the cut), limit farSlope
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, farSlope=NOTHING (far wall y=300 x[0,300] is cut)
+    Gable f18 [100.0,300.0] apex 423.2, 12 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=299.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=4 InternalCorner=4 Ridge=5 RingJunction=1 Valley=7 Verge=4 WallPlate=1
+  faces Cheek=1 Gable=1 Ground=1 Roof=11 Wall=8
+  violation cheeks 1, expected 0, at (150, 300, 336.6025390625)
+
+== courtyard 30, S [100,300]@60 (beyond the ridge: the cut), limit peakCap
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 599 / footprint 0.001 over 1344
+  rise rise [100,300] on y=0 at 60: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, peakCap=p11 (peak 86.5)
+    Gable f17 [100.0,300.0] apex 336.5, 8 Cells from R0S
+    limit p11 (peak 86.5); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 86.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=4 InternalCorner=4 Ridge=7 RingJunction=1 Valley=10 Verge=5 WallPlate=1
+  faces Cheek=1 Gable=1 Ground=1 Roof=13 Wall=8
+  flat top f19 tag Roof storey 0 plane p11 (peak 86.5) z=336.46 area 15000; edges Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof); 12 Cells (4 whole), sources none
+  flat top f20 tag Roof storey 0 plane p11 (peak 86.5) z=336.46 area 14950; edges Valley(Roof) Valley(Roof) Ridge(Roof) Verge(Cheek); 9 Cells (2 whole), sources none
+  violation cheeks 1, expected 0, at (150.25, 300, 336.4580078125)
+
+== courtyard 45, S [100,300]@75, limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 75: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeSlope=p8 (y=300 x[300,700])
+    Gable f19 [100.0,300.0] apex 550.0, 20 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=8 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, S [100,300]@75, limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 75: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeStrict=p8 (y=300 x[300,700])
+    Gable f19 [100.0,300.0] apex 550.0, 20 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=8 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, S [100,300]@75, limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 75: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, ridgeRoof=p8 (y=300 x[300,700])
+    Gable f19 [100.0,300.0] apex 550.0, 20 Cells from R0S
+    limit p8 (y=300 x[300,700]); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=4 Valley=8 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, S [100,300]@75, limit farSlope
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [100,300] on y=0 at 75: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, farSlope=NOTHING (far wall y=300 x[0,300] is cut)
+    Gable f18 [100.0,300.0] apex 623.2, 24 Cells from R0S
+    limit NOTHING; farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=299.5 of 300, highest 373.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=4 InternalCorner=4 Ridge=5 RingJunction=2 Valley=7 Verge=4 WallPlate=1
+  faces Cheek=1 Gable=1 Ground=1 Roof=11 Wall=8
+  violation cheeks 1, expected 0, at (136.6025390625, 300, 386.6025390625)
+
+== courtyard 45, S [100,300]@75, limit peakCap
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=2 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 600 / footprint 0.001 over 1344
+  rise rise [100,300] on y=0 at 75: wall y=0 x[0,1000] far y=300 x[0,300] farDist 300; rake from 100=p9, rake from 300=p10, peakCap=p11 (peak 149.8)
+    Gable f18 [100.0,300.0] apex 399.8, 12 Cells from R0S
+    limit p11 (peak 149.8); farSlope would be none (far wall y=300 x[0,300] is cut): DIFFERENT plane; strict reading: p8 (y=300 x[300,700])
+    stands proud on its midline to d=149.5 of 300, highest 149.8 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=5 InternalCorner=4 Ridge=7 RingJunction=2 Valley=12 Verge=7 WallPlate=1
+  faces Cheek=2 Gable=1 Ground=1 Roof=14 Wall=8
+  flat top f20 tag Roof storey 0 plane p11 (peak 149.8) z=399.75 area 19379; edges Valley(Roof) Valley(Roof) Verge(Gable) Ridge(Roof) Ridge(Roof) Verge(Cheek); 15 Cells (4 whole), sources none
+  flat top f21 tag Roof storey 0 plane p11 (peak 149.8) z=399.75 area 16416; edges Valley(Roof) Valley(Roof) Ridge(Roof) Verge(Cheek); 9 Cells (2 whole), sources none
+  violation cheeks 2, expected 0, at (136.6025390625, 300, 386.6025390625); (150.25, 300, 399.75)
+
+== courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit ridgeSlope
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 45: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeSlope=NOTHING (the line leaves the footprint at d=300.3)
+    Gable f20 [200.0,400.0] apex 350.0, 6 Cells from R0W,R2W
+    limit NOTHING; farSlope would be p5 (x=300 y[300,700]): DIFFERENT plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=299.5 of 300, highest 100.0 above the plate
+  edges Eaves=9 ExternalCorner=4 GableVertical=1 GroundLine=8 Hip=4 InternalCorner=4 Ridge=6 RingJunction=1 Valley=9 Verge=4 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=8
+  violation cheeks 1, expected 0, at (300, 236.6025390625, 286.6025390625)
+
+== courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit ridgeStrict
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 45: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeStrict=NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    Gable f20 [200.0,400.0] apex 350.0, 6 Cells from R0W,R2W
+    limit NOTHING; farSlope would be p5 (x=300 y[300,700]): DIFFERENT plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=299.5 of 300, highest 100.0 above the plate
+  edges Eaves=9 ExternalCorner=4 GableVertical=1 GroundLine=8 Hip=4 InternalCorner=4 Ridge=6 RingJunction=1 Valley=9 Verge=4 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=8
+  violation cheeks 1, expected 0, at (300, 236.6025390625, 286.6025390625)
+
+== courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 45: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeRoof=p5 (x=300 y[300,700])
+    Gable f19 [200.0,400.0] apex 350.0, 6 Cells from R0W,R2W
+    limit p5 (x=300 y[300,700]); farSlope would be p5 (x=300 y[300,700]): same plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=149.5 of 300, highest 100.0 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 45: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, farSlope=p5 (x=300 y[300,700])
+    Gable f19 [200.0,400.0] apex 350.0, 6 Cells from R0W,R2W
+    limit p5 (x=300 y[300,700]); farSlope would be p5 (x=300 y[300,700]): same plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=149.5 of 300, highest 100.0 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit peakCap
+  THROWS courtyard 30, outer W y[200,400]@45 (centreline along the cut), limit peakCap storey 0: gable piece 2 (rise [200,400] on x=0 at 45) is empty: its planes rise 0 cm at most over its band
+
+== courtyard 45, outer W y[200,400]@60, limit ridgeSlope
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 60: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeSlope=NOTHING (the line leaves the footprint at d=300.3)
+    Gable f20 [200.0,400.0] apex 423.2, 12 Cells from R0W,R2W
+    limit NOTHING; farSlope would be p5 (x=300 y[300,700]): DIFFERENT plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=299.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GableVertical=1 GroundLine=8 Hip=4 InternalCorner=4 Ridge=6 RingJunction=1 Valley=9 Verge=4 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=8
+  violation cheeks 1, expected 0, at (300, 236.6025390625, 313.3974609375)
+
+== courtyard 45, outer W y[200,400]@60, limit ridgeStrict
+  NOT CLEAN closed=true genus=1 (baseline 1) cheeks=1 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 60: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeStrict=NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    Gable f20 [200.0,400.0] apex 423.2, 12 Cells from R0W,R2W
+    limit NOTHING; farSlope would be p5 (x=300 y[300,700]): DIFFERENT plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=299.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GableVertical=1 GroundLine=8 Hip=4 InternalCorner=4 Ridge=6 RingJunction=1 Valley=9 Verge=4 WallPlate=2
+  faces Cheek=1 Gable=2 Ground=1 Roof=12 Wall=8
+  violation cheeks 1, expected 0, at (300, 236.6025390625, 313.3974609375)
+
+== courtyard 45, outer W y[200,400]@60, limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 60: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, ridgeRoof=p5 (x=300 y[300,700])
+    Gable f19 [200.0,400.0] apex 423.2, 12 Cells from R0W,R2W
+    limit p5 (x=300 y[300,700]); farSlope would be p5 (x=300 y[300,700]): same plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, outer W y[200,400]@60, limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [200,400] on x=0 at 60: wall x=0 y[0,300] far x=300 y[300,700] farDist 300; rake from 200=p9, rake from 400=p10, farSlope=p5 (x=300 y[300,700])
+    Gable f19 [200.0,400.0] apex 423.2, 12 Cells from R0W,R2W
+    limit p5 (x=300 y[300,700]); farSlope would be p5 (x=300 y[300,700]): same plane; strict reading: NOTHING (the line leaves the footprint at d=300.3 having crossed only hip or valley lines)
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, outer W y[200,400]@60, limit peakCap
+  THROWS courtyard 45, outer W y[200,400]@60, limit peakCap storey 0: gable piece 2 (rise [200,400] on x=0 at 60) is empty: its planes rise 0 cm at most over its band
+
+== opposite rises S and N [400,600]@75 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p2 (y=500 x[0,1000])
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p0 (y=0 x[0,1000]); canonicalised rake from 400 -> plane 4 (rake from 400); rake from 600 -> plane 5 (rake from 600)
+    Gable f12 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f18 [400.0,600.0] apex 623.2, 24 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=4 Valley=5 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=12 Wall=4
+
+== opposite rises S and N [400,600]@75 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p2 (y=500 x[0,1000])
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p0 (y=0 x[0,1000]); canonicalised rake from 400 -> plane 4 (rake from 400); rake from 600 -> plane 5 (rake from 600)
+    Gable f12 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f18 [400.0,600.0] apex 623.2, 24 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=4 Valley=5 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=12 Wall=4
+
+== opposite rises S and N [400,600]@75 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p2 (y=500 x[0,1000])
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p0 (y=0 x[0,1000]); canonicalised rake from 400 -> plane 4 (rake from 400); rake from 600 -> plane 5 (rake from 600)
+    Gable f12 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f18 [400.0,600.0] apex 623.2, 24 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=4 Valley=5 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=12 Wall=4
+
+== opposite rises S and N [400,600]@75 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p2 (y=500 x[0,1000])
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p0 (y=0 x[0,1000]); canonicalised rake from 400 -> plane 4 (rake from 400); rake from 600 -> plane 5 (rake from 600)
+    Gable f12 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f18 [400.0,600.0] apex 623.2, 24 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=8 Ridge=4 Valley=5 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=12 Wall=4
+
+== opposite rises S and N [400,600]@75 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, peakCap=p6 (peak 249.7)
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, peakCap=p6 (peak 249.7); canonicalised rake from 400 -> plane 4 (rake from 400); rake from 600 -> plane 5 (rake from 600); peak cap -> plane 6
+    Gable f9 [400.0,600.0] apex 499.8, 18 Cells from R0S
+    Gable f14 [400.0,600.0] apex 499.8, 18 Cells from R0N
+    limit p6 (peak 249.7); farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    limit p6 (peak 249.7); farSlope would be p0 (y=0 x[0,1000]): DIFFERENT plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=0.0 of 500, highest 0.0 above the plate
+    stands proud on its midline to d=0.0 of 500, highest 0.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=5 Valley=6 Verge=6 WallPlate=2
+  faces Gable=2 Ground=1 Roof=10 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 16523; edges Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof); 10 Cells (0 whole), sources none
+  flat top f12 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 16523; edges Valley(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 10 Cells (0 whole), sources none
+
+== opposite rises S [400,600]@75, N [300,700]@45 on 45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p2 (y=500 x[0,1000])
+  rise rise [300,700] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 300=p6, rake from 700=p7, ridgeSlope=p0 (y=0 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f15 [300.0,700.0] apex 450.0, 20 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=199.5 of 500, highest 200.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== opposite rises S [400,600]@75, N [300,700]@45 on 45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p2 (y=500 x[0,1000])
+  rise rise [300,700] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 300=p6, rake from 700=p7, ridgeStrict=p0 (y=0 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f15 [300.0,700.0] apex 450.0, 20 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=199.5 of 500, highest 200.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== opposite rises S [400,600]@75, N [300,700]@45 on 45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p2 (y=500 x[0,1000])
+  rise rise [300,700] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 300=p6, rake from 700=p7, ridgeRoof=p0 (y=0 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f15 [300.0,700.0] apex 450.0, 20 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=199.5 of 500, highest 200.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== opposite rises S [400,600]@75, N [300,700]@45 on 45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 2999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p2 (y=500 x[0,1000])
+  rise rise [300,700] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 300=p6, rake from 700=p7, farSlope=p0 (y=0 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    Gable f15 [300.0,700.0] apex 450.0, 20 Cells from R0N
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 373.2 above the plate
+    stands proud on its midline to d=199.5 of 500, highest 200.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=4 Valley=4 Verge=4 WallPlate=2
+  faces Gable=2 Ground=1 Roof=9 Wall=4
+
+== opposite rises S [400,600]@75, N [300,700]@45 on 45, limit peakCap
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2999 / footprint 0.001 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, peakCap=p6 (peak 249.7)
+  rise rise [300,700] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 300=p7, rake from 700=p8, peakCap=p6 (peak 249.7); canonicalised peak cap -> plane 6
+    Gable f10 [300.0,700.0] apex 499.8, 24 Cells from R0S
+    Gable f14 [300.0,700.0] apex 499.8, 24 Cells from R0N
+    limit p6 (peak 249.7); farSlope would be p2 (y=500 x[0,1000]): DIFFERENT plane; strict reading: p2 (y=500 x[0,1000])
+    limit p6 (peak 249.7); farSlope would be p0 (y=0 x[0,1000]): DIFFERENT plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=249.5 of 500, highest 249.7 above the plate
+    stands proud on its midline to d=0.0 of 500, highest 0.0 above the plate
+  edges Eaves=6 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=5 Valley=14 Verge=10 WallPlate=2
+  faces Gable=2 Ground=1 Roof=14 Wall=4
+  flat top f11 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 16523; edges Valley(Roof) Ridge(Roof) Verge(Gable) Ridge(Roof); 10 Cells (0 whole), sources none
+  flat top f12 tag Roof storey 0 plane p6 (peak 249.7) z=499.75 area 16523; edges Valley(Roof) Ridge(Roof) Ridge(Roof) Verge(Gable); 10 Cells (0 whole), sources none
+
+# F. A rise on a courtyard hole wall, facing outward across the ring
+
+== courtyard 30, hole S y=300 x[400,600]@60, limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 60: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeSlope=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole S y=300 x[400,600]@60, limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 60: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeStrict=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole S y=300 x[400,600]@60, limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 60: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeRoof=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole S y=300 x[400,600]@60, limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 60: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, farSlope=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole S y=300 x[400,600]@75, limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 75: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeSlope=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 550.0, 20 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole S y=300 x[400,600]@75, limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 75: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeStrict=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 550.0, 20 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole S y=300 x[400,600]@75, limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 75: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, ridgeRoof=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 550.0, 20 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole S y=300 x[400,600]@75, limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on y=300 at 75: wall y=300 x[300,700] far y=0 x[0,1000] farDist 300; rake from 400=p9, rake from 600=p10, farSlope=p1 (y=0 x[0,1000])
+    Gable f19 [400.0,600.0] apex 550.0, 20 Cells from R0N
+    limit p1 (y=0 x[0,1000]); farSlope would be p1 (y=0 x[0,1000]): same plane; strict reading: p1 (y=0 x[0,1000])
+    stands proud on its midline to d=149.5 of 300, highest 299.5 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole W x=300 y[400,600]@75 (into the cut-side wing), limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on x=300 at 75: wall x=300 y[300,700] far x=0 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeSlope=p0 (x=0 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 16 Cells from R2E
+    limit p0 (x=0 y[0,300]); farSlope would be p0 (x=0 y[0,300]): same plane; strict reading: p0 (x=0 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole W x=300 y[400,600]@75 (into the cut-side wing), limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on x=300 at 75: wall x=300 y[300,700] far x=0 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeStrict=p0 (x=0 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 16 Cells from R2E
+    limit p0 (x=0 y[0,300]); farSlope would be p0 (x=0 y[0,300]): same plane; strict reading: p0 (x=0 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole W x=300 y[400,600]@75 (into the cut-side wing), limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on x=300 at 75: wall x=300 y[300,700] far x=0 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeRoof=p0 (x=0 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 16 Cells from R2E
+    limit p0 (x=0 y[0,300]); farSlope would be p0 (x=0 y[0,300]): same plane; strict reading: p0 (x=0 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 30, hole W x=300 y[400,600]@75 (into the cut-side wing), limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 600 / footprint 0.000 over 1344
+  rise rise [400,600] on x=300 at 75: wall x=300 y[300,700] far x=0 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, farSlope=p0 (x=0 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 16 Cells from R2E
+    limit p0 (x=0 y[0,300]); farSlope would be p0 (x=0 y[0,300]): same plane; strict reading: p0 (x=0 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 172.9 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=5 Valley=6 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole E x=700 y[400,600]@60, limit ridgeSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on x=700 at 60: wall x=700 y[300,700] far x=1000 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeSlope=p2 (x=1000 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R3W
+    limit p2 (x=1000 y[0,300]); farSlope would be p2 (x=1000 y[0,300]): same plane; strict reading: p2 (x=1000 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole E x=700 y[400,600]@60, limit ridgeStrict
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on x=700 at 60: wall x=700 y[300,700] far x=1000 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeStrict=p2 (x=1000 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R3W
+    limit p2 (x=1000 y[0,300]); farSlope would be p2 (x=1000 y[0,300]): same plane; strict reading: p2 (x=1000 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole E x=700 y[400,600]@60, limit ridgeRoof
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on x=700 at 60: wall x=700 y[300,700] far x=1000 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, ridgeRoof=p2 (x=1000 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R3W
+    limit p2 (x=1000 y[0,300]); farSlope would be p2 (x=1000 y[0,300]): same plane; strict reading: p2 (x=1000 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+== courtyard 45, hole E x=700 y[400,600]@60, limit farSlope
+  CLEAN closed=true genus=1 (baseline 1) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 599 / footprint 0.000 over 1344
+  rise rise [400,600] on x=700 at 60: wall x=700 y[300,700] far x=1000 y[300,700] farDist 300; rake from 400=p9, rake from 600=p10, farSlope=p2 (x=1000 y[0,300])
+    Gable f19 [400.0,600.0] apex 423.2, 12 Cells from R3W
+    limit p2 (x=1000 y[0,300]); farSlope would be p2 (x=1000 y[0,300]): same plane; strict reading: p2 (x=1000 y[0,300])
+    stands proud on its midline to d=149.5 of 300, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=4 GroundLine=8 Hip=6 InternalCorner=4 Ridge=6 Valley=6 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=11 Wall=8
+
+# G. Mixed pitch: the main ridge off-centre (S and N walls at different pitches)
+
+== S 30 N 60, S rise [400,600]@60, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, S rise [400,600]@60, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, S rise [400,600]@60, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, S rise [400,600]@60, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 60: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p2 (y=500 x[0,1000])
+    Gable f10 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=299.5 of 500, highest 173.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, S rise [400,600]@75, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=374.5 of 500, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, S rise [400,600]@75, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=374.5 of 500, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, S rise [400,600]@75, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p2 (y=500 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=374.5 of 500, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, S rise [400,600]@75, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p2 (y=500 x[0,1000])
+    Gable f11 [400.0,600.0] apex 623.2, 24 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=374.5 of 500, highest 373.2 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, N rise [400,600]@45, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 350.0, 6 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=57.5 of 500, highest 100.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, N rise [400,600]@45, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 350.0, 6 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=57.5 of 500, highest 100.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, N rise [400,600]@45, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 350.0, 6 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=57.5 of 500, highest 100.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, N rise [400,600]@45, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=500 at 45: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 350.0, 6 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=57.5 of 500, highest 100.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+
+== S 30 N 60, N rise [400,600]@75, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.001 over 800
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeSlope=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 538.7, 20 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=124.5 of 500, highest 288.4 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, N rise [400,600]@75, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.001 over 800
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeStrict=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 538.7, 20 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=124.5 of 500, highest 288.4 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, N rise [400,600]@75, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.001 over 800
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, ridgeRoof=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 538.7, 20 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=124.5 of 500, highest 288.4 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 30 N 60, N rise [400,600]@75, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 1000 / footprint 0.001 over 800
+  rise rise [400,600] on y=500 at 75: wall y=500 x[0,1000] far y=0 x[0,1000] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=p0 (y=0 x[0,1000])
+    Gable f10 [400.0,600.0] apex 538.7, 20 Cells from R0N
+    limit p0 (y=0 x[0,1000]); farSlope would be p0 (y=0 x[0,1000]): same plane; strict reading: p0 (y=0 x[0,1000])
+    stands proud on its midline to d=124.5 of 500, highest 288.4 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 60 N 22.5, S rise [300,700]@75, limit ridgeSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeSlope=p2 (y=500 x[0,1000])
+    Gable f11 [300.0,700.0] apex 457.1, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=96.0 of 500, highest 206.9 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 60 N 22.5, S rise [300,700]@75, limit ridgeStrict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeStrict=p2 (y=500 x[0,1000])
+    Gable f11 [300.0,700.0] apex 457.1, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=96.0 of 500, highest 206.9 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 60 N 22.5, S rise [300,700]@75, limit ridgeRoof
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, ridgeRoof=p2 (y=500 x[0,1000])
+    Gable f11 [300.0,700.0] apex 457.1, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=96.0 of 500, highest 206.9 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+
+== S 60 N 22.5, S rise [300,700]@75, limit farSlope
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.001 over 2000 / footprint 0.001 over 800
+  rise rise [300,700] on y=0 at 75: wall y=0 x[0,1000] far y=500 x[0,1000] farDist 500; rake from 300=p4, rake from 700=p5, farSlope=p2 (y=500 x[0,1000])
+    Gable f11 [300.0,700.0] apex 457.1, 38 Cells from R0S
+    limit p2 (y=500 x[0,1000]); farSlope would be p2 (y=500 x[0,1000]): same plane; strict reading: p2 (y=500 x[0,1000])
+    stands proud on its midline to d=96.0 of 500, highest 206.9 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=2 Valley=2 Verge=3 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4

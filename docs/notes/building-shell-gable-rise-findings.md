@@ -12,6 +12,138 @@ building every rise through the unchanged pipeline. No production code changed. 
 [experiments/gable-rises](../../apps/building-shell/experiments/gable-rises/), which sits outside `tsconfig`, vitest and
 the golden set.
 
+**WP-G1.1 (added 2026-11-12, after journal decision 203)** re-ran the sweep with `ridgeSlope` as the default limit, and
+measured the cases where its definition is strained, the floor cap with a gap, and a cap under the storey directly
+above. Its sections come first. The WP-G1 sections after them were measured under `farSlope`, which decision 203
+strikes; they are kept as evidence.
+
+## WP-G1.1: the `ridgeSlope` limit
+
+### The definition
+
+1. **Read the storey's solved hip roof.** That is the straight-skeleton faces of the rise's island, every wall a hip
+   at its own pitch, gabled and cut walls included, before any gable piece or rise is added.
+2. **Take the rise's centreline**: the half-line from the middle of its band, square to its wall, pointing into the
+   footprint.
+3. **Walk the centreline from the wall.** The limit is the plane of the first skeleton face it enters whose slope falls
+   in the walking direction: the gradient of the face's plane, dotted with the wall's inward normal, is negative.
+   - On these axis-aligned footprints that face belongs to a wall facing back at the rise's wall.
+   - In a rectangle it is the slope across the main ridge.
+   - Elsewhere the walk passes over rising faces and level faces (hip ends, whose slope is square to the walk) until
+     it meets the first falling one.
+4. **When the walk meets a vertex or an edge exactly**, read the face just past it.
+5. **When the walk leaves the footprint without meeting a falling face, the definition gives nothing.**
+
+**What the probe did** (`walkCentreline` in [rise.ts](../../apps/building-shell/experiments/gable-rises/rise.ts)):
+
+- it samples the line every 0.5 cm from 0.25 cm, and classifies slopes with a tolerance of 1e-9;
+- it reads only the band's middle line.
+
+A C++ version should intersect the line with the face polygons exactly. That is the only difference from the
+definition above.
+
+**Where the definition falls short (measured below):**
+
+- it gives nothing on a courtyard cut;
+- against a gabled wall it reads a plane that is no roof face;
+- it reads one line for the whole band;
+- its literal reading, "across a ridge", fails often.
+
+### The WP-G1 classes re-run under `ridgeSlope`
+
+There were 232 builds: 217 clean and 15 not. In 22 builds the limit plane differs from `farSlope`'s, and 13 of those
+build a different shell. That count leaves out 7 rows that name their limit explicitly, where the comparison means
+nothing. The results are in [results/ridge-slope](../../apps/building-shell/experiments/gable-rises/results/ridge-slope/).
+
+| Class | Builds | Under `ridgeSlope` | Differs from `farSlope` |
+|---|---|---|---|
+| Convex rectangle: mid-wall, corner, decisions 9 and 10, widened rise | 43 + 6 | Clean, apart from the 2 deliberate toggles (9 and 10 off) | No: same plane everywhere. The widened rise is still today's whole-wall gable with decision 10 |
+| L, T, U, including decision 9 away from corners | 58 | Clean, apart from 1 deliberate toggle (decision 9 off, L [600, 1000]) | Yes, the T and L bands in front of a continuing wing. The shell differs in 4 T builds (60/30 and 75/45). The rise stops at the bar's ridge instead of running over the stem |
+| Two rises; adjacent walls; crossing ridges; gabled end wall | 29 | Clean | No |
+| Courtyard: band in front of the cut | 6 | **Clean (WP-G1: 4 Cheeks)** | Yes: the limit is the cut's plane, which equals the collinear hole wall's |
+| **Courtyard: outer W wall, band across the cut's end** | 3 | **Not clean: 1 Cheek each. `ridgeSlope` gives nothing** | Yes (WP-G1 was clean) |
+| Courtyard, other walls | 21 | Clean | No |
+| Tall and truncated rises; pitches 7 to 75 | 28 | Clean | No |
+| Far wall a whole-wall gable | 3 | Clean | Yes at 75°: the front is truncated at 500, where WP-G1 stood 746 cm at the far wall |
+| Storeys (flush and set-back upper storeys, overhang, `maxHeight`) | 25 | As WP-G1: 2 breakthroughs, 5 genus changes, the other reading of decision 195 throws | No |
+| Flush Rings (decision 3) | 16 | As WP-G1: `StoreyRingConflictSwapped`'s 1 conflict (F69) | Yes in the 3 swapped flush-T builds; the shell differs only at 60° |
+
+**The one new class that is not clean: the centreline runs along a courtyard cut.**
+
+- **Smallest input:** the roster `Courtyard` at 30°. Ring 0's W side runs `{from: 0, to: 100, form: 'gable', deg: 45}`
+  and Ring 2's W side runs `{from: 300, to: 400, ...}`, which together make one rise over y 200 to 400 on x = 0.
+- **What happens:** the cut runs along y = 300, the centreline lies on it, and the hip roof there stands at the plate
+  (a zero-width slit). The walk crosses only level faces and leaves the footprint through the hole's corner (300, 300).
+- **Result:** with no limit, the rise's back face stands proud on x = 300, giving 1 Cheek at 30/30, 45/30 and 60/45.
+
+### The strained cases
+
+This probe made 157 builds in [strained.ts](../../apps/building-shell/experiments/gable-rises/strained.ts), each
+case under every variant that answers differently, at two pitch pairs at least. These are the variants:
+
+- `ridgeStrict`: the literal reading, a falling face met directly from a rising one, so the walk crosses a ridge;
+- `ridgeRoof`: the same walk on the roof as built before any rise, with today's gable pieces included;
+- `ridgeSplit`: one limit per line of the band;
+- `ridgeAll`: every line's plane on one piece;
+- `peakCap`: a horizontal cap at the hip roof's highest point on the centreline;
+- `farSlope`, which is struck.
+
+Of the 34 `ridgeSlope` builds here, 32 are clean.
+
+| Case | `ridgeSlope` gives | Clean | Shape |
+|---|---|---|---|
+| Opposite wall a whole-wall gable (75/45, 60/30, 60/45) | the gabled wall's skeleton plane, which is no visible roof face | yes | front truncated at 500 (75°); the rise falls back to the main slope at y = 250. Plausible, but the plane is not a roof face. `ridgeRoof` and `farSlope` give nothing, and the rise then stands 746 cm high to the far wall |
+| Hip end: centreline along the main ridge (E side, 75/45, 60/30) | the far end's hip plane, 1000 cm away | yes | **a 75° rise stands 373 cm high, 123 above the main ridge, for 750 of 1000 cm.** Not what a person would expect, in my reading. `ridgeStrict` gives nothing (it runs 1000 cm). `peakCap` is clean: a flat top at the ridge height |
+| L wing end: centreline along the stem's ridge (75/45) | the bar's S wall plane, 1000 cm away | yes | the same: proud for 800 cm over the stem. `peakCap` is clean |
+| Near a corner: centreline over a hip face (75/45, 60/30) | the N slope, across the E hip face | yes | the ridge runs back over the hip end to the N slope. Plausible. `ridgeStrict` gives nothing |
+| Centreline into a reflex corner (L, 60/45, 75/30) | the stem's W slope | yes | plausible. `peakCap` gives 1 Cheek |
+| Square plan, centred and off-centre (75/45, 60/30) | the N slope in all four | yes | plausible. `ridgeStrict` gives nothing off-centre |
+| Wide band over two slopes (L, U, T) | the centreline's plane for the whole band | yes | `ridgeSplit` gives **2 Cheeks** on the L at 75/30, because the limit jumps at the split. `ridgeAll` is clean in all 4 |
+| Beyond the ridge, a courtyard cut (60/30, 75/45) | the cut's plane, which is the hole S wall's | yes | `farSlope`: 1 Cheek. `peakCap`: 2 |
+| Centreline along the cut (45/30, 60/45) | **nothing** | **no, 1 Cheek** | `ridgeRoof` and `farSlope` are clean, using the hole W wall's plane. `peakCap` throws, because the peak along the cut is 0 |
+| Opposite rises facing each other (75/75, 75/45) | each the other wall's plane | yes | they meet in a saddle at the main ridge |
+| Courtyard hole walls facing out across the ring (4) | the outer wall's plane | yes | the same as `farSlope` |
+| Mixed pitch, ridge off-centre (S 30 / N 60, S 60 / N 22.5) | the far side's plane | yes | the same as `farSlope` |
+
+**Where the definition gives nothing:**
+
+- **`ridgeSlope` gives nothing only along the cut.** Three fallbacks were measured there:
+  - read the built roof (`ridgeRoof`): clean;
+  - algorithm B's far wall (struck): clean;
+  - no limit: a Cheek.
+- **The literal ridge-crossing reading also gives nothing** at hip ends, wing ends, near corners and off-centre on a
+  square. It is not a usable definition on its own.
+- **No reading tried covers both the gabled far wall and the cut.** `ridgeRoof` gives nothing for the gabled wall, and
+  `ridgeSlope` gives nothing for the cut.
+
+### The overhang, both ways (item 4)
+
+[caps.ts](../../apps/building-shell/experiments/gable-rises/caps.ts) builds three overhangs: one covering the band, one
+covering half of it, and one projecting 100 cm past the rise's wall. Each takes two rises, at 75° and 60° on a 30° roof.
+
+| Cap | Genus | Faces of the gap | Defects |
+|---|---|---|---|
+| At the floor (fused), 6 builds | 1, against 0 without the rise | no gap. Where the overhang covers the rise, its top fuses with the floor | `Roof–Underside` edges, classified as `SoffitJunction` (2 or 3 per build). **Where the overhang projects past the wall, 1 `Gable–Underside` edge, `Unclassified`**: session 1 §5's pair arises, along the rise front's top at z = 500 |
+| 1 cm below the floor, 6 builds | 0 | a `Roof` flat top at 499, under the overhang's `Underside` | none: clean, no Underside pair, no face under 10 cm² |
+| 5 cm below the floor, 6 builds | 0 | as for 1 cm, at 495 | none: clean |
+
+### The storey directly above: a wall-top cap (item 5, a candidate)
+
+The candidate is a horizontal cap at the upper storey's plate, applied when that storey overlaps the rise's plan.
+
+- **Under a set-back upper storey** (100 cm back, at 60° and 75°), the cap cures both breakthroughs, of 9.4 cm and
+  149.7 cm. Both builds are clean. The flat top sits at the upper eave height and meets the upper roof in a `Valley`.
+- **Under a flush upper wall** (75° and 60°), the cap buries the rise wholly inside the upper storey. No Gable face
+  survives, and the breakthrough of 122.6 or 9.4 cm is gone. One conflict is left, F69's Wall-over-Gable re-tag report.
+
+### Interpretations added by WP-G1.1
+
+11. The definition reads the hip roof without rises, so one rise never limits another, and the order of rises does not
+    matter.
+12. The `vs farSlope` column compares faces (kind, plane, area to 0.1 cm²), Edge kinds and the Cell count. It leaves
+    out the triangle count, which buried geometry changes.
+13. The floor gap and the wall-top cap apply to the whole rise, as decision 12's cap does.
+
 ## The harness
 
 [rise.ts](../../apps/building-shell/experiments/gable-rises/rise.ts) holds every rule the proposal adds. Ring sides
@@ -33,7 +165,7 @@ switchable.
   With the rise piece dropped from the oracle, the worst error is 89.2 cm. With the far plane dropped from the build,
   it is 735.4 cm.
 
-## Classes
+## Classes under `farSlope` (WP-G1; the limit is struck)
 
 There were 232 builds with a verdict: 215 clean and 17 not. Six more builds compared a widened rise with today's
 whole-wall gable. Unless a row says otherwise, pitches were 7 to 75 degrees in pairs, and bands were mid-wall, at a
@@ -171,8 +303,17 @@ From the repo root, with `E` as `apps/building-shell/experiments/gable-rises`:
 ```bash
 node $E/run.mjs f60-f61          # the scratch probe, as first measured
 node $E/run.mjs harness-check    # the oracle convicted by mutation
-node $E/run.mjs convex           # also: nonconvex, multi, courtyard, tall, storeys, flush
+node $E/run.mjs convex           # also: nonconvex, multi, courtyard, tall, storeys, flush (ridgeSlope, WP-G1.1)
+node $E/run.mjs strained         # WP-G1.1 item 3
+node $E/run.mjs caps             # WP-G1.1 items 4 and 5
+node $E/run.mjs convex --limit farSlope   # WP-G1's struck default, as first measured
 ```
 
 Each probe writes to stdout. The saved outputs are in
-[results](../../apps/building-shell/experiments/gable-rises/results/), one file per probe.
+[results](../../apps/building-shell/experiments/gable-rises/results/), one file per probe:
+
+- the files at the top level are WP-G1's, under `farSlope`;
+- `results/ridge-slope/` holds WP-G1.1's.
+
+`--limit farSlope` reproduces WP-G1's verdicts. For the courtyard this was checked: 4 not clean. The detail lines'
+wording changed since WP-G1.

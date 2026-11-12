@@ -2,6 +2,7 @@
 // ignores `configFile`). Findings and setup: docs/notes/building-shell-gable-rise-findings.md
 //
 //   node run.mjs <probe> [probe args]
+//   node run.mjs <probe> --limit farSlope    (WP-G1's default limit; the default is ridgeSlope since WP-G1.1)
 import path from 'node:path';
 import {createRequire} from 'node:module';
 import {fileURLToPath, pathToFileURL} from 'node:url';
@@ -10,7 +11,10 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.resolve(HERE, '../..');
 const CORE_SOURCE = path.resolve(APP_ROOT, '../../packages/core/src/index.ts');
 
-const [probe, ...args] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const flag = argv.indexOf('--limit');
+if (flag >= 0) process.env.RISE_LIMIT = argv[flag + 1];
+const [probe, ...args] = flag >= 0 ? argv.filter((_, i) => i !== flag && i !== flag + 1) : argv;
 if (!probe) throw new Error('name a probe: node run.mjs <probe> [probe args]');
 
 process.env.EXPERIMENT_RESULTS = path.join(HERE, 'results');
