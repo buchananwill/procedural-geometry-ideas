@@ -6,7 +6,9 @@ status: active
 
 # Building shell arc: session 1 journal
 
-**This is the head of the thread**, and the first session of the arc. Decisions continue at **41** (1 to 40 are the
+**This is no longer the head of the thread** (2026-11-12): the head is
+[session 2](./building-shell-arc-journal-02.md), where decisions continue at 187 and findings at F57.
+This was the first session of the arc. Its decisions began at **41** (1 to 40 are the
 spec's own, in [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md)); findings start at
 **F1**.
 
