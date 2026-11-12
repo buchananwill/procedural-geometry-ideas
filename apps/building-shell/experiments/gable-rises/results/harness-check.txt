@@ -1,0 +1,4 @@
+as built: band worst 0.000
+oracle without the rise piece: band worst 89.220 at (500.4, 10.4) storey 0: mesh 99.630 oracle 10.410 (expect about 100)
+built without the far plane, oracle with it: band worst 735.439 at (500.4, 490.4) storey 0: mesh 745.029 oracle 9.590 (expect > 0)
+hip only at (150.37, 100.41): mesh 100.410, oracle 100.410 (expect 100.41)

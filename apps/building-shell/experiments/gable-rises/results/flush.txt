@@ -1,0 +1,148 @@
+# F57's flush T and the inner Ring
+
+== flush T, main index 0 (hip), stem index 1 gables S
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 0 / footprint 0.000 over 928
+  edges Eaves=8 ExternalCorner=6 GroundLine=8 Hip=6 InternalCorner=2 Ridge=2 Valley=2
+  faces Ground=1 Roof=7 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:hip y=0 x[400,600]:hip y=0 x[600,1000]:hip x=1000 y[0,500]:hip y=500 x[600,1000]:hip x=600 y[500,900]:hip y=900 x[400,600]:hip x=400 y[500,900]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables none
+
+== flush T swapped, stem index 0
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1759 / footprint 0.000 over 928
+  rise rise [400,600] on y=0 at 45: wall y=0 x[400,600] far y=900 x[400,600] farDist 900; rake from 400=p5, rake from 600=p3, farSlope=y=900 x[400,600] p4; canonicalised rake from 400 -> plane 5 (x=400 y[500,900]); rake from 600 -> plane 3 (x=600 y[500,900])
+    Gable f17 [400.0,600.0] apex 350.0, 6 Cells from R0S
+    far slope: beyond the ridge (d=250.5, h=249.5): p2 (y=500 x[600,1000]); rule far p4 (y=900 x[400,600]); DIFFERENT
+    stands proud on its midline to d=99.5 of 900, highest 100.0 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=6 InternalCorner=2 Ridge=3 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:gable y=0 x[400,600]:gable y=0 x[600,1000]:gable x=1000 y[0,500]:hip y=500 x[600,1000]:hip x=600 y[500,900]:hip y=900 x[400,600]:hip x=400 y[500,900]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables apex 750.0 sources R0S,R1S
+
+== inner Ring [400,0,600,500] gabled S, main index 0
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 0 / footprint 0.000 over 800
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=1
+  faces Ground=1 Roof=4 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:hip y=0 x[400,600]:hip y=0 x[600,1000]:hip x=1000 y[0,500]:hip y=500 x[600,1000]:hip y=500 x[400,600]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables none
+
+== inner Ring index 0
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 999 / footprint 0.000 over 800
+  rise rise [400,600] on y=0 at 45: wall y=0 x[400,600] far y=500 x[400,600] farDist 500; rake from 400=p4, rake from 600=p5, farSlope=y=500 x[400,600] p2
+    Gable f10 [400.0,600.0] apex 350.0, 6 Cells from R0S
+    far slope: beyond the ridge (d=250.5, h=249.5): p2 (y=500 x[600,1000]); rule far p2 (y=500 x[600,1000]); SAME
+    stands proud on its midline to d=99.5 of 500, highest 100.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:gable y=0 x[400,600]:gable y=0 x[600,1000]:gable x=1000 y[0,500]:hip y=500 x[600,1000]:hip y=500 x[400,600]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables apex 750.0 sources R0S,R1S
+
+== flush T swapped, the stem's gable at 30 on a 45 main
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1759 / footprint 0.000 over 928
+  rise rise [400,600] on y=0 at 30: wall y=0 x[400,600] far y=900 x[400,600] farDist 900; rake from 400=p7, rake from 600=p8, farSlope=y=900 x[400,600] p4
+    Gable f17 [400.0,600.0] apex 307.7, 6 Cells from R0S
+    far slope: beyond the ridge (d=250.5, h=249.5): p2 (y=500 x[600,1000]); rule far p4 (y=900 x[400,600]); DIFFERENT
+    stands proud on its midline to d=57.5 of 900, highest 57.7 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=6 InternalCorner=2 Ridge=3 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:gable y=0 x[400,600]:gable y=0 x[600,1000]:gable x=1000 y[0,500]:hip y=500 x[600,1000]:hip x=600 y[500,900]:hip y=900 x[400,600]:hip x=400 y[500,900]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables apex 750.0 sources R0S,R1S
+
+== flush T swapped, the stem's gable at 60 on a 45 main
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1759 / footprint 0.000 over 928
+  rise rise [400,600] on y=0 at 60: wall y=0 x[400,600] far y=900 x[400,600] farDist 900; rake from 400=p7, rake from 600=p8, farSlope=y=900 x[400,600] p4
+    Gable f16 [400.0,600.0] apex 423.2, 12 Cells from R0S
+    far slope: beyond the ridge (d=250.5, h=249.5): p2 (y=500 x[600,1000]); rule far p4 (y=900 x[400,600]); DIFFERENT
+    stands proud on its midline to d=173.0 of 900, highest 173.2 above the plate
+  edges Eaves=9 ExternalCorner=6 GroundLine=8 Hip=6 InternalCorner=2 Ridge=3 Valley=4 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,400]:gable y=0 x[400,600]:gable y=0 x[600,1000]:gable x=1000 y[0,500]:hip y=500 x[600,1000]:hip x=600 y[500,900]:hip y=900 x[400,600]:hip x=400 y[500,900]:hip y=500 x[0,400]:hip x=0 y[0,500]:hip; Gables apex 750.0 sources R0S,R1S
+
+# The roster's Ring-conflict pairs with a gable side on a mixed wall
+
+== FlushRingConflict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 640
+  rise rise [500,1000] on y=0 at 45: wall y=0 x[500,1000] far y=400 x[500,1000] farDist 400; rake from 500=p4, corner hi=x=1000 y[0,400] p1, farSlope=y=400 x[500,1000] p2
+    Gable f10 [500.0,1000.0] apex 500.0, 30 Cells from R1S
+    far slope: beyond the ridge (d=200.5, h=199.5): p2 (y=400 x[500,1000]); rule far p2 (y=400 x[500,1000]); SAME
+    stands proud on its midline to d=199.5 of 400, highest 250.0 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=1 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=5 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,500]:hip y=0 x[500,1000]:hip x=1000 y[0,400]:hip y=400 x[500,1000]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip; Gables none
+
+== FlushRingConflictSwapped
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 640
+  rise rise [500,1000] on y=0 at 45: wall y=0 x[500,1000] far y=400 x[500,1000] farDist 400; rake from 500=p4, corner hi=x=1000 y[0,400] p1, farSlope=y=400 x[500,1000] p2
+    Gable f10 [500.0,1000.0] apex 500.0, 30 Cells from R0S
+    far slope: beyond the ridge (d=200.5, h=199.5): p2 (y=400 x[500,1000]); rule far p2 (y=400 x[500,1000]); SAME
+    stands proud on its midline to d=199.5 of 400, highest 250.0 above the plate
+  edges Eaves=4 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=1 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=5 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,500]:gable y=0 x[500,1000]:gable x=1000 y[0,400]:hip y=400 x[500,1000]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip; Gables apex 650.0 sources R0S,R1S
+
+== ThreeRingConflict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [300,600] on y=0 at 45: wall y=0 x[300,600] far y=400 x[300,600] farDist 400; rake from 300=p4, rake from 600=p5, farSlope=y=400 x[300,600] p2
+    Gable f10 [300.0,600.0] apex 400.0, 12 Cells from R1S
+    far slope: beyond the ridge (d=200.5, h=199.5): p2 (y=400 x[600,900]); rule far p2 (y=400 x[600,900]); SAME
+    stands proud on its midline to d=149.5 of 400, highest 150.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=4 Ridge=2 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,300]:hip y=0 x[300,600]:hip y=0 x[600,900]:hip x=900 y[0,400]:hip y=400 x[600,900]:hip y=400 x[300,600]:hip y=400 x[0,300]:hip x=0 y[0,400]:hip; Gables none
+
+== ThreeRingConflictSwapped
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1199 / footprint 0.000 over 576
+  rise rise [300,600] on y=0 at 45: wall y=0 x[300,600] far y=400 x[300,600] farDist 400; rake from 300=p4, rake from 600=p5, farSlope=y=400 x[300,600] p2
+    Gable f11 [300.0,600.0] apex 400.0, 12 Cells from R0S
+    far slope: beyond the ridge (d=253.5, h=146.4): p2 (y=400 x[600,900]); rule far p2 (y=400 x[600,900]); SAME
+    stands proud on its midline to d=253.5 of 400, highest 150.0 above the plate
+  edges Eaves=5 ExternalCorner=4 GroundLine=4 Hip=6 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=4
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,300]:gable y=0 x[300,600]:gable y=0 x[600,900]:gable x=900 y[0,400]:hip y=400 x[600,900]:hip y=400 x[300,600]:hip y=400 x[0,300]:hip x=0 y[0,400]:hip; Gables apex 650.0 sources R0S,R1S,R2S
+
+== DistantRingConflict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 928
+  rise rise [500,1000] on y=0 at 45: wall y=0 x[500,1000] far y=400 x[500,700] farDist 400; rake from 500=p7, corner hi=x=1000 y[0,400] p1, farSlope=y=400 x[500,700] p4
+    Gable f18 [500.0,1000.0] apex 500.0, 30 Cells from R3S
+    far slope: beyond the ridge (d=200.5, h=199.5): p4 (y=400 x[500,700]); rule far p4 (y=400 x[500,700]); SAME
+    stands proud on its midline to d=199.5 of 400, highest 250.0 above the plate
+  edges Eaves=8 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,500]:hip y=0 x[500,1000]:hip x=1000 y[0,400]:hip x=1000 y[400,700]:hip y=700 x[700,1000]:hip x=700 y[400,700]:hip y=400 x[500,700]:hip y=400 x[300,500]:hip x=300 y[400,700]:hip y=700 x[0,300]:hip x=0 y[400,700]:hip x=0 y[0,400]:hip; Gables none
+
+== DistantRingConflictSwapped
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 1999 / footprint 0.000 over 928
+  rise rise [500,1000] on y=0 at 45: wall y=0 x[500,1000] far y=400 x[500,700] farDist 400; rake from 500=p7, corner hi=x=1000 y[0,400] p1, farSlope=y=400 x[500,700] p4
+    Gable f18 [500.0,1000.0] apex 500.0, 30 Cells from R0S
+    far slope: beyond the ridge (d=200.5, h=199.5): p4 (y=400 x[500,700]); rule far p4 (y=400 x[500,700]); SAME
+    stands proud on its midline to d=199.5 of 400, highest 250.0 above the plate
+  edges Eaves=8 ExternalCorner=6 GroundLine=8 Hip=8 InternalCorner=2 Ridge=4 Valley=3 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=9 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,500]:gable y=0 x[500,1000]:gable x=1000 y[0,400]:hip x=1000 y[400,700]:hip y=700 x[700,1000]:hip x=700 y[400,700]:hip y=400 x[500,700]:hip y=400 x[300,500]:hip x=300 y[400,700]:hip y=700 x[0,300]:hip x=0 y[400,700]:hip x=0 y[0,400]:hip; Gables apex 650.0 sources R0S,R3S
+
+== StoreyRingConflict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 0 / footprint 0.000 over 640, 320 covered
+  edges Eaves=6 ExternalCorner=8 FloorLine=3 GroundLine=4 Hip=4 Ridge=2 RingJunction=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=8
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,500]:hip y=0 x[500,1000]:hip x=1000 y[0,400]:hip y=400 x[500,1000]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip | y=0 x[0,500]:gable x=500 y[0,400]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip; Gables apex 750.0 sources R1S
+
+== StoreyRingConflictSwapped
+  NOT CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=1 unclassified=0 internal=0 oracle band 0.000 over 0 / footprint 0.000 over 640, 2280 covered
+  rise rise [0,500] on y=0 at 45: wall y=0 x[0,500] far y=400 x[0,500] farDist 400; corner lo=x=0 y[0,400] p3, rake from 500=p4, farSlope=y=400 x[0,500] p2
+    no Gable face over the band
+    far slope: beyond the ridge (d=200.5, h=199.5): p2 (y=400 x[500,1000]); rule far p2 (y=400 x[500,1000]); SAME
+    stands proud on its midline to d=199.5 of 400, highest 250.0 above the plate
+  edges Eaves=6 ExternalCorner=8 FloorLine=3 GroundLine=4 Hip=4 Ridge=2 RingJunction=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=6 Wall=8
+  conflict StoreyRingConflictSwapped: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)
+  today: closed=true genus=0 cheeks=0 conflicts=2 unclassified=0; walls y=0 x[0,500]:gable y=0 x[500,1000]:gable x=1000 y[0,400]:hip y=400 x[500,1000]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip | y=0 x[0,500]:gable x=500 y[0,400]:hip y=400 x[0,500]:hip x=0 y[0,400]:hip; Gables apex 650.0 sources R0S,R1S; apex 750.0 sources R0S
+
+== OverlapRingConflict
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 3900 / footprint 0.000 over 1024
+  rise rise [0,400] on x=1000 at 45: wall x=1000 y[0,400] far x=0 y[0,400] farDist 1000; corner lo=y=0 x[600,1000] p0, rake from 400=p4, farSlope=x=0 y[0,400] p5; canonicalised rake from 400 -> plane 4 (y=400 x[0,600])
+    Gable f13 [0.0,400.0] apex 450.0, 20 Cells from R0E
+    far slope: beyond the ridge (d=799.5, h=200.0): p5 (x=0 y[0,400]); rule far p5 (x=0 y[0,400]); SAME
+    stands proud on its midline to d=199.5 of 1000, highest 200.0 above the plate
+  edges Eaves=6 ExternalCorner=5 GroundLine=6 Hip=4 InternalCorner=1 Ridge=3 Valley=2 Verge=2 WallPlate=1
+  faces Gable=1 Ground=1 Roof=7 Wall=6
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,600]:hip y=0 x[600,1000]:hip x=1000 y[0,400]:gable x=1000 y[400,1000]:gable y=1000 x[600,1000]:hip x=600 y[400,1000]:hip y=400 x[0,600]:hip x=0 y[0,400]:hip; Gables apex 650.0 sources R0E,R1E
+
+== OverlapRingConflictSwapped
+  CLEAN closed=true genus=0 (baseline 0) cheeks=0 conflicts=0 unclassified=0 internal=0 oracle band 0.000 over 0 / footprint 0.000 over 1024
+  edges Eaves=6 ExternalCorner=5 GroundLine=6 Hip=5 InternalCorner=1 Ridge=2 Valley=1
+  faces Ground=1 Roof=6 Wall=6
+  today: closed=true genus=0 cheeks=0 conflicts=0 unclassified=0; walls y=0 x[0,600]:hip y=0 x[600,1000]:hip x=1000 y[0,400]:hip x=1000 y[400,1000]:hip y=1000 x[600,1000]:hip x=600 y[400,1000]:hip y=400 x[0,600]:hip x=0 y[0,400]:hip; Gables none
