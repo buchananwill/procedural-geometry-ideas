@@ -23,6 +23,7 @@ import {LineBiasRig} from './line-bias.ts';
 import {sceneLights} from './lighting.ts';
 import {LineMaterialOptions, makeBiasedLineMaterial} from './line-shader.ts';
 import {DefectFocus} from './defect-cases.ts';
+import type {RingBox} from './edit.ts';
 import {
   AXIS_COLOURS, BACKGROUND, DEFECT_CASING_COLOUR, DEFECT_CASING_WIDTH, DEFECT_CORE_WIDTH, GHOST_OPACITY, GROUND_OPACITY, HOVER_COLOUR, MAGENTA, PIN_COLOUR,
   RAW_SHELL_OPACITY, cssColour,
@@ -77,6 +78,8 @@ function dispose(o: Object3D): void {
 /** How far a line is pulled toward the camera, as a fraction of the camera's distance to its target. */
 const LINE_BIAS = {edges: 0.006, defectCore: 0.0075, outlines: 0.003, none: 0} as const;
 const PICK_TOLERANCE = 0.009;
+/** The selected Ring's box (viewer editing decision 15). Local to the scene: the palette is not part of this work. */
+const RING_COLOUR = 0x4dd0e1;
 
 function triGeometry(b: DrawBuffers, withColours: boolean): BufferGeometry {
   const g = new BufferGeometry();
@@ -137,6 +140,7 @@ export class ShellScene {
   private hoverKey = '';
   private hoverHit: Hit | null = null;
   private pinned: Hit | null = null;
+  private ringBox: RingBox | null = null;
   private down: PointerDown | undefined;
   private pending: ScreenPoint | undefined;
 
@@ -192,14 +196,32 @@ export class ShellScene {
 
   // ---- Loading and layers ------------------------------------------------------------------------------------------
 
-  /** Shows a new build: rebuilds every layer and frames the camera on `focus` (a defect case's place), else on the whole shell. */
-  setBuild(build: ShellBuild, toggles: ToggleState, focus?: DefectFocus): void {
+  /**
+   * Shows a new build: rebuilds every layer and frames the camera on `focus` (a defect case's place), else on the whole shell.
+   * With `keepView` (viewer editing decision 11) the camera stays where it is, and only its clipping planes are refitted to
+   * the new shell. A scene that holds no build has no view to keep, so it frames the shell as usual.
+   */
+  setBuild(build: ShellBuild, toggles: ToggleState, focus?: DefectFocus, options: {keepView?: boolean} = {}): void {
+    const keep = options.keepView === true && this.build !== undefined;
     this.clearBuild();
     this.build = build;
     this.focus = focus;
     this.toggles = toggles;
     this.rebuildLayers();
-    this.resetView();
+    this.setDimmed(false);
+    if (keep) this.fitClipping();
+    else this.resetView();
+  }
+
+  /** Decision 8: a build kept on screen while the draft that would replace it is refused is drawn dimmed. */
+  setDimmed(dimmed: boolean): void {
+    this.renderer.domElement.style.opacity = dimmed ? '0.35' : '';
+  }
+
+  /** Decision 15: outlines a Ring's box in the viewport, or nothing for `null`. The box comes from the fixture, not the build. */
+  setRingBox(box: RingBox | null): void {
+    this.ringBox = box;
+    this.rebuildHighlights();
   }
 
   /** Empties the scene, as a failed build does (journal decision 98, F8). */
@@ -229,12 +251,27 @@ export class ShellScene {
     const c: Vec3 = focus ? focus.centre : [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2];
     // A focus is framed from 1.5 of its extent away, in the same direction the whole shell is.
     const size = focus ? focus.extent * 1.5 : shellSize;
-    this.camera.near = Math.min(size, shellSize) * 0.01;
-    this.camera.far = shellSize * 30;
-    this.camera.updateProjectionMatrix();
+    this.setClipping(Math.min(size, shellSize) * 0.01, shellSize * 30);
     this.controls.target.set(c[0], c[1], c[2]);
     this.camera.position.set(c[0] + size * 0.7, c[1] - size * 1.2, c[2] + size * 0.75);
     this.controls.update();
+  }
+
+  private setClipping(near: number, far: number): void {
+    this.camera.near = near;
+    this.camera.far = far;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Refits the clipping planes to the shell without moving the camera. They are `resetView`'s: the near plane from the
+   * shell's size alone (a focus is only ever framed by `resetView`), and the far plane 30 shell sizes out.
+   */
+  private fitClipping(): void {
+    if (!this.build) return;
+    const {min, max} = meshBounds(this.build);
+    const shellSize = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+    this.setClipping(shellSize * 0.01, shellSize * 30);
   }
 
   /** Puts the camera at `position`, looking at `target`: the page's test hook uses it to frame a known place. */
@@ -450,8 +487,23 @@ export class ShellScene {
       dispose(o);
     }
     this.lineBias.clearHighlights();
+    if (this.ringBox) this.highlights.add(this.ringBoxLines(this.ringBox));
     if (this.pinned) this.highlights.add(...this.highlightOf(this.pinned, PIN_COLOUR, 9));
     if (this.hoverHit) this.highlights.add(...this.highlightOf(this.hoverHit, HOVER_COLOUR, 6));
+  }
+
+  /** The twelve edges of a Ring's box, drawn with the other highlights, so a hover's rebuild keeps their bias in step. */
+  private ringBoxLines(box: RingBox): Object3D {
+    const [x0, y0, x1, y1] = box.rect;
+    const {zLo, zHi} = box;
+    const bottom: Vec3[] = [[x0, y0, zLo], [x1, y0, zLo], [x1, y1, zLo], [x0, y1, zLo]];
+    const top: Vec3[] = bottom.map(([x, y]): Vec3 => [x, y, zHi]);
+    const segments = bottom.flatMap((p, i) => [...p, ...bottom[(i + 1) % 4], ...top[i], ...top[(i + 1) % 4], ...p, ...top[i]]);
+    const g = new LineSegmentsGeometry();
+    g.setPositions(segments);
+    const l = new LineSegments2(g, this.lineMaterial({width: 3, colour: RING_COLOUR}, LINE_BIAS.edges, 'highlight'));
+    l.renderOrder = 9;
+    return l;
   }
 
   /**

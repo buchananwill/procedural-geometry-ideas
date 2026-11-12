@@ -8,7 +8,13 @@ import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
-import {Selection, selectionFromHash, selectionName} from './hash.ts';
+import {
+  Draft, DraftAction, blankDraft, dispatch, draftJson, editDraftOf, explainRefusals, fixtureToBuild, isDirty, keepStoreys, makeDraft, parseDraftJson,
+  restoreDraft, ringOfHit, serializeDraft,
+} from './draft.ts';
+import {EditPanel, Notice, mountEditPanel} from './edit-panel.ts';
+import {ringBox} from './edit.ts';
+import {DRAFT_HASH, Selection, draftLinkHash, selectionFromHash, selectionName} from './hash.ts';
 import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
@@ -20,6 +26,8 @@ import {
 /** The page's test hook: lets a browser test project a known world point to the page and read the current state. */
 export interface ViewerHook {
   readonly build: ShellBuild | undefined;
+  /** The draft held by the editor, shown or not (viewer editing decision 18). */
+  readonly draft: Draft | null;
   readonly toggles: ToggleState;
   project(p: Readonly<Vec3>): ScreenPoint;
   setView(position: Readonly<Vec3>, target: Readonly<Vec3>): void;
@@ -45,6 +53,8 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, classN
 const LAYER_LABEL: Record<LayerKey, string> = {faces: 'Faces', edges: 'Edges', vertices: 'Vertices', cellOutlines: 'Cell outlines'};
 
 let build: ShellBuild | undefined;
+/** The draft fixture `build` was made from, so a click maps to a Ring only while the draft has not moved on (decision 15). */
+let builtFixture: ShellFixture | undefined;
 let toggles: ToggleState = makeToggles([]);
 let pinned: Hit | null = null;
 let hovered: Hit | null = null;
@@ -52,7 +62,11 @@ let token = 0;
 
 const scene = new ShellScene($('view'), {
   onHover: hit => { hovered = hit; renderReadouts(); },
-  onClick: hit => { pinned = hit; renderReadouts(); },
+  onClick: hit => {
+    pinned = hit;
+    renderReadouts();
+    selectRingOf(hit);
+  },
 });
 
 // ---- Readouts -----------------------------------------------------------------------------------------------------
@@ -246,6 +260,7 @@ function showFailure(message: string, defect?: DefectCase): void {
   console.error(message);
   // Journal decision 98, F8: a failed build leaves no stale shell behind, only its error.
   build = undefined;
+  builtFixture = undefined;
   pinned = null;
   hovered = null;
   scene.clearBuild();
@@ -259,7 +274,10 @@ function showFailure(message: string, defect?: DefectCase): void {
   renderReadouts();
 }
 
-async function load(sel: Selection): Promise<void> {
+/** A selection that is loaded and built whole: a roster fixture or a defect case. A draft is built by `buildDraft`. */
+type LoadSelection = Exclude<Selection, {kind: 'draft'}>;
+
+async function load(sel: LoadSelection): Promise<void> {
   const mine = ++token;
   const name = selectionName(sel);
   const defect = sel.kind === 'case' ? sel.defect : undefined;
@@ -282,6 +300,7 @@ async function load(sel: Selection): Promise<void> {
     if (mine !== token) return;
     const ms = Math.round(performance.now() - t0);
     build = built;
+    builtFixture = undefined;
     pinned = null;
     hovered = null;
     toggles = withStoreys(toggles, storeysOf(fixture));
@@ -310,41 +329,323 @@ function fillSelector(): void {
   fixtures.label = 'Fixtures';
   for (const f of SHELL_FIXTURES) fixtures.append(new Option(f.name, f.name));
   select.append(fixtures);
-  if (!cases.length) return;
-  const defects = document.createElement('optgroup');
-  defects.label = 'Defect cases';
-  for (const c of cases) {
-    const note = c.input === undefined ? ' (cannot be loaded)' : c.error !== undefined ? ' (build throws)' : '';
-    defects.append(new Option(`${c.name}: ${c.residueClass}${note}`, c.name));
+  if (cases.length) {
+    const defects = document.createElement('optgroup');
+    defects.label = 'Defect cases';
+    for (const c of cases) {
+      const note = c.input === undefined ? ' (cannot be loaded)' : c.error !== undefined ? ' (build throws)' : '';
+      defects.append(new Option(`${c.name}: ${c.residueClass}${note}`, c.name));
+    }
+    select.append(defects);
   }
-  select.append(defects);
+  if (draft) {
+    const drafts = document.createElement('optgroup');
+    drafts.label = 'Draft';
+    drafts.append(new Option(draft.fixture.name, DRAFT_OPTION));
+    select.append(drafts);
+  }
 }
+
+/** The selector's value for the draft: no roster fixture or case has this name. */
+const DRAFT_OPTION = 'draft';
 
 /** The selection a listed name stands for. */
 function selectionNamed(name: string): Selection {
-  return selectionFromHash(`#${encodeURIComponent(name)}`, SHELL_FIXTURES, cases);
+  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, SHELL_FIXTURES, cases, draft?.fixture);
 }
 
+/** The hash that names a selection in the address bar. A link is never written back: the draft is kept in storage. */
+const hashOf = (sel: Selection): string => (sel.kind === 'draft' ? DRAFT_HASH : `#${encodeURIComponent(selectionName(sel))}`);
+
 function show(sel: Selection): void {
-  select.value = selectionName(sel);
-  void load(sel);
+  current = sel;
+  if (sel.kind !== 'draft') {
+    showingDraft = false;
+    pipelineMessage = null;
+    link = null;
+    notice = sel.kind === 'fixture' && sel.refusal ? {text: `The link was refused, and the first fixture is shown instead:\n${sel.refusal.join('\n')}`, bad: true} : null;
+    scene.setRingBox(null);
+    select.value = selectionName(sel);
+    renderPanel();
+    void load(sel);
+    return;
+  }
+  if (sel.origin === 'link') {
+    // Decision 20: a link is read through `readInput` by `selectionFromHash`. It replaces the saved draft, so work in it is asked about.
+    if (draft && isDirty(draft) && !window.confirm('Replace your draft with the one this link carries?')) {
+      history.replaceState(null, '', DRAFT_HASH);
+      show({kind: 'draft', fixture: draft.fixture, origin: 'saved'});
+      return;
+    }
+    draft = makeDraft(sel.fixture);
+    saveDraft();
+    history.replaceState(null, '', DRAFT_HASH);
+    fillSelector();
+  }
+  showingDraft = true;
+  // Decision 11: only choosing a different fixture re-frames the view. Turning the fixture on show into a draft keeps it.
+  keepView = keepNext;
+  keepNext = false;
+  notice = null;
+  link = null;
+  select.value = DRAFT_OPTION;
+  syncRingBox();
+  void buildDraft();
+}
+
+// ---- The draft (viewer editing proposal) -----------------------------------------------------------------------------------
+
+/** Decision 18: where the draft is kept. The page renders without storage, so every access is guarded. */
+const STORAGE_KEY = 'building-shell/draft@1';
+
+function saveDraft(): void {
+  if (!draft) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, serializeDraft(draft));
+  } catch (e) {
+    console.warn('the draft could not be saved', e);
+  }
+}
+
+function savedDraft(): Draft | undefined {
+  try {
+    return restoreDraft(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return undefined;
+  }
+}
+
+/** The draft the editor holds, shown or not. */
+let draft: Draft | null = null;
+/** Whether the draft is what the page shows. */
+let showingDraft = false;
+/** Whether the next build of the draft keeps the camera (decision 11); `keepNext` asks `show` to keep it for the draft it is about to show. */
+let keepView = false;
+let keepNext = false;
+/** What is on show, which "Edit" turns into a draft. */
+let current: Selection | undefined;
+/** Decision 8: why the pipeline refused the draft that is on show, or null. */
+let pipelineMessage: string | null = null;
+let notice: Notice | null = null;
+let link: string | null = null;
+
+const panel: EditPanel = mountEditPanel($('edit'), {
+  onAction: a => act(a),
+  onEdit: () => void editCurrent(),
+  onBlank: () => adopt(blankDraft()),
+  onDownload: () => download(),
+  onLoadFile: (text, filename) => loadFile(text, filename),
+  onCopyLink: () => void copyLink(),
+});
+
+/** The name of the roster fixture or case on show, when it can become a draft. */
+function editableName(): string | null {
+  if (showingDraft || !current) return null;
+  if (current.kind === 'fixture') return current.fixture.name;
+  return current.kind === 'case' && current.defect.input !== undefined ? current.defect.name : null;
+}
+
+function renderPanel(): void {
+  const d = showingDraft ? draft : null;
+  panel.render({
+    editable: editableName(),
+    draft: d,
+    refusals: d && !d.validation.ok ? explainRefusals(d.validation.errors, d.fixture) : [],
+    pipelineMessage: showingDraft ? pipelineMessage : null,
+    notice,
+    link,
+  });
+}
+
+/** Decision 15: the selected Ring's box in the viewport. */
+function syncRingBox(): void {
+  scene.setRingBox(showingDraft && draft && draft.selected !== null ? ringBox(draft.fixture, draft.selected) : null);
+}
+
+/** Makes `next` the draft on show. Work in the draft it replaces is asked about first. */
+function adopt(next: Draft): void {
+  if (draft && isDirty(draft) && !window.confirm('Replace your draft?')) return;
+  draft = next;
+  saveDraft();
+  fillSelector();
+  history.replaceState(null, '', DRAFT_HASH);
+  show({kind: 'draft', fixture: next.fixture, origin: 'saved'});
+}
+
+/** Decision 17: the roster fixture or defect case on show becomes a draft with one click. */
+async function editCurrent(): Promise<void> {
+  const sel = current;
+  if (!sel || sel.kind === 'draft') return;
+  try {
+    const next = editDraftOf(sel.kind === 'fixture' ? sel.fixture : await fixtureOfCase(sel.defect));
+    keepNext = true;
+    adopt(next);
+    keepNext = false;
+  } catch (e) {
+    notice = {text: `${selectionName(sel)} cannot become a draft: ${errorMessage(e)}`, bad: true};
+    renderPanel();
+  }
+}
+
+/** Applies one panel action to the draft; a change to the fixture is saved and rebuilt, one to the selection only moves the Ring's box. */
+function act(a: DraftAction): void {
+  if (!draft) return;
+  const was = draft;
+  draft = dispatch(was, a);
+  if (draft === was) return;
+  notice = null;
+  saveDraft();
+  syncRingBox();
+  if (draft.fixture === was.fixture) {
+    renderPanel();
+    return;
+  }
+  if (a.kind === 'load') fillSelector();
+  keepView = true;
+  select.value = DRAFT_OPTION;
+  renderPanel();
+  void buildDraft();
+}
+
+/** Decision 15: a click on a Wall or Gable face selects the Ring its provenance names, when the build is the draft's current one. */
+function selectRingOf(hit: Hit | null): void {
+  if (!showingDraft || !draft || !build || !hit || builtFixture !== draft.fixture) return;
+  const ring = ringOfHit(build, hit);
+  if (ring !== null) act({kind: 'select', ring});
+}
+
+/**
+ * Empties the viewport when the draft on show has no good build of its own, so a build of something else (the roster fixture it
+ * came from, a draft left earlier) is never left standing behind it as if it were the draft's.
+ */
+function clearViewport(): void {
+  build = undefined;
+  pinned = null;
+  hovered = null;
+  scene.clearBuild();
+  $('report').replaceChildren();
+  $('legend').replaceChildren();
+  $('buildline').textContent = '';
+  renderReadouts();
+}
+
+/**
+ * Decisions 7, 8, 10 and 11: builds the draft on show, on the main thread. A draft the wire refuses is not built and the
+ * last good build stays; one the pipeline refuses keeps it too, dimmed; one that builds replaces it with the camera, the
+ * toggles and the storey visibility kept.
+ */
+async function buildDraft(): Promise<void> {
+  const d = draft;
+  if (!d) return;
+  const mine = ++token;
+  const status = $('status');
+  pipelineMessage = null;
+  const fixture = fixtureToBuild(d);
+  if (!fixture) {
+    if (builtFixture === undefined) clearViewport();
+    scene.setDimmed(false);
+    status.style.color = 'var(--bad)';
+    status.textContent = `${d.fixture.name}: not built, the wire refuses it`;
+    renderPanel();
+    return;
+  }
+  try {
+    const t0 = performance.now();
+    const built = await buildShellDetailed(fixture);
+    if (mine !== token) return;
+    const ms = Math.round(performance.now() - t0);
+    build = built;
+    builtFixture = d.fixture;
+    pinned = null;
+    hovered = null;
+    toggles = keepStoreys(toggles, storeysOf(fixture));
+    scene.setBuild(built, toggles, undefined, {keepView});
+    keepView = true;
+    renderToggles();
+    renderLegend();
+    renderReport(built);
+    renderReadouts();
+    const s = built.shell;
+    $('buildline').textContent = `${s.faces.length} faces, ${s.edges.length} Edges, ${s.cells.length} Cells, ${s.vertices.length} vertices; built in ${ms} ms`;
+    status.style.color = '';
+    status.textContent = d.fixture.name;
+  } catch (e) {
+    if (mine !== token) return;
+    pipelineMessage = errorMessage(e);
+    console.error(`${d.fixture.name}: build failed: ${pipelineMessage}`);
+    if (builtFixture === undefined) clearViewport();
+    else scene.setDimmed(true);
+    status.style.color = 'var(--bad)';
+    status.textContent = `${d.fixture.name}: build failed, the last good build is dimmed`;
+  }
+  renderPanel();
+}
+
+/** Decision 19: the draft as an `input@1` file. Only a draft the wire accepts is a file the port can ingest. */
+function download(): void {
+  const d = draft;
+  if (!d || !d.validation.ok) return;
+  const url = URL.createObjectURL(new Blob([draftJson(d.fixture)], {type: 'application/json'}));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${d.fixture.name}.input.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Decision 19: an `input@1` file read as a draft. A refused file is reported and changes nothing. */
+function loadFile(text: string, filename: string): void {
+  const read = parseDraftJson(text, filename.replace(/(\.input)?\.json$/i, ''));
+  if (!read.ok) {
+    notice = {text: `${filename} is refused:\n${read.errors.join('\n')}`, bad: true};
+    renderPanel();
+    return;
+  }
+  if (draft && showingDraft) {
+    act({kind: 'load', fixture: read.fixture});
+    notice = {text: `Loaded ${filename}; undo returns to the draft as it was.`, bad: false};
+    renderPanel();
+  } else adopt(makeDraft(read.fixture));
+}
+
+/** Decision 20: a link that carries the draft's `input@1` JSON in its hash. */
+async function copyLink(): Promise<void> {
+  const d = draft;
+  if (!d || !d.validation.ok) return;
+  link = `${location.href.split('#')[0]}${draftLinkHash(d.fixture)}`;
+  try {
+    await navigator.clipboard.writeText(link);
+    notice = {text: `Link copied (${link.length} characters).`, bad: false};
+  } catch {
+    notice = {text: `The clipboard is not available here; copy the link below (${link.length} characters).`, bad: false};
+  }
+  renderPanel();
 }
 
 select.addEventListener('change', () => {
   const sel = selectionNamed(select.value);
-  history.replaceState(null, '', `#${encodeURIComponent(selectionName(sel))}`);
+  history.replaceState(null, '', hashOf(sel));
   show(sel);
 });
 // Journal decision 98, F8, and decision 169: a hash change loads that fixture or case.
-window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, SHELL_FIXTURES, cases)));
+window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, SHELL_FIXTURES, cases, draft?.fixture)));
 $('reset').addEventListener('click', () => scene.resetView());
 $('frame-all').addEventListener('click', () => scene.resetView(true));
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { pinned = null; scene.unpin(); renderReadouts(); }
+  // Undo and redo outside a text field, where the field's own undo belongs to it.
+  const inField = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
+  if (showingDraft && !inField && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    act({kind: e.shiftKey ? 'redo' : 'undo'});
+  }
 });
 
 window.__viewer = {
   get build() { return build; },
+  get draft() { return draft; },
   get toggles() { return toggles; },
   project: p => scene.project(p),
   setView: (position, target) => scene.setView(position, target),
@@ -352,8 +653,9 @@ window.__viewer = {
 
 renderToggles();
 renderReadouts();
+draft = savedDraft() ?? null;
 // The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
 void loadManifest().then(() => {
   fillSelector();
-  show(selectionFromHash(location.hash, SHELL_FIXTURES, cases));
+  show(selectionFromHash(location.hash, SHELL_FIXTURES, cases, draft?.fixture));
 });
