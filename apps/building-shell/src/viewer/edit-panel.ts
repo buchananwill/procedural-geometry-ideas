@@ -190,9 +190,9 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     else f.removeAttribute('title');
   };
 
-  /** The refusals that point at field `name` of Ring `r` (and, for a side's pitch, side `side`). */
+  /** The first refusal that points at field `name` of Ring `r` (and, when `side` is given, at that side). */
   const refusalAt = (v: PanelView, r: number | null, name: FieldName, side?: RingSide): Refusal | undefined =>
-    v.refusals.find(x => x.ring === r && x.field === name && x.side === side);
+    v.refusals.find(x => x.ring === r && x.field === name && (side === undefined || x.side === side));
 
   function patchList(v: PanelView, d: Draft): void {
     const rings = d.fixture.rings;

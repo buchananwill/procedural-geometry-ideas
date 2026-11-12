@@ -501,7 +501,8 @@ function act(a: DraftAction): void {
     return;
   }
   if (a.kind === 'load') fillSelector();
-  keepView = true;
+  // Decision 11: an edit keeps the view. A loaded file is a different building, which is choosing a different fixture, so it frames.
+  keepView = a.kind !== 'load';
   select.value = DRAFT_OPTION;
   renderPanel();
   void buildDraft();
