@@ -7,7 +7,7 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
   Draft, DraftAction, HISTORY_CAP, TALL_STOREY_SUM, blankDraft, buildGate, canRedo, canUndo, dispatch, draftFixtureOfJson, draftJson, draftName, editDraftOf,
   explainRefusals, fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, resolveSides, restoreDraft, ringOfHit, sameFixture,
-  serializeDraft, storeySum, validate,
+  saveMark, serializeDraft, storeySum, validate,
 } from '../src/viewer/draft.ts';
 import {DRAFT_HASH, draftFromLinkHash, draftLinkHash, selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {makeToggles, setStorey, visibleStoreys} from '../src/viewer/toggles.ts';
@@ -485,6 +485,25 @@ describe('journal decision 198, M2: a build that did not finish, and a very tall
     expect(restored && dispatch(restored.draft, {kind: 'undo'}).fixture.rings[0].storeys).toBe(1);
     // Without the mark, a reload has no history (decision 21).
     expect(restoreDraft(serializeDraft(bad, undefined))?.draft.past).toEqual([]);
+  });
+
+  it('a save carries the mark whenever the draft is held unfinished or a build is in flight, whatever the action (journal decision 201)', () => {
+    const base = dispatch(makeDraft(oneRing()), {kind: 'addRing'});
+    const reloaded = restoreDraft(serializeDraft(base, {lastGood: undefined}));
+    expect(reloaded?.unfinished).toBe(true);
+    // A click on a Ring is a save of an unchanged fixture; it must not erase the mark of a draft still held as unfinished.
+    const clicked = dispatch(reloaded?.draft ?? base, {kind: 'select', ring: 1});
+    expect(clicked.fixture).toBe(reloaded?.draft.fixture);
+    const afterClick = restoreDraft(serializeDraft(clicked, saveMark({unfinished: true, buildsInFlight: 0}, undefined)));
+    expect(afterClick?.unfinished).toBe(true);
+    // The same while the first build is still waiting: a click saves, and the build in flight keeps its mark.
+    expect(restoreDraft(serializeDraft(clicked, saveMark({unfinished: false, buildsInFlight: 1}, undefined)))?.unfinished).toBe(true);
+    expect(restoreDraft(serializeDraft(clicked, saveMark({unfinished: false, buildsInFlight: 2}, undefined)))?.unfinished).toBe(true);
+    // Nothing held and nothing building: no mark.
+    expect(saveMark({unfinished: false, buildsInFlight: 0}, undefined)).toBeUndefined();
+    expect(restoreDraft(serializeDraft(clicked, saveMark({unfinished: false, buildsInFlight: 0}, undefined)))?.unfinished).toBe(false);
+    // The mark brings the last good draft with it, for Undo.
+    expect(saveMark({unfinished: true, buildsInFlight: 0}, base.fixture)?.lastGood).toBe(base.fixture);
   });
 
   it('a draft whose Rings\' storeys sum above 100 asks first; at 100 it does not; agreeing builds it', () => {

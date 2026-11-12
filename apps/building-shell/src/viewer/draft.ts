@@ -383,6 +383,14 @@ const SavedSchema = z.object({v: z.literal(1), fixture: FixtureSchema, source: F
 export interface BuildMark { lastGood: ShellFixture | undefined }
 
 /**
+ * Journal decision 201: the one rule for the mark, whatever caused the save. The saved draft carries it whenever the draft
+ * is held as unfinished or a build is in flight, so a click on a Ring, which saves, cannot erase what a reload must see.
+ */
+export function saveMark(state: {unfinished: boolean; buildsInFlight: number}, lastGood: ShellFixture | undefined): BuildMark | undefined {
+  return state.unfinished || state.buildsInFlight > 0 ? {lastGood} : undefined;
+}
+
+/**
  * A draft as the text kept in `localStorage`: its fixture and its source, as plain JSON. It is the fixture itself, not
  * `input@1`, because a draft the wire refuses (a pitch of 3) must survive a reload too. History is not kept (decision 21).
  * With `building`, the text carries the mark of a build in progress (journal decision 198, M2).

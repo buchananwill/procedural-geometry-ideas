@@ -10,7 +10,7 @@ import {readInput} from '../wire/input-adapter.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
 import {
   Draft, DraftAction, RestoredDraft, TALL_STOREY_SUM, blankDraft, buildGate, dispatch, draftFixtureOfJson, draftJson, editDraftOf, explainRefusals,
-  fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, restoreDraft, ringOfHit, serializeDraft, storeySum,
+  fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, restoreDraft, ringOfHit, saveMark, serializeDraft, storeySum,
 } from './draft.ts';
 import {EditPanel, Notice, mountEditPanel} from './edit-panel.ts';
 import {ringBox} from './edit.ts';
@@ -417,11 +417,11 @@ function show(sel: Selection): void {
 /** Decision 18: where the draft is kept. The page renders without storage, so every access is guarded. */
 const STORAGE_KEY = 'building-shell/draft@1';
 
-/** Saves the draft; with `building`, with the mark of a build in progress (journal decision 198, M2). */
-function saveDraft(building = false): void {
+/** Saves the draft, with the mark of a build that did not finish or is in progress whenever `saveMark` says so (journal decisions 198, M2, and 201). */
+function saveDraft(): void {
   if (!draft) return;
   try {
-    localStorage.setItem(STORAGE_KEY, serializeDraft(draft, building ? {lastGood} : undefined));
+    localStorage.setItem(STORAGE_KEY, serializeDraft(draft, saveMark({unfinished, buildsInFlight}, lastGood)));
   } catch (e) {
     console.warn('the draft could not be saved', e);
   }
@@ -554,14 +554,16 @@ function act(a: DraftAction): void {
   draft = dispatch(was, a);
   if (draft === was) return;
   notice = null;
+  const changed = draft.fixture !== was.fixture;
+  // A changed fixture is not the one whose build did not finish, nor the one the user agreed to build whole. This comes
+  // before the save, which carries the mark only while `unfinished` holds.
+  if (changed) unfinished = false;
   saveDraft();
   syncRingBox();
-  if (draft.fixture === was.fixture) {
+  if (!changed) {
     renderPanel();
     return;
   }
-  // A changed fixture is not the one whose build did not finish, nor the one the user agreed to build whole.
-  unfinished = false;
   if (a.kind === 'load') {
     fillSelector();
     // A loaded file is another building: no build of the old one stands behind it (journal decision 198, Low 3).
@@ -629,7 +631,7 @@ async function buildDraft(): Promise<void> {
   }
   // Journal decision 198, M2: the mark goes to storage before the build starts, since a build that never returns cannot write it.
   buildsInFlight++;
-  saveDraft(true);
+  saveDraft();
   try {
     const t0 = performance.now();
     const built = await buildShellDetailed(fixture);
@@ -662,7 +664,7 @@ async function buildDraft(): Promise<void> {
   } finally {
     // Every start ends here, a superseded one too: the mark stays only while some build has not ended.
     buildsInFlight--;
-    if (buildsInFlight === 0) saveDraft();
+    saveDraft();
   }
   renderPanel();
 }
