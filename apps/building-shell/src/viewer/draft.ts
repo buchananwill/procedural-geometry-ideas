@@ -6,13 +6,12 @@
 import {z} from 'zod';
 import {errorMessage} from '../errors.ts';
 import {RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, ShellFixture} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm} from '../fixture.ts';
 import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
 import type {AdaptedInput} from '../wire/input-adapter.ts';
-import type {Rect} from '../roof/model.ts';
 import * as edit from './edit.ts';
-import {cloneFixture} from './edit.ts';
+import {cloneFixture, pinListedPitches} from './edit.ts';
 import type {Hit} from './readout.ts';
 import type {ToggleState} from './toggles.ts';
 
@@ -63,15 +62,15 @@ export function explainRefusals(errors: readonly string[], f: ShellFixture): Ref
     const sideAt = /\bside (\d)\b/.exec(text);
     const side = sideAt ? RING_SIDES[Number(sideAt[1])] : undefined;
     if (side && /solved (Pitched|GableEnd) at/.test(text)) {
-      // A side without a pitch of its own reads the Ring's default.
-      const own = f.rings[ring]?.sides?.[side]?.deg !== undefined;
-      return own ? {text, ring, field: 'sidePitch', side} : {text, ring, field: 'defaultDeg', side};
+      // A side that is not listed reads the Ring's default.
+      const listed = f.rings[ring]?.sides?.[side] !== undefined;
+      return listed ? {text, ring, field: 'sidePitch', side} : {text, ring, field: 'defaultDeg', side};
     }
     return {text, ring, field: 'ring'};
   });
 }
 
-// ---- Canonical form ------------------------------------------------------------------------------------------------------
+// ---- Sides, equality and the file's spelling ----------------------------------------------------------------------------------
 
 /** One side as the pipeline reads it: its form, and its pitch in degrees. */
 export interface ResolvedSide { form: RingForm; deg: number }
@@ -82,37 +81,12 @@ export function resolveSides(r: FixtureRing): Record<RingSide, ResolvedSide> {
   return {S: side('S'), E: side('E'), N: side('N'), W: side('W')};
 }
 
-/**
- * The one way a Ring is written when only what the file carries matters. A file carries, per side, its resolved form and
- * pitch and whether the side was listed (its `request` is not `Auto`); it does not carry `defaultDeg`, which `readInput`
- * re-derives from the first hip, nor which listed sides spelled their pitch out. So the spelling is a function of those
- * alone: a side stays listed or unlisted as it was, a listed side spells its pitch only where it is not the default,
- * and `defaultDeg` is what the unlisted sides read, which is also what the file holds for them; a Ring with no unlisted
- * side has no use for one, and takes its sides' most common pitch (the first in S, E, N, W order on a tie). It is
- * idempotent, and a Ring and its round trip have the same one.
- */
-export function canonicalRing(r: FixtureRing): FixtureRing {
-  const resolved = resolveSides(r);
-  const listed = RING_SIDES.filter(s => r.sides?.[s] !== undefined);
-  let defaultDeg = r.defaultDeg;
-  if (listed.length === RING_SIDES.length) {
-    const counts = new Map<number, number>();
-    for (const s of RING_SIDES) counts.set(resolved[s].deg, (counts.get(resolved[s].deg) ?? 0) + 1);
-    defaultDeg = resolved.S.deg;
-    for (const [deg, n] of counts) if (n > (counts.get(defaultDeg) ?? 0)) defaultDeg = deg;
-  }
-  const sides: FixtureRing['sides'] = {};
-  for (const s of listed) {
-    const {form, deg} = resolved[s];
-    sides[s] = deg === defaultDeg ? {form} : {form, deg};
-  }
-  return {rect: [...r.rect], baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg, sides};
-}
+/** JSON with every object's keys sorted, so two fixtures that differ only in key order are the same text. */
+const stable = (v: unknown): string =>
+  JSON.stringify(v, (_key, x: unknown) => (x !== null && typeof x === 'object' && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : x));
 
-export const canonicalFixture = (f: ShellFixture): ShellFixture =>
-  ({name: f.name, cellSize: f.cellSize, storeyHeight: f.storeyHeight, rings: f.rings.map(canonicalRing)});
-
-const sameFixture = (a: ShellFixture, b: ShellFixture): boolean => JSON.stringify(cloneFixture(a)) === JSON.stringify(cloneFixture(b));
+/** Whether two fixtures are the same, field for field. An absent `sides` is an empty one. */
+export const sameFixture = (a: ShellFixture, b: ShellFixture): boolean => stable(cloneFixture(a)) === stable(cloneFixture(b));
 
 // ---- Files and links (decisions 19 and 20) ----------------------------------------------------------------------------------
 
@@ -121,35 +95,74 @@ export const draftJson = (f: ShellFixture): string => `${JSON.stringify(writeInp
 
 export type ParsedDraft = {ok: true; fixture: ShellFixture} | {ok: false; errors: string[]};
 
+/** What `readInput` accepted does not break its own promises; if one is broken, it is a bug here or there, and says so. */
+function invariant(message: string): never {
+  throw new Error(`invariant broken in reading an input@1 file as a draft: ${message}`);
+}
+
 /**
- * The fixture a read file stands for, with the listing `readInput` drops put back. `readInput` lists every side at its
- * solved pitch and derives `defaultDeg` from the first hip; the file's `request` says which sides the author listed
- * (`writeInput` writes `Auto` for an unlisted one). A side the file left to `Auto` and that is a hip at the pitch of the
- * first such side reads as unlisted, with that pitch as the Ring's `defaultDeg`. Any other side stays listed, so what the
- * pipeline reads is exactly what the file solved, also for a file the C++ wrote (whose `Auto` sides may disagree).
+ * The fixture a read file stands for, with what `readInput` drops put back (journal decision 198, M1). `readInput` lists
+ * every side at its solved pitch and derives `defaultDeg` from the first hip; the file's `request` says which sides the
+ * author listed (`writeInput` writes `Auto` for an unlisted one). A side the file left to `Auto` that is a hip at the
+ * pitch of the first such side reads as unlisted, with that pitch as the Ring's `defaultDeg`; every other side is listed
+ * and carries its own pitch. So a file this editor wrote comes back as the draft it wrote, and what the pipeline reads is
+ * exactly what the file solved, also for a file the C++ wrote, whose `Auto` sides may disagree. Two rings are left as
+ * `readInput` has them. A Ring with a side `readInput` left unlisted (formless) keeps `readInput`'s `defaultDeg`, which is
+ * the pitch that side resolves to there. A Ring with all four sides listed has no use for a `defaultDeg` and the wire no
+ * field for one, so it takes `readInput`'s: the one named exception of journal decision 198.
  */
 function fixtureOfRead(read: AdaptedInput): ShellFixture {
   const rings = read.fixture.rings.map((r, position): FixtureRing => {
-    const wire = read.input.rings.find(w => w.modelIndex === read.modelIndices[position]);
+    const modelIndex = read.modelIndices[position];
+    const wire = read.input.rings.find(w => w.modelIndex === modelIndex);
+    if (!wire) invariant(`the file has no Ring of model index ${modelIndex}`);
     const slots = read.sideSlots[position];
-    const auto = RING_SIDES.filter(s => (wire?.sides[slots[s]]?.request ?? 'Auto') === 'Auto' && r.sides?.[s]?.form === 'hip');
-    const defaultDeg = auto.length ? (r.sides?.[auto[0]]?.deg ?? r.defaultDeg) : r.defaultDeg;
-    const sides: FixtureRing['sides'] = {};
+    const requested = (s: RingSide): boolean => {
+      const side = wire.sides[slots[s]];
+      if (!side) invariant(`Ring ${position} has no side in slot ${slots[s]}`);
+      return side.request !== 'Auto';
+    };
+    const formless = RING_SIDES.some(s => r.sides?.[s] === undefined);
+    const auto = RING_SIDES.filter(s => !requested(s) && r.sides?.[s]?.form === 'hip');
+    const first = auto.at(0);
+    const defaultDeg = formless || first === undefined ? r.defaultDeg : r.sides?.[first]?.deg ?? r.defaultDeg;
+    const sides: RingSides = {};
     for (const s of RING_SIDES) {
       const own = r.sides?.[s];
-      if (!own) continue;
-      if (auto.includes(s) && own.deg === defaultDeg) continue;
-      sides[s] = {...own};
+      if (!own || (auto.includes(s) && own.deg === defaultDeg)) continue;
+      sides[s] = {...own, deg: own.deg ?? defaultDeg};
     }
     return {...r, defaultDeg, sides};
   });
   return {...read.fixture, rings};
 }
 
+/** A file read as a draft, with the provenance subject it names. */
+type ReadDraft = {ok: true; fixture: ShellFixture; subject: string} | {ok: false; errors: string[]};
+
+function readDraft(json: unknown, name: string): ReadDraft {
+  try {
+    const read = readInput(json, name);
+    if (!read.ok) return {ok: false, errors: read.errors};
+    return {ok: true, fixture: fixtureOfRead(read), subject: read.input.provenance.subject};
+  } catch (e) {
+    return {ok: false, errors: [errorMessage(e)]};
+  }
+}
+
+/**
+ * Journal decision 198, N2: an `input@1` value read as a draft named `name`, by the same reconstruction a loaded file
+ * goes through. A defect case's input is read this way when it becomes a draft.
+ */
+export function draftFixtureOfJson(json: unknown, name: string): ParsedDraft {
+  const read = readDraft(json, name);
+  return read.ok ? {ok: true, fixture: {...read.fixture, name}} : read;
+}
+
 /**
  * Decisions 19 and 20: an `input@1` text read as a draft, through `readInput`. The draft's name is the file's provenance
  * subject, which a download writes as the name, and `fallbackName` stands in only for the `name` argument `readInput`
- * takes. The Rings come back in their canonical spelling.
+ * takes. Download then load returns the draft itself, except for the `defaultDeg` of a Ring with all four sides listed.
  */
 export function parseDraftJson(text: string, fallbackName: string): ParsedDraft {
   let json: unknown;
@@ -158,13 +171,8 @@ export function parseDraftJson(text: string, fallbackName: string): ParsedDraft 
   } catch (e) {
     return {ok: false, errors: [`not JSON: ${errorMessage(e)}`]};
   }
-  try {
-    const read = readInput(json, fallbackName);
-    if (!read.ok) return {ok: false, errors: read.errors};
-    return {ok: true, fixture: canonicalFixture({...fixtureOfRead(read), name: read.input.provenance.subject})};
-  } catch (e) {
-    return {ok: false, errors: [errorMessage(e)]};
-  }
+  const read = readDraft(json, fallbackName);
+  return read.ok ? {ok: true, fixture: {...read.fixture, name: read.subject}} : read;
 }
 
 // ---- The draft ------------------------------------------------------------------------------------------------------------
@@ -176,7 +184,7 @@ export interface Draft {
   fixture: ShellFixture;
   /** What "reset" returns to (decision 16): the fixture the draft was started from. */
   source: ShellFixture;
-  /** Decision 21: earlier fixtures, oldest first. Never persisted. */
+  /** Decision 21: earlier fixtures, oldest first. Never persisted, but for the one a reload after an unfinished build offers. */
   past: readonly ShellFixture[];
   future: readonly ShellFixture[];
   validation: Validation;
@@ -192,15 +200,18 @@ function made(fixture: ShellFixture, source: ShellFixture, selected: number | nu
   return {fixture, source, past, future, validation: validate(fixture), selected: clampSelected(selected, fixture.rings.length)};
 }
 
-/** A draft that starts as `fixture` exactly (a link, a saved draft). Its source is `fixture` unless `source` is given. */
-export const makeDraft = (fixture: ShellFixture, source: ShellFixture = fixture): Draft => made(cloneFixture(fixture), cloneFixture(source), 0);
+/** A draft that starts as `fixture` (a link, a saved draft), with every listed side's pitch its own. Its source is `fixture` unless given. */
+export const makeDraft = (fixture: ShellFixture, source: ShellFixture = fixture): Draft => made(pinListedPitches(fixture), pinListedPitches(source), 0);
 
 /** Decision 17: the draft's name is the source's name with the suffix `-draft`. */
 export const draftName = (name: string): string => (name.endsWith('-draft') ? name : `${name}-draft`);
 
-/** Decision 17: a roster fixture or defect case's fixture, as a draft named `<name>-draft`. */
+/**
+ * Decision 17: a roster fixture or defect case's fixture, as a draft named `<name>-draft`. Every listed side is spelled
+ * with its own pitch (decision 14 as amended), which changes no pitch the pipeline reads.
+ */
 export function editDraftOf(source: ShellFixture): Draft {
-  const renamed = {...cloneFixture(source), name: draftName(source.name)};
+  const renamed = pinListedPitches({...source, name: draftName(source.name)});
   return made(renamed, cloneFixture(renamed), 0);
 }
 
@@ -210,8 +221,44 @@ export const blankDraft = (): Draft => {
   return made(blank, cloneFixture(blank), null);
 };
 
-/** Decision 7: the fixture to build, or undefined when the wire refuses the draft. This is the only gate on building a draft. */
+/** Decision 7: the fixture to build, or undefined when the wire refuses the draft. */
 export const fixtureToBuild = (d: Draft): ShellFixture | undefined => (d.validation.ok ? d.fixture : undefined);
+
+/** Journal decision 198, M2: a draft whose Rings' storeys sum to more than this asks before it builds. */
+export const TALL_STOREY_SUM = 100;
+
+/** The storeys of every Ring, added. */
+export const storeySum = (f: ShellFixture): number => f.rings.reduce((n, r) => n + r.storeys, 0);
+
+/** What the page does with a draft that wants building: build it, or why not. */
+export type BuildGate = 'build' | 'invalid' | 'unfinished' | 'ask';
+
+/** What the page knows that the draft does not. */
+export interface BuildState {
+  /** A reload found the mark of a build that did not finish, and the draft has not changed since. */
+  unfinished: boolean;
+  /** The user has agreed to build a draft above `TALL_STOREY_SUM`. */
+  confirmedTall: boolean;
+}
+
+/**
+ * Decisions 7 and 12 and journal decision 198, M2: the one place that says whether a draft is built now. The wire's
+ * refusal comes first (decision 7). A draft whose last build did not finish is not retried. A very tall draft asks first.
+ * Neither of the last two is a validity rule: decision 193 stands.
+ */
+export function buildGate(d: Draft, state: BuildState): BuildGate {
+  if (fixtureToBuild(d) === undefined) return 'invalid';
+  if (state.unfinished) return 'unfinished';
+  if (storeySum(d.fixture) > TALL_STOREY_SUM && !state.confirmedTall) return 'ask';
+  return 'build';
+}
+
+/** The panel's line for a draft that is held back, with the Build button; null for a gate that holds nothing back. */
+export function heldMessage(gate: BuildGate, d: Draft): string | null {
+  if (gate === 'unfinished') return 'The last build of this draft did not finish, so it was not retried. Build it anyway, or Undo to the last draft that built.';
+  if (gate === 'ask') return `This draft has ${storeySum(d.fixture)} storeys in all, above ${TALL_STOREY_SUM}, and may take long to build. Build it?`;
+  return null;
+}
 
 /** Decision 21: `next` becomes the draft's fixture and the old one goes onto the history. An unchanged fixture adds nothing. */
 function commit(d: Draft, next: ShellFixture, selected: number | null): Draft {
@@ -222,7 +269,7 @@ function commit(d: Draft, next: ShellFixture, selected: number | null): Draft {
 /** Whether the draft holds work its source does not: replacing it would lose something. */
 export const isDirty = (d: Draft): boolean => !sameFixture(d.fixture, d.source);
 
-export const canUndo =(d: Draft): boolean => d.past.length > 0;
+export const canUndo = (d: Draft): boolean => d.past.length > 0;
 export const canRedo = (d: Draft): boolean => d.future.length > 0;
 
 /** Every way the panel changes a draft (decisions 2, 3, 9, 15 and 16), as plain values. */
@@ -275,12 +322,7 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
       const after = !moved || sel === null ? sel : sel === a.ring ? to : sel === to ? a.ring : sel;
       return commit(d, edit.moveRing(f, a.ring, a.direction), after);
     }
-    case 'setRectCoord': {
-      if (!live(a.ring) || !number(a.value)) return d;
-      const rect: Rect = [...f.rings[a.ring].rect];
-      rect[a.coord] = a.value;
-      return commit(d, edit.setRect(f, a.ring, rect), sel);
-    }
+    case 'setRectCoord': return live(a.ring) && number(a.value) ? commit(d, edit.setRectCoord(f, a.ring, a.coord, a.value), sel) : d;
     case 'setBaseStorey': return live(a.ring) && number(a.value) ? commit(d, edit.setBaseStorey(f, a.ring, a.value), sel) : d;
     case 'setStoreys': return live(a.ring) && number(a.value) ? commit(d, edit.setStoreys(f, a.ring, a.value), sel) : d;
     case 'setDefaultDeg': return live(a.ring) && number(a.value) ? commit(d, edit.setDefaultDeg(f, a.ring, a.value), sel) : d;
@@ -297,42 +339,77 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
       return next ? made(next, d.source, sel, [...d.past, f].slice(-HISTORY_CAP), rest) : d;
     }
     case 'reset': return commit(d, cloneFixture(d.source), sel);
-    case 'load': return commit(d, cloneFixture(a.fixture), 0);
+    case 'load': return commit(d, pinListedPitches(a.fixture), 0);
   }
 }
 
-// ---- Persistence (decision 18) ---------------------------------------------------------------------------------------------
+// ---- Persistence (decision 18) and the build mark (journal decision 198, M2) --------------------------------------------------------
 
 const RingFormSchema = z.enum(['hip', 'gable']);
 const SideFormSchema = z.object({form: RingFormSchema, deg: z.number().optional()});
-const FixtureSchema = z.object({
-  name: z.string(),
-  cellSize: z.number(),
-  storeyHeight: z.number(),
-  rings: z.array(z.object({
-    rect: z.tuple([z.number(), z.number(), z.number(), z.number()]),
-    baseStorey: z.number(),
-    storeys: z.number(),
-    defaultDeg: z.number(),
-    sides: z.object({S: SideFormSchema.optional(), E: SideFormSchema.optional(), N: SideFormSchema.optional(), W: SideFormSchema.optional()}).optional(),
-  })),
+const SidesSchema = z.object({S: SideFormSchema.optional(), E: SideFormSchema.optional(), N: SideFormSchema.optional(), W: SideFormSchema.optional()});
+const RingSchema = z.object({
+  rect: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  baseStorey: z.number(),
+  storeys: z.number(),
+  defaultDeg: z.number(),
+  sides: SidesSchema.optional(),
 });
-const SavedSchema = z.object({v: z.literal(1), fixture: FixtureSchema, source: FixtureSchema});
+const FixtureSchema = z.object({name: z.string(), cellSize: z.number(), storeyHeight: z.number(), rings: z.array(RingSchema)});
+
+// Journal decision 198, B3: the schema and the types it stands for must say the same, in both directions, down to the keys.
+// A field added to `ShellFixture`, `FixtureRing` or `SideForm` that the schema lacks, or the other way round, fails `typecheck`.
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+type SchemaFixture = z.output<typeof FixtureSchema>;
+type SchemaRing = z.output<typeof RingSchema>;
+type SchemaSides = z.output<typeof SidesSchema>;
+type SchemaSide = z.output<typeof SideFormSchema>;
+true satisfies Same<SchemaFixture, ShellFixture>;
+true satisfies Same<keyof SchemaFixture, keyof ShellFixture>;
+true satisfies Same<SchemaRing, FixtureRing>;
+true satisfies Same<keyof SchemaRing, keyof FixtureRing>;
+true satisfies Same<SchemaSides, RingSides>;
+true satisfies Same<keyof SchemaSides, RingSide>;
+true satisfies Same<SchemaSide, SideForm>;
+true satisfies Same<keyof SchemaSide, keyof SideForm>;
+true satisfies Same<z.output<typeof RingFormSchema>, RingForm>;
+
+const SavedSchema = z.object({v: z.literal(1), fixture: FixtureSchema, source: FixtureSchema, building: z.boolean().optional(), lastGood: FixtureSchema.optional()});
+
+/**
+ * The mark of a build in progress, saved with the draft before the build starts and cleared when it ends. `lastGood` is
+ * the draft that last built, which a reload that finds the mark offers as the Undo target.
+ */
+export interface BuildMark { lastGood: ShellFixture | undefined }
 
 /**
  * A draft as the text kept in `localStorage`: its fixture and its source, as plain JSON. It is the fixture itself, not
  * `input@1`, because a draft the wire refuses (a pitch of 3) must survive a reload too. History is not kept (decision 21).
+ * With `building`, the text carries the mark of a build in progress (journal decision 198, M2).
  */
-export const serializeDraft = (d: Draft): string => JSON.stringify({v: 1, fixture: cloneFixture(d.fixture), source: cloneFixture(d.source)});
+export function serializeDraft(d: Draft, building?: BuildMark): string {
+  const mark = building ? {building: true, lastGood: building.lastGood && cloneFixture(building.lastGood)} : {};
+  return JSON.stringify({v: 1, fixture: cloneFixture(d.fixture), source: cloneFixture(d.source), ...mark});
+}
 
-/** The draft a saved text holds, or undefined when it is not one (stale, corrupt or from another version). */
-export function restoreDraft(text: string | null): Draft | undefined {
+/** A saved draft, and whether the build it was saved in the middle of ever ended. */
+export interface RestoredDraft { draft: Draft; unfinished: boolean }
+
+/**
+ * The draft a saved text holds, or undefined when it is not one (stale, corrupt or from another version). A text that
+ * carries the build mark restores `unfinished`, with the draft that last built as its one step of history, so Undo works.
+ */
+export function restoreDraft(text: string | null): RestoredDraft | undefined {
   if (text === null) return undefined;
   try {
     const saved = SavedSchema.safeParse(JSON.parse(text));
     if (!saved.success) return undefined;
-    const fix = (f: z.output<typeof FixtureSchema>): ShellFixture => cloneFixture({...f, rings: f.rings.map(r => ({...r, sides: r.sides ?? {}}))});
-    return makeDraft(fix(saved.data.fixture), fix(saved.data.source));
+    const fix = (f: z.output<typeof FixtureSchema>): ShellFixture => pinListedPitches({...f, rings: f.rings.map(r => ({...r, sides: r.sides ?? {}}))});
+    const fixture = fix(saved.data.fixture);
+    const unfinished = saved.data.building === true;
+    const lastGood = unfinished && saved.data.lastGood ? fix(saved.data.lastGood) : undefined;
+    const draft = made(fixture, fix(saved.data.source), 0, lastGood && !sameFixture(lastGood, fixture) ? [lastGood] : []);
+    return {draft, unfinished};
   } catch {
     return undefined;
   }
@@ -349,10 +426,10 @@ export function keepStoreys(state: ToggleState, storeys: readonly number[]): Tog
 }
 
 /**
- * Decision 15: the Ring a hit's provenance names, or null when it names none. Only Wall and Gable Cells carry one
- * (`CellSource`, journal decision 156), so a click on a roof, floor or underside face, an Edge or a vertex selects no Ring.
- * A face hit with no Cell under it falls to the face's lowest-index source. For a draft the model index is the Ring's
- * index in `fixture.rings`, since the build is made from the fixture itself.
+ * Decision 15 as amended: the Ring a hit's provenance names, or null when it names none. Only Wall and Gable Cells carry
+ * one (`CellSource`, journal decision 156), so a click on a roof, floor or underside face, an Edge or a vertex selects no
+ * Ring. A face hit with no Cell under it falls to the face's lowest-index source. For a draft the model index is the
+ * Ring's index in `fixture.rings`, since the build is made from the fixture itself.
  */
 export function ringOfHit(build: ShellBuild, hit: Hit): number | null {
   if (hit.kind !== 'surface') return null;

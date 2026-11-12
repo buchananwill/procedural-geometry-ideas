@@ -119,6 +119,9 @@ function label(text: string, colour: number): Sprite {
   return s;
 }
 
+/** What `ShellScene.setBuild` may be asked besides the build: `keepView` leaves the camera where it is (viewer editing decision 11). */
+export interface SetBuildOptions { keepView?: boolean }
+
 export class ShellScene {
   readonly renderer: WebGLRenderer;
   readonly camera = new PerspectiveCamera(40, 1, 1, 10000);
@@ -201,7 +204,7 @@ export class ShellScene {
    * With `keepView` (viewer editing decision 11) the camera stays where it is, and only its clipping planes are refitted to
    * the new shell. A scene that holds no build has no view to keep, so it frames the shell as usual.
    */
-  setBuild(build: ShellBuild, toggles: ToggleState, focus?: DefectFocus, options: {keepView?: boolean} = {}): void {
+  setBuild(build: ShellBuild, toggles: ToggleState, focus?: DefectFocus, options: SetBuildOptions = {}): void {
     const keep = options.keepView === true && this.build !== undefined;
     this.clearBuild();
     this.build = build;

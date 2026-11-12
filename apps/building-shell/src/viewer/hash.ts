@@ -4,6 +4,7 @@ import type {ShellFixture} from '../fixture.ts';
 import {writeInput} from '../wire/input-adapter.ts';
 import type {DefectCase} from './defect-cases.ts';
 import {parseDraftJson} from './draft.ts';
+import type {ParsedDraft} from './draft.ts';
 
 /** The name a `#hash` spells, or '' when it is empty or malformed (`#%`). */
 export function hashName(hash: string): string {
@@ -37,7 +38,10 @@ export const DRAFT_LINK_PREFIX = '#draft=';
 export type Selection =
   | {kind: 'fixture'; fixture: ShellFixture; refusal?: string[]}
   | {kind: 'case'; defect: DefectCase}
-  | {kind: 'draft'; fixture: ShellFixture; origin: 'saved' | 'link'};
+  | {kind: 'draft'; fixture: ShellFixture; origin: DraftOrigin};
+
+/** Where a draft on show came from: the one kept in `localStorage`, or a link's. */
+export type DraftOrigin = 'saved' | 'link';
 
 /** The name a selection is listed under. */
 export const selectionName = (s: Selection): string => (s.kind === 'case' ? s.defect.name : s.fixture.name);
@@ -62,7 +66,7 @@ export const draftLinkHash = (f: ShellFixture): string => `${DRAFT_LINK_PREFIX}$
  * Decision 20: the draft a link hash carries, read through `readInput`; undefined when the hash is not a link, and the
  * wire's refusal (or the decoding's) when it is one that fails.
  */
-export function draftFromLinkHash(hash: string): ReturnType<typeof parseDraftJson> | undefined {
+export function draftFromLinkHash(hash: string): ParsedDraft | undefined {
   if (!hash.startsWith(DRAFT_LINK_PREFIX)) return undefined;
   let text: string;
   try {

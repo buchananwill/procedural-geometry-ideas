@@ -1,11 +1,13 @@
 // Viewer editing decisions 6 to 9, 15 to 21 and gates 3 and 4 of decision 23: the pure draft state, the file and link
 // round trips, and the hash. Plain values in, plain values out, as `viewer-toggles.test.ts`.
 import {describe, expect, it} from 'vitest';
-import {EXPORTED_FIXTURES, RING_SIDES, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, FixtureRing, RING_SIDES, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {BuildingShellInputV1, WIRE_GABLE_ONLY_DEG} from '../src/wire/input-types.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
-  Draft, HISTORY_CAP, blankDraft, canRedo, canUndo, canonicalFixture, dispatch, draftJson, draftName, editDraftOf, explainRefusals,
-  fixtureToBuild, isDirty, keepStoreys, makeDraft, parseDraftJson, resolveSides, restoreDraft, ringOfHit, serializeDraft, validate,
+  Draft, DraftAction, HISTORY_CAP, TALL_STOREY_SUM, blankDraft, buildGate, canRedo, canUndo, dispatch, draftFixtureOfJson, draftJson, draftName, editDraftOf,
+  explainRefusals, fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, resolveSides, restoreDraft, ringOfHit, sameFixture,
+  serializeDraft, storeySum, validate,
 } from '../src/viewer/draft.ts';
 import {DRAFT_HASH, draftFromLinkHash, draftLinkHash, selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {makeToggles, setStorey, visibleStoreys} from '../src/viewer/toggles.ts';
@@ -13,13 +15,31 @@ import {memoBuilds} from './test-builds.ts';
 
 const chalet = SHELL_FIXTURES.find(f => f.name === 'DefaultChalet') as ShellFixture;
 const oneRing = (deg = 45): ShellFixture => ({name: 'one', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, deg)]});
+/** An `input@1` value of one Ring, edited by `change` before it is read. */
+const fileWith = (change: (input: BuildingShellInputV1) => void): BuildingShellInputV1 => {
+  const input = structuredClone(writeInput(oneRing(45)));
+  change(input);
+  return input;
+};
 const withDeg = (deg: number): Draft => dispatch(makeDraft(oneRing()), {kind: 'setDefaultDeg', ring: 0, value: deg});
 
 describe('decision 6: a draft is valid when readInput(writeInput(draft)) accepts it', () => {
-  it('accepts a draft the wire accepts and agrees with the wire call for call', () => {
-    for (const f of EXPORTED_FIXTURES) {
-      const wire = readInput(writeInput(f), f.name);
-      expect(validate(f).ok, f.name).toBe(wire.ok);
+  // Literal expectations, so a `validate` that stopped asking the wire, or asked it wrongly, fails here.
+  it('accepts every exported fixture, and refuses each of these, for the wire\'s reason', () => {
+    for (const f of EXPORTED_FIXTURES) expect(validate(f), f.name).toEqual({ok: true});
+    const refusedFor: [string, (g: ShellFixture) => void, RegExp][] = [
+      ['a pitch of 3', g => { g.rings[0].defaultDeg = 3; }, /3 degrees, outside \[7, 75\]/],
+      ['a pitch of 80', g => { g.rings[0].sides = {N: {form: 'gable', deg: 80}}; }, /80 degrees, outside \[7, 75\]/],
+      ['an inverted rect', g => { g.rings[0].rect = [1000, 0, 0, 500]; }, /signed area/],
+      ['a rect off the grid', g => { g.rings[0].rect = [0.3, 0, 1000, 500]; }, /off the 1\/1024 cm grid/],
+      ['no Ring', g => { g.rings = []; }, /^rings: /],
+    ];
+    for (const [what, change, why] of refusedFor) {
+      const g = structuredClone(oneRing());
+      change(g);
+      const v = validate(g);
+      expect(v.ok, what).toBe(false);
+      expect(v.ok ? '' : v.errors.join('\n'), what).toMatch(why);
     }
   });
 
@@ -130,8 +150,15 @@ describe('the draft: history, selection and the never-blocked rule (decisions 3,
     expect(draftName('x')).toBe('x-draft');
     expect(d.validation.ok).toBe(true);
     expect(isDirty(d)).toBe(false);
-    expect(d.fixture.rings).toEqual(chalet.rings);
+    // Journal decision 198, M1: every listed side is spelled with its own pitch, which changes nothing the pipeline reads.
+    expect(d.fixture.rings[0].sides).toEqual({W: {form: 'gable', deg: 22.5}, E: {form: 'gable', deg: 22.5}});
+    expect(d.fixture.rings.map(r => resolveSides(r))).toEqual(chalet.rings.map(r => resolveSides(r)));
     expect(d.fixture.rings[0]).not.toBe(chalet.rings[0]);
+    for (const f of EXPORTED_FIXTURES) {
+      const adopted = editDraftOf(f).fixture;
+      expect(adopted.rings.map(r => resolveSides(r)), f.name).toEqual(f.rings.map(r => resolveSides(r)));
+      for (const r of adopted.rings) for (const s of RING_SIDES) if (r.sides?.[s]) expect(r.sides[s]?.deg, f.name).toBeTypeOf('number');
+    }
   });
 
   it('offers a blank draft, which the wire refuses until a Ring is added', () => {
@@ -237,55 +264,112 @@ describe('the draft: history, selection and the never-blocked rule (decisions 3,
     expect(d.fixture.rings[1].sides).toEqual({});
   });
 
-  it('does not mutate the draft it is given', () => {
-    const d = start();
+  it('does not mutate the draft it is given, whatever the action', () => {
+    // A draft with history on both sides, a selection and a difference from its source, so that every action does something.
+    let d = start();
+    d = dispatch(d, {kind: 'setStoreys', ring: 0, value: 2});
+    d = dispatch(d, {kind: 'setStoreys', ring: 0, value: 3});
+    d = dispatch(d, {kind: 'undo'});
+    d = dispatch(d, {kind: 'select', ring: 1});
     const frozen = (v: unknown): void => { if (typeof v === 'object' && v) { Object.freeze(v); Object.values(v).forEach(frozen); } };
     frozen(d);
     const before = JSON.stringify(d);
-    for (const kind of ['addRing', 'undo', 'redo', 'reset'] as const) dispatch(d, {kind});
-    dispatch(d, {kind: 'setStoreys', ring: 0, value: 4});
-    dispatch(d, {kind: 'moveRing', ring: 0, direction: 1});
+    const actions: DraftAction[] = [
+      {kind: 'addRing'}, {kind: 'undo'}, {kind: 'redo'}, {kind: 'reset'},
+      {kind: 'removeRing', ring: 0}, {kind: 'duplicateRing', ring: 1}, {kind: 'moveRing', ring: 1, direction: -1},
+      {kind: 'setRectCoord', ring: 0, coord: 2, value: 600}, {kind: 'setStoreys', ring: 0, value: 4}, {kind: 'setBaseStorey', ring: 1, value: 1},
+      {kind: 'setDefaultDeg', ring: 0, value: 33}, {kind: 'setSideForm', ring: 0, side: 'E', form: 'gable'}, {kind: 'setSidePitch', ring: 0, side: 'N', value: 40},
+      {kind: 'clearSide', ring: 0, side: 'S'}, {kind: 'setStoreyHeight', value: 300}, {kind: 'load', fixture: oneRing()},
+    ];
+    for (const a of actions) {
+      const next = dispatch(d, a);
+      expect(next, a.kind).not.toBe(d);
+    }
     expect(JSON.stringify(d)).toBe(before);
   });
 });
 
-describe('gate 3: a draft survives download then load unchanged (decision 23)', () => {
-  const same = (a: ShellFixture, b: ShellFixture): void => {
-    expect(b).toEqual(canonicalFixture(a));
-    expect(b.name).toBe(a.name);
-    expect(b.cellSize).toBe(a.cellSize);
-    expect(b.storeyHeight).toBe(a.storeyHeight);
-    expect(b.rings.map(r => resolveSides(r))).toEqual(a.rings.map(r => resolveSides(r)));
-    expect(b.rings.map(r => r.rect)).toEqual(a.rings.map(r => r.rect));
-    expect(writeInput(b)).toEqual(writeInput(a));
+/** `readInput`'s `defaultDeg` for a Ring: the pitch of its first hip in S, E, N, W order, or the wire's fixed one with none. */
+const wireDefaultDeg = (r: FixtureRing): number => {
+  for (const s of RING_SIDES) {
+    const side = resolveSides(r)[s];
+    if (r.sides?.[s] && side.form === 'hip') return side.deg;
+  }
+  return WIRE_GABLE_ONLY_DEG;
+};
+
+/** A Ring that lists all four sides: the wire has no field for its `defaultDeg`, so a file cannot return it. */
+const allListed = (r: FixtureRing): boolean => RING_SIDES.every(s => r.sides?.[s] !== undefined);
+
+describe('gate 3: a draft survives download then load unchanged (decision 23 as amended, journal decision 198, M1)', () => {
+  /** The draft, written out and read back. */
+  const roundTrip = (f: ShellFixture): ShellFixture => {
+    const read = parseDraftJson(draftJson(f), 'unrelated-file-name');
+    if (!read.ok) throw new Error(`the file was refused: ${read.errors.join('; ')}`);
+    return read.fixture;
+  };
+
+  /** The loaded fixture equals the draft, but for the one named exception, which is pinned exactly: what `readInput` gives. */
+  const sameButForTheException = (draft: ShellFixture, loaded: ShellFixture): void => {
+    const expected: ShellFixture = {...draft, rings: draft.rings.map(r => (allListed(r) ? {...r, defaultDeg: wireDefaultDeg(r)} : r))};
+    expect(loaded).toEqual(expected);
   };
 
   for (const f of EXPORTED_FIXTURES) {
-    it(`${f.name}: the file it downloads loads back as the same draft`, () => {
-      const read = parseDraftJson(draftJson(f), 'unrelated-file-name');
-      expect(read.ok).toBe(true);
-      if (read.ok) same(f, read.fixture);
+    it(`${f.name}: the file its draft downloads loads back as that draft`, () => {
+      const d = editDraftOf(f).fixture;
+      sameButForTheException(d, roundTrip(d));
     });
   }
 
-  it('an edited draft survives it too, pitches, forms and order included', () => {
+  it('an edited draft survives it too, pitches, forms, listing and order included', () => {
     let d = editDraftOf(SHELL_FIXTURES.find(f => f.name === 'ValleyWings') as ShellFixture);
     d = dispatch(d, {kind: 'setSideForm', ring: 1, side: 'S', form: 'gable'});
     d = dispatch(d, {kind: 'setSidePitch', ring: 0, side: 'N', value: 33.5});
     d = dispatch(d, {kind: 'setDefaultDeg', ring: 2, value: 52.5});
+    d = dispatch(d, {kind: 'setSideForm', ring: 2, side: 'W', form: 'hip'});
     d = dispatch(d, {kind: 'addRing'});
     d = dispatch(d, {kind: 'moveRing', ring: 3, direction: -1});
     expect(d.validation.ok).toBe(true);
-    const read = parseDraftJson(draftJson(d.fixture), 'x');
-    expect(read.ok).toBe(true);
-    if (read.ok) same(d.fixture, read.fixture);
+    sameButForTheException(d.fixture, roundTrip(d.fixture));
+  });
+
+  it('the one exception: a Ring with all four sides listed comes back with the defaultDeg readInput gives, and nothing else of it changes', () => {
+    const f: ShellFixture = {
+      name: 'x', cellSize: 50, storeyHeight: 250,
+      rings: [
+        ring([0, 0, 500, 500], 0, 1, 60, {S: {form: 'gable', deg: 30}, E: {form: 'hip', deg: 35}, N: {form: 'hip', deg: 40}, W: {form: 'gable', deg: 45}}),
+        ring([500, 0, 1000, 500], 0, 1, 25, {S: {form: 'gable', deg: 30}}),
+      ],
+    };
+    const loaded = roundTrip(f);
+    // Ring 0: all four listed, so its 60 is lost, and readInput's first-hip pitch, 35, stands in. Resolved sides are unchanged.
+    expect(f.rings[0].defaultDeg).toBe(60);
+    expect(loaded.rings[0].defaultDeg).toBe(35);
+    expect(resolveSides(loaded.rings[0])).toEqual(resolveSides(f.rings[0]));
+    expect({...loaded.rings[0], defaultDeg: 60}).toEqual(f.rings[0]);
+    // Ring 1 has unlisted sides, so its defaultDeg is carried by them and comes back exactly.
+    expect(loaded.rings[1]).toEqual(f.rings[1]);
+    expect(loaded.name).toBe('x');
+  });
+
+  it('every difference between a draft and its load is a defaultDeg of a Ring with all four sides listed', () => {
+    for (const f of EXPORTED_FIXTURES) {
+      const d = editDraftOf(f).fixture;
+      const loaded = roundTrip(d);
+      d.rings.forEach((r, i) => {
+        if (sameFixture({...d, rings: [r]}, {...loaded, rings: [loaded.rings[i]]})) return;
+        expect(allListed(r), `${f.name} Ring ${i}`).toBe(true);
+        expect({...loaded.rings[i], defaultDeg: r.defaultDeg}, `${f.name} Ring ${i}`).toEqual(r);
+      });
+    }
   });
 
   it('writes the draft\'s name as the file\'s provenance subject (decision 19)', () => {
     expect(JSON.parse(draftJson(editDraftOf(chalet).fixture)).provenance.subject).toBe('DefaultChalet-draft');
   });
 
-  it('the raw round trip is not the same fixture, which is why the loaded draft is canonical', () => {
+  it('the raw round trip is not the same fixture, which is why the loaded draft is rebuilt from the file\'s `request`', () => {
     // readInput lists every side with its pitch and re-derives defaultDeg: the same building in another spelling.
     const raw = readInput(writeInput(chalet), chalet.name);
     expect(raw.ok).toBe(true);
@@ -293,38 +377,133 @@ describe('gate 3: a draft survives download then load unchanged (decision 23)', 
     expect(raw.fixture).not.toEqual(chalet);
     expect(Object.keys(raw.fixture.rings[0].sides ?? {}).sort()).toEqual(['E', 'N', 'S', 'W']);
     expect(resolveSides(raw.fixture.rings[0])).toEqual(resolveSides(chalet.rings[0]));
-    // The draft read from the file has the listing back: only W and E, as authored.
+    // The draft read from the file has the listing back: only W and E, each with its own pitch.
     const read = parseDraftJson(draftJson(chalet), 'x');
-    expect(read.ok && read.fixture.rings[0]).toEqual(chalet.rings[0]);
+    expect(read.ok && read.fixture.rings[0].sides).toEqual({W: {form: 'gable', deg: 22.5}, E: {form: 'gable', deg: 22.5}});
+    expect(read.ok && read.fixture.rings[0].defaultDeg).toBe(22.5);
   });
 
   it('keeps a side listed as a hip at the default pitch listed: its `request` is part of the file', () => {
-    const f: ShellFixture = {name: 'l', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 45, {S: {form: 'hip', deg: 45}, N: {form: 'hip'}})]};
+    const f: ShellFixture = {name: 'l', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 45, {S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}})]};
     const read = parseDraftJson(draftJson(f), 'x');
-    expect(read.ok && read.fixture.rings[0].sides).toEqual({S: {form: 'hip'}, N: {form: 'hip'}});
+    expect(read.ok && read.fixture.rings[0].sides).toEqual({S: {form: 'hip', deg: 45}, N: {form: 'hip', deg: 45}});
   });
 
   it('reads a file whose Auto sides disagree (the C++ may write one) without changing what any side solves', () => {
-    const json = JSON.parse(draftJson(oneRing(45))) as {rings: {sides: {request: string; runs: {pitchDegrees: number; form: string}[]}[]}[]};
-    json.rings[0].sides[1].runs[0].pitchDegrees = 30;
-    json.rings[0].sides[2].runs[0].form = 'GableEnd';
-    const read = parseDraftJson(JSON.stringify(json), 'x');
+    const input = fileWith(i => { i.rings[0].sides[1].runs[0].pitchDegrees = 30; i.rings[0].sides[2].runs[0].form = 'GableEnd'; });
+    const read = parseDraftJson(JSON.stringify(input), 'x');
     expect(read.ok).toBe(true);
     if (!read.ok) return;
     expect(resolveSides(read.fixture.rings[0])).toEqual({S: {form: 'hip', deg: 45}, E: {form: 'hip', deg: 30}, N: {form: 'gable', deg: 45}, W: {form: 'hip', deg: 45}});
+    // The two that disagree are listed, each with its own pitch; the two that agree follow the default.
+    expect(read.fixture.rings[0].sides).toEqual({E: {form: 'hip', deg: 30}, N: {form: 'gable', deg: 45}});
   });
 
-  it('canonicalFixture is idempotent', () => {
-    for (const f of EXPORTED_FIXTURES) expect(canonicalFixture(canonicalFixture(f))).toEqual(canonicalFixture(f));
+  it('a formless side of a foreign file resolves to the pitch readInput gives it (journal decision 198, Low 5)', () => {
+    // Two flush Rings, so Ring 0's E side lies inside the union and may be formless. It has no run, so readInput leaves it
+    // unlisted at its defaultDeg, the first Pitched side's pitch: 30. The Auto hips N and W at 45 must not drag that default
+    // to 45, or the formless side would change pitch.
+    const input = structuredClone(writeInput({name: 'two', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 45), ring([500, 0, 1000, 500], 0, 1, 45)]}));
+    input.rings[0].sides[0].runs[0].pitchDegrees = 30;
+    input.rings[0].sides[0].request = 'Pitched';
+    input.rings[0].sides[1].runs = [];
+    const raw = readInput(input, 'x');
+    expect(raw.ok).toBe(true);
+    if (!raw.ok) return;
+    const read = parseDraftJson(JSON.stringify(input), 'x');
+    expect(read.ok).toBe(true);
+    if (!read.ok) return;
+    expect(raw.fixture.rings[0].defaultDeg).toBe(30);
+    expect(read.fixture.rings[0].defaultDeg).toBe(30);
+    expect(resolveSides(read.fixture.rings[0]).E).toEqual(resolveSides(raw.fixture.rings[0]).E);
+    for (const s of RING_SIDES) expect(resolveSides(read.fixture.rings[0])[s], s).toEqual(resolveSides(raw.fixture.rings[0])[s]);
+  });
+
+  it('a defect case becomes a draft through the same reconstruction as a loaded file (journal decision 198, N2)', () => {
+    const f = chalet;
+    const json = JSON.parse(draftJson(f));
+    const viaCase = draftFixtureOfJson(json, 'CaseName');
+    const viaFile = parseDraftJson(JSON.stringify(json), 'x');
+    expect(viaCase.ok && viaFile.ok).toBe(true);
+    if (!viaCase.ok || !viaFile.ok) return;
+    expect(viaCase.fixture).toEqual({...viaFile.fixture, name: 'CaseName'});
+    expect(editDraftOf(viaCase.fixture).fixture.name).toBe('CaseName-draft');
+    expect(viaCase.fixture.rings[0].sides).toEqual({W: {form: 'gable', deg: 22.5}, E: {form: 'gable', deg: 22.5}});
   });
 
   it('refuses text that is not JSON, and a file the wire refuses, with the reasons', () => {
     expect(parseDraftJson('{not json', 'x')).toMatchObject({ok: false});
-    const bad = JSON.parse(draftJson(oneRing())) as {rings: {sides: {runs: {pitchDegrees: number}[]}[]}[]};
-    bad.rings[0].sides[0].runs[0].pitchDegrees = 3;
-    const read = parseDraftJson(JSON.stringify(bad), 'x');
+    const read = parseDraftJson(JSON.stringify(fileWith(i => { i.rings[0].sides[0].runs[0].pitchDegrees = 3; })), 'x');
     expect(read.ok).toBe(false);
     if (!read.ok) expect(read.errors.join('\n')).toMatch(/outside \[7, 75\]/);
+  });
+});
+
+describe('equality of fixtures does not depend on key order (journal decision 198, B4)', () => {
+  it('is the same fixture when only the order of the keys differs', () => {
+    const a: ShellFixture = {name: 'k', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 45, {W: {form: 'gable', deg: 30}, E: {form: 'hip', deg: 40}})]};
+    const b: ShellFixture = {rings: [{sides: {E: {deg: 40, form: 'hip'}, W: {deg: 30, form: 'gable'}}, defaultDeg: 45, storeys: 1, baseStorey: 0, rect: [0, 0, 500, 500]}], storeyHeight: 250, cellSize: 50, name: 'k'};
+    expect(sameFixture(a, b)).toBe(true);
+    expect(sameFixture(a, {...b, name: 'other'})).toBe(false);
+    expect(sameFixture(a, {...b, rings: [{...b.rings[0], sides: {E: {deg: 41, form: 'hip'}, W: {deg: 30, form: 'gable'}}}]})).toBe(false);
+  });
+});
+
+describe('journal decision 198, M2: a build that did not finish, and a very tall draft', () => {
+  const tall = (storeys: number): Draft => makeDraft({name: 'tall', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, storeys, 45)]});
+
+  it('builds a valid draft, and says why when it does not', () => {
+    const d = makeDraft(oneRing());
+    expect(buildGate(d, {unfinished: false, confirmedTall: false})).toBe('build');
+    expect(buildGate(withDeg(3), {unfinished: false, confirmedTall: false})).toBe('invalid');
+    expect(buildGate(blankDraft(), {unfinished: false, confirmedTall: false})).toBe('invalid');
+  });
+
+  it('does not build a draft whose last build did not finish (the mark), and says how to go on', () => {
+    const d = makeDraft(oneRing());
+    expect(buildGate(d, {unfinished: true, confirmedTall: false})).toBe('unfinished');
+    expect(heldMessage('unfinished', d)).toMatch(/did not finish/);
+    expect(heldMessage('unfinished', d)).toMatch(/Undo/);
+  });
+
+  it('the mark survives a reload: a text saved with it restores as unfinished, and without it as finished', () => {
+    const d = dispatch(makeDraft(oneRing()), {kind: 'setStoreys', ring: 0, value: 2});
+    const marked = restoreDraft(serializeDraft(d, {lastGood: undefined}));
+    const clean = restoreDraft(serializeDraft(d));
+    expect(marked?.unfinished).toBe(true);
+    expect(clean?.unfinished).toBe(false);
+    expect(restoreDraft(serializeDraft(d, {lastGood: undefined}).replace('"building":true', '"building":false'))?.unfinished).toBe(false);
+  });
+
+  it('a reload that finds the mark offers Undo: the draft that last built is its one step of history', () => {
+    const good = makeDraft(oneRing());
+    const bad = dispatch(good, {kind: 'setStoreys', ring: 0, value: 40});
+    const restored = restoreDraft(serializeDraft(bad, {lastGood: good.fixture}));
+    expect(restored?.unfinished).toBe(true);
+    expect(restored?.draft.fixture.rings[0].storeys).toBe(40);
+    expect(restored && canUndo(restored.draft)).toBe(true);
+    expect(restored && dispatch(restored.draft, {kind: 'undo'}).fixture.rings[0].storeys).toBe(1);
+    // Without the mark, a reload has no history (decision 21).
+    expect(restoreDraft(serializeDraft(bad, undefined))?.draft.past).toEqual([]);
+  });
+
+  it('a draft whose Rings\' storeys sum above 100 asks first; at 100 it does not; agreeing builds it', () => {
+    expect(TALL_STOREY_SUM).toBe(100);
+    expect(storeySum(tall(100).fixture)).toBe(100);
+    expect(buildGate(tall(100), {unfinished: false, confirmedTall: false})).toBe('build');
+    expect(buildGate(tall(101), {unfinished: false, confirmedTall: false})).toBe('ask');
+    expect(buildGate(tall(101), {unfinished: false, confirmedTall: true})).toBe('build');
+    // The sum is over Rings, not a Ring's height: two Rings of 51.
+    const two = makeDraft({name: 't', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 51, 45), ring([500, 0, 1000, 500], 0, 51, 45)]});
+    expect(storeySum(two.fixture)).toBe(102);
+    expect(buildGate(two, {unfinished: false, confirmedTall: false})).toBe('ask');
+    expect(heldMessage('ask', tall(101))).toMatch(/101 storeys/);
+    expect(heldMessage('build', tall(101))).toBeNull();
+  });
+
+  it('neither is a validity rule: a tall draft and an unfinished one are valid (decision 193)', () => {
+    expect(tall(200).validation).toEqual({ok: true});
+    expect(fixtureToBuild(tall(200))).toBeDefined();
   });
 });
 
@@ -333,16 +512,23 @@ describe('persistence (decisions 18 and 21)', () => {
     let d = editDraftOf(chalet);
     d = dispatch(d, {kind: 'addRing'});
     const restored = restoreDraft(serializeDraft(d));
-    expect(restored?.fixture).toEqual(d.fixture);
-    expect(restored?.source).toEqual(d.source);
-    expect(restored?.past).toEqual([]);
+    expect(restored?.draft.fixture).toEqual(d.fixture);
+    expect(restored?.draft.source).toEqual(d.source);
+    expect(restored?.draft.past).toEqual([]);
+    expect(restored?.unfinished).toBe(false);
   });
 
   it('restores a draft the wire refuses, which a reload must not lose', () => {
     const d = withDeg(3);
     const restored = restoreDraft(serializeDraft(d));
-    expect(restored?.fixture.rings[0].defaultDeg).toBe(3);
-    expect(restored?.validation.ok).toBe(false);
+    expect(restored?.draft.fixture.rings[0].defaultDeg).toBe(3);
+    expect(restored?.draft.validation.ok).toBe(false);
+  });
+
+  it('gives a saved listed side without a pitch its own, as a draft saved before the amendment would need', () => {
+    const f: ShellFixture = {name: 'old', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 33, {S: {form: 'gable'}})]};
+    const text = JSON.stringify({v: 1, fixture: f, source: f});
+    expect(restoreDraft(text)?.draft.fixture.rings[0].sides).toEqual({S: {form: 'gable', deg: 33}});
   });
 
   it('restores nothing from nothing, from garbage, or from another version', () => {
@@ -363,7 +549,11 @@ describe('the hash (decisions 18 and 20)', () => {
     for (const f of SHELL_FIXTURES) {
       const link = draftFromLinkHash(draftLinkHash(f));
       expect(link?.ok, f.name).toBe(true);
-      if (link?.ok) expect(link.fixture).toEqual(canonicalFixture(f));
+      // The link carries the draft a roster fixture becomes, under the roster fixture's own name.
+      if (link?.ok) {
+        const d = {...editDraftOf(f).fixture, name: f.name};
+        expect(link.fixture, f.name).toEqual({...d, rings: d.rings.map(r => (allListed(r) ? {...r, defaultDeg: wireDefaultDeg(r)} : r))});
+      }
     }
   });
 
@@ -384,8 +574,7 @@ describe('the hash (decisions 18 and 20)', () => {
   });
 
   it('shows a link that fails readInput\'s refusal, and falls back to the first fixture', () => {
-    const bad = JSON.parse(draftJson(oneRing())) as {rings: {sides: {runs: {pitchDegrees: number}[]}[]}[]};
-    bad.rings[0].sides[1].runs[0].pitchDegrees = 80;
+    const bad = fileWith(i => { i.rings[0].sides[1].runs[0].pitchDegrees = 80; });
     const hash = `#draft=${btoa(JSON.stringify(bad)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
     const sel = selectionFromHash(hash, SHELL_FIXTURES, []);
     expect(sel.kind).toBe('fixture');

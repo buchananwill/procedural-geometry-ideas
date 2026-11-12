@@ -2,7 +2,7 @@
 // mutates its argument (decision 2). No DOM, no scene, and no validity test: a draft is valid when the wire accepts it
 // (decision 6, journal decision 193), which `draft.ts` asks; an edit is never blocked (decision 9).
 import {RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, ShellFixture, SideForm} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../fixture.ts';
 import type {Rect} from '../roof/model.ts';
 
 /** Decision 4: a new Ring is 500 x 500 cm, a hip at 45 degrees, one storey, at base storey 0. */
@@ -15,23 +15,37 @@ export const PITCH_STEP_DEG = 0.5;
 /** A Ring's box in the world, for the viewport's highlight: its rect, from its lowest floor to its highest plate. */
 export interface RingBox { rect: Rect; zLo: number; zHi: number }
 
-const cloneSides = (sides: FixtureRing['sides']): FixtureRing['sides'] => {
-  const out: Partial<Record<RingSide, SideForm>> = {};
+/** The listed sides, copied by spread so a field a side gains later is copied with it. An absent `sides` is an empty one. */
+const cloneSides = (sides: RingSides | undefined): RingSides => {
+  const out: RingSides = {};
   for (const side of RING_SIDES) {
     const s = sides?.[side];
-    if (s) out[side] = s.deg === undefined ? {form: s.form} : {form: s.form, deg: s.deg};
+    if (s) out[side] = {...s};
   }
   return out;
 };
 
-/** A deep copy: no Ring, rect or side is shared with the original. */
-export function cloneRing(r: FixtureRing): FixtureRing {
-  return {rect: [...r.rect], baseStorey: r.baseStorey, storeys: r.storeys, defaultDeg: r.defaultDeg, sides: cloneSides(r.sides)};
-}
+/** A deep copy: no Ring, rect or side is shared with the original. Spread, so a field a Ring gains later is copied too. */
+export const cloneRing = (r: FixtureRing): FixtureRing => ({...r, rect: [...r.rect], sides: cloneSides(r.sides)});
 
 /** A deep copy of a fixture. */
-export const cloneFixture = (f: ShellFixture): ShellFixture =>
-  ({name: f.name, cellSize: f.cellSize, storeyHeight: f.storeyHeight, rings: f.rings.map(cloneRing)});
+export const cloneFixture = (f: ShellFixture): ShellFixture => ({...f, rings: f.rings.map(cloneRing)});
+
+/**
+ * Viewer editing decision 14 as amended (journal decision 198, M1): a listed side always carries its own pitch, because
+ * the wire cannot tell a listed side that follows the default from one pinned at the default's value. A copy of `f` in
+ * which every listed side without a pitch has the Ring's `defaultDeg`, which is what it already resolved to.
+ */
+export function pinListedPitches(f: ShellFixture): ShellFixture {
+  const next = cloneFixture(f);
+  for (const r of next.rings) {
+    for (const side of RING_SIDES) {
+      const s = r.sides?.[side];
+      if (s && s.deg === undefined) s.deg = r.defaultDeg;
+    }
+  }
+  return next;
+}
 
 /** `v` rounded to the nearest multiple of `cell` (decision 5). The `+ 0` turns a negative zero into 0, so equal rects compare equal. */
 export const snapToCell = (v: number, cell: number): number => Math.round(v / cell) * cell + 0;
@@ -93,7 +107,19 @@ export function setRect(f: ShellFixture, index: number, rect: Readonly<Rect>): S
   return withRing(f, index, r => { r.rect = [snapToCell(rect[0], f.cellSize), snapToCell(rect[1], f.cellSize), snapToCell(rect[2], f.cellSize), snapToCell(rect[3], f.cellSize)]; });
 }
 
-export const setBaseStorey = (f: ShellFixture, index: number, baseStorey: number): ShellFixture =>
+/**
+ * Sets one coordinate of Ring `index`'s rect (`coord` 0 to 3: x0, y0, x1, y1), snapped to the fixture's `cellSize`. The
+ * other three stay as they are: a rect that is off the grid (a loaded file's) is not moved by an edit to its neighbour.
+ */
+export function setRectCoord(f: ShellFixture, index: number, coord: 0 | 1 | 2 | 3, value: number): ShellFixture {
+  return withRing(f, index, r => {
+    const rect: Rect = [...r.rect];
+    rect[coord] = snapToCell(value, f.cellSize);
+    r.rect = rect;
+  });
+}
+
+export const setBaseStorey =(f: ShellFixture, index: number, baseStorey: number): ShellFixture =>
   withRing(f, index, r => { r.baseStorey = baseStorey; });
 
 export const setStoreys = (f: ShellFixture, index: number, storeys: number): ShellFixture =>
@@ -103,13 +129,14 @@ export const setStoreys = (f: ShellFixture, index: number, storeys: number): She
 export const setDefaultDeg = (f: ShellFixture, index: number, deg: number): ShellFixture =>
   withRing(f, index, r => { r.defaultDeg = deg; });
 
-/** Lists one side of Ring `index` with `form`, keeping the pitch it already has. */
+/**
+ * Lists one side of Ring `index` with `form`, at the pitch it has now: its own, or the Ring's `defaultDeg` for a side
+ * not yet listed. A listed side always carries its own pitch (decision 14 as amended, journal decision 198, M1).
+ */
 export function setSideForm(f: ShellFixture, index: number, side: RingSide, form: RingForm): ShellFixture {
   return withRing(f, index, r => {
-    const sides = {...r.sides};
-    const was = sides[side];
-    sides[side] = was?.deg === undefined ? {form} : {form, deg: was.deg};
-    r.sides = sides;
+    const deg = r.sides?.[side]?.deg ?? r.defaultDeg;
+    r.sides = {...r.sides, [side]: {form, deg}};
   });
 }
 

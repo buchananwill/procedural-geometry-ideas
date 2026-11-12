@@ -9,8 +9,8 @@ import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
 import {
-  Draft, DraftAction, blankDraft, dispatch, draftJson, editDraftOf, explainRefusals, fixtureToBuild, isDirty, keepStoreys, makeDraft, parseDraftJson,
-  restoreDraft, ringOfHit, serializeDraft,
+  Draft, DraftAction, RestoredDraft, TALL_STOREY_SUM, blankDraft, buildGate, dispatch, draftFixtureOfJson, draftJson, editDraftOf, explainRefusals,
+  fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, restoreDraft, ringOfHit, serializeDraft, storeySum,
 } from './draft.ts';
 import {EditPanel, Notice, mountEditPanel} from './edit-panel.ts';
 import {ringBox} from './edit.ts';
@@ -228,16 +228,30 @@ function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
 /** A case with no input file: not a failed build, so its message is shown as it stands. */
 class CaseUnloadable extends Error {}
 
-/** A case's fixture, read from its `golden/<name>.input.json`. Throws, with the reason, when it cannot be. */
-async function fixtureOfCase(c: DefectCase): Promise<ShellFixture> {
+/** A case's `golden/<name>.input.json`, as parsed. Throws, with the reason, when it cannot be had. */
+async function inputOfCase(c: DefectCase): Promise<{file: string; json: unknown}> {
   if (c.input === undefined) {
     const why = c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason';
     throw new CaseUnloadable(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
   }
   const res = await fetch(new URL(`golden/${c.input}`, document.baseURI));
   if (!res.ok) throw new Error(`golden/${c.input}: ${res.status} ${res.statusText}`);
-  const read = readInput(await res.json(), c.name);
-  if (!read.ok) throw new Error(`readInput refuses golden/${c.input}: ${read.errors.join('; ')}`);
+  return {file: `golden/${c.input}`, json: await res.json()};
+}
+
+/** A case's fixture, read from its `golden/<name>.input.json`. Throws, with the reason, when it cannot be. */
+async function fixtureOfCase(c: DefectCase): Promise<ShellFixture> {
+  const {file, json} = await inputOfCase(c);
+  const read = readInput(json, c.name);
+  if (!read.ok) throw new Error(`readInput refuses ${file}: ${read.errors.join('; ')}`);
+  return read.fixture;
+}
+
+/** Journal decision 198, N2: a case's fixture as a draft starts from it, by the reconstruction a loaded file goes through. */
+async function draftFixtureOfCase(c: DefectCase): Promise<ShellFixture> {
+  const {file, json} = await inputOfCase(c);
+  const read = draftFixtureOfJson(json, c.name);
+  if (!read.ok) throw new Error(`readInput refuses ${file}: ${read.errors.join('; ')}`);
   return read.fixture;
 }
 
@@ -264,6 +278,8 @@ function showFailure(message: string, defect?: DefectCase): void {
   pinned = null;
   hovered = null;
   scene.clearBuild();
+  // A draft's refused build leaves the canvas dimmed (viewer editing decision 8); a failure shows nothing, so nothing is dimmed.
+  scene.setDimmed(false);
   const status = $('status');
   status.textContent = message;
   status.style.color = 'var(--bad)';
@@ -359,6 +375,8 @@ const hashOf = (sel: Selection): string => (sel.kind === 'draft' ? DRAFT_HASH : 
 
 function show(sel: Selection): void {
   current = sel;
+  // Anything still being fetched for the selection before this one is no longer wanted (journal decision 198, N1).
+  selectionToken++;
   if (sel.kind !== 'draft') {
     showingDraft = false;
     pipelineMessage = null;
@@ -377,12 +395,13 @@ function show(sel: Selection): void {
       show({kind: 'draft', fixture: draft.fixture, origin: 'saved'});
       return;
     }
-    draft = makeDraft(sel.fixture);
-    saveDraft();
+    startDraft(makeDraft(sel.fixture));
     history.replaceState(null, '', DRAFT_HASH);
     fillSelector();
   }
   showingDraft = true;
+  // Journal decision 198, Low 1: a draft is no defect case, so the case box goes.
+  renderCaseBox(undefined);
   // Decision 11: only choosing a different fixture re-frames the view. Turning the fixture on show into a draft keeps it.
   keepView = keepNext;
   keepNext = false;
@@ -398,16 +417,17 @@ function show(sel: Selection): void {
 /** Decision 18: where the draft is kept. The page renders without storage, so every access is guarded. */
 const STORAGE_KEY = 'building-shell/draft@1';
 
-function saveDraft(): void {
+/** Saves the draft; with `building`, with the mark of a build in progress (journal decision 198, M2). */
+function saveDraft(building = false): void {
   if (!draft) return;
   try {
-    localStorage.setItem(STORAGE_KEY, serializeDraft(draft));
+    localStorage.setItem(STORAGE_KEY, serializeDraft(draft, building ? {lastGood} : undefined));
   } catch (e) {
     console.warn('the draft could not be saved', e);
   }
 }
 
-function savedDraft(): Draft | undefined {
+function savedDraft(): RestoredDraft | undefined {
   try {
     return restoreDraft(localStorage.getItem(STORAGE_KEY));
   } catch {
@@ -417,6 +437,18 @@ function savedDraft(): Draft | undefined {
 
 /** The draft the editor holds, shown or not. */
 let draft: Draft | null = null;
+/** The draft that last built, which a build in progress is saved with so a reload can offer Undo to it. */
+let lastGood: ShellFixture | undefined;
+/** Journal decision 198, M2: a reload found the mark of a build that did not finish, and the draft has not changed since. */
+let unfinished = false;
+/** Journal decision 198, M2: the user has agreed to build this draft though its storeys sum above the limit. */
+let confirmedTall = false;
+/** Why the draft on show is held back from building, and the Build button that overrides it; null when nothing is. */
+let held: string | null = null;
+/** The draft builds started and not yet ended, so the mark is cleared only when none is left. */
+let buildsInFlight = 0;
+/** Bumped by every `show`, so an `await` that outlives its selection can tell (journal decision 198, N1). */
+let selectionToken = 0;
 /** Whether the draft is what the page shows. */
 let showingDraft = false;
 /** Whether the next build of the draft keeps the camera (decision 11); `keepNext` asks `show` to keep it for the draft it is about to show. */
@@ -435,7 +467,16 @@ const panel: EditPanel = mountEditPanel($('edit'), {
   onBlank: () => adopt(blankDraft()),
   onDownload: () => download(),
   onLoadFile: (text, filename) => loadFile(text, filename),
+  onLoadFailed: (filename, message) => {
+    notice = {text: `${filename} could not be read: ${message}`, bad: true};
+    renderPanel();
+  },
   onCopyLink: () => void copyLink(),
+  onBuild: () => {
+    unfinished = false;
+    confirmedTall = true;
+    void buildDraft();
+  },
 });
 
 /** The name of the roster fixture or case on show, when it can become a draft. */
@@ -452,6 +493,7 @@ function renderPanel(): void {
     draft: d,
     refusals: d && !d.validation.ok ? explainRefusals(d.validation.errors, d.fixture) : [],
     pipelineMessage: showingDraft ? pipelineMessage : null,
+    held: showingDraft ? held : null,
     notice,
     link,
   });
@@ -462,11 +504,24 @@ function syncRingBox(): void {
   scene.setRingBox(showingDraft && draft && draft.selected !== null ? ringBox(draft.fixture, draft.selected) : null);
 }
 
+/**
+ * A new draft is held: nothing of the draft before it carries over (journal decision 198, Low 3), neither its build, nor
+ * its history of good builds, nor what was agreed or marked about it.
+ */
+function startDraft(next: Draft): void {
+  draft = next;
+  builtFixture = undefined;
+  lastGood = undefined;
+  unfinished = false;
+  confirmedTall = false;
+  held = null;
+  saveDraft();
+}
+
 /** Makes `next` the draft on show. Work in the draft it replaces is asked about first. */
 function adopt(next: Draft): void {
   if (draft && isDirty(draft) && !window.confirm('Replace your draft?')) return;
-  draft = next;
-  saveDraft();
+  startDraft(next);
   fillSelector();
   history.replaceState(null, '', DRAFT_HASH);
   show({kind: 'draft', fixture: next.fixture, origin: 'saved'});
@@ -476,12 +531,17 @@ function adopt(next: Draft): void {
 async function editCurrent(): Promise<void> {
   const sel = current;
   if (!sel || sel.kind === 'draft') return;
+  const mine = selectionToken;
   try {
-    const next = editDraftOf(sel.kind === 'fixture' ? sel.fixture : await fixtureOfCase(sel.defect));
+    const source = sel.kind === 'fixture' ? sel.fixture : await draftFixtureOfCase(sel.defect);
+    // The selection moved on while the case's file was fetched: this draft is not what is on show any more.
+    if (mine !== selectionToken) return;
+    const next = editDraftOf(source);
     keepNext = true;
     adopt(next);
     keepNext = false;
   } catch (e) {
+    if (mine !== selectionToken) return;
     notice = {text: `${selectionName(sel)} cannot become a draft: ${errorMessage(e)}`, bad: true};
     renderPanel();
   }
@@ -500,7 +560,15 @@ function act(a: DraftAction): void {
     renderPanel();
     return;
   }
-  if (a.kind === 'load') fillSelector();
+  // A changed fixture is not the one whose build did not finish, nor the one the user agreed to build whole.
+  unfinished = false;
+  if (a.kind === 'load') {
+    fillSelector();
+    // A loaded file is another building: no build of the old one stands behind it (journal decision 198, Low 3).
+    builtFixture = undefined;
+    lastGood = undefined;
+    confirmedTall = false;
+  }
   // Decision 11: an edit keeps the view. A loaded file is a different building, which is choosing a different fixture, so it frames.
   keepView = a.kind !== 'load';
   select.value = DRAFT_OPTION;
@@ -541,15 +609,27 @@ async function buildDraft(): Promise<void> {
   const mine = ++token;
   const status = $('status');
   pipelineMessage = null;
-  const fixture = fixtureToBuild(d);
+  held = null;
+  let gate = buildGate(d, {unfinished, confirmedTall});
+  if (storeySum(d.fixture) <= TALL_STOREY_SUM) confirmedTall = false;
+  // Journal decision 198, M2: a very tall draft asks first. Declining leaves it held, with Build to say yes later.
+  if (gate === 'ask' && window.confirm(heldMessage(gate, d) ?? '')) {
+    confirmedTall = true;
+    gate = buildGate(d, {unfinished, confirmedTall});
+  }
+  const fixture = gate === 'build' ? fixtureToBuild(d) : undefined;
   if (!fixture) {
+    held = heldMessage(gate, d);
     if (builtFixture === undefined) clearViewport();
     scene.setDimmed(false);
     status.style.color = 'var(--bad)';
-    status.textContent = `${d.fixture.name}: not built, the wire refuses it`;
+    status.textContent = `${d.fixture.name}: ${gate === 'invalid' ? 'not built, the wire refuses it' : 'not built, held back'}`;
     renderPanel();
     return;
   }
+  // Journal decision 198, M2: the mark goes to storage before the build starts, since a build that never returns cannot write it.
+  buildsInFlight++;
+  saveDraft(true);
   try {
     const t0 = performance.now();
     const built = await buildShellDetailed(fixture);
@@ -557,6 +637,7 @@ async function buildDraft(): Promise<void> {
     const ms = Math.round(performance.now() - t0);
     build = built;
     builtFixture = d.fixture;
+    lastGood = d.fixture;
     pinned = null;
     hovered = null;
     toggles = keepStoreys(toggles, storeysOf(fixture));
@@ -578,6 +659,10 @@ async function buildDraft(): Promise<void> {
     else scene.setDimmed(true);
     status.style.color = 'var(--bad)';
     status.textContent = `${d.fixture.name}: build failed, the last good build is dimmed`;
+  } finally {
+    // Every start ends here, a superseded one too: the mark stays only while some build has not ended.
+    buildsInFlight--;
+    if (buildsInFlight === 0) saveDraft();
   }
   renderPanel();
 }
@@ -654,7 +739,10 @@ window.__viewer = {
 
 renderToggles();
 renderReadouts();
-draft = savedDraft() ?? null;
+const restored = savedDraft();
+draft = restored?.draft ?? null;
+// Journal decision 198, M2: a mark left by a build that never ended means the draft is not built again on its own.
+unfinished = restored?.unfinished ?? false;
 // The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
 void loadManifest().then(() => {
   fillSelector();

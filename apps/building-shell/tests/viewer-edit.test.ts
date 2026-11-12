@@ -1,10 +1,10 @@
 // Viewer editing decisions 1 to 5 and gates 1 and 2 of decision 23: the pure edit functions, and `ringBox`.
 import {describe, expect, it} from 'vitest';
 import {EXPORTED_FIXTURES, RING_SIDES, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
-import {validate} from '../src/viewer/draft.ts';
+import {resolveSides, validate} from '../src/viewer/draft.ts';
 import {
-  NEW_RING_DEG, NEW_RING_SIZE_CM, addRing, cloneFixture, clearSide, duplicateRing, moveRing, removeRing, ringBox, setBaseStorey,
-  setDefaultDeg, setRect, setSideForm, setSidePitch, setStoreyHeight, setStoreys, snapToCell,
+  addRing, cloneFixture, clearSide, duplicateRing, moveRing, pinListedPitches, removeRing, ringBox, setBaseStorey,
+  setDefaultDeg, setRect, setRectCoord, setSideForm, setSidePitch, setStoreyHeight, setStoreys, snapToCell,
 } from '../src/viewer/edit.ts';
 
 /** Freezes a value and everything under it, so any write to it throws (modules are strict). */
@@ -116,8 +116,11 @@ describe('the edit set (decision 2)', () => {
   it('adds a 500 x 500 hip Ring at 45 degrees, one storey, base 0, beside the selected Ring\'s east side (decision 4)', () => {
     const next = addRing(two(), 0);
     expect(next.rings).toHaveLength(3);
-    expect(next.rings[2]).toEqual({rect: [600, 0, 600 + NEW_RING_SIZE_CM, NEW_RING_SIZE_CM], baseStorey: 0, storeys: 1, defaultDeg: NEW_RING_DEG, sides: {}});
-    expect([NEW_RING_SIZE_CM, NEW_RING_DEG]).toEqual([500, 45]);
+    // Literal values, not the constants the function reads, so a changed constant fails here.
+    expect(next.rings[2]).toEqual({rect: [600, 0, 1100, 500], baseStorey: 0, storeys: 1, defaultDeg: 45, sides: {}});
+    const alone = addRing({name: 'e', cellSize: 50, storeyHeight: 250, rings: []}).rings[0];
+    expect(alone).toEqual({rect: [0, 0, 500, 500], baseStorey: 0, storeys: 1, defaultDeg: 45, sides: {}});
+    expect(validate(addRing({name: 'e', cellSize: 50, storeyHeight: 250, rings: []}))).toEqual({ok: true});
     expect(addRing(two(), 1).rings[2].rect).toEqual([1000, 100, 1500, 600]);
   });
 
@@ -178,11 +181,54 @@ describe('the edit set (decision 2)', () => {
 
   it('sets one side\'s form, keeping its pitch, and one side\'s pitch, keeping its form', () => {
     const f = two();
-    expect(setSideForm(f, 0, 'E', 'gable').rings[0].sides).toEqual({S: {form: 'gable'}, E: {form: 'gable'}});
     const pitched = setSidePitch(f, 0, 'S', 40);
     expect(pitched.rings[0].sides?.S).toEqual({form: 'gable', deg: 40});
     expect(setSideForm(pitched, 0, 'S', 'hip').rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
     expect(setSidePitch(f, 0, 'W', 20).rings[0].sides?.W).toEqual({form: 'hip', deg: 20});
+  });
+
+  it('choosing a form on a side pins its pitch at the value it has now, so a listed side always carries its own (journal decision 198, M1)', () => {
+    const f = two();
+    // E is not listed: it reads the Ring's 30, and choosing gable pins 30.
+    expect(setSideForm(f, 0, 'E', 'gable').rings[0].sides?.E).toEqual({form: 'gable', deg: 30});
+    // Choosing hip on an unlisted side lists it too, at 30.
+    expect(setSideForm(f, 0, 'N', 'hip').rings[0].sides?.N).toEqual({form: 'hip', deg: 30});
+    // The pin does not move when the default does afterwards; an unlisted side's pitch does.
+    const pinned = setDefaultDeg(setSideForm(f, 0, 'E', 'gable'), 0, 50);
+    expect(resolveSides(pinned.rings[0]).E).toEqual({form: 'gable', deg: 30});
+    expect(resolveSides(pinned.rings[0]).N).toEqual({form: 'hip', deg: 50});
+    // "Default" unlists the side, back to a hip at the Ring's pitch.
+    expect(clearSide(pinned, 0, 'E').rings[0].sides?.E).toBeUndefined();
+    expect(resolveSides(clearSide(pinned, 0, 'E').rings[0]).E).toEqual({form: 'hip', deg: 50});
+  });
+
+  it('pinListedPitches gives every listed side its own pitch without changing what any side resolves to', () => {
+    const f = two();
+    const pinned = pinListedPitches(f);
+    expect(pinned.rings[0].sides).toEqual({S: {form: 'gable', deg: 30}});
+    expect(pinned.rings.map(r => resolveSides(r))).toEqual(f.rings.map(r => resolveSides(r)));
+    expect(f.rings[0].sides).toEqual({S: {form: 'gable'}});
+  });
+
+  it('sets one rect coordinate and leaves the other three as they are, off the grid or not (journal decision 198, Low 4)', () => {
+    // A rect off the grid, as a loaded file may hold one: x0 = 12.5 and y0 = 7 are not multiples of 50.
+    const f: ShellFixture = {name: 'o', cellSize: 50, storeyHeight: 250, rings: [ring([12.5, 7, 612.5, 407], 0, 1, 45)]};
+    expect(setRectCoord(f, 0, 2, 620).rings[0].rect).toEqual([12.5, 7, 600, 407]);
+    expect(setRectCoord(f, 0, 0, 74).rings[0].rect).toEqual([50, 7, 612.5, 407]);
+    expect(setRectCoord(f, 0, 3, 430).rings[0].rect).toEqual([12.5, 7, 612.5, 450]);
+    expect(setRectCoord(f, 0, 1, -10).rings[0].rect.map(v => Object.is(v, -0))).toEqual([false, false, false, false]);
+  });
+
+  it('copies by spread, so a field a Ring or a fixture gains later is copied with it (journal decision 198, B4)', () => {
+    const extended = Object.assign(ring([0, 0, 500, 500], 0, 1, 45, {S: Object.assign({form: 'gable' as const}, {tag: 'x'})}), {note: 'n'});
+    const f = Object.assign({name: 'x', cellSize: 50, storeyHeight: 250, rings: [extended]}, {extra: 1});
+    const copy = cloneFixture(f);
+    expect(copy).toEqual(f);
+    expect(copy).toHaveProperty('extra', 1);
+    expect(copy.rings[0]).toHaveProperty('note', 'n');
+    expect(copy.rings[0].sides?.S).toHaveProperty('tag', 'x');
+    expect(copy.rings[0]).not.toBe(extended);
+    expect(copy.rings[0].sides).not.toBe(extended.sides);
   });
 
   it('clears one side back to the default, and clearing an unlisted side changes nothing', () => {

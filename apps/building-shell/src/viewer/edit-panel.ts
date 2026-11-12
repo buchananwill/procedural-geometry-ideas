@@ -4,6 +4,7 @@
 // The DOM is built once and patched, never rebuilt, because a control that is replaced between a mouse-down and the
 // mouse-up loses its click: a field commits on its `change`, which a click elsewhere fires on the way in (decision 10).
 // Only the Ring list grows and shrinks, at its tail, so each row's buttons keep their element and their index.
+import {errorMessage} from '../errors.ts';
 import {RING_SIDES} from '../fixture.ts';
 import type {RingForm, RingSide} from '../fixture.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
@@ -23,6 +24,8 @@ export interface PanelView {
   refusals: readonly Refusal[];
   /** Decision 8: the message of a valid draft the pipeline refused. */
   pipelineMessage: string | null;
+  /** Journal decision 198, M2: why a valid draft is not being built (a build that did not finish, a very tall draft), offered with Build; null when it is. */
+  held: string | null;
   notice: Notice | null;
   /** The link "Copy link" made, shown so it can be copied by hand when the clipboard is unavailable. */
   link: string | null;
@@ -36,7 +39,11 @@ export interface PanelHandlers {
   onDownload(): void;
   /** A file the user chose to load (decision 19): its text and its name. */
   onLoadFile(text: string, filename: string): void;
+  /** A file the user chose could not be read at all. */
+  onLoadFailed(filename: string, message: string): void;
   onCopyLink(): void;
+  /** The "Build" button of a held draft: build it now. */
+  onBuild(): void;
 }
 
 export interface EditPanel { render(view: PanelView): void }
@@ -75,7 +82,17 @@ function numberField(id: string, step: number, commit: (value: number) => void, 
 
 const num = (v: number): string => String(Math.round(v * 1e6) / 1e6);
 
-const RECT_LABELS = ['x0', 'y0', 'x1', 'y1'] as const;
+/** The rect's four fields, with the coordinate of `Rect` each one sets. */
+const RECT_FIELDS = [{label: 'x0', coord: 0}, {label: 'y0', coord: 1}, {label: 'x1', coord: 2}, {label: 'y1', coord: 3}] as const;
+
+/** The form a select's value names, or null for a value that names none. */
+const formOf = (value: string): RingForm | null => (value === 'hip' || value === 'gable' ? value : null);
+
+/** One side's controls. */
+interface SideRow { form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement }
+
+/** One row of the Ring list. */
+interface RingRow { row: HTMLElement; pick: HTMLButtonElement; up: HTMLButtonElement; down: HTMLButtonElement }
 
 /** Mounts the panel in `host` and returns the function that shows a view. */
 export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): EditPanel {
@@ -117,27 +134,30 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   fields.id = 'ring-fields';
   const fieldsTitle = el('div', undefined, 'fields-title');
   fieldsTitle.id = 'ring-fields-title';
-  const rectFields = RECT_LABELS.map((name, coord) =>
-    numberField(`ring-${name}`, 50, v => withRing(r => ({kind: 'setRectCoord', ring: r, coord: coord as 0 | 1 | 2 | 3, value: v})), resync));
+  const rectFields = RECT_FIELDS.map(({label, coord}) =>
+    numberField(`ring-${label}`, 50, v => withRing(r => ({kind: 'setRectCoord', ring: r, coord, value: v})), resync));
   const baseField = numberField('ring-base-storey', 1, v => withRing(r => ({kind: 'setBaseStorey', ring: r, value: v})), resync);
   const storeysField = numberField('ring-storeys', 1, v => withRing(r => ({kind: 'setStoreys', ring: r, value: v})), resync);
   const defaultField = numberField('ring-default-deg', PITCH_STEP_DEG, v => withRing(r => ({kind: 'setDefaultDeg', ring: r, value: v})), resync);
   const labelled = (text: string, f: Field): HTMLLabelElement => { const l = el('label', `${text} `, 'inline'); l.append(f); return l; };
   const rectRow = el('div', undefined, 'row');
-  rectFields.forEach((f, i) => rectRow.append(labelled(RECT_LABELS[i], f)));
+  rectFields.forEach((f, i) => rectRow.append(labelled(RECT_FIELDS[i].label, f)));
   const storeyRow = el('div', undefined, 'row');
   storeyRow.append(labelled('base storey', baseField), labelled('storeys', storeysField), labelled('default pitch', defaultField));
 
-  const sideRows = new Map<RingSide, {form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement}>();
+  const sideRows = new Map<RingSide, SideRow>();
   const sides = el('div', undefined, 'sides');
   for (const side of RING_SIDES) {
     const row = el('div', undefined, 'row side');
     const form = el('select');
     form.id = `ring-side-${side}-form`;
     for (const f of ['hip', 'gable'] as const) form.append(new Option(f, f));
-    form.addEventListener('change', () => withRing(r => ({kind: 'setSideForm', ring: r, side, form: form.value as RingForm})));
+    form.addEventListener('change', () => {
+      const chosen = formOf(form.value);
+      if (chosen) withRing(r => ({kind: 'setSideForm', ring: r, side, form: chosen}));
+    });
     const pitch = numberField(`ring-side-${side}-deg`, PITCH_STEP_DEG, v => withRing(r => ({kind: 'setSidePitch', ring: r, side, value: v})), resync);
-    const clear = button('Default', 'Clear this side back to a hip at the default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
+    const clear = button('Default', 'Unlist this side: a hip at the Ring\'s default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
     row.append(el('span', side, 'side-name'), form, pitch, clear);
     sides.append(row);
     sideRows.set(side, {form, pitch, clear});
@@ -158,6 +178,11 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   const linkButton = button('Copy link', 'Copy a link that carries the draft', () => handlers.onCopyLink(), 'edit-link');
   actions.append(undoButton, ' ', redoButton, ' ', resetButton, ' ', downloadButton, ' ', loadButton, loadInput, ' ', linkButton);
 
+  const held = el('div', undefined, 'refusals');
+  held.id = 'edit-held';
+  const heldText = el('span');
+  const buildButton = button('Build', 'Build this draft now', () => handlers.onBuild(), 'edit-build');
+  held.append(heldText, ' ', buildButton);
   const refusals = el('div', undefined, 'refusals');
   refusals.id = 'edit-refusals';
   const pipeline = el('div', undefined, 'refusals');
@@ -168,13 +193,22 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   link.id = 'edit-link-text';
   link.readOnly = true;
   link.addEventListener('focus', () => link.select());
-  body.append(title, list, listActions, fields, actions, refusals, pipeline);
+  body.append(title, list, listActions, fields, actions, held, refusals, pipeline);
 
   for (const input of [loadInput, startLoad]) {
     input.addEventListener('change', async () => {
       const file = input.files?.[0];
       input.value = '';
-      if (file) handlers.onLoadFile(await file.text(), file.name);
+      if (!file) return;
+      let text: string;
+      try {
+        text = await file.text();
+      } catch (e) {
+        // Journal decision 198, N6: a file that cannot be read is told about, not left as an unhandled rejection.
+        handlers.onLoadFailed(file.name, errorMessage(e));
+        return;
+      }
+      handlers.onLoadFile(text, file.name);
     });
   }
 
@@ -194,11 +228,13 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   const refusalAt = (v: PanelView, r: number | null, name: FieldName, side?: RingSide): Refusal | undefined =>
     v.refusals.find(x => x.ring === r && x.field === name && (side === undefined || x.side === side));
 
+  const ringRows: RingRow[] = [];
+
   function patchList(v: PanelView, d: Draft): void {
     const rings = d.fixture.rings;
-    while (list.children.length > rings.length) list.lastElementChild?.remove();
-    while (list.children.length < rings.length) {
-      const i = list.children.length;
+    while (ringRows.length > rings.length) ringRows.pop()?.row.remove();
+    while (ringRows.length < rings.length) {
+      const i = ringRows.length;
       const row = el('div', undefined, 'ring-row');
       const pick = el('button', undefined, 'ring-pick');
       pick.type = 'button';
@@ -209,16 +245,14 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       const rm = button('×', 'Remove this Ring', () => act({kind: 'removeRing', ring: i}));
       row.append(pick, up, down, dup, rm);
       list.append(row);
+      ringRows.push({row, pick, up, down});
     }
     rings.forEach((r, i) => {
-      const row = list.children[i] as HTMLElement;
-      const pick = row.querySelector('.ring-pick') as HTMLButtonElement;
+      const {row, pick, up, down} = ringRows[i];
       const top = r.baseStorey + r.storeys - 1;
       pick.textContent = `${i}: [${r.rect.map(num).join(', ')}] storey ${r.baseStorey}${top > r.baseStorey ? `-${top}` : ''}`;
       row.classList.toggle('sel', d.selected === i);
-      const bad = v.refusals.find(x => x.ring === i);
-      mark(row, bad);
-      const [, up, down] = Array.from(row.querySelectorAll('button'));
+      mark(row, v.refusals.find(x => x.ring === i));
       up.disabled = i === 0;
       down.disabled = i === rings.length - 1;
     });
@@ -249,11 +283,11 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       if (!row) continue;
       setField(row.form, resolved[side].form);
       setField(row.pitch, num(resolved[side].deg));
-      // Decision 14: the pitch shows the default, greyed, until the side has one of its own.
-      row.pitch.classList.toggle('default', own?.deg === undefined);
+      // Decision 14 as amended: a side that is not listed shows the Ring's default, greyed; a listed side has its own pitch.
+      row.pitch.classList.toggle('default', own === undefined);
       row.form.classList.toggle('default', own === undefined);
       row.clear.disabled = own === undefined;
-      mark(row.pitch, refusalAt(v, r, 'sidePitch', side) ?? (own?.deg === undefined ? refusalAt(v, r, 'defaultDeg', side) : undefined));
+      mark(row.pitch, own ? refusalAt(v, r, 'sidePitch', side) : refusalAt(v, r, 'defaultDeg', side));
     }
   }
 
@@ -265,6 +299,8 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       for (const x of v.refusals) ul.append(el('li', x.text));
       refusals.append(ul);
     }
+    held.hidden = v.held === null || v.draft === null;
+    heldText.textContent = v.held ?? '';
     pipeline.replaceChildren();
     if (v.pipelineMessage !== null) pipeline.append(el('div', `The pipeline refuses this draft; the last good build is shown dimmed: ${v.pipelineMessage}`, 'bad'));
     notice.textContent = v.notice?.text ?? '';
