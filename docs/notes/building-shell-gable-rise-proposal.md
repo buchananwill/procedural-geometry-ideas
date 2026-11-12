@@ -62,22 +62,26 @@ Numbers are for citation. They are not an order of work.
    side lies there wins, and its run at that point gives the form. **This amends spec 3 and journal decision 116**,
    which gave the whole wall to one winner. The consequence is deliberate: a Ring with a gabled side lying flush on
    another Ring's hipped wall now produces a rise over its own width, where today its gable is either dropped or
-   spread along the entire wall.
+   spread along the entire wall. **CORRECTED 2026-11-12 (journal F65)**: this holds where the gabled Ring wins its
+   stretch. Where a lower-index Ring's hipped side covers the same stretch, as in a T whose crossbar has the lower
+   index, the hip wins there and no rise is built (decision 7).
 4. **A union wall has one hip pitch.** It is the pitch of the lowest-index hip extent on that wall. Hip extents
    that disagree in pitch do not refuse: the lowest index wins the wall's pitch, as decision 116 has it today.
    This is the skeleton's constraint (F58) and is not negotiable.
 5. **A union wall whose every extent is a gable is a whole-wall gable**, built by algorithm B exactly as today,
    with the lowest-index extent's pitch as the wall's weight. No rise is built for it.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
-   gable extents with equal pitch merge into one rise. Adjacent gable extents with different pitches stay separate
-   rises that meet in a valley.
+   gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
+   Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a
+   point on the plate with the hip slope between them. The original said "in a valley", which was wrong.
 7. **Determinism stays the lowest-index rule** (decision 128). There is no "gable beats hip" rule. To make a rise
    win on a wall another Ring also claims, the author gives its Ring the lower index.
 
 ### Geometry
 
 8. **A rise is one synthetic gable piece**: wall = the union wall, band = the extent, far distance = the existing
-   piece rule, planes = its two rakes plus the far wall's hip plane where that wall is a hip. It is built by the
+   piece rule, planes = its two rakes plus the limit planes of decisions 11 and 12 (AMENDED 2026-11-12: the original
+   said "plus the far wall's hip plane where that wall is a hip", which decision 11 strikes). It is built by the
    unchanged `gablePiece`, so it is a prism trimmed under those planes, above the plate, inside the footprint. The
    union does the rest: the ridge stops where it meets the main roof.
 9. **Rake planes are canonicalised against the storey's existing planes before a piece is made.** A rake that
@@ -89,10 +93,17 @@ Numbers are for citation. They are not an order of work.
     the default limit is the far slope.** Each rise carries a `limit`, a named policy that decides which planes
     bound the rise besides its two rakes. The pipeline takes the policy as a function from a rise to its bounding
     planes, so a second policy is an addition and never a rewrite.
-    - **`farSlope`, the default and the only policy built first.** The apex may stand above the main ridge. No
-      point of the rise may stand above the roof slope of the far side of that ridge, extended back towards the
-      wall the rise stands on. This is the far wall's hip plane of decision 8, taken as an unbounded plane. A rise
-      tall enough to meet that plane at its own wall has its front truncated by it.
+    - **`ridgeSlope`, the default and the only policy built first. AMENDED AGAIN 2026-11-12 (journal decision
+      203).** The apex may stand above the main ridge. No point of the rise may stand above the roof slope just
+      beyond the main ridge that the rise's own ridge runs into, extended back towards the wall the rise stands
+      on. A rise tall enough to meet that plane at its own wall has its front truncated by it.
+    - **STRUCK: `farSlope`.** The first amendment named the limit `farSlope` and defined it as "the far wall's hip
+      plane of decision 8". That was the lead's mis-reading of the user's words. The two agree on a rectangle. Off
+      a rectangle the far wall is the wrong slope, and where it is a courtyard cut or a gable it gives no plane at
+      all (journal F66). Decision 8's "far wall's hip plane" is replaced by this limit.
+    - **Not yet defined: the limit when no ridge crosses the rise's path**, as when the opposite wall is a
+      whole-wall gable and the main ridge runs parallel to the rise's. It is owed by WP-G1.1, and may need the
+      user's ruling.
     - Other policies the user can imagine are not designed here. Each is added with its own decision.
     - `limit` is an in-memory field on a gable run. `input@1` gains a field for it only when a second policy
       exists, and that is a wire change with its own ruling.
@@ -112,9 +123,14 @@ Numbers are for citation. They are not an order of work.
       wall is still the open question of the
       [covered-storeys findings](./building-shell-covered-storeys-and-sections-findings.md), and inherits its
       ruling.
-    - **A capped rise has a flat top.** No pipeline output has a horizontal roof face today, and the wire refuses
-      the `Flat` form. How that face is tagged, and which Edge kinds bound it, is unmeasured and owed by
-      decision 22. This qualifies decision 13 for capped rises.
+    - **A capped rise has a flat top. MEASURED 2026-11-12 (journal F65)**: it is a `Roof` face on its own
+      horizontal plane, bounded by Ridge, Valley, Verge, and RingJunction against a wall, with Roof Cells of null
+      source. Nothing is Unclassified and no new kind is needed, so decision 13 holds for capped rises too.
+    - **A rise that reaches the floor cap fuses with the overhang** (journal F67, decision 203). The genus of the
+      shell then follows from the shape, and decision 20's genus check takes it from the geometry. The lead's
+      reading, flagged to the user, who may prefer a gap below the floor.
+    - **A rise that stands above the top of the storey directly over its own storey breaks through it** (journal
+      F68). No rule covers this yet. It waits for the user.
     - The original text read: "A rise under a storey above obeys the same precondition as every lower roof: it
       must stay beneath the top of the storey over it. This proposal does not solve that precondition."
 
@@ -146,13 +162,17 @@ Numbers are for citation. They are not an order of work.
     Internal face, no Unclassified Edge. A rise that produces a Cheek is a defect to enrol by the project's
     enrolment rule, never to tolerate silently.
 21. **Gates, each convicted by mutation**: dropping the canonicalisation of decision 9 fails a test; reverting
-    decision 3 to whole-wall winners fails a test; removing decision 10's corner rule fails a test; widening a rise
-    to the whole wall yields the whole-wall gable's shell.
+    decision 3 to whole-wall winners fails a test; removing decision 10's corner rule fails a test **on a fixture
+    with unequal pitches** (added 2026-11-12: at equal pitch decision 9 alone gives the same shell, journal F65);
+    widening a rise to the whole wall yields the whole-wall gable's shell.
 22. **The first work package is measurement, before any production code.** It moves the F60 probe into
     `apps/building-shell/experiments/` and sweeps the cases F60 did not reach, listed below. It stops and reports
     if any class is not clean.
 
 ## Unmeasured, and owed by decision 22
+
+**Measured 2026-11-12 by WP-G1**: see [the gable rise findings](./building-shell-gable-rise-findings.md) and journal
+F65 to F69. The list below is kept as the sweep's original scope.
 
 - A rise on a non-convex footprint, where the prism passes over a reflex corner or another wing.
 - A rise that ends at a reflex corner.

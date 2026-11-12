@@ -232,6 +232,26 @@ ruled" list in the covered-storeys findings.
      on that tree: 8,437 passed in 38 files, typecheck clean, and the new test fails under both mutations. **Not
      exercised in a browser**: the fix was tested only through the pure function. One type nit is left for the
      backlog: `saveMark` takes an inline object type.
+203. **WP-G1 is accepted at `e45304b` as a measurement, and the rise is not built yet** (the lead, 2026-11-12). The
+     commit adds 21 new files, all under `apps/building-shell/experiments/gable-rises/` plus
+     [the findings note](./building-shell-gable-rise-findings.md) (the lead checked `git show --stat`). F60 and
+     F61 reproduced exactly. Of 232 builds, 215 are clean and 17 are not (F65 to F69). Rulings:
+     - **The lead mis-read the user's decision 194, and corrects it.** The user said the limit is "the roof slope
+       from the other side of the orthogonal ridge". The lead mapped that to algorithm B's far wall, which is the
+       same plane on a rectangle and a different one elsewhere (F66). **The default limit is the slope just beyond
+       the main ridge that the rise's own ridge runs into**, which the sweep's probe calls `ridgeSlope`. Gable rise
+       decision 11 is amended in place. The probe measured `ridgeSlope` on 7 builds only, so WP-G1.1 re-runs the
+       whole sweep under it before anything is built.
+     - **A rise that reaches the floor cap fuses with the overhang, and the genus that follows is correct**
+       (F67). The user ruled the ridge cannot pass *through* the floor; a rise clamped at the floor touches it, so
+       the two solids join and can close a tunnel. Genus is derived from the geometry, not authored, so the
+       invariant for a capped rise takes its genus from the shape. **This is the lead's reading and is flagged to
+       the user**, who may prefer a gap below the floor.
+     - **A rise that breaks through the storey directly above stays with the user** (F68). It is the covered-storeys
+       precondition, and the alternative reading of decision 195 does not build at all.
+     - **Gable rise decisions 3, 6 and 21 are corrected in place** where the sweep showed their wording wrong.
+     - **Building the rise waits for the user** (decision 200), on F68 and on confirming the two readings above.
+       WP-G1.1 is measurement and proceeds.
 
 ## Findings
 
@@ -300,3 +320,47 @@ Their probes are in the session scratch directory under `midgable/`, which is se
     cannot be told from an unlisted side. The round trip preserves what the pipeline builds, not the fixture's
     spelling.
   - **Only Wall and Gable faces carry a Ring identity.** Click-to-select works on those and on nothing else.
+
+F65 to F69 are the WP-G1 delegate's measurements at `e45304b`, detailed in
+[the gable rise findings](./building-shell-gable-rise-findings.md). The lead has not re-run them. "Clean" there means
+the suite's invariant check with zero Cheeks and zero conflicts, the height oracle within 0.05 cm, and the rise never
+above a storey over it.
+
+- **F65. A gable rise builds clean through the unchanged pipeline in every class but three.** 232 builds, 215
+  clean. Clean: the convex rectangle at 5 pitch pairs and 4 bands; convex corners; L, T and U footprints, over a
+  reflex corner, into a wing and ending at a reflex corner (54 builds); two rises on a wall, adjacent walls and
+  crossing ridges (29); courtyard outer and hole walls and the walls the cut is spliced through (21); tall and
+  self-truncated rises; pitches from 7° to 75° (21); `maxHeight` flat tops (8); and flush Rings under form per
+  extent (15 of 16). The height oracle agreed within 0.001 cm, and was itself convicted by mutation. Cell
+  provenance on the rise's Gable named the winning Ring and side everywhere.
+  - **Plane canonicalisation (gable rise decision 9) is necessary and sufficient, and not only at corners.** It
+    fired 8 times on rakes away from any corner.
+  - **The corner rule (decision 10) is sufficient**, and a rise widened to the whole wall then gives the same
+    shell as today's whole-wall gable. At equal pitch decision 9 alone gives that shell, so decision 10's gate
+    needs unequal pitches.
+  - **A flat top is a `Roof` face on its own horizontal plane.** Its edges are Ridge, Valley, Verge, and
+    RingJunction against a wall. Its Cells are Roof Cells with a null source. Nothing is Unclassified and no new
+    kind appears. This answers the question F63 left open on the TypeScript side.
+  - **Adjacent rises of unequal pitch meet at a point on the plate**, with the hip slope between them, not in a
+    valley.
+- **F66. The far-wall limit fails where the far wall is not a hip, and is not the slope a person would name off a
+  rectangle.**
+  - Where algorithm B's far wall is the courtyard cut, the limit adds no plane: 4 of 6 builds have 1 Cheek. The
+    smallest: the roster `Courtyard` at 30°, Ring 0 side S with a 45° gable run from 100 to 300.
+  - Where the far wall is a whole-wall gable, nothing limits the rise: its apex reaches 996 against the gable's
+    750, and it stands 746 cm above the plate at the far wall.
+  - In front of a continuing wing (a T stem, an L junction) the far wall is the wing's far end, so a 75° rise runs
+    900 cm back where the slope beyond the ridge would stop it at 200. Both are clean.
+  - A probe-only limit using the slope beyond the main ridge was clean in all 7 builds tried and cures the Cheek.
+- **F67. A rise that reaches an overhanging storey's floor changes the genus from 0 to 1**, with the cap on or off
+  (5 of 7 builds). The rise fuses with the floor and closes a real tunnel between itself, the tower holding the
+  overhang up, and the floor. Smallest: `[0,0,1000,500]` on storey 0 at 30° with S gabled from 400 to 600 at 75°;
+  a tower `[800,0,1000,500]` on storeys 0 and 1; `[300,0,1000,500]` on storey 2.
+- **F68. A rise under the storey directly above is clean only while it stays under that storey's top.** It breaks
+  through by 9.4 cm at 60° and by 122.6 cm at 75°. Smallest: `[0,0,1000,500]` at 45° with S gabled from 350 to
+  650 at 60°, under `[300,100,700,400]` on storey 1. Capping at that storey's floor instead (the other reading of
+  decision 195) leaves the piece empty, and `gablePiece` throws.
+- **F69. The re-tag pass reports a Wall-over-Gable conflict only when a triangle's centroid lands in the overlap.**
+  `StoreyRingConflictSwapped` with a rise reports 1 conflict where today's build reports 2, and the same overlap
+  elsewhere reports none. The Wall winning is correct. This is a property of today's pipeline, not of rises, and
+  it means conflict counts are not a stable measure across re-triangulation.
