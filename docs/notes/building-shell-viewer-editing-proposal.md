@@ -117,6 +117,21 @@ Numbers are for citation. They are not an order of work.
     run, set its ends, set its form and pitch) on the same edit functions. The editor comes first, so that rises
     are explored in it.
 
+## Amendments
+
+**2026-11-12, journal decision 198, after the reviews of the first implementation.**
+
+- **Decision 14 is amended.** A listed side always carries its own pitch. Choosing a form on a side pins that
+  side's pitch at its current value, and "Default" unlists the side. The original had a listed side's pitch field
+  "greyed until overridden", which the wire cannot represent.
+- **Decision 15 is amended.** Clicking a Wall or Gable face selects its Ring. Other faces carry no Ring identity
+  in the pipeline and select nothing.
+- **Decision 23 is amended.** "A draft survives download then load unchanged" means the loaded fixture equals the
+  draft, with one named exception: `defaultDeg` on a Ring with all four sides listed, which `input@1` has no field
+  for.
+- **Decision 12 gains a guard.** A build that did not finish is not retried on reload, and a draft whose Rings'
+  storeys sum above 100 asks before building.
+
 ## Not in this version
 
 - Dragging handles in the viewport, and a 2D plan view.

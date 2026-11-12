@@ -40,7 +40,15 @@ only on the final faces.
 
 ## 3. Operational manual
 
-Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operational-manual). It is unchanged.
+Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operational-manual), with one addition.
+
+- **The C++ UI/UX polish arc lead is the Claude session `claude-work-ec`** (arc MBU, modular-building-ux; it
+  confirmed this on 2026-11-12). It cannot read this repo, so send it essentials as text. The data-typing refactor
+  is led by a different session.
+- **The C++ project is at `D:\Coding\resort_game\PistePerfect_5_7`** and this session may read it (the user,
+  2026-11-12). It is about 500k lines on top of the engine, so **go in with a named target, never a browse**. F63
+  names the first ones: `Shell/BuildingShellTags.h` (`EBuildingShellKind`), `Roof/ModularRoof.h`
+  (`IsModularClampFlatFace`), `Rules/ModularClampRoof.h`, and decision MB.D525 in that project's journal.
 
 ## 4. Next work
 
@@ -61,8 +69,30 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 5. **Then dispatch, in this order**: the viewer editor; gable rise decision 22's measurement package (it moves the
    scratch probe of F60 into `apps/building-shell/experiments/`, because the scratch directory is session-local
    and will not survive); the rise itself; the editor's run list.
-6. Nothing from this session is committed. The three new notes and the session 1 head-of-thread edit are in the
-   working tree.
+6. ~~Nothing from this session is committed.~~ Committed at `aa9b09b` on the user's go (decision 196), not pushed.
+7. **WP-E1, the viewer editor, dispatched 2026-11-12** (general-purpose, Sonnet) at `aa9b09b`, on the arc branch.
+   Its contract is the viewer editing proposal's 25 decisions. Its gates are that proposal's decision 23, by
+   mutation. It reports build times (decision 12) and stops on any file outside the proposal's roster. **When it
+   returns**: check its figures against its tree, then a type review and a correctness review before acceptance.
+   **Returned at `c00b8cf` (decision 197, F64). Two reviews dispatched 2026-11-12**: `typescript-type-reviewer`
+   and a correctness reviewer (general-purpose, Opus), both on `aa9b09b..c00b8cf`. WP-E1 is accepted when they
+   are ruled on.
+   **Both reviews ruled (decision 198). WP-E1.1 dispatched 2026-11-12 to the same delegate, resumed.** When it
+   returns: the correctness reviewer re-reads the fix diff only, then WP-E1 is accepted and the journal edits
+   since `aa9b09b` are committed. **Then the rise sweep is dispatched (decision 199)**: general-purpose, Opus,
+   owning only `apps/building-shell/experiments/`, starting from the scratch probes of F60 under `midgable/`.
+   **WP-E1.1 returned at `4e969a5`** (one commit, eight roster files; the lead checked `git diff --stat`). Its
+   record on that tree: 8,436 passed in 38 files, typecheck clean, the golden drift test inside the run, and five
+   mutation gates convicted. **The correctness reviewer was resumed on `c00b8cf..4e969a5` on 2026-11-12.**
+8. **The message to the C++ side was sent to `claude-work-ec` on 2026-11-12**, which the user thinks is the UI/UX
+   polish lead ("I think"). The message asks it to say so if it is not. It carries decisions 191, 192, 194 and
+   195, the consequences for the port, and two questions: whether the game UI can request a form on part of one
+   wall plate, and whether a horizontal roof face has a home in the C++ taxonomy. **Replied the same day: F63.**
+   `pisteperfect-5-7-4f` of session 1's manual is no longer listed as a peer.
+9. **Owed to `claude-work-ec`**: word when it is known whether a rise adds faces whose kind or Cell source differs
+   from today's. Its shell preview reads faces by kind and plane, and wall and gable Cells by Ring model index and
+   side. Gable rise decision 14 (a rise's Cells name the winning Ring and side of its extent) is the answer in
+   intent; send it once the rise is built and measured.
 
 ## 5. Open items
 
@@ -122,6 +152,71 @@ ruled" list in the covered-storeys findings.
      Under that reading the storey directly above the rise's own storey is not an overhang, so a rise running back
      into its wall stays with the unruled covered-storeys items. A capped rise has a horizontal top face, which
      the pipeline has never produced: its tag and Edge kinds are owed by the measurement sweep.
+196. **The user gives the go to commit the notes on the arc branch and dispatch the editor there, and to message
+     the C++ side now** (the user, 2026-11-12). The recipient is the session that will lead the UI/UX polish arc,
+     because this work links more directly to it than to the session leading the data-typing refactor.
+197. **WP-E1 landed at `c00b8cf` and is provisionally accepted, pending two reviews** (the lead, 2026-11-12). The
+     range `aa9b09b..c00b8cf` is three commits touching exactly the nine files of the proposal's roster (the lead
+     checked `git diff --stat`). The delegate's record, on that tree: baseline 8,275 passed in 36 files, final
+     8,421 passed in 38 files, typecheck clean, and the four gates of decision 23 each convicted by mutation. The
+     lead has not re-run them. Rulings on what it reported:
+     - **No Worker** (viewer editing decision 12): the worst measured ten-Ring draft is 244 ms, under the 250 ms
+       line, but only just (F64). It is reopened if drafts grow.
+     - **The link stays uncompressed for now** (decision 20). At about 1,000 characters per Ring it works in a
+       browser. The measured deflate alternative is noted in F64 and offered to the user.
+     - **The delegate's `parseDraftJson` and `canonicalRing` are accepted in principle**, since the wire round
+       trip does not return an equal fixture (F64). Their soundness is the correctness reviewer's first target.
+     - **Its additions beyond the proposal stand unless a review objects**: a confirm dialog before replacing a
+       changed draft, Ctrl+Z and Ctrl+Shift+Z, and Download and Copy link disabled on an invalid draft.
+198. **Both reviews of WP-E1 are ruled on, and WP-E1.1 carries the fixes** (the lead, 2026-11-12). The correctness
+     review found no High: no draft path bypasses the validity gate, and no round trip changes what is built. The
+     type review asked for changes. Rulings, by the reviewers' own labels:
+     - **Type B1 is rejected as unreachable.** It says two Rings with `modelIndex` -1 would share a lookup. The
+       lead opened `input-adapter.ts:287-294`: an index of -1 is itself refused, and duplicates are refused, so an
+       accepted file has unique model indices. The silent `?? 'Auto'` fallback still becomes a thrown invariant.
+     - **Type B2 to B6 are accepted**: use `RingSides`; tie the persistence schema to `ShellFixture` at compile
+       time; clone by spread so a future field is not dropped; name `SetBuildOptions`, `DraftOrigin` and use
+       `ParsedDraft`.
+     - **Type N1, N2, N5 and N6 are accepted**; N4's casts are tidied where a narrowing costs a line; **N3 stands
+       as written**, because the wire gives no machine-readable refusal and the wire is outside this package.
+     - **Correctness M1: a listed side always carries its own pitch.** The wire cannot tell a listed side that
+       follows the default from one pinned at the default's value. The editor removes the ambiguity at its source:
+       choosing a form on a side pins that side's pitch at its current value, and "Default" unlists it. Download
+       then load must then return the draft itself. **The one named exception** is `defaultDeg` on a Ring with all
+       four sides listed, which the wire has no field to carry. Gate 3 compares against the draft, not against a
+       canonical respelling. This amends viewer editing decisions 14 and 23.
+     - **Correctness M2: a build that did not finish is not retried on reload, and a very tall draft asks first.**
+       The saved draft records that a build is in progress. A reload that finds that mark shows the draft unbuilt,
+       with Build and Undo offered. A draft whose Rings' storeys sum above 100 asks before building. Neither is a
+       validity rule, so decision 193 stands.
+     - **Correctness Low 1, 2, 3, 4, 5 and 7 are accepted** as written. **Low 6 stands as an interpretation**:
+       only Wall and Gable faces carry a Ring identity (F64), so viewer editing decision 15 is amended to say so.
+     - **The three vacuous tests are rewritten** to be able to fail.
+     - No test proves `main.ts` calls the gate. Accepted under decision 22; the reviewer confirmed it by reading.
+     - **After WP-E1.1**: the correctness reviewer re-reads the fix diff only. The full suite and the golden drift
+       test are run on the final tree, since the reviewer did not run them.
+199. **The user finds the editor a "pragmatically useable starting point", and gives the go for gable rises once
+     the reviewers are satisfied** (the user, 2026-11-12, after trying the editor at `c00b8cf`). The lead holds the
+     rise work until WP-E1.1 has landed and its re-review is ruled on, as the user conditioned it. The first rise
+     package is the measurement sweep of gable rise decision 22, and it stops if any class is not clean.
+200. **The user signs off for the night and authorises the planned work to continue, with regular commits as
+     appropriate** (the user, 2026-11-12). The plan is §4: accept the editor after WP-E1.1's re-review, then the
+     rise measurement sweep, then the rise itself if the sweep is clean. Commits stay on the arc branch and nothing
+     is pushed, because pushing was not mentioned. **What waits for the user**: any ruling the sweep shows is
+     needed (a class that is not clean, the flat top's classification, the storey directly above a rise), and the
+     unconfirmed readings of decision 195.
+201. **WP-E1 and WP-E1.1 are accepted at `4e969a5`, with one small fix owed as WP-E1.2** (the lead, 2026-11-12).
+     The re-review of `c00b8cf..4e969a5` found no High and closed every accepted finding but one. It confirmed M1
+     by a fuzz of 300 seeds and 7,914 valid drafts: none differed after download then load, apart from the named
+     exception. Rulings on what it raised:
+     - **Medium, accepted: a Ring click erases the reload mark.** `act` saves the draft without the mark on every
+       action, so after a held reload one click lets the next reload build by itself. WP-E1.2 saves with the mark
+       while the draft is held or a build is in flight, with a test convicted by mutation. It is small enough that
+       the lead reads the diff and does not send it back to review.
+     - **Low, stands: Redo onto the held draft builds it.** That is a deliberate act by the user, and the over-100
+       ask still guards it.
+     - **The reviewers are satisfied in the sense of decision 199**, so the rise sweep is dispatched alongside
+       WP-E1.2. The two touch disjoint files.
 
 ## Findings
 
@@ -161,3 +256,32 @@ Their probes are in the session scratch directory under `midgable/`, which is se
   browser-safe, and the wire refuses what the in-memory path does not check: pitch outside 7° to 75°, non-grid
   corners, non-positive area. `scene.setBuild` re-frames the camera on every load, and `Selection` has no kind for
   an edited building. The viewer tests are Node tests of pure modules; `main.ts` and `scene.ts` are untested.
+- **F63. The C++ side ships the whole-wall tie-break, has no per-stretch form request, and has flat roof faces
+  downstream of the shell but no flat kind in it** (reported by `claude-work-ec` on 2026-11-12 from its own reading
+  of the C++ project; not seen by this session).
+  - The gizmo has one roof-form handle per wall of a Ring (Auto, Hip, Gable). A per-stretch request is neither
+    built nor planned. A "brush to paint hips/gables" is an unscheduled, undesigned nice-to-have.
+  - The completed C++ "one form per wall" spec gives a wall group the form of its lowest Ring's lowest run
+    (MB.D525). **Form per extent therefore supersedes shipped C++ behaviour and its tests, not only the adapter's
+    refusal.**
+  - The player's massing unit is a "block": one rectangular Ring with a height in storeys, and a second Ring only
+    for a different footprint. A mixed wall is reached through flush Rings, which confirms decision 191.
+  - `EBuildingShellKind` is Wall, Gable, Roof, Underside, Ground, Cheek, Internal. A flat top could only be a
+    Roof face on a horizontal plane. The roof stage after the shell does have flat faces (a clamp at pitch 0,
+    `EModularRoofForm::Flat`). Whether the shell-to-net adapter maps a horizontal shell Roof face onto that, or
+    refuses it, is unread on the C++ side.
+  - Its first unit is a shell preview that draws `FBuildingShell` faces as a greybox while massing.
+- **F64. Build times, link lengths and the wire round trip, as measured by the WP-E1 delegate at `c00b8cf`** (in
+  Chrome through Playwright, main thread; not re-run by the lead).
+  - **Build time.** The 12 roster fixtures take 24 to 79 ms. A flush row of ten one-storey Rings takes 157 ms,
+    growing roughly linearly from 14 ms at one Ring. Ten two-storey Rings with five gabled sides take 244 ms. Ten
+    random overlapping Rings take 116 to 215 ms.
+  - **Two of eight random ten-Ring seeds were refused by the pipeline**: a corner pinch, and a Cell/ShellEdge
+    mismatch. The second is a pipeline hard error reached by ordinary editing, and is unexamined.
+  - **Link length.** About 1,000 hash characters per Ring: 3,271 for three Rings and 9,707 for ten. Deflate before
+    base64url gave 1,022 for the same ten Rings, at the cost of an async hash parse.
+  - **`readInput(writeInput(f))` does not return `f`.** Every side comes back listed with an explicit pitch,
+    `defaultDeg` is re-derived from the first hip, and `request` is ignored, so a listed hip at the default pitch
+    cannot be told from an unlisted side. The round trip preserves what the pipeline builds, not the fixture's
+    spelling.
+  - **Only Wall and Gable faces carry a Ring identity.** Click-to-select works on those and on nothing else.
