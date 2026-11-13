@@ -496,6 +496,30 @@ ruled" list in the covered-storeys findings. Added this session:
        C++-replayable.
      - A correctness review is dispatched (general-purpose, Opus) on `b1cff3e`. **Owed to `claude-work-ec`**: the
        goldens moved again.
+222. **The review of WP-G4.2 found one High, and WP-G4.3 carries the fixes** (the lead, 2026-11-13). Everything
+     else held: the band computation, the user's case under six variations (each the symmetric gable, apex at
+     (900, 374.3), clean), the boundary, and the exactness of every pin. Rulings:
+     - **High H1, accepted: the verdict is decided once per line extent, not per wall.** `claimedWalls`
+       (`rise.ts:138-147`) asks per union wall, but algorithm B builds one piece per line extent, so two walls on
+       one extent can get opposite answers and a band is then built twice. Three hand inputs go from clean to 1
+       Cheek. The smallest: Rings `[0,0,500,500]` S gable at 30° and `[500,0,1000,500]` S gable at 45°, with a
+       hip wing `[600,-300,800,0]`. **The corpus sweep could not see this**, which is why "0 disagreements over
+       5,278 fixtures" (decision 221) was true and not enough. All three inputs become tests.
+     - **Medium M1, accepted as correct behaviour and now tested**: on a mixed wall, a gable run whose middle a
+       wing buries builds one rise over the whole run where it built two. That is decision 220's "buried
+       stretches included". The claim in decision 221 that mixed walls are unchanged holds for the corpus only.
+     - **Medium M2, a correction to decision 221**: `SplitBandAllGable75` changed more than reported. Its outer
+       gable ends at x = 0 and x = 1000 had an apex at 2,116 cm and now have a flat top at 1,369.6 cm from y = 300
+       to 700, because algorithm B's far-wall limit now reads a hole wall that has become a hip. The hole gables
+       on y = 200 and y = 800 widen from [200, 800] to [150, 850]. The reviewer finds the roof plausible. **For
+       the user to look at.**
+     - **Low L1, L2, L3 accepted**: `buildsARise` falls back only on a `PlanRefusal`; band ends compare within
+       the same 1e-9 as the rest; the `extentOf` tie test gains footprints off the 50 cm lattice.
+     - **For the user: the two-pitch sub-rule can hide a request.** Where a wing buries only part of a gabled
+       side, so that one exposed wall is claimed gable at two pitches, algorithm B builds one gable at the
+       lowest index's pitch across the whole line, and the other Ring's pitch is not built. That is the sub-rule
+       as written, chosen because building two rises there added Cheeks in 6 fixtures.
+     - After WP-G4.3 the same reviewer re-reads the fix diff.
 
 ## Findings
 
