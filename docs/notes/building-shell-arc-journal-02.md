@@ -674,6 +674,19 @@ ruled" list in the covered-storeys findings. Added this session:
      sets it for them. It needs three things that are each a decision: the clamp on a hip slope and on a
      whole-wall gable, which the pipeline cannot do today; a wire field, which the C++ side must mirror; and its
      meeting with the C++ roof stage's existing flat clamp (F63). Not started. It follows WP-L1.
+235. **Not every Cheek is a defect; the only true defects are those that create mathematically dangerous
+     parameters** (the user, 2026-11-13, correcting decision 233's list: "not all Cheeks are inherently defects.
+     Sometimes even they make sense, in the context of a roof solver that should return a best-effort, and not
+     aesthetic judgement."). The user wants to talk this through; **nothing is re-ruled yet**. The lead notes what
+     it bears on, so the talk has the facts:
+     - `Cheek` is already a first-class face kind in the spec and in the C++ `EBuildingShellKind` (F63). The
+       rule "zero Cheeks" was added by this session's sweeps as part of "clean" (F65) and by gable rise
+       decision 20. It was the lead's and the delegates' strictness, not the user's.
+     - **Decisions that rest on "a Cheek is a defect"**: the two-pitch sub-rule of decision 220, kept only to
+       avoid 6 new Cheeks, at the cost of not building one Ring's pitch (decision 222); the "10 clean fixtures
+       become unclean" counted against one path (decision 227), most of them Cheeks; the unresolved "prism
+       reach" problem, which is a Cheek problem; and the 15 pinned Cheek-class cases (F74).
+     - **To settle in the talk**: which properties are the dangerous ones, and which Cheeks, if any, signal one.
 
 ## Findings
 
