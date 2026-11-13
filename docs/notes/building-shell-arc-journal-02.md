@@ -61,8 +61,12 @@ Nothing is pushed. The blow-by-blow is in decisions 196 to 225, and is not repea
 - **The editor's stretches** (decisions 212, 214 to 217): accepted at `56e1c1b`.
 - **A gable belongs to the Ring side that asked for it** (F75 to F77, decisions 218 to 225): the fix for the
   user's with-wing draft, accepted at `887b1f7`.
+- **The selector lists every hand-authored fixture, the 53 gable research cases included** (F78, decisions 226,
+  228 to 230): accepted at `4d6a993`.
 - **The tree's figure, measured by the lead on 2026-11-13 at `887b1f7`**: 8,691 passed in 39 files, none failed,
-  in 306 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
+  in 306 s; `tsc --noEmit` clean. The golden drift test is inside that run. **Since then only viewer files
+  changed** (`07c99cd`, `4d6a993`); the delegate's record at `4d6a993` is 8,928 passed in 41 files, which the
+  lead has not re-run.
 - **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
   [the gable rise findings](./building-shell-gable-rise-findings.md).
 - **Delegates**: the rise's first delegate exhausted its context after WP-G1 to WP-G2.2. A fresh delegate needs a
@@ -602,6 +606,18 @@ ruled" list in the covered-storeys findings. Added this session:
        from `tests/`.
      - A type review is dispatched. No correctness review: the conversion's exactness is the risk, and it is held
        by a test with a convicting mutation.
+229. **The type review of WP-V1 is ruled on, and WP-V1.1 carries the fixes** (the lead, 2026-11-13). Two blocking
+     items and five notes, none behavioural. **Accepted**: B1, the research footprint table keyed by a derived id
+     union so a missing case is a compile error; B2, a named return type for `inputOf`; N1, one named sources
+     object for `selectionFromHash`; N2, no two research fixtures share a rect array (they alias one today,
+     because `ring()` stores the rect uncopied); N3 and N5. **N4**: a stale file-backed selection does no build.
+     The lead reads the diff; no further review.
+230. **WP-V1.1 is accepted at `4d6a993`, and the selector work is complete for this version** (the lead,
+     2026-11-13). The lead read the behaviour-bearing parts of the diff (`main.ts`, `defect-cases.ts`): one named
+     sources object for the hash, one reading of the manifest's shape, and a token check before the build of a
+     file-backed selection, which is the only behaviour change. The delegate's record: 8,928 passed in 41 files,
+     typecheck clean. Its rect-aliasing test was not run against the old code, so that test is unconvicted. The
+     commit also touched `defect-cases.ts` and three existing viewer tests, as the review's findings required.
 
 ## Findings
 
