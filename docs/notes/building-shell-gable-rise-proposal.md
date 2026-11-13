@@ -85,7 +85,9 @@ Numbers are for citation. They are not an order of work.
    is buried by a wing. **A gable belongs to the Ring side that asked for it.** Its band is the stretch of the
    line that Ring sides claim as gable, buried stretches included. Algorithm B builds the wall where its piece's
    span equals that band. Otherwise the wall is a hip and carries one rise over the claimed band. A wall claimed
-   gable at two pitches stays algorithm B's one gable.
+   gable at two pitches stays algorithm B's one gable. **AMENDED 2026-11-13 (journal decision 243, F80)**: a gable
+   stretch is built even where a neighbouring Ring covers all of it at plate level, and the union shows whatever
+   stands above the neighbour's roof. STRUCK: that a band counts only if part of it is on a union wall.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
    gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
    Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a
@@ -131,6 +133,12 @@ Numbers are for citation. They are not an order of work.
       bound it. STRUCK: the earlier acceptance of a gabled opposite wall's skeleton plane as a limit, and the
       `PlanRefusal` for a walk that finds nothing. A wall that carries a rise on part of its length keeps its hip
       slope, and still limits.
+    - **AMENDED 2026-11-13 by the user's verdicts on opposite gables (journal decision 243, F80).** A hip slope
+      limits a rise only where it is in the finished building on the rise's walk. Where the wall's own gable,
+      whole or a stretch, stands over the walk line, the slope does not limit, and **the rise runs to that wall
+      and ends there, joining the gable on it**. STRUCK for this case: "goes on to the next falling face", and
+      "a wall that carries a rise on part of its length keeps its hip slope, and still limits" where the rise
+      stands over the walk line.
     - **Rises do not limit each other.** The walk never reads another rise.
     - **Known shape, accepted**: on a hip end or a wing end the walk runs along the main ridge, so a rise taller
       than that ridge rides along it to the far end's hip plane. `maxHeight` of decision 12 is the author's remedy.
