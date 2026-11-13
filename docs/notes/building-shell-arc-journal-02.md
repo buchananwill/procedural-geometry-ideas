@@ -630,6 +630,28 @@ ruled" list in the covered-storeys findings. Added this session:
      decision 206, which no fixture reached. A wall that carries a rise on part of its length still has its hip
      slope in the finished building, and still limits. It applies to rises as built today, not only to the
      one-path model, of whose three problems it is the first. WP-L1 builds it.
+232. **WP-L1 stopped for a ruling, and the branch head is red** (the lead, 2026-11-13). The only commit is the WIP
+     `9f9cb64`: 8,937 passed and 13 failed, the failures being golden drift and three `Court0` conflict pins that
+     wait on the ruling; typecheck clean; no viewer test fails. The predicate of decision 231 is built
+     (`slopeInBuilding` in `rise.ts`). The corpus sweep of 5,280 fixtures: 45 change limit, 14 change shape, 63
+     rises have no limit, **0 clean fixtures become unclean and 0 new throws**, 5 already-unclean cases gain one
+     conflict each.
+     - **The stop, which is the user's to rule**: a rise with no slope limit runs through to the far wall. On
+       `[0,0,1000,500]` at 45° with N gabled and a 75° rise on S over [300, 700], the rise's ridge at 746.4 cm
+       rides above the main ridge (500) the whole depth of the building, and the N gable's apex becomes 746.4: a
+       second, narrower gable standing on the first. It is clean: no Cheek, no conflict. Before decision 231 the
+       rise was cut off at 500 by the plane the user has now ruled out.
+     - **The lead's recommendation, not adopted**: where no slope limits a rise, cap it at the height of the main
+       roof along its walk, so it dies level into the ridge it runs along. The sweep's probe measured such a cap
+       clean in these cases (F70). The alternatives are to accept the run-through, or to refuse the input.
+     - **Accepted from the delegate**: the built-roof fallback reads the built roof literally, so it can return a
+       gabled wall's face where no piece covers it. That is the user's principle applied exactly: such a slope is
+       in the finished building. Passing over those faces left `Court14` 18.7 cm proud.
+     - **Noted, the same class as decision 231 and not yet ruled**: a wall gabled along its whole length that
+       decision 220 turns into a rise enters the solve as a hip, so its slope still limits a rise facing it,
+       though most of it lies under its own rise. About 68 rises in the corpus.
+     - **One gate is not convicted**: skipping the slope of a wall that merely carries a rise fails only the
+       predicate's unit test, because the fallback reads the uncovered face back.
 
 ## Findings
 
