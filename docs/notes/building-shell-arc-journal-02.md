@@ -1060,8 +1060,8 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - **Draft 5 as uploaded has no gable on any side**: every side is one hipped run. It cannot show what the user
     describes. The lead built the likely intent instead: S and N gable stretches both over x [400, 600] at 75°.
     **Only the S rise is built.** The N stretch lies wholly on the stem's S side, so it is on no union wall, and
-    decision 220 does not count it. `writeInput` of that fixture does keep both gable runs, so the missing gables
-    in the uploaded file are unexplained.
+    decision 220 does not count it. `writeInput` of that fixture does keep both gable runs. **Explained by the
+    user the same day**: they downloaded the wrong layout by accident while making several. No editor defect.
   - The N wall is two union walls, [0, 400] and [600, 1000], sharing one plane. In drafts 3 and 4 the N rise is
     built once over [400, 650] and stands on the [600, 1000] wall, though only 50 cm of its band is exposed at
     plate level.
