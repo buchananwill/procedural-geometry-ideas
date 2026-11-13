@@ -148,6 +148,24 @@ Numbers are for citation. They are not an order of work.
 - **Gates, by mutation**: every run edit leaves its input unchanged; a draft with runs survives download then load
   unchanged; setting a side's form keeps its runs.
 
+**2026-11-13, journal decision 214, after the reviews of the run list. This replaces the run list amendment above
+where the two differ.**
+
+- **A side is plain or split.** A plain side has no runs. A split side's runs are stretches that cover its whole
+  length in order, with no gap and no overlap.
+- **One spelling.** Neighbouring stretches that agree in form, pitch, `maxHeight` and `limit` are merged. A split
+  side that merges to one stretch becomes plain. A split side's own `form` and `deg` are derived: the first hip
+  stretch, else the first stretch. The editor applies this after every valid edit and on load.
+- **The edits are on stretches**: split a stretch, move the boundary between two stretches, set a stretch's form,
+  set its pitch, and return the side to plain ("Default"). Moving a boundary moves both stretches that share it.
+  On a split side the side's own form and pitch controls do not act.
+- **A new hip stretch takes the side's existing hip pitch.** Setting a stretch to hip clears its `maxHeight` and
+  `limit`.
+- **Download then load returns the draft itself for every valid draft**, with two named exceptions: `defaultDeg`
+  on a Ring with all four sides listed, and `maxHeight` and `limit`. No other spelling exception exists.
+- **Gate, by mutation**: a seeded fuzz of edit sequences, stretch edits included, in the suite. For every valid
+  draft it reaches, the loaded copy equals the draft apart from the two exceptions.
+
 ## Not in this version
 
 - Dragging handles in the viewport, and a 2D plan view.

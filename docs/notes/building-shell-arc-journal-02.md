@@ -395,6 +395,34 @@ ruled" list in the covered-storeys findings.
      `unionWallForms`. The delegate's record on that tree, which includes WP-G3: 8,631 passed in 39 files,
      typecheck clean, drift test green, no golden or pin changed, and the check convicted by mutation. Its
      agreement grid of 1,200 run lists shows the in-memory check and `readInput` refuse the same ones.
+214. **Both reviews of WP-G3 are ruled on: a side with runs gets one canonical spelling, stretches that tile the
+     whole side, and WP-G3.1 rebuilds the run list on it** (the lead, 2026-11-13). The correctness review found no
+     High. Its Medium confirmed the lead's doubt in decision 212 by a fuzz: of 2,773 valid drafts, 683 came back
+     from download then load in a different spelling; the built shell was identical in every pair built; but the
+     same follow-up edit gave **different roofs in 93 of the 683**. All four spellings are reachable from the
+     panel. Rulings:
+     - **A side is either plain or split.** A plain side has no runs. A split side's runs cover its whole length
+       in order, with no gap and no overlap, and neighbours that agree in form, pitch, `maxHeight` and `limit`
+       are merged. A split side that merges down to one stretch becomes a plain side. The side's own `form` and
+       `deg` are then derived (the first hip stretch, else the first stretch), so `writeInput` of a draft and of
+       its loaded copy are the same bytes. The editor applies this spelling after every valid edit, and
+       `parseDraftJson` rebuilds it on load.
+     - **The panel edits stretches, not free runs.** Splitting a stretch makes neighbours. Moving a boundary moves
+       both stretches that share it. On a split side the stretches are the truth, and the side's own form and
+       pitch controls do not act; "Default" returns the side to plain. Chosen over the wire's own spelling because
+       there a side's form changes under the user when a run is added.
+     - **Download then load returns the draft itself for every valid draft**, with the two exceptions already
+       named: `defaultDeg` on a Ring with all four sides listed, and `maxHeight` and `limit`, which the wire does
+       not carry. The four pinned spelling exceptions are removed. A seeded fuzz in the suite holds this, and is
+       the gate.
+     - **Low 2 accepted**: a new hip stretch takes the side's existing hip pitch, so splitting never makes a
+       refused draft. **Low 3 accepted**: the note says Download and Copy link both drop `maxHeight` and `limit`.
+       **Low 4 ruled**: setting a stretch to hip clears its `maxHeight` and `limit`, which belong to a rise.
+       **Low 1 falls away** with splitting; a stretch too short to split says so.
+     - **Type B1 accepted** (`RING_FORMS` in `fixture.ts`, one authorised line outside the viewer). **N1, N2, N3
+       and N5 accepted. N4 falls away** if a tiled side's runs are written as authored with no fill; if the
+       duplicate of `writeInput`'s layout must stay, it is tied by a test on positions, not on a count.
+     The viewer editing proposal is amended.
 
 ## Findings
 
