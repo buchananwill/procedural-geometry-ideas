@@ -75,7 +75,12 @@ Numbers are for citation. They are not an order of work.
    with the lowest-index extent's pitch as the wall's weight. No rise is built for it. **AMENDED 2026-11-13
    (journal decision 209)**: where two gable extents of one Ring side tie on index, the one first along that
    side's own direction wins, so the answer does not depend on which compass side it is. A second gable pitch on
-   such a wall is not built.
+   such a wall is not built. **AMENDED 2026-11-13 by the user's ruling (journal decision 218, F75)**: this holds
+   only where algorithm B's gable piece for the wall spans the wall's own length. Where its piece would span more,
+   because the wall's line runs on through the building past an inside corner, the wall is solved as a hip at
+   that pitch and carries one rise across its whole length. The original sent every such wall to algorithm B, which
+   built it as a slice of a gable spanning the whole line, so the same stretch was built two ways depending on
+   its neighbours.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
    gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
    Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a

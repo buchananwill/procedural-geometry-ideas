@@ -434,6 +434,14 @@ ruled" list in the covered-storeys findings. Added this session:
      and the resize tests fail when the old rule is restored. One nit for the backlog: `offsetAlong` repeats
      `sideOffset` in `ring-forms.ts`, which is not exported. **With this, both features of the charter are built,
      reviewed and accepted on the arc branch.**
+218. **A golden that pins an incorrect shape is not golden** (the user, 2026-11-13, on F75: "They're not 'golden'
+     if they pin an incorrect shape. That is obvious to me."). The cost the lead raised, that fixing F75 changes
+     committed goldens, is no objection. **The lead takes this as the go for the fix it recommended**: a wall
+     gabled along its whole length is built by algorithm B only when algorithm B's piece for it spans the wall's
+     own length and no more. Where the piece would span more, because the wall's line runs on through the
+     building, the wall is solved as a hip at the gable's pitch with a rise across its whole length. Gable rise
+     decision 5 is amended. **Standing consequence for the arc**: a changed golden is weighed by whether the new
+     shape is right, never by the fact of the change. WP-G4 measures the affected set first, then builds.
 
 ## Findings
 
@@ -606,6 +614,21 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - **File order no longer moves `FlushRingConflict` or `DistantRingConflict`**, because each Ring wins its own
     stretch.
   - **`maxHeight` and `limit` do not survive `input@1`.**
+- **F75. A wall that is gabled along its whole length, but whose line runs on through the building, is built by
+  algorithm B as a slice of a gable spanning the whole line** (the lead, 2026-11-13, measured at `70c8118` on two
+  drafts the user made in the editor; probe in the session scratch directory under `wing/`).
+  - **Without the wing**: Rings `[0,0,600,600]` (S hip) and `[600,0,1200,800]` (S gable) at 22.5°. The y = 0 union
+    wall is [0, 1200], mixed, so it is a hip with a rise over [600, 1200]. The rise's planes are the x = 600 wall's
+    plane, the x = 1200 wall's hip plane (the corner rule) and the y = 800 limit: a symmetric gable, apex at
+    x = 900. The user calls this correct.
+  - **With a south wing** `[0,-400,600,0]`: the stretch [0, 600] of y = 0 is now inside the building, so the union
+    wall is [600, 1200] alone and is gable along its whole length. Gable rise decision 5 sends it to algorithm B
+    unchanged, whose piece is labelled `line y=0 whole [0,1200]`: band [0, 1200], rakes from the x = 0 and
+    x = 1200 walls, far plane y = 600. The gable is half of a 1200-wide one, climbing to x = 600 and reaching over
+    Ring 0's hipped area.
+  - This is F59's shape and session 1's CHEEK cases 2d, 3c and 4l ("lines that run on through the footprint"),
+    reached now through decision 5's routing. **The same stretch is built two ways depending on whether a
+    neighbour makes it a whole wall.**
   - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
     the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
     140)`.
