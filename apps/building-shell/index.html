@@ -74,6 +74,9 @@
     /* A gable stretch's settings (per-stretch gable settings decision 16): a line of their own under the stretch's, indented. */
     #edit .row.run .gable-settings { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; flex-basis: 100%; padding-left: 16px; }
     #edit .row.run .gable-settings[hidden] { display: none; }
+    /* Journal decision 257: information beside a maximum height too low to build, amber, not the refusal red. */
+    #edit .row.run .gable-settings .hint.warn { margin-top: 0; color: #ffc46b; }
+    #edit .row.run .gable-settings .hint.warn[hidden] { display: none; }
     #edit .refusals, #edit .notice { margin-top: 6px; }
     #edit .notice { white-space: pre-wrap; }
     #edit .refusals ul { margin: 2px 0; padding-left: 18px; }

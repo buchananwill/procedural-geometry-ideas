@@ -5,6 +5,7 @@ import {RING_SIDES} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide, RingSides, RiseFacing, ShellFixture, SideForm, SideRun} from '../fixture.ts';
 import {DEFAULT_RISE_FACING, DEFAULT_RISE_LIMIT, joins, ringSideLines, runSpan} from '../ring-forms.ts';
 import type {Claim} from '../ring-forms.ts';
+import {RISE_MIN_CAP_CM} from '../rise.ts';
 import type {Rect} from '../roof/model.ts';
 
 /** Decision 4: a new Ring is 500 x 500 cm, a hip at 45 degrees, one storey, at base storey 0. */
@@ -222,6 +223,15 @@ export function settledSettings(s: SideRun): GableSettings {
     ...(apart === true ? {apart} : {}),
   };
 }
+
+/**
+ * Journal decision 257: whether a gable stretch's maximum height holds its rise within `RISE_MIN_CAP_CM` of the plate, so
+ * the pipeline builds no gable there. Information for the author, not a refusal: the draft stays valid and builds.
+ */
+export const capTooLowToBuild = (s: SideRun): boolean => s.form === 'gable' && s.maxHeight !== undefined && s.maxHeight <= RISE_MIN_CAP_CM;
+
+/** What the panel says beside a maximum height `capTooLowToBuild` holds too low, the threshold the pipeline's own. */
+export const CAP_TOO_LOW_NOTE = `at or below ${RISE_MIN_CAP_CM} cm no gable is built here`;
 
 /** A stretch with its settings in their one spelling (`settledSettings`). */
 function settled(s: Stretch): Stretch {

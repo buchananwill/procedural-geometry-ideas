@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest';
 import {
   EXPORTED_FIXTURES, FixtureRing, GABLE_SETTING_FIXTURES, RING_SIDES, RISE_FACINGS, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, SideRun, ring,
 } from '../src/fixture.ts';
+import {RISE_MIN_CAP_CM} from '../src/rise.ts';
 import {canonicalFixture, settledSettings} from '../src/viewer/edit.ts';
 import {BuildingShellInputV1, WIRE_GABLE_ONLY_DEG} from '../src/wire/input-types.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
@@ -800,6 +801,16 @@ describe('gate 3 for stretches: download then load returns every valid draft its
     expect(loadOf(all.fixture)).toEqual(all.fixture);
   });
 
+  it('a maximum height at or below RISE_MIN_CAP_CM, which builds no gable, is a valid draft that survives download then load (journal decision 257)', () => {
+    const split = dispatch(makeDraft(oneRing(40)), {kind: 'splitStretch', ring: 0, side: 'S', run: 0});
+    for (const h of [1, 3, RISE_MIN_CAP_CM]) {
+      const low = dispatch(split, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: h});
+      expect(low.validation.ok, `${h} cm`).toBe(true);
+      expect(low.fixture.rings[0].sides?.S?.runs?.[1].maxHeight).toBe(h);
+      expect(loadOf(low.fixture), `${h} cm`).toEqual(low.fixture);
+    }
+  });
+
   it('limit, which the wire does not carry, has one value, which the one spelling writes as none: a draft that names it loads back as itself', () => {
     const f: ShellFixture = {name: 'l', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 300, to: 700, form: 'gable', deg: 60, limit: 'ridgeSlope'}]}})]};
     expect(draftJson(f)).not.toMatch(/limit/);
@@ -855,7 +866,7 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
   const PITCHES = [7, 22.5, 30, 30, 45, 45, 45, 60, 75, 3, 80];
   const COORDS = [0, 50, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1200, 1500, -50];
   /** A maximum height field's entries: empty (null), heights above and below an apex, 0 (none, as on the wire) and one the wire refuses. */
-  const MAX_HEIGHTS = [null, 100, 150, 200, 400, 0, -50];
+  const MAX_HEIGHTS = [null, 100, 150, 200, 400, 0, -50, 3, RISE_MIN_CAP_CM];
 
   /** One random action on a draft, from what it holds: any edit the panel can make, stretch edits and undo included. */
   function randomAction(d: Draft, rng: () => number): DraftAction {
@@ -908,7 +919,7 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
   it('holds on every valid draft of the sequences, and the sequences cover what they should', () => {
     const stats = {
       sequences: 0, steps: 0, valid: 0, invalid: 0, splitSides: 0, threeStretchSides: 0, merges: 0, hipAndGable: 0, listedAll: 0, undone: 0, resizedSplit: 0,
-      withMaxHeight: 0, withFacing: 0, withApart: 0, keptApart: 0, halved: 0, resizedSettings: 0,
+      withMaxHeight: 0, withTooLowCap: 0, withFacing: 0, withApart: 0, keptApart: 0, halved: 0, resizedSettings: 0,
     };
     const failures: string[] = [];
     starts.forEach(([name, start], si) => {
@@ -937,6 +948,7 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
           stats.hipAndGable += splits.filter(s => s.runs?.some(r => r.form === 'hip') && s.runs?.some(r => r.form === 'gable')).length;
           const runs = runsOf(f);
           if (runs.some(r => r.maxHeight !== undefined)) stats.withMaxHeight++;
+          if (runs.some(r => r.maxHeight !== undefined && r.maxHeight <= RISE_MIN_CAP_CM)) stats.withTooLowCap++;
           if (runs.some(r => r.facing !== undefined)) stats.withFacing++;
           if (runs.some(r => r.apart === true)) stats.withApart++;
           if (splits.some(s => keptApart(s.runs ?? []))) stats.keptApart++;
@@ -967,6 +979,8 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     // Per-stretch gable settings decisions 16 to 18: drafts holding each setting, neighbours kept two by standing apart, halved
     // stretches, and resizes of Rings whose stretches carry settings (measured at 1,786, 2,260, 4,222, 2,315, 915 and 254).
     expect(stats.withMaxHeight).toBeGreaterThan(1000);
+    // Journal decision 257: drafts holding a maximum height at or below RISE_MIN_CAP_CM, which builds no gable (measured at 312).
+    expect(stats.withTooLowCap).toBeGreaterThan(180);
     expect(stats.withFacing).toBeGreaterThan(1300);
     expect(stats.withApart).toBeGreaterThan(2500);
     expect(stats.keptApart).toBeGreaterThan(1400);

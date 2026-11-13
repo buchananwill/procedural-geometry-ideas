@@ -4,11 +4,12 @@ import {
   EXPORTED_FIXTURES, GABLE_SETTING_FIXTURES, RING_SIDES, RISE_FACINGS, RISE_FIXTURES, RingSide, SHELL_FIXTURES, ShellFixture, SideRun, ring, storeyRings,
 } from '../src/fixture.ts';
 import {runSpan, storeyLoops, unionWallExtents} from '../src/ring-forms.ts';
+import {RISE_MIN_CAP_CM} from '../src/rise.ts';
 import type {Rect} from '../src/roof/model.ts';
 import {writeInput} from '../src/wire/input-adapter.ts';
 import {resolveSides, validate} from '../src/viewer/draft.ts';
 import {
-  addRing, canHalveStretch, canSplitStretch, canonicalFixture, canonicalSide, cloneFixture, clearSide, duplicateRing, halveStretch, middleThird, moveBoundary,
+  CAP_TOO_LOW_NOTE, addRing, canHalveStretch, canSplitStretch, capTooLowToBuild, canonicalFixture, canonicalSide, cloneFixture, clearSide, duplicateRing, halveStretch, middleThird, moveBoundary,
   moveRing, pinListedPitches, removeRing, ringBox, runsAreContiguous, setBaseStorey, setDefaultDeg, setRect, setRectCoord, setSideForm, setSidePitch,
   setStoreyHeight, setStoreys, setStretchApart, setStretchFacing, setStretchForm, setStretchMaxHeight, setStretchPitch, sideLengthCm, snapToCell, splitStretch,
   stretchCount, stretchesOf,
@@ -561,6 +562,18 @@ describe('the stretch edits (journal decision 214)', () => {
     expect(at(all)).toEqual({from: 350, to: 650, form: 'gable', deg: 40, maxHeight: 120, facing: 'split', apart: true});
     expect(setStretchForm(all, 0, 'S', 1, 'hip').rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
     expect(() => setStretchApart(split, 0, 'S', 3, true)).toThrow(RangeError);
+  });
+
+  it('journal decision 257: says when a gable stretch\'s maximum height is too low for the pipeline to build a gable, on both sides of RISE_MIN_CAP_CM', () => {
+    const gable = (maxHeight?: number): SideRun => ({from: 0, to: 300, form: 'gable', deg: 45, ...(maxHeight === undefined ? {} : {maxHeight})});
+    for (const h of [0.5, 3, RISE_MIN_CAP_CM - 0.01, RISE_MIN_CAP_CM]) expect(capTooLowToBuild(gable(h)), `${h} cm`).toBe(true);
+    for (const h of [RISE_MIN_CAP_CM + 0.01, RISE_MIN_CAP_CM + 1, 100]) expect(capTooLowToBuild(gable(h)), `${h} cm`).toBe(false);
+    // No maximum height, or a hip stretch, builds as it always has: nothing to say.
+    expect(capTooLowToBuild(gable())).toBe(false);
+    expect(capTooLowToBuild({from: 0, to: 300, form: 'hip', deg: 45, maxHeight: 3})).toBe(false);
+    expect(CAP_TOO_LOW_NOTE).toContain(`${RISE_MIN_CAP_CM} cm`);
+    // Information, not a refusal: the draft is valid.
+    expect(validate(setStretchMaxHeight(splitStretch(plain(), 0, 'S', 0), 0, 'S', 1, 3))).toEqual({ok: true});
   });
 
   it('per-stretch gable settings decision 18: halves a gable stretch into two gables, each standing apart and keeping its settings', () => {

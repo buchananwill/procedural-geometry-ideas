@@ -10,7 +10,7 @@ import type {FixtureRing, RingForm, RingSide, RiseFacing} from '../fixture.ts';
 import {DEFAULT_RISE_FACING} from '../ring-forms.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
 import {canRedo, canUndo, resolveSides} from './draft.ts';
-import {PITCH_STEP_DEG, canHalveStretch, canSplitStretch, sideLengthCm} from './edit.ts';
+import {CAP_TOO_LOW_NOTE, PITCH_STEP_DEG, canHalveStretch, canSplitStretch, capTooLowToBuild, sideLengthCm} from './edit.ts';
 
 /** A line shown under the panel, and whether it is bad news. */
 export interface Notice { text: string; bad: boolean }
@@ -130,7 +130,7 @@ const RUN_START: Record<RingSide, string> = {
 };
 
 /** A gable stretch's three controls (per-stretch gable settings decision 16), on a line of their own, hidden on a hip stretch. */
-interface GableControls { line: HTMLElement; maxHeight: HTMLInputElement; facing: HTMLSelectElement; apart: HTMLInputElement }
+interface GableControls { line: HTMLElement; maxHeight: HTMLInputElement; tooLow: HTMLElement; facing: HTMLSelectElement; apart: HTMLInputElement }
 
 /** One run's controls. */
 interface RunRow {
@@ -403,8 +403,11 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     const apartLabel = el('label', undefined, 'inline');
     apartLabel.title = 'Its own gable: never merged with an equal gable stretch beside it';
     apartLabel.append(apart, ' stands apart');
-    line.append(labelled('max height (cm)', maxHeight), labelled('facing', facing), apartLabel);
-    return {line, maxHeight, facing, apart};
+    // Journal decision 257: a maximum height too low for a gable to be built is said beside its field; the draft still builds.
+    const tooLow = el('span', CAP_TOO_LOW_NOTE, 'hint warn');
+    tooLow.id = `${id}-max-height-note`;
+    line.append(labelled('max height (cm)', maxHeight), tooLow, labelled('facing', facing), apartLabel);
+    return {line, maxHeight, tooLow, facing, apart};
   }
 
   /** Shows one side's stretches: where it starts and how long it is, a row for each stretch of a split side, and which the wire refuses. */
@@ -453,6 +456,7 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       // A field holding text that is no number reads as '' already, so it is cleared outright.
       if (rr.gable.maxHeight.validity.badInput) rr.gable.maxHeight.value = '';
       setField(rr.gable.maxHeight, run.maxHeight === undefined ? '' : num(run.maxHeight));
+      rr.gable.tooLow.hidden = !capTooLowToBuild(run);
       setField(rr.gable.facing, run.facing ?? DEFAULT_RISE_FACING);
       rr.gable.apart.checked = run.apart === true;
     });
