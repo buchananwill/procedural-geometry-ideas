@@ -520,6 +520,25 @@ ruled" list in the covered-storeys findings. Added this session:
        lowest index's pitch across the whole line, and the other Ring's pitch is not built. That is the sub-rule
        as written, chosen because building two rises there added Cheeks in 6 fixtures.
      - After WP-G4.3 the same reviewer re-reads the fix diff.
+223. **WP-G4.3 landed at `1852281` and goes to a targeted re-review** (the lead, 2026-11-13). The delegate's
+     record: 8,689 passed in 39 files, typecheck clean, drift test green, no golden changed, and the per-wall
+     mutation fails the three H1 tests. The verdict is now taken once per line extent. All three of the
+     reviewer's inputs build algorithm B's one gable over [0, 1000], apex at x = 500, 288.7 cm above the plate,
+     clean, which is their roof before `b1cff3e`.
+     - **Corrections to decision 221's figures, from the delegate**: its corpus comparison matched fixtures by
+       name, and the 250 cm and 300 cm sweeps share names, so 4,700 of 5,278 were compared. Redone over all
+       5,278: still 0 disagreements with the measurement and 0 unpredicted moves; **157 fixtures move, not 165;
+       7 are cured, not 6; 13 are worse.**
+     - **`SplitBandAllGable75` in full** (decision 222's M2): before, each side wing had a ridge across it at
+       y = 500, 1,866 cm above the plate. Now the outer gable ends are flat-topped at 1,119.6 cm from y = 300 to
+       700, each courtyard wall carries a 600 cm gable with its apex at 1,119.6 cm, and the two slopes meet in a
+       valley down each wing at 560 cm. The courtyard gables on y = 200 and y = 800 show over [150, 850]. The
+       delegate judges it consistent with the rule. **The user's call.**
+     - **A departure the lead has not accepted**: decision 222 ruled that `buildsARise` falls back only on a
+       `PlanRefusal`. The delegate built "reads no rise from a storey whose walls cannot be derived, whatever the
+       error". The reviewer is asked which is safer for the port's replay set.
+     - The M1 tie-break and the L2 tolerance are not convicted by a fixture. The reviewer is asked whether they
+       matter.
 
 ## Findings
 
