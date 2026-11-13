@@ -833,6 +833,31 @@ ruled" list in the covered-storeys findings. Added this session:
        source's shape unchanged. A covered rise's tags carry wall -1, the existing "no wall" value of Roof,
        Internal and Ground faces. Accepted as traced.
      - `GableOnSharedWall` is a roster fixture: a gable on the wall two Rings share.
+246. **WP-L2 landed at `81930ae` with the pipeline done and 7 viewer tests red, which go to WP-V3** (the lead,
+     2026-11-13). It is `8b8bc3c`, `a38eeaf` and `81930ae`; twelve source and test files, all in the roster as
+     widened by decision 244 (the lead checked `git diff --stat`); the tree is clean. **The suite is red on 7
+     viewer tests** that hard-code pins and goldens the rulings moved; the delegate rightly did not edit them.
+     It did not re-run the full suite after its last fix, so the figure is its expectation, not a measurement.
+     - **Pins**: `s8/Court4` promoted at three heights. `s1/Court29` pinned under the cut-overshoot class and
+       `s13/Court21` as a throw, each with a named reproducer (`COVERED_RISE_ON_CUT_LINE`,
+       `COVERED_RISE_CELL_CLASH`). Six cases cured of a throw or Unclassified Edges and re-pinned on conflicts
+       alone. Two residue classes are now empty: the `Court25` throw class and the `SplitCourt9` class.
+     - **The sweep, 5,752 entries, before and after**: throws 32 to 33; Unclassified Edges 153 to 138; surviving
+       Internal faces 37 to 34; Cheeks 24 to 22; conflicts 2,564 to 2,597.
+     - **Goldens**: `RiseFacingRiseWall`'s gable apexes go from 750 and 423 to 996.4, the 75° rise running through
+       the opposite rise to the far wall. `Court14Seed7h250`, `Court16Seed1h250`, `SplitBandAllGable75` and
+       `Court5Seed1h300` change in raw parts only. Five fixtures are added. `SplitCourt9Seed7h250` and
+       `Court25Seed1h263` are removed, as cured representatives.
+     - **A cost the lead had not foreseen**: `Court14Seed7h250` and `U8Seed6h300` now build a covered rise that
+       shows no face, are therefore marked not C++-replayable, and ship no input file, so the viewer could not
+       load them as defect cases. `Court14Seed7h250` is the user's reference Cheek. WP-V3 makes a defect case
+       load from its generator where the repo can build it. **Open**: whether a rise that shows no face should
+       cost a document its replayability; the reviewer is asked.
+     - **Accepted departure**: `OppositeGablesTPartFacing` is left out of the golden set, its Cheek pinned in
+       `rise.test.ts`, because the golden writer takes a violation only as a residue.
+     - **Dispatched**: WP-V3 (general-purpose, Opus, fresh) for the viewer tests and the unloadable defect cases;
+       and the rise reviewer, resumed, on `fd84720..81930ae`, asked above all whether any rule is applied
+       inconsistently because of surrounding geometry.
 
 ## Findings
 
