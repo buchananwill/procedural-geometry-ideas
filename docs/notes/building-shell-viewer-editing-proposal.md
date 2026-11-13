@@ -6,7 +6,8 @@ status: proposed
 
 # Editing buildings in the viewer
 
-**Status: a proposal by the arc lead (2026-11-12), for the user's ruling. Nothing here is adopted.** It answers the
+**Status at 2026-11-13: built and accepted on the arc branch at `56e1c1b` (journal decisions 197 to 202 and 212 to
+217), as amended below.** It began as a proposal by the arc lead (2026-11-12). It answers the
 first item of the [session 2 charter](./building-shell-arc-journal-02.md#1-the-arcs-charter), and the user's ruling
 5 in the [covered-storeys findings](./building-shell-covered-storeys-and-sections-findings.md): the viewport gains
 editing first. The evidence is finding F62 in that journal.

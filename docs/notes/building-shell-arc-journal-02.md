@@ -52,81 +52,61 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-1. ~~Three onboarding delegates dispatched 2026-11-12 (read-only): the viewer, the input model, and the gable/hip
-   constraint in the solver.~~ All three returned (F57 to F62).
-2. ~~Write the two proposals from their reports.~~ Written 2026-11-12 (decisions 188 and 189):
-   [viewer editing](./building-shell-viewer-editing-proposal.md) and
-   [gable rises](./building-shell-gable-rise-proposal.md). Both are `status: proposed`.
-3. **The user rules on the two proposals.** The rulings that matter most:
-   - gable rise decision 3: form per extent, which amends spec 3 and decision 116 and reshapes the Ring-conflict
-     goldens;
-   - gable rise decision 7: no "gable beats hip" rule;
-   - viewer editing decision 6: the wire round trip as the only validity law.
-4. **On the user's go, message the port lead** (`pisteperfect-5-7-4f`) with gable rise decision 18's question:
-   whether game content can request a form on part of a side, or only reach a rise through a flush Ring. Not yet
-   sent. **Answered by the user instead (decision 191).** The port lead is still owed notice when a proposal is
-   accepted.
-5. **Then dispatch, in this order**: the viewer editor; gable rise decision 22's measurement package (it moves the
-   scratch probe of F60 into `apps/building-shell/experiments/`, because the scratch directory is session-local
-   and will not survive); the rise itself; the editor's run list.
-6. ~~Nothing from this session is committed.~~ Committed at `aa9b09b` on the user's go (decision 196), not pushed.
-7. **WP-E1, the viewer editor, dispatched 2026-11-12** (general-purpose, Sonnet) at `aa9b09b`, on the arc branch.
-   Its contract is the viewer editing proposal's 25 decisions. Its gates are that proposal's decision 23, by
-   mutation. It reports build times (decision 12) and stops on any file outside the proposal's roster. **When it
-   returns**: check its figures against its tree, then a type review and a correctness review before acceptance.
-   **Returned at `c00b8cf` (decision 197, F64). Two reviews dispatched 2026-11-12**: `typescript-type-reviewer`
-   and a correctness reviewer (general-purpose, Opus), both on `aa9b09b..c00b8cf`. WP-E1 is accepted when they
-   are ruled on.
-   **Both reviews ruled (decision 198). WP-E1.1 dispatched 2026-11-12 to the same delegate, resumed.** When it
-   returns: the correctness reviewer re-reads the fix diff only, then WP-E1 is accepted and the journal edits
-   since `aa9b09b` are committed. **Then the rise sweep is dispatched (decision 199)**: general-purpose, Opus,
-   owning only `apps/building-shell/experiments/`, starting from the scratch probes of F60 under `midgable/`.
-   **WP-E1.1 returned at `4e969a5`** (one commit, eight roster files; the lead checked `git diff --stat`). Its
-   record on that tree: 8,436 passed in 38 files, typecheck clean, the golden drift test inside the run, and five
-   mutation gates convicted. **The correctness reviewer was resumed on `c00b8cf..4e969a5` on 2026-11-12.**
-   **Accepted at `4e969a5` (decision 201). Notes committed at `2b941cb`.**
-   - ~~**WP-E1.2 dispatched 2026-11-12** to the same delegate: the reload mark survives every save. The lead reads
-     its diff; no further review.~~ Accepted at `e4de021` (decision 202). **The editor is done for this version.**
-   - **WP-G1, the rise measurement sweep, dispatched 2026-11-12** (general-purpose, Opus) at `2b941cb`. It owns
-     `apps/building-shell/experiments/gable-rises/` and a new note `building-shell-gable-rise-findings.md`, and
-     changes no production code. It must first reproduce F60 and F61. **When it returns**: record its classes as
-     findings, amend the gable rise proposal where a decision did not hold, and build the rise only if every
-     class is clean or clean under a stated condition. A class that is not clean waits for the user
-     (decision 200).
-   - **WP-G1 accepted at `e45304b` (decision 203). WP-G1.1 dispatched 2026-11-12** to the same delegate, resumed:
-     define `ridgeSlope` in words, re-run the whole sweep under it, measure where the definition is strained, the
-     overhang fused and with a gap, and a wall-top cap under the storey directly above as a candidate.
-   - **WP-G1.1 accepted at `3a8c469` (decision 204). WP-G2, the rise in the pipeline and the wire, dispatched
-     2026-11-13** to the same delegate (Opus), resumed, at `8d184f0`. Its contract is the gable rise proposal as
-     amended. It does not touch `src/viewer/`. **When it returns**: check its changed-golden list against gable
-     rise decision 3, then a type review and a correctness review on its range. **Then WP-G3**: the editor's run
-     list (viewer editing decision 25), and fold the amendments to spec 3 and decisions 116 and 149 into the spec.
-   - **WP-G2 landed at `c1dc136`; reviews ruled (decision 209). WP-G2.1 returned at `f4dbe88`** (one commit, seven
-     files, no golden changed, per the delegate): 8,557 passed in 39 files, typecheck clean, drift test green,
-     five mutations convicted. **The correctness reviewer was resumed on `f4dbe88` on 2026-11-13.** When it is
-     ruled on, WP-G2 is accepted and WP-G3 is dispatched.
-   - **For the user, all provisional and reversible by swapping a default** (decision 204): (a) the limit is the
-     slope beyond the ridge, found by the walk; (b) a 1 cm gap under an overhanging floor, not fused contact;
-     (c) a cap at the wall top of the storey directly above; (d) a tall rise on a hip end rides along the main
-     ridge unless the author sets `maxHeight`. Also still unconfirmed from decision 195: both caps cover the whole
-     rise.
-   - **Owed to `claude-work-ec` once WP-G2 is accepted**: the changed-golden list, that a flat top is a `Roof` face
-     on a horizontal plane with Ridge, Valley, Verge and RingJunction edges (F65), and that a rise's Gable Cells
-     name the winning Ring and side.
-8. **The message to the C++ side was sent to `claude-work-ec` on 2026-11-12**, which the user thinks is the UI/UX
-   polish lead ("I think"). The message asks it to say so if it is not. It carries decisions 191, 192, 194 and
-   195, the consequences for the port, and two questions: whether the game UI can request a form on part of one
-   wall plate, and whether a horizontal roof face has a home in the C++ taxonomy. **Replied the same day: F63.**
-   `pisteperfect-5-7-4f` of session 1's manual is no longer listed as a peer.
-9. **Owed to `claude-work-ec`**: word when it is known whether a rise adds faces whose kind or Cell source differs
-   from today's. Its shell preview reads faces by kind and plane, and wall and gable Cells by Ring model index and
-   side. Gable rise decision 14 (a rise's Cells name the winning Ring and side of its extent) is the answer in
-   intent; send it once the rise is built and measured.
+**State at the close of the overnight run (2026-11-13).** Both features of the charter are built on the arc branch,
+reviewed, and accepted. Nothing is in flight. Nothing is pushed. The blow-by-blow is in decisions 196 to 217, and
+is not repeated here.
+
+- **The editor** (decisions 197 to 202): accepted at `e4de021`.
+- **The gable rise in the pipeline and the wire** (decisions 203 to 211, 213): accepted at `be16d6d`.
+- **The editor's stretches** (decisions 212, 214 to 217): accepted at `56e1c1b`.
+- **The tree's figure, measured by the lead on 2026-11-13 at `56e1c1b`**: 8,640 passed in 39 files, none failed,
+  in 305 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
+- **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
+  [the gable rise findings](./building-shell-gable-rise-findings.md).
+
+**Next, in order:**
+
+1. **The user rules on the provisional defaults of decision 204**, each reversible by swapping a named policy or
+   constant in `src/rise.ts`:
+   - the limit is the slope beyond the ridge, found by the walk, with the built-roof fallback;
+   - a 1 cm gap under an overhanging floor, not fused contact;
+   - a cap at the wall top of the storey directly above;
+   - a tall rise on a hip end rides along the main ridge unless the author sets `maxHeight`;
+   - and, from decision 195, that every cap covers the whole rise.
+2. **The user rules on a wire field for a rise's `maxHeight` and `limit`** (decision 210). Without one the editor
+   cannot expose them, and they exist only in fixtures. It is an `input@1` change the C++ side must mirror.
+3. **Fold the amendments into the spec** [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md):
+   spec 3 (form per extent), and the spec decisions that say pieces come only from algorithm B (5, 8 and 9). Mark
+   session 1's decisions 116 and 149 as amended where they stand. Not done this session.
+4. ~~Run the full suite and the typecheck independently on the final tree.~~ Done by the lead at `56e1c1b`. Re-run
+   after any change to the defaults, before a merge.
+5. **Merge to `main` when the user agrees.** The branch name no longer describes its contents: it carries the
+   covered-storey experiments, the editor and gable rises.
+6. **Tell `claude-work-ec`** when the defaults are confirmed or changed, and when the branch reaches `main`. It was
+   sent the built facts on 2026-11-13 (decision 211) and asked for no reply.
 
 ## 5. Open items
 
 Carried by reference: [session 1 §5](./building-shell-arc-journal.md#5-open-items), plus the "Raised and not yet
-ruled" list in the covered-storeys findings.
+ruled" list in the covered-storeys findings. Added this session:
+
+- **A pipeline hard error reached by ordinary editing** (F64): one of eight random ten-Ring layouts threw a
+  Cell/ShellEdge mismatch. Unexamined. `s1h263/Court25` throws the same class of error and stays pinned (F74).
+- **Conflict reporting depends on triangulation** (F69). 29 pinned cases now carry only such conflicts (F74), and a
+  rise buried under the storey above always reports one. A fix belongs to the re-tag pass, not to rises.
+- **Fused contact between a rise and an overhanging floor** needs an Edge kind for Gable–Underside (F71) before it
+  can be a policy.
+- **16 golden inputs are not C++-replayable** until the port builds rises (F74).
+- **Whether the C++ shell-to-net adapter accepts a horizontal Roof face** (F63, F65). Unread on the C++ side.
+- **The limit walk gives a phantom plane against a gabled opposite wall** (F70). It builds clean. Whether the shape
+  is wanted is for the user.
+- **Shrinking a Ring past a rise and growing it back loses the rise** (decision 216). Two undo steps; history is
+  not persisted.
+- **The build blocks the main thread**: 244 ms for ten two-storey Rings, and 3.2 s for a 106-storey draft (F64,
+  decision 198). No Worker.
+- **Type backlog**: `saveMark` takes an inline object type (decision 202); `offsetAlong` in `viewer/edit.ts`
+  repeats `sideOffset` in `ring-forms.ts` (decision 217).
+- **The long links** (F64): about 1,000 characters per Ring, uncompressed.
 
 ## Decisions
 
@@ -447,6 +427,13 @@ ruled" list in the covered-storeys findings.
        reachable from the panel. Whether the pipeline reads `maxHeight` on a whole-wall gable is unverified, and
        gable rise decision 5 says no rise is built there.
      - The lead reads WP-G3.2's diff; no further review.
+217. **WP-G3.2 is accepted at `56e1c1b`, and the editor's stretches are complete for this version** (the lead,
+     2026-11-13). The lead read the diff: `refit` carries each stretch to the resized side by world coordinate,
+     clips or drops what falls outside, and re-canonicalises; `moveBoundary` removes a neighbour the boundary
+     lands on; a split needs two whole cells. The delegate's record: 8,640 passed in 39 files, typecheck clean,
+     and the resize tests fail when the old rule is restored. One nit for the backlog: `offsetAlong` repeats
+     `sideOffset` in `ring-forms.ts`, which is not exported. **With this, both features of the charter are built,
+     reviewed and accepted on the arc branch.**
 
 ## Findings
 

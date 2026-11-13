@@ -6,7 +6,10 @@ status: proposed
 
 # Gable rises on a hipped wall
 
-**Status: a proposal by the arc lead (2026-11-12), for the user's ruling. Nothing here is adopted.** It answers the
+**Status at 2026-11-13: built and accepted on the arc branch at `be16d6d` (journal decisions 203 to 213). The
+direction and its three limits were accepted by the user (journal decision 192). The limit defaults of decisions
+11 and 12 are the lead's and are provisional until the user confirms them (journal decision 204).** It began as a
+proposal by the arc lead (2026-11-12). It answers the
 second item of the [session 2 charter](./building-shell-arc-journal-02.md#1-the-arcs-charter). The evidence is
 findings F57 to F61 in that journal.
 
