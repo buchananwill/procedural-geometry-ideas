@@ -917,6 +917,16 @@ ruled" list in the covered-storeys findings. Added this session:
      - **Unmeasured**: the page now imports the golden fixture set at start-up.
      - **Left on disk**: `D:\wpv3-snapshot\` and `D:\wpv3-snapshot.tar`, the delegate's browser snapshot, whose
        removal a safety check blocked. The lead did not remove them for it, and told the user.
+249. **The C++ moves toward the TypeScript and ports the solver logic added in this arc** (the user, 2026-11-13,
+     answering whether a rise that shows no face should cost a document its C++ replayability: "the C++ needs to
+     move in the direction of the TS, porting the new solver logic added in this arc"). **So the prototype does
+     not soften what it marks as not yet replayable** (gable rise decision 17 stands): a document that builds any
+     rise stays out of the replay set until the port builds rises, and the set shrinking is expected. This closes
+     the open question of decisions 246 and 247. **`claude-work-ec` was told on 2026-11-13**: the ruling, the
+     rules as built since decision 225 (claimed bands, the per-extent verdict, covered gables, the limit walk and
+     where it does not limit, opposite gables joining, the accepted run-through, Cell sources), the user's
+     position on taming and on Cheeks, the stretch goals, and the pinned costs. It was asked to pass the message
+     on if porting the roof solver belongs to another C++ session. That discharges §4's item on telling it.
 
 ## Findings
 
