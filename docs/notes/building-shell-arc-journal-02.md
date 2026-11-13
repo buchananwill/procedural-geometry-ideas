@@ -101,6 +101,10 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
      amended. It does not touch `src/viewer/`. **When it returns**: check its changed-golden list against gable
      rise decision 3, then a type review and a correctness review on its range. **Then WP-G3**: the editor's run
      list (viewer editing decision 25), and fold the amendments to spec 3 and decisions 116 and 149 into the spec.
+   - **WP-G2 landed at `c1dc136`; reviews ruled (decision 209). WP-G2.1 returned at `f4dbe88`** (one commit, seven
+     files, no golden changed, per the delegate): 8,557 passed in 39 files, typecheck clean, drift test green,
+     five mutations convicted. **The correctness reviewer was resumed on `f4dbe88` on 2026-11-13.** When it is
+     ruled on, WP-G2 is accepted and WP-G3 is dispatched.
    - **For the user, all provisional and reversible by swapping a default** (decision 204): (a) the limit is the
      slope beyond the ridge, found by the walk; (b) a 1 cm gap under an overhanging floor, not fused contact;
      (c) a cap at the wall top of the storey directly above; (d) a tall rise on a hip end rides along the main
@@ -358,6 +362,13 @@ ruled" list in the covered-storeys findings.
        by name like the limits, and a built rise records which cap won. **N3 accepted. N4 goes to WP-G3. N5 is
        declined.**
      - **After WP-G2.1**: the correctness reviewer re-reads the fix diff only.
+210. **WP-G3, the editor's run list, is dispatched alongside WP-G2.1's re-review, and it does not expose
+     `maxHeight` or `limit`** (the lead, 2026-11-13). WP-G2.1 is green at `f4dbe88` and the run types it exports are
+     settled, and WP-G3 touches only `src/viewer/` and its tests, so the two do not collide. The run list edits a
+     run's ends, form and pitch. **`maxHeight` and `limit` are left out because they do not survive `input@1`**
+     (F74): a downloaded draft would load back as a different building, which breaks the editor's round-trip law.
+     They return when the wire carries them, which is a wire change for the user and the C++ side. The viewer
+     editing proposal is amended.
 
 ## Findings
 

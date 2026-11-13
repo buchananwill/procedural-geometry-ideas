@@ -132,6 +132,22 @@ Numbers are for citation. They are not an order of work.
 - **Decision 12 gains a guard.** A build that did not finish is not retried on reload, and a draft whose Rings'
   storeys sum above 100 asks before building.
 
+**2026-11-13, journal decision 210: the run list (decision 25), now that gable rises are built.**
+
+- **A side row gains a run list.** Each run has a start, an end, a hip/gable choice and a pitch. The edits are:
+  add a run, remove a run, set a run's start or end, set its form, set its pitch. All are pure functions beside
+  the existing ones, and all go through the same draft, undo and validity path.
+- **A run always carries its own pitch**, as a listed side does (the amendment to decision 14).
+- **Run ends snap to the fixture's `cellSize`**, in cm from the side's start.
+- **Setting a side's form or pitch keeps that side's runs.** Clearing the side to "Default" removes them.
+- **The run list does not expose a rise's `maxHeight` or `limit`.** `input@1` has no field for either, so a
+  downloaded draft would load back as a different building. They stay reachable in fixtures only, until the wire
+  carries them.
+- **Validity is unchanged**: the wire round trip of decision 6. An overlapping, reversed or out-of-side run is an
+  invalid draft like any other, shown on the run's fields, never blocked.
+- **Gates, by mutation**: every run edit leaves its input unchanged; a draft with runs survives download then load
+  unchanged; setting a side's form keeps its runs.
+
 ## Not in this version
 
 - Dragging handles in the viewport, and a 2D plan view.
