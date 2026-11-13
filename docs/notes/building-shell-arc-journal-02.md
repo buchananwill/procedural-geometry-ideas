@@ -937,6 +937,10 @@ ruled" list in the covered-storeys findings. Added this session:
      a covered rise's Gable face with no wall tag is drawn like any other. Its arc is about to merge to the C++
      main; a port would branch after that. The operational manual's line on `claude-work-ec` is unchanged: it is
      the UI/UX lead, to be kept informed, not the port's owner.
+     **Confirmed by the user the same day**: the port is "not the scope of any active session" and "will happen
+     once at least one of the active worktrees wraps up". The lead sends the C++ side nothing further about
+     porting until the user names who has it. What this arc owes the port is a contract fit to hand over: the
+     proposal with its amendments folded into the spec (§4), and goldens that are right.
 
 ## Findings
 
