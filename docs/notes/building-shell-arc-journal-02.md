@@ -799,6 +799,24 @@ ruled" list in the covered-storeys findings. Added this session:
           union wall" from decision 220.
      - Gable rise decisions 5 and 11 are amended. The rules are the lead's wording of the user's verdicts, and
        the user has not seen them as rules.
+244. **WP-L2 stopped at the red WIP `8b8bc3c`, and the lead rules that rule 3 stays general** (the lead,
+     2026-11-13). 144 failed and 8,825 passed. Rules 1 and 2 are built and the user's cases pass their closed
+     forms: the 75° ridge holds 466.5 cm from one gable to the other, and in the covered case both gables are
+     built with matching apexes. The stop is rule 3: a gable built on a line that holds no union wall makes 12
+     corpus entries throw that build today, most with `a Gable Cell … lies on no Ring side`, because
+     `provenance.ts` looks for a union wall on the line.
+     - **The delegate's two options were to extend provenance or to limit rule 3 to lines that hold a union
+       wall.** The lead takes the first. The second would build or drop a gable according to what else lies on
+       its line, which is the inconsistency the user called a logical defect (decision 243). `provenance.ts`
+       joins the roster so a covered gable's Cells name the Ring side that claims them (gable rise decision 14),
+       with the source's shape unchanged for the C++ side.
+     - **Residual throws of the existing Cell-laying class are pinned, not worked round.** One reduced case, from
+       `s13/Court21`, throws `two Cells run the same way along one NetEdge`. That class is a known pipeline defect
+       (F64, F74), and rule 3 only reaches it. Any other new error, or anything else new in the dangerous class,
+       stops the work again.
+     - **What the sweep already shows under the full rules** (F81): 477 gable stretches in the corpus are wholly
+       covered today and so not built; 9 entries are cured of throws or Unclassified Edges; Unclassified Edges
+       fall from 153 to 132.
 
 ## Findings
 
@@ -1065,6 +1083,24 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - The N wall is two union walls, [0, 400] and [600, 1000], sharing one plane. In drafts 3 and 4 the N rise is
     built once over [400, 650] and stands on the [600, 1000] wall, though only 50 cm of its band is exposed at
     plate level.
+- **F81. How far the two defects of F80 reach in the corpus, and what the three rules of decision 243 do to it**
+  (the WP-L2 delegate at the red WIP `8b8bc3c`, before the provenance fix; 5,288 entries, 9,413 storeys, 1,346
+  rises; not re-run by the lead; figures will move when the work finishes).
+  - **156 rises in 69 fixtures are limited today by a slope whose wall carries a gable over the rise's walk line.**
+    In 145 of them that gable is a rise.
+  - **477 gable stretches in 228 fixtures are wholly covered at plate level, and so not built today.** Every one
+    is covered by a neighbouring Ring abutting flush on its outward side. 476 lie on a line with no union wall at
+    all; only the user's case lies on a line with walls elsewhere. About 166 would stand above the roof at their
+    line.
+  - **Under all three rules**: 59 entries change shape and rises go from 1,342 to 1,739. Nine entries are cured:
+    `s1h263/Court25` no longer throws; `Court18` at 263 and 300 cm, `Court15`, `Court4` and `SplitCourt9` lose
+    Unclassified Edges, and some a surviving Internal face. Unclassified Edges fall from 153 to 132, Cheeks from
+    24 to 22, and conflicts rise from 2,564 to 2,578.
+  - **12 entries newly throw**, plus 45 split-band courtyard cases and 15 cut reproducers that the sweep corpus
+    had missed. Most are provenance finding no union wall on the covered rise's line. Smallest: Rings
+    `[0,0,500,500]` at 30° with a gable run from 100 to 400 at 60° on E, and `[500,0,1000,500]` at 30°.
+  - **Opposite gables can be one-sided**: where one rise's walk line is inside the other's band and not the
+    reverse, one runs through and the other is limited. `OppositeGablesTPartFacing` has 1 Cheek from it.
   - **The 196 pinned cases by class**: roof meets the floor above 57; algorithm-B cut-piece overshoot 36;
     low-pitch pocket 30; `GABLE_RISE_CONFLICTS` 27; algorithm-B Cheek 15; `GABLE_RISE_SPLIT_CONFLICTS` 11;
     sub-tolerance roof feature 9; near-touching islands 4; Gable–Wall edge Unclassified 3; edge contact between
