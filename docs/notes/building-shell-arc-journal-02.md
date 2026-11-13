@@ -586,6 +586,22 @@ ruled" list in the covered-storeys findings. Added this session:
      recommended next package, as three named problems: the limit against a gabled far wall (two candidates
      already measured clean on 36 rectangles), the prism's reach (no clean candidate yet), and the 8 throws
      (undiagnosed).
+228. **WP-V1 landed at `07c99cd` and is provisionally accepted, pending a type review** (the lead, 2026-11-13). One
+     commit, seven files, all under `src/viewer/`, `index.html` and `tests/viewer-*` (the lead checked
+     `git show --stat`); the tree is clean. The delegate's record: 8,926 passed in 41 files, typecheck clean. The
+     selector now offers 126 entries in nine groups with a text filter (F78). Rulings:
+     - **The research conversion reads each case's resolved walls, not its `Sel`s.** Accepted: the resolved walls
+       are what the `Sel`s mean, and a test holds every converted case to the same form and pitch at every stretch
+       through the pipeline's own `unionWallForms`, convicted by mutation.
+     - **Seven research cases are left out, shown disabled with their reason.** Accepted. 5a to 5e are monopitch,
+       which a Ring cannot author; 4g has two hip pitches on one Ring side, which the pipeline refuses; 9b's
+       subject is an authored corner cut and as Rings it is 9a.
+     - **The generated robustness fixtures (about 5,300) and the pinned residue keys (about 200) are not listed.**
+       The delegate's scope choice, since they are made by test code. **For the user**: the pinned keys are the
+       defect cases a person would most want to see, and listing them means the page importing the generators
+       from `tests/`.
+     - A type review is dispatched. No correctness review: the conversion's exactness is the risk, and it is held
+       by a test with a convicting mutation.
 
 ## Findings
 
@@ -810,6 +826,21 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
     drops from 499.9 to 250.1 cm. Gabled on both short ends, it is unchanged.
   - **Unreconciled in the report**: Rule A's "31 of 173 changed fixtures clean" against 163 changed fixtures, and
     Rule B's "2,033 of 3,543" against 958. The denominators are not explained.
+- **F78. 46 of the 53 roof-gable research cases convert exactly to Rings with runs, and all 46 build through
+  today's pipeline with no Cheek, no Unclassified Edge, no conflict and no surviving Internal face** (the WP-V1
+  delegate at `07c99cd`; not re-run by the lead; the full table is in the session scratch directory as
+  `research-table.md`, which is session-local).
+  - **Five build a rise: 2b, 2d, 3c, 4b and 8b.** Those are five of the research's six CHEEK verdicts (session 1's
+    inventory, F59). The sixth, 4l, builds no rise and is also clean here.
+  - **These are two different measures**, so this is not yet "the Cheek class is cured". The research's CHEEK is an
+    unforced height step in the roof surface, judged by `src/roof/measure.ts` on the solver alone. The pipeline's
+    Cheek is a face kind on the built shell. Nobody has compared the two on these cases, nor looked at what the
+    three FAIL cases (7g to 7i, mixed pitch) build.
+  - **What the selector did not show before**: 16 Ring-conflict fixtures, 4 port fixtures, 13 clean goldens with a
+    committed input, the playtest seed `MultiRunSide`, and the 53 research cases. 13 clean goldens have no input
+    and are built only in test code.
+  - 7e and 7f have walls at 85° and 5°. They build in memory, and the wire refuses those pitches, so "Edit" on
+    them gives a draft that shows the refusal.
   - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
     the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
     140)`.
