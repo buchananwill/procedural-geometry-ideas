@@ -1007,6 +1007,25 @@ ruled" list in the covered-storeys findings. Added this session:
      - **WP-S2 dispatched** (general-purpose, Opus, fresh): the editor's controls, the canonical spelling tied to
        the pipeline's `joins`, the round-trip fuzz without its `maxHeight` exception, and the new fixtures in the
        selector. A correctness review of both halves follows it.
+255. **WP-S2 landed at `cd86ca8`, the branch is green, and both halves are provisionally accepted pending a
+     correctness review** (the lead, 2026-11-13). One commit, twelve files under `src/viewer/`, `index.html` and
+     `tests/viewer-*` (the lead checked `git show --stat`); the tree is clean. **The lead ran the suite on this
+     tree**: 9,786 passed in 44 files, none failed, in 348 s; typecheck clean.
+     - **The editor**: a gable stretch's row has a second line with a maximum height field, a facing choice built
+       from `RISE_FACINGS`, and a "stands apart" tick. A new **Halve** button cuts a gable stretch, or a plain
+       gabled side, into two gables that each stand apart. Split is unchanged.
+     - **The merge rule is the pipeline's**: the editor calls `joins` directly, and a test holds the editor's
+       stretches equal to `unionWallExtents`' extents over 4,000 seeded sides.
+     - **The round trip has one exception left**: `defaultDeg` on a Ring with all four sides listed. The fuzz
+       runs 43,200 steps with the new edits, asserts six coverage floors, and fails under three mutations.
+     - **The canonical spelling writes a setting only where it differs from its default.** Accepted. It changed
+       two existing expectations that had an explicit `limit` blocking a merge; the reviewer is asked whether
+       those guarded anything.
+     - **Three behaviours the lead had described differently to the user**: unticking one of three gables
+       standing apart merges nothing, since a merge needs neither neighbour apart; a maximum height of 0 means
+       none in the editor, as on the wire; a negative one is applied and then refused on that stretch.
+     - `GABLE_SETTING_FIXTURES` are in the selector as "Gable settings", eight entries.
+     - A correctness review of `32eeb2a` and `cd86ca8` is dispatched (general-purpose, Opus, fresh).
 
 ## Findings
 
