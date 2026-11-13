@@ -706,8 +706,9 @@ ruled" list in the covered-storeys findings. Added this session:
        verdicts.
 237. **A Cheek is a UI and UX matter, not a rule to be made in the abstract** (the user, 2026-11-13). The user
      cannot rule on Cheeks from a rule-making position and needs to see them. Their framing:
-     - A Cheek is likely an anomaly, and **may** be intended by the author. The user stresses that this is an
-       assumption and is not binding.
+     - A Cheek is likely an anomaly, and so **may not** be intended by the author. The user stresses that this
+       is an assumption and is not binding. (CORRECTED by the user the same day: the first wording, "may be
+       intentional", had lost its "not". The lead had recorded it as "may be intended".)
      - **The goal is not that Cheeks never appear.** It is that a person can easily understand which features
        lead to one (the user's examples: heterogeneous pitches, conflicting gables) and choose how to remove it.
      - An acceptable Cheek is no issue. An unacceptable one should be removable by a **minimal** change to the
