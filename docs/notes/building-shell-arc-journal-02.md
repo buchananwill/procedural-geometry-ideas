@@ -52,31 +52,23 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**State at the close of the overnight run (2026-11-13).** Both features of the charter are built on the arc branch,
-reviewed, and accepted. Nothing is in flight. Nothing is pushed. The blow-by-blow is in decisions 196 to 217, and
-is not repeated here.
+**State at 2026-11-13, after the user's first day with the editor.** Both features of the charter are built on the
+arc branch, reviewed, and accepted, and one defect the user found in the editor is fixed. Nothing is in flight.
+Nothing is pushed. The blow-by-blow is in decisions 196 to 225, and is not repeated here.
 
 - **The editor** (decisions 197 to 202): accepted at `e4de021`.
 - **The gable rise in the pipeline and the wire** (decisions 203 to 211, 213): accepted at `be16d6d`.
 - **The editor's stretches** (decisions 212, 214 to 217): accepted at `56e1c1b`.
-- **The tree's figure, measured by the lead on 2026-11-13 at `56e1c1b`**: 8,640 passed in 39 files, none failed,
-  in 305 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
+- **A gable belongs to the Ring side that asked for it** (F75 to F77, decisions 218 to 225): the fix for the
+  user's with-wing draft, accepted at `887b1f7`.
+- **The tree's figure, measured by the lead on 2026-11-13 at `887b1f7`**: 8,691 passed in 39 files, none failed,
+  in 306 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
 - **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
   [the gable rise findings](./building-shell-gable-rise-findings.md).
-
-**In flight (2026-11-13): WP-G4**, decision 218's fix for F75, dispatched to a fresh delegate (general-purpose,
-Opus) at `da3053a`. The rise's original delegate was resumed for it and failed at once with "Prompt is too long":
-its context was exhausted after WP-G1 to WP-G2.2, and it had changed nothing. WP-G4 measures the affected set
-first, stops if algorithm B's wider piece is plainly the intended roof somewhere, then builds, re-pins and
-re-exports. **When it returns**: a correctness review on its range, then tell `claude-work-ec` the goldens moved
-again.
-
-**WP-G4 stopped at step 1 with no change (decision 219, F76). WP-G4.1, the claimed-band measurement, is in
-flight** with a fresh delegate dispatched 2026-11-13 at `951b86e`. Two resumes of the WP-G4 delegate failed on
-HTTP 403. **The user says that was a system-wide login failure upstream, now fixed by re-authenticating, and
-nothing to do with the model.** The lead had guessed the Opus model was at fault and dispatched the fresh
-delegate on the session's own model; that reason was wrong. The delegate is left running, since the work is
-measurement only. Production work after it goes back to the standing default, Opus.
+- **Delegates**: the rise's first delegate exhausted its context after WP-G1 to WP-G2.2. A fresh delegate needs a
+  self-contained brief, and the proposal, the findings note and this journal's cited entries are enough for one.
+  Two dispatches failed on HTTP 403 on 2026-11-13: the user says that was an upstream login failure, nothing to
+  do with the model.
 
 **Next, in order:**
 
@@ -87,17 +79,26 @@ measurement only. Production work after it goes back to the standing default, Op
    - a cap at the wall top of the storey directly above;
    - a tall rise on a hip end rides along the main ridge unless the author sets `maxHeight`;
    - and, from decision 195, that every cap covers the whole rise.
-2. **The user rules on a wire field for a rise's `maxHeight` and `limit`** (decision 210). Without one the editor
+2. **The user looks at two roofs the claimed-band rule changed or kept**:
+   - `SplitBandAllGable75` (decision 223): a valley down each wing where there was a ridge, and flat-topped outer
+     gable ends;
+   - the two-pitch sub-rule (decision 222): one exposed wall claimed gable at two pitches builds one gable at the
+     lowest index's pitch, so the other Ring's pitch is not built. Building two rises there added Cheeks in 6
+     fixtures (F77), which is the work it would take to lift the sub-rule.
+3. **The one-path model stays open** (decision 220, F77): every gable as a rise. It is measured unfit today: 8
+   new throws, a clipped ridge on a rectangle gabled on both long sides, and no clean rule for the prism's reach.
+   It also showed that today's whole-wall gables stand above storeys over them in 957 storeys of the corpus.
+4. **The user rules on a wire field for a rise's `maxHeight` and `limit`** (decision 210). Without one the editor
    cannot expose them, and they exist only in fixtures. It is an `input@1` change the C++ side must mirror.
-3. **Fold the amendments into the spec** [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md):
+5. **Fold the amendments into the spec** [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md):
    spec 3 (form per extent), and the spec decisions that say pieces come only from algorithm B (5, 8 and 9). Mark
    session 1's decisions 116 and 149 as amended where they stand. Not done this session.
-4. ~~Run the full suite and the typecheck independently on the final tree.~~ Done by the lead at `56e1c1b`. Re-run
-   after any change to the defaults, before a merge.
-5. **Merge to `main` when the user agrees.** The branch name no longer describes its contents: it carries the
+6. **Re-run the full suite and the typecheck after any further change**, before a merge.
+7. **Merge to `main` when the user agrees.** The branch name no longer describes its contents: it carries the
    covered-storey experiments, the editor and gable rises.
-6. **Tell `claude-work-ec`** when the defaults are confirmed or changed, and when the branch reaches `main`. It was
-   sent the built facts on 2026-11-13 (decision 211) and asked for no reply.
+8. **Tell `claude-work-ec`** when the defaults are confirmed or changed, and when the branch reaches `main`. It was
+   sent the built facts (decision 211) and the claimed-band rule with its golden changes (decision 225), both on
+   2026-11-13, and asked for no reply.
 
 ## 5. Open items
 
@@ -557,6 +558,12 @@ ruled" list in the covered-storeys findings. Added this session:
        within 1e-9 of another Ring's corner could split a band on a sliver. Suspected, not built; editor values
        sit on the 50 cm lattice.
      - The lead reads WP-G4.4's diff; no further review.
+225. **WP-G4.4 is accepted at `887b1f7`, and the claimed-band rule is complete for this version** (the lead,
+     2026-11-13). The lead read the diff: `buildsARise` falls back to the per-extent derivation on a `PlanRefusal`,
+     reads a refusal from that as no rise, and rethrows anything else; `forms` is injectable so a test reaches
+     each branch. The delegate's record: 8,691 passed in 39 files, typecheck clean, no golden or manifest entry
+     changed, and the propagate test fails under both mutations. **`claude-work-ec` was told on 2026-11-13** what
+     the user found, the rule as built, the golden changes, and the case to check in the C++ roof stage.
 
 ## Findings
 
