@@ -31,10 +31,10 @@ describe('parseDefectCases', () => {
   });
 
   it('carries each entry\'s residue class, violations, pinned error, input file and reasons', () => {
-    const cheek = named('Court14Seed1h250');
+    const cheek = named('Court14Seed7h250');
     expect(cheek.residueClass).toBe('algorithm-B Cheek');
-    expect(cheek.violations).toEqual(['cheeks 1, expected 0, at (150, 400, 250)']);
-    expect(cheek.input).toBe('Court14Seed1h250.input.json');
+    expect(cheek.violations).toEqual(['cheeks 1, expected 0, at (291.83203125, 250, 500)']);
+    expect(cheek.input).toBe('Court14Seed7h250.input.json');
     const throws = cases.filter(c => c.error !== undefined);
     expect(throws.length).toBeGreaterThan(0);
     for (const c of throws) expect(c.violations).toEqual([]);
@@ -83,7 +83,7 @@ describe('selectionFromHash', () => {
   });
 
   it('lets a roster name win a collision with a case', () => {
-    const clash = {...named('Court14Seed1h250'), name: SHELL_FIXTURES[1].name};
+    const clash = {...named('Court14Seed7h250'), name: SHELL_FIXTURES[1].name};
     expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, SHELL_FIXTURES, [clash]).kind).toBe('fixture');
   });
 
@@ -113,7 +113,7 @@ describe('the camera is framed on the pinned positions', () => {
   });
 
   it('every case that pins a position has a focus; the Cheek class sits where it is pinned', () => {
-    expect(focusOfCase(named('Court14Seed1h250'))?.centre).toEqual([150, 400, 250]);
+    expect(focusOfCase(named('Court14Seed7h250'))?.centre).toEqual([291.83203125, 250, 500]);
     expect(focusOfCase(named('CutOvershootProbe'))).toBeDefined();
     expect(focusOfCase(named('CourtyardAt22.5-45s'))).toBeDefined();
   });
