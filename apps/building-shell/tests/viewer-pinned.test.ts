@@ -4,7 +4,7 @@ import {describe, expect, it} from 'vitest';
 import type {ShellFixture} from '../src/fixture.ts';
 import {editDraftOf} from '../src/viewer/draft.ts';
 import {
-  CONFLICT_TABLES, CUT_OVERSHOOT_KEY, PINNED_CASES, PIN_TABLE_NAMES, pinnedDraftSource, pinnedFixture, pinnedFocus, pinnedGroupLabel, pinnedNote,
+  CUT_OVERSHOOT_KEY, PINNED_CASES, PIN_TABLE_NAMES, pinnedDraftSource, pinnedFixture, pinnedFocus, pinnedGroupLabel, pinnedNote,
   pinnedValue,
 } from '../src/viewer/pinned-cases.ts';
 import type {PinTableName} from '../src/viewer/pinned-cases.ts';
@@ -18,6 +18,14 @@ const tableKeys = (t: PinTableName): string[] => (t === 'CUT_OVERSHOOT_DEFECTS' 
 /** The sweeps' draw count per seed (`PER_COURTYARD_SEED` in robustness.test.ts), which `seededCase` draws a key from. */
 const SWEEP_DRAWS = 40;
 
+describe('the pin tables', () => {
+  it('PIN_TABLE_NAMES lists every pin table residue-pins.ts exports, and only those', () => {
+    // Every object residue-pins.ts exports is a pin table or a single pin; its functions (`seededKey`) are not.
+    const exported = Object.entries(pins).filter(([, v]) => typeof v === 'object' && v !== null).map(([k]) => k);
+    expect([...PIN_TABLE_NAMES].sort()).toEqual(exported.sort());
+  });
+});
+
 describe('the pinned cases', () => {
   it('list every key of every pin table, each once, and nothing else', () => {
     const all = PIN_TABLE_NAMES.flatMap(tableKeys);
@@ -28,7 +36,7 @@ describe('the pinned cases', () => {
 
   it('carry each pin\'s outcome verbatim', () => {
     const c = PINNED_CASES.find(x => x.key === 's7h250/Court14');
-    expect(c?.pins).toEqual([{table: 'COURTYARD_DEFECTS', outcome: pins.COURTYARD_DEFECTS['s7h250/Court14']?.outcome}]);
+    expect(c?.pins).toEqual([{kind: 'residue', table: 'COURTYARD_DEFECTS', outcome: pins.COURTYARD_DEFECTS['s7h250/Court14']?.outcome}]);
     const both = PINNED_CASES.find(x => x.key === 's10h263/Court18');
     expect(both?.pins.map(p => p.table)).toEqual(['COURTYARD_DEFECTS', 'GABLE_RISE_CONFLICTS']);
     expect(both?.pins[1].outcome).toEqual(pins.GABLE_RISE_CONFLICTS['s10h263/Court18']);
@@ -38,9 +46,12 @@ describe('the pinned cases', () => {
     const s7 = PINNED_CASES.find(x => x.key === 's7h250/Court14');
     expect(s7?.group).toBe(CAUSE_CLASSES['roof-gable algorithm B, Cheek class']);
     expect(PINNED_CASES.find(x => x.key === 'ApexEdge5')?.group).toBe(pins.NUDGE_DEFECTS.ApexEdge5?.residueClass);
-    expect(PINNED_CASES.find(x => x.key === 's1h250/Court14')?.group).toBe('GABLE_RISE_CONFLICTS');
-    expect(pinnedGroupLabel('algorithm-B Cheek')).toBe('Pinned: algorithm-B Cheek');
-    expect(pinnedGroupLabel('GABLE_RISE_CONFLICTS')).toBe('Pinned conflicts: GABLE_RISE_CONFLICTS');
+    expect(PINNED_CASES.find(x => x.key === 's1h250/Court14')).toMatchObject({kind: 'conflict', group: 'GABLE_RISE_CONFLICTS'});
+    expect(s7?.kind).toBe('residue');
+    expect(pinnedGroupLabel({kind: 'residue', group: 'algorithm-B Cheek'})).toBe('Pinned: algorithm-B Cheek');
+    expect(pinnedGroupLabel({kind: 'conflict', group: 'GABLE_RISE_CONFLICTS'})).toBe('Pinned conflicts: GABLE_RISE_CONFLICTS');
+    // A case a residue table pins is a residue case, whatever conflict table pins it too.
+    expect(PINNED_CASES.find(x => x.key === 's10h263/Court18')?.kind).toBe('residue');
     expect(PINNED_CASES.filter(x => x.group === 'algorithm-B Cheek')).toHaveLength(15);
   });
 
@@ -74,8 +85,10 @@ describe('pinnedFixture', () => {
   });
 
   it('refuses a key no generator draws', () => {
-    expect(() => pinnedFixture({key: 'nothing', pins: [{table: 'COURTYARD_DEFECTS', outcome: []}]})).toThrow(/no generator draws/);
-    expect(() => pinnedFixture({key: 's1h250/Court999x', pins: [{table: 'COURTYARD_DEFECTS', outcome: []}]})).toThrow();
+    expect(() => pinnedFixture({key: 'nothing', pins: [{kind: 'residue', table: 'COURTYARD_DEFECTS', outcome: []}]})).toThrow(/no generator draws/);
+    expect(() => pinnedFixture({key: 's1h250/Court999x', pins: [{kind: 'residue', table: 'COURTYARD_DEFECTS', outcome: []}]})).toThrow();
+    // A seeded key of a family no generator draws matches no family, so it never reaches an undefined generator.
+    expect(() => pinnedFixture({key: 's1h250/Barn3', pins: [{kind: 'residue', table: 'COURTYARD_DEFECTS', outcome: []}]})).toThrow(/no generator draws/);
   });
 });
 
@@ -84,7 +97,7 @@ describe('a pinned case on the page', () => {
     const c = PINNED_CASES.find(x => x.key === 's7h250/Court14');
     if (!c) throw new Error('no s7h250/Court14');
     expect(pinnedFocus(c)?.centre).toEqual([291.83203125, 250, 500]);
-    const conflictOnly = PINNED_CASES.find(x => x.pins.every(p => CONFLICT_TABLES.includes(p.table)));
+    const conflictOnly = PINNED_CASES.find(x => x.kind === 'conflict');
     if (!conflictOnly) throw new Error('no conflict-only case');
     expect(pinnedFocus(conflictOnly)).toBeUndefined();
   });

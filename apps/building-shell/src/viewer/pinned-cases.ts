@@ -19,29 +19,35 @@ import {
   randomUFixtures, rosterPitchCases,
 } from '../../tests/robustness-fixtures.ts';
 
-/** The pin tables, by the name `tests/residue-pins.ts` exports each under. */
-export const PIN_TABLE_NAMES = [
+/** The pin tables whose pins carry a residue class, by the name `tests/residue-pins.ts` exports each under. */
+export const RESIDUE_TABLE_NAMES = [
   'COURTYARD_DEFECTS', 'U_DEFECTS', 'SPLIT_COURTYARD_DEFECTS', 'NUDGE_DEFECTS', 'PITCH_END_DEFECTS', 'GAP_DEFECTS',
-  'ROSTER_PITCH_DEFECTS', 'JUT_CUT_DEFECTS', 'CUT_OVERSHOOT_DEFECTS', 'GABLE_RISE_CONFLICTS', 'GABLE_RISE_SPLIT_CONFLICTS',
+  'ROSTER_PITCH_DEFECTS', 'JUT_CUT_DEFECTS', 'CUT_OVERSHOOT_DEFECTS',
 ] as const;
+
+/** One of `RESIDUE_TABLE_NAMES`. */
+export type ResidueTableName = typeof RESIDUE_TABLE_NAMES[number];
+
+/** The pin tables whose pins are conflicts alone, with no residue class: each is its own group, by its table name. */
+export const CONFLICT_TABLE_NAMES = ['GABLE_RISE_CONFLICTS', 'GABLE_RISE_SPLIT_CONFLICTS'] as const;
+
+/** One of `CONFLICT_TABLE_NAMES`. */
+export type ConflictTableName = typeof CONFLICT_TABLE_NAMES[number];
+
+/** Every pin table, residue tables first. A test holds this list to `tests/residue-pins.ts`'s exports. */
+export const PIN_TABLE_NAMES = [...RESIDUE_TABLE_NAMES, ...CONFLICT_TABLE_NAMES] as const;
 
 /** One of `PIN_TABLE_NAMES`. */
 export type PinTableName = typeof PIN_TABLE_NAMES[number];
 
-/** The tables whose pins are conflicts alone, with no residue class: each is its own group, by its table name. */
-export const CONFLICT_TABLES: readonly PinTableName[] = ['GABLE_RISE_CONFLICTS', 'GABLE_RISE_SPLIT_CONFLICTS'];
-
 /** The key `CUT_OVERSHOOT_DEFECTS`, a single pin rather than a table, is listed under: its fixture's name. */
 export const CUT_OVERSHOOT_KEY = CUT_OVERSHOOT_PROBE.name;
 
-/** A table's entries as `[key, pin]`, in the table's own order: a residue pin, or a conflict pin's lines. */
-type PinEntries = [key: string, pin: ResiduePin | readonly string[]][];
+const entries = <V>(t: PinRecord<string, V>): [key: string, pin: V][] =>
+  Object.entries(t).flatMap(([k, v]): [string, V][] => (v === undefined ? [] : [[k, v]]));
 
-const entries = <V extends ResiduePin | readonly string[]>(t: PinRecord<string, V>): PinEntries =>
-  Object.entries(t).flatMap(([k, v]): PinEntries => (v === undefined ? [] : [[k, v]]));
-
-/** Every table's entries, by table name. */
-const TABLES: Readonly<Record<PinTableName, PinEntries>> = {
+/** Every residue table's entries, by table name, in the table's own order. */
+const RESIDUE_TABLES: Readonly<Record<ResidueTableName, [key: string, pin: ResiduePin][]>> = {
   COURTYARD_DEFECTS: entries(COURTYARD_DEFECTS),
   U_DEFECTS: entries(U_DEFECTS),
   SPLIT_COURTYARD_DEFECTS: entries(SPLIT_COURTYARD_DEFECTS),
@@ -51,57 +57,92 @@ const TABLES: Readonly<Record<PinTableName, PinEntries>> = {
   ROSTER_PITCH_DEFECTS: entries(ROSTER_PITCH_DEFECTS),
   JUT_CUT_DEFECTS: entries(JUT_CUT_DEFECTS),
   CUT_OVERSHOOT_DEFECTS: [[CUT_OVERSHOOT_KEY, CUT_OVERSHOOT_DEFECTS]],
+};
+
+/** Every conflict table's entries, by table name, in the table's own order: each pin is its conflict lines. */
+const CONFLICT_TABLES: Readonly<Record<ConflictTableName, [key: string, conflicts: readonly string[]][]>> = {
   GABLE_RISE_CONFLICTS: entries(GABLE_RISE_CONFLICTS),
   GABLE_RISE_SPLIT_CONFLICTS: entries(GABLE_RISE_SPLIT_CONFLICTS),
 };
 
-/** One pin of a case: the table that holds it, and its outcome lines (a residue's, or a conflict table's conflicts). */
-export interface CasePin { table: PinTableName; outcome: PinOutcome }
+/** A residue table's pin of a case: its table and its outcome lines. */
+export interface ResidueCasePin { kind: 'residue'; table: ResidueTableName; outcome: PinOutcome }
 
-/** One pinned case, as the selector lists it. */
-export interface PinnedCase {
+/** A conflict table's pin of a case: its table and its conflict lines. */
+export interface ConflictCasePin { kind: 'conflict'; table: ConflictTableName; outcome: PinOutcome }
+
+/** One pin of a case. */
+export type CasePin = ResidueCasePin | ConflictCasePin;
+
+/** The selector's value of a pinned case: `pinned/<key>`, apart from every other entry's. */
+export type PinnedValue = `pinned/${string}`;
+
+/** What every pinned case carries. */
+interface PinnedCaseBase {
   /** The pin tables' key: `s<seed>h<height>/<name>` for a seeded case, else the generator's name. */
   key: string;
-  /** The selector's value and `#hash`: `pinned/<key>`, apart from every other entry's. */
-  value: string;
-  /** Its group: the residue class of its first residue pin (`pinClass`), else its conflict table's name. */
-  group: ResidueClass | PinTableName;
+  /** The selector's value and `#hash`. */
+  value: PinnedValue;
   /** Every pin of the case, in `PIN_TABLE_NAMES` order. */
   pins: CasePin[];
 }
 
+/** A case a residue table pins: grouped by its first residue pin's class (`pinClass`). */
+export interface ResiduePinnedCase extends PinnedCaseBase { kind: 'residue'; group: ResidueClass }
+
+/** A case only a conflict table pins: grouped by that table's name. */
+export interface ConflictPinnedCase extends PinnedCaseBase { kind: 'conflict'; group: ConflictTableName }
+
+/** One pinned case, as the selector lists it. */
+export type PinnedCase = ResiduePinnedCase | ConflictPinnedCase;
+
 /** The value a pinned case is listed under. */
-export const pinnedValue = (key: string): string => `pinned/${key}`;
+export const pinnedValue = (key: string): PinnedValue => `pinned/${key}`;
 
 /** Every pinned case, grouped: the residue classes in `RESIDUE_CLASS_NAMES` order, then the conflict tables; tables' order within. */
 export const PINNED_CASES: readonly PinnedCase[] = (() => {
   const byKey = new Map<string, PinnedCase>();
-  for (const table of PIN_TABLE_NAMES) {
-    for (const [key, pin] of TABLES[table]) {
-      const outcome: PinOutcome = 'outcome' in pin ? pin.outcome : pin;
-      const group = 'outcome' in pin ? pinClass(pin) : table;
+  for (const table of RESIDUE_TABLE_NAMES) {
+    for (const [key, pin] of RESIDUE_TABLES[table]) {
+      const p: CasePin = {kind: 'residue', table, outcome: pin.outcome};
       const c = byKey.get(key);
-      if (c) c.pins.push({table, outcome});
-      else byKey.set(key, {key, value: pinnedValue(key), group, pins: [{table, outcome}]});
+      if (c) c.pins.push(p);
+      else byKey.set(key, {kind: 'residue', key, value: pinnedValue(key), group: pinClass(pin), pins: [p]});
     }
   }
-  const order: readonly (ResidueClass | PinTableName)[] = [...RESIDUE_CLASS_NAMES, ...CONFLICT_TABLES];
+  for (const table of CONFLICT_TABLE_NAMES) {
+    for (const [key, conflicts] of CONFLICT_TABLES[table]) {
+      const p: CasePin = {kind: 'conflict', table, outcome: conflicts};
+      const c = byKey.get(key);
+      if (c) c.pins.push(p);
+      else byKey.set(key, {kind: 'conflict', key, value: pinnedValue(key), group: table, pins: [p]});
+    }
+  }
+  const order: readonly PinnedCase['group'][] = [...RESIDUE_CLASS_NAMES, ...CONFLICT_TABLE_NAMES];
   return [...byKey.values()].sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
 })();
 
 /** The selector's label of a pinned case's group. */
-export const pinnedGroupLabel = (group: PinnedCase['group']): string =>
-  ((CONFLICT_TABLES as readonly string[]).includes(group) ? `Pinned conflicts: ${group}` : `Pinned: ${group}`);
+export const pinnedGroupLabel = (c: Pick<ResiduePinnedCase, 'kind' | 'group'> | Pick<ConflictPinnedCase, 'kind' | 'group'>): string =>
+  (c.kind === 'conflict' ? `Pinned conflicts: ${c.group}` : `Pinned: ${c.group}`);
 
-/** A seeded key's parts: seed, storey height, the generator's family and the draw's index. */
-const SEEDED = /^s(\d+)h(\d+)\/(Court|U|SplitCourt)(\d+)$/;
+/** The seeded generators' families, as their draws are named: `Court<k>`, `U<k>`, `SplitCourt<k>`. */
+export const SEEDED_FAMILIES = ['Court', 'U', 'SplitCourt'] as const;
+
+/** One of `SEEDED_FAMILIES`. */
+export type SeededFamily = typeof SEEDED_FAMILIES[number];
 
 /** A draw of a seeded generator by its index: each generator draws in sequence, so the first k + 1 draws hold the k-th. */
 type SeededGenerator = (seed: number, count: number, storeyHeight: number) => ShellFixture[];
 
-const SEEDED_GENERATORS: Readonly<Record<string, SeededGenerator>> = {
+const SEEDED_GENERATORS: Readonly<Record<SeededFamily, SeededGenerator>> = {
   Court: randomCourtyardFixtures, U: randomUFixtures, SplitCourt: randomSplitCourtyardFixtures,
 };
+
+/** A seeded key's parts: seed, storey height, the generator's family (one of `SEEDED_FAMILIES`) and the draw's index. */
+const SEEDED = new RegExp(String.raw`^s(\d+)h(\d+)/(${SEEDED_FAMILIES.join('|')})(\d+)$`);
+
+const isSeededFamily = (s: string): s is SeededFamily => SEEDED_FAMILIES.some(f => f === s);
 
 /** The one fixture of `fs` named `name`, or a throw naming what was looked for. */
 function named(fs: readonly ShellFixture[], name: string, from: string): ShellFixture {
@@ -117,10 +158,11 @@ const GAP = /^Gap(Aligned|Offset)(\d+)$/;
  * conflict reads as its pin does). A seeded case is the k-th draw of its seed at its storey height. Throws for a key no
  * generator draws.
  */
-export function pinnedFixture(c: Pick<PinnedCase, 'key' | 'pins'>): ShellFixture {
+export function pinnedFixture(c: Pick<PinnedCaseBase, 'key' | 'pins'>): ShellFixture {
   const seeded = SEEDED.exec(c.key);
   if (seeded) {
     const [, seed, h, family, k] = seeded;
+    if (!isSeededFamily(family)) throw new Error(`${c.key} names no seeded generator`);
     const draws = SEEDED_GENERATORS[family](Number(seed), Number(k) + 1, Number(h));
     return named(draws, `${family}${k}`, `the ${family} generator at seed ${seed}, ${h} cm`);
   }
@@ -144,14 +186,14 @@ export function pinnedFixture(c: Pick<PinnedCase, 'key' | 'pins'>): ShellFixture
 }
 
 /** The name a pinned case's draft takes its own name from: its key, which names it apart from every other draw. */
-export const pinnedDraftSource = (c: Pick<PinnedCase, 'key' | 'pins'>): ShellFixture => ({...pinnedFixture(c), name: c.key});
+export const pinnedDraftSource = (c: Pick<PinnedCaseBase, 'key' | 'pins'>): ShellFixture => ({...pinnedFixture(c), name: c.key});
 
 /**
  * Where the camera looks for a pinned case: the places its residue pins name, as a defect case's violations are framed.
  * A conflict table's lines name planes, not places (`n=(...)`), so they are left out.
  */
-export const pinnedFocus = (c: Pick<PinnedCase, 'pins'>): DefectFocus | undefined =>
-  focusOf(violationPoints(c.pins.filter(p => !CONFLICT_TABLES.includes(p.table)).flatMap(p => p.outcome)));
+export const pinnedFocus = (c: Pick<PinnedCaseBase, 'pins'>): DefectFocus | undefined =>
+  focusOf(violationPoints(c.pins.filter(p => p.kind === 'residue').flatMap(p => p.outcome)));
 
 /** The note under the selector for a pinned case: its tables and their first outcome lines. */
 export function pinnedNote(c: PinnedCase): string {

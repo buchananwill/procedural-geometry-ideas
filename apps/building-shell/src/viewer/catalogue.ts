@@ -75,7 +75,7 @@ export interface CatalogueSources {
   /** The pinned cases of `tests/residue-pins.ts` (WP-V2), each group by its pinned class. */
   pinned: readonly PinnedCase[];
   /** What each entry builds, by value (`CATALOGUE_FACTS`): an entry it does not name builds none of it. */
-  facts: FactsTable;
+  facts: FactsLookup;
   /** The draft's name and the selector's value for it, when the editor holds one. */
   draft?: CatalogueEntry;
 }
@@ -85,39 +85,77 @@ export interface CatalogueSources {
  * its build throws, and whether it builds a gable rise. A table records only what is there: a count above zero, a flag
  * that holds.
  */
-export interface EntryFacts { cheeks: number; conflicts: number; unclassified: number; throws: boolean; rise: boolean }
+export type EntryFacts = Record<CountFact, number> & Record<FlagFact, boolean>;
 
-/** One entry's facts as a table holds them: only the counts above zero and the flags that hold. */
-export type RecordedFacts = Partial<EntryFacts>;
+/** The facts that are counts, in the order a label lists them. */
+export const COUNT_FACTS = ['cheeks', 'conflicts', 'unclassified'] as const;
 
-/** Every entry's recorded facts, by the entry's value. */
-export type FactsTable = Readonly<Record<string, RecordedFacts>>;
+/** One of `COUNT_FACTS`. */
+export type CountFact = typeof COUNT_FACTS[number];
+
+/** The facts that are flags, listed after the counts. */
+export const FLAG_FACTS = ['throws', 'rise'] as const;
+
+/** One of `FLAG_FACTS`. */
+export type FlagFact = typeof FLAG_FACTS[number];
+
+/**
+ * The one spec of every fact: the word its tag is spelled with. Exhaustive over `EntryFacts`, so a fact added to
+ * `COUNT_FACTS` or `FLAG_FACTS` does not compile without its tag; `factTags` and `recordedFacts` both read it.
+ */
+export const FACT_WORDS: Readonly<Record<keyof EntryFacts, string>> = {
+  cheeks: 'cheeks', conflicts: 'conflicts', unclassified: 'unclassified', throws: 'throws', rise: 'rise',
+};
+
+/** The largest count a table records: any real count is far below it. */
+export const MAX_RECORDED_COUNT = 999;
+
+/** The whole numbers 1 to `N`: `Acc` counts up, `Out` gathers. Tail-recursive, so it reaches 999. */
+type OneTo<N extends number, Acc extends unknown[] = [unknown], Out extends number = never> =
+  Acc['length'] extends N ? Out | N : OneTo<N, [...Acc, unknown], Out | Acc['length']>;
+
+/** A count a table records: a whole number above zero, at most `MAX_RECORDED_COUNT`. `0` does not type-check. */
+export type RecordedCount = OneTo<typeof MAX_RECORDED_COUNT>;
+
+/** Whether `n` is a count a table records. */
+export const isRecordedCount = (n: number): n is RecordedCount => Number.isInteger(n) && n >= 1 && n <= MAX_RECORDED_COUNT;
+
+/**
+ * One entry's facts as a table holds them: only the counts above zero and the flags that hold, so `{cheeks: 0}` and
+ * `{throws: false}` do not type-check.
+ */
+export type RecordedFacts = Partial<Record<CountFact, RecordedCount> & Record<FlagFact, true>>;
+
+/** The facts the catalogue reads, by an entry's value: an entry the table does not name builds none of them. */
+export type FactsLookup = Readonly<Partial<Record<string, RecordedFacts>>>;
 
 /** The facts an entry's label carries, as words the filter finds: `cheeks 2`, `conflicts 3`, `unclassified 1`, `throws`, `rise`. */
 export function factTags(f: RecordedFacts | undefined): string[] {
   if (!f) return [];
-  return [
-    ...(f.cheeks ? [`cheeks ${f.cheeks}`] : []),
-    ...(f.conflicts ? [`conflicts ${f.conflicts}`] : []),
-    ...(f.unclassified ? [`unclassified ${f.unclassified}`] : []),
-    ...(f.throws ? ['throws'] : []),
-    ...(f.rise ? ['rise'] : []),
-  ];
+  const tags: string[] = [];
+  for (const k of COUNT_FACTS) {
+    const n = f[k];
+    if (n !== undefined) tags.push(`${FACT_WORDS[k]} ${n}`);
+  }
+  for (const k of FLAG_FACTS) if (f[k]) tags.push(FACT_WORDS[k]);
+  return tags;
 }
 
-/** The facts an entry records, the zero counts and false flags left out, in `EntryFacts` order. */
+/** The facts an entry records, the zero counts and false flags left out, counts first. Throws for a count it cannot record. */
 export function recordedFacts(f: EntryFacts): RecordedFacts {
-  return {
-    ...(f.cheeks ? {cheeks: f.cheeks} : {}),
-    ...(f.conflicts ? {conflicts: f.conflicts} : {}),
-    ...(f.unclassified ? {unclassified: f.unclassified} : {}),
-    ...(f.throws ? {throws: true} : {}),
-    ...(f.rise ? {rise: true} : {}),
-  };
+  const out: RecordedFacts = {};
+  for (const k of COUNT_FACTS) {
+    const n = f[k];
+    if (n === 0) continue;
+    if (!isRecordedCount(n)) throw new Error(`${FACT_WORDS[k]} ${n} is no count a table records (1 to ${MAX_RECORDED_COUNT})`);
+    out[k] = n;
+  }
+  for (const k of FLAG_FACTS) if (f[k]) out[k] = true;
+  return out;
 }
 
 /** An entry's label with its facts appended, so the filter and the reader see them: `name [cheeks 1, rise]`. */
-const withFacts = (e: CatalogueEntry, facts: FactsTable): CatalogueEntry => {
+const withFacts = (e: CatalogueEntry, facts: FactsLookup): CatalogueEntry => {
   const tags = factTags(facts[e.value]);
   return tags.length ? {...e, label: `${e.label} [${tags.join(', ')}]`} : e;
 };
@@ -148,7 +186,7 @@ function pinnedEntry(c: PinnedCase): CatalogueEntry {
 function pinnedGroups(cases: readonly PinnedCase[]): CatalogueGroup[] {
   const out: CatalogueGroup[] = [];
   for (const c of cases) {
-    const label = pinnedGroupLabel(c.group);
+    const label = pinnedGroupLabel(c);
     const last = out[out.length - 1];
     if (last && last.label === label) last.entries.push(pinnedEntry(c));
     else out.push({label, entries: [pinnedEntry(c)]});
