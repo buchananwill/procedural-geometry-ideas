@@ -423,6 +423,30 @@ ruled" list in the covered-storeys findings.
        and N5 accepted. N4 falls away** if a tiled side's runs are written as authored with no fill; if the
        duplicate of `writeInput`'s layout must stay, it is tied by a test on positions, not on a count.
      The viewer editing proposal is amended.
+215. **WP-G3.1 landed at `93aaf2d` and goes to a targeted re-review** (the lead, 2026-11-13). It is `636e622` and
+     `93aaf2d`, six files, all in the roster (the lead checked `git diff --stat 7e313df..HEAD`); the working tree
+     is clean. The delegate's record: 8,634 passed in 39 files, typecheck clean. **Its first full run was red**:
+     the new fuzz exceeded the 5 s default timeout at 6.7 s, with the property holding; `93aaf2d` gives that test
+     60 s. The fuzz covers 19,200 edit steps and 6,521 valid drafts, asserts its own coverage, and fails under
+     three mutations. The four pinned spelling exceptions are gone. **Interpretations the reviewer is asked to
+     test, since each can lose data**: a resize refits a split side and drops stretches past the new length; a
+     stretch with limits that merges to the whole side loses them; a malformed side is left as typed.
+216. **WP-G3.1 is accepted at `93aaf2d`, with WP-G3.2 owed for one Medium** (the lead, 2026-11-13). The re-review
+     closed the respelling finding: its fuzz of 3,072 valid drafts found 0 respelled (was 683), 0 built-shell
+     differences in 640 pairs, and 35 diverging follow-up edits, all of them "Default" on a Ring with all four
+     sides listed, which is the named `defaultDeg` exception. No High. Rulings:
+     - **Medium, accepted: a resize keeps stretch boundaries where they are in the world.** Stretches kept their
+       distance from the side's start, so moving that end slid every rise: on `[0,0,1000,500]`, setting x1 to 800
+       moved the N rise from x [400, 600] to [200, 400]. After WP-G3.2 a surviving boundary stays at its world
+       coordinate; the end stretches take up the change; a stretch outside the new side is dropped.
+     - **Accepted as a known behaviour, for the user**: shrinking a Ring past a rise and growing it back does not
+       bring the rise back. It is two undo steps. History is not persisted, so a reload in between loses it.
+     - **Low, accepted**: a boundary moved onto its neighbour's far end removes that neighbour; the halving
+       branch and its comment are made to agree.
+     - **Low, stands**: a whole-side stretch that carries `maxHeight` loses it on becoming plain. It is not
+       reachable from the panel. Whether the pipeline reads `maxHeight` on a whole-wall gable is unverified, and
+       gable rise decision 5 says no rise is built there.
+     - The lead reads WP-G3.2's diff; no further review.
 
 ## Findings
 
