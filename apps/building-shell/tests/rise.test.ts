@@ -9,7 +9,7 @@ import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, buildsARise, cppReplayability} from '.
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {
-  FLOOR_CAP_GAP_CM, LimitContext, RisePiece, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope,
+  FLOOR_CAP_GAP_CM, LimitContext, NO_WALL, RisePiece, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope,
   ridgeSlopeReadings, risePieces, slopeInBuilding, storeyGables, storeyRises,
 } from '../src/rise.ts';
 import {solveRoofParts} from '../src/roof/algoB.ts';
@@ -187,6 +187,9 @@ const INDEPENDENT: Record<string, IndependentRow> = {
   // The S walk line (x = 525) is under the N gable over [450, 900]: no limit. The N walk line (x = 675) is not under the S
   // gable over [400, 650]: the S wall's slope (y = 0) limits the N rise. At mid-depth the S rise's apex, 125 t(75).
   OppositeGablesTPartFacing: {limits: {'y=0': 'none', 'y=400': ['y', 0, 1]}, at: [525, 200], z: 250 + t(75) * 125},
+  // Journal decision 244: the 60° rakes from y = 100 and y = 400 meet at y = 250, 150 t(60) up. The walk from (500, 250)
+  // runs west along the main ridge to the W end's slope (x = 0), which at x = 490 stands 490 t(30) = 282.9, above them.
+  GableOnSharedWall: {limit: ['x', 0, 1], at: [490, 250], z: 250 + t(60) * 150},
 };
 
 describe('journal decision 209, M1: each rise fixture against hand-named planes and hand-computed heights', () => {
@@ -701,6 +704,24 @@ describe('journal decision 243: a gable over the walk line replaces its slope, t
     expect((plan.rises ?? []).map(r => r.piece.farDist)).toEqual([400, 400]);
     const b = await build(rise('OppositeGablesTCovered'));
     for (const y of [450, 700]) expect(topAt(b, 500, y), `y = ${y}`).toBeCloseTo(250 + 100, 1);
+  });
+
+  // Journal decision 244: a covered band on a line that holds no union wall. It stands on a wall made for it (`NO_WALL`),
+  // its Gable face on x = 500 facing +x peaks at 150 t(60) over y = 250, and its Cells name Ring 0's E side, the side
+  // that claims the band (gable rise decision 14). Mutation (provenance reads union walls only): the build throws, a Gable
+  // Cell lying on no Ring side.
+  it('GableOnSharedWall: a gable on the shared wall between two Rings, above both roofs, naming the side that claims it', async () => {
+    const plan = planStorey(rise('GableOnSharedWall'), 0);
+    expect((plan.rises ?? []).map(r => [r.piece.wall.id, r.piece.wall.plane, r.rise.lo, r.rise.hi])).toEqual([[NO_WALL, NO_WALL, 100, 400]]);
+    const b = await build(rise('GableOnSharedWall'));
+    const front = b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[0] - 1) < 1e-9 && f.loops[0].every(p => Math.abs(p[0] - 500) < 1e-6));
+    expect(front).toHaveLength(1);
+    const top = front[0].loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
+    expect(top[1]).toBeCloseTo(250, 2);
+    expect(top[2]).toBeCloseTo(250 + t(60) * 150, 2);
+    expect(front[0].sources).toEqual([{ringModelIndex: 0, side: 1}]);
+    // Either side of the shared wall the roofs are the 30° hips: 250 t(30) at the main ridge.
+    expect(topAt(b, 700, 250)).toBeCloseTo(250 + t(30) * 250, 1);
   });
 
   // Opposite gables of different pitch: neither limits the other, so the taller 75° S rise runs to the N wall and shows

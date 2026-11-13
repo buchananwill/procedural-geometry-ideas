@@ -241,6 +241,10 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  * - `OppositeGablesTPartFacing`: an S stretch over x [400, 650] facing an N one over x [450, 900], both 75. The S walk
  *   line (x = 525) lies under the N gable, so the S rise runs to the N wall; the N walk line (x = 675) does not lie under
  *   the S gable, so the S wall's slope limits the N rise as before.
+ * - `GableOnSharedWall`: Ring 0's E side carries a 60 degree gable run over y [100, 400], and Ring 1 abuts that whole
+ *   side, so the run lies on no union wall and its line holds none (journal decisions 243, rule 3, and 244). It is built
+ *   all the same: a gable standing on the shared wall between the two Rings, above both 30 degree roofs, its Cells naming
+ *   Ring 0's E side. It looks odd, and is what the inputs ask for.
  */
 export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
@@ -282,6 +286,7 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('OppositeGablesTCovered', oppositeT([400, 600, 75], [400, 600, 75])),
     fixture('OppositeGablesTUnequal', oppositeT([400, 650, 75], [400, 650, 60])),
     fixture('OppositeGablesTPartFacing', oppositeT([400, 650, 75], [450, 900, 75])),
+    fixture('GableOnSharedWall', [ring([0, 0, 500, 500], 0, 1, 30, {E: gableRun(100, 400, 60)}), ring([500, 0, 1000, 500], 0, 1, 30)]),
   ];
 })();
 

@@ -488,7 +488,10 @@ function staysInside(comp: Comp, o: Pt, n: Pt, d: number): boolean {
  * Journal decision 243, rule 2: where a rise ends. **A rise that meets a wall whose own gable stands over its walk line
  * runs to that wall and ends there**, joining the gable on it: the distance from the rise's wall to the nearest line,
  * facing back, that holds a storey gable over the walk line, reached without leaving the island. Undefined where there
- * is none. The walk reads nothing beyond it, and the rise's reach stops there.
+ * is none. The walk reads nothing beyond it, and the rise's reach stops there. The storey's gables include algorithm B's
+ * whole-wall gables (`storeyGables`), so a rise facing a wall gabled along its whole length ends there too, rather than
+ * walking on past it into a wing (journal decision 243, which so changes decision 238's gabled-bar T; the lead's reading,
+ * confirmed by journal decision 244).
  */
 export type RiseEnd = (ctx: LimitContext) => number | undefined;
 
@@ -658,7 +661,13 @@ function riseWall(b: Building, line: LineId, rise: GableRise): Wall {
     ?? [...cands].sort((p, q) => length(q) - length(p) || spanOf(p)[0] - spanOf(q)[0])[0];
 }
 
-/** A wall the Building does not hold, on a covered rise's line: `NO_WALL` for its id and plane. */
+/**
+ * A wall the Building does not hold, on a covered rise's line: `NO_WALL` for its id and plane. It is the tags' own "no
+ * wall" (-1, as on Roof, Internal and Ground faces), so a covered rise's Gable and Cheek faces say they stand on no wall
+ * record, which is true: their source is the Ring side that claims the band (`provenance.ts`, journal decision 244).
+ * Nothing reads the made wall's plane: a piece's planes are its own, and the walk reads the skeleton faces' walls. It
+ * never becomes a union wall, so `wallSel` and the Building never see it.
+ */
 export const NO_WALL = -1;
 
 /**
