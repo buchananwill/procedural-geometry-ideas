@@ -564,6 +564,28 @@ ruled" list in the covered-storeys findings. Added this session:
      each branch. The delegate's record: 8,691 passed in 39 files, typecheck clean, no golden or manifest entry
      changed, and the propagate test fails under both mutations. **`claude-work-ec` was told on 2026-11-13** what
      the user found, the rule as built, the golden changes, and the case to check in the C++ roof stage.
+226. **The viewer's selector is to list every fixture the repo holds, the original gable research included** (the
+     user, 2026-11-13: "The original gable research had several examples that are not in this menu. Can they be
+     added, as well as any other fixtures the web page doesn't show?"). The lead confirmed by opening the files:
+     the selector lists `SHELL_FIXTURES`, `RISE_FIXTURES` and the manifest's defect cases only
+     (`viewer/main.ts:344-371`). Not listed: `RING_CONFLICT_FIXTURES`, `PORT_FIXTURES`, goldens that are not
+     defect cases, and the 53 research cases of `src/roof/cases.ts`, which are roof `Building`s from rects and
+     `Sel`s and need converting to Rings with runs. **WP-V1 dispatched 2026-11-13** (general-purpose, Opus,
+     fresh) at `35df7a7`. A research case that cannot be expressed as Rings and runs is listed with its reason and
+     left out. Its hand-back includes what each converted case does through today's pipeline, as a finding.
+227. **The lead's "unfit" for the one-path model overstated its case, and is restated** (the lead, 2026-11-13,
+     after the user asked what is objectively wrong rather than different). Of what F77 measured under one path,
+     **three things are defects by the project's own tests of a roof, and each belongs to the rise's present
+     mechanics, not to the model**: 8 fixtures that build today throw; 10 clean fixtures gain a Cheek or an
+     Unclassified Edge, traced on the two-Ring cases to the rise's prism stopping at the nearest far wall while
+     its limit plane lies further; and a rectangle gabled on both long sides has its ridge sag from 499.9 to
+     250.1 cm, because the limit is a gabled wall's skeleton plane, which is no part of the built roof.
+     **Everything else is change, not error**, and the largest part of it, caps flattening 957 gable ends that
+     stand above storeys over them, moves towards what the user has ruled for rises. The lead was wrong to count
+     "changes plain gable-ended buildings" and "958 fixtures change" against it. One path is the lead's
+     recommended next package, as three named problems: the limit against a gabled far wall (two candidates
+     already measured clean on 36 rectangles), the prism's reach (no clean candidate yet), and the 8 throws
+     (undiagnosed).
 
 ## Findings
 
