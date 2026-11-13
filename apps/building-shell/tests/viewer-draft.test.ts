@@ -867,7 +867,7 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
   const SEQUENCES = 30, STEPS = 40;
 
   it('holds on every valid draft of the sequences, and the sequences cover what they should', () => {
-    const stats = {sequences: 0, steps: 0, valid: 0, invalid: 0, splitSides: 0, threeStretchSides: 0, merges: 0, hipAndGable: 0, withLimits: 0, listedAll: 0, undone: 0};
+    const stats = {sequences: 0, steps: 0, valid: 0, invalid: 0, splitSides: 0, threeStretchSides: 0, merges: 0, hipAndGable: 0, withLimits: 0, listedAll: 0, undone: 0, resizedSplit: 0};
     const failures: string[] = [];
     starts.forEach(([name, start], si) => {
       for (let seq = 0; seq < SEQUENCES; seq++) {
@@ -894,6 +894,8 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
           stats.threeStretchSides += splits.filter(s => (s.runs?.length ?? 0) >= 3).length;
           stats.hipAndGable += splits.filter(s => s.runs?.some(r => r.form === 'hip') && s.runs?.some(r => r.form === 'gable')).length;
           if (carriesLimits(f)) stats.withLimits++;
+          // A resize of a Ring whose sides were split, which carries each boundary to its own world coordinate (journal decision 216).
+          if (a.kind === 'setRectCoord' && before.fixture.rings.some(r => Object.values(r.sides ?? {}).some(s => s.runs?.length))) stats.resizedSplit++;
           if (f.rings.some(lists)) stats.listedAll++;
           // A merge: a stretch edit that left a split side with fewer stretches than it had.
           const had = before.fixture.rings.flatMap(r => Object.values(r.sides ?? {})).reduce((n, s) => n + (s.runs?.length ?? 0), 0);
@@ -914,6 +916,7 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     expect(stats.withLimits).toBeGreaterThan(200);
     expect(stats.listedAll).toBeGreaterThan(800);
     expect(stats.undone).toBeGreaterThan(500);
+    expect(stats.resizedSplit).toBeGreaterThan(150);
     // 19,200 steps take about 3 s alone and 7 s beside the rest of the suite: the default 5 s is not for it.
   }, 60_000);
 });

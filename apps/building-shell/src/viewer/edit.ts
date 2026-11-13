@@ -3,7 +3,7 @@
 // (decision 6, journal decision 193), which `draft.ts` asks; an edit is never blocked (decision 9).
 import {RING_SIDES} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
-import {ringSideLines} from '../ring-forms.ts';
+import {ringSideLines, runSpan} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 
 /** Decision 4: a new Ring is 500 x 500 cm, a hip at 45 degrees, one storey, at base storey 0. */
@@ -112,8 +112,9 @@ export function duplicateRing(f: ShellFixture, index: number): ShellFixture {
 /** Sets Ring `index`'s rect, each coordinate snapped to the fixture's `cellSize` (decision 5). It does not reorder the corners. */
 export function setRect(f: ShellFixture, index: number, rect: Readonly<Rect>): ShellFixture {
   return withRing(f, index, r => {
+    const was = r.rect;
     r.rect = [snapToCell(rect[0], f.cellSize), snapToCell(rect[1], f.cellSize), snapToCell(rect[2], f.cellSize), snapToCell(rect[3], f.cellSize)];
-    refitSides(r);
+    refitSides(r, was);
   });
 }
 
@@ -123,10 +124,11 @@ export function setRect(f: ShellFixture, index: number, rect: Readonly<Rect>): S
  */
 export function setRectCoord(f: ShellFixture, index: number, coord: 0 | 1 | 2 | 3, value: number): ShellFixture {
   return withRing(f, index, r => {
+    const was = r.rect;
     const rect: Rect = [...r.rect];
     rect[coord] = snapToCell(value, f.cellSize);
     r.rect = rect;
-    refitSides(r);
+    refitSides(r, was);
   });
 }
 
@@ -293,18 +295,20 @@ export function middleThird([from, to]: readonly [number, number], cell: number)
 /**
  * What splitting stretch `s` makes: three stretches when its middle third holds a whole cell, the middle in the other
  * form, so the side's own form stays on both flanks; else two halves, the second in the other form; undefined when the
- * stretch is too short to split (it needs two whole cells). The other form is the stretch's pitch, except a hip, which
- * takes the side's one hip pitch where it has one (journal decision 214, Low 2). A split never makes equal neighbours,
- * which would merge at once.
+ * stretch is too short to split. Too short is less than two whole cells, or no point on the grid that leaves a whole cell
+ * on each side: a stretch of a cell and a half is too short (journal decision 216), which is what the panel says. The other
+ * form is the stretch's pitch, except a hip, which takes the side's one hip pitch where it has one (journal decision 214,
+ * Low 2). A split never makes equal neighbours, which would merge at once.
  */
 function splitParts(s: Stretch, list: readonly Stretch[], cell: number): Stretch[] | undefined {
+  if (s.to - s.from < 2 * cell) return undefined;
   const other: Stretch = s.form === 'hip'
     ? {from: s.from, to: s.to, form: 'gable', deg: s.deg}
     : {from: s.from, to: s.to, form: 'hip', deg: hipPitchOf(list) ?? s.deg};
   const [a, b] = middleThird([s.from, s.to], cell);
   if (a > s.from && b < s.to) return [{...s, to: a}, {...other, from: a, to: b}, {...s, from: b}];
   const m = Math.round((s.from + s.to) / 2 / cell) * cell + 0;
-  return m > s.from && m < s.to ? [{...s, to: m}, {...other, from: m}] : undefined;
+  return m - s.from >= cell && s.to - m >= cell ? [{...s, to: m}, {...other, from: m}] : undefined;
 }
 
 /** Whether stretch `k` of a side can be split: it holds two whole cells. The panel says so when it cannot. */
@@ -340,13 +344,20 @@ export function splitStretch(f: ShellFixture, index: number, side: RingSide, k: 
 
 /**
  * Moves the boundary between stretch `k - 1` and stretch `k` (`k` from 1) to `value` cm from the side's start, snapped to
- * the cell size. It moves both stretches that share it. A boundary moved past a neighbour's far end leaves a stretch
- * empty, which the wire refuses (decision 9: the edit is not blocked); the side is then left as typed.
+ * the cell size. It moves both stretches that share it. A boundary moved exactly onto a neighbour's far end leaves that
+ * neighbour empty, so it is removed and the stretch beyond the boundary takes its place (journal decision 216). One moved
+ * past the far end leaves a stretch reversed, which the wire refuses (decision 9: the edit is not blocked); the side is
+ * then left as typed.
  */
 export function moveBoundary(f: ShellFixture, index: number, side: RingSide, k: number, value: number): ShellFixture {
   assertStretch(f, index, side, k, 1);
   const at = snapToCell(value, f.cellSize);
-  return withStretches(f, index, side, list => list.map((s, i) => (i === k - 1 ? {...s, to: at} : i === k ? {...s, from: at} : s)));
+  return withStretches(f, index, side, list => {
+    const before = list[k - 1], after = list[k];
+    if (at === after.to) return [...list.slice(0, k - 1), {...before, to: at}, ...list.slice(k + 1)];
+    if (at === before.from) return [...list.slice(0, k - 1), {...after, from: at}, ...list.slice(k + 1)];
+    return list.map((s, i) => (i === k - 1 ? {...s, to: at} : i === k ? {...s, from: at} : s));
+  });
 }
 
 /**
@@ -369,23 +380,40 @@ export function setStretchPitch(f: ShellFixture, index: number, side: RingSide, 
   return withStretches(f, index, side, list => list.map((s, i) => (i === k ? {...s, deg} : s)));
 }
 
+/** Where a world coordinate lies along a side, in cm from its start (`runSpan`'s inverse). */
+const offsetAlong = (rect: Rect, side: RingSide, world: number): number => {
+  const [x0, y0, x1, y1] = rect;
+  return side === 'S' ? world - x0 : side === 'E' ? world - y0 : side === 'N' ? x1 - world : y1 - world;
+};
+
 /**
- * A side's stretches after its length changed: the last one ends where the side does, and one that begins at or past the
- * end is dropped (the first is kept). A resize therefore keeps a split side tiled instead of leaving it for the wire to refuse.
+ * A split side's stretches after its Ring's rect changed (journal decision 216). Every boundary stays where it was in the
+ * world, whichever end of the side moved: the stretches are carried to the new side by their world coordinates, not by their
+ * distance from the side's start. The first and last stretch grow or shrink to the new ends; a stretch wholly outside the
+ * new side is dropped, and one partly outside is clipped. A side left with nothing inside keeps the stretch nearest it. A
+ * side whose stretches are not tiled (a malformed one), or whose new length is not positive, is left as it is.
  */
-function refit(side: SideForm, length: number, fallbackDeg: number): SideForm {
+function refit(side: SideForm, from: Rect, to: Rect, name: RingSide, fallbackDeg: number): SideForm {
   const runs = side.runs;
-  if (!runs?.length || runs.at(-1)?.to === length || !(length > 0)) return side;
-  const kept = runs.filter((r, i) => i === 0 || r.from < length).map(r => ({...r}));
-  kept[kept.length - 1].to = length;
+  const was = sideLengthCm(from, name), length = sideLengthCm(to, name);
+  if (!runs?.length || !(length > 0) || !runsAreContiguous(runs, was) || runs.some(r => !(r.from < r.to))) return side;
+  const carried = runs.map(r => {
+    const [a, b] = runSpan(from, name, r);
+    const [p, q] = [offsetAlong(to, name, a), offsetAlong(to, name, b)];
+    return {...r, from: Math.min(p, q) + 0, to: Math.max(p, q) + 0};
+  });
+  let inside = carried.filter(r => r.to > 0 && r.from < length);
+  if (!inside.length) inside = [carried.every(r => r.to <= 0) ? carried[carried.length - 1] : carried[0]];
+  const first = inside[0], last = inside[inside.length - 1];
+  const kept = inside.map(r => ({...r, from: r === first ? 0 : Math.max(r.from, 0), to: r === last ? length : Math.min(r.to, length)}));
   return canonicalSide({...side, runs: kept}, length, fallbackDeg);
 }
 
-/** Refits every split side of a Ring to its sides' lengths (`refit`). */
-function refitSides(r: FixtureRing): void {
+/** Refits every split side of a Ring whose rect changed from `from` to its own (`refit`). */
+function refitSides(r: FixtureRing, from: Rect): void {
   for (const side of RING_SIDES) {
     const s = r.sides?.[side];
-    if (s && r.sides) r.sides[side] = refit(s, sideLengthCm(r.rect, side), r.defaultDeg);
+    if (s && r.sides) r.sides[side] = refit(s, from, r.rect, side, r.defaultDeg);
   }
 }
 

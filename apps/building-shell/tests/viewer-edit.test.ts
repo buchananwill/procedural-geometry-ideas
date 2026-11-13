@@ -503,6 +503,124 @@ describe('the stretch edits (journal decision 214)', () => {
     expect(setRect(split, 0, [0, 0, 300, 500]).rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
   });
 
+  /** The world coordinates of a side's interior boundaries: where stretch k starts, for k from 1, on the line the side lies along. */
+  const boundariesInWorld = (f: ShellFixture, side: RingSide): number[] => {
+    const r = f.rings[0];
+    const [x0, y0, x1, y1] = r.rect;
+    return (r.sides?.[side]?.runs ?? []).slice(1).map(run => (side === 'S' ? x0 + run.from : side === 'E' ? y0 + run.from : side === 'N' ? x1 - run.from : y1 - run.from)).sort((a, b) => a - b);
+  };
+
+  /** A 1000 x 500 Ring with all four sides split into three stretches, so each has two interior boundaries. */
+  const splitAll = (): ShellFixture => RING_SIDES.reduce((f, side) => splitStretch(f, 0, side, 0), plain());
+
+  /** The world interval a side lies along: [x0, x1] for S and N, [y0, y1] for E and W. */
+  const worldRange = (f: ShellFixture, side: RingSide): [number, number] => {
+    const [x0, y0, x1, y1] = f.rings[0].rect;
+    return side === 'S' || side === 'N' ? [Math.min(x0, x1), Math.max(x0, x1)] : [Math.min(y0, y1), Math.max(y0, y1)];
+  };
+
+  it('a resize keeps every surviving boundary where it is in the world, on all four sides, whichever end moves (journal decision 216)', () => {
+    const base = splitAll();
+    // The boundaries start at [350, 650] on the 1000 cm sides and [200, 300] on the 500 cm ones, in offsets from each side's start.
+    expect(RING_SIDES.map(s => boundariesInWorld(base, s))).toEqual([[350, 650], [200, 300], [350, 650], [200, 300]]);
+    const moves: [string, 0 | 1 | 2 | 3, number][] = [
+      ['x0 in', 0, 200], ['x0 out', 0, -200], ['x0 far in', 0, 700], ['x1 in', 2, 800], ['x1 out', 2, 1400], ['x1 far in', 2, 300],
+      ['y0 in', 1, 100], ['y0 out', 1, -100], ['y0 far in', 1, 350], ['y1 in', 3, 400], ['y1 out', 3, 700], ['y1 far in', 3, 150],
+    ];
+    let compared = 0;
+    for (const [what, coord, value] of moves) {
+      const next = setRectCoord(base, 0, coord, value);
+      for (const side of RING_SIDES) {
+        const [lo, hi] = worldRange(next, side);
+        // The boundaries that were strictly inside the new side are exactly the ones it has now, at the same world coordinates.
+        const expected = boundariesInWorld(base, side).filter(w => w > lo && w < hi);
+        expect(boundariesInWorld(next, side), `${what}: side ${side}`).toEqual(expected);
+        const runs = next.rings[0].sides?.[side]?.runs;
+        if (runs) {
+          // The end stretches grow or shrink to the new ends, and the side is still tiled.
+          expect(runs[0].from, `${what}: ${side}`).toBe(0);
+          expect(runs.at(-1)?.to, `${what}: ${side}`).toBe(sideLengthCm(next.rings[0].rect, side));
+          expect(runsAreContiguous(runs, sideLengthCm(next.rings[0].rect, side)), `${what}: ${side}`).toBe(true);
+        }
+        compared++;
+      }
+      expect(validate(next), what).toEqual({ok: true});
+    }
+    expect(compared).toBe(moves.length * 4);
+  });
+
+  it('the rise does not slide: the N rise of a 1000 cm Ring stays at x 350 to 650 when x1 moves, and the S rise when x0 moves', () => {
+    const base = splitAll();
+    const runInWorld = (f: ShellFixture, side: RingSide): [number, number] | undefined => {
+      const gable = f.rings[0].sides?.[side]?.runs?.find(r => r.form === 'gable');
+      return gable ? runSpan(f.rings[0].rect, side, gable) : undefined;
+    };
+    expect(runInWorld(base, 'N')).toEqual([350, 650]);
+    expect(runInWorld(setRectCoord(base, 0, 2, 800), 'N')).toEqual([350, 650]);
+    expect(runInWorld(setRectCoord(base, 0, 0, 200), 'S')).toEqual([350, 650]);
+    expect(runInWorld(setRectCoord(base, 0, 0, 200), 'N')).toEqual([350, 650]);
+    expect(runInWorld(setRectCoord(base, 0, 2, 800), 'S')).toEqual([350, 650]);
+    // The sides on the other axis are untouched by a resize on this one.
+    for (const [coord, value] of [[0, 200], [2, 800]] as const) {
+      const next = setRectCoord(base, 0, coord, value);
+      expect(next.rings[0].sides?.E).toEqual(base.rings[0].sides?.E);
+      expect(next.rings[0].sides?.W).toEqual(base.rings[0].sides?.W);
+    }
+    for (const [coord, value] of [[1, 100], [3, 400]] as const) {
+      const next = setRectCoord(base, 0, coord, value);
+      expect(next.rings[0].sides?.S).toEqual(base.rings[0].sides?.S);
+      expect(next.rings[0].sides?.N).toEqual(base.rings[0].sides?.N);
+    }
+  });
+
+  it('a stretch partly outside the new side is clipped, one wholly outside is dropped, and a side left with one stretch is plain', () => {
+    const base = splitAll();
+    // S runs x 0 to 1000 in [0, 350] hip, [350, 650] gable, [650, 1000] hip. Cut at x1 = 500: the gable is clipped, the last hip dropped.
+    expect(spans(setRectCoord(base, 0, 2, 500), 'S')).toEqual([[0, 350, 'hip', 40], [350, 500, 'gable', 40]]);
+    // From x0 = 400: the first hip is dropped, the gable clipped to [400, 650] (offset 0 to 250), the last hip kept.
+    expect(spans(setRectCoord(base, 0, 0, 400), 'S')).toEqual([[0, 250, 'gable', 40], [250, 600, 'hip', 40]]);
+    // From x0 = 700: only the last hip is left: a plain side.
+    expect(setRectCoord(base, 0, 0, 700).rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
+    // N runs from x1 toward x0, so a cut at x0 = 400 clips its last stretch instead.
+    expect(spans(setRectCoord(base, 0, 0, 400), 'N')).toEqual([[0, 350, 'hip', 40], [350, 600, 'gable', 40]]);
+  });
+
+  it('a resize that leaves nothing of a side inside keeps the stretch nearest it, and a malformed side is left as it was', () => {
+    const base = splitAll();
+    const gone = setRect(base, 0, [2000, 0, 2400, 500]);
+    expect(validate(gone)).toEqual({ok: true});
+    const malformed = moveBoundary(base, 0, 'S', 1, 800);
+    expect(validate(malformed).ok).toBe(false);
+    expect(spans(setRectCoord(malformed, 0, 0, 100), 'S')).toEqual(spans(malformed, 'S'));
+  });
+
+  it('moving a boundary exactly onto its neighbour\'s far end removes that neighbour; past it stays an invalid draft (journal decision 216)', () => {
+    const base = splitAll();
+    // S: [0, 350] hip, [350, 650] gable, [650, 1000] hip. Boundary 1 (350) onto 650 removes the gable: the hips merge to plain.
+    expect(base.rings[0].sides?.S?.runs?.length).toBe(3);
+    expect(moveBoundary(base, 0, 'S', 1, 650).rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
+    // Boundary 2 (650) onto 350 removes the gable from the other side.
+    expect(moveBoundary(base, 0, 'S', 2, 350).rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
+    // Boundary 1 onto the start of the first stretch (0) removes the first hip: the gable now starts the side.
+    const onto = moveBoundary(base, 0, 'S', 1, 0);
+    expect(spans(onto, 'S')).toEqual([[0, 650, 'gable', 40], [650, 1000, 'hip', 40]]);
+    expect(validate(onto)).toEqual({ok: true});
+    // Past the far end: the draft is invalid, as before.
+    expect(validate(moveBoundary(base, 0, 'S', 1, 700)).ok).toBe(false);
+    expect(validate(moveBoundary(base, 0, 'S', 1, -50)).ok).toBe(false);
+  });
+
+  it('a stretch of a cell and a half is too short to split; two cells is the least (journal decision 216)', () => {
+    const at = (x1: number): ShellFixture => ({name: 'c', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, x1, 500], 0, 1, 40)]});
+    for (const x1 of [50, 75, 99, 100, 125, 149, 150, 200]) {
+      const can = canSplitStretch(at(x1), 0, 'S', 0);
+      expect(can, `${x1} cm`).toBe(x1 >= 100);
+      const next = splitStretch(at(x1), 0, 'S', 0);
+      expect(next.rings[0].sides?.S?.runs !== undefined, `${x1} cm splits`).toBe(can);
+      if (can) for (const run of next.rings[0].sides?.S?.runs ?? []) expect(run.to - run.from, `${x1} cm: a part holds a cell`).toBeGreaterThanOrEqual(50);
+    }
+  });
+
   it('middleThird keeps both flanks, and falls back to the whole stretch where no whole cell is left in the middle', () => {
     expect(middleThird([0, 1000], 50)).toEqual([350, 650]);
     expect(middleThird([650, 1000], 50)).toEqual([800, 850]);
