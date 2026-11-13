@@ -319,6 +319,19 @@ ruled" list in the covered-storeys findings.
        Accepted, and owed to the C++ side as a consequence.
      - **Cost, accepted and flagged to the user**: 37 golden files change and 21 golden inputs stop being
        C++-replayable until the port builds rises (gable rise decision 17).
+207. **WP-G2 returned at `1d6c137` with 3 failures, all one cause, and the lead authorises the fix** (the lead,
+     2026-11-13). 8,529 pass and 3 fail in 39 files; typecheck clean; goldens re-exported once. The 3 are lines 34,
+     86 and 116 of `tests/viewer-defects.test.ts`, which read the cured case `Court14Seed1h250` from the manifest
+     by name. Decision 206 had allowed only line 163. The delegate may point those lines at `Court14Seed7h250`
+     too. **Correction to decision 206 and F73**: the delegate's first count, "37 of 38 become clean", did not
+     survive its own full check. See F74. The lead repeated the first count to the user and corrects it.
+208. **WP-G2 landed green at `c1dc136` and is provisionally accepted, pending two reviews** (the lead, 2026-11-13).
+     It is commits `7464c40`, `1d6c137` and `c1dc136`. The delegate's record on that tree: 8,532 passed in 39 files,
+     typecheck clean, the drift test green after one re-export, and eight mutation gates convicted. The lead
+     checked `git diff --stat 8d184f0..HEAD`: 17 source and test files, all in the roster or authorised by
+     decisions 205 to 207, and nothing under `src/roof/`, `packages/`, `edges.ts`, `cells.ts` or `tags.ts`. **Two
+     reviews dispatched**: `typescript-type-reviewer`, and a correctness reviewer (general-purpose, Opus) whose
+     brief includes the honesty of the pin and golden changes and the independence of the height oracle.
 
 ## Findings
 
@@ -471,3 +484,26 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - **Every robustness sweep now exercises rises**, because random layouts routinely put a gabled side on a shared
     wall.
   - The exact limit walk agreed with the sampled probe on every case checked through production code.
+  - **CORRECTED by F74**: "37 become clean" and "37 golden files change" were the delegate's first counts on the
+    red commit. The full check gives 6 promoted, and 15 changed golden fixtures.
+- **F74. On the full check, form per extent promotes 6 pinned cases and leaves 30 re-pinned; it removes their
+  structural defects but not their conflicts** (the WP-G2 delegate at `1d6c137`; not re-run by the lead).
+  - **36 pinned cases moved.** All 36 pass the invariants, the height oracle (worst miss 0.0019 cm) and the
+    breakthrough check.
+  - **6 are promoted**: `s4/Court7` and `s6/Court23` at 250, 263 and 300 cm.
+  - **29 are re-pinned on F69 conflicts alone**: a Wall or Gable of the storey above reported over the Gable
+    below. Most carried conflicts before, up to 19, that were never pinned. **Two gained conflicts**:
+    `s10h250/Court15` (0 to 1) and `s11h263/Court35` (0 to 2).
+  - **1 still throws**: `s1h263/Court25`, now at cell 826 / ShellEdge 73.
+  - **33 courtyard pins, 2 U8 pins and 1 SplitCourt9 pin remain.** Two residue classes are emptied:
+    `cleanMesh stuck cap` and `Cell outside its face fan`. The Cheek class keeps 15 members, and they are algorithm
+    B's own partial-line Cheeks, which build no rise.
+  - **Goldens**: 15 fixtures change, all on a mixed wall that gains a rise. 15 are added (the 13 rise fixtures,
+    `Court14Seed7h250`, the re-authored `SB400-600B100S500g60r024`). 3 are removed whole and 3 lose their inputs.
+    **16 inputs are no longer C++-replayable.**
+  - **File order no longer moves `FlushRingConflict` or `DistantRingConflict`**, because each Ring wins its own
+    stretch.
+  - **`maxHeight` and `limit` do not survive `input@1`.**
+  - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
+    the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
+    140)`.
