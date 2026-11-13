@@ -4,7 +4,7 @@
 // form: the wall's extents. A wall whose every extent is a gable is a whole-wall gable; any other wall is a hip at the
 // pitch of its lowest-index hip extent, and its gable extents are rises. The result is roof-gable `Sel`s, so roof-gable
 // is unchanged. No Ring identity passes this point: the roof, the parts and the union see only the walls' forms.
-import {RING_SIDES, RiseLimit, RingForm, RingSide, SideForm, SideRun, StoreyRing} from './fixture.ts';
+import {RING_SIDES, RISE_LIMITS, RiseLimit, RingForm, RingSide, SideForm, SideRun, StoreyRing} from './fixture.ts';
 import {PlanRefusal} from './errors.ts';
 import {Pt, Rect, Sel, unionLoops} from './roof/model.ts';
 
@@ -18,14 +18,28 @@ export type LineAxis = 'x' | 'y';
 export interface WallLine { axis: LineAxis; at: number; n: InwardNormal; lo: number; hi: number }
 
 /**
+ * What one Ring side says at a point of its line: the winning Ring's index, and the run holding the point (else the
+ * side's own form and pitch), as `SideRun` names them, its pitch and limit resolved.
+ */
+export type Claim = {ring: number} & Required<Pick<SideRun, 'form' | 'deg' | 'limit'>> & Pick<SideRun, 'maxHeight'>;
+
+/**
+ * One extent of a union wall (gable rise decision 3): a stretch `[lo, hi]` won by one Ring side's run, adjacent agreeing
+ * ones merged. `ring` is the lowest index among the merged pieces (journal decision 209, H1), and `sideFrom` where that
+ * Ring's piece starts along its own side, in cm from the side's start, the tie-break within one Ring (decision 5 as
+ * amended, M2).
+ */
+export type WallExtent = Claim & {lo: number; hi: number; sideFrom: number};
+
+/**
  * Gable rise decision 6: one rise of a union wall, a stretch `[lo, hi]` along the wall's line of adjacent gable extents
  * that agree in pitch and limits, with its rake pitch, its own `maxHeight` when authored (decision 12) and its limit
  * policy (decision 11).
  */
-export interface GableRise { lo: number; hi: number; deg: number; maxHeight?: number; limit: RiseLimit }
+export type GableRise = Pick<WallExtent, 'lo' | 'hi' | 'deg' | 'maxHeight' | 'limit'>;
 
 /** The limit a gable run takes when it names none (gable rise decision 11, journal decision 204). */
-export const DEFAULT_RISE_LIMIT: RiseLimit = 'ridgeSlope';
+export const DEFAULT_RISE_LIMIT: RiseLimit = RISE_LIMITS[0];
 
 /**
  * A union wall (a maximal straight run of one storey loop) with the form and pitch it enters the roof solve with, and
@@ -89,6 +103,29 @@ function checkedRun(index: number, side: RingSide, k: number, r: {form: string})
 }
 
 /**
+ * Gable rise decision 1 (journal decision 209, L2): a side's runs lie inside the side, are not empty, are in order and
+ * do not overlap. Any other is a `PlanRefusal` naming the Ring, side and run, so `writeInput` never writes runs
+ * `readInput` refuses for their geometry.
+ */
+function checkedRunSpans(index: number, rect: Rect, side: RingSide, runs: readonly SideRun[]): void {
+  const l = ringSideLines(rect)[side], length = l.hi - l.lo;
+  runs.forEach((r, k) => {
+    const at = `Ring ${index} side ${side} run ${k} spans ${r.from} to ${r.to} cm`;
+    if (!(r.from < r.to)) throw new PlanRefusal(`${at}: a run is not empty, its from below its to (gable rise decision 1)`);
+    if (r.from < 0 || r.to > length) throw new PlanRefusal(`${at}: a run lies inside its side, 0 to ${length} cm (gable rise decision 1)`);
+    const prev = runs[k - 1];
+    if (prev && r.from < prev.from) throw new PlanRefusal(`${at}: runs are listed in order along their side, and run ${k - 1} starts at ${prev.from} cm (gable rise decision 1)`);
+    if (prev && r.from < prev.to) throw new PlanRefusal(`${at}: runs do not overlap, and run ${k - 1} ends at ${prev.to} cm (gable rise decision 1)`);
+  });
+}
+
+/** Where a world coordinate `s` of a side's line lies along the side, in cm from its start (`runSpan`'s inverse). */
+const sideOffset = (rect: Rect, side: RingSide, s: number): number => {
+  const [x0, y0, x1, y1] = rect;
+  return side === 'S' ? s - x0 : side === 'E' ? s - y0 : side === 'N' ? x1 - s : y1 - s;
+};
+
+/**
  * Gable rise decision 1: where a side's run `[from, to]` lies on its line, as a world stretch `[lo, hi]`. Every side runs
  * counter-clockwise: S from x0, E from y0, N from x1, W from y1.
  */
@@ -99,12 +136,6 @@ export function runSpan(rect: Rect, side: RingSide, run: Pick<SideRun, 'from' | 
   return [Math.min(a, b), Math.max(a, b)];
 }
 
-/**
- * What one Ring side says at a point of its line: the winning Ring's index, and the run holding the point, else the
- * side's own form and pitch.
- */
-export interface Claim { ring: number; form: RingForm; deg: number; maxHeight?: number; limit: RiseLimit }
-
 function claimAt(index: number, rect: Rect, defaultDeg: number, side: RingSide, s: SideForm | undefined, m: number): Claim {
   const deg = s?.deg ?? defaultDeg;
   for (const run of s?.runs ?? []) {
@@ -113,10 +144,6 @@ function claimAt(index: number, rect: Rect, defaultDeg: number, side: RingSide, 
   }
   return {ring: index, form: s?.form ?? 'hip', deg, limit: DEFAULT_RISE_LIMIT};
 }
-
-/** One extent of a union wall (gable rise decision 3): a stretch won by one Ring side's run, adjacent agreeing ones merged. */
-export interface WallExtent extends Claim { lo: number; hi: number }
-type Extent = WallExtent;
 
 /** A union wall's line and its extents, in order along it. */
 export interface WallExtents { line: WallLine; extents: WallExtent[] }
@@ -128,9 +155,10 @@ export const unionWallExtents = (rings: StoreyRing[], loops: Pt[][]): WallExtent
 /**
  * Gable rise decision 3: a union wall's extents. The wall is cut at every Ring side end and run end on its line; on each
  * piece the lowest-index Ring whose side lies there wins, and its run there gives the form. Adjacent pieces with the
- * same form, pitch and limits merge (decision 6, across Rings too).
+ * same form, pitch and limits merge (decision 6, across Rings too), keeping the lowest index among them (journal
+ * decision 209, H1) and, within that Ring, where its first piece along its own side starts (M2).
  */
-function extentsOf(rings: StoreyRing[], run: WallLine): Extent[] {
+function extentsOf(rings: StoreyRing[], run: WallLine): WallExtent[] {
   const cuts = new Set<number>([run.lo, run.hi]);
   for (const {ring} of rings) {
     const lines = ringSideLines(ring.rect);
@@ -142,27 +170,40 @@ function extentsOf(rings: StoreyRing[], run: WallLine): Extent[] {
     }
   }
   const stops = [...cuts].sort((a, b) => a - b);
-  const out: Extent[] = [];
+  const out: WallExtent[] = [];
   for (let k = 0; k + 1 < stops.length; k++) {
     const m = (stops[k] + stops[k + 1]) / 2;
-    let claim: Claim | undefined;
+    let piece: WallExtent | undefined;
     for (const {index, ring} of rings) {
       const lines = ringSideLines(ring.rect);
       const side = RING_SIDES.find(sd => sameLine(lines[sd], run) && lines[sd].lo < m && m < lines[sd].hi);
-      if (side) { claim = claimAt(index, ring.rect, ring.defaultDeg, side, ring.sides?.[side], m); break; }
+      if (!side) continue;
+      const claim = claimAt(index, ring.rect, ring.defaultDeg, side, ring.sides?.[side], m);
+      const sideFrom = Math.min(sideOffset(ring.rect, side, stops[k]), sideOffset(ring.rect, side, stops[k + 1]));
+      piece = {...claim, lo: stops[k], hi: stops[k + 1], sideFrom};
+      break;
     }
-    if (!claim) throw new PlanRefusal(`the union wall ${run.axis}=${run.at} [${run.lo},${run.hi}] lies on no Ring side at ${m}`);
+    if (!piece) throw new PlanRefusal(`the union wall ${run.axis}=${run.at} [${run.lo},${run.hi}] lies on no Ring side at ${m}`);
     const last = out[out.length - 1];
-    const agrees = last && last.form === claim.form && last.deg === claim.deg && last.maxHeight === claim.maxHeight && last.limit === claim.limit;
+    const agrees = last && last.form === piece.form && last.deg === piece.deg && last.maxHeight === piece.maxHeight && last.limit === piece.limit;
     // Hip extents of one pitch merge only within one Ring, so decision 4 still reads each Ring's index.
-    if (agrees && (claim.form === 'gable' || last.ring === claim.ring)) last.hi = stops[k + 1];
-    else out.push({...claim, lo: stops[k], hi: stops[k + 1]});
+    if (agrees && (piece.form === 'gable' || last.ring === piece.ring)) {
+      last.hi = piece.hi;
+      // Journal decision 209, H1 and M2: the merge keeps the lowest index, and that Ring's first piece along its side.
+      if (piece.ring < last.ring || (piece.ring === last.ring && piece.sideFrom < last.sideFrom)) { last.ring = piece.ring; last.sideFrom = piece.sideFrom; }
+    } else {
+      out.push(piece);
+    }
   }
   return out;
 }
 
-/** The lowest-index extent of `xs` (the first along the wall among equals). */
-const lowestIndex = (xs: readonly Extent[]): Extent => xs.reduce((a, b) => (b.ring < a.ring ? b : a));
+/**
+ * The lowest-index extent of `xs`. Gable rise decision 5 as amended (journal decision 209, M2): among one Ring's extents
+ * (one side of it, since a Ring has one side on a line), the first along that side's own direction from its start.
+ */
+const lowestIndex = (xs: readonly WallExtent[]): WallExtent =>
+  xs.reduce((a, b) => (b.ring < a.ring || (b.ring === a.ring && b.sideFrom < a.sideFrom) ? b : a));
 
 /**
  * Spec decision 3 as amended by gable rise decisions 3 to 7: each union wall's form and pitch, and its rises.
@@ -180,6 +221,7 @@ export function unionWallForms(rings: StoreyRing[], loops: Pt[][]): UnionWall[] 
       if (!s) continue;
       checkedSide(index, side, s);
       (s.runs ?? []).forEach((r, k) => checkedRun(index, side, k, r));
+      checkedRunSpans(index, ring.rect, side, s.runs ?? []);
     }
   }
   return unionWallExtents(rings, loops).map(({line: run, extents}): UnionWall => {

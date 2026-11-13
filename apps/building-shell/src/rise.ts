@@ -18,8 +18,11 @@ import type {Piece} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Wall, dot, planeAt, pointInPoly, sub, wallLabel} from './roof/model.ts';
 import type {StoreyPlan} from './storey.ts';
 
-/** One rise as built: the rise, its piece, the plane its limit policy chose, and the cap that applies, if any. */
-export interface RisePiece { rise: GableRise; piece: Piece; limitPlane: number; capCm?: number }
+/**
+ * One rise as built: the rise, its piece, the plane its limit policy chose, and the cap that applies, if any, by its
+ * height above the plate and its name (journal decision 209, N1).
+ */
+export interface RisePiece { rise: GableRise; piece: Piece; limitPlane: number; capCm?: number; cap?: RiseCapName }
 
 /** Decision 12 (journal decision 204): the floor cap stands this far below an overhanging storey's floor. */
 export const FLOOR_CAP_GAP_CM = 1;
@@ -295,8 +298,14 @@ export const floorCap: CapPolicy = ctx => {
 /** Decision 12 (journal decision 204, F72): the wall top (the plate) of the storey directly above, where it overlaps the reach. */
 export const wallTopCap: CapPolicy = ctx => (storeysOf(ctx.f).includes(ctx.plan.storey + 1) && overlaps(ctx, ctx.plan.storey + 1) ? ctx.f.storeyHeight : undefined);
 
-/** Decision 12's caps. The lowest that applies caps the rise. */
-export const RISE_CAPS: readonly CapPolicy[] = [maxHeightCap, floorCap, wallTopCap];
+/** Decision 12's caps by name (journal decision 209, N1), in the order a tie between them is read. */
+export const RISE_CAP_NAMES = ['maxHeight', 'floor', 'wallTop'] as const;
+
+/** One of `RISE_CAP_NAMES`. */
+export type RiseCapName = typeof RISE_CAP_NAMES[number];
+
+/** Decision 12's caps. The lowest that applies caps the rise, the first by `RISE_CAP_NAMES` among equals. */
+export const RISE_CAPS: Readonly<Record<RiseCapName, CapPolicy>> = {maxHeight: maxHeightCap, floor: floorCap, wallTop: wallTopCap};
 
 // ---- The piece (decisions 8 to 10) ---------------------------------------------------------------------------------
 
@@ -344,12 +353,15 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
       const farDist = far ? dot(sub(far.a, wall.a), wall.n) : Infinity;
       const reachD = Math.min(farDist, bboxReach(b, wall));
       const reach = [atAlong(wall, rise.lo, 0), atAlong(wall, rise.hi, 0), atAlong(wall, rise.hi, reachD), atAlong(wall, rise.lo, reachD)];
-      const caps = RISE_CAPS.map(cap => cap({f, plan, rise, reach})).filter((c): c is number => c !== undefined);
-      const capCm = caps.length ? Math.min(...caps) : undefined;
-      if (capCm !== undefined && capCm <= SHELL_TOLERANCE_CM) continue;
-      if (capCm !== undefined) use(book.plane(wall.comp, 0, 0, capCm, `cap ${capCm} on ${wallLabel(wall)}`));
+      let won: {cap: RiseCapName; capCm: number} | undefined;
+      for (const name of RISE_CAP_NAMES) {
+        const c = RISE_CAPS[name]({f, plan, rise, reach});
+        if (c !== undefined && (!won || c < won.capCm)) won = {cap: name, capCm: c};
+      }
+      if (won && won.capCm <= SHELL_TOLERANCE_CM) continue;
+      if (won) use(book.plane(wall.comp, 0, 0, won.capCm, `cap ${won.capCm} on ${wallLabel(wall)}`));
       const piece: Piece = {wall, bandLo: rise.lo, bandHi: rise.hi, farDist, planes, label: `rise [${rise.lo},${rise.hi}] of ${wallLabel(wall)} at ${rise.deg}`};
-      out.push(capCm === undefined ? {rise, piece, limitPlane} : {rise, piece, limitPlane, capCm});
+      out.push(won ? {rise, piece, limitPlane, ...won} : {rise, piece, limitPlane});
     }
   }
   return out;

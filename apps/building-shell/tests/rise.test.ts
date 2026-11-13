@@ -14,7 +14,7 @@ import {planStorey} from '../src/storey.ts';
 import {unionPlans} from '../src/union.ts';
 import {WIRE_FORMS, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
-import {RISE_ORACLE_TOL_CM, riseBreakthrough, riseOracle} from './rise-oracle.ts';
+import {RISE_ORACLE_TOL_CM, intervalTop, riseBreakthrough, riseOracle} from './rise-oracle.ts';
 import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -68,6 +68,79 @@ describe.each(RISE_FIXTURES.map(f => [f.name] as const))('%s', name => {
 
   it('stays beneath the top of every storey over it (journal F68)', async () => {
     expect(riseBreakthrough((await build(rise(name))).union)).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
+  });
+});
+
+// ---- Journal decision 209, M1: assertions independent of rise.ts's choice of planes --------------------------------
+
+/** The plane of the walls on one line facing one way (not a cut), named by hand: the line `axis = at`, inward `n`. */
+function planeOfWalls(plan: ReturnType<typeof planStorey>, axis: 'x' | 'y', at: number, inward: -1 | 1): number {
+  const ids = new Set(plan.building.walls
+    .filter(w => w.form !== 'cut' && (axis === 'y' ? w.a.y === at && w.b.y === at && Math.sign(w.n.y) === inward : w.a.x === at && w.b.x === at && Math.sign(w.n.x) === inward))
+    .map(w => w.plane));
+  if (ids.size !== 1) throw new Error(`walls on ${axis} = ${at} facing ${inward} hold ${ids.size} planes`);
+  return [...ids][0];
+}
+
+const t = (deg: number): number => Math.tan((deg * Math.PI) / 180);
+
+/**
+ * Every rise fixture: the wall whose plane is its rises' limit, named by hand (none where nothing is built), and one
+ * height of the built shell's top at a point picked by hand, from a closed form of the fixture's own numbers (plate 250).
+ * CornerRise's apex is in its own gate below; `CourtyardRiseAlongCut`'s hole W wall too, so its row adds the height.
+ */
+const INDEPENDENT: Record<string, {limit?: ['x' | 'y', number, -1 | 1]; at: [number, number]; z: number}> = {
+  // A 45° rise over [330, 610] on a 30° hip: the near rake 120 above the plate at x = 450, under the N slope's 259.8.
+  MidWallRise: {limit: ['y', 500, -1], at: [450, 50], z: 250 + t(45) * 120},
+  // The 60° rake from x = 800, 50 cm in, under the E hip's 150 (decision 10's corner plane).
+  CornerRise: {limit: ['y', 500, -1], at: [850, 20], z: 250 + t(60) * 50},
+  // The bar's N slope (y = 400), not the stem's end (y = 1000): at y = 150 it gives 250, under the rakes' 335.9.
+  RiseBeforeTStem: {limit: ['y', 400, -1], at: [490, 150], z: 250 + 250},
+  // No rise: the crossbar's S hip at y = 100.
+  FlushT: {at: [500, 100], z: 250 + 100},
+  FlushTSwapped: {limit: ['y', 500, -1], at: [450, 30], z: 250 + 50},
+  // The 60° rise over [500, 700]: its near rake 50 cm in.
+  AdjacentRises: {limit: ['y', 500, -1], at: [550, 40], z: 250 + t(60) * 50},
+  // The hole S wall's plane (y = 300, facing -y): the rakes' 80 under its 138.6.
+  CourtyardRiseFacingCut: {limit: ['y', 300, -1], at: [180, 60], z: 250 + 80},
+  CourtyardRiseAlongCut: {limit: ['x', 300, -1], at: [60, 280], z: 250 + 80},
+  // The far slope truncates the 75° rise at its own wall: 490 at y = 10.
+  TruncatedRise: {limit: ['y', 500, -1], at: [500, 10], z: 250 + 490},
+  // maxHeight 200 under the 60° rakes' 346.
+  FlatTopRise: {limit: ['y', 500, -1], at: [500, 20], z: 250 + 200},
+  // The floor cap, 1 cm under storey 2's floor at 500, under the far slope's t(30) × 480 = 277.1.
+  OverhangCappedRise: {limit: ['y', 500, -1], at: [500, 20], z: 500 - 1},
+  // The wall-top cap at storey 1's plate, 500, outside storey 1's plan (y < 100).
+  SetBackCappedRise: {limit: ['y', 500, -1], at: [500, 50], z: 500},
+  // Buried whole: the top is storey 1's own S hip, 50 above its plate at 500.
+  BuriedRise: {limit: ['y', 500, -1], at: [500, 50], z: 500 + 50},
+};
+
+describe('journal decision 209, M1: each rise fixture against hand-named planes and hand-computed heights', () => {
+  it('lists every rise fixture', () => {
+    expect(Object.keys(INDEPENDENT).sort()).toEqual(RISE_FIXTURES.map(f => f.name).sort());
+  });
+
+  it.each(Object.entries(INDEPENDENT))('%s: its limit is the named wall\'s plane, and its top at the named point is the closed form', async (name, want) => {
+    const plan = planStorey(rise(name), 0);
+    if (want.limit) {
+      const [axis, at, inward] = want.limit;
+      for (const r of plan.rises ?? []) expect(r.limitPlane).toBe(planeOfWalls(plan, axis, at, inward));
+    } else {
+      expect(plan.rises ?? []).toEqual([]);
+    }
+    const b = await build(rise(name));
+    const [x, y] = want.at;
+    expect(intervalTop(b.union, x + 0.013, y + 0.017, 250.5)).toBeCloseTo(want.z, 1);
+  });
+
+  it('names the cap that won: the floor, the wall top, the rise\'s own maxHeight', () => {
+    const cap = (name: string) => planStorey(rise(name), 0).rises?.map(r => [r.cap, r.capCm]);
+    expect(cap('OverhangCappedRise')).toEqual([['floor', 249]]);
+    expect(cap('SetBackCappedRise')).toEqual([['wallTop', 250]]);
+    expect(cap('BuriedRise')).toEqual([['wallTop', 250]]);
+    expect(cap('FlatTopRise')).toEqual([['maxHeight', 200]]);
+    expect(cap('MidWallRise')).toEqual([[undefined, undefined]]);
   });
 });
 
@@ -235,6 +308,21 @@ describe('the wire carries runs (decisions 1, 15 and 16)', () => {
 
   it.each(RISE_FIXTURES.filter(f => !inMemory(f)).map(f => [f.name] as const))('%s: reads back through input@1 to the same shell', async name => {
     expect(signature(await buildShellDetailed(read(rise(name))))).toBe(signature(await build(rise(name))));
+  });
+
+  // Journal decision 209, L2: the in-memory run check and readInput's run geometry agree, so writeInput never writes runs
+  // readInput refuses for their geometry. Every list of up to two gable runs from these spans on a 1000 cm side.
+  it('refuses in memory exactly the runs readInput refuses on the wire', () => {
+    const spans = [[-100, 100], [0, 200], [200, 200], [300, 500], [400, 600], [600, 1000], [900, 1100]] as const;
+    const lists = [...spans.map(s => [s]), ...spans.flatMap(a => spans.map(b => [a, b]))];
+    for (const list of lists) {
+      const f = shellFixture('RunGeometry', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: list.map(([from, to]) => ({from, to, form: 'gable' as const}))}})]);
+      const rings = storeyRings(f, 0);
+      let inMemory = true;
+      try { unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))); } catch (e) { if (!(e instanceof PlanRefusal)) throw e; inMemory = false; }
+      const wire = readInput(JSON.parse(JSON.stringify(writeInput(f))), f.name).ok;
+      expect(wire, JSON.stringify(list)).toBe(inMemory);
+    }
   });
 
   // Decision 11 and 12: `maxHeight` and `limit` are in memory only, so input@1 does not carry them.

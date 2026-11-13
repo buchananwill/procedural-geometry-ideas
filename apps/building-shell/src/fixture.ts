@@ -15,9 +15,13 @@ export type RingSide = typeof RING_SIDES[number];
 
 /**
  * Gable rise decision 11 (journal decision 204): the named policies that limit a rise besides its rakes. `ridgeSlope`
- * is the only one built. The field is in memory only: `input@1` carries no limit (decision 11).
+ * is the only one built. The field is in memory only: `input@1` carries no limit (decision 11). The one tuple the
+ * union, `rise.ts`'s policy table and the editor's saved-draft schema derive from (journal decision 209, B1).
  */
-export type RiseLimit = 'ridgeSlope';
+export const RISE_LIMITS = ['ridgeSlope'] as const;
+
+/** One of `RISE_LIMITS`. */
+export type RiseLimit = typeof RISE_LIMITS[number];
 
 /**
  * Gable rise decisions 1 and 2: one run of a Ring side, `[from, to]` in cm from the side's start (side S from its west

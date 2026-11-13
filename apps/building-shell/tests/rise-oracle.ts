@@ -71,6 +71,12 @@ export interface OracleMeasure { worst: number; at: string; samples: number }
 /**
  * Decision 19's test: every rise's band, to its far reach, on a 10 cm grid offset off the lattice, the mesh's top
  * against the oracle. A point under a higher storey whose floor the oracle reaches is skipped: the solid runs on up.
+ *
+ * What it proves (journal decision 209, M1): the union built the rise as the solid its own planes define, under the hip
+ * roof and every other piece, with nothing lost or added. What it does not: that those planes were the right ones. It
+ * reads `piece.planes`, the planes `rise.ts` chose, so a wrong limit plane, a missed cap or a wrong corner rake passes
+ * it. Those are held by tests/rise.test.ts's `INDEPENDENT` table: the limit's wall named by hand, and one height from a
+ * closed form, for every rise fixture.
  */
 export function riseOracle(u: ShellUnion): OracleMeasure {
   const out: OracleMeasure = {worst: 0, at: '', samples: 0};
