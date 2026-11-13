@@ -369,6 +369,17 @@ ruled" list in the covered-storeys findings.
      (F74): a downloaded draft would load back as a different building, which breaks the editor's round-trip law.
      They return when the wire carries them, which is a wire change for the user and the C++ side. The viewer
      editing proposal is amended.
+211. **WP-G2 and WP-G2.1 are accepted at `f4dbe88`, with one small fix owed as WP-G2.2** (the lead, 2026-11-13).
+     The re-review closed H1, M1, M2 and L2 and found no High or Medium. It tried to break H1 again with five
+     Rings, gable-hip-gable, and a merged rise, and could not; it re-derived all 13 closed forms by hand. Rulings:
+     - **Low 1, accepted: one side's hip runs must agree in pitch in memory too.** A side with hip runs of two
+       pitches builds, then writes a document the reader refuses. WP-G2.2 makes it a `PlanRefusal`, matching
+       gable rise decision 15. Small enough that the lead reads the diff.
+     - **Low 2 stands**: the in-memory run check is stricter than the reader at the snap tolerance, which is the
+       safe direction.
+     - **The C++ UI/UX lead was sent the built facts on 2026-11-13**: kinds and Cell sources on a rise, the rule
+       as built, the limits, the adapter's two changed behaviours with the None refusal's text, and the golden
+       changes. That discharges §4 item 9 and the item owed after WP-G2. No reply was asked for.
 
 ## Findings
 
