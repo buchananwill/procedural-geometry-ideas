@@ -539,6 +539,24 @@ ruled" list in the covered-storeys findings. Added this session:
        error". The reviewer is asked which is safer for the port's replay set.
      - The M1 tie-break and the L2 tolerance are not convicted by a fixture. The reviewer is asked whether they
        matter.
+224. **WP-G4.2 and WP-G4.3 are accepted at `1852281`, with WP-G4.4 owed for one Medium** (the lead, 2026-11-13).
+     The re-review closed H1 by running: the three inputs each build one clean gable over [0, 1000]. Four further
+     attempts to break the per-extent verdict all built clean: three walls with a buried middle band, bands that
+     tile except for a buried hip stretch, a mixed wall and an all-gable wall on one extent in both orders, and
+     two extents separated by a gap. Rulings:
+     - **Medium, accepted: `buildsARise` is built as decision 222 ruled.** It falls back only on a `PlanRefusal`,
+       and any other error propagates. The reviewer confirmed the catch-all is the less safe: a document that
+       fails at one of decision 220's new throw sites would be marked as building no rise and could enter the
+       C++ replay set. The test helper copied the same catch-all and could not see it.
+     - **The wall a buried-middle rise stands on does not matter** (the reviewer, by reading and one built case):
+       the limit walk starts at the band's middle, and the caps and far wall read only the wall's line.
+     - **Noted, no action**: where three bands lie on a line and the middle one is wholly buried, the buried band
+       is not built and the outer two become separate rises. That is decision 220's "counts only if part of it is
+       on a union wall". Before `b1cff3e` it was one gable.
+     - **Low, stands**: the off-lattice fixture does not guard the 1e-9 tolerance; the unit cases do. A run end
+       within 1e-9 of another Ring's corner could split a band on a sliver. Suspected, not built; editor values
+       sit on the 50 cm lattice.
+     - The lead reads WP-G4.4's diff; no further review.
 
 ## Findings
 
