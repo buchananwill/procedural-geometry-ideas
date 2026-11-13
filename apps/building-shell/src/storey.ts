@@ -6,7 +6,7 @@ import {selectCut, spliceCourtyard} from './courtyard.ts';
 import {ShellFixture, StoreyRing, storeyRings} from './fixture.ts';
 import {Wasm} from './manifold.ts';
 import {UnionWall, selPicks, storeyLoops, tanDeg, unionWallForms, wallSel} from './ring-forms.ts';
-import {RisePiece, risePieces} from './rise.ts';
+import {RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {
   Building, Comp, Plane, Pt, Rect, Sel, Wall, buildFromRects, finishBuilding, planeAt, polyArea, wallLabel,
@@ -91,15 +91,25 @@ export function storeyBuilding(rings: StoreyRing[]): Building {
 /** A storey's Building and the union walls it was derived from, whose `rises` gable rise decision 8 builds. */
 export interface StoreyForms { building: Building; walls: UnionWall[] }
 
-/** `storeyBuilding`, with the union walls it read. */
+/**
+ * `storeyBuilding`, with the union walls it read. The walls are derived per extent (`unionWallForms`), then gable rise
+ * decision 5 as amended by journal decision 220 decides which all-gable walls algorithm B keeps (`claimedWalls`), which
+ * reads algorithm B's span off the Building those walls give. Where a wall changes form the Building is built again.
+ */
 export function storeyForms(rings: StoreyRing[]): StoreyForms {
   const rects = rings.map(r => r.ring.rect);
   const loops = storeyLoops(rects);
-  const walls = unionWallForms(rings, loops);
-  return {building: buildingOf(rings, rects, loops, walls), walls};
+  const derived = unionWallForms(rings, loops);
+  const first = buildingOf(rings, rects, loops, derived);
+  const {walls, changed} = claimedWalls(rings, derived, first);
+  return {building: changed ? buildingOf(rings, rects, loops, walls) : first, walls};
 }
 
-function buildingOf(rings: StoreyRing[], rects: Rect[], loops: Pt[][], walls: UnionWall[]): Building {
+/**
+ * A storey's Building from its union walls as given, a courtyard's cut spliced in. `storeyForms` calls it with the
+ * per-extent walls and again, where journal decision 220 changes a wall, with the walls it gives.
+ */
+export function buildingOf(rings: StoreyRing[], rects: Rect[], loops: Pt[][], walls: UnionWall[]): Building {
   const sels = walls.map(wallSel);
   const outers = loops.filter(l => polyArea(l) > 0);
   const holes = loops.filter(l => polyArea(l) < 0);

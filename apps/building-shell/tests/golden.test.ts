@@ -12,12 +12,11 @@ import {
   BUILDS_A_RISE, GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, buildsARise,
   cppReplayability, cppReplayabilityOf, goldenText, unionStages,
 } from '../src/golden.ts';
-import {storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1, WireRun, WireVec2} from '../src/wire/input-types.ts';
-import {planStorey} from '../src/storey.ts';
+import {planStorey, storeyForms} from '../src/storey.ts';
 import {
   EMPTIED_BY_GABLE_RISES, GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
   goldenFiles, goldenInput,
@@ -254,15 +253,12 @@ describe('C++ replayability (journal decision 152, amended)', () => {
 
   /**
    * Gable rise decision 17 (WP-G2): a document whose fixture builds a rise on any storey is not yet replayable, the rule
-   * restated from the pipeline's own derivation of each storey's union walls.
+   * restated from the pipeline's own derivation of each storey's union walls, journal decision 220's rises included.
    */
   function rises(w: BuildingShellInputV1): string[] {
     const r = readInput(JSON.parse(JSON.stringify(w)), 'rises');
     if (!r.ok) return [];
-    const any = storeysOf(r.fixture).some(n => {
-      const rings = storeyRings(r.fixture, n);
-      return unionWallForms(rings, storeyLoops(rings.map(x => x.ring.rect))).some(x => (x.rises ?? []).length > 0);
-    });
+    const any = storeysOf(r.fixture).some(n => storeyForms(storeyRings(r.fixture, n)).walls.some(x => (x.rises ?? []).length > 0));
     return any ? ['a gable rise, which the C++ port does not build yet (gable rise decision 17)'] : [];
   }
 

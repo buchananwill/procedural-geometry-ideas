@@ -10,6 +10,7 @@ import type {ShellFixture} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
 import {ringSideLines, storeyLoops, unionWallForms} from './ring-forms.ts';
 import type {ShellReport} from './shell.ts';
+import {storeyForms} from './storey.ts';
 import type {RawPart} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
@@ -106,14 +107,21 @@ export const BUILDS_A_RISE = 'a gable rise, which the C++ port does not build ye
 
 /**
  * Gable rise decision 17: whether any storey of `f` builds a rise. A rise reached through flush Rings has every side
- * one whole run, so `isOneWholeRun` alone would offer it as replayable. A storey whose plan the pipeline refuses is
- * left to `readInput` and the build.
+ * one whole run, so `isOneWholeRun` alone would offer it as replayable; so has an all-gable wall that journal decision
+ * 220 turns into a rise. A storey whose plan the pipeline refuses is left to `readInput` and the build. A storey whose
+ * Building cannot be made (an error that is no refusal) is read, as before decision 220, from its per-extent forms
+ * alone, since decision 220 reads algorithm B's span off that Building.
  */
 export function buildsARise(f: ShellFixture): boolean {
   return storeysOf(f).some(n => {
     const rings = storeyRings(f, n);
     try {
-      return unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).some(w => w.rises?.length);
+      try {
+        return storeyForms(rings).walls.some(w => w.rises?.length);
+      } catch (e) {
+        if (e instanceof PlanRefusal) throw e;
+        return unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).some(w => w.rises?.length);
+      }
     } catch (e) {
       if (e instanceof PlanRefusal) return false;
       throw e;

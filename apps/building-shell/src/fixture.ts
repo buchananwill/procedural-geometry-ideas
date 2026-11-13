@@ -213,11 +213,17 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  *   stands `FLOOR_CAP_GAP_CM` below its floor.
  * - `SetBackCappedRise`: a 75 degree rise under a set-back storey directly above, capped at that storey's wall top.
  * - `BuriedRise`: a rise under a flush upper wall, capped at its wall top and so buried whole.
+ * - `GableBesideHip` and `GableBesideHipSouthWing`: the user's two drafts of journal F75. Ring 1's S side is gabled
+ *   on the line y = 0, whose stretch [0, 600] is Ring 0's hipped S side. Without the wing the wall is mixed and the
+ *   gable is a rise over [600, 1200]. The wing buries [0, 600], so the wall is all gable, and algorithm B's piece would
+ *   span [0, 1200]; the claimed band is [600, 1200], so by journal decision 220 it is the same symmetric rise.
  */
 export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
   const R: Rect = [0, 0, 1000, 500];
   const court = (sides: Record<number, RingSides>): FixtureRing[] => COURTYARD_RECTS.map((r, i) => ring(r, 0, 1, 30, sides[i] ?? {}));
+  // Journal F75: the user's drafts, made in the editor (the third Ring is a two-storey tower on storeys 1 and 2).
+  const besideHip = [ring([0, 0, 600, 600], 0, 1, 22.5, {S: {form: 'hip'}, W: gable}), ring([600, 0, 1200, 800], 0, 1, 22.5, {S: gable}), ring([200, 0, 400, 200], 1, 2, 45)];
   return [
     fixture('MidWallRise', [ring(R, 0, 1, 30, {S: gableRun(330, 610, 45)})]),
     fixture('CornerRise', [ring(R, 0, 1, 45, {S: gableRun(800, 1000, 60)})]),
@@ -232,6 +238,8 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('OverhangCappedRise', [ring(R, 0, 1, 30, {S: gableRun(400, 600, 75)}), ring([800, 0, 1000, 500], 0, 2, 30), ring([300, -100, 1000, 500], 2, 1, 30)]),
     fixture('SetBackCappedRise', [ring(R, 0, 1, 45, {S: gableRun(350, 650, 75)}), ring([300, 100, 700, 400], 1, 1, 45)]),
     fixture('BuriedRise', [ring(R, 0, 1, 45, {S: gableRun(400, 600, 75)}), ring([300, 0, 700, 300], 1, 1, 45)]),
+    fixture('GableBesideHip', besideHip),
+    fixture('GableBesideHipSouthWing', [...besideHip, ring([0, -400, 600, 0], 0, 1, 22.5)]),
   ];
 })();
 

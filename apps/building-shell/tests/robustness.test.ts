@@ -420,13 +420,15 @@ describe("gable rise decision 3's cured cases (WP-G2, journal decision 206)", ()
     expect(riseOracle(b.union).worst).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
   });
 
+  // Journal decision 220: a case it worsened (s10 Court18 at 263 and 300) also holds a defect pin; its invariants are
+  // then exactly that pin's outcome, and its conflicts are still asserted here.
   const conflicted = [
-    ...Object.entries(GABLE_RISE_CONFLICTS).map(([k, c]) => [k, randomCourtyardFixtures, c ?? []] as const),
-    ...Object.entries(GABLE_RISE_SPLIT_CONFLICTS).map(([k, c]) => [k, randomSplitCourtyardFixtures, c ?? []] as const),
+    ...Object.entries(GABLE_RISE_CONFLICTS).map(([k, c]) => [k, randomCourtyardFixtures, c ?? [], COURTYARD_DEFECTS[k as keyof typeof COURTYARD_DEFECTS]?.outcome ?? []] as const),
+    ...Object.entries(GABLE_RISE_SPLIT_CONFLICTS).map(([k, c]) => [k, randomSplitCourtyardFixtures, c ?? [], SPLIT_COURTYARD_DEFECTS[k as keyof typeof SPLIT_COURTYARD_DEFECTS]?.outcome ?? []] as const),
   ];
-  it.each(conflicted)('%s: re-pinned: clean, its rise on the height oracle, exactly its conflicts', async (key, gen, conflicts) => {
+  it.each(conflicted)('%s: re-pinned: clean or its defect pin, its rise on the height oracle, exactly its conflicts', async (key, gen, conflicts, invariants) => {
     const b = await buildShellDetailed(seededCase(gen, key));
-    expect(invariantViolations(b, COURTYARD_EXPECTED)).toEqual([]);
+    expect(invariantViolations(b, COURTYARD_EXPECTED)).toEqual(invariants);
     expect(riseOracle(b.union).worst).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
     expect(b.shell.report.conflicts).toEqual(conflicts);
   });

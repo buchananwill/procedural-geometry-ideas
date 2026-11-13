@@ -28,7 +28,8 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   // 's1h250/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's1h250/Court25': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's1h263/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
-  's1h263/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 826: side 26-328 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1"]},
+  // Re-pinned by journal decision 220 (WP-G4.2): an all-gable wall became a rise, and the same throw moved to cell 824 (it was cell 826, side 26-328).
+  's1h263/Court25': {cause: "partial face-to-face contact of two storeys on one plane (Court25 class)", outcome: ["throws: cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1"]},
   // 's1h300/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's1h300/Court25': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   's2h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"]},
@@ -65,10 +66,14 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   // 's10h250/Court18': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   's10h250/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"]},
   's10h263/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 278.916015625)","3 Unclassified Edges: (550, 100, 263) to (586.6376953125, 100, 310.7470703125); (550, 100, 263) to (650, 100, 263); (586.6376953125, 100, 310.7470703125) to (650, 100, 263)"]},
-  // 's10h263/Court18': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's10h263/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), an accepted cost:
+  // a courtyard hole wall whose band runs on under a taller Ring is now a rise, and a 26.8 cm² sliver of its storey 0 Gable front, coplanar with the taller
+  // Ring's storey 1 Wall on y = 400 and facing it, meets that Wall in 2 Unclassified Edges: SplitCourt9's Gable-Wall pair. Its conflict stays pinned there too.
+  's10h263/Court18': {cause: "a Gable-Wall edge, Unclassified (SplitCourt9 class)", outcome: ["2 Unclassified Edges: (148.6787109375, 400, 338.35546875) to (153.0576171875, 400, 331.92578125); (153.0576171875, 400, 331.92578125) to (157.021484375, 400, 338.35546875)"]},
   's10h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"]},
   's10h300/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (595.5458984375, 100, 315.916015625)","3 Unclassified Edges: (550, 100, 300) to (586.6376953125, 100, 347.7470703125); (550, 100, 300) to (650, 100, 300); (586.6376953125, 100, 347.7470703125) to (650, 100, 300)"]},
-  // 's10h300/Court18': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
+  // 's10h300/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), as s10h263.
+  's10h300/Court18': {cause: "a Gable-Wall edge, Unclassified (SplitCourt9 class)", outcome: ["2 Unclassified Edges: (151.6572265625, 400, 375.35546875) to (156.2587890625, 400, 368.1826171875); (156.2587890625, 400, 368.1826171875) to (162.322265625, 400, 375.35546875)"]},
   's10h300/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"]},
   // 's11h250/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's11h263/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
@@ -306,13 +311,35 @@ export const CUT_OVERSHOOT_DEFECTS: ClassedPin = {
  * as a rise's front buried under a flush upper wall gives. Most carried conflicts before WP-G2 too (up to 19); none were
  * pinned, since the sweeps never asserted conflicts. `s10h250/Court15` (from none to 1) and `s11h263/Court35` (from none
  * to 2) are the two that gained conflicts where they had none.
+ *
+ * **Journal decision 220 (WP-G4.2)**: an all-gable wall whose algorithm B piece is not its claimed band is a hip with a
+ * rise. Its accepted cost is more F69 conflicts, pinned exactly here: `s2h250/Court14`, `s2h300/Court14` (2 to 3),
+ * `s2h250/Court29`, `s2h300/Court29` (1 to 2) and `s2h250/Court3` (2 to 3), enrolled from the default run's whole
+ * sweeps, where conflicts are otherwise not asserted. The `s1` Court14 and Court25 rows are re-pinned: the same count,
+ * read off other triangles. `s10h263/Court18` and `s10h300/Court18` keep their conflict here, and their new Unclassified
+ * Edges are pinned in `COURTYARD_DEFECTS`.
  */
 export const GABLE_RISE_CONFLICTS: PinRecord<SeededKey<CourtName>, readonly string[]> = {
-  's1h250/Court14': ["Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 3)"],
-  's1h250/Court25': ["Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 10 (part 3)"],
-  's1h263/Court14': ["Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 3)"],
-  's1h300/Court14': ["Court14: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 3)"],
-  's1h300/Court25': ["Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 10 (part 3)"],
+  // Re-pinned by journal decision 220: was "n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 14 (part 3)".
+  's1h250/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 8) over Gable storey 0 wall 0 (part 5)"],
+  // Re-pinned by journal decision 220: was "... over Gable storey 0 wall 10 (part 3)".
+  's1h250/Court25': ["Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 10 (part 7)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  's1h263/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 8) over Gable storey 0 wall 0 (part 5)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  's1h300/Court14': ["Court14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 8) over Gable storey 0 wall 0 (part 5)"],
+  // Re-pinned by journal decision 220, as s1h250.
+  's1h300/Court25': ["Court25: n=(1.000000, 0.000000, 0.000000) d=100.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 10 (part 7)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  's2h250/Court14': ["Court14: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 12 (part 8) over Gable storey 0 wall 12 (part 6)","Court14: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 7) over Gable storey 0 wall 3 (part 4)","Court14: n=(1.000000, 0.000000, 0.000000) d=150.000: Wall storey 1 wall 10 (part 7) over Gable storey 0 wall 10 (part 5)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  's2h250/Court3': ["Court3: n=(0.000000, 1.000000, 0.000000) d=350.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 9 (part 2)","Court3: n=(1.000000, 0.000000, 0.000000) d=250.000: Wall storey 1 wall 3 (part 8) over Gable storey 0 wall 10 (part 7)","Court3: n=(1.000000, 0.000000, 0.000000) d=250.000: Wall storey 2 wall 1 (part 12) over Gable storey 1 wall 3 (part 11)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  's2h250/Court29': ["Court29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 7) over Gable storey 0 wall 6 (part 5)","Court29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 12 (part 6)"],
+  // Enrolled by journal decision 220: 2 conflicts to 3.
+  's2h300/Court14': ["Court14: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 12 (part 8) over Gable storey 0 wall 12 (part 6)","Court14: n=(-1.000000, 0.000000, 0.000000) d=0.000: Wall storey 1 wall 3 (part 7) over Gable storey 0 wall 3 (part 4)","Court14: n=(1.000000, 0.000000, 0.000000) d=150.000: Wall storey 1 wall 10 (part 7) over Gable storey 0 wall 10 (part 5)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  's2h300/Court29': ["Court29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 7) over Gable storey 0 wall 6 (part 5)","Court29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 12 (part 6)"],
   's7h250/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 7 (part 4)","Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 12) over Gable storey 1 wall 4 (part 11)","Court22: n=(0.000000, 1.000000, 0.000000) d=750.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 1 (part 5)"],
   's7h263/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 12) over Gable storey 1 wall 4 (part 11)","Court22: n=(0.000000, 1.000000, 0.000000) d=750.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 1 (part 5)"],
   's7h300/Court22': ["Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 7 (part 4)","Court22: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 2 wall 0 (part 12) over Gable storey 1 wall 4 (part 11)","Court22: n=(0.000000, 1.000000, 0.000000) d=750.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 1 (part 5)"],
@@ -334,11 +361,30 @@ export const GABLE_RISE_CONFLICTS: PinRecord<SeededKey<CourtName>, readonly stri
   's12h300/Court2': ["Court2: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 1 wall 6 (part 7) over Gable storey 0 wall 6 (part 5)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 4 (part 7) over Gable storey 0 wall 4 (part 2)","Court2: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 12) over Gable storey 1 wall 4 (part 8)"],
 };
 
-/** WP-G2: the split-band cases decision 3 cured that carry conflicts, as `GABLE_RISE_CONFLICTS` holds the courtyards'. */
+/**
+ * WP-G2: the split-band cases decision 3 cured that carry conflicts, as `GABLE_RISE_CONFLICTS` holds the courtyards'.
+ * **Journal decision 220 (WP-G4.2)** enrols, from the default run's whole sweeps, the split courtyards that gained F69
+ * conflicts as its accepted cost (`s1h250/SplitCourt13`, `s1h300/SplitCourt13` 4 to 5, `s1h250/SplitCourt14` 1 to 2,
+ * `s1h300/SplitCourt20` 13 to 14, `s2h250/SplitCourt29`, `s2h300/SplitCourt29` 1 to 2), and re-pins
+ * `s13h250/SplitCourt30` (3 to 2).
+ */
 export const GABLE_RISE_SPLIT_CONFLICTS: PinRecord<SeededKey<SplitCourtName>, readonly string[]> = {
+  // Enrolled by journal decision 220: 4 conflicts to 5.
+  's1h250/SplitCourt13': ["SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 13 (part 7) over Gable storey 0 wall 13 (part 2)","SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 2 wall 4 (part 14) over Gable storey 1 wall 13 (part 9)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 1 wall 12 (part 7) over Gable storey 0 wall 12 (part 6)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 2 wall 3 (part 14) over Gable storey 1 wall 12 (part 13)","SplitCourt13: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 8 (part 14) over Gable storey 1 wall 6 (part 12)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  's1h250/SplitCourt14': ["SplitCourt14: n=(0.000000, -1.000000, 0.000000) d=-100.000: Wall storey 1 wall 0 (part 8) over Gable storey 0 wall 7 (part 5)","SplitCourt14: n=(0.000000, 1.000000, 0.000000) d=250.000: Wall storey 1 wall 2 (part 8) over Gable storey 0 wall 12 (part 7)"],
+  // Enrolled by journal decision 220: 4 conflicts to 5.
+  's1h300/SplitCourt13': ["SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 1 wall 13 (part 7) over Gable storey 0 wall 13 (part 2)","SplitCourt13: n=(-1.000000, 0.000000, 0.000000) d=-450.000: Wall storey 2 wall 4 (part 14) over Gable storey 1 wall 13 (part 9)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 1 wall 12 (part 7) over Gable storey 0 wall 12 (part 6)","SplitCourt13: n=(0.000000, -1.000000, 0.000000) d=-350.000: Wall storey 2 wall 3 (part 14) over Gable storey 1 wall 12 (part 13)","SplitCourt13: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 8 (part 14) over Gable storey 1 wall 6 (part 12)"],
+  // Enrolled by journal decision 220: 13 conflicts to 14.
+  's1h300/SplitCourt20': ["SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 11 (part 9) over Gable storey 0 wall 1 (part 3)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 6 (part 9) over Gable storey 0 wall 1 (part 3)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 2 wall 3 (part 16) over Gable storey 1 wall 11 (part 14)","SplitCourt20: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 2 wall 9 (part 18) over Gable storey 1 wall 6 (part 12)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 1 wall 7 (part 9) over Gable storey 0 wall 11 (part 2)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 1 wall 7 (part 9) over Gable storey 0 wall 11 (part 4)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 1 wall 8 (part 9) over Gable storey 0 wall 11 (part 2)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 2 wall 4 (part 18) over Gable storey 1 wall 7 (part 11)","SplitCourt20: n=(0.000000, -1.000000, 0.000000) d=-600.000: Wall storey 2 wall 5 (part 18) over Gable storey 1 wall 7 (part 11)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 0 (part 2)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 9) over Gable storey 0 wall 0 (part 2)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 2 wall 7 (part 18) over Gable storey 1 wall 4 (part 11)","SplitCourt20: n=(0.000000, 1.000000, 0.000000) d=700.000: Wall storey 2 wall 8 (part 18) over Gable storey 1 wall 4 (part 11)","SplitCourt20: n=(1.000000, 0.000000, 0.000000) d=750.000: Wall storey 1 wall 2 (part 9) over Gable storey 0 wall 7 (part 7)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  's2h250/SplitCourt29': ["SplitCourt29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 7) over Gable storey 0 wall 5 (part 5)","SplitCourt29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 12 (part 6)"],
+  // Enrolled by journal decision 220: 1 conflict to 2.
+  's2h300/SplitCourt29': ["SplitCourt29: n=(-1.000000, 0.000000, 0.000000) d=-150.000: Wall storey 1 wall 5 (part 7) over Gable storey 0 wall 5 (part 5)","SplitCourt29: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 12 (part 6)"],
   's2h250/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 7 (part 6)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 9)"],
   's2h263/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 7 (part 6)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 9)"],
   's2h300/SplitCourt10': ["SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 7 (part 6)","SplitCourt10: n=(1.000000, 0.000000, 0.000000) d=800.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 9)"],
   's5h250/SplitCourt29': ["SplitCourt29: n=(1.000000, 0.000000, 0.000000) d=950.000: Wall storey 2 wall 2 (part 11) over Gable storey 1 wall 2 (part 10)"],
-  's13h250/SplitCourt30': ["SplitCourt30: n=(-1.000000, 0.000000, 0.000000) d=-500.000: Gable storey 0 wall 14 (part 3) over Gable storey 1 wall 3 (part 10)","SplitCourt30: n=(-1.000000, 0.000000, 0.000000) d=-500.000: Wall storey 1 wall 3 (part 8) over Gable storey 0 wall 14 (part 3)","SplitCourt30: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 2 (part 6)"],
+  // Re-pinned by journal decision 220: 3 conflicts to 2; "Gable storey 0 wall 14 (part 3) over Gable storey 1 wall 3 (part 10)" is gone.
+  's13h250/SplitCourt30': ["SplitCourt30: n=(-1.000000, 0.000000, 0.000000) d=-500.000: Wall storey 1 wall 3 (part 8) over Gable storey 0 wall 14 (part 7)","SplitCourt30: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 1 wall 1 (part 8) over Gable storey 0 wall 2 (part 4)"],
 };

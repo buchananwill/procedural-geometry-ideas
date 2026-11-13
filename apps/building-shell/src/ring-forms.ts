@@ -64,7 +64,10 @@ export function edgeLine(a: Pt, b: Pt): WallLine {
   return {axis: 'y', at: a.y, n: b.x > a.x ? '+y' : '-y', lo: Math.min(a.x, b.x), hi: Math.max(a.x, b.x)};
 }
 
-const sameLine = (p: WallLine, q: WallLine): boolean => p.axis === q.axis && p.at === q.at && p.n === q.n;
+/** Which line a wall stands on and which way it faces: a `WallLine` without its span. */
+export type LineId = Pick<WallLine, 'axis' | 'at' | 'n'>;
+
+const sameLine = (p: LineId, q: LineId): boolean => p.axis === q.axis && p.at === q.at && p.n === q.n;
 
 /** Spec decision 3: a union wall is a maximal straight run of a loop, however many Ring corners break it. */
 export function loopRuns(loop: Pt[]): WallLine[] {
@@ -212,6 +215,44 @@ function extentsOf(rings: StoreyRing[], run: WallLine): WallExtent[] {
     } else {
       out.push(piece);
     }
+  }
+  return out;
+}
+
+/**
+ * Gable rise decision 5 as amended (journal decisions 219 and 220): a gable belongs to the Ring side that asked for it.
+ * A **claimed band** is a maximal stretch of `line` that Ring sides claim as gable, at each point by the lowest-index
+ * Ring whose side lies there, buried stretches included; adjacent claims that differ in pitch, limit or `maxHeight` are
+ * separate bands (decision 6). The bands of the line, in order along it, each in a rise's shape. Whether a band counts
+ * (part of it on a union wall) is the caller's: `claimedWalls` takes only the bands overlapping a wall. Ported from the
+ * WP-G4.1 probe (`experiments/gable-rises/claimed-band.ts`, `claimedBands`).
+ */
+export function claimedBands(rings: StoreyRing[], line: LineId): GableRise[] {
+  const stops = new Set<number>();
+  for (const {ring} of rings) {
+    const lines = ringSideLines(ring.rect);
+    for (const side of RING_SIDES) {
+      if (!sameLine(lines[side], line)) continue;
+      for (const s of [lines[side].lo, lines[side].hi, ...(ring.sides?.[side]?.runs ?? []).flatMap(r => runSpan(ring.rect, side, r))]) stops.add(s);
+    }
+  }
+  const st = [...stops].sort((a, b) => a - b);
+  const out: GableRise[] = [];
+  let cur: GableRise | undefined;
+  for (let k = 0; k + 1 < st.length; k++) {
+    const m = (st[k] + st[k + 1]) / 2;
+    let claim: Claim | undefined;
+    for (const {index, ring} of rings) {
+      const lines = ringSideLines(ring.rect);
+      const side = RING_SIDES.find(sd => sameLine(lines[sd], line) && lines[sd].lo < m && m < lines[sd].hi);
+      if (side) { claim = claimAt(index, ring.rect, ring.defaultDeg, side, ring.sides?.[side], m); break; }
+    }
+    if (!claim || claim.form !== 'gable') { cur = undefined; continue; }
+    if (cur && cur.deg === claim.deg && cur.limit === claim.limit && cur.maxHeight === claim.maxHeight) { cur.hi = st[k + 1]; continue; }
+    cur = claim.maxHeight === undefined
+      ? {lo: st[k], hi: st[k + 1], deg: claim.deg, limit: claim.limit}
+      : {lo: st[k], hi: st[k + 1], deg: claim.deg, maxHeight: claim.maxHeight, limit: claim.limit};
+    out.push(cur);
   }
   return out;
 }

@@ -4,17 +4,21 @@
 // F69's conflict, pinned as the re-tag pass reports it today.
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, cppReplayability} from '../src/golden.ts';
 import {getManifold} from '../src/manifold.ts';
-import {ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
-import {FLOOR_CAP_GAP_CM, builtRoofReading, hipRoofReading, ridgeSlope, risePieces} from '../src/rise.ts';
+import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
+import {
+  FLOOR_CAP_GAP_CM, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope, risePieces,
+} from '../src/rise.ts';
+import {solveRoofParts} from '../src/roof/algoB.ts';
 import {ShellBuild, buildShellDetailed, buildShellFromUnion} from '../src/shell.ts';
-import {planStorey} from '../src/storey.ts';
+import {buildingOf, planChecked, planStorey, storeyForms} from '../src/storey.ts';
 import {unionPlans} from '../src/union.ts';
 import {WIRE_FORMS, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {RISE_ORACLE_TOL_CM, intervalTop, riseBreakthrough, riseOracle} from './rise-oracle.ts';
+import {randomCourtyardFixtures, randomSplitCourtyardFixtures, randomUFixtures} from './robustness-fixtures.ts';
 import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -28,8 +32,12 @@ const rise = (name: string): ShellFixture => {
 /** Every rise fixture's genus: the courtyards close their hole. */
 const genusOf = (name: string): number => (name.startsWith('Courtyard') ? 1 : 0);
 
-/** How many rises each fixture builds: FlushT none (its crossbar's hip wins), AdjacentRises two, every other one. */
-const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2};
+/**
+ * How many rises each fixture builds: FlushT none (its crossbar's hip wins), AdjacentRises two, and
+ * GableBesideHipSouthWing two (Ring 0's W gable is a rise on the x = 0 wall the wing's hipped W side continues, as
+ * before journal decision 220), every other one.
+ */
+const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2, GableBesideHipSouthWing: 2};
 
 /**
  * F69 (journal decision 203, WP-G2's brief): the re-tag pass reports a coplanar Wall over a Gable only where an output
@@ -89,7 +97,13 @@ const t = (deg: number): number => Math.tan((deg * Math.PI) / 180);
  * height of the built shell's top at a point picked by hand, from a closed form of the fixture's own numbers (plate 250).
  * CornerRise's apex is in its own gate below; `CourtyardRiseAlongCut`'s hole W wall too, so its row adds the height.
  */
-const INDEPENDENT: Record<string, {limit?: ['x' | 'y', number, -1 | 1]; at: [number, number]; z: number}> = {
+type HandWall = ['x' | 'y', number, -1 | 1];
+
+/**
+ * `limit` names every rise's limit wall; `limits` names it per rise, keyed by the line its wall stands on (`y=0`), for a
+ * fixture whose rises have different limits.
+ */
+const INDEPENDENT: Record<string, {limit?: HandWall; limits?: Record<string, HandWall>; at: [number, number]; z: number}> = {
   // A 45° rise over [330, 610] on a 30° hip: the near rake 120 above the plate at x = 450, under the N slope's 259.8.
   MidWallRise: {limit: ['y', 500, -1], at: [450, 50], z: 250 + t(45) * 120},
   // The 60° rake from x = 800, 50 cm in, under the E hip's 150 (decision 10's corner plane).
@@ -114,6 +128,11 @@ const INDEPENDENT: Record<string, {limit?: ['x' | 'y', number, -1 | 1]; at: [num
   SetBackCappedRise: {limit: ['y', 500, -1], at: [500, 50], z: 500},
   // Buried whole: the top is storey 1's own S hip, 50 above its plate at 500.
   BuriedRise: {limit: ['y', 500, -1], at: [500, 50], z: 500 + 50},
+  // Journal F75's drafts: Ring 1's far slope (y = 800) limits; at x = 900 the two 22.5° rakes, from x = 600 and from
+  // the x = 1200 corner, meet 300 cm in from each end, above the S hip's 20 cm and under the limit's 780 cm.
+  GableBesideHip: {limit: ['y', 800, -1], at: [900, 20], z: 250 + t(22.5) * 300},
+  // With the wing, Ring 0's W gable is a rise on x = 0 too (as before decision 220), limited by Ring 1's E slope.
+  GableBesideHipSouthWing: {limits: {'y=0': ['y', 800, -1], 'x=0': ['x', 1200, -1]}, at: [900, 20], z: 250 + t(22.5) * 300},
 };
 
 describe('journal decision 209, M1: each rise fixture against hand-named planes and hand-computed heights', () => {
@@ -126,6 +145,13 @@ describe('journal decision 209, M1: each rise fixture against hand-named planes 
     if (want.limit) {
       const [axis, at, inward] = want.limit;
       for (const r of plan.rises ?? []) expect(r.limitPlane).toBe(planeOfWalls(plan, axis, at, inward));
+    } else if (want.limits) {
+      const on = (r: NonNullable<typeof plan.rises>[number]): string => (r.piece.wall.a.x === r.piece.wall.b.x ? `x=${r.piece.wall.a.x}` : `y=${r.piece.wall.a.y}`);
+      expect((plan.rises ?? []).map(on).sort()).toEqual(Object.keys(want.limits).sort());
+      for (const r of plan.rises ?? []) {
+        const [axis, at, inward] = want.limits[on(r)];
+        expect(r.limitPlane, on(r)).toBe(planeOfWalls(plan, axis, at, inward));
+      }
     } else {
       expect(plan.rises ?? []).toEqual([]);
     }
@@ -254,6 +280,103 @@ describe('decision 21 and journal decision 204: the gates', () => {
     for (const f of [...EXPORTED_FIXTURES, ...RISE_FIXTURES.filter(x => x.rings.every(r => RING_SIDES.every(s => !r.sides?.[s]?.runs)))]) {
       expect(JSON.stringify(writeInput(f)), f.name).toBe(JSON.stringify(oneRun(f)));
     }
+  });
+});
+
+// ---- Gable rise decision 5 as amended by journal decision 220 ------------------------------------------------------
+
+describe('journal decision 220: a gable belongs to the Ring side that asked for it', () => {
+  /** The Gable faces on `y = 0` facing -y: their span, apex height and the x of their apex. */
+  const yZeroGables = (b: ShellBuild) => b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[1] + 1) < 1e-9 && f.loops[0].every(p => Math.abs(p[1]) < 1e-9))
+    .map(f => {
+      const top = f.loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
+      return {lo: Math.min(...f.loops[0].map(p => p[0])), hi: Math.max(...f.loops[0].map(p => p[0])), apex: top[2], apexX: top[0]};
+    });
+
+  // Journal F75 and F77. Mutation: `algorithmBBuildsGable` returns true (the predicate removed, algorithm B keeps every
+  // all-gable wall); then the wing's wall is a slice of a 1200 cm gable, its apex at x = 600, 248.5 cm up.
+  it.each([['GableBesideHip'], ['GableBesideHipSouthWing']] as const)('%s: one symmetric gable on y = 0 over [600, 1200], its apex at x = 900, 300 tan 22.5° above the plate', async name => {
+    const g = yZeroGables(await build(rise(name)));
+    expect(g).toHaveLength(1);
+    expect([g[0].lo, g[0].hi]).toEqual([600, 1200]);
+    // The mesh holds float32 positions: 374.2637 against the closed form's 374.2641.
+    expect(g[0].apexX).toBeCloseTo(900, 2);
+    expect(g[0].apex).toBeCloseTo(250 + t(22.5) * 300, 2);
+  });
+
+  // F76: SingleStoreyT's E gable end is Ring 0's whole E side, its middle buried by the stem. Algorithm B's piece spans
+  // that claimed band, so algorithm B keeps the wall, and the shell is the one the per-extent walls alone give.
+  it('SingleStoreyT: algorithm B keeps its gable end, and its shell is byte for byte the per-extent walls\' shell', async () => {
+    const f = fixtureByName('SingleStoreyT');
+    const rings = storeyRings(f, 0);
+    const rects = rings.map(r => r.ring.rect), loops = storeyLoops(rects);
+    const derived = unionWallForms(rings, loops);
+    const b0 = buildingOf(rings, rects, loops, derived);
+    const east = derived.filter(w => w.axis === 'x' && w.at === 1000 && w.n === '-x');
+    expect(east.map(w => [w.lo, w.hi, w.form])).toEqual([[0, 150, 'gable'], [350, 500, 'gable']]);
+    for (const w of east) {
+      expect(algorithmBSpan(b0, w)).toEqual([0, 500]);
+      expect(claimedBands(rings, w).map(r => [r.lo, r.hi])).toEqual([[0, 500]]);
+    }
+    const {walls, changed} = claimedWalls(rings, derived, b0);
+    expect(changed).toBe(false);
+    walls.forEach((w, k) => expect(w).toBe(derived[k]));
+    const wasm = await getManifold();
+    const perExtent = buildShellFromUnion(wasm, f, unionPlans(wasm, f.name, [planChecked(f.name, 0, 0, 250, b0)]));
+    const built = await build(f);
+    expect(Array.from(built.union.mesh.positions)).toEqual(Array.from(perExtent.union.mesh.positions));
+    expect(Array.from(built.union.mesh.tris)).toEqual(Array.from(perExtent.union.mesh.tris));
+    expect(signature(built)).toBe(signature(perExtent));
+  });
+
+  it('the predicate: algorithm B keeps an all-gable wall only where the claimed bands on it tile its span', () => {
+    const band = (lo: number, hi: number, deg = 45): GableRise => ({lo, hi, deg, limit: 'ridgeSlope'});
+    expect(algorithmBBuildsGable([band(0, 500)], [0, 500])).toBe(true);
+    expect(algorithmBBuildsGable([band(600, 1200)], [0, 1200])).toBe(false);
+    expect(algorithmBBuildsGable([band(0, 1200)], [600, 1200])).toBe(false);
+    expect(algorithmBBuildsGable([band(0, 400), band(500, 1000)], [0, 1000])).toBe(false);
+    expect(algorithmBBuildsGable([], [0, 500])).toBe(false);
+  });
+
+  // Decision 220's sub-rule. Mutation: `algorithmBBuildsGable` requires one band; then this wall is a hip at 45° with
+  // two rises, and the split courtyard below gains a Cheek.
+  it('the sub-rule: a wall claimed gable at two pitches stays algorithm B\'s one gable', () => {
+    const f = shellFixture('TwoPitchGable', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45, runs: [{from: 500, to: 1000, form: 'gable', deg: 60}]}})]);
+    const south = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0);
+    expect(south.map(w => [w.form, w.deg, w.rises])).toEqual([['gable', 45, undefined]]);
+  });
+});
+
+// ---- The copy of algorithm B's extentOf, tied to algorithm B over the corpus ------------------------------------------
+
+describe('journal decision 220: rise.ts\'s copy of extentOf is algorithm B\'s', () => {
+  // Every whole-line gable piece algorithm B builds on the per-extent walls (before decision 220 turns any wall into a
+  // rise) spans exactly what the copy gives for its wall. Mutation: the copy's EPS changed, or a loop dropped; then a
+  // piece whose line runs on past an inside corner disagrees.
+  it('agrees with every whole-line piece algorithm B builds, over the roster, the rise fixtures and the random courtyards, split courtyards and U shapes', () => {
+    const fixtures = [...EXPORTED_FIXTURES, ...RISE_FIXTURES, ...[1, 2].flatMap(s => [250, 300].flatMap(h => [
+      ...randomCourtyardFixtures(s, 40, h), ...randomSplitCourtyardFixtures(s, 40, h), ...randomUFixtures(s, 40, h)]))];
+    let pieces = 0, wider = 0;
+    for (const f of fixtures) for (const n of storeysOf(f)) {
+      const rings = storeyRings(f, n);
+      const rects = rings.map(r => r.ring.rect);
+      let b;
+      try {
+        const loops = storeyLoops(rects);
+        b = buildingOf(rings, rects, loops, unionWallForms(rings, loops));
+      } catch { continue; }
+      let roof;
+      try { roof = solveRoofParts(b, {far: 'plane'}); } catch { continue; }
+      for (const p of roof.pieces.filter(q => q.label.includes(' whole ') && q.wall.form === 'gable')) {
+        pieces++;
+        const ext = extentOf(b, b.comps[p.wall.comp], p.wall);
+        expect(ext, `${f.name} storey ${n} ${p.label}`).toEqual([p.bandLo, p.bandHi]);
+        const span = p.wall.a.x === p.wall.b.x ? [Math.min(p.wall.a.y, p.wall.b.y), Math.max(p.wall.a.y, p.wall.b.y)] : [Math.min(p.wall.a.x, p.wall.b.x), Math.max(p.wall.a.x, p.wall.b.x)];
+        if (ext[0] < span[0] || ext[1] > span[1]) wider++;
+      }
+    }
+    expect(pieces).toBeGreaterThan(1000);
+    expect(wider).toBeGreaterThan(100);
   });
 });
 

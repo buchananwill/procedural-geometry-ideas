@@ -1287,15 +1287,15 @@
    "union": "Court16Seed1h250.union.json",
    "report": {
     "conflicts": [
-     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 2 wall 3 (part 15) over Gable storey 1 wall 7 (part 14)",
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 7 (part 9) over Gable storey 0 wall 3 (part 6)",
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 9 (part 9) over Gable storey 0 wall 5 (part 5)",
      "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 9) over Gable storey 0 wall 2 (part 2)",
-     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 15) over Gable storey 1 wall 6 (part 12)",
-     "Court16Seed1h250: n=(1.000000, 0.000000, 0.000000) d=300.000: Wall storey 1 wall 3 (part 9) over Gable storey 0 wall 10 (part 3)"
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 15) over Gable storey 1 wall 6 (part 11)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
-    "partialCells": 72,
+    "partialCells": 93,
     "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
@@ -1425,7 +1425,10 @@
   },
   {
    "fixture": "SplitBandAllGable75",
-   "cppReplayable": true,
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
    "expectedGenus": [
     1
    ],
@@ -1435,13 +1438,12 @@
    "clean": true,
    "shell": "SplitBandAllGable75.json",
    "union": "SplitBandAllGable75.union.json",
-   "input": "SplitBandAllGable75.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
-    "partialCells": 644,
+    "partialCells": 708,
     "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
@@ -1796,7 +1798,7 @@
    ],
    "clean": false,
    "residueClass": "partial coplanar contact of two storeys",
-   "error": "cell 826: side 26-328 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1"
+   "error": "cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1"
   },
   {
    "fixture": "U8Seed6h300",
@@ -2388,6 +2390,64 @@
     "partialCells": 76,
     "newEdgeKinds": [],
     "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "GableBesideHip",
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "GableBesideHip.json",
+   "union": "GableBesideHip.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 110,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "GableBesideHipSouthWing",
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "GableBesideHipSouthWing.json",
+   "union": "GableBesideHipSouthWing.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 164,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
     ]
    },
