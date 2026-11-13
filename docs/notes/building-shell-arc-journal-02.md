@@ -1026,6 +1026,29 @@ ruled" list in the covered-storeys findings. Added this session:
        none in the editor, as on the wire; a negative one is applied and then refused on that stretch.
      - `GABLE_SETTING_FIXTURES` are in the selector as "Gable settings", eight entries.
      - A correctness review of `32eeb2a` and `cd86ca8` is dispatched (general-purpose, Opus, fresh).
+256. **The review of the per-stretch settings is ruled on, and WP-S1.1 carries the fixes** (the lead, 2026-11-13).
+     The reviewer found the settings applied consistently: identical shells with Ring order swapped, the same
+     pieces on S, E, N and W, the three strategies giving one shell on aligned stretches, mixed strategies facing
+     each other building as mirror images, and the editor's round trip exact over 26,422 drafts of its own fuzz.
+     One High, one Medium, four Low:
+     - **High H1, accepted: a cap just above the plate builds a sliver.** A `maxHeight` between about 0.01 and
+       0.02 cm gives 3 or 4 Unclassified Edges on one shape and a throw on another, and the wire and the editor
+       both pass it. The cap logic is older; this package made it reachable by typing a number. **Ruled**: a rise
+       whose lowest cap leaves it thinner than the pipeline can build cleanly builds no piece, whatever the cap's
+       source, as a rise capped at its plate already does. The threshold is to be measured by a sweep, not
+       guessed. This is the dangerous class, degenerate geometry, and not taming.
+     - **Medium M1, noted for the port and not changed**: a stretch standing apart that a file splits into
+       several runs, each flagged, builds several gables. `input@1` cannot say "these runs are one stretch that
+       stands apart". No file is written so today. Whoever ports the game's exporter must not split such a
+       stretch, or the format needs a grouping.
+     - **Low L1, accepted**: under `split` a band is cut at the ends of gables on another island, so a building's
+       pieces change with unrelated geometry, though its surface does not. Cuts are taken only at gables the rise
+       can meet.
+     - **Low L2, L3, L4 accepted**: a hip run carrying a gable setting is refused in memory as on the wire; the
+       "defaults change nothing" test compares whole shells with every default spelt; cuts under `split` are
+       de-duplicated within tolerance.
+     - The two changed editor expectations guarded nothing: they pinned a disagreement between the editor and the
+       pipeline, which already merged those runs.
 
 ## Findings
 
