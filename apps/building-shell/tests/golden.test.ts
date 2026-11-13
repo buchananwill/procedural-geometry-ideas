@@ -7,19 +7,20 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {beforeAll, describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
-import {RING_SIDES, ShellFixture, ring} from '../src/fixture.ts';
+import {RING_SIDES, ShellFixture, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {
-  GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, cppReplayability, cppReplayabilityOf,
-  goldenText, unionStages,
+  BUILDS_A_RISE, GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, buildsARise,
+  cppReplayability, cppReplayabilityOf, goldenText, unionStages,
 } from '../src/golden.ts';
+import {storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {BuildingShell, buildShellDetailed} from '../src/shell.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1, WireRun, WireVec2} from '../src/wire/input-types.ts';
 import {planStorey} from '../src/storey.ts';
 import {
-  GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName, goldenFiles,
-  goldenInput,
+  EMPTIED_BY_GABLE_RISES, GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
+  goldenFiles, goldenInput,
 } from './golden-fixtures.ts';
 import {ORDER_FLAG, multiRunDocument} from './wire-round-trip-cases.ts';
 import type {RunTuple} from './wire-round-trip-cases.ts';
@@ -71,7 +72,9 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
   it('refuses a replayable entry without its input, whether it builds or throws (journal decision 161, finding 1)', () => {
     const replayable = MANIFEST.fixtures.filter(isReplayableEntry);
     const throwing = replayable.filter(e => 'error' in e);
-    expect(throwing.map(e => e.fixture)).toEqual(['Court25Seed1h250', 'U8Seed6h300', 'SplitCourt10Seed2h250', 'Court35Seed11h250']);
+    // WP-G2 (gable rise decision 3, journal decision 206) cured Court25Seed1h250, SplitCourt10Seed2h250 and
+    // Court35Seed11h250; the Court25 class's one member left, Court25Seed1h263, is not replayable (its storey height).
+    expect(throwing.map(e => e.fixture)).toEqual(['U8Seed6h300']);
     const built = replayable.find(e => 'shell' in e);
     expect(built).toBeDefined();
     for (const e of [...throwing, ...(built ? [built] : [])]) {
@@ -93,8 +96,15 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
   const cutsOf = (f: ShellFixture): number[][] =>
     planStorey(f, 0).building.walls.filter(w => w.form === 'cut').map(w => [w.a.x, w.b.x, Math.round((Math.atan(w.tan) * 180) / Math.PI)]);
 
-  it.each(RULE_ORACLES.map(g => g.fixture.name))('%s: a clean, replayable oracle with its files', name => {
-    expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
+  // Gable rise decision 17 (WP-G2): an oracle whose fixture builds a rise is clean and exported, not yet replayable.
+  it.each(RULE_ORACLES.map(g => [g.fixture.name, g] as const))('%s: a clean oracle with its files, replayable unless it builds a rise', (name, g) => {
+    if (buildsARise(g.fixture)) {
+      expect(entry(name)).toMatchObject({clean: true, cppReplayable: false, violations: []});
+      const e = entry(name);
+      expect(e && 'reasons' in e && e.reasons).toContain(BUILDS_A_RISE);
+    } else {
+      expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
+    }
   });
 
   it('SplitBandFreeCut reads the free cut: its cut is collinear with no wall, at the island\'s steepest 60°', () => {
@@ -125,10 +135,15 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
   });
 
   // Decision 164, finding 1: an island with hips and a gable steeper than every hip, so a hip-first rule moves it.
-  it("SB400-600B100S500g60r0 reads the free cut at its island's steepest wall, a gable at 60° over hips at 30°", () => {
-    const f = oracle('SB400-600B100S500g60r0');
-    expect(f.rings[0].sides?.W).toEqual({form: 'gable', deg: 60});
+  // WP-G2 (journal decision 206): every Ring side on the x = 0 wall is gabled, so under gable rise decision 3 the wall is
+  // still one whole-wall gable, and no rise is built.
+  it("SB400-600B100S500g60r024 reads the free cut at its island's steepest wall, a gable at 60° over hips at 30°", () => {
+    const f = oracle('SB400-600B100S500g60r024');
+    for (const k of [0, 2, 4]) expect(f.rings[k].sides?.W).toEqual({form: 'gable', deg: 60});
     expect(f.rings.every(r => r.defaultDeg === 30)).toBe(true);
+    const x0 = planStorey(f, 0);
+    expect(x0.building.walls.filter(w => w.a.x === 0 && w.b.x === 0).map(w => w.form)).toEqual(['gable', 'gable', 'gable']);
+    expect(x0.rises).toBeUndefined();
     expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
   });
 
@@ -148,8 +163,13 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
  * reversal could not show.
  */
 describe('the model-order oracle (journal decision 164, finding 2)', () => {
+  // The document is the oracle's own, read from its golden fixture: one whose fixture builds a rise ships no input file
+  // (gable rise decision 17), but its document is still the one its shell was read from.
   it.each(MODEL_ORDER_CONFLICTS.map(fileReversedName))('%s: its document lists the Rings in reverse model order, each ringIndex its position, and is flagged', name => {
-    const doc = JSON.parse(committed(`${name}.input.json`)) as BuildingShellInputV1;
+    const g = MODEL_ORDER_ORACLES.find(x => x.fixture.name === name);
+    if (!g?.file) throw new Error(`${name} is not read from a document`);
+    const doc = g.file.document;
+    if (cppReplayabilityOf(doc).cppReplayable) expect(JSON.parse(committed(`${name}.input.json`))).toEqual(doc);
     const models = doc.rings.map(r => r.modelIndex);
     expect(models.length).toBeGreaterThan(1);
     expect(models.every((m, i) => i === 0 || m < models[i - 1])).toBe(true);
@@ -181,9 +201,11 @@ describe("the manifest's residue classes and genus (journal decision 161, findin
     expect(e && ('residueClass' in e ? e.residueClass : undefined)).toEqual(g.clean ? undefined : g.residueClass);
   });
 
-  it('every residue class is represented, and every class is a stable name with no prototype id in it', () => {
+  // WP-G2 (journal decision 206): every class but those gable rise decision 3 emptied, which no golden may claim.
+  it('every residue class is represented but those gable rise decision 3 emptied, and every class is a stable name with no prototype id in it', () => {
     const classes = new Set(MANIFEST.fixtures.flatMap(e => ('residueClass' in e ? [e.residueClass] : [])));
-    expect([...classes].sort()).toEqual([...RESIDUE_CLASS_NAMES].sort());
+    expect([...classes].sort()).toEqual(RESIDUE_CLASS_NAMES.filter(c => !EMPTIED_BY_GABLE_RISES.includes(c)).sort());
+    for (const c of EMPTIED_BY_GABLE_RISES) expect(RESIDUE_CLASS_NAMES).toContain(c);
   });
 
   // The pin's genus is an expectation: a port must not read it as the shell's own (finding 5).
@@ -226,8 +248,22 @@ describe('C++ replayability (journal decision 152, amended)', () => {
       ...(w.cellSizeCm === 50 ? [] : ['cellSize not 50']),
       ...(on(w.storeyHeightCm) ? [] : ['storey height not a whole number of Cells']),
       ...(w.rings.every(r => r.baseStorey + r.storeys <= 32) ? [] : ['a Ring reaching past storey 32']),
-      ...(refusals.length ? refusals : runShape(w)),
+      ...(refusals.length ? refusals : [...runShape(w), ...rises(w)]),
     ];
+  }
+
+  /**
+   * Gable rise decision 17 (WP-G2): a document whose fixture builds a rise on any storey is not yet replayable, the rule
+   * restated from the pipeline's own derivation of each storey's union walls.
+   */
+  function rises(w: BuildingShellInputV1): string[] {
+    const r = readInput(JSON.parse(JSON.stringify(w)), 'rises');
+    if (!r.ok) return [];
+    const any = storeysOf(r.fixture).some(n => {
+      const rings = storeyRings(r.fixture, n);
+      return unionWallForms(rings, storeyLoops(rings.map(x => x.ring.rect))).some(x => (x.rises ?? []).length > 0);
+    });
+    return any ? ['a gable rise, which the C++ port does not build yet (gable rise decision 17)'] : [];
   }
 
   /**
@@ -269,6 +305,8 @@ describe('C++ replayability (journal decision 152, amended)', () => {
     expect(cppReplayability(shellFixture('Storey300', [box([0, 0, 500, 400])], 300))).toEqual({cppReplayable: true});
     expect(cppReplayability(shellFixture('Tall', [box([0, 0, 500, 400], 33)]))).toEqual({cppReplayable: false, reasons: ['a Ring reaching past storey 32']});
     expect(cppReplayability(shellFixture('Tall32', [box([0, 0, 500, 400], 32)]))).toEqual({cppReplayable: true});
+    // Gable rise decision 17: a gabled Ring flush beside a hipped one builds a rise, with every side one whole run.
+    expect(cppReplayability(fixtureByName('FlushRingConflict'))).toEqual({cppReplayable: false, reasons: [BUILDS_A_RISE]});
     const misIndexed = writeInput(shellFixture('Two', [box([0, 0, 500, 400]), box([500, 0, 1000, 400])]));
     misIndexed.rings[0].ringIndex = 1;
     misIndexed.rings[1].ringIndex = 0;

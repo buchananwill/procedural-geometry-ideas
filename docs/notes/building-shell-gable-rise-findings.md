@@ -12,6 +12,11 @@ building every rise through the unchanged pipeline. No production code changed. 
 [experiments/gable-rises](../../apps/building-shell/experiments/gable-rises/), which sits outside `tsconfig`, vitest and
 the golden set.
 
+**WP-G2 (added 2026-11-13, journal decision 206): `maxHeight` and `limit` do not survive `input@1`.** Both are in-memory
+fields of a gable run (decisions 11 and 12). `writeInput` writes a run's span, form and pitch only, so a fixture read
+back from its own file has the rise uncapped and on the default limit. `FlatTopRise` reads back as the uncapped rise
+(tests/rise.test.ts).
+
 **WP-G1.1 (added 2026-11-12, after journal decision 203)** re-ran the sweep with `ridgeSlope` as the default limit, and
 measured the cases where its definition is strained, the floor cap with a gap, and a cap under the storey directly
 above. Its sections come first. The WP-G1 sections after them were measured under `farSlope`, which decision 203

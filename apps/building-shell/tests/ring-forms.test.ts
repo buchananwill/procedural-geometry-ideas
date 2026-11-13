@@ -1,10 +1,11 @@
-// Spec decision 3 as amended (journal decision 116 and its addenda): roof forms authored per Ring side, derived onto the
-// union walls, the lowest Ring index winning the whole wall's form and pitch. Journal decision 135, F6: every conflict
+// Spec decision 3 as amended (journal decision 116 and its addenda, then gable rise decisions 3 to 7): roof forms authored
+// per Ring side, derived onto the union walls, the lowest Ring index winning each extent's form and the wall's one hip
+// pitch; a gabled extent on a wall with a hip is a rise. Journal decision 135, F6: every conflict
 // fixture builds inside its own test, through `build`, so a crash fails that test alone and never skips the file.
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {RING_CONFLICT_FIXTURES, ShellFixture, fixtureByName, ring, storeyRings} from '../src/fixture.ts';
-import {edgeLine, loopRuns, tanDeg, unionWallForms, wallSel} from '../src/ring-forms.ts';
+import {edgeLine, loopRuns, storeyLoops, tanDeg, unionWallForms, wallSel} from '../src/ring-forms.ts';
 import {Wall, pt, unionLoops} from '../src/roof/model.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
@@ -65,27 +66,41 @@ const expectWall = (ws: Wall[], form: Wall['form'], deg: number): void => {
   }
 };
 
+/** Storey `n`'s rises on the union wall `axis = at`, as `[lo, hi]` stretches, from gable rise decision 3's derivation. */
+const risesOn = (f: ShellFixture, axis: 'x' | 'y', at: number, n = 0): number[][] => {
+  const rings = storeyRings(f, n);
+  const w = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).filter(x => x.axis === axis && x.at === at);
+  return w.flatMap(x => (x.rises ?? []).map(r => [r.lo, r.hi]));
+};
+
+/** The Gable faces of a build facing outward along `n`, with their extent along the wall. */
+const gablesFacing = async (name: string, axis: 'x' | 'y', n: number[]): Promise<number[][]> =>
+  (await build(name)).shell.faces.filter(face => face.tag.kind === 'Gable' && face.normal.every((c, i) => Math.abs(c - n[i]) < 1e-9))
+    .map(g => { const along = g.loops[0].map(p => p[axis === 'x' ? 1 : 0]); return [Math.min(...along), Math.max(...along)]; });
+
+/**
+ * Gable rise decision 3 (WP-G2), which amends journal decision 116's whole-wall rule: the lowest index wins each point of
+ * the wall, not the whole wall. A gabled Ring's own stretch is a rise on a wall that enters the solve as a hip.
+ */
 describe.each([
-  ['FlushRingConflict', 'y', 0, 'hip', 'gable'],
-  ['OverlapRingConflict', 'x', 1000, 'gable', 'hip'],
-] as const)('%s (journal decision 116): the lowest index wins the whole wall', (name, axis, at, first, swapped) => {
-  it(`gives every traced wall on ${axis} = ${at} the first Ring's form, ${first}, and swapping the indices gives ${swapped}`, () => {
-    const a = wallsOn(fixtureByName(name), axis, at), s = wallsOn(fixtureByName(`${name}Swapped`), axis, at);
-    expect(a.length).toBeGreaterThan(1);
-    expect(a.map(w => w.form)).toEqual(a.map(() => first));
-    expect(s.map(w => w.form)).toEqual(s.map(() => swapped));
+  ['FlushRingConflict', 'y', 0, [0, -1, 0], [[500, 1000]], [[500, 1000]]],
+  ['OverlapRingConflict', 'x', 1000, [1, 0, 0], [[0, 400]], []],
+] as const)('%s (gable rise decision 3): the lowest index wins each extent, and a gabled extent is a rise', (name, axis, at, n, rises, swappedRises) => {
+  it(`enters the solve as a hip on ${axis} = ${at} whatever the order, with its gabled Ring's stretch a rise`, () => {
+    for (const [f, want] of [[name, rises], [`${name}Swapped`, swappedRises]] as const) {
+      const ws = wallsOn(fixtureByName(f), axis, at);
+      expect(ws.length).toBeGreaterThan(1);
+      expect(ws.map(w => w.form)).toEqual(ws.map(() => 'hip'));
+      expect(risesOn(fixtureByName(f), axis, at)).toEqual(want);
+    }
   });
 
-  it(`stands one Gable face over the whole wall only where it is gabled`, async () => {
-    const n = axis === 'x' ? [1, 0, 0] : [0, -1, 0];
-    const gables = async (f: string) => (await build(f)).shell.faces.filter(face => face.tag.kind === 'Gable' && face.normal.every((c, i) => Math.abs(c - n[i]) < 1e-9));
-    const gabled = first === 'gable' ? name : `${name}Swapped`, hipped = first === 'gable' ? `${name}Swapped` : name;
-    expect(await gables(hipped)).toEqual([]);
-    const g = await gables(gabled);
-    expect(g).toHaveLength(1);
-    const along = g[0].loops[0].map(p => p[axis === 'x' ? 1 : 0]);
-    expect(Math.min(...along)).toBeCloseTo(0, 6);
-    expect(Math.max(...along)).toBeCloseTo(1000, 6);
+  it('stands one Gable face over each rise, and none where the hip wins the stretch', async () => {
+    for (const [f, want] of [[name, rises], [`${name}Swapped`, swappedRises]] as const) {
+      const g = await gablesFacing(f, axis, [...n]);
+      expect(g).toHaveLength(want.length);
+      g.forEach((span, k) => { expect(span[0]).toBeCloseTo(want[k][0], 6); expect(span[1]).toBeCloseTo(want[k][1], 6); });
+    }
   });
 });
 
@@ -107,19 +122,26 @@ describe('PitchRingConflict (journal decision 116, addendum): pitch follows the 
 });
 
 describe('journal decision 135, F6: the conflict pairs beyond two adjacent Rings', () => {
-  it('ThreeRingConflict: of three Rings on y = 0, index 0 wins the whole wall; rotated, the new index 0 does', () => {
+  // Gable rise decisions 3 and 4 (WP-G2): each Ring wins its own stretch; the wall's one hip pitch is its lowest-index hip
+  // extent's, so rotating the indices moves the pitch, 45 to 30, and never the rise.
+  it('ThreeRingConflict: of three Rings on y = 0 each wins its own stretch; the gabled one is a rise, the hip pitch the lowest-index hip\'s', () => {
     expectWall(wallsOn(fixtureByName('ThreeRingConflict'), 'y', 0), 'hip', 45);
-    expectWall(wallsOn(fixtureByName('ThreeRingConflictSwapped'), 'y', 0), 'gable', 45);
+    expectWall(wallsOn(fixtureByName('ThreeRingConflictSwapped'), 'y', 0), 'hip', 30);
+    for (const name of ['ThreeRingConflict', 'ThreeRingConflictSwapped']) expect(risesOn(fixtureByName(name), 'y', 0)).toEqual([[300, 600]]);
   });
 
-  it('DistantRingConflict: indices 0 and 3 disagree on y = 0, with two Rings between them, and index 0 wins', () => {
-    expectWall(wallsOn(fixtureByName('DistantRingConflict'), 'y', 0), 'hip', 45);
-    expectWall(wallsOn(fixtureByName('DistantRingConflictSwapped'), 'y', 0), 'gable', 45);
+  it('DistantRingConflict: indices 0 and 3 share y = 0 with two Rings between them, and each wins its own half', () => {
+    for (const name of ['DistantRingConflict', 'DistantRingConflictSwapped']) {
+      expectWall(wallsOn(fixtureByName(name), 'y', 0), 'hip', 45);
+      expect(risesOn(fixtureByName(name), 'y', 0)).toEqual([[500, 1000]]);
+    }
   });
 
-  it('StoreyRingConflict: storey 0 takes its lowest index, storey 1 its only Ring, whatever the order', () => {
+  it('StoreyRingConflict: storey 0 takes each stretch\'s lowest index, storey 1 its only Ring, whatever the order', () => {
     expectWall(wallsOn(fixtureByName('StoreyRingConflict'), 'y', 0, 0), 'hip', 45);
-    expectWall(wallsOn(fixtureByName('StoreyRingConflictSwapped'), 'y', 0, 0), 'gable', 45);
+    expect(risesOn(fixtureByName('StoreyRingConflict'), 'y', 0, 0)).toEqual([]);
+    expectWall(wallsOn(fixtureByName('StoreyRingConflictSwapped'), 'y', 0, 0), 'hip', 45);
+    expect(risesOn(fixtureByName('StoreyRingConflictSwapped'), 'y', 0, 0)).toEqual([[0, 500]]);
     for (const name of ['StoreyRingConflict', 'StoreyRingConflictSwapped']) {
       expect(wallsOn(fixtureByName(name), 'y', 0, 1).map(w => w.form)).toEqual(['gable']);
     }

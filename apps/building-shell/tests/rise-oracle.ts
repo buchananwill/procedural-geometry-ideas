@@ -62,6 +62,9 @@ export function intervalTop(u: ShellUnion, x: number, y: number, z0: number): nu
   return next && next.up ? next.z : null;
 }
 
+/** Decision 19's bound: the mesh's top within this of the oracle, as the WP-G1 sweep held it. */
+export const RISE_ORACLE_TOL_CM = 0.05;
+
 /** The worst disagreement found, where, and over how many samples. */
 export interface OracleMeasure { worst: number; at: string; samples: number }
 

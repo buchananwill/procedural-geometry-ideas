@@ -166,7 +166,9 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
   try {
     plan.rises = risePieces(f, plan, forms.walls);
   } catch (e) {
-    throw new Error(`${f.name} storey ${n}: ${errorMessage(e)}`, {cause: e});
+    // A plan refusal keeps its class through the label (journal decisions 146 and 206).
+    const message = `${f.name} storey ${n}: ${errorMessage(e)}`;
+    throw e instanceof PlanRefusal ? new PlanRefusal(message, {cause: e}) : new Error(message, {cause: e});
   }
   return plan;
 }

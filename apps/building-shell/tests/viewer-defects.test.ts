@@ -161,7 +161,7 @@ describe('a defect is marked where it is', () => {
   });
 
   it('lists the Cheek faces in their own legend colour', async () => {
-    const {fixture, build} = await buildCase('Court14Seed1h250');
+    const {fixture, build} = await buildCase('Court14Seed7h250');
     const toggles = withStoreys(makeToggles([]), storeysOf(fixture));
     const cheek = legendEntries(build, toggles).find(e => e.group === 'Faces' && e.label === 'Cheek');
     expect(cheek?.colour).toBe(SHELL_KIND_COLOUR.Cheek);

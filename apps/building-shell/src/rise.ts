@@ -11,6 +11,7 @@
 // Every default here is provisional until the user confirms (journal decision 204), so each is one named policy or
 // constant, replaceable without touching its neighbours.
 import {SHELL_TOLERANCE_CM} from './constants.ts';
+import {PlanRefusal} from './errors.ts';
 import {RiseLimit, ShellFixture, storeyRings, storeysOf} from './fixture.ts';
 import {GableRise, UnionWall, WallLine, tanDeg} from './ring-forms.ts';
 import type {Piece} from './roof/algoB.ts';
@@ -249,15 +250,15 @@ export type LimitPolicy = (ctx: LimitContext) => number;
 
 /**
  * Decision 11 (journal decision 204, F70): no point of the rise stands above the roof slope just beyond the main ridge
- * its own ridge runs into, extended back to its wall. Read by `RIDGE_SLOPE_READINGS`; a rise none of them limits is a
- * hard error, never an unlimited rise.
+ * its own ridge runs into, extended back to its wall. Read by `RIDGE_SLOPE_READINGS`; a rise none of them limits is
+ * refused as a `PlanRefusal` (journal decision 206), never built unlimited.
  */
 export const ridgeSlope: LimitPolicy = ctx => {
   for (const reading of RIDGE_SLOPE_READINGS) {
     const id = reading(ctx);
     if (id !== undefined) return id;
   }
-  throw new Error(`the rise [${ctx.rise.lo}, ${ctx.rise.hi}] on ${wallLabel(ctx.wall)}: no reading of ridgeSlope finds a falling face on its walk`);
+  throw new PlanRefusal(`the rise [${ctx.rise.lo}, ${ctx.rise.hi}] on ${wallLabel(ctx.wall)}: no reading of ridgeSlope finds a falling face on its walk (gable rise decision 11)`);
 };
 
 /** Every limit policy by name (decision 11). A second policy is one more entry. */

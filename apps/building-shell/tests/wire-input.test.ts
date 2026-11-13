@@ -2,7 +2,7 @@
 // refinement layer with the USTRUCT defaults, and the adapter's refusals, snapping, flags and information.
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
-import {COURTYARD_RECTS, RING_SIDES, RingForm, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {COURTYARD_RECTS, RING_SIDES, RISE_FIXTURES, RingForm, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {storeyLoops} from '../src/ring-forms.ts';
 import {planStorey} from '../src/storey.ts';
 import {FBuildingShellInputSchema} from '../src/wire/building-shell-input-schema.zod.ts';
@@ -251,11 +251,22 @@ describe('the refusals', () => {
 });
 
 describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
-  it('is an unlisted side when it loses its union wall: FlushRingConflict\'s Ring 1 loses y = 0 to Ring 0', () => {
+  // Gable rise decision 3 (WP-G2): a side wins only the stretch it holds with the lowest index, so a None side loses
+  // where a lower-index side covers it, as FlushT's stem S side lies on its crossbar's.
+  it("is an unlisted side when it loses its stretch of a union wall: FlushT's stem S side lies on the crossbar's", () => {
+    const v = writeInput(RISE_FIXTURES.find(f => f.name === 'FlushT') as ShellFixture);
+    v.rings[1].sides[0].runs[0].form = 'None';
+    expect(adapted(v).fixture.rings[1].sides?.S).toBeUndefined();
+  });
+
+  // Gable rise decision 3 (WP-G2, journal decision 206): FlushRingConflict's Ring 1 holds y = 0 over [500, 1000] alone, so
+  // its None side wins that extent, where its form is undefined.
+  it("is refused when it wins its own extent of a union wall: FlushRingConflict's Ring 1 holds y = 0 over [500, 1000] alone", () => {
     const v = valid();
     v.rings[1].sides[0].runs[0].form = 'None';
-    const r = adapted(v);
-    expect(r.fixture.rings[1].sides?.S).toBeUndefined();
+    expect(errorsOf(v)).toEqual([
+      'Ring 1 (model index 1) side 0 (S) is solved None but wins the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision 140)',
+    ]);
   });
 
   it('is an unlisted side when it is buried: SingleStoreyT\'s stem W side lies inside the union', () => {
@@ -264,11 +275,17 @@ describe('a side solved None (decisions 136, 137 and 140, F2)', () => {
     expect(adapted(v).fixture.rings[1].sides?.W).toBeUndefined();
   });
 
-  it('is refused when it wins a union wall, where its form would be undefined', () => {
+  it('is refused when it wins a union wall, where its form would be undefined, naming the extent it wins', () => {
     const v = valid();
     v.rings[0].sides[2].runs[0].form = 'None';
     expect(errorsOf(v)).toEqual([
-      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
+      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] over [0, 500] on storey 0, where its form is undefined (journal decision 140)',
+    ]);
+    // A None side that holds the whole wall alone names the wall alone, as before gable rise decision 3.
+    const w = writeInput(shellFixture('Box', [ring([0, 0, 500, 400], 0, 1, 45)]));
+    w.rings[0].sides[2].runs[0].form = 'None';
+    expect(errorsOf(w)).toEqual([
+      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 500] on storey 0, where its form is undefined (journal decision 140)',
     ]);
   });
 });
@@ -413,24 +430,25 @@ describe('runs per side (journal decision 149)', () => {
     expect(adapted(v).fixture.rings[0].sides?.E).toEqual({form: 'hip', deg: 45});
   });
 
-  it("refuses runs that disagree in pitch or in form, as a C++ inconsistency against spec 3's whole-wall rule", () => {
+  // Gable rise decision 15 (WP-G2): the refusal narrows to Pitched runs that disagree in pitch, since a union wall has one
+  // hip pitch (decision 4). A side with a GableEnd run beside a Pitched one is accepted, read with runs (decision 1).
+  it('refuses Pitched runs that disagree in pitch, and reads a GableEnd run beside a Pitched one as a run of the side', () => {
     const v = valid();
     v.rings[0].sides[1].runs = [run(0, 200, 'Pitched', 30), run(200, 400, 'Pitched', 45)];
     v.rings[1].sides[1].runs = [run(0, 200, 'Pitched'), run(200, 400, 'GableEnd')];
     expect(errorsOf(v)).toEqual([
-      "Ring 0 (model index 0) side 1's runs disagree (Pitched 30, Pitched 45): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
-      "Ring 1 (model index 1) side 1's runs disagree (Pitched 45, GableEnd 45): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
+      "Ring 0 (model index 0) side 1's hip runs disagree in pitch (Pitched 30, Pitched 45): a union wall has one hip pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149, as gable rise decision 15 narrows it)",
     ]);
+    v.rings[0].sides[1].runs = [run(0, 400, 'Pitched', 45)];
+    expect(adapted(v).fixture.rings[1].sides?.E).toEqual({form: 'hip', deg: 45, runs: [{from: 200, to: 400, form: 'gable', deg: 45}]});
   });
 
-  // Journal decision 156, F2: a gable's pitch is geometry (decision 153), so two GableEnd runs at different pitches
-  // disagree as two Pitched runs do. The gate: runs at 20 and 70 degrees are refused.
-  it('refuses GableEnd runs that disagree in pitch', () => {
+  // Journal decision 156, F2: a gable's pitch is geometry (decision 153). Gable rise decision 15 (WP-G2): two GableEnd runs
+  // at different pitches are two rises, each at its own pitch, never one form; equal ones are still the side's one form.
+  it('reads GableEnd runs at different pitches as runs of the side, each at its own pitch', () => {
     const v = valid();
     v.rings[1].sides[0].runs = [run(0, 250, 'GableEnd', 20), run(250, 500, 'GableEnd', 70)];
-    expect(errorsOf(v)).toEqual([
-      "Ring 1 (model index 1) side 0's runs disagree (GableEnd 20, GableEnd 70): spec 3 gives the whole wall one form and pitch, so this is a C++ inconsistency, raised with the port lead and never read silently (journal decision 149)",
-    ]);
+    expect(adapted(v).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 20, runs: [{from: 250, to: 500, form: 'gable', deg: 70}]});
     v.rings[1].sides[0].runs = [run(0, 250, 'GableEnd', 20), run(250, 500, 'GableEnd', 20)];
     expect(adapted(v).fixture.rings[1].sides?.S).toEqual({form: 'gable', deg: 20});
   });
@@ -526,13 +544,20 @@ describe('runs per side (journal decision 149)', () => {
   });
 
   it('reads a side with no run, or only None runs, as formless: unlisted, and refused only where it wins a union wall', () => {
+    // Gable rise decision 3 (WP-G2): unlisted where a lower-index side covers it (FlushT's stem); refused where it holds
+    // its own extent (FlushRingConflict's Ring 1 over [500, 1000]).
+    const t = writeInput(RISE_FIXTURES.find(f => f.name === 'FlushT') as ShellFixture);
+    t.rings[1].sides[0].runs = [];
+    expect(adapted(t).fixture.rings[1].sides?.S).toBeUndefined();
     const v = valid();
     v.rings[1].sides[0].runs = [];
-    expect(adapted(v).fixture.rings[1].sides?.S).toBeUndefined();
+    expect(errorsOf(v)).toEqual([
+      'Ring 1 (model index 1) side 0 (S) is solved None but wins the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision 140)',
+    ]);
     const w = valid();
     w.rings[0].sides[2].runs = [run(0, 500, 'None')];
     expect(errorsOf(w)).toEqual([
-      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] on storey 0, where its form is undefined (journal decision 140)',
+      'Ring 0 (model index 0) side 2 (N) is solved None but wins the union wall y = 400 [0, 1000] over [0, 500] on storey 0, where its form is undefined (journal decision 140)',
     ]);
   });
 

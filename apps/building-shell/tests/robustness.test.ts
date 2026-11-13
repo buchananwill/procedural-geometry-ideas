@@ -26,8 +26,10 @@ import {
   sweepFixtures,
 } from './robustness-fixtures.ts';
 import {
-  COURTYARD_DEFECTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS, seededKey,
+  COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS,
+  SPLIT_COURTYARD_DEFECTS, SeededKey, U_DEFECTS, seededKey,
 } from './residue-pins.ts';
+import {RISE_ORACLE_TOL_CM, riseOracle} from './rise-oracle.ts';
 import {planStorey} from '../src/storey.ts';
 import {causeOf, pinnedOutcome, throwsOutcome} from './pin-table.ts';
 import {rosterGenus} from './roster-genus.ts';
@@ -375,14 +377,16 @@ describe('the widened pitch sweep (journal decisions 146 and 148, F3): every ros
  * cases themselves rather than their whole generators, so a pin the gated seeds do not reach is still held. The
  * opt-in path (`SHELL_COURT_SEEDS`) stays for discovering new failures.
  */
+/** A seeded generator's case by its pin key, `s<seed>h<height>/<name>`. */
+const seededCase = (gen: (seed: number, count: number, h: number) => ShellFixture[], key: string): ShellFixture => {
+  const m = /^s(\d+)h(\d+)\/(.+)$/.exec(key);
+  if (!m) throw new Error(`a pin key ${key} names no seed, height and case`);
+  const f = gen(Number(m[1]), PER_COURTYARD_SEED, Number(m[2])).find(x => x.name === m[3]);
+  if (!f) throw new Error(`no case ${key}`);
+  return f;
+};
+
 describe('every pinned case of the seeded generators, built on the default run (journal decision 156, F6)', () => {
-  const seededCase = (gen: (seed: number, count: number, h: number) => ShellFixture[], key: string): ShellFixture => {
-    const m = /^s(\d+)h(\d+)\/(.+)$/.exec(key);
-    if (!m) throw new Error(`a pin key ${key} names no seed, height and case`);
-    const f = gen(Number(m[1]), PER_COURTYARD_SEED, Number(m[2])).find(x => x.name === m[3]);
-    if (!f) throw new Error(`no case ${key}`);
-    return f;
-  };
   const tables = [
     ['courtyard', COURTYARD_DEFECTS, randomCourtyardFixtures, COURTYARD_EXPECTED],
     ['U shape', U_DEFECTS, randomUFixtures, EXPECTED],
@@ -395,17 +399,53 @@ describe('every pinned case of the seeded generators, built on the default run (
 });
 
 /**
+ * WP-G2 (gable rise decision 3, journal decision 206): the pinned cases decision 3 cured. Each was a whole-wall gable
+ * over a wall its Rings disagree on, and is now a hip with a rise.
+ * - Promoted: clean by every invariant, with no conflict, and the rise's height oracle (decision 19) held. Not pinned
+ *   any more, so they are built here by name, since the gated seeds do not reach them.
+ * - Re-pinned by their conflicts (`GABLE_RISE_CONFLICTS`, `GABLE_RISE_SPLIT_CONFLICTS`): clean by every invariant and
+ *   the oracle, with exactly their F69 conflicts.
+ */
+const PROMOTED_BY_GABLE_RISES: readonly SeededKey<'Court7' | 'Court23'>[] = [
+  's4h250/Court7', 's4h263/Court7', 's4h300/Court7', 's6h250/Court23', 's6h263/Court23', 's6h300/Court23',
+];
+
+describe("gable rise decision 3's cured cases (WP-G2, journal decision 206)", () => {
+  it.each(PROMOTED_BY_GABLE_RISES.map(k => [k] as const))('%s: promoted: clean, no conflict, its rise on the height oracle', async key => {
+    expect(COURTYARD_DEFECTS[key]).toBeUndefined();
+    const b = await buildShellDetailed(seededCase(randomCourtyardFixtures, key));
+    expect(invariantViolations(b, COURTYARD_EXPECTED)).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    expect(b.union.plans.some(p => p.rises?.length)).toBe(true);
+    expect(riseOracle(b.union).worst).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
+  });
+
+  const conflicted = [
+    ...Object.entries(GABLE_RISE_CONFLICTS).map(([k, c]) => [k, randomCourtyardFixtures, c ?? []] as const),
+    ...Object.entries(GABLE_RISE_SPLIT_CONFLICTS).map(([k, c]) => [k, randomSplitCourtyardFixtures, c ?? []] as const),
+  ];
+  it.each(conflicted)('%s: re-pinned: clean, its rise on the height oracle, exactly its conflicts', async (key, gen, conflicts) => {
+    const b = await buildShellDetailed(seededCase(gen, key));
+    expect(invariantViolations(b, COURTYARD_EXPECTED)).toEqual([]);
+    expect(riseOracle(b.union).worst).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
+    expect(b.shell.report.conflicts).toEqual(conflicts);
+  });
+});
+
+/**
  * Journal decision 156, F7: the two signatures the seeds 7 to 14 measurement found that no earlier pin holds, enrolled
  * as named cases on the default run. Their pins are in the tables above too, where the opt-in run reads them.
- * - s11 Court35 at 250 and 300: a Cell corner that lies in no triangle of its face's fan;
+ * - s11 Court35 at 250 and 300: a Cell corner that lies in no triangle of its face's fan. **Cured by gable rise decision
+ *   3 (WP-G2)**: the wall under it is a hip with a rise, so the class is left with no member. Its cure is held here.
  * - s7h250 SplitCourt9: a Gable-Wall edge, a gable's rake meeting a wall at the storey above's plate, Unclassified.
  */
 describe("decision 156, F7's two new signatures", () => {
-  it.each([[250], [300]] as const)('s11h%i/Court35: its Cell-fan throw', async h => {
+  it.each([[250], [300]] as const)('s11h%i/Court35: its Cell-fan throw is cured by gable rise decision 3', async h => {
     const f = randomCourtyardFixtures(11, PER_COURTYARD_SEED, h).find(x => x.name === 'Court35');
     if (!f) throw new Error('no Court35');
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_DEFECTS, seededKey(11, h, 'Court35')));
-    expect(COURTYARD_DEFECTS[seededKey(11, h, 'Court35')]?.cause).toBe("a Cell corner in no triangle of its face's fan");
+    expect(await courtyardOutcome(f)).toEqual([]);
+    expect(COURTYARD_DEFECTS[seededKey(11, h, 'Court35')]).toBeUndefined();
+    expect(GABLE_RISE_CONFLICTS[seededKey(11, h, 'Court35')]).toBeDefined();
   });
 
   it('s7h250/SplitCourt9: its Gable-Wall Unclassified Edges', async () => {
