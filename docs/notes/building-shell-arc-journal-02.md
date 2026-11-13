@@ -687,6 +687,23 @@ ruled" list in the covered-storeys findings. Added this session:
        become unclean" counted against one path (decision 227), most of them Cheeks; the unresolved "prism
        reach" problem, which is a Cheek problem; and the 15 pinned Cheek-class cases (F74).
      - **To settle in the talk**: which properties are the dangerous ones, and which Cheeks, if any, signal one.
+236. **WP-L1 landed green at `9646bba` and is provisionally accepted, pending a correctness review** (the lead,
+     2026-11-13). It is `9f9cb64` and `9646bba`; four source and test files (`fixture.ts`, `rise.ts`,
+     `residue-pins.ts`, `rise.test.ts`), all in the roster, plus the golden re-export (the lead checked
+     `git diff --stat`); the tree is clean. The delegate's record: 8,983 passed in 41 files, typecheck clean,
+     drift test green, three mutation gates convicted, the third by a new fixture `RiseBeforeTStemBarRisen`.
+     - **Goldens**: `SplitBandAllGable75`'s hole-wall rises lose the outer walls' skeleton planes as limits and
+       run on under those walls' gables; every Gable apex is unchanged (1,119.6 and 1,866.0). `Court5Seed1h300`
+       changes in its raw-part bytes only; its shell file is byte-identical. Four rise fixtures are added,
+       among them `RiseRunsToFarGable`, the user's accepted run-through, asserting 746.4 cm at the far wall.
+     - **Pins**: `s9/Court0` at three heights gains one F69 conflict each and is re-pinned. **`s1h250/U3` and
+       `s5h250/Court34` each gained a conflict that no table pins**, so those counts move unseen. Left as it is
+       while the user and the lead settle what a defect is (decision 235); the reviewer is asked how far that
+       gap reaches.
+     - **Still unruled**: about 68 rises are limited by a wall gabled along its whole length that decision 220
+       turned into a rise.
+     - The rise reviewer is resumed on `73af1e5..9646bba`, briefed to report Cheeks and conflicts as facts, not
+       verdicts.
 
 ## Findings
 
