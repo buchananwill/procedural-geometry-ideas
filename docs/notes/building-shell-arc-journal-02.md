@@ -62,69 +62,76 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**State at 2026-11-13, late in the user's first day with the editor.** Both features of the charter are built on
-the arc branch, reviewed and accepted, and the user has been steering by building cases in the editor. Nothing is in
-flight. Nothing is pushed. The blow-by-blow is in decisions 196 to 242, and is not repeated here.
+**State at 2026-11-13, at the end of the user's first day with the editor.** Both features of the charter are built
+on the arc branch, and the user has steered a day of changes by building cases in the editor. Nothing is in flight.
+Nothing is pushed. The blow-by-blow is in decisions 196 to 258, and is not repeated here.
 
 - **The editor** (decisions 197 to 202) and **its stretches** (212, 214 to 217): accepted at `56e1c1b`.
 - **The gable rise in the pipeline and the wire** (decisions 203 to 211, 213): accepted at `be16d6d`.
 - **A gable belongs to the Ring side that asked for it** (F75 to F77, decisions 218 to 225): accepted at `887b1f7`.
 - **A slope not in the finished building does not limit a rise; a rise with no limit runs through** (decisions 231
   to 233, 236, 238): accepted at `9646bba`.
-- **The selector lists every hand-authored fixture, the 53 research cases, and the 196 pinned cases, with what each
-  builds as words in its label** (F78, F79, decisions 226, 228 to 230, 237, 239, 240, 242): accepted at `958f587`.
+- **The selector lists every hand-authored fixture, the 53 research cases, and the pinned cases, with what each
+  builds as words in its label** (F78, F79, decisions 226, 228 to 230, 237, 239, 240, 242, 248): accepted at
+  `888c556`.
 - **Opposite gables join, and a gable covered by a neighbouring Ring is built** (F80, F81, decisions 243 to 248):
   accepted at `888c556`. It cost two pinned throws (`s13/Court21`) that the rule itself creates (decision 247).
-- **The tree's figure, measured by the lead on 2026-11-13 at `888c556`**: 9,672 passed in 43 files, none failed, in
-  323 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
+- **Per-stretch gable settings: maximum height, facing strategy, stands apart**, in memory, on the wire and in the
+  editor ([the spec](./building-shell-gable-stretch-settings-decisions.md), F82, F83, decisions 251 to 258):
+  accepted at `e2052d9`.
+- **The tree's figure, measured by the lead on 2026-11-13 at `e2052d9`**: 9,805 passed in 44 files, none failed, in
+  355 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
 - **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
-  [the gable rise findings](./building-shell-gable-rise-findings.md).
-- **Delegates**: a delegate carried across many packages exhausts its context (the rise's first delegate did, and
-  the selector's ended near 500k tokens). A fresh delegate needs a self-contained brief; the proposal, the findings
-  note and this journal's cited entries are enough for one.
+  [the gable rise findings](./building-shell-gable-rise-findings.md). Two of its probes
+  (`claimed-band-cases.ts`, `claimed-band-sweep.ts`) throw on a rise with no limit and have not been repaired.
+- **Delegates**: a delegate carried across many packages exhausts its context. A fresh delegate needs a
+  self-contained brief; the specs, the findings note and this journal's cited entries are enough for one.
 
-**How the user is steering, which a new session must hold to** (decisions 218, 233, 235, 237, 241):
+**How the user is steering, which a new session must hold to** (decisions 218, 233, 235, 237, 241, 251 to 253):
 
 - A golden that pins an incorrect shape is not golden. A change is judged by whether the new shape is right.
 - **Do not tame what the inputs justify.** Geometry that is closed, classified and follows the stated rules is
   correct, however odd. Add a limit, cap or refusal only where the user specifies one or the result is
   mathematically dangerous.
+- **A rule applied inconsistently because of surrounding geometry is a logical defect**, not a matter of taste.
+  This is what the user hunts for.
+- **Where a question has no objective answer, it is a setting the author chooses**, per gable stretch, with a
+  default. The lead does not pick a universal rule for it.
 - **A Cheek is not a defect in itself.** It is likely an anomaly and may not be intended. The aim is that the
   author can see what causes it and remove it by a minimal change, never that it cannot appear. The user rules on
-  Cheeks by looking at them, not in the abstract. `Court14Seed7h250`'s is ruled not a defect.
+  Cheeks by looking at them. `Court14Seed7h250`'s is ruled not a defect.
+- **The prototype's job is speed to good geometry.** No geometry, wire or golden change is held for the C++ port,
+  and the user is not asked leave for one on that ground. No C++ session has the port (decision 250).
 - The user builds the case in the editor before agreeing something is wrong. Give exact inputs.
 
 **Next, in order:**
 
-0. **Waiting on the user (decision 247)**: whether Cell laying is taken next, so that `s13/Court21`'s throw is
-   fixed and not pinned. The lead recommends it. Its reproducer is `COVERED_RISE_CELL_CLASH` in
-   `tests/robustness-fixtures.ts`; its pin should first be filed under its own class, not U8. Also for the user
-   to see: the centre-line test for partly facing gables (`OppositeGablesTPartFacing`), and whether a rise that
-   shows no face should cost a document its C++ replayability (decisions 246, 247).
-1. **The user looks at the Cheeks.** Typing "cheek" in the selector's filter lists the 16 fixtures that build one,
-   all courtyards (F79). Their rulings decide what "clean" means from here, and whether conflicts and Unclassified
-   Edges are in the dangerous class.
-2. **Then revisit what was traded away to avoid Cheeks**: first the two-pitch sub-rule (decisions 220, 222), which
-   suppresses one Ring's gable pitch. It needs a way to show the user the variant that builds both.
-3. **One path for all gables** (decisions 220, 227): with the limit rule fixed by decision 231 and Cheeks no longer
-   counted against it, what remains measured is 8 fixtures that throw and a couple of Unclassified Edges. Re-measure
-   before building; F77's figures predate decisions 231 and 237. Not started; it waits for the user's word.
-4. **Unruled**: a wall gabled along its whole length that decision 220 turned into a hip with a rise still limits a
-   rise facing it (about 68 rises; decisions 232, 236).
-5. **Proposals owed, none started**:
+1. **Cell laying**: `s13/Court21` at two storey heights throws `two Cells run the same way along one NetEdge`, and
+   covered rises cause it (decision 247). The lead recommends fixing it next and has not had the user's word.
+   Reproducer: `COVERED_RISE_CELL_CLASH` in `tests/robustness-fixtures.ts`. Its pins should first be filed under
+   their own class, not U8. The same family is reached by random editing (F64).
+2. **The corner sliver in `cleanMesh`** (F83, decision 257): the 5 cm guard stands in for it, and it stops a low
+   gable the author asked for.
+3. **The user looks at the Cheeks.** Typing "cheek" in the selector's filter lists them (F79, and decision 248's
+   count of 17). Their rulings decide what "clean" means from here, and whether conflicts and Unclassified Edges
+   are in the dangerous class.
+4. **The two-pitch sub-rule** (decisions 220, 222) suppresses one Ring's gable pitch to avoid Cheeks. Under
+   decisions 237 and 251 it is a candidate for a setting, or for removal.
+5. **One path for all gables** (decisions 220, 227): re-measure before building; F77's figures predate decisions
+   231, 237 and 243. Not started; it waits for the user's word.
+6. **Proposals owed, none started**:
    - a viewer feature that says which sides, stretches and pitches produce a given Cheek (decision 237);
-   - a height clamp on any roof section above its owning wall, in the editor (decision 234), which needs a clamp
-     on hip slopes and whole-wall gables, a wire field, and a view on the C++ roof stage's flat clamp (F63);
-   - direct manipulation, starting with inserting a slice along a Ring (decision 241). The user marked the last
-     two as stretch goals, and the slice as not for today.
-6. **Fold the amendments into the spec** [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md):
-   spec 3 (form per extent), and the spec decisions that say pieces come only from algorithm B (5, 8 and 9). Mark
-   session 1's decisions 116 and 149 as amended where they stand. Not done this session.
-7. **Re-run the full suite and the typecheck after any further change**, before a merge.
-8. **Merge to `main` when the user agrees.** The branch name no longer describes its contents.
-9. **Tell `claude-work-ec`** what has changed since its last message (decision 225): the limit rule of decision
-   231 and the accepted run-through, the golden changes of decision 236, and the user's position on Cheeks. Not
-   yet sent.
+   - a maximum height on a hip slope and on a whole-side gable (decision 234, spec decision 20);
+   - direct manipulation, starting with inserting a slice along a Ring (decision 241), which the user marked as
+     not for today.
+7. **Fold the amendments into the spec** [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md):
+   spec 3 (form per extent), the spec decisions that say pieces come only from algorithm B (5, 8 and 9), and the
+   three new wire fields. Mark session 1's decisions 116 and 149 as amended where they stand. This is what the
+   arc owes the port (decision 250). Not done this session.
+8. **Conflict counts are asserted only for some fixtures** (decision 238), and `Court21`'s pin class is inferred
+   from its error text (decision 247). Both wait on item 3.
+9. **Re-run the full suite and the typecheck after any further change**, before a merge.
+10. **Merge to `main` when the user agrees.** The branch name no longer describes its contents.
 
 ## 5. Open items
 
@@ -1064,6 +1071,11 @@ ruled" list in the covered-storeys findings. Added this session:
        pipeline. Information only; the draft stays valid.
      - L1, L2, L3 and L4 are closed as ruled. L1's test uses a gable over the L's stem, because the reviewer's
        own case merged back into one piece and could not convict the mutation.
+258. **WP-S2.1 is accepted at `e2052d9`, and the per-stretch gable settings are complete for this version** (the
+     lead, 2026-11-13). One commit, five files under `src/viewer/`, `index.html` and `tests/viewer-*`; the tree is
+     clean. A gable stretch whose maximum height is at or below `RISE_MIN_CAP_CM` shows "at or below 5 cm no gable
+     is built here" under the field, the 5 read from the pipeline. Information only. **The lead ran the suite on
+     this tree**: 9,805 passed in 44 files, none failed, in 355 s; typecheck clean.
 
 ## Findings
 
