@@ -69,7 +69,10 @@ Numbers are for citation. They are not an order of work.
    that disagree in pitch do not refuse: the lowest index wins the wall's pitch, as decision 116 has it today.
    This is the skeleton's constraint (F58) and is not negotiable.
 5. **A union wall whose every extent is a gable is a whole-wall gable**, built by algorithm B exactly as today,
-   with the lowest-index extent's pitch as the wall's weight. No rise is built for it.
+   with the lowest-index extent's pitch as the wall's weight. No rise is built for it. **AMENDED 2026-11-13
+   (journal decision 209)**: where two gable extents of one Ring side tie on index, the one first along that
+   side's own direction wins, so the answer does not depend on which compass side it is. A second gable pitch on
+   such a wall is not built.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
    gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
    Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a
@@ -156,6 +159,9 @@ Numbers are for citation. They are not an order of work.
 
 15. **`input@1` is unchanged.** The adapter's refusal "side j's runs disagree" narrows to: the hip runs of one side
     must agree in pitch. A side with a gable run and a hip run is accepted. **This amends journal decision 149.**
+    **ADDED 2026-11-13 (journal decisions 206 and 209)**: the refusal of a None side that wins a wall is now
+    per extent. A None side that a neighbouring Ring used to mask along the whole wall now wins its own stretch
+    and is refused.
 16. **`writeInput` writes a side's runs as authored.** A fixture with no authored runs writes byte-identical
     output, so no existing golden input or playtest seed changes on the wire.
 17. **`isOneWholeRun` stays as the seventh C++-replay condition** until the port builds rises. A document with a
@@ -168,7 +174,11 @@ Numbers are for citation. They are not an order of work.
 
 19. **The oracle for a rise is its height function.** Over the rise's band the roof top is
     `max(hip surface, min(rake A, rake B, far hip plane))`. A test samples the built shell against it. Algorithm
-    B's `runB` knows nothing of rises, so `roof-parts-agreement.test.ts` keeps its present scope.
+    B's `runB` knows nothing of rises, so `roof-parts-agreement.test.ts` keeps its present scope. **CORRECTED
+    2026-11-13 (journal decision 209)**: this oracle reads the planes the code chose, so it proves the solid was
+    built from them and nothing about whether they were the right planes. Each rise fixture also carries an
+    assertion independent of that choice: the wall whose plane is the limit, named by hand, and one height from a
+    closed form.
 20. **Every storey with a rise satisfies spec 32's invariants**: closed, genus as the roster says, no surviving
     Internal face, no Unclassified Edge. A rise that produces a Cheek is a defect to enrol by the project's
     enrolment rule, never to tolerate silently.

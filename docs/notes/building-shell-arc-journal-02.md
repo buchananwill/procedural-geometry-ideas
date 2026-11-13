@@ -332,6 +332,32 @@ ruled" list in the covered-storeys findings.
      decisions 205 to 207, and nothing under `src/roof/`, `packages/`, `edges.ts`, `cells.ts` or `tags.ts`. **Two
      reviews dispatched**: `typescript-type-reviewer`, and a correctness reviewer (general-purpose, Opus) whose
      brief includes the honesty of the pin and golden changes and the independence of the height oracle.
+209. **Both reviews of WP-G2 are ruled on, and WP-G2.1 carries the fixes** (the lead, 2026-11-13). The correctness
+     review found one High and two Medium, each confirmed by a run or by reading; the type review asked for two
+     changes. Everything else it checked was sound, including the extents, the limit walk, the caps, the exactness
+     of the new conflict pins, and the boundary. Rulings:
+     - **High H1, accepted: a whole-wall gable shared by several Rings can take the wrong pitch.** Merging adjacent
+       gable extents across Rings keeps the first extent's Ring, so the lowest index is lost
+       (`ring-forms.ts:158`). Three gabled Rings at indices 0, 1, 2 with pitches 45°, 60°, 45° give a 60° wall
+       where decision 5 gives 45°. A merge keeps the lowest index. A test with that input, convicted by mutation.
+     - **Medium M1, accepted: the height oracle cannot catch a wrong limit plane**, because it reads the planes
+       the code chose. Every rise fixture gains an assertion that does not pass through `rise.ts`'s choice: the
+       wall whose plane is the limit, named by hand, and one height from a closed form. The oracle's doc comment
+       states what it does and does not prove. This corrects gable rise decision 19, which claimed more.
+     - **Medium M2, ruled: on a whole-wall gable, a tie inside one Ring goes to the extent first along that
+       side's own direction**, from the side's start, never by world coordinate. One Ring side authored with
+       gable runs of two pitches gave 20° on S and 70° on N. Gable rise decision 5 is amended. The other pitch on
+       such a wall is not built, as with hip pitches under decision 4.
+     - **Low L2, accepted: runs are checked in memory.** A run outside its side, overlapping another, out of order
+       or of zero length is a `PlanRefusal`, as gable rise decision 1 requires. **L1, L4 and L5 stand**: `request`
+       is information only, the wider golden change is recorded in F74, and the model-order test reading the
+       in-memory document follows from decision 17. **L3 is already ruled** (decision 206) and is now named in
+       gable rise decision 15.
+     - **Type B1 and B2 accepted**: one `RISE_LIMITS` tuple that the union, the policy table and the saved-draft
+       schema derive from; `GableRise` and `Claim` derived, not hand-copied. **N1 accepted**: the caps are keyed
+       by name like the limits, and a built rise records which cap won. **N3 accepted. N4 goes to WP-G3. N5 is
+       declined.**
+     - **After WP-G2.1**: the correctness reviewer re-reads the fix diff only.
 
 ## Findings
 
