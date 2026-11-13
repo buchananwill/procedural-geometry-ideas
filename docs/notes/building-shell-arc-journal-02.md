@@ -71,6 +71,13 @@ first, stops if algorithm B's wider piece is plainly the intended roof somewhere
 re-exports. **When it returns**: a correctness review on its range, then tell `claude-work-ec` the goldens moved
 again.
 
+**WP-G4 stopped at step 1 with no change (decision 219, F76). WP-G4.1, the claimed-band measurement, is in
+flight** with a fresh delegate dispatched 2026-11-13 at `951b86e`. Two resumes of the WP-G4 delegate failed on
+HTTP 403. **The user says that was a system-wide login failure upstream, now fixed by re-authenticating, and
+nothing to do with the model.** The lead had guessed the Opus model was at fault and dispatched the fresh
+delegate on the session's own model; that reason was wrong. The delegate is left running, since the work is
+measurement only. Production work after it goes back to the standing default, Opus.
+
 **Next, in order:**
 
 1. **The user rules on the provisional defaults of decision 204**, each reversible by swapping a named policy or
@@ -459,6 +466,17 @@ ruled" list in the covered-storeys findings. Added this session:
      more, because the stretch beyond the inside corner is Ring 0's hip side. This is also the one-path model the
      lead put to the user: every gable is a piece over its claimed band. **Not adopted. WP-G4.1 measures it,
      changing no production code, and the user rules.** WP-G4 made no commit.
+220. **The narrow rule is built; the one-path rule is measured unfit and stays open as a design question** (the
+     lead, 2026-11-13, on F77). The lead had told the user the choice between the two was theirs. The measurement
+     removed the choice for now: the one-path rule throws on 8 fixtures that build today, changes plain
+     gable-ended buildings, and needs three sub-rules of which one has no clean candidate. The lead therefore
+     proceeds with the narrow rule as the fix for F75 under decision 218, says so to the user, and withdraws its
+     own earlier recommendation of one path. **The rule**: algorithm B builds an all-gable wall where its piece's
+     span equals the gable band that Ring sides claim on that line, buried stretches included; otherwise the wall
+     is a hip with one rise over the claimed band. **Sub-rule**: a wall claimed gable at two pitches stays
+     algorithm B's one gable, which removes every new Cheek the rule would add. **Accepted costs, to be pinned
+     exactly**: 2 new Unclassified Edges on `Court18` at 263 and 300 cm, and more F69 conflicts on 11 fixtures.
+     Gable rise decision 5 is amended again. WP-G4.2 builds it, with a fresh Opus delegate.
 
 ## Findings
 
@@ -660,6 +678,29 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - **Pinned cases among the 933: 29**, of which 3 are Cheek pins (`Court9` at seed 13), 6 cut-overshoot, 16
     conflict re-pins, and one each or two of the Court25, U8 and SplitCourt9 classes.
   - 7 golden fixtures are among them.
+- **F77. Band-by-claim fixes F75 and keeps `SingleStoreyT` under either rule; the narrow rule harms nothing clean,
+  and the one-path rule throws** (the WP-G4.1 delegate at `7f057f4`, measurement only, 5,276 distinct fixtures,
+  none sampled; detail in [the gable rise findings](./building-shell-gable-rise-findings.md), section "WP-G4.1";
+  not re-run by the lead). F76's headline reproduced. One of F76's sub-counts did not: "own buried gable side" is
+  557 by F76's own classifier, not 421.
+  - **The user's with-wing draft**: today's apex is at x = 600, 248.5 cm; both rules give x = 900, 124.3 cm, clean.
+    `SingleStoreyT` keeps its shell under both, apex y = 250 at 250 cm. No `RISE_FIXTURES` and no mixed wall in
+    the corpus changes.
+  - **Rule A (narrow)**: 163 fixtures and 218 storeys change shape, in the class whose line crosses another Ring's
+    interior. **No fixture clean today becomes unclean, and nothing new throws.** 17 fixtures that are unclean
+    today get worse: 6 gain a Cheek, 9 gain F69 conflicts, and `s10h263/Court18` gains 2 Unclassified Edges. Two
+    goldens change: `SplitBandAllGable75` and `Court16Seed1h250`. Of F76's 29 pins: 25 the same, 2 changed, 2
+    worse, none cured. `s5/Court34` is cured at three heights, conflicts remaining.
+  - **Rule A's sub-rule**: keeping a two-pitch all-gable wall as algorithm B's one gable removes every new Cheek
+    (164 fixtures change, 13 worse: 11 on conflicts, 2 on `Court18`).
+  - **Rule B (one path)**: 958 fixtures and 1,334 storeys change. 10 clean fixtures become unclean, 8 that build
+    today throw, 38 unclean ones get worse. **Its main difference from today is the caps, not the back limit**:
+    of 4,196 storeys where algorithm B's piece already is the band, 1,061 change, 957 because a wall-top or
+    floor cap flattens a gable end. So today's whole-wall gables stand above storeys over them in those cases.
+  - **A rectangle gabled on both long sides has its ridge clipped under Rule B**: on 1000 × 500 at 45° the middle
+    drops from 499.9 to 250.1 cm. Gabled on both short ends, it is unchanged.
+  - **Unreconciled in the report**: Rule A's "31 of 173 changed fixtures clean" against 163 changed fixtures, and
+    Rule B's "2,033 of 3,543" against 958. The denominators are not explained.
   - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
     the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
     140)`.

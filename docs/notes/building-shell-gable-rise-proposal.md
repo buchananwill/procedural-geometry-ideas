@@ -80,7 +80,12 @@ Numbers are for citation. They are not an order of work.
    because the wall's line runs on through the building past an inside corner, the wall is solved as a hip at
    that pitch and carries one rise across its whole length. The original sent every such wall to algorithm B, which
    built it as a slice of a gable spanning the whole line, so the same stretch was built two ways depending on
-   its neighbours.
+   its neighbours. **AMENDED AGAIN 2026-11-13 (journal decisions 219 and 220, F76, F77). STRUCK: "where algorithm
+   B's gable piece for the wall spans the wall's own length"**, which would have broken a gable end whose middle
+   is buried by a wing. **A gable belongs to the Ring side that asked for it.** Its band is the stretch of the
+   line that Ring sides claim as gable, buried stretches included. Algorithm B builds the wall where its piece's
+   span equals that band. Otherwise the wall is a hip and carries one rise over the claimed band. A wall claimed
+   gable at two pitches stays algorithm B's one gable.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
    gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
    Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a
