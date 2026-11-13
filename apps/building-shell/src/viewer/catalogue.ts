@@ -170,10 +170,24 @@ function researchEntry(e: ResearchEntry): CatalogueEntry {
   return {value: e.name, label: `${e.id}: ${e.title}${e.conversion.courtyard ? ' (cut placed by the pipeline)' : ''}`};
 }
 
-/** A defect case's option, as the page has always labelled it (journal decision 169). */
+/** Where a defect case is loaded from, in words: its selector label and the case box both say it (WP-V3). */
+export function defectSourceText(c: Pick<DefectCase, 'source' | 'reasons'>): string {
+  switch (c.source.kind) {
+    case 'file': return `read from ${GOLDEN_DIR_URL}${c.source.input}`;
+    case 'pinned': return `built from pinned case ${c.source.pinned.key}`;
+    case 'fixture': return `built from listed fixture ${c.source.fixture.name}`;
+    case 'none': return `cannot be loaded: no input file and no in-memory source (${c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason'})`;
+  }
+}
+
+/**
+ * A defect case's option (journal decision 169): its name, its class and where it is loaded from (WP-V3). A case with no
+ * source is listed disabled, for its reason, as a left-out research case is: it is never built, so it has no facts.
+ */
 function defectEntry(c: DefectCase): CatalogueEntry {
-  const note = c.input === undefined ? ' (cannot be loaded)' : c.error !== undefined ? ' (build throws)' : '';
-  return {value: c.name, label: `${c.name}: ${c.residueClass}${note}`};
+  const label = `${c.name}: ${c.residueClass} (${defectSourceText(c)})`;
+  if (c.source.kind === 'none') return {value: c.name, label, disabled: true};
+  return {value: c.name, label: c.error !== undefined ? `${label} (build throws)` : label};
 }
 
 /** A pinned case's option: its key, and the other tables that pin it too. */

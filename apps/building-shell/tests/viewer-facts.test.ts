@@ -13,14 +13,16 @@ import type {ShellBuild} from '../src/shell.ts';
 import {planStorey} from '../src/storey.ts';
 import {CATALOGUE_FACTS, CATALOGUE_VALUES} from '../src/viewer/catalogue-facts.ts';
 import {
-  CatalogueSources, EntryFacts, FactsLookup, InputFile, RecordedFacts, catalogueGroups, factTags, filterCatalogue, goldenInputFiles,
-  playtestFiles, recordedFacts,
+  CatalogueSources, EntryFacts, FACT_WORDS, FactsLookup, GOLDEN_DIR_URL, InputFile, RecordedFacts, catalogueGroups, factTags, filterCatalogue,
+  goldenInputFiles, playtestFiles, recordedFacts,
 } from '../src/viewer/catalogue.ts';
 import {parseDefectCases} from '../src/viewer/defect-cases.ts';
+import {inMemoryFixture, inMemorySources} from '../src/viewer/defect-sources.ts';
 import {PINNED_CASES, pinnedFixture} from '../src/viewer/pinned-cases.ts';
 import type {PinnedCase} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
+import {GOLDEN_FIXTURES} from './golden-fixtures.ts';
 import {throwsOutcome} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
@@ -28,7 +30,7 @@ const FACTS_FILE = new URL('src/viewer/catalogue-facts.ts', APP);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
 const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
-const cases = parseDefectCases(manifest);
+const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 const sources = (facts: FactsLookup): CatalogueSources => ({
   shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, research: RESEARCH_ENTRIES,
   defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES, facts,
@@ -43,11 +45,19 @@ const fileFixture = (f: InputFile): ShellFixture => {
   return read.fixture;
 };
 
-/** Every choosable entry of the catalogue, by value, in its order, with what it is built from. */
+/**
+ * Every choosable entry of the catalogue, by value, in its order, with what it is built from: a defect case as the page
+ * loads it, from its input file or its in-memory source (WP-V3). A defect case with no source is listed disabled, so it
+ * is not choosable and is not here.
+ */
 const ENTRIES: [value: string, source: EntrySource][] = [
   ...LISTED.map((f): [string, EntrySource] => [f.name, {kind: 'fixture', fixture: f}]),
   ...[...goldens, ...playtestFiles()].map((f): [string, EntrySource] => [f.name, {kind: 'file', file: f}]),
-  ...cases.flatMap((c): [string, EntrySource][] => (c.input === undefined ? [] : [[c.name, {kind: 'file', file: {name: c.name, path: `golden/${c.input}`}}]])),
+  ...cases.flatMap((c): [string, EntrySource][] => {
+    const s = c.source;
+    if (s.kind === 'none') return [];
+    return [[c.name, s.kind === 'file' ? {kind: 'file', file: {name: c.name, path: `${GOLDEN_DIR_URL}${s.input}`}} : {kind: 'fixture', fixture: inMemoryFixture(c.name, s)}]];
+  }),
   ...PINNED_CASES.map((c): [string, EntrySource] => [c.value, {kind: 'pinned', pinned: c}]),
 ];
 
@@ -161,10 +171,32 @@ function factsText(values: readonly string[], table: FactsLookup): string {
 const measured = new Map<string, Measured>();
 
 describe('every catalogue entry, built (WP-V2)', () => {
-  it('lists every choosable entry of the catalogue once, but a defect case with no input file, which cannot be built', () => {
-    const unloadable = new Set(cases.filter(c => c.input === undefined).map(c => c.name));
-    const choosable = catalogueGroups(sources({})).flatMap(g => g.entries.filter(e => !e.disabled && !unloadable.has(e.value)).map(e => e.value));
+  it('lists every choosable entry of the catalogue once, a defect case with no input file included', () => {
+    const choosable = catalogueGroups(sources({})).flatMap(g => g.entries.filter(e => !e.disabled).map(e => e.value));
     expect(ENTRIES.map(([v]) => v).sort()).toEqual(choosable.sort());
+    expect(new Set(choosable).size).toBe(choosable.length);
+  });
+
+  it('gives every listed entry a facts row or a stated reason it has none', () => {
+    // A measured entry is a value of the table (`CATALOGUE_VALUES`), recorded with only what it builds: no row is "builds none".
+    // An entry never measured is disabled, its reason in its label: a left-out research case, or a defect case with no source.
+    const measured = new Set<string>(CATALOGUE_VALUES);
+    for (const e of catalogueGroups(sources(CATALOGUE_FACTS)).flatMap(g => g.entries)) {
+      if (measured.has(e.value)) continue;
+      expect(e.disabled, e.value).toBe(true);
+      expect(e.label, e.value).toMatch(/\((left out|cannot be loaded): .+\)$/);
+    }
+  });
+
+  it('every fact word in the filter finds every entry that builds that fact, and nothing the table does not cover', () => {
+    const groups = catalogueGroups(sources(CATALOGUE_FACTS));
+    const measured = new Set<string>(CATALOGUE_VALUES);
+    for (const [fact, word] of Object.entries(FACT_WORDS)) {
+      const found = filterCatalogue(groups, word).flatMap(g => g.entries);
+      for (const e of found) expect(measured.has(e.value) || e.disabled === true, `${word}: ${e.value}`).toBe(true);
+      const having = Object.entries(CATALOGUE_FACTS).filter(([, f]) => f !== undefined && fact in f).map(([v]) => v);
+      expect(having.filter(v => !found.some(e => e.value === v)), word).toEqual([]);
+    }
   });
 
   it.each(ENTRIES)('%s builds as its pin or manifest entry says', async (value, source) => {

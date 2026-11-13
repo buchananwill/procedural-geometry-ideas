@@ -8,18 +8,34 @@ import {
   CatalogueGroup, CatalogueSources, InputFile, PLAYTEST_SEED_STEMS, catalogueGroups, choosableCount, filterCatalogue, filterTerms,
   goldenInputFiles, leftOutValue, playtestFiles,
 } from '../src/viewer/catalogue.ts';
+import {RESIDUE_CLASS_NAMES} from '../src/golden.ts';
 import {parseDefectCases} from '../src/viewer/defect-cases.ts';
+import {inMemorySources} from '../src/viewer/defect-sources.ts';
 import {draftFixtureOfJson} from '../src/viewer/draft.ts';
 import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
-import {PINNED_CASES} from '../src/viewer/pinned-cases.ts';
+import {CONFLICT_TABLE_NAMES, PINNED_CASES, PIN_TABLES, RESIDUE_TABLE_NAMES} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
+import {EMPTIED_BY_GABLE_RISES, GOLDEN_FIXTURES} from './golden-fixtures.ts';
+import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
 const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
-const cases = parseDefectCases(manifest);
+const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
+
+/**
+ * The pinned groups the pin tables define, in the selector's order: each residue class some key's first residue pin has
+ * (in `RESIDUE_CLASS_NAMES` order), then each conflict table that pins a key no residue table pins.
+ */
+function pinnedGroupLabelsOfTables(): string[] {
+  const firstResidue = new Map<string, string>();
+  for (const t of RESIDUE_TABLE_NAMES) for (const [key, pin] of PIN_TABLES.residue[t]) if (!firstResidue.has(key)) firstResidue.set(key, pinClass(pin));
+  const classes = new Set(firstResidue.values());
+  const conflictOnly = CONFLICT_TABLE_NAMES.filter(t => PIN_TABLES.conflict[t].some(([key]) => !firstResidue.has(key)));
+  return [...RESIDUE_CLASS_NAMES.filter(c => classes.has(c)).map(c => `Pinned: ${c}`), ...conflictOnly.map(t => `Pinned conflicts: ${t}`)];
+}
 const sources: CatalogueSources = {
   shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
   research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES,
@@ -64,14 +80,16 @@ describe('the input files the selector reads', () => {
 });
 
 describe('catalogueGroups', () => {
-  it('groups the selector in a fixed order', () => {
+  it('groups the selector in a fixed order, a pinned group for each class and conflict table the pin tables fill', () => {
+    const pinnedGroups = pinnedGroupLabelsOfTables();
     expect(groups.map(g => g.label)).toEqual([
       'Fixtures', 'Gable rises', 'Ring conflicts', 'Port regressions', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
-      'Playtest seeds (fixtures/playtest)', 'Defect cases', 'Pinned: algorithm-B Cheek', 'Pinned: algorithm-B cut-piece overshoot',
-      'Pinned: partial coplanar contact of two storeys', 'Pinned: edge contact between opposite coplanar faces', 'Pinned: Gable-Wall edge Unclassified',
-      'Pinned: sub-tolerance roof feature', 'Pinned: low-pitch pocket', 'Pinned: roof meets the floor above', 'Pinned: near-touching islands',
-      'Pinned: courtyard cut collinear with a jutting wall', 'Pinned conflicts: GABLE_RISE_CONFLICTS', 'Pinned conflicts: GABLE_RISE_SPLIT_CONFLICTS',
+      'Playtest seeds (fixtures/playtest)', 'Defect cases', ...pinnedGroups,
     ]);
+    // The user's reference class keeps its group; a class the golden set records as emptied has none.
+    expect(pinnedGroups).toContain('Pinned: algorithm-B Cheek');
+    expect(EMPTIED_BY_GABLE_RISES.length).toBeGreaterThan(0);
+    for (const c of EMPTIED_BY_GABLE_RISES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
     expect(catalogueGroups({...sources, draft: {value: 'draft', label: 'x-draft'}}).at(-1)).toEqual({label: 'Draft', entries: [{value: 'draft', label: 'x-draft'}]});
   });
 

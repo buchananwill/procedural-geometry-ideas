@@ -7,8 +7,12 @@ import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, Sh
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
-import {GOLDEN_DIR_URL, InputFile, LoadedInput, catalogueGroups, choosableCount, filterCatalogue, goldenInputFiles, playtestFiles} from './catalogue.ts';
+import {GOLDEN_FIXTURES} from '../../tests/golden-fixtures.ts';
+import {
+  GOLDEN_DIR_URL, InputFile, LoadedInput, catalogueGroups, choosableCount, defectSourceText, filterCatalogue, goldenInputFiles, playtestFiles,
+} from './catalogue.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
+import {inMemoryFixture, inMemorySources} from './defect-sources.ts';
 import {
   Draft, DraftAction, RestoredDraft, TALL_STOREY_SUM, blankDraft, buildGate, dispatch, draftFixtureOfJson, draftJson, editDraftOf, explainRefusals,
   fixtureToBuild, heldMessage, isDirty, keepStoreys, makeDraft, parseDraftJson, restoreDraft, ringOfHit, saveMark, serializeDraft, storeySum,
@@ -219,6 +223,8 @@ function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
   if (!c) return;
   box.append(el('div', c.name, 'title'));
   box.append(el('div', `residue class: ${c.residueClass}`, 'line'));
+  // WP-V3: where the case is loaded from, as its selector label says.
+  box.append(el('div', `Loaded: ${defectSourceText(c)}`, c.source.kind === 'none' ? 'line bad' : 'line dim'));
   if (c.violations.length) {
     box.append(el('div', 'Pinned violations:', 'line dim'));
     const ul = el('ul');
@@ -229,18 +235,22 @@ function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
   if (outcome) box.append(el('div', outcome.text, outcome.bad ? 'line bad' : 'line dim'));
 }
 
-/** A case with no input file: not a failed build, so its message is shown as it stands. */
+/** A case with no source: not a failed build, so its message is shown as it stands. */
 class CaseUnloadable extends Error {}
 
-/** The input file a case or a file selection reads: a defect case's `golden/<name>.input.json`, or the file itself. */
+/** The input file a case or a file selection reads: a defect case's `golden/<input>`, or the file itself. */
 function inputFileOf(sel: FileBackedSelection): InputFile {
   if (sel.kind === 'file') return sel.file;
   const c = sel.defect;
-  if (c.input === undefined) {
-    const why = c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason';
-    throw new CaseUnloadable(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
-  }
-  return {name: c.name, path: `${GOLDEN_DIR_URL}${c.input}`};
+  if (c.source.kind !== 'file') throw new CaseUnloadable(`${c.name}: ${defectSourceText(c)}`);
+  return {name: c.name, path: `${GOLDEN_DIR_URL}${c.source.input}`};
+}
+
+/** WP-V3: a defect case's fixture when it is built in memory rather than read from a file; undefined when it is read. */
+function inMemoryCaseFixture(sel: LoadSelection): ShellFixture | undefined {
+  if (sel.kind !== 'case') return undefined;
+  const s = sel.defect.source;
+  return s.kind === 'pinned' || s.kind === 'fixture' ? inMemoryFixture(sel.defect.name, s) : undefined;
 }
 
 /** A file-backed selection's `input@1` file, as parsed. Throws, with the reason, when it cannot be had. */
@@ -279,7 +289,7 @@ async function loadManifest(): Promise<void> {
     const res = await fetch(new URL(`${GOLDEN_DIR_URL}manifest.json`, document.baseURI));
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     const manifest: unknown = await res.json();
-    cases = parseDefectCases(manifest);
+    cases = parseDefectCases(manifest, IN_MEMORY_SOURCES);
     goldens = goldenInputFiles(manifest, new Set(LISTED_FIXTURES.map(f => f.name)));
     files = [...goldens, ...seeds];
   } catch (e) {
@@ -331,7 +341,12 @@ async function load(sel: LoadSelection): Promise<void> {
   let stage = 'build failed';
   try {
     let fixture: ShellFixture;
+    // WP-V3: a defect case with no input file is drawn from its in-memory source, as the golden set draws it.
+    stage = 'generation failed';
+    const inMemory = inMemoryCaseFixture(sel);
+    stage = 'build failed';
     if (sel.kind === 'fixture') fixture = sel.fixture;
+    else if (inMemory) fixture = inMemory;
     else if (sel.kind === 'pinned') {
       // WP-V2: drawn from the generator its pin table's sweep uses, as the suite draws it.
       stage = 'generation failed';
@@ -411,6 +426,9 @@ function renderFixtureNote(sel: Selection): void {
 
 /** Every fixture the selector lists by name: the roster, the gable rises, the Ring conflicts, the port's, the research cases. */
 const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+
+/** WP-V3: the in-memory source of each defect case the golden set ships no input for, derived from the golden set itself. */
+const IN_MEMORY_SOURCES = inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED_FIXTURES);
 
 /** The selector's value for the draft: no roster fixture or case has this name. */
 const DRAFT_OPTION = 'draft';
@@ -540,7 +558,7 @@ function editableName(): string | null {
   if (current.kind === 'fixture') return current.fixture.name;
   if (current.kind === 'file') return current.file.name;
   if (current.kind === 'pinned') return current.pinned.value;
-  return current.kind === 'case' && current.defect.input !== undefined ? current.defect.name : null;
+  return current.kind === 'case' && current.defect.source.kind !== 'none' ? current.defect.name : null;
 }
 
 function renderPanel(): void {
@@ -590,7 +608,7 @@ async function editCurrent(): Promise<void> {
   if (!sel || sel.kind === 'draft') return;
   const mine = selectionToken;
   try {
-    const source = sel.kind === 'fixture' ? sel.fixture : sel.kind === 'pinned' ? pinnedDraftSource(sel.pinned) : await draftFixtureOfFile(sel);
+    const source = sel.kind === 'fixture' ? sel.fixture : sel.kind === 'pinned' ? pinnedDraftSource(sel.pinned) : inMemoryCaseFixture(sel) ?? await draftFixtureOfFile(sel);
     // The selection moved on while the case's file was fetched: this draft is not what is on show any more.
     if (mine !== selectionToken) return;
     const next = editDraftOf(source);

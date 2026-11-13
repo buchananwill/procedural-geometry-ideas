@@ -1,7 +1,32 @@
 // Journal decision 169: the viewer's "Defect cases" group. The cases are the golden manifest's `clean: false` entries,
-// each replayed from its `golden/<name>.input.json`. Pure data: no scene, no DOM, no fetch, and no Node globals (the page
-// reads the manifest and the inputs, and hands them here).
+// each replayed from its `golden/<name>.input.json`. WP-V3: a case the golden set ships no input for (it is not
+// C++-replayable) is built in memory instead, from the pinned case or listed fixture its golden is drawn as
+// (`defect-sources.ts`); only a case with neither cannot be loaded. Pure data: no scene, no DOM, no fetch, and no Node
+// globals (the page reads the manifest and the inputs, and hands them here).
+import type {ShellFixture} from '../fixture.ts';
 import type {Vec3} from '../tags.ts';
+import type {PinnedCase} from './pinned-cases.ts';
+
+/** A case replayed from its committed `golden/<input>`. */
+export interface FileDefectSource { kind: 'file'; input: string }
+
+/** A case built in memory from the pinned case its golden fixture is drawn as, under the case's own name. */
+export interface PinnedDefectSource { kind: 'pinned'; pinned: PinnedCase }
+
+/** A case built in memory from the listed fixture its golden fixture is. */
+export interface FixtureDefectSource { kind: 'fixture'; fixture: ShellFixture }
+
+/** A case with no input file and no in-memory source: it cannot be loaded, for the manifest's `reasons`. */
+export interface NoDefectSource { kind: 'none' }
+
+/** Where a case is built from when it is not read from a file. */
+export type InMemoryDefectSource = PinnedDefectSource | FixtureDefectSource;
+
+/** Where the viewer loads a defect case from. */
+export type DefectSource = FileDefectSource | InMemoryDefectSource | NoDefectSource;
+
+/** The in-memory sources of the golden set's defect cases, by golden name (`inMemorySources`). */
+export type InMemorySources = ReadonlyMap<string, InMemoryDefectSource>;
 
 /** One `clean: false` manifest entry, reduced to what the viewer shows. */
 export interface DefectCase {
@@ -12,10 +37,12 @@ export interface DefectCase {
   violations: string[];
   /** The manifest's pinned build error, for a case whose build throws. */
   error?: string;
-  /** The file under `golden/` the case replays from; absent for a non-replayable case. */
+  /** The manifest's input: the file under `golden/` the golden set ships for it; absent for a non-replayable case. */
   input?: string;
-  /** Why a case with no input file cannot be loaded (the manifest's `reasons`). */
+  /** Why the golden set ships no input for the case (the manifest's `reasons`). */
   reasons: string[];
+  /** Where the viewer loads it from: its input file when it has one, else its in-memory source, else nowhere. */
+  source: DefectSource;
 }
 
 /** A manifest entry's field, as a string, or undefined when it is missing, empty or not a string. Shared with `catalogue.ts`. */
@@ -33,24 +60,31 @@ export const manifestEntries = (manifest: unknown): unknown[] | undefined => {
   return Array.isArray(fixtures) ? fixtures : undefined;
 };
 
+/** A case's source: its input file when the manifest names one, else its in-memory source, else none. */
+const sourceOf = (name: string, input: string | undefined, inMemory: InMemorySources): DefectSource =>
+  (input !== undefined ? {kind: 'file', input} : inMemory.get(name) ?? {kind: 'none'});
+
 /**
- * The defect cases of a golden manifest, in manifest order: every entry with `clean: false`. An entry that is not an
- * object, has no name, or is not marked `clean: false` is left out; a manifest with no `fixtures` list has no cases.
+ * The defect cases of a golden manifest, in manifest order: every entry with `clean: false`, each with its source, an
+ * input-less case's from `inMemory`. An entry that is not an object, has no name, or is not marked `clean: false` is left
+ * out; a manifest with no `fixtures` list has no cases.
  */
-export function parseDefectCases(manifest: unknown): DefectCase[] {
+export function parseDefectCases(manifest: unknown, inMemory: InMemorySources = new Map()): DefectCase[] {
   const fixtures = manifestEntries(manifest);
   if (!fixtures) return [];
   return fixtures.flatMap((raw): DefectCase[] => {
     const e = record(raw);
     const name = text(e?.fixture);
     if (!e || name === undefined || e.clean !== false) return [];
+    const input = text(e.input);
     return [{
       name,
       residueClass: text(e.residueClass) ?? 'unclassified residue',
       violations: strings(e.violations),
       error: text(e.error),
-      input: text(e.input),
+      input,
       reasons: strings(e.reasons),
+      source: sourceOf(name, input, inMemory),
     }];
   });
 }

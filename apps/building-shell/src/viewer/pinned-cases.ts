@@ -46,23 +46,35 @@ export const CUT_OVERSHOOT_KEY = CUT_OVERSHOOT_PROBE.name;
 const entries = <V>(t: PinRecord<string, V>): [key: string, pin: V][] =>
   Object.entries(t).flatMap(([k, v]): [string, V][] => (v === undefined ? [] : [[k, v]]));
 
-/** Every residue table's entries, by table name, in the table's own order. */
-const RESIDUE_TABLES: Readonly<Record<ResidueTableName, [key: string, pin: ResiduePin][]>> = {
-  COURTYARD_DEFECTS: entries(COURTYARD_DEFECTS),
-  U_DEFECTS: entries(U_DEFECTS),
-  SPLIT_COURTYARD_DEFECTS: entries(SPLIT_COURTYARD_DEFECTS),
-  NUDGE_DEFECTS: entries(NUDGE_DEFECTS),
-  PITCH_END_DEFECTS: entries(PITCH_END_DEFECTS),
-  GAP_DEFECTS: entries(GAP_DEFECTS),
-  ROSTER_PITCH_DEFECTS: entries(ROSTER_PITCH_DEFECTS),
-  JUT_CUT_DEFECTS: entries(JUT_CUT_DEFECTS),
-  CUT_OVERSHOOT_DEFECTS: [[CUT_OVERSHOOT_KEY, CUT_OVERSHOOT_DEFECTS]],
-};
+/** A residue table's entries, in the table's own order: each key with its pin. */
+export type ResidueTableEntries = readonly (readonly [key: string, pin: ResiduePin])[];
 
-/** Every conflict table's entries, by table name, in the table's own order: each pin is its conflict lines. */
-const CONFLICT_TABLES: Readonly<Record<ConflictTableName, [key: string, conflicts: readonly string[]][]>> = {
-  GABLE_RISE_CONFLICTS: entries(GABLE_RISE_CONFLICTS),
-  GABLE_RISE_SPLIT_CONFLICTS: entries(GABLE_RISE_SPLIT_CONFLICTS),
+/** A conflict table's entries, in the table's own order: each key with its conflict lines. */
+export type ConflictTableEntries = readonly (readonly [key: string, conflicts: PinOutcome])[];
+
+/** Every pin table's entries, by table name: what `pinnedCasesOf` lists. */
+export interface PinTables {
+  residue: Readonly<Record<ResidueTableName, ResidueTableEntries>>;
+  conflict: Readonly<Record<ConflictTableName, ConflictTableEntries>>;
+}
+
+/** The pin tables of `tests/residue-pins.ts`, every one by its exported name. */
+export const PIN_TABLES: PinTables = {
+  residue: {
+    COURTYARD_DEFECTS: entries(COURTYARD_DEFECTS),
+    U_DEFECTS: entries(U_DEFECTS),
+    SPLIT_COURTYARD_DEFECTS: entries(SPLIT_COURTYARD_DEFECTS),
+    NUDGE_DEFECTS: entries(NUDGE_DEFECTS),
+    PITCH_END_DEFECTS: entries(PITCH_END_DEFECTS),
+    GAP_DEFECTS: entries(GAP_DEFECTS),
+    ROSTER_PITCH_DEFECTS: entries(ROSTER_PITCH_DEFECTS),
+    JUT_CUT_DEFECTS: entries(JUT_CUT_DEFECTS),
+    CUT_OVERSHOOT_DEFECTS: [[CUT_OVERSHOOT_KEY, CUT_OVERSHOOT_DEFECTS]],
+  },
+  conflict: {
+    GABLE_RISE_CONFLICTS: entries(GABLE_RISE_CONFLICTS),
+    GABLE_RISE_SPLIT_CONFLICTS: entries(GABLE_RISE_SPLIT_CONFLICTS),
+  },
 };
 
 /** A residue table's pin of a case: its table and its outcome lines. */
@@ -99,11 +111,15 @@ export type PinnedCase = ResiduePinnedCase | ConflictPinnedCase;
 /** The value a pinned case is listed under. */
 export const pinnedValue = (key: string): PinnedValue => `pinned/${key}`;
 
-/** Every pinned case, grouped: the residue classes in `RESIDUE_CLASS_NAMES` order, then the conflict tables; tables' order within. */
-export const PINNED_CASES: readonly PinnedCase[] = (() => {
+/**
+ * Every case the tables pin, once each, grouped: the residue classes in `RESIDUE_CLASS_NAMES` order, then the conflict
+ * tables; tables' order within. A case any residue table pins is a residue case, grouped by its first residue pin's class,
+ * whatever conflict table pins it too; a case only conflict tables pin is grouped by the first of them.
+ */
+export function pinnedCasesOf(tables: PinTables): PinnedCase[] {
   const byKey = new Map<string, PinnedCase>();
   for (const table of RESIDUE_TABLE_NAMES) {
-    for (const [key, pin] of RESIDUE_TABLES[table]) {
+    for (const [key, pin] of tables.residue[table]) {
       const p: CasePin = {kind: 'residue', table, outcome: pin.outcome};
       const c = byKey.get(key);
       if (c) c.pins.push(p);
@@ -111,7 +127,7 @@ export const PINNED_CASES: readonly PinnedCase[] = (() => {
     }
   }
   for (const table of CONFLICT_TABLE_NAMES) {
-    for (const [key, conflicts] of CONFLICT_TABLES[table]) {
+    for (const [key, conflicts] of tables.conflict[table]) {
       const p: CasePin = {kind: 'conflict', table, outcome: conflicts};
       const c = byKey.get(key);
       if (c) c.pins.push(p);
@@ -120,7 +136,10 @@ export const PINNED_CASES: readonly PinnedCase[] = (() => {
   }
   const order: readonly PinnedCase['group'][] = [...RESIDUE_CLASS_NAMES, ...CONFLICT_TABLE_NAMES];
   return [...byKey.values()].sort((a, b) => order.indexOf(a.group) - order.indexOf(b.group));
-})();
+}
+
+/** Every pinned case of `tests/residue-pins.ts`, as the selector lists them (`pinnedCasesOf`). */
+export const PINNED_CASES: readonly PinnedCase[] = pinnedCasesOf(PIN_TABLES);
 
 /** The selector's label of a pinned case's group. */
 export const pinnedGroupLabel = (c: Pick<ResiduePinnedCase, 'kind' | 'group'> | Pick<ConflictPinnedCase, 'kind' | 'group'>): string =>
