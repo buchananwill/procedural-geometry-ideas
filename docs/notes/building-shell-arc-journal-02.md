@@ -64,6 +64,13 @@ is not repeated here.
 - **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
   [the gable rise findings](./building-shell-gable-rise-findings.md).
 
+**In flight (2026-11-13): WP-G4**, decision 218's fix for F75, dispatched to a fresh delegate (general-purpose,
+Opus) at `da3053a`. The rise's original delegate was resumed for it and failed at once with "Prompt is too long":
+its context was exhausted after WP-G1 to WP-G2.2, and it had changed nothing. WP-G4 measures the affected set
+first, stops if algorithm B's wider piece is plainly the intended roof somewhere, then builds, re-pins and
+re-exports. **When it returns**: a correctness review on its range, then tell `claude-work-ec` the goldens moved
+again.
+
 **Next, in order:**
 
 1. **The user rules on the provisional defaults of decision 204**, each reversible by swapping a named policy or
@@ -442,6 +449,16 @@ ruled" list in the covered-storeys findings. Added this session:
      building, the wall is solved as a hip at the gable's pitch with a rise across its whole length. Gable rise
      decision 5 is amended. **Standing consequence for the arc**: a changed golden is weighed by whether the new
      shape is right, never by the fact of the change. WP-G4 measures the affected set first, then builds.
+219. **Decision 218's rule as the lead wrote it is wrong, and WP-G4 rightly stopped on it; the lead proposes that a
+     gable belongs to the Ring side that asked for it** (the lead, 2026-11-13). The lead's rule keyed on "algorithm
+     B's piece is wider than the wall". F76 shows that is true of 933 walls, among them `SingleStoreyT`, whose
+     wide piece is the intended gable end: Ring 0's E side is gabled along its whole length, and a stem buries
+     its middle. The user's ruling (a wrong golden is not golden) stands; what falls is the lead's predicate.
+     **The proposed principle**: a gable's band is the stretch of the line that Ring sides claim as gable, buried
+     stretches included. `SingleStoreyT`'s band is Ring 0's whole E side. F75's band is Ring 1's S side and no
+     more, because the stretch beyond the inside corner is Ring 0's hip side. This is also the one-path model the
+     lead put to the user: every gable is a piece over its claimed band. **Not adopted. WP-G4.1 measures it,
+     changing no production code, and the user rules.** WP-G4 made no commit.
 
 ## Findings
 
@@ -629,6 +646,20 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
   - This is F59's shape and session 1's CHEEK cases 2d, 3c and 4l ("lines that run on through the footprint"),
     reached now through decision 5's routing. **The same stretch is built two ways depending on whether a
     neighbour makes it a whole wall.**
+- **F76. Algorithm B's gable piece is wider than its wall on 933 of 6,296 all-gable union walls, and always for one
+  reason: an inside corner at an end of the wall** (the WP-G4 delegate at `da3053a`, measurement only, over 5,562
+  cases and 9,911 storeys; scratch files under `wpg4/`; not re-run by the lead). Its copy of `extentOf` matched
+  algorithm B's band on all 6,296.
+  - **What lies on the line beyond the corner** sorts the 933: the winning Ring's own gable side, buried under
+    another Ring (421, including `SingleStoreyT`, U8, Court5); another Ring's buried gable side (49); no Ring side
+    at all, the line crossing another Ring's interior (220); a mix of those (106); **another Ring's hip side, which
+    is F75, 0 in the corpus** and present only in the user's draft.
+  - Every courtyard hole corner is an inside corner, so hole walls are over-represented.
+  - A line cannot leave the footprint and re-enter: `extentOf` stops at the first stretch whose inward side is
+    outside (`algoB.ts:41-50`). No all-gable wall has a segment piece.
+  - **Pinned cases among the 933: 29**, of which 3 are Cheek pins (`Court9` at seed 13), 6 cut-overshoot, 16
+    conflict re-pins, and one each or two of the Court25, U8 and SplitCourt9 classes.
+  - 7 golden fixtures are among them.
   - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
     the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
     140)`.
