@@ -63,8 +63,10 @@ flight. Nothing is pushed. The blow-by-blow is in decisions 196 to 242, and is n
   to 233, 236, 238): accepted at `9646bba`.
 - **The selector lists every hand-authored fixture, the 53 research cases, and the 196 pinned cases, with what each
   builds as words in its label** (F78, F79, decisions 226, 228 to 230, 237, 239, 240, 242): accepted at `958f587`.
-- **The tree's figure, measured by the lead on 2026-11-13 at `958f587`**: 9,591 passed in 43 files, none failed, in
-  306 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
+- **Opposite gables join, and a gable covered by a neighbouring Ring is built** (F80, F81, decisions 243 to 248):
+  accepted at `888c556`. It cost two pinned throws (`s13/Court21`) that the rule itself creates (decision 247).
+- **The tree's figure, measured by the lead on 2026-11-13 at `888c556`**: 9,672 passed in 43 files, none failed, in
+  323 s; `tsc --noEmit` clean. It matches the last delegate's record. The golden drift test is inside that run.
 - **The measurement record**: `apps/building-shell/experiments/gable-rises/` and
   [the gable rise findings](./building-shell-gable-rise-findings.md).
 - **Delegates**: a delegate carried across many packages exhausts its context (the rise's first delegate did, and
@@ -84,6 +86,11 @@ flight. Nothing is pushed. The blow-by-blow is in decisions 196 to 242, and is n
 
 **Next, in order:**
 
+0. **Waiting on the user (decision 247)**: whether Cell laying is taken next, so that `s13/Court21`'s throw is
+   fixed and not pinned. The lead recommends it. Its reproducer is `COVERED_RISE_CELL_CLASH` in
+   `tests/robustness-fixtures.ts`; its pin should first be filed under its own class, not U8. Also for the user
+   to see: the centre-line test for partly facing gables (`OppositeGablesTPartFacing`), and whether a rise that
+   shows no face should cost a document its C++ replayability (decisions 246, 247).
 1. **The user looks at the Cheeks.** Typing "cheek" in the selector's filter lists the 16 fixtures that build one,
    all courtyards (F79). Their rulings decide what "clean" means from here, and whether conflicts and Unclassified
    Edges are in the dangerous class.
@@ -886,6 +893,20 @@ ruled" list in the covered-storeys findings. Added this session:
        with the question of decision 246.
      - **Owed, small**: the `s13/Court21` pins are filed under their own class, named for what is known (a Cell
        clash from covered rises), not under U8.
+248. **WP-V3 is accepted at `888c556`, the branch is green again, and the opposite-gables work is complete for this
+     version** (the lead, 2026-11-13). One commit, ten files under `src/viewer/` and `tests/viewer-*` (the lead
+     checked `git show --stat`); the tree is clean. **The lead ran the suite on this tree**: 9,672 passed in 43
+     files, none failed, in 323 s; typecheck clean.
+     - The 7 viewer tests now derive their expectations from the pin tables and the manifest. The delegate stated
+       what each guarded and how it still does. Not independently reviewed.
+     - **No defect case is unloadable.** One with no input file is built from the pinned case whose outcome array
+       it shares, matched by identity, and its label says where it came from. `Court14Seed7h250` loads from
+       `s7h250/Court14`.
+     - **The selector holds 329 entries; "cheek" finds 17**, the new ones being `OppositeGablesTPartFacing` and
+       `s13h263/Court21`.
+     - **Unmeasured**: the page now imports the golden fixture set at start-up.
+     - **Left on disk**: `D:\wpv3-snapshot\` and `D:\wpv3-snapshot.tar`, the delegate's browser snapshot, whose
+       removal a safety check blocked. The lead did not remove them for it, and told the user.
 
 ## Findings
 
