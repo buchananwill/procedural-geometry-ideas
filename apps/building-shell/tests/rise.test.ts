@@ -9,7 +9,8 @@ import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, buildsARise, cppReplayability} from '.
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {
-  FLOOR_CAP_GAP_CM, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope, risePieces,
+  FLOOR_CAP_GAP_CM, algorithmBBuildsGable, algorithmBSpan, builtRoofReading, claimedWalls, extentOf, hipRoofReading, ridgeSlope, ridgeSlopeReadings,
+  risePieces, slopeInBuilding,
 } from '../src/rise.ts';
 import {solveRoofParts} from '../src/roof/algoB.ts';
 import {ShellBuild, buildShellDetailed, buildShellFromUnion} from '../src/shell.ts';
@@ -33,11 +34,11 @@ const rise = (name: string): ShellFixture => {
 const genusOf = (name: string): number => (name.startsWith('Courtyard') ? 1 : 0);
 
 /**
- * How many rises each fixture builds: FlushT none (its crossbar's hip wins), AdjacentRises two, and
+ * How many rises each fixture builds: FlushT none (its crossbar's hip wins), AdjacentRises two,
  * GableBesideHipSouthWing two (Ring 0's W gable is a rise on the x = 0 wall the wing's hipped W side continues, as
- * before journal decision 220), every other one.
+ * before journal decision 220), RiseFacingRiseWall two (one on each long side), every other one.
  */
-const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2, GableBesideHipSouthWing: 2};
+const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2, GableBesideHipSouthWing: 2, RiseFacingRiseWall: 2};
 
 /**
  * F69 (journal decision 203, WP-G2's brief): the re-tag pass reports a coplanar Wall over a Gable only where an output
@@ -99,11 +100,14 @@ const t = (deg: number): number => Math.tan((deg * Math.PI) / 180);
  */
 type HandWall = ['x' | 'y', number, -1 | 1];
 
+/** A rise with no slope limit (journal decision 231): only its rakes and caps bound it. */
+type NoLimit = 'none';
+
 /**
- * `limit` names every rise's limit wall; `limits` names it per rise, keyed by the line its wall stands on (`y=0`), for a
- * fixture whose rises have different limits.
+ * `limit` names every rise's limit wall, or says it has none; `limits` names it per rise, keyed by the line its wall
+ * stands on (`y=0`), for a fixture whose rises have different limits.
  */
-const INDEPENDENT: Record<string, {limit?: HandWall; limits?: Record<string, HandWall>; at: [number, number]; z: number}> = {
+const INDEPENDENT: Record<string, {limit?: HandWall | NoLimit; limits?: Record<string, HandWall>; at: [number, number]; z: number}> = {
   // A 45° rise over [330, 610] on a 30° hip: the near rake 120 above the plate at x = 450, under the N slope's 259.8.
   MidWallRise: {limit: ['y', 500, -1], at: [450, 50], z: 250 + t(45) * 120},
   // The 60° rake from x = 800, 50 cm in, under the E hip's 150 (decision 10's corner plane).
@@ -133,6 +137,13 @@ const INDEPENDENT: Record<string, {limit?: HandWall; limits?: Record<string, Han
   GableBesideHip: {limit: ['y', 800, -1], at: [900, 20], z: 250 + t(22.5) * 300},
   // With the wing, Ring 0's W gable is a rise on x = 0 too (as before decision 220), limited by Ring 1's E slope.
   GableBesideHipSouthWing: {limits: {'y=0': ['y', 800, -1], 'x=0': ['x', 1200, -1]}, at: [900, 20], z: 250 + t(22.5) * 300},
+  // Journal decision 231: the N wall is gabled along its whole length, so its 30° skeleton face (which gave 490 t(30) =
+  // 282.9 here before) is no limit, and nothing else falls on the walk. The 75° rakes from x = 300 and x = 700 meet at
+  // x = 500, 200 t(75) up, above the 60° S slope's 17.3 at y = 10.
+  RiseFacingGabledWall: {limit: 'none', at: [500, 10], z: 250 + t(75) * 200},
+  // Journal decision 231: the N wall carries a rise of its own, and its 45° hip slope still truncates the 75° rise at its
+  // own wall: 490 at y = 10, as in TruncatedRise. The N rise is limited by the S wall's slope in turn.
+  RiseFacingRiseWall: {limits: {'y=0': ['y', 500, -1], 'y=500': ['y', 0, 1]}, at: [500, 10], z: 250 + 490},
 };
 
 describe('journal decision 209, M1: each rise fixture against hand-named planes and hand-computed heights', () => {
@@ -142,7 +153,10 @@ describe('journal decision 209, M1: each rise fixture against hand-named planes 
 
   it.each(Object.entries(INDEPENDENT))('%s: its limit is the named wall\'s plane, and its top at the named point is the closed form', async (name, want) => {
     const plan = planStorey(rise(name), 0);
-    if (want.limit) {
+    if (want.limit === 'none') {
+      expect(plan.rises?.length).toBeGreaterThan(0);
+      for (const r of plan.rises ?? []) expect(r.limitPlane).toBeUndefined();
+    } else if (want.limit) {
       const [axis, at, inward] = want.limit;
       for (const r of plan.rises ?? []) expect(r.limitPlane).toBe(planeOfWalls(plan, axis, at, inward));
     } else if (want.limits) {
@@ -508,13 +522,67 @@ describe('decisions 12, 14 and 17', () => {
     expect(() => buildsARise(rise('MidWallRise'), () => { throw new Error('a claimed-band throw site'); })).toThrow('a claimed-band throw site');
   });
 
-  // Journal decision 206 (interpretation 6): a rise that no reading of ridgeSlope limits is refused, never built
-  // unlimited. No fixture reaches it; this reaches it by giving the walk no roof at all.
-  it('ridgeSlope refuses, as a PlanRefusal, a rise no reading limits', () => {
+  // Journal decision 231, replacing decision 206's refusal: a rise that no reading of ridgeSlope limits has no slope
+  // limit. This reaches it by giving the walk no roof at all; RiseFacingGabledWall reaches it through production.
+  // Mutation: the refusal restored; then this throws, and RiseFacingGabledWall's plan is refused.
+  it('ridgeSlope gives no slope limit, never a refusal, where no reading finds a falling face', () => {
     const plan = planStorey(rise('MidWallRise'), 0);
     const [r] = plan.rises ?? [];
     const bare = {...plan, roof: {...plan.roof, faces: [], pieces: []}};
-    expect(() => ridgeSlope({plan: bare, wall: r.piece.wall, comp: plan.building.comps[0], rise: r.rise})).toThrow(PlanRefusal);
+    expect(ridgeSlope({plan: bare, wall: r.piece.wall, comp: plan.building.comps[0], rise: r.rise})).toBeUndefined();
+  });
+});
+
+// ---- Journal decision 231: a slope that is not in the finished building does not limit a gable ---------------------
+
+describe('journal decision 231: a slope not in the finished building does not limit a rise', () => {
+  /** The storey wall on the line `axis = at`, facing `inward`, holding the point `s` along it. */
+  const wallAt = (plan: ReturnType<typeof planStorey>, axis: 'x' | 'y', at: number, inward: -1 | 1, s: number) => {
+    const w = plan.building.walls.find(o => (axis === 'y'
+      ? o.a.y === at && o.b.y === at && Math.sign(o.n.y) === inward && Math.min(o.a.x, o.b.x) <= s && s <= Math.max(o.a.x, o.b.x)
+      : o.a.x === at && o.b.x === at && Math.sign(o.n.x) === inward && Math.min(o.a.y, o.b.y) <= s && s <= Math.max(o.a.y, o.b.y)));
+    if (!w) throw new Error(`no wall on ${axis} = ${at} at ${s}`);
+    return w;
+  };
+
+  // The predicate reads how the storey is planned: a wall the solve takes as a gable and algorithm B builds whole.
+  it('the predicate: a wall algorithm B builds as a gable has no hip slope in the building; a hip, a rise\'s wall and a cut have theirs', () => {
+    const gabled = planStorey(rise('RiseFacingGabledWall'), 0);
+    expect(slopeInBuilding(gabled, wallAt(gabled, 'y', 500, -1, 500))).toBe(false);
+    expect(slopeInBuilding(gabled, wallAt(gabled, 'y', 0, 1, 500))).toBe(true);
+    expect(slopeInBuilding(gabled, wallAt(gabled, 'x', 1000, -1, 250))).toBe(true);
+    // A wall carrying a rise on part of its length is a hip in the solve, and keeps its slope.
+    const risen = planStorey(rise('RiseFacingRiseWall'), 0);
+    expect(slopeInBuilding(risen, wallAt(risen, 'y', 500, -1, 500))).toBe(true);
+    // SingleStoreyT's E gable end: two walls, the stem burying the middle, one algorithm B piece over [0, 500]. Both walls
+    // are gabled along their whole length.
+    const t = planStorey(fixtureByName('SingleStoreyT'), 0);
+    expect([wallAt(t, 'x', 1000, -1, 100), wallAt(t, 'x', 1000, -1, 400)].map(w => slopeInBuilding(t, w))).toEqual([false, false]);
+    // A wall gabled along its whole length that journal decision 220 turns into a rise over that length enters the
+    // solve as a hip, and keeps its slope: GableBesideHipSouthWing's y = 0 wall over [600, 1200].
+    const wing = planStorey(rise('GableBesideHipSouthWing'), 0);
+    expect(slopeInBuilding(wing, wallAt(wing, 'y', 0, 1, 900))).toBe(true);
+    // A courtyard's cut is no gable: its two sides keep their slope, the collinear hole wall's.
+    const court = planStorey(rise('CourtyardRiseFacingCut'), 0);
+    const cuts = court.building.walls.filter(w => w.form === 'cut');
+    expect(cuts).toHaveLength(2);
+    expect(cuts.map(w => slopeInBuilding(court, w))).toEqual([true, true]);
+  });
+
+  // Mutation: the predicate removed (every slope built); then the walk takes the gabled N wall's 30° skeleton plane and
+  // the rise's front is truncated at 282.9 (the fixture's INDEPENDENT row fails too).
+  it('RiseFacingGabledWall: the walk passes over the gabled wall\'s face, the built roof offers no falling face, and the rise is its two rakes alone', () => {
+    const plan = planStorey(rise('RiseFacingGabledWall'), 0);
+    const [r] = plan.rises ?? [];
+    const ctx = {plan, wall: r.piece.wall, comp: plan.building.comps[r.piece.wall.comp], rise: r.rise};
+    const north = wallAt(plan, 'y', 500, -1, 500);
+    expect(hipRoofReading(ctx)).toBeUndefined();
+    expect(builtRoofReading(ctx)).toBeUndefined();
+    // With every slope counted as built, the walk is the one before decision 231, and it takes the N wall's plane.
+    expect(ridgeSlopeReadings(() => true).map(reading => reading(ctx))).toEqual([north.plane, undefined]);
+    expect(r.limitPlane).toBeUndefined();
+    expect(r.cap).toBeUndefined();
+    expect(r.piece.planes.map(id => plan.building.planes[id].label)).toEqual(['rake from 300 on y=0 x[0,1000]', 'rake from 700 on y=0 x[0,1000]']);
   });
 });
 

@@ -217,6 +217,11 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  *   on the line y = 0, whose stretch [0, 600] is Ring 0's hipped S side. Without the wing the wall is mixed and the
  *   gable is a rise over [600, 1200]. The wing buries [0, 600], so the wall is all gable, and algorithm B's piece would
  *   span [0, 1200]; the claimed band is [600, 1200], so by journal decision 220 it is the same symmetric rise.
+ * - `RiseFacingGabledWall`: a 75 degree rise on a 60 degree hip, facing a wall gabled along its whole length at 30.
+ *   That wall's skeleton face is no part of the built roof, so by journal decision 231 it does not limit the rise, and
+ *   nothing else does: the rise's ridge runs back at its apex until it dies into the main slope.
+ * - `RiseFacingRiseWall`: a 75 degree rise facing a wall that carries a 60 degree rise of its own. That wall's hip slope
+ *   is still in the finished building (journal decision 231), so it truncates the 75 degree rise as `TruncatedRise`'s.
  */
 export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
@@ -240,6 +245,8 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('BuriedRise', [ring(R, 0, 1, 45, {S: gableRun(400, 600, 75)}), ring([300, 0, 700, 300], 1, 1, 45)]),
     fixture('GableBesideHip', besideHip),
     fixture('GableBesideHipSouthWing', [...besideHip, ring([0, -400, 600, 0], 0, 1, 22.5)]),
+    fixture('RiseFacingGabledWall', [ring(R, 0, 1, 60, {N: {form: 'gable', deg: 30}, S: gableRun(300, 700, 75)})]),
+    fixture('RiseFacingRiseWall', [ring(R, 0, 1, 45, {N: gableRun(400, 600, 60), S: gableRun(300, 700, 75)})]),
   ];
 })();
 

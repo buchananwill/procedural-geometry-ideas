@@ -5,13 +5,14 @@
 //   two rakes plus the limit and cap planes.
 // - Decision 9: every plane the rise adds takes an existing plane's id when it coincides, keyed as `finishBuilding` keys.
 // - Decision 10: at a convex corner the rise takes the end wall's plane as its rake (algorithm B's `endWall`).
-// - Decision 11: the limit is a named policy (`RISE_LIMIT_POLICIES`); `ridgeSlope` is the only one.
+// - Decision 11: the limit is a named policy (`RISE_LIMIT_POLICIES`); `ridgeSlope` is the only one. As amended by journal
+//   decision 231, its walk passes over a slope that is not in the finished building (`slopeInBuilding`), and a rise it
+//   finds no slope for has no slope limit.
 // - Decision 12: the caps are named policies (`RISE_CAPS`); the lowest applies, and a cap at or below the plate builds
 //   no piece.
 // Every default here is provisional until the user confirms (journal decision 204), so each is one named policy or
 // constant, replaceable without touching its neighbours.
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {PlanRefusal} from './errors.ts';
 import {RiseLimit, ShellFixture, StoreyRing, storeyRings, storeysOf} from './fixture.ts';
 import {GableRise, LineId, UnionWall, WallLine, claimedBands, tanDeg} from './ring-forms.ts';
 import type {Piece} from './roof/algoB.ts';
@@ -19,10 +20,11 @@ import {Building, Comp, Plane, Pt, Wall, dot, planeAt, pointInPoly, sub, wallLab
 import type {StoreyPlan} from './storey.ts';
 
 /**
- * One rise as built: the rise, its piece, the plane its limit policy chose, and the cap that applies, if any, by its
- * height above the plate and its name (journal decision 209, N1).
+ * One rise as built: the rise, its piece, the plane its limit policy chose (absent where the rise has no slope limit,
+ * journal decision 231), and the cap that applies, if any, by its height above the plate and its name (journal decision
+ * 209, N1).
  */
-export interface RisePiece { rise: GableRise; piece: Piece; limitPlane: number; capCm?: number; cap?: RiseCapName }
+export interface RisePiece { rise: GableRise; piece: Piece; limitPlane?: number; capCm?: number; cap?: RiseCapName }
 
 /** Decision 12 (journal decision 204): the floor cap stands this far below an overhanging storey's floor. */
 export const FLOOR_CAP_GAP_CM = 1;
@@ -244,19 +246,57 @@ function lineCuts(o: Pt, n: Pt, poly: readonly Pt[]): number[] {
 /** Whether `p` lies strictly inside an island's true footprint: inside its outer loop and outside every hole, off both. */
 const insideIsland = (comp: Comp, p: Pt): boolean => inPoly(p, comp.outer, false) && !comp.holes.some(h => inPoly(p, h, true));
 
-/** The skeleton's faces of one island: their planes and polygons, the walk's hip roof. */
-interface FacePoly { plane: number; poly: Pt[] }
+/**
+ * The skeleton's faces of one island: their planes and polygons, the walk's hip roof, and whether each face's slope is
+ * in the finished building (`SlopeInBuilding`, journal decision 231).
+ */
+interface FacePoly { plane: number; poly: Pt[]; built: boolean }
 
 /**
- * The plane of the hip roof's face at `p`: a face holding `p` in its interior, else one holding it on its boundary (a
- * walk along a ridge or a cut runs on two faces' boundary, and both rise or fall alike along it), the lowest plane id
- * among equals.
+ * Journal decision 231: whether the hip slope of a storey wall, its skeleton face, is in the finished building, read
+ * from how the storey is planned.
  */
-function hipSurface(faces: readonly FacePoly[]): Surface {
+export type SlopeInBuilding = (plan: StoreyPlan, wall: Wall) => boolean;
+
+/** Whether one of algorithm B's gable pieces stands on `wall`'s line, facing its way, over the wall's whole span. */
+function pieceCovers(piece: Piece, wall: Wall): boolean {
+  const p = piece.wall;
+  if (p.form !== 'gable' || dot(p.n, wall.n) < 0.5 || alongX(p) !== alongX(wall)) return false;
+  if (Math.abs((alongX(wall) ? p.a.y - wall.a.y : p.a.x - wall.a.x)) > ALONG_EPS) return false;
+  const [lo, hi] = spanOf(wall);
+  return piece.bandLo <= lo + ALONG_EPS && piece.bandHi >= hi - ALONG_EPS;
+}
+
+/**
+ * Journal decision 231, the one predicate: **a wall the roof solve takes as a gable, and one of algorithm B's pieces
+ * builds over its whole span, has no hip slope in the finished building**, because the gable stands in its place. Every
+ * other wall keeps its slope: a hip; a hip carrying rises, on part of its length or (journal decision 220) on all of it,
+ * since it enters the solve as a hip; and a courtyard's cut, which is no gable, its plane the collinear hole wall's or
+ * the island's steepest. A whole-wall gable whose piece spans more than the wall (past an inside corner) covers it too.
+ */
+export const slopeInBuilding: SlopeInBuilding = (plan, wall) => !(wall.form === 'gable' && plan.roof.pieces.some(p => pieceCovers(p, wall)));
+
+/**
+ * The hip roof's face at `p`: a face holding `p` in its interior, else one holding it on its boundary (a walk along a
+ * ridge or a cut runs on two faces' boundary, and both rise or fall alike along it); among those, a face whose slope is
+ * built before one whose slope is not, then the lowest plane id.
+ */
+function hipFace(faces: readonly FacePoly[]): (p: Pt) => FacePoly | undefined {
   return p => {
     const strict = faces.filter(f => inPoly(p, f.poly, false));
     const held = strict.length ? strict : faces.filter(f => onBoundary(p, f.poly));
-    return held.length ? Math.min(...held.map(f => f.plane)) : undefined;
+    const built = held.filter(f => f.built);
+    const pick = built.length ? built : held;
+    return pick.length ? pick.reduce((m, f) => (f.plane < m.plane ? f : m)) : undefined;
+  };
+}
+
+/** The plane of the hip roof's face at `p` where that face's slope is built; undefined where it is not (journal decision 231). */
+function hipSurface(faces: readonly FacePoly[]): Surface {
+  const face = hipFace(faces);
+  return p => {
+    const f = face(p);
+    return f?.built ? f.plane : undefined;
   };
 }
 
@@ -269,19 +309,22 @@ function pieceRect(b: Building, piece: Piece): Pt[] {
 
 /**
  * The roof as built before any rise (decision 11's fallback): the hip roof raised by the storey's own pieces (its
- * whole-wall gables and its cut), each the lowest of its planes over its region, the highest surface winning.
+ * whole-wall gables and its cut), each the lowest of its planes over its region, the highest surface winning, the
+ * lowest plane id among equals. Journal decision 231: a piece level with a hip face whose slope `SlopeInBuilding` says
+ * is not built wins, since the piece stands there. Where no piece reaches such a face, as where a gable's piece stops at
+ * its far wall short of the face's depth, the face is the roof as built, and the surface gives its plane.
  */
 function builtSurface(b: Building, comp: Comp, faces: readonly FacePoly[], pieces: readonly Piece[]): Surface {
-  const hip = hipSurface(faces);
+  const hip = hipFace(faces);
   return p => {
     const base = hip(p);
     if (base === undefined) return undefined;
-    let best = base, h = planeAt(b.planes[base], p);
+    let best = base.plane, h = planeAt(b.planes[base.plane], p), unbuiltBase = !base.built;
     for (const piece of pieces) {
       if (!inPoly(p, pieceRect(b, piece), true) || !inPoly(p, comp.outer, true)) continue;
       const id = piece.planes.reduce((m, k) => (planeAt(b.planes[k], p) < planeAt(b.planes[m], p) ? k : m));
       const v = planeAt(b.planes[id], p);
-      if (v > h + WALK_EPS || (Math.abs(v - h) <= WALK_EPS && id < best)) { best = id; h = v; }
+      if (v > h + WALK_EPS || (Math.abs(v - h) <= WALK_EPS && (unbuiltBase || id < best))) { best = id; h = v; unbuiltBase = false; }
     }
     return best;
   };
@@ -315,7 +358,8 @@ function walk(b: Building, comp: Comp, o: Pt, n: Pt, polys: readonly (readonly P
     const p = {x: o.x + n.x * m, y: o.y + n.y * m};
     if (!insideIsland(comp, p)) return undefined;
     const id = surface(p);
-    // The faces tile the footprint, so a stretch inside it that no face holds is a sliver of round-off: it is passed over.
+    // The faces tile the footprint, so a stretch inside it that no face holds is a sliver of round-off; a stretch whose
+    // face's slope is not built (journal decision 231) has no plane either. Both are passed over.
     if (id === undefined) continue;
     const pl = b.planes[id];
     if (pl.gx * n.x + pl.gy * n.y < -1e-9) return id;
@@ -329,50 +373,74 @@ export interface LimitContext { plan: StoreyPlan; wall: Wall; comp: Comp; rise: 
 /** One reading of `ridgeSlope`'s walk: the plane it finds, or undefined. */
 export type RidgeSlopeReading = (ctx: LimitContext) => number | undefined;
 
-function islandFaces(ctx: LimitContext): FacePoly[] {
-  return ctx.plan.roof.faces.filter(f => f.wall.comp === ctx.wall.comp).map(f => ({plane: f.wall.plane, poly: f.poly}));
+/** The island's skeleton faces, each marked by whether `slopeIn` says its slope is in the finished building. */
+function islandFaces(ctx: LimitContext, slopeIn: SlopeInBuilding): FacePoly[] {
+  return ctx.plan.roof.faces.filter(f => f.wall.comp === ctx.wall.comp).map(f => ({plane: f.wall.plane, poly: f.poly, built: slopeIn(ctx.plan, f.wall)}));
 }
 
 /** The walk's start, the middle of the band on the wall's line, and its direction, inward. */
 const walkStart = (ctx: LimitContext): [Pt, Pt] => [atAlong(ctx.wall, (ctx.rise.lo + ctx.rise.hi) / 2, 0), ctx.wall.n];
 
-/** Decision 11 (journal decision 204, F70): the walk over the solved hip roof, no rise added. */
-export const hipRoofReading: RidgeSlopeReading = ctx => {
-  const b = ctx.plan.building, faces = islandFaces(ctx);
+/**
+ * Decision 11 (journal decisions 204 and 231, F70): the walk over the solved hip roof, no rise added, passing over every
+ * face whose slope `slopeIn` says is not in the finished building.
+ */
+export const hipRoofReadingOf = (slopeIn: SlopeInBuilding): RidgeSlopeReading => ctx => {
+  const b = ctx.plan.building, faces = islandFaces(ctx, slopeIn);
   const [o, n] = walkStart(ctx);
   return walk(b, ctx.comp, o, n, [...faces.map(f => f.poly), ctx.comp.outer, ...ctx.comp.holes], faces.map(f => f.plane), hipSurface(faces));
 };
 
-/** Decision 11's fallback (journal decision 204): the same walk over the roof as built before any rise. */
-export const builtRoofReading: RidgeSlopeReading = ctx => {
-  const b = ctx.plan.building, faces = islandFaces(ctx);
+/**
+ * Decision 11's fallback (journal decisions 204 and 231): the same walk over the roof as built before any rise. It
+ * returns the plane of a hip face whose slope `slopeIn` says is not built only where no piece stands level with or above
+ * that face, so only where that slope is in the finished building after all.
+ */
+export const builtRoofReadingOf = (slopeIn: SlopeInBuilding): RidgeSlopeReading => ctx => {
+  const b = ctx.plan.building, faces = islandFaces(ctx, slopeIn);
   const pieces = ctx.plan.roof.pieces.filter(p => p.wall.comp === ctx.wall.comp);
   const [o, n] = walkStart(ctx);
   const polys = [...faces.map(f => f.poly), ...pieces.map(p => pieceRect(b, p)), ctx.comp.outer, ...ctx.comp.holes];
   return walk(b, ctx.comp, o, n, polys, [...faces.map(f => f.plane), ...pieces.flatMap(p => p.planes)], builtSurface(b, ctx.comp, faces, pieces));
 };
 
-/** `ridgeSlope`'s readings, in order: the first that finds a plane gives the limit. */
-export const RIDGE_SLOPE_READINGS: readonly RidgeSlopeReading[] = [hipRoofReading, builtRoofReading];
+/** `ridgeSlope`'s readings under one reading of which slopes are built, in order: the first that finds a plane gives the limit. */
+export const ridgeSlopeReadings = (slopeIn: SlopeInBuilding): readonly RidgeSlopeReading[] => [hipRoofReadingOf(slopeIn), builtRoofReadingOf(slopeIn)];
 
-/** A limit policy (decision 11): the plane that bounds a rise besides its rakes. */
-export type LimitPolicy = (ctx: LimitContext) => number;
+/** `ridgeSlope`'s readings, under journal decision 231's predicate. */
+export const RIDGE_SLOPE_READINGS: readonly RidgeSlopeReading[] = ridgeSlopeReadings(slopeInBuilding);
+
+/** Decision 11 (journal decisions 204 and 231): the walk over the hip roof, the first of `RIDGE_SLOPE_READINGS`. */
+export const hipRoofReading: RidgeSlopeReading = RIDGE_SLOPE_READINGS[0];
+
+/** Decision 11's fallback (journal decisions 204 and 231): the walk over the built roof, the second of `RIDGE_SLOPE_READINGS`. */
+export const builtRoofReading: RidgeSlopeReading = RIDGE_SLOPE_READINGS[1];
 
 /**
- * Decision 11 (journal decision 204, F70): no point of the rise stands above the roof slope just beyond the main ridge
- * its own ridge runs into, extended back to its wall. Read by `RIDGE_SLOPE_READINGS`; a rise none of them limits is
- * refused as a `PlanRefusal` (journal decision 206), never built unlimited.
+ * A limit policy (decision 11): the plane that bounds a rise besides its rakes, or undefined where the rise has no slope
+ * limit and only its caps bound it (journal decision 231).
+ */
+export type LimitPolicy = (ctx: LimitContext) => number | undefined;
+
+/** A limit policy for each name of `RISE_LIMITS`. */
+export type LimitPolicies = Readonly<Record<RiseLimit, LimitPolicy>>;
+
+/**
+ * Decision 11 (journal decisions 204 and 231, F70): no point of the rise stands above the roof slope just beyond the main
+ * ridge its own ridge runs into, extended back to its wall; a slope that is not in the finished building is no such
+ * slope. Read by `RIDGE_SLOPE_READINGS`. **A rise none of them limits has no slope limit** (journal decision 231, which
+ * replaces decision 206's `PlanRefusal`): its rakes and caps alone bound it.
  */
 export const ridgeSlope: LimitPolicy = ctx => {
   for (const reading of RIDGE_SLOPE_READINGS) {
     const id = reading(ctx);
     if (id !== undefined) return id;
   }
-  throw new PlanRefusal(`the rise [${ctx.rise.lo}, ${ctx.rise.hi}] on ${wallLabel(ctx.wall)}: no reading of ridgeSlope finds a falling face on its walk (gable rise decision 11)`);
+  return undefined;
 };
 
 /** Every limit policy by name (decision 11). A second policy is one more entry. */
-export const RISE_LIMIT_POLICIES: Readonly<Record<RiseLimit, LimitPolicy>> = {ridgeSlope};
+export const RISE_LIMIT_POLICIES: LimitPolicies = {ridgeSlope};
 
 // ---- Caps (decision 12) --------------------------------------------------------------------------------------------
 
@@ -446,9 +514,10 @@ function riseWall(b: Building, line: WallLine, rise: GableRise): Wall {
  * Decisions 8 to 12: one storey's rises as pieces, from its union walls' `rises`, each beside the storey's own pieces
  * and built by the unchanged `gablePiece`. A rise whose lowest cap is at or below its plate builds no piece. Every plane
  * a rise adds is keyed into the storey's Building (decision 9). The limit reads the storey's roof without any rise, so
- * rises never limit one another (journal decision 204).
+ * rises never limit one another (journal decision 204); a rise its policy gives no limit carries only its rakes and caps
+ * (journal decision 231). `policies` is the policy table, `RISE_LIMIT_POLICIES` unless a caller swaps it.
  */
-export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly UnionWall[]): RisePiece[] {
+export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly UnionWall[], policies: LimitPolicies = RISE_LIMIT_POLICIES): RisePiece[] {
   const b = plan.building;
   const book = planeBook(b);
   const out: RisePiece[] = [];
@@ -468,8 +537,8 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
       const lo = corner(rise.lo, 1), hi = corner(rise.hi, -1);
       use(lo ? lo.plane : book.plane(wall.comp, x ? t : 0, x ? 0 : t, -t * rise.lo, `rake from ${rise.lo} on ${wallLabel(wall)}`));
       use(hi ? hi.plane : book.plane(wall.comp, x ? -t : 0, x ? 0 : -t, t * rise.hi, `rake from ${rise.hi} on ${wallLabel(wall)}`));
-      const limitPlane = RISE_LIMIT_POLICIES[rise.limit]({plan, wall, comp, rise});
-      use(limitPlane);
+      const limitPlane = policies[rise.limit]({plan, wall, comp, rise});
+      if (limitPlane !== undefined) use(limitPlane);
       const far = farWall(comp, wall, rise.lo, rise.hi);
       const farDist = far ? dot(sub(far.a, wall.a), wall.n) : Infinity;
       const reachD = Math.min(farDist, bboxReach(b, wall));
@@ -482,7 +551,7 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
       if (won && won.capCm <= SHELL_TOLERANCE_CM) continue;
       if (won) use(book.plane(wall.comp, 0, 0, won.capCm, `cap ${won.capCm} on ${wallLabel(wall)}`));
       const piece: Piece = {wall, bandLo: rise.lo, bandHi: rise.hi, farDist, planes, label: `rise [${rise.lo},${rise.hi}] of ${wallLabel(wall)} at ${rise.deg}`};
-      out.push(won ? {rise, piece, limitPlane, ...won} : {rise, piece, limitPlane});
+      out.push({rise, piece, ...(limitPlane !== undefined ? {limitPlane} : {}), ...(won ?? {})});
     }
   }
   return out;
