@@ -227,7 +227,20 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  *   gable there, showing as a second gable on it (journal decision 233, the user: exactly correct for these inputs).
  * - `RiseBeforeTStemBarRisen`: `RiseBeforeTStem` with a rise on each of the bar's two N walls. Those walls keep their
  *   hip slope (journal decision 231), so the bar's N slope still limits the S rise; were it passed over, the walk would
- *   go on into the stem and take its end wall's slope.
+ *   go on into the stem and take its end wall's slope. Neither N rise stands over the S rise's walk line (x = 500), so
+ *   journal decision 243's rule 1 leaves that limit as it was.
+ * - `OppositeGablesT65`, `OppositeGablesT75`, `OppositeGablesTCovered`: the user's drafts of journal F80, a crossbar
+ *   `[0,0,1000,400]` (S and N at 60, E and W at 22.5) and a stem `[400,400,600,1000]` at 45, with gable stretches on the
+ *   crossbar's S and N sides facing each other. Over x [400, 650] at 65 and at 75, each rise's walk line lies under the
+ *   other's gable, so neither slope limits (journal decision 243, rule 1) and each runs to the opposite wall (rule 2):
+ *   the ridge is continuous from one gable to the other. Over x [400, 600] at 75 the N stretch lies wholly on the stem's
+ *   S side, on no union wall, and is built all the same (rule 3); it stands on the bar's N wall [0, 400], the nearer
+ *   of the two on its line.
+ * - `OppositeGablesTUnequal`: the 75 degree S stretch facing a 60 degree N one over the same x [400, 650]. Neither
+ *   limits the other, so the taller S rise runs to the N wall and shows above the N gable there.
+ * - `OppositeGablesTPartFacing`: an S stretch over x [400, 650] facing an N one over x [450, 900], both 75. The S walk
+ *   line (x = 525) lies under the N gable, so the S rise runs to the N wall; the N walk line (x = 675) does not lie under
+ *   the S gable, so the S wall's slope limits the N rise as before.
  */
 export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
@@ -235,6 +248,12 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const court = (sides: Record<number, RingSides>): FixtureRing[] => COURTYARD_RECTS.map((r, i) => ring(r, 0, 1, 30, sides[i] ?? {}));
   // Journal F75: the user's drafts, made in the editor (the third Ring is a two-storey tower on storeys 1 and 2).
   const besideHip = [ring([0, 0, 600, 600], 0, 1, 22.5, {S: {form: 'hip'}, W: gable}), ring([600, 0, 1200, 800], 0, 1, 22.5, {S: gable}), ring([200, 0, 400, 200], 1, 2, 45)];
+  // Journal F80: the crossbar's S and N sides at 60 with one gable run each, given in world x; the N side runs from x = 1000.
+  const sideAt60 = (from: number, to: number, deg: number): SideForm => ({form: 'hip', deg: 60, runs: [{from, to, form: 'gable', deg}]});
+  const oppositeT = (s: readonly [number, number, number], n: readonly [number, number, number]): FixtureRing[] => [
+    ring([0, 0, 1000, 400], 0, 1, 60, {S: sideAt60(s[0], s[1], s[2]), N: sideAt60(1000 - n[1], 1000 - n[0], n[2]), E: {form: 'hip', deg: 22.5}, W: {form: 'hip', deg: 22.5}}),
+    ring([400, 400, 600, 1000], 0, 1, 45),
+  ];
   return [
     fixture('MidWallRise', [ring(R, 0, 1, 30, {S: gableRun(330, 610, 45)})]),
     fixture('CornerRise', [ring(R, 0, 1, 45, {S: gableRun(800, 1000, 60)})]),
@@ -258,6 +277,11 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
       ring([0, 0, 1000, 400], 0, 1, 45, {S: gableRun(400, 600, 75), N: {form: 'hip', runs: [{from: 100, to: 300, form: 'gable', deg: 45}, {from: 700, to: 900, form: 'gable', deg: 45}]}}),
       ring([400, 400, 600, 1000], 0, 1, 45),
     ]),
+    fixture('OppositeGablesT65', oppositeT([400, 650, 65], [400, 650, 65])),
+    fixture('OppositeGablesT75', oppositeT([400, 650, 75], [400, 650, 75])),
+    fixture('OppositeGablesTCovered', oppositeT([400, 600, 75], [400, 600, 75])),
+    fixture('OppositeGablesTUnequal', oppositeT([400, 650, 75], [400, 650, 60])),
+    fixture('OppositeGablesTPartFacing', oppositeT([400, 650, 75], [450, 900, 75])),
   ];
 })();
 

@@ -6,7 +6,7 @@ import {selectCut, spliceCourtyard} from './courtyard.ts';
 import {ShellFixture, StoreyRing, storeyRings} from './fixture.ts';
 import {Wasm} from './manifold.ts';
 import {UnionWall, selPicks, storeyLoops, tanDeg, unionWallForms, wallSel} from './ring-forms.ts';
-import {RisePiece, claimedWalls, risePieces} from './rise.ts';
+import {CoveredRise, RisePiece, claimedWalls, risePieces} from './rise.ts';
 import {Piece, RoofParts, solveRoofParts} from './roof/algoB.ts';
 import {
   Building, Comp, Plane, Pt, Rect, Sel, Wall, buildFromRects, finishBuilding, planeAt, polyArea, wallLabel,
@@ -88,21 +88,25 @@ export function storeyBuilding(rings: StoreyRing[]): Building {
   return storeyForms(rings).building;
 }
 
-/** A storey's Building and the union walls it was derived from, whose `rises` gable rise decision 8 builds. */
-export interface StoreyForms { building: Building; walls: UnionWall[] }
+/**
+ * A storey's Building and the union walls it was derived from, whose `rises` gable rise decision 8 builds, and its
+ * covered rises: claimed gable bands on no union wall (journal decision 243, rule 3).
+ */
+export interface StoreyForms { building: Building; walls: UnionWall[]; covered: CoveredRise[] }
 
 /**
  * `storeyBuilding`, with the union walls it read. The walls are derived per extent (`unionWallForms`), then gable rise
- * decision 5 as amended by journal decision 220 decides which all-gable walls algorithm B keeps (`claimedWalls`), which
- * reads algorithm B's span off the Building those walls give. Where a wall changes form the Building is built again.
+ * decision 5 as amended by journal decisions 220 and 243 decides which all-gable walls algorithm B keeps and which bands
+ * are covered rises (`claimedWalls`), which reads algorithm B's span off the Building those walls give. Where a wall
+ * changes form the Building is built again.
  */
 export function storeyForms(rings: StoreyRing[]): StoreyForms {
   const rects = rings.map(r => r.ring.rect);
   const loops = storeyLoops(rects);
   const derived = unionWallForms(rings, loops);
   const first = buildingOf(rings, rects, loops, derived);
-  const {walls, changed} = claimedWalls(rings, derived, first);
-  return {building: changed ? buildingOf(rings, rects, loops, walls) : first, walls};
+  const {walls, changed, covered} = claimedWalls(rings, derived, first);
+  return {building: changed ? buildingOf(rings, rects, loops, walls) : first, walls, covered};
 }
 
 /**
@@ -172,9 +176,9 @@ export function planStorey(f: ShellFixture, n: number): StoreyPlan {
   }
   const plan = planChecked(f.name, n, n * f.storeyHeight, (n + 1) * f.storeyHeight, forms.building);
   // Gable rise decision 8: a storey with no rise carries none, so its plan is exactly what it was before rises.
-  if (!forms.walls.some(w => w.rises?.length)) return plan;
+  if (!forms.walls.some(w => w.rises?.length) && !forms.covered.length) return plan;
   try {
-    plan.rises = risePieces(f, plan, forms.walls);
+    plan.rises = risePieces(f, plan, forms.walls, forms.covered);
   } catch (e) {
     // A plan refusal keeps its class through the label (journal decisions 146 and 206).
     const message = `${f.name} storey ${n}: ${errorMessage(e)}`;

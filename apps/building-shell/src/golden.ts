@@ -9,10 +9,9 @@ import {RING_SIDES, storeyRings, storeysOf} from './fixture.ts';
 import type {ShellFixture, StoreyRing} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
 import {ringSideLines, storeyLoops, unionWallForms} from './ring-forms.ts';
-import type {UnionWall} from './ring-forms.ts';
 import type {ShellReport} from './shell.ts';
 import {storeyForms} from './storey.ts';
-import type {RawPart} from './storey.ts';
+import type {RawPart, StoreyForms} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
 import type {ShellUnion} from './union.ts';
 import {readInput, writeInput} from './wire/input-adapter.ts';
@@ -106,23 +105,27 @@ export const NOT_ONE_WHOLE_RUN = 'a side not one run from 0 to its length';
 /** Gable rise decision 17: the reason `cppReplayability` gives for a document that builds a gable rise. */
 export const BUILDS_A_RISE = 'a gable rise, which the C++ port does not build yet (gable rise decision 17)';
 
+/** What `buildsARise` reads of a storey's planned forms: its union walls and its covered rises. */
+export type RiseForms = Pick<StoreyForms, 'walls' | 'covered'>;
+
 /**
  * Gable rise decision 17: whether any storey of `f` builds a rise. A rise reached through flush Rings has every side
  * one whole run, so `isOneWholeRun` alone would offer it as replayable; so has an all-gable wall that journal decision
  * 220 turns into a rise. Each storey is read in one of three ways (journal decision 222, L1, as ruled in decision 224):
  * - **The walls the pipeline plans from** (`forms`, `storeyForms` by default): the storey builds a rise where one of
- *   them carries one.
+ *   them carries one, or where it has a covered rise (journal decision 243, rule 3).
  * - **On a `PlanRefusal` there, the per-extent derivation alone** (`unionWallForms`), as before decision 220; a refusal
  *   from that too reads as no rise, the refusal being `readInput`'s and the build's to report.
  * - **Any other error propagates.** Decision 220 added throw sites (`algorithmBSpan`, a second `buildingOf`); a document
  *   failing at one must break the export loudly, never be read as building no rise and so offered to the C++ replay.
  * `forms` is a parameter only so a test can reach each branch.
  */
-export function buildsARise(f: ShellFixture, forms: (rings: StoreyRing[]) => {walls: readonly UnionWall[]} = storeyForms): boolean {
+export function buildsARise(f: ShellFixture, forms: (rings: StoreyRing[]) => RiseForms = storeyForms): boolean {
   return storeysOf(f).some(n => {
     const rings = storeyRings(f, n);
     try {
-      return forms(rings).walls.some(w => w.rises?.length);
+      const planned = forms(rings);
+      return planned.walls.some(w => w.rises?.length) || planned.covered.length > 0;
     } catch (e) {
       if (!(e instanceof PlanRefusal)) throw e;
     }
