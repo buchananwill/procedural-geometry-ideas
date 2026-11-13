@@ -6,15 +6,30 @@ status: active
 
 # Building shell arc: session 2 journal
 
-**This is the head of the thread**, continuing [session 1](./building-shell-arc-journal.md). Decisions continue at
-**187** and findings at **F57**.
+**This is the head of the thread until session 3 opens its own journal**, continuing
+[session 1](./building-shell-arc-journal.md). This session's decisions run from **187 to 259** and its findings from
+**F57 to F83**. **Session 2 closed on 2026-11-13 (decision 259). Session 3 continues decisions at 260 and findings
+at F84**, in a new file `building-shell-arc-journal-03.md`, and marks this one as no longer the head.
 
 ## Reading order for a fresh context
 
-Read §1 and §4 here, then the two proposals §4 names. **Do not read the session 1 journal end to end** (3,000
-lines): fetch a decision or finding from it by number only when something here cites it. Read
-[the covered-storeys findings](./building-shell-covered-storeys-and-sections-findings.md) for its "Rulings so far"
-only.
+**Read §4 in full**: the state, how the user is steering, and the next work. It is about 70 lines and is the whole
+of what a new session needs to start. Then §3, the operational manual, and §5, the open items.
+
+**Do not read this journal's Decisions and Findings end to end** (over 1,200 lines). Fetch one by its number when
+§4 or a brief cites it. **Do not read the session 1 journal** (3,000 lines) except by number.
+
+The contracts, each read end to end only by the session or delegate that works on it:
+
+- [the gable rise proposal](./building-shell-gable-rise-proposal.md): 22 decisions, amended in place many times.
+  The amendments are the current text.
+- [the per-stretch gable settings spec](./building-shell-gable-stretch-settings-decisions.md): 25 decisions.
+- [the viewer editing proposal](./building-shell-viewer-editing-proposal.md): 25 decisions and three dated
+  amendments.
+- [the gable rise findings](./building-shell-gable-rise-findings.md): the measurements, with their probes under
+  `apps/building-shell/experiments/gable-rises/`.
+- [the covered-storeys findings](./building-shell-covered-storeys-and-sections-findings.md): its "Rulings so far"
+  only. Its section model has not been taken up.
 
 ## 1. The arc's charter
 
@@ -29,6 +44,12 @@ session produces a **proposal for each**, with the lead onboarding through deleg
 
 The vision is still the spec's four-step model: every storey built alone, stacked, one union on raw geometry, Cells
 only on the final faces.
+
+**What the charter became.** The user accepted both proposals on the first day, and both were built overnight
+(decisions 192, 196, 200). On the second day the user tried the editor, and the session turned into the user
+finding wrong roofs by building them and the lead tracing each to a rule and changing it. The charter's second
+item is now wider than "a gable on part of a wall": it is that the roof's rules apply consistently whatever
+surrounds a gable, and that what has no objective answer is the author's setting (§4, "How the user is steering").
 
 ## 2. State as at bootstrap
 
@@ -64,7 +85,8 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 **State at 2026-11-13, at the end of the user's first day with the editor.** Both features of the charter are built
 on the arc branch, and the user has steered a day of changes by building cases in the editor. Nothing is in flight.
-Nothing is pushed. The blow-by-blow is in decisions 196 to 258, and is not repeated here.
+Nothing is pushed: every commit since `6b4c80b` is local. The blow-by-blow is in decisions 196 to 259, and is not
+repeated here.
 
 - **The editor** (decisions 197 to 202) and **its stretches** (212, 214 to 217): accepted at `56e1c1b`.
 - **The gable rise in the pipeline and the wire** (decisions 203 to 211, 213): accepted at `be16d6d`.
@@ -131,7 +153,10 @@ Nothing is pushed. The blow-by-blow is in decisions 196 to 258, and is not repea
 8. **Conflict counts are asserted only for some fixtures** (decision 238), and `Court21`'s pin class is inferred
    from its error text (decision 247). Both wait on item 3.
 9. **Re-run the full suite and the typecheck after any further change**, before a merge.
-10. **Merge to `main` when the user agrees.** The branch name no longer describes its contents.
+10. **Push and merge to `main` when the user agrees.** The branch name no longer describes its contents.
+11. **When a C++ session has the port, tell it what `claude-work-ec` has not heard** (decisions 250, 259): the
+    per-stretch settings and the wire fields `maxHeightCm`, `facing` and `bStandsApart`; the 5 cm guard; and that
+    the game's exporter must not split a stretch that stands apart (decision 256).
 
 ## 5. Open items
 
@@ -144,10 +169,27 @@ ruled" list in the covered-storeys findings. Added this session:
   rise buried under the storey above always reports one. A fix belongs to the re-tag pass, not to rises.
 - **Fused contact between a rise and an overhanging floor** needs an Edge kind for Gable–Underside (F71) before it
   can be a policy.
-- **16 golden inputs are not C++-replayable** until the port builds rises (F74).
+- **Golden inputs that build a rise are not C++-replayable** until the port builds rises (F74, decision 249). The
+  count has grown since F74's 16, because covered rises are now built (decision 246). No replayable golden throws
+  any more, and none has a Cheek. Expected, by the user's ruling.
 - **Whether the C++ shell-to-net adapter accepts a horizontal Roof face** (F63, F65). Unread on the C++ side.
-- **The limit walk gives a phantom plane against a gabled opposite wall** (F70). It builds clean. Whether the shape
-  is wanted is for the user.
+- ~~**The limit walk gives a phantom plane against a gabled opposite wall** (F70).~~ Ruled by the user and removed
+  (decision 231).
+- **The courtyard cut's overshoot is unfixed** (session 1 §5, decision 172). Covered rises now hide it in some
+  fixtures and expose it in others (decision 247), so its pin counts say nothing about it. `s1/Court29` is pinned
+  with the reproducer `COVERED_RISE_ON_CUT_LINE`.
+- **`s13/Court21` throws in Cell laying because of covered rises** (decisions 244, 247). Reproducer
+  `COVERED_RISE_CELL_CLASH`. §4 item 1.
+- **`cleanMesh` fails on a low cap at a convex corner** (F83). `RISE_MIN_CAP_CM = 5` guards it. §4 item 2.
+- **A stretch standing apart that a file splits into several runs builds several gables** (decision 256, M1).
+  `input@1` cannot group runs into one stretch. It matters when the game's exporter is ported.
+- **Partly facing gables under `split` leave Cheeks at the steps** (F82). A fact, by decision 237.
+- **The page imports the golden fixture set at start-up** (decision 248). Its load time is unmeasured.
+- **Two measurement probes throw on a rise with no limit** (decision 238): `claimed-band-cases.ts` and
+  `claimed-band-sweep.ts` under `experiments/gable-rises/`.
+- **The editor's tests of `main.ts` and `edit-panel.ts` are browser runs by delegates**, not suite tests
+  (viewer editing decision 22). WP-V3's rewrite of seven viewer tests was not independently reviewed
+  (decision 248).
 - **Shrinking a Ring past a rise and growing it back loses the rise** (decision 216). Two undo steps; history is
   not persisted.
 - **The build blocks the main thread**: 244 ms for ten two-storey Rings, and 3.2 s for a 106-storey draft (F64,
@@ -1076,6 +1118,20 @@ ruled" list in the covered-storeys findings. Added this session:
      clean. A gable stretch whose maximum height is at or below `RISE_MIN_CAP_CM` shows "at or below 5 cm no gable
      is built here" under the field, the 5 read from the pipeline. Information only. **The lead ran the suite on
      this tree**: 9,805 passed in 44 files, none failed, in 355 s; typecheck clean.
+259. **Session 2 is closed at the user's request, and the next items are picked up in a new session** (the user,
+     2026-11-13: "Can you wrap up this session in the arc lead journal and I'll pick up the next items in new
+     session?"). At the close:
+     - **Branch** `feature/building-shell-covered-storeys-and-sections`, last code commit `e2052d9`, with notes
+       commits after it. **Not pushed since `6b4c80b`**: every commit of this session is local. Not merged.
+     - **Measured by the lead at `e2052d9`**: 9,805 passed in 44 files, none failed; `tsc --noEmit` clean. Only
+       notes changed afterwards.
+     - **Nothing is in flight.** Every delegate has reported and every report is ruled on.
+     - **No C++ session has the port**, and none is to be sent more about it until the user names one
+       (decision 250). `claude-work-ec` was last told on 2026-11-13 (decision 249), before the per-stretch
+       settings and their three wire fields, which it has not been told of.
+     - **The next session starts from §4.** Its first item, Cell laying, is the lead's recommendation and has not
+       had the user's word. The session 3 journal declares itself the head, continues decisions at 260 and
+       findings at F84, and edits this file's first paragraph to say it is no longer the head.
 
 ## Findings
 
