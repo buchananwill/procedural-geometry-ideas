@@ -322,3 +322,223 @@ Each probe writes to stdout. The saved outputs are in
 
 `--limit farSlope` reproduces WP-G1's verdicts. For the courtyard this was checked: 4 not clean. The detail lines'
 wording changed since WP-G1.
+
+## WP-G4.1: a gable belongs to the Ring side that asked for it (2026-11-13)
+
+Measured at `951b86e` for journal decision 219, on F75 and F76. **Measurement only: no production code changed.**
+The probes build each rule's plan in the probe and hand it to the unchanged union and classification. The files are
+[claimed-band.ts](../../apps/building-shell/experiments/gable-rises/claimed-band.ts) (bands, rules, sub-rules),
+[claimed-band-sweep.ts](../../apps/building-shell/experiments/gable-rises/claimed-band-sweep.ts) (the corpus),
+[claimed-band-cases.ts](../../apps/building-shell/experiments/gable-rises/claimed-band-cases.ts) (named cases),
+[claimed-band-digest.mjs](../../apps/building-shell/experiments/gable-rises/claimed-band-digest.mjs) (the tables) and
+[f76-extents.ts](../../apps/building-shell/experiments/gable-rises/f76-extents.ts) (F76's probe, brought in). Outputs are
+in [results/claimed-band](../../apps/building-shell/experiments/gable-rises/results/claimed-band/).
+
+**The principle.** A gable's **band** is a maximal stretch of a line that Ring sides claim as gable, at each point by
+the lowest-index Ring whose side lies there, buried stretches included. Adjacent claims that differ in pitch, limit or
+`maxHeight` are separate bands. A band counts only if part of it is on a union wall.
+
+- **Rule A**: algorithm B keeps a wall gabled along its whole length where its piece's span equals the band.
+  Otherwise the wall is a hip at its decision-5 pitch, and each band on it is one rise.
+- **Rule B**: every band is a rise. Every wall enters the roof solve as a hip.
+
+**The harness matches.** F76's headline reproduced: 933 of 6,296 all-gable union walls have a piece wider than the
+wall, over 5,562 cases and 9,911 storeys, with 29 pinned keys among them. The probe's re-statement of today's rise
+agrees with production in shape and verdict on all 45 roster and rise fixtures.
+
+**The corpus.** 5,276 distinct fixtures after removing duplicate geometry: both sweeps, the grid, 1,120 random,
+217 courtyard, 164 split courtyard, 162 U, the nudge, pitch-end, jut-cut and gap sets, 1,400 roster-pitch cases, the
+named probes, the roster, the 13 rise fixtures, the goldens, and every pinned seeded key. **Nothing was sampled.**
+
+**"Clean"** is the full sense: the suite's invariants with zero Cheeks, zero conflicts, the height oracle within
+0.05 cm, and no breakthrough above a storey over it. A verdict is a fixture's, not a storey's. Most multi-storey
+fixtures carry F69 conflicts today, so each changed fixture is also compared with today: worse means a new kind of
+violation, more conflicts, or more breakthrough.
+
+### 1. What changes shape
+
+| | Rule A | Rule B |
+|---|---|---|
+| Fixtures whose plan changes | 173 | 3,543 |
+| Fixtures whose shape changes | 163 | 958 |
+| Storeys whose plan changes | 293 | 4,818 |
+| Storeys whose shape changes | 218 | 1,334 |
+
+Storeys by F76's class of the converted walls (hole and outer walls together; a storey with two classes is listed
+under both names joined):
+
+| Class of the walls turned into rises | Rule A: storeys, shape changed | Rule B: storeys, shape changed |
+|---|---|---|
+| Not wider (algorithm B's piece is the wall) | kept by algorithm B | 4,196, 1,061 |
+| Wider, the line beyond holds a buried gable side | kept, except 6, 6 | 254, 21 |
+| Wider, the line beyond crosses a Ring's interior (no side) | 171, 125 | 86, 64 |
+| No side and a buried gable side | 98, 73 | 102, 73 |
+| Mixes of the above with not-wider walls | none | 180, 115 |
+| Not wider, but gabled at two pitches (two bands) | 18, 14 | counted in not wider |
+| Another Ring's hip side beyond (F75) | 0 in the corpus; the user's draft | 0 in the corpus; the user's draft |
+
+- **Under Rule A the F75 class is empty in the corpus.** What Rule A changes instead is the **no-side class**: a wall
+  whose line runs on through another Ring's interior. Algorithm B builds those as a slice of a wider gable today.
+- **A buried gable side is kept by Rule A** wherever the band is algorithm B's piece. That is `SingleStoreyT`.
+- **Roster and goldens under Rule A**: two goldens change shape. `SplitBandAllGable75` is clean before and after;
+  `Court16Seed1h250` has 4 conflicts before and after. Under Rule B the narrow-upper-storey family and
+  `ValleyWingsPierced` change too.
+- **F76's sub-counts do not all reproduce.** Its own classifier gives 557 walls for the winning Ring's buried gable
+  side, where F76 says 421. The other three counts (49, 220, 106) reproduce, and one wall is the user's draft.
+  Read by claim, none of the 49 "another Ring's gable side" walls is one: both Rings win part of the wall.
+
+**Rule B where algorithm B's piece already is the band** (4,196 storeys whose only converted walls are not wider):
+1,061 change shape. The causes, counted per storey and wall:
+
+| How the rise differs from algorithm B's piece | Same shape | Shape differs |
+|---|---|---|
+| Same planes, and a wall-top or floor cap that algorithm B never had | 1,559 | 957 |
+| Same planes, no cap | 1,709 | 155 |
+| Algorithm B had no far plane (the far wall is gabled); the walk adds one | 253 | 141 |
+| The walk's limit is not algorithm B's far plane | 0 | 8 |
+| Two bands on the wall (two pitches) | 8 | 20 |
+
+- **The caps are the largest difference, not the back limit.** A wall-top cap flattens a whole gable end at the top
+  of the storey above. Smallest: `[0,0,1000,500]` W gabled at 55° under `[300,100,700,400]`.
+- With the caps left off algorithm B's pieces and no limit against a gabled far wall, 109 of the 4,196 still change
+  shape, and Rule B changes 230 fixtures against Rule A's 163.
+
+**A plain gable-ended building** (36 rectangles: 1000×1000, 1000×500, 1200×400; pitches 45/45, 22.5/22.5 and hip 30
+with gable 60; gabled on the short ends, the long sides, all four, and one end). All 36 are clean under Rule B.
+
+- **Gabled on both short ends: the same shape as today**, at every aspect and pitch.
+- **Gabled on both long sides: yes, the limit plane from the opposite gabled wall's skeleton face clips the ridge.**
+  On 1000×500 at 45° the roof's middle drops from 499.9 to 250.1 cm above the plate, and on 1200×400 from 599.9 to
+  200.1. Each gable falls away from its own wall and the two meet in a valley across the middle. 10 of the 36 differ.
+- Rule A builds today's shell on all 36.
+
+### 2. Clean or not
+
+Per changed fixture, today against the rule:
+
+| Today to rule | Rule A | Rule A, two-pitch walls kept | Rule B |
+|---|---|---|---|
+| Clean to clean | 24 | 22 | 2,023 |
+| Not clean to clean | 7 | 6 | 10 |
+| Not clean both, same or better | 124 | 122 | 1,283 |
+| Not clean both, **worse** | 17 | 13 | 38 |
+| Not clean both, worse only by breakthrough or oracle that today's roof already has | 0 | 0 | 37 |
+| Clean to not clean, only breakthrough that today's roof already has | 0 | 0 | 102 |
+| **Clean to not clean** | 0 | 0 | 10 |
+| **Built to throws** | 0 | 0 | 8 |
+| Throws both | 1 | 1 | 32 |
+
+"Breakthrough that today's roof already has": the suite's breakthrough and oracle measures read rises only. A
+whole-wall gable, or the hip roof under it, that stands through the storey above is unmeasured today and is seen once
+the gable is a rise. Measured over every gable piece, those fixtures stand no further through than today.
+
+**Not clean and worse than today, with the smallest input found:**
+
+| Class | Rule | Fixtures | Smallest input |
+|---|---|---|---|
+| A new Cheek: the rise's prism stops at the nearest far wall while its limit plane is a further one | A (only on two-pitch walls) and B | A 6, B 14 | `s1h300/Fuzz86`, 2 Rings: `[190,20,600,270]` S gabled at 60°, `[260,220,630,590]` |
+| 2 new `Unclassified` Edges on a courtyard hole wall whose band runs on under a taller Ring | A and B | 2 | `s10h263/Court18`, 4 Rings |
+| More F69 conflicts | A and B | A 9, B about 30 | `s2h300/Court14`, 4 Rings (2 to 3) |
+| New conflicts on a clean fixture | B | 2 | `s2h300/Court32`, 4 Rings |
+| New throws (Cell/NetEdge mismatch; Cell outside its face fan) | B | 8 | `s1h300/Court25`, `s12h250/Court1`, 4 Rings |
+
+- **The Cheek class is a rise mechanic, not the principle's.** The prism's reach is algorithm B's piece rule, the
+  nearest wall facing back that overlaps the band. The limit is the centreline walk's plane. Where the nearest far
+  wall covers only part of the band, the walk passes beside it, and the prism is cut off while still tall. Today's
+  mixed-wall rises are built the same way. This was confirmed on the two 2-Ring cases, where a longer reach is
+  clean. On the six split-courtyard fixtures it is inferred from the planes; there a longer reach throws.
+- **Hand reductions that did not reproduce**: `Court18` without its Ring 1 is as clean as today, and a taller Ring
+  burying a band's middle or end is clean.
+
+### 3. The pins
+
+185 pin rows. F76's 29 pinned keys:
+
+| | Rule A | Rule B |
+|---|---|---|
+| Plan unchanged, pin the same | 16 | 0 |
+| Plan changed, pin the same | 9 | 17 |
+| Changed signature | 2 (`s1h263/Court25` throws elsewhere; `s13h250/SplitCourt30` conflicts 3 to 2) | 3 |
+| Cured of its defect, conflicts remain | 0 | 4 |
+| Worse | 2 (`s10h263/Court18`, `s10h300/Court18`: the Unclassified Edges) | 5 (those two; `Court25` at 250 and 300 now throw; one conflict count 1 to 2) |
+
+- **Rule A cures none of the 29.** The 3 Cheek pins (`Court9`) and the 3 `Court13` overshoot pins are walls
+  algorithm B keeps.
+- **The other 156 rows.** Rule A: 153 unchanged, and `s5/Court34` at three heights cured with conflicts remaining
+  (a two-pitch wall). Rule B: 144 the same, 10 cured (8 with conflicts remaining), and `s12/Court1` at 250 and 300
+  now throws.
+- **Rule B cures the 3 `Court9` Cheek pins and the `SplitCourt9` pin**, each with conflicts remaining.
+
+### 4. The rise mechanics the principle strains
+
+Over the corpus under Rule B, 6,887 bands are built.
+
+| Mechanic | Bands |
+|---|---|
+| Wider than its exposed walls | 576 |
+| Exposed in two or more stretches | 502 |
+| Middle buried | 226 |
+| Both ends at a footprint corner (decision 10's rule) | 5,494 |
+| One end raked at its own pitch, mid-wall or at a reflex corner | 1,074 |
+| Both ends raked at their own pitch | 319 |
+| **An end buried inside the footprint, with no wall across it** | **0** |
+| The walk's limit is a gabled wall's skeleton plane | 741 |
+| Wall-top cap, floor cap, `maxHeight` | 3,227, 542, 1 |
+
+Sub-rules, each a named candidate in the probe:
+
+| Sub-rule | Candidates | Measured |
+|---|---|---|
+| A band end buried inside the footprint | `ownRake`: rake at the band's pitch. `adjacentPitch`: the hip plane of the claiming Ring's own adjacent side | **Not exercised by the corpus (0 bands).** Hand case, `[0,0,1000,400]` S gabled at 45° with `[-200,-400,300,200]` over its corner: both clean, both cut level at 230.9 cm by the limit. `adjacentPitch` builds the gable front the Ring has when its corner is exposed; `ownRake` gives a steeper rake at the buried end |
+| Where the limit walk starts when the middle is buried | The band's middle; the middle of the longest exposed stretch | **No difference on any of the 226 bands**, nor on the hand cases |
+| The limit against a gabled far wall | `skeletonPlane` (production). `none` (algorithm B). `farRakes`: the far band's two rakes | `skeletonPlane` clips the long-sides building. `none` and `farRakes` give today's shell on all 36 rectangles and differ from each other on 2 storeys of the corpus. Under `none`, Rule B: 929 shapes change, 5 new throws, 14 new Cheeks. Both change a rise production builds today: a 75° rise facing a wall gabled along its whole length runs through at 373 cm instead of being clipped at 250 |
+| Caps on a band that is algorithm B's piece | `capped`; `uncapped` (as today) | See section 1 |
+| The prism's reach | `nearestFar` (production). `bbox`. `limitZero`: to where the limit plane meets the plate | `bbox` and `limitZero` cure the 2-Ring Cheeks and throw on 10 courtyards under Rule A ("a Cheek face off an axis-aligned vertical plane"). Under Rule B `bbox` gives 18 new throws for 8. **None is clean** |
+| Rule A on a wall gabled at two pitches | `twoRises`; `keepPiece`: algorithm B's one gable, as decision 5 has it today | `keepPiece` removes every new Cheek under Rule A (164 fixtures change, 13 worse: 11 on conflicts, 2 on the `Court18` Edges) |
+
+**The caps' reach** is the band, buried stretches included, back to the prism's reach. A taller Ring that buries part
+of a band lies in front of the line, not in the reach, so it does not cap the rise.
+
+### 5. Mixed walls already built as rises
+
+- **None of the 13 `RISE_FIXTURES` changes under either rule.** Every band is today's rise.
+- **No mixed wall in the corpus changes**: in 5,276 fixtures no mixed wall has a band that is not one of today's rises.
+- **Hand cases.** A hip side with a gable run from 300 to 700, its middle buried by a 100 cm wing: today two rises,
+  apexes at x = 375 and 625, 75 cm up. By claim, one rise over [300, 700], apex at x = 500, 200 cm up, standing above
+  the wing's roof. A run whose end a wing buries: today's rise over [100, 400] with its apex at x = 250, 150 cm up,
+  becomes one over [100, 600] with its apex at x = 350, 250 cm up. Both are clean. **Whether these are the shapes a
+  person expects is the user's call**; they are what the author's run says.
+
+### 6. The three named buildings
+
+| Building | Today | Rule A | Rule B |
+|---|---|---|---|
+| `SingleStoreyT` | One gable end on x = 1000 over [0, 500], apex at y = 250, 250 cm above the plate, the stem's roof dying into it. Clean | The same shell; algorithm B keeps both walls | The same shell, as one rise with its middle buried. Clean |
+| The draft without the wing | A gable on x = 0 over [0, 600], apex at y = 300; a rise on y = 0 over [600, 1200], apex at x = 900. Both 124.3 cm up. Clean | The same shell | The same shell |
+| The draft with the wing | The y = 0 gable is half of a 1200-wide one: apex at x = 600, 248.5 cm up, over Ring 0. 1 conflict | A rise over [600, 1200], apex at x = 900, 124.3 cm up; the x = 0 gable unchanged. Clean | The same as Rule A. Clean |
+
+### Interpretations (WP-G4.1)
+
+1. Under Rule A a mixed wall's rises are its claimed bands too, so the two rules differ only on walls algorithm B
+   keeps. The corpus cannot tell this from "mixed walls as today" (section 5).
+2. A wall gabled along its whole length at two pitches has two bands, so by default Rule A makes it a hip with two
+   rises. `keepPiece` is the other reading.
+3. "The far wall is gabled" means a gable on the limit's wall faces the band's whole span.
+4. "Algorithm B's piece" is the probe's copy of `extentOf`, which matched all 6,296 walls.
+5. A converted wall is a hip at the pitch the gable had (decision 218's wording).
+6. A band's piece stands on the storey wall that holds its middle, else on its longest exposed wall.
+7. "Worse than today" is defined above; it is the probe's, not the suite's.
+8. The sub-rule sweeps other than the default keep only their summaries; re-run to get every storey.
+
+### Reproduce (WP-G4.1)
+
+```bash
+node $E/run.mjs f76-extents                                  # F76's headline
+node $E/run.mjs claimed-band-cases self                      # also: drafts, ends, rises, buried, strain
+node $E/run.mjs claimed-band-cases one s1h300/Fuzz86         # one corpus case by key, with its Rings
+node $E/run.mjs claimed-band-sweep 1                         # both rules, the whole corpus, about 20 minutes
+node $E/run.mjs claimed-band-sweep 1 rules=B far=none caps=uncapped
+node $E/run.mjs claimed-band-sweep 1 rules=A two=keepPiece changedOnly
+node $E/run.mjs claimed-band-sweep mechanics 1
+node $E/claimed-band-digest.mjs sweep-stride1.txt            # the transition and pin tables
+```

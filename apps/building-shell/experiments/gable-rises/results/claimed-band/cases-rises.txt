@@ -1,0 +1,15 @@
+
+# RISE_FIXTURES under Rule B
+  MidWallRise: unchanged (every band is today's rise)
+  CornerRise: unchanged (every band is today's rise)
+  RiseBeforeTStem: unchanged (every band is today's rise)
+  FlushT: unchanged (every band is today's rise)
+  FlushTSwapped: unchanged (every band is today's rise)
+  AdjacentRises: unchanged (every band is today's rise)
+  CourtyardRiseFacingCut: unchanged (every band is today's rise)
+  CourtyardRiseAlongCut: unchanged (every band is today's rise)
+  TruncatedRise: unchanged (every band is today's rise)
+  FlatTopRise: unchanged (every band is today's rise)
+  OverhangCappedRise: unchanged (every band is today's rise)
+  SetBackCappedRise: unchanged (every band is today's rise)
+  BuriedRise: unchanged (every band is today's rise)

@@ -1,0 +1,18 @@
+corpus: 5276 distinct fixtures, stride 1 on sweep, grid and random
+## Rule B, default sub-rules: bands by mechanics
+  band wider than its exposed walls: 576
+  bands built: 6887
+  cap floor: 542
+  cap maxHeight: 1
+  cap wallTop: 3227
+  ends corner/corner: 5494
+  ends corner/reflex: 1074
+  ends reflex/reflex: 319
+  exposed in two or more stretches: 502
+  limit is a gabled wall's plane: 741
+  middle buried: 226
+## end=adjacentPitch: 0 fixtures plan differently from the default
+## walk=exposedMiddle: 0 fixtures plan differently from the default
+
+# Every fixture a sub-rule plans differently
+

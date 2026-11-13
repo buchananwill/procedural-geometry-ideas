@@ -1,0 +1,66 @@
+corpus: 5276 distinct fixtures (sweep300 580, sweep250 580, grid 608, random 1120, court 217, split 164, u 162, nudge 77, pitchEnd 274, jutCut 2, gap 10, rosterPitch 1400, named 24, roster 31, rise 13, golden 14); stride 1 on sweep, grid and random only; rules B; sub-rules {"buriedEnd":"ownRake","walkStart":"bandMiddle","gabledFar":"none","pieceCaps":"uncapped"}; 1129 s
+
+## Rule B: changed storeys by class
+  class: storeys | shape changed | fixtures | clean>clean | clean>NOT | not>clean | not>not same | not>not better | not>not WORSE | throws>clean | throws>not | throws>throws | built>THROWS   (transitions are the fixture's verdict, today > rule, counted per storey)
+  noSide+notWider+ownGable: 41 | 35 | 41 | 3 | 0 | 0 | 24 | 6 | 6 | 0 | 0 | 1 | 1
+  noSide+notWider: 44 | 30 | 25 | 0 | 0 | 0 | 12 | 29 | 3 | 0 | 0 | 0 | 0
+  noSide+ownGable: 102 | 73 | 72 | 10 | 2 | 4 | 45 | 28 | 13 | 0 | 0 | 0 | 0
+  noSide: 86 | 64 | 49 | 8 | 0 | 8 | 34 | 28 | 8 | 0 | 0 | 0 | 0
+  notWider+ownGable: 95 | 31 | 72 | 6 | 0 | 0 | 50 | 16 | 17 | 0 | 0 | 5 | 1
+  notWider: 4196 | 109 | 3848 | 2144 | 122 | 10 | 1618 | 78 | 193 | 0 | 0 | 29 | 2
+  ownGable: 254 | 17 | 218 | 147 | 2 | 0 | 60 | 19 | 22 | 0 | 0 | 0 | 4
+  ALL: 4818 | 359 | 4124 | 2318 | 126 | 22 | 1843 | 204 | 262 | 0 | 0 | 35 | 8
+## Rule B: worse than today, smallest input per class, transition and failure
+  noSide :: not>not WORSE :: cheeks+conflicts: split s1h300/SplitCourt1 (5 Rings)
+  noSide :: not>not WORSE :: conflicts: court s2h300/Court14 (4 Rings)
+  noSide+notWider :: not>not WORSE :: cheeks+conflicts: split s1h300/SplitCourt1 (5 Rings)
+  noSide+notWider :: not>not WORSE :: conflicts: split s1h300/SplitCourt3 (5 Rings)
+  noSide+notWider+ownGable :: built>THROWS :: throws: cell #: side #-# (#, #, #) to (#, #, #) reads ShellEdge #, its NetEdge: court s1h300/Court25 (4 Rings)
+  noSide+notWider+ownGable :: not>not WORSE :: cheeks+conflicts: split s2h300/SplitCourt29 (5 Rings)
+  noSide+notWider+ownGable :: not>not WORSE :: conflicts: court s1h300/Court14 (4 Rings)
+  noSide+ownGable :: clean>NOT :: breakthrough: split s1h300/SplitCourt22 (5 Rings)
+  noSide+ownGable :: not>not WORSE :: conflicts: court s2h300/Court29 (4 Rings)
+  notWider :: built>THROWS :: throws: vertex # at (#, #, #): Cell # lies in no triangle of its face's fan: court s12h250/Court1 (4 Rings)
+  notWider :: clean>NOT :: breakthrough: random s1h250/Fuzz11 (2 Rings)
+  notWider :: clean>NOT :: cheeks: random s2h300/Fuzz117 (2 Rings)
+  notWider :: not>not WORSE :: breakthrough+conflicts+oracle: rosterPitch NarrowUpperStoreyGabled@41 (2 Rings)
+  notWider :: not>not WORSE :: cheeks+conflicts: split s2h300/SplitCourt11 (5 Rings)
+  notWider :: not>not WORSE :: conflicts: u s1h300/U0 (3 Rings)
+  notWider+ownGable :: built>THROWS :: throws: cell #: side #-# (#, #, #) to (#, #, #) reads ShellEdge #, its NetEdge: court s1h300/Court25 (4 Rings)
+  notWider+ownGable :: not>not WORSE :: conflicts: u s1h300/U14 (3 Rings)
+  ownGable :: built>THROWS :: throws: cell #: side #-# (#, #, #) to (#, #, #) reads ShellEdge #, its NetEdge: split s2h300/SplitCourt2 (5 Rings)
+  ownGable :: clean>NOT :: conflicts: court s2h300/Court32 (4 Rings)
+  ownGable :: not>not WORSE :: cheeks+conflicts: split s2h300/SplitCourt29 (5 Rings)
+  ownGable :: not>not WORSE :: conflicts: u s1h300/U39 (3 Rings)
+## Rule B: pins
+  CONFLICTS: changed: 1
+  CONFLICTS: same: 19
+  CONFLICTS: worse: 4
+  COURTYARD: changed: 1
+  COURTYARD: cured, conflicts remain: 11
+  COURTYARD: cured: 2
+  COURTYARD: same: 17
+  COURTYARD: worse: 2
+  CUT_OVERSHOOT: same: 1
+  GAP: same: 4
+  JUT_CUT: same: 1
+  NUDGE: same: 9
+  PITCH_END: same: 30
+  ROSTER_PITCH: same: 75
+  SPLIT_CONFLICTS: changed: 1
+  SPLIT_CONFLICTS: same: 3
+  SPLIT_CONFLICTS: worse: 1
+  SPLIT_COURTYARD: cured, conflicts remain: 1
+  U: same: 2
+
+## Rule B on not-wider walls: how the rise differs from algorithm B's piece (storey same shape | shape differs | first differing)
+  B had no far plane; walk adds one: 339 | 55 | s1h300/Court14 s1
+  limit = B far plane: 4316 | 64 | s1h300/Court23 s1
+  limit differs from B far plane: 0 | 8 | s1h300/Fuzz86 s0
+  rakes differ, band differs, limit = B far plane, cap wallTop: 4 | 0
+  rakes differ, band differs, limit = B far plane: 0 | 4 | s2h300/SplitCourt11 s1
+  rakes differ, band differs, limit differs from B far plane, cap floor, farDist differs: 2 | 3 | s5h250/Court34 s0
+  rakes differ, band differs, limit differs from B far plane, cap wallTop, farDist differs: 0 | 5 | s2h300/SplitCourt35 s1
+  rakes differ, band differs, limit differs from B far plane, cap wallTop: 2 | 3 | s5h250/Court34 s0
+  rakes differ, band differs, limit differs from B far plane: 0 | 5 | s2h300/SplitCourt11 s1
+

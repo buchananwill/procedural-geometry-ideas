@@ -1,0 +1,26 @@
+
+## Rule A: 173 changed fixtures, 163 with a changed shape
+  built>THROWS: 10
+  clean>clean: 24
+  not>clean: 7
+  not>not WORSE: 11
+  not>not better: 50
+  not>not same: 70
+  throws>throws: 1
+## Rule A: worse than today, by class and what is new (fixtures)
+  2: noSide , noSide+twoBands :: built>THROWS :: new: THROWS face # (Cheek storey # wall # (part #)): a Cheek face | first s1h300/SplitCourt1 | THROWS face 20 (Cheek storey 0 wall 0 (part 6)): a Cheek face off an axis-aligned vertical plane has no (u, z) lattice <- today conflicts 4
+  3: noSide :: not>not WORSE :: more of the same kinds | first s2h300/Court14 | conflicts 3 <- today conflicts 2
+  4: noSide+ownGable :: built>THROWS :: new: THROWS face # (Cheek storey # wall # (part #)): a Cheek face | first s1h300/Court23 | THROWS face 21 (Cheek storey 0 wall 8 (part 7)): a Cheek face off an axis-aligned vertical plane has no (u, z) lattice <- today conflicts 8
+  6: noSide+ownGable :: not>not WORSE :: more of the same kinds | first s1h300/SplitCourt13 | conflicts 5 <- today conflicts 4
+  1: noSide+ownGable :: not>not WORSE :: new: # Unclassified Edges: (#) to (#) + (#) to (#, #, | first s10h263/Court18 | 2 Unclassified Edges: (...) to (...); (...) to (157.021484375, 400, 33; conflicts 1 <- today conflicts 1
+  1: noSide+ownGable :: not>not WORSE :: new: # Unclassified Edges: (#) to (#) + (#) to (#, | first s10h300/Court18 | 2 Unclassified Edges: (...) to (...); (...) to (162.322265625, 400; conflicts 1 <- today conflicts 1
+  2: noSide+ownGable+twoBands :: built>THROWS :: new: THROWS face # (Cheek storey # wall # (part #)): a Cheek face | first s2h300/SplitCourt29 | THROWS face 17 (Cheek storey 0 wall 8 (part 4)): a Cheek face off an axis-aligned vertical plane has no (u, z) lattice <- today conflicts 1
+  2: twoBands :: built>THROWS :: new: THROWS face # (Cheek storey # wall # (part #)): a Cheek face | first s2h300/SplitCourt11 | THROWS face 9 (Cheek storey 0 wall 0 (part 4)): a Cheek face off an axis-aligned vertical plane has no (u, z) lattice <- today conflicts 2
+## Rule A: F76's 29 pinned keys (13 pin rows found)
+  6: CONFLICTS | plan changed | same
+  2: CONFLICTS | plan changed | worse (1 violations)
+  1: COURTYARD | plan changed | changed (1 to 1 lines)
+  3: COURTYARD | plan changed | same
+  1: SPLIT_CONFLICTS | plan changed | changed (conflicts 3 to 2)
+## Rule A: the other pins (3 rows)
+  3: COURTYARD | plan changed | cured, conflicts remain

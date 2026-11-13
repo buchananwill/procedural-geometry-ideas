@@ -1,0 +1,20 @@
+corpus: 5276 distinct fixtures (sweep300 580, sweep250 580, grid 608, random 1120, court 217, split 164, u 162, nudge 77, pitchEnd 274, jutCut 2, gap 10, rosterPitch 1400, named 24, roster 31, rise 13, golden 14); stride 1 on sweep, grid and random only; rules A; sub-rules {"buriedEnd":"ownRake","walkStart":"bandMiddle","gabledFar":"skeletonPlane","pieceCaps":"capped","reach":"nearestFar","twoPitch":"keepPiece"}; 111 s
+
+## Rule A: changed storeys by class
+  class: storeys | shape changed | fixtures | clean>clean | clean>NOT | not>clean | not>not same | not>not better | not>not WORSE | throws>clean | throws>not | throws>throws | built>THROWS   (transitions are the fixture's verdict, today > rule, counted per storey)
+  noSide+ownGable: 96 | 71 | 76 | 8 | 0 | 4 | 54 | 15 | 14 | 0 | 0 | 1 | 0
+  noSide: 177 | 131 | 99 | 15 | 0 | 8 | 60 | 88 | 6 | 0 | 0 | 0 | 0
+  ALL: 273 | 202 | 165 | 23 | 0 | 12 | 114 | 103 | 20 | 0 | 0 | 1 | 0
+## Rule A: worse than today, smallest input per class, transition and failure
+  noSide :: not>not WORSE :: conflicts: court s2h300/Court14 (4 Rings)
+  noSide+ownGable :: not>not WORSE :: 2+conflicts: court s10h263/Court18 (4 Rings)
+  noSide+ownGable :: not>not WORSE :: conflicts: court s2h300/Court29 (4 Rings)
+## Rule A: pins
+  CONFLICTS: same: 6
+  CONFLICTS: worse: 2
+  COURTYARD: changed: 1
+  COURTYARD: same: 3
+  SPLIT_CONFLICTS: changed: 1
+
+## Rule B on not-wider walls: how the rise differs from algorithm B's piece (storey same shape | shape differs | first differing)
+

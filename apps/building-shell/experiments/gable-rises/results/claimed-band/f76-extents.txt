@@ -1,0 +1,1076 @@
+cases 5562 storeys 9911 failedForms 0 allGableWalls 6296 wider 933 wholePieces 6384 wholeAgreeWithCopy 6296
+  draft: 1
+  roster: 2
+  golden: 16
+  court: 228
+  split: 228
+  u: 140
+  court-pin: 42
+  u-pin: 4
+  split-pin: 7
+  rosterPitch: 260
+  named: 5
+wider walls by class:
+  41	HOLE gableOther+ownGable
+  92	HOLE noSide+ownGable
+  118	HOLE noSide
+  128	HOLE ownGable
+  2	outer gableOther+ownGable
+  6	outer gableOther
+  1	outer hipOther
+  14	outer noSide+ownGable
+  102	outer noSide
+  429	outer ownGable
+pinned keys among them: 29
+  s10h250/Court18	GABLE_RISE_CONFLICTS: conflicts
+  s10h263/Court18	GABLE_RISE_CONFLICTS: conflicts
+  s10h300/Court18	GABLE_RISE_CONFLICTS: conflicts
+  s13h250/Court13	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s13h250/Court9	COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+  s13h250/SplitCourt30	GABLE_RISE_SPLIT_CONFLICTS: conflicts
+  s13h263/Court13	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s13h263/Court9	COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+  s13h300/Court13	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s13h300/Court9	COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+  s1h250/Court14	GABLE_RISE_CONFLICTS: conflicts
+  s1h250/Court25	GABLE_RISE_CONFLICTS: conflicts
+  s1h263/Court14	GABLE_RISE_CONFLICTS: conflicts
+  s1h263/Court25	COURTYARD_DEFECTS: partial face-to-face contact of two storeys on one plane (Court25 class)
+  s1h300/Court14	GABLE_RISE_CONFLICTS: conflicts
+  s1h300/Court25	GABLE_RISE_CONFLICTS: conflicts
+  s2h250/Court15	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s2h250/SplitCourt10	GABLE_RISE_SPLIT_CONFLICTS: conflicts
+  s2h263/Court15	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s2h263/SplitCourt10	GABLE_RISE_SPLIT_CONFLICTS: conflicts
+  s2h300/Court15	COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+  s2h300/SplitCourt10	GABLE_RISE_SPLIT_CONFLICTS: conflicts
+  s5h250/SplitCourt29	GABLE_RISE_SPLIT_CONFLICTS: conflicts
+  s6h263/U8	U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+  s6h300/U8	U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+  s7h250/SplitCourt9	SPLIT_COURTYARD_DEFECTS: a Gable-Wall edge, Unclassified (SplitCourt9 class)
+  s9h250/Court0	GABLE_RISE_CONFLICTS: conflicts
+  s9h263/Court0	GABLE_RISE_CONFLICTS: conflicts
+  s9h300/Court0	GABLE_RISE_CONFLICTS: conflicts
+
+# Every wider wall
+draft | WithWing | s0 | y=0 +y [600,1200] | ext [0,1200] | outer | beyond [0,600]=R0S:hipOther | others - | B line y=0 whole [0,1200] | pin -
+roster | SingleStoreyT | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+roster | SingleStoreyT | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+golden | SingleStoreyT | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+golden | SingleStoreyT | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+golden | Court5Seed1h300 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R2N:gable [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+golden | Court5Seed1h300 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+golden | Court16Seed1h250 | s0 | x=300 -x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=300 whole [100,550] | pin -
+golden | Court16Seed1h250 | s0 | x=500 +x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=500 whole [100,550] | pin -
+golden | Court16Seed1h250 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=300 whole [100,550] | pin -
+golden | SplitBandAllGable75 | s0 | x=300 -x [200,800] | ext [0,1000] | HOLE | beyond [0,200]=noSide [800,1000]=noSide | others - | B line x=300 whole [0,1000] | pin -
+golden | SplitBandAllGable75 | s0 | y=800 +y [300,700] | ext [0,1000] | HOLE | beyond [0,300]=R4S:gable [700,1000]=R4S:gable | others - | B line y=800 whole [0,1000] | pin -
+golden | SplitBandAllGable75 | s0 | x=700 +x [200,800] | ext [0,1000] | HOLE | beyond [0,200]=noSide [800,1000]=noSide | others - | B line x=700 whole [0,1000] | pin -
+golden | SplitBandAllGable75 | s0 | y=200 -y [300,700] | ext [0,1000] | HOLE | beyond [0,300]=R0N:gable [700,1000]=R1N:gableOther | others - | B line y=200 whole [0,1000] | pin -
+golden | Court25Seed1h263 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin -
+golden | Court25Seed1h263 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin -
+golden | U8Seed6h300 | s0 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin -
+golden | U8Seed6h300 | s1 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin -
+golden | SplitCourt9Seed7h250 | s0 | y=400 +y [200,450] | ext [0,700] | HOLE | beyond [0,200]=R4S:gable [450,700]=R4S:gable | others - | B line y=400 whole [0,700] | pin -
+court | s1h300/Court0 | s0 | x=350 +x [100,450] | ext [0,550] | HOLE | beyond [0,100]=R3W:gable [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h300/Court0 | s1 | x=350 +x [100,450] | ext [0,550] | HOLE | beyond [0,100]=R3W:gable [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h300/Court0 | s2 | x=350 +x [0,450] | ext [0,550] | outer | beyond [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h300/Court1 | s0 | x=500 +x [350,600] | ext [150,850] | HOLE | beyond [150,350]=noSide [600,850]=noSide | others - | B line x=500 whole [150,850] | pin -
+court | s1h300/Court1 | s1 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+court | s1h300/Court1 | s2 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+court | s1h300/Court2 | s0 | x=250 -x [150,500] | ext [0,750] | HOLE | beyond [0,150]=R0E:gable [500,750]=R0E:gable | others - | B line x=250 whole [0,750] | pin -
+court | s1h300/Court3 | s0 | y=550 +y [150,300] | ext [0,550] | HOLE | beyond [0,150]=noSide [300,550]=R3S:gable | others - | B line y=550 whole [0,550] | pin -
+court | s1h300/Court3 | s0 | y=200 -y [150,300] | ext [0,550] | HOLE | beyond [0,150]=R2N:gable [300,550]=R2N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s1h300/Court3 | s1 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R3S:gable | others - | B line y=550 whole [150,550] | pin -
+court | s1h300/Court3 | s1 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R2N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s1h300/Court5 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R2N:gable [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+court | s1h300/Court5 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+court | s1h300/Court7 | s0 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h300/Court7 | s1 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h300/Court7 | s2 | x=200 -x [350,600] | ext [100,800] | outer | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h300/Court9 | s0 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R2N:gable [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+court | s1h300/Court9 | s1 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R2N:gable [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE court s1h300/Court9 s2 line x=150 whole [450,550] ext [150,300]
+DISAGREE court s1h300/Court9 s2 line x=150 whole [150,300] ext [450,550]
+court | s1h300/Court11 | s0 | y=550 +y [350,450] | ext [100,700] | HOLE | beyond [100,350]=R3S:gable [450,700]=noSide | others - | B line y=550 whole [100,700] | pin -
+court | s1h300/Court11 | s0 | x=450 +x [200,550] | ext [50,800] | HOLE | beyond [50,200]=R0W:gable [550,800]=R0W:gable | others - | B line x=450 whole [50,800] | pin -
+court | s1h300/Court11 | s1 | y=550 +y [350,450] | ext [100,450] | outer | beyond [100,350]=R3S:gable | others - | B line y=550 whole [100,450] | pin -
+DISAGREE court s1h300/Court12 s2 line x=600 whole [500,650] ext [100,250]
+DISAGREE court s1h300/Court12 s2 line x=600 whole [100,250] ext [500,650]
+court | s1h300/Court13 | s0 | y=250 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h300/Court13 | s0 | x=450 +x [150,250] | ext [50,350] | HOLE | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h300/Court13 | s1 | y=250 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h300/Court13 | s1 | x=450 +x [150,250] | ext [50,350] | HOLE | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h300/Court13 | s2 | y=250 +y [150,450] | ext [0,700] | outer | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h300/Court13 | s2 | x=450 +x [50,250] | ext [50,350] | outer | beyond [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h300/Court14 | s0 | y=200 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R3N:gable [250,350]=noSide | others - | B line y=200 whole [0,350] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h300/Court16 | s0 | x=300 -x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=R3E:gable | others - | B line x=300 whole [100,550] | pin -
+court | s1h300/Court16 | s0 | x=500 +x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=500 whole [100,550] | pin -
+court | s1h300/Court16 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R3E:gable | others - | B line x=300 whole [100,550] | pin -
+DISAGREE court s1h300/Court17 s1 line x=150 whole [150,250] ext [450,650]
+DISAGREE court s1h300/Court17 s1 line x=150 whole [450,650] ext [150,250]
+court | s1h300/Court19 | s0 | y=500 +y [150,300] | ext [50,550] | HOLE | beyond [50,150]=R3S:gable [300,550]=R3S:gable | others - | B line y=500 whole [50,550] | pin -
+court | s1h300/Court19 | s0 | x=300 +x [150,500] | ext [50,600] | HOLE | beyond [50,150]=R1W:gable [500,600]=R1W:gable | others - | B line x=300 whole [50,600] | pin -
+court | s1h300/Court19 | s1 | x=300 +x [150,600] | ext [50,600] | outer | beyond [50,150]=R1W:gable | others - | B line x=300 whole [50,600] | pin -
+court | s1h300/Court20 | s0 | x=400 -x [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2E:gable [600,700]=R2E:gable | others - | B line x=400 whole [150,700] | pin -
+court | s1h300/Court20 | s0 | y=600 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=noSide [550,750]=R1S:gable | others - | B line y=600 whole [150,750] | pin -
+court | s1h300/Court20 | s1 | y=600 +y [400,550] | ext [400,750] | outer | beyond [550,750]=R1S:gable | others - | B line y=600 whole [400,750] | pin -
+court | s1h300/Court22 | s0 | y=450 +y [350,550] | ext [150,700] | HOLE | beyond [150,350]=noSide [550,700]=noSide | others - | B line y=450 whole [150,700] | pin -
+court | s1h300/Court22 | s0 | x=550 +x [200,450] | ext [0,550] | HOLE | beyond [0,200]=R3W:gable [450,550]=R3W:gable | others - | B line x=550 whole [0,550] | pin -
+court | s1h300/Court23 | s0 | x=250 -x [150,400] | ext [50,500] | HOLE | beyond [50,150]=noSide [400,500]=R0E:gable | others - | B line x=250 whole [50,500] | pin -
+court | s1h300/Court23 | s0 | y=150 -y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2N:gable [350,600]=R2N:gable | others - | B line y=150 whole [50,600] | pin -
+court | s1h300/Court24 | s0 | x=150 -x [250,600] | ext [50,700] | HOLE | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+court | s1h300/Court24 | s0 | x=500 +x [250,600] | ext [50,700] | HOLE | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=500 whole [50,700] | pin -
+court | s1h300/Court24 | s1 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+court | s1h300/Court25 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h300/Court25 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h300/Court29 | s0 | x=300 -x [150,450] | ext [0,650] | HOLE | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=300 whole [0,650] | pin -
+court | s1h300/Court29 | s0 | x=650 +x [150,450] | ext [0,650] | HOLE | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+court | s1h300/Court29 | s1 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+court | s1h300/Court30 | s0 | y=400 +y [300,450] | ext [50,700] | HOLE | beyond [50,300]=R2S:gable [450,700]=noSide | others - | B line y=400 whole [50,700] | pin -
+court | s1h300/Court30 | s0 | y=300 -y [300,450] | ext [50,700] | HOLE | beyond [50,300]=R1N:gable [450,700]=R1N:gable | others - | B line y=300 whole [50,700] | pin -
+court | s1h300/Court31 | s0 | x=350 -x [250,600] | ext [100,700] | HOLE | beyond [100,250]=R1E:gable [600,700]=noSide | others - | B line x=350 whole [100,700] | pin -
+court | s1h300/Court31 | s0 | x=550 +x [250,600] | ext [100,700] | HOLE | beyond [100,250]=noSide [600,700]=noSide | others - | B line x=550 whole [100,700] | pin -
+court | s1h300/Court31 | s1 | x=350 -x [100,600] | ext [100,700] | outer | beyond [600,700]=noSide | others - | B line x=350 whole [100,700] | pin -
+court | s1h300/Court31 | s1 | x=550 +x [250,600] | ext [250,700] | outer | beyond [600,700]=noSide | others - | B line x=550 whole [250,700] | pin -
+court | s1h300/Court33 | s0 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=noSide [450,700]=noSide | others - | B line x=100 whole [150,700] | pin -
+court | s1h300/Court33 | s1 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=noSide [450,700]=noSide | others - | B line x=100 whole [150,700] | pin -
+court | s1h300/Court33 | s2 | x=100 -x [350,450] | ext [350,700] | outer | beyond [450,700]=noSide | others - | B line x=100 whole [350,700] | pin -
+court | s1h300/Court34 | s0 | x=250 -x [250,450] | ext [0,550] | HOLE | beyond [0,250]=noSide [450,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s1h300/Court36 | s0 | y=500 +y [200,500] | ext [100,650] | HOLE | beyond [100,200]=R0S:gable [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h300/Court36 | s1 | y=500 +y [100,500] | ext [100,650] | outer | beyond [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h300/Court36 | s2 | y=500 +y [100,500] | ext [100,650] | outer | beyond [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h300/Court37 | s0 | x=200 -x [150,350] | ext [0,500] | HOLE | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h300/Court37 | s1 | x=200 -x [150,350] | ext [0,500] | HOLE | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h300/Court37 | s2 | x=200 -x [150,350] | ext [0,500] | outer | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h300/Court38 | s0 | y=400 +y [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2S:gable [600,700]=R2S:gable | others - | B line y=400 whole [150,700] | pin -
+court | s1h300/Court39 | s0 | y=200 -y [100,350] | ext [0,550] | HOLE | beyond [0,100]=R1N:gable [350,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+split | s1h300/SplitCourt0 | s0 | x=350 +x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=R4W:gable | others - | B line x=350 whole [0,600] | pin -
+split | s1h300/SplitCourt0 | s1 | x=350 +x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=R4W:gable | others - | B line x=350 whole [0,600] | pin -
+split | s1h300/SplitCourt0 | s2 | x=350 +x [100,450] | ext [100,600] | outer | beyond [450,600]=R4W:gable | others - | B line x=350 whole [100,600] | pin -
+split | s1h300/SplitCourt1 | s0 | x=600 +x [450,700] | ext [150,950] | HOLE | beyond [150,450]=noSide [700,950]=noSide | others - | B line x=600 whole [150,950] | pin -
+split | s1h300/SplitCourt1 | s1 | x=600 +x [450,700] | ext [150,700] | outer | beyond [150,450]=noSide | others - | B line x=600 whole [150,700] | pin -
+split | s1h300/SplitCourt1 | s2 | x=600 +x [450,700] | ext [150,700] | outer | beyond [150,450]=noSide | others - | B line x=600 whole [150,700] | pin -
+split | s1h300/SplitCourt2 | s0 | x=250 -x [150,500] | ext [0,750] | HOLE | beyond [0,150]=noSide [500,750]=R1E:gable | others - | B line x=250 whole [0,750] | pin -
+split | s1h300/SplitCourt3 | s0 | y=650 +y [300,450] | ext [0,700] | HOLE | beyond [0,300]=noSide [450,700]=noSide | others - | B line y=650 whole [0,700] | pin -
+split | s1h300/SplitCourt3 | s0 | y=300 -y [300,450] | ext [0,700] | HOLE | beyond [0,300]=R2N:gable [450,700]=noSide | others - | B line y=300 whole [0,700] | pin -
+split | s1h300/SplitCourt3 | s1 | y=650 +y [300,450] | ext [300,700] | outer | beyond [450,700]=noSide | others - | B line y=650 whole [300,700] | pin -
+split | s1h300/SplitCourt3 | s1 | y=300 -y [0,450] | ext [0,700] | outer | beyond [450,700]=noSide | others - | B line y=300 whole [0,700] | pin -
+split | s1h300/SplitCourt5 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R3N:gable [300,500]=R3N:gable | others - | B line y=200 whole [50,500] | pin -
+split | s1h300/SplitCourt5 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R3N:gable | others - | B line y=200 whole [50,500] | pin -
+split | s1h300/SplitCourt7 | s0 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h300/SplitCourt7 | s1 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h300/SplitCourt7 | s2 | x=200 -x [350,600] | ext [100,800] | outer | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h300/SplitCourt9 | s0 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R3N:gableOther [750,950]=R1N:gable | others - | B line y=300 whole [150,950] | pin -
+split | s1h300/SplitCourt9 | s1 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R3N:gableOther [750,950]=R1N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE split s1h300/SplitCourt9 s2 line x=150 whole [450,650] ext [150,300]
+DISAGREE split s1h300/SplitCourt9 s2 line x=150 whole [150,300] ext [450,650]
+split | s1h300/SplitCourt11 | s0 | y=700 +y [400,500] | ext [100,800] | HOLE | beyond [100,400]=R4S:gableOther [500,800]=R0S:gable | others - | B line y=700 whole [100,800] | pin -
+split | s1h300/SplitCourt11 | s0 | x=500 +x [350,700] | ext [50,950] | HOLE | beyond [50,350]=R1W:gable [700,950]=noSide | others - | B line x=500 whole [50,950] | pin -
+split | s1h300/SplitCourt11 | s1 | y=700 +y [400,800] | ext [100,800] | outer | beyond [100,400]=R4S:gableOther | others - | B line y=700 whole [100,800] | pin -
+DISAGREE split s1h300/SplitCourt12 s2 line x=750 whole [500,700] ext [100,250]
+DISAGREE split s1h300/SplitCourt12 s2 line x=750 whole [100,250] ext [500,700]
+split | s1h300/SplitCourt13 | s0 | y=350 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h300/SplitCourt13 | s0 | x=450 +x [250,350] | ext [50,550] | HOLE | beyond [50,250]=R0W:gable [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h300/SplitCourt13 | s1 | y=350 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h300/SplitCourt13 | s1 | x=450 +x [250,350] | ext [50,550] | HOLE | beyond [50,250]=R0W:gable [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h300/SplitCourt13 | s2 | y=350 +y [150,450] | ext [0,700] | outer | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h300/SplitCourt13 | s2 | x=450 +x [50,350] | ext [50,550] | outer | beyond [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h300/SplitCourt14 | s0 | y=250 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R4N:gable [250,350]=noSide | others - | B line y=250 whole [0,350] | pin -
+split | s1h300/SplitCourt16 | s0 | x=300 -x [350,600] | ext [100,850] | HOLE | beyond [100,350]=R3E:gable [600,850]=R4E:gable | others - | B line x=300 whole [100,850] | pin -
+split | s1h300/SplitCourt16 | s0 | x=500 +x [350,600] | ext [100,850] | HOLE | beyond [100,350]=noSide [600,850]=noSide | others - | B line x=500 whole [100,850] | pin -
+split | s1h300/SplitCourt16 | s1 | x=300 -x [350,600] | ext [100,850] | outer | beyond [100,350]=R3E:gable [600,850]=R4E:gable | others - | B line x=300 whole [100,850] | pin -
+DISAGREE split s1h300/SplitCourt17 s1 line x=150 whole [150,350] ext [550,750]
+DISAGREE split s1h300/SplitCourt17 s1 line x=150 whole [550,750] ext [150,350]
+split | s1h300/SplitCourt19 | s0 | y=700 +y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R4S:gable [500,750]=noSide | others - | B line y=700 whole [50,750] | pin -
+split | s1h300/SplitCourt19 | s0 | x=500 +x [350,700] | ext [50,1000] | HOLE | beyond [50,350]=R1W:gable [700,1000]=R3W:gableOther | others - | B line x=500 whole [50,1000] | pin -
+split | s1h300/SplitCourt19 | s1 | x=500 +x [350,1000] | ext [50,1000] | outer | beyond [50,350]=R1W:gable | others - | B line x=500 whole [50,1000] | pin -
+split | s1h300/SplitCourt20 | s0 | x=400 -x [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2E:gable [600,700]=noSide | others - | B line x=400 whole [150,700] | pin -
+split | s1h300/SplitCourt20 | s0 | y=600 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R1S:gable [550,750]=R3S:gableOther | others - | B line y=600 whole [150,750] | pin -
+DISAGREE split s1h300/SplitCourt20 s1 line x=150 whole [150,400] ext [600,700]
+split | s1h300/SplitCourt20 | s1 | y=600 +y [150,550] | ext [150,750] | outer | beyond [550,750]=R3S:gableOther | others - | B line y=600 whole [150,750] | pin -
+DISAGREE split s1h300/SplitCourt20 s1 line x=150 whole [600,700] ext [150,400]
+DISAGREE split s1h300/SplitCourt20 s2 line x=150 whole [600,700] ext [150,400]
+DISAGREE split s1h300/SplitCourt20 s2 line x=150 whole [150,400] ext [600,700]
+split | s1h300/SplitCourt22 | s0 | y=500 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=500 whole [150,800] | pin -
+split | s1h300/SplitCourt22 | s0 | x=550 +x [250,500] | ext [0,750] | HOLE | beyond [0,250]=R4W:gable [500,750]=R4W:gable | others - | B line x=550 whole [0,750] | pin -
+split | s1h300/SplitCourt23 | s0 | x=250 -x [200,450] | ext [50,550] | HOLE | beyond [50,200]=noSide [450,550]=noSide | others - | B line x=250 whole [50,550] | pin -
+split | s1h300/SplitCourt23 | s0 | y=200 -y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R3N:gable [350,600]=R3N:gable | others - | B line y=200 whole [50,600] | pin -
+split | s1h300/SplitCourt24 | s0 | x=150 -x [250,600] | ext [50,800] | HOLE | beyond [50,250]=R1E:gableOther [600,800]=R0E:gable | others - | B line x=150 whole [50,800] | pin -
+split | s1h300/SplitCourt24 | s0 | x=500 +x [250,600] | ext [50,800] | HOLE | beyond [50,250]=noSide [600,800]=noSide | others - | B line x=500 whole [50,800] | pin -
+split | s1h300/SplitCourt24 | s1 | x=150 -x [250,600] | ext [50,800] | outer | beyond [50,250]=R1E:gableOther [600,800]=R0E:gable | others - | B line x=150 whole [50,800] | pin -
+split | s1h300/SplitCourt25 | s0 | x=250 -x [350,550] | ext [100,800] | HOLE | beyond [100,350]=noSide [550,800]=R0E:gable | others - | B line x=250 whole [100,800] | pin -
+split | s1h300/SplitCourt25 | s1 | x=250 -x [350,550] | ext [350,800] | outer | beyond [550,800]=R0E:gable | others - | B line x=250 whole [350,800] | pin -
+split | s1h300/SplitCourt29 | s0 | x=400 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=noSide [600,900]=noSide | others - | B line x=400 whole [0,900] | pin -
+split | s1h300/SplitCourt29 | s0 | x=750 +x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R4W:gable [600,900]=R2W:gable | others - | B line x=750 whole [0,900] | pin -
+split | s1h300/SplitCourt29 | s1 | x=750 +x [300,600] | ext [0,900] | outer | beyond [0,300]=R4W:gable [600,900]=R2W:gable | others - | B line x=750 whole [0,900] | pin -
+split | s1h300/SplitCourt30 | s0 | y=450 +y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R3S:gable [500,750]=noSide | others - | B line y=450 whole [50,750] | pin -
+split | s1h300/SplitCourt30 | s0 | y=350 -y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R2N:gable [500,750]=noSide | others - | B line y=350 whole [50,750] | pin -
+split | s1h300/SplitCourt31 | s0 | x=400 -x [400,750] | ext [100,1050] | HOLE | beyond [100,400]=R1E:gable [750,1050]=noSide | others - | B line x=400 whole [100,1050] | pin -
+split | s1h300/SplitCourt31 | s0 | x=600 +x [400,750] | ext [100,1050] | HOLE | beyond [100,400]=R4W:gableOther [750,1050]=R2W:gable | others - | B line x=600 whole [100,1050] | pin -
+split | s1h300/SplitCourt31 | s1 | x=400 -x [100,750] | ext [100,1050] | outer | beyond [750,1050]=noSide | others - | B line x=400 whole [100,1050] | pin -
+split | s1h300/SplitCourt31 | s1 | x=600 +x [100,750] | ext [100,1050] | outer | beyond [750,1050]=R2W:gable | others - | B line x=600 whole [100,1050] | pin -
+split | s1h300/SplitCourt33 | s0 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=R0E:gable [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h300/SplitCourt33 | s1 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=R0E:gable [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h300/SplitCourt33 | s2 | x=100 -x [150,450] | ext [150,700] | outer | beyond [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h300/SplitCourt34 | s0 | x=250 -x [250,450] | ext [0,650] | HOLE | beyond [0,250]=R1E:gable [450,650]=R4E:gable | others - | B line x=250 whole [0,650] | pin -
+split | s1h300/SplitCourt36 | s0 | y=500 +y [350,650] | ext [100,900] | HOLE | beyond [100,350]=R1S:gableOther [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h300/SplitCourt36 | s1 | y=500 +y [100,650] | ext [100,900] | outer | beyond [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h300/SplitCourt36 | s2 | y=500 +y [100,650] | ext [100,900] | outer | beyond [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h300/SplitCourt37 | s0 | x=250 -x [150,350] | ext [0,550] | HOLE | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h300/SplitCourt37 | s1 | x=250 -x [150,350] | ext [0,550] | HOLE | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h300/SplitCourt37 | s2 | x=250 -x [150,350] | ext [0,550] | outer | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h300/SplitCourt38 | s0 | y=400 +y [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2S:gable [600,700]=noSide | others - | B line y=400 whole [150,700] | pin -
+split | s1h300/SplitCourt39 | s0 | y=200 -y [250,500] | ext [0,750] | HOLE | beyond [0,250]=R2N:gableOther [500,750]=R0N:gable | others - | B line y=200 whole [0,750] | pin -
+u | s1h300/U1 | s0 | x=500 +x [350,600] | ext [150,850] | outer | beyond [150,350]=noSide [600,850]=noSide | others - | B line x=500 whole [150,850] | pin -
+u | s1h300/U1 | s1 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+u | s1h300/U1 | s2 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+u | s1h300/U2 | s0 | x=250 -x [150,500] | ext [0,750] | outer | beyond [0,150]=R0E:gable [500,750]=R0E:gable | others - | B line x=250 whole [0,750] | pin -
+u | s1h300/U3 | s0 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=550 whole [150,550] | pin -
+u | s1h300/U3 | s0 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+u | s1h300/U3 | s1 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=550 whole [150,550] | pin -
+u | s1h300/U3 | s1 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+u | s1h300/U5 | s0 | y=200 -y [50,300] | ext [50,500] | outer | beyond [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+DISAGREE u s1h300/U9 s0 line x=150 whole [150,300] ext [450,550]
+u | s1h300/U9 | s0 | y=300 -y [150,750] | ext [150,950] | outer | beyond [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE u s1h300/U9 s0 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h300/U9 s1 line x=150 whole [150,300] ext [450,550]
+u | s1h300/U9 | s1 | y=300 -y [150,750] | ext [150,950] | outer | beyond [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE u s1h300/U9 s1 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h300/U9 s2 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h300/U9 s2 line x=150 whole [150,300] ext [450,550]
+u | s1h300/U11 | s0 | y=550 +y [100,450] | ext [100,700] | outer | beyond [450,700]=noSide | others - | B line y=550 whole [100,700] | pin -
+u | s1h300/U11 | s0 | x=450 +x [200,550] | ext [50,800] | outer | beyond [50,200]=R0W:gable [550,800]=R0W:gable | others - | B line x=450 whole [50,800] | pin -
+DISAGREE u s1h300/U12 s0 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h300/U12 s0 line x=600 whole [100,250] ext [500,650]
+DISAGREE u s1h300/U12 s1 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h300/U12 s1 line x=600 whole [100,250] ext [500,650]
+DISAGREE u s1h300/U12 s2 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h300/U12 s2 line x=600 whole [100,250] ext [500,650]
+u | s1h300/U13 | s0 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h300/U13 | s0 | x=450 +x [150,250] | ext [50,350] | outer | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h300/U13 | s1 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h300/U13 | s1 | x=450 +x [150,250] | ext [50,350] | outer | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h300/U13 | s2 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h300/U13 | s2 | x=450 +x [50,250] | ext [50,350] | outer | beyond [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h300/U14 | s0 | y=200 -y [150,250] | ext [0,250] | outer | beyond [0,150]=R2N:gable | others - | B line y=200 whole [0,250] | pin -
+u | s1h300/U16 | s0 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R2E:gable | others - | B line x=300 whole [100,550] | pin -
+u | s1h300/U16 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R2E:gable | others - | B line x=300 whole [100,550] | pin -
+DISAGREE u s1h300/U17 s0 line x=150 whole [150,250] ext [450,650]
+DISAGREE u s1h300/U17 s0 line x=150 whole [450,650] ext [150,250]
+DISAGREE u s1h300/U17 s1 line x=150 whole [150,250] ext [450,650]
+DISAGREE u s1h300/U17 s1 line x=150 whole [450,650] ext [150,250]
+u | s1h300/U19 | s0 | y=500 +y [50,300] | ext [50,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=500 whole [50,550] | pin -
+u | s1h300/U19 | s0 | x=300 +x [150,500] | ext [50,600] | outer | beyond [50,150]=R0W:gable [500,600]=R0W:gable | others - | B line x=300 whole [50,600] | pin -
+u | s1h300/U19 | s1 | x=300 +x [150,600] | ext [50,600] | outer | beyond [50,150]=R0W:gable | others - | B line x=300 whole [50,600] | pin -
+u | s1h300/U20 | s0 | x=400 -x [400,600] | ext [150,700] | outer | beyond [150,400]=R2E:gable [600,700]=R2E:gable | others - | B line x=400 whole [150,700] | pin -
+u | s1h300/U20 | s0 | y=600 +y [400,750] | ext [150,750] | outer | beyond [150,400]=noSide | others - | B line y=600 whole [150,750] | pin -
+u | s1h300/U22 | s0 | y=450 +y [350,550] | ext [150,550] | outer | beyond [150,350]=noSide | others - | B line y=450 whole [150,550] | pin -
+u | s1h300/U23 | s0 | y=150 -y [50,350] | ext [50,600] | outer | beyond [350,600]=R1N:gable | others - | B line y=150 whole [50,600] | pin -
+u | s1h300/U24 | s0 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+u | s1h300/U24 | s1 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+u | s1h300/U29 | s0 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+u | s1h300/U29 | s1 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+u | s1h300/U30 | s0 | y=300 -y [300,700] | ext [50,700] | outer | beyond [50,300]=R1N:gable | others - | B line y=300 whole [50,700] | pin -
+u | s1h300/U30 | s0 | y=400 +y [300,450] | ext [50,450] | outer | beyond [50,300]=R2S:gable | others - | B line y=400 whole [50,450] | pin -
+u | s1h300/U31 | s0 | x=550 +x [250,600] | ext [100,700] | outer | beyond [100,250]=noSide [600,700]=noSide | others - | B line x=550 whole [100,700] | pin -
+u | s1h300/U31 | s1 | x=550 +x [250,600] | ext [250,700] | outer | beyond [600,700]=noSide | others - | B line x=550 whole [250,700] | pin -
+u | s1h300/U34 | s0 | x=250 -x [250,450] | ext [0,550] | outer | beyond [0,250]=noSide [450,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+u | s1h300/U36 | s0 | y=500 +y [200,650] | ext [100,650] | outer | beyond [100,200]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+u | s1h300/U38 | s0 | y=400 +y [400,700] | ext [150,700] | outer | beyond [150,400]=R2S:gable | others - | B line y=400 whole [150,700] | pin -
+u | s1h300/U39 | s0 | y=200 -y [0,350] | ext [0,550] | outer | beyond [350,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s1h250/Court0 | s0 | x=350 +x [100,450] | ext [0,550] | HOLE | beyond [0,100]=R3W:gable [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h250/Court0 | s1 | x=350 +x [100,450] | ext [0,550] | HOLE | beyond [0,100]=R3W:gable [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h250/Court0 | s2 | x=350 +x [0,450] | ext [0,550] | outer | beyond [450,550]=R3W:gable | others - | B line x=350 whole [0,550] | pin -
+court | s1h250/Court1 | s0 | x=500 +x [350,600] | ext [150,850] | HOLE | beyond [150,350]=noSide [600,850]=noSide | others - | B line x=500 whole [150,850] | pin -
+court | s1h250/Court1 | s1 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+court | s1h250/Court1 | s2 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+court | s1h250/Court2 | s0 | x=250 -x [150,500] | ext [0,750] | HOLE | beyond [0,150]=R0E:gable [500,750]=R0E:gable | others - | B line x=250 whole [0,750] | pin -
+court | s1h250/Court3 | s0 | y=550 +y [150,300] | ext [0,550] | HOLE | beyond [0,150]=noSide [300,550]=R3S:gable | others - | B line y=550 whole [0,550] | pin -
+court | s1h250/Court3 | s0 | y=200 -y [150,300] | ext [0,550] | HOLE | beyond [0,150]=R2N:gable [300,550]=R2N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s1h250/Court3 | s1 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R3S:gable | others - | B line y=550 whole [150,550] | pin -
+court | s1h250/Court3 | s1 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R2N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s1h250/Court5 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R2N:gable [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+court | s1h250/Court5 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+court | s1h250/Court7 | s0 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h250/Court7 | s1 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h250/Court7 | s2 | x=200 -x [350,600] | ext [100,800] | outer | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+court | s1h250/Court9 | s0 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R2N:gable [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+court | s1h250/Court9 | s1 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R2N:gable [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE court s1h250/Court9 s2 line x=150 whole [450,550] ext [150,300]
+DISAGREE court s1h250/Court9 s2 line x=150 whole [150,300] ext [450,550]
+court | s1h250/Court11 | s0 | y=550 +y [350,450] | ext [100,700] | HOLE | beyond [100,350]=R3S:gable [450,700]=noSide | others - | B line y=550 whole [100,700] | pin -
+court | s1h250/Court11 | s0 | x=450 +x [200,550] | ext [50,800] | HOLE | beyond [50,200]=R0W:gable [550,800]=R0W:gable | others - | B line x=450 whole [50,800] | pin -
+court | s1h250/Court11 | s1 | y=550 +y [350,450] | ext [100,450] | outer | beyond [100,350]=R3S:gable | others - | B line y=550 whole [100,450] | pin -
+DISAGREE court s1h250/Court12 s2 line x=600 whole [500,650] ext [100,250]
+DISAGREE court s1h250/Court12 s2 line x=600 whole [100,250] ext [500,650]
+court | s1h250/Court13 | s0 | y=250 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h250/Court13 | s0 | x=450 +x [150,250] | ext [50,350] | HOLE | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h250/Court13 | s1 | y=250 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h250/Court13 | s1 | x=450 +x [150,250] | ext [50,350] | HOLE | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h250/Court13 | s2 | y=250 +y [150,450] | ext [0,700] | outer | beyond [0,150]=R2S:gable [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+court | s1h250/Court13 | s2 | x=450 +x [50,250] | ext [50,350] | outer | beyond [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+court | s1h250/Court14 | s0 | y=200 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R3N:gable [250,350]=noSide | others - | B line y=200 whole [0,350] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h250/Court16 | s0 | x=300 -x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=R3E:gable | others - | B line x=300 whole [100,550] | pin -
+court | s1h250/Court16 | s0 | x=500 +x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=500 whole [100,550] | pin -
+court | s1h250/Court16 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R3E:gable | others - | B line x=300 whole [100,550] | pin -
+DISAGREE court s1h250/Court17 s1 line x=150 whole [150,250] ext [450,650]
+DISAGREE court s1h250/Court17 s1 line x=150 whole [450,650] ext [150,250]
+court | s1h250/Court19 | s0 | y=500 +y [150,300] | ext [50,550] | HOLE | beyond [50,150]=R3S:gable [300,550]=R3S:gable | others - | B line y=500 whole [50,550] | pin -
+court | s1h250/Court19 | s0 | x=300 +x [150,500] | ext [50,600] | HOLE | beyond [50,150]=R1W:gable [500,600]=R1W:gable | others - | B line x=300 whole [50,600] | pin -
+court | s1h250/Court19 | s1 | x=300 +x [150,600] | ext [50,600] | outer | beyond [50,150]=R1W:gable | others - | B line x=300 whole [50,600] | pin -
+court | s1h250/Court20 | s0 | x=400 -x [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2E:gable [600,700]=R2E:gable | others - | B line x=400 whole [150,700] | pin -
+court | s1h250/Court20 | s0 | y=600 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=noSide [550,750]=R1S:gable | others - | B line y=600 whole [150,750] | pin -
+court | s1h250/Court20 | s1 | y=600 +y [400,550] | ext [400,750] | outer | beyond [550,750]=R1S:gable | others - | B line y=600 whole [400,750] | pin -
+court | s1h250/Court22 | s0 | y=450 +y [350,550] | ext [150,700] | HOLE | beyond [150,350]=noSide [550,700]=noSide | others - | B line y=450 whole [150,700] | pin -
+court | s1h250/Court22 | s0 | x=550 +x [200,450] | ext [0,550] | HOLE | beyond [0,200]=R3W:gable [450,550]=R3W:gable | others - | B line x=550 whole [0,550] | pin -
+court | s1h250/Court23 | s0 | x=250 -x [150,400] | ext [50,500] | HOLE | beyond [50,150]=noSide [400,500]=R0E:gable | others - | B line x=250 whole [50,500] | pin -
+court | s1h250/Court23 | s0 | y=150 -y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2N:gable [350,600]=R2N:gable | others - | B line y=150 whole [50,600] | pin -
+court | s1h250/Court24 | s0 | x=150 -x [250,600] | ext [50,700] | HOLE | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+court | s1h250/Court24 | s0 | x=500 +x [250,600] | ext [50,700] | HOLE | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=500 whole [50,700] | pin -
+court | s1h250/Court24 | s1 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+court | s1h250/Court25 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h250/Court25 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court | s1h250/Court29 | s0 | x=300 -x [150,450] | ext [0,650] | HOLE | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=300 whole [0,650] | pin -
+court | s1h250/Court29 | s0 | x=650 +x [150,450] | ext [0,650] | HOLE | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+court | s1h250/Court29 | s1 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+court | s1h250/Court30 | s0 | y=400 +y [300,450] | ext [50,700] | HOLE | beyond [50,300]=R2S:gable [450,700]=noSide | others - | B line y=400 whole [50,700] | pin -
+court | s1h250/Court30 | s0 | y=300 -y [300,450] | ext [50,700] | HOLE | beyond [50,300]=R1N:gable [450,700]=R1N:gable | others - | B line y=300 whole [50,700] | pin -
+court | s1h250/Court31 | s0 | x=350 -x [250,600] | ext [100,700] | HOLE | beyond [100,250]=R1E:gable [600,700]=noSide | others - | B line x=350 whole [100,700] | pin -
+court | s1h250/Court31 | s0 | x=550 +x [250,600] | ext [100,700] | HOLE | beyond [100,250]=noSide [600,700]=noSide | others - | B line x=550 whole [100,700] | pin -
+court | s1h250/Court31 | s1 | x=350 -x [100,600] | ext [100,700] | outer | beyond [600,700]=noSide | others - | B line x=350 whole [100,700] | pin -
+court | s1h250/Court31 | s1 | x=550 +x [250,600] | ext [250,700] | outer | beyond [600,700]=noSide | others - | B line x=550 whole [250,700] | pin -
+court | s1h250/Court33 | s0 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=noSide [450,700]=noSide | others - | B line x=100 whole [150,700] | pin -
+court | s1h250/Court33 | s1 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=noSide [450,700]=noSide | others - | B line x=100 whole [150,700] | pin -
+court | s1h250/Court33 | s2 | x=100 -x [350,450] | ext [350,700] | outer | beyond [450,700]=noSide | others - | B line x=100 whole [350,700] | pin -
+court | s1h250/Court34 | s0 | x=250 -x [250,450] | ext [0,550] | HOLE | beyond [0,250]=noSide [450,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s1h250/Court36 | s0 | y=500 +y [200,500] | ext [100,650] | HOLE | beyond [100,200]=R0S:gable [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h250/Court36 | s1 | y=500 +y [100,500] | ext [100,650] | outer | beyond [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h250/Court36 | s2 | y=500 +y [100,500] | ext [100,650] | outer | beyond [500,650]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+court | s1h250/Court37 | s0 | x=200 -x [150,350] | ext [0,500] | HOLE | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h250/Court37 | s1 | x=200 -x [150,350] | ext [0,500] | HOLE | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h250/Court37 | s2 | x=200 -x [150,350] | ext [0,500] | outer | beyond [0,150]=noSide [350,500]=noSide | others - | B line x=200 whole [0,500] | pin -
+court | s1h250/Court38 | s0 | y=400 +y [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2S:gable [600,700]=R2S:gable | others - | B line y=400 whole [150,700] | pin -
+court | s1h250/Court39 | s0 | y=200 -y [100,350] | ext [0,550] | HOLE | beyond [0,100]=R1N:gable [350,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+split | s1h250/SplitCourt0 | s0 | x=350 +x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=R4W:gable | others - | B line x=350 whole [0,600] | pin -
+split | s1h250/SplitCourt0 | s1 | x=350 +x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=R4W:gable | others - | B line x=350 whole [0,600] | pin -
+split | s1h250/SplitCourt0 | s2 | x=350 +x [100,450] | ext [100,600] | outer | beyond [450,600]=R4W:gable | others - | B line x=350 whole [100,600] | pin -
+split | s1h250/SplitCourt1 | s0 | x=600 +x [450,700] | ext [150,950] | HOLE | beyond [150,450]=noSide [700,950]=noSide | others - | B line x=600 whole [150,950] | pin -
+split | s1h250/SplitCourt1 | s1 | x=600 +x [450,700] | ext [150,700] | outer | beyond [150,450]=noSide | others - | B line x=600 whole [150,700] | pin -
+split | s1h250/SplitCourt1 | s2 | x=600 +x [450,700] | ext [150,700] | outer | beyond [150,450]=noSide | others - | B line x=600 whole [150,700] | pin -
+split | s1h250/SplitCourt2 | s0 | x=250 -x [150,500] | ext [0,750] | HOLE | beyond [0,150]=noSide [500,750]=R1E:gable | others - | B line x=250 whole [0,750] | pin -
+split | s1h250/SplitCourt3 | s0 | y=650 +y [300,450] | ext [0,700] | HOLE | beyond [0,300]=noSide [450,700]=noSide | others - | B line y=650 whole [0,700] | pin -
+split | s1h250/SplitCourt3 | s0 | y=300 -y [300,450] | ext [0,700] | HOLE | beyond [0,300]=R2N:gable [450,700]=noSide | others - | B line y=300 whole [0,700] | pin -
+split | s1h250/SplitCourt3 | s1 | y=650 +y [300,450] | ext [300,700] | outer | beyond [450,700]=noSide | others - | B line y=650 whole [300,700] | pin -
+split | s1h250/SplitCourt3 | s1 | y=300 -y [0,450] | ext [0,700] | outer | beyond [450,700]=noSide | others - | B line y=300 whole [0,700] | pin -
+split | s1h250/SplitCourt5 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R3N:gable [300,500]=R3N:gable | others - | B line y=200 whole [50,500] | pin -
+split | s1h250/SplitCourt5 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R3N:gable | others - | B line y=200 whole [50,500] | pin -
+split | s1h250/SplitCourt7 | s0 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h250/SplitCourt7 | s1 | x=200 -x [350,600] | ext [100,800] | HOLE | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h250/SplitCourt7 | s2 | x=200 -x [350,600] | ext [100,800] | outer | beyond [100,350]=noSide [600,800]=noSide | others - | B line x=200 whole [100,800] | pin -
+split | s1h250/SplitCourt9 | s0 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R3N:gableOther [750,950]=R1N:gable | others - | B line y=300 whole [150,950] | pin -
+split | s1h250/SplitCourt9 | s1 | y=300 -y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R3N:gableOther [750,950]=R1N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE split s1h250/SplitCourt9 s2 line x=150 whole [450,650] ext [150,300]
+DISAGREE split s1h250/SplitCourt9 s2 line x=150 whole [150,300] ext [450,650]
+split | s1h250/SplitCourt11 | s0 | y=700 +y [400,500] | ext [100,800] | HOLE | beyond [100,400]=R4S:gableOther [500,800]=R0S:gable | others - | B line y=700 whole [100,800] | pin -
+split | s1h250/SplitCourt11 | s0 | x=500 +x [350,700] | ext [50,950] | HOLE | beyond [50,350]=R1W:gable [700,950]=noSide | others - | B line x=500 whole [50,950] | pin -
+split | s1h250/SplitCourt11 | s1 | y=700 +y [400,800] | ext [100,800] | outer | beyond [100,400]=R4S:gableOther | others - | B line y=700 whole [100,800] | pin -
+DISAGREE split s1h250/SplitCourt12 s2 line x=750 whole [500,700] ext [100,250]
+DISAGREE split s1h250/SplitCourt12 s2 line x=750 whole [100,250] ext [500,700]
+split | s1h250/SplitCourt13 | s0 | y=350 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h250/SplitCourt13 | s0 | x=450 +x [250,350] | ext [50,550] | HOLE | beyond [50,250]=R0W:gable [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h250/SplitCourt13 | s1 | y=350 +y [150,450] | ext [0,700] | HOLE | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h250/SplitCourt13 | s1 | x=450 +x [250,350] | ext [50,550] | HOLE | beyond [50,250]=R0W:gable [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h250/SplitCourt13 | s2 | y=350 +y [150,450] | ext [0,700] | outer | beyond [0,150]=noSide [450,700]=R2S:gable | others - | B line y=350 whole [0,700] | pin -
+split | s1h250/SplitCourt13 | s2 | x=450 +x [50,350] | ext [50,550] | outer | beyond [350,550]=R0W:gable | others - | B line x=450 whole [50,550] | pin -
+split | s1h250/SplitCourt14 | s0 | y=250 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R4N:gable [250,350]=noSide | others - | B line y=250 whole [0,350] | pin -
+split | s1h250/SplitCourt16 | s0 | x=300 -x [350,600] | ext [100,850] | HOLE | beyond [100,350]=R3E:gable [600,850]=R4E:gable | others - | B line x=300 whole [100,850] | pin -
+split | s1h250/SplitCourt16 | s0 | x=500 +x [350,600] | ext [100,850] | HOLE | beyond [100,350]=noSide [600,850]=noSide | others - | B line x=500 whole [100,850] | pin -
+split | s1h250/SplitCourt16 | s1 | x=300 -x [350,600] | ext [100,850] | outer | beyond [100,350]=R3E:gable [600,850]=R4E:gable | others - | B line x=300 whole [100,850] | pin -
+DISAGREE split s1h250/SplitCourt17 s1 line x=150 whole [150,350] ext [550,750]
+DISAGREE split s1h250/SplitCourt17 s1 line x=150 whole [550,750] ext [150,350]
+split | s1h250/SplitCourt19 | s0 | y=700 +y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R4S:gable [500,750]=noSide | others - | B line y=700 whole [50,750] | pin -
+split | s1h250/SplitCourt19 | s0 | x=500 +x [350,700] | ext [50,1000] | HOLE | beyond [50,350]=R1W:gable [700,1000]=R3W:gableOther | others - | B line x=500 whole [50,1000] | pin -
+split | s1h250/SplitCourt19 | s1 | x=500 +x [350,1000] | ext [50,1000] | outer | beyond [50,350]=R1W:gable | others - | B line x=500 whole [50,1000] | pin -
+split | s1h250/SplitCourt20 | s0 | x=400 -x [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2E:gable [600,700]=noSide | others - | B line x=400 whole [150,700] | pin -
+split | s1h250/SplitCourt20 | s0 | y=600 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R1S:gable [550,750]=R3S:gableOther | others - | B line y=600 whole [150,750] | pin -
+DISAGREE split s1h250/SplitCourt20 s1 line x=150 whole [150,400] ext [600,700]
+split | s1h250/SplitCourt20 | s1 | y=600 +y [150,550] | ext [150,750] | outer | beyond [550,750]=R3S:gableOther | others - | B line y=600 whole [150,750] | pin -
+DISAGREE split s1h250/SplitCourt20 s1 line x=150 whole [600,700] ext [150,400]
+DISAGREE split s1h250/SplitCourt20 s2 line x=150 whole [600,700] ext [150,400]
+DISAGREE split s1h250/SplitCourt20 s2 line x=150 whole [150,400] ext [600,700]
+split | s1h250/SplitCourt22 | s0 | y=500 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=500 whole [150,800] | pin -
+split | s1h250/SplitCourt22 | s0 | x=550 +x [250,500] | ext [0,750] | HOLE | beyond [0,250]=R4W:gable [500,750]=R4W:gable | others - | B line x=550 whole [0,750] | pin -
+split | s1h250/SplitCourt23 | s0 | x=250 -x [200,450] | ext [50,550] | HOLE | beyond [50,200]=noSide [450,550]=noSide | others - | B line x=250 whole [50,550] | pin -
+split | s1h250/SplitCourt23 | s0 | y=200 -y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R3N:gable [350,600]=R3N:gable | others - | B line y=200 whole [50,600] | pin -
+split | s1h250/SplitCourt24 | s0 | x=150 -x [250,600] | ext [50,800] | HOLE | beyond [50,250]=R1E:gableOther [600,800]=R0E:gable | others - | B line x=150 whole [50,800] | pin -
+split | s1h250/SplitCourt24 | s0 | x=500 +x [250,600] | ext [50,800] | HOLE | beyond [50,250]=noSide [600,800]=noSide | others - | B line x=500 whole [50,800] | pin -
+split | s1h250/SplitCourt24 | s1 | x=150 -x [250,600] | ext [50,800] | outer | beyond [50,250]=R1E:gableOther [600,800]=R0E:gable | others - | B line x=150 whole [50,800] | pin -
+split | s1h250/SplitCourt25 | s0 | x=250 -x [350,550] | ext [100,800] | HOLE | beyond [100,350]=noSide [550,800]=R0E:gable | others - | B line x=250 whole [100,800] | pin -
+split | s1h250/SplitCourt25 | s1 | x=250 -x [350,550] | ext [350,800] | outer | beyond [550,800]=R0E:gable | others - | B line x=250 whole [350,800] | pin -
+split | s1h250/SplitCourt29 | s0 | x=400 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=noSide [600,900]=noSide | others - | B line x=400 whole [0,900] | pin -
+split | s1h250/SplitCourt29 | s0 | x=750 +x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R4W:gable [600,900]=R2W:gable | others - | B line x=750 whole [0,900] | pin -
+split | s1h250/SplitCourt29 | s1 | x=750 +x [300,600] | ext [0,900] | outer | beyond [0,300]=R4W:gable [600,900]=R2W:gable | others - | B line x=750 whole [0,900] | pin -
+split | s1h250/SplitCourt30 | s0 | y=450 +y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R3S:gable [500,750]=noSide | others - | B line y=450 whole [50,750] | pin -
+split | s1h250/SplitCourt30 | s0 | y=350 -y [350,500] | ext [50,750] | HOLE | beyond [50,350]=R2N:gable [500,750]=noSide | others - | B line y=350 whole [50,750] | pin -
+split | s1h250/SplitCourt31 | s0 | x=400 -x [400,750] | ext [100,1050] | HOLE | beyond [100,400]=R1E:gable [750,1050]=noSide | others - | B line x=400 whole [100,1050] | pin -
+split | s1h250/SplitCourt31 | s0 | x=600 +x [400,750] | ext [100,1050] | HOLE | beyond [100,400]=R4W:gableOther [750,1050]=R2W:gable | others - | B line x=600 whole [100,1050] | pin -
+split | s1h250/SplitCourt31 | s1 | x=400 -x [100,750] | ext [100,1050] | outer | beyond [750,1050]=noSide | others - | B line x=400 whole [100,1050] | pin -
+split | s1h250/SplitCourt31 | s1 | x=600 +x [100,750] | ext [100,1050] | outer | beyond [750,1050]=R2W:gable | others - | B line x=600 whole [100,1050] | pin -
+split | s1h250/SplitCourt33 | s0 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=R0E:gable [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h250/SplitCourt33 | s1 | x=100 -x [350,450] | ext [150,700] | HOLE | beyond [150,350]=R0E:gable [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h250/SplitCourt33 | s2 | x=100 -x [150,450] | ext [150,700] | outer | beyond [450,700]=R3E:gableOther | others - | B line x=100 whole [150,700] | pin -
+split | s1h250/SplitCourt34 | s0 | x=250 -x [250,450] | ext [0,650] | HOLE | beyond [0,250]=R1E:gable [450,650]=R4E:gable | others - | B line x=250 whole [0,650] | pin -
+split | s1h250/SplitCourt36 | s0 | y=500 +y [350,650] | ext [100,900] | HOLE | beyond [100,350]=R1S:gableOther [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h250/SplitCourt36 | s1 | y=500 +y [100,650] | ext [100,900] | outer | beyond [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h250/SplitCourt36 | s2 | y=500 +y [100,650] | ext [100,900] | outer | beyond [650,900]=R0S:gable | others - | B line y=500 whole [100,900] | pin -
+split | s1h250/SplitCourt37 | s0 | x=250 -x [150,350] | ext [0,550] | HOLE | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h250/SplitCourt37 | s1 | x=250 -x [150,350] | ext [0,550] | HOLE | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h250/SplitCourt37 | s2 | x=250 -x [150,350] | ext [0,550] | outer | beyond [0,150]=noSide [350,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+split | s1h250/SplitCourt38 | s0 | y=400 +y [400,600] | ext [150,700] | HOLE | beyond [150,400]=R2S:gable [600,700]=noSide | others - | B line y=400 whole [150,700] | pin -
+split | s1h250/SplitCourt39 | s0 | y=200 -y [250,500] | ext [0,750] | HOLE | beyond [0,250]=R2N:gableOther [500,750]=R0N:gable | others - | B line y=200 whole [0,750] | pin -
+u | s1h250/U1 | s0 | x=500 +x [350,600] | ext [150,850] | outer | beyond [150,350]=noSide [600,850]=noSide | others - | B line x=500 whole [150,850] | pin -
+u | s1h250/U1 | s1 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+u | s1h250/U1 | s2 | x=500 +x [350,600] | ext [150,600] | outer | beyond [150,350]=noSide | others - | B line x=500 whole [150,600] | pin -
+u | s1h250/U2 | s0 | x=250 -x [150,500] | ext [0,750] | outer | beyond [0,150]=R0E:gable [500,750]=R0E:gable | others - | B line x=250 whole [0,750] | pin -
+u | s1h250/U3 | s0 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=550 whole [150,550] | pin -
+u | s1h250/U3 | s0 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+u | s1h250/U3 | s1 | y=550 +y [150,300] | ext [150,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=550 whole [150,550] | pin -
+u | s1h250/U3 | s1 | y=200 -y [0,300] | ext [0,550] | outer | beyond [300,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+u | s1h250/U5 | s0 | y=200 -y [50,300] | ext [50,500] | outer | beyond [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+DISAGREE u s1h250/U9 s0 line x=150 whole [150,300] ext [450,550]
+u | s1h250/U9 | s0 | y=300 -y [150,750] | ext [150,950] | outer | beyond [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE u s1h250/U9 s0 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h250/U9 s1 line x=150 whole [150,300] ext [450,550]
+u | s1h250/U9 | s1 | y=300 -y [150,750] | ext [150,950] | outer | beyond [750,950]=R2N:gable | others - | B line y=300 whole [150,950] | pin -
+DISAGREE u s1h250/U9 s1 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h250/U9 s2 line x=150 whole [450,550] ext [150,300]
+DISAGREE u s1h250/U9 s2 line x=150 whole [150,300] ext [450,550]
+u | s1h250/U11 | s0 | y=550 +y [100,450] | ext [100,700] | outer | beyond [450,700]=noSide | others - | B line y=550 whole [100,700] | pin -
+u | s1h250/U11 | s0 | x=450 +x [200,550] | ext [50,800] | outer | beyond [50,200]=R0W:gable [550,800]=R0W:gable | others - | B line x=450 whole [50,800] | pin -
+DISAGREE u s1h250/U12 s0 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h250/U12 s0 line x=600 whole [100,250] ext [500,650]
+DISAGREE u s1h250/U12 s1 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h250/U12 s1 line x=600 whole [100,250] ext [500,650]
+DISAGREE u s1h250/U12 s2 line x=600 whole [500,650] ext [100,250]
+DISAGREE u s1h250/U12 s2 line x=600 whole [100,250] ext [500,650]
+u | s1h250/U13 | s0 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h250/U13 | s0 | x=450 +x [150,250] | ext [50,350] | outer | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h250/U13 | s1 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h250/U13 | s1 | x=450 +x [150,250] | ext [50,350] | outer | beyond [50,150]=R0W:gable [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h250/U13 | s2 | y=250 +y [0,450] | ext [0,700] | outer | beyond [450,700]=R2S:gable | others - | B line y=250 whole [0,700] | pin -
+u | s1h250/U13 | s2 | x=450 +x [50,250] | ext [50,350] | outer | beyond [250,350]=R0W:gable | others - | B line x=450 whole [50,350] | pin -
+u | s1h250/U14 | s0 | y=200 -y [150,250] | ext [0,250] | outer | beyond [0,150]=R2N:gable | others - | B line y=200 whole [0,250] | pin -
+u | s1h250/U16 | s0 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R2E:gable | others - | B line x=300 whole [100,550] | pin -
+u | s1h250/U16 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=R2E:gable | others - | B line x=300 whole [100,550] | pin -
+DISAGREE u s1h250/U17 s0 line x=150 whole [150,250] ext [450,650]
+DISAGREE u s1h250/U17 s0 line x=150 whole [450,650] ext [150,250]
+DISAGREE u s1h250/U17 s1 line x=150 whole [150,250] ext [450,650]
+DISAGREE u s1h250/U17 s1 line x=150 whole [450,650] ext [150,250]
+u | s1h250/U19 | s0 | y=500 +y [50,300] | ext [50,550] | outer | beyond [300,550]=R2S:gable | others - | B line y=500 whole [50,550] | pin -
+u | s1h250/U19 | s0 | x=300 +x [150,500] | ext [50,600] | outer | beyond [50,150]=R0W:gable [500,600]=R0W:gable | others - | B line x=300 whole [50,600] | pin -
+u | s1h250/U19 | s1 | x=300 +x [150,600] | ext [50,600] | outer | beyond [50,150]=R0W:gable | others - | B line x=300 whole [50,600] | pin -
+u | s1h250/U20 | s0 | x=400 -x [400,600] | ext [150,700] | outer | beyond [150,400]=R2E:gable [600,700]=R2E:gable | others - | B line x=400 whole [150,700] | pin -
+u | s1h250/U20 | s0 | y=600 +y [400,750] | ext [150,750] | outer | beyond [150,400]=noSide | others - | B line y=600 whole [150,750] | pin -
+u | s1h250/U22 | s0 | y=450 +y [350,550] | ext [150,550] | outer | beyond [150,350]=noSide | others - | B line y=450 whole [150,550] | pin -
+u | s1h250/U23 | s0 | y=150 -y [50,350] | ext [50,600] | outer | beyond [350,600]=R1N:gable | others - | B line y=150 whole [50,600] | pin -
+u | s1h250/U24 | s0 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+u | s1h250/U24 | s1 | x=150 -x [250,600] | ext [50,700] | outer | beyond [50,250]=noSide [600,700]=noSide | others - | B line x=150 whole [50,700] | pin -
+u | s1h250/U29 | s0 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+u | s1h250/U29 | s1 | x=650 +x [150,450] | ext [0,650] | outer | beyond [0,150]=noSide [450,650]=noSide | others - | B line x=650 whole [0,650] | pin -
+u | s1h250/U30 | s0 | y=300 -y [300,700] | ext [50,700] | outer | beyond [50,300]=R1N:gable | others - | B line y=300 whole [50,700] | pin -
+u | s1h250/U30 | s0 | y=400 +y [300,450] | ext [50,450] | outer | beyond [50,300]=R2S:gable | others - | B line y=400 whole [50,450] | pin -
+u | s1h250/U31 | s0 | x=550 +x [250,600] | ext [100,700] | outer | beyond [100,250]=noSide [600,700]=noSide | others - | B line x=550 whole [100,700] | pin -
+u | s1h250/U31 | s1 | x=550 +x [250,600] | ext [250,700] | outer | beyond [600,700]=noSide | others - | B line x=550 whole [250,700] | pin -
+u | s1h250/U34 | s0 | x=250 -x [250,450] | ext [0,550] | outer | beyond [0,250]=noSide [450,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+u | s1h250/U36 | s0 | y=500 +y [200,650] | ext [100,650] | outer | beyond [100,200]=R0S:gable | others - | B line y=500 whole [100,650] | pin -
+u | s1h250/U38 | s0 | y=400 +y [400,700] | ext [150,700] | outer | beyond [150,400]=R2S:gable | others - | B line y=400 whole [150,700] | pin -
+u | s1h250/U39 | s0 | y=200 -y [0,350] | ext [0,550] | outer | beyond [350,550]=R1N:gable | others - | B line y=200 whole [0,550] | pin -
+court | s2h300/Court0 | s0 | x=150 -x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+court | s2h300/Court0 | s0 | x=500 +x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=500 whole [100,650] | pin -
+court | s2h300/Court0 | s0 | y=250 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h300/Court0 | s1 | x=150 -x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+court | s2h300/Court0 | s1 | x=500 +x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=500 whole [100,650] | pin -
+court | s2h300/Court0 | s1 | y=250 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h300/Court0 | s2 | x=500 +x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=500 whole [100,400] | pin -
+court | s2h300/Court0 | s2 | y=250 -y [150,500] | ext [0,700] | outer | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h300/Court0 | s2 | x=150 -x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=150 whole [100,400] | pin -
+court | s2h300/Court1 | s0 | y=550 +y [350,600] | ext [150,800] | HOLE | beyond [150,350]=R0S:gable [600,800]=R0S:gable | others - | B line y=550 whole [150,800] | pin -
+court | s2h300/Court2 | s0 | y=350 +y [150,250] | ext [50,500] | HOLE | beyond [50,150]=noSide [250,500]=R1S:gable | others - | B line y=350 whole [50,500] | pin -
+court | s2h300/Court2 | s1 | y=350 +y [150,250] | ext [50,500] | HOLE | beyond [50,150]=noSide [250,500]=R1S:gable | others - | B line y=350 whole [50,500] | pin -
+court | s2h300/Court3 | s0 | x=250 -x [350,550] | ext [150,750] | HOLE | beyond [150,350]=noSide [550,750]=noSide | others - | B line x=250 whole [150,750] | pin -
+court | s2h300/Court3 | s0 | y=350 -y [250,500] | ext [50,650] | HOLE | beyond [50,250]=R3N:gable [500,650]=R3N:gable | others - | B line y=350 whole [50,650] | pin -
+court | s2h300/Court3 | s1 | y=350 -y [250,650] | ext [50,650] | outer | beyond [50,250]=R3N:gable | others - | B line y=350 whole [50,650] | pin -
+court | s2h300/Court3 | s1 | x=250 -x [350,550] | ext [150,550] | outer | beyond [150,350]=noSide | others - | B line x=250 whole [150,550] | pin -
+court | s2h300/Court8 | s0 | y=200 -y [300,550] | ext [50,700] | HOLE | beyond [50,300]=R2N:gable [550,700]=R2N:gable | others - | B line y=200 whole [50,700] | pin -
+court | s2h300/Court10 | s0 | y=300 -y [350,650] | ext [100,750] | HOLE | beyond [100,350]=R2N:gable [650,750]=R2N:gable | others - | B line y=300 whole [100,750] | pin -
+court | s2h300/Court12 | s0 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=R0W:gable [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+court | s2h300/Court12 | s1 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=R0W:gable [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+court | s2h300/Court14 | s0 | x=150 -x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+court | s2h300/Court14 | s0 | x=450 +x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=450 whole [100,750] | pin -
+court | s2h300/Court14 | s1 | x=150 -x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+court | s2h300/Court14 | s1 | x=450 +x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=450 whole [100,750] | pin -
+court | s2h300/Court15 | s0 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court | s2h300/Court15 | s1 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+DISAGREE court s2h300/Court17 s1 line x=700 whole [250,400] ext [50,150]
+DISAGREE court s2h300/Court17 s1 line x=700 whole [50,150] ext [250,400]
+court | s2h300/Court19 | s0 | x=250 -x [100,400] | ext [0,550] | HOLE | beyond [0,100]=noSide [400,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s2h300/Court19 | s1 | x=250 -x [100,400] | ext [0,550] | HOLE | beyond [0,100]=noSide [400,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s2h300/Court21 | s0 | y=450 +y [250,600] | ext [0,700] | HOLE | beyond [0,250]=R3S:gable [600,700]=R3S:gable | others - | B line y=450 whole [0,700] | pin -
+court | s2h300/Court22 | s0 | y=550 +y [250,600] | ext [50,800] | HOLE | beyond [50,250]=noSide [600,800]=noSide | others - | B line y=550 whole [50,800] | pin -
+court | s2h300/Court22 | s1 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+court | s2h300/Court25 | s0 | y=400 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=400 whole [150,800] | pin -
+court | s2h300/Court25 | s0 | y=200 -y [350,550] | ext [150,800] | HOLE | beyond [150,350]=R1N:gable [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+court | s2h300/Court27 | s0 | y=550 +y [250,550] | ext [100,750] | HOLE | beyond [100,250]=R2S:gable [550,750]=R2S:gable | others - | B line y=550 whole [100,750] | pin -
+court | s2h300/Court28 | s0 | y=650 +y [400,700] | ext [150,900] | HOLE | beyond [150,400]=R0S:gable [700,900]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+court | s2h300/Court28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+court | s2h300/Court29 | s0 | y=250 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R3S:gable [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+court | s2h300/Court29 | s1 | y=250 +y [400,550] | ext [150,550] | outer | beyond [150,400]=R3S:gable | others - | B line y=250 whole [150,550] | pin -
+court | s2h300/Court32 | s0 | y=350 -y [350,700] | ext [150,850] | HOLE | beyond [150,350]=R0N:gable [700,850]=R0N:gable | others - | B line y=350 whole [150,850] | pin -
+court | s2h300/Court33 | s0 | x=350 -x [300,400] | ext [50,500] | HOLE | beyond [50,300]=noSide [400,500]=R2E:gable | others - | B line x=350 whole [50,500] | pin -
+court | s2h300/Court33 | s0 | y=300 -y [350,550] | ext [100,650] | HOLE | beyond [100,350]=R3N:gable [550,650]=R3N:gable | others - | B line y=300 whole [100,650] | pin -
+court | s2h300/Court33 | s1 | x=350 -x [300,400] | ext [300,500] | outer | beyond [400,500]=R2E:gable | others - | B line x=350 whole [300,500] | pin -
+court | s2h300/Court37 | s0 | x=250 -x [300,500] | ext [150,650] | HOLE | beyond [150,300]=noSide [500,650]=R2E:gable | others - | B line x=250 whole [150,650] | pin -
+court | s2h300/Court37 | s0 | x=400 +x [300,500] | ext [150,650] | HOLE | beyond [150,300]=R3W:gable [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+court | s2h300/Court37 | s1 | x=400 +x [150,500] | ext [150,650] | outer | beyond [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+court | s2h300/Court38 | s0 | y=250 -y [250,350] | ext [0,600] | HOLE | beyond [0,250]=R1N:gable [350,600]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+court | s2h300/Court38 | s1 | y=250 -y [250,350] | ext [0,600] | outer | beyond [0,250]=R1N:gable [350,600]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+split | s2h300/SplitCourt0 | s0 | x=150 -x [300,450] | ext [100,700] | HOLE | beyond [100,300]=R2E:gable [450,700]=R4E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h300/SplitCourt0 | s0 | x=500 +x [300,450] | ext [100,700] | HOLE | beyond [100,300]=noSide [450,700]=noSide | others - | B line x=500 whole [100,700] | pin -
+split | s2h300/SplitCourt0 | s0 | y=300 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h300/SplitCourt0 | s1 | x=150 -x [300,450] | ext [100,700] | HOLE | beyond [100,300]=R2E:gable [450,700]=R4E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h300/SplitCourt0 | s1 | x=500 +x [300,450] | ext [100,700] | HOLE | beyond [100,300]=noSide [450,700]=noSide | others - | B line x=500 whole [100,700] | pin -
+split | s2h300/SplitCourt0 | s1 | y=300 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h300/SplitCourt0 | s2 | x=500 +x [300,450] | ext [100,450] | outer | beyond [100,300]=noSide | others - | B line x=500 whole [100,450] | pin -
+split | s2h300/SplitCourt0 | s2 | y=300 -y [150,500] | ext [0,700] | outer | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h300/SplitCourt0 | s2 | x=150 -x [300,700] | ext [100,700] | outer | beyond [100,300]=R2E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h300/SplitCourt1 | s0 | y=600 +y [350,600] | ext [150,850] | HOLE | beyond [150,350]=noSide [600,850]=R0S:gable | others - | B line y=600 whole [150,850] | pin -
+split | s2h300/SplitCourt2 | s0 | y=350 +y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2S:gableOther [350,600]=R1S:gable | others - | B line y=350 whole [50,600] | pin -
+split | s2h300/SplitCourt2 | s1 | y=350 +y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2S:gableOther [350,600]=R1S:gable | others - | B line y=350 whole [50,600] | pin -
+split | s2h300/SplitCourt3 | s0 | x=300 -x [400,600] | ext [150,800] | HOLE | beyond [150,400]=noSide [600,800]=noSide | others - | B line x=300 whole [150,800] | pin -
+split | s2h300/SplitCourt3 | s0 | y=400 -y [300,550] | ext [50,800] | HOLE | beyond [50,300]=R4N:gable [550,800]=R4N:gable | others - | B line y=400 whole [50,800] | pin -
+split | s2h300/SplitCourt3 | s1 | y=400 -y [300,800] | ext [50,800] | outer | beyond [50,300]=R4N:gable | others - | B line y=400 whole [50,800] | pin -
+split | s2h300/SplitCourt3 | s1 | x=300 -x [400,600] | ext [150,600] | outer | beyond [150,400]=noSide | others - | B line x=300 whole [150,600] | pin -
+split | s2h300/SplitCourt8 | s0 | y=200 -y [300,550] | ext [50,700] | HOLE | beyond [50,300]=R3N:gableOther [550,700]=R2N:gable | others - | B line y=200 whole [50,700] | pin -
+split | s2h300/SplitCourt10 | s0 | y=300 -y [350,650] | ext [100,800] | HOLE | beyond [100,350]=R3N:gable [650,800]=R3N:gable | others - | B line y=300 whole [100,800] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 2
+split | s2h300/SplitCourt12 | s0 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=noSide [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+split | s2h300/SplitCourt12 | s1 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=noSide [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+split | s2h300/SplitCourt14 | s0 | x=250 -x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=250 whole [100,900] | pin -
+split | s2h300/SplitCourt14 | s0 | x=550 +x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=550 whole [100,900] | pin -
+split | s2h300/SplitCourt14 | s1 | x=250 -x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=250 whole [100,900] | pin -
+split | s2h300/SplitCourt14 | s1 | x=550 +x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=550 whole [100,900] | pin -
+split | s2h300/SplitCourt15 | s0 | x=400 -x [300,650] | ext [0,950] | HOLE | beyond [0,300]=R0E:gable [650,950]=R3E:gableOther | others - | B line x=400 whole [0,950] | pin -
+split | s2h300/SplitCourt15 | s1 | x=400 -x [300,650] | ext [0,950] | HOLE | beyond [0,300]=R0E:gable [650,950]=R3E:gableOther | others - | B line x=400 whole [0,950] | pin -
+DISAGREE split s2h300/SplitCourt17 s1 line x=550 whole [450,750] ext [50,350]
+DISAGREE split s2h300/SplitCourt17 s1 line x=550 whole [50,350] ext [450,750]
+split | s2h300/SplitCourt19 | s0 | x=250 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R3E:gableOther [600,900]=R1E:gable | others - | B line x=250 whole [0,900] | pin -
+split | s2h300/SplitCourt19 | s1 | x=250 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R3E:gableOther [600,900]=R1E:gable | others - | B line x=250 whole [0,900] | pin -
+split | s2h300/SplitCourt21 | s0 | y=450 +y [250,600] | ext [0,750] | HOLE | beyond [0,250]=R3S:gable [600,750]=R3S:gable | others - | B line y=450 whole [0,750] | pin -
+split | s2h300/SplitCourt22 | s0 | y=700 +y [250,600] | ext [50,850] | HOLE | beyond [50,250]=noSide [600,850]=noSide | others - | B line y=700 whole [50,850] | pin -
+split | s2h300/SplitCourt22 | s1 | y=700 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=700 whole [50,600] | pin -
+split | s2h300/SplitCourt25 | s0 | y=400 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=400 whole [150,800] | pin -
+split | s2h300/SplitCourt25 | s0 | y=200 -y [350,550] | ext [150,800] | HOLE | beyond [150,350]=R2N:gableOther [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+split | s2h300/SplitCourt27 | s0 | y=600 +y [350,650] | ext [100,850] | HOLE | beyond [100,350]=R3S:gable [650,850]=noSide | others - | B line y=600 whole [100,850] | pin -
+split | s2h300/SplitCourt28 | s0 | y=650 +y [400,700] | ext [150,900] | HOLE | beyond [150,400]=R0S:gable [700,900]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+split | s2h300/SplitCourt28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+split | s2h300/SplitCourt29 | s0 | y=250 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R4S:gable [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+split | s2h300/SplitCourt29 | s1 | y=250 +y [400,550] | ext [150,550] | outer | beyond [150,400]=R4S:gable | others - | B line y=250 whole [150,550] | pin -
+split | s2h300/SplitCourt32 | s0 | y=350 -y [350,700] | ext [150,950] | HOLE | beyond [150,350]=noSide [700,950]=R1N:gable | others - | B line y=350 whole [150,950] | pin -
+split | s2h300/SplitCourt33 | s0 | x=350 -x [300,400] | ext [50,500] | HOLE | beyond [50,300]=noSide [400,500]=noSide | others - | B line x=350 whole [50,500] | pin -
+split | s2h300/SplitCourt33 | s0 | y=300 -y [350,550] | ext [100,700] | HOLE | beyond [100,350]=R4N:gable [550,700]=R4N:gable | others - | B line y=300 whole [100,700] | pin -
+split | s2h300/SplitCourt33 | s1 | x=350 -x [300,400] | ext [300,500] | outer | beyond [400,500]=noSide | others - | B line x=350 whole [300,500] | pin -
+split | s2h300/SplitCourt37 | s0 | x=450 -x [450,650] | ext [150,950] | HOLE | beyond [150,450]=noSide [650,950]=R3E:gable | others - | B line x=450 whole [150,950] | pin -
+split | s2h300/SplitCourt37 | s0 | x=600 +x [450,650] | ext [150,950] | HOLE | beyond [150,450]=R4W:gableOther [650,950]=R2W:gable | others - | B line x=600 whole [150,950] | pin -
+split | s2h300/SplitCourt37 | s1 | x=600 +x [150,650] | ext [150,950] | outer | beyond [650,950]=R2W:gable | others - | B line x=600 whole [150,950] | pin -
+split | s2h300/SplitCourt38 | s0 | y=450 -y [300,400] | ext [0,650] | HOLE | beyond [0,300]=R2N:gable [400,650]=noSide | others - | B line y=450 whole [0,650] | pin -
+split | s2h300/SplitCourt38 | s1 | y=450 -y [300,400] | ext [0,650] | outer | beyond [0,300]=R2N:gable [400,650]=noSide | others - | B line y=450 whole [0,650] | pin -
+u | s2h300/U0 | s0 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h300/U0 | s0 | x=150 -x [250,400] | ext [100,650] | outer | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+u | s2h300/U0 | s1 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h300/U0 | s1 | x=150 -x [250,400] | ext [100,650] | outer | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+u | s2h300/U0 | s2 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h300/U0 | s2 | x=150 -x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=150 whole [100,400] | pin -
+u | s2h300/U1 | s0 | y=550 +y [150,600] | ext [150,800] | outer | beyond [600,800]=R0S:gable | others - | B line y=550 whole [150,800] | pin -
+u | s2h300/U2 | s0 | y=350 +y [150,500] | ext [50,500] | outer | beyond [50,150]=noSide | others - | B line y=350 whole [50,500] | pin -
+u | s2h300/U2 | s1 | y=350 +y [150,500] | ext [50,500] | outer | beyond [50,150]=noSide | others - | B line y=350 whole [50,500] | pin -
+u | s2h300/U3 | s0 | y=350 -y [50,500] | ext [50,650] | outer | beyond [500,650]=R2N:gable | others - | B line y=350 whole [50,650] | pin -
+u | s2h300/U8 | s0 | y=200 -y [300,700] | ext [50,700] | outer | beyond [50,300]=R1N:gable | others - | B line y=200 whole [50,700] | pin -
+DISAGREE u s2h300/U10 s0 line x=750 whole [600,700] ext [150,300]
+u | s2h300/U10 | s0 | y=300 -y [350,750] | ext [100,750] | outer | beyond [100,350]=R2N:gable | others - | B line y=300 whole [100,750] | pin -
+DISAGREE u s2h300/U10 s0 line x=750 whole [150,300] ext [600,700]
+u | s2h300/U14 | s0 | x=150 -x [300,650] | ext [100,750] | outer | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+u | s2h300/U14 | s1 | x=150 -x [300,650] | ext [100,750] | outer | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+DISAGREE u s2h300/U17 s1 line x=700 whole [250,400] ext [50,150]
+DISAGREE u s2h300/U17 s1 line x=700 whole [50,150] ext [250,400]
+u | s2h300/U21 | s0 | y=450 +y [0,600] | ext [0,700] | outer | beyond [600,700]=R2S:gable | others - | B line y=450 whole [0,700] | pin -
+u | s2h300/U22 | s0 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+u | s2h300/U22 | s1 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+u | s2h300/U25 | s0 | y=400 +y [350,550] | ext [350,800] | outer | beyond [550,800]=noSide | others - | B line y=400 whole [350,800] | pin -
+u | s2h300/U25 | s0 | y=200 -y [150,550] | ext [150,800] | outer | beyond [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+u | s2h300/U27 | s0 | y=550 +y [100,550] | ext [100,750] | outer | beyond [550,750]=R1S:gable | others - | B line y=550 whole [100,750] | pin -
+u | s2h300/U28 | s0 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+u | s2h300/U28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+u | s2h300/U29 | s0 | y=250 +y [150,550] | ext [150,750] | outer | beyond [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+u | s2h300/U32 | s0 | y=350 -y [350,850] | ext [150,850] | outer | beyond [150,350]=R0N:gable | others - | B line y=350 whole [150,850] | pin -
+u | s2h300/U33 | s0 | y=300 -y [100,550] | ext [100,650] | outer | beyond [550,650]=R2N:gable | others - | B line y=300 whole [100,650] | pin -
+DISAGREE u s2h300/U34 s0 line x=600 whole [450,550] ext [150,300]
+DISAGREE u s2h300/U34 s0 line x=600 whole [150,300] ext [450,550]
+DISAGREE u s2h300/U34 s1 line x=600 whole [450,550] ext [150,300]
+DISAGREE u s2h300/U34 s1 line x=600 whole [150,300] ext [450,550]
+u | s2h300/U37 | s0 | x=400 +x [300,500] | ext [150,650] | outer | beyond [150,300]=R2W:gable [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+u | s2h300/U37 | s1 | x=400 +x [150,500] | ext [150,650] | outer | beyond [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+u | s2h300/U38 | s0 | y=250 -y [250,600] | ext [0,600] | outer | beyond [0,250]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+u | s2h300/U38 | s1 | y=250 -y [250,600] | ext [0,600] | outer | beyond [0,250]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+court | s2h250/Court0 | s0 | x=150 -x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+court | s2h250/Court0 | s0 | x=500 +x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=500 whole [100,650] | pin -
+court | s2h250/Court0 | s0 | y=250 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h250/Court0 | s1 | x=150 -x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+court | s2h250/Court0 | s1 | x=500 +x [250,400] | ext [100,650] | HOLE | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=500 whole [100,650] | pin -
+court | s2h250/Court0 | s1 | y=250 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h250/Court0 | s2 | x=500 +x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=500 whole [100,400] | pin -
+court | s2h250/Court0 | s2 | y=250 -y [150,500] | ext [0,700] | outer | beyond [0,150]=R3N:gable [500,700]=R3N:gable | others - | B line y=250 whole [0,700] | pin -
+court | s2h250/Court0 | s2 | x=150 -x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=150 whole [100,400] | pin -
+court | s2h250/Court1 | s0 | y=550 +y [350,600] | ext [150,800] | HOLE | beyond [150,350]=R0S:gable [600,800]=R0S:gable | others - | B line y=550 whole [150,800] | pin -
+court | s2h250/Court2 | s0 | y=350 +y [150,250] | ext [50,500] | HOLE | beyond [50,150]=noSide [250,500]=R1S:gable | others - | B line y=350 whole [50,500] | pin -
+court | s2h250/Court2 | s1 | y=350 +y [150,250] | ext [50,500] | HOLE | beyond [50,150]=noSide [250,500]=R1S:gable | others - | B line y=350 whole [50,500] | pin -
+court | s2h250/Court3 | s0 | x=250 -x [350,550] | ext [150,750] | HOLE | beyond [150,350]=noSide [550,750]=noSide | others - | B line x=250 whole [150,750] | pin -
+court | s2h250/Court3 | s0 | y=350 -y [250,500] | ext [50,650] | HOLE | beyond [50,250]=R3N:gable [500,650]=R3N:gable | others - | B line y=350 whole [50,650] | pin -
+court | s2h250/Court3 | s1 | y=350 -y [250,650] | ext [50,650] | outer | beyond [50,250]=R3N:gable | others - | B line y=350 whole [50,650] | pin -
+court | s2h250/Court3 | s1 | x=250 -x [350,550] | ext [150,550] | outer | beyond [150,350]=noSide | others - | B line x=250 whole [150,550] | pin -
+court | s2h250/Court8 | s0 | y=200 -y [300,550] | ext [50,700] | HOLE | beyond [50,300]=R2N:gable [550,700]=R2N:gable | others - | B line y=200 whole [50,700] | pin -
+court | s2h250/Court10 | s0 | y=300 -y [350,650] | ext [100,750] | HOLE | beyond [100,350]=R2N:gable [650,750]=R2N:gable | others - | B line y=300 whole [100,750] | pin -
+court | s2h250/Court12 | s0 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=R0W:gable [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+court | s2h250/Court12 | s1 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=R0W:gable [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+court | s2h250/Court14 | s0 | x=150 -x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+court | s2h250/Court14 | s0 | x=450 +x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=450 whole [100,750] | pin -
+court | s2h250/Court14 | s1 | x=150 -x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+court | s2h250/Court14 | s1 | x=450 +x [300,650] | ext [100,750] | HOLE | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=450 whole [100,750] | pin -
+court | s2h250/Court15 | s0 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court | s2h250/Court15 | s1 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+DISAGREE court s2h250/Court17 s1 line x=700 whole [250,400] ext [50,150]
+DISAGREE court s2h250/Court17 s1 line x=700 whole [50,150] ext [250,400]
+court | s2h250/Court19 | s0 | x=250 -x [100,400] | ext [0,550] | HOLE | beyond [0,100]=noSide [400,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s2h250/Court19 | s1 | x=250 -x [100,400] | ext [0,550] | HOLE | beyond [0,100]=noSide [400,550]=noSide | others - | B line x=250 whole [0,550] | pin -
+court | s2h250/Court21 | s0 | y=450 +y [250,600] | ext [0,700] | HOLE | beyond [0,250]=R3S:gable [600,700]=R3S:gable | others - | B line y=450 whole [0,700] | pin -
+court | s2h250/Court22 | s0 | y=550 +y [250,600] | ext [50,800] | HOLE | beyond [50,250]=noSide [600,800]=noSide | others - | B line y=550 whole [50,800] | pin -
+court | s2h250/Court22 | s1 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+court | s2h250/Court25 | s0 | y=400 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=400 whole [150,800] | pin -
+court | s2h250/Court25 | s0 | y=200 -y [350,550] | ext [150,800] | HOLE | beyond [150,350]=R1N:gable [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+court | s2h250/Court27 | s0 | y=550 +y [250,550] | ext [100,750] | HOLE | beyond [100,250]=R2S:gable [550,750]=R2S:gable | others - | B line y=550 whole [100,750] | pin -
+court | s2h250/Court28 | s0 | y=650 +y [400,700] | ext [150,900] | HOLE | beyond [150,400]=R0S:gable [700,900]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+court | s2h250/Court28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+court | s2h250/Court29 | s0 | y=250 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R3S:gable [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+court | s2h250/Court29 | s1 | y=250 +y [400,550] | ext [150,550] | outer | beyond [150,400]=R3S:gable | others - | B line y=250 whole [150,550] | pin -
+court | s2h250/Court32 | s0 | y=350 -y [350,700] | ext [150,850] | HOLE | beyond [150,350]=R0N:gable [700,850]=R0N:gable | others - | B line y=350 whole [150,850] | pin -
+court | s2h250/Court33 | s0 | x=350 -x [300,400] | ext [50,500] | HOLE | beyond [50,300]=noSide [400,500]=R2E:gable | others - | B line x=350 whole [50,500] | pin -
+court | s2h250/Court33 | s0 | y=300 -y [350,550] | ext [100,650] | HOLE | beyond [100,350]=R3N:gable [550,650]=R3N:gable | others - | B line y=300 whole [100,650] | pin -
+court | s2h250/Court33 | s1 | x=350 -x [300,400] | ext [300,500] | outer | beyond [400,500]=R2E:gable | others - | B line x=350 whole [300,500] | pin -
+court | s2h250/Court37 | s0 | x=250 -x [300,500] | ext [150,650] | HOLE | beyond [150,300]=noSide [500,650]=R2E:gable | others - | B line x=250 whole [150,650] | pin -
+court | s2h250/Court37 | s0 | x=400 +x [300,500] | ext [150,650] | HOLE | beyond [150,300]=R3W:gable [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+court | s2h250/Court37 | s1 | x=400 +x [150,500] | ext [150,650] | outer | beyond [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+court | s2h250/Court38 | s0 | y=250 -y [250,350] | ext [0,600] | HOLE | beyond [0,250]=R1N:gable [350,600]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+court | s2h250/Court38 | s1 | y=250 -y [250,350] | ext [0,600] | outer | beyond [0,250]=R1N:gable [350,600]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+split | s2h250/SplitCourt0 | s0 | x=150 -x [300,450] | ext [100,700] | HOLE | beyond [100,300]=R2E:gable [450,700]=R4E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h250/SplitCourt0 | s0 | x=500 +x [300,450] | ext [100,700] | HOLE | beyond [100,300]=noSide [450,700]=noSide | others - | B line x=500 whole [100,700] | pin -
+split | s2h250/SplitCourt0 | s0 | y=300 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h250/SplitCourt0 | s1 | x=150 -x [300,450] | ext [100,700] | HOLE | beyond [100,300]=R2E:gable [450,700]=R4E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h250/SplitCourt0 | s1 | x=500 +x [300,450] | ext [100,700] | HOLE | beyond [100,300]=noSide [450,700]=noSide | others - | B line x=500 whole [100,700] | pin -
+split | s2h250/SplitCourt0 | s1 | y=300 -y [150,500] | ext [0,700] | HOLE | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h250/SplitCourt0 | s2 | x=500 +x [300,450] | ext [100,450] | outer | beyond [100,300]=noSide | others - | B line x=500 whole [100,450] | pin -
+split | s2h250/SplitCourt0 | s2 | y=300 -y [150,500] | ext [0,700] | outer | beyond [0,150]=noSide [500,700]=R3N:gable | others - | B line y=300 whole [0,700] | pin -
+split | s2h250/SplitCourt0 | s2 | x=150 -x [300,700] | ext [100,700] | outer | beyond [100,300]=R2E:gable | others - | B line x=150 whole [100,700] | pin -
+split | s2h250/SplitCourt1 | s0 | y=600 +y [350,600] | ext [150,850] | HOLE | beyond [150,350]=noSide [600,850]=R0S:gable | others - | B line y=600 whole [150,850] | pin -
+split | s2h250/SplitCourt2 | s0 | y=350 +y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2S:gableOther [350,600]=R1S:gable | others - | B line y=350 whole [50,600] | pin -
+split | s2h250/SplitCourt2 | s1 | y=350 +y [250,350] | ext [50,600] | HOLE | beyond [50,250]=R2S:gableOther [350,600]=R1S:gable | others - | B line y=350 whole [50,600] | pin -
+split | s2h250/SplitCourt3 | s0 | x=300 -x [400,600] | ext [150,800] | HOLE | beyond [150,400]=noSide [600,800]=noSide | others - | B line x=300 whole [150,800] | pin -
+split | s2h250/SplitCourt3 | s0 | y=400 -y [300,550] | ext [50,800] | HOLE | beyond [50,300]=R4N:gable [550,800]=R4N:gable | others - | B line y=400 whole [50,800] | pin -
+split | s2h250/SplitCourt3 | s1 | y=400 -y [300,800] | ext [50,800] | outer | beyond [50,300]=R4N:gable | others - | B line y=400 whole [50,800] | pin -
+split | s2h250/SplitCourt3 | s1 | x=300 -x [400,600] | ext [150,600] | outer | beyond [150,400]=noSide | others - | B line x=300 whole [150,600] | pin -
+split | s2h250/SplitCourt8 | s0 | y=200 -y [300,550] | ext [50,700] | HOLE | beyond [50,300]=R3N:gableOther [550,700]=R2N:gable | others - | B line y=200 whole [50,700] | pin -
+split | s2h250/SplitCourt10 | s0 | y=300 -y [350,650] | ext [100,800] | HOLE | beyond [100,350]=R3N:gable [650,800]=R3N:gable | others - | B line y=300 whole [100,800] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 2
+split | s2h250/SplitCourt12 | s0 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=noSide [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+split | s2h250/SplitCourt12 | s1 | x=450 +x [300,400] | ext [100,650] | HOLE | beyond [100,300]=noSide [400,650]=noSide | others - | B line x=450 whole [100,650] | pin -
+split | s2h250/SplitCourt14 | s0 | x=250 -x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=250 whole [100,900] | pin -
+split | s2h250/SplitCourt14 | s0 | x=550 +x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=550 whole [100,900] | pin -
+split | s2h250/SplitCourt14 | s1 | x=250 -x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=250 whole [100,900] | pin -
+split | s2h250/SplitCourt14 | s1 | x=550 +x [300,650] | ext [100,900] | HOLE | beyond [100,300]=noSide [650,900]=noSide | others - | B line x=550 whole [100,900] | pin -
+split | s2h250/SplitCourt15 | s0 | x=400 -x [300,650] | ext [0,950] | HOLE | beyond [0,300]=R0E:gable [650,950]=R3E:gableOther | others - | B line x=400 whole [0,950] | pin -
+split | s2h250/SplitCourt15 | s1 | x=400 -x [300,650] | ext [0,950] | HOLE | beyond [0,300]=R0E:gable [650,950]=R3E:gableOther | others - | B line x=400 whole [0,950] | pin -
+DISAGREE split s2h250/SplitCourt17 s1 line x=550 whole [450,750] ext [50,350]
+DISAGREE split s2h250/SplitCourt17 s1 line x=550 whole [50,350] ext [450,750]
+split | s2h250/SplitCourt19 | s0 | x=250 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R3E:gableOther [600,900]=R1E:gable | others - | B line x=250 whole [0,900] | pin -
+split | s2h250/SplitCourt19 | s1 | x=250 -x [300,600] | ext [0,900] | HOLE | beyond [0,300]=R3E:gableOther [600,900]=R1E:gable | others - | B line x=250 whole [0,900] | pin -
+split | s2h250/SplitCourt21 | s0 | y=450 +y [250,600] | ext [0,750] | HOLE | beyond [0,250]=R3S:gable [600,750]=R3S:gable | others - | B line y=450 whole [0,750] | pin -
+split | s2h250/SplitCourt22 | s0 | y=700 +y [250,600] | ext [50,850] | HOLE | beyond [50,250]=noSide [600,850]=noSide | others - | B line y=700 whole [50,850] | pin -
+split | s2h250/SplitCourt22 | s1 | y=700 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=700 whole [50,600] | pin -
+split | s2h250/SplitCourt25 | s0 | y=400 +y [350,550] | ext [150,800] | HOLE | beyond [150,350]=noSide [550,800]=noSide | others - | B line y=400 whole [150,800] | pin -
+split | s2h250/SplitCourt25 | s0 | y=200 -y [350,550] | ext [150,800] | HOLE | beyond [150,350]=R2N:gableOther [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+split | s2h250/SplitCourt27 | s0 | y=600 +y [350,650] | ext [100,850] | HOLE | beyond [100,350]=R3S:gable [650,850]=noSide | others - | B line y=600 whole [100,850] | pin -
+split | s2h250/SplitCourt28 | s0 | y=650 +y [400,700] | ext [150,900] | HOLE | beyond [150,400]=R0S:gable [700,900]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+split | s2h250/SplitCourt28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+split | s2h250/SplitCourt29 | s0 | y=250 +y [400,550] | ext [150,750] | HOLE | beyond [150,400]=R4S:gable [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+split | s2h250/SplitCourt29 | s1 | y=250 +y [400,550] | ext [150,550] | outer | beyond [150,400]=R4S:gable | others - | B line y=250 whole [150,550] | pin -
+split | s2h250/SplitCourt32 | s0 | y=350 -y [350,700] | ext [150,950] | HOLE | beyond [150,350]=noSide [700,950]=R1N:gable | others - | B line y=350 whole [150,950] | pin -
+split | s2h250/SplitCourt33 | s0 | x=350 -x [300,400] | ext [50,500] | HOLE | beyond [50,300]=noSide [400,500]=noSide | others - | B line x=350 whole [50,500] | pin -
+split | s2h250/SplitCourt33 | s0 | y=300 -y [350,550] | ext [100,700] | HOLE | beyond [100,350]=R4N:gable [550,700]=R4N:gable | others - | B line y=300 whole [100,700] | pin -
+split | s2h250/SplitCourt33 | s1 | x=350 -x [300,400] | ext [300,500] | outer | beyond [400,500]=noSide | others - | B line x=350 whole [300,500] | pin -
+split | s2h250/SplitCourt37 | s0 | x=450 -x [450,650] | ext [150,950] | HOLE | beyond [150,450]=noSide [650,950]=R3E:gable | others - | B line x=450 whole [150,950] | pin -
+split | s2h250/SplitCourt37 | s0 | x=600 +x [450,650] | ext [150,950] | HOLE | beyond [150,450]=R4W:gableOther [650,950]=R2W:gable | others - | B line x=600 whole [150,950] | pin -
+split | s2h250/SplitCourt37 | s1 | x=600 +x [150,650] | ext [150,950] | outer | beyond [650,950]=R2W:gable | others - | B line x=600 whole [150,950] | pin -
+split | s2h250/SplitCourt38 | s0 | y=450 -y [300,400] | ext [0,650] | HOLE | beyond [0,300]=R2N:gable [400,650]=noSide | others - | B line y=450 whole [0,650] | pin -
+split | s2h250/SplitCourt38 | s1 | y=450 -y [300,400] | ext [0,650] | outer | beyond [0,300]=R2N:gable [400,650]=noSide | others - | B line y=450 whole [0,650] | pin -
+u | s2h250/U0 | s0 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h250/U0 | s0 | x=150 -x [250,400] | ext [100,650] | outer | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+u | s2h250/U0 | s1 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h250/U0 | s1 | x=150 -x [250,400] | ext [100,650] | outer | beyond [100,250]=noSide [400,650]=noSide | others - | B line x=150 whole [100,650] | pin -
+u | s2h250/U0 | s2 | y=250 -y [150,700] | ext [0,700] | outer | beyond [0,150]=R2N:gable | others - | B line y=250 whole [0,700] | pin -
+u | s2h250/U0 | s2 | x=150 -x [250,400] | ext [100,400] | outer | beyond [100,250]=noSide | others - | B line x=150 whole [100,400] | pin -
+u | s2h250/U1 | s0 | y=550 +y [150,600] | ext [150,800] | outer | beyond [600,800]=R0S:gable | others - | B line y=550 whole [150,800] | pin -
+u | s2h250/U2 | s0 | y=350 +y [150,500] | ext [50,500] | outer | beyond [50,150]=noSide | others - | B line y=350 whole [50,500] | pin -
+u | s2h250/U2 | s1 | y=350 +y [150,500] | ext [50,500] | outer | beyond [50,150]=noSide | others - | B line y=350 whole [50,500] | pin -
+u | s2h250/U3 | s0 | y=350 -y [50,500] | ext [50,650] | outer | beyond [500,650]=R2N:gable | others - | B line y=350 whole [50,650] | pin -
+u | s2h250/U8 | s0 | y=200 -y [300,700] | ext [50,700] | outer | beyond [50,300]=R1N:gable | others - | B line y=200 whole [50,700] | pin -
+DISAGREE u s2h250/U10 s0 line x=750 whole [600,700] ext [150,300]
+u | s2h250/U10 | s0 | y=300 -y [350,750] | ext [100,750] | outer | beyond [100,350]=R2N:gable | others - | B line y=300 whole [100,750] | pin -
+DISAGREE u s2h250/U10 s0 line x=750 whole [150,300] ext [600,700]
+u | s2h250/U14 | s0 | x=150 -x [300,650] | ext [100,750] | outer | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+u | s2h250/U14 | s1 | x=150 -x [300,650] | ext [100,750] | outer | beyond [100,300]=noSide [650,750]=noSide | others - | B line x=150 whole [100,750] | pin -
+DISAGREE u s2h250/U17 s1 line x=700 whole [250,400] ext [50,150]
+DISAGREE u s2h250/U17 s1 line x=700 whole [50,150] ext [250,400]
+u | s2h250/U21 | s0 | y=450 +y [0,600] | ext [0,700] | outer | beyond [600,700]=R2S:gable | others - | B line y=450 whole [0,700] | pin -
+u | s2h250/U22 | s0 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+u | s2h250/U22 | s1 | y=550 +y [250,600] | ext [50,600] | outer | beyond [50,250]=noSide | others - | B line y=550 whole [50,600] | pin -
+u | s2h250/U25 | s0 | y=400 +y [350,550] | ext [350,800] | outer | beyond [550,800]=noSide | others - | B line y=400 whole [350,800] | pin -
+u | s2h250/U25 | s0 | y=200 -y [150,550] | ext [150,800] | outer | beyond [550,800]=R1N:gable | others - | B line y=200 whole [150,800] | pin -
+u | s2h250/U27 | s0 | y=550 +y [100,550] | ext [100,750] | outer | beyond [550,750]=R1S:gable | others - | B line y=550 whole [100,750] | pin -
+u | s2h250/U28 | s0 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+u | s2h250/U28 | s1 | y=650 +y [400,900] | ext [150,900] | outer | beyond [150,400]=R0S:gable | others - | B line y=650 whole [150,900] | pin -
+u | s2h250/U29 | s0 | y=250 +y [150,550] | ext [150,750] | outer | beyond [550,750]=noSide | others - | B line y=250 whole [150,750] | pin -
+u | s2h250/U32 | s0 | y=350 -y [350,850] | ext [150,850] | outer | beyond [150,350]=R0N:gable | others - | B line y=350 whole [150,850] | pin -
+u | s2h250/U33 | s0 | y=300 -y [100,550] | ext [100,650] | outer | beyond [550,650]=R2N:gable | others - | B line y=300 whole [100,650] | pin -
+DISAGREE u s2h250/U34 s0 line x=600 whole [450,550] ext [150,300]
+DISAGREE u s2h250/U34 s0 line x=600 whole [150,300] ext [450,550]
+DISAGREE u s2h250/U34 s1 line x=600 whole [450,550] ext [150,300]
+DISAGREE u s2h250/U34 s1 line x=600 whole [150,300] ext [450,550]
+u | s2h250/U37 | s0 | x=400 +x [300,500] | ext [150,650] | outer | beyond [150,300]=R2W:gable [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+u | s2h250/U37 | s1 | x=400 +x [150,500] | ext [150,650] | outer | beyond [500,650]=noSide | others - | B line x=400 whole [150,650] | pin -
+u | s2h250/U38 | s0 | y=250 -y [250,600] | ext [0,600] | outer | beyond [0,250]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+u | s2h250/U38 | s1 | y=250 -y [250,600] | ext [0,600] | outer | beyond [0,250]=R1N:gable | others - | B line y=250 whole [0,600] | pin -
+court-pin | s1h263/Court25 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin COURTYARD_DEFECTS: partial face-to-face contact of two storeys on one plane (Court25 class)
+court-pin | s1h263/Court25 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin COURTYARD_DEFECTS: partial face-to-face contact of two storeys on one plane (Court25 class)
+court-pin | s2h250/Court15 | s0 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s2h250/Court15 | s1 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s2h263/Court15 | s0 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s2h263/Court15 | s1 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s2h300/Court15 | s0 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s2h300/Court15 | s1 | x=400 -x [100,450] | ext [0,600] | HOLE | beyond [0,100]=noSide [450,600]=noSide | others - | B line x=400 whole [0,600] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h250/Court9 | s0 | y=500 +y [250,400] | ext [100,500] | HOLE | beyond [100,250]=R2S:gable [400,500]=R2S:gable | others - | B line y=500 whole [100,500] | pin COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+court-pin | s13h250/Court13 | s0 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h250/Court13 | s1 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h263/Court9 | s0 | y=500 +y [250,400] | ext [100,500] | HOLE | beyond [100,250]=R2S:gable [400,500]=R2S:gable | others - | B line y=500 whole [100,500] | pin COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+court-pin | s13h263/Court13 | s0 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h263/Court13 | s1 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h300/Court9 | s0 | y=500 +y [250,400] | ext [100,500] | HOLE | beyond [100,250]=R2S:gable [400,500]=R2S:gable | others - | B line y=500 whole [100,500] | pin COURTYARD_DEFECTS: roof-gable algorithm B, Cheek class
+court-pin | s13h300/Court13 | s0 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s13h300/Court13 | s1 | y=350 +y [350,450] | ext [100,650] | HOLE | beyond [100,350]=R1S:gable [450,650]=R1S:gable | others - | B line y=350 whole [100,650] | pin COURTYARD_DEFECTS: roof-gable algorithm B, cut-piece overshoot
+court-pin | s1h250/Court14 | s0 | y=200 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R3N:gable [250,350]=noSide | others - | B line y=200 whole [0,350] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h250/Court25 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h250/Court25 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h263/Court14 | s0 | y=200 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R3N:gable [250,350]=noSide | others - | B line y=200 whole [0,350] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h300/Court14 | s0 | y=200 -y [150,250] | ext [0,350] | HOLE | beyond [0,150]=R3N:gable [250,350]=noSide | others - | B line y=200 whole [0,350] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h300/Court25 | s0 | x=100 -x [300,500] | ext [100,700] | HOLE | beyond [100,300]=noSide [500,700]=R0E:gable | others - | B line x=100 whole [100,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s1h300/Court25 | s1 | x=100 -x [300,500] | ext [300,700] | outer | beyond [500,700]=R0E:gable | others - | B line x=100 whole [300,700] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s9h250/Court0 | s0 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 14
+court-pin | s9h250/Court0 | s0 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 14
+court-pin | s9h250/Court0 | s1 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 14
+court-pin | s9h250/Court0 | s1 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 14
+court-pin | s9h250/Court0 | s2 | y=150 -y [100,500] | ext [100,650] | outer | beyond [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 14
+court-pin | s9h263/Court0 | s0 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h263/Court0 | s0 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h263/Court0 | s1 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h263/Court0 | s1 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h263/Court0 | s2 | y=150 -y [100,500] | ext [100,650] | outer | beyond [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h300/Court0 | s0 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h300/Court0 | s0 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h300/Court0 | s1 | y=250 +y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R3S:gable [500,650]=R3S:gable | others - | B line y=250 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h300/Court0 | s1 | y=150 -y [250,500] | ext [100,650] | HOLE | beyond [100,250]=R2N:gable [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s9h300/Court0 | s2 | y=150 -y [100,500] | ext [100,650] | outer | beyond [500,650]=R2N:gable | others - | B line y=150 whole [100,650] | pin GABLE_RISE_CONFLICTS: conflicts 10
+court-pin | s10h250/Court18 | s0 | y=400 +y [200,450] | ext [50,600] | HOLE | beyond [50,200]=R2S:gable [450,600]=noSide | others - | B line y=400 whole [50,600] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s10h263/Court18 | s0 | y=400 +y [200,450] | ext [50,600] | HOLE | beyond [50,200]=R2S:gable [450,600]=noSide | others - | B line y=400 whole [50,600] | pin GABLE_RISE_CONFLICTS: conflicts 1
+court-pin | s10h300/Court18 | s0 | y=400 +y [200,450] | ext [50,600] | HOLE | beyond [50,200]=R2S:gable [450,600]=noSide | others - | B line y=400 whole [50,600] | pin GABLE_RISE_CONFLICTS: conflicts 1
+u-pin | s6h263/U8 | s0 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+u-pin | s6h263/U8 | s1 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+u-pin | s6h300/U8 | s0 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+u-pin | s6h300/U8 | s1 | y=550 +y [200,600] | ext [0,600] | outer | beyond [0,200]=R1S:gable | others - | B line y=550 whole [0,600] | pin U_DEFECTS: edge contact between opposite coplanar faces (U8 class)
+split-pin | s7h250/SplitCourt9 | s0 | y=400 +y [200,450] | ext [0,700] | HOLE | beyond [0,200]=R4S:gable [450,700]=R4S:gable | others - | B line y=400 whole [0,700] | pin SPLIT_COURTYARD_DEFECTS: a Gable-Wall edge, Unclassified (SplitCourt9 class)
+split-pin | s2h250/SplitCourt10 | s0 | y=300 -y [350,650] | ext [100,800] | HOLE | beyond [100,350]=R3N:gable [650,800]=R3N:gable | others - | B line y=300 whole [100,800] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 2
+split-pin | s2h263/SplitCourt10 | s0 | y=300 -y [350,650] | ext [100,800] | HOLE | beyond [100,350]=R3N:gable [650,800]=R3N:gable | others - | B line y=300 whole [100,800] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 2
+split-pin | s2h300/SplitCourt10 | s0 | y=300 -y [350,650] | ext [100,800] | HOLE | beyond [100,350]=R3N:gable [650,800]=R3N:gable | others - | B line y=300 whole [100,800] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 2
+split-pin | s5h250/SplitCourt29 | s0 | y=450 +y [400,750] | ext [150,950] | HOLE | beyond [150,400]=R0S:gable [750,950]=R0S:gable | others - | B line y=450 whole [150,950] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 1
+split-pin | s13h250/SplitCourt30 | s0 | y=500 +y [250,500] | ext [50,700] | HOLE | beyond [50,250]=R0S:gable [500,700]=noSide | others - | B line y=500 whole [50,700] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 3
+split-pin | s13h250/SplitCourt30 | s0 | x=500 +x [150,500] | ext [0,750] | HOLE | beyond [0,150]=noSide [500,750]=R3W:gable | others - | B line x=500 whole [0,750] | pin GABLE_RISE_SPLIT_CONFLICTS: conflicts 3
+rosterPitch | SingleStoreyT@7 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@8 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@8 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@9 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@9 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@10 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@10 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@11 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@11 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@12 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@12 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@13 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@13 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@14 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@14 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@15 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@15 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@16 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@16 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@17 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@17 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@18 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@18 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@19 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@19 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@20 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@20 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@21 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@21 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@23 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@23 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@24 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@24 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@25 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@25 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@26 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@26 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@27 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@27 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@28 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@28 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@29 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@29 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@31 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@31 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@32 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@32 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@33 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@33 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@34 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@34 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@35 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@35 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@36 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@36 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@37 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@37 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@38 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@38 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@39 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@39 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@40 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@40 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@41 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@41 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@42 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@42 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@43 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@43 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@44 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@44 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@46 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@46 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@47 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@47 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@48 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@48 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@49 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@49 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@50 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@50 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@51 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@51 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@52 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@52 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@53 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@53 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@54 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@54 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@55 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@55 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@56 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@56 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@57 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@57 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@58 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@58 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@59 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@59 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@61 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@61 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@62 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@62 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@63 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@63 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@64 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@64 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@65 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@65 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@66 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@66 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@67 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@67 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@68 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@68 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@69 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@69 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@70 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@70 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@71 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@71 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@72 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@72 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@73 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@73 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@74 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@74 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75 | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75 | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/22.5r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/22.5r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/22.5s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/22.5s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/30r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/30r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/30s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/30s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/45r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/45r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/45s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/45s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/60r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/60r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/60s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/60s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/75r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/75r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/75s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@7/75s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/7r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/7r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/7s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/7s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/30r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/30r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/30s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/30s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/45r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/45r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/45s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/45s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/60r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/60r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/60s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/60s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/75r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/75r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/75s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@22.5/75s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/7r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/7r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/7s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/7s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/22.5r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/22.5r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/22.5s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/22.5s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/45r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/45r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/45s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/45s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/60r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/60r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/60s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/60s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/75r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/75r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/75s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@30/75s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/7r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/7r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/7s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/7s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/22.5r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/22.5r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/22.5s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/22.5s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/30r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/30r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/30s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/30s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/60r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/60r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/60s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/60s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/75r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/75r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/75s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@45/75s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/7r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/7r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/7s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/7s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/22.5r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/22.5r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/22.5s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/22.5s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/30r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/30r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/30s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/30s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/45r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/45r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/45s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/45s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/75r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/75r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/75s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@60/75s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/7r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/7r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/7s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/7s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/22.5r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/22.5r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/22.5s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/22.5s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/30r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/30r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/30s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/30s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/45r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/45r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/45s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/45s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/60r | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/60r | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/60s | s0 | x=1000 -x [0,150] | ext [0,500] | outer | beyond [150,500]=R0E:gable | others gable[350,500] | B line x=1000 whole [0,500] | pin -
+rosterPitch | SingleStoreyT@75/60s | s0 | x=1000 -x [350,500] | ext [0,500] | outer | beyond [0,350]=R0E:gable | others gable[0,150] | B line x=1000 whole [0,500] | pin -
+named | s1h300/Court5 | s0 | y=200 -y [200,300] | ext [50,500] | HOLE | beyond [50,200]=R2N:gable [300,500]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+named | s1h300/Court5 | s1 | y=200 -y [200,500] | ext [50,500] | outer | beyond [50,200]=R2N:gable | others - | B line y=200 whole [50,500] | pin -
+named | s1h250/Court16 | s0 | x=300 -x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=300 whole [100,550] | pin -
+named | s1h250/Court16 | s0 | x=500 +x [200,450] | ext [100,550] | HOLE | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=500 whole [100,550] | pin -
+named | s1h250/Court16 | s1 | x=300 -x [200,450] | ext [100,550] | outer | beyond [100,200]=noSide [450,550]=noSide | others - | B line x=300 whole [100,550] | pin -

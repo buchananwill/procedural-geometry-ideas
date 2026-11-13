@@ -1,0 +1,154 @@
+
+# Gable-ended rectangles: today against Rule B (Rule A builds today's shell on a convex rectangle)
+  Rect1000x1000-shortEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00 at (500.07, 375.13): today 375.1, rule 375.1
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x1000-longEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00 at (500.07, 85.13): today 499.9, rule 499.9
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x1000-allFour-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00 at (35.13, 500.07): today 499.9, rule 499.9
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x1000-oneEnd-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x1000-shortEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00 at (500.07, 275.13): today 114.0, rule 114.0
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x1000-longEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00 at (695.13, 500.07): today 126.3, rule 126.3
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x1000-allFour-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00 at (840.13, 500.07): today 207.1, rule 207.1
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x1000-oneEnd-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x1000-shortEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00 at (500.07, 285.13): today 164.6, rule 164.6
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+  Rect1000x1000-longEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00 at (250.13, 500.07): today 144.4, rule 144.4
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+  Rect1000x1000-allFour-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 865.9; worst difference 0.00 at (5.13, 500.07): today 865.9, rule 865.9
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 865.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 865.9; worst difference 0.00
+  Rect1000x1000-oneEnd-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+  Rect1000x500-shortEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00 at (10.13, 250.07): today 249.9, rule 249.9
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00
+  Rect1000x500-longEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 495.1; worst difference 249.80 at (500.13, 250.07): today 499.9, rule 250.1
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x500-allFour-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 495.1; worst difference 249.80 at (500.07, 250.13): today 499.9, rule 250.1
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 499.9, under the rule 499.9; worst difference 0.00
+  Rect1000x500-oneEnd-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 249.9, under the rule 249.9; worst difference 0.00
+  Rect1000x500-shortEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00 at (500.07, 275.13): today 93.1, rule 93.1
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00
+  Rect1000x500-longEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 205.1; worst difference 103.47 at (500.07, 250.13): today 207.1, rule 103.6
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x500-allFour-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 205.1; worst difference 103.47 at (500.07, 250.13): today 207.1, rule 103.6
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 207.1, under the rule 207.1; worst difference 0.00
+  Rect1000x500-oneEnd-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 103.5, under the rule 103.5; worst difference 0.00
+  Rect1000x500-shortEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00 at (500.07, 365.13): today 77.9, rule 77.9
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00
+  Rect1000x500-longEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00 at (275.13, 250.07): today 158.8, rule 158.8
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+  Rect1000x500-allFour-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 857.6; worst difference 432.67 at (500.07, 250.13): today 865.9, rule 433.2
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 865.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 865.9, under the rule 865.9; worst difference 0.00
+  Rect1000x500-oneEnd-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 144.3, under the rule 144.3; worst difference 0.00
+  Rect1200x400-shortEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00 at (115.13, 200.07): today 199.9, rule 199.9
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00
+  Rect1200x400-longEnds-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 395.1; worst difference 399.80 at (600.13, 200.07): today 599.9, rule 200.1
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 599.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 599.9; worst difference 0.00
+  Rect1200x400-allFour-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 395.1; worst difference 399.80 at (600.13, 200.07): today 599.9, rule 200.1
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 599.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 599.9, under the rule 599.9; worst difference 0.00
+  Rect1200x400-oneEnd-hip45-gable45: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 199.9, under the rule 199.9; worst difference 0.00
+  Rect1200x400-shortEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00 at (5.13, 200.07): today 82.8, rule 82.8
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00
+  Rect1200x400-longEnds-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 163.7; worst difference 165.60 at (600.13, 200.07): today 248.5, rule 82.9
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 248.5; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 248.5; worst difference 0.00
+  Rect1200x400-allFour-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 163.7; worst difference 165.60 at (600.13, 200.07): today 248.5, rule 82.9
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 248.5; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 248.5, under the rule 248.5; worst difference 0.00
+  Rect1200x400-oneEnd-hip22.5-gable22.5: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 82.8, under the rule 82.8; worst difference 0.00
+  Rect1200x400-shortEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00 at (600.07, 110.13): today 63.6, rule 63.6
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00
+  Rect1200x400-longEnds-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 346.4, under the rule 346.4; worst difference 0.00 at (355.13, 200.07): today 205.0, rule 205.0
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 346.4, under the rule 346.4; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 346.4, under the rule 346.4; worst difference 0.00
+  Rect1200x400-allFour-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SHAPE DIFFERS; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 1039.1, under the rule 684.4; worst difference 692.47 at (600.13, 200.07): today 1039.0, rule 346.5
+    B gabledFar=none: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 1039.1, under the rule 1039.1; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 4 of 4 rises limited by a gabled wall's plane; along both centrelines: highest today 1039.1, under the rule 1039.1; worst difference 0.00
+  Rect1200x400-oneEnd-hip30-gable60: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00
+    B gabledFar=none: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 0 of 1 rises limited by a gabled wall's plane; along both centrelines: highest today 115.4, under the rule 115.4; worst difference 0.00
+  RiseFacingWholeGable: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 1 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 495.1, under the rule 495.1; worst difference 0.00 at (400.13, 250.07): today 250.1, rule 250.1
+    B gabledFar=none: clean; SHAPE DIFFERS; 1 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 495.1, under the rule 495.1; worst difference 122.81 at (500.07, 250.13): today 250.1, rule 372.9
+    B gabledFar=farRakes: clean; SHAPE DIFFERS; 1 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 495.1, under the rule 495.1; worst difference 122.81 at (500.07, 250.13): today 250.1, rule 372.9
+  UnequalLongGables: today clean
+    B gabledFar=skeletonPlane: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00 at (250.13, 250.07): today 144.4, rule 144.4
+    B gabledFar=none: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00
+    B gabledFar=farRakes: clean; SAME SHAPE; 2 of 2 rises limited by a gabled wall's plane; along both centrelines: highest today 288.6, under the rule 288.6; worst difference 0.00

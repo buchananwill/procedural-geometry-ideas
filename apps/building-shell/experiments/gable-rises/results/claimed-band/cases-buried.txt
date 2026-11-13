@@ -1,0 +1,168 @@
+
+# Buried middles and ends: sub-rule candidates
+
+-- sub-rules ownRake / bandMiddle
+
+== SingleStoreyT
+  today: CLEAN 
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: keptB, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: keptB, bands [0,500]@45
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  B: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: toRise, bands [0,500]@45
+    storey 0 x=1000 [350,500] outer ownGable: toRise, bands [0,500]@45
+    rise [0,500] on x=1000: ends corner/corner, middle buried; planes y=0 x[0,1000] & y=500 x[0,1000] & x=0 y[0,500]; limit x=0 y[0,500]
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesGableMiddle
+  today: CLEAN 
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: keptB, bands [0,500]@60
+    storey 0 x=1000 [350,500] outer ownGable: keptB, bands [0,500]@60
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+  B: CLEAN same shape as today
+    storey 0 x=1000 [0,150] outer ownGable: toRise, bands [0,500]@60
+    storey 0 x=1000 [350,500] outer ownGable: toRise, bands [0,500]@60
+    rise [0,500] on x=1000: ends corner/corner, middle buried; planes y=0 x[0,1000] & y=500 x[0,1000] & x=0 y[0,500]; limit x=0 y[0,500]
+    Gable s0 on x=1000 [0,500] apex at 250.0, 250.0 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesRiseMiddle
+  today: CLEAN 
+    Gable s0 on y=0 [300,450] apex at 375.0, 75.0 above the plate
+    Gable s0 on y=0 [550,700] apex at 625.0, 75.0 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,-0.5000,0.8660|216.51 differs by 48416.7 cm²)
+    storey 0 y=0 [0,450] mixed: mixedToday, bands [300,700]@45
+    storey 0 y=0 [550,1000] mixed: mixedToday, bands [300,700]@45
+    rise [300,700] on y=0: ends reflex/reflex, middle buried; planes rake from 300 on y=0 x[0,450] & rake from 700 on y=0 x[0,450] & y=500 x[0,1000]; limit y=500 x[0,1000]
+    Gable s0 on y=0 [300,700] apex at 500.0, 200.0 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,-0.5000,0.8660|216.51 differs by 48416.7 cm²)
+    storey 0 y=0 [0,450] mixed: mixedToday, bands [300,700]@45
+    storey 0 y=0 [550,1000] mixed: mixedToday, bands [300,700]@45
+    rise [300,700] on y=0: ends reflex/reflex, middle buried; planes rake from 300 on y=0 x[0,450] & rake from 700 on y=0 x[0,450] & y=500 x[0,1000]; limit y=500 x[0,1000]
+    Gable s0 on y=0 [300,700] apex at 500.0, 200.0 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesGableEnd
+  today: CLEAN 
+    Gable s0 on y=0 [150,1000] apex at 600.0, 230.9 above the plate
+  A: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: keptB, bands [0,1000]@45
+    Gable s0 on y=0 [150,1000] apex at 600.0, 230.9 above the plate
+  B: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends corner/corner; planes x=0 y[0,400] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [150,1000] apex at 600.0, 230.9 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesGableEndSteepAdj
+  today: CLEAN 
+    Gable s0 on y=0 [75,1000] apex at 133.3, 230.9 above the plate
+  A: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: keptB, bands [0,1000]@45
+    Gable s0 on y=0 [75,1000] apex at 133.3, 230.9 above the plate
+  B: CLEAN same shape as today
+    storey 0 y=0 [300,1000] outer ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends corner/corner; planes x=0 y[0,400] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [75,1000] apex at 133.3, 230.9 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesGableCorner
+  today: CLEAN 
+    Gable s0 on y=0 [100,1000] apex at 100.0, 115.5 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,0.5000,0.8660|416.51 differs by 97606.8 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes rake from 0 on y=0 x[300,1000] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [110,1000] apex at 230.9, 230.9 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,0.5000,0.8660|416.51 differs by 97606.8 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes rake from 0 on y=0 x[300,1000] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [110,1000] apex at 230.9, 230.9 above the plate
+
+-- sub-rules adjacentPitch / bandMiddle
+
+== WingBuriesGableCorner
+  today: CLEAN 
+    Gable s0 on y=0 [100,1000] apex at 100.0, 115.5 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,-0.7071,0.7071|176.78 differs by 63707.7 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes x=0 y[200,400] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [150,1000] apex at 600.0, 230.9 above the plate
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesGableCornerSteepAdj
+  today: CLEAN 
+    Gable s0 on y=0 [100,1000] apex at 100.0, 115.5 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,0.5000,0.8660|416.51 differs by 81914.7 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes rake from 0 on y=0 x[300,1000] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [110,1000] apex at 230.9, 230.9 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,0.5000,0.8660|416.51 differs by 81914.7 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes rake from 0 on y=0 x[300,1000] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [110,1000] apex at 230.9, 230.9 above the plate
+
+-- sub-rules adjacentPitch / bandMiddle
+
+== WingBuriesGableCornerSteepAdj
+  today: CLEAN 
+    Gable s0 on y=0 [100,1000] apex at 100.0, 115.5 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,0.5000,0.8660|416.51 differs by 95396.2 cm²)
+    storey 0 y=0 [300,1000] outer noSide+ownGable: toRise, bands [0,1000]@45
+    rise [0,1000] on y=0: ends buried/corner; planes x=0 y[200,400] & x=1000 y[0,400] & y=400 x[0,1000]; limit y=400 x[0,1000]
+    Gable s0 on y=0 [75,1000] apex at 133.3, 230.9 above the plate
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== WingBuriesRunEnd
+  today: CLEAN 
+    Gable s0 on y=0 [100,400] apex at 250.0, 150.0 above the plate
+  A: CLEAN SHAPE DIFFERS (0.0000,-0.5000,0.8660|216.51 differs by 43094.0 cm²)
+    storey 0 y=0 [0,400] mixed: mixedToday, bands [100,600]@45
+    rise [100,600] on y=0: ends reflex/buried; planes rake from 100 on y=0 x[0,400] & rake from 600 on y=0 x[0,400] & y=500 x[0,1000]; limit y=500 x[0,1000]
+    Gable s0 on y=0 [100,527] apex at 350.0, 250.0 above the plate
+  B: CLEAN SHAPE DIFFERS (0.0000,-0.5000,0.8660|216.51 differs by 43094.0 cm²)
+    storey 0 y=0 [0,400] mixed: mixedToday, bands [100,600]@45
+    rise [100,600] on y=0: ends reflex/buried; planes rake from 100 on y=0 x[0,400] & rake from 600 on y=0 x[0,400] & y=500 x[0,1000]; limit y=500 x[0,1000]
+    Gable s0 on y=0 [100,527] apex at 350.0, 250.0 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
+
+-- sub-rules ownRake / bandMiddle
+
+== OffCentreStemBuriesMiddle
+  today: CLEAN 
+    Gable s0 on x=1000 [0,600] apex at 300.0, 300.0 above the plate
+  A: CLEAN same shape as today
+    storey 0 x=1000 [0,100] outer ownGable: keptB, bands [0,600]@45
+    storey 0 x=1000 [500,600] outer ownGable: keptB, bands [0,600]@45
+    Gable s0 on x=1000 [0,600] apex at 300.0, 300.0 above the plate
+  B: CLEAN same shape as today
+    storey 0 x=1000 [0,100] outer ownGable: toRise, bands [0,600]@45
+    storey 0 x=1000 [500,600] outer ownGable: toRise, bands [0,600]@45
+    rise [0,600] on x=1000: ends corner/corner, middle buried; planes y=0 x[0,1000] & y=600 x[0,1000] & x=0 y[0,600]; limit x=0 y[0,600]
+    Gable s0 on x=1000 [0,600] apex at 300.0, 300.0 above the plate
+-- sub-rules adjacentPitch / bandMiddle: as the default
+-- sub-rules ownRake / exposedMiddle: as the default
