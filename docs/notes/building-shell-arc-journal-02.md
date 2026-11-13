@@ -858,6 +858,34 @@ ruled" list in the covered-storeys findings. Added this session:
      - **Dispatched**: WP-V3 (general-purpose, Opus, fresh) for the viewer tests and the unloadable defect cases;
        and the rise reviewer, resumed, on `fd84720..81930ae`, asked above all whether any rule is applied
        inconsistently because of surrounding geometry.
+247. **WP-L2's pipeline work is accepted at `81930ae`; the review found the three rules applied consistently, and
+     corrects two things the lead told the user** (the lead, 2026-11-13). The reviewer found no departure from
+     rules 1 to 3 and no case where surrounding geometry makes a rule apply differently: swapping Ring order,
+     removing, widening or moving the stem changes only source indices. It had not finished its own `robustness`
+     run. The suite stays red on the 7 viewer tests until WP-V3 lands.
+     - **Correction 1, to decisions 244 and 245: the `s13/Court21` throw is created by covered rises, not merely
+       reached by them.** Built three ways, the reproducer throws with every rise and with only the covered
+       rises, and builds with the covered rises removed. Its pin is filed under the U8 class because the error
+       text matches; the mechanism is not confirmed. The lead told the user this was "an existing pipeline defect
+       that the new rule merely reaches". That was an inference from the error text, and it was too strong.
+     - **Correction 2, to decision 246's "cured": several cures are a covered rise built over the defect.** The
+       pins' own comments say `s8/Court4` (promoted) and `s10/Court15` are cured because a covered rise now
+       stands over the cut piece's overshoot. The defective cut piece is still there, buried. And `s1/Court29`'s
+       new defect appears only when a covered rise and the other rises are both present. So "cured" and "created"
+       in the cut-overshoot class both depend on where a covered rise happens to stand. **The courtyard cut is
+       not fixed, and these counts say nothing about it.**
+     - **Where rule 1 flips, as a fact for the user**: two opposite stretches join when each one's centre line
+       lies strictly inside the other's band. Aligned, or offset by 20 cm: both run through (1 Cheek at 20). Offset
+       by half, or touching at an end: both limited. One inside the other: both run through. Each flip is exactly
+       at that test and nothing else moves it. Whether a centre-line test is the rule the user wants for partly
+       facing gables is the user's to see.
+     - **Facing pairs**: two Rings that each gable their shared wall from opposite sides each get a covered rise
+       at its own pitch. Built once each, clean.
+     - **`U8Seed6h300` was the only golden that throws and was C++-replayable.** It lost its input because it
+       now builds a rise, though its error is unchanged. The flag follows decision 17's words and errs safe. Open,
+       with the question of decision 246.
+     - **Owed, small**: the `s13/Court21` pins are filed under their own class, named for what is known (a Cell
+       clash from covered rises), not under U8.
 
 ## Findings
 
