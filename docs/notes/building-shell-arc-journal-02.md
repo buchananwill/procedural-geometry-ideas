@@ -927,6 +927,16 @@ ruled" list in the covered-storeys findings. Added this session:
      where it does not limit, opposite gables joining, the accepted run-through, Cell sources), the user's
      position on taming and on Cheeks, the stretch goals, and the pinned costs. It was asked to pass the message
      on if porting the roof solver belongs to another C++ session. That discharges §4's item on telling it.
+250. **No C++ session has the port, and the lead treats it as unassigned** (2026-11-13, from `claude-work-ec`'s
+     reply to decision 249's message). The user ruled to that session on 2026-11-12 that the gable-rise port is
+     outside its arc (MBU, modular-building-ux), and that the user will test and review the prototype's work
+     before any porting into the C++ repo begins. It reads decision 249 as the direction, not as an assignment,
+     and has told the user that the lead asked. **The user says who ports it.** Two facts it gave for whoever
+     does: the C++ Cell source is still one Ring model index and side per Cell (`FBuildingShellCellSource`),
+     which gable rise decision 14 keeps; and the game now has a shell preview that draws shell faces by kind, so
+     a covered rise's Gable face with no wall tag is drawn like any other. Its arc is about to merge to the C++
+     main; a port would branch after that. The operational manual's line on `claude-work-ec` is unchanged: it is
+     the UI/UX lead, to be kept informed, not the port's owner.
 
 ## Findings
 
