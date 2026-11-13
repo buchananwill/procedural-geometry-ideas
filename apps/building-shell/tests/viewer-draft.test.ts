@@ -1,8 +1,10 @@
 // Viewer editing decisions 6 to 9, 15 to 21 and gates 3 and 4 of decision 23: the pure draft state, the file and link
 // round trips, and the hash. Plain values in, plain values out, as `viewer-toggles.test.ts`.
 import {describe, expect, it} from 'vitest';
-import {EXPORTED_FIXTURES, FixtureRing, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
-import {canonicalFixture} from '../src/viewer/edit.ts';
+import {
+  EXPORTED_FIXTURES, FixtureRing, GABLE_SETTING_FIXTURES, RING_SIDES, RISE_FACINGS, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, SideRun, ring,
+} from '../src/fixture.ts';
+import {canonicalFixture, settledSettings} from '../src/viewer/edit.ts';
 import {BuildingShellInputV1, WIRE_GABLE_ONLY_DEG} from '../src/wire/input-types.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
@@ -685,30 +687,19 @@ describe('side order', () => {
 
 // ---- Stretches and the one spelling (journal decision 214) ---------------------------------------------------------------------
 
-/** Whether any run of a fixture carries a `maxHeight` or `limit`, which `input@1` cannot carry. */
-const carriesLimits = (f: ShellFixture): boolean =>
-  f.rings.some(r => Object.values(r.sides ?? {}).some(s => s.runs?.some(run => run.maxHeight !== undefined || run.limit !== undefined)));
-
-/** A copy of `f` without any run's `maxHeight` and `limit`: what a file can say of it. */
-const withoutLimits = (f: ShellFixture): ShellFixture => ({
-  ...f,
-  rings: f.rings.map(r => ({
-    ...r,
-    sides: Object.fromEntries(Object.entries(r.sides ?? {}).map(([side, s]) => [side, s.runs ? {...s, runs: s.runs.map(({maxHeight: _m, limit: _l, ...run}) => run)} : s])),
-  })),
-});
+/** Every run of every side of a fixture. */
+const runsOf = (f: ShellFixture): SideRun[] => f.rings.flatMap(r => Object.values(r.sides ?? {}).flatMap(s => s.runs ?? []));
 
 /** A Ring that lists all four sides: the wire has no `defaultDeg` to carry for it (journal decision 198). */
 const lists = (r: FixtureRing): boolean => RING_SIDES.every(s => r.sides?.[s] !== undefined);
 
 /**
- * What download then load must return for a valid draft (journal decision 214): the draft itself, but for the two named
- * exceptions. `defaultDeg` of a Ring with all four sides listed is what `readInput` gives it; and a `maxHeight` or `limit`,
- * which the wire does not carry, is gone, with whatever merging of neighbours that makes possible.
+ * What download then load must return for a valid draft (journal decision 214, per-stretch gable settings decision 14): the
+ * draft itself, but for the one named exception, `defaultDeg` of a Ring with all four sides listed, which is what
+ * `readInput` gives it. A gable stretch's settings are not an exception: the wire carries them.
  */
 function expectedLoad(draft: ShellFixture): ShellFixture {
-  const base = carriesLimits(draft) ? canonicalFixture(withoutLimits(draft)) : draft;
-  return {...base, rings: base.rings.map(r => (lists(r) ? {...r, defaultDeg: wireDefaultDeg(r)} : r))};
+  return {...draft, rings: draft.rings.map(r => (lists(r) ? {...r, defaultDeg: wireDefaultDeg(r)} : r))};
 }
 
 const loadOf = (f: ShellFixture): ShellFixture => {
@@ -718,8 +709,8 @@ const loadOf = (f: ShellFixture): ShellFixture => {
 };
 
 describe('gate 3 for stretches: download then load returns every valid draft itself (journal decision 214)', () => {
-  for (const f of RISE_FIXTURES) {
-    it(`${f.name}: its draft survives it (limits aside)`, () => {
+  for (const f of [...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES]) {
+    it(`${f.name}: its draft survives it`, () => {
       const d = editDraftOf(f);
       expect(d.validation.ok).toBe(true);
       expect(loadOf(d.fixture)).toEqual(expectedLoad(d.fixture));
@@ -760,10 +751,9 @@ describe('gate 3 for stretches: download then load returns every valid draft its
     expect(a.fixture).toEqual(b.fixture);
   });
 
-  it('the follow-up edit gives the same result on a draft and on its loaded copy, for every stretch edit, on every rise fixture', () => {
+  it('the follow-up edit gives the same result on a draft and on its loaded copy, for every stretch edit, on every rise and gable setting fixture', () => {
     let compared = 0;
-    for (const f of RISE_FIXTURES) {
-      if (carriesLimits(f)) continue;
+    for (const f of [...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES]) {
       const d = editDraftOf(f);
       const copy = makeDraft(loadOf(d.fixture));
       for (const [i, r] of d.fixture.rings.entries()) {
@@ -772,6 +762,8 @@ describe('gate 3 for stretches: download then load returns every valid draft its
           const actions: DraftAction[] = [
             {kind: 'setSidePitch', ring: i, side, value: 60}, {kind: 'setSideForm', ring: i, side, form: 'gable'}, {kind: 'splitStretch', ring: i, side, run: n - 1},
             {kind: 'setStretchForm', ring: i, side, run: 0, form: 'gable'}, {kind: 'setStretchPitch', ring: i, side, run: 0, value: 55},
+            {kind: 'halveStretch', ring: i, side, run: n - 1}, {kind: 'setStretchMaxHeight', ring: i, side, run: n - 1, value: 120},
+            {kind: 'setStretchFacing', ring: i, side, run: n - 1, facing: 'split'}, {kind: 'setStretchApart', ring: i, side, run: n - 1, apart: false},
           ];
           for (const a of actions) {
             expect(dispatch(d, a).fixture, `${f.name} ${JSON.stringify(a)}`).toEqual(dispatch(copy, a).fixture);
@@ -783,17 +775,50 @@ describe('gate 3 for stretches: download then load returns every valid draft its
     expect(compared).toBeGreaterThan(200);
   });
 
-  it('what the wire cannot carry: maxHeight and limit are not written, and the loaded copy has neither (the second named exception)', () => {
+  it('what the wire carries now: maxHeight, facing and apart are written and loaded back (per-stretch gable settings decisions 14 and 19)', () => {
     const flat = RISE_FIXTURES.find(f => f.name === 'FlatTopRise') as ShellFixture;
     const d = editDraftOf(flat).fixture;
     expect(d.rings[0].sides?.S?.runs?.some(r => r.maxHeight === 200)).toBe(true);
-    expect(draftJson(d)).not.toMatch(/maxHeight|limit/);
-    expect(draftLinkHash(d)).not.toContain('maxHeight');
-    expect(loadOf(d).rings[0].sides?.S?.runs?.some(r => r.maxHeight !== undefined)).toBe(false);
-    // The draft itself keeps it through edits that do not touch that stretch, and through a saved draft.
+    expect(draftJson(d)).toMatch(/"maxHeightCm": 200/);
+    expect(loadOf(d)).toEqual(d);
+    // Through the link too, and through a saved draft, after an edit that does not touch that stretch.
     const edited = dispatch(makeDraft(d), {kind: 'moveBoundary', ring: 0, side: 'S', run: 2, value: 800});
     expect(edited.fixture.rings[0].sides?.S?.runs?.some(r => r.maxHeight === 200)).toBe(true);
-    expect(restoreDraft(serializeDraft(edited))?.draft.fixture.rings[0].sides?.S?.runs?.some(r => r.maxHeight === 200)).toBe(true);
+    const linked = draftFromLinkHash(draftLinkHash(edited.fixture));
+    expect(linked?.ok && linked.fixture).toEqual(edited.fixture);
+    expect(restoreDraft(serializeDraft(edited))?.draft.fixture).toEqual(edited.fixture);
+    // Every setting at once, on stretches that would merge but for standing apart.
+    let all = dispatch(makeDraft(oneRing(40)), {kind: 'splitStretch', ring: 0, side: 'S', run: 0});
+    all = dispatch(all, {kind: 'halveStretch', ring: 0, side: 'S', run: 1});
+    all = dispatch(all, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: 90});
+    all = dispatch(all, {kind: 'setStretchFacing', ring: 0, side: 'S', run: 2, facing: 'whole'});
+    expect(all.validation.ok).toBe(true);
+    expect(all.fixture.rings[0].sides?.S?.runs).toEqual([
+      {from: 0, to: 350, form: 'hip', deg: 40}, {from: 350, to: 500, form: 'gable', deg: 40, maxHeight: 90, apart: true},
+      {from: 500, to: 650, form: 'gable', deg: 40, facing: 'whole', apart: true}, {from: 650, to: 1000, form: 'hip', deg: 40},
+    ]);
+    expect(loadOf(all.fixture)).toEqual(all.fixture);
+  });
+
+  it('limit, which the wire does not carry, has one value, which the one spelling writes as none: a draft that names it loads back as itself', () => {
+    const f: ShellFixture = {name: 'l', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 300, to: 700, form: 'gable', deg: 60, limit: 'ridgeSlope'}]}})]};
+    expect(draftJson(f)).not.toMatch(/limit/);
+    const d = makeDraft(f).fixture;
+    expect(runsOf(d).some(r => r.limit !== undefined)).toBe(false);
+    expect(loadOf(d)).toEqual(d);
+  });
+
+  it('a maximum height of 0 is none in the draft, as on the wire, so no draft holds a 0 the pipeline refuses; a negative one is the wire\'s to refuse', () => {
+    const split = dispatch(makeDraft(oneRing(40)), {kind: 'splitStretch', ring: 0, side: 'S', run: 0});
+    const capped = dispatch(split, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: 150});
+    expect(capped.fixture.rings[0].sides?.S?.runs?.[1].maxHeight).toBe(150);
+    const zero = dispatch(capped, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: 0});
+    expect(zero.fixture).toEqual(split.fixture);
+    expect(dispatch(capped, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: null}).fixture).toEqual(split.fixture);
+    const negative = dispatch(capped, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: -50});
+    expect(negative.validation.ok).toBe(false);
+    if (!negative.validation.ok) expect(explainRefusals(negative.validation.errors, negative.fixture)).toMatchObject([{ring: 0, field: 'run', side: 'S', run: 1}]);
+    expect(dispatch(capped, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: Number.NaN})).toBe(capped);
   });
 
   it('a foreign file\'s mixed side that asks for Auto keeps its stretches (a side with runs is listed)', () => {
@@ -808,8 +833,8 @@ describe('gate 3 for stretches: download then load returns every valid draft its
   it('a file with gaps between its runs, as the C++ may write, loads tiled, the gaps taking the side\'s own form', () => {
     const input = structuredClone(writeInput(oneRing(40)));
     input.rings[0].sides[0].runs = [
-      {startCm: 300, endCm: 500, form: 'GableEnd', pitchDegrees: 60, bEmptied: false, bOutlineRefused: false},
-      {startCm: 700, endCm: 900, form: 'Pitched', pitchDegrees: 40, bEmptied: false, bOutlineRefused: false},
+      {startCm: 300, endCm: 500, form: 'GableEnd', pitchDegrees: 60, bEmptied: false, bOutlineRefused: false, maxHeightCm: 0, facing: 'CentreLine', bStandsApart: false},
+      {startCm: 700, endCm: 900, form: 'Pitched', pitchDegrees: 40, bEmptied: false, bOutlineRefused: false, maxHeightCm: 0, facing: 'CentreLine', bStandsApart: false},
     ];
     const read = parseDraftJson(JSON.stringify(input), 'x');
     expect(read.ok).toBe(true);
@@ -829,6 +854,8 @@ function seeded(seed: number): () => number {
 describe('the fuzz: for every valid draft an edit sequence reaches, download then load returns it (journal decision 214)', () => {
   const PITCHES = [7, 22.5, 30, 30, 45, 45, 45, 60, 75, 3, 80];
   const COORDS = [0, 50, 100, 150, 200, 300, 400, 500, 600, 800, 1000, 1200, 1500, -50];
+  /** A maximum height field's entries: empty (null), heights above and below an apex, 0 (none, as on the wire) and one the wire refuses. */
+  const MAX_HEIGHTS = [null, 100, 150, 200, 400, 0, -50];
 
   /** One random action on a draft, from what it holds: any edit the panel can make, stretch edits and undo included. */
   function randomAction(d: Draft, rng: () => number): DraftAction {
@@ -838,6 +865,12 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     const side = pick(RING_SIDES);
     const stretches = d.fixture.rings[ring]?.sides?.[side]?.runs?.length ?? 1;
     const run = Math.floor(rng() * stretches);
+    // Per-stretch gable settings decisions 16 and 18: a gable stretch's three settings, and halving one into two that stand apart.
+    const g = rng();
+    if (g < 0.05) return {kind: 'halveStretch', ring, side, run};
+    if (g < 0.10) return {kind: 'setStretchMaxHeight', ring, side, run, value: pick(MAX_HEIGHTS)};
+    if (g < 0.15) return {kind: 'setStretchFacing', ring, side, run, facing: pick(RISE_FACINGS)};
+    if (g < 0.21) return {kind: 'setStretchApart', ring, side, run, apart: pick([true, true, false])};
     const x = rng();
     if (x < 0.22) return {kind: 'splitStretch', ring, side, run};
     if (x < 0.34) return {kind: 'moveBoundary', ring, side, run: Math.max(1, run), value: pick(COORDS)};
@@ -862,12 +895,21 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     ['a plain Ring', makeDraft(oneRing(40))],
     ['two flush Rings', makeDraft({name: 'two', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 500, 500], 0, 1, 40), ring([500, 0, 1000, 500], 0, 1, 40)]})],
     ['the chalet', editDraftOf(chalet)],
-    ...RISE_FIXTURES.map((f): [string, Draft] => [f.name, editDraftOf(f)]),
+    ...[...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES].map((f): [string, Draft] => [f.name, editDraftOf(f)]),
   ];
   const SEQUENCES = 30, STEPS = 40;
 
+  /** Whether a side holds two neighbouring gable stretches that would be one but that one of them stands apart (decision 17). */
+  const keptApart = (runs: readonly SideRun[]): boolean => runs.some((r, k) => {
+    const p = runs[k - 1];
+    return p !== undefined && p.form === 'gable' && r.form === 'gable' && p.deg === r.deg && p.maxHeight === r.maxHeight && p.facing === r.facing && (p.apart === true || r.apart === true);
+  });
+
   it('holds on every valid draft of the sequences, and the sequences cover what they should', () => {
-    const stats = {sequences: 0, steps: 0, valid: 0, invalid: 0, splitSides: 0, threeStretchSides: 0, merges: 0, hipAndGable: 0, withLimits: 0, listedAll: 0, undone: 0, resizedSplit: 0};
+    const stats = {
+      sequences: 0, steps: 0, valid: 0, invalid: 0, splitSides: 0, threeStretchSides: 0, merges: 0, hipAndGable: 0, listedAll: 0, undone: 0, resizedSplit: 0,
+      withMaxHeight: 0, withFacing: 0, withApart: 0, keptApart: 0, halved: 0, resizedSettings: 0,
+    };
     const failures: string[] = [];
     starts.forEach(([name, start], si) => {
       for (let seq = 0; seq < SEQUENCES; seq++) {
@@ -893,9 +935,15 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
           stats.splitSides += splits.length;
           stats.threeStretchSides += splits.filter(s => (s.runs?.length ?? 0) >= 3).length;
           stats.hipAndGable += splits.filter(s => s.runs?.some(r => r.form === 'hip') && s.runs?.some(r => r.form === 'gable')).length;
-          if (carriesLimits(f)) stats.withLimits++;
+          const runs = runsOf(f);
+          if (runs.some(r => r.maxHeight !== undefined)) stats.withMaxHeight++;
+          if (runs.some(r => r.facing !== undefined)) stats.withFacing++;
+          if (runs.some(r => r.apart === true)) stats.withApart++;
+          if (splits.some(s => keptApart(s.runs ?? []))) stats.keptApart++;
+          if (a.kind === 'halveStretch' && d !== before) stats.halved++;
           // A resize of a Ring whose sides were split, which carries each boundary to its own world coordinate (journal decision 216).
           if (a.kind === 'setRectCoord' && before.fixture.rings.some(r => Object.values(r.sides ?? {}).some(s => s.runs?.length))) stats.resizedSplit++;
+          if (a.kind === 'setRectCoord' && runsOf(before.fixture).some(r => Object.keys(settledSettings(r)).length > 0)) stats.resizedSettings++;
           if (f.rings.some(lists)) stats.listedAll++;
           // A merge: a stretch edit that left a split side with fewer stretches than it had.
           const had = before.fixture.rings.flatMap(r => Object.values(r.sides ?? {})).reduce((n, s) => n + (s.runs?.length ?? 0), 0);
@@ -913,12 +961,19 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     expect(stats.threeStretchSides).toBeGreaterThan(8000);
     expect(stats.hipAndGable).toBeGreaterThan(10000);
     expect(stats.merges).toBeGreaterThan(60);
-    expect(stats.withLimits).toBeGreaterThan(200);
     expect(stats.listedAll).toBeGreaterThan(800);
     expect(stats.undone).toBeGreaterThan(500);
     expect(stats.resizedSplit).toBeGreaterThan(150);
-    // 19,200 steps take about 3 s alone and 7 s beside the rest of the suite: the default 5 s is not for it.
-  }, 60_000);
+    // Per-stretch gable settings decisions 16 to 18: drafts holding each setting, neighbours kept two by standing apart, halved
+    // stretches, and resizes of Rings whose stretches carry settings (measured at 1,786, 2,260, 4,222, 2,315, 915 and 254).
+    expect(stats.withMaxHeight).toBeGreaterThan(1000);
+    expect(stats.withFacing).toBeGreaterThan(1300);
+    expect(stats.withApart).toBeGreaterThan(2500);
+    expect(stats.keptApart).toBeGreaterThan(1400);
+    expect(stats.halved).toBeGreaterThan(500);
+    expect(stats.resizedSettings).toBeGreaterThan(150);
+    // 43,200 steps take about 10 s alone, more beside the rest of the suite: the default 5 s is not for it.
+  }, 120_000);
 });
 
 describe('the stretch actions of a draft (journal decision 214)', () => {
@@ -996,5 +1051,36 @@ describe('the stretch actions of a draft (journal decision 214)', () => {
     const hips = dispatch(d, {kind: 'setStretchPitch', ring: 0, side: 'S', run: 0, value: 30});
     expect(place(hips).length).toBeGreaterThan(0);
     expect(place(hips).every(r => r.ring === 0 && r.side === 'S')).toBe(true);
+  });
+
+  it('per-stretch gable settings decisions 16 to 18: halve, maximum height, facing and standing apart go through the draft and its history, and mutate nothing', () => {
+    // The browser check's walk: a plain rectangle, three equal gable stretches each standing apart, then two unticked.
+    let d = dispatch(start(), {kind: 'splitStretch', ring: 0, side: 'S', run: 0});
+    d = dispatch(d, {kind: 'setStretchApart', ring: 0, side: 'S', run: 1, apart: true});
+    d = dispatch(d, {kind: 'setStretchForm', ring: 0, side: 'S', run: 0, form: 'gable'});
+    d = dispatch(d, {kind: 'setStretchForm', ring: 0, side: 'S', run: 2, form: 'gable'});
+    d = dispatch(d, {kind: 'setStretchApart', ring: 0, side: 'S', run: 0, apart: true});
+    d = dispatch(d, {kind: 'setStretchApart', ring: 0, side: 'S', run: 2, apart: true});
+    expect(d.fixture.rings[0].sides?.S?.runs?.map(r => [r.from, r.to, r.form, r.apart])).toEqual([[0, 350, 'gable', true], [350, 650, 'gable', true], [650, 1000, 'gable', true]]);
+    expect(d.validation.ok).toBe(true);
+    // Unticking one leaves it between two that stand apart: still three. Unticking its neighbour too merges the two.
+    const one = dispatch(d, {kind: 'setStretchApart', ring: 0, side: 'S', run: 0, apart: false});
+    expect(one.fixture.rings[0].sides?.S?.runs).toHaveLength(3);
+    const two = dispatch(one, {kind: 'setStretchApart', ring: 0, side: 'S', run: 1, apart: false});
+    expect(two.fixture.rings[0].sides?.S?.runs?.map(r => [r.from, r.to, r.apart])).toEqual([[0, 650, undefined], [650, 1000, true]]);
+    expect(dispatch(two, {kind: 'undo'}).fixture).toEqual(one.fixture);
+    // Every new action on a frozen draft: each makes a new draft, and the one given is unchanged.
+    const frozen = (v: unknown): void => { if (typeof v === 'object' && v) { Object.freeze(v); Object.values(v).forEach(frozen); } };
+    frozen(one);
+    const before = JSON.stringify(one);
+    const actions: DraftAction[] = [
+      {kind: 'halveStretch', ring: 0, side: 'S', run: 1}, {kind: 'setStretchMaxHeight', ring: 0, side: 'S', run: 1, value: 120},
+      {kind: 'setStretchFacing', ring: 0, side: 'S', run: 2, facing: 'split'}, {kind: 'setStretchApart', ring: 0, side: 'S', run: 2, apart: false},
+    ];
+    for (const a of actions) expect(dispatch(one, a), a.kind).not.toBe(one);
+    expect(JSON.stringify(one)).toBe(before);
+    // A stale target is ignored, as every stretch action's is.
+    expect(dispatch(one, {kind: 'halveStretch', ring: 0, side: 'S', run: 7})).toBe(one);
+    expect(dispatch(one, {kind: 'setStretchFacing', ring: 3, side: 'S', run: 0, facing: 'whole'})).toBe(one);
   });
 });

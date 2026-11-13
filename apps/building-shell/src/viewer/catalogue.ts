@@ -66,6 +66,8 @@ export function goldenInputFiles(manifest: unknown, listed: ReadonlySet<string>)
 export interface CatalogueSources {
   shell: readonly ShellFixture[];
   rises: readonly ShellFixture[];
+  /** Per-stretch gable settings decision 22: one fixture per setting (`GABLE_SETTING_FIXTURES`). */
+  gableSettings: readonly ShellFixture[];
   conflicts: readonly ShellFixture[];
   port: readonly ShellFixture[];
   research: readonly ResearchEntry[];
@@ -213,6 +215,7 @@ export function catalogueGroups(s: CatalogueSources): CatalogueGroup[] {
   const groups: CatalogueGroup[] = [
     {label: 'Fixtures', entries: named(s.shell)},
     {label: 'Gable rises', entries: named(s.rises)},
+    {label: 'Gable settings', entries: named(s.gableSettings)},
     {label: 'Ring conflicts', entries: named(s.conflicts)},
     {label: 'Port regressions', entries: named(s.port)},
     {label: 'Roof-gable research cases', entries: s.research.map(researchEntry)},

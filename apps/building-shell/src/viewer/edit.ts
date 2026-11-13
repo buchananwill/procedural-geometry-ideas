@@ -2,8 +2,9 @@
 // mutates its argument (decision 2). No DOM, no scene, and no validity test: a draft is valid when the wire accepts it
 // (decision 6, journal decision 193), which `draft.ts` asks; an edit is never blocked (decision 9).
 import {RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
-import {ringSideLines, runSpan} from '../ring-forms.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, RiseFacing, ShellFixture, SideForm, SideRun} from '../fixture.ts';
+import {DEFAULT_RISE_FACING, DEFAULT_RISE_LIMIT, joins, ringSideLines, runSpan} from '../ring-forms.ts';
+import type {Claim} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 
 /** Decision 4: a new Ring is 500 x 500 cm, a hip at 45 degrees, one storey, at base storey 0. */
@@ -202,9 +203,44 @@ const isSplit = (s: SideForm | undefined): s is SideForm & {runs: SideRun[]} => 
 /** What a side reads as where no run covers it: its own form and pitch. */
 interface Own { form: RingForm; deg: number }
 
-/** Whether two stretches read the same in every way the editor spells, and so are one stretch. */
-const sameStretch = (a: SideRun, b: SideRun): boolean =>
-  a.form === b.form && a.deg === b.deg && a.maxHeight === b.maxHeight && a.limit === b.limit;
+/** The four settings of a gable stretch (per-stretch gable settings decision 1), as `SideRun` names them. */
+export type GableSettings = Pick<SideRun, 'maxHeight' | 'limit' | 'facing' | 'apart'>;
+
+/**
+ * A stretch's settings in their one spelling (per-stretch gable settings decisions 1 and 2): a hip stretch carries none, and
+ * a gable stretch carries each only where it departs from its default, as `readInput` gives them. Interpretation: a
+ * `maxHeight` of 0 is none, as the wire writes none (decision 12), so the editor never holds a 0 the pipeline refuses; a
+ * `limit` at its one value is no limit, which is what it means.
+ */
+export function settledSettings(s: SideRun): GableSettings {
+  if (s.form !== 'gable') return {};
+  const {maxHeight, limit, facing, apart} = s;
+  return {
+    ...(maxHeight !== undefined && maxHeight !== 0 ? {maxHeight} : {}),
+    ...(limit !== undefined && limit !== DEFAULT_RISE_LIMIT ? {limit} : {}),
+    ...(facing !== undefined && facing !== DEFAULT_RISE_FACING ? {facing} : {}),
+    ...(apart === true ? {apart} : {}),
+  };
+}
+
+/** A stretch with its settings in their one spelling (`settledSettings`). */
+function settled(s: Stretch): Stretch {
+  const {maxHeight: _m, limit: _l, facing: _f, apart: _a, ...bare} = s;
+  return {...bare, ...settledSettings(s)};
+}
+
+/** Whether a stretch, settled, carries any setting: a side of one such stretch is not a plain side. */
+const carriesSettings = (s: Stretch): boolean => Object.keys(settledSettings(s)).length > 0;
+
+/**
+ * Stretch `k` of a side as the pipeline's merge rule reads it: a claim of one Ring's side, every setting resolved to its
+ * default where absent, as `claimAt` in `ring-forms.ts` resolves a run's. The Ring is the same for every stretch of a side,
+ * and each stretch is its own.
+ */
+const claimOf = (s: Stretch, k: number): Claim => ({
+  ring: 0, stretch: k, form: s.form, deg: s.deg, ...(s.maxHeight === undefined ? {} : {maxHeight: s.maxHeight}),
+  limit: s.limit ?? DEFAULT_RISE_LIMIT, facing: s.facing ?? DEFAULT_RISE_FACING, apart: s.apart ?? false,
+});
 
 /**
  * A side's runs as stretches that cover its whole length in order, a stretch between runs, before the first or after the
@@ -224,23 +260,29 @@ function tile(runs: readonly SideRun[], own: Own, length: number): Stretch[] | u
   return out;
 }
 
-/** Neighbouring stretches that read the same joined into one. */
+/**
+ * Neighbouring stretches joined into one where the pipeline joins them: by `joins` in `ring-forms.ts` itself (per-stretch
+ * gable settings decisions 8 and 17), each stretch read against the one before it, as `extentsOf` reads its pieces. Two
+ * equal gable stretches of which either stands apart stay two.
+ */
 function merge(stretches: readonly Stretch[]): Stretch[] {
   const out: Stretch[] = [];
-  for (const s of stretches) {
+  stretches.forEach((s, k) => {
     const last = out.at(-1);
-    if (last && sameStretch(last, s)) last.to = s.to;
+    if (last && joins(claimOf(stretches[k - 1], k - 1), claimOf(s, k))) last.to = s.to;
     else out.push({...s});
-  }
+  });
   return out;
 }
 
 /**
- * The one spelling of a side (journal decision 214). A plain side has no runs. A split side's runs are stretches that
- * cover its whole length, in order, with neighbours that read the same merged; one that merges to a single stretch is a
- * plain side again, and so loses a `maxHeight` or `limit`, which only a rise has. A split side's own `form` and `deg` are
- * derived: its first hip stretch, else its first stretch, which is also what `input@1` reads back. A side whose runs are
- * malformed is left as typed, with its pitches pinned. `fallbackDeg` is the Ring's `defaultDeg`, for a side without a pitch.
+ * The one spelling of a side (journal decision 214, per-stretch gable settings decision 17). A plain side has no runs. A
+ * split side's runs are stretches that cover its whole length, in order, each with its settings in their one spelling
+ * (`settledSettings`), and neighbours the pipeline would join merged (`merge`). One that merges to a single stretch is a
+ * plain side again, unless that stretch carries a setting, which a plain side cannot: then it stays one run. A split side's
+ * own `form` and `deg` are derived: its first hip stretch, else its first stretch, which is also what `input@1` reads back.
+ * A side whose runs are malformed is left as typed, with its pitches pinned. `fallbackDeg` is the Ring's `defaultDeg`, for a
+ * side without a pitch.
  */
 export function canonicalSide(side: SideForm, length: number, fallbackDeg: number): SideForm {
   const {runs, ...rest} = side;
@@ -248,9 +290,10 @@ export function canonicalSide(side: SideForm, length: number, fallbackDeg: numbe
   if (!runs?.length) return {...rest, ...own};
   const tiled = tile(runs, own, length);
   if (!tiled) return {...rest, ...own, runs: runs.map(r => ({...r, deg: r.deg ?? own.deg}))};
-  const merged = merge(tiled);
+  const merged = merge(tiled.map(settled));
   const base = merged.find(s => s.form === 'hip') ?? merged[0];
-  return merged.length === 1 ? {...rest, form: base.form, deg: base.deg} : {...rest, form: base.form, deg: base.deg, runs: merged};
+  const plain = merged.length === 1 && !carriesSettings(base);
+  return plain ? {...rest, form: base.form, deg: base.deg} : {...rest, form: base.form, deg: base.deg, runs: merged};
 }
 
 /** Every Ring side's one spelling, and every listed side's pitch its own (journal decisions 198, M1, and 214). */
@@ -311,12 +354,34 @@ function splitParts(s: Stretch, list: readonly Stretch[], cell: number): Stretch
   return m - s.from >= cell && s.to - m >= cell ? [{...s, to: m}, {...other, from: m}] : undefined;
 }
 
+/**
+ * Per-stretch gable settings decision 18: what halving gable stretch `s` makes: two gable stretches at the grid point
+ * nearest its middle, each keeping the stretch's settings and each standing apart, since two equal neighbours that do not
+ * would merge at once. Undefined for a hip stretch, and for one with no grid point that leaves a whole cell on each side.
+ */
+function halfParts(s: Stretch, cell: number): Stretch[] | undefined {
+  if (s.form !== 'gable') return undefined;
+  const m = Math.round((s.from + s.to) / 2 / cell) * cell + 0;
+  return m - s.from >= cell && s.to - m >= cell ? [{...s, to: m, apart: true}, {...s, from: m, apart: true}] : undefined;
+}
+
+/** Side `side` of Ring `index`'s stretches, a plain side as its one stretch. */
+function stretchList(f: ShellFixture, index: number, side: RingSide): Stretch[] {
+  const r = f.rings[index];
+  return stretchesOf(r.sides?.[side], sideLengthCm(r.rect, side), r.defaultDeg);
+}
+
 /** Whether stretch `k` of a side can be split: it holds two whole cells. The panel says so when it cannot. */
 export function canSplitStretch(f: ShellFixture, index: number, side: RingSide, k: number): boolean {
   assertStretch(f, index, side, k);
-  const r = f.rings[index];
-  const list = stretchesOf(r.sides?.[side], sideLengthCm(r.rect, side), r.defaultDeg);
+  const list = stretchList(f, index, side);
   return splitParts(list[k], list, f.cellSize) !== undefined;
+}
+
+/** Whether stretch `k` of a side can be halved into two gables (`halfParts`): it is a gable stretch of two whole cells or more. */
+export function canHalveStretch(f: ShellFixture, index: number, side: RingSide, k: number): boolean {
+  assertStretch(f, index, side, k);
+  return halfParts(stretchList(f, index, side)[k], f.cellSize) !== undefined;
 }
 
 /** A copy of `f` with one side's stretches changed by `change`, and the side given its one spelling. The side is listed if it was not. */
@@ -343,6 +408,16 @@ export function splitStretch(f: ShellFixture, index: number, side: RingSide, k: 
 }
 
 /**
+ * Per-stretch gable settings decision 18: halves gable stretch `k` of one side of Ring `index` into two gables, each
+ * standing apart (`halfParts`). A plain gable side is its one stretch 0. A hip stretch, or a gable stretch too short to
+ * halve, is left as it is, and so is the side (`canHalveStretch` says whether it can be halved).
+ */
+export function halveStretch(f: ShellFixture, index: number, side: RingSide, k: number): ShellFixture {
+  if (!canHalveStretch(f, index, side, k)) return cloneFixture(f);
+  return withStretches(f, index, side, list => [...list.slice(0, k), ...(halfParts(list[k], f.cellSize) ?? [list[k]]), ...list.slice(k + 1)]);
+}
+
+/**
  * Moves the boundary between stretch `k - 1` and stretch `k` (`k` from 1) to `value` cm from the side's start, snapped to
  * the cell size. It moves both stretches that share it. A boundary moved exactly onto a neighbour's far end leaves that
  * neighbour empty, so it is removed and the stretch beyond the boundary takes its place (journal decision 216). One moved
@@ -361,18 +436,45 @@ export function moveBoundary(f: ShellFixture, index: number, side: RingSide, k: 
 }
 
 /**
- * Sets stretch `k`'s form. A stretch made a hip takes the side's one hip pitch where another stretch is one, and loses its
- * `maxHeight` and `limit`, which belong to a rise (journal decision 214, Low 2 and Low 4). Equal neighbours merge.
+ * Sets stretch `k`'s form. A stretch made a hip takes the side's one hip pitch where another stretch is one, and loses all
+ * four of a gable's settings (journal decision 214, Low 2 and Low 4; per-stretch gable settings decision 1). Neighbours
+ * the pipeline would join merge.
  */
 export function setStretchForm(f: ShellFixture, index: number, side: RingSide, k: number, form: RingForm): ShellFixture {
   assertStretch(f, index, side, k);
   return withStretches(f, index, side, list => list.map((s, i) => {
     if (i !== k) return s;
     if (form === 'gable') return {...s, form};
-    const {maxHeight: _m, limit: _l, ...hip} = s;
+    const {maxHeight: _m, limit: _l, facing: _f, apart: _a, ...hip} = s;
     return {...hip, form, deg: hipPitchOf(list.filter((_, j) => j !== k)) ?? s.deg};
   }));
 }
+
+/**
+ * Per-stretch gable settings decision 16: sets one setting of gable stretch `k` with `change`. A hip stretch carries none
+ * (decision 1), so on one the copy is unchanged. Neighbours the pipeline would join merge.
+ */
+function withGableStretch(f: ShellFixture, index: number, side: RingSide, k: number, change: (s: Stretch) => Stretch): ShellFixture {
+  assertStretch(f, index, side, k);
+  if (stretchList(f, index, side)[k].form !== 'gable') return cloneFixture(f);
+  return withStretches(f, index, side, list => list.map((s, i) => (i === k ? change(s) : s)));
+}
+
+/**
+ * Sets gable stretch `k`'s maximum height in cm above its plate; `undefined` is none. Not clamped (decision 9): a negative
+ * height is applied and the wire refuses it. A height of 0 is none, as on the wire (`settledSettings`).
+ */
+export function setStretchMaxHeight(f: ShellFixture, index: number, side: RingSide, k: number, maxHeight: number | undefined): ShellFixture {
+  return withGableStretch(f, index, side, k, ({maxHeight: _m, ...s}) => (maxHeight === undefined ? s : {...s, maxHeight}));
+}
+
+/** Sets gable stretch `k`'s facing strategy (per-stretch gable settings decisions 4 and 5). */
+export const setStretchFacing = (f: ShellFixture, index: number, side: RingSide, k: number, facing: RiseFacing): ShellFixture =>
+  withGableStretch(f, index, side, k, s => ({...s, facing}));
+
+/** Sets whether gable stretch `k` stands apart from a gable stretch beside it (per-stretch gable settings decision 9). */
+export const setStretchApart = (f: ShellFixture, index: number, side: RingSide, k: number, apart: boolean): ShellFixture =>
+  withGableStretch(f, index, side, k, s => ({...s, apart}));
 
 /** Sets stretch `k`'s own pitch. Not clamped or snapped, as the side's is not (decisions 5 and 9). Equal neighbours merge. */
 export function setStretchPitch(f: ShellFixture, index: number, side: RingSide, k: number, deg: number): ShellFixture {

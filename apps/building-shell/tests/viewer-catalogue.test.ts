@@ -1,9 +1,9 @@
 // WP-V1: the viewer's fixture selector lists every fixture the repo holds a page can build: the roster, the gable rises,
-// the Ring conflicts, the port's regressions, the roof-gable research cases, the clean goldens with a committed input,
+// the gable settings (WP-S2), the Ring conflicts, the port's regressions, the roof-gable research cases, the clean goldens with a committed input,
 // the playtest seeds and the defect cases, grouped, with a text filter.
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
 import {describe, expect, it} from 'vitest';
-import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
 import {
   CatalogueGroup, CatalogueSources, InputFile, PLAYTEST_SEED_STEMS, catalogueGroups, choosableCount, filterCatalogue, filterTerms,
   goldenInputFiles, leftOutValue, playtestFiles,
@@ -11,7 +11,8 @@ import {
 import {RESIDUE_CLASS_NAMES} from '../src/golden.ts';
 import {parseDefectCases} from '../src/viewer/defect-cases.ts';
 import {inMemorySources} from '../src/viewer/defect-sources.ts';
-import {draftFixtureOfJson} from '../src/viewer/draft.ts';
+import {draftFixtureOfJson, editDraftOf} from '../src/viewer/draft.ts';
+import {settledSettings} from '../src/viewer/edit.ts';
 import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {CONFLICT_TABLE_NAMES, PINNED_CASES, PIN_TABLES, RESIDUE_TABLE_NAMES} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
@@ -21,7 +22,7 @@ import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 
@@ -37,7 +38,7 @@ function pinnedGroupLabelsOfTables(): string[] {
   return [...RESIDUE_CLASS_NAMES.filter(c => classes.has(c)).map(c => `Pinned: ${c}`), ...conflictOnly.map(t => `Pinned conflicts: ${t}`)];
 }
 const sources: CatalogueSources = {
-  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
+  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
   research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES,
   // The labels' facts are `viewer-facts.test.ts`'s: here every label is its bare name.
   facts: {},
@@ -83,7 +84,7 @@ describe('catalogueGroups', () => {
   it('groups the selector in a fixed order, a pinned group for each class and conflict table the pin tables fill', () => {
     const pinnedGroups = pinnedGroupLabelsOfTables();
     expect(groups.map(g => g.label)).toEqual([
-      'Fixtures', 'Gable rises', 'Ring conflicts', 'Port regressions', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
+      'Fixtures', 'Gable rises', 'Gable settings', 'Ring conflicts', 'Port regressions', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
       'Playtest seeds (fixtures/playtest)', 'Defect cases', ...pinnedGroups,
     ]);
     // The user's reference class keeps its group; a class the golden set records as emptied has none.
@@ -91,6 +92,27 @@ describe('catalogueGroups', () => {
     expect(EMPTIED_BY_GABLE_RISES.length).toBeGreaterThan(0);
     for (const c of EMPTIED_BY_GABLE_RISES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
     expect(catalogueGroups({...sources, draft: {value: 'draft', label: 'x-draft'}}).at(-1)).toEqual({label: 'Draft', entries: [{value: 'draft', label: 'x-draft'}]});
+  });
+
+  it('lists every gable setting fixture in its own group, and "Edit" on one gives a draft that keeps every setting (per-stretch gable settings decision 22)', () => {
+    const of = (label: string) => groups.find(g => g.label === label)?.entries ?? [];
+    expect(of('Gable settings').map(e => e.value)).toEqual(GABLE_SETTING_FIXTURES.map(f => f.name));
+    let held = 0;
+    for (const f of GABLE_SETTING_FIXTURES) {
+      const d = editDraftOf(f);
+      expect(d.validation, f.name).toEqual({ok: true});
+      // Every run of the fixture that carries a setting has a stretch of its draft over the same span with the same settings.
+      f.rings.forEach((r, i) => RING_SIDES.forEach(side => {
+        for (const run of r.sides?.[side]?.runs ?? []) {
+          const settings = settledSettings(run);
+          if (!Object.keys(settings).length) continue;
+          held++;
+          const match = d.fixture.rings[i].sides?.[side]?.runs?.find(x => x.from === run.from && x.to === run.to && x.form === run.form);
+          expect(match && settledSettings(match), `${f.name} Ring ${i} ${side} [${run.from}, ${run.to}]`).toEqual(settings);
+        }
+      }));
+    }
+    expect(held).toBeGreaterThan(10);
   });
 
   it('lists every Ring conflict, port and research case, each research case by its id and title', () => {

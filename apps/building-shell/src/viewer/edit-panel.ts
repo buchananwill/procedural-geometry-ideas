@@ -5,11 +5,12 @@
 // mouse-up loses its click: a field commits on its `change`, which a click elsewhere fires on the way in (decision 10).
 // Only the Ring list grows and shrinks, at its tail, so each row's buttons keep their element and their index.
 import {errorMessage} from '../errors.ts';
-import {RING_FORMS, RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide} from '../fixture.ts';
+import {RING_FORMS, RING_SIDES, RISE_FACINGS} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RiseFacing} from '../fixture.ts';
+import {DEFAULT_RISE_FACING} from '../ring-forms.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
 import {canRedo, canUndo, resolveSides} from './draft.ts';
-import {PITCH_STEP_DEG, canSplitStretch, sideLengthCm} from './edit.ts';
+import {PITCH_STEP_DEG, canHalveStretch, canSplitStretch, sideLengthCm} from './edit.ts';
 
 /** A line shown under the panel, and whether it is bad news. */
 export interface Notice { text: string; bad: boolean }
@@ -80,6 +81,25 @@ function numberField(id: string, step: number, commit: (value: number) => void, 
   return i;
 }
 
+/**
+ * Per-stretch gable settings decision 16: a number field that may be left empty, committing null for empty. An entry that is
+ * not a number at all (the browser's bad input) is dropped and the field shows the draft's value again.
+ */
+function optionalNumberField(id: string, step: number, commit: (value: number | null) => void, resync: () => void): HTMLInputElement {
+  const i = el('input', undefined, 'num');
+  i.type = 'number';
+  i.id = id;
+  i.step = String(step);
+  i.placeholder = 'none';
+  i.addEventListener('change', () => {
+    if (i.validity.badInput) resync();
+    else if (i.value.trim() === '') commit(null);
+    else if (Number.isFinite(i.valueAsNumber)) commit(i.valueAsNumber);
+    else resync();
+  });
+  return i;
+}
+
 const num = (v: number): string => String(Math.round(v * 1e6) / 1e6);
 
 /** The rect's four fields, with the coordinate of `Rect` each one sets. */
@@ -95,6 +115,12 @@ const labelled = (text: string, f: HTMLInputElement | HTMLSelectElement): HTMLLa
 /** The form a select's value names, or null for a value that names none. */
 const formOf = (value: string): RingForm | null => RING_FORMS.find(f => f === value) ?? null;
 
+/** The facing strategy a select's value names, or null for a value that names none. */
+const facingOf = (value: string): RiseFacing | null => RISE_FACINGS.find(f => f === value) ?? null;
+
+/** What the Halve button does, in its tooltip (per-stretch gable settings decision 18). */
+const HALVE_TITLE = 'Halve this gable stretch: two gables, each standing apart, each keeping its settings';
+
 /** Where a side's runs are measured from and which way they run (gable rise decision 1: every side runs counter-clockwise). */
 const RUN_START: Record<RingSide, string> = {
   S: 'west end (x0), running east',
@@ -103,13 +129,20 @@ const RUN_START: Record<RingSide, string> = {
   W: 'north end (y1), running south',
 };
 
+/** A gable stretch's three controls (per-stretch gable settings decision 16), on a line of their own, hidden on a hip stretch. */
+interface GableControls { line: HTMLElement; maxHeight: HTMLInputElement; facing: HTMLSelectElement; apart: HTMLInputElement }
+
 /** One run's controls. */
-interface RunRow { row: HTMLElement; from: HTMLInputElement; to: HTMLElement; form: HTMLSelectElement; pitch: HTMLInputElement; split: HTMLButtonElement; note: HTMLElement }
+interface RunRow {
+  row: HTMLElement; from: HTMLInputElement; to: HTMLElement; form: HTMLSelectElement; pitch: HTMLInputElement; split: HTMLButtonElement; halve: HTMLButtonElement;
+  gable: GableControls; note: HTMLElement;
+}
 
 /** One side's controls, and its run list (journal decision 210). */
 interface SideRow {
   form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement;
-  runs: HTMLDetailsElement; summary: HTMLElement; where: HTMLElement; runRows: RunRow[]; runList: HTMLElement; splitPlain: HTMLButtonElement; tooShort: HTMLElement;
+  runs: HTMLDetailsElement; summary: HTMLElement; where: HTMLElement; runRows: RunRow[]; runList: HTMLElement; splitPlain: HTMLButtonElement;
+  halvePlain: HTMLButtonElement; tooShort: HTMLElement;
 }
 
 /** One row of the Ring list. */
@@ -187,10 +220,11 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     const where = el('div', undefined, 'hint');
     const runList = el('div', undefined, 'run-list');
     const splitPlain = button('Split', 'Split this side: a gable stretch in the middle third, the side\'s form on both flanks', () => withRing(r => ({kind: 'splitStretch', ring: r, side, run: 0})), `ring-side-${side}-split`);
+    const halvePlain = button('Halve', HALVE_TITLE, () => withRing(r => ({kind: 'halveStretch', ring: r, side, run: 0})), `ring-side-${side}-halve`);
     const tooShort = el('span', 'too short to split: a stretch needs two whole cells', 'hint');
-    runs.append(summary, where, runList, splitPlain, ' ', tooShort);
+    runs.append(summary, where, runList, splitPlain, ' ', halvePlain, ' ', tooShort);
     sides.append(row, runs);
-    sideRows.set(side, {form, pitch, clear, runs, summary, where, runRows: [], runList, splitPlain, tooShort});
+    sideRows.set(side, {form, pitch, clear, runs, summary, where, runRows: [], runList, splitPlain, halvePlain, tooShort});
   }
   fields.append(fieldsTitle, rectRow, storeyRow, sides);
 
@@ -339,13 +373,39 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     });
     const pitch = numberField(`${id}-deg`, PITCH_STEP_DEG, v => withRing(r => ({kind: 'setStretchPitch', ring: r, side, run: k, value: v})), resync);
     const split = button('Split', 'Split this stretch: the other form in its middle third', () => withRing(r => ({kind: 'splitStretch', ring: r, side, run: k})), `${id}-split`);
+    const halve = button('Halve', HALVE_TITLE, () => withRing(r => ({kind: 'halveStretch', ring: r, side, run: k})), `${id}-halve`);
     const note = el('span', undefined, 'hint');
-    row.append(labelled(k === 0 ? 'from' : 'starts at', from), ' to ', to, form, pitch, split, note);
-    return {row, from, to, form, pitch, split, note};
+    const gable = makeGableControls(side, k, id);
+    row.append(labelled(k === 0 ? 'from' : 'starts at', from), ' to ', to, form, pitch, split, halve, note, gable.line);
+    return {row, from, to, form, pitch, split, halve, gable, note};
   }
 
-  /** What the panel says of a stretch that holds a rise's limits, which `input@1` cannot carry. */
-  const LIMITS_NOTE = 'keeps a rise limit (maxHeight or limit) that Download and Copy link both drop';
+  /**
+   * Per-stretch gable settings decision 16: a gable stretch's maximum height (cm above its plate, empty for none), its facing
+   * strategy, one option per entry of `RISE_FACINGS`, and its "stands apart" tick, on a line under the stretch's own.
+   */
+  function makeGableControls(side: RingSide, k: number, id: string): GableControls {
+    const line = el('div', undefined, 'gable-settings');
+    const maxHeight = optionalNumberField(`${id}-max-height`, 10, v => withRing(r => ({kind: 'setStretchMaxHeight', ring: r, side, run: k, value: v})), resync);
+    maxHeight.title = 'The most this gable may stand above its plate, in cm; empty for no limit but its own rakes';
+    const facing = el('select');
+    facing.id = `${id}-facing`;
+    facing.title = 'How this gable decides whether it runs through to a gable opposite or is stopped by the slope there';
+    for (const f of RISE_FACINGS) facing.append(new Option(f, f));
+    facing.addEventListener('change', () => {
+      const chosen = facingOf(facing.value);
+      if (chosen) withRing(r => ({kind: 'setStretchFacing', ring: r, side, run: k, facing: chosen}));
+    });
+    const apart = el('input');
+    apart.type = 'checkbox';
+    apart.id = `${id}-apart`;
+    apart.addEventListener('change', () => withRing(r => ({kind: 'setStretchApart', ring: r, side, run: k, apart: apart.checked})));
+    const apartLabel = el('label', undefined, 'inline');
+    apartLabel.title = 'Its own gable: never merged with an equal gable stretch beside it';
+    apartLabel.append(apart, ' stands apart');
+    line.append(labelled('max height (cm)', maxHeight), labelled('facing', facing), apartLabel);
+    return {line, maxHeight, facing, apart};
+  }
 
   /** Shows one side's stretches: where it starts and how long it is, a row for each stretch of a split side, and which the wire refuses. */
   function patchRuns(v: PanelView, r: number, d: Draft, side: RingSide, row: SideRow): void {
@@ -368,6 +428,9 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     const plainShort = !split && !canSplitStretch(d.fixture, r, side, 0);
     row.splitPlain.hidden = split;
     row.splitPlain.disabled = plainShort;
+    // Per-stretch gable settings decision 18: a plain gable side is one gable stretch, and halves into two that stand apart.
+    row.halvePlain.hidden = split || resolveSides(ringData)[side].form !== 'gable';
+    row.halvePlain.disabled = plainShort || !canHalveStretch(d.fixture, r, side, 0);
     row.tooShort.hidden = !plainShort;
     mark(row.summary, v.refusals.find(x => x.ring === r && x.side === side && x.field === 'side'));
     runs.forEach((run, k) => {
@@ -380,10 +443,18 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       mark(rr.row, v.refusals.find(x => x.ring === r && x.field === 'run' && x.side === side && x.run === k));
       const short = !canSplitStretch(d.fixture, r, side, k);
       rr.split.disabled = short;
-      // `maxHeight` and `limit` have no field in input@1: they stay in memory, and the panel says so where they are held.
-      const limits = run.maxHeight !== undefined || run.limit !== undefined;
-      rr.note.hidden = !limits && !short;
-      rr.note.textContent = [short ? 'too short to split' : '', limits ? LIMITS_NOTE : ''].filter(Boolean).join('; ');
+      rr.note.hidden = !short;
+      rr.note.textContent = short ? 'too short to split' : '';
+      // Per-stretch gable settings decision 16: a gable stretch shows its three settings and Halve; a hip stretch shows none.
+      const gable = run.form === 'gable';
+      rr.halve.hidden = !gable;
+      rr.halve.disabled = !canHalveStretch(d.fixture, r, side, k);
+      rr.gable.line.hidden = !gable;
+      // A field holding text that is no number reads as '' already, so it is cleared outright.
+      if (rr.gable.maxHeight.validity.badInput) rr.gable.maxHeight.value = '';
+      setField(rr.gable.maxHeight, run.maxHeight === undefined ? '' : num(run.maxHeight));
+      setField(rr.gable.facing, run.facing ?? DEFAULT_RISE_FACING);
+      rr.gable.apart.checked = run.apart === true;
     });
   }
 

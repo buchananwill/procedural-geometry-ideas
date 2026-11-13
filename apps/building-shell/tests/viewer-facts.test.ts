@@ -6,7 +6,7 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
-import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, storeysOf} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, storeysOf} from '../src/fixture.ts';
 import type {ShellFixture} from '../src/fixture.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import type {ShellBuild} from '../src/shell.ts';
@@ -28,11 +28,11 @@ import {throwsOutcome} from './pin-table.ts';
 const APP = new URL('../', import.meta.url);
 const FACTS_FILE = new URL('src/viewer/catalogue-facts.ts', APP);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 const sources = (facts: FactsLookup): CatalogueSources => ({
-  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, research: RESEARCH_ENTRIES,
+  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, research: RESEARCH_ENTRIES,
   defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES, facts,
 });
 

@@ -3,7 +3,7 @@
 // records kept, which the viewer needs for the raw parts and the face-to-triangle map; `buildShell` itself is
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
-import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
+import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
@@ -392,7 +392,7 @@ const filter = $<HTMLInputElement>('fixture-filter');
 /** WP-V1: the selector's groups (`catalogue.ts`), narrowed by the filter box, the entry on show always kept. */
 function fillSelector(): void {
   const groups = catalogueGroups({
-    shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
+    shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
     research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: seeds, pinned: PINNED_CASES, facts: CATALOGUE_FACTS,
     draft: draft ? {value: DRAFT_OPTION, label: draft.fixture.name} : undefined,
   });
@@ -424,8 +424,10 @@ function renderFixtureNote(sel: Selection): void {
   $('fixture-note').textContent = entry ? researchNote(entry) : '';
 }
 
-/** Every fixture the selector lists by name: the roster, the gable rises, the Ring conflicts, the port's, the research cases. */
-const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+/** Every fixture the selector lists by name: the roster, the gable rises and settings, the Ring conflicts, the port's, the research cases. */
+const LISTED_FIXTURES: readonly ShellFixture[] = [
+  ...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES,
+];
 
 /** WP-V3: the in-memory source of each defect case the golden set ships no input for, derived from the golden set itself. */
 const IN_MEMORY_SOURCES = inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED_FIXTURES);

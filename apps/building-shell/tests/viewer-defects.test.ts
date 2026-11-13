@@ -3,7 +3,7 @@
 // Unclassified Edges heavy and white-cased, the camera framed on the pinned positions).
 import {readFileSync} from 'node:fs';
 import {describe, expect, it} from 'vitest';
-import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
 import type {ShellFixture} from '../src/fixture.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
@@ -25,7 +25,7 @@ import type {GoldenFixture} from './golden-fixtures.ts';
 const golden = (file: string): string => readFileSync(new URL(`../golden/${file}`, import.meta.url), 'utf8');
 const manifest: unknown = JSON.parse(golden('manifest.json'));
 /** The fixtures the selector lists by name, as the page lists them. */
-const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 const IN_MEMORY = inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED);
 const cases = parseDefectCases(manifest, IN_MEMORY);
 const named = (name: string) => {
@@ -135,7 +135,7 @@ describe('where a defect case is loaded from (WP-V3)', () => {
 
   it('says in its selector label where each case is loaded from, and lists a case with no source disabled, with its reason', () => {
     const entries = (defects: readonly DefectCase[]) => catalogueGroups({
-      shell: [], rises: [], conflicts: [], port: [], research: [], defects, goldens: [], playtest: [], pinned: [], facts: {},
+      shell: [], rises: [], gableSettings: [], conflicts: [], port: [], research: [], defects, goldens: [], playtest: [], pinned: [], facts: {},
     }).flatMap(g => g.entries);
     const listed = entries(cases);
     expect(listed.find(e => e.value === 'Court14Seed7h250')).toEqual({value: 'Court14Seed7h250', label: 'Court14Seed7h250: algorithm-B Cheek (built from pinned case s7h250/Court14)'});

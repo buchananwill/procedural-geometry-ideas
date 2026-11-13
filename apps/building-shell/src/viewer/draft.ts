@@ -6,7 +6,7 @@
 import {z} from 'zod';
 import {errorMessage} from '../errors.ts';
 import {RING_FORMS, RING_SIDES, RISE_FACINGS, RISE_LIMITS} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, RiseFacing, ShellFixture, SideForm, SideRun} from '../fixture.ts';
 import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
 import type {AdaptedInput} from '../wire/input-adapter.ts';
@@ -52,7 +52,21 @@ const RECT_WORDS = /corner|axis-aligned|signed area|consecutive sides|rectangle/
  * place points at its Ring, or at the whole draft. Interpretation: the wire gives no machine-readable field.
  */
 export function explainRefusals(errors: readonly string[], f: ShellFixture): Refusal[] {
+  /**
+   * Journal decision 214: a split side's stretches run from 0 to the side's length with no gap, and `writeInput` writes them
+   * as authored, so the wire's run k is stretch k. A side that does not run so (a malformed one) has no stretch to point at.
+   */
+  const stretchAt = (text: string, ring: number, side: RingSide, run: number): RunRefusal | undefined => {
+    const fixtureSide = f.rings[ring]?.sides?.[side];
+    if (!fixtureSide?.runs?.length || !edit.runsAreContiguous(fixtureSide.runs, edit.sideLengthCm(f.rings[ring].rect, side))) return undefined;
+    return run < fixtureSide.runs.length ? {text, ring, field: 'run', side, run} : undefined;
+  };
   return errors.map((text): Refusal => {
+    // A refusal of a run's own field (a negative `maxHeightCm`, per-stretch gable settings decision 12) is that stretch's.
+    const runPath = /^rings\.(\d+)\.sides\.(\d)\.runs\.(\d+)\./.exec(text);
+    const pathSide = runPath ? RING_SIDES[Number(runPath[2])] : undefined;
+    const atRun = runPath && pathSide ? stretchAt(text, Number(runPath[1]), pathSide, Number(runPath[3])) : undefined;
+    if (atRun) return atRun;
     const path = /^rings\.(\d+)\.(\w+)/.exec(text);
     if (path) {
       const ring = Number(path[1]);
@@ -69,14 +83,11 @@ export function explainRefusals(errors: readonly string[], f: ShellFixture): Ref
     const sideAt = /\bside (\d)\b/.exec(text);
     const side = sideAt ? RING_SIDES[Number(sideAt[1])] : undefined;
     if (!side) return {text, ring, field: 'ring'};
-    // Journal decision 214: a split side's stretches run from 0 to the side's length with no gap, and `writeInput` writes them
-    // as authored, so the wire's run k is stretch k. A side that does not run so (a malformed one) points at the side.
+    // A refusal of a stretch points at it; one of a malformed side points at the side.
     const wireRun = /\brun (\d+)\b/.exec(text);
+    const atStretch = wireRun ? stretchAt(text, ring, side, Number(wireRun[1])) : undefined;
+    if (atStretch) return atStretch;
     const fixtureSide = f.rings[ring]?.sides?.[side];
-    if (wireRun && fixtureSide?.runs?.length && edit.runsAreContiguous(fixtureSide.runs, edit.sideLengthCm(f.rings[ring].rect, side))) {
-      const run = Number(wireRun[1]);
-      if (run < fixtureSide.runs.length) return {text, ring, field: 'run', side, run};
-    }
     if (/solved (Pitched|GableEnd) at/.test(text)) {
       // A side that is not listed reads the Ring's default.
       return fixtureSide ? {text, ring, field: 'sidePitch', side} : {text, ring, field: 'defaultDeg', side};
@@ -311,6 +322,10 @@ export type DraftAction =
   | ({kind: 'moveBoundary'; value: number} & RunTarget)
   | ({kind: 'setStretchForm'; form: RingForm} & RunTarget)
   | ({kind: 'setStretchPitch'; value: number} & RunTarget)
+  | ({kind: 'halveStretch'} & RunTarget)
+  | ({kind: 'setStretchMaxHeight'; value: number | null} & RunTarget)
+  | ({kind: 'setStretchFacing'; facing: RiseFacing} & RunTarget)
+  | ({kind: 'setStretchApart'; apart: boolean} & RunTarget)
   | {kind: 'setStoreyHeight'; value: number}
   | {kind: 'undo'}
   | {kind: 'redo'}
@@ -361,6 +376,11 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
     case 'moveBoundary': return liveRun(a, 1) && number(a.value) ? commit(d, edit.moveBoundary(f, a.ring, a.side, a.run, a.value), sel) : d;
     case 'setStretchForm': return liveRun(a) ? commit(d, edit.setStretchForm(f, a.ring, a.side, a.run, a.form), sel) : d;
     case 'setStretchPitch': return liveRun(a) && number(a.value) ? commit(d, edit.setStretchPitch(f, a.ring, a.side, a.run, a.value), sel) : d;
+    case 'halveStretch': return liveRun(a) ? commit(d, edit.halveStretch(f, a.ring, a.side, a.run), sel) : d;
+    // Per-stretch gable settings decision 16: null is an empty field, no maximum height.
+    case 'setStretchMaxHeight': return liveRun(a) && (a.value === null || number(a.value)) ? commit(d, edit.setStretchMaxHeight(f, a.ring, a.side, a.run, a.value ?? undefined), sel) : d;
+    case 'setStretchFacing': return liveRun(a) ? commit(d, edit.setStretchFacing(f, a.ring, a.side, a.run, a.facing), sel) : d;
+    case 'setStretchApart': return liveRun(a) ? commit(d, edit.setStretchApart(f, a.ring, a.side, a.run, a.apart), sel) : d;
     case 'setStoreyHeight': return number(a.value) ? commit(d, edit.setStoreyHeight(f, a.value), sel) : d;
     case 'undo': {
       const previous = d.past.at(-1);
