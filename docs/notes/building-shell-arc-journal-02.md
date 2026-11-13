@@ -738,6 +738,16 @@ ruled" list in the covered-storeys findings. Added this session:
      - **The measurement probes `experiments/gable-rises/claimed-band-cases.ts` and `claimed-band-sweep.ts` now
        throw on a rise with no limit**, since they index the limit plane. They are outside the typecheck. An open
        item: the record should still run.
+239. **WP-V2 landed at `a2c36b7` and is provisionally accepted, pending a type review** (the lead, 2026-11-13). One
+     commit, eight files, all under `src/viewer/` and `tests/viewer-*` (the lead checked `git show --stat`); the
+     tree is clean. The delegate's record: 9,588 passed in 43 files, typecheck clean. The selector holds 326
+     entries; the 196 pinned cases are listed by the class their pin names; every entry's label carries what it
+     builds as words, from a table a test regenerates and holds (F79). Rulings:
+     - **The viewer imports the tests' own pin tables and generators**, so no test file changed and the list
+       cannot drift from the suite. Accepted. The bundle grows from 954.8 to 1,037.6 kB, and load time is
+       unchanged within noise (about 345 ms warm), because a pinned fixture is drawn only when selected.
+     - **Still not listed, accepted for now**: 13 clean goldens with no input file, and six defect cases with no
+       input file, four of which are reachable as pinned cases.
 
 ## Findings
 
@@ -977,6 +987,19 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
     and are built only in test code.
   - 7e and 7f have walls at 85° and 5°. They build in memory, and the wire refuses those pitches, so "Edit" on
     them gives a draft that shows the refusal.
+- **F79. Across the whole catalogue of 321 buildable entries, 16 distinct fixtures build a Cheek, and every one is
+  a courtyard** (the WP-V2 delegate at `a2c36b7`, by building every entry in a test that also checks each pinned
+  case against its pin and each golden against its manifest entry; not re-run by the lead).
+  - **The 16**: `Court14Seed7h250`; `CourtyardJutCutSwapped`; and `s5/Court34`, `s7/Court14`, `s12/Court1`,
+    `s13/Court9` and `s13/Court21`, each at 250, 263 and 300 cm. They are 18 entries, since two are listed twice.
+  - **No roster, rise, Ring-conflict, port, research, clean-golden or playtest entry builds a Cheek.**
+  - **Other facts in the same table**: 96 entries build a rise, 70 report conflicts, 54 have an Unclassified Edge,
+    and 33 throw.
+  - **Every built entry agrees with its pin or manifest entry.**
+  - **The 196 pinned cases by class**: roof meets the floor above 57; algorithm-B cut-piece overshoot 36;
+    low-pitch pocket 30; `GABLE_RISE_CONFLICTS` 27; algorithm-B Cheek 15; `GABLE_RISE_SPLIT_CONFLICTS` 11;
+    sub-tolerance roof feature 9; near-touching islands 4; Gable–Wall edge Unclassified 3; edge contact between
+    opposite coplanar faces 2; partial coplanar contact 1; courtyard cut collinear with a jutting wall 1.
   - **The None-side refusal's text**, for the C++ side: `Ring 1 (model index 1) side 0 (S) is solved None but wins
     the union wall y = 0 [0, 1000] over [500, 1000] on storey 0, where its form is undefined (journal decision
     140)`.
