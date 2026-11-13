@@ -50,6 +50,16 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
   names the first ones: `Shell/BuildingShellTags.h` (`EBuildingShellKind`), `Roof/ModularRoof.h`
   (`IsModularClampFlatFace`), `Rules/ModularClampRoof.h`, and decision MB.D525 in that project's journal.
 
+- **A delegate's browser snapshot goes in a folder below `D:\Coding\`, never at the root of a drive** (learned
+  2026-11-13). The snapshot must be on D: for the WASM to load (the selector's delegate found Vite would not serve
+  `manifold.wasm` across drives). The harness refuses to remove a folder at a drive's root, so a snapshot at
+  `D:\wpv3-snapshot` could not be cleaned up by the delegate or the lead and was left for the user. Explorer then
+  reported it "in use", wrongly: nothing held it, and a pnpm install's nested junctions defeat Explorer. What
+  removes one is `cmd /c "rd /s /q <folder>"` from PowerShell. From the `!` prefix, which is Git Bash, write
+  `cmd //c "rd /s /q <folder>"`, or Git Bash rewrites `/c` as a path.
+- **In PowerShell `rd` is `Remove-Item`** and takes no `/s /q`. Windows PowerShell 5.1's `Remove-Item -Recurse` is
+  unreliable on junctions.
+
 ## 4. Next work
 
 **State at 2026-11-13, late in the user's first day with the editor.** Both features of the charter are built on
