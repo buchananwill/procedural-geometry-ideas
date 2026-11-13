@@ -5,7 +5,7 @@
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
 import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
-import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, cppReplayability} from '../src/golden.ts';
+import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, buildsARise, cppReplayability} from '../src/golden.ts';
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {
@@ -491,6 +491,21 @@ describe('decisions 12, 14 and 17', () => {
     }
     const runs = cppReplayability(rise('MidWallRise'));
     expect(!runs.cppReplayable && runs.reasons).toEqual([NOT_ONE_WHOLE_RUN, BUILDS_A_RISE]);
+  });
+
+  // Journal decisions 222 (L1) and 224: each branch of buildsARise.
+  it('decision 17: buildsARise falls back to the per-extent derivation on a PlanRefusal', () => {
+    const refused = (): never => { throw new PlanRefusal('refused for the test'); };
+    // The fallback reads MidWallRise's rise from its per-extent walls, and SingleStoreyT's none.
+    expect(buildsARise(rise('MidWallRise'), refused)).toBe(true);
+    expect(buildsARise(fixtureByName('SingleStoreyT'), refused)).toBe(false);
+    // A corner-only pinch is refused by both derivations (journal decision 146): no rise.
+    expect(buildsARise(shellFixture('CornerPinch', [ring([0, 0, 100, 100], 0, 1, 45), ring([100, 100, 200, 200], 0, 1, 45)]))).toBe(false);
+  });
+
+  // Mutation: every error caught (read as no rise, or sent to the fallback); then this error no longer propagates.
+  it('decision 17: buildsARise lets an error that is no refusal through, so the export breaks loudly', () => {
+    expect(() => buildsARise(rise('MidWallRise'), () => { throw new Error('a claimed-band throw site'); })).toThrow('a claimed-band throw site');
   });
 
   // Journal decision 206 (interpretation 6): a rise that no reading of ridgeSlope limits is refused, never built

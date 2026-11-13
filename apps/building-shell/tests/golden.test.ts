@@ -6,7 +6,8 @@ import {readFileSync, readdirSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {beforeAll, describe, expect, it} from 'vitest';
-import {errorMessage} from '../src/errors.ts';
+import {PlanRefusal, errorMessage} from '../src/errors.ts';
+import {UnionWall, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
 import {RING_SIDES, ShellFixture, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {
   BUILDS_A_RISE, GoldenEntry, GoldenEntrySchema, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, NOT_ONE_WHOLE_RUN, RESIDUE_CLASS_NAMES, Replayability, UnionStages, buildsARise,
@@ -258,9 +259,18 @@ describe('C++ replayability (journal decision 152, amended)', () => {
   function rises(w: BuildingShellInputV1): string[] {
     const r = readInput(JSON.parse(JSON.stringify(w)), 'rises');
     if (!r.ok) return [];
-    // A storey whose walls cannot be derived builds nothing, so it reads as no rise (journal decision 222, L1).
+    // Journal decisions 222 (L1) and 224: only a PlanRefusal falls back, to the per-extent derivation, whose own refusal
+    // reads as no rise. Nothing else is caught here, so an unexpected error fails this test as it fails the export.
     const any = storeysOf(r.fixture).some(n => {
-      try { return storeyForms(storeyRings(r.fixture, n)).walls.some(x => (x.rises ?? []).length > 0); } catch { return false; }
+      const rings = storeyRings(r.fixture, n);
+      let walls: readonly UnionWall[];
+      try {
+        walls = storeyForms(rings).walls;
+      } catch (e) {
+        if (!(e instanceof PlanRefusal)) throw e;
+        try { walls = unionWallForms(rings, storeyLoops(rings.map(x => x.ring.rect))); } catch (e2) { if (e2 instanceof PlanRefusal) return false; throw e2; }
+      }
+      return walls.some(x => (x.rises ?? []).length > 0);
     });
     return any ? ['a gable rise, which the C++ port does not build yet (gable rise decision 17)'] : [];
   }
