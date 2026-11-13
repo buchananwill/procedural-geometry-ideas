@@ -817,6 +817,22 @@ ruled" list in the covered-storeys findings. Added this session:
      - **What the sweep already shows under the full rules** (F81): 477 gable stretches in the corpus are wholly
        covered today and so not built; 9 entries are cured of throws or Unclassified Edges; Unclassified Edges
        fall from 153 to 132.
+245. **WP-L2's second stop is ruled: `s1/Court29` is pinned, and rule 3 is not narrowed** (the lead, 2026-11-13).
+     After the provenance fix (`a38eeaf`, still red: 61 failed, 8,917 passed) the only new throw is `s13/Court21`
+     at two heights, the Cell-laying class decision 244 already ruled on. The stop is `s1/Court29` at 250 and
+     300 cm, which gains a surviving Internal face and 3 Unclassified Edges: a covered rise on y = 150 lies on the
+     same line as the courtyard's cut, and the result carries the cut-piece overshoot signature. **That signature
+     is an existing pinned class of 36 cases, belonging to the courtyard cut** (session 1 §5, decision 172). The
+     lead pins both `Court29` cases exactly, with their smallest input kept as a reproducer, because narrowing
+     rule 3 to avoid them would be the inconsistency of decision 243 again. **The balance, to be re-measured at
+     the finish and stated plainly to the user**: two fixtures gain an Internal face and Unclassified Edges, two
+     newly throw, and nine are cured of the same classes; over the sweep Unclassified Edges fall from 153 to 138
+     and throws go from 32 to 33. The courtyard cut and Cell laying are where those defects live, and both are
+     open items.
+     - Provenance: a Gable Cell on a covered rise's line names the lowest-index Ring side lying there, with the
+       source's shape unchanged. A covered rise's tags carry wall -1, the existing "no wall" value of Roof,
+       Internal and Ground faces. Accepted as traced.
+     - `GableOnSharedWall` is a roster fixture: a gable on the wall two Rings share.
 
 ## Findings
 
