@@ -380,6 +380,21 @@ ruled" list in the covered-storeys findings.
      - **The C++ UI/UX lead was sent the built facts on 2026-11-13**: kinds and Cell sources on a rise, the rule
        as built, the limits, the adapter's two changed behaviours with the None refusal's text, and the golden
        changes. That discharges §4 item 9 and the item owed after WP-G2. No reply was asked for.
+212. **WP-G3 landed at `7274126` and is provisionally accepted, pending two reviews** (the lead, 2026-11-13). The
+     delegate's record: 8,631 passed in 39 files, typecheck clean, three mutation gates convicted, and the run list
+     exercised in a browser, where a gable run on a blank draft produced a Gable face with Valley and Verge edges.
+     It also exercised WP-E1.2's reload mark in a browser for the first time: held, Ring clicked, reloaded, still
+     held. **One thing the lead does not yet accept**: the round trip returns four spellings of a side with runs
+     in a different spelling of the same building, pinned as exceptions. That is the class of defect decision 198
+     removed at its source for sides. The correctness reviewer is asked whether one canonical spelling, runs
+     covering the whole side, would remove the exceptions. Reviews dispatched: the editor's correctness reviewer,
+     resumed, and `typescript-type-reviewer`. `RISE_FIXTURES` are now in the viewer's selector under "Gable
+     rises".
+213. **WP-G2.2 is accepted at `be16d6d`, and the gable rise is complete in the pipeline for this version** (the
+     lead, 2026-11-13). The lead read the diff: one check, `checkedHipPitches`, beside the existing run checks in
+     `unionWallForms`. The delegate's record on that tree, which includes WP-G3: 8,631 passed in 39 files,
+     typecheck clean, drift test green, no golden or pin changed, and the check convicted by mutation. Its
+     agreement grid of 1,200 run lists shows the in-memory check and `readInput` refuse the same ones.
 
 ## Findings
 
