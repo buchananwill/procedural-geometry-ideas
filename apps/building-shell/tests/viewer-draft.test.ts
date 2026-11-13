@@ -914,7 +914,8 @@ describe('the fuzz: for every valid draft an edit sequence reaches, download the
     expect(stats.withLimits).toBeGreaterThan(200);
     expect(stats.listedAll).toBeGreaterThan(800);
     expect(stats.undone).toBeGreaterThan(500);
-  });
+    // 19,200 steps take about 3 s alone and 7 s beside the rest of the suite: the default 5 s is not for it.
+  }, 60_000);
 });
 
 describe('the stretch actions of a draft (journal decision 214)', () => {
