@@ -9,7 +9,7 @@ import {
 } from '../src/fixture.ts';
 import {BUILDS_A_RISE, cppReplayability} from '../src/golden.ts';
 import {GableRise, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
-import {RISE_FACING_STRATEGIES, RisePiece, algorithmBBuildsGable, claimedWalls} from '../src/rise.ts';
+import {RISE_FACING_STRATEGIES, RISE_MIN_CAP_CM, RisePiece, algorithmBBuildsGable, claimedWalls} from '../src/rise.ts';
 import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import {StoreyPlan, buildingOf, planStorey} from '../src/storey.ts';
 import {FACING_READINGS, WIRE_FACINGS, readInput, runSettings, writeInput} from '../src/wire/input-adapter.ts';
@@ -272,22 +272,133 @@ describe('decision 11: a line extent holding a stretch that stands apart is not 
 
 // ---- Decisions 1, 2 and 12 to 14: the settings in memory and on the wire ------------------------------------------
 
-describe('decision 2: every default reproduces today\'s roof', () => {
-  /** A fixture with every gable run's settings spelt out at their defaults. */
-  const spelt = (f: ShellFixture): ShellFixture => ({...f, rings: f.rings.map(r => ({...r, sides: Object.fromEntries(Object.entries(r.sides ?? {}).map(([k, s]) => [k,
-    s.runs ? {...s, runs: s.runs.map(x => (x.form === 'gable' ? {...x, facing: 'centreLine' as const, apart: false} : x))} : s]))}))});
-  it.each(RISE_FIXTURES.map(f => [f.name, f] as const))('%s: its rises are the same with every setting spelt at its default', (_, f) => {
-    const pieces = (x: ShellFixture): string => JSON.stringify((planStorey(x, 0).rises ?? []).map(r => [r.piece.label, r.piece.planes, r.piece.farDist, r.limitPlane ?? null, r.cap ?? null]));
-    expect(pieces(spelt(f))).toBe(pieces(f));
+/** A whole shell, exactly: the union's mesh and tags, and step 4's faces, Edges and Cells. */
+const shellKey = (b: ShellBuild): string => JSON.stringify([
+  Array.from(b.union.mesh.positions), Array.from(b.union.mesh.tris), b.union.triTags,
+  b.shell.faces.map(x => [x.tag, x.area, x.sources ?? null]), b.shell.edges.map(e => e.kind), b.shell.cells.map(c => [c.face, c.whole, c.source]),
+]);
+
+/** A shell's structure, triangulation aside: faces by kind, plane and area (0.1 cm²), Edge kinds, Cells and their sources. */
+const shellShape = (b: ShellBuild): string => JSON.stringify({
+  faces: b.shell.faces.map(f => `${f.tag.kind}|${f.normal.map(v => v.toFixed(5)).join(',')}|${f.offset.toFixed(3)}|${f.area.toFixed(1)}`).sort(),
+  edges: b.shell.edges.map(e => e.kind).sort(), cells: b.shell.cells.map(c => `${b.shell.faces[c.face].tag.kind}|${c.whole}|${JSON.stringify(c.source)}`).sort(),
+});
+
+describe('decision 2: every default reproduces today\'s roof (WP-S1.1, L3: whole shells)', () => {
+  /** A fixture with every gable run's settings but `maxHeight`, which has no default to spell, spelt at their defaults. */
+  const spelt = (f: ShellFixture): ShellFixture => ({...f, name: `${f.name}Spelt`, rings: f.rings.map(r => ({...r, sides: Object.fromEntries(Object.entries(r.sides ?? {}).map(([k, s]) => [k,
+    s.runs ? {...s, runs: s.runs.map(x => (x.form === 'gable' ? {...x, limit: 'ridgeSlope' as const, facing: 'centreLine' as const, apart: false} : x))} : s]))}))});
+  it.each(RISE_FIXTURES.map(f => [f.name, f] as const))('%s: builds the same shell, mesh, tags, faces, Edges and Cells, with every default spelt', async (_, f) => {
+    expect(shellKey(await buildShellDetailed(spelt(f)))).toBe(shellKey(await build(f)));
+  });
+
+  // The reviewer's measurement: a lone gable side spelt as one whole-length stretch standing apart gives up algorithm B
+  // (decision 11), and its one rise, its ends on the end walls' planes (gable rise decision 10), is the same gable.
+  it.each([[45, 45], [30, 60], [45, 30]] as const)('a lone whole-length gable standing apart, the box hipped at %i and the gable at %i, is the plain gable side', async (hip, deg) => {
+    const box = (name: string, S: SideForm): ShellFixture => shellFixture(name, [ring([0, 0, 1000, 500], 0, 1, hip, {S})]);
+    const apart = box(`LoneApart${hip}-${deg}`, {form: 'gable', deg, runs: [{from: 0, to: 1000, form: 'gable', deg, apart: true}]});
+    expect(planStorey(apart, 0).rises?.length).toBe(1);
+    expect(shellShape(await build(apart))).toBe(shellShape(await build(box(`LonePlain${hip}-${deg}`, {form: 'gable', deg}))));
   });
 });
 
-describe('decisions 1 and 12: a maxHeight stands above the plate', () => {
-  it('a gable run\'s maxHeight of 0 or less is refused in memory; a hip run\'s is not read', () => {
-    const capped = (form: 'hip' | 'gable', maxHeight: number): ShellFixture => shellFixture('Max', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form, deg: 45, maxHeight}]}})]);
-    expect(() => planStorey(capped('gable', 0), 0)).toThrow(PlanRefusal);
-    expect(() => planStorey(capped('gable', -10), 0)).toThrow(PlanRefusal);
-    expect(() => planStorey(capped('hip', 0), 0)).not.toThrow();
+describe('decisions 1 and 12: a maxHeight stands above the plate, and only a gable run carries a setting', () => {
+  it('a gable run\'s maxHeight of 0 or less is refused in memory', () => {
+    const capped = (maxHeight: number): ShellFixture => shellFixture('Max', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'gable', deg: 45, maxHeight}]}})]);
+    expect(() => planStorey(capped(0), 0)).toThrow(PlanRefusal);
+    expect(() => planStorey(capped(-10), 0)).toThrow(PlanRefusal);
+  });
+
+  // WP-S1.1, L2: memory agrees with the wire, which refuses a Pitched run carrying a setting. Mutation: the hip check
+  // removed from `checkedRun`; then the apart hip run splits the hip extents and plans.
+  it.each([[{maxHeight: 150}], [{facing: 'whole'}], [{apart: true}]] as const)('a hip run carrying %j is a PlanRefusal naming its Ring, side and run', extra => {
+    const f = shellFixture('HipSetting', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'hip', deg: 45, ...extra}]}})]);
+    expect(() => planStorey(f, 0)).toThrow(/Ring 0 side S run 0 is a hip run carrying a gable's settings/);
+  });
+
+  it('a hip run with its facing spelt at the default is no setting, as on the wire', () => {
+    const f = shellFixture('HipDefault', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'hip', deg: 45, facing: 'centreLine', apart: false}]}})]);
+    expect(() => planStorey(f, 0)).not.toThrow();
+  });
+});
+
+// ---- WP-S1.1, H1: the thinnest capped rise built ----------------------------------------------------------------------
+
+describe('decision 12 (WP-S1.1, H1): a rise capped within RISE_MIN_CAP_CM of its plate builds no piece', () => {
+  /** A 1000 by 500 box hipped at `hip` (its E side at `endHip`), a 60° stretch on S over [lo, hi] capped at `cap`. */
+  const capped = (name: string, lo: number, hi: number, cap: number, hip = 45, endHip = hip): ShellFixture =>
+    shellFixture(name, [ring([0, 0, 1000, 500], 0, 1, hip, {S: {form: 'hip', deg: hip, runs: [{from: lo, to: hi, form: 'gable', deg: 60, maxHeight: cap}]}, E: {form: 'hip', deg: endHip}})]);
+  /** The editor's spelling of EditorSpeltMaxHeight at another cap. */
+  const spelt = (cap: number): ShellFixture => {
+    const f = setting('EditorSpeltMaxHeight');
+    const runs = f.rings[0].sides?.S?.runs?.map(r => (r.form === 'gable' ? {...r, maxHeight: cap} : r));
+    return {...f, name: `EditorSpelt${cap}`, rings: [{...f.rings[0], sides: {S: {form: 'hip', deg: 30, runs}}}]};
+  };
+  const throughWire = (f: ShellFixture): ShellFixture => {
+    const r = readInput(JSON.parse(JSON.stringify(writeInput(f))), f.name);
+    if (!r.ok) throw new Error(r.errors.join('; '));
+    return r.fixture;
+  };
+  const clean = async (f: ShellFixture): Promise<void> => {
+    const b = await buildShellDetailed(f);
+    expect(invariantViolations(b, {genus: 0, cheeks: 0}), f.name).toEqual([]);
+    expect(b.shell.report.unclassifiedEdges, f.name).toBe(0);
+  };
+
+  // The reviewer's cases, and the sweep's worst (a corner rise between two 75° hips, 2.6 cm). Mutation: the threshold
+  // back to SHELL_TOLERANCE_CM; then these build slivers that throw or leave Unclassified Edges.
+  it.each([
+    ['EditorSpeltMaxHeight at 0.0101', spelt(0.0101)], ['EditorSpeltMaxHeight at 0.011', spelt(0.011)],
+    ['the 60° box stretch at 0.011', capped('Box011', 300, 500, 0.011)], ['the 60° box stretch at 0.015', capped('Box015', 300, 500, 0.015)],
+    ['a corner rise between 75° hips at 2.6', capped('Corner26', 800, 1000, 2.6, 75)], ['the same at the threshold', capped('CornerAt', 800, 1000, 5, 75)],
+  ] as const)('%s: no piece, and the shell is clean, in memory and through the wire', async (_, f) => {
+    expect(RISE_MIN_CAP_CM).toBe(5);
+    for (const g of [f, throughWire(f)]) {
+      expect(planStorey(g, 0).rises ?? []).toEqual([]);
+      await clean(g);
+    }
+  });
+
+  it('just above the threshold the rise is built, flat at its cap, and clean', async () => {
+    for (const f of [capped('BoxAbove', 300, 500, 5.05), capped('CornerAbove', 800, 1000, 5.05, 75), spelt(5.05)]) {
+      expect(planStorey(f, 0).rises?.map(r => r.capCm)).toEqual([5.05]);
+      await clean(f);
+    }
+    expect(topAt(await build(capped('BoxAboveTop', 300, 500, 5.05)), 400, 2)).toBeCloseTo(5.05, 1);
+  });
+
+  // The rule reads the lowest cap whatever its source: SetBackCappedRise's wall-top cap is the storey height.
+  it('applies to the wall-top cap too: a storey 4 cm tall caps the rise below the threshold, one 6 cm tall does not', () => {
+    const f = RISE_FIXTURES.find(x => x.name === 'SetBackCappedRise') as ShellFixture;
+    expect(planStorey({...f, storeyHeight: 4}, 0).rises ?? []).toEqual([]);
+    expect(planStorey({...f, storeyHeight: 6}, 0).rises?.map(r => [r.cap, r.capCm])).toEqual([['wallTop', 6]]);
+  });
+});
+
+// ---- WP-S1.1, L1 and L4: where `split` cuts ----------------------------------------------------------------------------
+
+describe('split cuts only where the rise can meet a gable, and never a sliver (WP-S1.1, L1 and L4)', () => {
+  /** An L, `[0,0,1000,400]` and `[600,0,1000,1000]` at 45, with a 75° split stretch on S over [300, 700]. */
+  const ell = [ring([0, 0, 1000, 400], 0, 1, 45, {S: {form: 'hip', runs: [{from: 300, to: 700, form: 'gable', deg: 75, facing: 'split'}]}}), ring([600, 0, 1000, 1000], 0, 1, 45)];
+  /** A separate building to the north, its N side gabled at 75 over world x [620, 680], over the
+   * L's stem: on another island. Cut there, the rise's part over the stem would reach to the stem's far wall. */
+  const away = ring([300, 1200, 700, 1600], 0, 1, 45, {N: {form: 'hip', runs: [{from: 20, to: 80, form: 'gable', deg: 75}]}});
+
+  // The reviewer's case. Mutation: `splitParts` cuts at every facing-back gable ahead, reached or not; then the L's rise
+  // is two or three pieces.
+  it('a gable on another island does not cut the rise: one piece, as without that building', async () => {
+    const alone = shellFixture('SplitAlone', ell), beside = shellFixture('SplitBeside', [...ell, away]);
+    const bands = (f: ShellFixture): [number, number, number][] => (planStorey(f, 0).rises ?? []).filter(r => r.piece.wall.a.y === 0).map(r => [r.piece.bandLo, r.piece.bandHi, r.piece.farDist]);
+    expect(bands(beside)).toEqual([[300, 700, bands(alone)[0][2]]]);
+    expect(bands(alone)).toHaveLength(1);
+    const [a, b] = [await build(alone), await build(beside)];
+    for (const [x, y] of [[450, 50], [500, 100], [550, 150]] as const) expect(topAt(b, x, y)).toBeCloseTo(topAt(a, x, y), 3);
+  });
+
+  // Mutation: cuts de-duplicated by exact value; then the gap between the two N gables is a part of its own.
+  it('gable ends within SHELL_TOLERANCE_CM are one cut: no part narrower than the tolerance', () => {
+    expect(southPieces(facingBox('SplitSliver', [300, 500], [[300, 400], [400.000001, 500]], 'split'))).toEqual([[300, 500, false]]);
+    expect(southPieces(facingBox('SplitNearEnd', [300, 500], [[300.005, 420]], 'split'))).toEqual([[300, 420, false], [420, 500, true]]);
   });
 });
 

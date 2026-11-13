@@ -120,13 +120,15 @@ function checkedSide(index: number, side: RingSide, s: {form: string}): asserts 
 }
 
 /** A run's form, and its settings as an authored file may hold them, before `checkedRun` asserts a `SideRun`. */
-export type AuthoredRun = {form: string} & Pick<SideRun, 'maxHeight'> & {facing?: string};
+export type AuthoredRun = {form: string} & Pick<SideRun, 'maxHeight' | 'apart'> & {facing?: string};
 
 /**
  * A run's form is checked as a side's is. Per-stretch gable settings decisions 1 and 12: a gable run's `facing` names an
  * entry of `RISE_FACINGS`, a hard error otherwise, as a form outside `RingForm` is; and its `maxHeight` is a height above
  * the plate, above 0, since `input@1` writes "no maximum height" as 0. Any other `maxHeight` is a `PlanRefusal`, so
- * `writeInput` never writes a maximum height that `readInput` would read as none.
+ * `writeInput` never writes a maximum height that `readInput` would read as none. Decision 1 (WP-S1.1, L2): a hip run
+ * carries no gable setting (a `maxHeight`, a facing other than the default, or `apart`), a `PlanRefusal`, as `readInput`
+ * refuses a Pitched run carrying one, so a hip run's settings never reach the merge.
  */
 function checkedRun(index: number, side: RingSide, k: number, r: AuthoredRun): asserts r is SideRun {
   if (r.form !== 'hip' && r.form !== 'gable') {
@@ -134,6 +136,9 @@ function checkedRun(index: number, side: RingSide, k: number, r: AuthoredRun): a
   }
   if (r.facing !== undefined && !RISE_FACINGS.some(x => x === r.facing)) {
     throw new Error(`Ring ${index} side ${side} run ${k} faces by ${r.facing}; a facing strategy is one of ${RISE_FACINGS.join(', ')} (per-stretch gable settings decision 5)`);
+  }
+  if (r.form === 'hip' && (r.maxHeight !== undefined || (r.facing !== undefined && r.facing !== DEFAULT_RISE_FACING) || r.apart === true)) {
+    throw new PlanRefusal(`Ring ${index} side ${side} run ${k} is a hip run carrying a gable's settings (maxHeight ${r.maxHeight}, facing ${r.facing}, apart ${r.apart}): only a gable run carries them (per-stretch gable settings decision 1)`);
   }
   if (r.form === 'gable' && r.maxHeight !== undefined && !(r.maxHeight > 0 && Number.isFinite(r.maxHeight))) {
     throw new PlanRefusal(`Ring ${index} side ${side} run ${k} has maxHeight ${r.maxHeight} cm: a maximum height stands above the plate, above 0, and input@1 writes none as 0 (per-stretch gable settings decision 12)`);

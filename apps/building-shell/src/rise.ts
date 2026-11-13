@@ -36,6 +36,25 @@ export interface RisePiece { rise: GableRise; piece: Piece; limitPlane?: number;
 /** Decision 12 (journal decision 204): the floor cap stands this far below an overhanging storey's floor. */
 export const FLOOR_CAP_GAP_CM = 1;
 
+/**
+ * Decision 12 (WP-S1.1, journal decision 256, H1): **a rise whose lowest cap stands this close to its plate, or closer,
+ * builds no piece**, whatever the cap's source, as a rise capped at or below its plate always has. It is the thinnest
+ * capped rise the pipeline builds cleanly, measured, with a margin; nothing is refused for a cap below it.
+ * - **The sweep** (WP-S1.1, about 5,400 builds on `maxHeight`): caps from 0.0101 cm up, rise pitches 30 to 75, hip pitches
+ *   7 to 75, bands 50 to 400 cm, on a mid-wall rise, a corner rise, a rise spanning the wall, a covered rise and a
+ *   `split` pair. Below 0.03 cm every shape throws ("ties between generating planes") or leaves Unclassified Edges. A
+ *   rise ending at a convex corner keeps throwing in `cleanMesh` ("can neither flip nor merge its apex") much higher,
+ *   at the sliver where the cap meets the two hip planes of the corner: up to 0.15 cm at 45/45, 1.35 cm with its wall
+ *   at 45 and the end wall at 75, and **2.60 cm at 75/75, the wire's steepest**. Every build from 2.65 to 10 cm, at
+ *   every pitch pair measured, is clean.
+ * - **The margin**: 5 cm, nearly twice the worst measured. A cap that low is a rise no one sees.
+ * - It is no derivation of the shell's tolerances: it is 500 times `SHELL_TOLERANCE_CM` and about 1,300 times
+ *   `CLEAN_TOLERANCE_CM`. The failure is the aspect of a corner sliver, not a length below a weld or cleaning step.
+ * - The floor cap and the wall-top cap stand at least a storey height less `FLOOR_CAP_GAP_CM` above the plate, so they
+ *   reach it only on storeys under 6 cm tall; the rule reads the lowest cap whatever its source all the same.
+ */
+export const RISE_MIN_CAP_CM = 5;
+
 const EPS = 0.01;
 /** Coordinates within this are one point, for the walk's exact intersections. */
 const WALK_EPS = 1e-7;
@@ -644,16 +663,31 @@ function coversSpan(onLine: readonly StoreyGable[], span: AlongSpan): boolean {
 }
 
 /**
- * `split`'s division (decision 5): the rise's band cut at every end of a storey gable on a line facing back, in front of
- * the rise's wall, that falls strictly inside the band, so each part lies wholly under that line's gables or wholly
- * clear of them. A part gets no rakes of its own: the rise's two rakes bound every part (`risePieces`).
+ * `split`'s division (decision 5): the rise's band cut at every end of a storey gable the rise can meet, so each part
+ * lies wholly under that gable's line or wholly clear of it. A gable the rise can meet stands on a line facing back, in
+ * front of the rise's wall, and is reached by rule 2's test (`gableEnd`): the walk to its line, from the middle of
+ * where it overlaps the band, stays inside the island (WP-S1.1, L1: a gable on another island, or beyond a reflex
+ * corner, never cuts a building's rise). Cuts within `SHELL_TOLERANCE_CM` of each other or of the band's ends are one
+ * (L4), so no part is narrower than the shell's tolerance. A part gets no rakes of its own: the rise's two rakes bound
+ * every part (`risePieces`).
  */
 function splitParts(ctx: LimitContext): AlongSpan[] {
   const x = alongX(ctx.wall), n = ctx.wall.n, at = x ? ctx.wall.a.y : ctx.wall.a.x;
-  const ahead = gablesFacingBack(ctx).filter(g => (g.at - at) * (x ? n.y : n.x) > WALK_EPS);
-  const cuts = [...new Set(ahead.flatMap(g => [g.lo, g.hi]).filter(s => s > ctx.rise.lo + ALONG_EPS && s < ctx.rise.hi - ALONG_EPS))].sort((p, q) => p - q);
-  const stops = [ctx.rise.lo, ...cuts, ctx.rise.hi];
-  return stops.slice(1).map((hi, k) => ({lo: stops[k], hi}));
+  const {lo, hi} = ctx.rise;
+  const meets = (g: StoreyGable): boolean => {
+    const d = (g.at - at) * (x ? n.y : n.x);
+    const a = Math.max(g.lo, lo), b = Math.min(g.hi, hi);
+    return d > WALK_EPS && b > a && staysInside(ctx.comp, atAlong(ctx.wall, (a + b) / 2, 0), n, d);
+  };
+  const ends = gablesFacingBack(ctx).filter(meets).flatMap(g => [g.lo, g.hi]).sort((p, q) => p - q);
+  const cuts: number[] = [];
+  for (const s of ends) {
+    if (s <= lo + SHELL_TOLERANCE_CM || s >= hi - SHELL_TOLERANCE_CM) continue;
+    if (cuts.length && s - cuts[cuts.length - 1] <= SHELL_TOLERANCE_CM) continue;
+    cuts.push(s);
+  }
+  const stops = [lo, ...cuts, hi];
+  return stops.slice(1).map((h, k) => ({lo: stops[k], hi: h}));
 }
 
 /**
@@ -783,11 +817,12 @@ function coveredRiseWall(b: Building, line: LineId, rise: GableRise): Wall {
 export interface RiseOnLine { line: LineId; rise: GableRise }
 
 /**
- * A storey gable whose rise its own `maxHeight` holds at or below the plate builds no piece, so it replaces no slope
- * (journal decision 243, rule 1). The floor and wall-top caps stand at least a storey height less `FLOOR_CAP_GAP_CM`
- * above the plate, so only `maxHeight` can, and the gables are read from bands without heights.
+ * A storey gable whose rise its own `maxHeight` holds within `RISE_MIN_CAP_CM` of the plate builds no piece, so it
+ * replaces no slope (journal decision 243, rule 1). The floor and wall-top caps stand at least a storey height less
+ * `FLOOR_CAP_GAP_CM` above the plate, so on any storey taller than 6 cm only `maxHeight` can, and the gables are read
+ * from bands without heights.
  */
-const standsAbovePlate = (rise: GableRise): boolean => rise.maxHeight === undefined || rise.maxHeight > SHELL_TOLERANCE_CM;
+const standsAbovePlate = (rise: GableRise): boolean => rise.maxHeight === undefined || rise.maxHeight > RISE_MIN_CAP_CM;
 
 /**
  * Journal decision 243: every gable a storey builds, from bands alone: algorithm B's gable pieces, the union walls'
@@ -852,7 +887,7 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
       const c = RISE_CAPS[name]({f, plan, rise, reach});
       if (c !== undefined && (!won || c < won.capCm)) won = {cap: name, capCm: c};
     }
-    if (won && won.capCm <= SHELL_TOLERANCE_CM) continue;
+    if (won && won.capCm <= RISE_MIN_CAP_CM) continue;
     const capPlane = won ? book.plane(wall.comp, 0, 0, won.capCm, `cap ${won.capCm} on ${wallLabel(wall)}`) : undefined;
     const rakes = [...planes];
     for (const part of parts) {

@@ -70,6 +70,11 @@ export const FShellWireSolvedRunSchema = z.strictObject({
   bOutlineRefused: z.boolean().optional(),
   maxHeightCm: z.number().optional(),
   facing: EGableFacingSchema.optional(),
+  /**
+   * Whether the run stands apart from a gable stretch beside it. Each flagged run is its own stretch: `input@1` cannot
+   * say that several runs are one stretch standing apart, so an exporter that split such a stretch into several runs
+   * would build several gables (journal decision 256, M1).
+   */
   bStandsApart: z.boolean().optional(),
 });
 
