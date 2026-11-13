@@ -93,56 +93,86 @@ function bboxReach(b: Building, w: Wall): number {
  * storey wall of one union wall runs on to the same span).
  */
 export function algorithmBSpan(b: Building, uw: UnionWall): [number, number] {
-  const w = wallsOnLine(b, uw).find(x => spanOf(x)[0] >= uw.lo - 1e-9 && spanOf(x)[1] <= uw.hi + 1e-9);
+  const w = wallsOnLine(b, uw).find(x => spanOf(x)[0] >= uw.lo - ALONG_EPS && spanOf(x)[1] <= uw.hi + ALONG_EPS);
   if (!w) throw new Error(`no storey wall stands on the union wall ${uw.axis} = ${uw.at} [${uw.lo}, ${uw.hi}]`);
   return extentOf(b, b.comps[w.comp], w);
 }
 
+/** Coordinates along a line within this are one point: the overlap filter's, `algorithmBSpan`'s and the tiling's. */
+const ALONG_EPS = 1e-9;
+
 /**
- * Gable rise decision 5 as amended (journal decision 220): **algorithm B builds an all-gable union wall exactly where
- * its gable piece's span is the band that Ring sides claim as gable on the wall's line.** `bands` are the claimed bands
- * overlapping the wall, in order along it; `span` is algorithm B's (`algorithmBSpan`). The bands must tile the span end
- * to end. **Sub-rule (decision 220)**: a wall claimed gable at two pitches, whose bands together tile the span, stays
- * algorithm B's one gable at decision 5's pitch, so two bands tiling the span count as one.
+ * Gable rise decision 5 as amended (journal decision 220), **decided once per line extent**: algorithm B builds one
+ * piece per extent of a line (`extentOf`), so the extent, not a union wall, is what it keeps or gives up. **Algorithm B
+ * keeps an extent exactly where the claimed bands that count on it tile its span end to end**, within `ALONG_EPS`.
+ * `bands` are those bands, in order along the line; `span` is algorithm B's (`algorithmBSpan`).
+ * - One band: the plain rule.
+ * - **The sub-rule (decision 220)**: two or more bands that tile the span are one gable to algorithm B, at decision 5's
+ *   pitch, the lowest index's. Bands are split where pitch, limit or `maxHeight` differ (decision 6); algorithm B reads
+ *   none of the three beyond that one pitch, and a single band's limit and `maxHeight` are not read on a kept gable
+ *   either (decision 5: no rise is built for it), so bands differing only in limit or `maxHeight` keep algorithm B too.
  */
 export function algorithmBBuildsGable(bands: readonly GableRise[], span: readonly [number, number]): boolean {
   if (!bands.length) return false;
-  const tiles = bands[0].lo === span[0] && bands[bands.length - 1].hi === span[1] && bands.every((x, k) => k === 0 || x.lo === bands[k - 1].hi);
-  // Without the sub-rule this would read `tiles && bands.length === 1`, and a two-pitch wall would become two rises.
+  const near = (p: number, q: number): boolean => Math.abs(p - q) <= ALONG_EPS;
+  const tiles = near(bands[0].lo, span[0]) && near(bands[bands.length - 1].hi, span[1]) && bands.every((x, k) => k === 0 || near(x.lo, bands[k - 1].hi));
+  // Without the sub-rule this would read `tiles && bands.length === 1`, and a two-pitch extent would become two rises.
   return tiles;
 }
+
+/** One extent of algorithm B on a line: its span, the all-gable union walls on it, the bands that count there, its verdict. */
+interface LineExtent { line: LineId; span: [number, number]; walls: UnionWall[]; bands: GableRise[]; keep: boolean }
+
+const sameLineId = (p: LineId, q: LineId): boolean => p.axis === q.axis && p.at === q.at && p.n === q.n;
+const overlapsAlong = (w: {lo: number; hi: number}, r: {lo: number; hi: number}): boolean => Math.min(w.hi, r.hi) - Math.max(w.lo, r.lo) > ALONG_EPS;
 
 /**
  * Gable rise decision 5 as amended (journal decision 220), on a storey's union walls as `unionWallForms` derives them
  * and the Building built from them (`b`):
- * - An all-gable wall that `algorithmBBuildsGable` keeps is returned unchanged: algorithm B builds it, as before.
- * - Any other all-gable wall becomes a hip at its decision 5 pitch, carrying one rise over each claimed band on it.
+ * - The all-gable walls are grouped by algorithm B's extent (their line and `algorithmBSpan`). The claimed bands that
+ *   count on an extent are those overlapping one of its walls (decision 220: a band counts only where it is on a union
+ *   wall). `algorithmBBuildsGable` decides the extent once, and every wall on it takes that verdict.
+ * - A kept extent's walls are returned unchanged, and its bands are algorithm B's: no rise is built over them.
+ * - A given-up extent's walls become hips at their decision 5 pitch, and each of its bands is one rise.
  * - A mixed wall's rises are its claimed bands too (the WP-G4.1 measurement's interpretation 1). Where every band is
  *   one of the wall's rises, as on every mixed wall the corpus holds, the wall is returned unchanged.
- * A band overlapping two walls is built once, on the first of them. `changed` says whether any wall changed form, so the
- * caller rebuilds the Building only then.
+ * Every band is built once: by algorithm B, or as one rise carried by the first wall, in order, that overlaps it.
+ * `changed` says whether any wall changed form, so the caller rebuilds the Building only then.
  */
 export function claimedWalls(rings: StoreyRing[], walls: readonly UnionWall[], b: Building): {walls: UnionWall[]; changed: boolean} {
-  const taken: string[] = [];
-  const key = (w: LineId, r: GableRise): string => `${w.axis}|${w.at}|${w.n}|${r.lo}|${r.hi}`;
-  const take = (w: UnionWall, bands: readonly GableRise[]): GableRise[] => bands.filter(r => {
-    if (taken.includes(key(w, r))) return false;
-    taken.push(key(w, r));
-    return true;
-  });
+  const lines: {line: LineId; bands: GableRise[]}[] = [];
+  const bandsOf = (l: LineId): GableRise[] => {
+    let hit = lines.find(x => sameLineId(x.line, l));
+    if (!hit) lines.push(hit = {line: l, bands: claimedBands(rings, l)});
+    return hit.bands;
+  };
+  const extents: LineExtent[] = [];
+  for (const w of walls) {
+    if (w.form !== 'gable') continue;
+    const span = algorithmBSpan(b, w);
+    let e = extents.find(x => sameLineId(x.line, w) && Math.abs(x.span[0] - span[0]) <= ALONG_EPS && Math.abs(x.span[1] - span[1]) <= ALONG_EPS);
+    if (!e) extents.push(e = {line: w, span, walls: [], bands: [], keep: false});
+    e.walls.push(w);
+  }
+  for (const e of extents) {
+    e.bands = bandsOf(e.line).filter(r => e.walls.some(w => overlapsAlong(w, r)));
+    e.keep = algorithmBBuildsGable(e.bands, e.span);
+  }
+  const taken = new Set<GableRise>(extents.filter(e => e.keep).flatMap(e => e.bands));
+  const take = (bands: readonly GableRise[]): GableRise[] => bands.filter(r => !taken.has(r) && taken.add(r));
   const same = (p: readonly GableRise[], q: readonly GableRise[]): boolean => p.length === q.length
     && p.every((r, k) => r.lo === q[k].lo && r.hi === q[k].hi && r.deg === q[k].deg && r.limit === q[k].limit && r.maxHeight === q[k].maxHeight);
   let changed = false;
   const out = walls.map((w): UnionWall => {
     if (w.form === 'hip' && !w.rises?.length) return w;
-    const bands = claimedBands(rings, w).filter(r => Math.min(w.hi, r.hi) - Math.max(w.lo, r.lo) > 1e-9);
+    const bands = bandsOf(w).filter(r => overlapsAlong(w, r));
     if (w.form === 'gable') {
-      if (algorithmBBuildsGable(bands, algorithmBSpan(b, w))) return w;
+      if (extents.find(e => e.walls.includes(w))?.keep) return w;
       changed = true;
-      const rises = take(w, bands);
+      const rises = take(bands);
       return {axis: w.axis, at: w.at, n: w.n, lo: w.lo, hi: w.hi, form: 'hip', deg: w.deg, ...(rises.length ? {rises} : {})};
     }
-    const rises = take(w, bands);
+    const rises = take(bands);
     if (same(rises, w.rises ?? [])) return w;
     return {axis: w.axis, at: w.at, n: w.n, lo: w.lo, hi: w.hi, form: w.form, deg: w.deg, ...(rises.length ? {rises} : {})};
   });
@@ -398,13 +428,16 @@ function wallsOnLine(b: Building, line: LineId): Wall[] {
 /**
  * The storey wall a rise stands on: the one on its union wall's line, facing its way, holding its band's middle. A band
  * claimed across a buried stretch (journal decision 220) may have its middle buried; it then stands on the longest wall
- * of its line that it overlaps (the WP-G4.1 probe's `bandPiece`, its interpretation 6).
+ * of its line that it overlaps (the WP-G4.1 probe's `bandPiece`, its interpretation 6), and among walls of equal length
+ * on the one that starts lowest along the line (journal decision 222, M1), whatever order the Building lists them in.
+ * The walls share the line, so the choice moves no plane, reach or limit of the piece.
  */
 function riseWall(b: Building, line: WallLine, rise: GableRise): Wall {
   const mid = (rise.lo + rise.hi) / 2;
-  const cands = wallsOnLine(b, line).filter(w => Math.min(spanOf(w)[1], rise.hi) - Math.max(spanOf(w)[0], rise.lo) > 1e-9);
+  const cands = wallsOnLine(b, line).filter(w => Math.min(spanOf(w)[1], rise.hi) - Math.max(spanOf(w)[0], rise.lo) > ALONG_EPS);
   const length = (w: Wall): number => spanOf(w)[1] - spanOf(w)[0];
-  const w = cands.find(x => spanOf(x)[0] <= mid && mid <= spanOf(x)[1]) ?? [...cands].sort((p, q) => length(q) - length(p))[0];
+  const w = cands.find(x => spanOf(x)[0] <= mid && mid <= spanOf(x)[1])
+    ?? [...cands].sort((p, q) => length(q) - length(p) || spanOf(p)[0] - spanOf(q)[0])[0];
   if (!w) throw new Error(`no wall holds the rise [${rise.lo}, ${rise.hi}] on ${line.axis} = ${line.at}`);
   return w;
 }

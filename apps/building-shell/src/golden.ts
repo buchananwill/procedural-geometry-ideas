@@ -4,11 +4,10 @@
 // do the I/O.
 import {z} from 'zod';
 import {EDGE_KINDS} from './edges.ts';
-import {PlanRefusal} from './errors.ts';
 import {RING_SIDES, storeyRings, storeysOf} from './fixture.ts';
 import type {ShellFixture} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
-import {ringSideLines, storeyLoops, unionWallForms} from './ring-forms.ts';
+import {ringSideLines} from './ring-forms.ts';
 import type {ShellReport} from './shell.ts';
 import {storeyForms} from './storey.ts';
 import type {RawPart} from './storey.ts';
@@ -108,23 +107,16 @@ export const BUILDS_A_RISE = 'a gable rise, which the C++ port does not build ye
 /**
  * Gable rise decision 17: whether any storey of `f` builds a rise. A rise reached through flush Rings has every side
  * one whole run, so `isOneWholeRun` alone would offer it as replayable; so has an all-gable wall that journal decision
- * 220 turns into a rise. A storey whose plan the pipeline refuses is left to `readInput` and the build. A storey whose
- * Building cannot be made (an error that is no refusal) is read, as before decision 220, from its per-extent forms
- * alone, since decision 220 reads algorithm B's span off that Building.
+ * 220 turns into a rise. It reads the walls the pipeline plans from (`storeyForms`), so it never disagrees with the
+ * build. A storey whose walls cannot be derived, a refusal or any other error, builds nothing, so it reads as no rise:
+ * the build reports that error, and `readInput` any refusal (journal decision 222, L1).
  */
 export function buildsARise(f: ShellFixture): boolean {
   return storeysOf(f).some(n => {
-    const rings = storeyRings(f, n);
     try {
-      try {
-        return storeyForms(rings).walls.some(w => w.rises?.length);
-      } catch (e) {
-        if (e instanceof PlanRefusal) throw e;
-        return unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).some(w => w.rises?.length);
-      }
-    } catch (e) {
-      if (e instanceof PlanRefusal) return false;
-      throw e;
+      return storeyForms(storeyRings(f, n)).walls.some(w => w.rises?.length);
+    } catch {
+      return false;
     }
   });
 }

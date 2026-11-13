@@ -258,7 +258,10 @@ describe('C++ replayability (journal decision 152, amended)', () => {
   function rises(w: BuildingShellInputV1): string[] {
     const r = readInput(JSON.parse(JSON.stringify(w)), 'rises');
     if (!r.ok) return [];
-    const any = storeysOf(r.fixture).some(n => storeyForms(storeyRings(r.fixture, n)).walls.some(x => (x.rises ?? []).length > 0));
+    // A storey whose walls cannot be derived builds nothing, so it reads as no rise (journal decision 222, L1).
+    const any = storeysOf(r.fixture).some(n => {
+      try { return storeyForms(storeyRings(r.fixture, n)).walls.some(x => (x.rises ?? []).length > 0); } catch { return false; }
+    });
     return any ? ['a gable rise, which the C++ port does not build yet (gable rise decision 17)'] : [];
   }
 

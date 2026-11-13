@@ -4,7 +4,7 @@
 // F69's conflict, pinned as the re-tag pass reports it today.
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, cppReplayability} from '../src/golden.ts';
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
@@ -18,7 +18,7 @@ import {unionPlans} from '../src/union.ts';
 import {WIRE_FORMS, readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {RISE_ORACLE_TOL_CM, intervalTop, riseBreakthrough, riseOracle} from './rise-oracle.ts';
-import {randomCourtyardFixtures, randomSplitCourtyardFixtures, randomUFixtures} from './robustness-fixtures.ts';
+import {gapFixture, nudgeFixtures, randomCourtyardFixtures, randomFixtures, randomSplitCourtyardFixtures, randomUFixtures} from './robustness-fixtures.ts';
 import {componentGenera, invariantViolations} from './shell-invariants.ts';
 import {memoBuilds, shellFixture} from './test-builds.ts';
 
@@ -347,15 +347,97 @@ describe('journal decision 220: a gable belongs to the Ring side that asked for 
   });
 });
 
+// ---- Journal decision 222: the verdict is decided once per line extent, and every band is built once ----------------
+
+describe('journal decision 222: algorithm B\'s verdict is the line extent\'s, not a wall\'s', () => {
+  const twoPitchRuns = (split: number): SideForm => ({form: 'gable', runs: [{from: 0, to: split, form: 'gable', deg: 30}, {from: split, to: 1000, form: 'gable', deg: 45}]});
+  /**
+   * The review's three inputs (H1). Each puts two claimed bands of two pitches, which together tile algorithm B's extent
+   * [0, 1000] of y = 0, on two or three union walls of that one extent, so a per-wall verdict kept one wall and gave up
+   * another. The sub-rule keeps the extent: algorithm B's one gable over [0, 1000] at the lowest index's 30°, its rakes the
+   * x = 0 and x = 1000 hip planes at 30°, its apex at x = 500, 500 tan 30° above the plate. That is the roof before
+   * `b1cff3e`, clean.
+   */
+  const H1: readonly [string, ShellFixture, number][] = [
+    ['TwoRingsNoRuns', shellFixture('TwoRingsNoRuns', [
+      ring([0, 0, 500, 500], 0, 1, 30, {S: {form: 'gable', deg: 30}}), ring([500, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45}}), ring([600, -300, 800, 0], 0, 1, 30)]), 0],
+    ['SplitSeen', shellFixture('SplitSeen', [ring([0, 0, 1000, 500], 0, 1, 30, {S: twoPitchRuns(300)}), ring([400, -300, 800, 0], 0, 1, 30)]), 0],
+    ['HoleAndOuter2', shellFixture('HoleAndOuter2', [ring([0, 0, 1000, 500], 0, 1, 30, {S: twoPitchRuns(500)}),
+      ring([100, -400, 300, 0], 0, 1, 30), ring([700, -400, 900, 0], 0, 1, 30), ring([100, -600, 900, -400], 0, 1, 30)]), 1],
+  ];
+
+  // Mutation: the verdict per wall again (each wall's own overlapping bands against its span); then each input keeps one
+  // wall and builds a rise on another over a band algorithm B also builds, and the shell has 1 Cheek.
+  it.each(H1)('%s: every wall on the extent takes one verdict, no rise is built, and the roof is algorithm B\'s one gable, clean', async (_, f, genus) => {
+    const onLine = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0 && w.n === '+y');
+    expect(onLine.length).toBeGreaterThan(1);
+    expect(onLine.map(w => [w.form, w.rises])).toEqual(onLine.map(() => ['gable', undefined]));
+    const b = await build(f);
+    expect(b.union.plans[0].rises ?? []).toEqual([]);
+    expect(invariantViolations(b, {genus, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    const faces = b.shell.faces.filter(x => x.tag.kind === 'Gable' && Math.abs(x.normal[1] + 1) < 1e-9 && x.loops[0].every(p => Math.abs(p[1]) < 1e-9));
+    expect(faces.map(x => [Math.min(...x.loops[0].map(p => p[0])), Math.max(...x.loops[0].map(p => p[0]))])).toEqual([[0, 1000]]);
+    const apex = faces[0].loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
+    expect(apex[0]).toBeCloseTo(500, 2);
+    expect(apex[2]).toBeCloseTo(250 + t(30) * 500, 2);
+  });
+
+  // Decision 222, M1: a gable run whose middle a wing buries is one claimed band, so one rise over the whole run, built
+  // once (decision 220's "buried stretches included"; it built two before decision 220). Its middle is buried, so it
+  // stands on the longest wall it overlaps, the lower-starting of two equal ones: [0, 300].
+  it('OneBandTwoWalls: one rise over [100, 900], built once, on wall [0, 300], clean, its Cells naming Ring 0\'s S side on both exposed parts', async () => {
+    const f = shellFixture('OneBandTwoWalls', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'hip', runs: [{from: 100, to: 900, form: 'gable', deg: 45}]}}), ring([300, -300, 700, 0], 0, 1, 30)]);
+    const plan = planStorey(f, 0);
+    const wallSpan = (r: NonNullable<typeof plan.rises>[number]): number[] => [Math.min(r.piece.wall.a.x, r.piece.wall.b.x), Math.max(r.piece.wall.a.x, r.piece.wall.b.x)];
+    expect((plan.rises ?? []).map(r => [r.rise.lo, r.rise.hi, ...wallSpan(r)])).toEqual([[100, 900, 0, 300]]);
+    const b = await build(f);
+    expect(invariantViolations(b, {genus: 0, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    const front = b.shell.faces.filter(x => x.tag.kind === 'Gable' && Math.abs(x.normal[1] + 1) < 1e-9).map(x => x.id);
+    const cells = b.shell.cells.filter(c => front.includes(c.face));
+    const west = cells.filter(c => c.polygon.every(p => p[0] <= 300 + 1e-6)), east = cells.filter(c => c.polygon.every(p => p[0] >= 700 - 1e-6));
+    expect(west.length).toBeGreaterThan(0);
+    expect(east.length).toBeGreaterThan(0);
+    expect([...new Set(cells.map(c => JSON.stringify(c.source)))]).toEqual([JSON.stringify({ringModelIndex: 0, side: 0})]);
+  });
+
+  // Decision 222, L2: band ends are compared within the same 1e-9 as the overlap filter and `algorithmBSpan`. Mutation:
+  // exact comparison; then bands meeting 1e-12 apart no longer tile.
+  it('band ends compare within 1e-9, so an off-lattice run end tiles the span', () => {
+    const band = (lo: number, hi: number, deg: number): GableRise => ({lo, hi, deg, limit: 'ridgeSlope'});
+    expect(algorithmBBuildsGable([band(0.1, 333.4 + 1e-12, 30), band(333.4, 1000.7, 45)], [0.1 + 1e-12, 1000.7])).toBe(true);
+    expect(algorithmBBuildsGable([band(0.1, 333.4, 30), band(333.4 + 1e-6, 1000.7, 45)], [0.1, 1000.7])).toBe(false);
+    // Off the lattice end to end: corners at 0.1 and 1000.7, the pitches split at 333.3 along the side, a wing burying
+    // [400.1, 600.1]; the extent stays algorithm B's one gable.
+    const f = shellFixture('OffLatticeSplit', [ring([0.1, 0, 1000.7, 500], 0, 1, 30, {S: {form: 'gable', runs: [{from: 0, to: 333.3, form: 'gable', deg: 30}, {from: 333.3, to: 1000.6, form: 'gable', deg: 45}]}}), ring([400.1, -300, 600.1, 0], 0, 1, 30)]);
+    const onLine = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0 && w.n === '+y');
+    expect(onLine.map(w => [w.form, w.rises])).toEqual([['gable', undefined], ['gable', undefined]]);
+  });
+
+  // Decision 222: bands that differ only in maxHeight are one gable to algorithm B, as a single band's maxHeight is.
+  it('bands differing only in maxHeight keep algorithm B\'s one gable', () => {
+    const f = shellFixture('MaxHeightSplit', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45, runs: [{from: 0, to: 500, form: 'gable', deg: 45, maxHeight: 200}]}})]);
+    const rings = storeyRings(f, 0);
+    expect(claimedBands(rings, {axis: 'y', at: 0, n: '+y'}).map(r => [r.lo, r.hi, r.maxHeight])).toEqual([[0, 500, 200], [500, 1000, undefined]]);
+    expect(storeyForms(rings).walls.filter(w => w.axis === 'y' && w.at === 0).map(w => [w.form, w.deg, w.rises])).toEqual([['gable', 45, undefined]]);
+  });
+});
+
 // ---- The copy of algorithm B's extentOf, tied to algorithm B over the corpus ------------------------------------------
 
 describe('journal decision 220: rise.ts\'s copy of extentOf is algorithm B\'s', () => {
   // Every whole-line gable piece algorithm B builds on the per-extent walls (before decision 220 turns any wall into a
-  // rise) spans exactly what the copy gives for its wall. Mutation: the copy's EPS changed, or a loop dropped; then a
-  // piece whose line runs on past an inside corner disagrees.
-  it('agrees with every whole-line piece algorithm B builds, over the roster, the rise fixtures and the random courtyards, split courtyards and U shapes', () => {
+  // rise) spans exactly what the copy gives for its wall. Convicted by one mutation: the copy without its forward loop
+  // fails here. The corpus holds footprints off the 50 cm lattice (journal decision 222, L3): the random Rings on a
+  // 10 cm lattice, the courtyards shifted by (0.3, 0.7) cm, and the nudges and gaps at k/1024 cm.
+  it('agrees with every whole-line piece algorithm B builds, over the roster, the rise fixtures, the random courtyards, split courtyards and U shapes, and footprints off the lattice', () => {
+    const shifted = (f: ShellFixture): ShellFixture => ({...f, name: `${f.name}+0.3,0.7`, rings: f.rings.map(r => ({...r, rect: [r.rect[0] + 0.3, r.rect[1] + 0.7, r.rect[2] + 0.3, r.rect[3] + 0.7]}))});
     const fixtures = [...EXPORTED_FIXTURES, ...RISE_FIXTURES, ...[1, 2].flatMap(s => [250, 300].flatMap(h => [
-      ...randomCourtyardFixtures(s, 40, h), ...randomSplitCourtyardFixtures(s, 40, h), ...randomUFixtures(s, 40, h)]))];
+      ...randomCourtyardFixtures(s, 40, h), ...randomSplitCourtyardFixtures(s, 40, h), ...randomUFixtures(s, 40, h)])),
+    ...[1, 2, 3, 4].flatMap(s => randomFixtures(s, 140, 300)), ...randomCourtyardFixtures(1, 40, 300).map(shifted), ...randomSplitCourtyardFixtures(1, 40, 300).map(shifted),
+    ...nudgeFixtures(), ...[1, 3, 5, 8, 12].flatMap(k => (['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, k)))];
+    let offLattice = 0;
     let pieces = 0, wider = 0;
     for (const f of fixtures) for (const n of storeysOf(f)) {
       const rings = storeyRings(f, n);
@@ -373,10 +455,12 @@ describe('journal decision 220: rise.ts\'s copy of extentOf is algorithm B\'s', 
         expect(ext, `${f.name} storey ${n} ${p.label}`).toEqual([p.bandLo, p.bandHi]);
         const span = p.wall.a.x === p.wall.b.x ? [Math.min(p.wall.a.y, p.wall.b.y), Math.max(p.wall.a.y, p.wall.b.y)] : [Math.min(p.wall.a.x, p.wall.b.x), Math.max(p.wall.a.x, p.wall.b.x)];
         if (ext[0] < span[0] || ext[1] > span[1]) wider++;
+        if (ext.some(v => Math.abs(v - 50 * Math.round(v / 50)) > 1e-9)) offLattice++;
       }
     }
     expect(pieces).toBeGreaterThan(1000);
     expect(wider).toBeGreaterThan(100);
+    expect(offLattice).toBeGreaterThan(100);
   });
 });
 
