@@ -704,6 +704,25 @@ ruled" list in the covered-storeys findings. Added this session:
        turned into a rise.
      - The rise reviewer is resumed on `73af1e5..9646bba`, briefed to report Cheeks and conflicts as facts, not
        verdicts.
+237. **A Cheek is a UI and UX matter, not a rule to be made in the abstract** (the user, 2026-11-13). The user
+     cannot rule on Cheeks from a rule-making position and needs to see them. Their framing:
+     - A Cheek is likely an anomaly, and **may** be intended by the author. The user stresses that this is an
+       assumption and is not binding.
+     - **The goal is not that Cheeks never appear.** It is that a person can easily understand which features
+       lead to one (the user's examples: heterogeneous pitches, conflicting gables) and choose how to remove it.
+     - An acceptable Cheek is no issue. An unacceptable one should be removable by a **minimal** change to the
+       design that leaves the rest of the author's intent unchanged.
+     - **Ruled on one case**: the Cheek of `Court14Seed7h250` is not a defect. "It would be sitting above a
+       structural wall in a real building, and would be the logical result of choosing a steep gable on that part
+       of the layout."
+     - **Asked for now**: every Cheek-producing fixture findable by typing "cheek" in the selector's filter. Only
+       one appears today, because the pinned cases are not listed. This answers the lead's question in decision
+       228: list them. WP-V2 is dispatched to the selector's delegate, resumed.
+     **What the lead takes from it**: "zero Cheeks" leaves the definition of clean (it was added by F65 and gable
+     rise decision 20, not by the user). The Cheek pins stay as exact records of what is built, so a change still
+     shows, but they are no longer called defects. Two things follow later and are not started: a viewer feature
+     that says which sides, stretches and pitches produce a given Cheek; and a second look at what was traded
+     away to avoid Cheeks, first of all the two-pitch sub-rule (decision 222).
 
 ## Findings
 
