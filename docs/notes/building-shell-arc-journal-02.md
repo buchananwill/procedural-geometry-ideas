@@ -724,6 +724,20 @@ ruled" list in the covered-storeys findings. Added this session:
      shows, but they are no longer called defects. Two things follow later and are not started: a viewer feature
      that says which sides, stretches and pitches produce a given Cheek; and a second look at what was traded
      away to avoid Cheeks, first of all the two-pitch sub-rule (decision 222).
+238. **WP-L1 is accepted at `9646bba`** (the lead, 2026-11-13). The review of `73af1e5..9646bba` found no High and
+     no Medium, and every rule of decisions 231 and 233 built as written: the predicate skips both walls of
+     `SingleStoreyT` and of a kept two-pitch extent, keeps cut walls and walls that carry a rise; a rise with no
+     limit stops at a courtyard hole and does not cross it; under a tower it breaks through nothing; the fallback
+     returns a skipped face only where no piece covers it. Its Lows, none needing a change:
+     - **After a skip the walk can take a slope in another wing.** On a T whose bar is gabled along its N side,
+       a rise on the bar's S side is limited by the stem's far end slope, 1,000 cm away. That is "the next falling
+       face" as ruled, and it is clean. Recorded, not tamed (decision 233).
+     - **Conflict counts are asserted only for fixtures in the conflict tables, the rise fixtures and the
+       goldens.** Every other sweep fixture's conflicts can move unseen, defect-pinned ones included. This
+       predates WP-L1. It is an open item, to be settled with what a defect is (decisions 235, 237).
+     - **The measurement probes `experiments/gable-rises/claimed-band-cases.ts` and `claimed-band-sweep.ts` now
+       throw on a rise with no limit**, since they index the limit plane. They are outside the typecheck. An open
+       item: the record should still run.
 
 ## Findings
 
