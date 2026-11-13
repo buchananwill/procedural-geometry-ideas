@@ -6,7 +6,7 @@
 import {z} from 'zod';
 import {errorMessage} from '../errors.ts';
 import {RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
 import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
 import type {AdaptedInput} from '../wire/input-adapter.ts';
@@ -346,7 +346,8 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
 // ---- Persistence (decision 18) and the build mark (journal decision 198, M2) --------------------------------------------------------
 
 const RingFormSchema = z.enum(['hip', 'gable']);
-const SideFormSchema = z.object({form: RingFormSchema, deg: z.number().optional()});
+const SideRunSchema = z.object({from: z.number(), to: z.number(), form: RingFormSchema, deg: z.number().optional(), maxHeight: z.number().optional(), limit: z.enum(['ridgeSlope']).optional()});
+const SideFormSchema = z.object({form: RingFormSchema, deg: z.number().optional(), runs: z.array(SideRunSchema).optional()});
 const SidesSchema = z.object({S: SideFormSchema.optional(), E: SideFormSchema.optional(), N: SideFormSchema.optional(), W: SideFormSchema.optional()});
 const RingSchema = z.object({
   rect: z.tuple([z.number(), z.number(), z.number(), z.number()]),
@@ -372,6 +373,8 @@ true satisfies Same<SchemaSides, RingSides>;
 true satisfies Same<keyof SchemaSides, RingSide>;
 true satisfies Same<SchemaSide, SideForm>;
 true satisfies Same<keyof SchemaSide, keyof SideForm>;
+true satisfies Same<z.output<typeof SideRunSchema>, SideRun>;
+true satisfies Same<keyof z.output<typeof SideRunSchema>, keyof SideRun>;
 true satisfies Same<z.output<typeof RingFormSchema>, RingForm>;
 
 const SavedSchema = z.object({v: z.literal(1), fixture: FixtureSchema, source: FixtureSchema, building: z.boolean().optional(), lastGood: FixtureSchema.optional()});

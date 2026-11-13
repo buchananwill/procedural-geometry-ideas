@@ -4,10 +4,11 @@
 // do the I/O.
 import {z} from 'zod';
 import {EDGE_KINDS} from './edges.ts';
-import {RING_SIDES} from './fixture.ts';
+import {PlanRefusal} from './errors.ts';
+import {RING_SIDES, storeyRings, storeysOf} from './fixture.ts';
 import type {ShellFixture} from './fixture.ts';
 import type {ShellMesh} from './mesh.ts';
-import {ringSideLines} from './ring-forms.ts';
+import {ringSideLines, storeyLoops, unionWallForms} from './ring-forms.ts';
 import type {ShellReport} from './shell.ts';
 import type {RawPart} from './storey.ts';
 import type {FaceTag, PartlessTag, Plane3} from './tags.ts';
@@ -100,6 +101,26 @@ export const readInputRefusals = (errors: readonly string[]): string[] => errors
 /** The reason `cppReplayability` gives for a document with a side that is not one run of its whole length. */
 export const NOT_ONE_WHOLE_RUN = 'a side not one run from 0 to its length';
 
+/** Gable rise decision 17: the reason `cppReplayability` gives for a document that builds a gable rise. */
+export const BUILDS_A_RISE = 'a gable rise, which the C++ port does not build yet (gable rise decision 17)';
+
+/**
+ * Gable rise decision 17: whether any storey of `f` builds a rise. A rise reached through flush Rings has every side
+ * one whole run, so `isOneWholeRun` alone would offer it as replayable. A storey whose plan the pipeline refuses is
+ * left to `readInput` and the build.
+ */
+export function buildsARise(f: ShellFixture): boolean {
+  return storeysOf(f).some(n => {
+    const rings = storeyRings(f, n);
+    try {
+      return unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))).some(w => w.rises?.length);
+    } catch (e) {
+      if (e instanceof PlanRefusal) return false;
+      throw e;
+    }
+  });
+}
+
 /**
  * One file side of a document `readInput` accepts, with its length between its snapped corners (journal decision 181,
  * N1).
@@ -148,7 +169,10 @@ export function cppReplayabilityOf(input: BuildingShellInputV1): Replayability {
   // Read through JSON, as a file is: `readInput` never sees the writer's own objects.
   const read = readInput(JSON.parse(JSON.stringify(input)), 'cppReplayability');
   if (!read.ok) reasons.push(...readInputRefusals(read.errors));
-  else if (!snappedSides(read).every(isOneWholeRun)) reasons.push(NOT_ONE_WHOLE_RUN);
+  else {
+    if (!snappedSides(read).every(isOneWholeRun)) reasons.push(NOT_ONE_WHOLE_RUN);
+    if (buildsARise(read.fixture)) reasons.push(BUILDS_A_RISE);
+  }
   return reasons.length ? {cppReplayable: false, reasons} : {cppReplayable: true};
 }
 

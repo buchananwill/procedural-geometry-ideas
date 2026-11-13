@@ -13,8 +13,26 @@ export const RING_SIDES = ['S', 'E', 'N', 'W'] as const;
 /** One side of a Ring rectangle (`RING_SIDES`). */
 export type RingSide = typeof RING_SIDES[number];
 
-/** One Ring side's form, and its pitch in degrees when it is not the Ring's default. */
-export interface SideForm { form: RingForm; deg?: number }
+/**
+ * Gable rise decision 11 (journal decision 204): the named policies that limit a rise besides its rakes. `ridgeSlope`
+ * is the only one built. The field is in memory only: `input@1` carries no limit (decision 11).
+ */
+export type RiseLimit = 'ridgeSlope';
+
+/**
+ * Gable rise decisions 1 and 2: one run of a Ring side, `[from, to]` in cm from the side's start (side S from its west
+ * end, E from its south end, N from its east end, W from its north end, so every side runs counter-clockwise, as the
+ * wire's corners do). `deg` is a gable run's rake pitch, a hip run's wall pitch; without it the run takes its side's
+ * pitch, then the Ring's default. `maxHeight` (decision 12) and `limit` (decision 11) apply to a gable run only, and
+ * are in memory only: `input@1` carries neither.
+ */
+export interface SideRun { from: number; to: number; form: RingForm; deg?: number; maxHeight?: number; limit?: RiseLimit }
+
+/**
+ * One Ring side's form, and its pitch in degrees when it is not the Ring's default. Gable rise decision 1: `runs`, in
+ * order and not overlapping, override the side's form on their stretches; a side without them means what it always has.
+ */
+export interface SideForm { form: RingForm; deg?: number; runs?: SideRun[] }
 
 /** The sides a Ring authors; a side not listed is a hip at the Ring's default pitch. */
 export type RingSides = Partial<Record<RingSide, SideForm>>;
@@ -167,6 +185,46 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
     port('PortNarrowUpperGabled300', 300, [200, 0, 400, 200], {S: gable}),
     port('PortPokeOut300', 300, [150, 0, 450, 200]),
     port('PortPokeOut250', 250, [100, 0, 500, 200]),
+  ];
+})();
+
+/**
+ * Gable rise decisions 1 to 12 (journal decision 204): one fixture per class the rise sweeps found distinct (gable rise
+ * findings, WP-G1 and WP-G1.1). Kept apart from `EXPORTED_FIXTURES`, which the editor reads, until the editor's run list
+ * lands (WP-G3); the golden set lists them.
+ * - `MidWallRise`: a mid-wall rise at 45 on a 30 degree hip (F60's second build): unequal pitches.
+ * - `CornerRise`: a rise at 60 ending at the convex corner of a 45 degree hip, where decision 10 takes the end wall's plane.
+ * - `RiseBeforeTStem`: a 75 degree rise in front of a T's stem; its limit is the bar's far slope, not the stem's end.
+ * - `FlushT` and `FlushTSwapped`: F57's flush T. With the crossbar first its hip wins the stretch and no rise is built
+ *   (decision 7); with the stem first its gable is a rise over its own width (decision 3).
+ * - `AdjacentRises`: two rises of unequal pitch meeting at a point on the plate (decision 6).
+ * - `CourtyardRiseFacingCut`: a rise whose band faces the courtyard's cut; its limit is the cut's plane.
+ * - `CourtyardRiseAlongCut`: a rise whose walk runs along the cut, limited by the built roof's fallback (decision 11).
+ * - `TruncatedRise`: a 75 degree rise the far slope truncates at its own wall.
+ * - `FlatTopRise`: a rise with its own `maxHeight` below the main ridge: a flat `Roof` top.
+ * - `OverhangCappedRise`: a rise under an overhang two storeys up, which projects past the rise's wall: the floor cap
+ *   stands `FLOOR_CAP_GAP_CM` below its floor.
+ * - `SetBackCappedRise`: a 75 degree rise under a set-back storey directly above, capped at that storey's wall top.
+ * - `BuriedRise`: a rise under a flush upper wall, capped at its wall top and so buried whole.
+ */
+export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
+  const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
+  const R: Rect = [0, 0, 1000, 500];
+  const court = (sides: Record<number, RingSides>): FixtureRing[] => COURTYARD_RECTS.map((r, i) => ring(r, 0, 1, 30, sides[i] ?? {}));
+  return [
+    fixture('MidWallRise', [ring(R, 0, 1, 30, {S: gableRun(330, 610, 45)})]),
+    fixture('CornerRise', [ring(R, 0, 1, 45, {S: gableRun(800, 1000, 60)})]),
+    fixture('RiseBeforeTStem', [ring([0, 0, 1000, 400], 0, 1, 45, {S: gableRun(400, 600, 75)}), ring([400, 400, 600, 1000], 0, 1, 45)]),
+    fixture('FlushT', [ring(R, 0, 1, 45), ring([400, 0, 600, 900], 0, 1, 45, {S: gable})]),
+    fixture('FlushTSwapped', [ring([400, 0, 600, 900], 0, 1, 45, {S: gable}), ring(R, 0, 1, 45)]),
+    fixture('AdjacentRises', [ring([0, 0, 1200, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 300, to: 500, form: 'gable', deg: 45}, {from: 500, to: 700, form: 'gable', deg: 60}]}})]),
+    fixture('CourtyardRiseFacingCut', court({0: {S: gableRun(100, 300, 45)}})),
+    fixture('CourtyardRiseAlongCut', court({0: {W: gableRun(0, 100, 45)}, 2: {W: gableRun(300, 400, 45)}})),
+    fixture('TruncatedRise', [ring(R, 0, 1, 45, {S: gableRun(300, 700, 75)})]),
+    fixture('FlatTopRise', [ring(R, 0, 1, 45, {S: gableRun(300, 700, 60, {maxHeight: 200})})]),
+    fixture('OverhangCappedRise', [ring(R, 0, 1, 30, {S: gableRun(400, 600, 75)}), ring([800, 0, 1000, 500], 0, 2, 30), ring([300, -100, 1000, 500], 2, 1, 30)]),
+    fixture('SetBackCappedRise', [ring(R, 0, 1, 45, {S: gableRun(350, 650, 75)}), ring([300, 100, 700, 400], 1, 1, 45)]),
+    fixture('BuriedRise', [ring(R, 0, 1, 45, {S: gableRun(400, 600, 75)}), ring([300, 0, 700, 300], 1, 1, 45)]),
   ];
 })();
 
