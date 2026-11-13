@@ -988,6 +988,25 @@ ruled" list in the covered-storeys findings. Added this session:
      strategies first (`centreLine`, `whole`, `split`); `apart` defaulting to false, so existing files and the
      game's split runs keep one gable; and whole-side gables and hip slopes left to the wider clamp of decision
      234. WP-S1 builds the pipeline and the wire; WP-S2 the editor.
+254. **WP-S1 landed at `32eeb2a` and is provisionally accepted; the branch is red on three editor tests that WP-S2
+     owns** (the lead, 2026-11-13). One commit, twelve source and test files in the roster (the lead checked
+     `git diff --stat`). The delegate's record: 9,749 passed and 3 failed in 44 files, with 2 typecheck errors,
+     all in `tests/viewer-draft.test.ts`, which expects the wire to drop `maxHeight` and now finds it kept. The
+     golden drift test passes.
+     - **The gate of spec decision 21 held**: 5,745 fixtures digested before and after (mesh, tags, faces,
+       sources, Edges, Cells, report, and each rise piece's planes, limit and cap), all identical, including 34
+       that throw identically.
+     - **The wire**: each run gains `maxHeightCm` (0 is none), `facing` and `bStandsApart`, written on every run.
+       All 43 golden inputs and all 8 playtest seeds changed bytes and were re-exported once; every committed
+       file still reads to the same fixture. A setting on a hip run is refused.
+     - **The strategies on the half-offset pair** (F82): `centreLine` and `whole` build the same roof, both
+       rises limited; `split` lets the facing parts run through and leaves 2 Cheeks at the steps.
+     - **Accepted from the delegate**: an extent is given up as algorithm B's one gable when any band on it
+       stands apart, even a single one; a whole gabled side stands apart from its neighbour Ring's by being spelt
+       as one gable run with `apart`; a gable `maxHeight` of 0 or less is refused in memory.
+     - **WP-S2 dispatched** (general-purpose, Opus, fresh): the editor's controls, the canonical spelling tied to
+       the pipeline's `joins`, the round-trip fuzz without its `maxHeight` exception, and the new fixtures in the
+       selector. A correctness review of both halves follows it.
 
 ## Findings
 
@@ -1272,6 +1291,18 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
     `[0,0,500,500]` at 30° with a gable run from 100 to 400 at 60° on E, and `[500,0,1000,500]` at 30°.
   - **Opposite gables can be one-sided**: where one rise's walk line is inside the other's band and not the
     reverse, one runs through and the other is limited. `OppositeGablesTPartFacing` has 1 Cheek from it.
+- **F82. What the three facing strategies and "stands apart" build** (the WP-S1 delegate at `32eeb2a`, by closed
+  forms in `tests/gable-settings.test.ts`; not re-run by the lead).
+  - **Two opposite 75° stretches offset by half their width, on 45° slopes**: under `centreLine` and under
+    `whole` the roofs are identical, both rises limited by the opposite slope (300 cm at the sample point). Under
+    `split` the part of each rise that faces the other runs through unlimited to the far wall (335.9 cm there),
+    the outer parts stay limited, the pair is built as 4 pieces, and there are 2 Cheeks, one at each step.
+  - **Three equal 60° gable stretches standing apart along one wall** build three gables, each with its apex at
+    173.2 cm, meeting at points on the plate. Clean.
+  - **Two flush Rings whose gabled sides adjoin**, with one side spelt as a gable run standing apart, build two
+    45° gables with corner rakes, apexes at 250 cm. Clean.
+  - **A 45° stretch with a maximum height of 100** is flat-topped at 100. Clean.
+  - None of the new fixtures has a conflict, an Unclassified Edge, a throw or an open shell.
   - **The 196 pinned cases by class**: roof meets the floor above 57; algorithm-B cut-piece overshoot 36;
     low-pitch pocket 30; `GABLE_RISE_CONFLICTS` 27; algorithm-B Cheek 15; `GABLE_RISE_SPLIT_CONFLICTS` 11;
     sub-tolerance roof feature 9; near-touching islands 4; Gable–Wall edge Unclassified 3; edge contact between
