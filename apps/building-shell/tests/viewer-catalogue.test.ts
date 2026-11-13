@@ -10,7 +10,8 @@ import {
 } from '../src/viewer/catalogue.ts';
 import {parseDefectCases} from '../src/viewer/defect-cases.ts';
 import {draftFixtureOfJson} from '../src/viewer/draft.ts';
-import {selectionFromHash} from '../src/viewer/hash.ts';
+import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
+import {PINNED_CASES} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
 
@@ -21,7 +22,9 @@ const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest);
 const sources: CatalogueSources = {
   shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
-  research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: playtestFiles(),
+  research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES,
+  // The labels' facts are `viewer-facts.test.ts`'s: here every label is its bare name.
+  facts: {},
 };
 const groups = catalogueGroups(sources);
 const values = (gs: readonly CatalogueGroup[]): string[] => gs.flatMap(g => g.entries.map(e => e.value));
@@ -64,7 +67,10 @@ describe('catalogueGroups', () => {
   it('groups the selector in a fixed order', () => {
     expect(groups.map(g => g.label)).toEqual([
       'Fixtures', 'Gable rises', 'Ring conflicts', 'Port regressions', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
-      'Playtest seeds (fixtures/playtest)', 'Defect cases',
+      'Playtest seeds (fixtures/playtest)', 'Defect cases', 'Pinned: algorithm-B Cheek', 'Pinned: algorithm-B cut-piece overshoot',
+      'Pinned: partial coplanar contact of two storeys', 'Pinned: edge contact between opposite coplanar faces', 'Pinned: Gable-Wall edge Unclassified',
+      'Pinned: sub-tolerance roof feature', 'Pinned: low-pitch pocket', 'Pinned: roof meets the floor above', 'Pinned: near-touching islands',
+      'Pinned: courtyard cut collinear with a jutting wall', 'Pinned conflicts: GABLE_RISE_CONFLICTS', 'Pinned conflicts: GABLE_RISE_SPLIT_CONFLICTS',
     ]);
     expect(catalogueGroups({...sources, draft: {value: 'draft', label: 'x-draft'}}).at(-1)).toEqual({label: 'Draft', entries: [{value: 'draft', label: 'x-draft'}]});
   });
@@ -89,9 +95,9 @@ describe('catalogueGroups', () => {
 
   it('lists every choosable entry the hash can name, each to its own kind', () => {
     for (const v of values(groups).filter(x => !x.startsWith('research-left-out-'))) {
-      const sel = selectionFromHash(`#${encodeURIComponent(v)}`, {fixtures: LISTED, cases, files: [...goldens, ...playtestFiles()]});
-      const name = sel.kind === 'case' ? sel.defect.name : sel.kind === 'file' ? sel.file.name : sel.kind === 'fixture' ? sel.fixture.name : '';
-      expect(name).toBe(v);
+      const sel = selectionFromHash(`#${encodeURIComponent(v)}`, {fixtures: LISTED, cases, files: [...goldens, ...playtestFiles()], pinned: PINNED_CASES});
+      expect(sel.kind).not.toBe('draft');
+      expect(selectionName(sel)).toBe(v);
     }
   });
 

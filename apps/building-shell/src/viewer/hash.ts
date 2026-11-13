@@ -4,6 +4,7 @@ import type {ShellFixture} from '../fixture.ts';
 import {writeInput} from '../wire/input-adapter.ts';
 import type {InputFile} from './catalogue.ts';
 import type {DefectCase} from './defect-cases.ts';
+import type {PinnedCase} from './pinned-cases.ts';
 import {parseDraftJson} from './draft.ts';
 import type {ParsedDraft} from './draft.ts';
 
@@ -40,13 +41,19 @@ export type Selection =
   | {kind: 'fixture'; fixture: ShellFixture; refusal?: string[]}
   | {kind: 'case'; defect: DefectCase}
   | {kind: 'file'; file: InputFile}
+  | {kind: 'pinned'; pinned: PinnedCase}
   | {kind: 'draft'; fixture: ShellFixture; origin: DraftOrigin};
 
 /** Where a draft on show came from: the one kept in `localStorage`, or a link's. */
 export type DraftOrigin = 'saved' | 'link';
 
 /** The name a selection is listed under. */
-export const selectionName = (s: Selection): string => (s.kind === 'case' ? s.defect.name : s.kind === 'file' ? s.file.name : s.fixture.name);
+export function selectionName(s: Selection): string {
+  if (s.kind === 'case') return s.defect.name;
+  if (s.kind === 'file') return s.file.name;
+  if (s.kind === 'pinned') return s.pinned.value;
+  return s.fixture.name;
+}
 
 const toBase64Url = (text: string): string => {
   const bytes = new TextEncoder().encode(text);
@@ -87,16 +94,18 @@ export interface SelectionSources {
   saved?: ShellFixture;
   /** The fixtures read from committed input files (WP-V1); none when absent. */
   files?: readonly InputFile[];
+  /** The pinned cases (WP-V2), named by their `pinned/<key>` value; none when absent. */
+  pinned?: readonly PinnedCase[];
 }
 
 /**
  * The selection a `#hash` names. A link (`#draft=...`) is a draft read through `readInput`; one the wire refuses names the
  * first fixture, with the refusal (decision 20). `#draft` is the `saved` draft, or the first fixture when there is none.
  * Otherwise the roster is looked in first, so a case that shares a roster name never shadows it; then the defect cases;
- * then the fixtures read from committed input files (WP-V1); an empty, unknown or malformed hash names the roster's first
- * fixture.
+ * then the fixtures read from committed input files (WP-V1); then the pinned cases (WP-V2); an empty, unknown or malformed
+ * hash names the roster's first fixture.
  */
-export function selectionFromHash(hash: string, {fixtures, cases, saved, files = []}: SelectionSources): Selection {
+export function selectionFromHash(hash: string, {fixtures, cases, saved, files = [], pinned = []}: SelectionSources): Selection {
   const link = draftFromLinkHash(hash);
   if (link) {
     return link.ok
@@ -115,5 +124,7 @@ export function selectionFromHash(hash: string, {fixtures, cases, saved, files =
   if (defect) return {kind: 'case', defect};
   const file = files.find(f => f.name === name);
   if (file) return {kind: 'file', file};
+  const pin = pinned.find(c => c.value === name);
+  if (pin) return {kind: 'pinned', pinned: pin};
   return {kind: 'fixture', fixture: fixtureFromHash(hash, fixtures)};
 }

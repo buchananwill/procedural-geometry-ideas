@@ -20,6 +20,8 @@ import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES, researchNote} from './research-cases.ts';
+import {CATALOGUE_FACTS} from './catalogue-facts.ts';
+import {PINNED_CASES, pinnedDraftSource, pinnedFixture, pinnedFocus, pinnedNote} from './pinned-cases.ts';
 import {ScreenPoint, ShellScene} from './scene.ts';
 import {
   LAYER_KEYS, LayerKey, ToggleState, makeToggles, setHighlightPartial, setLayer, setNetKindOutlines, setRaw, setStorey, withStoreys,
@@ -330,7 +332,12 @@ async function load(sel: LoadSelection): Promise<void> {
   try {
     let fixture: ShellFixture;
     if (sel.kind === 'fixture') fixture = sel.fixture;
-    else {
+    else if (sel.kind === 'pinned') {
+      // WP-V2: drawn from the generator its pin table's sweep uses, as the suite draws it.
+      stage = 'generation failed';
+      fixture = pinnedFixture(sel.pinned);
+      stage = 'build failed';
+    } else {
       stage = 'load failed';
       fixture = await fixtureOfFile(sel);
       stage = 'build failed';
@@ -346,7 +353,7 @@ async function load(sel: LoadSelection): Promise<void> {
     pinned = null;
     hovered = null;
     toggles = withStoreys(toggles, storeysOf(fixture));
-    scene.setBuild(built, toggles, defect ? focusOfCase(defect) : undefined);
+    scene.setBuild(built, toggles, defect ? focusOfCase(defect) : sel.kind === 'pinned' ? pinnedFocus(sel.pinned) : undefined);
     renderToggles();
     renderLegend();
     renderReport(built);
@@ -371,7 +378,7 @@ const filter = $<HTMLInputElement>('fixture-filter');
 function fillSelector(): void {
   const groups = catalogueGroups({
     shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
-    research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: seeds,
+    research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: seeds, pinned: PINNED_CASES, facts: CATALOGUE_FACTS,
     draft: draft ? {value: DRAFT_OPTION, label: draft.fixture.name} : undefined,
   });
   const shown = current ? (current.kind === 'draft' ? DRAFT_OPTION : selectionName(current)) : undefined;
@@ -392,8 +399,12 @@ function fillSelector(): void {
   $('filter-count').textContent = filter.value.trim() ? `${listed} of ${total} shown` : `${total} listed`;
 }
 
-/** WP-V1: the line under the selector naming a research case, and how it was converted. */
+/** WP-V1: the line under the selector naming a research case and how it was converted; WP-V2: a pinned case's pins. */
 function renderFixtureNote(sel: Selection): void {
+  if (sel.kind === 'pinned') {
+    $('fixture-note').textContent = pinnedNote(sel.pinned);
+    return;
+  }
   const entry = sel.kind === 'fixture' ? RESEARCH_ENTRIES.find(e => e.name === sel.fixture.name) : undefined;
   $('fixture-note').textContent = entry ? researchNote(entry) : '';
 }
@@ -405,7 +416,7 @@ const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIX
 const DRAFT_OPTION = 'draft';
 
 /** What a `#hash` may name now: the listed fixtures, the defect cases, the saved draft and the input files. */
-const hashSources = (): SelectionSources => ({fixtures: LISTED_FIXTURES, cases, saved: draft?.fixture, files});
+const hashSources = (): SelectionSources => ({fixtures: LISTED_FIXTURES, cases, saved: draft?.fixture, files, pinned: PINNED_CASES});
 
 /** The selection a listed name stands for. */
 function selectionNamed(name: string): Selection {
@@ -528,6 +539,7 @@ function editableName(): string | null {
   if (showingDraft || !current) return null;
   if (current.kind === 'fixture') return current.fixture.name;
   if (current.kind === 'file') return current.file.name;
+  if (current.kind === 'pinned') return current.pinned.value;
   return current.kind === 'case' && current.defect.input !== undefined ? current.defect.name : null;
 }
 
@@ -578,7 +590,7 @@ async function editCurrent(): Promise<void> {
   if (!sel || sel.kind === 'draft') return;
   const mine = selectionToken;
   try {
-    const source = sel.kind === 'fixture' ? sel.fixture : await draftFixtureOfFile(sel);
+    const source = sel.kind === 'fixture' ? sel.fixture : sel.kind === 'pinned' ? pinnedDraftSource(sel.pinned) : await draftFixtureOfFile(sel);
     // The selection moved on while the case's file was fetched: this draft is not what is on show any more.
     if (mine !== selectionToken) return;
     const next = editDraftOf(source);

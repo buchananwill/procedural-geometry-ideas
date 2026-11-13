@@ -1,8 +1,11 @@
 // WP-V1: what the viewer's fixture selector lists, grouped, and its text filter. Pure data: no scene, no DOM, no fetch,
-// and no Node globals (the page reads the manifest and hands it here).
+// and no Node globals (the page reads the manifest and hands it here). WP-V2: the pinned cases, and every entry's label
+// carrying what it builds (`EntryFacts`), so the filter finds, for one, every entry that builds a Cheek.
 import type {ShellFixture} from '../fixture.ts';
 import {manifestEntries, record, text} from './defect-cases.ts';
 import type {DefectCase} from './defect-cases.ts';
+import {pinnedGroupLabel} from './pinned-cases.ts';
+import type {PinnedCase} from './pinned-cases.ts';
 import type {ResearchEntry} from './research-cases.ts';
 
 /** A fixture the page reads from a committed `input@1` file: its name (the selector's value and `#hash`) and its URL path. */
@@ -69,9 +72,55 @@ export interface CatalogueSources {
   defects: readonly DefectCase[];
   goldens: readonly InputFile[];
   playtest: readonly InputFile[];
+  /** The pinned cases of `tests/residue-pins.ts` (WP-V2), each group by its pinned class. */
+  pinned: readonly PinnedCase[];
+  /** What each entry builds, by value (`CATALOGUE_FACTS`): an entry it does not name builds none of it. */
+  facts: FactsTable;
   /** The draft's name and the selector's value for it, when the editor holds one. */
   draft?: CatalogueEntry;
 }
+
+/**
+ * WP-V2: what an entry builds that a person filters by: its Cheek faces, its conflicts, its Unclassified Edges, whether
+ * its build throws, and whether it builds a gable rise. A table records only what is there: a count above zero, a flag
+ * that holds.
+ */
+export interface EntryFacts { cheeks: number; conflicts: number; unclassified: number; throws: boolean; rise: boolean }
+
+/** One entry's facts as a table holds them: only the counts above zero and the flags that hold. */
+export type RecordedFacts = Partial<EntryFacts>;
+
+/** Every entry's recorded facts, by the entry's value. */
+export type FactsTable = Readonly<Record<string, RecordedFacts>>;
+
+/** The facts an entry's label carries, as words the filter finds: `cheeks 2`, `conflicts 3`, `unclassified 1`, `throws`, `rise`. */
+export function factTags(f: RecordedFacts | undefined): string[] {
+  if (!f) return [];
+  return [
+    ...(f.cheeks ? [`cheeks ${f.cheeks}`] : []),
+    ...(f.conflicts ? [`conflicts ${f.conflicts}`] : []),
+    ...(f.unclassified ? [`unclassified ${f.unclassified}`] : []),
+    ...(f.throws ? ['throws'] : []),
+    ...(f.rise ? ['rise'] : []),
+  ];
+}
+
+/** The facts an entry records, the zero counts and false flags left out, in `EntryFacts` order. */
+export function recordedFacts(f: EntryFacts): RecordedFacts {
+  return {
+    ...(f.cheeks ? {cheeks: f.cheeks} : {}),
+    ...(f.conflicts ? {conflicts: f.conflicts} : {}),
+    ...(f.unclassified ? {unclassified: f.unclassified} : {}),
+    ...(f.throws ? {throws: true} : {}),
+    ...(f.rise ? {rise: true} : {}),
+  };
+}
+
+/** An entry's label with its facts appended, so the filter and the reader see them: `name [cheeks 1, rise]`. */
+const withFacts = (e: CatalogueEntry, facts: FactsTable): CatalogueEntry => {
+  const tags = factTags(facts[e.value]);
+  return tags.length ? {...e, label: `${e.label} [${tags.join(', ')}]`} : e;
+};
 
 const named = (fs: readonly ShellFixture[]): CatalogueEntry[] => fs.map(f => ({value: f.name, label: f.name}));
 
@@ -89,7 +138,25 @@ function defectEntry(c: DefectCase): CatalogueEntry {
   return {value: c.name, label: `${c.name}: ${c.residueClass}${note}`};
 }
 
-/** The selector's groups, in the order shown; a group with no entries is left out. */
+/** A pinned case's option: its key, and the other tables that pin it too. */
+function pinnedEntry(c: PinnedCase): CatalogueEntry {
+  const also = c.pins.slice(1).map(p => p.table);
+  return {value: c.value, label: also.length ? `${c.key} (also ${also.join(', ')})` : c.key};
+}
+
+/** The pinned cases' groups, one per group, in the cases' order. */
+function pinnedGroups(cases: readonly PinnedCase[]): CatalogueGroup[] {
+  const out: CatalogueGroup[] = [];
+  for (const c of cases) {
+    const label = pinnedGroupLabel(c.group);
+    const last = out[out.length - 1];
+    if (last && last.label === label) last.entries.push(pinnedEntry(c));
+    else out.push({label, entries: [pinnedEntry(c)]});
+  }
+  return out;
+}
+
+/** The selector's groups, in the order shown, every entry labelled with its facts; a group with no entries is left out. */
 export function catalogueGroups(s: CatalogueSources): CatalogueGroup[] {
   const groups: CatalogueGroup[] = [
     {label: 'Fixtures', entries: named(s.shell)},
@@ -100,9 +167,12 @@ export function catalogueGroups(s: CatalogueSources): CatalogueGroup[] {
     {label: 'Goldens (golden/*.input.json)', entries: filesOf(s.goldens)},
     {label: 'Playtest seeds (fixtures/playtest)', entries: filesOf(s.playtest)},
     {label: 'Defect cases', entries: s.defects.map(defectEntry)},
+    ...pinnedGroups(s.pinned),
     {label: 'Draft', entries: s.draft ? [s.draft] : []},
   ];
-  return groups.filter(g => g.entries.length > 0);
+  return groups
+    .filter(g => g.entries.length > 0)
+    .map(g => ({label: g.label, entries: g.entries.map(e => withFacts(e, s.facts))}));
 }
 
 /** The filter's words, lower-cased: every one must appear in an entry's group, label or value. */
