@@ -36,9 +36,10 @@ const genusOf = (name: string): number => (name.startsWith('Courtyard') ? 1 : 0)
 /**
  * How many rises each fixture builds: FlushT none (its crossbar's hip wins), AdjacentRises two,
  * GableBesideHipSouthWing two (Ring 0's W gable is a rise on the x = 0 wall the wing's hipped W side continues, as
- * before journal decision 220), RiseFacingRiseWall two (one on each long side), every other one.
+ * before journal decision 220), RiseFacingRiseWall two (one on each long side), RiseBeforeTStemBarRisen three (one on
+ * the bar's S wall, one on each of its N walls), every other one.
  */
-const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2, GableBesideHipSouthWing: 2, RiseFacingRiseWall: 2};
+const RISES: Record<string, number> = {FlushT: 0, AdjacentRises: 2, GableBesideHipSouthWing: 2, RiseFacingRiseWall: 2, RiseBeforeTStemBarRisen: 3};
 
 /**
  * F69 (journal decision 203, WP-G2's brief): the re-tag pass reports a coplanar Wall over a Gable only where an output
@@ -144,6 +145,13 @@ const INDEPENDENT: Record<string, {limit?: HandWall | NoLimit; limits?: Record<s
   // Journal decision 231: the N wall carries a rise of its own, and its 45° hip slope still truncates the 75° rise at its
   // own wall: 490 at y = 10, as in TruncatedRise. The N rise is limited by the S wall's slope in turn.
   RiseFacingRiseWall: {limits: {'y=0': ['y', 500, -1], 'y=500': ['y', 0, 1]}, at: [500, 10], z: 250 + 490},
+  // Journal decisions 231 and 233: no slope limit, so the 75° rakes' apex, 200 t(75) = 746.4, runs at full height to the
+  // N wall, 0.08 cm short of which this reads it; the N gable stands only 500 there.
+  RiseRunsToFarGable: {limit: 'none', at: [500, 499.9], z: 250 + t(75) * 200},
+  // The gate of journal decision 231's last clause: the bar's two N walls each carry a rise, and the bar's N slope (y = 400)
+  // still limits the S rise, 250 at y = 150 as in RiseBeforeTStem. Passed over, the walk would run on into the stem and
+  // take its end's slope (y = 1000), and the top here would be the rakes' 335.9. The N rises are limited by the S slope.
+  RiseBeforeTStemBarRisen: {limits: {'y=0': ['y', 400, -1], 'y=400': ['y', 0, 1]}, at: [490, 150], z: 250 + 250},
 };
 
 describe('journal decision 209, M1: each rise fixture against hand-named planes and hand-computed heights', () => {
@@ -161,7 +169,7 @@ describe('journal decision 209, M1: each rise fixture against hand-named planes 
       for (const r of plan.rises ?? []) expect(r.limitPlane).toBe(planeOfWalls(plan, axis, at, inward));
     } else if (want.limits) {
       const on = (r: NonNullable<typeof plan.rises>[number]): string => (r.piece.wall.a.x === r.piece.wall.b.x ? `x=${r.piece.wall.a.x}` : `y=${r.piece.wall.a.y}`);
-      expect((plan.rises ?? []).map(on).sort()).toEqual(Object.keys(want.limits).sort());
+      expect([...new Set((plan.rises ?? []).map(on))].sort()).toEqual(Object.keys(want.limits).sort());
       for (const r of plan.rises ?? []) {
         const [axis, at, inward] = want.limits[on(r)];
         expect(r.limitPlane, on(r)).toBe(planeOfWalls(plan, axis, at, inward));
@@ -546,6 +554,9 @@ describe('journal decision 231: a slope not in the finished building does not li
   };
 
   // The predicate reads how the storey is planned: a wall the solve takes as a gable and algorithm B builds whole.
+  // Mutation (the walk passes over every wall carrying a rise): fails here, and on RiseBeforeTStemBarRisen's row above.
+  // RiseFacingRiseWall's row alone cannot convict it: the walk there meets nothing beyond the N face, and the built-roof
+  // fallback reads that face back, since no piece covers it.
   it('the predicate: a wall algorithm B builds as a gable has no hip slope in the building; a hip, a rise\'s wall and a cut have theirs', () => {
     const gabled = planStorey(rise('RiseFacingGabledWall'), 0);
     expect(slopeInBuilding(gabled, wallAt(gabled, 'y', 500, -1, 500))).toBe(false);
@@ -583,6 +594,23 @@ describe('journal decision 231: a slope not in the finished building does not li
     expect(r.limitPlane).toBeUndefined();
     expect(r.cap).toBeUndefined();
     expect(r.piece.planes.map(id => plan.building.planes[id].label)).toEqual(['rake from 300 on y=0 x[0,1000]', 'rake from 700 on y=0 x[0,1000]']);
+  });
+
+  // Journal decision 233: a rise with no slope limit runs to the far wall, and where it stands above the far gable it
+  // shows there as a second gable. F70's case: the N gable's apex is 500 t(45) = 500, the rise's 200 t(75) = 746.4, so
+  // the one Gable face on y = 500 peaks at 746.4 over x = 500. Before decision 231 the far skeleton plane truncated the
+  // rise at 500 and the N gable kept its own apex.
+  it('RiseRunsToFarGable: the ridge reaches the N wall at its full height, a second gable on that wall, and the build is clean', async () => {
+    const b = await build(rise('RiseRunsToFarGable'));
+    expect(invariantViolations(b, {genus: 0, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    const north = b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[1] - 1) < 1e-9 && f.loops[0].every(p => Math.abs(p[1] - 500) < 1e-6));
+    expect(north).toHaveLength(1);
+    const top = north[0].loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
+    expect(top[0]).toBeCloseTo(500, 2);
+    expect(top[2]).toBeCloseTo(250 + t(75) * 200, 2);
+    // Either side of the rise the face is the N gable's own: 250 + 200 at x = 200.
+    expect(intervalTop(b.union, 200.013, 499.917, 250.5)).toBeCloseTo(250 + 200, 1);
   });
 });
 

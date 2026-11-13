@@ -392,9 +392,10 @@ export const hipRoofReadingOf = (slopeIn: SlopeInBuilding): RidgeSlopeReading =>
 };
 
 /**
- * Decision 11's fallback (journal decisions 204 and 231): the same walk over the roof as built before any rise. It
- * returns the plane of a hip face whose slope `slopeIn` says is not built only where no piece stands level with or above
- * that face, so only where that slope is in the finished building after all.
+ * Decision 11's fallback (journal decisions 204 and 231): the same walk over the roof as built before any rise, read
+ * literally. It may return the plane of a gabled wall's face, which `slopeIn` says is not built, but only where no piece
+ * stands level with or above that face, as where the gable's piece stops at its far wall short of the face's depth.
+ * There the face is the roof as built, so its slope is in the finished building and limits (journal decision 233).
  */
 export const builtRoofReadingOf = (slopeIn: SlopeInBuilding): RidgeSlopeReading => ctx => {
   const b = ctx.plan.building, faces = islandFaces(ctx, slopeIn);
@@ -429,7 +430,8 @@ export type LimitPolicies = Readonly<Record<RiseLimit, LimitPolicy>>;
  * Decision 11 (journal decisions 204 and 231, F70): no point of the rise stands above the roof slope just beyond the main
  * ridge its own ridge runs into, extended back to its wall; a slope that is not in the finished building is no such
  * slope. Read by `RIDGE_SLOPE_READINGS`. **A rise none of them limits has no slope limit** (journal decision 231, which
- * replaces decision 206's `PlanRefusal`): its rakes and caps alone bound it.
+ * replaces decision 206's `PlanRefusal`): its rakes and caps alone bound it. Such a rise runs to its far wall, and where
+ * it stands above the roof there it shows as a second gable on that wall (journal decision 233: accepted as built).
  */
 export const ridgeSlope: LimitPolicy = ctx => {
   for (const reading of RIDGE_SLOPE_READINGS) {

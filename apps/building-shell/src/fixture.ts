@@ -222,6 +222,12 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  *   nothing else does: the rise's ridge runs back at its apex until it dies into the main slope.
  * - `RiseFacingRiseWall`: a 75 degree rise facing a wall that carries a 60 degree rise of its own. That wall's hip slope
  *   is still in the finished building (journal decision 231), so it truncates the 75 degree rise as `TruncatedRise`'s.
+ * - `RiseRunsToFarGable`: F70's case, a 75 degree rise on a 45 degree hip facing a wall gabled along its whole length at
+ *   45. With no slope limit (journal decision 231) its ridge runs at its full height to that wall and stands above its
+ *   gable there, showing as a second gable on it (journal decision 233, the user: exactly correct for these inputs).
+ * - `RiseBeforeTStemBarRisen`: `RiseBeforeTStem` with a rise on each of the bar's two N walls. Those walls keep their
+ *   hip slope (journal decision 231), so the bar's N slope still limits the S rise; were it passed over, the walk would
+ *   go on into the stem and take its end wall's slope.
  */
 export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
   const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideForm => ({form: 'hip', runs: [{from, to, form: 'gable', deg, ...extra}]});
@@ -247,6 +253,11 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('GableBesideHipSouthWing', [...besideHip, ring([0, -400, 600, 0], 0, 1, 22.5)]),
     fixture('RiseFacingGabledWall', [ring(R, 0, 1, 60, {N: {form: 'gable', deg: 30}, S: gableRun(300, 700, 75)})]),
     fixture('RiseFacingRiseWall', [ring(R, 0, 1, 45, {N: gableRun(400, 600, 60), S: gableRun(300, 700, 75)})]),
+    fixture('RiseRunsToFarGable', [ring(R, 0, 1, 45, {N: gable, S: gableRun(300, 700, 75)})]),
+    fixture('RiseBeforeTStemBarRisen', [
+      ring([0, 0, 1000, 400], 0, 1, 45, {S: gableRun(400, 600, 75), N: {form: 'hip', runs: [{from: 100, to: 300, form: 'gable', deg: 45}, {from: 700, to: 900, form: 'gable', deg: 45}]}}),
+      ring([400, 400, 600, 1000], 0, 1, 45),
+    ]),
   ];
 })();
 

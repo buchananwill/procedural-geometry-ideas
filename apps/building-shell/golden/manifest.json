@@ -2452,6 +2452,123 @@
     ]
    },
    "violations": []
+  },
+  {
+   "fixture": "RiseFacingGabledWall",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "RiseFacingGabledWall.json",
+   "union": "RiseFacingGabledWall.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 178,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "RiseFacingRiseWall",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "RiseFacingRiseWall.json",
+   "union": "RiseFacingRiseWall.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 138,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "RiseRunsToFarGable",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "RiseRunsToFarGable.json",
+   "union": "RiseRunsToFarGable.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 148,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "RiseBeforeTStemBarRisen",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "RiseBeforeTStemBarRisen.json",
+   "union": "RiseBeforeTStemBarRisen.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 124,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
   }
  ]
 }
