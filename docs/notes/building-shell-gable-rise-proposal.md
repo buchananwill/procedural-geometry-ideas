@@ -124,6 +124,13 @@ Numbers are for citation. They are not an order of work.
       intersection of the line with the face polygons, never a sampling.
     - **Where the walk finds no such face, the limit is the plane of the built roof's first falling face on the
       same walk.** Measured, this happens only where the walk runs along a courtyard cut.
+    - **AMENDED 2026-11-13 by the user's ruling (journal decision 231). A slope that is not in the finished
+      building does not limit a rise.** The walk passes over the skeleton face of a wall that is gabled along its
+      whole length, because that slope is replaced by the wall's own gable, and goes on to the next falling face.
+      Where the walk and the built-roof fallback find no slope, the rise has no slope limit and only its caps
+      bound it. STRUCK: the earlier acceptance of a gabled opposite wall's skeleton plane as a limit, and the
+      `PlanRefusal` for a walk that finds nothing. A wall that carries a rise on part of its length keeps its hip
+      slope, and still limits.
     - **Rises do not limit each other.** The walk never reads another rise.
     - **Known shape, accepted**: on a hip end or a wing end the walk runs along the main ridge, so a rise taller
       than that ridge rides along it to the far end's hip plane. `maxHeight` of decision 12 is the author's remedy.

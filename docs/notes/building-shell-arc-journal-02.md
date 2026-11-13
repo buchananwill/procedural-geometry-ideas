@@ -618,6 +618,18 @@ ruled" list in the covered-storeys findings. Added this session:
      file-backed selection, which is the only behaviour change. The delegate's record: 8,928 passed in 41 files,
      typecheck clean. Its rect-aliasing test was not run against the old code, so that test is unconvicted. The
      commit also touched `defect-cases.ts` and three existing viewer tests, as the review's findings required.
+231. **A slope that is not in the finished building does not limit a gable** (the user, 2026-11-13, on the sagging
+     ridge of F77: "an obvious misapplication of the rule. The limiting slope here isn't in the finished building:
+     it's replaced by its own gable. It therefore shouldn't be used to clamp the opposite gable."). This amends
+     gable rise decision 11 and overrules two things the lead had let stand: F70's "against a gabled opposite wall
+     the walk gives that wall's skeleton plane ... the result is clean", which decision 204 accepted, and the
+     open item that asked whether that phantom plane was wanted. **The lead's reading, to be built**: the limit
+     walk passes over the skeleton face of any wall whose hip slope is not built because the wall is gabled along
+     its whole length, and goes on to the next falling face. **Where the walk and the built-roof fallback then
+     find no slope, the rise has no slope limit**; its caps still apply. That replaces the `PlanRefusal` of
+     decision 206, which no fixture reached. A wall that carries a rise on part of its length still has its hip
+     slope in the finished building, and still limits. It applies to rises as built today, not only to the
+     one-path model, of whose three problems it is the first. WP-L1 builds it.
 
 ## Findings
 
