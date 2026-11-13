@@ -652,6 +652,28 @@ ruled" list in the covered-storeys findings. Added this session:
        though most of it lies under its own rise. About 68 rises in the corpus.
      - **One gate is not convicted**: skipping the slope of a wall that merely carries a rise fails only the
        predicate's unit test, because the fallback reads the uncovered face back.
+233. **The run-through is accepted, and the lead is not to tame what the inputs justify** (the user, 2026-11-13).
+     On decision 232's question the user chose "Accept the run-through", having built the case: "what I saw
+     looked exactly correct for the already slightly silly inputs I provided." And as a standing steer:
+     "Fundamentally, this is a mad set of inputs. The result justifiably looks mad. Trying to tame it is presuming
+     something the user hasn't specified. You're being an LLM, trying to regress back to some mean that will feel
+     secure." **What this rules for the arc**: geometry that is clean and follows the rules as stated is correct,
+     however odd it looks. A limit, cap or refusal is added only where the user specifies one or where the result
+     is a defect by the project's tests (not closed, an Unclassified Edge, a Cheek, a part through another
+     storey). The lead's recommendation in decision 232 to cap such a rise at the main roof is withdrawn. **The
+     lead applies the same test to its own provisional defaults in decision 204**: the wall-top cap stays,
+     because without it a rise breaks through the storey above (F68), which is a defect; the "tall rise on a hip
+     end" item is no longer a question, since it is the same run-through and is accepted. WP-L1 is resumed to
+     finish.
+234. **A stretch goal: the editor gains a parameter that clamps the height of any roof section above its owning
+     wall** (the user, 2026-11-13: "as a separate stretch goal ... I can't see this currently if it does
+     exist"). It does not exist in the editor. The pipeline has `maxHeight` on a gable run only (gable rise
+     decision 12), kept out of the editor by decision 210 because `input@1` has no field for it. **The lead's
+     reading of the goal, to be confirmed in a proposal before it is built**: every side, hipped or gabled, whole
+     or a stretch, may carry a maximum height above its plate, giving a flat top; the author sets it, and nothing
+     sets it for them. It needs three things that are each a decision: the clamp on a hip slope and on a
+     whole-wall gable, which the pipeline cannot do today; a wire field, which the C++ side must mirror; and its
+     meeting with the C++ roof stage's existing flat clamp (F63). Not started. It follows WP-L1.
 
 ## Findings
 
