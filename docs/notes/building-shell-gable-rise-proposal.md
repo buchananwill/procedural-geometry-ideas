@@ -101,9 +101,16 @@ Numbers are for citation. They are not an order of work.
       plane of decision 8". That was the lead's mis-reading of the user's words. The two agree on a rectangle. Off
       a rectangle the far wall is the wrong slope, and where it is a courtyard cut or a gable it gives no plane at
       all (journal F66). Decision 8's "far wall's hip plane" is replaced by this limit.
-    - **Not yet defined: the limit when no ridge crosses the rise's path**, as when the opposite wall is a
-      whole-wall gable and the main ridge runs parallel to the rise's. It is owed by WP-G1.1, and may need the
-      user's ruling.
+    - **DEFINED 2026-11-13 (journal decision 204, F70), provisional until the user confirms.** Take the storey's
+      solved hip roof with no rise added: the skeleton's faces, one per wall, gabled and cut walls included. Walk
+      inward from the middle of the rise's band, square to its wall. **The limit is the plane of the first face
+      entered whose slope falls in the walking direction.** One plane serves the whole band. The walk is an exact
+      intersection of the line with the face polygons, never a sampling.
+    - **Where the walk finds no such face, the limit is the plane of the built roof's first falling face on the
+      same walk.** Measured, this happens only where the walk runs along a courtyard cut.
+    - **Rises do not limit each other.** The walk never reads another rise.
+    - **Known shape, accepted**: on a hip end or a wing end the walk runs along the main ridge, so a rise taller
+      than that ridge rides along it to the far end's hip plane. `maxHeight` of decision 12 is the author's remedy.
     - Other policies the user can imagine are not designed here. Each is added with its own decision.
     - `limit` is an in-memory field on a gable run. `input@1` gains a field for it only when a second policy
       exists, and that is a wire change with its own ruling.
@@ -126,11 +133,15 @@ Numbers are for citation. They are not an order of work.
     - **A capped rise has a flat top. MEASURED 2026-11-12 (journal F65)**: it is a `Roof` face on its own
       horizontal plane, bounded by Ridge, Valley, Verge, and RingJunction against a wall, with Roof Cells of null
       source. Nothing is Unclassified and no new kind is needed, so decision 13 holds for capped rises too.
-    - **A rise that reaches the floor cap fuses with the overhang** (journal F67, decision 203). The genus of the
-      shell then follows from the shape, and decision 20's genus check takes it from the geometry. The lead's
-      reading, flagged to the user, who may prefer a gap below the floor.
-    - **A rise that stands above the top of the storey directly over its own storey breaks through it** (journal
-      F68). No rule covers this yet. It waits for the user.
+    - **AMENDED 2026-11-13 (journal decision 204), provisional until the user confirms. The floor cap sits 1 cm
+      below the overhanging floor.** The cap is one named constant. STRUCK: "a rise that reaches the floor cap
+      fuses with the overhang". Fused contact gives an `Unclassified` Gable–Underside Edge (journal F71). It can
+      return as a policy once that Edge has a kind.
+    - **AMENDED 2026-11-13 (journal decision 204), provisional until the user confirms. A rise is also capped at
+      the wall top of the storey directly above its own**, where that storey's plan overlaps the rise's reach.
+      This closes the breakthrough of journal F68. A rise under a flush upper wall is then buried whole.
+    - **The three caps (`maxHeight`, the floor cap, the wall-top cap) are horizontal planes over the whole rise,
+      and the lowest applies.** A rise whose lowest cap is at or below its plate builds no piece.
     - The original text read: "A rise under a storey above obeys the same precondition as every lower roof: it
       must stay beneath the top of the storey over it. This proposal does not solve that precondition."
 

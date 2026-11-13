@@ -93,6 +93,12 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
      findings, amend the gable rise proposal where a decision did not hold, and build the rise only if every
      class is clean or clean under a stated condition. A class that is not clean waits for the user
      (decision 200).
+   - **WP-G1 accepted at `e45304b` (decision 203). WP-G1.1 dispatched 2026-11-12** to the same delegate, resumed:
+     define `ridgeSlope` in words, re-run the whole sweep under it, measure where the definition is strained, the
+     overhang fused and with a gap, and a wall-top cap under the storey directly above as a candidate.
+   - **For the user, before the rise is built**: (a) confirm the limit is the slope beyond the ridge
+     (decision 203); (b) fused contact at the floor cap, or a gap (F67); (c) the rule for a rise under the storey
+     directly above (F68); (d) the limit when no ridge crosses the rise's path, if WP-G1.1 finds no natural one.
 8. **The message to the C++ side was sent to `claude-work-ec` on 2026-11-12**, which the user thinks is the UI/UX
    polish lead ("I think"). The message asks it to say so if it is not. It carries decisions 191, 192, 194 and
    195, the consequences for the port, and two questions: whether the game UI can request a form on part of one
@@ -252,6 +258,30 @@ ruled" list in the covered-storeys findings.
      - **Gable rise decisions 3, 6 and 21 are corrected in place** where the sweep showed their wording wrong.
      - **Building the rise waits for the user** (decision 200), on F68 and on confirming the two readings above.
        WP-G1.1 is measurement and proceeds.
+204. **WP-G1.1 is accepted at `3a8c469`, and the rise is built on provisional defaults that the user can reverse**
+     (the lead, 2026-11-13). The lead told the user the rise would be built only if every class is clean or clean
+     under a stated condition. After WP-G1.1 every class is clean under a stated limit policy (F70 to F72). The
+     limits are policies chosen by data (decision 194), so a default the user reverses is a default swapped, not a
+     rebuild. The work stays on the arc branch, unpushed. **Each default below is the lead's, is provisional, and
+     is put to the user:**
+     - **`ridgeSlope` is defined by a walk** (F70): from the middle of the rise's band, square to its wall and
+       inward, over the storey's solved hip roof with no rise added; the limit is the plane of the first skeleton
+       face entered whose slope falls in the walking direction.
+     - **Where the walk finds no such face, the limit is read from the built roof at the same walk** (the sweep's
+       `ridgeRoof`). Measured: this happens only along a courtyard cut, and the fallback is clean there.
+     - **STRUCK: decision 203's reading that a rise fuses with an overhanging floor.** Fused contact gives an
+       `Unclassified` Gable–Underside Edge (F71), which is not clean. **The floor cap sits 1 cm below the floor**,
+       which measured clean at genus 0. Fused contact is a later policy, and needs an Edge kind first.
+     - **A rise is also capped at the wall top of the storey directly above its own**, where that storey's plan
+       overlaps the rise's reach (F72). This cures the breakthroughs of F68, and a rise under a flush upper wall
+       is buried whole, which is right. It extends the user's decision 195 to the case that decision's reading
+       left open.
+     - **A rise on a hip end, taller than the main ridge, rides along that ridge** to the far end's hip plane
+       (F70). It is clean and follows from the rule. The author's `maxHeight` is the remedy. Flagged to the user as
+       a shape they may not want.
+     - **Rises do not limit each other**: the walk reads the hip roof without rises.
+     Gable rise decisions 11 and 12 are amended in place. WP-G2 builds the pipeline and the wire; the editor's run
+     list follows as WP-G3.
 
 ## Findings
 
@@ -364,3 +394,30 @@ above a storey over it.
   `StoreyRingConflictSwapped` with a rise reports 1 conflict where today's build reports 2, and the same overlap
   elsewhere reports none. The Wall winning is correct. This is a property of today's pipeline, not of rises, and
   it means conflict counts are not a stable measure across re-triangulation.
+
+F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead has not re-run them.
+
+- **F70. Under `ridgeSlope` the sweep is clean everywhere except where the rise's centreline runs along a courtyard
+  cut.** 232 builds re-run: 217 clean. The limit plane differs from the far wall's in 22 builds, and the shell
+  differs in 13.
+  - **Cured**: the rise facing the cut (4 Cheeks under the far-wall limit, none now). In front of a T stem the
+    rise now stops at the bar's ridge.
+  - **New, 1 Cheek each in 3 builds**: a rise on the courtyard's outer wall whose band lies across the end of the
+    zero-width cut. The hip roof is at plate height along the cut, so the walk meets only level faces and finds no
+    limit. Smallest: the roster `Courtyard` at 30°, Ring 0 W gabled from 0 to 100 at 45° and Ring 2 W gabled from
+    300 to 400 at 45°. Reading the limit from the built roof instead is clean there.
+  - **Strained cases, 157 builds**: clean near a corner, into a reflex corner, at a pyramid apex, on a wide band,
+    for opposite rises, on courtyard hole walls and with an off-centre ridge. Against a gabled opposite wall the
+    walk gives that wall's skeleton plane, which is not a visible roof face, and the result is clean. Splitting a
+    wide band by the faces behind it gives 2 Cheeks, so the centreline's one plane serves the whole band.
+  - **On a hip end or a wing end the centreline runs along the main ridge**, and the limit is the far end's hip
+    plane. A 75° rise then stands 123 cm above the main ridge for 750 of 1000 cm. Clean.
+  - **No single alternative covers every case**: reading the built roof gives nothing against a gabled far wall,
+    and a flat cap at ridge height throws along the cut.
+- **F71. A rise fused to an overhanging floor produces an `Unclassified` Gable–Underside Edge; a gap does not.**
+  Fused, 6 builds: genus 1, Roof–Underside Edges classify as `SoffitJunction`, and where the overhang projects past
+  the wall 1 Gable–Underside Edge is `Unclassified`. This is the pair session 1 §5 predicted. With a 1 cm or 5 cm
+  gap, 12 builds: genus 0, clean, a `Roof` flat top under the `Underside`, no face under 10 cm².
+- **F72. A horizontal cap at the wall top of the storey directly above cures the breakthroughs of F68.** Under a
+  set-back storey at 60° and 75° (9.4 cm and 149.7 cm uncapped) the capped rise is clean. Under a flush upper wall
+  the cap buries the rise wholly inside the upper storey, leaving only F69's conflict.
