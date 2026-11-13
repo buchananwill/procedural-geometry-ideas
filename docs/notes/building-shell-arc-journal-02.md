@@ -748,6 +748,22 @@ ruled" list in the covered-storeys findings. Added this session:
        unchanged within noise (about 345 ms warm), because a pinned fixture is drawn only when selected.
      - **Still not listed, accepted for now**: 13 clean goldens with no input file, and six defect cases with no
        input file, four of which are reachable as pinned cases.
+240. **The type review of WP-V2 is ruled on, and WP-V2.1 carries the fixes** (the lead, 2026-11-13). Two blocking
+     items and three notes accepted, none behavioural: the facts table keyed by a generated tuple of catalogue
+     values, so a stale row is a compile error; `PinnedCase` as a discriminated union with no cast; the seeded
+     generators keyed by their family union; a test that ties the viewer's list of pin tables to the exports of
+     `tests/residue-pins.ts`, which is the drift "one source of truth" is meant to prevent; and the fact tags
+     derived from one spec. `Selection` was found sound. The lead reads the diff.
+241. **The T layout of decision 238 is correct, and a second stretch goal: direct manipulation, starting with
+     inserting a slice along a Ring** (the user, 2026-11-13, having built the T: "nothing here is illogical. The
+     output is correct for inputs which no self-respecting architect would ask for."). The user notes the editor
+     is "still primitively field based". **Stretch goal, explicitly not for today**: a UI that lets the author do
+     things such as insert a slice along a Ring, as "a quick way to place extra geometry if the user wants to
+     provide a limit where a rogue gable needs to terminate". **The lead's reading, to be confirmed when it is
+     taken up**: an edit that cuts a Ring across at a chosen position, giving the author a new Ring (or a new
+     band of one) whose roof can stop a gable, done by pointing in the viewport and not by typing coordinates.
+     It joins decision 234's height clamp as a stretch goal. Both follow the same idea as decision 237: the
+     author removes an unwanted feature by a small, deliberate change, and the solver does not presume one.
 
 ## Findings
 
