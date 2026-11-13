@@ -941,6 +941,21 @@ ruled" list in the covered-storeys findings. Added this session:
      once at least one of the active worktrees wraps up". The lead sends the C++ side nothing further about
      porting until the user names who has it. What this arc owes the port is a contract fit to hand over: the
      proposal with its amendments folded into the spec (§4), and goldens that are right.
+251. **How partly facing gables join has no universal rule: it is a parameter or strategy injected into the
+     solver** (the user, 2026-11-13: "This is another question that doesn't have an objective answer. Sometimes
+     the staggered-gable design might be intentional, sometimes not. There's no way to create a universal rule: it
+     has to be a parameter or strategy injected into the overall solver."). This is decision 194 again ("supports
+     multiple solutions, with the data choosing"), now for the facing test of decision 243's rule 1. **The
+     centre-line test stays as the present default and is no longer a rule.** What the lead takes from it:
+     - The choices this arc has made that are of this kind, each already behind a named seam in `src/rise.ts`:
+       the limit policy (`RISE_LIMIT_POLICIES`), the walk's readings and rules (`RIDGE_SLOPE_READINGS`,
+       `WALK_RULES` with `gableOverWalk` and `gableEnd`), the caps (`RISE_CAPS`), and the two-pitch sub-rule of
+       decision 220. None can be chosen from outside the pipeline today, except a rise's `limit` and `maxHeight`
+       on a run in a fixture.
+     - **Not yet decided, and put to the user**: where a strategy is chosen (for the whole building, per Ring
+       side, per gable stretch), and whether it travels in `input@1`. Without a wire field the editor's download
+       loses it, as it loses `maxHeight` (decision 210), and the C++ side cannot be told which was used.
+     - Nothing is built for this yet.
 
 ## Findings
 
