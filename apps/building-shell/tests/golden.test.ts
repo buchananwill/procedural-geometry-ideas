@@ -74,7 +74,9 @@ describe('the golden set (journal decisions 129 and 131): a fresh export is the 
     const throwing = replayable.filter(e => 'error' in e);
     // WP-G2 (gable rise decision 3, journal decision 206) cured Court25Seed1h250, SplitCourt10Seed2h250 and
     // Court35Seed11h250; the Court25 class's one member left, Court25Seed1h263, is not replayable (its storey height).
-    expect(throwing.map(e => e.fixture)).toEqual(['U8Seed6h300']);
+    // Journal decisions 243 to 245 (WP-L2): U8Seed6h300, the last, now builds a covered rise, so it is not replayable either,
+    // and no golden is a replayable throw. The schema's gate is still held by the built entry below.
+    expect(throwing.map(e => e.fixture)).toEqual([]);
     const built = replayable.find(e => 'shell' in e);
     expect(built).toBeDefined();
     for (const e of [...throwing, ...(built ? [built] : [])]) {
@@ -254,7 +256,8 @@ describe('C++ replayability (journal decision 152, amended)', () => {
 
   /**
    * Gable rise decision 17 (WP-G2): a document whose fixture builds a rise on any storey is not yet replayable, the rule
-   * restated from the pipeline's own derivation of each storey's union walls, journal decision 220's rises included.
+   * restated from the pipeline's own derivation of each storey's union walls, journal decision 220's rises included, and
+   * its covered rises (journal decision 243, rule 3).
    */
   function rises(w: BuildingShellInputV1): string[] {
     const r = readInput(JSON.parse(JSON.stringify(w)), 'rises');
@@ -265,7 +268,9 @@ describe('C++ replayability (journal decision 152, amended)', () => {
       const rings = storeyRings(r.fixture, n);
       let walls: readonly UnionWall[];
       try {
-        walls = storeyForms(rings).walls;
+        const forms = storeyForms(rings);
+        if (forms.covered.length) return true;
+        walls = forms.walls;
       } catch (e) {
         if (!(e instanceof PlanRefusal)) throw e;
         try { walls = unionWallForms(rings, storeyLoops(rings.map(x => x.ring.rect))); } catch (e2) { if (e2 instanceof PlanRefusal) return false; throw e2; }

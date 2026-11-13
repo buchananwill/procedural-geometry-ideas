@@ -1287,10 +1287,8 @@
    "union": "Court16Seed1h250.union.json",
    "report": {
     "conflicts": [
-     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 7 (part 9) over Gable storey 0 wall 3 (part 6)",
-     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 9 (part 9) over Gable storey 0 wall 5 (part 5)",
-     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 9) over Gable storey 0 wall 2 (part 2)",
-     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 15) over Gable storey 1 wall 6 (part 11)"
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 10) over Gable storey 0 wall 2 (part 2)",
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 16) over Gable storey 1 wall 6 (part 12)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
@@ -1755,7 +1753,10 @@
   },
   {
    "fixture": "Court14Seed7h250",
-   "cppReplayable": true,
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
    "expectedGenus": [
     1
    ],
@@ -1766,10 +1767,9 @@
    "residueClass": "algorithm-B Cheek",
    "shell": "Court14Seed7h250.json",
    "union": "Court14Seed7h250.union.json",
-   "input": "Court14Seed7h250.input.json",
    "report": {
     "conflicts": [
-     "Court14Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 2 wall 0 (part 8) over Gable storey 1 wall 4 (part 7)"
+     "Court14Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 2 wall 0 (part 9) over Gable storey 1 wall 4 (part 8)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
@@ -1787,28 +1787,16 @@
    ]
   },
   {
-   "fixture": "Court25Seed1h263",
+   "fixture": "U8Seed6h300",
    "cppReplayable": false,
    "reasons": [
-    "storey height not a whole number of Cells",
     "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
    ],
-   "expectedGenus": [
-    1
-   ],
-   "clean": false,
-   "residueClass": "partial coplanar contact of two storeys",
-   "error": "cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1"
-  },
-  {
-   "fixture": "U8Seed6h300",
-   "cppReplayable": true,
    "expectedGenus": [
     0
    ],
    "clean": false,
    "residueClass": "edge contact between opposite coplanar faces",
-   "input": "U8Seed6h300.input.json",
    "error": "vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"
   },
   {
@@ -1934,46 +1922,6 @@
    "violations": [
     "genus per component 2, expected 1: genus 2 at (0, 0, 0)",
     "4 Roof-Underside Edges: SoffitJunction (250, 250, 500) to (250, 350, 500); SoffitJunction (250, 250, 500) to (750, 250, 500); SoffitJunction (250, 350, 500) to (750, 350, 500); SoffitJunction (750, 250, 500) to (750, 350, 500)"
-   ]
-  },
-  {
-   "fixture": "SplitCourt9Seed7h250",
-   "cppReplayable": false,
-   "reasons": [
-    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
-   ],
-   "expectedGenus": [
-    1
-   ],
-   "measuredGenus": [
-    1
-   ],
-   "clean": false,
-   "residueClass": "Gable-Wall edge Unclassified",
-   "shell": "SplitCourt9Seed7h250.json",
-   "union": "SplitCourt9Seed7h250.union.json",
-   "report": {
-    "conflicts": [
-     "SplitCourt9Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-150.000: Wall storey 2 wall 0 (part 12) over Gable storey 1 wall 0 (part 10)",
-     "SplitCourt9Seed7h250: n=(1.000000, 0.000000, 0.000000) d=700.000: Gable storey 1 wall 5 (part 11) over Gable storey 2 wall 5 (part 17)",
-     "SplitCourt9Seed7h250: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 1 wall 5 (part 8) over Gable storey 0 wall 2 (part 5)",
-     "SplitCourt9Seed7h250: n=(1.000000, 0.000000, 0.000000) d=700.000: Wall storey 2 wall 5 (part 14) over Gable storey 1 wall 5 (part 11)"
-    ],
-    "survivingInternal": 0,
-    "unclassifiedEdges": 2,
-    "cheeks": 0,
-    "partialCells": 145,
-    "newEdgeKinds": [
-     "GableSloped",
-     "Unclassified"
-    ],
-    "newConventions": [
-     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
-     "Roof lines cut exactly (C++: staircase)"
-    ]
-   },
-   "violations": [
-    "2 Unclassified Edges: (191.8310546875, 400, 500) to (200, 400, 500); (200, 400, 500) to (200, 400, 510.6455078125)"
    ]
   },
   {
@@ -2503,7 +2451,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
-    "partialCells": 138,
+    "partialCells": 160,
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
@@ -2565,6 +2513,155 @@
     "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OppositeGablesT65",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "OppositeGablesT65.json",
+   "union": "OppositeGablesT65.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 177,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OppositeGablesT75",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "OppositeGablesT75.json",
+   "union": "OppositeGablesT75.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 175,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OppositeGablesTCovered",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "OppositeGablesTCovered.json",
+   "union": "OppositeGablesTCovered.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 158,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "OppositeGablesTUnequal",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "OppositeGablesTUnequal.json",
+   "union": "OppositeGablesTUnequal.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 175,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "GableOnSharedWall",
+   "cppReplayable": false,
+   "reasons": [
+    "a side not one run from 0 to its length",
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "GableOnSharedWall.json",
+   "union": "GableOnSharedWall.union.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 70,
+    "newEdgeKinds": [],
+    "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
     ]
    },

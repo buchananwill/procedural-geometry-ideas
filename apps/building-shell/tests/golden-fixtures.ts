@@ -181,8 +181,12 @@ export const UNMOVED_BY_FILE_ORDER: readonly ModelOrderConflict[] = ['FlushRingC
 /**
  * Residue classes gable rise decision 3 left with no member (WP-G2, journal decision 206): their every pinned case was a
  * whole-wall gable over a contested wall, now a hip with a rise. Reported as emptied, never filled with a weaker case.
+ * Journal decisions 243 to 245 (WP-L2) empty two more: the covered rises cure every pinned case of the Court25 throw and
+ * of the SplitCourt9 class's Unclassified Gable-Wall Edges.
  */
-export const EMPTIED_BY_GABLE_RISES: readonly ResidueClass[] = ['cleanMesh stuck cap', 'Cell outside its face fan'];
+export const EMPTIED_BY_GABLE_RISES: readonly ResidueClass[] = [
+  'cleanMesh stuck cap', 'Cell outside its face fan', 'partial coplanar contact of two storeys', 'Gable-Wall edge Unclassified',
+];
 
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
@@ -254,25 +258,36 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
  * - and decision 175's F55: CourtyardJutCutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
  *
  * Emptied by gable rise decision 3, so with no representative: the `cleanMesh` stuck cap (s2h250 SplitCourt10 was its
- * representative) and decision 156, F7's Cell-fan throw (s11h250 Court35).
+ * representative) and decision 156, F7's Cell-fan throw (s11h250 Court35). Emptied by journal decisions 243 to 245
+ * (WP-L2), whose covered rises cure both representatives: the Court25 throw (s1h263 Court25) and decision 156, F7's
+ * SplitCourt9 class (s7h250 SplitCourt9, and s10 Court18 at 263 and 300, its other members). The bullets above for
+ * those two are kept as the record of what they were.
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
   seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 7, 'Court14', 250, [1]),
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 1, 'Court25', 263, [1]),
   seededResidue(randomUFixtures, U_DEFECTS, 6, 'U8', 300, [0]),
   residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], NUDGE_DEFECTS, 'ApexEdge5'),
   residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
   rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
-  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 7, 'SplitCourt9', 250, [1]),
   residueGolden(namedCase(jutCutFixtures(), 'CourtyardJutCutSwapped'), [1], JUT_CUT_DEFECTS, 'CourtyardJutCutSwapped'),
 ];
 
 /**
- * Gable rise decisions 1 to 12: every rise fixture (`RISE_FIXTURES`), each clean, the courtyards' genus 1. Every one is
- * marked not yet C++-replayable (decision 17), so none ships an input.
+ * Journal decisions 237 and 243: the rise fixtures that build a Cheek, left out of the golden set. A Cheek there is a fact,
+ * pinned exactly by `tests/rise.test.ts`'s `CHEEKS`; but the writer enrols a violation only as a residue, and a residue
+ * golden of a rise ships no input (decision 17), which the viewer's defect cases cannot load.
+ * `OppositeGablesTPartFacing`'s S rise runs at full height to the N wall's line (rule 1), and over x [400, 450] that line
+ * is the stem's S side, under no gable: the rise's end standing above the stem's roof there is a Cheek.
  */
-export const RISE_GOLDENS: readonly CleanGolden[] = RISE_FIXTURES.map(f => cleanGolden(f, f.name.startsWith('Courtyard') ? [1] : [0]));
+export const RISE_FIXTURES_WITH_CHEEKS: readonly string[] = ['OppositeGablesTPartFacing'];
+
+/**
+ * Gable rise decisions 1 to 12: every rise fixture (`RISE_FIXTURES`) but those with a Cheek, each clean, the courtyards'
+ * genus 1. Every one is marked not yet C++-replayable (decision 17), so none ships an input.
+ */
+export const RISE_GOLDENS: readonly CleanGolden[] = RISE_FIXTURES.filter(f => !RISE_FIXTURES_WITH_CHEEKS.includes(f.name))
+  .map(f => cleanGolden(f, f.name.startsWith('Courtyard') ? [1] : [0]));
 
 /**
  * Journal decision 129: every named fixture, the roster, the Ring-conflict pairs, the four Port fixtures and the

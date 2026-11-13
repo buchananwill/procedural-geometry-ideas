@@ -447,6 +447,27 @@ export const FULL_WINGS_PROBE: ShellFixture = shellFixture('FullWingsProbe',
 export const CUT_OVERSHOOT_PROBE: ShellFixture = shellFixture('CutOvershootProbe',
   ([[0, 250, 250, 600], [0, 600, 650, 850], [400, 250, 650, 600], [0, 150, 650, 250]] as Rect[]).map(r => ring(r, 0, 1, 30)));
 
+/**
+ * Journal decision 245: `s1/Court29` reduced (Rings dropped, then side forms, while the defect held). Ring 3's S side is a
+ * covered rise (journal decision 243, rule 3) over x [650, 900] on y = 150, the courtyard cut's line, and the cut-piece
+ * overshoot appears on that cut over x [100, 300]: one Internal cut face surviving, 3 Unclassified Edges. Clean before
+ * decision 243.
+ */
+export const COVERED_RISE_ON_CUT_LINE: ShellFixture = shellFixture('CoveredRiseOnCutLine', [
+  ring([100, 0, 900, 150], 0, 2, 30, {E: {form: 'gable'}}), ring([100, 150, 300, 450], 0, 1, 52.5, {E: {form: 'gable'}}),
+  ring([100, 450, 900, 650], 0, 2, 52.5), ring([650, 150, 900, 450], 0, 2, 45, {S: {form: 'gable'}, W: {form: 'gable'}}),
+]);
+
+/**
+ * Journal decision 245: `s13/Court21` reduced as `COVERED_RISE_ON_CUT_LINE` is. The gabled S sides of Rings 2 and 3, each
+ * wholly on Ring 0's N side, are covered rises (journal decision 243, rule 3), and Cell laying throws "two Cells run the
+ * same way along one NetEdge" (journal F64, F74). One Cheek and 3 conflicts before decision 243.
+ */
+export const COVERED_RISE_CELL_CLASH: ShellFixture = shellFixture('CoveredRiseCellClash', [
+  ring([100, 0, 600, 250], 0, 2, 30, {S: {form: 'gable'}}), ring([100, 400, 600, 600], 0, 3, 30),
+  ring([100, 250, 300, 400], 0, 3, 30, {S: {form: 'gable'}}), ring([450, 250, 600, 400], 0, 2, 30, {S: {form: 'gable'}}),
+]);
+
 /** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
 export const F2_COURTYARDS: readonly ShellFixture[] = [
   shellFixture('s1h300/Court5', [
