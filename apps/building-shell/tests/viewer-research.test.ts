@@ -11,8 +11,8 @@ import {tanDeg} from '../src/ring-forms.ts';
 import {buildShell} from '../src/shell.ts';
 import {validate} from '../src/viewer/draft.ts';
 import {
-  RESEARCH_DEFAULT_DEG, RESEARCH_ENTRIES, RESEARCH_FIXTURES, RESEARCH_FOOTPRINTS, convertResearchCase, courtyardRects, degOfTan,
-  researchMismatches, researchName, researchNote,
+  RESEARCH_CASE_IDS, RESEARCH_DEFAULT_DEG, RESEARCH_ENTRIES, RESEARCH_FIXTURES, RESEARCH_FOOTPRINTS, convertResearchCase, copyRect,
+  courtyardRects, degOfTan, footprintOf, isResearchCaseId, researchMismatches, researchName, researchNote,
 } from '../src/viewer/research-cases.ts';
 import type {ResearchEntry} from '../src/viewer/research-cases.ts';
 
@@ -36,7 +36,7 @@ const fixtureOf = (id: string): ShellFixture => {
 
 const ends = (b: Building): string[] => b.walls.map(w => `${w.a.x},${w.a.y}>${w.b.x},${w.b.y}`);
 const pointSet = (loop: Pt[]): string[] => loop.map(p => `${p.x},${p.y}`).sort();
-const corners = (r: Rect): string[] => pointSet([{x: r[0], y: r[1]}, {x: r[2], y: r[1]}, {x: r[2], y: r[3]}, {x: r[0], y: r[3]}]);
+const corners = (r: Readonly<Rect>): string[] => pointSet([{x: r[0], y: r[1]}, {x: r[2], y: r[1]}, {x: r[2], y: r[3]}, {x: r[0], y: r[3]}]);
 
 /** The cases left out, and why: monopitch walls, two hip pitches on one Ring side, and an authored corner cut. */
 const LEFT_OUT: Readonly<Record<string, RegExp>> = {
@@ -49,18 +49,28 @@ const LEFT_OUT: Readonly<Record<string, RegExp>> = {
 const WIRE_PITCH_REFUSED = ['7e', '7f'];
 
 describe('the research footprints, restated from cases.ts', () => {
-  it('name every research case, and only those', () => {
+  it('RESEARCH_CASE_IDS is every case id of CASES, in its order, and nothing else', () => {
     expect(CASES).toHaveLength(53);
-    expect(Object.keys(RESEARCH_FOOTPRINTS).sort()).toEqual(CASES.map(c => c.id).sort());
+    const ids: readonly string[] = RESEARCH_CASE_IDS;
+    expect(CASES.map(c => c.id).filter(id => !ids.includes(id))).toEqual([]);
+    expect(ids.filter(id => !CASES.some(c => c.id === id))).toEqual([]);
+    expect(ids).toEqual(CASES.map(c => c.id));
+    expect(Object.keys(RESEARCH_FOOTPRINTS).sort()).toEqual([...ids].sort());
   });
 
-  it.each(CASES.filter(c => RESEARCH_FOOTPRINTS[c.id].kind === 'rects').map(c => [c.id] as const))('%s: the rects trace the case\'s own walls', id => {
+  it('finds no footprint for an id the tuple does not know', () => {
+    expect(isResearchCaseId('2b')).toBe(true);
+    expect(isResearchCaseId('10a')).toBe(false);
+    expect(footprintOf('10a')).toBeUndefined();
+  });
+
+  it.each(RESEARCH_CASE_IDS.filter(id => RESEARCH_FOOTPRINTS[id].kind === 'rects').map(id => [id] as const))('%s: the rects trace the case\'s own walls', id => {
     const f = RESEARCH_FOOTPRINTS[id];
     if (f.kind !== 'rects') throw new Error('not a rects case');
-    expect(ends(buildFromRects(f.rects, []))).toEqual(ends(caseOf(id).build()));
+    expect(ends(buildFromRects(f.rects.map(copyRect), []))).toEqual(ends(caseOf(id).build()));
   });
 
-  it.each(['9a', '9c', '9d'])('%s: the courtyard\'s outer and inner rects are the case\'s loops, and its four Rings trace them', id => {
+  it.each(['9a', '9c', '9d'] as const)('%s: the courtyard\'s outer and inner rects are the case\'s loops, and its four Rings trace them', id => {
     const f = RESEARCH_FOOTPRINTS[id];
     if (f.kind !== 'courtyard') throw new Error('not a courtyard case');
     const comp = caseOf(id).build().comps[0];
@@ -70,7 +80,7 @@ describe('the research footprints, restated from cases.ts', () => {
     const loops = unionLoops(courtyardRects(f));
     for (const l of loops) expect(l.every(p => p.x === bboxOf(l).x0 || p.x === bboxOf(l).x1 || p.y === bboxOf(l).y0 || p.y === bboxOf(l).y1)).toBe(true);
     const asRect = (l: Pt[]): Rect => [bboxOf(l).x0, bboxOf(l).y0, bboxOf(l).x1, bboxOf(l).y1];
-    expect(loops.map(asRect).sort()).toEqual([f.outer, f.inner].sort());
+    expect(loops.map(asRect).sort()).toEqual([copyRect(f.outer), copyRect(f.inner)].sort());
   });
 
   it('9b, left out, is 9a\'s annulus with another cut', () => {
@@ -91,8 +101,8 @@ describe('the research conversion', () => {
   it.each(RESEARCH_ENTRIES.filter(e => e.conversion.ok).map(e => [e.id] as const))('%s is exact: storey 0 has every wall in the case\'s form and pitch at every point', id => {
     const f = fixtureOf(id);
     expect(f.rings.every(r => r.baseStorey === 0 && r.storeys === 1 && r.defaultDeg === RESEARCH_DEFAULT_DEG)).toBe(true);
-    const fp = RESEARCH_FOOTPRINTS[id];
-    expect(f.rings.map(r => r.rect)).toEqual(fp.kind === 'rects' ? fp.rects : fp.kind === 'courtyard' ? courtyardRects(fp) : []);
+    const fp = footprintOf(id);
+    expect(f.rings.map(r => r.rect)).toEqual(fp?.kind === 'rects' ? fp.rects : fp?.kind === 'courtyard' ? courtyardRects(fp) : []);
     expect(researchMismatches(caseOf(id).build(), f)).toEqual([]);
   });
 
@@ -129,6 +139,25 @@ describe('the research conversion', () => {
     expect(RESEARCH_FIXTURES.map(f => f.name)).toEqual(RESEARCH_ENTRIES.filter(e => e.conversion.ok).map(e => researchName(e.id)));
     const roster = new Set([...EXPORTED_FIXTURES, ...RISE_FIXTURES].map(f => f.name));
     expect(RESEARCH_FIXTURES.filter(f => roster.has(f.name))).toEqual([]);
+  });
+
+  it('gives every Ring of every converted fixture a rect of its own: mutating one leaves the others and the tables unchanged', () => {
+    const rects = RESEARCH_FIXTURES.flatMap(f => f.rings.map(r => r.rect));
+    expect(new Set(rects).size).toBe(rects.length);
+    const before = RESEARCH_FIXTURES.map(f => JSON.stringify(f.rings.map(r => r.rect)));
+    const tables = JSON.stringify(RESEARCH_FOOTPRINTS);
+    // 2a, 2b, 2c, 2d, 7g and 7i share the T table; 2a's main Ring is mutated and put back.
+    const victim = fixtureOf('2a').rings[0].rect;
+    const saved = victim[2];
+    victim[2] = -12345;
+    try {
+      RESEARCH_FIXTURES.forEach((f, i) => {
+        if (f.name !== 'research-2a') expect(JSON.stringify(f.rings.map(r => r.rect))).toBe(before[i]);
+      });
+      expect(JSON.stringify(RESEARCH_FOOTPRINTS)).toBe(tables);
+    } finally {
+      victim[2] = saved;
+    }
   });
 
   it('refuses a case with no footprint rather than guess one', () => {

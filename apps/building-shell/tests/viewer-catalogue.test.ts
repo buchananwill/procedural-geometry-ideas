@@ -89,7 +89,7 @@ describe('catalogueGroups', () => {
 
   it('lists every choosable entry the hash can name, each to its own kind', () => {
     for (const v of values(groups).filter(x => !x.startsWith('research-left-out-'))) {
-      const sel = selectionFromHash(`#${encodeURIComponent(v)}`, LISTED, cases, undefined, [...goldens, ...playtestFiles()]);
+      const sel = selectionFromHash(`#${encodeURIComponent(v)}`, {fixtures: LISTED, cases, files: [...goldens, ...playtestFiles()]});
       const name = sel.kind === 'case' ? sel.defect.name : sel.kind === 'file' ? sel.file.name : sel.kind === 'fixture' ? sel.fixture.name : '';
       expect(name).toBe(v);
     }
@@ -104,21 +104,21 @@ describe('selectionFromHash with input files', () => {
   const files = [...goldens, ...playtestFiles()];
 
   it('names a research case as a fixture, a golden or seed as a file', () => {
-    const r = selectionFromHash('#research-2b', LISTED, cases, undefined, files);
+    const r = selectionFromHash('#research-2b', {fixtures: LISTED, cases, files});
     expect(r.kind === 'fixture' && r.fixture.name).toBe('research-2b');
-    const g = selectionFromHash('#FullWingsProbe', LISTED, cases, undefined, files);
+    const g = selectionFromHash('#FullWingsProbe', {fixtures: LISTED, cases, files});
     expect(g).toEqual({kind: 'file', file: {name: 'FullWingsProbe', path: 'golden/FullWingsProbe.input.json'}});
-    const s = selectionFromHash('#prototype-seed.0.MultiRunSide.0', LISTED, cases, undefined, files);
+    const s = selectionFromHash('#prototype-seed.0.MultiRunSide.0', {fixtures: LISTED, cases, files});
     expect(s.kind).toBe('file');
   });
 
   it('looks in the roster before the files, so a file never shadows a listed fixture', () => {
     const clash: InputFile = {name: SHELL_FIXTURES[1].name, path: 'golden/x.input.json'};
-    expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, LISTED, [], undefined, [clash]).kind).toBe('fixture');
+    expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, {fixtures: LISTED, cases: [], files: [clash]}).kind).toBe('fixture');
   });
 
   it('names the first fixture for an unknown hash, as before', () => {
-    const sel = selectionFromHash('#no-such', LISTED, cases, undefined, files);
+    const sel = selectionFromHash('#no-such', {fixtures: LISTED, cases, files});
     expect(sel.kind === 'fixture' && sel.fixture.name).toBe(SHELL_FIXTURES[0].name);
   });
 });

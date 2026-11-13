@@ -1,11 +1,15 @@
 // WP-V1: what the viewer's fixture selector lists, grouped, and its text filter. Pure data: no scene, no DOM, no fetch,
 // and no Node globals (the page reads the manifest and hands it here).
 import type {ShellFixture} from '../fixture.ts';
+import {manifestEntries, record, text} from './defect-cases.ts';
 import type {DefectCase} from './defect-cases.ts';
 import type {ResearchEntry} from './research-cases.ts';
 
 /** A fixture the page reads from a committed `input@1` file: its name (the selector's value and `#hash`) and its URL path. */
 export interface InputFile { name: string; path: string }
+
+/** An input file as the page fetched it: the file, and its JSON as parsed, not yet read by `readInput`. */
+export interface LoadedInput { file: InputFile; json: unknown }
 
 /** One option of the selector. A disabled entry is listed for its reason and cannot be chosen. */
 export interface CatalogueEntry { value: string; label: string; disabled?: boolean }
@@ -40,18 +44,13 @@ export const PLAYTEST_SEED_STEMS: readonly string[] = [
 /** The playtest seeds, each read from its file. */
 export const playtestFiles = (): InputFile[] => PLAYTEST_SEED_STEMS.map(stem => ({name: stem, path: `${PLAYTEST_DIR_URL}${stem}.input.json`}));
 
-const record = (v: unknown): Record<string, unknown> | undefined =>
-  typeof v === 'object' && v !== null && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : undefined;
-
-const text = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
-
 /**
  * The golden manifest's clean entries with a committed `golden/<name>.input.json`, in manifest order, less those whose
  * name is in `listed` (a fixture the page holds in memory already). The defect cases (`clean: false`) are listed apart.
  */
 export function goldenInputFiles(manifest: unknown, listed: ReadonlySet<string>): InputFile[] {
-  const fixtures = record(manifest)?.fixtures;
-  if (!Array.isArray(fixtures)) return [];
+  const fixtures = manifestEntries(manifest);
+  if (!fixtures) return [];
   return fixtures.flatMap((raw): InputFile[] => {
     const e = record(raw);
     const name = text(e?.fixture), input = text(e?.input);

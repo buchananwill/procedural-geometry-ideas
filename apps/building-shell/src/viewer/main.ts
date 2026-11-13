@@ -7,7 +7,7 @@ import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, Sh
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
-import {GOLDEN_DIR_URL, InputFile, catalogueGroups, choosableCount, filterCatalogue, goldenInputFiles, playtestFiles} from './catalogue.ts';
+import {GOLDEN_DIR_URL, InputFile, LoadedInput, catalogueGroups, choosableCount, filterCatalogue, goldenInputFiles, playtestFiles} from './catalogue.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
 import {
   Draft, DraftAction, RestoredDraft, TALL_STOREY_SUM, blankDraft, buildGate, dispatch, draftFixtureOfJson, draftJson, editDraftOf, explainRefusals,
@@ -15,7 +15,7 @@ import {
 } from './draft.ts';
 import {EditPanel, Notice, mountEditPanel} from './edit-panel.ts';
 import {ringBox} from './edit.ts';
-import {DRAFT_HASH, Selection, draftLinkHash, selectionFromHash, selectionName} from './hash.ts';
+import {DRAFT_HASH, Selection, SelectionSources, draftLinkHash, selectionFromHash, selectionName} from './hash.ts';
 import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
@@ -242,7 +242,7 @@ function inputFileOf(sel: FileBackedSelection): InputFile {
 }
 
 /** A file-backed selection's `input@1` file, as parsed. Throws, with the reason, when it cannot be had. */
-async function inputOf(sel: FileBackedSelection): Promise<{file: InputFile; json: unknown}> {
+async function inputOf(sel: FileBackedSelection): Promise<LoadedInput> {
   const file = inputFileOf(sel);
   const res = await fetch(new URL(file.path, document.baseURI));
   if (!res.ok) throw new Error(`${file.path}: ${res.status} ${res.statusText}`);
@@ -334,6 +334,8 @@ async function load(sel: LoadSelection): Promise<void> {
       stage = 'load failed';
       fixture = await fixtureOfFile(sel);
       stage = 'build failed';
+      // Another selection came while the file was fetched: this one is not built at all (WP-V1.1, N4).
+      if (mine !== token) return;
     }
     const t0 = performance.now();
     const built = await buildShellDetailed(fixture);
@@ -402,9 +404,12 @@ const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIX
 /** The selector's value for the draft: no roster fixture or case has this name. */
 const DRAFT_OPTION = 'draft';
 
+/** What a `#hash` may name now: the listed fixtures, the defect cases, the saved draft and the input files. */
+const hashSources = (): SelectionSources => ({fixtures: LISTED_FIXTURES, cases, saved: draft?.fixture, files});
+
 /** The selection a listed name stands for. */
 function selectionNamed(name: string): Selection {
-  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, LISTED_FIXTURES, cases, draft?.fixture, files);
+  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, hashSources());
 }
 
 /** The hash that names a selection in the address bar. A link is never written back: the draft is kept in storage. */
@@ -758,7 +763,7 @@ select.addEventListener('change', () => {
   show(sel);
 });
 // Journal decision 98, F8, and decision 169: a hash change loads that fixture or case.
-window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture, files)));
+window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, hashSources())));
 // WP-V1: the filter narrows the list as it is typed; what is on show stays listed.
 filter.addEventListener('input', () => fillSelector());
 $('reset').addEventListener('click', () => scene.resetView());
@@ -790,5 +795,5 @@ unfinished = restored?.unfinished ?? false;
 // The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
 void loadManifest().then(() => {
   fillSelector();
-  show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture, files));
+  show(selectionFromHash(location.hash, hashSources()));
 });

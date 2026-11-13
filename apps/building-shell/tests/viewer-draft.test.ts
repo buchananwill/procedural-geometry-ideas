@@ -588,7 +588,7 @@ describe('the hash (decisions 18 and 20)', () => {
   });
 
   it('selects a link\'s draft, with the link as its origin', () => {
-    const sel = selectionFromHash(draftLinkHash(chalet), SHELL_FIXTURES, []);
+    const sel = selectionFromHash(draftLinkHash(chalet), {fixtures: SHELL_FIXTURES, cases: []});
     expect(sel).toMatchObject({kind: 'draft', origin: 'link'});
     expect(selectionName(sel)).toBe('DefaultChalet');
   });
@@ -596,14 +596,14 @@ describe('the hash (decisions 18 and 20)', () => {
   it('shows a link that fails readInput\'s refusal, and falls back to the first fixture', () => {
     const bad = fileWith(i => { i.rings[0].sides[1].runs[0].pitchDegrees = 80; });
     const hash = `#draft=${btoa(JSON.stringify(bad)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')}`;
-    const sel = selectionFromHash(hash, SHELL_FIXTURES, []);
+    const sel = selectionFromHash(hash, {fixtures: SHELL_FIXTURES, cases: []});
     expect(sel.kind).toBe('fixture');
     if (sel.kind === 'fixture') {
       expect(sel.fixture).toBe(first);
       expect(sel.refusal?.join(' ')).toMatch(/outside \[7, 75\]/);
     }
     for (const junk of ['#draft=', '#draft=!!!', '#draft=e30', '#draft=bm90LWpzb24']) {
-      const s = selectionFromHash(junk, SHELL_FIXTURES, []);
+      const s = selectionFromHash(junk, {fixtures: SHELL_FIXTURES, cases: []});
       expect(s.kind, junk).toBe('fixture');
       if (s.kind === 'fixture') {
         expect(s.fixture, junk).toBe(first);
@@ -614,15 +614,15 @@ describe('the hash (decisions 18 and 20)', () => {
 
   it('`#draft` is the saved draft, and the first fixture when there is none', () => {
     const saved = editDraftOf(chalet).fixture;
-    expect(selectionFromHash(DRAFT_HASH, SHELL_FIXTURES, [], saved)).toEqual({kind: 'draft', fixture: saved, origin: 'saved'});
-    const none = selectionFromHash(DRAFT_HASH, SHELL_FIXTURES, []);
+    expect(selectionFromHash(DRAFT_HASH, {fixtures: SHELL_FIXTURES, cases: [], saved})).toEqual({kind: 'draft', fixture: saved, origin: 'saved'});
+    const none = selectionFromHash(DRAFT_HASH, {fixtures: SHELL_FIXTURES, cases: []});
     expect(none.kind === 'fixture' && none.fixture).toBe(first);
   });
 
   it('still names roster fixtures and defect cases as before', () => {
-    expect(selectionFromHash('#Overhang', SHELL_FIXTURES, [])).toMatchObject({kind: 'fixture'});
-    expect(selectionFromHash('#NoSuch', SHELL_FIXTURES, [])).toEqual({kind: 'fixture', fixture: first});
-    expect(selectionFromHash('', SHELL_FIXTURES, [])).toEqual({kind: 'fixture', fixture: first});
+    expect(selectionFromHash('#Overhang', {fixtures: SHELL_FIXTURES, cases: []})).toMatchObject({kind: 'fixture'});
+    expect(selectionFromHash('#NoSuch', {fixtures: SHELL_FIXTURES, cases: []})).toEqual({kind: 'fixture', fixture: first});
+    expect(selectionFromHash('', {fixtures: SHELL_FIXTURES, cases: []})).toEqual({kind: 'fixture', fixture: first});
   });
 
   it('never reads a roster fixture as a link', () => {

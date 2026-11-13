@@ -18,22 +18,28 @@ export interface DefectCase {
   reasons: string[];
 }
 
-/** A manifest entry's field, as a string, or undefined when it is missing or not a string. */
-const text = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
+/** A manifest entry's field, as a string, or undefined when it is missing, empty or not a string. Shared with `catalogue.ts`. */
+export const text = (v: unknown): string | undefined => (typeof v === 'string' && v.length > 0 ? v : undefined);
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
 
-/** The record behind a JSON value, or undefined when it is not an object. */
-const record = (v: unknown): Record<string, unknown> | undefined =>
+/** The record behind a JSON value, or undefined when it is not an object. Shared with `catalogue.ts`. */
+export const record = (v: unknown): Record<string, unknown> | undefined =>
   typeof v === 'object' && v !== null && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : undefined;
+
+/** The manifest's `fixtures` list, or undefined when the manifest has none: the one reading of the manifest's shape. */
+export const manifestEntries = (manifest: unknown): unknown[] | undefined => {
+  const fixtures = record(manifest)?.fixtures;
+  return Array.isArray(fixtures) ? fixtures : undefined;
+};
 
 /**
  * The defect cases of a golden manifest, in manifest order: every entry with `clean: false`. An entry that is not an
  * object, has no name, or is not marked `clean: false` is left out; a manifest with no `fixtures` list has no cases.
  */
 export function parseDefectCases(manifest: unknown): DefectCase[] {
-  const fixtures = record(manifest)?.fixtures;
-  if (!Array.isArray(fixtures)) return [];
+  const fixtures = manifestEntries(manifest);
+  if (!fixtures) return [];
   return fixtures.flatMap((raw): DefectCase[] => {
     const e = record(raw);
     const name = text(e?.fixture);

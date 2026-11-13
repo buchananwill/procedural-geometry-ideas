@@ -24,14 +24,14 @@ import type {UnionWall, WallLine} from '../ring-forms.ts';
 export const RESEARCH_DEFAULT_DEG = 45;
 
 /** A case built by `buildFromRects`: its rects, in the order the case lists them, become its Rings in that order. */
-export interface RectsFootprint { kind: 'rects'; rects: Rect[] }
+export interface RectsFootprint { kind: 'rects'; rects: readonly Readonly<Rect>[] }
 
 /**
  * A case built by `buildCourtyard`: the outer and inner rectangles. A Ring cannot author a cut (spec decision 2), so the
  * annulus becomes four Rings, the S and N bands across the full width and the W and E wings between them (the order of
  * `COURTYARD_RECTS`), and the pipeline's courtyard rule places the cut.
  */
-export interface CourtyardFootprint { kind: 'courtyard'; outer: Rect; inner: Rect }
+export interface CourtyardFootprint { kind: 'courtyard'; outer: Readonly<Rect>; inner: Readonly<Rect> }
 
 /** A case left out before conversion, with the reason. */
 export interface NoFootprint { kind: 'none'; reason: string }
@@ -39,18 +39,37 @@ export interface NoFootprint { kind: 'none'; reason: string }
 /** What a research case is built from, restated literally: `cases.ts` does not export its rects. A test pins each. */
 export type ResearchFootprint = RectsFootprint | CourtyardFootprint | NoFootprint;
 
-const rect = (w: number, h: number): Rect[] => [[0, 0, w, h]];
-const T_RECTS: Rect[] = [[0, 0, 1000, 500], [1000, 150, 1400, 350]];
-const L_RECTS: Rect[] = [[0, 0, 800, 500], [800, 0, 1000, 300]];
-const TWO_WINGS: Rect[] = [[0, 0, 1000, 500], [1000, 50, 1300, 150], [1000, 350, 1300, 450]];
-const CROSS: Rect[] = [[0, 300, 1000, 700], [300, 0, 700, 1000]];
-const TERRACE: Rect[] = [[0, 0, 400, 300], [400, 0, 800, 300]];
-const PAIR: Rect[] = [[0, 0, 400, 400], [400, 0, 800, 400]];
-const WING_BELOW: Rect[] = [[0, 0, 1000, 500], [600, -300, 800, 0]];
-const rects = (r: Rect[]): RectsFootprint => ({kind: 'rects', rects: r});
+/** A shared rect table: read-only, since several cases list one. A fixture is given copies (`copyRect`). */
+type RectTable = readonly Readonly<Rect>[];
 
-/** Every research case's footprint, by case id. */
-export const RESEARCH_FOOTPRINTS: Readonly<Record<string, ResearchFootprint>> = {
+const rect = (w: number, h: number): RectTable => [[0, 0, w, h]];
+const T_RECTS: RectTable = [[0, 0, 1000, 500], [1000, 150, 1400, 350]];
+const L_RECTS: RectTable = [[0, 0, 800, 500], [800, 0, 1000, 300]];
+const TWO_WINGS: RectTable = [[0, 0, 1000, 500], [1000, 50, 1300, 150], [1000, 350, 1300, 450]];
+const CROSS: RectTable = [[0, 300, 1000, 700], [300, 0, 700, 1000]];
+const TERRACE: RectTable = [[0, 0, 400, 300], [400, 0, 800, 300]];
+const PAIR: RectTable = [[0, 0, 400, 400], [400, 0, 800, 400]];
+const WING_BELOW: RectTable = [[0, 0, 1000, 500], [600, -300, 800, 0]];
+const rects = (r: RectTable): RectsFootprint => ({kind: 'rects', rects: r});
+
+/** A rect of its own, so no two fixtures share one: `ring()` stores the rect it is given. */
+export const copyRect = (r: Readonly<Rect>): Rect => [r[0], r[1], r[2], r[3]];
+
+/** Every research case id of `cases.ts`, in its order. A test holds this tuple to `CASES` both ways. */
+export const RESEARCH_CASE_IDS = [
+  '1a', '1b', '1c', '1d', '1e', '1f', '1g', '2a', '2b', '2c', '2d', '3a', '3b', '3c',
+  '4a', '4b', '4c', '4d', '4e', '4f', '4g', '4h', '4i', '4j', '4k', '4l', '5a', '5b', '5c', '5d', '5e', '6a', '6b',
+  '7a', '7b', '7c', '7d', '7e', '7f', '7g', '7h', '7i', '8a', '8b', '8c', '8d', '8e', '8f', '8g', '9a', '9b', '9c', '9d',
+] as const;
+
+/** One of `RESEARCH_CASE_IDS`. */
+export type ResearchCaseId = typeof RESEARCH_CASE_IDS[number];
+
+/** Whether `id` is a research case id this module knows. */
+export const isResearchCaseId = (id: string): id is ResearchCaseId => (RESEARCH_CASE_IDS as readonly string[]).includes(id);
+
+/** Every research case's footprint, by case id: a missing id is a compile error. */
+export const RESEARCH_FOOTPRINTS: Readonly<Record<ResearchCaseId, ResearchFootprint>> = {
   '1a': rects(rect(400, 300)), '1b': rects(rect(800, 400)), '1c': rects(rect(400, 1000)), '1d': rects(rect(400, 300)),
   '1e': rects(rect(400, 300)), '1f': rects(rect(400, 300)), '1g': rects(rect(400, 300)),
   '2a': rects(T_RECTS), '2b': rects(T_RECTS), '2c': rects(T_RECTS), '2d': rects(T_RECTS),
@@ -77,21 +96,33 @@ export const RESEARCH_FOOTPRINTS: Readonly<Record<string, ResearchFootprint>> = 
   '9d': {kind: 'courtyard', outer: [0, 0, 250, 250], inner: [100, 100, 150, 150]},
 };
 
-/** The courtyard's four Rings: S band, N band, W wing, E wing. */
+/** The courtyard's four Rings: S band, N band, W wing, E wing, each a new rect. */
 export function courtyardRects(f: Pick<CourtyardFootprint, 'outer' | 'inner'>): Rect[] {
   const [ox0, oy0, ox1, oy1] = f.outer, [ix0, iy0, ix1, iy1] = f.inner;
   return [[ox0, oy0, ox1, iy0], [ox0, iy1, ox1, oy1], [ox0, iy0, ix0, iy1], [ix1, iy0, ox1, iy1]];
 }
 
-/** A research case as a fixture, or why it is left out. `courtyard` marks a fixture whose cut the pipeline places. */
-export type ResearchConversion = {ok: true; fixture: ShellFixture; courtyard: boolean} | {ok: false; reason: string};
+/** The footprint of research case `id`, or undefined for an id `RESEARCH_CASE_IDS` does not know. */
+export const footprintOf = (id: string): ResearchFootprint | undefined => (isResearchCaseId(id) ? RESEARCH_FOOTPRINTS[id] : undefined);
+
+/** A research case converted: its fixture, and `courtyard` when the pipeline places its cut. */
+export interface ResearchConverted { ok: true; fixture: ShellFixture; courtyard: boolean }
+
+/** A research case left out, and why. */
+export interface ResearchLeftOut { ok: false; reason: string }
+
+/** A research case as a fixture, or why it is left out. */
+export type ResearchConversion = ResearchConverted | ResearchLeftOut;
 
 /** One research case, as the selector lists it. */
 export interface ResearchEntry {
   id: string;
   title: string;
   group: string;
-  /** The fixture's name, and the selector's value and `#hash` for it. */
+  /**
+   * `researchName(id)`: for a converted case, its fixture's name and the selector's value and `#hash` for it. A left-out
+   * case has no fixture and no hash; its disabled option is valued `leftOutValue(id)` (`catalogue.ts`).
+   */
   name: string;
   conversion: ResearchConversion;
 }
@@ -165,8 +196,9 @@ function ringFormOf(w: Wall): RingForm {
 
 const fixtureOf = (name: string, rings: FixtureRing[]): ShellFixture => ({name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings});
 
-/** A rects case's Rings, each side authored from the walls lying on it. */
-function ringsOfRects(b: Building, rs: Rect[]): FixtureRing[] {
+/** A rects case's Rings, each side authored from the walls lying on it. Each Ring holds a copy of its rect. */
+function ringsOfRects(b: Building, table: RectTable): FixtureRing[] {
+  const rs = table.map(copyRect);
   const stretches: Record<RingSide, SideStretch[]>[] = rs.map(() => ({S: [], E: [], N: [], W: []}));
   for (const w of b.walls) {
     const form = ringFormOf(w);
@@ -201,6 +233,7 @@ function ringsOfCourtyard(b: Building, f: CourtyardFootprint): FixtureRing[] {
 
 /** Research case `c` as a single-storey fixture, from `footprint`, or why it is left out. */
 export function convertResearchCase(c: Pick<Case, 'id' | 'build'>, footprint: ResearchFootprint | undefined): ResearchConversion {
+  // Only an id `RESEARCH_CASE_IDS` does not know has no footprint: the table is total over the tuple.
   if (!footprint) return {ok: false, reason: 'no footprint is restated for it'};
   if (footprint.kind === 'none') return {ok: false, reason: footprint.reason};
   let b: Building;
@@ -225,7 +258,7 @@ export const RESEARCH_ENTRIES: readonly ResearchEntry[] = CASES.map(c => ({
   title: c.title,
   group: c.group,
   name: researchName(c.id),
-  conversion: convertResearchCase(c, RESEARCH_FOOTPRINTS[c.id]),
+  conversion: convertResearchCase(c, footprintOf(c.id)),
 }));
 
 /** The research cases that convert, as fixtures, in `CASES` order. */

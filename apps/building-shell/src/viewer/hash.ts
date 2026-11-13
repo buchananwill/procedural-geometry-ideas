@@ -79,6 +79,16 @@ export function draftFromLinkHash(hash: string): ParsedDraft | undefined {
   return parseDraftJson(text, 'link');
 }
 
+/** What a `#hash` may name besides a link: the listed fixtures, the defect cases, the saved draft and the input files. */
+export interface SelectionSources {
+  fixtures: readonly ShellFixture[];
+  cases: readonly DefectCase[];
+  /** The draft kept in `localStorage`, when there is one. */
+  saved?: ShellFixture;
+  /** The fixtures read from committed input files (WP-V1); none when absent. */
+  files?: readonly InputFile[];
+}
+
 /**
  * The selection a `#hash` names. A link (`#draft=...`) is a draft read through `readInput`; one the wire refuses names the
  * first fixture, with the refusal (decision 20). `#draft` is the `saved` draft, or the first fixture when there is none.
@@ -86,9 +96,7 @@ export function draftFromLinkHash(hash: string): ParsedDraft | undefined {
  * then the fixtures read from committed input files (WP-V1); an empty, unknown or malformed hash names the roster's first
  * fixture.
  */
-export function selectionFromHash(
-  hash: string, fixtures: readonly ShellFixture[], cases: readonly DefectCase[], saved?: ShellFixture, files: readonly InputFile[] = [],
-): Selection {
+export function selectionFromHash(hash: string, {fixtures, cases, saved, files = []}: SelectionSources): Selection {
   const link = draftFromLinkHash(hash);
   if (link) {
     return link.ok

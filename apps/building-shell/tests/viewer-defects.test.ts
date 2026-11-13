@@ -62,29 +62,29 @@ describe('parseDefectCases', () => {
 
 describe('selectionFromHash', () => {
   it('names a defect case by its hash, and the roster by its own', () => {
-    const sel = selectionFromHash('#CutOvershootProbe', SHELL_FIXTURES, cases);
+    const sel = selectionFromHash('#CutOvershootProbe', {fixtures: SHELL_FIXTURES, cases});
     expect(sel.kind === 'case' && sel.defect.name).toBe('CutOvershootProbe');
-    const roster = selectionFromHash('#Courtyard', SHELL_FIXTURES, cases);
+    const roster = selectionFromHash('#Courtyard', {fixtures: SHELL_FIXTURES, cases});
     expect(roster.kind === 'fixture' && roster.fixture.name).toBe('Courtyard');
   });
 
   it('names every case by its encoded name', () => {
     for (const c of cases) {
-      const sel = selectionFromHash(`#${encodeURIComponent(c.name)}`, SHELL_FIXTURES, cases);
+      const sel = selectionFromHash(`#${encodeURIComponent(c.name)}`, {fixtures: SHELL_FIXTURES, cases});
       expect(sel.kind === 'case' && sel.defect.name, c.name).toBe(c.name);
     }
   });
 
   it('falls back to the first roster fixture for an unknown or malformed hash', () => {
     for (const hash of ['', '#NoSuchThing', '#%', '#%E0%A4%A']) {
-      const sel = selectionFromHash(hash, SHELL_FIXTURES, cases);
+      const sel = selectionFromHash(hash, {fixtures: SHELL_FIXTURES, cases});
       expect(sel.kind === 'fixture' && sel.fixture.name, hash).toBe(SHELL_FIXTURES[0].name);
     }
   });
 
   it('lets a roster name win a collision with a case', () => {
     const clash = {...named('Court14Seed7h250'), name: SHELL_FIXTURES[1].name};
-    expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, SHELL_FIXTURES, [clash]).kind).toBe('fixture');
+    expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, {fixtures: SHELL_FIXTURES, cases: [clash]}).kind).toBe('fixture');
   });
 
   it('no case shares a name with a roster fixture', () => {
