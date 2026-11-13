@@ -975,6 +975,19 @@ ruled" list in the covered-storeys findings. Added this session:
        an equal neighbour. The lead recommends optional per-run fields on the wire and asks the user's word,
        since the port must mirror them.
      - Nothing is built for decisions 251 and 252 yet.
+253. **The prototype's job is speed to good geometry; the C++ catches up when its own cycle allows** (the user,
+     2026-11-13, on the lead's request for a word before changing the wire: "The job of this Typescript prototype
+     is speed-to-good on the geometry shell generation of the modular buildings. The C++ will catch up when that
+     fits in to its development cycle."). **A standing steer**: the lead no longer holds a geometry decision, a
+     wire change or a golden change for the port's sake, and does not ask the user's leave for one on that
+     ground. The port is told what changed when someone has it (decision 250). This is the go for the per-run
+     wire fields of decision 252. **The lead wrote
+     [the per-stretch gable settings spec](./building-shell-gable-stretch-settings-decisions.md)**: 25 decisions
+     covering `maxHeight`, a facing strategy and "stands apart" on a gable stretch, in memory, on the wire and in
+     the editor, every default reproducing today's roof. Lead's choices inside it, open to the user: three facing
+     strategies first (`centreLine`, `whole`, `split`); `apart` defaulting to false, so existing files and the
+     game's split runs keep one gable; and whole-side gables and hip slopes left to the wider clamp of decision
+     234. WP-S1 builds the pipeline and the wire; WP-S2 the editor.
 
 ## Findings
 
