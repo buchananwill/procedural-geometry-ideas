@@ -956,6 +956,25 @@ ruled" list in the covered-storeys findings. Added this session:
        side, per gable stretch), and whether it travels in `input@1`. Without a wire field the editor's download
        loses it, as it loses `maxHeight` (decision 210), and the C++ side cannot be told which was used.
      - Nothing is built for this yet.
+252. **Whether two adjacent gables merge is the author's choice, and the strategy of decision 251 is chosen per
+     gable stretch** (the user, 2026-11-13: "Merging two adjacent gables should also be a user choice, now that
+     the solver has no issue producing the correct geometry. There's really no reason why a roof slope along a
+     wall shouldn't have a series of adjacent gables placed along it."). The user also pressed the lead on its
+     claim that a per-stretch choice "needs more interface"; it does not, and the lead withdrew it: a stretch
+     already carries `limit` and `maxHeight`, and the editor already has a row per stretch.
+     - **Merging happens in two places today, and both are the lead's rulings**: gable rise decision 6 merges
+       adjacent gable extents that agree in pitch and limits into one rise, across Rings too; and the editor's
+       canonical spelling (decision 214) merges equal neighbouring stretches so that a saved draft loads back
+       exactly. A row of identical adjacent gables cannot be authored.
+     - **A constraint the lead puts to the user**: the boundary between two runs on the wire cannot by itself
+       mean "two gables". The C++ side splits one gabled side into several plate runs for reasons of geometry,
+       as when an upper Ring stands flush on the wall (session 1 decision 149), and those runs agree in form and
+       pitch. So "separate" has to be stated, not inferred from a boundary.
+     - **So there are now three things an author sets on a gable stretch that `input@1` cannot carry**: its
+       maximum height (decisions 210, 234), its facing strategy (decision 251), and whether it stands apart from
+       an equal neighbour. The lead recommends optional per-run fields on the wire and asks the user's word,
+       since the port must mirror them.
+     - Nothing is built for decisions 251 and 252 yet.
 
 ## Findings
 
