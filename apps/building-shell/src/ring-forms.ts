@@ -119,6 +119,24 @@ function checkedRunSpans(index: number, rect: Rect, side: RingSide, runs: readon
   });
 }
 
+/**
+ * Gable rise decision 15 (journal decision 211): the hip stretches of one Ring side agree in pitch, in memory as on the
+ * wire. They are its hip runs, each at its own pitch or the side's, and, where the side is a hip, every stretch no run
+ * covers, at the side's pitch: what `writeInput` writes as the side's Pitched runs. Two pitches are a `PlanRefusal`.
+ * Runs are known to lie in order inside the side (`checkedRunSpans`).
+ */
+function checkedHipPitches(index: number, rect: Rect, side: RingSide, s: SideForm, defaultDeg: number): void {
+  const runs = s.runs ?? [];
+  const deg = s.deg ?? defaultDeg;
+  const l = ringSideLines(rect)[side], length = l.hi - l.lo;
+  const uncovered = runs.length === 0 || runs[0].from > 0 || runs.some((r, k) => k > 0 && r.from > runs[k - 1].to) || runs[runs.length - 1].to < length;
+  const pitches = [...(s.form === 'hip' && uncovered ? [deg] : []), ...runs.filter(r => r.form === 'hip').map(r => r.deg ?? deg)];
+  const other = pitches.find(p => p !== pitches[0]);
+  if (other !== undefined) {
+    throw new PlanRefusal(`Ring ${index} side ${side}'s hip stretches disagree in pitch (${pitches[0]} and ${other}): the hip runs of one side agree in pitch, since a union wall has one hip pitch (gable rise decision 15)`);
+  }
+}
+
 /** Where a world coordinate `s` of a side's line lies along the side, in cm from its start (`runSpan`'s inverse). */
 const sideOffset = (rect: Rect, side: RingSide, s: number): number => {
   const [x0, y0, x1, y1] = rect;
@@ -222,6 +240,7 @@ export function unionWallForms(rings: StoreyRing[], loops: Pt[][]): UnionWall[] 
       checkedSide(index, side, s);
       (s.runs ?? []).forEach((r, k) => checkedRun(index, side, k, r));
       checkedRunSpans(index, ring.rect, side, s.runs ?? []);
+      checkedHipPitches(index, ring.rect, side, s, ring.defaultDeg);
     }
   }
   return unionWallExtents(rings, loops).map(({line: run, extents}): UnionWall => {

@@ -310,13 +310,17 @@ describe('the wire carries runs (decisions 1, 15 and 16)', () => {
     expect(signature(await buildShellDetailed(read(rise(name))))).toBe(signature(await build(rise(name))));
   });
 
-  // Journal decision 209, L2: the in-memory run check and readInput's run geometry agree, so writeInput never writes runs
-  // readInput refuses for their geometry. Every list of up to two gable runs from these spans on a 1000 cm side.
-  it('refuses in memory exactly the runs readInput refuses on the wire', () => {
-    const spans = [[-100, 100], [0, 200], [200, 200], [300, 500], [400, 600], [600, 1000], [900, 1100]] as const;
-    const lists = [...spans.map(s => [s]), ...spans.flatMap(a => spans.map(b => [a, b]))];
-    for (const list of lists) {
-      const f = shellFixture('RunGeometry', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: list.map(([from, to]) => ({from, to, form: 'gable' as const}))}})]);
+  // Journal decisions 209 (L2) and 211: the in-memory run check and readInput agree on runs, their geometry and their hip
+  // pitches, so writeInput never writes runs readInput refuses. Every list of up to two runs from these spans, each a
+  // gable, a hip at the side's 45° or a hip at 30°, on a 1000 cm side hipped at 45°, then on one gabled at 20°.
+  it('refuses in memory exactly the runs readInput refuses on the wire, for geometry and for hip pitch', () => {
+    const spans = [[-100, 100], [0, 200], [200, 200], [300, 500], [400, 600], [600, 1000], [900, 1100], [0, 1000]] as const;
+    const kinds = [{form: 'gable'}, {form: 'hip'}, {form: 'hip', deg: 30}] as const;
+    const runs = spans.flatMap(([from, to]) => kinds.map(k => ({from, to, ...k})));
+    const lists = [...runs.map(r => [r]), ...runs.flatMap(a => runs.map(b => [a, b]))];
+    for (const [sideForm, list] of (['hip', 'gable'] as const).flatMap(form => lists.map(l => [form, l] as const))) {
+      const side = sideForm === 'hip' ? {form: sideForm, runs: [...list]} : {form: sideForm, deg: 20, runs: [...list]};
+      const f = shellFixture('RunGeometry', [ring([0, 0, 1000, 500], 0, 1, 45, {S: side})]);
       const rings = storeyRings(f, 0);
       let inMemory = true;
       try { unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect))); } catch (e) { if (!(e instanceof PlanRefusal)) throw e; inMemory = false; }

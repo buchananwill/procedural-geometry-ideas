@@ -93,6 +93,20 @@ describe('gable rise decisions 1 and 5 as amended (journal decision 209)', () =>
     expect(() => wallOn(f, 'y', 0)).toThrow(PlanRefusal);
     expect(() => wallOn(f, 'y', 0)).toThrow(message);
   });
+
+  // Journal decision 211: the hip stretches of one Ring side agree in pitch (gable rise decision 15), in memory as on the
+  // wire. A 30° hip side with a 45° hip run disagrees; a hip run covering the whole side is the side's one hip pitch;
+  // hip extents of different Rings still fall to the lowest index (decision 4).
+  it('refuses a side whose hip stretches disagree in pitch, naming both pitches, and accepts one that agrees', () => {
+    const one = (S: NonNullable<ShellFixture['rings'][number]['sides']>['S']): ShellFixture =>
+      ({name: 'HipPitches', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S})]});
+    const f = one({form: 'hip', deg: 30, runs: [{from: 100, to: 200, form: 'hip', deg: 45}]});
+    expect(() => wallOn(f, 'y', 0)).toThrow(PlanRefusal);
+    expect(() => wallOn(f, 'y', 0)).toThrow("Ring 0 side S's hip stretches disagree in pitch (30 and 45): the hip runs of one side agree in pitch, since a union wall has one hip pitch (gable rise decision 15)");
+    expect(wallOn(one({form: 'hip', deg: 30, runs: [{from: 0, to: 1000, form: 'hip', deg: 45}]}), 'y', 0)).toMatchObject({form: 'hip', deg: 45});
+    expect(wallOn(one({form: 'hip', deg: 30, runs: [{from: 100, to: 200, form: 'gable', deg: 60}]}), 'y', 0)).toMatchObject({form: 'hip', deg: 30});
+    expect(wallOn(fixtureByName('PitchRingConflict'), 'y', 0)).toMatchObject({form: 'hip', deg: 30});
+  });
 });
 
 describe.each(RING_CONFLICT_FIXTURES.map(f => [f.name] as const))('%s', name => {
