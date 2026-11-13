@@ -5,13 +5,13 @@
 // sentence and nothing more, so the editor holds none of the wire's rules.
 import {z} from 'zod';
 import {errorMessage} from '../errors.ts';
-import {RING_SIDES, RISE_LIMITS} from '../fixture.ts';
+import {RING_FORMS, RING_SIDES, RISE_LIMITS} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
 import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
 import type {AdaptedInput} from '../wire/input-adapter.ts';
 import * as edit from './edit.ts';
-import {cloneFixture, pinListedPitches, writtenRunSources} from './edit.ts';
+import {canonicalFixture, cloneFixture} from './edit.ts';
 import type {Hit} from './readout.ts';
 import type {ToggleState} from './toggles.ts';
 
@@ -33,10 +33,16 @@ export function validate(f: ShellFixture): Validation {
   }
 }
 
+export type FieldName = 'rect' | 'baseStorey' | 'storeys' | 'defaultDeg' | 'sidePitch' | 'side' | 'ring' | 'rings' | 'storeyHeight' | 'cellSize';
+
+/** A refusal about a field. `side` is the Ring side it concerns, when it is about one. */
+export interface FieldRefusal { text: string; ring: number | null; field: FieldName; side?: RingSide }
+
+/** A refusal about one stretch of a split side (journal decision 214, N2): the only kind that has a `run`, the stretch's index. */
+export interface RunRefusal { text: string; ring: number; field: 'run'; side: RingSide; run: number }
+
 /** Where a refusal points in the panel. `ring` is a fixture index, or null when the refusal is the whole draft's. */
-export type FieldName = 'rect' | 'baseStorey' | 'storeys' | 'defaultDeg' | 'sidePitch' | 'side' | 'run' | 'ring' | 'rings' | 'storeyHeight' | 'cellSize';
-/** `run` is the index in the side's fixture runs, for a refusal about a run (field `run`). */
-export interface Refusal { text: string; ring: number | null; field: FieldName; side?: RingSide; run?: number }
+export type Refusal = FieldRefusal | RunRefusal;
 
 const RECT_WORDS = /corner|axis-aligned|signed area|consecutive sides|rectangle/;
 
@@ -63,13 +69,13 @@ export function explainRefusals(errors: readonly string[], f: ShellFixture): Ref
     const sideAt = /\bside (\d)\b/.exec(text);
     const side = sideAt ? RING_SIDES[Number(sideAt[1])] : undefined;
     if (!side) return {text, ring, field: 'ring'};
-    // Journal decision 210: the wire numbers the runs it was written, which include the stretches `writeInput` fills between
-    // the fixture's runs. A refusal about one of the fixture's runs points at that run; one about a filled stretch, at the side.
+    // Journal decision 214: a split side's stretches run from 0 to the side's length with no gap, and `writeInput` writes them
+    // as authored, so the wire's run k is stretch k. A side that does not run so (a malformed one) points at the side.
     const wireRun = /\brun (\d+)\b/.exec(text);
     const fixtureSide = f.rings[ring]?.sides?.[side];
-    if (wireRun && fixtureSide?.runs?.length) {
-      const source = writtenRunSources(fixtureSide.runs, edit.sideLengthCm(f.rings[ring].rect, side))[Number(wireRun[1])];
-      if (source !== null && source !== undefined) return {text, ring, field: 'run', side, run: source};
+    if (wireRun && fixtureSide?.runs?.length && edit.runsAreContiguous(fixtureSide.runs, edit.sideLengthCm(f.rings[ring].rect, side))) {
+      const run = Number(wireRun[1]);
+      if (run < fixtureSide.runs.length) return {text, ring, field: 'run', side, run};
     }
     if (/solved (Pitched|GableEnd) at/.test(text)) {
       // A side that is not listed reads the Ring's default.
@@ -154,7 +160,7 @@ function readDraft(json: unknown, name: string): ReadDraft {
   try {
     const read = readInput(json, name);
     if (!read.ok) return {ok: false, errors: read.errors};
-    return {ok: true, fixture: fixtureOfRead(read), subject: read.input.provenance.subject};
+    return {ok: true, fixture: canonicalFixture(fixtureOfRead(read)), subject: read.input.provenance.subject};
   } catch (e) {
     return {ok: false, errors: [errorMessage(e)]};
   }
@@ -211,7 +217,7 @@ function made(fixture: ShellFixture, source: ShellFixture, selected: number | nu
 }
 
 /** A draft that starts as `fixture` (a link, a saved draft), with every listed side's pitch its own. Its source is `fixture` unless given. */
-export const makeDraft = (fixture: ShellFixture, source: ShellFixture = fixture): Draft => made(pinListedPitches(fixture), pinListedPitches(source), 0);
+export const makeDraft = (fixture: ShellFixture, source: ShellFixture = fixture): Draft => made(canonicalFixture(fixture), canonicalFixture(source), 0);
 
 /** Decision 17: the draft's name is the source's name with the suffix `-draft`. */
 export const draftName = (name: string): string => (name.endsWith('-draft') ? name : `${name}-draft`);
@@ -221,7 +227,7 @@ export const draftName = (name: string): string => (name.endsWith('-draft') ? na
  * with its own pitch (decision 14 as amended), which changes no pitch the pipeline reads.
  */
 export function editDraftOf(source: ShellFixture): Draft {
-  const renamed = pinListedPitches({...source, name: draftName(source.name)});
+  const renamed = canonicalFixture({...source, name: draftName(source.name)});
   return made(renamed, cloneFixture(renamed), 0);
 }
 
@@ -271,7 +277,9 @@ export function heldMessage(gate: BuildGate, d: Draft): string | null {
 }
 
 /** Decision 21: `next` becomes the draft's fixture and the old one goes onto the history. An unchanged fixture adds nothing. */
-function commit(d: Draft, next: ShellFixture, selected: number | null): Draft {
+function commit(d: Draft, edited: ShellFixture, selected: number | null): Draft {
+  // Journal decision 214: every Ring side is in its one spelling after every edit.
+  const next = canonicalFixture(edited);
   if (sameFixture(next, d.fixture)) return {...d, selected: clampSelected(selected, d.fixture.rings.length)};
   return made(next, d.source, selected, [...d.past, d.fixture].slice(-HISTORY_CAP), []);
 }
@@ -281,6 +289,9 @@ export const isDirty = (d: Draft): boolean => !sameFixture(d.fixture, d.source);
 
 export const canUndo = (d: Draft): boolean => d.past.length > 0;
 export const canRedo = (d: Draft): boolean => d.future.length > 0;
+
+/** One stretch of one side of one Ring, which an action on a stretch is about (journal decision 214, N3). `run` is its index along the side. */
+export interface RunTarget { ring: number; side: RingSide; run: number }
 
 /** Every way the panel changes a draft (decisions 2, 3, 9, 15 and 16), as plain values. */
 export type DraftAction =
@@ -296,12 +307,10 @@ export type DraftAction =
   | {kind: 'setSideForm'; ring: number; side: RingSide; form: RingForm}
   | {kind: 'setSidePitch'; ring: number; side: RingSide; value: number}
   | {kind: 'clearSide'; ring: number; side: RingSide}
-  | {kind: 'addRun'; ring: number; side: RingSide}
-  | {kind: 'removeRun'; ring: number; side: RingSide; run: number}
-  | {kind: 'setRunFrom'; ring: number; side: RingSide; run: number; value: number}
-  | {kind: 'setRunTo'; ring: number; side: RingSide; run: number; value: number}
-  | {kind: 'setRunForm'; ring: number; side: RingSide; run: number; form: RingForm}
-  | {kind: 'setRunPitch'; ring: number; side: RingSide; run: number; value: number}
+  | ({kind: 'splitStretch'} & RunTarget)
+  | ({kind: 'moveBoundary'; value: number} & RunTarget)
+  | ({kind: 'setStretchForm'; form: RingForm} & RunTarget)
+  | ({kind: 'setStretchPitch'; value: number} & RunTarget)
   | {kind: 'setStoreyHeight'; value: number}
   | {kind: 'undo'}
   | {kind: 'redo'}
@@ -318,9 +327,9 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
   const count = f.rings.length;
   const live = (ring: number): boolean => Number.isInteger(ring) && ring >= 0 && ring < count;
   const number = (v: number): boolean => Number.isFinite(v);
-  /** A run that exists: a stale click on a run that is gone is ignored, as one on a Ring is. */
-  const liveRun = (ring: number, side: RingSide, run: number): boolean =>
-    live(ring) && Number.isInteger(run) && run >= 0 && run < (f.rings[ring].sides?.[side]?.runs?.length ?? 0);
+  /** A stretch that exists (from `first`): a stale click on a stretch that is gone is ignored, as one on a Ring is. */
+  const liveRun = ({ring, side, run}: RunTarget, first = 0): boolean =>
+    live(ring) && Number.isInteger(run) && run >= first && run < edit.stretchCount(f, ring, side);
   const sel = d.selected;
   switch (a.kind) {
     case 'select': return live(a.ring) ? {...d, selected: a.ring} : d;
@@ -348,12 +357,10 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
     case 'setSideForm': return live(a.ring) ? commit(d, edit.setSideForm(f, a.ring, a.side, a.form), sel) : d;
     case 'setSidePitch': return live(a.ring) && number(a.value) ? commit(d, edit.setSidePitch(f, a.ring, a.side, a.value), sel) : d;
     case 'clearSide': return live(a.ring) ? commit(d, edit.clearSide(f, a.ring, a.side), sel) : d;
-    case 'addRun': return live(a.ring) ? commit(d, edit.addRun(f, a.ring, a.side), sel) : d;
-    case 'removeRun': return liveRun(a.ring, a.side, a.run) ? commit(d, edit.removeRun(f, a.ring, a.side, a.run), sel) : d;
-    case 'setRunFrom': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunFrom(f, a.ring, a.side, a.run, a.value), sel) : d;
-    case 'setRunTo': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunTo(f, a.ring, a.side, a.run, a.value), sel) : d;
-    case 'setRunForm': return liveRun(a.ring, a.side, a.run) ? commit(d, edit.setRunForm(f, a.ring, a.side, a.run, a.form), sel) : d;
-    case 'setRunPitch': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunPitch(f, a.ring, a.side, a.run, a.value), sel) : d;
+    case 'splitStretch': return liveRun(a) ? commit(d, edit.splitStretch(f, a.ring, a.side, a.run), sel) : d;
+    case 'moveBoundary': return liveRun(a, 1) && number(a.value) ? commit(d, edit.moveBoundary(f, a.ring, a.side, a.run, a.value), sel) : d;
+    case 'setStretchForm': return liveRun(a) ? commit(d, edit.setStretchForm(f, a.ring, a.side, a.run, a.form), sel) : d;
+    case 'setStretchPitch': return liveRun(a) && number(a.value) ? commit(d, edit.setStretchPitch(f, a.ring, a.side, a.run, a.value), sel) : d;
     case 'setStoreyHeight': return number(a.value) ? commit(d, edit.setStoreyHeight(f, a.value), sel) : d;
     case 'undo': {
       const previous = d.past.at(-1);
@@ -364,13 +371,13 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
       return next ? made(next, d.source, sel, [...d.past, f].slice(-HISTORY_CAP), rest) : d;
     }
     case 'reset': return commit(d, cloneFixture(d.source), sel);
-    case 'load': return commit(d, pinListedPitches(a.fixture), 0);
+    case 'load': return commit(d, canonicalFixture(a.fixture), 0);
   }
 }
 
 // ---- Persistence (decision 18) and the build mark (journal decision 198, M2) --------------------------------------------------------
 
-const RingFormSchema = z.enum(['hip', 'gable']);
+const RingFormSchema = z.enum(RING_FORMS);
 const SideRunSchema = z.object({from: z.number(), to: z.number(), form: RingFormSchema, deg: z.number().optional(), maxHeight: z.number().optional(), limit: z.enum(RISE_LIMITS).optional()});
 const SideFormSchema = z.object({form: RingFormSchema, deg: z.number().optional(), runs: z.array(SideRunSchema).optional()});
 const SidesSchema = z.object({S: SideFormSchema.optional(), E: SideFormSchema.optional(), N: SideFormSchema.optional(), W: SideFormSchema.optional()});
@@ -440,7 +447,7 @@ export function restoreDraft(text: string | null): RestoredDraft | undefined {
   try {
     const saved = SavedSchema.safeParse(JSON.parse(text));
     if (!saved.success) return undefined;
-    const fix = (f: z.output<typeof FixtureSchema>): ShellFixture => pinListedPitches({...f, rings: f.rings.map(r => ({...r, sides: r.sides ?? {}}))});
+    const fix = (f: z.output<typeof FixtureSchema>): ShellFixture => canonicalFixture({...f, rings: f.rings.map(r => ({...r, sides: r.sides ?? {}}))});
     const fixture = fix(saved.data.fixture);
     const unfinished = saved.data.building === true;
     const lastGood = unfinished && saved.data.lastGood ? fix(saved.data.lastGood) : undefined;

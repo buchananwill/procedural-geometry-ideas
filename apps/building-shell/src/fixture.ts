@@ -5,7 +5,10 @@ import {Rect} from './roof/model.ts';
  * Spec decision 3 as amended (journal decision 116): the forms a Ring side may be authored with. Mono stays out of
  * Ring authoring for now, and a cut is placed only by the courtyard rule (spec decision 2).
  */
-export type RingForm = 'hip' | 'gable';
+export const RING_FORMS = ['hip', 'gable'] as const;
+
+/** One of `RING_FORMS`: the one tuple the type, the editor's selects and its saved-draft schema derive from (journal decision 214, B1). */
+export type RingForm = typeof RING_FORMS[number];
 
 /** A Ring rectangle's four sides, in side order: S on y = y0, E on x = x1, N on y = y1, W on x = x0. */
 export const RING_SIDES = ['S', 'E', 'N', 'W'] as const;

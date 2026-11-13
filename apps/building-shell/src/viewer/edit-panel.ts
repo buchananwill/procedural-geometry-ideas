@@ -5,11 +5,11 @@
 // mouse-up loses its click: a field commits on its `change`, which a click elsewhere fires on the way in (decision 10).
 // Only the Ring list grows and shrinks, at its tail, so each row's buttons keep their element and their index.
 import {errorMessage} from '../errors.ts';
-import {RING_SIDES} from '../fixture.ts';
+import {RING_FORMS, RING_SIDES} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide} from '../fixture.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
 import {canRedo, canUndo, resolveSides} from './draft.ts';
-import {PITCH_STEP_DEG, sideLengthCm} from './edit.ts';
+import {PITCH_STEP_DEG, canSplitStretch, sideLengthCm} from './edit.ts';
 
 /** A line shown under the panel, and whether it is bad news. */
 export interface Notice { text: string; bad: boolean }
@@ -93,7 +93,7 @@ const labelled = (text: string, f: HTMLInputElement | HTMLSelectElement): HTMLLa
 };
 
 /** The form a select's value names, or null for a value that names none. */
-const formOf = (value: string): RingForm | null => (value === 'hip' || value === 'gable' ? value : null);
+const formOf = (value: string): RingForm | null => RING_FORMS.find(f => f === value) ?? null;
 
 /** Where a side's runs are measured from and which way they run (gable rise decision 1: every side runs counter-clockwise). */
 const RUN_START: Record<RingSide, string> = {
@@ -104,12 +104,12 @@ const RUN_START: Record<RingSide, string> = {
 };
 
 /** One run's controls. */
-interface RunRow { row: HTMLElement; from: HTMLInputElement; to: HTMLInputElement; form: HTMLSelectElement; pitch: HTMLInputElement; remove: HTMLButtonElement; note: HTMLElement }
+interface RunRow { row: HTMLElement; from: HTMLInputElement; to: HTMLElement; form: HTMLSelectElement; pitch: HTMLInputElement; split: HTMLButtonElement; note: HTMLElement }
 
 /** One side's controls, and its run list (journal decision 210). */
 interface SideRow {
   form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement;
-  runs: HTMLDetailsElement; summary: HTMLElement; where: HTMLElement; runRows: RunRow[]; runList: HTMLElement; add: HTMLButtonElement;
+  runs: HTMLDetailsElement; summary: HTMLElement; where: HTMLElement; runRows: RunRow[]; runList: HTMLElement; splitPlain: HTMLButtonElement; tooShort: HTMLElement;
 }
 
 /** One row of the Ring list. */
@@ -171,25 +171,26 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     const row = el('div', undefined, 'row side');
     const form = el('select');
     form.id = `ring-side-${side}-form`;
-    for (const f of ['hip', 'gable'] as const) form.append(new Option(f, f));
+    for (const f of RING_FORMS) form.append(new Option(f, f));
     form.addEventListener('change', () => {
       const chosen = formOf(form.value);
       if (chosen) withRing(r => ({kind: 'setSideForm', ring: r, side, form: chosen}));
     });
     const pitch = numberField(`ring-side-${side}-deg`, PITCH_STEP_DEG, v => withRing(r => ({kind: 'setSidePitch', ring: r, side, value: v})), resync);
-    const clear = button('Default', 'Unlist this side, runs included: a hip at the Ring\'s default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
+    const clear = button('Default', 'Back to a plain side, unlisted: a hip at the Ring\'s default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
     row.append(el('span', side, 'side-name'), form, pitch, clear);
 
-    // The run list (journal decision 210): a stretch of the side no run covers keeps the side's own form and pitch.
+    // The stretches of the side (journal decision 214): a plain side is one; a split side's cover its whole length.
     const runs = el('details', undefined, 'runs');
     runs.id = `ring-side-${side}-runs`;
-    const summary = el('summary', 'Runs');
+    const summary = el('summary', 'Stretches');
     const where = el('div', undefined, 'hint');
     const runList = el('div', undefined, 'run-list');
-    const add = button('Add run', 'A run over the middle third of the largest stretch no run covers, in the other form', () => withRing(r => ({kind: 'addRun', ring: r, side})), `ring-side-${side}-add-run`);
-    runs.append(summary, where, runList, add);
+    const splitPlain = button('Split', 'Split this side: a gable stretch in the middle third, the side\'s form on both flanks', () => withRing(r => ({kind: 'splitStretch', ring: r, side, run: 0})), `ring-side-${side}-split`);
+    const tooShort = el('span', 'too short to split: a stretch needs two whole cells', 'hint');
+    runs.append(summary, where, runList, splitPlain, ' ', tooShort);
     sides.append(row, runs);
-    sideRows.set(side, {form, pitch, clear, runs, summary, where, runRows: [], runList, add});
+    sideRows.set(side, {form, pitch, clear, runs, summary, where, runRows: [], runList, splitPlain, tooShort});
   }
   fields.append(fieldsTitle, rectRow, storeyRow, sides);
 
@@ -317,55 +318,72 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       row.form.classList.toggle('default', own === undefined);
       row.clear.disabled = own === undefined;
       mark(row.pitch, own ? refusalAt(v, r, 'sidePitch', side) : refusalAt(v, r, 'defaultDeg', side));
-      patchRuns(v, r, ringData, side, row);
+      patchRuns(v, r, d, side, row);
     }
   }
 
-  /** One new run row of side `side`, wired to run `k` (rows are reused by index, so the index never goes stale). */
+  /** One new stretch row of side `side`, wired to stretch `k` (rows are reused by index, so the index never goes stale). */
   function makeRunRow(side: RingSide, k: number): RunRow {
     const row = el('div', undefined, 'row run');
     const id = `ring-side-${side}-run-${k}`;
-    const runAct = (make: (r: number) => DraftAction): void => withRing(make);
-    const from = numberField(`${id}-from`, 50, v => runAct(r => ({kind: 'setRunFrom', ring: r, side, run: k, value: v})), resync);
-    const to = numberField(`${id}-to`, 50, v => runAct(r => ({kind: 'setRunTo', ring: r, side, run: k, value: v})), resync);
+    // The boundary a stretch starts at is shared with the one before it: moving it moves both (journal decision 214).
+    const from = numberField(`${id}-from`, 50, v => withRing(r => ({kind: 'moveBoundary', ring: r, side, run: k, value: v})), resync);
+    const to = el('span', undefined, 'to');
+    to.id = `${id}-to`;
     const form = el('select');
     form.id = `${id}-form`;
-    for (const f of ['hip', 'gable'] as const) form.append(new Option(f, f));
+    for (const f of RING_FORMS) form.append(new Option(f, f));
     form.addEventListener('change', () => {
       const chosen = formOf(form.value);
-      if (chosen) runAct(r => ({kind: 'setRunForm', ring: r, side, run: k, form: chosen}));
+      if (chosen) withRing(r => ({kind: 'setStretchForm', ring: r, side, run: k, form: chosen}));
     });
-    const pitch = numberField(`${id}-deg`, PITCH_STEP_DEG, v => runAct(r => ({kind: 'setRunPitch', ring: r, side, run: k, value: v})), resync);
-    const remove = button('×', 'Remove this run', () => runAct(r => ({kind: 'removeRun', ring: r, side, run: k})), `${id}-remove`);
-    const note = el('span', 'keeps a rise limit (maxHeight or limit) that Download does not write', 'hint');
-    row.append(labelled('from', from), labelled('to', to), form, pitch, remove, note);
-    return {row, from, to, form, pitch, remove, note};
+    const pitch = numberField(`${id}-deg`, PITCH_STEP_DEG, v => withRing(r => ({kind: 'setStretchPitch', ring: r, side, run: k, value: v})), resync);
+    const split = button('Split', 'Split this stretch: the other form in its middle third', () => withRing(r => ({kind: 'splitStretch', ring: r, side, run: k})), `${id}-split`);
+    const note = el('span', undefined, 'hint');
+    row.append(labelled(k === 0 ? 'from' : 'starts at', from), ' to ', to, form, pitch, split, note);
+    return {row, from, to, form, pitch, split, note};
   }
 
-  /** Shows one side's runs: its start and length, a row per run, and which runs the wire refuses. */
-  function patchRuns(v: PanelView, r: number, ringData: FixtureRing, side: RingSide, row: SideRow): void {
+  /** What the panel says of a stretch that holds a rise's limits, which `input@1` cannot carry. */
+  const LIMITS_NOTE = 'keeps a rise limit (maxHeight or limit) that Download and Copy link both drop';
+
+  /** Shows one side's stretches: where it starts and how long it is, a row for each stretch of a split side, and which the wire refuses. */
+  function patchRuns(v: PanelView, r: number, d: Draft, side: RingSide, row: SideRow): void {
+    const ringData = d.fixture.rings[r];
     const runs = ringData.sides?.[side]?.runs ?? [];
+    const split = runs.length > 0;
     while (row.runRows.length > runs.length) row.runRows.pop()?.row.remove();
     while (row.runRows.length < runs.length) {
       const made = makeRunRow(side, row.runRows.length);
       row.runList.append(made.row);
       row.runRows.push(made);
     }
-    row.summary.textContent = runs.length ? `Runs (${runs.length})` : 'Runs';
-    row.where.textContent = `In cm from the side's ${RUN_START[side]}; its length is ${num(sideLengthCm(ringData.rect, side))} cm. A stretch no run covers keeps the side's own form and pitch.`;
-    if (runs.length) row.runs.open = true;
-    row.add.disabled = false;
+    const length = sideLengthCm(ringData.rect, side);
+    row.summary.textContent = split ? `Stretches (${runs.length})` : 'Stretches';
+    row.where.textContent = `In cm from the side's ${RUN_START[side]}; its length is ${num(length)} cm.${split ? ' The side\'s own form and pitch follow its stretches.' : ''}`;
+    if (split) row.runs.open = true;
+    // On a split side the stretches are the truth: the side's own controls do not act (journal decision 214).
+    row.form.disabled = split;
+    row.pitch.disabled = split;
+    const plainShort = !split && !canSplitStretch(d.fixture, r, side, 0);
+    row.splitPlain.hidden = split;
+    row.splitPlain.disabled = plainShort;
+    row.tooShort.hidden = !plainShort;
     mark(row.summary, v.refusals.find(x => x.ring === r && x.side === side && x.field === 'side'));
     runs.forEach((run, k) => {
       const rr = row.runRows[k];
       setField(rr.from, num(run.from));
-      setField(rr.to, num(run.to));
+      rr.from.disabled = k === 0;
+      rr.to.textContent = num(run.to);
       setField(rr.form, run.form);
       setField(rr.pitch, num(run.deg ?? ringData.sides?.[side]?.deg ?? ringData.defaultDeg));
-      const bad = v.refusals.find(x => x.ring === r && x.field === 'run' && x.side === side && x.run === k);
-      mark(rr.row, bad);
+      mark(rr.row, v.refusals.find(x => x.ring === r && x.field === 'run' && x.side === side && x.run === k));
+      const short = !canSplitStretch(d.fixture, r, side, k);
+      rr.split.disabled = short;
       // `maxHeight` and `limit` have no field in input@1: they stay in memory, and the panel says so where they are held.
-      rr.note.hidden = run.maxHeight === undefined && run.limit === undefined;
+      const limits = run.maxHeight !== undefined || run.limit !== undefined;
+      rr.note.hidden = !limits && !short;
+      rr.note.textContent = [short ? 'too short to split' : '', limits ? LIMITS_NOTE : ''].filter(Boolean).join('; ');
     });
   }
 

@@ -111,7 +111,10 @@ export function duplicateRing(f: ShellFixture, index: number): ShellFixture {
 
 /** Sets Ring `index`'s rect, each coordinate snapped to the fixture's `cellSize` (decision 5). It does not reorder the corners. */
 export function setRect(f: ShellFixture, index: number, rect: Readonly<Rect>): ShellFixture {
-  return withRing(f, index, r => { r.rect = [snapToCell(rect[0], f.cellSize), snapToCell(rect[1], f.cellSize), snapToCell(rect[2], f.cellSize), snapToCell(rect[3], f.cellSize)]; });
+  return withRing(f, index, r => {
+    r.rect = [snapToCell(rect[0], f.cellSize), snapToCell(rect[1], f.cellSize), snapToCell(rect[2], f.cellSize), snapToCell(rect[3], f.cellSize)];
+    refitSides(r);
+  });
 }
 
 /**
@@ -123,6 +126,7 @@ export function setRectCoord(f: ShellFixture, index: number, coord: 0 | 1 | 2 | 
     const rect: Rect = [...r.rect];
     rect[coord] = snapToCell(value, f.cellSize);
     r.rect = rect;
+    refitSides(r);
   });
 }
 
@@ -138,25 +142,28 @@ export const setDefaultDeg = (f: ShellFixture, index: number, deg: number): Shel
 
 /**
  * Lists one side of Ring `index` with `form`, at the pitch it has now: its own, or the Ring's `defaultDeg` for a side
- * not yet listed. A listed side always carries its own pitch (decision 14 as amended, journal decision 198, M1).
+ * not yet listed. A listed side always carries its own pitch (decision 14 as amended, journal decision 198, M1). On a
+ * split side the stretches are the truth and the side's own form is derived from them (journal decision 214): this does
+ * not act there, and the copy is unchanged.
  */
 export function setSideForm(f: ShellFixture, index: number, side: RingSide, form: RingForm): ShellFixture {
-  // Spread, so what the side has besides its form and pitch, its runs (journal decision 210), stays.
+  if (isSplit(f.rings[index]?.sides?.[side])) return cloneFixture(f);
   return withRing(f, index, r => {
     const was = r.sides?.[side];
     r.sides = {...r.sides, [side]: {...was, form, deg: was?.deg ?? r.defaultDeg}};
   });
 }
 
-/** Lists one side of Ring `index` at its own pitch, keeping the form it already has (a hip when it had none) and its runs. */
+/** Lists one side of Ring `index` at its own pitch, keeping the form it already has (a hip when it had none). Not on a split side, as `setSideForm`. */
 export function setSidePitch(f: ShellFixture, index: number, side: RingSide, deg: number): ShellFixture {
+  if (isSplit(f.rings[index]?.sides?.[side])) return cloneFixture(f);
   return withRing(f, index, r => {
     const was = r.sides?.[side];
     r.sides = {...r.sides, [side]: {...was, form: was?.form ?? 'hip', deg}};
   });
 }
 
-/** Clears one side of Ring `index` back to the default: a hip at the Ring's `defaultDeg`. Its runs go with it (journal decision 210). */
+/** Clears one side of Ring `index` back to the default: a plain hip at the Ring's `defaultDeg`. A split side's stretches go with it (journal decision 214). */
 export function clearSide(f: ShellFixture, index: number, side: RingSide): ShellFixture {
   return withRing(f, index, r => {
     const sides = {...r.sides};
@@ -165,11 +172,17 @@ export function clearSide(f: ShellFixture, index: number, side: RingSide): Shell
   });
 }
 
-// ---- Runs (journal decision 210) ---------------------------------------------------------------------------------------------
+// ---- Stretches (journal decision 214) ---------------------------------------------------------------------------------------
+
+/** Where a stretch lies along its side, in cm from the side's start. */
+export interface RunSpan { from: number; to: number }
+
+/** One stretch of a side: a run that always carries its own pitch. A plain side is one stretch the whole of its length. */
+export type Stretch = SideRun & {deg: number};
 
 /**
- * A side's length in cm, which its runs' ends are measured along. Every side runs counter-clockwise from its start (gable
- * rise decision 1; `runSpan` in `ring-forms.ts`): S from its west end (x0) toward the east, E from its south end (y0)
+ * A side's length in cm, which its stretches' ends are measured along. Every side runs counter-clockwise from its start
+ * (gable rise decision 1; `runSpan` in `ring-forms.ts`): S from its west end (x0) toward the east, E from its south end (y0)
  * toward the north, N from its east end (x1) toward the west, W from its north end (y1) toward the south.
  */
 export const sideLengthCm = (rect: Rect, side: RingSide): number => {
@@ -177,44 +190,99 @@ export const sideLengthCm = (rect: Rect, side: RingSide): number => {
   return l.hi - l.lo;
 };
 
+/** Whether runs run from 0 to `length`, each starting where the one before ends, whatever their order or size: the layout `writeInput` writes as authored, with no stretch filled between. */
+export const runsAreContiguous = (runs: readonly RunSpan[], length: number): boolean =>
+  runs.length > 0 && runs[0].from === 0 && runs.at(-1)?.to === length && runs.every((r, i) => i === 0 || r.from === runs[i - 1].to);
+
+/** Whether a side is split: it has runs. A plain side has none. */
+const isSplit = (s: SideForm | undefined): s is SideForm & {runs: SideRun[]} => (s?.runs?.length ?? 0) > 0;
+
+/** What a side reads as where no run covers it: its own form and pitch. */
+interface Own { form: RingForm; deg: number }
+
+/** Whether two stretches read the same in every way the editor spells, and so are one stretch. */
+const sameStretch = (a: SideRun, b: SideRun): boolean =>
+  a.form === b.form && a.deg === b.deg && a.maxHeight === b.maxHeight && a.limit === b.limit;
+
 /**
- * What a side's runs write to the wire, one entry per written run: the index of the fixture run it is, or null for a
- * stretch between runs (or before the first, or after the last), which `writeInput` fills with the side's own form. It
- * repeats `writeInput`'s layout, which is outside this package's roster; a test holds the two to the same count.
+ * A side's runs as stretches that cover its whole length in order, a stretch between runs, before the first or after the
+ * last taking the side's own form and pitch; undefined when the runs are malformed (a run empty, out of order,
+ * overlapping another, or outside the side), which no spelling can be given.
  */
-export function writtenRunSources(runs: readonly Pick<SideRun, 'from' | 'to'>[], length: number): (number | null)[] {
-  const out: (number | null)[] = [];
+function tile(runs: readonly SideRun[], own: Own, length: number): Stretch[] | undefined {
+  const out: Stretch[] = [];
   let at = 0;
-  runs.forEach((run, k) => {
-    if (run.from > at) out.push(null);
-    out.push(k);
-    at = Math.max(at, run.to);
-  });
-  if (at < length) out.push(null);
+  for (const r of runs) {
+    if (!(Number.isFinite(r.from) && Number.isFinite(r.to) && r.from < r.to && r.from >= at && r.to <= length)) return undefined;
+    if (r.from > at) out.push({from: at, to: r.from, ...own});
+    out.push({...r, deg: r.deg ?? own.deg});
+    at = r.to;
+  }
+  if (at < length) out.push({from: at, to: length, ...own});
   return out;
 }
 
-/** The largest stretch of a side no run covers that holds a whole cell, its ends snapped inward to the grid; undefined when none does. */
-export function largestUncovered(runs: readonly Pick<SideRun, 'from' | 'to'>[], length: number, cell: number): [number, number] | undefined {
-  const stretches: [number, number][] = [];
-  let at = 0;
-  for (const run of [...runs].sort((a, b) => a.from - b.from)) {
-    if (run.from > at) stretches.push([at, run.from]);
-    at = Math.max(at, run.to);
+/** Neighbouring stretches that read the same joined into one. */
+function merge(stretches: readonly Stretch[]): Stretch[] {
+  const out: Stretch[] = [];
+  for (const s of stretches) {
+    const last = out.at(-1);
+    if (last && sameStretch(last, s)) last.to = s.to;
+    else out.push({...s});
   }
-  if (length > at) stretches.push([at, length]);
-  let best: [number, number] | undefined;
-  for (const [lo, hi] of stretches) {
-    const from = Math.ceil(lo / cell) * cell + 0, to = Math.floor(hi / cell) * cell + 0;
-    if (from < to && (!best || to - from > best[1] - best[0])) best = [from, to];
-  }
-  return best;
+  return out;
 }
 
 /**
+ * The one spelling of a side (journal decision 214). A plain side has no runs. A split side's runs are stretches that
+ * cover its whole length, in order, with neighbours that read the same merged; one that merges to a single stretch is a
+ * plain side again, and so loses a `maxHeight` or `limit`, which only a rise has. A split side's own `form` and `deg` are
+ * derived: its first hip stretch, else its first stretch, which is also what `input@1` reads back. A side whose runs are
+ * malformed is left as typed, with its pitches pinned. `fallbackDeg` is the Ring's `defaultDeg`, for a side without a pitch.
+ */
+export function canonicalSide(side: SideForm, length: number, fallbackDeg: number): SideForm {
+  const {runs, ...rest} = side;
+  const own: Own = {form: side.form, deg: side.deg ?? fallbackDeg};
+  if (!runs?.length) return {...rest, ...own};
+  const tiled = tile(runs, own, length);
+  if (!tiled) return {...rest, ...own, runs: runs.map(r => ({...r, deg: r.deg ?? own.deg}))};
+  const merged = merge(tiled);
+  const base = merged.find(s => s.form === 'hip') ?? merged[0];
+  return merged.length === 1 ? {...rest, form: base.form, deg: base.deg} : {...rest, form: base.form, deg: base.deg, runs: merged};
+}
+
+/** Every Ring side's one spelling, and every listed side's pitch its own (journal decisions 198, M1, and 214). */
+export function canonicalFixture(f: ShellFixture): ShellFixture {
+  const next = pinListedPitches(f);
+  for (const r of next.rings) {
+    for (const side of RING_SIDES) {
+      const s = r.sides?.[side];
+      if (s && r.sides) r.sides[side] = canonicalSide(s, sideLengthCm(r.rect, side), r.defaultDeg);
+    }
+  }
+  return next;
+}
+
+/** A side's stretches: its runs when split, else the one stretch it is. An unlisted side is a hip at `fallbackDeg`. */
+export function stretchesOf(side: SideForm | undefined, length: number, fallbackDeg: number): Stretch[] {
+  const own: Own = {form: side?.form ?? 'hip', deg: side?.deg ?? fallbackDeg};
+  return isSplit(side) ? side.runs.map(r => ({...r, deg: r.deg ?? own.deg})) : [{from: 0, to: length, ...own}];
+}
+
+/** How many stretches a side has: 1 for a plain side, listed or not. */
+export const stretchCount = (f: ShellFixture, index: number, side: RingSide): number => f.rings[index]?.sides?.[side]?.runs?.length || 1;
+
+function assertStretch(f: ShellFixture, index: number, side: RingSide, k: number, first = 0): void {
+  assertIndex(f, index);
+  const n = stretchCount(f, index, side);
+  if (!Number.isInteger(k) || k < first || k >= n) throw new RangeError(`Ring ${index} side ${side} has no stretch ${k} to edit: it has ${n}`);
+}
+
+/** The pitch of the first hip stretch of `list`, which is the one hip pitch a side may have; undefined with none. */
+const hipPitchOf = (list: readonly Stretch[]): number | undefined => list.find(s => s.form === 'hip')?.deg;
+
+/**
  * The middle third of a stretch, its ends snapped inward to the grid, or the whole stretch where that leaves no whole cell.
- * A new run takes it so that the side's own form is left on both flanks: a gable run that covered the whole of a hip side
- * would be a whole-wall gable, which `input@1` reads back as the side's own form (journal decision 210).
  */
 export function middleThird([from, to]: readonly [number, number], cell: number): [number, number] {
   const third = (to - from) / 3;
@@ -222,67 +290,104 @@ export function middleThird([from, to]: readonly [number, number], cell: number)
   return a < b ? [a, b] : [from, to];
 }
 
-function assertRun(f: ShellFixture, index: number, side: RingSide, run: number): void {
-  assertIndex(f, index);
-  const n = f.rings[index].sides?.[side]?.runs?.length ?? 0;
-  if (!Number.isInteger(run) || run < 0 || run >= n) throw new RangeError(`Ring ${index} side ${side} has no run ${run}: it has ${n}`);
+/**
+ * What splitting stretch `s` makes: three stretches when its middle third holds a whole cell, the middle in the other
+ * form, so the side's own form stays on both flanks; else two halves, the second in the other form; undefined when the
+ * stretch is too short to split (it needs two whole cells). The other form is the stretch's pitch, except a hip, which
+ * takes the side's one hip pitch where it has one (journal decision 214, Low 2). A split never makes equal neighbours,
+ * which would merge at once.
+ */
+function splitParts(s: Stretch, list: readonly Stretch[], cell: number): Stretch[] | undefined {
+  const other: Stretch = s.form === 'hip'
+    ? {from: s.from, to: s.to, form: 'gable', deg: s.deg}
+    : {from: s.from, to: s.to, form: 'hip', deg: hipPitchOf(list) ?? s.deg};
+  const [a, b] = middleThird([s.from, s.to], cell);
+  if (a > s.from && b < s.to) return [{...s, to: a}, {...other, from: a, to: b}, {...s, from: b}];
+  const m = Math.round((s.from + s.to) / 2 / cell) * cell + 0;
+  return m > s.from && m < s.to ? [{...s, to: m}, {...other, from: m}] : undefined;
 }
 
-/** A copy of `f` with one existing run of one side changed by `change` of a copy of it. */
-function withRun(f: ShellFixture, index: number, side: RingSide, run: number, change: (r: SideRun) => void): ShellFixture {
-  assertRun(f, index, side, run);
+/** Whether stretch `k` of a side can be split: it holds two whole cells. The panel says so when it cannot. */
+export function canSplitStretch(f: ShellFixture, index: number, side: RingSide, k: number): boolean {
+  assertStretch(f, index, side, k);
+  const r = f.rings[index];
+  const list = stretchesOf(r.sides?.[side], sideLengthCm(r.rect, side), r.defaultDeg);
+  return splitParts(list[k], list, f.cellSize) !== undefined;
+}
+
+/** A copy of `f` with one side's stretches changed by `change`, and the side given its one spelling. The side is listed if it was not. */
+function withStretches(f: ShellFixture, index: number, side: RingSide, change: (list: Stretch[]) => Stretch[]): ShellFixture {
   return withRing(f, index, r => {
-    const target = r.sides?.[side]?.runs?.[run];
-    if (target) change(target);
+    const was = r.sides?.[side];
+    const length = sideLengthCm(r.rect, side);
+    const own: SideForm = {...was, form: was?.form ?? 'hip', deg: was?.deg ?? r.defaultDeg};
+    const list = change(stretchesOf(own, length, r.defaultDeg));
+    r.sides = {...r.sides, [side]: canonicalSide({...own, runs: list}, length, r.defaultDeg)};
   });
 }
 
 /**
- * Adds a run to one side of Ring `index`: over the middle third of the largest stretch no run covers (ends snapped to the
- * cell size), in the form opposite to the side's, at the side's pitch, so it changes the roof at once. It is put in order
- * along the side. The side is listed if it was not. A side with no whole cell left uncovered is left as it was.
+ * Splits stretch `k` of one side of Ring `index` (a plain side has the one stretch 0): see `splitParts`. A stretch too
+ * short to split is left as it is, and so is the side (`canSplitStretch` says whether it is).
  */
-export function addRun(f: ShellFixture, index: number, side: RingSide): ShellFixture {
-  assertIndex(f, index);
-  const r0 = f.rings[index];
-  const stretch = largestUncovered(r0.sides?.[side]?.runs ?? [], sideLengthCm(r0.rect, side), f.cellSize);
-  if (!stretch) return cloneFixture(f);
-  const gap = middleThird(stretch, f.cellSize);
-  return withRing(f, index, r => {
-    const was = r.sides?.[side];
-    const own: SideForm = {...was, form: was?.form ?? 'hip', deg: was?.deg ?? r.defaultDeg};
-    const run: SideRun = {from: gap[0], to: gap[1], form: own.form === 'hip' ? 'gable' : 'hip', deg: own.deg};
-    own.runs = [...(own.runs ?? []), run].sort((a, b) => a.from - b.from);
-    r.sides = {...r.sides, [side]: own};
+export function splitStretch(f: ShellFixture, index: number, side: RingSide, k: number): ShellFixture {
+  if (!canSplitStretch(f, index, side, k)) return cloneFixture(f);
+  return withStretches(f, index, side, list => {
+    const parts = splitParts(list[k], list, f.cellSize) ?? [list[k]];
+    return [...list.slice(0, k), ...parts, ...list.slice(k + 1)];
   });
 }
 
-/** Removes run `run` of one side. A side left with no run is a plain side again. */
-export function removeRun(f: ShellFixture, index: number, side: RingSide, run: number): ShellFixture {
-  assertRun(f, index, side, run);
-  return withRing(f, index, r => {
+/**
+ * Moves the boundary between stretch `k - 1` and stretch `k` (`k` from 1) to `value` cm from the side's start, snapped to
+ * the cell size. It moves both stretches that share it. A boundary moved past a neighbour's far end leaves a stretch
+ * empty, which the wire refuses (decision 9: the edit is not blocked); the side is then left as typed.
+ */
+export function moveBoundary(f: ShellFixture, index: number, side: RingSide, k: number, value: number): ShellFixture {
+  assertStretch(f, index, side, k, 1);
+  const at = snapToCell(value, f.cellSize);
+  return withStretches(f, index, side, list => list.map((s, i) => (i === k - 1 ? {...s, to: at} : i === k ? {...s, from: at} : s)));
+}
+
+/**
+ * Sets stretch `k`'s form. A stretch made a hip takes the side's one hip pitch where another stretch is one, and loses its
+ * `maxHeight` and `limit`, which belong to a rise (journal decision 214, Low 2 and Low 4). Equal neighbours merge.
+ */
+export function setStretchForm(f: ShellFixture, index: number, side: RingSide, k: number, form: RingForm): ShellFixture {
+  assertStretch(f, index, side, k);
+  return withStretches(f, index, side, list => list.map((s, i) => {
+    if (i !== k) return s;
+    if (form === 'gable') return {...s, form};
+    const {maxHeight: _m, limit: _l, ...hip} = s;
+    return {...hip, form, deg: hipPitchOf(list.filter((_, j) => j !== k)) ?? s.deg};
+  }));
+}
+
+/** Sets stretch `k`'s own pitch. Not clamped or snapped, as the side's is not (decisions 5 and 9). Equal neighbours merge. */
+export function setStretchPitch(f: ShellFixture, index: number, side: RingSide, k: number, deg: number): ShellFixture {
+  assertStretch(f, index, side, k);
+  return withStretches(f, index, side, list => list.map((s, i) => (i === k ? {...s, deg} : s)));
+}
+
+/**
+ * A side's stretches after its length changed: the last one ends where the side does, and one that begins at or past the
+ * end is dropped (the first is kept). A resize therefore keeps a split side tiled instead of leaving it for the wire to refuse.
+ */
+function refit(side: SideForm, length: number, fallbackDeg: number): SideForm {
+  const runs = side.runs;
+  if (!runs?.length || runs.at(-1)?.to === length || !(length > 0)) return side;
+  const kept = runs.filter((r, i) => i === 0 || r.from < length).map(r => ({...r}));
+  kept[kept.length - 1].to = length;
+  return canonicalSide({...side, runs: kept}, length, fallbackDeg);
+}
+
+/** Refits every split side of a Ring to its sides' lengths (`refit`). */
+function refitSides(r: FixtureRing): void {
+  for (const side of RING_SIDES) {
     const s = r.sides?.[side];
-    if (!s?.runs) return;
-    s.runs.splice(run, 1);
-    if (!s.runs.length) delete s.runs;
-  });
+    if (s && r.sides) r.sides[side] = refit(s, sideLengthCm(r.rect, side), r.defaultDeg);
+  }
 }
-
-/** Sets where run `run` starts, in cm from the side's start, snapped to the cell size. Not reordered: a run out of order is for the wire to refuse. */
-export const setRunFrom = (f: ShellFixture, index: number, side: RingSide, run: number, value: number): ShellFixture =>
-  withRun(f, index, side, run, r => { r.from = snapToCell(value, f.cellSize); });
-
-/** Sets where run `run` ends, in cm from the side's start, snapped to the cell size. */
-export const setRunTo = (f: ShellFixture, index: number, side: RingSide, run: number, value: number): ShellFixture =>
-  withRun(f, index, side, run, r => { r.to = snapToCell(value, f.cellSize); });
-
-/** Sets run `run`'s form. Its pitch, and any `maxHeight` or `limit` it carries, stay. */
-export const setRunForm = (f: ShellFixture, index: number, side: RingSide, run: number, form: RingForm): ShellFixture =>
-  withRun(f, index, side, run, r => { r.form = form; });
-
-/** Sets run `run`'s own pitch. Not clamped or snapped, as the side's is not (decisions 5 and 9). */
-export const setRunPitch = (f: ShellFixture, index: number, side: RingSide, run: number, deg: number): ShellFixture =>
-  withRun(f, index, side, run, r => { r.deg = deg; });
 
 /** Moves Ring `index` one place up (`-1`, toward index 0) or down (`1`). The first Ring cannot move up, nor the last down: the copy is unchanged. */
 export function moveRing(f: ShellFixture, index: number, direction: -1 | 1): ShellFixture {

@@ -1,14 +1,14 @@
 // Viewer editing decisions 1 to 5 and gates 1 and 2 of decision 23: the pure edit functions, and `ringBox`.
 import {describe, expect, it} from 'vitest';
-import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, RingSide, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, RingSide, SHELL_FIXTURES, ShellFixture, SideRun, ring} from '../src/fixture.ts';
 import {runSpan} from '../src/ring-forms.ts';
 import type {Rect} from '../src/roof/model.ts';
 import {writeInput} from '../src/wire/input-adapter.ts';
 import {resolveSides, validate} from '../src/viewer/draft.ts';
 import {
-  addRing, addRun, cloneFixture, clearSide, duplicateRing, moveRing, pinListedPitches, removeRing, removeRun, ringBox, setBaseStorey,
-  setDefaultDeg, setRect, setRectCoord, setRunForm, setRunFrom, setRunPitch, setRunTo, setSideForm, setSidePitch, setStoreyHeight, setStoreys,
-  middleThird, sideLengthCm, snapToCell, writtenRunSources,
+  addRing, canSplitStretch, canonicalFixture, canonicalSide, cloneFixture, clearSide, duplicateRing, middleThird, moveBoundary, moveRing, pinListedPitches,
+  removeRing, ringBox, runsAreContiguous, setBaseStorey, setDefaultDeg, setRect, setRectCoord, setSideForm, setSidePitch, setStoreyHeight, setStoreys,
+  setStretchForm, setStretchPitch, sideLengthCm, snapToCell, splitStretch, stretchCount,
 } from '../src/viewer/edit.ts';
 
 /** Freezes a value and everything under it, so any write to it throws (modules are strict). */
@@ -257,32 +257,32 @@ describe('ringBox (decision 15)', () => {
   });
 });
 
-// ---- The run list (journal decision 210) -------------------------------------------------------------------------------------
+// ---- Stretches (journal decision 214) ---------------------------------------------------------------------------------------
 
-/** One edit of one side's runs, named, as it is made on Ring `i` and `side` of a fixture. */
-interface RunEdit { name: string; needsRun: boolean; apply: (f: ShellFixture, i: number, side: RingSide) => ShellFixture }
+/** One edit of one side's stretches, named, as it is made on Ring `i` and `side` of a fixture. */
+interface StretchEdit { name: string; needsSplit: boolean; apply: (f: ShellFixture, i: number, side: RingSide) => ShellFixture }
 
-const runsOf = (f: ShellFixture, i: number, side: RingSide): number => f.rings[i].sides?.[side]?.runs?.length ?? 0;
+const stretchesIn = (f: ShellFixture, i: number, side: RingSide): number => stretchCount(f, i, side);
 
-/** Every run edit, with whether it needs a side that already has a run. */
-const RUN_EDITS: RunEdit[] = [
-  {name: 'addRun', needsRun: false, apply: (f, i, s) => addRun(f, i, s)},
-  {name: 'removeRun', needsRun: true, apply: (f, i, s) => removeRun(f, i, s, 0)},
-  {name: 'setRunFrom', needsRun: true, apply: (f, i, s) => setRunFrom(f, i, s, 0, 150)},
-  {name: 'setRunTo', needsRun: true, apply: (f, i, s) => setRunTo(f, i, s, runsOf(f, i, s) - 1, 450)},
-  {name: 'setRunForm', needsRun: true, apply: (f, i, s) => setRunForm(f, i, s, 0, 'hip')},
-  {name: 'setRunPitch', needsRun: true, apply: (f, i, s) => setRunPitch(f, i, s, 0, 52.5)},
-  {name: 'setSideForm', needsRun: false, apply: (f, i, s) => setSideForm(f, i, s, 'gable')},
-  {name: 'setSidePitch', needsRun: false, apply: (f, i, s) => setSidePitch(f, i, s, 33)},
-  {name: 'clearSide', needsRun: false, apply: (f, i, s) => clearSide(f, i, s)},
+/** Every stretch edit, with whether it needs a split side (more than one stretch). */
+const STRETCH_EDITS: StretchEdit[] = [
+  {name: 'splitStretch', needsSplit: false, apply: (f, i, s) => splitStretch(f, i, s, 0)},
+  {name: 'splitStretch (the last)', needsSplit: false, apply: (f, i, s) => splitStretch(f, i, s, stretchesIn(f, i, s) - 1)},
+  {name: 'moveBoundary', needsSplit: true, apply: (f, i, s) => moveBoundary(f, i, s, 1, 150)},
+  {name: 'setStretchForm', needsSplit: false, apply: (f, i, s) => setStretchForm(f, i, s, 0, 'gable')},
+  {name: 'setStretchForm (hip)', needsSplit: false, apply: (f, i, s) => setStretchForm(f, i, s, stretchesIn(f, i, s) - 1, 'hip')},
+  {name: 'setStretchPitch', needsSplit: false, apply: (f, i, s) => setStretchPitch(f, i, s, 0, 52.5)},
+  {name: 'setSideForm', needsSplit: false, apply: (f, i, s) => setSideForm(f, i, s, 'gable')},
+  {name: 'setSidePitch', needsSplit: false, apply: (f, i, s) => setSidePitch(f, i, s, 33)},
+  {name: 'clearSide', needsSplit: false, apply: (f, i, s) => clearSide(f, i, s)},
 ];
 
-/** Every fixture a run can be edited on: the roster, and the fixtures that already have runs. */
+/** Every fixture a side can be split on: the roster, and the fixtures that already have runs. */
 const RUN_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES];
 
-describe('gate 1 for runs: every run edit leaves its input unchanged (journal decision 210)', () => {
+describe('gate 1 for stretches: every stretch edit leaves its input unchanged (journal decision 214)', () => {
   for (const f of RUN_FIXTURES) {
-    it(`${f.name}: no run edit writes to its argument, and none shares a Ring, side or run with it`, () => {
+    it(`${f.name}: no stretch edit writes to its argument, and none shares a Ring, side or run with it`, () => {
       const frozen = deepFreeze(cloneFixture(f));
       const before = JSON.stringify(frozen);
       const shared = new Set<object>();
@@ -296,10 +296,10 @@ describe('gate 1 for runs: every run edit leaves its input unchanged (journal de
         }
       }
       let edited = 0;
-      for (const e of RUN_EDITS) {
+      for (const e of STRETCH_EDITS) {
         frozen.rings.forEach((_, i) => {
           for (const side of RING_SIDES) {
-            if (e.needsRun && !runsOf(frozen, i, side)) continue;
+            if (e.needsSplit && stretchesIn(frozen, i, side) < 2) continue;
             const next = e.apply(frozen, i, side);
             edited++;
             expect(next, e.name).not.toBe(frozen);
@@ -307,7 +307,7 @@ describe('gate 1 for runs: every run edit leaves its input unchanged (journal de
               expect(shared.has(r) || shared.has(r.rect) || (r.sides !== undefined && shared.has(r.sides)), `${e.name}: a Ring, rect or sides object is shared`).toBe(false);
               for (const s of Object.values(r.sides ?? {})) {
                 expect(shared.has(s), `${e.name}: a side is shared`).toBe(false);
-                for (const run of s.runs ?? []) expect(shared.has(run), `${e.name}: a run is shared`).toBe(false);
+                for (const run of s.runs ?? []) expect(shared.has(run), `${e.name}: a stretch is shared`).toBe(false);
               }
             }
           }
@@ -319,43 +319,188 @@ describe('gate 1 for runs: every run edit leaves its input unchanged (journal de
   }
 });
 
-describe('gate 3 for runs: setting a side\'s form or pitch keeps its runs; clearing it removes them (journal decision 210)', () => {
-  const withRuns = RISE_FIXTURES.flatMap(f => f.rings.flatMap((r, i) => RING_SIDES.filter(s => r.sides?.[s]?.runs?.length).map(s => ({f, i, s}))));
+describe('the canonical spelling of a side (journal decision 214)', () => {
+  const L = 1000;
+  const run = (from: number, to: number, form: 'hip' | 'gable', deg: number, extra: Partial<SideRun> = {}): SideRun => ({from, to, form, deg, ...extra});
 
-  it('there are sides with runs to try it on', () => {
-    expect(withRuns.length).toBeGreaterThan(8);
+  it('a plain side is left as it is, its pitch pinned, and an empty runs list is no list', () => {
+    expect(canonicalSide({form: 'gable'}, L, 40)).toEqual({form: 'gable', deg: 40});
+    expect(canonicalSide({form: 'hip', deg: 30, runs: []}, L, 40)).toEqual({form: 'hip', deg: 30});
   });
 
-  for (const {f, i, s} of withRuns) {
-    it(`${f.name} Ring ${i} side ${s}`, () => {
-      const runs = f.rings[i].sides?.[s]?.runs;
-      expect(setSideForm(f, i, s, 'gable').rings[i].sides?.[s]?.runs).toEqual(runs);
-      expect(setSideForm(f, i, s, 'hip').rings[i].sides?.[s]?.runs).toEqual(runs);
-      expect(setSidePitch(f, i, s, 38).rings[i].sides?.[s]?.runs).toEqual(runs);
-      expect(setSideForm(f, i, s, 'gable').rings[i].sides?.[s]?.form).toBe('gable');
-      expect(setSidePitch(f, i, s, 38).rings[i].sides?.[s]?.deg).toBe(38);
-      expect(clearSide(f, i, s).rings[i].sides?.[s]).toBeUndefined();
-    });
-  }
+  it('fills a gap with the side\'s own form and pitch, so the stretches tile the side', () => {
+    const side = canonicalSide({form: 'hip', deg: 30, runs: [run(300, 700, 'gable', 60)]}, L, 40);
+    expect(side).toEqual({form: 'hip', deg: 30, runs: [run(0, 300, 'hip', 30), run(300, 700, 'gable', 60), run(700, L, 'hip', 30)]});
+  });
+
+  it('merges neighbours that agree in form, pitch, maxHeight and limit, and keeps ones that differ in any', () => {
+    const merged = canonicalSide({form: 'hip', deg: 30, runs: [run(0, 300, 'hip', 30), run(300, 500, 'gable', 60), run(500, 700, 'gable', 60), run(700, L, 'hip', 30)]}, L, 40);
+    expect(merged.runs).toEqual([run(0, 300, 'hip', 30), run(300, 700, 'gable', 60), run(700, L, 'hip', 30)]);
+    const kept = canonicalSide({form: 'hip', deg: 30, runs: [run(0, 300, 'hip', 30), run(300, 500, 'gable', 60, {maxHeight: 200}), run(500, 700, 'gable', 60), run(700, L, 'hip', 30)]}, L, 40);
+    expect(kept.runs).toHaveLength(4);
+    const limited = canonicalSide({form: 'hip', deg: 30, runs: [run(300, 500, 'gable', 60, {limit: 'ridgeSlope'}), run(500, 700, 'gable', 60)]}, L, 40);
+    expect(limited.runs).toHaveLength(4);
+    expect(canonicalSide({form: 'hip', deg: 30, runs: [run(300, 500, 'gable', 60, {maxHeight: 200}), run(500, 700, 'gable', 60, {maxHeight: 200})]}, L, 40).runs).toHaveLength(3);
+  });
+
+  it('a side that merges to one stretch is a plain side again', () => {
+    expect(canonicalSide({form: 'hip', deg: 30, runs: [run(0, 500, 'gable', 60), run(500, L, 'gable', 60)]}, L, 40)).toEqual({form: 'gable', deg: 60});
+    expect(canonicalSide({form: 'gable', deg: 50, runs: [run(0, L, 'hip', 35)]}, L, 40)).toEqual({form: 'hip', deg: 35});
+  });
+
+  it('derives the side\'s own form and pitch: its first hip stretch, else its first stretch', () => {
+    expect(canonicalSide({form: 'gable', deg: 50, runs: [run(300, 700, 'hip', 30)]}, L, 40)).toMatchObject({form: 'hip', deg: 30});
+    expect(canonicalSide({form: 'hip', deg: 30, runs: [run(0, 500, 'gable', 60), run(500, L, 'gable', 45)]}, L, 40)).toMatchObject({form: 'gable', deg: 60});
+    expect(canonicalSide({form: 'gable', deg: 50, runs: [run(0, 400, 'gable', 60)]}, L, 40)).toMatchObject({form: 'gable', deg: 60});
+  });
+
+  it('is idempotent', () => {
+    const once = canonicalSide({form: 'gable', deg: 50, runs: [run(100, 300, 'hip', 30), run(300, 500, 'gable', 60)]}, L, 40);
+    expect(canonicalSide(once, L, 40)).toEqual(once);
+  });
+
+  it('leaves a side whose runs are malformed as typed, and says so by not tiling it', () => {
+    for (const runs of [
+      [run(500, 300, 'gable', 60)], [run(300, 300, 'gable', 60)], [run(0, 600, 'gable', 60), run(500, L, 'hip', 30)],
+      [run(400, 600, 'gable', 60), run(0, 200, 'hip', 30)], [run(-100, 200, 'gable', 60)], [run(800, 1200, 'gable', 60)],
+    ]) {
+      expect(canonicalSide({form: 'hip', deg: 30, runs}, L, 40).runs, JSON.stringify(runs)).toEqual(runs);
+    }
+  });
+
+  it('canonicalFixture gives every side of every Ring the one spelling, and a rise fixture\'s free runs tile', () => {
+    const tiled = canonicalFixture(RISE_FIXTURES.find(f => f.name === 'MidWallRise') as ShellFixture);
+    expect(tiled.rings[0].sides?.S).toEqual({form: 'hip', deg: 30, runs: [run(0, 330, 'hip', 30), run(330, 610, 'gable', 45), run(610, L, 'hip', 30)]});
+    for (const f of RISE_FIXTURES) expect(canonicalFixture(canonicalFixture(f)), f.name).toEqual(canonicalFixture(f));
+  });
 });
 
-describe('the run edits (journal decision 210)', () => {
+describe('the stretch edits (journal decision 214)', () => {
   const plain = (): ShellFixture => ({name: 'p', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 40)]});
   const runsAt = (f: ShellFixture, side: RingSide = 'S') => f.rings[0].sides?.[side]?.runs;
+  const spans = (f: ShellFixture, side: RingSide = 'S') => runsAt(f, side)?.map(r => [r.from, r.to, r.form, r.deg]);
 
-  it('adds a run over the middle third of the largest stretch no run covers, in the other form, at the side\'s pitch, and lists the side', () => {
-    const one = addRun(plain(), 0, 'S');
-    // The middle third of [0, 1000] is [333, 667], snapped inward to the 50 cm grid: both flanks keep the side's own form.
-    expect(one.rings[0].sides?.S).toEqual({form: 'hip', deg: 40, runs: [{from: 350, to: 650, form: 'gable', deg: 40}]});
-    // The two flanks tie at 350 cm, the first is taken: its middle third [117, 233] snaps to [150, 200]. The runs stay in order.
-    expect(runsAt(addRun(one, 0, 'S'))?.map(r => [r.from, r.to])).toEqual([[150, 200], [350, 650]]);
-    // A side wholly covered has no whole cell left: it is left as it was.
-    const whole = setRunTo(setRunFrom(one, 0, 'S', 0, 0), 0, 'S', 0, 1000);
-    expect(addRun(whole, 0, 'S')).toEqual(whole);
-    // Shrunk to [300, 700], the next two take [100, 200] (middle of [0, 300]) and then [800, 900].
-    const middle = setRunTo(setRunFrom(one, 0, 'S', 0, 300), 0, 'S', 0, 700);
-    expect(runsAt(addRun(middle, 0, 'S'))?.map(r => [r.from, r.to])).toEqual([[100, 200], [300, 700]]);
-    expect(runsAt(addRun(addRun(middle, 0, 'S'), 0, 'S'))?.map(r => [r.from, r.to])).toEqual([[100, 200], [300, 700], [800, 900]]);
+  it('splits a plain side into three: the other form over the middle third, the side\'s form on both flanks', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    expect(split.rings[0].sides?.S).toEqual({form: 'hip', deg: 40, runs: [
+      {from: 0, to: 350, form: 'hip', deg: 40}, {from: 350, to: 650, form: 'gable', deg: 40}, {from: 650, to: 1000, form: 'hip', deg: 40},
+    ]});
+  });
+
+  it('splits a stretch into three where its middle holds a whole cell, else into two halves, else says it cannot', () => {
+    const f = splitStretch(splitStretch(plain(), 0, 'S', 0), 0, 'S', 2);
+    // [650, 1000]: its middle third [767, 883] snaps to [800, 850], both flanks kept.
+    expect(spans(f)).toEqual([[0, 350, 'hip', 40], [350, 650, 'gable', 40], [650, 800, 'hip', 40], [800, 850, 'gable', 40], [850, 1000, 'hip', 40]]);
+    // A stretch of two cells has no whole cell in its middle third, so it halves, the second half in the other form.
+    const two: ShellFixture = {name: 'w', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 100, 500], 0, 1, 40)]};
+    expect(spans(splitStretch(two, 0, 'S', 0))).toEqual([[0, 50, 'hip', 40], [50, 100, 'gable', 40]]);
+    const tiny: ShellFixture = {name: 't', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 50, 500], 0, 1, 40)]};
+    expect(canSplitStretch(tiny, 0, 'S', 0)).toBe(false);
+    expect(splitStretch(tiny, 0, 'S', 0)).toEqual(tiny);
+    expect(canSplitStretch(plain(), 0, 'S', 0)).toBe(true);
+    expect(canSplitStretch({...tiny, rings: [ring([0, 0, 100, 500], 0, 1, 40)]}, 0, 'S', 0)).toBe(true);
+  });
+
+  it('a new hip stretch takes the side\'s existing hip pitch (journal decision 214, Low 2)', () => {
+    // A gable side at 45 with a hip stretch at 30: splitting the gable stretch makes a hip stretch at 30, not 45.
+    const f: ShellFixture = {name: 'h', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'gable', deg: 45, runs: [
+      {from: 0, to: 400, form: 'gable', deg: 45}, {from: 400, to: 600, form: 'hip', deg: 30}, {from: 600, to: 1000, form: 'gable', deg: 45},
+    ]}})]};
+    const split = splitStretch(f, 0, 'S', 0);
+    const hips = runsAt(split)?.filter(r => r.form === 'hip') ?? [];
+    expect(hips.length).toBeGreaterThan(1);
+    expect(new Set(hips.map(r => r.deg))).toEqual(new Set([30]));
+    expect(validate(split)).toEqual({ok: true});
+    // With no hip stretch, it takes the pitch of the stretch it is split from.
+    const gable = splitStretch(setSideForm(plain(), 0, 'N', 'gable'), 0, 'N', 0);
+    expect(runsAt(gable, 'N')?.[1]).toMatchObject({form: 'hip', deg: 40});
+  });
+
+  it('sets a stretch\'s form: a hip takes the side\'s hip pitch and loses maxHeight and limit; equal neighbours merge', () => {
+    const f: ShellFixture = {name: 'm', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', deg: 30, runs: [
+      {from: 0, to: 300, form: 'hip', deg: 30}, {from: 300, to: 700, form: 'gable', deg: 60, maxHeight: 180, limit: 'ridgeSlope'}, {from: 700, to: 1000, form: 'hip', deg: 30},
+    ]}})]};
+    // The middle stretch to hip: it takes 30, loses its limits, and the three hips are one: a plain hip side at 30.
+    expect(setStretchForm(f, 0, 'S', 1, 'hip').rings[0].sides?.S).toEqual({form: 'hip', deg: 30});
+    // A gable stretch at 60 set to gable again changes nothing.
+    expect(setStretchForm(f, 0, 'S', 1, 'gable')).toEqual(f);
+    // The first stretch to gable at 60: it merges with nothing (the middle has limits), the side's own form is still the first hip.
+    const first = setStretchForm(setStretchPitch(f, 0, 'S', 0, 60), 0, 'S', 0, 'gable');
+    expect(spans(first)).toEqual([[0, 300, 'gable', 60], [300, 700, 'gable', 60], [700, 1000, 'hip', 30]]);
+    expect(first.rings[0].sides?.S).toMatchObject({form: 'hip', deg: 30});
+  });
+
+  it('sets a stretch\'s pitch, and equal neighbours merge', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    expect(spans(setStretchPitch(split, 0, 'S', 1, 60))).toEqual([[0, 350, 'hip', 40], [350, 650, 'gable', 60], [650, 1000, 'hip', 40]]);
+    // Two gables of different pitch side by side become one when the pitches agree.
+    const two: ShellFixture = {name: 'g', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 40, {S: {form: 'hip', deg: 40, runs: [
+      {from: 0, to: 300, form: 'hip', deg: 40}, {from: 300, to: 500, form: 'gable', deg: 60}, {from: 500, to: 700, form: 'gable', deg: 45}, {from: 700, to: 1000, form: 'hip', deg: 40},
+    ]}})]};
+    expect(spans(setStretchPitch(two, 0, 'S', 2, 60))).toEqual([[0, 300, 'hip', 40], [300, 700, 'gable', 60], [700, 1000, 'hip', 40]]);
+    expect(spans(setStretchPitch(two, 0, 'S', 1, 45))).toEqual([[0, 300, 'hip', 40], [300, 700, 'gable', 45], [700, 1000, 'hip', 40]]);
+  });
+
+  it('moves the boundary between two stretches, which moves both, snapped to the cell size', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    expect(spans(moveBoundary(split, 0, 'S', 1, 424))).toEqual([[0, 400, 'hip', 40], [400, 650, 'gable', 40], [650, 1000, 'hip', 40]]);
+    expect(spans(moveBoundary(split, 0, 'S', 2, 776))).toEqual([[0, 350, 'hip', 40], [350, 800, 'gable', 40], [800, 1000, 'hip', 40]]);
+  });
+
+  it('a boundary moved past a neighbour\'s far end leaves the side as typed, and the draft is for the wire to refuse (decision 9)', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    const past = moveBoundary(split, 0, 'S', 1, 700);
+    expect(spans(past)).toEqual([[0, 700, 'hip', 40], [700, 650, 'gable', 40], [650, 1000, 'hip', 40]].map(r => r));
+    expect(validate(past).ok).toBe(false);
+  });
+
+  it('on a split side the side\'s own form and pitch do not act; on a plain side they do', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    expect(setSideForm(split, 0, 'S', 'gable')).toEqual(split);
+    expect(setSidePitch(split, 0, 'S', 55)).toEqual(split);
+    expect(setSideForm(plain(), 0, 'S', 'gable').rings[0].sides?.S).toEqual({form: 'gable', deg: 40});
+    // "Default" returns a split side to plain, unlisted.
+    expect(clearSide(split, 0, 'S').rings[0].sides?.S).toBeUndefined();
+  });
+
+  it('keeps a stretch\'s maxHeight and limit through every edit that does not touch that stretch', () => {
+    const f: ShellFixture = {name: 'm', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', deg: 45, runs: [
+      {from: 0, to: 100, form: 'hip', deg: 45}, {from: 100, to: 300, form: 'gable', deg: 50, maxHeight: 180, limit: 'ridgeSlope'}, {from: 300, to: 1000, form: 'hip', deg: 45},
+    ]}})]};
+    for (const next of [
+      moveBoundary(f, 0, 'S', 2, 500), splitStretch(f, 0, 'S', 2), setStretchPitch(f, 0, 'S', 2, 45), setStretchForm(f, 0, 'S', 0, 'hip'),
+      duplicateRing(f, 0), moveRing(addRing(f), 0, 1), setDefaultDeg(f, 0, 33),
+    ]) {
+      const runs = next.rings.flatMap(r => r.sides?.S?.runs ?? []);
+      expect(runs.some(r => r.maxHeight === 180 && r.limit === 'ridgeSlope' && r.form === 'gable'), 'kept').toBe(true);
+    }
+    // Splitting the stretch that holds them keeps them on both flanks.
+    const kept = splitStretch(f, 0, 'S', 1).rings[0].sides?.S?.runs?.filter(r => r.maxHeight === 180);
+    expect(kept?.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('refuses a stretch that does not exist as a RangeError', () => {
+    expect(() => moveBoundary(plain(), 0, 'S', 1, 100)).toThrow(RangeError);
+    expect(() => moveBoundary(splitStretch(plain(), 0, 'S', 0), 0, 'S', 0, 100)).toThrow(RangeError);
+    expect(() => setStretchForm(plain(), 0, 'S', 3, 'hip')).toThrow(RangeError);
+    expect(() => splitStretch(plain(), 4, 'S', 0)).toThrow(RangeError);
+  });
+
+  it('pins a run\'s pitch: pinListedPitches gives a run without one its side\'s', () => {
+    const f: ShellFixture = {name: 'q', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 0, to: 500, form: 'gable'}]}})]};
+    expect(pinListedPitches(f).rings[0].sides?.S).toEqual({form: 'hip', deg: 45, runs: [{from: 0, to: 500, form: 'gable', deg: 45}]});
+  });
+
+  it('resizing a Ring keeps its split sides tiled: the last stretch ends where the side does, and stretches past the end go', () => {
+    const split = splitStretch(plain(), 0, 'S', 0);
+    const longer = setRectCoord(split, 0, 2, 1200);
+    expect(spans(longer)).toEqual([[0, 350, 'hip', 40], [350, 650, 'gable', 40], [650, 1200, 'hip', 40]]);
+    const shorter = setRectCoord(split, 0, 2, 500);
+    expect(spans(shorter)).toEqual([[0, 350, 'hip', 40], [350, 500, 'gable', 40]]);
+    expect(validate(shorter)).toEqual({ok: true});
+    expect(validate(setRect(split, 0, [0, 0, 300, 500]))).toEqual({ok: true});
+    // Cut to 300 cm only the first stretch is left, and a side of one stretch is plain.
+    expect(setRect(split, 0, [0, 0, 300, 500]).rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
   });
 
   it('middleThird keeps both flanks, and falls back to the whole stretch where no whole cell is left in the middle', () => {
@@ -365,111 +510,46 @@ describe('the run edits (journal decision 210)', () => {
     expect(middleThird([0, 150], 50)).toEqual([50, 100]);
   });
 
-  it('adds a hip run on a gable side, and snaps the new run inward to the cell size', () => {
-    const gableSide = setSideForm(plain(), 0, 'N', 'gable');
-    expect(runsAt(addRun(gableSide, 0, 'N'), 'N')?.[0].form).toBe('hip');
-    const off: ShellFixture = {name: 'o', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 40, {S: {form: 'hip', deg: 40, runs: [{from: 120, to: 480, form: 'gable', deg: 40}]}})]};
-    // Uncovered: [0, 120] (snaps to [0, 100]) and [480, 1000] (snaps to [500, 1000]): the larger, of which the middle third is [700, 800].
-    expect(runsAt(addRun(off, 0, 'S'))?.map(r => [r.from, r.to])).toEqual([[120, 480], [700, 800]]);
-  });
-
-  it('removes a run, and a side left with none is a plain side again, still listed', () => {
-    const two = addRun(addRun(plain(), 0, 'S'), 0, 'S');
-    expect(runsAt(two)?.map(r => r.from)).toEqual([150, 350]);
-    expect(runsAt(removeRun(two, 0, 'S', 0))?.map(r => r.from)).toEqual([350]);
-    const none = removeRun(removeRun(two, 0, 'S', 0), 0, 'S', 0);
-    expect(none.rings[0].sides?.S).toEqual({form: 'hip', deg: 40});
-    expect(Object.keys(none.rings[0].sides?.S ?? {})).not.toContain('runs');
-  });
-
-  it('sets a run\'s ends in cm from the side\'s start, snapped to the cell size, and does not reorder (decision 9)', () => {
-    const f = addRun(plain(), 0, 'E');
-    expect(runsAt(setRunFrom(f, 0, 'E', 0, 124), 'E')?.[0].from).toBe(100);
-    expect(runsAt(setRunTo(f, 0, 'E', 0, 276), 'E')?.[0].to).toBe(300);
-    expect(runsAt(setRunFrom(f, 0, 'E', 0, 900), 'E')?.[0]).toMatchObject({from: 900, to: 300});
-  });
-
-  it('sets a run\'s form and pitch, which is not clamped, and leaves the side and the other runs alone', () => {
-    const f: ShellFixture = {name: 'm', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', deg: 45, runs: [
-      {from: 100, to: 300, form: 'gable', deg: 50, maxHeight: 180}, {from: 500, to: 700, form: 'gable', deg: 60, limit: 'ridgeSlope'},
-    ]}})]};
-    const next = setRunPitch(setRunForm(f, 0, 'S', 1, 'hip'), 0, 'S', 1, 3);
-    expect(next.rings[0].sides?.S?.runs?.[1]).toEqual({from: 500, to: 700, form: 'hip', deg: 3, limit: 'ridgeSlope'});
-    expect(next.rings[0].sides?.S?.runs?.[0]).toEqual(f.rings[0].sides?.S?.runs?.[0]);
-    expect(next.rings[0].sides).toMatchObject({S: {form: 'hip', deg: 45}});
-  });
-
-  it('keeps a run\'s maxHeight and limit through every edit that does not touch that run (journal decision 210)', () => {
-    const f: ShellFixture = {name: 'm', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', deg: 45, runs: [
-      {from: 100, to: 300, form: 'gable', deg: 50, maxHeight: 180, limit: 'ridgeSlope'}, {from: 500, to: 700, form: 'gable', deg: 60},
-    ]}})]};
-    const kept = f.rings[0].sides?.S?.runs?.[0];
-    for (const next of [
-      setRunFrom(f, 0, 'S', 1, 550), setRunTo(f, 0, 'S', 1, 650), setRunForm(f, 0, 'S', 1, 'hip'), setRunPitch(f, 0, 'S', 1, 55),
-      setSideForm(f, 0, 'S', 'gable'), setSidePitch(f, 0, 'S', 35), addRun(f, 0, 'S'), duplicateRing(f, 0), moveRing(addRing(f), 0, 1),
-    ]) {
-      const runs = next.rings.flatMap(r => r.sides?.S?.runs ?? []);
-      expect(runs.some(r => r.maxHeight === 180 && r.limit === 'ridgeSlope' && r.from === kept?.from), 'kept').toBe(true);
-    }
-    expect(removeRun(f, 0, 'S', 1).rings[0].sides?.S?.runs).toEqual([kept]);
-  });
-
-  it('refuses a run that does not exist as a RangeError', () => {
-    expect(() => setRunFrom(plain(), 0, 'S', 0, 100)).toThrow(RangeError);
-    expect(() => removeRun(addRun(plain(), 0, 'S'), 0, 'S', 3)).toThrow(RangeError);
-    expect(() => addRun(plain(), 4, 'S')).toThrow(RangeError);
-  });
-
-  it('pins a run\'s pitch: pinListedPitches gives a run without one its side\'s', () => {
-    const f: ShellFixture = {name: 'q', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 0, to: 500, form: 'gable'}]}})]};
-    expect(pinListedPitches(f).rings[0].sides?.S).toEqual({form: 'hip', deg: 45, runs: [{from: 0, to: 500, form: 'gable', deg: 45}]});
-  });
-
   it('says where a side starts: sideLengthCm measures the side, and runSpan agrees with the panel\'s captions', () => {
     const rect: Rect = [100, 200, 700, 1000];
     expect(RING_SIDES.map(s => sideLengthCm(rect, s))).toEqual([600, 800, 600, 800]);
-    // S from x0 toward east, E from y0 toward north, N from x1 toward west, W from y1 toward south.
     expect(runSpan(rect, 'S', {from: 0, to: 100})).toEqual([100, 200]);
     expect(runSpan(rect, 'E', {from: 0, to: 100})).toEqual([200, 300]);
     expect(runSpan(rect, 'N', {from: 0, to: 100})).toEqual([600, 700]);
     expect(runSpan(rect, 'W', {from: 0, to: 100})).toEqual([900, 1000]);
   });
 
-  it('writtenRunSources lays the runs out as writeInput writes them, run for run', () => {
-    const extra: ShellFixture = {name: 'x', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', deg: 45, runs: [
-      {from: 0, to: 200, form: 'gable', deg: 45}, {from: 200, to: 300, form: 'gable', deg: 50}, {from: 600, to: 1000, form: 'gable', deg: 45},
-    ]}})]};
+  it('written as authored, the stretches of a split side are the wire\'s runs, position for position (journal decision 214, N4)', () => {
     let sides = 0;
-    for (const f of [...RISE_FIXTURES, extra]) {
+    for (const f of RUN_FIXTURES.map(canonicalFixture)) {
       const wire = writeInput(f);
       f.rings.forEach((r, i) => RING_SIDES.forEach((s, j) => {
         const runs = r.sides?.[s]?.runs;
         if (!runs?.length) return;
         sides++;
-        const sources = writtenRunSources(runs, sideLengthCm(r.rect, s));
+        expect(runsAreContiguous(runs, sideLengthCm(r.rect, s)), `${f.name} Ring ${i} ${s}`).toBe(true);
         const written = wire.rings[i].sides[j].runs;
-        expect(sources.length, `${f.name} Ring ${i} ${s}`).toBe(written.length);
-        sources.forEach((k, w) => {
-          if (k !== null) expect([written[w].startCm, written[w].endCm], `${f.name} ${s} run ${k}`).toEqual([runs[k].from, runs[k].to]);
-        });
+        expect(written.map(w => [w.startCm, w.endCm]), `${f.name} Ring ${i} ${s}`).toEqual(runs.map(x => [x.from, x.to]));
       }));
     }
     expect(sides).toBeGreaterThan(8);
-    expect(writtenRunSources([{from: 100, to: 300}], 1000)).toEqual([null, 0, null]);
-    expect(writtenRunSources([{from: 0, to: 1000}], 1000)).toEqual([0]);
+    expect(runsAreContiguous([{from: 0, to: 300}, {from: 300, to: 1000}], 1000)).toBe(true);
+    expect(runsAreContiguous([{from: 0, to: 300}, {from: 400, to: 1000}], 1000)).toBe(false);
+    expect(runsAreContiguous([{from: 100, to: 1000}], 1000)).toBe(false);
   });
 
-  it('every in-range run edit of a roster fixture is a valid draft (gate 2 for runs)', () => {
+  it('every in-range stretch edit of a roster fixture is a valid draft (gate 2 for stretches)', () => {
     const failures: string[] = [];
     for (const f of SHELL_FIXTURES) {
       f.rings.forEach((_, i) => {
         for (const side of RING_SIDES) {
-          const added = addRun(f, i, side);
+          const split = splitStretch(f, i, side, 0);
           const variants: [string, ShellFixture][] = [
-            ['addRun', added], ['addRun then setRunPitch', setRunPitch(added, i, side, 0, 60)],
-            ['addRun then setRunTo', setRunTo(added, i, side, 0, (added.rings[i].sides?.[side]?.runs?.[0].from ?? 0) + 50)],
-            ['addRun then setSideForm', setSideForm(added, i, side, 'gable')], ['addRun then setSidePitch', setSidePitch(added, i, side, 30)],
+            ['split', split], ['split then pitch', setStretchPitch(split, i, side, 1, 60)], ['split then form', setStretchForm(split, i, side, 1, 'hip')],
           ];
+          const second = split.rings[i].sides?.[side]?.runs?.[1];
+          // A boundary moved one cell into the stretch it starts, where that stretch has more than one.
+          if (second && second.from + f.cellSize < second.to) variants.push(['split then boundary', moveBoundary(split, i, side, 1, second.from + f.cellSize)]);
           for (const [what, next] of variants) {
             const v = validate(next);
             if (!v.ok) failures.push(`${f.name} Ring ${i} ${side} ${what}: ${v.errors[0]}`);
