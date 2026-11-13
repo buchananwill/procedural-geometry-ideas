@@ -96,9 +96,19 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
    - **WP-G1 accepted at `e45304b` (decision 203). WP-G1.1 dispatched 2026-11-12** to the same delegate, resumed:
      define `ridgeSlope` in words, re-run the whole sweep under it, measure where the definition is strained, the
      overhang fused and with a gap, and a wall-top cap under the storey directly above as a candidate.
-   - **For the user, before the rise is built**: (a) confirm the limit is the slope beyond the ridge
-     (decision 203); (b) fused contact at the floor cap, or a gap (F67); (c) the rule for a rise under the storey
-     directly above (F68); (d) the limit when no ridge crosses the rise's path, if WP-G1.1 finds no natural one.
+   - **WP-G1.1 accepted at `3a8c469` (decision 204). WP-G2, the rise in the pipeline and the wire, dispatched
+     2026-11-13** to the same delegate (Opus), resumed, at `8d184f0`. Its contract is the gable rise proposal as
+     amended. It does not touch `src/viewer/`. **When it returns**: check its changed-golden list against gable
+     rise decision 3, then a type review and a correctness review on its range. **Then WP-G3**: the editor's run
+     list (viewer editing decision 25), and fold the amendments to spec 3 and decisions 116 and 149 into the spec.
+   - **For the user, all provisional and reversible by swapping a default** (decision 204): (a) the limit is the
+     slope beyond the ridge, found by the walk; (b) a 1 cm gap under an overhanging floor, not fused contact;
+     (c) a cap at the wall top of the storey directly above; (d) a tall rise on a hip end rides along the main
+     ridge unless the author sets `maxHeight`. Also still unconfirmed from decision 195: both caps cover the whole
+     rise.
+   - **Owed to `claude-work-ec` once WP-G2 is accepted**: the changed-golden list, that a flat top is a `Roof` face
+     on a horizontal plane with Ridge, Valley, Verge and RingJunction edges (F65), and that a rise's Gable Cells
+     name the winning Ring and side.
 8. **The message to the C++ side was sent to `claude-work-ec` on 2026-11-12**, which the user thinks is the UI/UX
    polish lead ("I think"). The message asks it to say so if it is not. It carries decisions 191, 192, 194 and
    195, the consequences for the port, and two questions: whether the game UI can request a form on part of one
@@ -282,6 +292,33 @@ ruled" list in the covered-storeys findings.
      - **Rises do not limit each other**: the walk reads the hip roof without rises.
      Gable rise decisions 11 and 12 are amended in place. WP-G2 builds the pipeline and the wire; the editor's run
      list follows as WP-G3.
+205. **WP-G2 may add the `runs` line to the editor's saved-draft schema, and nothing else under `src/viewer/`** (the
+     lead, 2026-11-13). WP-G2 stopped before any change, correctly: adding `runs` to `SideForm` (gable rise
+     decision 1) fails the compile-time tie that decision 198's B3 put on `SideFormSchema` in
+     `src/viewer/draft.ts:374`. The tie did its job. The one schema line makes saved drafts keep their runs. **Known
+     and left for WP-G3**: the editor's `setSideForm` and `setSidePitch` replace the side object and so drop its
+     runs. Until WP-G3, a file with runs loaded into the editor keeps them only while that side is not edited.
+206. **WP-G2's second stop is ruled: the wide effect of form per extent is accepted as the feature working, and the
+     suite's pins follow it by attributed promotion** (the lead, 2026-11-13). WP-G2 stopped at the WIP commit
+     `7464c40`, **which is red: 141 failed, 8,296 passed**. The pipeline code is built. The failures are tests and
+     goldens that pin the whole-wall rule (F73). Rulings:
+     - **The 37 cured robustness pins are promoted, each attributed to gable rise decision 3**, and
+       `s1h263/Court25` is re-pinned at its new signature. This is the project's enrolment rule working as meant: a
+       fixture leaves the defect set by being cured, and an unattributed cure would have broken the suite. A
+       residue class left with no member is reported as emptied, not refilled with a weaker case.
+     - **The golden set's residue representatives are re-chosen from the pins that remain.**
+     - **WP-G2 may change the one case name in `tests/viewer-defects.test.ts:163`** to a case that still has a
+       Cheek. That test is about the legend's colour, and its case was incidental. If no case has a Cheek any more,
+       it stops and reports.
+     - **`SB400-600B100S500g60r0` is re-authored so its wall is gabled along its whole length**, because the rule
+       it is an oracle for is the free cut taking a gable's pitch. Its name follows the roster's convention for
+       the new input.
+     - **A rise for which the limit walk finds nothing on either roof is a `PlanRefusal`**, not a bare error, so
+       the editor shows it as a refusal.
+     - **A None side that now wins its own extent is refused**, as the per-extent reading of decision 140 requires.
+       Accepted, and owed to the C++ side as a consequence.
+     - **Cost, accepted and flagged to the user**: 37 golden files change and 21 golden inputs stop being
+       C++-replayable until the port builds rises (gable rise decision 17).
 
 ## Findings
 
@@ -421,3 +458,16 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
 - **F72. A horizontal cap at the wall top of the storey directly above cures the breakthroughs of F68.** Under a
   set-back storey at 60° and 75° (9.4 cm and 149.7 cm uncapped) the capped rise is clean. Under a flush upper wall
   the cap buries the rise wholly inside the upper storey, leaving only F69's conflict.
+- **F73. Form per extent reaches far beyond the Ring-conflict fixtures, and cures most of the pinned defects**
+  (the WP-G2 delegate at `7464c40`, a red WIP commit; not re-run by the lead, and the promotions are not yet made).
+  - **37 golden files change**, each on a mixed wall that gains a rise. Besides the Ring-conflict family they are
+    eight random courtyard fixtures (`Court5`, `Court14`, `Court16`, `Court23`, `Court25`, `Court35`,
+    `SplitCourt9`, `SplitCourt10`) and the rule oracle `SB400-600B100S500g60r0`. Unchanged, as predicted:
+    `OverlapSwapped`, `Pitch`, `Storey`, `Hole` and `CutPitch` in both orders.
+  - **38 pinned robustness cases move, and 37 become clean**: the Cheeks, Internal faces, Unclassified triples and
+    throws of Court 0, 2, 7, 14, 15, 18, 22, 23, 25, 27 and 35 and SplitCourt 10, 29 and 30. The one that still
+    fails, `s1h263/Court25`, throws the same Cell/NetEdge error at another index. **The Cheek class and most of
+    F51's residues were artefacts of spreading one Ring's gable along a whole shared wall.**
+  - **Every robustness sweep now exercises rises**, because random layouts routinely put a gabled side on a shared
+    wall.
+  - The exact limit walk agreed with the sampled probe on every case checked through production code.
