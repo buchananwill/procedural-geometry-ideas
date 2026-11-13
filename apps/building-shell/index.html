@@ -18,6 +18,10 @@
     h2:first-child { margin-top: 0; }
     select, button { font: inherit; color: var(--text); background: #262e3a; border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; }
     select { width: 100%; }
+    /* The selector's filter (WP-V1). */
+    .filter-row { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+    .filter-row .hint { margin-top: 0; white-space: nowrap; }
+    #fixture-filter { flex: 1; min-width: 0; font: inherit; color: var(--text); background: #171c24; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; }
     label.toggle { display: inline-flex; align-items: center; gap: 5px; margin: 0 12px 4px 0; cursor: pointer; }
     .readout { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; min-height: 3.2em; background: #171c24; }
     .readout.pinned { border-color: #fff176; }
@@ -78,7 +82,9 @@
   <div id="view"><div id="status">Loading manifold-3d...</div></div>
   <aside id="panel">
     <h2>Fixture</h2>
+    <div class="filter-row"><input id="fixture-filter" type="search" placeholder="Filter: words in a name, title or group" aria-label="Filter the fixture list"><span id="filter-count" class="hint"></span></div>
     <select id="fixture" aria-label="Fixture or defect case"></select>
+    <div id="fixture-note" class="hint"></div>
     <div id="manifest-note" class="hint bad"></div>
     <div id="buildline" class="hint"></div>
     <div id="case" class="readout case" hidden></div>

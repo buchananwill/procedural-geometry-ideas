@@ -1,7 +1,8 @@
-// The page's `#hash` names a fixture, a defect case or a draft (journal decision 98, F8; type review B8; decision 169; viewer
-// editing decisions 18 and 20).
+// The page's `#hash` names a fixture, a defect case, a fixture read from a committed input file, or a draft (journal
+// decision 98, F8; type review B8; decision 169; viewer editing decisions 18 and 20; WP-V1).
 import type {ShellFixture} from '../fixture.ts';
 import {writeInput} from '../wire/input-adapter.ts';
+import type {InputFile} from './catalogue.ts';
 import type {DefectCase} from './defect-cases.ts';
 import {parseDraftJson} from './draft.ts';
 import type {ParsedDraft} from './draft.ts';
@@ -38,13 +39,14 @@ export const DRAFT_LINK_PREFIX = '#draft=';
 export type Selection =
   | {kind: 'fixture'; fixture: ShellFixture; refusal?: string[]}
   | {kind: 'case'; defect: DefectCase}
+  | {kind: 'file'; file: InputFile}
   | {kind: 'draft'; fixture: ShellFixture; origin: DraftOrigin};
 
 /** Where a draft on show came from: the one kept in `localStorage`, or a link's. */
 export type DraftOrigin = 'saved' | 'link';
 
 /** The name a selection is listed under. */
-export const selectionName = (s: Selection): string => (s.kind === 'case' ? s.defect.name : s.fixture.name);
+export const selectionName = (s: Selection): string => (s.kind === 'case' ? s.defect.name : s.kind === 'file' ? s.file.name : s.fixture.name);
 
 const toBase64Url = (text: string): string => {
   const bytes = new TextEncoder().encode(text);
@@ -80,10 +82,13 @@ export function draftFromLinkHash(hash: string): ParsedDraft | undefined {
 /**
  * The selection a `#hash` names. A link (`#draft=...`) is a draft read through `readInput`; one the wire refuses names the
  * first fixture, with the refusal (decision 20). `#draft` is the `saved` draft, or the first fixture when there is none.
- * Otherwise the roster is looked in first, so a case that shares a roster name never shadows it; then the defect cases; an
- * empty, unknown or malformed hash names the roster's first fixture.
+ * Otherwise the roster is looked in first, so a case that shares a roster name never shadows it; then the defect cases;
+ * then the fixtures read from committed input files (WP-V1); an empty, unknown or malformed hash names the roster's first
+ * fixture.
  */
-export function selectionFromHash(hash: string, fixtures: readonly ShellFixture[], cases: readonly DefectCase[], saved?: ShellFixture): Selection {
+export function selectionFromHash(
+  hash: string, fixtures: readonly ShellFixture[], cases: readonly DefectCase[], saved?: ShellFixture, files: readonly InputFile[] = [],
+): Selection {
   const link = draftFromLinkHash(hash);
   if (link) {
     return link.ok
@@ -100,5 +105,7 @@ export function selectionFromHash(hash: string, fixtures: readonly ShellFixture[
   if (fixture) return {kind: 'fixture', fixture};
   const defect = cases.find(c => c.name === name);
   if (defect) return {kind: 'case', defect};
+  const file = files.find(f => f.name === name);
+  if (file) return {kind: 'file', file};
   return {kind: 'fixture', fixture: fixtureFromHash(hash, fixtures)};
 }

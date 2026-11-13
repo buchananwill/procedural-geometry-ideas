@@ -3,10 +3,11 @@
 // records kept, which the viewer needs for the raw parts and the face-to-triangle map; `buildShell` itself is
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
-import {RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
+import {PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
+import {GOLDEN_DIR_URL, InputFile, catalogueGroups, choosableCount, filterCatalogue, goldenInputFiles, playtestFiles} from './catalogue.ts';
 import {DefectCase, focusOfCase, parseDefectCases} from './defect-cases.ts';
 import {
   Draft, DraftAction, RestoredDraft, TALL_STOREY_SUM, blankDraft, buildGate, dispatch, draftFixtureOfJson, draftJson, editDraftOf, explainRefusals,
@@ -18,6 +19,7 @@ import {DRAFT_HASH, Selection, draftLinkHash, selectionFromHash, selectionName} 
 import {LegendEntry, LegendGroup, legendEntries} from './legend.ts';
 import {cssColour} from './palette.ts';
 import {Hit, readoutSections} from './readout.ts';
+import {RESEARCH_ENTRIES, RESEARCH_FIXTURES, researchNote} from './research-cases.ts';
 import {ScreenPoint, ShellScene} from './scene.ts';
 import {
   LAYER_KEYS, LayerKey, ToggleState, makeToggles, setHighlightPartial, setLayer, setNetKindOutlines, setRaw, setStorey, withStoreys,
@@ -228,42 +230,60 @@ function renderCaseBox(c: DefectCase | undefined, outcome?: CaseOutcome): void {
 /** A case with no input file: not a failed build, so its message is shown as it stands. */
 class CaseUnloadable extends Error {}
 
-/** A case's `golden/<name>.input.json`, as parsed. Throws, with the reason, when it cannot be had. */
-async function inputOfCase(c: DefectCase): Promise<{file: string; json: unknown}> {
+/** The input file a case or a file selection reads: a defect case's `golden/<name>.input.json`, or the file itself. */
+function inputFileOf(sel: FileBackedSelection): InputFile {
+  if (sel.kind === 'file') return sel.file;
+  const c = sel.defect;
   if (c.input === undefined) {
     const why = c.reasons.length ? c.reasons.join('; ') : 'the manifest gives no reason';
     throw new CaseUnloadable(`${c.name} cannot be loaded: it has no golden/*.input.json, because it is not C++-replayable (${why})`);
   }
-  const res = await fetch(new URL(`golden/${c.input}`, document.baseURI));
-  if (!res.ok) throw new Error(`golden/${c.input}: ${res.status} ${res.statusText}`);
-  return {file: `golden/${c.input}`, json: await res.json()};
+  return {name: c.name, path: `${GOLDEN_DIR_URL}${c.input}`};
 }
 
-/** A case's fixture, read from its `golden/<name>.input.json`. Throws, with the reason, when it cannot be. */
-async function fixtureOfCase(c: DefectCase): Promise<ShellFixture> {
-  const {file, json} = await inputOfCase(c);
-  const read = readInput(json, c.name);
-  if (!read.ok) throw new Error(`readInput refuses ${file}: ${read.errors.join('; ')}`);
+/** A file-backed selection's `input@1` file, as parsed. Throws, with the reason, when it cannot be had. */
+async function inputOf(sel: FileBackedSelection): Promise<{file: InputFile; json: unknown}> {
+  const file = inputFileOf(sel);
+  const res = await fetch(new URL(file.path, document.baseURI));
+  if (!res.ok) throw new Error(`${file.path}: ${res.status} ${res.statusText}`);
+  return {file, json: await res.json()};
+}
+
+/** A file-backed selection's fixture, read from its input file. Throws, with the reason, when it cannot be. */
+async function fixtureOfFile(sel: FileBackedSelection): Promise<ShellFixture> {
+  const {file, json} = await inputOf(sel);
+  const read = readInput(json, file.name);
+  if (!read.ok) throw new Error(`readInput refuses ${file.path}: ${read.errors.join('; ')}`);
   return read.fixture;
 }
 
 /** Journal decision 198, N2: a case's fixture as a draft starts from it, by the reconstruction a loaded file goes through. */
-async function draftFixtureOfCase(c: DefectCase): Promise<ShellFixture> {
-  const {file, json} = await inputOfCase(c);
-  const read = draftFixtureOfJson(json, c.name);
-  if (!read.ok) throw new Error(`readInput refuses ${file}: ${read.errors.join('; ')}`);
+async function draftFixtureOfFile(sel: FileBackedSelection): Promise<ShellFixture> {
+  const {file, json} = await inputOf(sel);
+  const read = draftFixtureOfJson(json, file.name);
+  if (!read.ok) throw new Error(`readInput refuses ${file.path}: ${read.errors.join('; ')}`);
   return read.fixture;
 }
 
+/** WP-V1: the clean goldens with a committed input that no listed fixture names, read from the manifest at start-up. */
+let goldens: InputFile[] = [];
+/** WP-V1: the playtest seeds. */
+const seeds: readonly InputFile[] = playtestFiles();
+/** Every fixture read from a committed input file, which a `#hash` may name. */
+let files: readonly InputFile[] = seeds;
+
 async function loadManifest(): Promise<void> {
   try {
-    const res = await fetch(new URL('golden/manifest.json', document.baseURI));
+    const res = await fetch(new URL(`${GOLDEN_DIR_URL}manifest.json`, document.baseURI));
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    cases = parseDefectCases(await res.json());
+    const manifest: unknown = await res.json();
+    cases = parseDefectCases(manifest);
+    goldens = goldenInputFiles(manifest, new Set(LISTED_FIXTURES.map(f => f.name)));
+    files = [...goldens, ...seeds];
   } catch (e) {
     cases = [];
     console.error('golden/manifest.json could not be read', e);
-    $('manifest-note').textContent = `Defect cases unavailable: golden/manifest.json could not be read (${errorMessage(e)}).`;
+    $('manifest-note').textContent = `Defect cases and goldens unavailable: golden/manifest.json could not be read (${errorMessage(e)}).`;
   }
 }
 
@@ -290,8 +310,11 @@ function showFailure(message: string, defect?: DefectCase): void {
   renderReadouts();
 }
 
-/** A selection that is loaded and built whole: a roster fixture or a defect case. A draft is built by `buildDraft`. */
+/** A selection that is loaded and built whole: a roster fixture, a defect case or an input file. A draft is built by `buildDraft`. */
 type LoadSelection = Exclude<Selection, {kind: 'draft'}>;
+
+/** A selection read from an `input@1` file: a defect case or an input file. */
+type FileBackedSelection = Extract<Selection, {kind: 'case' | 'file'}>;
 
 async function load(sel: LoadSelection): Promise<void> {
   const mine = ++token;
@@ -302,13 +325,14 @@ async function load(sel: LoadSelection): Promise<void> {
   status.textContent = `Building ${name}...`;
   $('buildline').textContent = '';
   renderCaseBox(defect);
+  renderFixtureNote(sel);
   let stage = 'build failed';
   try {
     let fixture: ShellFixture;
     if (sel.kind === 'fixture') fixture = sel.fixture;
     else {
       stage = 'load failed';
-      fixture = await fixtureOfCase(sel.defect);
+      fixture = await fixtureOfFile(sel);
       stage = 'build failed';
     }
     const t0 = performance.now();
@@ -339,43 +363,48 @@ async function load(sel: LoadSelection): Promise<void> {
 
 const select = $<HTMLSelectElement>('fixture');
 
+const filter = $<HTMLInputElement>('fixture-filter');
+
+/** WP-V1: the selector's groups (`catalogue.ts`), narrowed by the filter box, the entry on show always kept. */
 function fillSelector(): void {
+  const groups = catalogueGroups({
+    shell: SHELL_FIXTURES, rises: RISE_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
+    research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: seeds,
+    draft: draft ? {value: DRAFT_OPTION, label: draft.fixture.name} : undefined,
+  });
+  const shown = current ? (current.kind === 'draft' ? DRAFT_OPTION : selectionName(current)) : undefined;
+  const kept = filterCatalogue(groups, filter.value, shown);
   select.replaceChildren();
-  const fixtures = document.createElement('optgroup');
-  fixtures.label = 'Fixtures';
-  for (const f of SHELL_FIXTURES) fixtures.append(new Option(f.name, f.name));
-  select.append(fixtures);
-  // Journal decision 210: the rise fixtures are listed now that the editor can change a run.
-  const rises = document.createElement('optgroup');
-  rises.label = 'Gable rises';
-  for (const f of RISE_FIXTURES) rises.append(new Option(f.name, f.name));
-  select.append(rises);
-  if (cases.length) {
-    const defects = document.createElement('optgroup');
-    defects.label = 'Defect cases';
-    for (const c of cases) {
-      const note = c.input === undefined ? ' (cannot be loaded)' : c.error !== undefined ? ' (build throws)' : '';
-      defects.append(new Option(`${c.name}: ${c.residueClass}${note}`, c.name));
+  for (const g of kept) {
+    const og = document.createElement('optgroup');
+    og.label = g.label;
+    for (const e of g.entries) {
+      const o = new Option(e.label, e.value);
+      o.disabled = e.disabled === true;
+      og.append(o);
     }
-    select.append(defects);
+    select.append(og);
   }
-  if (draft) {
-    const drafts = document.createElement('optgroup');
-    drafts.label = 'Draft';
-    drafts.append(new Option(draft.fixture.name, DRAFT_OPTION));
-    select.append(drafts);
-  }
+  if (shown !== undefined) select.value = shown;
+  const total = choosableCount(groups), listed = choosableCount(kept);
+  $('filter-count').textContent = filter.value.trim() ? `${listed} of ${total} shown` : `${total} listed`;
 }
 
-/** Every fixture the selector lists by name: the roster, then the gable rises. */
-const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES];
+/** WP-V1: the line under the selector naming a research case, and how it was converted. */
+function renderFixtureNote(sel: Selection): void {
+  const entry = sel.kind === 'fixture' ? RESEARCH_ENTRIES.find(e => e.name === sel.fixture.name) : undefined;
+  $('fixture-note').textContent = entry ? researchNote(entry) : '';
+}
+
+/** Every fixture the selector lists by name: the roster, the gable rises, the Ring conflicts, the port's, the research cases. */
+const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
 
 /** The selector's value for the draft: no roster fixture or case has this name. */
 const DRAFT_OPTION = 'draft';
 
 /** The selection a listed name stands for. */
 function selectionNamed(name: string): Selection {
-  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, LISTED_FIXTURES, cases, draft?.fixture);
+  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, LISTED_FIXTURES, cases, draft?.fixture, files);
 }
 
 /** The hash that names a selection in the address bar. A link is never written back: the draft is kept in storage. */
@@ -391,7 +420,8 @@ function show(sel: Selection): void {
     link = null;
     notice = sel.kind === 'fixture' && sel.refusal ? {text: `The link was refused, and the first fixture is shown instead:\n${sel.refusal.join('\n')}`, bad: true} : null;
     scene.setRingBox(null);
-    select.value = selectionName(sel);
+    // The filter keeps what is on show (WP-V1), so the selector is refilled rather than only pointed at it.
+    fillSelector();
     renderPanel();
     void load(sel);
     return;
@@ -415,7 +445,8 @@ function show(sel: Selection): void {
   keepNext = false;
   notice = null;
   link = null;
-  select.value = DRAFT_OPTION;
+  $('fixture-note').textContent = '';
+  fillSelector();
   syncRingBox();
   void buildDraft();
 }
@@ -491,6 +522,7 @@ const panel: EditPanel = mountEditPanel($('edit'), {
 function editableName(): string | null {
   if (showingDraft || !current) return null;
   if (current.kind === 'fixture') return current.fixture.name;
+  if (current.kind === 'file') return current.file.name;
   return current.kind === 'case' && current.defect.input !== undefined ? current.defect.name : null;
 }
 
@@ -541,7 +573,7 @@ async function editCurrent(): Promise<void> {
   if (!sel || sel.kind === 'draft') return;
   const mine = selectionToken;
   try {
-    const source = sel.kind === 'fixture' ? sel.fixture : await draftFixtureOfCase(sel.defect);
+    const source = sel.kind === 'fixture' ? sel.fixture : await draftFixtureOfFile(sel);
     // The selection moved on while the case's file was fetched: this draft is not what is on show any more.
     if (mine !== selectionToken) return;
     const next = editDraftOf(source);
@@ -726,7 +758,9 @@ select.addEventListener('change', () => {
   show(sel);
 });
 // Journal decision 98, F8, and decision 169: a hash change loads that fixture or case.
-window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture)));
+window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture, files)));
+// WP-V1: the filter narrows the list as it is typed; what is on show stays listed.
+filter.addEventListener('input', () => fillSelector());
 $('reset').addEventListener('click', () => scene.resetView());
 $('frame-all').addEventListener('click', () => scene.resetView(true));
 window.addEventListener('keydown', e => {
@@ -756,5 +790,5 @@ unfinished = restored?.unfinished ?? false;
 // The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
 void loadManifest().then(() => {
   fillSelector();
-  show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture));
+  show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture, files));
 });
