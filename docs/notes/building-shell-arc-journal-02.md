@@ -477,6 +477,25 @@ ruled" list in the covered-storeys findings. Added this session:
      algorithm B's one gable, which removes every new Cheek the rule would add. **Accepted costs, to be pinned
      exactly**: 2 new Unclassified Edges on `Court18` at 263 and 300 cm, and more F69 conflicts on 11 fixtures.
      Gable rise decision 5 is amended again. WP-G4.2 builds it, with a fresh Opus delegate.
+221. **WP-G4.2 landed at `b1cff3e` and is provisionally accepted, pending a correctness review** (the lead,
+     2026-11-13). One commit; nine source and test files, all in the roster (the lead checked `git diff --stat`);
+     the working tree is clean. The delegate's record on that tree: 8,683 passed in 39 files, typecheck clean,
+     drift test green after one re-export, four mutation gates convicted. **Production matched the measurement on
+     every predicted case**: over 5,278 fixtures, 0 disagreements, 165 changes all as the probe predicted, no clean
+     fixture made unclean, nothing new throwing. The user's with-wing draft is the fixture
+     `GableBesideHipSouthWing`, and builds the symmetric gable.
+     - **Correction to F77 and to the lead's brief**: `s5/Court34` is not cured. That cure came from the
+       measurement's default run without the two-pitch sub-rule; with the sub-rule nothing changes there.
+     - **Pins**: none promoted. Six re-pinned on changed text or counts. `Court18` at 263 and 300 cm is back in
+       the defect table with 2 Unclassified Gable–Wall Edges each: a 26.8 cm² sliver of a storey 0 rise front
+       lying flat against the storey 1 wall of a taller Ring. No smaller case reproduces it. 11 fixtures gained
+       F69 conflicts and are enrolled.
+     - **Goldens**: `SplitBandAllGable75` and `Court16Seed1h250` change shape, each hole wall now carrying its own
+       gable instead of a slice of a wider one; `Court25Seed1h263` changes its error text only. Added:
+       `GableBesideHip` and `GableBesideHipSouthWing`. `SplitBandAllGable75` now builds a rise, so it is no longer
+       C++-replayable.
+     - A correctness review is dispatched (general-purpose, Opus) on `b1cff3e`. **Owed to `claude-work-ec`**: the
+       goldens moved again.
 
 ## Findings
 
