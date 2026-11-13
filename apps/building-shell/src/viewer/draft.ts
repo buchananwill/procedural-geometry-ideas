@@ -5,7 +5,7 @@
 // sentence and nothing more, so the editor holds none of the wire's rules.
 import {z} from 'zod';
 import {errorMessage} from '../errors.ts';
-import {RING_FORMS, RING_SIDES, RISE_LIMITS} from '../fixture.ts';
+import {RING_FORMS, RING_SIDES, RISE_FACINGS, RISE_LIMITS} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
 import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
@@ -378,7 +378,7 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
 // ---- Persistence (decision 18) and the build mark (journal decision 198, M2) --------------------------------------------------------
 
 const RingFormSchema = z.enum(RING_FORMS);
-const SideRunSchema = z.object({from: z.number(), to: z.number(), form: RingFormSchema, deg: z.number().optional(), maxHeight: z.number().optional(), limit: z.enum(RISE_LIMITS).optional()});
+const SideRunSchema = z.object({from: z.number(), to: z.number(), form: RingFormSchema, deg: z.number().optional(), maxHeight: z.number().optional(), limit: z.enum(RISE_LIMITS).optional(), facing: z.enum(RISE_FACINGS).optional(), apart: z.boolean().optional()});
 const SideFormSchema = z.object({form: RingFormSchema, deg: z.number().optional(), runs: z.array(SideRunSchema).optional()});
 const SidesSchema = z.object({S: SideFormSchema.optional(), E: SideFormSchema.optional(), N: SideFormSchema.optional(), W: SideFormSchema.optional()});
 const RingSchema = z.object({

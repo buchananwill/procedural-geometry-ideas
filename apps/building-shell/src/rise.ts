@@ -14,10 +14,13 @@
 //   does not limit (`gableOverWalk`); rule 2, a rise that meets such a wall runs to it and ends there, its walk and its
 //   reach (`gableEnd`); rule 3, a gable band wholly covered at plate level is built too (`coveredBands`,
 //   `bandCountsOnExtent`).
+// - Per-stretch gable settings (decisions 4 to 11): how a rise tests the gables facing it is its stretch's named facing
+//   strategy (`RISE_FACING_STRATEGIES`, beside the limit policies), which rules 1 and 2 read; `split` builds a rise as
+//   one piece per part of its band; and a line extent holding a stretch that stands apart is not algorithm B's.
 // Every default here is provisional until the user confirms (journal decision 204), so each is one named policy or
 // constant, replaceable without touching its neighbours.
 import {SHELL_TOLERANCE_CM} from './constants.ts';
-import {RiseLimit, ShellFixture, StoreyRing, storeyRings, storeysOf} from './fixture.ts';
+import {RiseFacing, RiseLimit, ShellFixture, StoreyRing, storeyRings, storeysOf} from './fixture.ts';
 import {GableRise, LineId, UnionWall, WallLine, claimedBands, ringSideLines, tanDeg} from './ring-forms.ts';
 import type {Piece} from './roof/algoB.ts';
 import {Building, Comp, Plane, Pt, Wall, dot, planeAt, pointInPoly, sub, wallLabel} from './roof/model.ts';
@@ -114,12 +117,15 @@ const ALONG_EPS = 1e-9;
  * `bands` are those bands, in order along the line; `span` is algorithm B's (`algorithmBSpan`).
  * - One band: the plain rule.
  * - **The sub-rule (decision 220)**: two or more bands that tile the span are one gable to algorithm B, at decision 5's
- *   pitch, the lowest index's. Bands are split where pitch, limit or `maxHeight` differ (decision 6); algorithm B reads
- *   none of the three beyond that one pitch, and a single band's limit and `maxHeight` are not read on a kept gable
- *   either (decision 5: no rise is built for it), so bands differing only in limit or `maxHeight` keep algorithm B too.
+ *   pitch, the lowest index's. Bands are split where pitch, limit, `maxHeight` or facing differ (decision 6); algorithm B
+ *   reads none of them beyond that one pitch, and a single band's settings are not read on a kept gable either
+ *   (decision 5: no rise is built for it), so bands differing only in limit, `maxHeight` or facing keep algorithm B too.
+ * - **Per-stretch gable settings decision 11: an extent where any band that counts stands apart is given up**, so that
+ *   each of its stretches is built as a rise, its own gable. An extent with no such band is decided exactly as before.
  */
 export function algorithmBBuildsGable(bands: readonly GableRise[], span: readonly [number, number]): boolean {
   if (!bands.length) return false;
+  if (bands.some(b => b.apart)) return false;
   const near = (p: number, q: number): boolean => Math.abs(p - q) <= ALONG_EPS;
   const tiles = near(bands[0].lo, span[0]) && near(bands[bands.length - 1].hi, span[1]) && bands.every((x, k) => k === 0 || near(x.lo, bands[k - 1].hi));
   // Without the sub-rule this would read `tiles && bands.length === 1`, and a two-pitch extent would become two rises.
@@ -217,7 +223,8 @@ export function claimedWalls(rings: StoreyRing[], walls: readonly UnionWall[], b
   const taken = new Set<GableRise>(extents.filter(e => e.keep).flatMap(e => e.bands));
   const take = (bands: readonly GableRise[]): GableRise[] => bands.filter(r => !taken.has(r) && taken.add(r));
   const same = (p: readonly GableRise[], q: readonly GableRise[]): boolean => p.length === q.length
-    && p.every((r, k) => r.lo === q[k].lo && r.hi === q[k].hi && r.deg === q[k].deg && r.limit === q[k].limit && r.maxHeight === q[k].maxHeight);
+    && p.every((r, k) => r.lo === q[k].lo && r.hi === q[k].hi && r.deg === q[k].deg && r.limit === q[k].limit && r.maxHeight === q[k].maxHeight
+      && r.facing === q[k].facing && r.apart === q[k].apart);
   let changed = false;
   const out = walls.map((w): UnionWall => {
     if (w.form === 'hip' && !w.rises?.length) return w;
@@ -458,16 +465,17 @@ const holdsWalk = (g: StoreyGable, s: number): boolean => g.lo + ALONG_EPS < s &
 
 /**
  * Journal decision 243, rule 1: whether a gable of the storey, whole or a stretch, stands on `wall`'s line, facing its
- * way, over the rise's walk line. Where one does, the wall's hip slope is replaced there and does not limit the rise.
- * Only a wall parallel to the rise's has a stretch the walk line crosses.
+ * way, over the rise's path. Where one does, the wall's hip slope is replaced there and does not limit the rise. Only a
+ * wall parallel to the rise's has a stretch the path crosses. Per-stretch gable settings decision 4: what "over the
+ * rise's path" means is the rise's facing strategy (`RISE_FACING_STRATEGIES`).
  */
 export type GableOverWalk = (ctx: LimitContext, wall: Wall) => boolean;
 
-/** Journal decision 243, rule 1: a storey gable on the wall's line, facing its way, holding the walk line. */
+/** Journal decision 243, rule 1: the storey gables on the wall's line, facing its way, stand over the rise's path. */
 export const gableOverWalk: GableOverWalk = (ctx, wall) => {
   if (alongX(wall) !== alongX(ctx.wall)) return false;
-  const line = wallLineId(wall), s = walkAt(ctx);
-  return ctx.gables.some(g => sameLineId(g, line) && holdsWalk(g, s));
+  const line = wallLineId(wall);
+  return RISE_FACING_STRATEGIES[ctx.rise.facing].over(ctx, ctx.gables.filter(g => sameLineId(g, line)));
 };
 
 /** The parameters along the walk's line where it crosses the island's outline: its outer loop and its holes. */
@@ -491,19 +499,28 @@ function staysInside(comp: Comp, o: Pt, n: Pt, d: number): boolean {
  * is none. The walk reads nothing beyond it, and the rise's reach stops there. The storey's gables include algorithm B's
  * whole-wall gables (`storeyGables`), so a rise facing a wall gabled along its whole length ends there too, rather than
  * walking on past it into a wing (journal decision 243, which so changes decision 238's gabled-bar T; the lead's reading,
- * confirmed by journal decision 244).
+ * confirmed by journal decision 244). Per-stretch gable settings decision 4: which lines' gables stand over the rise's
+ * path is the rise's facing strategy's (`RISE_FACING_STRATEGIES`).
  */
 export type RiseEnd = (ctx: LimitContext) => number | undefined;
 
-/** Journal decision 243, rule 2: the nearest facing-back line whose gable holds the walk line, reached inside the island. */
+/** The storey's gables on lines parallel to the rise's wall, facing back towards it. */
+const gablesFacingBack = (ctx: LimitContext): StoreyGable[] => {
+  const x = alongX(ctx.wall);
+  return ctx.gables.filter(g => (g.axis === 'y') === x && dot(inwardOf(g.n), ctx.wall.n) <= -0.5);
+};
+
+/** Journal decision 243, rule 2: the nearest facing-back line whose gables stand over the rise's path, reached inside the island. */
 export const gableEnd: RiseEnd = ctx => {
-  const x = alongX(ctx.wall), s = walkAt(ctx);
-  const o = atAlong(ctx.wall, s, 0), n = ctx.wall.n;
+  const x = alongX(ctx.wall);
+  const o = atAlong(ctx.wall, walkAt(ctx), 0), n = ctx.wall.n;
+  const back = gablesFacingBack(ctx);
+  const facing = RISE_FACING_STRATEGIES[ctx.rise.facing];
   let best: number | undefined;
-  for (const g of ctx.gables) {
-    if ((g.axis === 'y') !== x || dot(inwardOf(g.n), n) > -0.5 || !holdsWalk(g, s)) continue;
+  for (const g of back) {
     const d = (g.at - (x ? o.y : o.x)) * (x ? n.y : n.x);
     if (d <= WALK_EPS || (best !== undefined && d >= best)) continue;
+    if (!facing.over(ctx, back.filter(h => sameLineId(h, g)))) continue;
     if (staysInside(ctx.comp, o, n, d)) best = d;
   }
   return best;
@@ -592,6 +609,76 @@ export const ridgeSlope: LimitPolicy = ctx => {
 
 /** Every limit policy by name (decision 11). A second policy is one more entry. */
 export const RISE_LIMIT_POLICIES: LimitPolicies = {ridgeSlope};
+
+// ---- Facing strategies (per-stretch gable settings decisions 4 to 7) ---------------------------------------------
+
+/**
+ * Per-stretch gable settings decisions 4 and 7: a facing strategy decides only whether the storey's gables on a line
+ * facing back stand over a rise's path, so that the line's hip slope is replaced there (journal decision 243, rule 1)
+ * and the rise runs to that line and ends there (rule 2); and over which parts of its band the rise is built, one piece
+ * per part (decision 5). Journal decision 231 holds under every strategy: a slope not in the finished building never
+ * limits, whatever the strategy says (`slopeInBuilding` is read beside it, never through it).
+ * - `over`: whether `onLine`, the storey's gables on one line, stand over the path of `ctx.rise`, the rise or the part
+ *   of it being built.
+ * - `parts`: the stretches of `ctx.rise`'s band, in order and tiling it, each built as one piece.
+ */
+export interface FacingStrategy {
+  over: (ctx: LimitContext, onLine: readonly StoreyGable[]) => boolean;
+  parts: (ctx: LimitContext) => AlongSpan[];
+}
+
+/** A facing strategy for each name of `RISE_FACINGS`. */
+export type FacingStrategies = Readonly<Record<RiseFacing, FacingStrategy>>;
+
+/** The rise's band whole: one piece. */
+const wholeBand = (ctx: LimitContext): AlongSpan[] => [{lo: ctx.rise.lo, hi: ctx.rise.hi}];
+
+/** Whether gables on one line cover `span` end to end, adjoining ones together, within `ALONG_EPS`: a gap of more breaks it. */
+function coversSpan(onLine: readonly StoreyGable[], span: AlongSpan): boolean {
+  let at = span.lo;
+  for (const g of [...onLine].sort((p, q) => p.lo - q.lo)) {
+    if (g.lo > at + ALONG_EPS) break;
+    at = Math.max(at, g.hi);
+  }
+  return at >= span.hi - ALONG_EPS;
+}
+
+/**
+ * `split`'s division (decision 5): the rise's band cut at every end of a storey gable on a line facing back, in front of
+ * the rise's wall, that falls strictly inside the band, so each part lies wholly under that line's gables or wholly
+ * clear of them. A part gets no rakes of its own: the rise's two rakes bound every part (`risePieces`).
+ */
+function splitParts(ctx: LimitContext): AlongSpan[] {
+  const x = alongX(ctx.wall), n = ctx.wall.n, at = x ? ctx.wall.a.y : ctx.wall.a.x;
+  const ahead = gablesFacingBack(ctx).filter(g => (g.at - at) * (x ? n.y : n.x) > WALK_EPS);
+  const cuts = [...new Set(ahead.flatMap(g => [g.lo, g.hi]).filter(s => s > ctx.rise.lo + ALONG_EPS && s < ctx.rise.hi - ALONG_EPS))].sort((p, q) => p - q);
+  const stops = [ctx.rise.lo, ...cuts, ctx.rise.hi];
+  return stops.slice(1).map((hi, k) => ({lo: stops[k], hi}));
+}
+
+/**
+ * Decision 5, `centreLine`: today's test (journal decision 243, F81). The rise's path is the middle of its band walked
+ * inward, and a line's gables stand over it where one holds that middle strictly inside its band. One answer for the
+ * whole width.
+ */
+export const centreLineFacing: FacingStrategy = {over: (ctx, onLine) => onLine.some(g => holdsWalk(g, walkAt(ctx))), parts: wholeBand};
+
+/**
+ * Decision 5, `whole`: a line's gables stand over the rise's path only where they cover its whole width, one gable or
+ * several adjoining ones; a gap between them of more than `ALONG_EPS` anywhere across the width, or a width reaching past
+ * them, and the line's slope limits the rise as a hip's does (where it is in the finished building). One piece.
+ */
+export const wholeFacing: FacingStrategy = {over: (ctx, onLine) => coversSpan(onLine, ctx.rise), parts: wholeBand};
+
+/**
+ * Decision 5, `split`: the answer is taken across the width. The band is cut where a gable facing it ends
+ * (`splitParts`), each part is tested by its own middle, and each part is built as one piece: a part under a gable runs
+ * through to it, a part at slope is limited by that slope. Neighbouring parts that come out the same are one piece.
+ */
+export const splitFacing: FacingStrategy = {over: centreLineFacing.over, parts: splitParts};
+
+/** Every facing strategy by name (decisions 4 and 5), beside the limit policies. A fourth strategy is one more entry. */
+export const RISE_FACING_STRATEGIES: FacingStrategies = {centreLine: centreLineFacing, whole: wholeFacing, split: splitFacing};
 
 // ---- Caps (decision 12) --------------------------------------------------------------------------------------------
 
@@ -747,12 +834,18 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
     use(lo ? lo.plane : book.plane(wall.comp, x ? t : 0, x ? 0 : t, -t * rise.lo, `rake from ${rise.lo} on ${wallLabel(wall)}`));
     use(hi ? hi.plane : book.plane(wall.comp, x ? -t : 0, x ? 0 : -t, t * rise.hi, `rake from ${rise.hi} on ${wallLabel(wall)}`));
     const ctx: LimitContext = {plan, wall, comp, rise, gables};
-    const limitPlane = policies[rise.limit](ctx);
-    if (limitPlane !== undefined) use(limitPlane);
-    const far = farWall(comp, wall, rise.lo, rise.hi);
-    // Journal decision 243, rule 2: the reach stops at the wall whose gable the rise joins.
-    const farDist = Math.min(far ? dot(sub(far.a, wall.a), wall.n) : Infinity, WALK_RULES.end(ctx) ?? Infinity);
-    const reachD = Math.min(farDist, bboxReach(b, wall));
+    // Per-stretch gable settings decision 5: the rise's facing strategy gives the parts it is built as, each with its own
+    // walk, limit and reach; every default strategy gives one part, the band, so `ctx` itself.
+    const parts = mergedParts(RISE_FACING_STRATEGIES[rise.facing].parts(ctx).map((p): RisePart => {
+      const pctx: LimitContext = p.lo === rise.lo && p.hi === rise.hi ? ctx : {...ctx, rise: {...rise, lo: p.lo, hi: p.hi}};
+      const far = farWall(comp, wall, p.lo, p.hi);
+      // Journal decision 243, rule 2: the reach stops at the wall whose gable the rise joins.
+      const farDist = Math.min(far ? dot(sub(far.a, wall.a), wall.n) : Infinity, WALK_RULES.end(pctx) ?? Infinity);
+      const limitPlane = policies[rise.limit](pctx);
+      return {lo: p.lo, hi: p.hi, farDist, ...(limitPlane !== undefined ? {limitPlane} : {})};
+    }));
+    // Decision 12: the caps are over the whole rise, its reach the furthest of its parts'.
+    const reachD = Math.max(...parts.map(p => Math.min(p.farDist, bboxReach(b, wall))));
     const reach = [atAlong(wall, rise.lo, 0), atAlong(wall, rise.hi, 0), atAlong(wall, rise.hi, reachD), atAlong(wall, rise.lo, reachD)];
     let won: {cap: RiseCapName; capCm: number} | undefined;
     for (const name of RISE_CAP_NAMES) {
@@ -760,9 +853,31 @@ export function risePieces(f: ShellFixture, plan: StoreyPlan, walls: readonly Un
       if (c !== undefined && (!won || c < won.capCm)) won = {cap: name, capCm: c};
     }
     if (won && won.capCm <= SHELL_TOLERANCE_CM) continue;
-    if (won) use(book.plane(wall.comp, 0, 0, won.capCm, `cap ${won.capCm} on ${wallLabel(wall)}`));
-    const piece: Piece = {wall, bandLo: rise.lo, bandHi: rise.hi, farDist, planes, label: `rise [${rise.lo},${rise.hi}] of ${wallLabel(wall)} at ${rise.deg}`};
-    out.push({rise, piece, ...(limitPlane !== undefined ? {limitPlane} : {}), ...(won ?? {})});
+    const capPlane = won ? book.plane(wall.comp, 0, 0, won.capCm, `cap ${won.capCm} on ${wallLabel(wall)}`) : undefined;
+    const rakes = [...planes];
+    for (const part of parts) {
+      const own = [...rakes];
+      const add = (id: number): void => { if (!own.includes(id)) own.push(id); };
+      if (part.limitPlane !== undefined) add(part.limitPlane);
+      if (capPlane !== undefined) add(capPlane);
+      const of = parts.length > 1 ? ` part [${part.lo},${part.hi}]` : '';
+      const piece: Piece = {wall, bandLo: part.lo, bandHi: part.hi, farDist: part.farDist, planes: own, label: `rise [${rise.lo},${rise.hi}]${of} of ${wallLabel(wall)} at ${rise.deg}`};
+      out.push({rise, piece, ...(part.limitPlane !== undefined ? {limitPlane: part.limitPlane} : {}), ...(won ?? {})});
+    }
+  }
+  return out;
+}
+
+/** One part of a rise as planned: its stretch of the band, its reach and the plane its limit policy chose, if any. */
+interface RisePart extends AlongSpan { farDist: number; limitPlane?: number }
+
+/** Neighbouring parts with the same limit and reach joined: one piece where nothing tells them apart. */
+function mergedParts(parts: readonly RisePart[]): RisePart[] {
+  const out: RisePart[] = [];
+  for (const p of parts) {
+    const last = out[out.length - 1];
+    if (last && last.limitPlane === p.limitPlane && last.farDist === p.farDist) last.hi = p.hi;
+    else out.push({...p});
   }
   return out;
 }

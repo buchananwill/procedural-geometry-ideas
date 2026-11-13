@@ -22,6 +22,12 @@ export const ERoofSideRequestSchema = z.enum(['Auto', 'Pitched', 'GableEnd']);
 /** `EModularRoofForm` (journal F46), in its declaration order. */
 export const EModularRoofFormSchema = z.enum(['None', 'Pitched', 'GableEnd', 'Monopitch', 'Flat']);
 
+/**
+ * Per-stretch gable settings decisions 5 and 12: how a gable run's rise tests the gables facing it, in the prototype's
+ * order, `CentreLine` first as the default (an enum's first member, as for every UENUM here).
+ */
+export const EGableFacingSchema = z.enum(['CentreLine', 'Whole', 'Split']);
+
 /** A plan point in actor-local cm. */
 export const FShellWireVec2Schema = z.strictObject({
   x: z.number().optional(),
@@ -50,8 +56,10 @@ export const FShellWireProvenanceSchema = z.strictObject({
 
 /**
  * One solved run along a side: `FModularRoofRun {Form, PitchDegrees}` (journal F46), the stretch of the side it covers
- * (decision 149: `startCm` to `endCm`, each measured along the side from its corner i), and the two booleans the
- * port's exporter writes for a run the solve did not solve (decision 137).
+ * (decision 149: `startCm` to `endCm`, each measured along the side from its corner i), the two booleans the
+ * port's exporter writes for a run the solve did not solve (decision 137), and a GableEnd run's three settings
+ * (per-stretch gable settings decision 12, journal decision 253): its maximum height in cm above the plate (0 for none,
+ * the USTRUCT default, since the generator emits no `TOptional`), its facing strategy, and whether it stands apart.
  */
 export const FShellWireSolvedRunSchema = z.strictObject({
   startCm: z.number().optional(),
@@ -60,6 +68,9 @@ export const FShellWireSolvedRunSchema = z.strictObject({
   pitchDegrees: z.number().optional(),
   bEmptied: z.boolean().optional(),
   bOutlineRefused: z.boolean().optional(),
+  maxHeightCm: z.number().optional(),
+  facing: EGableFacingSchema.optional(),
+  bStandsApart: z.boolean().optional(),
 });
 
 /**

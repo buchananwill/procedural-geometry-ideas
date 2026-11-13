@@ -57,7 +57,8 @@ describe('the stand-in generated schema', () => {
     expect(Object.keys(v)).toEqual(['schemaVersion', 'frame', 'storeyHeightCm', 'cellSizeCm', 'rings', 'provenance']);
     expect(Object.keys(v.rings[0])).toEqual(['ringIndex', 'modelIndex', 'baseStorey', 'storeys', 'wallHeightCm', 'corners', 'sides']);
     expect(Object.keys(v.rings[0].sides[0])).toEqual(['request', 'runs']);
-    expect(Object.keys(v.rings[0].sides[0].runs[0])).toEqual(['startCm', 'endCm', 'form', 'pitchDegrees', 'bEmptied', 'bOutlineRefused']);
+    // Per-stretch gable settings decision 12: a run's three gable settings follow, in the run fields' style.
+    expect(Object.keys(v.rings[0].sides[0].runs[0])).toEqual(['startCm', 'endCm', 'form', 'pitchDegrees', 'bEmptied', 'bOutlineRefused', 'maxHeightCm', 'facing', 'bStandsApart']);
     expect(Object.keys(v.provenance)).toEqual(['gameBuild', 'sessionId', 'timestamp', 'subject', 'location', 'rotation', 'scale']);
   });
 });
@@ -416,7 +417,7 @@ describe('side mapping and defaultDeg (decision 140, F1 and F4)', () => {
 describe('runs per side (journal decision 149)', () => {
   /** A Pitched or GableEnd run over [start, end) of a side. */
   const run = (startCm: number, endCm: number, form: WireRun['form'], pitchDegrees = 45): WireRun =>
-    ({startCm, endCm, form, pitchDegrees, bEmptied: false, bOutlineRefused: false});
+    ({startCm, endCm, form, pitchDegrees, bEmptied: false, bOutlineRefused: false, maxHeightCm: 0, facing: 'CentreLine', bStandsApart: false});
 
   it("writes one run per side, the side's whole length, measured from its corner i", () => {
     const [r] = valid().rings;

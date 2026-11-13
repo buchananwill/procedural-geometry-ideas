@@ -52,6 +52,8 @@ export type WireProvenance = z.output<typeof ProvenanceV1Schema>;
 /** One solved run along a side (decision 149). */
 export type WireRun = WireSide['runs'][number];
 export type WireSolvedForm = WireRun['form'];
+/** A GableEnd run's facing strategy on the wire (per-stretch gable settings decision 12). */
+export type WireFacing = WireRun['facing'];
 export type WireRequest = WireSide['request'];
 
 /** A file refused, with every reason found, one line each. */

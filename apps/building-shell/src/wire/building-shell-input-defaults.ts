@@ -13,7 +13,7 @@ export const INPUT_USTRUCT_DEFAULTS = {
   /** `provenance.scale` only. */
   FShellWireScale: {x: 1, y: 1, z: 1},
   FShellWireProvenance: {gameBuild: '', sessionId: '', timestamp: '', subject: ''},
-  FShellWireSolvedRun: {startCm: 0, endCm: 0, form: 'None', pitchDegrees: 0, bEmptied: false, bOutlineRefused: false},
+  FShellWireSolvedRun: {startCm: 0, endCm: 0, form: 'None', pitchDegrees: 0, bEmptied: false, bOutlineRefused: false, maxHeightCm: 0, facing: 'CentreLine', bStandsApart: false},
   FShellWireSide: {request: 'Auto'},
   FShellWireRing: {ringIndex: -1, modelIndex: -1, baseStorey: 0, storeys: 1, wallHeightCm: 0},
   FBuildingShellInput: {schemaVersion: 1, frame: 'UE actor-local, cm, Z up, left-handed', storeyHeightCm: 0, cellSizeCm: 0},

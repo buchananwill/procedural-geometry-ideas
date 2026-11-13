@@ -38,7 +38,10 @@
               "form": "Pitched",
               "pitchDegrees": 22.5,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -51,7 +54,10 @@
               "form": "GableEnd",
               "pitchDegrees": 22.5,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -64,7 +70,10 @@
               "form": "Pitched",
               "pitchDegrees": 22.5,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -77,7 +86,10 @@
               "form": "GableEnd",
               "pitchDegrees": 22.5,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         }

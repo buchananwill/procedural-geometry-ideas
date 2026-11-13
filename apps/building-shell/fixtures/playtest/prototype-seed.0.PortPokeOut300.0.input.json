@@ -38,7 +38,10 @@
               "form": "GableEnd",
               "pitchDegrees": 60,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -51,7 +54,10 @@
               "form": "Pitched",
               "pitchDegrees": 60,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -64,7 +70,10 @@
               "form": "Pitched",
               "pitchDegrees": 60,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -77,7 +86,10 @@
               "form": "Pitched",
               "pitchDegrees": 60,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         }
@@ -117,7 +129,10 @@
               "form": "Pitched",
               "pitchDegrees": 45,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -130,7 +145,10 @@
               "form": "Pitched",
               "pitchDegrees": 45,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -143,7 +161,10 @@
               "form": "Pitched",
               "pitchDegrees": 45,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         },
@@ -156,7 +177,10 @@
               "form": "Pitched",
               "pitchDegrees": 45,
               "bEmptied": false,
-              "bOutlineRefused": false
+              "bOutlineRefused": false,
+              "maxHeightCm": 0,
+              "facing": "CentreLine",
+              "bStandsApart": false
             }
           ]
         }

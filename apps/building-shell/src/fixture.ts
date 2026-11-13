@@ -27,13 +27,26 @@ export const RISE_LIMITS = ['ridgeSlope'] as const;
 export type RiseLimit = typeof RISE_LIMITS[number];
 
 /**
+ * Per-stretch gable settings decisions 4 and 5 (journal decision 251): the named facing strategies, which decide whether
+ * the wall opposite a rise is replaced by a gable on its path. `centreLine`, the first, is the default and today's test.
+ * The one tuple the union, `rise.ts`'s strategy table, the wire's facing table and the editor's saved-draft schema
+ * derive from.
+ */
+export const RISE_FACINGS = ['centreLine', 'whole', 'split'] as const;
+
+/** One of `RISE_FACINGS`. */
+export type RiseFacing = typeof RISE_FACINGS[number];
+
+/**
  * Gable rise decisions 1 and 2: one run of a Ring side, `[from, to]` in cm from the side's start (side S from its west
  * end, E from its south end, N from its east end, W from its north end, so every side runs counter-clockwise, as the
  * wire's corners do). `deg` is a gable run's rake pitch, a hip run's wall pitch; without it the run takes its side's
- * pitch, then the Ring's default. `maxHeight` (decision 12) and `limit` (decision 11) apply to a gable run only, and
- * are in memory only: `input@1` carries neither.
+ * pitch, then the Ring's default. Per-stretch gable settings decision 1: a gable run carries four settings, each read
+ * only on a gable run and each defaulting to today's roof (decision 2): `maxHeight` (gable rise decision 12, cm above
+ * the plate, above 0, none by default), `limit` (decision 11, `ridgeSlope`), `facing` (`centreLine`) and `apart`
+ * (stands apart from a gable stretch beside it, false). `input@1` carries every one but `limit` (decision 13).
  */
-export interface SideRun { from: number; to: number; form: RingForm; deg?: number; maxHeight?: number; limit?: RiseLimit }
+export interface SideRun { from: number; to: number; form: RingForm; deg?: number; maxHeight?: number; limit?: RiseLimit; facing?: RiseFacing; apart?: boolean }
 
 /**
  * One Ring side's form, and its pitch in degrees when it is not the Ring's default. Gable rise decision 1: `runs`, in
@@ -287,6 +300,49 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('OppositeGablesTUnequal', oppositeT([400, 650, 75], [400, 650, 60])),
     fixture('OppositeGablesTPartFacing', oppositeT([400, 650, 75], [450, 900, 75])),
     fixture('GableOnSharedWall', [ring([0, 0, 500, 500], 0, 1, 30, {E: gableRun(100, 400, 60)}), ring([500, 0, 1000, 500], 0, 1, 30)]),
+  ];
+})();
+
+/**
+ * Per-stretch gable settings decision 22 (WP-S1): one fixture per setting, each asserting its roof by closed forms in
+ * tests/gable-settings.test.ts. Kept apart from `RISE_FIXTURES`, and so from the editor's catalogue, until the editor
+ * carries the settings (WP-S2, decisions 16 to 19): its canonical spelling would merge or drop them today.
+ * - `HalfOffsetGablesCentreLine`, `HalfOffsetGablesWhole`, `HalfOffsetGablesSplit`: a 1000 by 400 box hipped at 45, with
+ *   a 75 degree gable stretch on S over x [300, 500] facing one on N over x [400, 600], offset by half their width, both
+ *   under the one facing strategy the name gives.
+ * - `ApartGablesRow`: three equal 60 degree gable stretches along the S side of a 1200 by 500 box hipped at 45, over x
+ *   [300, 500], [500, 700] and [700, 900], each standing apart: three gables meeting at points on the plate.
+ * - `ApartNeighbours`: two equal 60 degree neighbours on the S side of a 1000 by 500 box hipped at 45, over x [300, 500]
+ *   and [500, 700], the first standing apart: two gables.
+ * - `ApartWholeSide`: the S side of a 1000 by 500 box hipped at 45, gabled at 45 along its whole length as two stretches
+ *   standing apart, [0, 500] and [500, 1000]. Algorithm B gives the wall up (decision 11), and each stretch is a rise.
+ * - `ApartAcrossRings`: two flush 500 by 400 boxes hipped at 45, each gabling its S side at 45. The second spells its side
+ *   as one stretch the side's whole length, standing apart, so the two are two gables where today they are one.
+ * - `EditorSpeltMaxHeight`: `MidWallRise` in the editor's own spelling (every stretch of the side a run), its gable
+ *   stretch capped at 100 cm, below its 140 cm apex.
+ */
+export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
+  const gableRun = (from: number, to: number, deg: number, extra: Partial<SideRun> = {}): SideRun => ({from, to, form: 'gable', deg, ...extra});
+  const halfOffset = (facing: RiseFacing): FixtureRing[] => [ring([0, 0, 1000, 400], 0, 1, 45, {
+    S: {form: 'hip', runs: [gableRun(300, 500, 75, {facing})]},
+    // The N side runs from x = 1000, so world x [400, 600] is [400, 600] along it too.
+    N: {form: 'hip', runs: [gableRun(400, 600, 75, {facing})]},
+  })];
+  const apart = {apart: true} as const;
+  return [
+    fixture('HalfOffsetGablesCentreLine', halfOffset('centreLine')),
+    fixture('HalfOffsetGablesWhole', halfOffset('whole')),
+    fixture('HalfOffsetGablesSplit', halfOffset('split')),
+    fixture('ApartGablesRow', [ring([0, 0, 1200, 500], 0, 1, 45, {S: {form: 'hip', runs: [gableRun(300, 500, 60, apart), gableRun(500, 700, 60, apart), gableRun(700, 900, 60, apart)]}})]),
+    fixture('ApartNeighbours', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [gableRun(300, 500, 60, apart), gableRun(500, 700, 60)]}})]),
+    fixture('ApartWholeSide', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'gable', deg: 45, runs: [gableRun(0, 500, 45, apart), gableRun(500, 1000, 45, apart)]}})]),
+    fixture('ApartAcrossRings', [
+      ring([0, 0, 500, 400], 0, 1, 45, {S: {form: 'gable', deg: 45}}),
+      ring([500, 0, 1000, 400], 0, 1, 45, {S: {form: 'gable', deg: 45, runs: [gableRun(0, 500, 45, apart)]}}),
+    ]),
+    fixture('EditorSpeltMaxHeight', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'hip', deg: 30, runs: [
+      {from: 0, to: 330, form: 'hip', deg: 30}, gableRun(330, 610, 45, {maxHeight: 100}), {from: 610, to: 1000, form: 'hip', deg: 30},
+    ]}})]),
   ];
 })();
 

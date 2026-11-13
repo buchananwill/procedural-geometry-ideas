@@ -12,6 +12,10 @@
 //   decision 15) the side's Pitched runs must agree in pitch, or the file is refused, and the side is read with runs
 //   (gable rise decision 1): its first Pitched run's form and pitch, and each run that differs as a run of the side. A
 //   side with no run, or only None runs, is formless.
+// - Per-stretch gable settings decisions 12 to 14: a GableEnd run carries its maximum height (0 for none), its facing
+//   strategy and whether it stands apart. A run carrying any of them at other than its default is always a run of its
+//   side, never folded into the side's one form, so `readInput(writeInput(f))` keeps every setting; a file without them
+//   reads every run at its defaults, so every existing file means what it meant. Only a GableEnd run may carry one.
 // - The fixture is built from each side's agreed run (decisions 126, 136, 140 and 153): Pitched is a hip at its
 //   solved pitch; GableEnd is a gable at its solved pitch, which is geometry in algorithm B, not an inert weight (decision
 //   140's F1 is struck); a formless side is unlisted, refused only where it wins a union wall. The request is carried,
@@ -22,17 +26,17 @@
 // reports every shape issue and stops there. A file it accepts reports every refusal of the first adapter layer
 // (subject, indices, corners, shape, wall height, solved forms and pitches) together. Only a file clean of those is read
 // into a fixture, where a None side that wins a union wall is the last layer's refusal.
-import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideRun} from '../fixture.ts';
+import type {FixtureRing, RiseFacing, RingForm, RingSide, RingSides, ShellFixture, SideRun} from '../fixture.ts';
 import {RING_SIDES, storeyRings, storeysOf} from '../fixture.ts';
 import {SHELL_TOLERANCE_CM} from '../constants.ts';
 import {PlanRefusal} from '../errors.ts';
-import {WallExtents, ringSideLines, storeyLoops, unionWallExtents, unionWallForms} from '../ring-forms.ts';
+import {DEFAULT_RISE_FACING, WallExtents, ringSideLines, storeyLoops, unionWallExtents, unionWallForms} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 import {snapCm} from '../weld.ts';
 import {
   BuildingShellInputV1, INPUT_FRAME, INPUT_SCHEMA_VERSION, RING_CORNERS, RefusedInput, WIRE_CORNER_SNAP_CM,
-  WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireProvenance, WireRequest, WireRing, WireRun, WireSide,
-  WireSolvedForm, WireVec2, refineInput,
+  WIRE_GABLE_ONLY_DEG, WIRE_MAX_PITCH_DEG, WIRE_MIN_PITCH_DEG, WireFacing, WireProvenance, WireRequest, WireRing, WireRun,
+  WireSide, WireSolvedForm, WireVec2, refineInput,
 } from './input-types.ts';
 
 /**
@@ -111,6 +115,46 @@ export const SIDE_READINGS: {readonly [F in WireSolvedForm]: F extends keyof Lis
  * every written form reads back as its own Ring form, and a swapped entry fails `typecheck`. It covers every Ring form.
  */
 export const WIRE_FORMS: {readonly [F in keyof ListedForms as ListedForms[F]]: F} = {hip: 'Pitched', gable: 'GableEnd'} satisfies Record<RingForm, WireSolvedForm>;
+
+/**
+ * Per-stretch gable settings decision 12: every wire facing and the facing strategy it reads as, the one literal table
+ * both directions derive from, as `LISTED_FORMS` is for forms.
+ */
+export const FACING_READINGS = {CentreLine: 'centreLine', Whole: 'whole', Split: 'split'} as const satisfies Record<WireFacing, RiseFacing>;
+
+/** `FACING_READINGS`'s type. */
+export type FacingReadings = typeof FACING_READINGS;
+
+/**
+ * The wire facing a facing strategy writes: typed as `FACING_READINGS`' inverse, so every written facing reads back as
+ * its own strategy and a swapped entry fails `typecheck`. It covers every strategy.
+ */
+export const WIRE_FACINGS: {readonly [F in keyof FacingReadings as FacingReadings[F]]: F} = {centreLine: 'CentreLine', whole: 'Whole', split: 'Split'} satisfies Record<RiseFacing, WireFacing>;
+
+/** The three settings of a gable run `input@1` carries (per-stretch gable settings decisions 12 and 13: not `limit`). */
+export type WiredSettings = Pick<SideRun, 'maxHeight' | 'facing' | 'apart'>;
+
+/** The same three settings as a wire run spells them. */
+export type WireSettings = Pick<WireRun, 'maxHeightCm' | 'facing' | 'bStandsApart'>;
+
+/** A wire run's settings as a fixture run's, each present only where it departs from its default (decision 2). */
+export function runSettings(run: WireSettings): WiredSettings {
+  const facing = FACING_READINGS[run.facing];
+  return {
+    ...(run.maxHeightCm > 0 ? {maxHeight: run.maxHeightCm} : {}),
+    ...(facing !== DEFAULT_RISE_FACING ? {facing} : {}),
+    ...(run.bStandsApart ? {apart: true} : {}),
+  };
+}
+
+/** Whether a wire run carries any setting other than its default. */
+const carriesSettings = (run: WireRun): boolean => Object.keys(runSettings(run)).length > 0;
+
+/** A fixture run's settings in the wire's spelling: a hip run's, and a side's own stretches', all at their defaults. */
+function wireSettings(form: RingForm, s: WiredSettings): WireSettings {
+  const gable = form === 'gable';
+  return {maxHeightCm: gable ? s.maxHeight ?? 0 : 0, facing: WIRE_FACINGS[gable ? s.facing ?? DEFAULT_RISE_FACING : DEFAULT_RISE_FACING], bStandsApart: gable && (s.apart ?? false)};
+}
 
 const label = (r: WireRing, i: number): string => `Ring ${i} (model index ${r.modelIndex})`;
 
@@ -203,13 +247,16 @@ export interface DisagreeingRuns { kind: 'disagree'; runs: WireRun[] }
  * Decisions 149 and 156 (F2), as gable rise decision 15 narrows them: a side's runs, None runs left out. Runs that all
  * agree in form and pitch give the side its one form. Otherwise only the Pitched (hip) runs must agree in pitch, since a
  * union wall has one hip pitch; GableEnd runs may differ from them and from each other, each a rise's stretch. A side
- * with no run, or with only None runs, is formless.
+ * with no run, or with only None runs, is formless. Per-stretch gable settings decision 14: runs agree only where none
+ * carries a setting (`carriesSettings`), so a run that does is read as a run of its side and keeps it; decision 10:
+ * runs that agree, as the game's split plate runs of one gabled side do, are still one form, so one gable.
  */
 export function sideRuns(side: WireSide): SideRuns {
   const formed = side.runs.flatMap((run, k): IndexedRun[] => (run.form === 'None' ? [] : [{k, run}]));
   if (!formed.length) return {kind: 'formless'};
   const [first] = formed;
-  if (formed.every(({run}) => run.form === first.run.form && run.pitchDegrees === first.run.pitchDegrees)) return {kind: 'run', run: first.run};
+  const agree = formed.every(({run}) => run.form === first.run.form && run.pitchDegrees === first.run.pitchDegrees && !carriesSettings(run));
+  if (agree) return {kind: 'run', run: first.run};
   const hips = formed.filter(({run}) => run.form === 'Pitched');
   if (hips.some(({run}) => run.pitchDegrees !== hips[0].run.pitchDegrees)) return {kind: 'disagree', runs: formed.map(x => x.run)};
   return {kind: 'mixed', base: (hips[0] ?? first).run, runs: formed};
@@ -285,6 +332,10 @@ function runRefusals(at: string, j: number, side: WireSide, length: number | nul
     if ((run.form === 'Pitched' || run.form === 'GableEnd') && !(p >= WIRE_MIN_PITCH_DEG && p <= WIRE_MAX_PITCH_DEG)) {
       out.push(`${where} is solved ${run.form} at ${p} degrees, outside [${WIRE_MIN_PITCH_DEG}, ${WIRE_MAX_PITCH_DEG}] (journal decisions 143, 144 and 153)`);
     }
+    // Per-stretch gable settings decision 1: a hip stretch carries none of a gable's settings, and None has no stretch.
+    if (run.form !== 'GableEnd' && carriesSettings(run)) {
+      out.push(`${where} is solved ${run.form} but carries a gable's settings (maxHeightCm ${run.maxHeightCm}, facing ${run.facing}, bStandsApart ${run.bStandsApart}): only a GableEnd run carries them (per-stretch gable settings decision 1)`);
+    }
   });
   const read = sideRuns(side);
   if (read.kind === 'disagree') {
@@ -348,7 +399,8 @@ export interface ReadSide { slot: number; compass: RingSide; side: WireSide; run
 
 /**
  * Gable rise decision 1: a mixed side's runs as the fixture's, each over its snapped span (`snapRunSpans`), with its own
- * form and pitch: every run that differs from the side's base in form or pitch. A wire side runs counter-clockwise from
+ * form and pitch: every run that differs from the side's base in form or pitch, and every run carrying a setting other
+ * than its default, with its settings (per-stretch gable settings decision 14). A wire side runs counter-clockwise from
  * its corner, as a fixture side does (positive signed area, `ringShapeErrors`), so a span reads as `from` and `to`
  * unchanged.
  */
@@ -356,8 +408,10 @@ function fixtureRuns(mixed: MixedRuns, side: WireSide, length: number): SideRun[
   const spans = snapRunSpans(side.runs, length);
   return mixed.runs.flatMap(({k, run}): SideRun[] => {
     const reading = SIDE_READINGS[run.form];
-    if (reading.kind !== 'listed' || (run.form === mixed.base.form && run.pitchDegrees === mixed.base.pitchDegrees)) return [];
-    return [{from: spans[k].start, to: spans[k].end, form: reading.form, deg: run.pitchDegrees}];
+    const settings = runSettings(run);
+    const plain = run.form === mixed.base.form && run.pitchDegrees === mixed.base.pitchDegrees && !Object.keys(settings).length;
+    if (reading.kind !== 'listed' || plain) return [];
+    return [{from: spans[k].start, to: spans[k].end, form: reading.form, deg: run.pitchDegrees, ...settings}];
   });
 }
 
@@ -510,15 +564,20 @@ export const prototypeProvenance = (subject: string): WireProvenance => ({
   scale: {x: 1, y: 1, z: 1},
 });
 
-/** One wire run over `[startCm, endCm]` with a Ring form and pitch, neither emptied nor refused. */
-const wireRun = (startCm: number, endCm: number, form: RingForm, pitchDegrees: number): WireRun =>
-  ({startCm, endCm, form: WIRE_FORMS[form], pitchDegrees, bEmptied: false, bOutlineRefused: false});
+/**
+ * One wire run over `[startCm, endCm]` with a Ring form and pitch, neither emptied nor refused, and its gable settings
+ * (per-stretch gable settings decision 12): a gable run's own, every other run's at their defaults. Every field is
+ * written, as the C++ exporter writes every field.
+ */
+const wireRun = (startCm: number, endCm: number, form: RingForm, pitchDegrees: number, settings: WiredSettings = {}): WireRun =>
+  ({startCm, endCm, form: WIRE_FORMS[form], pitchDegrees, bEmptied: false, bOutlineRefused: false, ...wireSettings(form, settings)});
 
 /**
  * One fixture side as a wire side: `Auto` where the fixture lists none, the side's form where it does, and one run the
  * side's whole length (decision 149). Gable rise decision 16: a side with runs writes them as authored, each at its own
- * pitch or the side's, and every stretch between them as a run of the side's own form and pitch, so the side is covered
- * from 0 to its length and reads back with the same form at every point. A side without runs writes what it always has.
+ * pitch or the side's and with its own settings (per-stretch gable settings decision 14), and every stretch between them
+ * as a run of the side's own form and pitch, so the side is covered from 0 to its length and reads back with the same
+ * form at every point. A side without runs writes what it always has.
  */
 function wireSide(ring: FixtureRing, side: RingSide): WireSide {
   const s = ring.sides?.[side];
@@ -530,7 +589,7 @@ function wireSide(ring: FixtureRing, side: RingSide): WireSide {
   let at = 0;
   for (const r of s.runs) {
     if (r.from > at) runs.push(wireRun(at, r.from, s.form, deg));
-    runs.push(wireRun(r.from, r.to, r.form, r.deg ?? deg));
+    runs.push(wireRun(r.from, r.to, r.form, r.deg ?? deg, r));
     at = Math.max(at, r.to);
   }
   if (at < l.hi - l.lo) runs.push(wireRun(at, l.hi - l.lo, s.form, deg));

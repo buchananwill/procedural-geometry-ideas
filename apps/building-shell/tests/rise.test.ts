@@ -287,7 +287,7 @@ describe('decision 21 and journal decision 204: the gates', () => {
     const plan = planStorey(hipped, 0);
     const rings = storeyRings(hipped, 0);
     const walls = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect)))
-      .map(w => (w.axis === 'y' && w.at === 0 ? {...w, rises: [{lo: 0, hi: 1000, deg, limit: 'ridgeSlope' as const}]} : w));
+      .map(w => (w.axis === 'y' && w.at === 0 ? {...w, rises: [{lo: 0, hi: 1000, deg, limit: 'ridgeSlope' as const, facing: 'centreLine' as const, apart: false}]} : w));
     plan.rises = risePieces(hipped, plan, walls);
     const wide = buildShellFromUnion(wasm, gable, unionPlans(wasm, hipped.name, [plan]));
     expect(signature(wide)).toBe(signature(await build(gable)));
@@ -333,7 +333,7 @@ describe('decision 21 and journal decision 204: the gates', () => {
       f.rings.forEach((r, i) => RING_SIDES.forEach((side, j) => {
         const s = r.sides?.[side], l = ringSideLines(r.rect)[side];
         const form = WIRE_FORMS[s?.form ?? 'hip'];
-        doc.rings[i].sides[j] = {request: s ? form : 'Auto', runs: [{startCm: 0, endCm: l.hi - l.lo, form, pitchDegrees: s?.deg ?? r.defaultDeg, bEmptied: false, bOutlineRefused: false}]};
+        doc.rings[i].sides[j] = {request: s ? form : 'Auto', runs: [{startCm: 0, endCm: l.hi - l.lo, form, pitchDegrees: s?.deg ?? r.defaultDeg, bEmptied: false, bOutlineRefused: false, maxHeightCm: 0, facing: 'CentreLine', bStandsApart: false}]};
       }));
       return doc;
     };
@@ -390,7 +390,7 @@ describe('journal decision 220: a gable belongs to the Ring side that asked for 
   });
 
   it('the predicate: algorithm B keeps an all-gable wall only where the claimed bands on it tile its span', () => {
-    const band = (lo: number, hi: number, deg = 45): GableRise => ({lo, hi, deg, limit: 'ridgeSlope'});
+    const band = (lo: number, hi: number, deg = 45): GableRise => ({lo, hi, deg, limit: 'ridgeSlope', facing: 'centreLine', apart: false});
     expect(algorithmBBuildsGable([band(0, 500)], [0, 500])).toBe(true);
     expect(algorithmBBuildsGable([band(600, 1200)], [0, 1200])).toBe(false);
     expect(algorithmBBuildsGable([band(0, 1200)], [600, 1200])).toBe(false);
@@ -465,7 +465,7 @@ describe('journal decision 222: algorithm B\'s verdict is the line extent\'s, no
   // Decision 222, L2: band ends are compared within the same 1e-9 as the overlap filter and `algorithmBSpan`. Mutation:
   // exact comparison; then bands meeting 1e-12 apart no longer tile.
   it('band ends compare within 1e-9, so an off-lattice run end tiles the span', () => {
-    const band = (lo: number, hi: number, deg: number): GableRise => ({lo, hi, deg, limit: 'ridgeSlope'});
+    const band = (lo: number, hi: number, deg: number): GableRise => ({lo, hi, deg, limit: 'ridgeSlope', facing: 'centreLine', apart: false});
     expect(algorithmBBuildsGable([band(0.1, 333.4 + 1e-12, 30), band(333.4, 1000.7, 45)], [0.1 + 1e-12, 1000.7])).toBe(true);
     expect(algorithmBBuildsGable([band(0.1, 333.4, 30), band(333.4 + 1e-6, 1000.7, 45)], [0.1, 1000.7])).toBe(false);
     // Off the lattice end to end: corners at 0.1 and 1000.7, the pitches split at 333.3 along the side, a wing burying
@@ -527,9 +527,13 @@ describe('journal decision 220: rise.ts\'s copy of extentOf is algorithm B\'s', 
 // ---- Decisions 12, 14 and 17, and the limit's refusal -------------------------------------------------------------
 
 describe('decisions 12, 14 and 17', () => {
+  // Per-stretch gable settings decision 12: a maxHeight is above 0, since input@1 writes none as 0, so a cap at the plate
+  // is one within SHELL_TOLERANCE_CM of it; a maxHeight of 0 is refused, in memory as on the wire.
   it('decision 12: a rise whose lowest cap is at or below its plate builds no piece', () => {
-    const f = shellFixture('CappedAtPlate', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'gable', deg: 60, maxHeight: 0}]}})]);
+    const f = shellFixture('CappedAtPlate', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'gable', deg: 60, maxHeight: 0.005}]}})]);
     expect(planStorey(f, 0).rises).toEqual([]);
+    const zero = shellFixture('CappedAtZero', [ring([0, 0, 1000, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 400, to: 600, form: 'gable', deg: 60, maxHeight: 0}]}})]);
+    expect(() => planStorey(zero, 0)).toThrow(PlanRefusal);
   });
 
   it("decision 14: a rise's Gable Cells name the Ring and side that win its extent", async () => {
@@ -780,7 +784,8 @@ describe('the wire carries runs (decisions 1, 15 and 16)', () => {
     if (!r.ok) throw new Error(r.errors.join('; '));
     return r.fixture;
   };
-  const inMemory = (f: ShellFixture): boolean => f.rings.some(r => RING_SIDES.some(s => r.sides?.[s]?.runs?.some(x => x.maxHeight !== undefined || x.limit !== undefined)));
+  // Per-stretch gable settings decision 13: `limit` alone is in memory only; `maxHeight` is on the wire (decision 12).
+  const inMemory = (f: ShellFixture): boolean => f.rings.some(r => RING_SIDES.some(s => r.sides?.[s]?.runs?.some(x => x.limit !== undefined)));
 
   it.each(RISE_FIXTURES.filter(f => !inMemory(f)).map(f => [f.name] as const))('%s: reads back through input@1 to the same shell', async name => {
     expect(signature(await buildShellDetailed(read(rise(name))))).toBe(signature(await build(rise(name))));
@@ -805,10 +810,12 @@ describe('the wire carries runs (decisions 1, 15 and 16)', () => {
     }
   });
 
-  // Decision 11 and 12: `maxHeight` and `limit` are in memory only, so input@1 does not carry them.
-  it("FlatTopRise: its maxHeight does not survive input@1, so the shell read back is the uncapped rise's", async () => {
+  // Per-stretch gable settings decisions 12 and 14 (amending gable rise decision 11's note): `maxHeight` is on the wire,
+  // so it survives input@1 and the shell read back is the capped rise's. Mutation: writeInput drops it; then it reads
+  // back uncapped, as before this package.
+  it("FlatTopRise: its maxHeight survives input@1, so the shell read back is the capped rise's", async () => {
     const back = read(rise('FlatTopRise'));
-    expect(back.rings[0].sides?.S?.runs).toEqual([{from: 300, to: 700, form: 'gable', deg: 60}]);
-    expect(signature(await buildShellDetailed(back))).not.toBe(signature(await build(rise('FlatTopRise'))));
+    expect(back.rings[0].sides?.S?.runs).toEqual([{from: 300, to: 700, form: 'gable', deg: 60, maxHeight: 200}]);
+    expect(signature(await buildShellDetailed(back))).toBe(signature(await build(rise('FlatTopRise'))));
   });
 });
