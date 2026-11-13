@@ -3,7 +3,7 @@
 // records kept, which the viewer needs for the raw parts and the face-to-triangle map; `buildShell` itself is
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
-import {SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
+import {RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
 import {ShellBuild, buildShellDetailed} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
@@ -345,6 +345,11 @@ function fillSelector(): void {
   fixtures.label = 'Fixtures';
   for (const f of SHELL_FIXTURES) fixtures.append(new Option(f.name, f.name));
   select.append(fixtures);
+  // Journal decision 210: the rise fixtures are listed now that the editor can change a run.
+  const rises = document.createElement('optgroup');
+  rises.label = 'Gable rises';
+  for (const f of RISE_FIXTURES) rises.append(new Option(f.name, f.name));
+  select.append(rises);
   if (cases.length) {
     const defects = document.createElement('optgroup');
     defects.label = 'Defect cases';
@@ -362,12 +367,15 @@ function fillSelector(): void {
   }
 }
 
+/** Every fixture the selector lists by name: the roster, then the gable rises. */
+const LISTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES];
+
 /** The selector's value for the draft: no roster fixture or case has this name. */
 const DRAFT_OPTION = 'draft';
 
 /** The selection a listed name stands for. */
 function selectionNamed(name: string): Selection {
-  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, SHELL_FIXTURES, cases, draft?.fixture);
+  return selectionFromHash(name === DRAFT_OPTION ? DRAFT_HASH : `#${encodeURIComponent(name)}`, LISTED_FIXTURES, cases, draft?.fixture);
 }
 
 /** The hash that names a selection in the address bar. A link is never written back: the draft is kept in storage. */
@@ -718,7 +726,7 @@ select.addEventListener('change', () => {
   show(sel);
 });
 // Journal decision 98, F8, and decision 169: a hash change loads that fixture or case.
-window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, SHELL_FIXTURES, cases, draft?.fixture)));
+window.addEventListener('hashchange', () => show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture)));
 $('reset').addEventListener('click', () => scene.resetView());
 $('frame-all').addEventListener('click', () => scene.resetView(true));
 window.addEventListener('keydown', e => {
@@ -748,5 +756,5 @@ unfinished = restored?.unfinished ?? false;
 // The cases come from the manifest, so the first selection waits for it: a hash naming a case needs the list.
 void loadManifest().then(() => {
   fillSelector();
-  show(selectionFromHash(location.hash, SHELL_FIXTURES, cases, draft?.fixture));
+  show(selectionFromHash(location.hash, LISTED_FIXTURES, cases, draft?.fixture));
 });

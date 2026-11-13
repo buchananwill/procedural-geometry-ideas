@@ -1,7 +1,8 @@
 // Viewer editing decisions 6 to 9, 15 to 21 and gates 3 and 4 of decision 23: the pure draft state, the file and link
 // round trips, and the hash. Plain values in, plain values out, as `viewer-toggles.test.ts`.
 import {describe, expect, it} from 'vitest';
-import {EXPORTED_FIXTURES, FixtureRing, RING_SIDES, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, FixtureRing, RING_SIDES, RISE_FIXTURES, RingSide, SHELL_FIXTURES, ShellFixture, ring} from '../src/fixture.ts';
+import {sideLengthCm} from '../src/viewer/edit.ts';
 import {BuildingShellInputV1, WIRE_GABLE_ONLY_DEG} from '../src/wire/input-types.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import {
@@ -679,5 +680,215 @@ describe('ringOfHit: the Ring a clicked face\'s provenance names (decision 15)',
 describe('side order', () => {
   it('RING_SIDES is S, E, N, W, which the refusal mapping reads side numbers by', () => {
     expect([...RING_SIDES]).toEqual(['S', 'E', 'N', 'W']);
+  });
+});
+
+// ---- The run list (journal decision 210) -------------------------------------------------------------------------------------
+
+/** One stretch of a side as the pipeline reads it. */
+interface Piece { from: number; to: number; form: string; deg: number }
+
+/**
+ * A side's form and pitch at every stretch, from its start to its end: the side's own where no run covers it, a run's
+ * where one does, adjacent stretches that read the same joined. What the building is, whatever the spelling.
+ */
+function pieces(f: ShellFixture, i: number, side: RingSide): Piece[] {
+  const r = f.rings[i];
+  const length = sideLengthCm(r.rect, side);
+  const s = r.sides?.[side];
+  const own = {form: s?.form ?? 'hip', deg: s?.deg ?? r.defaultDeg};
+  const cuts = [...new Set([0, length, ...(s?.runs ?? []).flatMap(run => [run.from, run.to])])].filter(c => c >= 0 && c <= length).sort((a, b) => a - b);
+  const out: Piece[] = [];
+  for (let k = 0; k + 1 < cuts.length; k++) {
+    const mid = (cuts[k] + cuts[k + 1]) / 2;
+    const run = (s?.runs ?? []).find(x => x.from < mid && mid < x.to);
+    const read = run ? {form: run.form, deg: run.deg ?? own.deg} : own;
+    const last = out.at(-1);
+    if (last && last.form === read.form && last.deg === read.deg) last.to = cuts[k + 1];
+    else out.push({from: cuts[k], to: cuts[k + 1], ...read});
+  }
+  return out;
+}
+
+const allPieces = (f: ShellFixture): Piece[][] => f.rings.flatMap((r, i) => RING_SIDES.map(s => pieces(f, i, s)));
+
+describe('gate 3 for runs: a draft with runs survives download then load unchanged (journal decision 210)', () => {
+  const roundTrip = (f: ShellFixture): ShellFixture => {
+    const read = parseDraftJson(draftJson(f), 'x');
+    if (!read.ok) throw new Error(`refused: ${read.errors.join('; ')}`);
+    return read.fixture;
+  };
+  /** The rise fixtures' runs carry no `maxHeight` or `limit` but FlatTopRise's, which `input@1` cannot carry. */
+  const carriesLimits = (f: ShellFixture): boolean => f.rings.some(r => Object.values(r.sides ?? {}).some(s => s.runs?.some(run => run.maxHeight !== undefined || run.limit !== undefined)));
+
+  for (const f of RISE_FIXTURES) {
+    if (carriesLimits(f)) continue;
+    it(`${f.name}: the file its draft downloads loads back as that draft`, () => {
+      const d = editDraftOf(f).fixture;
+      const loaded = roundTrip(d);
+      const expected: ShellFixture = {...d, rings: d.rings.map(r => (RING_SIDES.every(s => r.sides?.[s]) ? {...r, defaultDeg: loaded.rings[0].defaultDeg} : r))};
+      // Any Ring that lists all four sides has no defaultDeg to carry (decision 198); no rise fixture has one.
+      expect(d.rings.some(r => RING_SIDES.every(s => r.sides?.[s]))).toBe(false);
+      expect(loaded).toEqual(expected);
+      expect(allPieces(loaded)).toEqual(allPieces(d));
+    });
+  }
+
+  it('a plain rectangle with its S side split into three runs, the middle a steeper gable, survives it', () => {
+    let d = makeDraft(oneRing(40));
+    d = dispatch(d, {kind: 'addRun', ring: 0, side: 'S'});
+    d = dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 0, value: 300});
+    d = dispatch(d, {kind: 'setRunTo', ring: 0, side: 'S', run: 0, value: 700});
+    d = dispatch(d, {kind: 'setRunPitch', ring: 0, side: 'S', run: 0, value: 60});
+    expect(d.validation.ok).toBe(true);
+    expect(d.fixture.rings[0].sides?.S).toEqual({form: 'hip', deg: 40, runs: [{from: 300, to: 700, form: 'gable', deg: 60}]});
+    expect(roundTrip(d.fixture)).toEqual(d.fixture);
+    // With a run added and edited on every side, still.
+    for (const side of ['E', 'N', 'W'] as const) {
+      d = dispatch(d, {kind: 'addRun', ring: 0, side});
+      d = dispatch(d, {kind: 'setRunForm', ring: 0, side, run: 0, form: 'gable'});
+      d = dispatch(d, {kind: 'setRunPitch', ring: 0, side, run: 0, value: 55});
+    }
+    expect(d.validation.ok).toBe(true);
+    // All four sides are listed now, so the Ring's defaultDeg is the named exception; here it is 40 either way.
+    expect(roundTrip(d.fixture)).toEqual({...d.fixture, rings: [{...d.fixture.rings[0], defaultDeg: wireDefaultDeg(d.fixture.rings[0])}]});
+  });
+
+  it('survives a side whose form was changed and whose runs were kept, in each order of the two edits', () => {
+    const base = dispatch(dispatch(makeDraft(oneRing(40)), {kind: 'addRun', ring: 0, side: 'N'}), {kind: 'setRunTo', ring: 0, side: 'N', run: 0, value: 500});
+    for (const d of [
+      dispatch(base, {kind: 'setSideForm', ring: 0, side: 'N', form: 'hip'}),
+      dispatch(base, {kind: 'setSidePitch', ring: 0, side: 'N', value: 33}),
+      dispatch(dispatch(base, {kind: 'setSidePitch', ring: 0, side: 'N', value: 33}), {kind: 'setSideForm', ring: 0, side: 'N', form: 'hip'}),
+    ]) {
+      expect(d.fixture.rings[0].sides?.N?.runs).toHaveLength(1);
+      if (d.validation.ok) expect(roundTrip(d.fixture)).toEqual(d.fixture);
+    }
+  });
+
+  it('a draft of every rise fixture and a split side keeps its runs through a link too', () => {
+    for (const f of RISE_FIXTURES) {
+      if (carriesLimits(f)) continue;
+      const link = draftFromLinkHash(draftLinkHash(f));
+      expect(link?.ok, f.name).toBe(true);
+      if (link?.ok) expect(allPieces(link.fixture), f.name).toEqual(allPieces(editDraftOf(f).fixture));
+    }
+  });
+
+  it('the exceptions: what the wire cannot tell apart comes back in the other spelling of the same building, and nothing else changes', () => {
+    const at = (sides: ShellFixture['rings'][number]['sides']): ShellFixture => ({name: 'e', cellSize: 50, storeyHeight: 250, rings: [ring([0, 0, 1000, 500], 0, 1, 40, sides)]});
+    const cases: [string, ShellFixture, ShellFixture['rings'][number]['sides']][] = [
+      // A run equal to its side's own form and pitch is not carried: the stretch reads the same either way.
+      ['a run that is its side\'s own form and pitch', at({S: {form: 'hip', deg: 40, runs: [{from: 0, to: 300, form: 'hip', deg: 40}, {from: 300, to: 700, form: 'gable', deg: 60}]}}),
+        {S: {form: 'hip', deg: 40, runs: [{from: 300, to: 700, form: 'gable', deg: 60}]}}],
+      // The wire reads a mixed side as its first hip's form and pitch, plus every run that differs: a gable side with a hip run.
+      ['a gable side with a hip run', at({S: {form: 'gable', deg: 50, runs: [{from: 300, to: 700, form: 'hip', deg: 30}]}}),
+        {S: {form: 'hip', deg: 30, runs: [{from: 0, to: 300, form: 'gable', deg: 50}, {from: 700, to: 1000, form: 'gable', deg: 50}]}}],
+      // A hip side whose runs are all gable and cover the whole side has no hip stretch: the first run becomes the side.
+      ['a hip side wholly covered by gable runs', at({S: {form: 'hip', deg: 40, runs: [{from: 0, to: 500, form: 'gable', deg: 60}, {from: 500, to: 1000, form: 'gable', deg: 45}]}}),
+        {S: {form: 'gable', deg: 60, runs: [{from: 500, to: 1000, form: 'gable', deg: 45}]}}],
+      // A gable side whose first stretch is a run of another pitch: with no hip, the first stretch is the side.
+      ['a gable side starting with a run of another pitch', at({S: {form: 'gable', deg: 50, runs: [{from: 0, to: 400, form: 'gable', deg: 60}]}}),
+        {S: {form: 'gable', deg: 60, runs: [{from: 400, to: 1000, form: 'gable', deg: 50}]}}],
+    ];
+    for (const [what, draft, expectedSides] of cases) {
+      expect(draft.rings[0].sides && validate(draft).ok, what).toBe(true);
+      const loaded = roundTrip(draft);
+      expect(loaded, what).not.toEqual(draft);
+      expect(loaded.rings[0].sides, what).toEqual(expectedSides);
+      expect(allPieces(loaded), what).toEqual(allPieces(draft));
+      expect({...loaded, rings: [{...loaded.rings[0], sides: draft.rings[0].sides}]}, what).toEqual(draft);
+    }
+  });
+
+  it('what the wire cannot carry: maxHeight and limit are not written, and the loaded run has neither (journal decision 210)', () => {
+    const flat = RISE_FIXTURES.find(f => f.name === 'FlatTopRise') as ShellFixture;
+    const d = editDraftOf(flat).fixture;
+    expect(d.rings[0].sides?.S?.runs?.[0].maxHeight).toBe(200);
+    const text = draftJson(d);
+    expect(text).not.toMatch(/maxHeight|limit/);
+    const loaded = roundTrip(d);
+    expect(loaded.rings[0].sides?.S?.runs).toEqual([{from: 300, to: 700, form: 'gable', deg: 60}]);
+    // The draft itself keeps it, through edits that do not touch the run.
+    const edited = dispatch(makeDraft(d), {kind: 'setSidePitch', ring: 0, side: 'S', value: 50});
+    expect(edited.fixture.rings[0].sides?.S?.runs?.[0].maxHeight).toBe(200);
+    expect(restoreDraft(serializeDraft(edited))?.draft.fixture.rings[0].sides?.S?.runs?.[0].maxHeight).toBe(200);
+  });
+
+  it('a foreign file\'s mixed side that asks for Auto keeps its runs (a side with runs is listed)', () => {
+    const input = structuredClone(writeInput(editDraftOf(RISE_FIXTURES.find(f => f.name === 'MidWallRise') as ShellFixture).fixture));
+    input.rings[0].sides[0].request = 'Auto';
+    const read = parseDraftJson(JSON.stringify(input), 'x');
+    expect(read.ok && read.fixture.rings[0].sides?.S?.runs).toEqual([{from: 330, to: 610, form: 'gable', deg: 45}]);
+  });
+});
+
+describe('the run actions of a draft (journal decision 210)', () => {
+  const start = (): Draft => makeDraft(oneRing(40));
+
+  it('add, set and remove go through the draft, its history and its validity, and undo undoes each', () => {
+    let d = dispatch(start(), {kind: 'addRun', ring: 0, side: 'S'});
+    expect(d.fixture.rings[0].sides?.S?.runs).toHaveLength(1);
+    d = dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 0, value: 0});
+    d = dispatch(d, {kind: 'setRunTo', ring: 0, side: 'S', run: 0, value: 500});
+    d = dispatch(d, {kind: 'setRunForm', ring: 0, side: 'S', run: 0, form: 'hip'});
+    d = dispatch(d, {kind: 'setRunPitch', ring: 0, side: 'S', run: 0, value: 55});
+    expect(d.fixture.rings[0].sides?.S?.runs?.[0]).toEqual({from: 0, to: 500, form: 'hip', deg: 55});
+    d = dispatch(d, {kind: 'removeRun', ring: 0, side: 'S', run: 0});
+    expect(d.fixture.rings[0].sides?.S?.runs).toBeUndefined();
+    for (let i = 0; i < 6; i++) d = dispatch(d, {kind: 'undo'});
+    expect(canUndo(d)).toBe(false);
+    expect(d.fixture.rings[0].sides).toEqual({});
+  });
+
+  it('is never blocked: an overlapping, reversed or out-of-side run is applied, and the draft is invalid', () => {
+    let d = dispatch(dispatch(start(), {kind: 'addRun', ring: 0, side: 'S'}), {kind: 'setRunTo', ring: 0, side: 'S', run: 0, value: 400});
+    d = dispatch(d, {kind: 'addRun', ring: 0, side: 'S'});
+    expect(d.validation.ok).toBe(true);
+    // Overlap: the second run now starts before the first ends.
+    const overlap = dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 1, value: 300});
+    expect(overlap.validation.ok).toBe(false);
+    // Reversed and out of the side.
+    expect(dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 0, value: 600}).validation.ok).toBe(false);
+    expect(dispatch(d, {kind: 'setRunTo', ring: 0, side: 'S', run: 1, value: 1500}).validation.ok).toBe(false);
+    expect(fixtureToBuild(overlap)).toBeUndefined();
+    expect(dispatch(overlap, {kind: 'undo'}).validation.ok).toBe(true);
+  });
+
+  it('ignores a run that is gone and a value that is not a number', () => {
+    const d = dispatch(start(), {kind: 'addRun', ring: 0, side: 'S'});
+    expect(dispatch(d, {kind: 'removeRun', ring: 0, side: 'S', run: 4})).toBe(d);
+    expect(dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'N', run: 0, value: 100})).toBe(d);
+    expect(dispatch(d, {kind: 'setRunTo', ring: 0, side: 'S', run: 0, value: Number.NaN})).toBe(d);
+    expect(dispatch(d, {kind: 'setRunPitch', ring: 0, side: 'S', run: 0, value: Number.POSITIVE_INFINITY})).toBe(d);
+    expect(dispatch(d, {kind: 'addRun', ring: 7, side: 'S'})).toBe(d);
+  });
+
+  it('a draft of a rise fixture starts valid, with every run carrying its own pitch', () => {
+    for (const f of RISE_FIXTURES) {
+      const d = editDraftOf(f);
+      expect(d.validation, f.name).toEqual({ok: true});
+      for (const r of d.fixture.rings) for (const s of RING_SIDES) for (const run of r.sides?.[s]?.runs ?? []) expect(run.deg, f.name).toBeTypeOf('number');
+    }
+  });
+
+  it('places a refusal about a run on that run, however the wire numbers the stretches it filled', () => {
+    // Runs [300, 500] and [700, 900] are written as five wire runs: two stretches, a run, a stretch, a run, and the tail.
+    let d = dispatch(start(), {kind: 'addRun', ring: 0, side: 'S'});
+    d = dispatch(dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 0, value: 300}), {kind: 'setRunTo', ring: 0, side: 'S', run: 0, value: 500});
+    d = dispatch(d, {kind: 'addRun', ring: 0, side: 'S'});
+    d = dispatch(dispatch(d, {kind: 'setRunFrom', ring: 0, side: 'S', run: 1, value: 700}), {kind: 'setRunTo', ring: 0, side: 'S', run: 1, value: 900});
+    expect(d.validation.ok).toBe(true);
+    const place = (x: Draft) => explainRefusals(x.validation.ok ? [] : x.validation.errors, x.fixture);
+    // A pitch of 80 on the second run: the refusal is about run 1, not wire run 3.
+    const steep = dispatch(d, {kind: 'setRunPitch', ring: 0, side: 'S', run: 1, value: 80});
+    expect(place(steep)).toMatchObject([{ring: 0, field: 'run', side: 'S', run: 1}]);
+    // A run reaching past the side's end.
+    const past = dispatch(d, {kind: 'setRunTo', ring: 0, side: 'S', run: 1, value: 1500});
+    expect(place(past).some(r => r.field === 'run' && r.side === 'S' && r.run === 1)).toBe(true);
+    // Two hip runs of different pitch: the side's, not a run's.
+    const hips = dispatch(dispatch(d, {kind: 'setRunForm', ring: 0, side: 'S', run: 0, form: 'hip'}), {kind: 'setRunPitch', ring: 0, side: 'S', run: 0, value: 30});
+    expect(place(hips).every(r => r.ring === 0 && r.side === 'S')).toBe(true);
+    expect(place(hips).length).toBeGreaterThan(0);
   });
 });

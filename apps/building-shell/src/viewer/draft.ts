@@ -11,7 +11,7 @@ import type {ShellBuild} from '../shell.ts';
 import {readInput, writeInput} from '../wire/input-adapter.ts';
 import type {AdaptedInput} from '../wire/input-adapter.ts';
 import * as edit from './edit.ts';
-import {cloneFixture, pinListedPitches} from './edit.ts';
+import {cloneFixture, pinListedPitches, writtenRunSources} from './edit.ts';
 import type {Hit} from './readout.ts';
 import type {ToggleState} from './toggles.ts';
 
@@ -34,8 +34,9 @@ export function validate(f: ShellFixture): Validation {
 }
 
 /** Where a refusal points in the panel. `ring` is a fixture index, or null when the refusal is the whole draft's. */
-export type FieldName = 'rect' | 'baseStorey' | 'storeys' | 'defaultDeg' | 'sidePitch' | 'ring' | 'rings' | 'storeyHeight' | 'cellSize';
-export interface Refusal { text: string; ring: number | null; field: FieldName; side?: RingSide }
+export type FieldName = 'rect' | 'baseStorey' | 'storeys' | 'defaultDeg' | 'sidePitch' | 'side' | 'run' | 'ring' | 'rings' | 'storeyHeight' | 'cellSize';
+/** `run` is the index in the side's fixture runs, for a refusal about a run (field `run`). */
+export interface Refusal { text: string; ring: number | null; field: FieldName; side?: RingSide; run?: number }
 
 const RECT_WORDS = /corner|axis-aligned|signed area|consecutive sides|rectangle/;
 
@@ -61,12 +62,20 @@ export function explainRefusals(errors: readonly string[], f: ShellFixture): Ref
     if (RECT_WORDS.test(text)) return {text, ring, field: 'rect'};
     const sideAt = /\bside (\d)\b/.exec(text);
     const side = sideAt ? RING_SIDES[Number(sideAt[1])] : undefined;
-    if (side && /solved (Pitched|GableEnd) at/.test(text)) {
-      // A side that is not listed reads the Ring's default.
-      const listed = f.rings[ring]?.sides?.[side] !== undefined;
-      return listed ? {text, ring, field: 'sidePitch', side} : {text, ring, field: 'defaultDeg', side};
+    if (!side) return {text, ring, field: 'ring'};
+    // Journal decision 210: the wire numbers the runs it was written, which include the stretches `writeInput` fills between
+    // the fixture's runs. A refusal about one of the fixture's runs points at that run; one about a filled stretch, at the side.
+    const wireRun = /\brun (\d+)\b/.exec(text);
+    const fixtureSide = f.rings[ring]?.sides?.[side];
+    if (wireRun && fixtureSide?.runs?.length) {
+      const source = writtenRunSources(fixtureSide.runs, edit.sideLengthCm(f.rings[ring].rect, side))[Number(wireRun[1])];
+      if (source !== null && source !== undefined) return {text, ring, field: 'run', side, run: source};
     }
-    return {text, ring, field: 'ring'};
+    if (/solved (Pitched|GableEnd) at/.test(text)) {
+      // A side that is not listed reads the Ring's default.
+      return fixtureSide ? {text, ring, field: 'sidePitch', side} : {text, ring, field: 'defaultDeg', side};
+    }
+    return {text, ring, field: 'side', side};
   });
 }
 
@@ -123,7 +132,8 @@ function fixtureOfRead(read: AdaptedInput): ShellFixture {
       return side.request !== 'Auto';
     };
     const formless = RING_SIDES.some(s => r.sides?.[s] === undefined);
-    const auto = RING_SIDES.filter(s => !requested(s) && r.sides?.[s]?.form === 'hip');
+    // A side with runs is always listed: whatever its `request`, it is not left to follow the default (journal decision 210).
+    const auto = RING_SIDES.filter(s => !requested(s) && r.sides?.[s]?.form === 'hip' && !r.sides?.[s]?.runs?.length);
     const first = auto.at(0);
     const defaultDeg = formless || first === undefined ? r.defaultDeg : r.sides?.[first]?.deg ?? r.defaultDeg;
     const sides: RingSides = {};
@@ -286,6 +296,12 @@ export type DraftAction =
   | {kind: 'setSideForm'; ring: number; side: RingSide; form: RingForm}
   | {kind: 'setSidePitch'; ring: number; side: RingSide; value: number}
   | {kind: 'clearSide'; ring: number; side: RingSide}
+  | {kind: 'addRun'; ring: number; side: RingSide}
+  | {kind: 'removeRun'; ring: number; side: RingSide; run: number}
+  | {kind: 'setRunFrom'; ring: number; side: RingSide; run: number; value: number}
+  | {kind: 'setRunTo'; ring: number; side: RingSide; run: number; value: number}
+  | {kind: 'setRunForm'; ring: number; side: RingSide; run: number; form: RingForm}
+  | {kind: 'setRunPitch'; ring: number; side: RingSide; run: number; value: number}
   | {kind: 'setStoreyHeight'; value: number}
   | {kind: 'undo'}
   | {kind: 'redo'}
@@ -302,6 +318,9 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
   const count = f.rings.length;
   const live = (ring: number): boolean => Number.isInteger(ring) && ring >= 0 && ring < count;
   const number = (v: number): boolean => Number.isFinite(v);
+  /** A run that exists: a stale click on a run that is gone is ignored, as one on a Ring is. */
+  const liveRun = (ring: number, side: RingSide, run: number): boolean =>
+    live(ring) && Number.isInteger(run) && run >= 0 && run < (f.rings[ring].sides?.[side]?.runs?.length ?? 0);
   const sel = d.selected;
   switch (a.kind) {
     case 'select': return live(a.ring) ? {...d, selected: a.ring} : d;
@@ -329,6 +348,12 @@ export function dispatch(d: Draft, a: DraftAction): Draft {
     case 'setSideForm': return live(a.ring) ? commit(d, edit.setSideForm(f, a.ring, a.side, a.form), sel) : d;
     case 'setSidePitch': return live(a.ring) && number(a.value) ? commit(d, edit.setSidePitch(f, a.ring, a.side, a.value), sel) : d;
     case 'clearSide': return live(a.ring) ? commit(d, edit.clearSide(f, a.ring, a.side), sel) : d;
+    case 'addRun': return live(a.ring) ? commit(d, edit.addRun(f, a.ring, a.side), sel) : d;
+    case 'removeRun': return liveRun(a.ring, a.side, a.run) ? commit(d, edit.removeRun(f, a.ring, a.side, a.run), sel) : d;
+    case 'setRunFrom': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunFrom(f, a.ring, a.side, a.run, a.value), sel) : d;
+    case 'setRunTo': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunTo(f, a.ring, a.side, a.run, a.value), sel) : d;
+    case 'setRunForm': return liveRun(a.ring, a.side, a.run) ? commit(d, edit.setRunForm(f, a.ring, a.side, a.run, a.form), sel) : d;
+    case 'setRunPitch': return liveRun(a.ring, a.side, a.run) && number(a.value) ? commit(d, edit.setRunPitch(f, a.ring, a.side, a.run, a.value), sel) : d;
     case 'setStoreyHeight': return number(a.value) ? commit(d, edit.setStoreyHeight(f, a.value), sel) : d;
     case 'undo': {
       const previous = d.past.at(-1);

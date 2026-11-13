@@ -6,10 +6,10 @@
 // Only the Ring list grows and shrinks, at its tail, so each row's buttons keep their element and their index.
 import {errorMessage} from '../errors.ts';
 import {RING_SIDES} from '../fixture.ts';
-import type {RingForm, RingSide} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide} from '../fixture.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
 import {canRedo, canUndo, resolveSides} from './draft.ts';
-import {PITCH_STEP_DEG} from './edit.ts';
+import {PITCH_STEP_DEG, sideLengthCm} from './edit.ts';
 
 /** A line shown under the panel, and whether it is bad news. */
 export interface Notice { text: string; bad: boolean }
@@ -85,11 +85,32 @@ const num = (v: number): string => String(Math.round(v * 1e6) / 1e6);
 /** The rect's four fields, with the coordinate of `Rect` each one sets. */
 const RECT_FIELDS = [{label: 'x0', coord: 0}, {label: 'y0', coord: 1}, {label: 'x1', coord: 2}, {label: 'y1', coord: 3}] as const;
 
+/** A control with its caption in front of it. */
+const labelled = (text: string, f: HTMLInputElement | HTMLSelectElement): HTMLLabelElement => {
+  const l = el('label', `${text} `, 'inline');
+  l.append(f);
+  return l;
+};
+
 /** The form a select's value names, or null for a value that names none. */
 const formOf = (value: string): RingForm | null => (value === 'hip' || value === 'gable' ? value : null);
 
-/** One side's controls. */
-interface SideRow { form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement }
+/** Where a side's runs are measured from and which way they run (gable rise decision 1: every side runs counter-clockwise). */
+const RUN_START: Record<RingSide, string> = {
+  S: 'west end (x0), running east',
+  E: 'south end (y0), running north',
+  N: 'east end (x1), running west',
+  W: 'north end (y1), running south',
+};
+
+/** One run's controls. */
+interface RunRow { row: HTMLElement; from: HTMLInputElement; to: HTMLInputElement; form: HTMLSelectElement; pitch: HTMLInputElement; remove: HTMLButtonElement; note: HTMLElement }
+
+/** One side's controls, and its run list (journal decision 210). */
+interface SideRow {
+  form: HTMLSelectElement; pitch: HTMLInputElement; clear: HTMLButtonElement;
+  runs: HTMLDetailsElement; summary: HTMLElement; where: HTMLElement; runRows: RunRow[]; runList: HTMLElement; add: HTMLButtonElement;
+}
 
 /** One row of the Ring list. */
 interface RingRow { row: HTMLElement; pick: HTMLButtonElement; up: HTMLButtonElement; down: HTMLButtonElement }
@@ -139,7 +160,6 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   const baseField = numberField('ring-base-storey', 1, v => withRing(r => ({kind: 'setBaseStorey', ring: r, value: v})), resync);
   const storeysField = numberField('ring-storeys', 1, v => withRing(r => ({kind: 'setStoreys', ring: r, value: v})), resync);
   const defaultField = numberField('ring-default-deg', PITCH_STEP_DEG, v => withRing(r => ({kind: 'setDefaultDeg', ring: r, value: v})), resync);
-  const labelled = (text: string, f: Field): HTMLLabelElement => { const l = el('label', `${text} `, 'inline'); l.append(f); return l; };
   const rectRow = el('div', undefined, 'row');
   rectFields.forEach((f, i) => rectRow.append(labelled(RECT_FIELDS[i].label, f)));
   const storeyRow = el('div', undefined, 'row');
@@ -157,10 +177,19 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       if (chosen) withRing(r => ({kind: 'setSideForm', ring: r, side, form: chosen}));
     });
     const pitch = numberField(`ring-side-${side}-deg`, PITCH_STEP_DEG, v => withRing(r => ({kind: 'setSidePitch', ring: r, side, value: v})), resync);
-    const clear = button('Default', 'Unlist this side: a hip at the Ring\'s default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
+    const clear = button('Default', 'Unlist this side, runs included: a hip at the Ring\'s default pitch', () => withRing(r => ({kind: 'clearSide', ring: r, side})), `ring-side-${side}-clear`);
     row.append(el('span', side, 'side-name'), form, pitch, clear);
-    sides.append(row);
-    sideRows.set(side, {form, pitch, clear});
+
+    // The run list (journal decision 210): a stretch of the side no run covers keeps the side's own form and pitch.
+    const runs = el('details', undefined, 'runs');
+    runs.id = `ring-side-${side}-runs`;
+    const summary = el('summary', 'Runs');
+    const where = el('div', undefined, 'hint');
+    const runList = el('div', undefined, 'run-list');
+    const add = button('Add run', 'A run over the middle third of the largest stretch no run covers, in the other form', () => withRing(r => ({kind: 'addRun', ring: r, side})), `ring-side-${side}-add-run`);
+    runs.append(summary, where, runList, add);
+    sides.append(row, runs);
+    sideRows.set(side, {form, pitch, clear, runs, summary, where, runRows: [], runList, add});
   }
   fields.append(fieldsTitle, rectRow, storeyRow, sides);
 
@@ -288,7 +317,56 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       row.form.classList.toggle('default', own === undefined);
       row.clear.disabled = own === undefined;
       mark(row.pitch, own ? refusalAt(v, r, 'sidePitch', side) : refusalAt(v, r, 'defaultDeg', side));
+      patchRuns(v, r, ringData, side, row);
     }
+  }
+
+  /** One new run row of side `side`, wired to run `k` (rows are reused by index, so the index never goes stale). */
+  function makeRunRow(side: RingSide, k: number): RunRow {
+    const row = el('div', undefined, 'row run');
+    const id = `ring-side-${side}-run-${k}`;
+    const runAct = (make: (r: number) => DraftAction): void => withRing(make);
+    const from = numberField(`${id}-from`, 50, v => runAct(r => ({kind: 'setRunFrom', ring: r, side, run: k, value: v})), resync);
+    const to = numberField(`${id}-to`, 50, v => runAct(r => ({kind: 'setRunTo', ring: r, side, run: k, value: v})), resync);
+    const form = el('select');
+    form.id = `${id}-form`;
+    for (const f of ['hip', 'gable'] as const) form.append(new Option(f, f));
+    form.addEventListener('change', () => {
+      const chosen = formOf(form.value);
+      if (chosen) runAct(r => ({kind: 'setRunForm', ring: r, side, run: k, form: chosen}));
+    });
+    const pitch = numberField(`${id}-deg`, PITCH_STEP_DEG, v => runAct(r => ({kind: 'setRunPitch', ring: r, side, run: k, value: v})), resync);
+    const remove = button('×', 'Remove this run', () => runAct(r => ({kind: 'removeRun', ring: r, side, run: k})), `${id}-remove`);
+    const note = el('span', 'keeps a rise limit (maxHeight or limit) that Download does not write', 'hint');
+    row.append(labelled('from', from), labelled('to', to), form, pitch, remove, note);
+    return {row, from, to, form, pitch, remove, note};
+  }
+
+  /** Shows one side's runs: its start and length, a row per run, and which runs the wire refuses. */
+  function patchRuns(v: PanelView, r: number, ringData: FixtureRing, side: RingSide, row: SideRow): void {
+    const runs = ringData.sides?.[side]?.runs ?? [];
+    while (row.runRows.length > runs.length) row.runRows.pop()?.row.remove();
+    while (row.runRows.length < runs.length) {
+      const made = makeRunRow(side, row.runRows.length);
+      row.runList.append(made.row);
+      row.runRows.push(made);
+    }
+    row.summary.textContent = runs.length ? `Runs (${runs.length})` : 'Runs';
+    row.where.textContent = `In cm from the side's ${RUN_START[side]}; its length is ${num(sideLengthCm(ringData.rect, side))} cm. A stretch no run covers keeps the side's own form and pitch.`;
+    if (runs.length) row.runs.open = true;
+    row.add.disabled = false;
+    mark(row.summary, v.refusals.find(x => x.ring === r && x.side === side && x.field === 'side'));
+    runs.forEach((run, k) => {
+      const rr = row.runRows[k];
+      setField(rr.from, num(run.from));
+      setField(rr.to, num(run.to));
+      setField(rr.form, run.form);
+      setField(rr.pitch, num(run.deg ?? ringData.sides?.[side]?.deg ?? ringData.defaultDeg));
+      const bad = v.refusals.find(x => x.ring === r && x.field === 'run' && x.side === side && x.run === k);
+      mark(rr.row, bad);
+      // `maxHeight` and `limit` have no field in input@1: they stay in memory, and the panel says so where they are held.
+      rr.note.hidden = run.maxHeight === undefined && run.limit === undefined;
+    });
   }
 
   function patchMessages(v: PanelView): void {

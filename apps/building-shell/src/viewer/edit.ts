@@ -2,7 +2,8 @@
 // mutates its argument (decision 2). No DOM, no scene, and no validity test: a draft is valid when the wire accepts it
 // (decision 6, journal decision 193), which `draft.ts` asks; an edit is never blocked (decision 9).
 import {RING_SIDES} from '../fixture.ts';
-import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture} from '../fixture.ts';
+import type {FixtureRing, RingForm, RingSide, RingSides, ShellFixture, SideForm, SideRun} from '../fixture.ts';
+import {ringSideLines} from '../ring-forms.ts';
 import type {Rect} from '../roof/model.ts';
 
 /** Decision 4: a new Ring is 500 x 500 cm, a hip at 45 degrees, one storey, at base storey 0. */
@@ -15,12 +16,15 @@ export const PITCH_STEP_DEG = 0.5;
 /** A Ring's box in the world, for the viewport's highlight: its rect, from its lowest floor to its highest plate. */
 export interface RingBox { rect: Rect; zLo: number; zHi: number }
 
-/** The listed sides, copied by spread so a field a side gains later is copied with it. An absent `sides` is an empty one. */
+/**
+ * The listed sides, copied by spread so a field a side or a run gains later is copied with it, runs included (journal
+ * decision 210). An absent `sides` is an empty one.
+ */
 const cloneSides = (sides: RingSides | undefined): RingSides => {
   const out: RingSides = {};
   for (const side of RING_SIDES) {
     const s = sides?.[side];
-    if (s) out[side] = {...s};
+    if (s) out[side] = s.runs ? {...s, runs: s.runs.map(run => ({...run}))} : {...s};
   }
   return out;
 };
@@ -34,14 +38,17 @@ export const cloneFixture = (f: ShellFixture): ShellFixture => ({...f, rings: f.
 /**
  * Viewer editing decision 14 as amended (journal decision 198, M1): a listed side always carries its own pitch, because
  * the wire cannot tell a listed side that follows the default from one pinned at the default's value. A copy of `f` in
- * which every listed side without a pitch has the Ring's `defaultDeg`, which is what it already resolved to.
+ * which every listed side without a pitch has the Ring's `defaultDeg`, which is what it already resolved to. The amendment
+ * of journal decision 210 gives a run the same: a run without a pitch has its side's.
  */
 export function pinListedPitches(f: ShellFixture): ShellFixture {
   const next = cloneFixture(f);
   for (const r of next.rings) {
     for (const side of RING_SIDES) {
       const s = r.sides?.[side];
-      if (s && s.deg === undefined) s.deg = r.defaultDeg;
+      if (!s) continue;
+      s.deg ??= r.defaultDeg;
+      for (const run of s.runs ?? []) run.deg ??= s.deg;
     }
   }
   return next;
@@ -134,20 +141,22 @@ export const setDefaultDeg = (f: ShellFixture, index: number, deg: number): Shel
  * not yet listed. A listed side always carries its own pitch (decision 14 as amended, journal decision 198, M1).
  */
 export function setSideForm(f: ShellFixture, index: number, side: RingSide, form: RingForm): ShellFixture {
+  // Spread, so what the side has besides its form and pitch, its runs (journal decision 210), stays.
   return withRing(f, index, r => {
-    const deg = r.sides?.[side]?.deg ?? r.defaultDeg;
-    r.sides = {...r.sides, [side]: {form, deg}};
+    const was = r.sides?.[side];
+    r.sides = {...r.sides, [side]: {...was, form, deg: was?.deg ?? r.defaultDeg}};
   });
 }
 
-/** Lists one side of Ring `index` at its own pitch, keeping the form it already has (a hip when it had none). */
+/** Lists one side of Ring `index` at its own pitch, keeping the form it already has (a hip when it had none) and its runs. */
 export function setSidePitch(f: ShellFixture, index: number, side: RingSide, deg: number): ShellFixture {
   return withRing(f, index, r => {
-    r.sides = {...r.sides, [side]: {form: r.sides?.[side]?.form ?? 'hip', deg}};
+    const was = r.sides?.[side];
+    r.sides = {...r.sides, [side]: {...was, form: was?.form ?? 'hip', deg}};
   });
 }
 
-/** Clears one side of Ring `index` back to the default: a hip at the Ring's `defaultDeg`. */
+/** Clears one side of Ring `index` back to the default: a hip at the Ring's `defaultDeg`. Its runs go with it (journal decision 210). */
 export function clearSide(f: ShellFixture, index: number, side: RingSide): ShellFixture {
   return withRing(f, index, r => {
     const sides = {...r.sides};
@@ -155,6 +164,125 @@ export function clearSide(f: ShellFixture, index: number, side: RingSide): Shell
     r.sides = sides;
   });
 }
+
+// ---- Runs (journal decision 210) ---------------------------------------------------------------------------------------------
+
+/**
+ * A side's length in cm, which its runs' ends are measured along. Every side runs counter-clockwise from its start (gable
+ * rise decision 1; `runSpan` in `ring-forms.ts`): S from its west end (x0) toward the east, E from its south end (y0)
+ * toward the north, N from its east end (x1) toward the west, W from its north end (y1) toward the south.
+ */
+export const sideLengthCm = (rect: Rect, side: RingSide): number => {
+  const l = ringSideLines(rect)[side];
+  return l.hi - l.lo;
+};
+
+/**
+ * What a side's runs write to the wire, one entry per written run: the index of the fixture run it is, or null for a
+ * stretch between runs (or before the first, or after the last), which `writeInput` fills with the side's own form. It
+ * repeats `writeInput`'s layout, which is outside this package's roster; a test holds the two to the same count.
+ */
+export function writtenRunSources(runs: readonly Pick<SideRun, 'from' | 'to'>[], length: number): (number | null)[] {
+  const out: (number | null)[] = [];
+  let at = 0;
+  runs.forEach((run, k) => {
+    if (run.from > at) out.push(null);
+    out.push(k);
+    at = Math.max(at, run.to);
+  });
+  if (at < length) out.push(null);
+  return out;
+}
+
+/** The largest stretch of a side no run covers that holds a whole cell, its ends snapped inward to the grid; undefined when none does. */
+export function largestUncovered(runs: readonly Pick<SideRun, 'from' | 'to'>[], length: number, cell: number): [number, number] | undefined {
+  const stretches: [number, number][] = [];
+  let at = 0;
+  for (const run of [...runs].sort((a, b) => a.from - b.from)) {
+    if (run.from > at) stretches.push([at, run.from]);
+    at = Math.max(at, run.to);
+  }
+  if (length > at) stretches.push([at, length]);
+  let best: [number, number] | undefined;
+  for (const [lo, hi] of stretches) {
+    const from = Math.ceil(lo / cell) * cell + 0, to = Math.floor(hi / cell) * cell + 0;
+    if (from < to && (!best || to - from > best[1] - best[0])) best = [from, to];
+  }
+  return best;
+}
+
+/**
+ * The middle third of a stretch, its ends snapped inward to the grid, or the whole stretch where that leaves no whole cell.
+ * A new run takes it so that the side's own form is left on both flanks: a gable run that covered the whole of a hip side
+ * would be a whole-wall gable, which `input@1` reads back as the side's own form (journal decision 210).
+ */
+export function middleThird([from, to]: readonly [number, number], cell: number): [number, number] {
+  const third = (to - from) / 3;
+  const a = Math.ceil((from + third) / cell) * cell + 0, b = Math.floor((to - third) / cell) * cell + 0;
+  return a < b ? [a, b] : [from, to];
+}
+
+function assertRun(f: ShellFixture, index: number, side: RingSide, run: number): void {
+  assertIndex(f, index);
+  const n = f.rings[index].sides?.[side]?.runs?.length ?? 0;
+  if (!Number.isInteger(run) || run < 0 || run >= n) throw new RangeError(`Ring ${index} side ${side} has no run ${run}: it has ${n}`);
+}
+
+/** A copy of `f` with one existing run of one side changed by `change` of a copy of it. */
+function withRun(f: ShellFixture, index: number, side: RingSide, run: number, change: (r: SideRun) => void): ShellFixture {
+  assertRun(f, index, side, run);
+  return withRing(f, index, r => {
+    const target = r.sides?.[side]?.runs?.[run];
+    if (target) change(target);
+  });
+}
+
+/**
+ * Adds a run to one side of Ring `index`: over the middle third of the largest stretch no run covers (ends snapped to the
+ * cell size), in the form opposite to the side's, at the side's pitch, so it changes the roof at once. It is put in order
+ * along the side. The side is listed if it was not. A side with no whole cell left uncovered is left as it was.
+ */
+export function addRun(f: ShellFixture, index: number, side: RingSide): ShellFixture {
+  assertIndex(f, index);
+  const r0 = f.rings[index];
+  const stretch = largestUncovered(r0.sides?.[side]?.runs ?? [], sideLengthCm(r0.rect, side), f.cellSize);
+  if (!stretch) return cloneFixture(f);
+  const gap = middleThird(stretch, f.cellSize);
+  return withRing(f, index, r => {
+    const was = r.sides?.[side];
+    const own: SideForm = {...was, form: was?.form ?? 'hip', deg: was?.deg ?? r.defaultDeg};
+    const run: SideRun = {from: gap[0], to: gap[1], form: own.form === 'hip' ? 'gable' : 'hip', deg: own.deg};
+    own.runs = [...(own.runs ?? []), run].sort((a, b) => a.from - b.from);
+    r.sides = {...r.sides, [side]: own};
+  });
+}
+
+/** Removes run `run` of one side. A side left with no run is a plain side again. */
+export function removeRun(f: ShellFixture, index: number, side: RingSide, run: number): ShellFixture {
+  assertRun(f, index, side, run);
+  return withRing(f, index, r => {
+    const s = r.sides?.[side];
+    if (!s?.runs) return;
+    s.runs.splice(run, 1);
+    if (!s.runs.length) delete s.runs;
+  });
+}
+
+/** Sets where run `run` starts, in cm from the side's start, snapped to the cell size. Not reordered: a run out of order is for the wire to refuse. */
+export const setRunFrom = (f: ShellFixture, index: number, side: RingSide, run: number, value: number): ShellFixture =>
+  withRun(f, index, side, run, r => { r.from = snapToCell(value, f.cellSize); });
+
+/** Sets where run `run` ends, in cm from the side's start, snapped to the cell size. */
+export const setRunTo = (f: ShellFixture, index: number, side: RingSide, run: number, value: number): ShellFixture =>
+  withRun(f, index, side, run, r => { r.to = snapToCell(value, f.cellSize); });
+
+/** Sets run `run`'s form. Its pitch, and any `maxHeight` or `limit` it carries, stay. */
+export const setRunForm = (f: ShellFixture, index: number, side: RingSide, run: number, form: RingForm): ShellFixture =>
+  withRun(f, index, side, run, r => { r.form = form; });
+
+/** Sets run `run`'s own pitch. Not clamped or snapped, as the side's is not (decisions 5 and 9). */
+export const setRunPitch = (f: ShellFixture, index: number, side: RingSide, run: number, deg: number): ShellFixture =>
+  withRun(f, index, side, run, r => { r.deg = deg; });
 
 /** Moves Ring `index` one place up (`-1`, toward index 0) or down (`1`). The first Ring cannot move up, nor the last down: the copy is unchanged. */
 export function moveRing(f: ShellFixture, index: number, direction: -1 | 1): ShellFixture {

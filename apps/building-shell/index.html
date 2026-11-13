@@ -59,6 +59,14 @@
     #edit .row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; margin-bottom: 4px; }
     #edit label.inline { display: inline-flex; align-items: center; gap: 4px; }
     #edit .side-name { width: 14px; color: var(--dim); }
+    /* The run list of a side (journal decision 210). */
+    #edit details.runs { margin: 0 0 6px 20px; }
+    #edit details.runs > summary { cursor: pointer; color: var(--dim); }
+    #edit details.runs > summary.invalid { color: var(--bad); }
+    #edit .run-list { margin: 4px 0; }
+    #edit .row.run { padding: 3px 0; border-top: 1px solid var(--line); }
+    #edit .row.run.invalid { border-color: var(--bad); }
+    #edit .row.run input.num { width: 56px; }
     #edit .refusals, #edit .notice { margin-top: 6px; }
     #edit .notice { white-space: pre-wrap; }
     #edit .refusals ul { margin: 2px 0; padding-left: 18px; }
