@@ -1049,6 +1049,21 @@ ruled" list in the covered-storeys findings. Added this session:
        de-duplicated within tolerance.
      - The two changed editor expectations guarded nothing: they pinned a disagreement between the editor and the
        pipeline, which already merged those runs.
+257. **WP-S1.1 is accepted at `7d4fbfc`; a rise capped within 5 cm of its plate builds no piece, and the editor is
+     to say so** (the lead, 2026-11-13). One commit; the delegate's record: 9,803 passed in 44 files, typecheck
+     clean, drift test green, no golden, pin or catalogue fact changed, the 5,745-entry digest identical before
+     and after, five mutations convicted.
+     - **`RISE_MIN_CAP_CM = 5`, from a sweep of about 5,400 builds** (F83). It is not derived from the cleaning or
+       weld tolerances: what fails is `cleanMesh` on the small triangle where a low cap meets the two hip planes
+       of a convex corner. The worst failing cap was 2.60 cm, with both hips at 75°, and everything from 2.65 to
+       10 cm was clean. **The lead accepts 5 cm as a guard, and records the cause as an open item**: the
+       threshold stands in for a robustness fault in cleaning at a corner, and a gable 4 cm tall that the author
+       asked for is not built.
+     - **A gable that disappears when a number is typed must say why.** WP-S2.1, to the editor's delegate: a note
+       on the stretch's row when its maximum height is at or below the threshold, reading the constant from the
+       pipeline. Information only; the draft stays valid.
+     - L1, L2, L3 and L4 are closed as ruled. L1's test uses a gable over the L's stem, because the reviewer's
+       own case merged back into one piece and could not convict the mutation.
 
 ## Findings
 
@@ -1345,6 +1360,18 @@ F70 to F72 are the same delegate's WP-G1.1 measurements at `3a8c469`. The lead h
     45° gables with corner rakes, apexes at 250 cm. Clean.
   - **A 45° stretch with a maximum height of 100** is flat-topped at 100. Clean.
   - None of the new fixtures has a conflict, an Unclassified Edge, a throw or an open shell.
+- **F83. A rise capped close to its plate cannot be cleaned at a convex corner, up to 2.60 cm** (the WP-S1.1
+  delegate at `7d4fbfc`, from about 5,400 builds sweeping `maxHeight` upward from 0.0101 cm: rise pitches 30° to
+  75°, hip pitches 7° to 75°, bands of 50 to 400 cm; mid-wall, at a corner, spanning the whole wall, covered, in the
+  editor's spelling, and a `split` pair; results as `.tsv` in the session scratch directory under `sweep/`; not
+  re-run by the lead).
+  - **Below 0.03 cm every shape throws** ("ties between generating planes") **or leaves Unclassified Edges.**
+  - **A rise that ends at a convex corner keeps throwing in `cleanMesh` much higher**, on the small triangle where
+    the cap meets the corner's two hip planes: up to 0.15 cm with both hips at 45°, 1.35 cm at 45° and 75°, and
+    2.60 cm at 75° and 75°, the wire's steepest.
+  - **Every build from 2.65 to 10 cm was clean**, at all 12 hip-pitch pairs.
+  - The floor cap and the wall-top cap sit a storey height less 1 cm above the plate, so they reach this band
+    only on storeys under 6 cm tall. No rise in the corpus has a cap below 100 cm.
   - **The 196 pinned cases by class**: roof meets the floor above 57; algorithm-B cut-piece overshoot 36;
     low-pitch pocket 30; `GABLE_RISE_CONFLICTS` 27; algorithm-B Cheek 15; `GABLE_RISE_SPLIT_CONFLICTS` 11;
     sub-tolerance roof feature 9; near-touching islands 4; Gable–Wall edge Unclassified 3; edge contact between
