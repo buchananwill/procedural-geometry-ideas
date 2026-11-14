@@ -329,6 +329,28 @@ session 3's own.
     conviction.** The first is convicted by the sweep, which is in the suite; the second is recorded as open.
   - **For the user:** the early acceptance is evidence that today's solver is wrong on two complete cells of the
     existing sweep, and whether to fix acceptance, and when, is theirs.
+- **291. The user, 2026-11-14: Where the stored links and the old id arithmetic diverge, the old approach was wrong.**
+  The user's words: "I agree with your framing that the explicit linked list is flushing out edge case bugs, and the old
+  approach was wrong on those divergences." This confirms the lead's clearing of all four readers in BSA.D290, and sets
+  the presumption for part B's divergences under the stage 1 spec's decision 31: a changed graph on those paths is the
+  cure of a defect, still measured and written up before a pin moves. The user did not rule on fixing the early
+  acceptance of BSA.F95; the lead proceeds as it proposed, with a confirming diagnosis after part B is committed and no
+  fix until the user asks for one.
+- **292. Stage 1's parts A and B are accepted as built at `a997110`, with three rulings, a small follow-up to the
+  implementer and an independent review before the spec is marked completed.**
+  - **`partitionSpan` stays through stage 1** (stage 1 spec decision 33): keeping ids as they are outranks removing the
+    last id arithmetic while it decides no child step. Node 4's spec replaces it.
+  - **The guard gets a standing test** on `offedge:plus:k7:s7919`, the one cell it decides. Conviction by a harness the
+    suite skips is not a gate.
+  - **The never-born splice gets a constructed unit test,** as the pair collapse and the vertex-to-vertex event did,
+    since no roster reaches it outside the excluded path.
+  - **A measurement, not a change:** what moves if the neighbour guard is also asked on the direct-strike path, where
+    the three `offedge:plus` misread splits arrive (BSA.F96). Reported, committed nowhere. Whether to apply it follows
+    BSA.D291's presumption once the figures are in.
+  - **The review** is one Opus reviewer on `60fcbed..a997110` against the spec, read-only, by BSA.D287's order: commit,
+    review, commit again.
+  - **After the follow-up,** the confirming diagnosis of the early acceptance (BSA.D291), in the same tree and so not
+    alongside it.
 
 ## Findings
 
@@ -456,3 +478,25 @@ session 3's own.
     sort key and the comparison.
   - **Mutation:** 13 of 15 link-writing mutations turn a gate red in the corpus or unit tests; the triangle closure by
     best collision is convicted only by the sweep; splicing out a bisector that is never born is not convicted.
+- **F96. Part B switched every reader to the links and no complete solve changed: no pin moved and no clean fixture
+  moved.** (the stage 1 delegate (Opus), measured at a997110, 2026-11-14; the lead confirmed the two commits and a tree
+  clean of code, and re-ran nothing)
+  - **Commits:** part A `7b6ef97`, part B `a997110`, local on `feature/skeleton-holes`. Core: 5,827 passed, 2 failed, 9
+    skipped, the 2 being the red early-acceptance file by design. Building-shell: 9,992 in 46 files, golden drift
+    holding, typecheck clean.
+  - **What diverged, all on solves incomplete before and after, with the four oracle counts, containment and tiling
+    unchanged:** 54 along-edge sweep cells, where a true ring is now handed on whole in place of being shattered into
+    one-edge children, and the failure moves to "Unable to generate any collisions" on a degenerate ring with no event;
+    `ladder:1x:s1`; and `Offset Cross Junction` with its 12 census regions, whose error message changes and whose census
+    signature does not. The last two are on the early-acceptance path.
+  - **The early acceptance fires on five solves:** the two complete red-test cells, `Offset Cross Junction` and
+    `ladder:1x:s1` (incomplete), and `ladder:3x:s3`, complete with no invariant violation.
+  - **The three `offedge:plus` cells did not change.** Their misread split arrives by the direct-strike path of
+    `generateSplitEventFromTheEdgeItself`, which has no neighbour guard in the old code or the new.
+  - **The neighbour guard, now asked after validation, decides one cell in every roster:** `offedge:plus:k7:s7919`.
+    Disabling it leaves the whole suite green; only the sweep harness, which the suite skips, sees it.
+  - **`partitionSpan` is the one piece of id arithmetic left in the event path.** It decides no child step; it orders
+    the births of partition bisectors and breaks a tie between re-reports. Replacing it by a link-derived order
+    renumbered 16 pinned digests, clean fixtures among them.
+  - **Mutation:** segments, partition order, partition membership and ring direction each turn 33 to 49 tests red. The
+    guard and the splice of a never-born bisector are not convicted by any standing test.
