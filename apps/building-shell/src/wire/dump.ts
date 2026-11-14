@@ -43,9 +43,15 @@ export function listDumps(names: readonly string[]): DumpListing {
  * Journal decisions 140's Q3 note and 156, F1: a shell built from a file's fixture, its provenance naming the file's own
  * Rings and sides, never the fixture's compressed positions or its compass order. Every Cell's and face's source is
  * mapped through `adapted.modelIndices` and `adapted.sideSlots`, and each face's sources are sorted again, by model
- * index then side.
+ * index then side. Journal decisions 261 and 262: the report's dropped Rings are mapped through `adapted.modelIndices`
+ * too, and sorted again.
  */
 export function withFileModelIndices(shell: BuildingShell, adapted: Pick<AdaptedInput, 'modelIndices' | 'sideSlots'>): BuildingShell {
+  const modelIndex = (position: number): number => {
+    const m = adapted.modelIndices[position];
+    if (m === undefined) throw new Error(`the report drops Ring ${position}, which the file does not hold`);
+    return m;
+  };
   const map = (s: CellSource): CellSource => {
     const ringModelIndex = adapted.modelIndices[s.ringModelIndex];
     const compass = RING_SIDES[s.side];
@@ -57,6 +63,7 @@ export function withFileModelIndices(shell: BuildingShell, adapted: Pick<Adapted
     ...shell,
     cells: shell.cells.map(c => ({...c, source: c.source && map(c.source)})),
     faces: shell.faces.map(f => ({...f, sources: f.sources.map(map).sort(compareSources)})),
+    report: {...shell.report, droppedRings: shell.report.droppedRings.map(modelIndex).sort((a, b) => a - b)},
   };
 }
 

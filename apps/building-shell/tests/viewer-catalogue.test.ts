@@ -17,7 +17,7 @@ import {selectionFromHash, selectionName} from '../src/viewer/hash.ts';
 import {CONFLICT_TABLE_NAMES, PINNED_CASES, PIN_TABLES, RESIDUE_TABLE_NAMES} from '../src/viewer/pinned-cases.ts';
 import {RESEARCH_ENTRIES, RESEARCH_FIXTURES} from '../src/viewer/research-cases.ts';
 import {readInput} from '../src/wire/input-adapter.ts';
-import {EMPTIED_BY_GABLE_RISES, GOLDEN_FIXTURES} from './golden-fixtures.ts';
+import {EMPTIED_CLASSES, GOLDEN_FIXTURES} from './golden-fixtures.ts';
 import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
@@ -58,6 +58,8 @@ describe('the input files the selector reads', () => {
       'FlushOverReflex300', 'FlushOverReflex250', 'UpperUJoinedByEdgeContact', 'FullWingsProbe', 'SplitBandFreeCut', 'SplitBandFreeCut45',
       'GablePitchL', 'AsymmetricLScrambled', 'SB400-600B100S500g60r024', 'PitchRingConflictFileReversed', 'StoreyRingConflictFileReversed',
       'CutPitchConflictFileReversed', 'HoleRingConflictFileReversed',
+      // Journal decisions 260 to 262 (WP-C2): a defect case until the solve dropped its fully internal Ring.
+      'CourtyardJutCutSwapped',
     ]);
   });
 
@@ -89,8 +91,8 @@ describe('catalogueGroups', () => {
     ]);
     // The user's reference class keeps its group; a class the golden set records as emptied has none.
     expect(pinnedGroups).toContain('Pinned: algorithm-B Cheek');
-    expect(EMPTIED_BY_GABLE_RISES.length).toBeGreaterThan(0);
-    for (const c of EMPTIED_BY_GABLE_RISES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
+    expect(EMPTIED_CLASSES.length).toBeGreaterThan(0);
+    for (const c of EMPTIED_CLASSES) expect(groups.map(g => g.label)).not.toContain(`Pinned: ${c}`);
     expect(catalogueGroups({...sources, draft: {value: 'draft', label: 'x-draft'}}).at(-1)).toEqual({label: 'Draft', entries: [{value: 'draft', label: 'x-draft'}]});
   });
 

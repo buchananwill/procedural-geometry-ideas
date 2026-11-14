@@ -355,19 +355,70 @@ export function fixtureByName(name: string): ShellFixture {
   return f;
 }
 
-/** The storey indices a fixture holds, lowest first. */
+/** Whether Ring `r` stands on storey `n`: `baseStorey <= n < baseStorey + storeys` (spec decision 2). */
+const standsOn = (r: FixtureRing, n: number): boolean => r.baseStorey <= n && n < r.baseStorey + r.storeys;
+
+/**
+ * Whether the closed rectangle `r` lies within the union of the closed rectangles `cover`, exactly. Every corner of
+ * every rectangle splits the plane into a grid; `r` is covered when every grid line crossing it, every crossing of
+ * two, and the middle of every grid cell and grid edge within it, lies in some rectangle of `cover`. Between two
+ * consecutive grid lines no rectangle begins or ends, so those points stand for every point of `r`, a rectangle of
+ * zero width or depth included.
+ */
+export function rectWithinUnion(r: Rect, cover: readonly Rect[]): boolean {
+  const stops = (lo: number, hi: number, ends: number[]): number[] => {
+    const at = [...new Set([lo, hi, ...ends.filter(v => v > lo && v < hi)])].sort((a, b) => a - b);
+    return at.flatMap((v, i) => (i + 1 < at.length ? [v, (v + at[i + 1]) / 2] : [v]));
+  };
+  const xs = stops(r[0], r[2], cover.flatMap(c => [c[0], c[2]]));
+  const ys = stops(r[1], r[3], cover.flatMap(c => [c[1], c[3]]));
+  return xs.every(x => ys.every(y => cover.some(c => c[0] <= x && x <= c[2] && c[1] <= y && y <= c[3])));
+}
+
+/**
+ * Journal decisions 261 and 262: the Rings dropped from the solve as fully internal, by their index in
+ * `f.rings`, ascending. A Ring is fully internal when, on every storey of its extent, its footprint lies within the
+ * union of the other Rings kept on that storey (`rectWithinUnion`). The Rings are tested one at a time, the last
+ * first, each against the Rings still kept, so of two Rings that each lie within the other's union with the rest only
+ * the later goes, and of two identical Rings the later goes. A dropped Ring builds nothing, its side settings
+ * included; it keeps its index, so every other Ring keeps its own.
+ */
+export function internalRings(f: ShellFixture): number[] {
+  const kept = f.rings.map(() => true);
+  for (let i = f.rings.length - 1; i >= 0; i--) {
+    const r = f.rings[i];
+    let covered = true;
+    for (let n = r.baseStorey; covered && n < r.baseStorey + r.storeys; n++) {
+      covered = rectWithinUnion(r.rect, f.rings.flatMap((o, j) => (j !== i && kept[j] && standsOn(o, n) ? [o.rect] : [])));
+    }
+    if (covered) kept[i] = false;
+  }
+  return kept.flatMap((k, i) => (k ? [] : [i]));
+}
+
+/** The Rings the solve keeps, by index: every Ring but the fully internal ones (`internalRings`). */
+function keptRings(f: ShellFixture): StoreyRing[] {
+  const dropped = new Set(internalRings(f));
+  return f.rings.flatMap((ring, index) => (dropped.has(index) ? [] : [{index, ring}]));
+}
+
+/** The storey indices a fixture's kept Rings stand on (`internalRings`), lowest first. */
 export function storeysOf(f: ShellFixture): number[] {
   const out = new Set<number>();
-  for (const r of f.rings) for (let s = r.baseStorey; s < r.baseStorey + r.storeys; s++) out.add(s);
+  for (const {ring: r} of keptRings(f)) for (let s = r.baseStorey; s < r.baseStorey + r.storeys; s++) out.add(s);
   return [...out].sort((a, b) => a - b);
 }
 
 /** One Ring of a storey, with its index in the fixture's `rings`. */
 export interface StoreyRing { index: number; ring: FixtureRing }
 
-/** Spec decision 2: every Ring with `baseStorey <= n < baseStorey + storeys`, with its index, in index order. */
+/**
+ * Spec decision 2: every Ring with `baseStorey <= n < baseStorey + storeys`, with its index, in index order, less the
+ * fully internal Rings, which the solve drops (`internalRings`). The index is the author's: a dropped Ring renumbers
+ * none of the others.
+ */
 export function storeyRings(f: ShellFixture, n: number): StoreyRing[] {
-  return f.rings.flatMap((ring, index) => (ring.baseStorey <= n && n < ring.baseStorey + ring.storeys ? [{index, ring}] : []));
+  return keptRings(f).filter(({ring}) => standsOn(ring, n));
 }
 
 /** Spec decision 2: every Ring rectangle with `baseStorey <= n < baseStorey + storeys`. */

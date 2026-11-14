@@ -33,7 +33,7 @@ describe('the export (decision 33)', () => {
         expect(back).toEqual(want);
         expect(Object.keys(want).sort()).toEqual(['cells', 'edges', 'faces', 'fixture', 'netEdges', 'report', 'vertices']);
         expect(Object.keys(want.report).sort()).toEqual(
-          ['cheeks', 'conflicts', 'newConventions', 'newEdgeKinds', 'partialCells', 'survivingInternal', 'unclassifiedEdges']);
+          ['cheeks', 'conflicts', 'droppedRings', 'newConventions', 'newEdgeKinds', 'partialCells', 'survivingInternal', 'unclassifiedEdges']);
       }
     } finally {
       await rm(dir, {recursive: true, force: true});

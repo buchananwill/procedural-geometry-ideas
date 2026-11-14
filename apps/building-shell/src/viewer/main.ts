@@ -4,7 +4,7 @@
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
 import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
-import {ShellBuild, buildShellDetailed} from '../shell.ts';
+import {ShellBuild, buildShellDetailed, droppedRingsWarning} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
 import {GOLDEN_FIXTURES} from '../../tests/golden-fixtures.ts';
@@ -198,6 +198,9 @@ function renderReport(b: ShellBuild): void {
   item('partialCells', String(r.partialCells));
   item('newEdgeKinds', r.newEdgeKinds);
   item('newConventions', r.newConventions);
+  // Journal decisions 261 and 262: the warning that fully internal Rings were dropped from the solve, each named.
+  const dropped = droppedRingsWarning(r.droppedRings);
+  item(`droppedRings (${r.droppedRings.length})`, dropped ?? 'none', dropped !== null);
   box.append(dl);
   const details = el('details');
   details.append(el('summary', 'ShellReport as JSON'));
@@ -570,6 +573,8 @@ function renderPanel(): void {
     draft: d,
     refusals: d && !d.validation.ok ? explainRefusals(d.validation.errors, d.fixture) : [],
     pipelineMessage: showingDraft ? pipelineMessage : null,
+    // Journal decisions 261 and 262: the Rings the draft's own build dropped, read from its report.
+    dropped: d && build && builtFixture === d.fixture ? build.shell.report.droppedRings : null,
     held: showingDraft ? held : null,
     notice,
     link,

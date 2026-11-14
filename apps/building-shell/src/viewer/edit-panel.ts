@@ -8,6 +8,7 @@ import {errorMessage} from '../errors.ts';
 import {RING_FORMS, RING_SIDES, RISE_FACINGS} from '../fixture.ts';
 import type {FixtureRing, RingForm, RingSide, RiseFacing} from '../fixture.ts';
 import {DEFAULT_RISE_FACING} from '../ring-forms.ts';
+import {droppedRingsWarning} from '../shell.ts';
 import type {Draft, DraftAction, FieldName, Refusal} from './draft.ts';
 import {canRedo, canUndo, resolveSides} from './draft.ts';
 import {CAP_TOO_LOW_NOTE, PITCH_STEP_DEG, canHalveStretch, canSplitStretch, capTooLowToBuild, sideLengthCm} from './edit.ts';
@@ -25,6 +26,11 @@ export interface PanelView {
   refusals: readonly Refusal[];
   /** Decision 8: the message of a valid draft the pipeline refused. */
   pipelineMessage: string | null;
+  /**
+   * Journal decisions 261 and 262: the Rings the draft's own build dropped from the solve as fully internal, by index, as
+   * its report names them; null when the build on show is not the draft's.
+   */
+  dropped: readonly number[] | null;
   /** Journal decision 198, M2: why a valid draft is not being built (a build that did not finish, a very tall draft), offered with Build; null when it is. */
   held: string | null;
   notice: Notice | null;
@@ -145,8 +151,8 @@ interface SideRow {
   halvePlain: HTMLButtonElement; tooShort: HTMLElement;
 }
 
-/** One row of the Ring list. */
-interface RingRow { row: HTMLElement; pick: HTMLButtonElement; up: HTMLButtonElement; down: HTMLButtonElement }
+/** One row of the Ring list, with its mark for a Ring the solve dropped (journal decisions 261 and 262). */
+interface RingRow { row: HTMLElement; pick: HTMLButtonElement; flag: HTMLElement; up: HTMLButtonElement; down: HTMLButtonElement }
 
 /** Mounts the panel in `host` and returns the function that shows a view. */
 export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): EditPanel {
@@ -251,13 +257,16 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
   refusals.id = 'edit-refusals';
   const pipeline = el('div', undefined, 'refusals');
   pipeline.id = 'edit-pipeline';
+  // Journal decisions 261 and 262: the build's warning that fully internal Rings were dropped, under the Ring list.
+  const droppedNote = el('div', undefined, 'refusals warn');
+  droppedNote.id = 'edit-dropped';
   const notice = el('div', undefined, 'notice');
   notice.id = 'edit-notice';
   const link = el('input', undefined, 'link');
   link.id = 'edit-link-text';
   link.readOnly = true;
   link.addEventListener('focus', () => link.select());
-  body.append(title, list, listActions, fields, actions, held, refusals, pipeline);
+  body.append(title, list, droppedNote, listActions, fields, actions, held, refusals, pipeline);
 
   for (const input of [loadInput, startLoad]) {
     input.addEventListener('change', async () => {
@@ -307,9 +316,12 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
       const down = button('▼', 'Later in the order', () => act({kind: 'moveRing', ring: i, direction: 1}));
       const dup = button('Dup', 'Duplicate this Ring', () => act({kind: 'duplicateRing', ring: i}));
       const rm = button('×', 'Remove this Ring', () => act({kind: 'removeRing', ring: i}));
-      row.append(pick, up, down, dup, rm);
+      const flag = el('span', 'dropped', 'ring-flag warn');
+      flag.title = 'Fully internal: the solve drops this Ring and it builds nothing. Move, resize or remove it.';
+      flag.hidden = true;
+      row.append(pick, flag, up, down, dup, rm);
       list.append(row);
-      ringRows.push({row, pick, up, down});
+      ringRows.push({row, pick, flag, up, down});
     }
     rings.forEach((r, i) => {
       const {row, pick, up, down} = ringRows[i];
@@ -474,6 +486,15 @@ export function mountEditPanel(host: HTMLElement, handlers: PanelHandlers): Edit
     heldText.textContent = v.held ?? '';
     pipeline.replaceChildren();
     if (v.pipelineMessage !== null) pipeline.append(el('div', `The pipeline refuses this draft; the last good build is shown dimmed: ${v.pipelineMessage}`, 'bad'));
+    // Patched on every render, since the build that names the dropped Rings ends after the draft is shown.
+    const dropped = v.draft ? v.dropped ?? [] : [];
+    ringRows.forEach((rr, i) => {
+      rr.flag.hidden = !dropped.includes(i);
+      rr.row.classList.toggle('dropped', dropped.includes(i));
+    });
+    const warning = droppedRingsWarning(dropped);
+    droppedNote.textContent = warning === null ? '' : `${warning}. Move, resize or remove ${dropped.length === 1 ? 'it' : 'them'} to change the building.`;
+    droppedNote.hidden = warning === null;
     notice.textContent = v.notice?.text ?? '';
     notice.className = v.notice?.bad ? 'notice bad' : 'notice';
     link.hidden = v.link === null;

@@ -202,6 +202,7 @@ export const ShellReportSchema = z.strictObject({
   partialCells: z.number(),
   newEdgeKinds: z.array(z.enum(EDGE_KINDS)),
   newConventions: z.array(z.string()),
+  droppedRings: z.array(z.number().int().nonnegative()),
 });
 
 /**

@@ -4,7 +4,7 @@ import {CellNet, FrameTable, ShellCell, layCells, onLattice, vertexRecords} from
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {EdgeAssembly, EdgeKind, NEW_EDGE_KINDS, NetEdge, ShellEdge, ShellVertex, buildShellEdges, makeVertexRegistry} from './edges.ts';
 import {FaceAssembly, ShellFace, assembleFaces, reduceFaceLoops} from './faces.ts';
-import {ShellFixture} from './fixture.ts';
+import {ShellFixture, internalRings} from './fixture.ts';
 import {compareSources, makeSourceSpans} from './provenance.ts';
 import {Wasm, getManifold} from './manifold.ts';
 import type {AlongAxis} from './storey.ts';
@@ -20,6 +20,12 @@ export interface ShellReport {
   newEdgeKinds: EdgeKind[];
   /** Journal decision 65: every name this shell uses where the C++ net has no precedent. */
   newConventions: string[];
+  /**
+   * Journal decisions 261 and 262: the warning that fully internal Rings were dropped from the solve, as the model index
+   * of each, ascending (`internalRings`); empty when none was. A dropped Ring builds nothing, and no other Ring is
+   * renumbered: a shell from `input@1` names the file's own model indices (`withFileModelIndices`).
+   */
+  droppedRings: number[];
 }
 
 export interface BuildingShell {
@@ -52,6 +58,16 @@ export const CONVENTION_ROOF_LINES_CUT = 'Roof lines cut exactly (C++: staircase
 /** The ShellEdge kinds whose exact cut the C++ staircases. */
 export const ROOF_LINE_KINDS: readonly EdgeKind[] = ['Hip', 'Valley', 'Ridge'];
 
+/**
+ * Journal decisions 261 and 262: the report's warning in words, naming each dropped Ring by the index `droppedRings`
+ * gives it; null when no Ring was dropped.
+ */
+export function droppedRingsWarning(droppedRings: readonly number[]): string | null {
+  if (!droppedRings.length) return null;
+  const names = droppedRings.length === 1 ? `Ring ${droppedRings[0]} is` : `Rings ${droppedRings.slice(0, -1).join(', ')} and ${droppedRings[droppedRings.length - 1]} are`;
+  return `${names} fully internal and dropped from the solve: ${droppedRings.length === 1 ? 'it builds' : 'they build'} nothing`;
+}
+
 /** A BuildingShell with the intermediate records it was read from, for tests and the viewer. */
 export interface ShellBuild {
   shell: BuildingShell;
@@ -75,7 +91,8 @@ function cutsRoofCell(faces: ShellFace[], net: CellNet, vertices: ShellVertex[],
   });
 }
 
-function report(u: ShellUnion, faces: ShellFace[], edges: ShellEdge[], net: CellNet, vertices: ShellVertex[], cellSize: number): ShellReport {
+function report(fixture: ShellFixture, u: ShellUnion, faces: ShellFace[], edges: ShellEdge[], net: CellNet, vertices: ShellVertex[]): ShellReport {
+  const cellSize = fixture.cellSize;
   const emitted = new Set<EdgeKind>([...edges.map(e => e.kind), ...net.netEdges.map(n => n.kind)]);
   const newConventions: string[] = [];
   const undersideInterior = net.netEdges.some(n => n.shellEdge < 0 && n.cells.some(c => faces[net.cells[c].face].tag.kind === 'Underside'));
@@ -92,6 +109,7 @@ function report(u: ShellUnion, faces: ShellFace[], edges: ShellEdge[], net: Cell
     partialCells: net.cells.filter(c => !c.whole).length,
     newEdgeKinds: NEW_EDGE_KINDS.filter(k => emitted.has(k)),
     newConventions,
+    droppedRings: internalRings(fixture),
   };
 }
 
@@ -118,7 +136,7 @@ export function buildShellFromUnion(wasm: Wasm, fixture: ShellFixture, u: ShellU
     netEdges: net.netEdges,
     vertices,
     cells: net.cells,
-    report: report(u, asm.faces, ea.edges, net, vertices, fixture.cellSize),
+    report: report(fixture, u, asm.faces, ea.edges, net, vertices),
   };
   return {shell, union: u, faces: asm, edges: ea, frames: net.frames};
 }

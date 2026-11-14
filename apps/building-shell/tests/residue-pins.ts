@@ -315,10 +315,12 @@ export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
  * signature names its places: two Internal triangles surviving on the cut's plane, y = 300, a Cheek at the cut's outer
  * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJutCut`, whose cut does not
  * qualify, is clean, so it is not listed.
+ *
+ * Emptied by journal decisions 260 to 262 (WP-C2): `CourtyardJutCutSwapped`'s 30 degree Ring lies wholly inside the
+ * jutting Ring, so the solve drops it and its 30 degree side with it, and the case builds clean, as `CourtyardJutCut`
+ * does. Its pin is removed; the table stays, empty, so both cases are still held clean by the robustness sweep.
  */
-export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {
-  'CourtyardJutCutSwapped': {residueClass: 'courtyard cut collinear with a jutting wall', outcome: ["survivingInternal 2 at (42.2646484375, 300, 432.13671875); (58.931640625, 300, 457.7353515625)","cheeks 1, expected 0, at (0, 300, 250)","4 Unclassified Edges: (0, 300, 423.205078125) to (0, 300, 450); (0, 300, 423.205078125) to (126.794921875, 300, 423.205078125); (0, 300, 450) to (50, 300, 500); (50, 300, 500) to (126.794921875, 300, 423.205078125)"]},
-};
+export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {};
 
 /**
  * WP3.6's finding (courtyard.test.ts): roof-gable algorithm B's cut-piece overshoot, `CutOvershootProbe`, with exactly

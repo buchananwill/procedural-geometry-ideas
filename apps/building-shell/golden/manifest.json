@@ -25,7 +25,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -54,7 +55,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -82,7 +84,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -112,7 +115,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -142,7 +146,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -172,7 +177,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -202,7 +208,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -229,7 +236,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -256,7 +264,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -283,7 +292,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -307,7 +317,8 @@
     "cheeks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
-    "newConventions": []
+    "newConventions": [],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -334,7 +345,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -362,7 +374,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -390,7 +403,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -419,7 +433,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -446,7 +461,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -472,7 +488,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -498,7 +515,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -526,7 +544,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -554,7 +573,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -583,7 +603,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -612,7 +633,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -638,7 +660,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -668,7 +691,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -695,7 +719,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -722,7 +747,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -749,6 +775,9 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": [
+     1
     ]
    },
    "violations": []
@@ -776,6 +805,9 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": [
+     1
     ]
    },
    "violations": []
@@ -804,7 +836,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -833,7 +866,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -861,7 +895,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -889,7 +924,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -920,7 +956,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -951,7 +988,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -984,7 +1022,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1017,7 +1056,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1050,7 +1090,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1083,7 +1124,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1112,7 +1154,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1141,7 +1184,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1172,7 +1216,8 @@
      "RoofInterior on Underside faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1199,7 +1244,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1229,7 +1275,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "survivingInternal 1 at (125, 250, 312.546875)",
@@ -1266,7 +1313,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1298,7 +1346,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1328,7 +1377,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "genus per component 0, expected 0,0: genus 0 at (0, 0, 0)"
@@ -1361,7 +1411,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "two components lie 9.766e-4 cm apart, within CLEAN_TOLERANCE_CM, at (500.0009765625, 100, 0) and (500, 100, 0)"
@@ -1390,7 +1441,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1417,7 +1469,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1446,7 +1499,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1473,7 +1527,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1500,7 +1555,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1527,7 +1583,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1555,7 +1612,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1584,7 +1642,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1610,7 +1669,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1638,7 +1698,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1664,7 +1725,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1691,6 +1753,9 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": [
+     20
     ]
    },
    "violations": []
@@ -1720,7 +1785,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1747,7 +1813,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -1780,7 +1847,8 @@
      "Cheek faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "cheeks 1, expected 0, at (291.83203125, 250, 500)"
@@ -1827,7 +1895,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "1 Unclassified Edges: (0, 500, 250) to (250, 250, 500.0048828125)",
@@ -1883,7 +1952,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "survivingInternal 1 at (150, 300, 382.8427734375)",
@@ -1917,7 +1987,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": [
     "genus per component 2, expected 1: genus 2 at (0, 0, 0)",
@@ -1933,31 +2004,26 @@
    "measuredGenus": [
     1
    ],
-   "clean": false,
-   "residueClass": "courtyard cut collinear with a jutting wall",
+   "clean": true,
    "shell": "CourtyardJutCutSwapped.json",
    "union": "CourtyardJutCutSwapped.union.json",
    "input": "CourtyardJutCutSwapped.input.json",
    "report": {
     "conflicts": [],
-    "survivingInternal": 2,
-    "unclassifiedEdges": 4,
-    "cheeks": 1,
-    "partialCells": 124,
-    "newEdgeKinds": [
-     "Unclassified"
-    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "partialCells": 120,
+    "newEdgeKinds": [],
     "newConventions": [
-     "Cheek faces",
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": [
+     1
     ]
    },
-   "violations": [
-    "survivingInternal 2 at (42.2646484375, 300, 432.13671875); (58.931640625, 300, 457.7353515625)",
-    "cheeks 1, expected 0, at (0, 300, 250)",
-    "4 Unclassified Edges: (0, 300, 423.205078125) to (0, 300, 450); (0, 300, 423.205078125) to (126.794921875, 300, 423.205078125); (0, 300, 450) to (50, 300, 500); (50, 300, 500) to (126.794921875, 300, 423.205078125)"
-   ]
+   "violations": []
   },
   {
    "fixture": "MidWallRise",
@@ -1984,7 +2050,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2013,7 +2080,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2043,7 +2111,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2070,7 +2139,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2099,7 +2169,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2128,7 +2199,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2158,7 +2230,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2188,7 +2261,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2217,7 +2291,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2246,7 +2321,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2279,7 +2355,8 @@
     "newConventions": [
      "RoofInterior on Underside faces",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2308,7 +2385,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2339,7 +2417,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2368,7 +2447,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2397,7 +2477,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2426,7 +2507,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2455,7 +2537,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2484,7 +2567,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2514,7 +2598,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2544,7 +2629,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2574,7 +2660,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2604,7 +2691,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2634,7 +2722,8 @@
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2663,7 +2752,8 @@
     "newEdgeKinds": [],
     "newConventions": [
      "Roof lines cut exactly (C++: staircase)"
-    ]
+    ],
+    "droppedRings": []
    },
    "violations": []
   }

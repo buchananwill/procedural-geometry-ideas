@@ -32,7 +32,7 @@ import {
 import {rosterGenus} from './roster-genus.ts';
 import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
+  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
   U_DEFECTS, seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
@@ -189,6 +189,16 @@ export const EMPTIED_BY_GABLE_RISES: readonly ResidueClass[] = [
 ];
 
 /**
+ * Journal decisions 260 to 262 (WP-C2): the residue class the drop of fully internal Rings left with no member. Its one
+ * case, CourtyardJutCutSwapped, held a Ring wholly inside another, which the solve now drops; it builds as
+ * CourtyardJutCut does, clean, and is the drop's oracle (`RING_DROP_ORACLES`).
+ */
+export const EMPTIED_BY_RING_DROP: readonly ResidueClass[] = ['courtyard cut collinear with a jutting wall'];
+
+/** Every residue class the golden set records as emptied, whatever emptied it. */
+export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP];
+
+/**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
  * file order reverses its model order (`scrambled`), named `fileReversedName` of it. `readInput` orders the Rings by
  * model index, so each reads back as its fixture, and its shell names the file's own model indices and side slots
@@ -241,6 +251,16 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
 ];
 
 /**
+ * Journal decisions 260 to 262 (WP-C2): the oracle of the drop of fully internal Rings, in the place the golden set held
+ * it as a residue. `CourtyardJutCutSwapped`'s Ring `[-200,300,0,700]`, hipped at 45 with its S side at 30, lies wholly
+ * inside Ring `[-200,300,300,700]` and before it in the order. The solve drops the inner Ring, its 30 degree side with
+ * it, so the jut's S wall is at 45 and the shortest cut does not qualify; a solve that keeps it builds decision 175's F55
+ * residue instead. Its report names the dropped Ring, 1. `CutPitchConflict`, its swap and its `FileReversed` golden
+ * each drop the later of two identical bands too, which moves nothing, as the lowest index already won every wall.
+ */
+export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(jutCutFixtures(), 'CourtyardJutCutSwapped'), [1])];
+
+/**
  * Journal decision 156, F4: one representative of every residue class the port inherits, each with the genus its pin
  * expects, so its manifest entry carries its class (decision 161, Info), its pinned violations or its error and
  * `clean: false`. Re-chosen by WP-G2 (journal decision 206), where gable rise decision 3 cured a representative:
@@ -256,6 +276,8 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
  *   Roof-Underside edges' ends, as its pin carries them;
  * - decision 156, F7's SplitCourt9 class (decision 158, 1): s7h250 SplitCourt9's Unclassified Gable-Wall edges;
  * - and decision 175's F55: CourtyardJutCutSwapped, a courtyard cut that qualifies while collinear with a jutting wall.
+ *   Emptied by journal decisions 260 to 262 (WP-C2): the case's 30 degree Ring lies wholly inside the jutting one, the
+ *   solve drops it, and the case builds clean as the drop's oracle (`RING_DROP_ORACLES`, `EMPTIED_BY_RING_DROP`).
  *
  * Emptied by gable rise decision 3, so with no representative: the `cleanMesh` stuck cap (s2h250 SplitCourt10 was its
  * representative) and decision 156, F7's Cell-fan throw (s11h250 Court35). Emptied by journal decisions 243 to 245
@@ -270,7 +292,6 @@ export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
   residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
   rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
-  residueGolden(namedCase(jutCutFixtures(), 'CourtyardJutCutSwapped'), [1], JUT_CUT_DEFECTS, 'CourtyardJutCutSwapped'),
 ];
 
 /**
@@ -307,6 +328,7 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...(['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, 1)).map(f => residueGolden(f, [0, 0], GAP_DEFECTS, f.name)),
   ...RULE_ORACLES,
   ...RESIDUE_CLASSES,
+  ...RING_DROP_ORACLES,
   ...RISE_GOLDENS,
 ];
 
@@ -344,10 +366,12 @@ export async function goldenFiles(): Promise<Map<string, string>> {
       continue;
     }
     const shell = `${fixture}.json`, union = `${fixture}.union.json`, measuredGenus = componentGenera(b.union.mesh);
+    // Decision 161, finding 3: a shell read from a document names the document's own Rings and sides, and so does its
+    // report's warning of dropped Rings (journal decisions 261 and 262), in the shell file and the manifest alike.
+    const out = g.file ? withFileModelIndices(b.shell, g.file.read) : b.shell;
     // Measured as its pin is (decision 158, 3): a located residue names its Roof-Underside edges too.
-    const report = b.shell.report, violations = [...invariantViolations(b, {genus: expectedGenus, cheeks: 0}), ...(located ? roofUndersideLines(b) : [])];
-    // Decision 161, finding 3: a shell read from a document names the document's own Rings and sides.
-    files.set(shell, goldenText(g.file ? withFileModelIndices(b.shell, g.file.read) : b.shell));
+    const report = out.report, violations = [...invariantViolations(b, {genus: expectedGenus, cheeks: 0}), ...(located ? roofUndersideLines(b) : [])];
+    files.set(shell, goldenText(out));
     files.set(union, goldenText(unionStages(fixture, b.union)));
     if (replay.cppReplayable) {
       entries.push(violations.length

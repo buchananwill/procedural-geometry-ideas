@@ -19,7 +19,7 @@ import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {BuildingShellInputV1, WireRun, WireVec2} from '../src/wire/input-types.ts';
 import {planStorey, storeyForms} from '../src/storey.ts';
 import {
-  EMPTIED_BY_GABLE_RISES, GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
+  EMPTIED_CLASSES, GOLDEN_FIXTURES, MODEL_ORDER_CONFLICTS, MODEL_ORDER_ORACLES, RESIDUE_CLASSES, RING_DROP_ORACLES, RULE_ORACLES, UNMOVED_BY_FILE_ORDER, fileReversedName,
   goldenFiles, goldenInput,
 } from './golden-fixtures.ts';
 import {ORDER_FLAG, multiRunDocument} from './wire-round-trip-cases.ts';
@@ -149,6 +149,24 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
   });
 
+  // Journal decisions 260 to 262 (WP-C2): the drop's oracle ships its whole input, the dropped Ring in it, and its
+  // manifest report and shell file both name the dropped Ring.
+  it.each(RING_DROP_ORACLES.map(g => [g.fixture.name, g] as const))('%s: a clean, replayable oracle whose input keeps the Ring its report drops', (name, g) => {
+    expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`, report: {droppedRings: [1]}});
+    const doc = JSON.parse(committed(`${name}.input.json`)) as BuildingShellInputV1;
+    expect(doc.rings).toHaveLength(g.fixture.rings.length);
+    expect((JSON.parse(committed(`${name}.json`)) as BuildingShell).report.droppedRings).toEqual([1]);
+  });
+
+  // CutPitchConflict's two bands are one rectangle, so the later goes. Read from a document under sparse model indices,
+  // the report names the file's own: fixture Ring 1 is model index 20, in the shell file and the manifest alike.
+  it('CutPitchConflictFileReversed: its report names the dropped band by the file\'s own model index', () => {
+    const name = fileReversedName('CutPitchConflict');
+    expect(entry(name)).toMatchObject({report: {droppedRings: [20]}});
+    expect((JSON.parse(committed(`${name}.json`)) as BuildingShell).report.droppedRings).toEqual([20]);
+    expect(entry('CutPitchConflict')).toMatchObject({report: {droppedRings: [1]}});
+  });
+
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
     const e = entry(name);
     expect(e?.clean).toBe(false);
@@ -203,11 +221,12 @@ describe("the manifest's residue classes and genus (journal decision 161, findin
     expect(e && ('residueClass' in e ? e.residueClass : undefined)).toEqual(g.clean ? undefined : g.residueClass);
   });
 
-  // WP-G2 (journal decision 206): every class but those gable rise decision 3 emptied, which no golden may claim.
-  it('every residue class is represented but those gable rise decision 3 emptied, and every class is a stable name with no prototype id in it', () => {
+  // WP-G2 (journal decision 206): every class but those gable rise decision 3 emptied, which no golden may claim; WP-C2
+  // (journal decisions 260 to 262) empties one more, by dropping fully internal Rings.
+  it('every residue class is represented but those emptied, and every class is a stable name with no prototype id in it', () => {
     const classes = new Set(MANIFEST.fixtures.flatMap(e => ('residueClass' in e ? [e.residueClass] : [])));
-    expect([...classes].sort()).toEqual(RESIDUE_CLASS_NAMES.filter(c => !EMPTIED_BY_GABLE_RISES.includes(c)).sort());
-    for (const c of EMPTIED_BY_GABLE_RISES) expect(RESIDUE_CLASS_NAMES).toContain(c);
+    expect([...classes].sort()).toEqual(RESIDUE_CLASS_NAMES.filter(c => !EMPTIED_CLASSES.includes(c)).sort());
+    for (const c of EMPTIED_CLASSES) expect(RESIDUE_CLASS_NAMES).toContain(c);
   });
 
   // The pin's genus is an expectation: a port must not read it as the shell's own (finding 5).
