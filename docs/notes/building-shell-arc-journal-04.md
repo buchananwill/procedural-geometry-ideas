@@ -4,7 +4,7 @@ type: workflow
 area: building-shell
 status: active
 date: 2026-11-14
-record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md"]
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md"]
 ---
 
 # Building shell arc: session 4 journal
@@ -390,6 +390,36 @@ session 3's own.
     tokens in the arrays of a step that has already failed.
   - **Who:** a fresh Opus delegate, since the implementer's context is very long and the fixes are bounded by the
     review's own file and line citations.
+- **294. The spec for roadmap node 4, `skeleton-join-and-divide-decisions.md`, is approved by the lead under BSA.D286,
+  with its decision 31 held for the user.** Drafted by an Opus delegate under BSA.D288 from a copy of the sources at
+  `b5e139a`; read in full by the lead. 49 decisions, 293 lines.
+  - **Its shape:** a step's rings are always the links' rings and `ringsOfSubPolygon` is deleted; one split rewrite
+    serves join and divide, and what a layer did is read from the rings it leaves; a step's children are its components,
+    an outer ring and the inner rings inside it, told apart by the sign of the ring's area at the layer's time and
+    assigned by a hole vertex tested against the outer rings; a step of several rings never reaches the pair or triangle
+    handler or the terminal ladder; `partitionSpan` gives way to `partitionArc`, a sum of gaps round the ring that
+    telescopes to today's span on one loop; a layer with events of two rings coinciding is refused by name for node 5;
+    the solver's causality check reads each exterior edge's own ends, in this node and not node 6.
+  - **Checked by the lead by hand:** the join time and place of fixture F1, `t = 2(√2 − 1)` at `(12 − 2√2, 5.5)`; the
+    top strike at `3.5(√2 − 1)`; the top-right triangle at `6.5 / (2 + √2)`, which equals the table's `3.25(2 − √2)`;
+    the count of 8 interior nodes by Euler; and the sign convention of spec decision 13 against the outline's clockwise
+    winding.
+  - **Interpretations accepted:** `holes-not-solved` is retired outright; two new blocking kinds,
+    `simultaneous-across-rings` and `multi-ring-step-refused`; ambiguity in assigning a ring is refused and never
+    guessed; the refusal of spec decision 19 is deliberately wide and node 5 narrows it; the perceptual floor and
+    `degenerateAreaBar` are read at new sites with no value changed, which the lead does not count as moving a
+    tolerance.
+  - **The finding that goes to the user (spec decisions 28 to 31):** `hasInteriorLoop` tests that an edge's two ends are
+    joined by accepted interior edges, which equals face closure only on a tree. A holed skeleton has a cycle round each
+    hole, so the last open face of a hole is accepted as soon as the others close. Traced by hand on F1 with its outline
+    stretched: the hole's south-west edge is accepted at `t = 4.5` with a live segment, and the next bisector naming it
+    is refused at birth. F1 itself escapes because its last two hole faces close in one pass. **Holed solves in general
+    are blocked by this.**
+  - **The proposed cure, not built without the user's word:** accept an exterior edge exactly when no live bisector and
+    no pending birth names it as a parent, which is face closure read from the links.
+  - **Roadmap node 6 loses the solver's causality check to node 4;** the roadmap's text stands and this entry records
+    it.
+  - **BSA.F91's line that `hasInteriorLoop` is loop-neutral is wrong** and is amended where it stands.
 
 ## Findings
 
@@ -417,6 +447,9 @@ session 3's own.
     (walk node in/out lists), `isReflexEdge`, the arrival pricing, and the candidate set for split tests, which is the
     step's own exterior parents and so already holds both loops when both rings sit in the root step.
   - **The CLAUDE.md name `handleInteriorEdges` is stale:** the n-gon handler is `handleInteriorNGon`.
+  - **AMENDED by decision BSA.D294:** hasInteriorLoop is not loop-neutral: it tests connectivity through accepted
+    interior edges, which is face closure only when the skeleton is a tree. On a holed skeleton the cycle round a hole
+    accepts the hole's last open face early. The other items in that bullet stand.
 - **F92. Downstream of the solver, a holed result is blocked by index arithmetic in a known, short list, and
   building-shell reaches core through one call.** (a Sonnet consumer survey at ee84976, 2026-11-14; read by the
   delegate, not re-read by the lead)
