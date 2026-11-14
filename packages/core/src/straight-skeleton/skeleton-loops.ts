@@ -1,0 +1,273 @@
+import {Vector2} from "./types";
+import {findFirstCrossing, isEndpointTouch} from "./polygon-decomposition";
+import {ringPerimeter, segmentSegmentIntersection, signedArea} from "../random-polygon/geometry-helpers";
+import {distanceToSegment} from "../stroke-spline/vertex-budget";
+import {isPointInPolygon} from "../terrain/polygon-slope";
+import {degenerateAreaBar} from "./constants";
+import {makeSkeletonNormalisation, normalisePolygon} from "./normalisation";
+import {PerceptualFloorOptions, resolvePerceptualFloor} from "./canonicalisation";
+
+/**
+ * THE RELATIONS BETWEEN THE LOOPS OF ONE INPUT (skeleton loops-input spec, decisions 26 to 32, 37 and 38).
+ *
+ * An outline and its holes are refused at the door when they cross, touch or nest wrongly. Every test here
+ * reads the perceptual floor δ, a helper's own arithmetic bar, or an exact predicate, and adds no tolerance
+ * of its own (decision 26).
+ */
+
+/** The kinds of {@link LoopConflict}, in the order {@link findLoopConflict} looks for them (decisions 28 to 32). */
+export type LoopConflictKind =
+    | 'self-crossing'
+    | 'degenerate-hole'
+    | 'crossing'
+    | 'contact'
+    | 'hole-outside-outline'
+    | 'hole-inside-hole';
+
+/**
+ * The first conflict among the loops of one input (decision 27).
+ *
+ * `loops` names the loops involved, `0` being the outline. `edges` holds one loop-local edge index per entry of
+ * `loops` (edge `j` runs from vertex `j` to vertex `j + 1` of its loop), and is empty for the kinds that name
+ * no edge: the two nesting kinds and `degenerate-hole`.
+ *
+ * - `self-crossing`: `loops` is `[k, k]` and `edges` the two edges of loop `k` that cross.
+ * - `degenerate-hole`: `loops` is `[k]`.
+ * - `crossing`, `contact`: `loops` is `[a, b]` with `a < b`, and `edges` one edge of each.
+ * - `hole-outside-outline`: `loops` is `[k, 0]`, hole loop `k` whose vertex 0 is not inside the outline.
+ * - `hole-inside-hole`: `loops` is `[k, j]`, hole loop `k` whose vertex 0 is inside hole loop `j`.
+ */
+export interface LoopConflict {
+    kind: LoopConflictKind;
+    loops: number[];
+    edges: number[];
+}
+
+/** An outline and the holes it carries, as indices into the loops given to {@link groupLoopsByNesting}. */
+export interface LoopGroup {
+    outline: number;
+    holes: number[];
+}
+
+/**
+ * Decision 28's first half: a loop that crosses itself, by `findFirstCrossing` on each loop, which skips an
+ * endpoint touch at δ (C8 spec T24). A collinear overlap of two non-adjacent edges of one loop stays unseen,
+ * as it is today (the spec's deferred list).
+ */
+function findSelfCrossing(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
+    for (let k = 0; k < loops.length; k++) {
+        const crossing = findFirstCrossing([...loops[k]], perceptualFloor);
+        if (crossing !== null) {
+            return {kind: 'self-crossing', loops: [k, k], edges: [crossing.edgeI, crossing.edgeJ]};
+        }
+    }
+    return null;
+}
+
+/**
+ * Decision 28's second half: a hole whose area is under `degenerateAreaBar(δ, perimeter)`, because its signed
+ * area has no sign the solver can trust. The outline is not asked: a single degenerate loop fails honestly
+ * downstream, as it does today.
+ */
+function findDegenerateHole(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
+    for (let k = 1; k < loops.length; k++) {
+        const ring = [...loops[k]];
+        if (Math.abs(signedArea(ring)) < degenerateAreaBar(perceptualFloor, ringPerimeter(ring))) {
+            return {kind: 'degenerate-hole', loops: [k], edges: []};
+        }
+    }
+    return null;
+}
+
+/** Edge `j` of a loop: from vertex `j` to vertex `j + 1`, wrapping within the loop. */
+function edgeOf(loop: readonly Vector2[], j: number): [Vector2, Vector2] {
+    return [loop[j], loop[(j + 1) % loop.length]];
+}
+
+/**
+ * Decision 29: two edges of different loops CROSS when `segmentSegmentIntersection` finds a hit that is not an
+ * endpoint touch at δ on either edge — `findFirstCrossing`'s rule, applied across loops.
+ */
+function edgesCross(a: [Vector2, Vector2], b: [Vector2, Vector2], perceptualFloor: number): boolean {
+    const hit = segmentSegmentIntersection(a[0], a[1], b[0], b[1]);
+    if (hit === null) {
+        return false;
+    }
+    const lengthA = Math.hypot(a[1].x - a[0].x, a[1].y - a[0].y);
+    const lengthB = Math.hypot(b[1].x - b[0].x, b[1].y - b[0].y);
+    return !isEndpointTouch(hit.tA, lengthA, perceptualFloor) && !isEndpointTouch(hit.tB, lengthB, perceptualFloor);
+}
+
+/**
+ * Decision 30: two edges of different loops, not crossing, are IN CONTACT when the least of the four
+ * endpoint-to-segment distances is strictly under δ. This sees a shared wall, which `segmentSegmentIntersection`
+ * cannot (it returns `null` for parallel segments), as well as a shared point and a near-contact. Two segments
+ * that do not cross are at their closest at an endpoint of one of them, so the four distances are the whole
+ * question.
+ */
+function edgesTouch(a: [Vector2, Vector2], b: [Vector2, Vector2], perceptualFloor: number): boolean {
+    const least = Math.min(
+        distanceToSegment(a[0], b[0], b[1]),
+        distanceToSegment(a[1], b[0], b[1]),
+        distanceToSegment(b[0], a[0], a[1]),
+        distanceToSegment(b[1], a[0], a[1]));
+    return least < perceptualFloor;
+}
+
+/** The first pair of edges, one from each of two different loops, that the predicate holds for. */
+function findEdgePair(
+    kind: 'crossing' | 'contact',
+    loops: readonly (readonly Vector2[])[],
+    holds: (a: [Vector2, Vector2], b: [Vector2, Vector2]) => boolean,
+): LoopConflict | null {
+    for (let a = 0; a < loops.length; a++) {
+        for (let b = a + 1; b < loops.length; b++) {
+            for (let i = 0; i < loops[a].length; i++) {
+                const edgeA = edgeOf(loops[a], i);
+                for (let j = 0; j < loops[b].length; j++) {
+                    if (holds(edgeA, edgeOf(loops[b], j))) {
+                        return {kind, loops: [a, b], edges: [i, j]};
+                    }
+                }
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Decisions 31 and 32: NESTING IS DECIDED BY ONE VERTEX, which is sound once no two loops cross or touch.
+ * Vertex 0 of each hole must lie inside the outline, and inside no other hole, by `isPointInPolygon`. No vertex
+ * is then within δ of another loop, so that test's ambiguity on a boundary cannot arise.
+ */
+function findNestingConflict(loops: readonly (readonly Vector2[])[]): LoopConflict | null {
+    for (let k = 1; k < loops.length; k++) {
+        if (!isPointInPolygon(loops[k][0], loops[0])) {
+            return {kind: 'hole-outside-outline', loops: [k, 0], edges: []};
+        }
+    }
+    for (let k = 1; k < loops.length; k++) {
+        for (let j = 1; j < loops.length; j++) {
+            if (j !== k && isPointInPolygon(loops[k][0], loops[j])) {
+                return {kind: 'hole-inside-hole', loops: [k, j], edges: []};
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * THE FIRST CONFLICT AMONG AN OUTLINE AND ITS HOLES, in the order of decisions 28 to 32, or `null` (decision 27).
+ * `loops[0]` is the outline and `loops[k]` hole `k - 1`. `perceptualFloor` is δ in the space the loops are given
+ * in: `solveSkeleton` asks in unit space, on the loops the solver will be given (decision 23).
+ */
+export function findLoopConflict(loops: readonly (readonly Vector2[])[], perceptualFloor: number): LoopConflict | null {
+    return findSelfCrossing(loops, perceptualFloor)
+        ?? findDegenerateHole(loops, perceptualFloor)
+        ?? findEdgePair('crossing', loops, (a, b) => edgesCross(a, b, perceptualFloor))
+        ?? findEdgePair('contact', loops, (a, b) => edgesTouch(a, b, perceptualFloor))
+        ?? findNestingConflict(loops);
+}
+
+/** A loop's name in a refusal: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
+function loopName(loop: number): string {
+    return loop === 0 ? 'the outline' : `hole ${loop - 1}`;
+}
+
+/**
+ * `solveSkeleton`'s refusal of a conflict, NAMING THE CALLER'S OWN VERTICES (decision 26). `callerVertex(loop,
+ * local)` translates a solved loop-local vertex index into the caller's index for that loop, through the loop's
+ * map, so a removed vertex or a reversed hole is reported in the caller's numbering.
+ */
+export function describeLoopConflict(
+    conflict: LoopConflict,
+    loopSizes: readonly number[],
+    callerVertex: (loop: number, local: number) => number,
+): string {
+    const edgeName = (entry: number): string => {
+        const loop = conflict.loops[entry];
+        const local = conflict.edges[entry];
+        return `${loopName(loop)}'s edge from vertex ${callerVertex(loop, local)} to vertex `
+            + `${callerVertex(loop, (local + 1) % loopSizes[loop])}`;
+    };
+    const vertexZero = (loop: number): string => `vertex ${callerVertex(loop, 0)} of ${loopName(loop)}`;
+    const prefix = `Loop conflict (${conflict.kind}): `;
+    switch (conflict.kind) {
+        case 'self-crossing':
+            return `${prefix}${loopName(conflict.loops[0])} crosses itself: ${edgeName(0)} crosses ${edgeName(1)}. `
+                + `A holed input needs simple loops; only a single loop with no holes is decomposed.`;
+        case 'degenerate-hole':
+            return `${prefix}${loopName(conflict.loops[0])} has an area under degenerateAreaBar at the perceptual `
+                + `floor, so its winding has no sign the solver can trust.`;
+        case 'crossing':
+            return `${prefix}${edgeName(0)} crosses ${edgeName(1)}. Loops that cross are refused.`;
+        case 'contact':
+            return `${prefix}${edgeName(0)} lies within the perceptual floor of ${edgeName(1)}. Loops that touch `
+                + `are refused until they can be merged (holed-skeleton roadmap node 8).`;
+        case 'hole-outside-outline':
+            return `${prefix}${vertexZero(conflict.loops[0])} does not lie inside the outline, so the hole is `
+                + `outside it.`;
+        case 'hole-inside-hole':
+            return `${prefix}${vertexZero(conflict.loops[0])} lies inside ${loopName(conflict.loops[1])}. A hole `
+                + `inside a hole is an island; group the loops with groupLoopsByNesting and solve it apart.`;
+    }
+}
+
+/**
+ * GROUP CLOSED, SIMPLE LOOPS INTO OUTLINE-AND-HOLES INPUTS BY NESTING DEPTH (decision 37, BSA.D282).
+ *
+ * A loop's depth is the number of other loops containing its vertex 0. An even depth is an outline and an odd
+ * depth a hole of its deepest container, the containing loop of greatest depth. Groups are ordered by outline
+ * index and holes by index. Winding is ignored, and the result is indices, so each caller carries its own weights
+ * across to `solveSkeleton`.
+ *
+ * REFUSES CROSSING AND CONTACT BETWEEN ANY TWO LOOPS BY A THROW (decision 38), with {@link findLoopConflict} in
+ * one normalisation over all the loops: loops in different groups are solved apart and only this helper sees
+ * them together. Every other kind {@link findLoopConflict} can report is left alone here, self-crossing to each
+ * group's solve, and the two nesting kinds because they are what this helper decides. The solver never calls it.
+ *
+ * δ HERE IS IN THE UNIT SPACE OF ALL THE LOOPS, and each group's solve measures it in that group's own, so a pair
+ * of loops near δ apart may pass this helper and be refused by the solve. The solve's verdict stands: it is a
+ * throw, so the difference is signalled and never silent.
+ */
+export function groupLoopsByNesting(
+    loops: readonly (readonly Vector2[])[],
+    options?: PerceptualFloorOptions,
+): LoopGroup[] {
+    const perceptualFloor = resolvePerceptualFloor(options);
+    const normalisation = makeSkeletonNormalisation(loops.flatMap(loop => [...loop]));
+    const unitLoops = loops.map(loop => normalisePolygon(loop, normalisation));
+
+    const conflict = findLoopConflict(unitLoops, perceptualFloor);
+    if (conflict !== null && (conflict.kind === 'crossing' || conflict.kind === 'contact')) {
+        const [a, b] = conflict.loops;
+        const [i, j] = conflict.edges;
+        throw new Error(
+            `Loop conflict (${conflict.kind}): edge ${i} of loop ${a} `
+            + `${conflict.kind === 'crossing' ? 'crosses' : 'lies within the perceptual floor of'} edge ${j} of loop ${b}. `
+            + `Loops that cross or touch cannot be grouped into outlines and holes.`);
+    }
+
+    const containers = unitLoops.map((loop, index) => unitLoops
+        .map((other, otherIndex) => otherIndex)
+        .filter(otherIndex => otherIndex !== index && isPointInPolygon(loop[0], unitLoops[otherIndex])));
+    const depth = containers.map(list => list.length);
+
+    const groups: LoopGroup[] = [];
+    const groupOf = new Map<number, LoopGroup>();
+    depth.forEach((loopDepth, index) => {
+        if (loopDepth % 2 === 0) {
+            const group = {outline: index, holes: []};
+            groups.push(group);
+            groupOf.set(index, group);
+        }
+    });
+    depth.forEach((loopDepth, index) => {
+        if (loopDepth % 2 === 1) {
+            const deepest = containers[index].reduce((best, candidate) =>
+                depth[candidate] > depth[best] ? candidate : best);
+            groupOf.get(deepest)!.holes.push(index);
+        }
+    });
+    return groups;
+}

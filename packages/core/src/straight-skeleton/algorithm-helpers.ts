@@ -2,6 +2,7 @@ import {
     InteriorEdge,
     PolygonEdge,
     PolygonNode,
+    SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "./types";
@@ -14,8 +15,8 @@ import {
     negateVector,
     sineIsBelow
 } from "./core-functions";
-import {interiorEdgeIndex} from "./graph-helpers";
-import {linkInitialRing, openWavefrontSlot} from "./wavefront";
+import {adjacentExteriorEdge, interiorEdgeIndex} from "./graph-helpers";
+import {linkInitialRings, openWavefrontSlot} from "./wavefront";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,
@@ -319,20 +320,36 @@ export function bisectWithParams(context: StraightSkeletonSolverContext, params:
     return createBisectionInteriorEdge(context, params.clockwiseExteriorEdgeIndex, params.widdershinsExteriorEdgeIndex, params.source);
 }
 
+/**
+ * ONE RING PER LOOP, IN LOOP ORDER (skeleton loops-input spec, decisions 12 to 15). The bisector at local vertex
+ * `j` of loop `k` has source node and clockwise parent `start_k + j`, and the edge arriving at that node within
+ * its own loop, read through `adjacentExteriorEdge`, as its widdershins parent. Creation follows exterior id
+ * order, so a single loop gets the ids it always had.
+ *
+ * NO HOLE IS SPECIAL HERE. `addBisectionEdge` gives every bisector its direction unchanged (decision 15): with a
+ * hole wound opposite to the outline, the side it bisects into is the building, so a corner convex in the hole's
+ * own shape is reflex in the region. And each bisector's first `maxOffset` tests every exterior edge of every loop
+ * (decision 14): a hole wall bounds an outline bisector's life exactly as an outline wall does.
+ */
 export function initInteriorEdges(context: StraightSkeletonSolverContext) {
-    const exteriorEdges = [...context.graph.edges];
+    const {graph} = context;
 
     // create interior edges from exterior node bisections
-    const firstRing: number[] = [];
-    for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
-        const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        firstRing.push(createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex));
+    const bisectorAtNode: number[] = [];
+    for (const loop of graph.loops) {
+        for (let local = 0; local < loop.count; local++) {
+            const clockwiseExteriorEdgeIndex = loop.start + local;
+            const widdershinsExteriorEdgeIndex = adjacentExteriorEdge(
+                graph, clockwiseExteriorEdgeIndex, SkeletonDirection.Widdershins);
+            bisectorAtNode.push(createBisectionInteriorEdge(
+                context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex));
+        }
     }
 
-    // THE FIRST RING, IN THE LOOP'S VERTEX ORDER (skeleton wavefront-order spec, decision 8): the bisector
+    // THE FIRST RINGS, IN EACH LOOP'S VERTEX ORDER (skeleton wavefront-order spec, decision 8): the bisector
     // at vertex i is born i-th, its clockwise parent is edge i and its clockwise neighbour is the bisector
-    // at vertex i + 1, whose widdershins parent is that same edge.
-    linkInitialRing(context, firstRing);
+    // at the next vertex of its loop, whose widdershins parent is that same edge.
+    linkInitialRings(context, bisectorAtNode);
 }
 
 export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {

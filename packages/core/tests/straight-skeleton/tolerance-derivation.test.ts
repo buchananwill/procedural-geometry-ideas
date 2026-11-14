@@ -823,6 +823,7 @@ describe('T17 / T18: the fourth oracle is the exact complement of the zero-rate 
             numExteriorNodes: 4,
             interiorEdges: [{id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 2, length: Number.MAX_VALUE}],
             exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}],
         };
     }
 

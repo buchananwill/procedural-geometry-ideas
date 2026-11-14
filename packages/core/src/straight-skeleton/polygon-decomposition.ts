@@ -11,8 +11,11 @@ import {degenerateAreaBar} from "./constants";
  * (T7's one inequality). `solveSkeleton` decomposes in UNIT space, so δ is the solve's own floor. It
  * was a parametric `1e-8` on `t` — the retired scratch epsilon's value, relative to each segment's
  * length, so a different distance on every segment.
+ *
+ * Exported for `skeleton-loops.ts`, whose crossing test between two loops applies this same rule (skeleton
+ * loops-input spec, decision 29) rather than a second copy of it.
  */
-function isEndpointTouch(t: number, length: number, perceptualFloor: number): boolean {
+export function isEndpointTouch(t: number, length: number, perceptualFloor: number): boolean {
     return Math.min(t, 1 - t) * length < perceptualFloor;
 }
 

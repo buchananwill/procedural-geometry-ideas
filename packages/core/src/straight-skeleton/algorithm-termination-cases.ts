@@ -3,6 +3,8 @@ import {
     AlgorithmStepOutput, Arrival, CausalityViolationDiagnostic, CollisionEvent,
     PolygonNode,
     SkeletonDiagnostic,
+    SkeletonLoop,
+    SkeletonLoopMap,
     SkeletonSolveResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
@@ -36,7 +38,8 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {activeWavefrontProbe, retireBisectors} from "./wavefront";
+import {activeWavefrontProbe, retireBisectors, ringsOfWavefront} from "./wavefront";
+import {describeLoopConflict, findLoopConflict} from "./skeleton-loops";
 import {
     cramerQuotientRoundingBound,
     determinant3RoundingBound,
@@ -1221,6 +1224,11 @@ interface SimplePolygonRun {
     context: StraightSkeletonSolverContext;
     /** Messages accumulated from every `stepAlgorithm` iteration of this run. */
     errors: string[];
+    /**
+     * True when the run STOPPED AFTER INITIALISATION because it was given more than one loop (skeleton
+     * loops-input spec, decision 33): `stepAlgorithm` was never called.
+     */
+    stoppedAtInitialisation: boolean;
 }
 
 /**
@@ -1234,9 +1242,22 @@ function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePoly
     diagnostics.push(...run.context.diagnostics);
 }
 
-/** Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon. */
-function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: readonly number[]): SimplePolygonRun {
-    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights);
+/**
+ * Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon.
+ *
+ * `loops` is the loop table (skeleton loops-input spec, decision 10); omitted means one loop of all the nodes.
+ * GIVEN MORE THAN ONE LOOP, THE RUN STOPS AFTER INITIALISATION and never calls `stepAlgorithm` (decision 33): a
+ * strike across two rings would be built as a split (BSA.F91), and a ring that divides while another shares its
+ * step has no rule before roadmap node 4, so stepping could return a wrong skeleton that looks complete. The
+ * probe still sees the boundary after initialisation and the end of the solve.
+ */
+function runSimplePolygon(
+    nodes: Vector2[],
+    perceptualFloor: number,
+    weights?: readonly number[],
+    loops?: readonly SkeletonLoop[],
+): SimplePolygonRun {
+    const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights, loops);
     const exteriorEdges = [...context.graph.edges]
     const errors: string[] = [];
 
@@ -1248,6 +1269,10 @@ function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: r
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     probe?.stepBoundary?.(context, inputs);
+    if (context.graph.loops.length > 1) {
+        probe?.solveFinished?.(context, errors);
+        return {context, errors, stoppedAtInitialisation: true};
+    }
     while (inputs.length > 0) {
         const output = stepAlgorithm(context, inputs);
         errors.push(...(output.errors ?? []));
@@ -1257,7 +1282,7 @@ function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: r
     }
     probe?.solveFinished?.(context, errors);
 
-    return {context, errors}
+    return {context, errors, stoppedAtInitialisation: false}
 }
 
 /**
@@ -1346,7 +1371,7 @@ export function canonicaliseForSolve(
  *
  * The index is the caller's own, taken before canonicalisation can renumber anything.
  */
-function nonFiniteVertexComplaint(vertices: Vector2[]): string | undefined {
+function nonFiniteVertexComplaint(vertices: readonly Vector2[]): string | undefined {
     for (let index = 0; index < vertices.length; index++) {
         const {x, y} = vertices[index];
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
@@ -1413,8 +1438,16 @@ function assertWeightsAreFinitePositive(weights: readonly number[]): void {
  * at the library floor — the ratio beyond which the narrowest per-pair simultaneity window would fall
  * inside the arithmetic moment bar. It replaced `MAX_WEIGHT_RATIO = 100`, whose only derivation was
  * `1e-6 / 1e-8` and whose hazard the per-pair window dissolves.
+ *
+ * GLOBAL ACROSS LOOPS (skeleton loops-input spec, decision 19): `weights` is every edge of every loop, and
+ * `edgeName` names an index of it in the refusal, with its loop when the input has holes. With one loop it is
+ * `edge i`, today's text.
  */
-function assertWeightRatioIsInContract(weights: readonly number[], perceptualFloor: number): void {
+function assertWeightRatioIsInContract(
+    weights: readonly number[],
+    perceptualFloor: number,
+    edgeName: (index: number) => string = index => `edge ${index}`,
+): void {
     let slowestIndex = 0;
     let fastestIndex = 0;
     for (let index = 1; index < weights.length; index++) {
@@ -1430,8 +1463,8 @@ function assertWeightRatioIsInContract(weights: readonly number[], perceptualFlo
     const bound = maxWeightRatio(perceptualFloor);
     if (ratio > bound) {
         throw new Error(
-            `Weight ratio ${ratio} exceeds maxWeightRatio(${perceptualFloor}) (${bound}): edge ${fastestIndex} `
-            + `has weight ${weights[fastestIndex]} and edge ${slowestIndex} has weight `
+            `Weight ratio ${ratio} exceeds maxWeightRatio(${perceptualFloor}) (${bound}): ${edgeName(fastestIndex)} `
+            + `has weight ${weights[fastestIndex]} and ${edgeName(slowestIndex)} has weight `
             + `${weights[slowestIndex]}. Beyond that ratio the narrowest simultaneity window — the floor `
             + `read on the fastest edge — falls inside the arithmetic's own moment bar, so the solver `
             + `could no longer tell two arrivals apart that the window says are two.`);
@@ -1458,16 +1491,20 @@ function assertWeightRatioIsInContract(weights: readonly number[], perceptualFlo
  *
  * UNIT WEIGHTS NEVER REACH THE ANGULAR TEST: it is guarded by `w₁ !== w₂` first, so with every
  * weight equal this function looks at no geometry at all and the digest cannot move.
+ *
+ * ONE LOOP AT A TIME, WITH ITS OWN WRAPAROUND (skeleton loops-input spec, decision 18): a hole's last edge meets
+ * its own first edge. `slowest` is the smallest weight of the WHOLE INPUT, every loop of it, because the solve
+ * divides by that one (decision 19); omitted, it is this loop's own, which for a single loop is the same number.
  */
 export function assertWeightsChangeOnlyAtVisibleCorners(
     vertices: readonly Vector2[],
     weights: readonly number[],
     perceptualFloor: number,
+    slowest: number = Math.min(...weights),
 ): void {
     const count = vertices.length;
     // Δw is read on the NORMALISED weights (minimum 1, W-spec W4): the derivation's time bound assumes
     // the slowest edge runs at weight 1, and a common scaling of the weights moves nothing geometric.
-    const slowest = Math.min(...weights);
     for (let index = 0; index < count; index++) {
         const incomingWeight = weights[(index - 1 + count) % count];
         const outgoingWeight = weights[index];
@@ -1502,9 +1539,11 @@ export function assertWeightsChangeOnlyAtVisibleCorners(
  * T22.)
  *
  * ALL-ONES DIVIDES BY `1.0`, WHICH IS EXACT, so the unit-weight path is untouched bit for bit.
+ *
+ * `minimum` is the smallest weight of the whole input, every loop of it (skeleton loops-input spec, decision 19);
+ * omitted, it is this array's own.
  */
-function normaliseWeights(weights: readonly number[]): number[] {
-    const minimum = Math.min(...weights);
+function normaliseWeights(weights: readonly number[], minimum: number = Math.min(...weights)): number[] {
     return weights.map(weight => weight / minimum);
 }
 
@@ -1514,17 +1553,51 @@ function normaliseWeights(weights: readonly number[]): number[] {
  * `unitVertices` is the caller's ring carried to unit extent — the turn guard is stated in unit
  * space (W-spec N19) — while the indices reported are the caller's own, which they still are because
  * nothing has been renumbered yet.
+ *
+ * The door of ONE LOOP: the one-loop case of {@link weightsAtTheDoorForLoops}, so the legacy entries and
+ * `canonicaliseForSolve` pass the door `solveSkeleton` does.
  */
 function weightsAtTheDoor(
     unitVertices: readonly Vector2[],
     weights: readonly number[] | undefined,
     perceptualFloor: number,
 ): number[] {
-    const resolved = resolveWeightArray(unitVertices.length, weights);
-    assertWeightsAreFinitePositive(resolved);
-    assertWeightRatioIsInContract(resolved, perceptualFloor);
-    assertWeightsChangeOnlyAtVisibleCorners(unitVertices, resolved, perceptualFloor);
-    return normaliseWeights(resolved);
+    return weightsAtTheDoorForLoops([unitVertices], [{vertices: unitVertices, weights, prefix: ''}], perceptualFloor)[0];
+}
+
+/**
+ * THE WEIGHT DOOR OVER EVERY LOOP (skeleton loops-input spec, decisions 18 and 19), returning each loop's weights
+ * divided by the smallest weight of ALL the loops.
+ *
+ * PER LOOP: the length, finiteness and positivity, and the visible-corner test with the loop's own wraparound,
+ * so a hole's last edge meets its own first edge and not the next loop's; a hole's refusal is prefixed with its
+ * name. GLOBAL: the ratio, because the bound protects the narrowest simultaneity window and edges of different
+ * loops meet in events, and the division, because the solve has one time unit (W-spec W4); the visible-corner
+ * test reads `Δw` against that one smallest weight. With one loop every global quantity is that loop's, and this
+ * is the door as it always ran, check for check.
+ */
+function weightsAtTheDoorForLoops(
+    unitLoops: readonly (readonly Vector2[])[],
+    callerLoops: readonly CallerLoop[],
+    perceptualFloor: number,
+): number[][] {
+    const resolved = unitLoops.map((unitLoop, k) =>
+        refuseInLoop(callerLoops[k].prefix, () => resolveWeightArray(unitLoop.length, callerLoops[k].weights)));
+    resolved.forEach((weights, k) =>
+        refuseInLoop(callerLoops[k].prefix, () => assertWeightsAreFinitePositive(weights)));
+
+    const every = resolved.flat();
+    const loopOf = resolved.flatMap((weights, k) => weights.map(() => k));
+    const localOf = resolved.flatMap(weights => weights.map((_unused, local) => local));
+    const edgeName = resolved.length === 1
+        ? (index: number) => `edge ${index}`
+        : (index: number) => `edge ${localOf[index]} of ${loopName(loopOf[index])}`;
+    assertWeightRatioIsInContract(every, perceptualFloor, edgeName);
+
+    const slowest = Math.min(...every);
+    unitLoops.forEach((unitLoop, k) => refuseInLoop(callerLoops[k].prefix,
+        () => assertWeightsChangeOnlyAtVisibleCorners(unitLoop, resolved[k], perceptualFloor, slowest)));
+    return resolved.map(weights => normaliseWeights(weights, slowest));
 }
 
 /**
@@ -1590,10 +1663,115 @@ function reverseWeights(weights: readonly number[]): number[] {
     return weights.map((_unused, index) => weights[(count - 2 - index + count) % count]);
 }
 
+/*
+ * ============================================================================
+ *  THE LOOPS OF ONE INPUT — skeleton loops-input spec
+ * ============================================================================
+ *
+ * ONE BOUNDARY PIPELINE, AND A SINGLE LOOP IS ITS ONE-LOOP CASE (decision 39). Loop 0 is the outline and loop
+ * `k` the caller's hole `k - 1`. Each stage is fixed as per loop or global: the vertex checks, the weight door's
+ * length, finiteness, positivity and visible-corner test, canonicalisation and winding run per loop; the
+ * normalisation, the weight ratio and the division by the smallest weight are global.
+ */
+
+/** One loop as the caller gave it: its vertices, its weights, and the prefix its refusals carry. */
+interface CallerLoop {
+    vertices: readonly Vector2[];
+    weights: readonly number[] | undefined;
+    /** `''` for the outline, whose messages stay word for word; `Hole k: ` for the caller's hole `k`. */
+    prefix: string;
+}
+
+/** One loop after the boundary stage: the ring the solver is given, its weights, and how it got there. */
+interface SolvedLoop {
+    vertices: Vector2[];
+    weights: number[];
+    /** Canonicalisation's map, caller vertex to canonical vertex, before any reversal. */
+    indexRemap: number[];
+    reversed: boolean;
+}
+
+/** A loop's name in a message: loop 0 is the outline and loop `k` the caller's hole `k - 1`. */
+function loopName(loop: number): string {
+    return loop === 0 ? 'the outline' : `hole ${loop - 1}`;
+}
+
+/**
+ * Run a check of one loop, prefixing its refusal with the loop's name (decision 16). The outline's refusal is
+ * passed through untouched, so its message is today's word for word.
+ */
+function refuseInLoop<T>(prefix: string, check: () => T): T {
+    if (prefix === '') {
+        return check();
+    }
+    try {
+        return check();
+    } catch (error) {
+        throw new Error(`${prefix}${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+/** Decision 16: a loop's vertex count and finiteness, before normalisation, by a throw. */
+function assertLoopIsSolvable(loop: CallerLoop): void {
+    if (loop.vertices.length < 3) {
+        throw new Error(`${loop.prefix}Must have at least three nodes to perform algorithm`);
+    }
+    const complaint = nonFiniteVertexComplaint(loop.vertices);
+    if (complaint !== undefined) {
+        throw new Error(`${loop.prefix}${complaint}`);
+    }
+}
+
+/**
+ * Decision 24: loop `k`'s caller map onto the solved graph, from canonicalisation's `indexRemap` and then the
+ * reversal. A surviving vertex maps to its exterior node. A caller edge maps to the solved edge that carries it:
+ * the edge leaving its start vertex or, where that vertex was removed, the merged edge leaving the nearest
+ * surviving vertex before it. Reversal sends local vertex `c` of an `m`-loop to `m - 1 - c` and local edge `c` to
+ * `m - 2 - c` (mod `m`), the map {@link reverseWeights} uses.
+ */
+function buildLoopMap(loop: SolvedLoop, start: number): SkeletonLoopMap {
+    const m = loop.vertices.length;
+    const solvedVertex = (canonical: number) => loop.reversed ? m - 1 - canonical : canonical;
+    const solvedEdge = (canonical: number) => loop.reversed ? (m - 2 - canonical + m) % m : canonical;
+    const vertexToNode = loop.indexRemap.map(canonical =>
+        canonical === REMOVED_VERTEX_INDEX ? REMOVED_VERTEX_INDEX : start + solvedVertex(canonical));
+
+    // The canonical vertex each caller edge leaves from: its own where it survived, else the nearest surviving
+    // vertex before it, cyclically. Canonicalisation never leaves fewer than three, so one exists.
+    let carrier = loop.indexRemap.reduce(
+        (found, canonical) => canonical === REMOVED_VERTEX_INDEX ? found : canonical, REMOVED_VERTEX_INDEX);
+    const edgeToEdge = loop.indexRemap.map(canonical => {
+        if (canonical !== REMOVED_VERTEX_INDEX) {
+            carrier = canonical;
+        }
+        return start + solvedEdge(carrier);
+    });
+    return {vertexToNode, edgeToEdge, reversed: loop.reversed};
+}
+
+/**
+ * Decision 4: THE LEGACY ENTRIES TAKE NO HOLES. Their options type does not carry the field, but an options
+ * object that carries a non-empty `holes` anyway is refused, naming `solveSkeleton`: neither entry has a
+ * diagnostics channel, so a holed run would come back silently incomplete, and ignoring the field would silently
+ * solve the outline alone. Returns the refusal, or `undefined` when there are no holes.
+ */
+function legacyHolesComplaint(entry: string, options: unknown): string | undefined {
+    const holes = (options as {holes?: unknown} | undefined)?.holes;
+    if (!Array.isArray(holes) || holes.length === 0) {
+        return undefined;
+    }
+    return `${entry} takes no holes, and was given ${holes.length}: only solveSkeleton solves an outline with `
+        + `holes, because only it can report the state of a holed solve on its diagnostics.`;
+}
+
 export function runAlgorithmV5(
     nodes: Vector2[],
     options?: PerceptualFloorOptions & WeightOptions,
 ): StraightSkeletonSolverContext {
+    const holesComplaint = legacyHolesComplaint('runAlgorithmV5', options);
+    if (holesComplaint !== undefined) {
+        throw new Error(holesComplaint);
+    }
     if (nodes.length < 3) {
         throw new Error("Must have at least three nodes to perform algorithm");
     }
@@ -1669,11 +1847,42 @@ export interface WeightOptions {
     weights?: readonly number[];
 }
 
-export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions {
+/**
+ * A hole in the outline (skeleton loops-input spec, decisions 1 and 2): a closed ring and, optionally, its own
+ * per-edge weights with the meaning of {@link WeightOptions.weights}; omitted or empty is all ones. The weights
+ * travel on the hole, so no parallel array can disagree with the hole list.
+ *
+ * WOUND EITHER WAY: the boundary stage winds every hole counter-clockwise, opposite to the outline, so that the
+ * building lies on the same side of every exterior edge (BSA.D282, decision 21).
+ */
+export interface SkeletonHole {
+    vertices: readonly Vector2[];
+    weights?: readonly number[];
+}
+
+/**
+ * The holes of an outline (decision 1). Omitted or empty means a single-loop solve, which is the solve as it
+ * always ran.
+ *
+ * A HOLED SOLVE STOPS AFTER INITIALISATION until the join event of the holed-skeleton roadmap's node 4: it
+ * returns its initialised graph, one wavefront ring per loop, with a blocking `holes-not-solved` diagnostic and
+ * `complete: false` (decisions 33 to 35). Only {@link solveSkeleton} takes holes; the legacy entries refuse them
+ * (decision 4).
+ */
+export interface HoleOptions {
+    holes?: readonly SkeletonHole[];
+}
+
+export interface SolveSkeletonOptions extends PerceptualFloorOptions, WeightOptions, HoleOptions {
     /**
      * Reverse counter-clockwise input before solving. The solver only handles clockwise
      * winding; leaving this off on counter-clockwise input produces an unresolved skeleton.
      * Defaults to `true`.
+     *
+     * WITH HOLES, every loop is wound by this option: the outline clockwise and each hole counter-clockwise
+     * (skeleton loops-input spec, decision 21). Off, it says the caller's winding is already right, and a holed
+     * input with a mis-wound loop is REFUSED by a throw, because a holed solve has no meaning on the wrong side of
+     * a wall (decision 22, BSA.D282). A single loop is not refused, as before.
      */
     normaliseWinding?: boolean;
     /**
@@ -1735,16 +1944,24 @@ function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): 
  * never resolved all appear in `diagnostics`, and `complete` summarises whether the skeleton
  * can be trusted.
  *
- * Throws only when there are fewer than three vertices.
+ * HOLES ARRIVE ON `options.holes` (skeleton loops-input spec). Every loop goes through the one boundary
+ * pipeline below, of which a single loop is the one-loop case (decision 39), so a single-loop input solves to
+ * the graph it always solved to. A holed solve stops after initialisation (decisions 33 to 35).
+ *
+ * Throws when the input cannot be solved at all: a loop with fewer than three vertices or a non-finite one, a
+ * refusal at the weight door, a mis-wound loop of a holed input under `normaliseWinding: false`, and loops that
+ * cross, touch or nest wrongly. Each refusal names the loop and the caller's own vertex index (decision 26).
  */
 export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOptions): SkeletonSolveResult {
-    if (vertices.length < 3) {
-        throw new Error("Must have at least three nodes to perform algorithm");
-    }
-    // THROWN, NOT DIAGNOSED. `diagnostics` reports a solve that ran and came back degraded; a
-    // non-finite vertex is input this entry point cannot solve at all, which is the same class as
-    // the vertex-count check above and gets the same answer.
-    assertVerticesAreFinite(vertices);
+    const holes = options?.holes ?? [];
+    const callerLoops: CallerLoop[] = [
+        {vertices, weights: options?.weights, prefix: ''},
+        ...holes.map((hole, k) => ({vertices: hole.vertices, weights: hole.weights, prefix: `Hole ${k}: `})),
+    ];
+    // THROWN, NOT DIAGNOSED, PER LOOP, BEFORE NORMALISATION (decision 16). `diagnostics` reports a solve that
+    // ran and came back degraded; too few vertices or a non-finite one is input this entry point cannot solve
+    // at all. The outline's messages are today's word for word; a hole's carry its name.
+    callerLoops.forEach(assertLoopIsSolvable);
 
     const normaliseWinding = options?.normaliseWinding ?? true;
     // ONE FLOOR, TWO READINGS OF IT. `perceptualFloor` is the client's value and governs the
@@ -1759,50 +1976,103 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     // winding test and the decomposition both run in unit space along with the solve, because both
     // carry the same absolute tolerances and both would otherwise change meaning with the caller's
     // coordinates. Everything on the returned result is carried back before it is handed over.
-    const normalisation = makeSkeletonNormalisation(vertices);
-    const unitVertices = normalisePolygon(vertices, normalisation);
+    // GLOBAL (decision 17): one transform from the bounding box of every loop together, so one solve has one
+    // unit space and the result's `normalisation` describes every loop.
+    const normalisation = makeSkeletonNormalisation(callerLoops.flatMap(loop => [...loop.vertices]));
+    const unitLoops = callerLoops.map(loop => normalisePolygon(loop.vertices, normalisation));
 
     // THE WEIGHT DOOR, BEFORE CANONICALISATION (W-spec W1–W4, W49; arc decision 124(b)). All three
     // refusals throw here, naming the caller's own index, because nothing has renumbered anything
-    // yet. With no weights this resolves to all ones and refuses nothing.
-    const doorWeights = weightsAtTheDoor(unitVertices, options?.weights, perceptualFloor);
+    // yet. With no weights this resolves to all ones and refuses nothing. Per loop and global as
+    // decisions 18 and 19 fix them (see `weightsAtTheDoorForLoops`).
+    const doorWeights = weightsAtTheDoorForLoops(unitLoops, callerLoops, perceptualFloor);
 
-    // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
-    // which is what makes it relative by construction rather than a second tolerance system living
-    // alongside the first. See `canonicalisation.ts` for what the stage removes and why removing the
-    // input beats handling it. Every weight-change vertex is PINNED (W-spec W44, arc decision 120):
-    // under weights such a vertex is structural whatever its deviation from the chord.
-    const canonical = canonicalisePolygon(
-        unitVertices, noiseFloor, weightChangeVertexIndices(doorWeights));
-    let workingVertices = canonical.vertices;
-    let workingWeights = remapWeightsThroughCanonicalisation(
-        doorWeights, canonical.indexRemap, workingVertices.length);
+    const solvedLoops = unitLoops.map((unitLoop, k): SolvedLoop => {
+        const prefix = callerLoops[k].prefix;
 
-    if (canonical.removedCount > 0) {
-        diagnostics.push({
-            kind: 'vertices-canonicalised',
-            detail: `${canonical.removedCount} vertex(es) removed before solving as invisible at the `
-                + `${noiseFloor} unit-space noise floor; largest discarded deviation `
-                + `${canonical.maxDeviation}. ${workingVertices.length} vertices remain.`,
-        });
+        // CANONICALISED IMMEDIATELY AFTER, AND STILL IN UNIT SPACE. The floor is a unit-space constant,
+        // which is what makes it relative by construction rather than a second tolerance system living
+        // alongside the first. See `canonicalisation.ts` for what the stage removes and why removing the
+        // input beats handling it. Every weight-change vertex is PINNED (W-spec W44, arc decision 120):
+        // under weights such a vertex is structural whatever its deviation from the chord.
+        // PER LOOP, AT THE ONE FLOOR (decision 20): a loop's pins are its own, no loop goes below three
+        // vertices, and each loop that loses vertices is reported on its own.
+        const canonical = canonicalisePolygon(
+            unitLoop, noiseFloor, weightChangeVertexIndices(doorWeights[k]));
+        let workingVertices = canonical.vertices;
+        let workingWeights = remapWeightsThroughCanonicalisation(
+            doorWeights[k], canonical.indexRemap, workingVertices.length);
+
+        if (canonical.removedCount > 0) {
+            diagnostics.push({
+                kind: 'vertices-canonicalised',
+                detail: `${prefix}${canonical.removedCount} vertex(es) removed before solving as invisible at the `
+                    + `${noiseFloor} unit-space noise floor; largest discarded deviation `
+                    + `${canonical.maxDeviation}. ${workingVertices.length} vertices remain.`,
+            });
+        }
+
+        // WINDING, PER LOOP (decision 21): the outline clockwise and each hole counter-clockwise, by
+        // `isClockwise`, so the building lies on the same side of every exterior edge (BSA.D282).
+        const wantsClockwise = k === 0;
+        let reversed = false;
+        if (isClockwise(workingVertices) !== wantsClockwise) {
+            if (normaliseWinding) {
+                workingVertices = [...workingVertices].reverse();
+                // W-spec W45: the weights are remapped through the reversal with the ring.
+                workingWeights = reverseWeights(workingWeights);
+                reversed = true;
+                diagnostics.push({
+                    kind: 'winding-normalised',
+                    detail: k === 0
+                        ? `Input was counter-clockwise; ${workingVertices.length} vertices reversed to clockwise winding before solving.`
+                        : `${prefix}input was clockwise; ${workingVertices.length} vertices reversed to counter-clockwise `
+                            + `winding before solving, opposite to the outline.`,
+                });
+            } else if (holes.length > 0) {
+                // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
+                // meaning on the wrong side of a wall. A single loop is left to solve as it always did.
+                throw new Error(k === 0
+                    ? `The outline is wound counter-clockwise, and with normaliseWinding: false a holed input must `
+                        + `give its outline clockwise and its holes counter-clockwise.`
+                    : `Hole ${k - 1} is wound clockwise, and with normaliseWinding: false a holed input must give `
+                        + `its outline clockwise and its holes counter-clockwise.`);
+            }
+        }
+        return {vertices: workingVertices, weights: workingWeights, indexRemap: canonical.indexRemap, reversed};
+    });
+
+    // THE LOOP TABLE (decisions 6 and 7): the outline's exterior ids first, then each hole's in the order given,
+    // each loop in its solved vertex order. The outline's ids are therefore exactly the ids it always had.
+    const loops: SkeletonLoop[] = [];
+    solvedLoops.forEach(loop => {
+        const start = loops.length === 0 ? 0 : loops[loops.length - 1].start + loops[loops.length - 1].count;
+        loops.push({start, count: loop.vertices.length});
+    });
+    const loopMaps = solvedLoops.map((loop, k) => buildLoopMap(loop, loops[k].start));
+
+    // THE LOOP RELATIONS (decisions 23, 26 to 32): after canonicalisation and winding, in unit space, at δ, on
+    // the loops the solver will be given, and refused by a throw naming the caller's own vertices.
+    // `decomposePolygon` never sees a holed input, because it discards a counter-clockwise ring as an exterior
+    // island (BSA.F93): a self-crossing loop decomposes without holes and is refused with them (decision 39).
+    if (holes.length > 0) {
+        const conflict = findLoopConflict(solvedLoops.map(loop => loop.vertices), perceptualFloor);
+        if (conflict !== null) {
+            throw new Error(describeLoopConflict(conflict, loops.map(loop => loop.count),
+                (loop, local) => loopMaps[loop].vertexToNode.indexOf(loops[loop].start + local)));
+        }
     }
 
-    if (normaliseWinding && !isClockwise(workingVertices)) {
-        workingVertices = [...workingVertices].reverse();
-        // W-spec W45: the weights are remapped through the reversal with the ring.
-        workingWeights = reverseWeights(workingWeights);
-        diagnostics.push({
-            kind: 'winding-normalised',
-            detail: `Input was counter-clockwise; ${workingVertices.length} vertices reversed to clockwise winding before solving.`,
-        });
-    }
-
-    const decomposition = decomposePolygon(workingVertices, perceptualFloor, undefined, workingWeights);
+    const workingVertices = solvedLoops.flatMap(loop => loop.vertices);
+    const workingWeights = solvedLoops.flatMap(loop => loop.weights);
+    const decomposition = holes.length === 0
+        ? decomposePolygon(workingVertices, perceptualFloor, undefined, workingWeights)
+        : null;
 
     let graph: StraightSkeletonGraph;
     let context: StraightSkeletonSolverContext | null;
 
-    if (decomposition.wasSelfIntersecting) {
+    if (decomposition !== null && decomposition.wasSelfIntersecting) {
         diagnostics.push({
             kind: 'self-intersecting',
             detail: `Input self-intersects; decomposed into ${decomposition.subPolygons.length} sub-polygon(s) at ${decomposition.crossingPoints.length} crossing point(s) and merged. Solver context is unavailable for merged results.`,
@@ -1828,9 +2098,21 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
         context = null;
     } else {
-        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights);
+        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights, loops);
         pushStepFailures(diagnostics, run.errors);
         pushSolveDiagnostics(diagnostics, run);
+        if (run.stoppedAtInitialisation) {
+            // DECISIONS 33 TO 35: a holed solve stops after initialisation, and says so by a BLOCKING
+            // diagnostic, before the causality check and the unresolved edges that every initial bisector is.
+            const rootInput = run.context.graph.interiorEdges.map(edge => edge.id);
+            const rings = ringsOfWavefront(run.context, rootInput).length;
+            diagnostics.push({
+                kind: 'holes-not-solved',
+                detail: `${holes.length} hole(s) given; ${rings} wavefront ring(s) initialised, one per loop. The `
+                    + `solve stops after initialisation: a holed skeleton waits for the join event of the `
+                    + `holed-skeleton roadmap node 4, so no skeleton is computed and the result is not complete.`,
+            });
+        }
         graph = run.context.graph;
         context = run.context;
     }
@@ -1862,10 +2144,22 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         });
     }
 
-    const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges');
+    // `holes-not-solved` blocks by itself (decision 35).
+    const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges'
+        || d.kind === 'holes-not-solved');
     const complete = !blocking && graph.interiorEdges.length > 0;
 
-    return {graph, context, complete, diagnostics, normalisation, weights: workingWeights};
+    return {
+        graph,
+        context,
+        complete,
+        diagnostics,
+        normalisation,
+        // Every loop's weights, concatenated in exterior id order (decision 34); the outline's alone with no holes.
+        weights: workingWeights,
+        // `null` exactly when `context` is `null` (decision 25).
+        loopMaps: context === null ? null : loopMaps,
+    };
 }
 
 export interface SteppedAlgorithmResult {
@@ -1898,6 +2192,12 @@ export function runAlgorithmV5Stepped(
     nodes: Vector2[],
     options?: PerceptualFloorOptions & WeightOptions,
 ): SteppedAlgorithmResult {
+    // Decision 4: refused on `error`, with no snapshots, as this entry answers every rejected input. It gains
+    // holes with roadmap node 7.
+    const holesComplaint = legacyHolesComplaint('runAlgorithmV5Stepped', options);
+    if (holesComplaint !== undefined) {
+        return {snapshots: [], error: holesComplaint};
+    }
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};
     }

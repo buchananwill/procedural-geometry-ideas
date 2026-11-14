@@ -28,9 +28,15 @@ export type {
   CausalityOracle,
   CausalityViolationDiagnostic,
   SkeletonSolveResult,
+  SkeletonLoop,
+  SkeletonLoopMap,
   Wavefront,
   WavefrontSegment,
 } from './straight-skeleton/types';
+
+// ── The loops of one input: an outline and its holes (skeleton loops-input spec) ──
+export { findLoopConflict, groupLoopsByNesting } from './straight-skeleton/skeleton-loops';
+export type { LoopConflict, LoopConflictKind, LoopGroup } from './straight-skeleton/skeleton-loops';
 
 // ── The wavefront's stored order (skeleton wavefront-order spec, stage 1) ────
 export { checkWavefront, ringsOfWavefront } from './straight-skeleton/wavefront';
@@ -118,7 +124,13 @@ export {
 } from './straight-skeleton/core-functions';
 
 // ── Graph construction ───────────────────────────────────────────────────────
-export { addNode, interiorEdgeIndex, initBoundingPolygon } from './straight-skeleton/graph-helpers';
+export {
+  addNode,
+  adjacentExteriorEdge,
+  interiorEdgeIndex,
+  initBoundingPolygon,
+  loopOfExteriorEdge,
+} from './straight-skeleton/graph-helpers';
 
 // ── Solver context ───────────────────────────────────────────────────────────
 export { makeStraightSkeletonSolverContext } from './straight-skeleton/solver-context';
@@ -187,7 +199,13 @@ export {
   solveSkeleton,
   canonicaliseForSolve,
 } from './straight-skeleton/algorithm-termination-cases';
-export type { SteppedAlgorithmResult, SolveSkeletonOptions, WeightOptions } from './straight-skeleton/algorithm-termination-cases';
+export type {
+  HoleOptions,
+  SkeletonHole,
+  SteppedAlgorithmResult,
+  SolveSkeletonOptions,
+  WeightOptions,
+} from './straight-skeleton/algorithm-termination-cases';
 
 export { createCollisions, handleInteriorNGon } from './straight-skeleton/algorithm-complex-cases';
 

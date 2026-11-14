@@ -94,6 +94,7 @@ function makeGraph(): StraightSkeletonGraph {
             {id: 2, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 0, length: Number.MAX_VALUE},
         ],
         exteriorWeights: [1, 1],
+        loops: [{start: 0, count: 2}],
     };
 }
 

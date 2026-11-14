@@ -6,6 +6,7 @@ import {
     PolygonEdge, PolygonNode,
     RayProjection,
     SkeletonDirection,
+    SkeletonLoop,
     StraightSkeletonSolverContext,
     Vector2,
     WavefrontSegment
@@ -41,13 +42,17 @@ import {
  * `weights` is the per-exterior-edge wavefront speed, parallel to `nodes` (W-spec W1). Omitted means
  * all ones, which is bit-identical to the unweighted solver by construction — every weighted site
  * multiplies or divides by exactly `1.0` (W-spec W36).
+ *
+ * `loops` is the loop table, handed to `initBoundingPolygon` as it stands (skeleton loops-input spec, decision
+ * 10). Omitted means one loop of all the nodes, so every direct caller gets today's context.
  */
 export function makeStraightSkeletonSolverContext(
     nodes: Vector2[],
     perceptualFloor: number = SKELETON_NOISE_FLOOR,
     weights?: readonly number[],
+    loops?: readonly SkeletonLoop[],
 ): StraightSkeletonSolverContext {
-    const graph = initBoundingPolygon(nodes, weights);
+    const graph = initBoundingPolygon(nodes, weights, loops);
     const acceptedEdges = nodes.map(() => false);
     // DERIVED ONCE, HERE (spec A9/A10). Every coaxiality site in the solve spends this one number,
     // so two sites cannot answer "are these two sources on one line?" differently.

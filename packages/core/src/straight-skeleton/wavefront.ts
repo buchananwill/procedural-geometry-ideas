@@ -7,6 +7,8 @@ import type {
     Wavefront,
     WavefrontSegment,
 } from "./types";
+import {SkeletonDirection} from "./types";
+import {adjacentExteriorEdge} from "./graph-helpers";
 
 /**
  * THE WAVEFRONT'S ORDER, STORED (skeleton-wavefront-order spec, stage 1).
@@ -327,7 +329,25 @@ export function settleLayerLinks(context: StraightSkeletonSolverContext): void {
 
 // ── The events' link writes (spec decision 9) ────────────────────────────────────────────────────
 
-/** `initInteriorEdges`: the first ring, in the loop's vertex order (spec decision 8). */
+/**
+ * `initInteriorEdges`: THE FIRST RINGS, ONE PER LOOP (spec decision 8; skeleton loops-input spec, decisions 9,
+ * 12 and 13). `bisectorAtNode[e]` is the bisector born at exterior node `e`. Each bisector's clockwise neighbour
+ * is the bisector at the next node of its own loop and its widdershins neighbour the bisector at the previous
+ * one, read through `adjacentExteriorEdge`, so every ring wraps within its loop. With one loop this is the ring
+ * {@link linkInitialRing} links from the vertex order.
+ */
+export function linkInitialRings(context: StraightSkeletonSolverContext, bisectorAtNode: readonly number[]): void {
+    const {graph} = context;
+    bisectorAtNode.forEach((id, node) => {
+        openWavefrontSlot(context, id);
+        context.wavefront.clockwiseNeighbour[id] =
+            bisectorAtNode[adjacentExteriorEdge(graph, node, SkeletonDirection.Clockwise)];
+        context.wavefront.widdershinsNeighbour[id] =
+            bisectorAtNode[adjacentExteriorEdge(graph, node, SkeletonDirection.Widdershins)];
+    });
+}
+
+/** Link the given bisectors into one ring, in the order given: each one's clockwise neighbour is the next. */
 export function linkInitialRing(context: StraightSkeletonSolverContext, clockwiseOrder: readonly number[]): void {
     const count = clockwiseOrder.length;
     clockwiseOrder.forEach((id, index) => {

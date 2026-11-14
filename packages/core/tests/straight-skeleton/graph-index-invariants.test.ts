@@ -338,7 +338,8 @@ describe('I2: no two graph nodes lie inside the coincidence floor of each other,
                 length: Math.hypot(to.x - from.x, to.y - from.y),
             };
         });
-        return {nodes, edges, numExteriorNodes: 4, interiorEdges: interior, exteriorWeights: [1, 1, 1, 1]};
+        return {nodes, edges, numExteriorNodes: 4, interiorEdges: interior, exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}]};
     }
 
     it('is not vacuous: two sub-floor nodes with NO joining edge are a violation', () => {
@@ -1102,6 +1103,7 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
                     {id: 3, clockwiseExteriorEdgeIndex: 1, widdershinsExteriorEdgeIndex: 0, length: 3},
                 ],
                 exteriorWeights: weights,
+                loops: [{start: 0, count: 2}],
             };
         }
 

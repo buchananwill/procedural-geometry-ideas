@@ -101,6 +101,42 @@ export interface StraightSkeletonGraph {
      * reads a weight after a merge. See `graph-merge.ts`.
      */
     exteriorWeights: number[];
+    /**
+     * THE LOOP TABLE (skeleton loops-input spec, decisions 3, 6 and 7): loop 0 is the outline and loop `k` the
+     * caller's hole `k - 1`, each a run of exterior ids `start .. start + count - 1` in its solved vertex order.
+     * Loops are contiguous from 0, each `count` is at least 3, the counts sum to `numExteriorNodes`, and an
+     * exterior node's id equals its exterior edge's id. The outline's ids are therefore exactly what they were
+     * before holes existed, and a single-loop graph carries `[{start: 0, count: numExteriorNodes}]`.
+     *
+     * PLAIN DATA, ON THE GRAPH, because stepped snapshots clone the graph only (BSA.F93). The next or previous
+     * exterior edge is read through `adjacentExteriorEdge` (graph-helpers.ts), never by arithmetic on ids.
+     *
+     * ON A MERGED GRAPH this is EMPTY (decision 11): the merge renumbers exterior ids across sub-graphs, so they
+     * are not `0 .. numExteriorNodes - 1` and no table can describe them, and the accessors refuse it by name.
+     */
+    loops: SkeletonLoop[];
+}
+
+/** One loop of the exterior boundary: exterior ids `start .. start + count - 1` (skeleton loops-input spec, decision 3). */
+export interface SkeletonLoop {
+    start: number;
+    count: number;
+}
+
+/**
+ * How one loop of the caller's input maps onto the solved graph (skeleton loops-input spec, decisions 3 and 24),
+ * built from canonicalisation's `indexRemap` and then the winding reversal.
+ */
+export interface SkeletonLoopMap {
+    /** Caller vertex `i` to the exterior node it became, or `REMOVED_VERTEX_INDEX` where canonicalisation removed it. */
+    vertexToNode: number[];
+    /**
+     * Caller edge `i` (vertex `i` to vertex `i + 1`) to the exterior edge id that carries it. Where the edge's
+     * start vertex was removed, that is the merged edge leaving the nearest surviving vertex before it.
+     */
+    edgeToEdge: number[];
+    /** True when winding normalisation reversed this loop. */
+    reversed: boolean;
 }
 
 export interface RayProjection {
@@ -380,6 +416,10 @@ export interface AlgorithmStepOutput {
  *   its meaning (every exterior edge accepted, no step failure, no unresolved edge) — but it is what
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
+ * - `holes-not-solved`       — the input carried holes, and the solve STOPPED after initialisation, returning
+ *   its initialised graph with one wavefront ring per loop and no skeleton (skeleton loops-input spec, decisions
+ *   33 to 35). BLOCKING: it makes `complete` false by itself. It stands until the join event of the holed-skeleton
+ *   roadmap's node 4, which replaces it.
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
@@ -388,7 +428,8 @@ export type SkeletonDiagnosticKind =
     | 'step-failure'
     | 'unresolved-edges'
     | 'coaxial-completion'
-    | 'causality-violation';
+    | 'causality-violation'
+    | 'holes-not-solved';
 
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
@@ -443,8 +484,8 @@ export interface SkeletonSolveResult {
      */
     context: StraightSkeletonSolverContext | null;
     /**
-     * True when the skeleton is fully resolved: no `step-failure` and no `unresolved-edges`
-     * diagnostics, and the graph has at least one interior edge. A `winding-normalised`,
+     * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges` or
+     * `holes-not-solved` diagnostics, and the graph has at least one interior edge. A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
      * incomplete — all three are informational reports of what the boundary stage did to the input.
      */
@@ -467,7 +508,15 @@ export interface SkeletonSolveResult {
      * and remapped through every boundary-stage index change — canonicalisation's removals and the
      * winding reversal (W-spec W45). Length matches `graph.numExteriorNodes` on the simple path.
      *
-     * All ones when the caller passed no weights.
+     * All ones when the caller passed no weights. A holed solve carries every loop's weights, concatenated in
+     * exterior id order (skeleton loops-input spec, decision 34).
      */
     weights: number[];
+    /**
+     * Each loop of the caller's input mapped onto the solved graph (skeleton loops-input spec, decisions 3, 24 and
+     * 25): index 0 the outline, then the holes in the order given. `null` EXACTLY WHEN `context` is `null`, on the
+     * self-intersecting single-loop path, because the decomposition renumbers; every other solve carries a map per
+     * loop, its reversal included.
+     */
+    loopMaps: SkeletonLoopMap[] | null;
 }

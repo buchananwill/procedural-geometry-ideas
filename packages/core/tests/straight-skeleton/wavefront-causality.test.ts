@@ -652,6 +652,7 @@ describe('wavefront causality', () => {
                 {id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 2, length: Number.MAX_VALUE},
             ],
             exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}],
         };
     }
 
@@ -719,6 +720,7 @@ describe('wavefront causality', () => {
                 {id: 4, clockwiseExteriorEdgeIndex: 0, widdershinsExteriorEdgeIndex: 3, length: Number.MAX_VALUE},
             ],
             exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}],
         };
         expect(checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1)
             .map(({oracle, elementId}) => ({oracle, elementId})))
@@ -755,6 +757,7 @@ describe('wavefront causality', () => {
                 {id: 4, clockwiseExteriorEdgeIndex: 1, widdershinsExteriorEdgeIndex: 3, length: Number.MAX_VALUE},
             ],
             exteriorWeights: [1, 1, 1, 1],
+            loops: [{start: 0, count: 4}],
         };
 
         const found = checkWavefrontCausality(graph, SKELETON_NOISE_FLOOR, 1);

@@ -2,7 +2,7 @@
 title: "Skeleton loops input: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: approved
+status: implementing
 date: 2026-11-14
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-wavefront-order-decisions.md]

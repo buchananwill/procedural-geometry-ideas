@@ -39,7 +39,7 @@ export function mergeSkeletonGraphs(
 ): MergedGraphResult {
     if (subResults.length === 0) {
         return {
-            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: []},
+            graph: {nodes: [], edges: [], numExteriorNodes: 0, interiorEdges: [], exteriorWeights: [], loops: []},
             crossingNodeIndices: [],
         };
     }
@@ -222,6 +222,12 @@ export function mergeSkeletonGraphs(
             numExteriorNodes: totalExteriorNodes,
             interiorEdges: allInteriorEdges,
             exteriorWeights: allExteriorWeights,
+            // NO LOOP TABLE (skeleton loops-input spec, decision 11): the merged exterior ids are not
+            // `0 .. numExteriorNodes - 1` (see `allExteriorWeights` above), so no table can describe them, and
+            // `adjacentExteriorEdge` and `loopOfExteriorEdge` refuse an empty table by name. A holed input never
+            // reaches the merge. The pass-through above, one sub-graph and no crossing point, is no merge: it
+            // returns that sub-graph, its own one-loop table included.
+            loops: [],
         },
         crossingNodeIndices,
     };
