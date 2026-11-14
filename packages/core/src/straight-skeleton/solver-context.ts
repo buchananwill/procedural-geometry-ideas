@@ -7,8 +7,10 @@ import {
     RayProjection,
     SkeletonDirection,
     StraightSkeletonSolverContext,
-    Vector2
+    Vector2,
+    WavefrontSegment
 } from "./types";
+import {activeWavefrontProbe, makeWavefront} from "./wavefront";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
@@ -276,12 +278,33 @@ export function makeStraightSkeletonSolverContext(
             sections.push({widdershinsBisector: children[i], clockwiseBisector: children[i + 1]})
         }
 
+        // PART A'S COMPARISON (spec decision 16), off in a normal solve: the arithmetic's pairing, read as
+        // segments with the section's widdershins bisector as `from`.
+        const probe = activeWavefrontProbe();
+        if (probe !== null) {
+            probe.segments?.(context, edgeId, sections.map(section => asSegment(edgeId, section)));
+        }
+
         return sections;
     }
 
-    return {
+    /**
+     * An arithmetic section read as a {@link WavefrontSegment}. `widdershinsBisector` is `from`: the sweep
+     * key puts the bisector whose CLOCKWISE parent is the edge first in each pair (in the first ring,
+     * `n + e` at key 0 before `n + e + 1` at key `n - 2`), and `from` is defined as that bisector.
+     */
+    function asSegment(edgeId: number, section: EdgeSection): WavefrontSegment {
+        return {
+            exteriorEdge: edgeId,
+            from: section.widdershinsBisector?.id ?? -1,
+            to: section.clockwiseBisector?.id ?? -1,
+        };
+    }
+
+    const context: StraightSkeletonSolverContext = {
         graph,
         acceptedEdges: acceptedEdges,
+        wavefront: makeWavefront(nodes.length),
         collisionCache: new Map() as CollisionCache,
         perceptualFloor,
         coaxialityFloor: coaxialLane,
@@ -400,7 +423,7 @@ export function makeStraightSkeletonSolverContext(
             parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
             return parents;
         },
-        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean {
+        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment | null {
             const splitIntersectionOptions: IntersectionType[] = ['converging']
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
@@ -413,7 +436,7 @@ export function makeStraightSkeletonSolverContext(
             const segments = activeExteriorEdgeSegments(edgeToSplitId);
 
             // We're now testing all active segments, because if the edge has split or engaged in a collapse anywhere, the shrinkage/expansion rate will have changed.
-            return segments.some(segment => {
+            const validates = (segment: EdgeSection): boolean => {
                 const {widdershinsBisector, clockwiseBisector} = segment;
                 const widdershinsEdge = getEdgeWithId(widdershinsBisector.id);
                 const clockwiseEdge = getEdgeWithId(clockwiseBisector.id);
@@ -459,8 +482,23 @@ export function makeStraightSkeletonSolverContext(
                 }
                 return valid;
 
-            })
+            };
 
+            // THE FIRST VALIDATING SEGMENT, IN TODAY'S ORDER (spec decision 11) — the same short-circuit the
+            // `some` this replaced had, so the verdict and the order the segments are tried in are unchanged.
+            const struck = segments.find(validates);
+
+            // PART A COUNTS how often more than one segment would have validated (spec decision 17), by
+            // testing the rest only when the comparison probe is installed.
+            const probe = activeWavefrontProbe();
+            if (probe !== null && struck !== undefined) {
+                const count = 1 + segments.slice(segments.indexOf(struck) + 1).filter(validates).length;
+                probe.validatingSegments?.(this, bisectorId, edgeToSplitId, count);
+            }
+
+            return struck === undefined ? null : asSegment(edgeToSplitId, struck);
         },
     };
+
+    return context;
 }

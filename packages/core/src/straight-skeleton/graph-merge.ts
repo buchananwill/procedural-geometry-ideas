@@ -248,6 +248,9 @@ export function makeMergedSolverContext(
     return {
         graph,
         acceptedEdges,
+        // Every edge is accepted, so no bisector is live and no link is held (skeleton wavefront-order
+        // spec, decision 2); empty rather than filled, for the same reason the budgets below are.
+        wavefront: {clockwiseNeighbour: [], widdershinsNeighbour: []},
         collisionCache: new Map(),
         // Carried for shape only: this context is post-algorithm and the event layer never runs
         // against it, so nothing here reads the floor. Defaulted rather than required so a caller

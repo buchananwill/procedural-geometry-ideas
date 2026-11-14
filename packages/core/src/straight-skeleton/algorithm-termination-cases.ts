@@ -36,6 +36,7 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
+import {activeWavefrontProbe, retireBisectors} from "./wavefront";
 import {
     cramerQuotientRoundingBound,
     determinant3RoundingBound,
@@ -308,6 +309,8 @@ export function applyDegenerateClosure(context: StraightSkeletonSolverContext, e
     }
 
     context.acceptAll(edgeIds);
+    // The closed sub-polygon's bisectors leave the wavefront (skeleton wavefront-order spec, decision 9).
+    retireBisectors(context, edgeIds);
 }
 
 /**
@@ -705,6 +708,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     // All edges resolved without collision
     if (remaining.length === 0) {
         context.acceptAll(input.interiorEdges);
+        retireBisectors(context, input.interiorEdges);
         return {childSteps: []};
     }
 
@@ -713,6 +717,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         // The resolved edge created a new target node; re-attempt the remaining one
         if (tryAttachEdgeToNode(context, remaining[0])) {
             context.acceptAll(input.interiorEdges);
+            retireBisectors(context, input.interiorEdges);
             return {childSteps: []};
         }
     }
@@ -787,6 +792,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
                 // the ridge between the two sources, as the head-on branch above does.
                 context.crossWireEdges(rung.completion.firstId, rung.completion.secondId);
                 context.acceptAll(input.interiorEdges);
+                retireBisectors(context, input.interiorEdges);
                 return {childSteps: []};
             }
 
@@ -869,6 +875,8 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     }
 
     context.acceptAll(input.interiorEdges);
+    // The pair closes, and both its bisectors leave the wavefront (skeleton wavefront-order spec, decision 9).
+    retireBisectors(context, input.interiorEdges);
 
     return {
         childSteps: []
@@ -1087,6 +1095,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     if (terminal !== undefined) {
         context.terminateEdgesAtPoint(input.interiorEdges, terminal.position, terminal.positionUncertainty);
         context.acceptAll(input.interiorEdges);
+        retireBisectors(context, input.interiorEdges);
 
         return {
             childSteps: []
@@ -1130,12 +1139,15 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
             context);
         context.terminateEdgesAtPoint(input.interiorEdges, event.position, event.positionUncertainty);
         context.acceptAll(input.interiorEdges);
+        retireBisectors(context, input.interiorEdges);
         return {childSteps: []};
     }
 
     context.terminateEdgesAtPoint(input.interiorEdges, best.position, best.positionUncertainty);
 
     context.acceptAll(input.interiorEdges);
+    // The triangle closes, and its bisectors leave the wavefront (skeleton wavefront-order spec, decision 9).
+    retireBisectors(context, input.interiorEdges);
 
     return {
         childSteps: []
@@ -1230,13 +1242,20 @@ function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: r
 
     initInteriorEdges(context);
 
+    // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where part A's probe checks the
+    // links. `null` in a normal solve.
+    const probe = activeWavefrontProbe();
+
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
+    probe?.stepBoundary?.(context, inputs);
     while (inputs.length > 0) {
         const output = stepAlgorithm(context, inputs);
         errors.push(...(output.errors ?? []));
         inputs = output.childSteps
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
+        probe?.stepBoundary?.(context, inputs);
     }
+    probe?.solveFinished?.(context, errors);
 
     return {context, errors}
 }
@@ -1952,11 +1971,15 @@ function runSimplePolygonStepped(
 
     const snapshots: StraightSkeletonGraph[] = [structuredClone(context.graph)];
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}];
+    // The same step boundaries as `runSimplePolygon` (skeleton wavefront-order spec, decision 6).
+    const probe = activeWavefrontProbe();
+    probe?.stepBoundary?.(context, inputs);
 
     try {
         while (inputs.length > 0) {
             inputs = stepAlgorithm(context, inputs).childSteps;
             exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
+            probe?.stepBoundary?.(context, inputs);
             snapshots.push(structuredClone(context.graph));
         }
         return {snapshots, error: null};

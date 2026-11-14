@@ -28,7 +28,12 @@ export type {
   CausalityOracle,
   CausalityViolationDiagnostic,
   SkeletonSolveResult,
+  Wavefront,
+  WavefrontSegment,
 } from './straight-skeleton/types';
+
+// ── The wavefront's stored order (skeleton wavefront-order spec, stage 1) ────
+export { checkWavefront, ringsOfWavefront } from './straight-skeleton/wavefront';
 
 // ── Post-solve wavefront causality check (journal-5 decision 148) ────────────
 export { checkWavefrontCausality } from './straight-skeleton/causality-check';

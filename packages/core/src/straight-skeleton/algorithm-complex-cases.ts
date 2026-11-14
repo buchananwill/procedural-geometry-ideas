@@ -19,6 +19,13 @@ import {
     mergesShareAnEdge,
     ringsOfSubPolygon
 } from "./coincident-events";
+import {
+    activeWavefrontProbe,
+    beginLayerLinks,
+    linkBirth,
+    retireBisectors,
+    settleLayerLinks
+} from "./wavefront";
 
 /**
  * Lexicographic over two edge-id lists, a shorter prefix first.
@@ -211,6 +218,9 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         childSteps: []
     };
 
+    // THE LAYER'S LINK STATE (skeleton wavefront-order spec): the events below link the bisectors they bear
+    // as pending births, which are replaced by their ids as they are created at the foot of this function.
+    beginLayerLinks(context);
 
     const exteriorParents = context.exteriorParentsOfSubPolygon(input.interiorEdges);
 
@@ -268,6 +278,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         if (rung.rung === 'closure') {
             applyDegenerateClosure(context, input.interiorEdges, rung.position);
             exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e));
+            settleLayerLinks(context);
             return result;
         }
         // THE COMPLETION, IN THE N-GON'S OWN TERMS: the named pair's head-on event is priced as
@@ -318,6 +329,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // the reported pairs individually is what leaves the ring inconsistent on symmetric input,
     // where a single point can absorb every edge at once.
     const rings = ringsOfSubPolygon(input.interiorEdges, context);
+    // PART A'S COMPARISON (spec decision 16), off in a normal solve.
+    activeWavefrontProbe()?.subPolygonRings?.(context, input.interiorEdges, rings);
 
     /**
      * These events resolved as WHOLE vertex events, or `null` when they cannot be.
@@ -418,6 +431,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
             context.acceptAll(arrivals);
             const bisections = bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context);
+            // The arrivals leave the wavefront, once `bisectionsForMerge` has linked each gap from them.
+            retireBisectors(context, arrivals);
             // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
             // release, and its cost downstream is each emitted bisector's equi-time residual at the node.
             // The node's budget is the larger of the members' pricing budget above and the largest residual
@@ -507,12 +522,17 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
 
+    // Each bisector is linked where its event left its pending birth, the moment it has an id.
+    const bear = (params: BisectionParams): number => {
+        const id = bisectWithParams(context, params);
+        linkBirth(context, params, id);
+        return id;
+    };
+
     allOutgoingInteriorEdges.push(...finalPartitionEvents
         .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
             && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-        .map(params => {
-            return bisectWithParams(context, params)
-        }))
+        .map(bear))
 
     // Both bounding parents must still be live. An accepted parent has no wavefront left to
     // bisect, and `clockwiseSpanExcludingAccepted` refuses to measure a span that touches one,
@@ -520,8 +540,11 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     allOutgoingInteriorEdges.push(
         ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
             && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-            .map(params => bisectWithParams(context, params))
+            .map(bear)
     )
+
+    // Every pending birth the filters above refused is spliced out of its ring (skeleton wavefront-order spec).
+    settleLayerLinks(context);
 
     if (finalPartitionEvents.length === 0) {
         result.childSteps.push({interiorEdges: allOutgoingInteriorEdges})
@@ -554,6 +577,10 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             throw new Error(`Unable to play interior edge ${interiorEdge} in any span: ${finalPartitionEvents.flatMap(e => [e.clockwiseExteriorEdgeIndex, e.widdershinsExteriorEdgeIndex])}`)
         }
     }
+
+    // PART A'S COMPARISON (spec decision 16), off in a normal solve: the id-interval partition against
+    // the rings the layer left.
+    activeWavefrontProbe()?.partition?.(context, input.interiorEdges, result.childSteps, allOutgoingInteriorEdges);
 
     return result;
 }

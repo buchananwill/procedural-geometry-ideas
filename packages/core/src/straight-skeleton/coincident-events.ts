@@ -6,6 +6,7 @@ import {
 } from "./types";
 import {vectorsAreEqual} from "./core-functions";
 import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
+import {linkMergeGap} from "./wavefront";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
@@ -518,10 +519,15 @@ export function bisectionsForMerge(
         const lastArrival = precedingRun[precedingRun.length - 1];
         const firstDeparture = followingRun[0];
 
-        return {
+        const params: BisectionParams = {
             clockwiseExteriorEdgeIndex: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
             widdershinsExteriorEdgeIndex: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
             source: sourceNodeId,
         };
+        // THE GAP'S LINKS, FROM THE PARTICIPANTS BRACKETING IT (skeleton wavefront-order spec, decision 9):
+        // the new bisector stands between the last arrival's clockwise neighbour and the first departure's
+        // widdershins neighbour — the two ends of the arc the gap leaves. The merge retires its arrivals.
+        linkMergeGap(context, lastArrival, firstDeparture, params);
+        return params;
     });
 }

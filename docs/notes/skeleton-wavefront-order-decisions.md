@@ -2,7 +2,7 @@
 title: "Skeleton wavefront order: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: approved
+status: implementing
 date: 2026-11-14
 part_of: [holed-skeleton-roadmap.md]
 ---
@@ -144,3 +144,9 @@ maintained and compared against the arithmetic while nothing reads them, then th
     valid. The implementer makes every reasonable effort to find the cause, then either fixes it or writes why the new
     answer is acceptable, with the measurements that show it is no less valid than the old one (the four causality
     oracles, containment, tiling). A pin moves only with that written reason and the lead's acceptance.
+32. **A solve on which an exterior edge is accepted while a live bisector still names it as a parent is outside
+    decision 15's gate and has its own test, which is red** (BSA.F95, BSA.D290, BSA.D266). W1 to W4 cannot hold on that
+    path without changing when an edge is accepted, which is not this spec's work. The red test names the cells
+    (`fine:circle48@2e11`, `ladder:1x:s2`), asserts `checkWavefront` is empty on them, and points at
+    [the issue note](./ISSUE-skeleton-edge-accepted-before-its-face-closes.md). Decision 15's gate detects the path by
+    its cause, an accepted parent on a live bisector, and never by a list of cell names.

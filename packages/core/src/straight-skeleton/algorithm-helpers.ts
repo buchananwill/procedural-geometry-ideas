@@ -15,6 +15,7 @@ import {
     sineIsBelow
 } from "./core-functions";
 import {interiorEdgeIndex} from "./graph-helpers";
+import {linkInitialRing, openWavefrontSlot} from "./wavefront";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,
@@ -295,6 +296,8 @@ export function createBisectionInteriorEdge(context: StraightSkeletonSolverConte
         acceptedEdges.push(false);
     }
     acceptedEdges[edgeIndex] = false;
+    // Its link slots, unlinked until the event that bore it links it (skeleton wavefront-order spec).
+    openWavefrontSlot(context, edgeIndex);
 
 
     const interiorEdge = context.getInteriorWithId(edgeIndex);
@@ -337,11 +340,16 @@ export function initInteriorEdges(context: StraightSkeletonSolverContext) {
     const exteriorEdges = [...context.graph.edges];
 
     // create interior edges from exterior node bisections
+    const firstRing: number[] = [];
     for (let clockwiseExteriorEdgeIndex = 0; clockwiseExteriorEdgeIndex < exteriorEdges.length; clockwiseExteriorEdgeIndex++) {
         const widdershinsExteriorEdgeIndex = (clockwiseExteriorEdgeIndex - 1 + exteriorEdges.length) % exteriorEdges.length;
-        createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex)
+        firstRing.push(createBisectionInteriorEdge(context, clockwiseExteriorEdgeIndex, widdershinsExteriorEdgeIndex, clockwiseExteriorEdgeIndex));
     }
 
+    // THE FIRST RING, IN THE LOOP'S VERTEX ORDER (skeleton wavefront-order spec, decision 8): the bisector
+    // at vertex i is born i-th, its clockwise parent is edge i and its clockwise neighbour is the bisector
+    // at vertex i + 1, whose widdershins parent is that same edge.
+    linkInitialRing(context, firstRing);
 }
 
 export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {

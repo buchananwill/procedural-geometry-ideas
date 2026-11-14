@@ -28,6 +28,7 @@ import {
     weightedRateSumRoundingBound,
 } from "./constants";
 import {intersectRays} from "./intersection-edges";
+import {activeWavefrontProbe, NeighbourGuardSite} from "./wavefront";
 import {
     exteriorRayTerms,
     interiorDirectionError,
@@ -291,7 +292,9 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     // Can't split your neighbour
     const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
     const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent)
-    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
+    const refusesNeighbour = Math.min(clockwiseSpan, widdershinsSpan) < 2;
+    reportNeighbourGuard(context, 'generateSplitEvent', instigatorData, edgeToSplit, refusesNeighbour);
+    if (refusesNeighbour) {
         return null;
     }
 
@@ -300,7 +303,8 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    if (!context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival)) {
+    const struckSegment = context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
+    if (struckSegment === null) {
         splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
         return null;
     }
@@ -312,8 +316,34 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         collidingEdges: [instigatorData.id, edgeToSplit.id],
         offsetDistance: result.offsetDistance,
         arrival: result.arrival,
-        eventType: 'interiorAgainstExterior'
+        eventType: 'interiorAgainstExterior',
+        struckSegment,
     }
+}
+
+/**
+ * PART A'S COMPARISON OF THE NEIGHBOUR GUARD (skeleton wavefront-order spec, decision 16), off in a normal
+ * solve. The link form needs the segment the split would strike, which the arithmetic guard is asked before
+ * anything is priced, so the probe is handed a thunk that prices the incenter split and validates it —
+ * both side-effect free — and calls it only for the comparison.
+ */
+function reportNeighbourGuard(
+    context: StraightSkeletonSolverContext,
+    site: NeighbourGuardSite,
+    instigatorData: InteriorEdge,
+    edgeToSplit: PolygonEdge,
+    arithmeticRefuses: boolean,
+): void {
+    const probe = activeWavefrontProbe();
+    if (probe === null || probe.guard === undefined) {
+        return;
+    }
+    probe.guard(context, site, instigatorData.id, edgeToSplit.id, arithmeticRefuses, () => {
+        const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
+        return result === null
+            ? null
+            : context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
+    });
 }
 
 export function generateSplitEventViaBisector(
@@ -397,7 +427,8 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        if (!context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival)) {
+        const struckSegment = context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival);
+        if (struckSegment === null) {
             complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
             return {
@@ -408,6 +439,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
                 eventType: 'interiorAgainstExterior',
                 position: directResult.position,
                 positionUncertainty: directResult.positionUncertainty,
+                struckSegment,
             };
         }
     }
@@ -430,7 +462,9 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     const clockwiseSpan = context.clockwiseSpanIncludingAccepted(instigatorClockwiseParent, edgeToSplit);
     const widdershinsSpan = context.clockwiseSpanIncludingAccepted(edgeToSplit, instigatorWiddershinsParent);
 
-    if (Math.min(clockwiseSpan, widdershinsSpan) < 2) {
+    const refusesNeighbour = Math.min(clockwiseSpan, widdershinsSpan) < 2;
+    reportNeighbourGuard(context, 'generateSplitEventFromTheEdgeItself', instigatorData, edgeToSplit, refusesNeighbour);
+    if (refusesNeighbour) {
         return null;
     }
 
@@ -439,7 +473,8 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    if (!context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival)) {
+    const struckSegment = context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival);
+    if (struckSegment === null) {
         return null;
     }
 
@@ -450,6 +485,7 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         collidingEdges: [instigatorId, targetId],
         offsetDistance: incenterResult.offsetDistance,
         arrival: incenterResult.arrival,
-        eventType: 'interiorAgainstExterior'
+        eventType: 'interiorAgainstExterior',
+        struckSegment,
     };
 }

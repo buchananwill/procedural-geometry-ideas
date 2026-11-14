@@ -151,12 +151,43 @@ export interface GraphHelpers {
     parentEdges(interiorEdgeId: number): { clockwise: PolygonEdge; widdershins: PolygonEdge };
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
-    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): boolean;
+    /**
+     * The segment of `edgeToSplitId` the bisector's split validates on, or `null` when none does (skeleton
+     * wavefront-order spec, decision 11). Where several live segments validate, the first in
+     * `activeExteriorEdgeSegments`' order is taken.
+     */
+    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment | null;
+}
+
+/**
+ * The wavefront's order, STORED (skeleton wavefront-order spec, decisions 1 to 7): each live bisector's
+ * two neighbours around its ring. Both arrays are indexed by edge id, as `acceptedEdges` is — the
+ * exterior edges' slots and every bisector that is not live hold `-1`.
+ *
+ * PLAIN DATA, two arrays of numbers, so a `structuredClone` of the context carries it (decision 7).
+ * Written by the events that change the wavefront's shape (`wavefront.ts`); in part A of the spec nothing
+ * in the solver reads it.
+ */
+export interface Wavefront {
+    clockwiseNeighbour: number[];
+    widdershinsNeighbour: number[];
+}
+
+/**
+ * One live segment of an exterior edge, as a linked pair (spec decision 5): `from` is the bisector whose
+ * clockwise parent is `exteriorEdge`, and `to` is `from`'s clockwise neighbour.
+ */
+export interface WavefrontSegment {
+    exteriorEdge: number;
+    from: number;
+    to: number;
 }
 
 export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
+    /** The wavefront's neighbour links (spec decision 1). Read by nothing in the solver in part A. */
+    wavefront: Wavefront;
     collisionCache: CollisionCache;
     /**
      * The client's perceptual floor for this solve, in the unit space the graph is being solved in.
@@ -273,6 +304,11 @@ export interface CollisionEvent {
     position: Vector2;
     intersectionData: IntersectionResult
     eventType: CollisionType
+    /**
+     * The segment of the struck exterior edge this split validated on (spec decision 11). Set on every
+     * `interiorAgainstExterior` event; the split rewrites the wavefront's links around it (decision 12).
+     */
+    struckSegment?: WavefrontSegment
 }
 
 /** Sentinel stored in the collision cache when collideEdges returned null. */
