@@ -550,6 +550,24 @@ export function jutCutFixtures(): NamedFixture<JutCutName>[] {
   ];
 }
 
+/**
+ * Journal findings 88 and 89: the courtyard of `COURTYARD_RECTS` with its W wing jutting `jut` cm out past the bands,
+ * beside the cut y = 300 over x 0 to 300: S band, W wing, N band, E wing.
+ */
+export const jutWingRects = (jut: number): Rect[] => [[0, 0, 1000, 300], [-jut, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
+
+/** `jutWingRects(jut)` with every side hipped at `deg`, each Ring standing its own number of `storeys` from storey 0. */
+export const jutWingFixture = <N extends string>(name: N, jut: number, deg = 30, storeys: readonly number[] = [1, 1, 1, 1]): NamedFixture<N> =>
+  shellFixture(name, jutWingRects(jut).map((r, i) => ring(r, 0, storeys[i], deg)));
+
+/**
+ * Journal finding 88: the user's input, the wing jutting 250 cm, every side hipped at 30 degrees, one storey of 250 cm.
+ * Its shortest cut, y = 300 over x 0 to 300, ends at the corner where the wing's S wall carries on in line with it, and
+ * built through that cut it stood a Gable and a Cheek on x = 0 (journal finding 89). Journal decision 278 refuses that
+ * cut, and the east one, y = 300 over x 700 to 1000, is taken.
+ */
+export const COURTYARD_JUT_WING = jutWingFixture('CourtyardJutWing', 250);
+
 /** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
 export type GapKind = 'Aligned' | 'Offset';
 

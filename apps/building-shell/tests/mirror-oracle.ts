@@ -7,15 +7,22 @@ import {RING_SIDES, RingSide, RingSides, ShellFixture} from '../src/fixture.ts';
 import type {BuildingShell} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 
-/** The fixture mirrored in x about `x = span / 2`: every Ring's rectangle reflected, its E and W sides swapped. */
-export function mirrorFixture(f: ShellFixture, span: number): ShellFixture {
-  const swap: Record<RingSide, RingSide> = {S: 'S', N: 'N', E: 'W', W: 'E'};
+/** The plan axis a mirror reflects: 0 mirrors in x, 1 in y (journal decision 278 reads both). */
+export type MirrorAxis = 0 | 1;
+
+/**
+ * The fixture mirrored in x about `x = span / 2`, or in y about `y = span / 2` when `axis` is 1: every Ring's rectangle
+ * reflected, its E and W sides (or its S and N sides) swapped.
+ */
+export function mirrorFixture(f: ShellFixture, span: number, axis: MirrorAxis = 0): ShellFixture {
+  const swap: Record<RingSide, RingSide> = axis === 0 ? {S: 'S', N: 'N', E: 'W', W: 'E'} : {S: 'N', N: 'S', E: 'E', W: 'W'};
   return {
     ...f, name: `${f.name}~mirror`,
     rings: f.rings.map(r => {
       const sides: RingSides = {};
       for (const s of RING_SIDES) { const form = r.sides?.[s]; if (form) sides[swap[s]] = form; }
-      return {...r, rect: [span - r.rect[2], r.rect[1], span - r.rect[0], r.rect[3]], sides};
+      const [x0, y0, x1, y1] = r.rect;
+      return {...r, rect: axis === 0 ? [span - x1, y0, span - x0, y1] : [x0, span - y1, x1, span - y0], sides};
     }),
   };
 }
@@ -51,14 +58,17 @@ function unmatched(a: Item[], b: Item[], tol: number): {onlyA: Item[]; onlyB: It
 /** Which face kinds a comparison reads: every one, or (say) Roof alone, with the Edges, Cells and NetEdges on them. */
 export type Scope = (kind: string) => boolean;
 
-/** A shell's records as items, its Tuck faces set aside; `mirror` reflects every position in x about `span / 2`. */
-function itemsOf(s: BuildingShell, span: number, mirror: boolean, scope: Scope): Record<'faces' | 'edges' | 'cells' | 'netEdges', Item[]> {
-  const m = (p: Vec3): Vec3 => (mirror ? [span - p[0], p[1], p[2]] : p);
+/**
+ * A shell's records as items, its Tuck faces set aside; `mirror` reflects every position on `axis` about `span / 2`.
+ */
+function itemsOf(s: BuildingShell, span: number, mirror: boolean, scope: Scope, axis: MirrorAxis): Record<'faces' | 'edges' | 'cells' | 'netEdges', Item[]> {
+  const flip = (p: Vec3, v: (c: number) => number): Vec3 => [axis === 0 ? v(p[0]) : p[0], axis === 1 ? v(p[1]) : p[1], p[2]];
+  const m = (p: Vec3): Vec3 => (mirror ? flip(p, c => span - c) : p);
   const kindOf = (f: number): string => s.faces[f].tag.kind;
   const inScope = (f: number): boolean => scope(s.faces[f].tag.kind);
   const faces = s.faces.filter(f => f.tag.kind !== 'Tuck' && inScope(f.id)).map((f): Item => {
-    const n: Vec3 = mirror ? [-f.normal[0] || 0, f.normal[1], f.normal[2]] : f.normal;
-    const d = mirror ? f.offset - f.normal[0] * span : f.offset;
+    const n: Vec3 = mirror ? flip(f.normal, c => -c || 0) : f.normal;
+    const d = mirror ? f.offset - f.normal[axis] * span : f.offset;
     // The area in hundreds of cm², so `tol` bounds it at 100 tol cm²: float32 positions at a face's size move it so far.
     return {key: `${f.tag.kind}|${f.tag.storey}`, at: [...n, d, f.area / 100], label: `${f.tag.kind} storey ${f.tag.storey} n=${fmt(n)} d=${d.toFixed(3)} area ${f.area.toFixed(3)}`};
   });
@@ -90,10 +100,10 @@ export interface MirrorDiff { differences: string[]; worst: number }
 /**
  * The labelled build `tucked`, its Tuck faces set aside, against `clean` mirrored in x about `span / 2`. Every
  * position and area is matched within `tol` (`SHELL_TOLERANCE_CM` unless given), every discrete field exactly. `scope`
- * narrows it to the faces of some kinds and the Edges, Cells and NetEdges on them.
+ * narrows it to the faces of some kinds and the Edges, Cells and NetEdges on them. `axis` 1 mirrors in y instead.
  */
-export function mirrorDifferences(tucked: BuildingShell, clean: BuildingShell, span: number, scope: Scope = () => true, tol = SHELL_TOLERANCE_CM): MirrorDiff {
-  const a = itemsOf(tucked, span, false, scope), b = itemsOf(clean, span, true, scope);
+export function mirrorDifferences(tucked: BuildingShell, clean: BuildingShell, span: number, scope: Scope = () => true, tol = SHELL_TOLERANCE_CM, axis: MirrorAxis = 0): MirrorDiff {
+  const a = itemsOf(tucked, span, false, scope, axis), b = itemsOf(clean, span, true, scope, axis);
   const differences: string[] = [];
   let worst = 0;
   for (const k of ['faces', 'edges', 'cells', 'netEdges'] as const) {

@@ -118,6 +118,15 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
      hole in its middle, but both of its buried ends cross a band.
    - **Which segment, when several qualify:** the shortest, then the lowest x of its lower end, then that end's
      lowest y, then the lowest Ring index. If none qualifies, it is a hard error naming the fixture and storey.
+   - **AMENDED 2026-11-14** (journal decision BSA.D278): **a segment qualifies only if its outer end leaves the
+     building on both sides of its line.** A segment whose outer end is a corner of the outline where a wall carries on
+     in line with it, so that the footprint continues past that end on one side of the line, does not qualify, and the
+     next one is tried, as for a segment the pitch rule below refuses. Only the outer end is read: every segment starts
+     at a corner of the hole, where the hole's own wall carries on along one side of the slit. Algorithm B reads a cut
+     side's extent along the line while it stays inside the footprint, so through such a segment it took its end
+     planes from beyond the cut and stood an unrequested gable on the outline, or the hip solid was refused as not
+     manifold (journal finding BSA.F89). Its known cost: it also refuses a segment whose outer end's wall carries on
+     along the same side as the hole's wall, which built clean; the next segment builds clean too.
    - **The cut's pitch** (**AMENDED 2026-11-08**, journal decision 135; it was the cutting Ring's default):
      - where the cut is collinear with a union wall at one of its ends, it takes that wall's derived pitch (decision 3),
        because a weight change at a straight vertex is refused by the skeleton;

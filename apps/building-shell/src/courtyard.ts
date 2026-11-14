@@ -1,4 +1,4 @@
-// Spec decision 2 as amended (journal decisions 115, 132 and 135): a storey plan with a hole is roofed through a cut
+// Spec decision 2 as amended (journal decisions 115, 132, 135 and 278): a storey plan with a hole is roofed through a cut
 // along a segment of one raw Ring wall, spliced into a slit polygon of width 0 exactly as roof-gable's `buildCourtyard` does. Every test here is
 // segment arithmetic on the plan's own loops: no point is tested for lying inside anything.
 import {RING_SIDES, RingSide, StoreyRing} from './fixture.ts';
@@ -86,13 +86,29 @@ function cutPitch(a: Pt, b: Pt, walls: readonly UnionWall[], islandWalls: () => 
 }
 
 /**
+ * Whether the cut from `b` on the hole's loop to `a` on the outer loop leaves the building on both sides of its line at
+ * `a` (spec decision 2 as amended, journal decision 278): no loop segment on the cut's line runs on past `a`. Where one
+ * does, `a` is a corner of the outline with a wall carrying on in line with the cut, the footprint continues past `a` on
+ * one side of the line, and algorithm B reads that cut side's extent, and its end planes, from beyond the cut (journal
+ * finding 89). Only the outer end is read: at the hole end the courtyard's own wall always carries on along the slit.
+ */
+function leavesBothSides(a: Pt, b: Pt, segs: readonly Seg[]): boolean {
+  const vertical = a.x === b.x;
+  const along = (p: Pt): number => (vertical ? p.y : p.x);
+  const outward = Math.sign(along(a) - along(b));
+  const onLine = (e: Seg): boolean => (e.p.x === e.q.x) === vertical && (vertical ? e.p.x === a.x : e.p.y === a.y);
+  return !segs.some(e => onLine(e) && onSeg(a, e) && [e.p, e.q].some(p => (along(p) - along(a)) * outward > 0));
+}
+
+/**
  * Spec decision 2's cut for one hole (as amended by journal decisions 132 and 135): a segment of one of the storey's
  * raw Ring walls, within that wall's span, with one end on the hole's loop, the other on an outer loop, and nothing
  * of any loop on the open segment between, so the island's interior lies on both sides along its whole length. Its
  * ends are consecutive points where loops touch the wall, so either may be a loop vertex. The shortest wins, then the
  * lowest x, then the lowest y (each read at its lower end), then the lowest Ring index; a segment whose two ends are
- * collinear with walls of different pitch (`walls`, the storey's derived union walls) does not qualify, and the next
- * is tried. Its pitch is `cutPitch`'s. Undefined when none qualifies.
+ * collinear with walls of different pitch (`walls`, the storey's derived union walls) does not qualify, nor does one
+ * whose outer end does not leave the building on both sides of its line (`leavesBothSides`, journal decision 278), and
+ * the next is tried. Its pitch is `cutPitch`'s. Undefined when none qualifies.
  */
 export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls: readonly UnionWall[]): CourtyardCut | undefined {
   const holeSegs = loopSegs(hole);
@@ -118,7 +134,7 @@ export function selectCut(rings: StoreyRing[], outers: Pt[][], hole: Pt[], walls
         for (const [b, a] of [[s.p, s.q], [s.q, s.p]]) {
           if (!holeSegs.some(e => onSeg(b, e))) continue;
           const outer = outerSegs.findIndex(segs => segs.some(e => onSeg(a, e)));
-          if (outer < 0) continue;
+          if (outer < 0 || !leavesBothSides(a, b, all)) continue;
           const deg = cutPitch(a, b, walls, islandWalls(outer));
           if (deg !== undefined) found.push({a, b, ring: index, side, outer, deg});
         }
