@@ -71,53 +71,37 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**Session 3 closed on 2026-11-14 (BSA.D280).** The arc branch `feature/building-shell-covered-storeys-and-sections` is
-at `011455d`, four local commits ahead of `f388632`, nothing pushed, and this journal uncommitted. The suite is 9,992
-passed and none failed in 46 files, typecheck clean, measured by the WP-C4 delegate at `011455d` (BSA.D279); the lead
-never re-ran it this session.
+**Session 4 state, 2026-11-14.** The arc's work is the holed skeleton, on `feature/skeleton-holes` (cut from `ee84976`),
+under an approved vision and roadmap (BSA.D286). Nothing is pushed.
 
-**What the session did**, each in its accepting decision: the Cheek fixtures ruled (BSA.D260); the two-pitch sub-rule
-removed, `51a233e` (BSA.D268); fully internal Rings dropped and reported, `8025ead` (BSA.D271); the union's tucks
-labelled, which cured both Cell-laying throws, `150e45c` (BSA.D277); a courtyard cut refused where its outer end is a
-corner, `011455d` (BSA.D279).
+**Done:** roadmap node 1, the stored wavefront order, complete at `823211a` (BSA.D295). Core is 5,851 passed and 7
+failed, the 7 being the red early-acceptance file by design; building-shell 9,992. Figures are delegates', not re-run by
+the lead.
 
-**How the user is steering.** Session 2's list in its §4 still holds. Added this session:
+**Specs approved and waiting:** nodes 2 and 3, `skeleton-loops-input-decisions.md` (BSA.D289); node 4,
+`skeleton-join-and-divide-decisions.md` (BSA.D294).
 
-- **A test must not be green because it asserts a defect** (BSA.D266). A defect is a red test with an issue note, or is
-  guarded in production code. Never propose a pin for a throw.
-- **A Cheek is a legitimate section of wall, and a Cheek count is evidence of nothing** (BSA.D260, BSA.D263).
-- **A fully internal Ring is an input defect**, dropped from the solve and reported (BSA.D261, BSA.D262).
-- **A tuck left by the union is labelled, not removed** (BSA.D272).
-- **Emptying a defect's class is not curing the defect; say which happened** (BSA.F88). And "none in the corpus" is no
-  evidence where the generators cannot draw the case (BSA.F90).
-- **The user asks whether the work is harder than it need be**, and prefers the fix that removes a workaround to one
-  that manages it (BSA.D280). Offer the root cause with its cost before the patch.
-- **Do not dispatch a fix the user has not asked for** once they are weighing directions (BSA.F90).
+**How the user is steering,** added to session 3's list:
+- Specs are drafted by a delegate; the lead reads and approves (BSA.D288). The lead approves each node's spec under the
+  roadmap (BSA.D286).
+- Commit code after a unit is built and tested, before review and after; never leave notes uncommitted for long
+  (BSA.D287). Push and merge wait for the user.
+- Byte identity is the cheap test of sameness, not a hard stop: diagnose a divergence, then fix it or write why it is
+  acceptable (BSA.D284).
+- Where the links and the old arithmetic differ, the old approach was wrong (BSA.D291).
+- A failing holed fixture is a red test with an issue note (BSA.D284).
 
 **Next, in order:**
-
-1. **The straight skeleton for a footprint with a hole** (BSA.D280), in a fresh session. Before any design, a read-only
-   assessment of three things the lead could not answer: how V5 in `packages/core/src/straight-skeleton/` represents a
-   loop and what an event joining two loops would cost; what the roof solver needs from a holed skeleton, given that its
-   cut branch would be deleted and its copy here is frozen; and whether the C++ skeleton supports holes. Read BSA.F89
-   and BSA.F90 for the two inputs that motivate it, and decide which arc owns the work.
-2. **A red test and an issue note for BSA.F90's courtyard**, which BSA.D266 calls for and which were held back with the
-   fix. Ask the user first.
-3. **An independent review of `f388632..011455d`** before any push. The lead recommends it; the user has not answered.
-4. **The scope of BSA.D266** (§5), waiting on the user.
-5. **The corner sliver in `cleanMesh`** (F83, session 2's decision 257).
-6. **One path for all gables**: re-measure with Cheeks neutral (BSA.D263) and the sub-rule gone (BSA.D264).
-7. **Fold the amendments into the spec**, session 2's item 7, now with this session's: the `Tuck` kind is in, by the
-   WP-C3 delegate; `droppedRings` and the report's `tucks` are not checked.
-8. **Push and merge to `main` when the user agrees.** The branch name no longer describes its contents.
-
-**Session 4, 2026-11-14: the lead's proposal for the holed skeleton is with the user and is not yet a decision.** It
-rests on BSA.F91 and BSA.F92, both read and not run. In brief: store the wavefront's order explicitly (neighbour links
-on live bisectors, rings read from them) and retire the id arithmetic, held to a byte-identical corpus; then admit
-several input loops, with a strike across rings joining them and a strike within a ring dividing it, and a containment
-test to hand a hole's ring to the right child; then the loop-aware consumers and a holed fixture roster; then
-building-shell's `solveFaces` on `outer` plus `holes`. The first thing to measure is the concentric courtyard, where
-every front meets its opposite along a whole line at once.
+1. **The user's ruling on the acceptance cure** (BSA.D294; node 4 spec decisions 28 to 31): accept an exterior edge
+   exactly when no live bisector and no pending birth names it. The lead recommends building it first, as its own unit
+   on single-loop input, measured on the six solves the red test names. Holed solves in general are blocked without it.
+2. **Implement nodes 2 and 3** to one Opus delegate, then an independent review, then commit again.
+3. **Implement node 4,** telling the implementer the dedupe's re-report rule is load-bearing (BSA.D295). Review.
+4. **Node 5,** opening with a measurement of the concentric courtyard on node 4's solver, then a delegate-drafted spec.
+5. **Nodes 6 to 9** by the roadmap. Node 9 opens from BSA.F94.
+6. **Session 3's carried items** (its §4 items 2 to 8) are untouched: the review of `f388632..011455d`, the scope of
+   BSA.D266, the corner sliver, one path for all gables, folding amendments into the building-shell spec, and the merge
+   of the older branch to `main`.
 
 ## 5. Open items
 
@@ -420,6 +404,31 @@ session 3's own.
   - **Roadmap node 6 loses the solver's causality check to node 4;** the roadmap's text stands and this entry records
     it.
   - **BSA.F91's line that `hasInteriorLoop` is loop-neutral is wrong** and is amended where it stands.
+- **295. Stage 1 is complete at `823211a`: the wavefront's order is stored, every reader uses it, the review's fixes are
+  in, and no complete solve changed.** The spec `skeleton-wavefront-order-decisions.md` is set `completed` with its
+  tests as evidence. Roadmap node 1 is traversed.
+  - **The commits:** part A `7b6ef97`, part B `a997110`, the follow-up tests `c9c1b30`, the review fixes `823211a`, all
+    local on `feature/skeleton-holes`. The lead confirmed the last commit and a clean tree, and re-ran nothing.
+  - **The figures, by the fix-pass delegate:** core 5,851 passed, 7 failed, 9 skipped in 95 suites, all 7 in the red
+    early-acceptance file by design; building-shell 9,992 in 46 files, typecheck clean; the sweep harness's 32,335
+    records identical to the baseline.
+  - **The review's three fixes, each measured before it was switched:** adjacency read from the links, with no
+    disagreement against shared parents in 1.18 million priced events, 1,503 pair collapses and 246 vertex-to-vertex
+    events; the piece a later split takes chosen by the instigator's ring, with no disagreement against position in 145
+    layers; the gate's exclusion from the cause's first boundary on, with every roster entry counted. A segment with a
+    broken link now throws, having been met in none of 6.1 million reads.
+  - **17 of 18 mutations convicted.** The one that is not, the dedupe's "neighbour not live" branch, is unreached in
+    every roster.
+  - **Found on the way: the partition dedupe's re-report rule is load-bearing on 11 complete sweep cells** that no
+    standing test covered; `wavefront-dedupe-whole-ring.test.ts` now does. Node 4's spec keeps the dedupe's key (its
+    decision 6), and its implementer is to be told.
+  - **The red test names six solves** that trip the early acceptance: `Offset Cross Junction` (and its census regions),
+    `fine:circle48@2e11`, `ladder:1x:s1`, `ladder:1x:s2` and `ladder:3x:s3`. Seven failing cases in one file, by design,
+    until the user rules on the acceptance cure (BSA.D294).
+  - **Known gap, recorded:** the event cache stores a pair's classification as priced, and links change adjacency only
+    through the never-born splice; no roster shows it. Node 4's spec decision 3 asks the question at resolution, which
+    closes it.
+  - **The suite is about 34 seconds longer** (337 s to 371 s), from the red file sweeping every roster.
 
 ## Findings
 

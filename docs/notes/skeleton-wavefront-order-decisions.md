@@ -2,9 +2,10 @@
 title: "Skeleton wavefront order: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-14
 part_of: [holed-skeleton-roadmap.md]
+verified_by: [packages/core/tests/straight-skeleton/wavefront-order.test.ts, packages/core/tests/straight-skeleton/wavefront-order-sweep.test.ts, packages/core/tests/straight-skeleton/wavefront-order-census.test.ts, packages/core/tests/straight-skeleton/wavefront-order-early-acceptance.test.ts, packages/core/tests/straight-skeleton/wavefront-neighbour-guard.test.ts, packages/core/tests/straight-skeleton/wavefront-dedupe-whole-ring.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 ---
 
 # Skeleton wavefront order: decision spec
