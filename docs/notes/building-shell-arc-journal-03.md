@@ -9,8 +9,10 @@ record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-
 
 # Building shell arc: session 3 journal
 
-**This is the head of the thread**, continuing [session 2](./building-shell-arc-journal-02.md). Decisions continue at
-260 and findings at F84, cited project-wide as BSA.D260 and BSA.F84.
+**Superseded as head by [session 4](./building-shell-arc-journal-04.md),** closed at a fresh session for the holed
+straight skeleton (BSA.D280) on 2026-11-14 with decision 280 and finding F90. Continues [session
+2](./building-shell-arc-journal-02.md). Decisions continue at 260 and findings at F84, cited project-wide as BSA.D260
+and BSA.F84.
 
 ## Reading order for a fresh context
 
