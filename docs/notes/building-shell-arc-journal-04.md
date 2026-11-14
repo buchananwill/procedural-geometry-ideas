@@ -332,3 +332,51 @@ session 3's own.
   - **The corpus is 53 clean and 7 defect** by `skeleton-containment.test.ts`, where the project CLAUDE.md says 53
     and 6.
   - **No fixture, store, generator or note anywhere expresses a hole** (greps named in the survey).
+- **F93. The boundary stage is a short per-ring pipeline, and most of it applies to a loop as it stands.** (a Sonnet
+  survey of the boundary stage at 407a2e5, 2026-11-14; read by the delegate, not re-read by the lead) For roadmap nodes
+  2 and 3.
+  - **The order in `solveSkeleton`:** fewer than three vertices and non-finite coordinates throw; normalise to unit
+    extent; the weight door; canonicalise; reverse to clockwise; decompose if self-crossing; solve; denormalise;
+    causality check; `complete`.
+  - **Normalisation** is a bounding box over a flat vertex list with a power-of-two scale, so the union of every loop's
+    vertices is a drop-in.
+  - **Canonicalisation does one thing:** it removes a vertex whose deviation from its neighbours' chord is under the
+    floor, smallest first, never below three vertices, never a pinned (weight-change) vertex. It is purely per-ring and
+    returns an index map.
+  - **The weight door:** finite and positive, the ratio of largest to smallest under `maxWeightRatio`, a change of
+    weight only at a visible corner, then division by the smallest. The ratio and the smallest are over one array and so
+    would be global across loops by construction; the visible-corner test needs each loop's own wraparound.
+  - **Winding** is enforced in one place by reversing the ring and its weights, and **no index map from the caller's
+    vertices to the solved nodes is returned** for a reversal. `runAlgorithmV5` never reverses.
+  - **`decomposePolygon` discards a counter-clockwise piece as an "exterior island"** and would reverse a hole fed to it
+    alone. A holed input must be refused before it.
+  - **There is no check for coincident vertices** at the boundary (grep `coincident`); a duplicate is removed only
+    because its chord deviation is zero. This bears on roadmap node 8.
+  - **Helpers that exist:** `segmentSegmentIntersection` (parallel returns null, so collinear overlap is unseen),
+    `findFirstCrossing`, `signedArea`, `isClockwise`, and `isPointInPolygon` in `terrain/polygon-slope.ts`, ambiguous on
+    the boundary.
+  - **Snapshots of the stepped solve clone the graph only,** so a loop table on the graph reaches the dashboard and
+    anything on the context does not.
+- **F94. With no cut walls, the roof's piece builder takes its ordinary path, and the work of roadmap node 9 is in how a
+  holed `Comp` is built, not in algorithm B.** (a Sonnet read-only assessment of apps/building-shell/src at 407a2e5,
+  2026-11-14; traced by the delegate, not run, not re-read by the lead) The opening account node 9 calls for.
+  - **A `Comp`'s walls are its `ring`'s edges, in ring order,** and for a courtyard `ring` is the slit ring. `outer` and
+    `holes` are the true loops (outline counter-clockwise, hole clockwise, so the left normal is inward on both) and
+    produce no walls today. So the change is at `finishBuilding` and `buildingOf`: walls built from every true loop.
+  - **`buildPieces` with no cut:** the cut branch is skipped and it is the only code that puts a piece on a cut wall.
+    All hips gives no pieces. A gable on an outer wall or on a courtyard wall goes through the same extent, end-wall and
+    far-wall logic as any gable; its far wall may be a courtyard wall, as it can be today.
+  - **Sites that break and need rework:** `planChecked` in `storey.ts` (throws unless a holed comp has exactly two cut
+    walls and one hole); `extrudeOutline` (indexes walls as ring edges); `transformBuilding` in `roof/model.ts`; the
+    copies of `extentOf`, `farWall` and `endWall` in `rise.ts`, which read `comp.ring`; `solveFaces`' tiling reference
+    area.
+  - **Sites that simply lose their input:** every `form === 'cut'` read, the `Internal` zone for cut pieces, the cut
+    handling in `roof/measure.ts`.
+  - **Plane ids follow wall order,** so removing two cut walls renumbers planes, and roof identity in tags keys on plane
+    id. Whether that reaches the golden bytes was not verified.
+  - **The copy-integrity test pins behaviour, not bytes:** a tally (`pass 44, cheek 6, fail 3`) and 53 case verdicts
+    through `runB`, with no hash (greps for `createHash`, `sha256`, `md5` find none). `algoB.ts` already carries an
+    addition by this app. Research cases 9a to 9d use `buildCourtyard` with a slit and would move.
+  - **Courtyard surface in the suite:** 22 test files mention courtyards; 5 golden courtyard fixtures in 13 files; the
+    three hard errors of holed storeys are asserted by `NoCutProbe`, `TwoHolesProbe` and `CutProbe`.
+  - **The project CLAUDE.md's "byte-identical copy" is not literally true** of `src/roof/`.
