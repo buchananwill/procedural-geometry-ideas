@@ -1242,8 +1242,8 @@ function runSimplePolygon(nodes: Vector2[], perceptualFloor: number, weights?: r
 
     initInteriorEdges(context);
 
-    // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where part A's probe checks the
-    // links. `null` in a normal solve.
+    // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the standing gate's probe checks
+    // the links (decision 23), and the end of the solve, where it counts it. `null` in a normal solve.
     const probe = activeWavefrontProbe();
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]

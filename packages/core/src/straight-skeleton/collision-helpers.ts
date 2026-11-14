@@ -35,6 +35,7 @@ import {
     weightedRateSumRoundingBound,
 } from "./constants";
 import {NO_COLLISION_RESULTS} from "./constants";
+import {areNeighbours} from "./wavefront";
 import {
     generateSplitEventFromTheEdgeItself,
     generateSplitEventViaBisector,
@@ -599,7 +600,9 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1, budget1);
     const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2, budget2);
 
-    const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
+    // NEIGHBOURS BY LINK, NOT BY A SHARED PARENT (BSA.F97 finding 3, BSA.D293): once an exterior edge bounds
+    // two segments of one ring, two bisectors that share it need not be adjacent.
+    const neighbours = areNeighbours(context, edgeA.id, edgeB.id);
 
     // W-spec W23. The two participants must agree on WHEN the meeting happens, which under weights
     // is an equi-time question and not an equi-distance one; the sign test stays on the distance,
@@ -611,7 +614,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW)
         || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
-        : anyShared
+        : neighbours
             ? 'interiorPair'
             : 'interiorNonAdjacent';
 
@@ -666,7 +669,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
  *     which the two agree, and the normal lane would return no event; the completion instead meets
  *     them at the MIDPOINT of the separation, which is where two equal-rate fronts meet;
  *   - the event is never classified `phantomDivergentOffset`: the completion is the explicit claim
- *     that these two rays DO collide, so its type is the parent-sharing classification alone.
+ *     that these two rays DO collide, so its type is the neighbour classification alone (by link).
  */
 export function priceHeadOnPair(
     edgeA: InteriorEdge,
@@ -690,7 +693,7 @@ export function priceHeadOnPair(
     const pairArrival = arrivalOffsetOfPair(
         arrivalOf(edgeA, context, ray1, alongRay1, budget1),
         arrivalOf(edgeB, context, ray2, alongRay2, budget2));
-    const anyShared = checkSharedParents(edgeA.id, edgeB.id, context).includes(true);
+    const neighbours = areNeighbours(context, edgeA.id, edgeB.id);
     const position = findPositionAlongRay(ray1, alongRay1);
 
     return {
@@ -701,7 +704,7 @@ export function priceHeadOnPair(
         collidingEdges: [edgeA.id, edgeB.id],
         position,
         intersectionData: [separation, separation, 'head-on'],
-        eventType: anyShared ? 'interiorPair' : 'interiorNonAdjacent',
+        eventType: neighbours ? 'interiorPair' : 'interiorNonAdjacent',
     };
 }
 
@@ -797,6 +800,11 @@ export function findOrComputeCollision(
     return result;
 }
 
+/**
+ * Which parents two bisectors share. NOT A TEST OF ADJACENCY, and the solver no longer asks it as one: two
+ * bisectors are neighbours when the wavefront's links say so (`areNeighbours`, BSA.D293). Kept exported for
+ * its callers outside the solver.
+ */
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {
     const {clockwise: e1CwParent, widdershins: e1WsParent} = context.parentEdges(edge1);
     const {clockwise: e2CwParent, widdershins: e2WsParent} = context.parentEdges(edge2);

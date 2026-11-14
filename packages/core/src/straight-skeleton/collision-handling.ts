@@ -1,6 +1,5 @@
 import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "./types";
-import {checkSharedParents} from "./collision-helpers";
-import {linkPairCollapse, linkSplit, linkVertexToVertex} from "./wavefront";
+import {linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
 
 
 /**
@@ -8,8 +7,8 @@ import {linkPairCollapse, linkSplit, linkVertexToVertex} from "./wavefront";
  *
  * EACH BRANCH WRITES THE WAVEFRONT'S LINKS IN THE SAME ACT (skeleton wavefront-order spec, decision 9),
  * from the participants it holds: its bisections are not born yet, so they are linked as pending births
- * that the layer replaces by their ids when it creates them (`wavefront.ts`). Nothing here reads a link to
- * decide anything; the parameters returned are exactly what they were.
+ * that the layer replaces by their ids when it creates them (`wavefront.ts`). The one link read here is the
+ * pair collapse's: which collider stands on which side.
  */
 function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
 
@@ -27,10 +26,14 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         const otherInterior = context.getInteriorWithId(target);
         context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
-        const parentSharing = checkSharedParents(instigator, target, context);
-
-        const widdershinsCollider = parentSharing[0] ? interiorEdge : otherInterior;
-        const clockwiseCollider = parentSharing[1] ? interiorEdge : otherInterior;
+        // WHICH COLLIDER STANDS ON WHICH SIDE IS READ FROM THE LINKS (BSA.F97 finding 3, BSA.D293): the
+        // widdershins collider is the one whose clockwise neighbour is the other. A shared parent cannot say
+        // it once an exterior edge bounds two segments of one ring. Two bisectors that are not neighbours
+        // have no sides, and `linkPairCollapse` refuses them.
+        const sides = pairCollapseSides(context, instigator, target);
+        const [widdershinsCollider, clockwiseCollider] = sides === undefined
+            ? [interiorEdge, otherInterior]
+            : sides.map(id => id === instigator ? interiorEdge : otherInterior);
 
         context.accept(widdershinsCollider.id);
         context.accept(clockwiseCollider.id);

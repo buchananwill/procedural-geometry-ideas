@@ -231,14 +231,22 @@ export function makeStraightSkeletonSolverContext(
      *
      * In ascending order of `from`. Where several segments would validate a split, the first is taken (decision
      * 11); on the corpus, the sweep and the census no split ever validated on more than one.
+     *
+     * A SEGMENT WHOSE `to` IS NOT LIVE THROWS (BSA.D293): it is a broken link (W1), and dropping it silently
+     * would hide the break from the split that asked. No roster reaches it (0 of about 6.1 million segments).
      */
     function activeExteriorEdgeSegments(edgeId: number): EdgeSection[] {
         if (edgeRank(edgeId) !== 'exterior') {
             throw new Error("Can only find active sections for exterior edges.")
         }
 
-        return wavefrontSegmentsOf(context, edgeId)
-            .filter(segment => segment.to >= graph.numExteriorNodes && !acceptedEdges[segment.to])
+        const segments = wavefrontSegmentsOf(context, edgeId);
+        const broken = segments.find(segment => segment.to < graph.numExteriorNodes || acceptedEdges[segment.to]);
+        if (broken !== undefined) {
+            throw new Error(`Segment (e${broken.from}, e${broken.to}) of edge ${edgeId} ends on e${broken.to}, `
+                + `which is not a live bisector: the wavefront's links are broken.`);
+        }
+        return segments
             .map(segment => ({
                 widdershinsBisector: getInteriorWithId(segment.from),
                 clockwiseBisector: getInteriorWithId(segment.to),

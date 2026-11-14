@@ -14,16 +14,21 @@ import type {
  * Every live bisector holds its two neighbours around the wavefront, a ring is an orbit of
  * `clockwiseNeighbour`, and a segment of an exterior edge is a linked pair `(from, to)`. The links are
  * WRITTEN BY THE EVENTS, each from the participants it holds (spec decision 9), and NEVER RECOVERED
- * AFTERWARDS (decision 10): no code here or in the solver finds a neighbour by searching for a bisector
- * with a matching parent or by id distance, because that search is ambiguous as soon as one exterior
- * edge bounds two segments of one ring.
+ * AFTERWARDS (decision 10): no reader of order finds a neighbour by searching for a bisector with a
+ * matching parent or by id distance, because that search is ambiguous as soon as one exterior edge bounds
+ * two segments of one ring. Two bisectors are neighbours when the links say so ({@link areNeighbours}).
+ * The one id interval left in the event path is `partitionSpan` (`selectPartitionEvents`), which orders a
+ * layer's partition births and finds no neighbour (decision 33).
  *
- * THE LINKS ARE THE SOLVER'S ONE SOURCE OF WAVEFRONT ORDER (part B, decisions 19 to 22): an edge's
- * segments, the neighbour guard, a step's rings and a partitioning layer's child steps are all read from
- * them, and `checkWavefront` holds them to W1 to W4 at every step boundary in the suite (decision 23).
+ * THE LINKS ARE THE SOLVER'S ONE SOURCE OF WAVEFRONT ORDER (decisions 19 to 22): an edge's segments, the
+ * neighbour guard, a step's rings, a partitioning layer's child steps, whether two colliding bisectors are
+ * neighbours and which side of a pair collapse each stands on are all read from them, and `checkWavefront`
+ * holds them to W1 to W4 at every step boundary in the suite (decision 23).
  *
- * WRITING NEVER THROWS. A link write that meets a state it does not expect writes what its participants
- * say and leaves the judgement to {@link checkWavefront}.
+ * WRITING NEVER THROWS, WITH ONE EXCEPTION. A link write that meets a state it does not expect writes what
+ * its participants say and leaves the judgement to {@link checkWavefront}. The exception is
+ * {@link linkPairCollapse}, which refuses two bisectors that are not neighbours (BSA.D293): collapsing them
+ * as though they were would splice out everything between them, which no later check could attribute.
  */
 
 /** The value a non-live bisector (and every exterior edge slot) holds in both arrays. */
@@ -72,6 +77,8 @@ export function openWavefrontSlot(context: StraightSkeletonSolverContext, edgeId
 interface PendingLinks {
     clockwise: number;
     widdershins: number;
+    /** The parents the bisector will be born with. */
+    params: BisectionParams;
 }
 
 /** A cut a split made in one segment of `edge`: `before` now closes the piece behind the cut, `after` opens the piece ahead of it. */
@@ -182,7 +189,7 @@ function linkPendingBirth(
 ): number {
     const layer = layerOf(context);
     const token = layer.nextToken--;
-    layer.pending.set(token, {clockwise, widdershins});
+    layer.pending.set(token, {clockwise, widdershins, params});
     layer.tokenOf.set(params, token);
     setClockwise(context, widdershins, token);
     setWiddershins(context, clockwise, token);
@@ -208,6 +215,92 @@ export function linkBirth(context: StraightSkeletonSolverContext, params: Bisect
     context.wavefront.widdershinsNeighbour[id] = widdershins;
     setClockwise(context, widdershins, id);
     setWiddershins(context, clockwise, id);
+}
+
+/** The parents of a live bisector or a pending birth, or `undefined` for anything else. */
+function parentsOf(context: StraightSkeletonSolverContext, id: number): {clockwise: number; widdershins: number} | undefined {
+    if (isToken(id)) {
+        const params = layers.get(context)?.pending.get(id)?.params;
+        return params === undefined
+            ? undefined
+            : {clockwise: params.clockwiseExteriorEdgeIndex, widdershins: params.widdershinsExteriorEdgeIndex};
+    }
+    if (!isLiveBisector(context, id)) {
+        return undefined;
+    }
+    const edge = context.getInteriorWithId(id);
+    return {clockwise: edge.clockwiseExteriorEdgeIndex, widdershins: edge.widdershinsExteriorEdgeIndex};
+}
+
+/**
+ * Which of these pending births may go unborn without breaking W2 (BSA.F97 finding 1, BSA.D293).
+ *
+ * A birth that is never born is spliced out when the layer settles, joining its two neighbours, and the
+ * splice is sound only if their parents meet. The candidates are taken in maximal runs of consecutive
+ * pending births, because a run goes together: a run bounded by two neighbours may go only if the clockwise
+ * parent of the one is the widdershins parent of the other. A whole ring of candidates is the run whose two
+ * ends are each other's neighbours, so it goes exactly when it is sound by W2 itself, which is the case the
+ * rosters meet (a pair of re-reports born at one node with each other's parents). A run bounded by a
+ * neighbour that is neither live nor pending may go: the links are already broken there, and the judgement
+ * is {@link checkWavefront}'s.
+ *
+ * Asked by the same-start, same-source dedupe, which takes such events for re-reports of one split: two
+ * splits sited at one point are no re-report, and dropping either leaves its neighbours with parents that
+ * do not meet.
+ */
+export function droppableBirths(
+    context: StraightSkeletonSolverContext,
+    candidates: readonly BisectionParams[],
+): Set<BisectionParams> {
+    const layer = layers.get(context);
+    const droppable = new Set<BisectionParams>();
+    const candidateOf = new Map<number, BisectionParams>();
+    for (const params of candidates) {
+        const token = layer?.tokenOf.get(params);
+        if (token === undefined || !layer!.pending.has(token)) {
+            // Not linked anywhere: going unborn changes no link.
+            droppable.add(params);
+        } else {
+            candidateOf.set(token, params);
+        }
+    }
+
+    const placed = new Set<number>();
+    for (const token of candidateOf.keys()) {
+        if (placed.has(token)) {
+            continue;
+        }
+        // The run's first token: walk widdershins while the neighbour is a candidate too.
+        let first = token;
+        for (let hops = 0; hops <= candidateOf.size; hops++) {
+            const previous = widdershinsOf(context, first);
+            if (!candidateOf.has(previous) || previous === token) {
+                break;
+            }
+            first = previous;
+        }
+        const run: number[] = [first];
+        let last = first;
+        for (let hops = 0; hops <= candidateOf.size; hops++) {
+            const next = clockwiseOf(context, last);
+            if (!candidateOf.has(next) || next === first) {
+                break;
+            }
+            run.push(next);
+            last = next;
+        }
+        run.forEach(id => placed.add(id));
+
+        const widdershins = parentsOf(context, widdershinsOf(context, first));
+        const clockwise = parentsOf(context, clockwiseOf(context, last));
+        const mayGo = widdershins === undefined
+            || clockwise === undefined
+            || widdershins.clockwise === clockwise.widdershins;
+        if (mayGo) {
+            run.forEach(id => droppable.add(candidateOf.get(id)!));
+        }
+    }
+    return droppable;
 }
 
 /**
@@ -245,9 +338,40 @@ export function linkInitialRing(context: StraightSkeletonSolverContext, clockwis
 }
 
 /**
+ * Are `a` and `b` neighbours on the wavefront: is either the other's clockwise neighbour? This, and never
+ * a shared parent, is what makes two colliding bisectors a pair collapse (BSA.F97 finding 3, BSA.D293):
+ * once an exterior edge bounds two segments of one ring, two bisectors that share it need not be adjacent.
+ */
+export function areNeighbours(context: StraightSkeletonSolverContext, a: number, b: number): boolean {
+    return clockwiseOf(context, a) === b || clockwiseOf(context, b) === a;
+}
+
+/**
+ * The pair collapse's two sides, from the links: `[widdershins, clockwise]`, where the widdershins collider
+ * is the one whose clockwise neighbour is the other. `undefined` when the two are not neighbours.
+ */
+export function pairCollapseSides(
+    context: StraightSkeletonSolverContext,
+    a: number,
+    b: number,
+): [number, number] | undefined {
+    if (clockwiseOf(context, a) === b) {
+        return [a, b];
+    }
+    if (clockwiseOf(context, b) === a) {
+        return [b, a];
+    }
+    return undefined;
+}
+
+/**
  * The pair collapse: two adjacent bisectors meet and one bisector replaces them. `widdershinsCollider`
  * is the one on the widdershins side, whose clockwise neighbour is `clockwiseCollider`; the new bisector
  * takes the widdershins collider's widdershins neighbour and the clockwise collider's clockwise neighbour.
+ *
+ * REFUSES A PAIR THAT IS NOT ADJACENT, by throwing (BSA.D293): the one link write that does. Linked as
+ * though they were neighbours, two bisectors with others between them would cut those others out of
+ * every ring.
  */
 export function linkPairCollapse(
     context: StraightSkeletonSolverContext,
@@ -256,6 +380,10 @@ export function linkPairCollapse(
     clockwiseCollider: number,
     params: BisectionParams,
 ): void {
+    if (clockwiseOf(context, widdershinsCollider) !== clockwiseCollider) {
+        throw new Error(`Pair collapse of e${widdershinsCollider} and e${clockwiseCollider}, which are not neighbours `
+            + `on the wavefront (e${widdershinsCollider}'s clockwise neighbour is e${clockwiseOf(context, widdershinsCollider)}).`);
+    }
     const widdershins = widdershinsOf(context, widdershinsCollider);
     const clockwise = clockwiseOf(context, clockwiseCollider);
     retireBisectors(context, participants);
@@ -322,6 +450,29 @@ function alongEdge(context: StraightSkeletonSolverContext, edge: number, from: V
 }
 
 /**
+ * Every bisector, live or pending, on the ring through `start`: its orbit of clockwise links, in this
+ * layer's current state. An orbit that breaks is returned as far as it went.
+ */
+function ringThrough(context: StraightSkeletonSolverContext, start: number): Set<number> {
+    const ring = new Set<number>([start]);
+    const limit = context.wavefront.clockwiseNeighbour.length + (layers.get(context)?.pending.size ?? 0);
+    let current = clockwiseOf(context, start);
+    while (current !== start && current !== NOT_LIVE && !ring.has(current) && ring.size <= limit) {
+        ring.add(current);
+        current = clockwiseOf(context, current);
+    }
+    return ring;
+}
+
+/** One piece of a struck segment that earlier splits of this layer have cut: `from` to `end`. */
+interface Piece {
+    from: number;
+    end: number;
+    /** The cut that closes this piece; absent on the last piece, which runs on to the segment's `to`. */
+    cut?: Division;
+}
+
+/**
  * The split (spec decisions 11 and 12): the instigator strikes `segment`, and four links are rewritten.
  * `segment.from` goes to the new bisector whose widdershins parent is the struck edge (`towardsClockwise`,
  * the instigator's clockwise parent beside it), which goes on to the instigator's clockwise neighbour; the
@@ -331,6 +482,15 @@ function alongEdge(context: StraightSkeletonSolverContext, edge: number, from: V
  *
  * The segment was named when the event was generated, so an earlier event of this layer may have replaced
  * either end or cut the segment itself; it is read through that layer's records (see the layer note above).
+ *
+ * WHICH PIECE OF A CUT SEGMENT THE STRIKE TAKES IS DECIDED BY THE LINKS (BSA.F97 finding 1, BSA.D293): the
+ * piece on the instigator's own ring. An earlier split divided the ring it cut, leaving the piece behind its
+ * cut on one ring and the piece ahead on the other, so where the instigator stands on the ring relative to
+ * the earlier instigator decides it. A position along the edge cannot: two splits sited at one point (the
+ * coincidence clustering re-sites them to one medoid) tie, and a tie read either way is wrong for one of
+ * the two orders the instigators can stand in. Only where the instigator's ring holds no piece at all — a
+ * strike that joins two rings, which one input loop never makes — does the position along the edge decide,
+ * as the one reading left.
  */
 export function linkSplit(
     context: StraightSkeletonSolverContext,
@@ -346,24 +506,33 @@ export function linkSplit(
         return;
     }
 
-    let from = successorOn(context, layer.clockwiseSuccessor, segment.from);
+    const segmentFrom = successorOn(context, layer.clockwiseSuccessor, segment.from);
     const to = successorOn(context, layer.widdershinsSuccessor, segment.to);
 
-    // Walk the cuts earlier splits of this layer made in the segment, to the piece the strike lands in.
-    let end = clockwiseOf(context, from);
-    let pieceEnd = to;
+    // Walk the cuts earlier splits of this layer made in the segment, in order along the edge, into pieces.
+    const pieces: Piece[] = [];
+    let pieceFrom = segmentFrom;
+    let end = clockwiseOf(context, pieceFrom);
     for (let hops = 0; end !== to && hops < 64; hops++) {
         const division = layer.divisions.get(end);
         if (division === undefined || division.edge !== segment.exteriorEdge) {
             break;
         }
-        if (alongEdge(context, segment.exteriorEdge, division.position, position) < 0) {
-            pieceEnd = end;
-            break;
-        }
-        from = division.after;
-        end = clockwiseOf(context, from);
+        pieces.push({from: pieceFrom, end, cut: division});
+        pieceFrom = division.after;
+        end = clockwiseOf(context, pieceFrom);
     }
+    pieces.push({from: pieceFrom, end: to});
+
+    let struck = pieces[0];
+    if (pieces.length > 1) {
+        const ring = ringThrough(context, instigator);
+        struck = pieces.find(piece => ring.has(piece.from))
+            ?? pieces.find(piece => piece.cut === undefined
+                || alongEdge(context, segment.exteriorEdge, piece.cut.position, position) < 0)!;
+    }
+    const from = struck.from;
+    const pieceEnd = struck.end;
 
     const instigatorClockwise = clockwiseOf(context, instigator);
     const instigatorWiddershins = widdershinsOf(context, instigator);
@@ -558,9 +727,10 @@ export function checkWavefront(context: StraightSkeletonSolverContext, inputs: r
 // ── The standing gate's hook (spec decision 23) ──────────────────────────────────────────────────
 
 /**
- * The hook `checkWavefront`'s standing gate runs through. OFF IN A NORMAL SOLVE: the two call sites in
- * `runSimplePolygon` (and its stepped twin) read {@link activeWavefrontProbe} and do nothing more when it is
- * `null`. Installed only by the test suite. Part A's comparison hooks went with the arithmetic they compared.
+ * The hook `checkWavefront`'s standing gate runs through. OFF IN A NORMAL SOLVE: its call sites read
+ * {@link activeWavefrontProbe} and do nothing more when it is `null` — in `runSimplePolygon`, the boundary
+ * after `initInteriorEdges`, the boundary after each `stepAlgorithm`, and `solveFinished` at the end; in
+ * `runSimplePolygonStepped`, the same boundaries and no `solveFinished`. Installed only by the test suite.
  */
 export interface WavefrontProbe {
     /** After `initInteriorEdges`, and after each `stepAlgorithm` returns, with the inputs still to run. */

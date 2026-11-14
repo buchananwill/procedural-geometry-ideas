@@ -6,7 +6,7 @@
  * The 642-cell sweep and the recursion census's regions run in `wavefront-order-sweep.test.ts` and
  * `wavefront-order-census.test.ts`; spec decision 32's red cells in `wavefront-order-early-acceptance.test.ts`.
  */
-import type {CollisionEvent, StraightSkeletonSolverContext, WavefrontSegment} from '@proc-geo/core';
+import type {BisectionParams, CollisionEvent, StraightSkeletonSolverContext, WavefrontSegment} from '@proc-geo/core';
 import {
     bisectWithParams,
     checkWavefront,
@@ -14,11 +14,20 @@ import {
     handleCollisionEvent,
     ringsOfWavefront,
     setSkeletonLogLevel,
-    solveSkeleton,
 } from '@proc-geo/core';
-import {beginLayerLinks, linkBirth, settleLayerLinks} from '@proc-geo/core/straight-skeleton/wavefront';
+import {selectPartitionEvents} from '@proc-geo/core/straight-skeleton/algorithm-complex-cases';
+import {priceHeadOnPair} from '@proc-geo/core/straight-skeleton/collision-helpers';
+import {
+    activeWavefrontProbe,
+    beginLayerLinks,
+    linkBirth,
+    linkInitialRing,
+    linkPairCollapse,
+    retireBisectors,
+    settleLayerLinks,
+} from '@proc-geo/core/straight-skeleton/wavefront';
 import {CROSS, FULL_CORPUS, initContext, T_SHAPE, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
-import {describeReport, emptyReport, withWavefrontProbe} from './wavefront-probe-helpers';
+import {corpusRoster, describeReport, runRoster, unaccountedEntries} from './wavefront-probe-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -189,29 +198,262 @@ describe('the wavefront links', () => {
         });
     });
 
+    /*
+     * COINCIDENT SPLITS OF ONE SEGMENT (BSA.F97 finding 1, BSA.D293). Two instigators strike one segment at one
+     * point in one layer — the reviewer's ring `from → to → P → Ix → Q → Iy → R`, with `(from, to)` the struck
+     * segment of edge 0. No roster reaches it, so it is built: a clockwise heptagon whose ring is b0 → … → b6,
+     * whose segment (b0, b1) is struck at one point by b3 (Ix) and by b5 (Iy). Each split divides its own
+     * ring, so whichever split is resolved first the layer leaves three rings: [from, by, R], [bx, Q, ay] and
+     * [to, P, ax], where bx and ax are the bisectors Ix's split bears (towards its clockwise side, and towards
+     * its widdershins side) and by and ay are Iy's.
+     *
+     * Both orders are asserted because the defect is in one of them: the two positions along the edge tie,
+     * and a tie read as "ahead of the earlier cut" is right only when the earlier instigator stands
+     * clockwise-after the later one. The wrong answer joins two of the three rings into one that still
+     * satisfies W1 to W4, so the rings themselves are asserted, not only `checkWavefront`.
+     */
+    describe('coincident splits of one segment (BSA.F97 finding 1)', () => {
+        const HEPTAGON = Array.from({length: 7}, (_, i) => ({
+            x: Math.cos(Math.PI / 2 - 2 * Math.PI * i / 7),
+            y: Math.sin(Math.PI / 2 - 2 * Math.PI * i / 7),
+        }));
+        const AT = {x: 0.1, y: 0.2};
+        const ORDERS = [['Ix', 'Iy'], ['Iy', 'Ix']] as const;
+
+        const splitOf = (instigator: number, segment: WavefrontSegment): CollisionEvent => ({
+            offsetDistance: 0.5,
+            arrival: {distance: 0.5, weight: 1, uncertainty: 0},
+            positionUncertainty: 0,
+            collidingEdges: [instigator, segment.exteriorEdge],
+            position: AT,
+            intersectionData: [0.5, 0.5, 'converging'],
+            eventType: 'interiorAgainstExterior',
+            struckSegment: segment,
+        });
+
+        /** A ring read from its smallest id, and a set of rings in order of their first ids. */
+        const canonical = (rings: number[][]) => rings
+            .map(ring => {
+                const start = ring.indexOf(Math.min(...ring));
+                return [...ring.slice(start), ...ring.slice(0, start)];
+            })
+            .toSorted((a, b) => a[0] - b[0]);
+
+        /** One layer: both splits resolved in `order`, named struck segment (b0, b1) as at generation. */
+        const coincidentLayer = (order: readonly ('Ix' | 'Iy')[]) => {
+            const context = initContext(HEPTAGON);
+            const [from, to, P, Ix, Q, Iy, R] = interiorIds(context);
+            expect(context.getInteriorWithId(from).clockwiseExteriorEdgeIndex).toBe(0);
+            expect(context.getInteriorWithId(to).widdershinsExteriorEdgeIndex).toBe(0);
+            const segment: WavefrontSegment = {exteriorEdge: 0, from, to};
+            const instigators = {Ix, Iy};
+            beginLayerLinks(context);
+            const borne = new Map<'Ix' | 'Iy', BisectionParams[]>();
+            for (const name of order) {
+                borne.set(name, handleCollisionEvent(splitOf(instigators[name], segment), context));
+            }
+            const handled = order.flatMap(name => borne.get(name)!);
+            expect(handled).toHaveLength(4);
+            return {context, ids: {from, to, P, Q, R}, borne, handled};
+        };
+
+        const bearAndSettle = (context: StraightSkeletonSolverContext, params: BisectionParams[]) => {
+            const ids = new Map(params.map(p => {
+                const id = bisectWithParams(context, p);
+                linkBirth(context, p, id);
+                return [p, id] as const;
+            }));
+            settleLayerLinks(context);
+            return ids;
+        };
+
+        const expectThreeRings = (layer: ReturnType<typeof coincidentLayer>, born: Map<BisectionParams, number>) => {
+            const {context, ids: {from, to, P, Q, R}, borne} = layer;
+            const [bx, ax] = borne.get('Ix')!.map(p => born.get(p)!);
+            const [by, ay] = borne.get('Iy')!.map(p => born.get(p)!);
+            const live = [from, to, P, Q, R, bx, ax, by, ay];
+            const rings = ringsOfWavefront(context, live);
+            expect(canonical(rings)).toEqual(canonical([[from, by, R], [bx, Q, ay], [to, P, ax]]));
+            expect(checkWavefront(context, rings.map(ring => ({interiorEdges: ring})))).toEqual([]);
+        };
+
+        it.each(ORDERS)('the later split takes the piece on its own ring (%s, then %s)', (...order) => {
+            const layer = coincidentLayer(order);
+            expectThreeRings(layer, bearAndSettle(layer.context, layer.handled));
+        });
+
+        it.each(ORDERS)('the same-start, same-source dedupe keeps a bisector W2 needs (%s, then %s)', (...order) => {
+            // ax and ay share their clockwise parent (edge 0) and their source (the one node both splits are
+            // sited on), which is the dedupe's key for a re-report of one split. They are two splits, and
+            // splicing either out leaves its two neighbours with parents that do not meet.
+            const layer = coincidentLayer(order);
+            const kept = selectPartitionEvents(layer.context, layer.handled);
+            expectThreeRings(layer, bearAndSettle(layer.context, kept));
+        });
+    });
+
+    /*
+     * ADJACENCY BY LINK (BSA.F97 finding 3, BSA.D293). Two bisectors collapse as neighbours when the links say
+     * they are neighbours, never because they share a parent: once an exterior edge bounds two segments of one
+     * ring, two bisectors that share it need not be adjacent. Built by hand, since no roster reaches it: the
+     * heptagon's ring re-linked as the single ring its two coincident splits would make if the second struck
+     * the wrong piece — sound by W1 to W4, with edge 0 bounding three of its segments.
+     */
+    describe('adjacency is read from the links (BSA.F97 finding 3)', () => {
+        const HEPTAGON = Array.from({length: 7}, (_, i) => ({
+            x: Math.cos(Math.PI / 2 - 2 * Math.PI * i / 7),
+            y: Math.sin(Math.PI / 2 - 2 * Math.PI * i / 7),
+        }));
+
+        const oneRingWithThreeSegmentsOfEdge0 = () => {
+            const context = initContext(HEPTAGON);
+            const [b0, b1, b2, b3, b4, b5, b6] = interiorIds(context);
+            const node = context.terminateEdgesAtPoint([b3, b5], {x: 0.1, y: 0.2}, 0);
+            context.acceptAll([b3, b5]);
+            retireBisectors(context, [b3, b5]);
+            const bear = (clockwise: number, widdershins: number) => bisectWithParams(context, {
+                clockwiseExteriorEdgeIndex: clockwise, widdershinsExteriorEdgeIndex: widdershins, source: node.id,
+            });
+            const bx = bear(3, 0);
+            const ax = bear(0, 2);
+            const by = bear(5, 0);
+            const ay = bear(0, 4);
+            const ring = [b0, bx, b4, ay, b1, b2, ax, by, b6];
+            linkInitialRing(context, ring);
+            expect(checkWavefront(context, [{interiorEdges: ring}])).toEqual([]);
+            return {context, b0, b1, bx, ring};
+        };
+
+        it('two bisectors that share a parent but are not neighbours do not collide as a pair', () => {
+            const {context, b0, b1} = oneRingWithThreeSegmentsOfEdge0();
+            expect(context.getInteriorWithId(b0).clockwiseExteriorEdgeIndex)
+                .toBe(context.getInteriorWithId(b1).widdershinsExteriorEdgeIndex);
+            const meeting = collideEdges(b0, b1, context).find(event => event.collidingEdges[1] === b1);
+            expect(meeting).toBeDefined();
+            expect(meeting!.eventType).toBe('interiorNonAdjacent');
+            // The coaxial completion prices a named pair the same way.
+            expect(priceHeadOnPair(context.getInteriorWithId(b0), context.getInteriorWithId(b1), context).eventType)
+                .toBe('interiorNonAdjacent');
+        });
+
+        it('the pair collapse refuses two bisectors that are not neighbours', () => {
+            const {context, b0, b1} = oneRingWithThreeSegmentsOfEdge0();
+            beginLayerLinks(context);
+            const params: BisectionParams = {
+                clockwiseExteriorEdgeIndex: context.getInteriorWithId(b1).clockwiseExteriorEdgeIndex,
+                widdershinsExteriorEdgeIndex: context.getInteriorWithId(b0).widdershinsExteriorEdgeIndex,
+                source: 0,
+            };
+            expect(() => linkPairCollapse(context, [b0, b1], b0, b1, params)).toThrow(/not neighbours/);
+        });
+
+        it('the pair collapse takes its sides from the links, whichever collider instigates', () => {
+            // b1 and b2 of a clockwise rectangle are neighbours, b1 widdershins of b2: the collapse bisector
+            // takes b1's widdershins parent and b2's clockwise parent, and stands between b0 and b3.
+            for (const swap of [false, true]) {
+                const context = initContext([{x: 0, y: 1}, {x: 4, y: 1}, {x: 4, y: 0}, {x: 0, y: 0}]);
+                const [b0, b1, b2, b3] = interiorIds(context);
+                const event = collideEdges(b1, b2, context).find(candidate => candidate.eventType === 'interiorPair');
+                expect(event).toBeDefined();
+                beginLayerLinks(context);
+                const [collapse] = handleCollisionEvent(
+                    swap ? {...event!, collidingEdges: [b2, b1]} : event!, context);
+                expect(collapse.widdershinsExteriorEdgeIndex).toBe(context.getInteriorWithId(b1).widdershinsExteriorEdgeIndex);
+                expect(collapse.clockwiseExteriorEdgeIndex).toBe(context.getInteriorWithId(b2).clockwiseExteriorEdgeIndex);
+                const born = bisectWithParams(context, collapse);
+                linkBirth(context, collapse, born);
+                settleLayerLinks(context);
+                expect(ringsOfWavefront(context, [b0])).toEqual([[b0, born, b3]]);
+            }
+        });
+    });
+
+    /*
+     * A BROKEN LINK IS NEVER DROPPED SILENTLY (BSA.D293). An edge's segments are read from the links, and a
+     * segment whose `to` is not live is a W1 break; asked for the edge's segments, the context throws rather
+     * than leave the split that asked with one segment fewer. No roster reaches it, so it is built.
+     */
+    describe('a segment whose clockwise end is not live (BSA.D293)', () => {
+        it('throws from the split validation that reads it', () => {
+            const context = initContext(T_SHAPE);
+            const [b0, , b2] = interiorIds(context);
+            context.accept(context.wavefront.clockwiseNeighbour[b0]);
+            expect(() => context.validateSplitReachesEdge(b2, 0, {distance: 0.1, weight: 1, uncertainty: 0}))
+                .toThrow(/not a live bisector/);
+        });
+    });
+
+    /*
+     * THE GATE'S ACCOUNTING (BSA.F97 finding 2, BSA.D293), driven through the probe with hand-made boundaries:
+     * a solve's violations are discarded only from the first boundary at which decision 32's cause holds, and
+     * every solve is counted, one that throws outside `stepAlgorithm` and one that never finishes included.
+     * These state the gate's mechanism on built inputs; which roster solves trip the cause is the red file's.
+     */
+    describe('the gate counts every solve and asserts every violation before the cause', () => {
+        const probe = () => activeWavefrontProbe()!;
+        /** A T-shape context whose every interior edge has a target, so a finished solve reads as complete. */
+        const finishedContext = () => {
+            const context = initContext(T_SHAPE);
+            context.graph.interiorEdges.forEach(edge => {
+                context.graph.edges[edge.id].target = 0;
+            });
+            return context;
+        };
+
+        it('asserts the violations at boundaries before the cause and discards those from it on', () => {
+            const report = runRoster([{
+                label: 'built',
+                run: () => {
+                    const context = finishedContext();
+                    const ids = interiorIds(context);
+                    // Boundary 0: one input that leaves out a live bisector (W3), with no accepted parent yet.
+                    probe().stepBoundary!(context, [{interiorEdges: ids.slice(1)}]);
+                    // Boundary 1: an exterior edge accepted while the bisectors that name it are live.
+                    context.accept(context.getInteriorWithId(ids[2]).clockwiseExteriorEdgeIndex);
+                    probe().stepBoundary!(context, [{interiorEdges: ids.slice(1)}]);
+                    probe().solveFinished!(context, []);
+                },
+            }]);
+            expect(report.solves).toBe(1);
+            expect(report.completeSolves).toBe(1);
+            expect(report.violations.length).toBeGreaterThan(0);
+            expect(report.violations.every(v => v.step === 0)).toBe(true);
+            expect(report.earlyAcceptanceSolves).toHaveLength(1);
+            expect(report.earlyAcceptanceSolves[0].fromStep).toBe(1);
+            expect(report.earlyAcceptanceSolves[0].discarded).toBeGreaterThan(0);
+        });
+
+        it('counts a solve that throws outside stepAlgorithm, and records the throw on its entry', () => {
+            const report = runRoster([{
+                label: 'thrown',
+                run: () => {
+                    const context = finishedContext();
+                    probe().stepBoundary!(context, [{interiorEdges: interiorIds(context)}]);
+                    throw new Error('outside stepAlgorithm');
+                },
+            }]);
+            expect(report.solves).toBe(1);
+            expect(report.thrownSolves).toEqual([{label: 'thrown', step: 1}]);
+            expect(report.entries).toEqual([{label: 'thrown', solves: 1, error: 'outside stepAlgorithm'}]);
+        });
+
+        it('names an entry that ran no solve and threw nothing', () => {
+            const report = runRoster([{label: 'silent', run: () => undefined}]);
+            expect(unaccountedEntries(report)).toEqual([{label: 'silent', solves: 0}]);
+        });
+    });
+
     describe('the gate: W1 to W4 at every step boundary (decision 15)', () => {
         it('holds on every FULL_CORPUS fixture and every weighted fixture that solves completely', () => {
-            const report = emptyReport();
-            let label = '';
-            withWavefrontProbe(report, () => label, () => {
-                for (const floor of [1e-6, 1e-5]) {
-                    for (const fixture of FULL_CORPUS) {
-                        label = `corpus@${floor}:${fixture.name}`;
-                        solveSkeleton(fixture.vertices, {perceptualFloor: floor});
-                    }
-                }
-                for (const fixture of WEIGHTED_TEST_POLYGONS) {
-                    label = `weighted:${fixture.name}`;
-                    try {
-                        solveSkeleton(fixture.vertices, {weights: fixture.weights});
-                    } catch {
-                        // A refusal at the weight door (§4's refusal fixtures) runs no solve.
-                    }
-                }
-            });
+            const roster = corpusRoster();
+            expect(roster).toHaveLength(2 * FULL_CORPUS.length + WEIGHTED_TEST_POLYGONS.length);
+            const report = runRoster(roster);
             // eslint-disable-next-line no-console
             console.log(describeReport('FULL_CORPUS at 1e-6 and 1e-5, and the weighted fixtures', report));
-            expect(report.solves).toBeGreaterThan(FULL_CORPUS.length);
+            expect(report.entries).toHaveLength(roster.length);
+            // No corpus fixture throws; a weighted fixture may, refused at the weight door. Each is recorded.
+            expect(report.entries.filter(entry => entry.label.startsWith('corpus@') && entry.error !== undefined)).toEqual([]);
+            expect(unaccountedEntries(report)).toEqual([]);
             expect(report.violations).toEqual([]);
         });
     });

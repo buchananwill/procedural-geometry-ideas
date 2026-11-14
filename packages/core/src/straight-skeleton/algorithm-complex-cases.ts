@@ -21,6 +21,7 @@ import {
 } from "./coincident-events";
 import {
     beginLayerLinks,
+    droppableBirths,
     linkBirth,
     retireBisectors,
     ringsOfWavefront,
@@ -191,6 +192,81 @@ function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], con
             context.weightOf(params.widdershinsExteriorEdgeIndex))));
 }
 
+/**
+ * The partition bisectors a layer will bear, in the order it bears them: those with both parents live,
+ * sorted by span, with nested re-reports of one split removed.
+ *
+ * EXPORTED FOR ITS OWN TEST, not for other callers — see `wavefront-order.test.ts`.
+ */
+export function selectPartitionEvents(context: StraightSkeletonSolverContext, partitionEvents: BisectionParams[]): BisectionParams[] {
+    /* Clover Leaf Example:
+
+    Partition Pair 1:  [[0,4], [4,0]]
+    Partition Pair 2:  [[4,8], [8,4]]
+    Partition Pair 3:  [[8,0], [0,8]]
+
+    Outcome we want is: [[0,4], [4,8], [8,0]]
+
+    Rule is: sort by span of bisection, then clockwise bisection.
+    Span of bisection = (end - start + length) % length
+
+     * */
+    // THE ONE MODULAR ARITHMETIC ON EXTERIOR IDS LEFT IN THE EVENT PATH, AND WHY (skeleton wavefront-order
+    // spec, decisions 13 and 22, in conflict). This order no longer decides any child step — the rings do —
+    // but it is still the order the partition bisectors are BORN in, so it numbers them, and it chooses
+    // which of two same-start, same-source re-reports survives. Measured: ordering instead by the size of
+    // the ring each pending bisector closes (the link-derived reading of "the tightest claim") moves the
+    // pinned digest of 16 corpus fixtures, clean ones among them, by renumbering alone. Kept for the lead's
+    // ruling; under several loops an id span is not a ring distance, so stage 2 must replace it.
+    const partitionSpan = (params: BisectionParams) => {
+        return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
+    }
+    const sorted = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+        .toSorted((params1, params2) => {
+            const spanDelta = partitionSpan(params1) - partitionSpan(params2);
+            if (spanDelta !== 0) {
+                return spanDelta;
+            }
+
+            return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
+        });
+
+    // Same-start events are nested re-reports of ONE split only when they share the split node:
+    // each re-report widens the widdershins claim past a parent it cannot see, so the smallest
+    // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
+    // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
+    // different points in one layer — and every one of them partitions the polygon, so all
+    // survive. Which child each survivor's bisector lands in is no longer a question of spans: the
+    // child steps below are the rings the layer left.
+    //
+    // AND A RE-REPORT IS DROPPED ONLY WHERE THE LINKS AGREE IT IS ONE (BSA.F97 finding 1, BSA.D293). Two
+    // splits sited at one point share their node, so their bisectors on the struck edge's far side share a
+    // start and a source and look like a re-report; they are two splits, and dropping either leaves its two
+    // neighbours with parents that do not meet. `droppableBirths` keeps any such candidate. Every drop the
+    // rosters make goes with a whole ring of dropped births, and is kept as it was.
+    const keptSourcesByStart = new Map<number, Set<number>>();
+    const duplicates = new Set<BisectionParams>();
+    for (const partitionEvent of sorted) {
+        const start = partitionEvent.clockwiseExteriorEdgeIndex;
+        let sources = keptSourcesByStart.get(start);
+        if (sources === undefined) {
+            sources = new Set();
+            keptSourcesByStart.set(start, sources);
+        }
+        if (sources.has(partitionEvent.source)) {
+            duplicates.add(partitionEvent);
+            continue;
+        }
+
+        sources.add(partitionEvent.source);
+    }
+    if (duplicates.size === 0) {
+        return sorted;
+    }
+    const droppable = droppableBirths(context, [...duplicates]);
+    return sorted.filter(partitionEvent => !duplicates.has(partitionEvent) || !droppable.has(partitionEvent));
+}
+
 export function createCollisions(interiorEdges: number[], exteriorParents: number[], context: StraightSkeletonSolverContext): CollisionEvent[][] {
     return interiorEdges.map(e1 => {
         const list: (CollisionEvent | null)[] = [];
@@ -293,7 +369,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     // Handle collisions
     const collapseEvents: BisectionParams[] = [];
-    let partitionEvents: BisectionParams[] = [];
+    const partitionEvents: BisectionParams[] = [];
 
     const recordBisections = (bisectionList: BisectionParams[]) => {
         if (bisectionList.length > 1) {
@@ -475,61 +551,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
 
     // Collapse/partition into child
-    /* Clover Leaf Example:
-
-    Partition Pair 1:  [[0,4], [4,0]]
-    Partition Pair 2:  [[4,8], [8,4]]
-    Partition Pair 3:  [[8,0], [0,8]]
-
-    Outcome we want is: [[0,4], [4,8], [8,0]]
-
-    Rule is: sort by span of bisection, then clockwise bisection.
-    Span of bisection = (end - start + length) % length
-
-     * */
-    // THE ONE MODULAR ARITHMETIC ON EXTERIOR IDS LEFT IN THE EVENT PATH, AND WHY (skeleton wavefront-order
-    // spec, decisions 13 and 22, in conflict). This order no longer decides any child step — the rings do —
-    // but it is still the order the partition bisectors are BORN in, so it numbers them, and it chooses
-    // which of two same-start, same-source re-reports survives. Measured: ordering instead by the size of
-    // the ring each pending bisector closes (the link-derived reading of "the tightest claim") moves the
-    // pinned digest of 16 corpus fixtures, clean ones among them, by renumbering alone. Kept for the lead's
-    // ruling; under several loops an id span is not a ring distance, so stage 2 must replace it.
-    const partitionSpan = (params: BisectionParams) => {
-        return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
-    }
-    partitionEvents = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-        .toSorted((params1, params2) => {
-            const spanDelta = partitionSpan(params1) - partitionSpan(params2);
-            if (spanDelta !== 0) {
-                return spanDelta;
-            }
-
-            return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
-        });
-
-    // Same-start events are nested re-reports of ONE split only when they share the split node:
-    // each re-report widens the widdershins claim past a parent it cannot see, so the smallest
-    // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
-    // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
-    // different points in one layer — and every one of them partitions the polygon, so all
-    // survive. Which child each survivor's bisector lands in is no longer a question of spans: the
-    // child steps below are the rings the layer left.
-    const keptSourcesByStart = new Map<number, Set<number>>();
-    const finalPartitionEvents: BisectionParams[] = [];
-    for (const partitionEvent of partitionEvents) {
-        const start = partitionEvent.clockwiseExteriorEdgeIndex;
-        let sources = keptSourcesByStart.get(start);
-        if (sources === undefined) {
-            sources = new Set();
-            keptSourcesByStart.set(start, sources);
-        }
-        if (sources.has(partitionEvent.source)) {
-            continue;
-        }
-
-        sources.add(partitionEvent.source);
-        finalPartitionEvents.push(partitionEvent)
-    }
+    const finalPartitionEvents = selectPartitionEvents(context, partitionEvents);
 
     const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
 
