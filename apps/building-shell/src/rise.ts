@@ -135,20 +135,21 @@ const ALONG_EPS = 1e-9;
  * keeps an extent exactly where the claimed bands that count on it tile its span end to end**, within `ALONG_EPS`.
  * `bands` are those bands, in order along the line; `span` is algorithm B's (`algorithmBSpan`).
  * - One band: the plain rule.
- * - **The sub-rule (decision 220)**: two or more bands that tile the span are one gable to algorithm B, at decision 5's
- *   pitch, the lowest index's. Bands are split where pitch, limit, `maxHeight` or facing differ (decision 6); algorithm B
- *   reads none of them beyond that one pitch, and a single band's settings are not read on a kept gable either
- *   (decision 5: no rise is built for it), so bands differing only in limit, `maxHeight` or facing keep algorithm B too.
+ * - **Journal decision 264: an extent claimed gable at two or more pitches is given up**, so that each band is built as
+ *   a rise at the pitch its Ring asked for. STRUCK by decision 264: decision 220's two-pitch sub-rule, which kept such an
+ *   extent as algorithm B's one gable at the lowest index's pitch and so did not build the other pitch.
+ * - Bands are split where pitch, limit, `maxHeight` or facing differ (decision 6). Algorithm B reads none of the last
+ *   three, and a single band's settings are not read on a kept gable either (decision 5: no rise is built for it), so
+ *   bands of one pitch that differ only in limit, `maxHeight` or facing still keep algorithm B.
  * - **Per-stretch gable settings decision 11: an extent where any band that counts stands apart is given up**, so that
  *   each of its stretches is built as a rise, its own gable. An extent with no such band is decided exactly as before.
  */
 export function algorithmBBuildsGable(bands: readonly GableRise[], span: readonly [number, number]): boolean {
   if (!bands.length) return false;
   if (bands.some(b => b.apart)) return false;
+  if (bands.some(b => b.deg !== bands[0].deg)) return false;
   const near = (p: number, q: number): boolean => Math.abs(p - q) <= ALONG_EPS;
-  const tiles = near(bands[0].lo, span[0]) && near(bands[bands.length - 1].hi, span[1]) && bands.every((x, k) => k === 0 || near(x.lo, bands[k - 1].hi));
-  // Without the sub-rule this would read `tiles && bands.length === 1`, and a two-pitch extent would become two rises.
-  return tiles;
+  return near(bands[0].lo, span[0]) && near(bands[bands.length - 1].hi, span[1]) && bands.every((x, k) => k === 0 || near(x.lo, bands[k - 1].hi));
 }
 
 /** One extent of algorithm B on a line: its span, the all-gable union walls on it, the bands that count there, its verdict. */

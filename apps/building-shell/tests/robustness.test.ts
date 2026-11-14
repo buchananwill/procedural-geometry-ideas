@@ -23,7 +23,7 @@ import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, COVERED_RISE_CELL_CLASH, COVERED_RISE_ON_CUT_LINE, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
   F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, jutCutFixtures, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
-  sweepFixtures,
+  sweepFixtures, type SplitCourtName,
 } from './robustness-fixtures.ts';
 import {
   COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS,
@@ -489,5 +489,34 @@ describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
   it.each(COVERED_RISE_REPRODUCERS.map(([f, pin]) => [f.name, f, pin] as const))('%s: exactly its pin, of the class its seeded case carries', async (_, f, pin) => {
     expect(await courtyardOutcome(f)).toEqual(pin.outcome);
     expect(causeOf(`s0h${f.storeyHeight}/${f.name}`, pin.outcome)).toBe(pin.cause);
+  });
+});
+
+// ---- Journal decisions 264, 266 and 267, F84 (WP-C1): red until their cause is fixed ----------------------------------
+
+/**
+ * Journal decision 266, the user's ruling: a test must not be green because it asserts a defect. Each case below is a
+ * split-band courtyard that throws in Cell laying, and each test asserts only that it builds, so it is red until the
+ * cause named in its issue note is fixed. They are not pins: no outcome is recorded, and a cure turns them green.
+ * - 7 built clean before journal decision 264 removed the two-pitch sub-rule, and throw since (F84).
+ * - `s6h263/SplitCourt8` and `s6h300/SplitCourt8` threw before that removal, unrecorded, and throw the other class now.
+ * The seeds are the opt-in range's, so each case is built by name on the default run.
+ */
+const RED_CELL_SIDE_SHELL_EDGE: readonly SeededKey<SplitCourtName>[] = [
+  's6h250/SplitCourt8', 's6h263/SplitCourt8', 's6h300/SplitCourt8', 's12h250/SplitCourt20', 's12h300/SplitCourt20', 's13h263/SplitCourt38', 's13h300/SplitCourt11',
+];
+const RED_TWO_CELLS_SAME_WAY: readonly SeededKey<SplitCourtName>[] = ['s13h250/SplitCourt38', 's13h300/SplitCourt38'];
+
+describe('ISSUE-building-shell-cell-side-shell-edge-mismatch.md: red until a Cell side and its neighbour read the same ShellEdge', () => {
+  it.each(RED_CELL_SIDE_SHELL_EDGE.map(k => [k] as const))('split-band courtyard %s builds', async key => {
+    const b = await buildShellDetailed(seededCase(randomSplitCourtyardFixtures, key));
+    expect(b.shell.cells.length).toBeGreaterThan(0);
+  });
+});
+
+describe('ISSUE-building-shell-two-cells-same-way-along-net-edge.md: red until no two Cells run the same way along one NetEdge', () => {
+  it.each(RED_TWO_CELLS_SAME_WAY.map(k => [k] as const))('split-band courtyard %s builds', async key => {
+    const b = await buildShellDetailed(seededCase(randomSplitCourtyardFixtures, key));
+    expect(b.shell.cells.length).toBeGreaterThan(0);
   });
 });

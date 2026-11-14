@@ -62,13 +62,15 @@ describe('gable rise decisions 1 and 5 as amended (journal decision 209)', () =>
   const gable = (deg: number) => ({S: {form: 'gable' as const, deg}});
 
   // H1: the merge of adjacent gable extents across Rings keeps the lowest index. Index 2's [0, 300] merges with index
-  // 0's [300, 600], both at 45°; index 1's [600, 900] stands at 60°. Decision 5 gives the wall index 0's 45°.
+  // 0's [300, 600], both at 45°; index 1's [600, 900] stands at 60°. Decision 5 gives the wall index 0's 45°. Journal
+  // decision 264: a wall claimed gable at two pitches is planned as a hip at that pitch, carrying a rise per pitch, so
+  // the storey's walls on y = 0 are hips at 45°.
   it('H1: a whole-wall gable takes its lowest-index extent\'s pitch when that extent merged with a higher index\'s', () => {
     const f: ShellFixture = {name: 'MergedGables', cellSize: 50, storeyHeight: 250, rings: [
       ring([300, 0, 600, 500], 0, 1, 45, gable(45)), ring([600, 0, 900, 500], 0, 1, 45, gable(60)), ring([0, 0, 300, 500], 0, 1, 45, gable(45)),
     ]};
     expect(wallOn(f, 'y', 0)).toMatchObject({form: 'gable', deg: 45});
-    expectWall(wallsOn(f, 'y', 0), 'gable', 45);
+    expectWall(wallsOn(f, 'y', 0), 'hip', 45);
   });
 
   // M2: within one Ring, the first extent along that side's own direction wins, so every compass side gives one answer.

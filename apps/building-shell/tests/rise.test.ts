@@ -345,13 +345,14 @@ describe('decision 21 and journal decision 204: the gates', () => {
 
 // ---- Gable rise decision 5 as amended by journal decision 220 ------------------------------------------------------
 
+/** The Gable faces on `y = 0` facing -y: their span, apex height and the x of their apex. */
+const yZeroGables = (b: ShellBuild) => b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[1] + 1) < 1e-9 && f.loops[0].every(p => Math.abs(p[1]) < 1e-9))
+  .map(f => {
+    const top = f.loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
+    return {lo: Math.min(...f.loops[0].map(p => p[0])), hi: Math.max(...f.loops[0].map(p => p[0])), apex: top[2], apexX: top[0]};
+  });
+
 describe('journal decision 220: a gable belongs to the Ring side that asked for it', () => {
-  /** The Gable faces on `y = 0` facing -y: their span, apex height and the x of their apex. */
-  const yZeroGables = (b: ShellBuild) => b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[1] + 1) < 1e-9 && f.loops[0].every(p => Math.abs(p[1]) < 1e-9))
-    .map(f => {
-      const top = f.loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
-      return {lo: Math.min(...f.loops[0].map(p => p[0])), hi: Math.max(...f.loops[0].map(p => p[0])), apex: top[2], apexX: top[0]};
-    });
 
   // Journal F75 and F77. Mutation: `algorithmBBuildsGable` returns true (the predicate removed, algorithm B keeps every
   // all-gable wall); then the wing's wall is a slice of a 1200 cm gable, its apex at x = 600, 248.5 cm up.
@@ -396,14 +397,37 @@ describe('journal decision 220: a gable belongs to the Ring side that asked for 
     expect(algorithmBBuildsGable([band(0, 1200)], [600, 1200])).toBe(false);
     expect(algorithmBBuildsGable([band(0, 400), band(500, 1000)], [0, 1000])).toBe(false);
     expect(algorithmBBuildsGable([], [0, 500])).toBe(false);
+    // Journal decision 264: bands of two pitches that tile the span give the extent up; bands of one pitch that tile it
+    // (split by limit, maxHeight or facing) keep it.
+    expect(algorithmBBuildsGable([band(0, 500, 30), band(500, 1000, 45)], [0, 1000])).toBe(false);
+    expect(algorithmBBuildsGable([band(0, 500, 30), {...band(500, 1000, 30), maxHeight: 200}], [0, 1000])).toBe(true);
   });
 
-  // Decision 220's sub-rule. Mutation: `algorithmBBuildsGable` requires one band; then this wall is a hip at 45° with
-  // two rises, and the split courtyard below gains a Cheek.
-  it('the sub-rule: a wall claimed gable at two pitches stays algorithm B\'s one gable', () => {
-    const f = shellFixture('TwoPitchGable', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45, runs: [{from: 500, to: 1000, form: 'gable', deg: 60}]}})]);
-    const south = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0);
-    expect(south.map(w => [w.form, w.deg, w.rises])).toEqual([['gable', 45, undefined]]);
+  // Journal decision 264, which strikes decision 220's two-pitch sub-rule: a wall claimed gable at two pitches is a hip
+  // at its lowest index's 45° carrying one rise per pitch, each at the pitch its Ring side asked for. Mutation (the
+  // sub-rule restored: `algorithmBBuildsGable` reads the tiling alone): the wall stays algorithm B's one gable over
+  // [0, 1000] at 45°, its rakes the 30° E and W hip planes, and the 60° pitch is not built.
+  const twoPitchGable = shellFixture('TwoPitchGable', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45, runs: [{from: 500, to: 1000, form: 'gable', deg: 60}]}})]);
+  it('journal decision 264: a wall claimed gable at two pitches is a hip with one rise per pitch', () => {
+    const south = storeyForms(storeyRings(twoPitchGable, 0)).walls.filter(w => w.axis === 'y' && w.at === 0);
+    expect(south.map(w => [w.form, w.deg, w.rises?.map(r => [r.lo, r.hi, r.deg])])).toEqual([['hip', 45, [[0, 500, 45], [500, 1000, 60]]]]);
+  });
+
+  // Journal decision 264, by closed form. The 60° rise over [500, 1000] has its own rake from x = 500 and, at the convex
+  // corner x = 1000, the E wall's 30° hip plane (decision 10), so its apex is where tan 60° (x - 500) = tan 30° (1000 -
+  // x): x = 625, 125 tan 60° above the plate; at x = 550 the roof top is 50 tan 60°. The 45° rise over [0, 500] meets the
+  // W wall's 30° plane at x = 500 / (1 + tan 30°). Mutation (the sub-rule restored): one Gable face over [0, 1000], its
+  // apex at x = 500, 500 tan 30° up, and 450 tan 30° at x = 550.
+  it('journal decision 264: TwoPitchGable builds its 60° pitch: apex 125 tan 60° above the plate at x = 625', async () => {
+    const b = await build(twoPitchGable);
+    const g = yZeroGables(b).sort((p, q) => p.lo - q.lo);
+    expect(g.map(x => [x.lo, x.hi])).toEqual([[0, 500], [500, 1000]]);
+    const westApexX = 500 / (1 + t(30));
+    expect(g[0].apexX).toBeCloseTo(westApexX, 2);
+    expect(g[0].apex).toBeCloseTo(250 + t(30) * westApexX, 2);
+    expect(g[1].apexX).toBeCloseTo(625, 2);
+    expect(g[1].apex).toBeCloseTo(250 + t(60) * 125, 2);
+    expect(intervalTop(b.union, 550.013, 0.517, 250.5)).toBeCloseTo(250 + t(60) * 50, 1);
   });
 });
 
@@ -412,35 +436,59 @@ describe('journal decision 220: a gable belongs to the Ring side that asked for 
 describe('journal decision 222: algorithm B\'s verdict is the line extent\'s, not a wall\'s', () => {
   const twoPitchRuns = (split: number): SideForm => ({form: 'gable', runs: [{from: 0, to: split, form: 'gable', deg: 30}, {from: split, to: 1000, form: 'gable', deg: 45}]});
   /**
-   * The review's three inputs (H1). Each puts two claimed bands of two pitches, which together tile algorithm B's extent
-   * [0, 1000] of y = 0, on two or three union walls of that one extent, so a per-wall verdict kept one wall and gave up
-   * another. The sub-rule keeps the extent: algorithm B's one gable over [0, 1000] at the lowest index's 30°, its rakes the
-   * x = 0 and x = 1000 hip planes at 30°, its apex at x = 500, 500 tan 30° above the plate. That is the roof before
-   * `b1cff3e`, clean.
+   * The review's three inputs (H1). Each puts two claimed bands of two pitches, 30° over [0, s] and 45° over [s, 1000],
+   * which together tile algorithm B's extent [0, 1000] of y = 0, on two or three union walls of that one extent.
+   * Journal decision 264 strikes the sub-rule that kept such an extent as algorithm B's one 30° gable (apex at x = 500,
+   * 500 tan 30° up). The extent is given up whole: every wall on it is a hip, and each band is one rise at its own pitch,
+   * built once. The 30° rise's rakes are its own and the x = 0 hip plane (decision 10), both 30°, so its apex is at x = s
+   * / 2, (s / 2) tan 30° up. The 45° rise's own rake from x = s meets the x = 1000 hip plane at 30° at x = (s + 1000 tan
+   * 30°) / (1 + tan 30°), x - s up. Measured clean, with no conflict, as before.
    */
-  const H1: readonly [string, ShellFixture, number][] = [
+  const H1: readonly [string, ShellFixture, number, number][] = [
     ['TwoRingsNoRuns', shellFixture('TwoRingsNoRuns', [
-      ring([0, 0, 500, 500], 0, 1, 30, {S: {form: 'gable', deg: 30}}), ring([500, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45}}), ring([600, -300, 800, 0], 0, 1, 30)]), 0],
-    ['SplitSeen', shellFixture('SplitSeen', [ring([0, 0, 1000, 500], 0, 1, 30, {S: twoPitchRuns(300)}), ring([400, -300, 800, 0], 0, 1, 30)]), 0],
+      ring([0, 0, 500, 500], 0, 1, 30, {S: {form: 'gable', deg: 30}}), ring([500, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 45}}), ring([600, -300, 800, 0], 0, 1, 30)]), 0, 500],
+    ['SplitSeen', shellFixture('SplitSeen', [ring([0, 0, 1000, 500], 0, 1, 30, {S: twoPitchRuns(300)}), ring([400, -300, 800, 0], 0, 1, 30)]), 0, 300],
     ['HoleAndOuter2', shellFixture('HoleAndOuter2', [ring([0, 0, 1000, 500], 0, 1, 30, {S: twoPitchRuns(500)}),
-      ring([100, -400, 300, 0], 0, 1, 30), ring([700, -400, 900, 0], 0, 1, 30), ring([100, -600, 900, -400], 0, 1, 30)]), 1],
+      ring([100, -400, 300, 0], 0, 1, 30), ring([700, -400, 900, 0], 0, 1, 30), ring([100, -600, 900, -400], 0, 1, 30)]), 1, 500],
   ];
 
-  // Mutation: the verdict per wall again (each wall's own overlapping bands against its span); then each input keeps one
-  // wall and builds a rise on another over a band algorithm B also builds, and the shell has 1 Cheek.
-  it.each(H1)('%s: every wall on the extent takes one verdict, no rise is built, and the roof is algorithm B\'s one gable, clean', async (_, f, genus) => {
+  // Mutation (decision 220's sub-rule restored): each extent stays algorithm B's one 30° gable over [0, 1000], no rise.
+  it.each(H1)('%s (journal decision 264): every wall on the extent is a hip, and each band is one rise at its own pitch, built once, clean', async (_, f, genus, s) => {
     const onLine = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0 && w.n === '+y');
     expect(onLine.length).toBeGreaterThan(1);
-    expect(onLine.map(w => [w.form, w.rises])).toEqual(onLine.map(() => ['gable', undefined]));
+    expect(onLine.map(w => w.form)).toEqual(onLine.map(() => 'hip'));
+    expect(onLine.flatMap(w => (w.rises ?? []).map(r => [r.lo, r.hi, r.deg]))).toEqual([[0, s, 30], [s, 1000, 45]]);
     const b = await build(f);
-    expect(b.union.plans[0].rises ?? []).toEqual([]);
+    expect((b.union.plans[0].rises ?? []).map(r => [r.rise.lo, r.rise.hi, r.rise.deg])).toEqual([[0, s, 30], [s, 1000, 45]]);
     expect(invariantViolations(b, {genus, cheeks: 0})).toEqual([]);
     expect(b.shell.report.conflicts).toEqual([]);
-    const faces = b.shell.faces.filter(x => x.tag.kind === 'Gable' && Math.abs(x.normal[1] + 1) < 1e-9 && x.loops[0].every(p => Math.abs(p[1]) < 1e-9));
-    expect(faces.map(x => [Math.min(...x.loops[0].map(p => p[0])), Math.max(...x.loops[0].map(p => p[0]))])).toEqual([[0, 1000]]);
-    const apex = faces[0].loops[0].reduce((m, p) => (p[2] > m[2] ? p : m));
-    expect(apex[0]).toBeCloseTo(500, 2);
-    expect(apex[2]).toBeCloseTo(250 + t(30) * 500, 2);
+    const g = yZeroGables(b).sort((p, q) => p.lo - q.lo);
+    expect(g.map(x => [x.lo, x.hi])).toEqual([[0, s], [s, 1000]]);
+    expect(g[0].apexX).toBeCloseTo(s / 2, 2);
+    expect(g[0].apex).toBeCloseTo(250 + t(30) * s / 2, 2);
+    const x45 = (s + 1000 * t(30)) / (1 + t(30));
+    expect(g[1].apexX).toBeCloseTo(x45, 2);
+    expect(g[1].apex).toBeCloseTo(250 + x45 - s, 2);
+  });
+
+  // Decision 222, H1, on bands of one pitch: Ring 0's S side at 30° carries a 30° run over [500, 1000] capped at 200 cm,
+  // so its two claimed bands differ only in maxHeight. They tile algorithm B's extent [0, 1000] of y = 0, which a wing
+  // burying [600, 800] splits into two walls. The extent is kept whole: both walls stay gables and no rise is built.
+  // Mutation (the verdict per wall again): the wall [800, 1000], whose one band does not tile the span, is given up.
+  it('OneVerdictOnePitch: every wall on the extent takes one verdict, and the extent of one pitch stays algorithm B\'s one gable, clean', async () => {
+    const f = shellFixture('OneVerdictOnePitch', [ring([0, 0, 1000, 500], 0, 1, 30, {S: {form: 'gable', deg: 30, runs: [{from: 500, to: 1000, form: 'gable', deg: 30, maxHeight: 200}]}}), ring([600, -300, 800, 0], 0, 1, 30)]);
+    const rings = storeyRings(f, 0);
+    expect(claimedBands(rings, {axis: 'y', at: 0, n: '+y'}).map(r => [r.lo, r.hi, r.deg, r.maxHeight])).toEqual([[0, 500, 30, undefined], [500, 1000, 30, 200]]);
+    const onLine = storeyForms(rings).walls.filter(w => w.axis === 'y' && w.at === 0 && w.n === '+y');
+    expect(onLine.map(w => [w.lo, w.hi, w.form, w.rises])).toEqual([[0, 600, 'gable', undefined], [800, 1000, 'gable', undefined]]);
+    const b = await build(f);
+    expect(b.union.plans[0].rises ?? []).toEqual([]);
+    expect(invariantViolations(b, {genus: 0, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    const g = yZeroGables(b);
+    expect(g.map(x => [x.lo, x.hi])).toEqual([[0, 1000]]);
+    expect(g[0].apexX).toBeCloseTo(500, 2);
+    expect(g[0].apex).toBeCloseTo(250 + t(30) * 500, 2);
   });
 
   // Decision 222, M1: a gable run whose middle a wing buries is one claimed band, so one rise over the whole run, built
@@ -464,13 +512,15 @@ describe('journal decision 222: algorithm B\'s verdict is the line extent\'s, no
 
   // Decision 222, L2: band ends are compared within the same 1e-9 as the overlap filter and `algorithmBSpan`. Mutation:
   // exact comparison; then bands meeting 1e-12 apart no longer tile.
+  // Journal decision 264: bands of two pitches no longer keep algorithm B, so the bands here are of one pitch, split by
+  // maxHeight.
   it('band ends compare within 1e-9, so an off-lattice run end tiles the span', () => {
-    const band = (lo: number, hi: number, deg: number): GableRise => ({lo, hi, deg, limit: 'ridgeSlope', facing: 'centreLine', apart: false});
-    expect(algorithmBBuildsGable([band(0.1, 333.4 + 1e-12, 30), band(333.4, 1000.7, 45)], [0.1 + 1e-12, 1000.7])).toBe(true);
-    expect(algorithmBBuildsGable([band(0.1, 333.4, 30), band(333.4 + 1e-6, 1000.7, 45)], [0.1, 1000.7])).toBe(false);
-    // Off the lattice end to end: corners at 0.1 and 1000.7, the pitches split at 333.3 along the side, a wing burying
+    const band = (lo: number, hi: number, maxHeight?: number): GableRise => ({lo, hi, deg: 30, limit: 'ridgeSlope', facing: 'centreLine', apart: false, ...(maxHeight !== undefined ? {maxHeight} : {})});
+    expect(algorithmBBuildsGable([band(0.1, 333.4 + 1e-12, 200), band(333.4, 1000.7)], [0.1 + 1e-12, 1000.7])).toBe(true);
+    expect(algorithmBBuildsGable([band(0.1, 333.4, 200), band(333.4 + 1e-6, 1000.7)], [0.1, 1000.7])).toBe(false);
+    // Off the lattice end to end: corners at 0.1 and 1000.7, the bands split at 333.3 along the side, a wing burying
     // [400.1, 600.1]; the extent stays algorithm B's one gable.
-    const f = shellFixture('OffLatticeSplit', [ring([0.1, 0, 1000.7, 500], 0, 1, 30, {S: {form: 'gable', runs: [{from: 0, to: 333.3, form: 'gable', deg: 30}, {from: 333.3, to: 1000.6, form: 'gable', deg: 45}]}}), ring([400.1, -300, 600.1, 0], 0, 1, 30)]);
+    const f = shellFixture('OffLatticeSplit', [ring([0.1, 0, 1000.7, 500], 0, 1, 30, {S: {form: 'gable', runs: [{from: 0, to: 333.3, form: 'gable', deg: 30, maxHeight: 200}, {from: 333.3, to: 1000.6, form: 'gable', deg: 30}]}}), ring([400.1, -300, 600.1, 0], 0, 1, 30)]);
     const onLine = storeyForms(storeyRings(f, 0)).walls.filter(w => w.axis === 'y' && w.at === 0 && w.n === '+y');
     expect(onLine.map(w => [w.form, w.rises])).toEqual([['gable', undefined], ['gable', undefined]]);
   });
@@ -748,19 +798,35 @@ describe('journal decision 243: a gable over the walk line replaces its slope, t
   });
 
   // Rule 3 on algorithm B's extent: a band counts where it overlaps the extent's span, on a union wall or not. Ring 0's E
-  // gable end at 30° has a 45° stretch over its buried middle [150, 350]. Its bands [0, 150], [150, 350] and [350, 500]
-  // tile algorithm B's span [0, 500], so the extent stays algorithm B's one gable (decision 220's sub-rule), and no band is
-  // a covered rise. Mutation (bands count only where they overlap one of the extent's walls): the two walls become hips
-  // with a rise each, and the middle band a covered rise.
+  // gable end at 30° has a 30° stretch capped at 200 cm over its buried middle [150, 350]. Its bands [0, 150], [150, 350]
+  // and [350, 500] are of one pitch and tile algorithm B's span [0, 500], so the extent stays algorithm B's one gable, and
+  // no band is a covered rise. Mutation (bands count only where they overlap one of the extent's walls): the two walls
+  // become hips with a rise each, and the middle band a covered rise.
   it('a covered band inside algorithm B\'s span counts on it, and the extent stays algorithm B\'s one gable', () => {
-    const f = shellFixture('BuriedTwoPitchEnd', [
-      ring([0, 0, 500, 500], 0, 1, 30, {E: {form: 'gable', deg: 30, runs: [{from: 150, to: 350, form: 'gable', deg: 45}]}}),
+    const f = shellFixture('BuriedCappedEnd', [
+      ring([0, 0, 500, 500], 0, 1, 30, {E: {form: 'gable', deg: 30, runs: [{from: 150, to: 350, form: 'gable', deg: 30, maxHeight: 200}]}}),
       ring([500, 150, 800, 350], 0, 1, 30),
     ]);
     const forms = storeyForms(storeyRings(f, 0));
     const east = forms.walls.filter(w => w.axis === 'x' && w.at === 500 && w.n === '-x');
     expect(east.map(w => [w.lo, w.hi, w.form, w.rises])).toEqual([[0, 150, 'gable', undefined], [350, 500, 'gable', undefined]]);
     expect(forms.covered).toEqual([]);
+  });
+
+  // Journal decision 264 on the same end at two pitches: the stretch over the buried middle is 45°, so the extent is
+  // given up. Each exposed wall is a hip at 30° with its own 30° rise, and the 45° band, on no union wall, is a covered
+  // rise (rule 3), each band built once at its own pitch. Measured clean. Mutation (decision 220's sub-rule restored): the
+  // extent stays algorithm B's one 30° gable and the 45° pitch is not built.
+  it('BuriedTwoPitchEnd (journal decision 264): each band of a two-pitch end is built once at its own pitch, the buried one as a covered rise, clean', async () => {
+    const f = shellFixture('BuriedTwoPitchEnd', [
+      ring([0, 0, 500, 500], 0, 1, 30, {E: {form: 'gable', deg: 30, runs: [{from: 150, to: 350, form: 'gable', deg: 45}]}}),
+      ring([500, 150, 800, 350], 0, 1, 30),
+    ]);
+    const forms = storeyForms(storeyRings(f, 0));
+    const east = forms.walls.filter(w => w.axis === 'x' && w.at === 500 && w.n === '-x');
+    expect(east.map(w => [w.lo, w.hi, w.form, w.deg, w.rises?.map(r => [r.lo, r.hi, r.deg])])).toEqual([[0, 150, 'hip', 30, [[0, 150, 30]]], [350, 500, 'hip', 30, [[350, 500, 30]]]]);
+    expect(forms.covered.map(c => [c.line.axis, c.line.at, c.line.n, c.rise.lo, c.rise.hi, c.rise.deg])).toEqual([['x', 500, '-x', 150, 350, 45]]);
+    expect(invariantViolations(await build(f), {genus: 0, cheeks: 0})).toEqual([]);
   });
 
   // The rules read bands, not heights, so no rise's limit or reach depends on another's height: every gable the storey

@@ -91,6 +91,11 @@ Numbers are for citation. They are not an order of work.
    gable at two pitches stays algorithm B's one gable. **AMENDED 2026-11-13 (journal decision 243, F80)**: a gable
    stretch is built even where a neighbouring Ring covers all of it at plate level, and the union shows whatever
    stands above the neighbour's roof. STRUCK: that a band counts only if part of it is on a union wall.
+   **AMENDED 2026-11-14 by the user's ruling (journal decision 264, on decisions 260 and 263)**: the two-pitch sub-rule
+   is removed. STRUCK: "A wall claimed gable at two pitches stays algorithm B's one gable." A line extent claimed
+   gable at two or more pitches is given up whole: its walls are hips, and each band is one rise at the pitch its
+   Ring asked for. Bands of one pitch that differ only in limit, `maxHeight` or facing still tile to algorithm B's
+   one gable.
 6. **Every other gable extent is a rise.** The wall enters the roof solve as a hip at decision 4's pitch. Adjacent
    gable extents merge into one rise when their pitch and limits all agree, across Rings as well as within one.
    Adjacent gable extents that differ stay separate rises. **CORRECTED 2026-11-12 (journal F65)**: they meet at a
