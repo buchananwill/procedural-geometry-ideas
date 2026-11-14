@@ -179,6 +179,24 @@ session 3's own.
 - **Owed to the C++ port** when a session has it: `droppedRings`, `tucks`, the `Tuck` kind, the cut rule of BSA.D278,
   and the removal of the two-pitch sub-rule.
 
+**Added in session 4, the holed skeleton:**
+- **An exterior edge is accepted before its face closes** on five solves (BSA.F95, BSA.F96), with an open issue note and
+  a red test. Whether and when to fix it is the user's (BSA.D291).
+- **The direct-strike split path has no neighbour guard** (BSA.F96, BSA.F98). Guarding it helps six sweep cells and
+  harms `offedge:plus:k8:s47514`; that cell is undiagnosed and nothing is applied.
+- **`partitionSpan` is the last id arithmetic in the event path** (stage 1 spec decision 33). Node 4's spec replaces it.
+- **For node 4's spec, from the stage 1 review (BSA.F97):** the struck segment is searched over the whole graph; the
+  guard is asked of the first validating segment only; `ringsOfSubPolygon` returns `null` when an edge bounds two
+  segments; `asWholeEvents` wants one ring per merge; the partition dedupe is keyed on exterior id; `hasInteriorLoop` is
+  not segment-aware.
+- **54 along-edge sweep cells now fail on a degenerate ring with no event,** where they used to fail on a shattered
+  partition (BSA.F96). Incomplete before and after.
+- **The never-born splice is sound only for a whole ring of unborn bisectors,** and a throw in mid-layer leaves pending
+  tokens in the link arrays (BSA.F97).
+- **The project CLAUDE.md is stale in three places:** `handleInteriorEdges` is `handleInteriorNGon` (BSA.F91); the
+  corpus is 53 clean and 7 defect (BSA.F92); `src/roof/` is not a byte-identical copy and its test pins behaviour
+  (BSA.F94).
+
 ## Decisions
 
 - **281. The user, 2026-11-14: Session 4's objective is to make the TypeScript straight skeleton in `@proc-geo/core`
@@ -551,3 +569,20 @@ session 3's own.
     edge bounds two segments; `asWholeEvents` wants a merge's arrivals on one ring; the parent-id classification of 3;
     the graph-wide search of 4; the dedupe keyed on exterior id; and `hasInteriorLoop`, which is not segment-aware.
   - **Stale comments:** `wavefront.ts` lines 16 to 19 and 561 to 563, `algorithm-termination-cases.ts` line 1245.
+- **F98. Asking the neighbour guard on the direct-strike path moves seven complete sweep cells, cures a surplus edge in
+  six and makes one worse; it is not applied.** (the stage 1 delegate (Opus), measured on a reverted edit over c9c1b30,
+  2026-11-14; not re-run by the lead)
+  - **Follow-up commit `c9c1b30`:** a standing guard test on `offedge:plus:k7:s7919` (red with the guard disabled or
+    either side misdirected) and a constructed test of the never-born splice (red with the splice dropped). Core: 5,829
+    passed, 2 failed by design, 9 skipped. Tree clean.
+  - **The guard test asks about offered splits, not resolved ones,** because on that very cell a direct strike on a
+    neighbour's neighbour resolves today, unguarded.
+  - **The measurement:** no suite test moves, and no corpus, along-edge, ladder, regular or census record. Seven sweep
+    cells move, all complete before and after, all still trees, none with an escaped node.
+  - **Six improve by one culled edge:** `fine:rosette40` at 4e10, 5e10 and 6e10, and `offedge:plus` k7:s7919, k9:s23757
+    and k10:s47514. In the `offedge:plus` cells the misread split had borne a bisector the solve then retired as a
+    surplus self-loop.
+  - **One regresses:** `offedge:plus:k8:s47514` goes from no oracle violation to one offset and two direction
+    violations, on the solver's oracles and the test's. Not diagnosed.
+  - **No structural obstacle** to asking the guard there: the struck segment is in hand once validation passes, and a
+    refused direct strike falls through to the guarded incenter path.
