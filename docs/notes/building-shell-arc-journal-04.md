@@ -312,6 +312,23 @@ session 3's own.
     collinear overlap within one loop stays unseen, as today.
   - **The delegate's note that the dependency on stage 1 is real:** until part B removes it, `addBisectionEdge` calls
     the span arithmetic during initialisation, across loop boundaries.
+- **290. Part A is accepted for commit with the early acceptance of BSA.F95 as a red test and an issue note, and all
+  four readers are cleared for part B.**
+  - **The early acceptance is not fixed in stage 1 and is not pinned.** Fixing when an exterior edge is accepted changes
+    the solver on the existing corpus, which the roadmap returns to the user; pinning the two cells as exceptions would
+    make a gate green by asserting a defect, which BSA.D266 forbids. So the invariant gate excludes a solve by the cause
+    (an accepted parent on a live bisector), the two complete cells get their own red test, and
+    `ISSUE-skeleton-edge-accepted-before-its-face-closes.md` carries the reproduction. Stage 1 spec decision 32.
+  - **All four readers switch in part B.** The rings agree everywhere. On segments, the guard and the partition the
+    links are the valid answer by the delegate's diagnosis, which the lead accepts on the examples given: a symmetric
+    sort key that ties, a span that counts a sibling ring's edges, and a partition that shatters a true ring.
+  - **Expected divergences in part B, to be handled under spec decision 31:** the three `offedge:plus` sweep cells whose
+    misread split resolves today, and the incomplete along-edge cells whose step failures the partition causes. Each is
+    measured before and after on the four oracles, containment and tiling, and reported.
+  - **The triangle closure by best collision and the splice of a never-born bisector lack a corpus-level mutation
+    conviction.** The first is convicted by the sweep, which is in the suite; the second is recorded as open.
+  - **For the user:** the early acceptance is evidence that today's solver is wrong on two complete cells of the
+    existing sweep, and whether to fix acceptance, and when, is theirs.
 
 ## Findings
 
@@ -408,3 +425,34 @@ session 3's own.
   - **Courtyard surface in the suite:** 22 test files mention courtyards; 5 golden courtyard fixtures in 13 files; the
     three hard errors of holed storeys are asserted by `NoCutProbe`, `TwoHolesProbe` and `CutProbe`.
   - **The project CLAUDE.md's "byte-identical copy" is not literally true** of `src/roof/`.
+- **F95. Part A's comparison: the stored links and today's id arithmetic agree except in three places, and in each the
+  links are the valid answer; and one event path breaks the wavefront's invariants because an exterior edge is accepted
+  too early.** (the stage 1 part A delegate (Opus), measured on its uncommitted tree over 07cf882, 2026-11-14; not
+  re-run by the lead)
+  - **Rosters:** the corpus at two floors plus the weighted fixtures, the recursion census at three depths, and the
+    642-cell sweep. Baseline measured by the delegate before its first edit: core 5,810 passed and 9 skipped in 88
+    suites; building-shell 9,992 in 46 files, typecheck clean. With part A: every existing test passes, the sweep
+    harness's 32,335 records are identical before and after, and no pin is edited.
+  - **`ringsOfSubPolygon` against the links: no disagreement** in any roster, and it returned `null` on no layer at all.
+    No split had more than one validating segment (0 of about 405,000 validating calls).
+  - **`activeExteriorEdgeSegments`: disagreements only on a ring of two bisectors that share one pair of parents.** The
+    arithmetic's sort key is symmetric in the two parents, ties, and id order then labels the segment's ends the wrong
+    way round. 64 calls of 5.4 million in the sweep. No split ever resolved on such a segment.
+  - **The neighbour guard: every disagreement is the arithmetic permitting a split the links refuse,** never the reverse
+    (746 of 3.46 million calls in the sweep, 77 in the corpus). Cause: `span` counts un-accepted exterior ids that
+    belong to a sibling ring as though they lay between. The permitted split is an edge event misread as a split.
+    **Three such splits actually resolve,** all on complete sweep cells: `offedge:plus:k8:s47514` step 48,
+    `offedge:plus:k9:s23757` step 56, `offedge:plus:k10:s47514` step 67. None in the corpus or census.
+  - **The partition: no disagreement on any complete solve.** On incomplete along-edge sweep cells, 101 cases where the
+    id-interval partition shatters a true ring of four into four single-edge children, which are those cells' recorded
+    step failures.
+  - **The early acceptance:** on `fine:circle48@2e11` step 8 and `ladder:1x:s2` step 15, both complete solves,
+    `tryToAcceptExteriorEdge` accepts an exterior edge while a live bisector still has it as a parent. The bisector that
+    would close the ring is then refused at birth for having an accepted parent, and the leftover pair or triangle is
+    closed by arithmetic that does not check it is a ring. `Offset Cross Junction`, a known-defect fixture, is on the
+    same path. The delegate's diagnosis, not confirmed by experiment: `hasInteriorLoop` accepts an edge when any chain
+    of accepted edges joins its ends, through other faces too, and not only when its own face has closed.
+  - **`EdgeSection.widdershinsBisector` is the segment's `from` and `clockwiseBisector` its `to`,** established from the
+    sort key and the comparison.
+  - **Mutation:** 13 of 15 link-writing mutations turn a gate red in the corpus or unit tests; the triangle closure by
+    best collision is convicted only by the sweep; splicing out a bisector that is never born is not convicted.
