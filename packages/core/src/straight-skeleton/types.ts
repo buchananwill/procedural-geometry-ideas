@@ -137,8 +137,6 @@ export interface GraphHelpers {
     isPrimaryNonReflex(edgeId: number): boolean;
     updateMaxOffset(edgeId: number, length: number): void;
     isReflexEdge(edgeA: InteriorEdge): boolean;
-    clockwiseSpanExcludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
-    clockwiseSpanIncludingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number;
     widdershinsBisector(edgeId: number): PolygonEdge;
     clockwiseBisector(edgeId: number): PolygonEdge;
     /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
@@ -165,8 +163,9 @@ export interface GraphHelpers {
  * exterior edges' slots and every bisector that is not live hold `-1`.
  *
  * PLAIN DATA, two arrays of numbers, so a `structuredClone` of the context carries it (decision 7).
- * Written by the events that change the wavefront's shape (`wavefront.ts`); in part A of the spec nothing
- * in the solver reads it.
+ * Written by the events that change the wavefront's shape (`wavefront.ts`), and the solver's one source of
+ * wavefront order: the segments of an edge, the neighbour guard, the rings of a step and the child steps of a
+ * partitioning layer are all read from it (spec decisions 19 and 20).
  */
 export interface Wavefront {
     clockwiseNeighbour: number[];
@@ -186,7 +185,7 @@ export interface WavefrontSegment {
 export interface StraightSkeletonSolverContext extends GraphHelpers {
     graph: StraightSkeletonGraph;
     acceptedEdges: boolean[];
-    /** The wavefront's neighbour links (spec decision 1). Read by nothing in the solver in part A. */
+    /** The wavefront's neighbour links (spec decision 1), the solver's source of wavefront order. */
     wavefront: Wavefront;
     collisionCache: CollisionCache;
     /**

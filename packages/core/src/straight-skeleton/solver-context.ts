@@ -10,7 +10,7 @@ import {
     Vector2,
     WavefrontSegment
 } from "./types";
-import {activeWavefrontProbe, makeWavefront} from "./wavefront";
+import {makeWavefront, wavefrontSegmentsOf} from "./wavefront";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
@@ -137,34 +137,6 @@ export function makeStraightSkeletonSolverContext(
 
     }
 
-    function span(firstEdge: PolygonEdge, secondEdge: PolygonEdge, includeAccepted = true): number {
-        if (edgeRank(firstEdge.id) !== 'exterior' || edgeRank(secondEdge.id) !== 'exterior') {
-            throw new Error('Direct span of interior edges not yet implemented.')
-        }
-
-        if (acceptedEdges[firstEdge.id] || acceptedEdges[secondEdge.id]) {
-            throw new Error('Cannot compute span with accepted edges.')
-        }
-
-        let totalSpan = 0;
-        for (let i = 0; i < graph.numExteriorNodes; i++) {
-            const nextEdge = (i + firstEdge.id) % graph.numExteriorNodes;
-            if ((nextEdge) === secondEdge.id) {
-                return totalSpan;
-            }
-
-            if (includeAccepted || !acceptedEdges[nextEdge]) {
-                totalSpan++;
-            }
-        }
-
-        return totalSpan;
-    }
-
-    function spanExlcudingAccepted(firstEdge: PolygonEdge, secondEdge: PolygonEdge): number {
-        return span(firstEdge, secondEdge, false);
-    }
-
     /**
      * The wavefront vertex on `bisector` at a given PERPENDICULAR DISTANCE from the exterior edge
      * whose basis is `edgeBasis`.
@@ -247,57 +219,38 @@ export function makeStraightSkeletonSolverContext(
         clockwiseBisector: InteriorEdge
     }
 
+    /**
+     * The live segments of an exterior edge, READ FROM THE WAVEFRONT'S LINKS (skeleton wavefront-order spec,
+     * decisions 5 and 19): each live bisector whose clockwise parent is the edge is a segment's widdershins
+     * end, `from`, and its clockwise neighbour is the clockwise end, `to`.
+     *
+     * THIS REPLACED A SORT BY AN ID-ROTATION KEY, paired two at a time. The key was symmetric in a bisector's
+     * two parents, so on a two-bisector ring whose bisectors share one parent pair it tied and id order
+     * labelled the pair backwards (BSA.F95); and it presumed every ring is an interval of ids, which a ring
+     * joined from two loops is not (BSA.F91). The links need neither presumption.
+     *
+     * In ascending order of `from`. Where several segments would validate a split, the first is taken (decision
+     * 11); on the corpus, the sweep and the census no split ever validated on more than one.
+     */
     function activeExteriorEdgeSegments(edgeId: number): EdgeSection[] {
         if (edgeRank(edgeId) !== 'exterior') {
             throw new Error("Can only find active sections for exterior edges.")
         }
 
-        const rotateId = (id: number): number => {
-            return (id - edgeId + graph.numExteriorNodes) % graph.numExteriorNodes;
-        }
-
-        const makeClockwiseSweepIndex = (interiorEdge: InteriorEdge): number => {
-            const wsParent = widdershinsParent(interiorEdge)
-            const cwParent = clockwiseParent(interiorEdge);
-
-            return graph.numExteriorNodes - rotateId(wsParent.id) - rotateId(cwParent.id) - 1; // subtract 1 to keep return strictly less than the number of exterior edges.
-        }
-
-        const children = graph.interiorEdges.filter(e => {
-            return !acceptedEdges[e.id] && (e.widdershinsExteriorEdgeIndex === edgeId || e.clockwiseExteriorEdgeIndex === edgeId)
-        })
-            .toSorted((e1, e2) => makeClockwiseSweepIndex(e1) - makeClockwiseSweepIndex(e2))
-
-        const sections: EdgeSection[] = []
-
-        if (children.length < 2) {
-            return sections
-        }
-
-        for (let i = 0; i < children.length; i += 2) {
-            sections.push({widdershinsBisector: children[i], clockwiseBisector: children[i + 1]})
-        }
-
-        // PART A'S COMPARISON (spec decision 16), off in a normal solve: the arithmetic's pairing, read as
-        // segments with the section's widdershins bisector as `from`.
-        const probe = activeWavefrontProbe();
-        if (probe !== null) {
-            probe.segments?.(context, edgeId, sections.map(section => asSegment(edgeId, section)));
-        }
-
-        return sections;
+        return wavefrontSegmentsOf(context, edgeId)
+            .filter(segment => segment.to >= graph.numExteriorNodes && !acceptedEdges[segment.to])
+            .map(segment => ({
+                widdershinsBisector: getInteriorWithId(segment.from),
+                clockwiseBisector: getInteriorWithId(segment.to),
+            }));
     }
 
-    /**
-     * An arithmetic section read as a {@link WavefrontSegment}. `widdershinsBisector` is `from`: the sweep
-     * key puts the bisector whose CLOCKWISE parent is the edge first in each pair (in the first ring,
-     * `n + e` at key 0 before `n + e + 1` at key `n - 2`), and `from` is defined as that bisector.
-     */
+    /** A section as a {@link WavefrontSegment}: its widdershins bisector is `from`, its clockwise bisector `to`. */
     function asSegment(edgeId: number, section: EdgeSection): WavefrontSegment {
         return {
             exteriorEdge: edgeId,
-            from: section.widdershinsBisector?.id ?? -1,
-            to: section.clockwiseBisector?.id ?? -1,
+            from: section.widdershinsBisector.id,
+            to: section.clockwiseBisector.id,
         };
     }
 
@@ -375,8 +328,6 @@ export function makeStraightSkeletonSolverContext(
 
             edgeData.maxOffset = Math.min(edgeData.maxOffset, offset);
         },
-        clockwiseSpanExcludingAccepted: spanExlcudingAccepted,
-        clockwiseSpanIncludingAccepted: span,
         widdershinsBisector: primaryWiddershinsBisector,
         clockwiseBisector: primaryClockwiseBisector,
         // W-spec W40: the argument is a local TIME, carried to a perpendicular distance by the
@@ -484,17 +435,9 @@ export function makeStraightSkeletonSolverContext(
 
             };
 
-            // THE FIRST VALIDATING SEGMENT, IN TODAY'S ORDER (spec decision 11) — the same short-circuit the
-            // `some` this replaced had, so the verdict and the order the segments are tried in are unchanged.
+            // THE FIRST VALIDATING SEGMENT (spec decision 11). Part A measured that no split on the corpus, the
+            // sweep or the census validates on more than one, so which is first has never decided anything.
             const struck = segments.find(validates);
-
-            // PART A COUNTS how often more than one segment would have validated (spec decision 17), by
-            // testing the rest only when the comparison probe is installed.
-            const probe = activeWavefrontProbe();
-            if (probe !== null && struck !== undefined) {
-                const count = 1 + segments.slice(segments.indexOf(struck) + 1).filter(validates).length;
-                probe.validatingSegments?.(this, bisectorId, edgeToSplitId, count);
-            }
 
             return struck === undefined ? null : asSegment(edgeToSplitId, struck);
         },

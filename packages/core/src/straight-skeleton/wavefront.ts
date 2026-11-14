@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 /**
- * THE WAVEFRONT'S ORDER, STORED (skeleton-wavefront-order spec, stage 1, part A).
+ * THE WAVEFRONT'S ORDER, STORED (skeleton-wavefront-order spec, stage 1).
  *
  * Every live bisector holds its two neighbours around the wavefront, a ring is an orbit of
  * `clockwiseNeighbour`, and a segment of an exterior edge is a linked pair `(from, to)`. The links are
@@ -18,13 +18,12 @@ import type {
  * with a matching parent or by id distance, because that search is ambiguous as soon as one exterior
  * edge bounds two segments of one ring.
  *
- * PART A: NOTHING READS THE LINKS. The solver's decisions are still made by the id arithmetic; the
- * links are maintained beside it, checked at every step boundary ({@link checkWavefront}) and compared
- * against the arithmetic through {@link WavefrontProbe}, which is off in a normal solve.
+ * THE LINKS ARE THE SOLVER'S ONE SOURCE OF WAVEFRONT ORDER (part B, decisions 19 to 22): an edge's
+ * segments, the neighbour guard, a step's rings and a partitioning layer's child steps are all read from
+ * them, and `checkWavefront` holds them to W1 to W4 at every step boundary in the suite (decision 23).
  *
  * WRITING NEVER THROWS. A link write that meets a state it does not expect writes what its participants
- * say and leaves the judgement to {@link checkWavefront}: a throw here would change a solve, which part A
- * may not do.
+ * say and leaves the judgement to {@link checkWavefront}.
  */
 
 /** The value a non-live bisector (and every exterior edge slot) holds in both arrays. */
@@ -195,7 +194,6 @@ export function linkBirth(context: StraightSkeletonSolverContext, params: Bisect
     const layer = layers.get(context);
     const token = layer?.tokenOf.get(params);
     if (layer === undefined || token === undefined) {
-        activeWavefrontProbe()?.layerNote?.(context, 'birth-without-links', `e${id}`);
         return;
     }
     const links = layer.pending.get(token);
@@ -221,7 +219,6 @@ export function settleLayerLinks(context: StraightSkeletonSolverContext): void {
     if (layer === undefined) {
         return;
     }
-    const probe = activeWavefrontProbe();
     for (const [token, links] of [...layer.pending.entries()].sort((a, b) => b[0] - a[0])) {
         if (!layer.pending.has(token)) {
             continue;
@@ -231,13 +228,6 @@ export function settleLayerLinks(context: StraightSkeletonSolverContext): void {
         const widdershins = links.widdershins === token ? NOT_LIVE : links.widdershins;
         setClockwise(context, widdershins, clockwise);
         setWiddershins(context, clockwise, widdershins);
-        if (probe !== null) {
-            const params = [...layer.tokenOf.entries()].find(([, t]) => t === token)?.[0];
-            const parents = params === undefined ? '?' : `cw ${params.clockwiseExteriorEdgeIndex}`
-                + `${context.isAccepted(params.clockwiseExteriorEdgeIndex) ? ' (accepted)' : ''}, ws ${params.widdershinsExteriorEdgeIndex}`
-                + `${context.isAccepted(params.widdershinsExteriorEdgeIndex) ? ' (accepted)' : ''}, source n${params.source}`;
-            probe.layerNote?.(context, 'unborn-bisector-spliced', `between e${widdershins} and e${clockwise}: ${parents}`);
-        }
     }
     layers.delete(context);
 }
@@ -266,7 +256,6 @@ export function linkPairCollapse(
     clockwiseCollider: number,
     params: BisectionParams,
 ): void {
-    activeWavefrontProbe()?.layerNote?.(context, 'event: pair collapse', `e${widdershinsCollider}, e${clockwiseCollider}`);
     const widdershins = widdershinsOf(context, widdershinsCollider);
     const clockwise = clockwiseOf(context, clockwiseCollider);
     retireBisectors(context, participants);
@@ -289,7 +278,6 @@ export function linkVertexToVertex(
     first: BisectionParams,
     second: BisectionParams,
 ): void {
-    activeWavefrontProbe()?.layerNote?.(context, 'event: vertex-to-vertex', `e${instigator}, e${target}`);
     const instigatorClockwise = clockwiseOf(context, instigator);
     const instigatorWiddershins = widdershinsOf(context, instigator);
     const targetClockwise = clockwiseOf(context, target);
@@ -353,19 +341,13 @@ export function linkSplit(
     towardsWiddershins: BisectionParams,
 ): void {
     const layer = layerOf(context);
-    const probe = activeWavefrontProbe();
     if (segment === undefined) {
-        probe?.layerNote?.(context, 'split-without-segment', `e${instigator}`);
         retireBisector(context, instigator);
         return;
     }
 
     let from = successorOn(context, layer.clockwiseSuccessor, segment.from);
     const to = successorOn(context, layer.widdershinsSuccessor, segment.to);
-    if (from !== segment.from || to !== segment.to) {
-        probe?.layerNote?.(context, 'struck-segment-end-replaced',
-            `e${instigator} on e${segment.exteriorEdge}: (${segment.from}, ${segment.to}) read as (${from}, ${to})`);
-    }
 
     // Walk the cuts earlier splits of this layer made in the segment, to the piece the strike lands in.
     let end = clockwiseOf(context, from);
@@ -373,11 +355,8 @@ export function linkSplit(
     for (let hops = 0; end !== to && hops < 64; hops++) {
         const division = layer.divisions.get(end);
         if (division === undefined || division.edge !== segment.exteriorEdge) {
-            probe?.layerNote?.(context, 'struck-segment-not-found',
-                `e${instigator} on e${segment.exteriorEdge}: from ${from} leads to ${end}, not ${to}`);
             break;
         }
-        probe?.layerNote?.(context, 'struck-segment-divided', `e${instigator} on e${segment.exteriorEdge}`);
         if (alongEdge(context, segment.exteriorEdge, division.position, position) < 0) {
             pieceEnd = end;
             break;
@@ -388,7 +367,6 @@ export function linkSplit(
 
     const instigatorClockwise = clockwiseOf(context, instigator);
     const instigatorWiddershins = widdershinsOf(context, instigator);
-    probe?.splitResolved?.(context, instigator, segment);
     retireBisector(context, instigator);
     const before = linkPendingBirth(context, towardsClockwise, from, instigatorClockwise);
     const after = linkPendingBirth(context, towardsWiddershins, instigatorWiddershins, pieceEnd);
@@ -409,7 +387,6 @@ export function linkMergeGap(
     firstDeparture: number,
     params: BisectionParams,
 ): void {
-    activeWavefrontProbe()?.layerNote?.(context, 'event: merge gap', `after e${lastArrival}, before e${firstDeparture}`);
     const token = linkPendingBirth(context, params,
         widdershinsOf(context, firstDeparture), clockwiseOf(context, lastArrival));
     const layer = layerOf(context);
@@ -466,8 +443,14 @@ export function wavefrontSegmentsOf(context: StraightSkeletonSolverContext, exte
 }
 
 /**
- * The neighbour guard in its link form (spec decision 16): a split is refused when its struck segment is
- * bounded by the instigator or by the instigator's neighbour on the side the segment would be reached from.
+ * THE NEIGHBOUR GUARD (spec decisions 16 and 19): a split is refused when its struck segment is bounded by
+ * the instigator or by the instigator's neighbour on the side the segment would be reached from — the
+ * segment of one of the instigator's own parents, or of the edge next to one. Such a strike is the edge
+ * event of the instigator and its neighbour misread as a split.
+ *
+ * THIS REPLACED A COUNT OF UNACCEPTED EXTERIOR EDGE IDS between the struck edge and the instigator's
+ * parents, which counted the edges of a sibling ring as if they lay between and so let through strikes on
+ * a neighbour's neighbour (BSA.F95). The links count places along the instigator's own ring.
  */
 export function linkGuardRefuses(
     context: StraightSkeletonSolverContext,
@@ -572,55 +555,23 @@ export function checkWavefront(context: StraightSkeletonSolverContext, inputs: r
     return violations;
 }
 
-// ── The comparison hook (spec decisions 15 to 17) ────────────────────────────────────────────────
-
-/** Which of the neighbour guard's two sites a {@link WavefrontProbe.guard} call comes from. */
-export type NeighbourGuardSite = 'generateSplitEvent' | 'generateSplitEventFromTheEdgeItself';
+// ── The standing gate's hook (spec decision 23) ──────────────────────────────────────────────────
 
 /**
- * The instrument part A measures the links with. OFF IN A NORMAL SOLVE: every call site reads
- * {@link activeWavefrontProbe} and does nothing more when it is `null`, so a solve with no probe installed
- * pays one null test per site and decides nothing differently. Installed only by the test suite.
+ * The hook `checkWavefront`'s standing gate runs through. OFF IN A NORMAL SOLVE: the two call sites in
+ * `runSimplePolygon` (and its stepped twin) read {@link activeWavefrontProbe} and do nothing more when it is
+ * `null`. Installed only by the test suite. Part A's comparison hooks went with the arithmetic they compared.
  */
 export interface WavefrontProbe {
     /** After `initInteriorEdges`, and after each `stepAlgorithm` returns, with the inputs still to run. */
     stepBoundary?(context: StraightSkeletonSolverContext, inputs: readonly AlgorithmStepInput[]): void;
     /** At the end of one simple-polygon solve: `errors` are the step failures it accumulated. */
     solveFinished?(context: StraightSkeletonSolverContext, errors: readonly string[]): void;
-    /** `activeExteriorEdgeSegments`' answer, each section read as `(widdershinsBisector, clockwiseBisector)`. */
-    segments?(context: StraightSkeletonSolverContext, exteriorEdge: number, arithmetic: readonly WavefrontSegment[]): void;
-    /** How many of the edge's segments a split would validate on (spec decision 11 takes the first). */
-    validatingSegments?(context: StraightSkeletonSolverContext, bisectorId: number, exteriorEdge: number, count: number): void;
-    /**
-     * The neighbour guard's arithmetic verdict, with a thunk for the segment the split would strike were
-     * it let through — computed only when asked, and side-effect free apart from the probe's own calls.
-     */
-    guard?(
-        context: StraightSkeletonSolverContext,
-        site: NeighbourGuardSite,
-        instigator: number,
-        exteriorEdge: number,
-        arithmeticRefuses: boolean,
-        struckSegment: () => WavefrontSegment | null,
-    ): void;
-    /** A partitioning layer's child steps, and every bisector left live by the layer. */
-    partition?(
-        context: StraightSkeletonSolverContext,
-        input: readonly number[],
-        childSteps: readonly AlgorithmStepInput[],
-        outgoing: readonly number[],
-    ): void;
-    /** A split was resolved: `segment` is the one its event carried, as generated. */
-    splitResolved?(context: StraightSkeletonSolverContext, instigator: number, segment: WavefrontSegment): void;
-    /** `ringsOfSubPolygon`'s answer at the start of an n-gon layer. */
-    subPolygonRings?(context: StraightSkeletonSolverContext, input: readonly number[], rings: number[][] | null): void;
-    /** Something the link writing met that the report should count. */
-    layerNote?(context: StraightSkeletonSolverContext, kind: string, detail: string): void;
 }
 
 let installedProbe: WavefrontProbe | null = null;
 
-/** Install (or, with `null`, remove) the comparison probe. Test-side only. */
+/** Install (or, with `null`, remove) the gate's probe. Test-side only. */
 export function setWavefrontProbe(probe: WavefrontProbe | null): void {
     installedProbe = probe;
 }

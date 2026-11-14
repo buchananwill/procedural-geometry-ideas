@@ -290,8 +290,6 @@ export function makeMergedSolverContext(
         isPrimaryNonReflex: notSupported('isPrimaryNonReflex'),
         updateMaxOffset: notSupported('updateMaxOffset'),
         isReflexEdge: notSupported('isReflexEdge'),
-        clockwiseSpanExcludingAccepted: notSupported('clockwiseSpanExcludingAccepted'),
-        clockwiseSpanIncludingAccepted: notSupported('clockwiseSpanIncludingAccepted'),
         widdershinsBisector: notSupported('widdershinsBisector'),
         clockwiseBisector: notSupported('clockwiseBisector'),
         clockwiseVertexAtOffset: notSupported('clockwiseVertexAtOffset'),

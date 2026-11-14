@@ -1,7 +1,7 @@
 /*
- * THE WAVEFRONT'S STORED ORDER, PART A, OVER THE 642-CELL SWEEP (skeleton wavefront-order spec, decision
- * 15): `checkWavefront` at every step boundary of every root cell of the full-grid sweep harness, with the
- * four comparisons of decision 16 recorded and printed. See `wavefront-order.test.ts` for the corpus.
+ * THE WAVEFRONT'S STORED ORDER OVER THE 642-CELL SWEEP (skeleton wavefront-order spec, decisions 15 and 23):
+ * `checkWavefront` at every step boundary of every root cell of the full-grid sweep harness, outside decision
+ * 32's path. See `wavefront-order.test.ts` for the corpus.
  */
 import {setSkeletonLogLevel, solveSkeleton} from '@proc-geo/core';
 import {allCells} from '../sweep-harness/sweep';

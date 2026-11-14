@@ -28,7 +28,7 @@ import {
     weightedRateSumRoundingBound,
 } from "./constants";
 import {intersectRays} from "./intersection-edges";
-import {activeWavefrontProbe, NeighbourGuardSite} from "./wavefront";
+import {linkGuardRefuses} from "./wavefront";
 import {
     exteriorRayTerms,
     interiorDirectionError,
@@ -275,8 +275,7 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     } = context.parentEdges(instigatorData.id);
 
     // Can't split an edge that is already finished, or split from behind a finished one. An
-    // accepted exterior edge has no wavefront left to cut, and its span is not measurable —
-    // `clockwiseSpanExcludingAccepted` throws rather than answer for one.
+    // accepted exterior edge has no wavefront left to cut.
     if (context.isAccepted(edgeToSplit.id)
         || context.isAccepted(instigatorClockwiseParent.id)
         || context.isAccepted(instigatorWiddershinsParent.id)) {
@@ -289,15 +288,6 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    // Can't split your neighbour
-    const clockwiseSpan = context.clockwiseSpanExcludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanExcludingAccepted(edgeToSplit, instigatorWiddershinsParent)
-    const refusesNeighbour = Math.min(clockwiseSpan, widdershinsSpan) < 2;
-    reportNeighbourGuard(context, 'generateSplitEvent', instigatorData, edgeToSplit, refusesNeighbour);
-    if (refusesNeighbour) {
-        return null;
-    }
-
     const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
     if (result === null) {
         return null;
@@ -306,6 +296,11 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     const struckSegment = context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
     if (struckSegment === null) {
         splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
+        return null;
+    }
+
+    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links.
+    if (linkGuardRefuses(context, instigatorData.id, struckSegment)) {
         return null;
     }
 
@@ -321,30 +316,6 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
     }
 }
 
-/**
- * PART A'S COMPARISON OF THE NEIGHBOUR GUARD (skeleton wavefront-order spec, decision 16), off in a normal
- * solve. The link form needs the segment the split would strike, which the arithmetic guard is asked before
- * anything is priced, so the probe is handed a thunk that prices the incenter split and validates it —
- * both side-effect free — and calls it only for the comparison.
- */
-function reportNeighbourGuard(
-    context: StraightSkeletonSolverContext,
-    site: NeighbourGuardSite,
-    instigatorData: InteriorEdge,
-    edgeToSplit: PolygonEdge,
-    arithmeticRefuses: boolean,
-): void {
-    const probe = activeWavefrontProbe();
-    if (probe === null || probe.guard === undefined) {
-        return;
-    }
-    probe.guard(context, site, instigatorData.id, edgeToSplit.id, arithmeticRefuses, () => {
-        const result = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
-        return result === null
-            ? null
-            : context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
-    });
-}
 
 export function generateSplitEventViaBisector(
     instigatorId: number,
@@ -459,13 +430,14 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    const clockwiseSpan = context.clockwiseSpanIncludingAccepted(instigatorClockwiseParent, edgeToSplit);
-    const widdershinsSpan = context.clockwiseSpanIncludingAccepted(edgeToSplit, instigatorWiddershinsParent);
-
-    const refusesNeighbour = Math.min(clockwiseSpan, widdershinsSpan) < 2;
-    reportNeighbourGuard(context, 'generateSplitEventFromTheEdgeItself', instigatorData, edgeToSplit, refusesNeighbour);
-    if (refusesNeighbour) {
-        return null;
+    // THE THROW THE SPAN GUARD THAT STOOD HERE MADE, KEPT BY A DIRECT TEST (spec decision 21's reasoning,
+    // applied to this site). Measuring a span threw on an accepted instigator parent or struck edge, and that
+    // throw is a step failure; a live bisector names an accepted edge only on the early-acceptance path
+    // (`ISSUE-skeleton-edge-accepted-before-its-face-closes.md`), where it stays exactly as it was.
+    if (context.isAccepted(edgeToSplit.id)
+        || context.isAccepted(instigatorClockwiseParent.id)
+        || context.isAccepted(instigatorWiddershinsParent.id)) {
+        throw new Error('Cannot compute span with accepted edges.');
     }
 
     const incenterResult = findOffsetViaIncenter(instigatorData, edgeToSplit, context);
@@ -475,6 +447,11 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     const struckSegment = context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival);
     if (struckSegment === null) {
+        return null;
+    }
+
+    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links.
+    if (linkGuardRefuses(context, instigatorId, struckSegment)) {
         return null;
     }
 

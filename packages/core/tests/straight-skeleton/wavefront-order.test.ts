@@ -1,12 +1,12 @@
 /*
- * THE WAVEFRONT'S STORED ORDER, PART A (docs/notes/skeleton-wavefront-order-decisions.md, decisions 1 to
- * 18). The links are maintained through every event while nothing in the solver reads them; this suite
- * states the invariants W1 to W4 directly, convicts `checkWavefront` on hand-broken states, and runs it at
- * every step boundary of every `FULL_CORPUS` fixture and every weighted fixture (decision 15), with the four
- * comparisons of decision 16 recorded and printed (decision 17). The 642-cell sweep and the recursion
- * census's regions run in `wavefront-order-sweep.test.ts` and `wavefront-order-census.test.ts`.
+ * THE WAVEFRONT'S STORED ORDER (docs/notes/skeleton-wavefront-order-decisions.md). The links are written by
+ * every event and are the solver's source of wavefront order; this suite states the invariants W1 to W4
+ * directly, convicts `checkWavefront` on hand-broken states, and runs it at every step boundary of every
+ * `FULL_CORPUS` fixture and every weighted fixture as the standing gate on link writing (decisions 15, 23).
+ * The 642-cell sweep and the recursion census's regions run in `wavefront-order-sweep.test.ts` and
+ * `wavefront-order-census.test.ts`; spec decision 32's red cells in `wavefront-order-early-acceptance.test.ts`.
  */
-import type {Arrival, CollisionEvent, StraightSkeletonSolverContext, WavefrontSegment} from '@proc-geo/core';
+import type {CollisionEvent, StraightSkeletonSolverContext, WavefrontSegment} from '@proc-geo/core';
 import {
     bisectWithParams,
     checkWavefront,
@@ -16,13 +16,8 @@ import {
     setSkeletonLogLevel,
     solveSkeleton,
 } from '@proc-geo/core';
-import {
-    beginLayerLinks,
-    linkBirth,
-    setWavefrontProbe,
-    settleLayerLinks,
-} from '@proc-geo/core/straight-skeleton/wavefront';
-import {FULL_CORPUS, initContext, T_SHAPE, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {beginLayerLinks, linkBirth, settleLayerLinks} from '@proc-geo/core/straight-skeleton/wavefront';
+import {CROSS, FULL_CORPUS, initContext, T_SHAPE, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {describeReport, emptyReport, withWavefrontProbe} from './wavefront-probe-helpers';
 
 setSkeletonLogLevel('silent');
@@ -112,8 +107,8 @@ describe('the wavefront links', () => {
 
     /*
      * THE PAIRWISE EVENTS, DRIVEN DIRECTLY. `handleCollisionEvent`'s pair collapse and vertex-to-vertex
-     * branches are reached in a solve only by the pairwise fallback, which no roster of decision 15
-     * reaches on this tree (`ringsOfSubPolygon` never returns null there, so every layer resolves whole).
+     * branches are reached in a solve only by the pairwise fallback, which the corpus and the census never
+     * reach (every layer there resolves whole) and only the 642-cell sweep does.
      * These tests run each branch as one layer — handle, bear, settle — and hold its links to W1 to W4.
      */
     describe('the pairwise events write their links (decision 9)', () => {
@@ -153,22 +148,27 @@ describe('the wavefront links', () => {
     });
 
     describe('a segment is a linked pair, and the arithmetic\'s section reads as one', () => {
-        it('reads activeExteriorEdgeSegments\' widdershins bisector as `from` and its clockwise bisector as `to`', () => {
-            const context = initContext(T_SHAPE);
-            const n = context.graph.numExteriorNodes;
-            const seen = new Map<number, readonly WavefrontSegment[]>();
-            setWavefrontProbe({segments: (_context, edge, arithmetic) => seen.set(edge, arithmetic)});
-            try {
-                const arrival: Arrival = {distance: 0, weight: 1, uncertainty: 0};
-                for (let edge = 0; edge < n; edge++) {
-                    context.validateSplitReachesEdge(n + (edge + 3) % n, edge, arrival);
+        it('every split names a struck segment that is a linked pair of the struck edge (decisions 5, 11)', () => {
+            const struck: WavefrontSegment[] = [];
+            let context: StraightSkeletonSolverContext | undefined;
+            for (const polygon of [T_SHAPE, CROSS]) {
+                context = initContext(polygon);
+                const n = context.graph.numExteriorNodes;
+                for (const bisector of interiorIds(context)) {
+                    for (let edge = 0; edge < n; edge++) {
+                        for (const event of collideEdges(bisector, edge, context)) {
+                            if (event.eventType === 'interiorAgainstExterior' && event.struckSegment !== undefined) {
+                                const segment = event.struckSegment;
+                                expect(segment.exteriorEdge).toBe(edge);
+                                expect(context.getInteriorWithId(segment.from).clockwiseExteriorEdgeIndex).toBe(edge);
+                                expect(context.wavefront.clockwiseNeighbour[segment.from]).toBe(segment.to);
+                                struck.push(segment);
+                            }
+                        }
+                    }
                 }
-            } finally {
-                setWavefrontProbe(null);
             }
-            for (let edge = 0; edge < n; edge++) {
-                expect(seen.get(edge)).toEqual([{exteriorEdge: edge, from: n + edge, to: n + (edge + 1) % n}]);
-            }
+            expect(struck.length).toBeGreaterThan(0);
         });
     });
 

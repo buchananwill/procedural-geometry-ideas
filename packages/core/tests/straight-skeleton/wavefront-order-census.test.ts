@@ -1,8 +1,8 @@
 /*
- * THE WAVEFRONT'S STORED ORDER, PART A, OVER THE RECURSION CENSUS (skeleton wavefront-order spec, decision
- * 15): `checkWavefront` at every step boundary of every solve the census grid runs — the root and every
+ * THE WAVEFRONT'S STORED ORDER OVER THE RECURSION CENSUS (skeleton wavefront-order spec, decisions 15 and
+ * 23): `checkWavefront` at every step boundary of every solve the census grid runs — the root and every
  * region of `FULL_CORPUS` × merge groups 1–4 × depths 0.25 / 0.6 / 1 at three levels, residue recursed —
- * with the four comparisons of decision 16 recorded and printed. See `wavefront-order.test.ts`.
+ * outside decision 32's path. See `wavefront-order.test.ts`.
  */
 import {
     FULL_DEPTH_FRACTION,

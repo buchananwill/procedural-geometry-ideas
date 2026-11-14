@@ -5,7 +5,7 @@ import {
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "./types";
-import {complexLog, solverLog} from "./logger";
+import {complexLog} from "./logger";
 import {
     assertIsNumber,
     crossProduct,
@@ -146,29 +146,12 @@ export function addBisectionEdge(context: StraightSkeletonSolverContext, clockwi
     const clockwiseEdge = graph.edges[clockwiseExteriorEdgeIndex];
     const widdershinsEdge = graph.edges[widdershinsExteriorEdgeIndex];
 
-    // KEPT FOR ITS THROW, AND FOR THE LOG. `clockwiseSpanExcludingAccepted` refuses to measure a
-    // span touching an accepted edge, so these two calls are how a caller that tries to bisect
-    // between finished parents is caught here rather than downstream.
-    const spanCwToWs = context.clockwiseSpanExcludingAccepted(clockwiseEdge, widdershinsEdge)
-    const spanWsToCs = context.clockwiseSpanExcludingAccepted(widdershinsEdge, clockwiseEdge);
-
-    // NAMED, NOT ACTED ON — AND THAT IS THE CORRECTION, NOT AN OVERSIGHT. The two branches this
-    // used to have both assigned the parents from the SAME two variables, by shorthand, so they
-    // differed only in the order the keys were written into the object literal: the "inverted"
-    // branch never swapped anything. Reading it as a swap is what made the stored parents look
-    // inconsistent with the `ensureBisectionIsInterior` call below, and they never were. The
-    // condition is now recorded in the log it always wrote and nowhere else, so the next reader
-    // cannot mistake a key ordering for a parent ordering.
-    //
-    // THE CONDITION IS LIVE, WHICH IS WHY THE COLLAPSE IS WORTH MAKING RATHER THAN DEAD CODE TO
-    // DELETE. Measured by mutation: restoring the two branches changes nothing (4345/4345 green),
-    // but making the inverted branch genuinely swap the parents fails 559 tests across 26 suites
-    // and takes the recursive-subdivision census from 0 recorded failures to 298. The branch is
-    // reached often and on this corpus the right answer is always "do not swap", so what looked
-    // like a latent inconsistency was a trap for the reader and never a defect in the output.
-    const parentsInverted = spanWsToCs > spanCwToWs;
-    if (parentsInverted) {
-        solverLog.debug(`Inverted parent ordering: ${clockwiseExteriorEdgeIndex}, ${widdershinsExteriorEdgeIndex}`);
+    // A BISECTOR BETWEEN FINISHED PARENTS IS REFUSED HERE, BY A DIRECT TEST (skeleton wavefront-order
+    // spec, decision 21). An accepted parent has no wavefront left to bisect. This throw used to come from
+    // the two `span` calls that also fed a `parentsInverted` log line; both went with `span` itself, and
+    // the message is the one they threw.
+    if (context.isAccepted(clockwiseExteriorEdgeIndex) || context.isAccepted(widdershinsExteriorEdgeIndex)) {
+        throw new Error('Cannot compute span with accepted edges.');
     }
 
     const id = graph.edges.length;

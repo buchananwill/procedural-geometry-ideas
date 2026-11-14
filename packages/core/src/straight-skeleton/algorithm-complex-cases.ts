@@ -20,10 +20,10 @@ import {
     ringsOfSubPolygon
 } from "./coincident-events";
 import {
-    activeWavefrontProbe,
     beginLayerLinks,
     linkBirth,
     retireBisectors,
+    ringsOfWavefront,
     settleLayerLinks
 } from "./wavefront";
 
@@ -328,9 +328,15 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // one node, then emit one bisector per surviving arc — before touching the next. Handling
     // the reported pairs individually is what leaves the ring inconsistent on symmetric input,
     // where a single point can absorb every edge at once.
-    const rings = ringsOfSubPolygon(input.interiorEdges, context);
-    // PART A'S COMPARISON (spec decision 16), off in a normal solve.
-    activeWavefrontProbe()?.subPolygonRings?.(context, input.interiorEdges, rings);
+    //
+    // THE RINGS ARE THE WAVEFRONT'S, READ FROM ITS LINKS (skeleton wavefront-order spec, decision 20).
+    // `ringsOfSubPolygon` is still asked, and only for its `null`, which sends the layer to the pairwise
+    // fallback below; that verdict is behaviour and is retired by stage 2, not here. Its non-null answer is
+    // not used: part A measured that it never returned null and always equalled these rings, in the same
+    // cyclic order and from the same start, over the corpus, the sweep and the census (BSA.F95).
+    const rings = ringsOfSubPolygon(input.interiorEdges, context) === null
+        ? null
+        : ringsOfWavefront(context, input.interiorEdges);
 
     /**
      * These events resolved as WHOLE vertex events, or `null` when they cannot be.
@@ -481,6 +487,13 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     Span of bisection = (end - start + length) % length
 
      * */
+    // THE ONE MODULAR ARITHMETIC ON EXTERIOR IDS LEFT IN THE EVENT PATH, AND WHY (skeleton wavefront-order
+    // spec, decisions 13 and 22, in conflict). This order no longer decides any child step — the rings do —
+    // but it is still the order the partition bisectors are BORN in, so it numbers them, and it chooses
+    // which of two same-start, same-source re-reports survives. Measured: ordering instead by the size of
+    // the ring each pending bisector closes (the link-derived reading of "the tightest claim") moves the
+    // pinned digest of 16 corpus fixtures, clean ones among them, by renumbering alone. Kept for the lead's
+    // ruling; under several loops an id span is not a ring distance, so stage 2 must replace it.
     const partitionSpan = (params: BisectionParams) => {
         return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
     }
@@ -499,10 +512,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // span is the tightest claim and wins. Same-start events from DIFFERENT split nodes are
     // distinct simultaneous splits of that exterior edge — two reflex bisectors splitting it at
     // different points in one layer — and every one of them partitions the polygon, so all
-    // survive. A survivor's span may then nest inside a sibling's (the middle child of a double
-    // split has no exact circular range, only a tightest one that covers an outer child whole),
-    // which the span-ascending order above resolves: the assignment below gives an edge to the
-    // FIRST child span containing both its parents, so the narrowest claim always wins.
+    // survive. Which child each survivor's bisector lands in is no longer a question of spans: the
+    // child steps below are the rings the layer left.
     const keptSourcesByStart = new Map<number, Set<number>>();
     const finalPartitionEvents: BisectionParams[] = [];
     for (const partitionEvent of partitionEvents) {
@@ -529,14 +540,16 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         return id;
     };
 
-    allOutgoingInteriorEdges.push(...finalPartitionEvents
-        .filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
-        .map(bear))
+    // Indexed as `finalPartitionEvents`: the bisector each partition event bore, or `undefined` if refused.
+    const partitionBirths = finalPartitionEvents.map(params =>
+        !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex)
+            ? bear(params)
+            : undefined);
+    allOutgoingInteriorEdges.push(...partitionBirths.filter((id): id is number => id !== undefined))
 
     // Both bounding parents must still be live. An accepted parent has no wavefront left to
-    // bisect, and `clockwiseSpanExcludingAccepted` refuses to measure a span that touches one,
-    // so admitting a half-accepted collapse throws instead of producing an edge.
+    // bisect, and `addBisectionEdge` refuses one, so admitting a half-accepted collapse throws instead
+    // of producing an edge.
     allOutgoingInteriorEdges.push(
         ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
             && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
@@ -552,35 +565,28 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         return result;
     }
 
-    result.childSteps = finalPartitionEvents.map(() => ({interiorEdges: []}))
-
-    const N = context.graph.numExteriorNodes;
-    for (const interiorEdge of allOutgoingInteriorEdges) {
-        const { clockwise: cwParent, widdershins: wsParent } = context.parentEdges(interiorEdge);
-
-        let success = false;
-
-        for (let i = 0; i < finalPartitionEvents.length; i++) {
-            const event = finalPartitionEvents[i];
-            const cwInSpan = (cwParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
-            const wsInSpan = (wsParent.id - event.clockwiseExteriorEdgeIndex + N) % N;
-            const spanSize = (event.widdershinsExteriorEdgeIndex - event.clockwiseExteriorEdgeIndex + N) % N;
-            if (cwInSpan <= spanSize && wsInSpan <= spanSize) {
-                const partitionSet = result.childSteps[i];
-                partitionSet.interiorEdges.push(interiorEdge);
-                success = true;
-                break;
-            }
-        }
-
-        if (!success) {
-            throw new Error(`Unable to play interior edge ${interiorEdge} in any span: ${finalPartitionEvents.flatMap(e => [e.clockwiseExteriorEdgeIndex, e.widdershinsExteriorEdgeIndex])}`)
-        }
-    }
-
-    // PART A'S COMPARISON (spec decision 16), off in a normal solve: the id-interval partition against
-    // the rings the layer left.
-    activeWavefrontProbe()?.partition?.(context, input.interiorEdges, result.childSteps, allOutgoingInteriorEdges);
+    // THE CHILD STEPS ARE THE RINGS THE LAYER LEFT (skeleton wavefront-order spec, decision 19). This replaced
+    // an assignment of each bisector to the first id interval holding both its parents, which presumed every
+    // ring is an interval of ids: on the stage-off along-edge cells it shattered a true ring into one-edge
+    // children (BSA.F95), and a ring joined from two loops is no interval at all (BSA.F91).
+    //
+    // IN TODAY'S ORDER (decision 13), because child order numbers what later steps create: a ring goes where
+    // the earliest partition event whose bisector it holds put its child, and a child lists its members in
+    // the order they were gathered above. Part A measured that every child of every partitioning layer of
+    // the corpus, the sweep and the census that completed was exactly one ring.
+    const position = new Map(allOutgoingInteriorEdges.map((id, index) => [id, index]));
+    const partitionIndex = new Map(partitionBirths.flatMap((id, index) => id === undefined ? [] : [[id, index] as const]));
+    const children = ringsOfWavefront(context, allOutgoingInteriorEdges)
+        .map(ring => ({
+            // Only this layer's bisectors: a ring the links cannot close (decision 32's path) never reaches
+            // into another step.
+            members: ring.filter(id => position.has(id)).toSorted((a, b) => position.get(a)! - position.get(b)!),
+            claim: Math.min(...ring.map(id => partitionIndex.get(id) ?? Infinity)),
+        }))
+        .toSorted((a, b) => a.claim !== b.claim
+            ? a.claim - b.claim
+            : position.get(a.members[0])! - position.get(b.members[0])!);
+    result.childSteps = children.map(child => ({interiorEdges: child.members}));
 
     return result;
 }
