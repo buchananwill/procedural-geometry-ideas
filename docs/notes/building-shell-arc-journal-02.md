@@ -9,10 +9,11 @@ record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-
 
 # Building shell arc: session 2 journal
 
-**This is the head of the thread until session 3 opens its own journal**, continuing
-[session 1](./building-shell-arc-journal.md). This session's decisions run from **187 to 259** and its findings from
-**F57 to F83**. **Session 2 closed on 2026-11-13 (decision 259). Session 3 continues decisions at 260 and findings
-at F84**, in a new file `building-shell-arc-journal-03.md`, and marks this one as no longer the head.
+**Superseded as head by [session 3](./building-shell-arc-journal-03.md),** closed at session 2 closed at decision 259;
+session 3 begins with the user's reading of the Cheek fixtures on 2026-11-14 with decision 259 and finding F83.
+Continues [session 1](./building-shell-arc-journal.md). This session's decisions run from **187 to 259** and its
+findings from **F57 to F83**. **Session 2 closed on 2026-11-13 (decision 259). Session 3 continues decisions at 260 and
+findings at F84**, in a new file `building-shell-arc-journal-03.md`, and marks this one as no longer the head.
 
 ## Reading order for a fresh context
 
