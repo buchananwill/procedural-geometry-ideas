@@ -351,6 +351,27 @@ session 3's own.
     review, commit again.
   - **After the follow-up,** the confirming diagnosis of the early acceptance (BSA.D291), in the same tree and so not
     alongside it.
+- **293. The lead's rulings on the stage 1 review (BSA.F97): three findings are fixed in stage 1, two go to node 4's
+  spec, and the fix pass waits for the implementer's follow-up to land.**
+  - **Fixed now, coincident splits (finding 1):** the piece a coincident split takes is decided from the links, by where
+    its instigator stands on the ring, never by a position that ties; and the dedupe may not drop a bisector whose
+    neighbours are live. Constructed tests state both, because no roster reaches them. The reason to fix an unreached
+    path now: the concentric courtyard of roadmap node 5 is made of coincident events.
+  - **Fixed now, the gate (finding 2):** a solve's violations are discarded only from the first boundary at which the
+    cause holds, so earlier ones are asserted; every solve in a roster is counted, a thrown one included; and the red
+    early-acceptance test sweeps every roster and names each solve that trips the cause. That keeps the excluded set
+    visible without a green test that asserts a defect (BSA.D266).
+  - **Fixed now, adjacency (finding 3):** a pair of bisectors is a collapse of neighbours when the links say they are
+    neighbours, and `linkPairCollapse` refuses a pair that is not. Measured first: the reviewer found the two readings
+    equal on 1,503 collapses, so no solve should move; if one does, it is handled under the stage 1 spec's decision 31.
+  - **Also now:** the stale comments, and the silent drop of a segment with a broken link becomes a throw.
+  - **To node 4's spec:** the search for a struck segment limited to the step's rings, and the guard asked of every
+    validating segment (finding 4); and the reviewer's list of single-ring assumptions. They change nothing on one loop
+    and are decided with the join event.
+  - **Recorded, not fixed:** the never-born splice is sound only for a whole ring, and a throw in mid-layer leaves
+    tokens in the arrays of a step that has already failed.
+  - **Who:** a fresh Opus delegate, since the implementer's context is very long and the fixes are bounded by the
+    review's own file and line citations.
 
 ## Findings
 
@@ -500,3 +521,33 @@ session 3's own.
     renumbered 16 pinned digests, clean fixtures among them.
   - **Mutation:** segments, partition order, partition membership and ring direction each turn 33 to 49 tests red. The
     guard and the splice of a never-born bisector are not convicted by any standing test.
+- **F97. The review of stage 1 found no link-writing defect a sound single-loop solve reaches, and four real problems,
+  two of which matter only once there are holes.** (an independent Opus reviewer of 60fcbed..a997110, read-only, with an
+  instrumented run of 772 solves on a throwaway copy, 2026-11-14; not re-run by the lead)
+  - **Confirmed by the reviewer:** every rewrite reads current links; W2 holds by construction for the pair collapse,
+    the vertex-to-vertex event, the split, the merge gap, births and closures; **the split rewrite is correct for a
+    struck segment on a different ring** and for two segments of one edge; `Wavefront` is plain arrays; the probe costs
+    production one module read per solve and one optional call per step, and both test probes only read.
+  - **1. Coincident splits of one segment are unsound** (`wavefront.ts` near line 360, and the same-start, same-source
+    dedupe in `algorithm-complex-cases.ts`). Two splits sited at one point always tie on position along the edge, the
+    tie always takes the "after" piece, and that is right only for one ordering of the instigators. The wrong ring still
+    satisfies W1 to W4, so the gate cannot see it; the dedupe then drops one bisector and its splice breaks W2. Never
+    reached in 772 solves (the walk runs on one layer of `Golf Cart`).
+  - **2. The gate's exclusion is solve-wide and sticky.** Once an accepted parent on a live bisector is seen at any
+    boundary, every violation of that solve is discarded, earlier and unrelated ones too, and nothing records how many
+    solves are excluded (6 in corpus and sweep, 4 per census depth). A solve that throws outside `stepAlgorithm` is
+    silently uncounted.
+  - **3. The pair collapse finds adjacency by parent id** (`checkSharedParents`, and the `interiorPair` against
+    `interiorNonAdjacent` classification), the one remaining instance of what spec decision 10 forbids. With an edge
+    bounding two segments of one ring, two bisectors that are not neighbours share a parent and would be collapsed as
+    neighbours. 0 of 1,503 pair collapses were non-adjacent by link.
+  - **4. The struck segment is searched over the whole graph, not the step's rings,** and the guard is asked only of the
+    first validating segment. 0 of about 320,000 validating calls struck outside the step.
+  - **Lower:** splicing out a never-born bisector between two live ones can never satisfy W2 and is sound only when a
+    whole ring of them goes (22 of 35 observed are a duplicate 2-ring on `rosette40` cells, the rest are the
+    early-acceptance path), which is why its mutation is unconvicted; a throw in mid-layer leaves pending tokens in the
+    stored arrays; `solver-context.ts` near line 241 silently drops a segment whose `to` link is broken.
+  - **Single-ring assumptions left for holes, beyond `partitionSpan`:** `ringsOfSubPolygon` returns `null` whenever an
+    edge bounds two segments; `asWholeEvents` wants a merge's arrivals on one ring; the parent-id classification of 3;
+    the graph-wide search of 4; the dedupe keyed on exterior id; and `hasInteriorLoop`, which is not segment-aware.
+  - **Stale comments:** `wavefront.ts` lines 16 to 19 and 561 to 563, `algorithm-termination-cases.ts` line 1245.
