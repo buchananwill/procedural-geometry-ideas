@@ -137,6 +137,23 @@ describe('the wavefront links', () => {
             expect(checkWavefront(context, [{interiorEdges: [b0, born, b3]}])).toEqual([]);
         });
 
+        it('a bisector the layer refuses to bear is spliced out, joining its two neighbours', () => {
+            // The rectangle's right-edge collapse again, but its bisector is never born — as when
+            // `handleInteriorNGon` filters a birth whose parent the layer has accepted. The layer settles with
+            // the collapse's two outer neighbours linked to each other, and no pending token left anywhere.
+            const context = initContext([{x: 0, y: 1}, {x: 4, y: 1}, {x: 4, y: 0}, {x: 0, y: 0}]);
+            const [b0, b1, b2, b3] = interiorIds(context);
+            beginLayerLinks(context);
+            expect(handleCollisionEvent(eventOf(context, b1, b2, 'interiorPair'), context)).toHaveLength(1);
+            expect(context.wavefront.clockwiseNeighbour[b0]).toBeLessThan(-1);
+            settleLayerLinks(context);
+            expect(context.wavefront.clockwiseNeighbour[b0]).toBe(b3);
+            expect(context.wavefront.widdershinsNeighbour[b3]).toBe(b0);
+            expect(ringsOfWavefront(context, [b0])).toEqual([[b0, b3]]);
+            expect([...context.wavefront.clockwiseNeighbour, ...context.wavefront.widdershinsNeighbour]
+                .every(id => id >= -1)).toBe(true);
+        });
+
         it('the vertex-to-vertex event divides a ring in two', () => {
             // A clockwise square: the bisectors at opposite corners meet at its centre and share no parent.
             const context = initContext([{x: 0, y: 2}, {x: 2, y: 2}, {x: 2, y: 0}, {x: 0, y: 0}]);

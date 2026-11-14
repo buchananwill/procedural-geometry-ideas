@@ -150,3 +150,8 @@ maintained and compared against the arithmetic while nothing reads them, then th
     (`fine:circle48@2e11`, `ladder:1x:s2`), asserts `checkWavefront` is empty on them, and points at
     [the issue note](./ISSUE-skeleton-edge-accepted-before-its-face-closes.md). Decision 15's gate detects the path by
     its cause, an accepted parent on a live bisector, and never by a list of cell names.
+33. **`partitionSpan` in `handleInteriorNGon` stays through stage 1, as the one exception to decision 22**
+    (BSA.D292). It no longer decides any child step. It still orders the births of a layer's partition bisectors,
+    which numbers them, and picks the survivor of two re-reports with the same start and source. A link-derived
+    order was measured and moved 16 pinned digests by renumbering alone, so decision 13 holds here over decision 22.
+    The spec for roadmap node 4 replaces it, because an id interval has no meaning across loops.
