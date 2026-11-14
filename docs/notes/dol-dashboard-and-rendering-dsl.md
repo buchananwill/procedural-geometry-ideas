@@ -1,3 +1,11 @@
+---
+title: "D0L Dashboard and Unified Rendering DSL"
+type: workflow
+area: dashboard
+status: archived
+date: 2026-03-14
+---
+
 # D0L Dashboard + Unified Rendering DSL + Multi-Algorithm Routing
 
 A D0L (Lindenmayer) system generator has been added to `@proc-geo/core`. The goal is not just to add another canvas —

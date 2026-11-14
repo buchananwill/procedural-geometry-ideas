@@ -1,3 +1,11 @@
+---
+title: "Awkward Hexagon Test"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-02-22
+---
+
 # Awkward Hexagon Test
 
 In `awkward-hexagon.test.ts` there is a particularly problematic polygon. According to my manual working out of the

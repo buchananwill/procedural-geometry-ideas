@@ -1,3 +1,11 @@
+---
+title: "Collision Scenarios for the Straight Skeleton Algorithm"
+type: technical-reference
+area: straight-skeleton
+status: archived
+date: 2026-02-23
+---
+
 # Collision Scenarios For Straight Skeleton Algorithm
 
 ## Function Needed

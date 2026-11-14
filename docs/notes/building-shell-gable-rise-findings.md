@@ -1,7 +1,9 @@
 ---
 title: "Building Shell: Gable Rise Findings"
-type: findings
-status: open
+type: technical-reference
+area: building-shell
+status: active
+date: 2026-11-12
 ---
 
 # Gable rise findings

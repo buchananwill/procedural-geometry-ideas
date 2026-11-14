@@ -1,7 +1,10 @@
 ---
 title: "Task 239 — Recursive segment subdivision, review cycle 2"
-type: debrief
-spec: ../recursive-segment-subdivision-decisions.md
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-16
+# spec: ../recursive-segment-subdivision-decisions.md
 ---
 
 # Task 239 debrief — review cycle 2

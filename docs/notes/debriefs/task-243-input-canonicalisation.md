@@ -1,3 +1,11 @@
+---
+title: "Task 243 — Input canonicalisation (reissue, expanded ownership)"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-17
+---
+
 # Task 243 — Input canonicalisation (reissue, expanded ownership)
 
 Spec: [`docs/notes/input-canonicalisation-decisions.md`](../input-canonicalisation-decisions.md)

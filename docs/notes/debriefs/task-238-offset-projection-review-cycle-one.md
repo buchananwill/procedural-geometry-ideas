@@ -1,3 +1,11 @@
+---
+title: "Task 238 — Offset projection at terminal many-way events, revision cycle 1"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+---
+
 # Task 238 — Offset projection at terminal many-way events, revision cycle 1
 
 ## Task Summary

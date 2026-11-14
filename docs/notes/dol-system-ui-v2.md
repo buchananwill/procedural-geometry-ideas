@@ -1,3 +1,11 @@
+---
+title: "D0L System UI V2 Feedback"
+type: commentary
+area: dol-system
+status: archived
+date: 2026-03-15
+---
+
 # D0L System UI V2
 
 ## Global Changes

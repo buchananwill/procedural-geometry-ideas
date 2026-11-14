@@ -1,3 +1,11 @@
+---
+title: "Task 249 — Per-level recursion specs (review cycle 1 response)"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Task 249 — Per-level recursion specs (review cycle 1 response)
 
 ## Task Summary

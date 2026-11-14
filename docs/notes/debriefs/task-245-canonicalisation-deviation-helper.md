@@ -1,3 +1,11 @@
+---
+title: "Debrief 0001 — Canonicalisation deviation helper (task 245, revision cycle 2)"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-17
+---
+
 # Debrief 0001 — Canonicalisation deviation helper (task 245, revision cycle 2)
 
 ## Task Summary

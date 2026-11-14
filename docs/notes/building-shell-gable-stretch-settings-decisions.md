@@ -1,7 +1,11 @@
 ---
 title: "Building Shell: Per-Stretch Gable Settings"
 type: decision-spec
-status: implementer-handoff
+area: building-shell
+status: completed
+date: 2026-11-13
+depends_on: ["./building-shell-gable-rise-proposal.md"]
+verified_by: [apps/building-shell/tests/gable-settings.test.ts, apps/building-shell/tests/viewer-edit.test.ts, apps/building-shell/tests/viewer-draft.test.ts]
 ---
 
 # Per-stretch gable settings

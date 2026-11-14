@@ -1,7 +1,9 @@
 ---
 title: "Building Shell: Covered Storeys and Sections Findings"
-type: findings
-status: open
+type: technical-reference
+area: building-shell
+status: active
+date: 2026-11-09
 ---
 
 # Covered storeys and sections

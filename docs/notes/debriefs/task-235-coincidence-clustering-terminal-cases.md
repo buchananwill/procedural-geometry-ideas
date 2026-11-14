@@ -1,3 +1,11 @@
+---
+title: "Debrief 0001 — solver coincidence clustering and terminal base cases"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+---
+
 # Debrief 0001 — solver coincidence clustering and terminal base cases
 
 Task 235. Spec: `docs/notes/solver-coincidence-and-terminal-cases-decisions.md`.

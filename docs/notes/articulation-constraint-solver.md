@@ -1,3 +1,11 @@
+---
+title: "Articulation Constraint Solver"
+type: technical-reference
+area: articulation
+status: active
+date: 2026-08-02
+---
+
 # Articulation Constraint Solver
 
 The purpose of this module is to allow exploration of constraint solving on a series of connected elements, by treating

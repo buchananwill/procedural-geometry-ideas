@@ -1,7 +1,8 @@
 ---
 title: "Tolerance derivation: decision spec"
-type: design
-status: ratified
+type: decision-spec
+area: straight-skeleton
+status: implementing
 date: 2026-09-24
 ---
 

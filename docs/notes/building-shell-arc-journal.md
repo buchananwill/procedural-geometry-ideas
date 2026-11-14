@@ -1,7 +1,10 @@
 ---
 title: "Building Shell Arc: Session 1 Journal"
 type: workflow
-status: active
+area: building-shell
+status: archived
+date: 2026-11-07
+record_of: ["./building-shell-prototype-decisions.md"]
 ---
 
 # Building shell arc: session 1 journal

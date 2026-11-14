@@ -1,3 +1,11 @@
+---
+title: "Testing a Pentagon Straight Skeleton"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-02-20
+---
+
 # Testing A Pentagon Straight Skeleton
 
 **Outcome**: A series of unit tests that step through creating a straight skeleton from the PENTAGON polygon vertices in

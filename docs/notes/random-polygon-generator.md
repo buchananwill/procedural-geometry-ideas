@@ -1,3 +1,11 @@
+---
+title: "Random Polygon Generator"
+type: technical-reference
+area: straight-skeleton
+status: active
+date: 2026-02-23
+---
+
 # Random Polygon Generator
 
 Purposes:

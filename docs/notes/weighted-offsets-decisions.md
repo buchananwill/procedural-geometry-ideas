@@ -1,8 +1,10 @@
 ---
 title: "Weighted offsets: decision spec"
-type: design
-status: ratified
+type: decision-spec
+area: straight-skeleton
+status: completed
 date: 2026-09-10
+verified_by: [packages/core/tests/straight-skeleton/weighted-offsets.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 ---
 
 # Weighted offsets: decision spec

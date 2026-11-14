@@ -1,3 +1,11 @@
+---
+title: "D0L Geometry Generator V1 Spec"
+type: technical-reference
+area: dol-system
+status: archived
+date: 2026-03-14
+---
+
 # D0L Geometry Generator — V1 Spec
 
 ## Overview

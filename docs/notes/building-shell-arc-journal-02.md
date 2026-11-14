@@ -1,7 +1,10 @@
 ---
 title: "Building Shell Arc: Session 2 Journal"
 type: workflow
+area: building-shell
 status: active
+date: 2026-11-12
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md"]
 ---
 
 # Building shell arc: session 2 journal

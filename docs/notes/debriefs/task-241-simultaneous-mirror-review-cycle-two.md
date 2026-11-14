@@ -1,3 +1,11 @@
+---
+title: "Task 241 — Review cycle two: canonicalised node-offset table"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-17
+---
+
 # Task 241 — Review cycle two: canonicalised node-offset table
 
 ## Task Summary

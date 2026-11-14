@@ -1,7 +1,10 @@
 ---
 title: "Building Shell: Viewer Editing (Proposal)"
 type: decision-spec
-status: proposed
+area: building-shell
+status: completed
+date: 2026-11-12
+verified_by: [apps/building-shell/tests/viewer-edit.test.ts, apps/building-shell/tests/viewer-draft.test.ts]
 ---
 
 # Editing buildings in the viewer

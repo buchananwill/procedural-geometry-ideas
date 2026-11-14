@@ -1,3 +1,11 @@
+---
+title: "Parcel Quality Brief: Short-Edge Merging and Corner Idiom"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-09
+---
+
 # Parcel quality brief — short-edge merging and corner idiom
 
 **Status: shipped.** All decisions below (1–17, as amended) are implemented, reviewed,

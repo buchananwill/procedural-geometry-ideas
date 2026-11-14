@@ -1,7 +1,10 @@
 ---
 title: "Building Shell Prototype: Fixed Design Decisions"
 type: decision-spec
-status: proposed
+area: building-shell
+status: completed
+date: 2026-11-07
+verified_by: [apps/building-shell/tests/shell.test.ts, apps/building-shell/tests/union.test.ts, apps/building-shell/tests/edges.test.ts, apps/building-shell/tests/cells.test.ts, apps/building-shell/tests/storey.test.ts, apps/building-shell/tests/golden.test.ts]
 ---
 
 # Building shell prototype

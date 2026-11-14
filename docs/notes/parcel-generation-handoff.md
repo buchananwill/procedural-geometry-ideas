@@ -1,3 +1,11 @@
+---
+title: "Parcel Generation Handoff"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-09
+---
+
 # Parcel generation — handoff
 
 Written 2026-08-09, closing a single long session. 28 commits across three branches. This is the

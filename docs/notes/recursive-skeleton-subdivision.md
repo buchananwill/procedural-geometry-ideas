@@ -1,7 +1,9 @@
 ---
 title: "Recursive Skeleton Subdivision: Arc Design"
 type: design-vision
+area: subdivision
 status: active
+date: 2026-08-16
 ---
 
 # Recursive skeleton subdivision — arc design

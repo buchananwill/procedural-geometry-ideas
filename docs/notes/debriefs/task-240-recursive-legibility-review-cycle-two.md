@@ -1,9 +1,12 @@
 ---
 title: "Task 240 — Review cycle 2: covering the controls the solver actually reads"
-type: debrief
-task: 240
-spec: docs/notes/recursive-subdivision-legibility-decisions.md
-supersedes: docs/notes/debriefs/task-240-recursive-legibility-review-cycle-one.md
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+# task: 240
+# spec: docs/notes/recursive-subdivision-legibility-decisions.md
+# supersedes: docs/notes/debriefs/task-240-recursive-legibility-review-cycle-one.md
 ---
 
 # Task Summary

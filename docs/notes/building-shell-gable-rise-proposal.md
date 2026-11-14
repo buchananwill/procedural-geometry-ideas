@@ -1,7 +1,10 @@
 ---
 title: "Building Shell: Gable Rises on a Hipped Wall (Proposal)"
 type: decision-spec
-status: proposed
+area: building-shell
+status: completed
+date: 2026-11-12
+verified_by: [apps/building-shell/tests/rise.test.ts, apps/building-shell/tests/ring-forms.test.ts]
 ---
 
 # Gable rises on a hipped wall

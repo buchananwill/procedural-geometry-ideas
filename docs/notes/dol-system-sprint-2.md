@@ -1,3 +1,11 @@
+---
+title: "D0L System Sprint 2 Plan"
+type: workflow
+area: dol-system
+status: archived
+date: 2026-03-15
+---
+
 # D0L System — Sprint 2 Plan
 
 Consolidated from user feedback (`dol-system-ui-v2.md`) and code review notes (`dol-dashboard-review-issues.md`).

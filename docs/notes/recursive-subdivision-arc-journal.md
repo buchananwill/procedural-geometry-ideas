@@ -1,7 +1,10 @@
 ---
 title: "Recursive Subdivision Arc: Journal"
 type: workflow
+area: subdivision
 status: active
+date: 2026-08-17
+record_of: [recursive-skeleton-subdivision.md]
 ---
 
 # Recursive subdivision arc — journal

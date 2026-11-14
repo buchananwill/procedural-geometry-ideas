@@ -1,3 +1,11 @@
+---
+title: "D0L Dashboard and Rendering DSL: Outstanding Review Issues"
+type: commentary
+area: dashboard
+status: archived
+date: 2026-03-15
+---
+
 # D0L Dashboard + Rendering DSL — Outstanding Review Issues
 
 Code review warnings collected during the 6-phase implementation of the unified rendering DSL and D0L dashboard

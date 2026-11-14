@@ -1,3 +1,11 @@
+---
+title: "Straight Skeleton Expanding-Edge Bug"
+type: commentary
+area: straight-skeleton
+status: archived
+date: 2026-07-25
+---
+
 WRONG SOLUTION:
 
 ```json

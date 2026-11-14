@@ -1,7 +1,11 @@
 ---
 title: "Offset Projection at Terminal Events: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: straight-skeleton
+status: completed
+date: 2026-08-16
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/near-regular-ring-loss-diagnosis.test.ts, packages/core/tests/straight-skeleton/offset-event-boundary-regression.test.ts]
 ---
 
 # Offset projection at terminal events

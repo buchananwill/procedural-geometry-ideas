@@ -1,7 +1,11 @@
 ---
 title: "Input Canonicalisation: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: straight-skeleton
+status: completed
+date: 2026-08-16
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/canonicalisation.test.ts, packages/core/tests/straight-skeleton/silhouette-invariance.test.ts, packages/core/tests/straight-skeleton/reflex-subdivision.test.ts]
 ---
 
 # Input canonicalisation

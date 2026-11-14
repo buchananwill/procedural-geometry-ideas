@@ -1,8 +1,10 @@
 ---
 title: "Angular predicate basis: decision spec"
-type: design
-status: draft
+type: decision-spec
+area: straight-skeleton
+status: completed
 date: 2026-09-11
+verified_by: [packages/core/tests/straight-skeleton/angular-predicate-basis.test.ts, packages/core/tests/straight-skeleton/anti-parallel-corridor.test.ts, packages/core/tests/straight-skeleton/coaxial-lane.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 ---
 
 # Angular predicate basis: decision spec

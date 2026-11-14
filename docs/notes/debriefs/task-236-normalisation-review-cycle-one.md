@@ -1,3 +1,11 @@
+---
+title: "Debrief 0002 — Task 236 review cycle 1: shared placement helper, and the two collateral failures resolved"
+type: workflow
+area: straight-skeleton
+status: archived
+date: 2026-08-16
+---
+
 # Debrief 0002 — Task 236 review cycle 1: shared placement helper, and the two collateral failures resolved
 
 Task 236 · spec `docs/notes/normalisation-exact-round-trip-decisions.md` · cycle 1

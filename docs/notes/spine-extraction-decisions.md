@@ -1,7 +1,11 @@
 ---
 title: "Spine Extraction: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: subdivision
+status: completed
+date: 2026-08-17
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/spine.test.ts, packages/dashboard/tests/scene/regionSpine.test.ts, packages/dashboard/tests/components/recursive-readout-text.test.ts, packages/dashboard/tests/scene/recursiveSubdivisionToScene.test.ts, packages/dashboard/tests/stores/useRecursiveSubdivisionStore.test.ts]
 ---
 
 # Spine extraction

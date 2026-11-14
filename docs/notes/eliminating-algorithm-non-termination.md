@@ -1,3 +1,11 @@
+---
+title: "Eliminating Non-Termination of the Straight Skeleton Algorithm"
+type: commentary
+area: straight-skeleton
+status: archived
+date: 2026-02-21
+---
+
 # Straight Skeleton - Eliminating Non-termination of algorithm
 
 1. The current design re-pushes superseded intersection events for each edge in the new winning event. This is

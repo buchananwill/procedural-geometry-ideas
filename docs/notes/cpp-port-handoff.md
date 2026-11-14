@@ -1,6 +1,7 @@
 ---
 title: "C++ port handoff: bringing the skeleton solver up to date with e2544d4..HEAD"
-type: handoff
+type: technical-reference
+area: straight-skeleton
 status: active
 date: 2026-09-10
 ---

@@ -1,7 +1,11 @@
 ---
 title: "Recursive Segment Subdivision: Fixed Design Decisions"
 type: decision-spec
-status: implementer-handoff
+area: subdivision
+status: completed
+date: 2026-08-16
+part_of: [recursive-skeleton-subdivision.md]
+verified_by: [packages/core/tests/straight-skeleton/recursive-subdivision.test.ts, packages/dashboard/tests/stores/useRecursiveSubdivisionStore.test.ts]
 ---
 
 # Recursive segment subdivision

@@ -1,3 +1,11 @@
+---
+title: "Protecting the Straight Skeleton Invariants"
+type: commentary
+area: straight-skeleton
+status: archived
+date: 2026-02-19
+---
+
 # Straight Skeleton Algorithm
 
 ## Protecting The Invariants

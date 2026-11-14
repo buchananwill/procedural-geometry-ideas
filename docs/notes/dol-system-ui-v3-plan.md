@@ -1,3 +1,11 @@
+---
+title: "D0L System UI V3 Sprint Plan"
+type: workflow
+area: dol-system
+status: archived
+date: 2026-03-17
+---
+
 # D0L System UI V3 Sprint Plan
 
 ## Context

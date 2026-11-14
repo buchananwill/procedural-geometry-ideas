@@ -1,3 +1,11 @@
+---
+title: "Debrief 0003 — Spine extraction, review cycle 1"
+type: workflow
+area: subdivision
+status: archived
+date: 2026-08-17
+---
+
 # Debrief 0003 — Spine extraction, review cycle 1
 
 Task 250 · `docs/notes/spine-extraction-decisions.md` · revision cycle 1 (reviewRuns 1322 decomp,

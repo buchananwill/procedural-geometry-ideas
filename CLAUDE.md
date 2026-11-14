@@ -49,6 +49,30 @@ A private prototype, not a publishable module (see `docs/notes/building-shell-ar
 - Scratch scripts that load the pipeline through `vite.runnerImport` must restate the `@proc-geo/core` alias to core's
   source, because `runnerImport` ignores `configFile`.
 
+## Arc journals
+
+Session journals are `docs/notes/<slug>-journal-NN.md`. Read and write them through
+[scripts/journal.py](./scripts/journal.py), following the `journal` skill
+([SKILL.md](./.claude/skills/journal/SKILL.md)): `python scripts/journal.py brief` bootstraps a session, `show <id>`
+fetches one entry, and `decision` / `finding` append the next numbered entry. Never read a journal end to end.
+
+- A decision or finding is cited project-wide as `{CODE}.{D|F}{n}`, e.g. `BSA.D247`. The codes are in
+  [arc-registry.md](./docs/notes/arc-registry.md): `BSA` is building-shell-arc, `RSA` is recursive-subdivision-arc.
+- The tool is plain Python 3, vendored from the Piste Perfect project. Its tests run with
+  `python -m unittest test_journal` from `scripts/`.
+
+## Notes schema
+
+Every file under `docs/notes/` follows [docs/notes/_schema.md](./docs/notes/_schema.md): typed front matter
+(vision, roadmap, decision spec, issue, workflow, ledger, commentary, technical reference), a status set per type, and
+`part_of` / `depends_on` / `record_of` edges. Follow the `notes-protocol` skill
+([SKILL.md](./.claude/skills/notes-protocol/SKILL.md)) whenever a task touches a note's front matter or status.
+
+- `python scripts/notes_schema.py check` validates the corpus (`--summary` for counts by rule). It needs PyYAML.
+- `python scripts/notes_schema.py report` prints the build frontier, design frontier, runway and critical path.
+- A `PostToolUse` hook (`.claude/hooks/check-notes-schema.py`, registered in `.claude/settings.json`) runs `check`
+  after every edit under `docs/notes/` and hands back any error. The corpus passes clean; keep it that way.
+
 ## Commands
 
 ### pnpm in Git Bash (Windows)
