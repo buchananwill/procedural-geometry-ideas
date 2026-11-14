@@ -429,6 +429,19 @@ session 3's own.
     through the never-born splice; no roster shows it. Node 4's spec decision 3 asks the question at resolution, which
     closes it.
   - **The suite is about 34 seconds longer** (337 s to 371 s), from the red file sweeping every roster.
+- **296. The user, 2026-11-14: The acceptance cure is approved: an exterior edge is accepted exactly when no live
+  bisector and no pending birth names it as a parent, built as its own small unit on single-loop input.** The user
+  quoted the lead's recommendation of BSA.D294 and answered "approved".
+  - **Sequence, and one departure the lead owns:** the recommendation said "before any holed work", and the lead had
+    already dispatched the implementation of roadmap nodes 2 and 3 (holes as input, stopping after initialisation)
+    before the answer came. That delegate is editing the solver in the one working tree, so the acceptance unit cannot
+    run beside it. It runs next, after nodes 2 and 3 land and before node 4, the join event, which is the first unit
+    that steps a holed solve and the one the cure is needed for.
+  - **Its spec is drafted by a delegate now** (BSA.D288), notes only, so it is ready when the tree is free. It is
+    `part_of` the issue note, and the user's approval here covers it; the lead reads and corrects the draft.
+  - **Its measure of success:** the six solves the red test names (BSA.D295) are each measured before and after under
+    the stage 1 spec's decision 31, the red file goes green because the defect is cured, and the issue note is resolved
+    with that evidence.
 
 ## Findings
 
