@@ -22,8 +22,8 @@ is `depends_on` between specs.
    Exterior ids run the outline first and then each hole in order, and the graph says where each loop starts and ends.
    The first wavefront is one ring per loop.
 3. **The boundary stage for loops.** Winding is set per loop, so that the building lies on the same side of every
-   wall. Canonicalisation runs per loop. Loops that cross, a hole outside its outline, and a self-crossing holed input
-   are refused with a diagnostic. A helper groups any set of closed, simple, non-crossing loops into outline-and-holes
+   wall. Canonicalisation runs per loop. Loops that cross, a hole outside its outline, a hole inside another hole, and a
+   self-crossing holed input are refused, each with a message naming the place. A helper groups any set of closed, simple, non-crossing loops into outline-and-holes
    inputs by nesting depth.
 4. **Join and divide.** A strike within one ring divides it; a strike across two rings joins them. When a ring divides
    while other rings share its step, each of those rings goes to the child that contains it. First fixture: a hole set

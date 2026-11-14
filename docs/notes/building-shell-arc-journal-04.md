@@ -4,7 +4,7 @@ type: workflow
 area: building-shell
 status: active
 date: 2026-11-14
-record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md"]
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md"]
 ---
 
 # Building shell arc: session 4 journal
@@ -284,6 +284,34 @@ session 3's own.
   - **How the lead applies it:** a delegate commits its unit when its gates are green; the lead commits the notes at
     each ruling that closes a unit, and by path, so a delegate's uncommitted code in the same tree is never swept into a
     notes commit.
+- **288. The user, 2026-11-14: Specs are drafted by a delegate; the lead reads, corrects and approves.**
+  - The user's words: "have the specs written by delegate, so you only need to read and approve. Otherwise your context
+    is bearing the load of gathering the understanding, writing the spec, and dispatching it to an implementer."
+  - **Applied from the next spec on:** the lead's brief names the roadmap node, the findings and rulings that bind it,
+    and the questions the lead wants settled; the delegate does the reading, verifies the roster by opening each file,
+    and returns a spec at `proposed`. The lead approves it as a numbered decision (BSA.D286).
+  - The stage 1 spec was written by the lead before this ruling and stands.
+- **289. The spec for roadmap nodes 2 and 3, `skeleton-loops-input-decisions.md`, is approved by the lead under
+  BSA.D286, with one amendment.** Drafted by an Opus delegate under BSA.D288; read in full by the lead. 48 decisions,
+  about 255 lines; it starts when the stage 1 spec is completed.
+  - **Its shape:** holes arrive on `solveSkeleton`'s options, each carrying its own weights; the graph gains a loop
+    table and the result a per-loop map from the caller's vertices and edges to solved ids, reversal included;
+    normalisation, the weight ratio and the division by the smallest weight are global, and canonicalisation, its pins,
+    the visible-corner test and winding are per loop; a holed solve stops after initialisation with a blocking
+    `holes-not-solved` diagnostic and `complete: false` until node 4.
+  - **Rulings on the delegate's interpretations, all accepted:** a refusal is a throw, as the boundary refuses today,
+    and "refused with a diagnostic" in BSA.D284 and the roadmap meant a message naming the place (the roadmap's wording
+    is corrected); weights sit on the hole object; a merged graph has an empty loop table; the legacy entries refuse
+    `holes`; a degenerate hole and a mis-wound loop under `normaliseWinding: false` are refused; contact is anything
+    closer than the perceptual floor; the nesting test imports `isPointInPolygon` from `terrain/`.
+  - **The lead's amendment (spec decision 38):** the grouping helper and a group's solve measure the floor in different
+    unit spaces, so a pair of loops near the floor apart may pass one and fail the other; the solve's throw stands, and
+    it is signalled.
+  - **Checked by the lead:** the reversal example of spec decision 24 and the reflex count of decision 15, by hand.
+  - **Left where the delegate put it:** the causality check's single-ring arithmetic stays for node 4's spec to address;
+    collinear overlap within one loop stays unseen, as today.
+  - **The delegate's note that the dependency on stage 1 is real:** until part B removes it, `addBisectionEdge` calls
+    the span arithmetic during initialisation, across loop boundaries.
 
 ## Findings
 
