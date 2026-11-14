@@ -2,10 +2,11 @@
 title: "Skeleton loops input: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-14
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-wavefront-order-decisions.md]
+verified_by: [packages/core/tests/straight-skeleton/skeleton-loops-input.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 ---
 
 # Skeleton loops input: decision spec

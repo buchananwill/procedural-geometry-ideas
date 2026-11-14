@@ -39,7 +39,7 @@ import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {activeWavefrontProbe, retireBisectors, ringsOfWavefront} from "./wavefront";
-import {describeLoopConflict, findLoopConflict} from "./skeleton-loops";
+import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
 import {
     cramerQuotientRoundingBound,
     determinant3RoundingBound,
@@ -2030,6 +2030,14 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
                             + `winding before solving, opposite to the outline.`,
                 });
             } else if (holes.length > 0) {
+                // DECISION 50: A SLIVER HOLE IS DEGENERATE BEFORE IT IS MIS-WOUND. Its signed area has no sign
+                // the solver can trust (decision 28), so that sign may not refuse it; it is refused as what it is.
+                // Under `normaliseWinding: true` the sign only reverses it, and the loop relations below refuse it
+                // in decision 27's order.
+                if (k > 0 && isDegenerateHole(workingVertices, perceptualFloor)) {
+                    throw new Error(describeLoopConflict({kind: 'degenerate-hole', loops: [k], edges: []},
+                        [], () => REMOVED_VERTEX_INDEX));
+                }
                 // DECISION 22: the option says the caller's winding is already right, and a holed solve has no
                 // meaning on the wrong side of a wall. A single loop is left to solve as it always did.
                 throw new Error(k === 0

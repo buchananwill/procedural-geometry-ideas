@@ -319,6 +319,51 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
             expect(removed).toHaveLength(1);
             expect(removed[0].detail).toMatch(/^Hole 0: 1 vertex\(es\) removed/);
         });
+
+        // DECISION 52: the caller's map through both renumberings at once, and through a removal at either end.
+        it('a hole both canonicalised and reversed', () => {
+            // Given clockwise with (3, 4) collinear: canonicalised to [(3,3), (3,5), (5,5), (5,3)], then solved
+            // reversed as [(5,3), (5,5), (3,5), (3,3)] at start 4.
+            const hole: Vector2[] = [{x: 3, y: 3}, {x: 3, y: 4}, {x: 3, y: 5}, {x: 5, y: 5}, {x: 5, y: 3}];
+            const map = expectHoledInitialisation({vertices: OUTLINE}, [{vertices: hole}]).loopMaps![1];
+            expect(map.reversed).toBe(true);
+            expect(map.vertexToNode).toEqual([7, REMOVED_VERTEX_INDEX, 6, 5, 4]);
+            // Caller edges 0 and 1 are both carried by solved edge 6, from (3,5) to (3,3).
+            expect(map.edgeToEdge).toEqual([6, 6, 5, 4, 7]);
+        });
+
+        it('a hole whose vertex 0 is removed', () => {
+            // (4, 3) is collinear between the last vertex (3, 3) and (5, 3); its edge is carried by the merged edge
+            // from the nearest surviving vertex before it, which wraps to the hole's last vertex.
+            const hole: Vector2[] = [{x: 4, y: 3}, {x: 5, y: 3}, {x: 5, y: 5}, {x: 3, y: 5}, {x: 3, y: 3}];
+            const map = expectHoledInitialisation({vertices: OUTLINE}, [{vertices: hole}]).loopMaps![1];
+            expect(map.reversed).toBe(false);
+            expect(map.vertexToNode).toEqual([REMOVED_VERTEX_INDEX, 4, 5, 6, 7]);
+            expect(map.edgeToEdge).toEqual([7, 4, 5, 6, 7]);
+        });
+
+        it('a hole whose last vertex is removed', () => {
+            const hole: Vector2[] = [{x: 3, y: 3}, {x: 5, y: 3}, {x: 5, y: 5}, {x: 3, y: 5}, {x: 3, y: 4}];
+            const map = expectHoledInitialisation({vertices: OUTLINE}, [{vertices: hole}]).loopMaps![1];
+            expect(map.vertexToNode).toEqual([4, 5, 6, 7, REMOVED_VERTEX_INDEX]);
+            expect(map.edgeToEdge).toEqual([4, 5, 6, 7, 7]);
+        });
+
+        it('a weight change at a hole\'s vertex 0, read with the hole\'s own wraparound', () => {
+            // At a visible corner the change is accepted, and vertex 0's incoming weight is the hole's last.
+            const result = expectHoledInitialisation({vertices: OUTLINE},
+                [{vertices: squareHole(3, 3, 5, 5), weights: [2, 1, 1, 1]}]);
+            expect(result.graph.exteriorWeights.slice(4)).toEqual([2, 1, 1, 1]);
+            // At a collinear vertex 0 it is refused, naming that vertex.
+            const collinearAtZero: Vector2[] = [{x: 4, y: 3}, {x: 5, y: 3}, {x: 5, y: 5}, {x: 3, y: 5}, {x: 3, y: 3}];
+            expect(() => solveSkeleton(OUTLINE, {holes: [{vertices: collinearAtZero, weights: [2, 1, 1, 1, 1]}]}))
+                .toThrow(/^Hole 0: Vertex 0 carries a weight change/);
+            // A hole of one weight has no change at vertex 0, whatever the outline's last weight is: the hole's
+            // last edge meets its own first edge, so the collinear vertex 0 is not refused and is removed.
+            const uniform = solveSkeleton(OUTLINE, {holes: [{vertices: collinearAtZero, weights: [2, 2, 2, 2, 2]}]});
+            expect(uniform.loopMaps![1].vertexToNode[0]).toBe(REMOVED_VERTEX_INDEX);
+            expect(uniform.graph.exteriorWeights).toEqual([1, 1, 1, 1, 2, 2, 2, 2]);
+        });
     });
 
     describe('refusals (gate 46)', () => {
@@ -394,8 +439,30 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
         });
 
         it('a shared length of wall', () => {
-            // The hole's left wall lies along the outline's left wall from y = 3 to y = 5.
+            // The hole's left wall lies along the outline's left wall from y = 3 to y = 5. ANY COLLINEAR OVERLAP
+            // PUTS AN ENDPOINT OF ONE SEGMENT ON THE OTHER, so an endpoint-to-segment distance of zero sees it
+            // whatever rule reads those distances: this test cannot convict the distance rule, and the gap test
+            // below is the one that does (BSA.D299).
             expect(solveWith([squareHole(0, 3, 3, 5)])).toThrow(/^Loop conflict \(contact\)/);
+        });
+
+        it('two holes in contact', () => {
+            // They share one corner, (4, 4): an endpoint touch, which is no crossing, and a distance of zero.
+            expect(solveWith([squareHole(2, 2, 4, 4), squareHole(4, 4, 6, 6)]))
+                .toThrow(/^Loop conflict \(contact\): hole 0's edge .* hole 1's edge/);
+        });
+
+        it('a hole that touches itself (decision 49)', () => {
+            // Two lobes pinched at (4, 4): vertices 2 and 5 coincide, so edges 1 and 4, which share no vertex,
+            // meet there. No edge crosses another; the touch is an endpoint touch, which findFirstCrossing skips.
+            const pinched: Vector2[] = [
+                {x: 3, y: 3}, {x: 5, y: 3}, {x: 4, y: 4}, {x: 5, y: 5}, {x: 3, y: 5}, {x: 4, y: 4}];
+            expect(solveWith([pinched]))
+                .toThrow(/^Loop conflict \(contact\): hole 0 touches itself: hole 0's edge from vertex 1 to vertex 2 /);
+            expect(findLoopConflict([OUTLINE, pinched], SKELETON_NOISE_FLOOR))
+                .toEqual({kind: 'contact', loops: [1, 1], edges: [1, 4]});
+            // A single loop with no holes is not asked, and solves as it always did.
+            expect(() => solveSkeleton(pinched)).not.toThrow();
         });
 
         // THE FLOOR IS δ IN UNIT SPACE (decision 23): the outline's extent of 10 normalises by a power of two.
@@ -429,6 +496,13 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
             expect(solveWith([sliver])).toThrow(/^Loop conflict \(degenerate-hole\): hole 0 has an area under/);
         });
 
+        it('a sliver hole under normaliseWinding: false is degenerate, never mis-wound (decision 50)', () => {
+            // Wound clockwise by its signed area, which decision 28 calls untrustworthy at this size.
+            const sliver: Vector2[] = [{x: 3, y: 3}, {x: 4, y: 3 + 4e-6}, {x: 5, y: 3}];
+            expect(solveWith([sliver], {normaliseWinding: false}))
+                .toThrow(/^Loop conflict \(degenerate-hole\): hole 0 has an area under/);
+        });
+
         it('holes on each legacy entry', () => {
             const options = {holes: [{vertices: squareHole(3, 3, 5, 5)}]} as unknown as Parameters<typeof runAlgorithmV5>[1];
             expect(() => runAlgorithmV5(OUTLINE, options)).toThrow(/takes no holes.*solveSkeleton/);
@@ -457,6 +531,25 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
             // A hole outside the outline that also crosses another hole: the crossing comes first.
             expect(findLoopConflict([OUTLINE, squareHole(2, 2, 5, 5), squareHole(4, 4, 7, 7), squareHole(12, 1, 13, 2)],
                 SKELETON_NOISE_FLOOR)).toEqual({kind: 'crossing', loops: [1, 2], edges: [1, 0]});
+        });
+
+        it('looks for the kinds in the order of decisions 28 to 32', () => {
+            // One conflict of each kind, placed apart; each is removed in turn and the next kind is reported.
+            const bowtie: Vector2[] = [{x: 1, y: 1}, {x: 2, y: 2}, {x: 2, y: 1}, {x: 1, y: 2}];
+            // In these caller units, not unit space: area 1e-7 against degenerateAreaBar's 2e-6 at δ = 1e-6.
+            const sliver: Vector2[] = [{x: 6, y: 1}, {x: 8, y: 1}, {x: 7, y: 1 + 1e-7}];
+            const crossingPair = [squareHole(2, 4, 4, 6), squareHole(3, 5, 5, 7)];
+            const contactPair = [squareHole(6, 4, 7, 5), squareHole(7, 4, 8, 5)];
+            const outside = squareHole(12, 1, 13, 2);
+            const nestedPair = [squareHole(1, 7.5, 2.8, 9.5), squareHole(1.5, 8, 2.3, 9)];
+            const kindOf = (holes: Vector2[][]) => findLoopConflict([OUTLINE, ...holes], SKELETON_NOISE_FLOOR)?.kind;
+            expect(kindOf([bowtie, sliver, ...crossingPair, ...contactPair, outside, ...nestedPair])).toBe('self-crossing');
+            expect(kindOf([sliver, ...crossingPair, ...contactPair, outside, ...nestedPair])).toBe('degenerate-hole');
+            expect(kindOf([...crossingPair, ...contactPair, outside, ...nestedPair])).toBe('crossing');
+            expect(kindOf([crossingPair[0], ...contactPair, outside, ...nestedPair])).toBe('contact');
+            expect(kindOf([crossingPair[0], contactPair[0], outside, ...nestedPair])).toBe('hole-outside-outline');
+            expect(kindOf([crossingPair[0], contactPair[0], ...nestedPair])).toBe('hole-inside-hole');
+            expect(kindOf([crossingPair[0], contactPair[0], nestedPair[0]])).toBeUndefined();
         });
     });
 
@@ -488,6 +581,18 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
             const courtyard = squareHole(2, 2, 8, 8);
             const island = squareHole(2, 4, 6, 6);
             expect(() => groupLoopsByNesting([outer, courtyard, island])).toThrow(/^Loop conflict \(contact\)/);
+        });
+
+        it('refuses crossing loops behind a self-crossing loop, which does not mask them (decision 38)', () => {
+            // findLoopConflict would report the bowtie's self-crossing first and never reach the crossing pair.
+            const outer = squareHole(0, 0, 10, 10);
+            const bowtie: Vector2[] = [{x: 1, y: 1}, {x: 2, y: 2}, {x: 2, y: 1}, {x: 1, y: 2}];
+            const crossingPair = [squareHole(4, 4, 6, 6), squareHole(5, 5, 7, 7)];
+            expect(findLoopConflict([outer, bowtie, ...crossingPair], SKELETON_NOISE_FLOOR)?.kind).toBe('self-crossing');
+            expect(() => groupLoopsByNesting([outer, bowtie, ...crossingPair]))
+                .toThrow(/^Loop conflict \(crossing\): edge \d+ of loop 2 crosses edge \d+ of loop 3/);
+            // And a self-crossing loop alone is left to its group's solve.
+            expect(groupLoopsByNesting([outer, bowtie])).toEqual([{outline: 0, holes: [1]}]);
         });
     });
 });
