@@ -592,6 +592,26 @@ function isLiveBisector(context: StraightSkeletonSolverContext, id: number): boo
 }
 
 /**
+ * IS THIS EXTERIOR EDGE'S FACE CLOSED: does no live bisector name it as a parent (skeleton edge-acceptance spec,
+ * decisions 1 to 3)? A live bisector is one {@link isLiveBisector} says is live, and both of its parents are read.
+ * Where the links are sound W2 makes the two readings agree: a live bisector whose widdershins parent is the edge
+ * has a live widdershins neighbour whose clockwise parent it is.
+ *
+ * IT READS NO GRAPH TOPOLOGY — no `inEdges`, `outEdges`, targets or nodes — so no cycle in the accepted subgraph,
+ * no pair of unified nodes and no bisector wired onto another face can close an edge whose own face still has a
+ * bisector tracing it. And it reads no loop, so it is loop-neutral by construction.
+ */
+export function exteriorFaceIsClosed(context: StraightSkeletonSolverContext, exteriorEdge: number): boolean {
+    for (const edge of context.graph.interiorEdges) {
+        if ((edge.clockwiseExteriorEdgeIndex === exteriorEdge || edge.widdershinsExteriorEdgeIndex === exteriorEdge)
+            && isLiveBisector(context, edge.id)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * The rings through these bisectors: the orbit of `clockwiseNeighbour` from each, in clockwise order.
  * An orbit that breaks (reaches a bisector holding {@link NOT_LIVE}, or runs into another orbit) is
  * returned as far as it went; {@link checkWavefront} is the judge of whether it should have broken.
@@ -757,6 +777,34 @@ export interface WavefrontProbe {
     stepBoundary?(context: StraightSkeletonSolverContext, inputs: readonly AlgorithmStepInput[]): void;
     /** At the end of one simple-polygon solve: `errors` are the step failures it accumulated. */
     solveFinished?(context: StraightSkeletonSolverContext, errors: readonly string[]): void;
+    /**
+     * THE MEASURING STEP (skeleton edge-acceptance spec, decisions 11 to 14), removed at the switch: an exterior
+     * edge's acceptance was asked at one of the four solver sites, and `hasInteriorLoop` decided it.
+     */
+    acceptanceAsked?(context: StraightSkeletonSolverContext, asked: AcceptanceAsked): void;
+    /** THE MEASURING STEP: a birth one of the accepted-parent filters refused. */
+    birthRefused?(context: StraightSkeletonSolverContext, refused: RefusedBirth): void;
+}
+
+/** The four solver sites that ask an exterior edge's acceptance (the measuring step). */
+export type AcceptanceSite = 'boundary' | 'stepped-boundary' | 'n-gon-closure' | 'n-gon-events';
+
+/** One acceptance asked at a solver site (the measuring step). */
+export interface AcceptanceAsked {
+    site: AcceptanceSite;
+    exteriorEdge: number;
+    /** Accepted before this call. */
+    wasAccepted: boolean;
+    /** Accepted after it, by the rule that decides. */
+    accepted: boolean;
+    /** The layer's births linked and not yet born, at the n-gon's events site; empty elsewhere (decision 2). */
+    pendingBirths: readonly BisectionParams[];
+}
+
+/** One birth an accepted-parent filter refused (the measuring step). */
+export interface RefusedBirth {
+    site: 'select-partition' | 'partition-birth' | 'collapse-birth';
+    params: BisectionParams;
 }
 
 let installedProbe: WavefrontProbe | null = null;

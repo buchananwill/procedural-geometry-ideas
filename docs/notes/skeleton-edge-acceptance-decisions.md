@@ -2,7 +2,7 @@
 title: "Skeleton edge acceptance: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: approved
+status: implementing
 date: 2026-11-14
 part_of: [ISSUE-skeleton-edge-accepted-before-its-face-closes.md]
 depends_on: [skeleton-wavefront-order-decisions.md]

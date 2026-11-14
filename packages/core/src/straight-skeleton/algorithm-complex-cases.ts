@@ -10,7 +10,7 @@ import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-terminati
 import handleCollisionEvent from "./collision-handling";
 import {
     bisectWithParams,
-    tryToAcceptExteriorEdge
+    tryToAcceptExteriorEdgeAt
 } from "./algorithm-helpers";
 import {
     bisectionsForMerge,
@@ -20,6 +20,7 @@ import {
     ringsOfSubPolygon
 } from "./coincident-events";
 import {
+    activeWavefrontProbe,
     beginLayerLinks,
     droppableBirths,
     linkBirth,
@@ -221,7 +222,13 @@ export function selectPartitionEvents(context: StraightSkeletonSolverContext, pa
     const partitionSpan = (params: BisectionParams) => {
         return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
     }
-    const sorted = partitionEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+    const sorted = partitionEvents.filter(params => {
+        const live = !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex);
+        if (!live) {
+            activeWavefrontProbe()?.birthRefused?.(context, {site: 'select-partition', params});
+        }
+        return live;
+    })
         .toSorted((params1, params2) => {
             const spanDelta = partitionSpan(params1) - partitionSpan(params2);
             if (spanDelta !== 0) {
@@ -353,7 +360,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         }
         if (rung.rung === 'closure') {
             applyDegenerateClosure(context, input.interiorEdges, rung.position);
-            exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e));
+            exteriorParents.forEach(e => tryToAcceptExteriorEdgeAt(context, e, 'n-gon-closure'));
             settleLayerLinks(context);
             return result;
         }
@@ -548,7 +555,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         });
     }
 
-    exteriorParents.forEach(e => tryToAcceptExteriorEdge(context, e))
+    const pendingBirths = [...partitionEvents, ...collapseEvents];
+    exteriorParents.forEach(e => tryToAcceptExteriorEdgeAt(context, e, 'n-gon-events', pendingBirths))
 
     // Collapse/partition into child
     const finalPartitionEvents = selectPartitionEvents(context, partitionEvents);
@@ -563,18 +571,27 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     };
 
     // Indexed as `finalPartitionEvents`: the bisector each partition event bore, or `undefined` if refused.
-    const partitionBirths = finalPartitionEvents.map(params =>
-        !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex)
-            ? bear(params)
-            : undefined);
+    const partitionBirths = finalPartitionEvents.map(params => {
+        if (!context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex)) {
+            return bear(params);
+        }
+        activeWavefrontProbe()?.birthRefused?.(context, {site: 'partition-birth', params});
+        return undefined;
+    });
     allOutgoingInteriorEdges.push(...partitionBirths.filter((id): id is number => id !== undefined))
 
     // Both bounding parents must still be live. An accepted parent has no wavefront left to
     // bisect, and `addBisectionEdge` refuses one, so admitting a half-accepted collapse throws instead
     // of producing an edge.
     allOutgoingInteriorEdges.push(
-        ...collapseEvents.filter(params => !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-            && !context.isAccepted(params.clockwiseExteriorEdgeIndex))
+        ...collapseEvents.filter(params => {
+            const live = !context.isAccepted(params.widdershinsExteriorEdgeIndex)
+                && !context.isAccepted(params.clockwiseExteriorEdgeIndex);
+            if (!live) {
+                activeWavefrontProbe()?.birthRefused?.(context, {site: 'collapse-birth', params});
+            }
+            return live;
+        })
             .map(bear)
     )
 

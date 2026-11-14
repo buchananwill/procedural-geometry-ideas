@@ -16,7 +16,8 @@ import {
     sineIsBelow
 } from "./core-functions";
 import {adjacentExteriorEdge, interiorEdgeIndex} from "./graph-helpers";
-import {linkInitialRings, openWavefrontSlot} from "./wavefront";
+import {activeWavefrontProbe, linkInitialRings, openWavefrontSlot} from "./wavefront";
+import type {AcceptanceSite} from "./wavefront";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,
@@ -457,4 +458,25 @@ export function tryToAcceptExteriorEdge(context: StraightSkeletonSolverContext, 
     }
 
     return context.acceptedEdges[exteriorEdge];
+}
+
+/**
+ * THE MEASURING STEP'S CALL SITE (skeleton edge-acceptance spec, decision 11), removed at the switch:
+ * {@link tryToAcceptExteriorEdge} as it is, reported to the probe with the site and the layer's pending births.
+ * With no probe installed it is exactly that call.
+ */
+export function tryToAcceptExteriorEdgeAt(
+    context: StraightSkeletonSolverContext,
+    exteriorEdge: number,
+    site: AcceptanceSite,
+    pendingBirths: readonly BisectionParams[] = [],
+): boolean {
+    const probe = activeWavefrontProbe();
+    if (probe?.acceptanceAsked === undefined) {
+        return tryToAcceptExteriorEdge(context, exteriorEdge);
+    }
+    const wasAccepted = context.acceptedEdges[exteriorEdge] === true;
+    const accepted = tryToAcceptExteriorEdge(context, exteriorEdge);
+    probe.acceptanceAsked(context, {site, exteriorEdge, wasAccepted, accepted, pendingBirths});
+    return accepted;
 }
