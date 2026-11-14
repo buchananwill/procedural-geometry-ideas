@@ -497,6 +497,28 @@ session 3's own.
     decisions 29, 31 and 46.
   - **Sequence:** one Opus delegate takes the review fixes for nodes 2 and 3 and then this unit, as separate commits,
     once that review is in, so the tree has one editor at a time.
+- **299. The review of nodes 2 and 3 at `57f6967` found no correctness defect in the caller map, the refusals, the
+  per-loop and global split, single-loop identity, initialisation or the stop; four small things are fixed and tests
+  added.** One independent Opus reviewer, read-only, with hand-worked cases and probes run against core's source; it
+  re-ran the core suite at 5,890 passed and 7 failed by design, which is the first independent confirmation of the
+  implementer's figure.
+  - **Fixed, the grouping helper crashes without a name** where crossing loops get past the masked check: a `TypeError`
+    from a non-null assertion. The masking fix of BSA.D297 closes the route and the assertion becomes a named refusal
+    (spec decision 51).
+  - **Fixed, a hole that touches itself is accepted** and would hand the join event a pinched ring. In a holed input,
+    two edges of one loop that share no vertex and lie closer than the floor are refused as contact (spec decision 49).
+    A single loop without holes is untouched.
+  - **Fixed, a sliver hole under `normaliseWinding: false` is refused as mis-wound,** on a sign the spec itself calls
+    untrustworthy. Degenerate area is tested first (spec decision 50).
+  - **Tests added** for the paths the reviewer probed and found correct but untested (spec decision 52). The shared-wall
+    test cannot convict the distance rule, since any collinear overlap puts an endpoint on the other segment; the gap
+    test does, and the test says so.
+  - **Verified sound by the reviewer, by hand and by probe:** the map through removal at index 0, at the last index and
+    at both, with and without reversal and weights; every refusal kind, including a hole equal to another hole, a hole
+    enclosing the outline, and gaps at 0.99 and 1.01 of the floor; the nesting test's precondition; the weight door per
+    loop and globally; the same operations in the same order for a single loop.
+  - **Who:** one Opus delegate takes these fixes as one commit and then the acceptance unit (BSA.D298), so the tree has
+    one editor.
 
 ## Findings
 

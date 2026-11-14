@@ -249,6 +249,23 @@ graph.**
     contact test reduced to `segmentSegmentIntersection`; a per-loop weight ratio; a per-loop normalisation; `loopMaps`
     without the reversal; `holes-not-solved` not pushed; the nesting test dropped; the legacy entries' guard removed.
 
+### Amendments after the review (BSA.D299)
+
+49. **A loop of a holed input that touches itself is refused as `contact`, with both entries of `loops` the same
+    loop.** Two edges of one loop that share no vertex and lie closer than δ, by decision 30's distance test, are a
+    pinch, and a pinched ring cannot be handed to the join event. A single loop with no holes is not tested and solves
+    as today. This closes, for holed inputs, the gap decision 28 left by naming only `findFirstCrossing`.
+50. **A hole's degenerate area is tested before its winding is judged,** so a sliver hole under
+    `normaliseWinding: false` is refused as `degenerate-hole` and never as mis-wound on a sign decision 28 calls
+    untrustworthy. This amends the order of decision 23 for that one test.
+51. **`groupLoopsByNesting` refuses by name where the nesting it finds is not a chain,** in place of a non-null
+    assertion: a loop whose deepest container has no group throws a refusal naming both loops.
+52. **Tests added:** a hole both canonicalised and reversed, asserting `edgeToEdge`; a removal at index 0 and at the
+    last index; a weight change at a hole's vertex 0; contact between two holes; the order of `findLoopConflict`'s
+    kinds; the masked case of decision 38; a self-touching hole; a sliver hole under `normaliseWinding: false`. The
+    shared-wall test stays, with a comment that any collinear overlap puts an endpoint on the other segment, so the
+    gap test alone convicts the distance rule.
+
 ## 4. Deferred
 
 - **Join and divide, and any stepping of a holed solve:** roadmap node 4.
