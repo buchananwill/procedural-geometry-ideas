@@ -4,7 +4,7 @@ type: workflow
 area: building-shell
 status: active
 date: 2026-11-14
-record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md"]
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md", "./skeleton-edge-acceptance-decisions.md", "./ISSUE-skeleton-edge-accepted-before-its-face-closes.md"]
 ---
 
 # Building shell arc: session 4 journal
@@ -468,6 +468,35 @@ session 3's own.
   - **Core's tests are not type-checked by the suite** (ts-jest runs with `isolatedModules`); the delegate's separate
     check leaves 9 errors it believes older, unverified on the starting tree. Open item.
   - **Next for this unit:** one independent Opus review of `57f6967` against the spec.
+- **298. The spec for the acceptance cure, `skeleton-edge-acceptance-decisions.md`, is approved, on the user's approval
+  of the cure (BSA.D296) and the lead's reading of the draft.** Drafted by an Opus delegate under BSA.D288 from the
+  sources at `79efab9`; 31 decisions, 190 lines; `part_of` the issue note.
+  - **Its one departure from the lead's brief, accepted:** the predicate is asked at step boundaries only, and the two
+    acceptance calls inside the n-gon are removed. Between steps nothing is pending, so there the predicate is exactly
+    the one the user approved; and once acceptance changes only at boundaries no birth can meet an accepted parent, so
+    the accepted-parent birth filters, which are how the defect broke rings silently, are deleted and
+    `addBisectionEdge`'s throw is the one guard left. The pending-birth clause survives in the measuring step and as a
+    mutant expected to survive, which is the measured proof that removing the in-step call changes nothing.
+  - **Measure before the switch:** the new predicate runs beside `hasInteriorLoop` over every roster, expecting
+    disagreement only on the six solves the red test names, and recording the chain the old rule walked, which settles
+    the issue note's diagnosis.
+  - **One foreseen risk, by the drafter's hand trace and not run:** a vertex event resolved pairwise can leave a birth
+    at a node where the edge's face has already closed. The old rule refuses it by early acceptance; the new rule bears
+    it, and two zero-length self-loops follow. If the measuring step meets it off the six, it comes to the lead and the
+    predicate is not bent.
+  - **`hasInteriorLoop` and its export from the package index are deleted.** Nothing in the monorepo calls it;
+    `@proc-geo/core` is publishable, so a consumer outside is possible and unknown.
+  - **`Offset Cross Junction`:** if the cure makes every one of its pins reach the clean bar, it is promoted to the
+    clean roster in the same change and the recursion suite's `unsolvableRegion()` needs a new constructed failure,
+    chosen with the lead. If it still fails it stays enrolled with re-measured pins.
+  - **The red file must go green with its assertions word for word.** It asserts two of its cells complete; if one comes
+    out incomplete that is diagnosed, not reworded.
+  - **The lead's correction:** the corpus is 53 clean and 7 defect, so a promotion makes 54 and 6, not the draft's 54
+    and 5.
+  - **Node 4's spec is to be amended by the lead when this lands:** its roster line for `hasInteriorLoop` and its
+    decisions 29, 31 and 46.
+  - **Sequence:** one Opus delegate takes the review fixes for nodes 2 and 3 and then this unit, as separate commits,
+    once that review is in, so the tree has one editor at a time.
 
 ## Findings
 
