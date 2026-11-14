@@ -33,7 +33,7 @@ interface PortPin {
 }
 
 const report = (r: Partial<ShellReport> & Pick<ShellReport, 'conflicts' | 'partialCells'>): ShellReport => ({
-  survivingInternal: 0, unclassifiedEdges: 0, cheeks: 0, newEdgeKinds: [], newConventions: [CONVENTION_ROOF_LINES_CUT], droppedRings: [], ...r,
+  survivingInternal: 0, unclassifiedEdges: 0, cheeks: 0, tucks: 0, newEdgeKinds: [], newConventions: [CONVENTION_ROOF_LINES_CUT], droppedRings: [], ...r,
 });
 const flushWall = (name: string): string => `${name}: n=(0.000000, -1.000000, 0.000000) d=0.000: Wall storey 1 wall 0 (part 3) over Gable storey 0 wall 0 (part 2)`;
 

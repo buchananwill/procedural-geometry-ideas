@@ -199,6 +199,7 @@ export const ShellReportSchema = z.strictObject({
   survivingInternal: z.number(),
   unclassifiedEdges: z.number(),
   cheeks: z.number(),
+  tucks: z.number().int().nonnegative(),
   partialCells: z.number(),
   newEdgeKinds: z.array(z.enum(EDGE_KINDS)),
   newConventions: z.array(z.string()),

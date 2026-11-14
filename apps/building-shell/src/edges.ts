@@ -2,8 +2,8 @@
 // records (journal decision 58) and the NetEdge record (journal decision 59).
 import {SHELL_TOLERANCE_CM} from './constants.ts';
 import {FaceAssembly, FaceSource, destOf, meshPoint, originOf, prevHalf, triOf} from './faces.ts';
-import {FaceTag, ShellKind, Vec3} from './tags.ts';
-import {dot3, lineDistance, sub3} from './vec3.ts';
+import {FaceTag, ShellKind, Vec3, samePlane} from './tags.ts';
+import {dist3, dot3, lineDistance, lineParam, sub3} from './vec3.ts';
 import {snapCm} from './weld.ts';
 
 /**
@@ -273,96 +273,217 @@ export function liftAcross(src: FaceSource, asm: FaceAssembly, h: number, nA: Ve
 }
 
 /**
+ * One straight piece a ShellEdge is chained from: a manifold half-edge of its lower face, or a segment of a tuck's rim
+ * read through the tuck (journal decision 272).
+ */
+interface EdgeSeg {
+  /** Its ends' chaining keys: mesh vertex indices for a half-edge, snapped positions on a rim. */
+  from: string;
+  to: string;
+  /** Its ends' snapped-position keys, which a face pair with a rim segment chains on. */
+  fromAt: string;
+  toAt: string;
+  a: Vec3;
+  b: Vec3;
+  /** The mesh vertices at each end: one for a half-edge; at a rim, every rim vertex of either layer there. */
+  at: [NonEmpty<number>, NonEmpty<number>];
+  /** Decision 20's `dot(nA, q - p)` over it. */
+  lift: number;
+  /** The half-edge of the lower face's triangle it lies on. */
+  half: number;
+}
+
+/** A position's chaining key on a rim: its point on the 1/1024 cm grid. */
+const atKey = (p: Vec3): string => `@${pointKey(snapPoint(p))}`;
+
+/** A mesh vertex's place for an error: its position on the 1/1024 cm grid. */
+const placeOf = (p: Vec3): string => `(${snapPoint(p).join(', ')})`;
+
+/** Whether faces' oriented planes are each other's reverse: a fold, where the surface turns back through 180 degrees. */
+const backToBack = (asm: FaceAssembly, f: number, g: number): boolean => dot3(asm.planes[f].n, asm.planes[g].n) + 1 < FLAT_DOT_TOL;
+
+/**
+ * Journal decision 272: a fold left between two faces that are not both a tuck's layers is an unlabelled tuck, a hard
+ * error naming its place and both faces.
+ */
+function foldError(src: FaceSource, asm: FaceAssembly, h: number, f: number, g: number): Error {
+  const {tris, positions} = src.mesh;
+  const a = meshPoint(positions, originOf(tris, h)), b = meshPoint(positions, destOf(tris, h));
+  const face = (x: number): string => `face ${x} (${asm.identities[x]})`;
+  return new Error(`a fold from ${placeOf(a)} to ${placeOf(b)} between ${face(f)} and ${face(g)}: a tuck left unlabelled`);
+}
+
+/** One half-edge of a tuck's rim: in real face `real`'s triangle, its twin in Tuck face `tuck`. */
+interface RimHalf { h: number; real: number; tuck: number; a: Vec3; b: Vec3 }
+
+/**
+ * Journal decision 272: a tuck's rim read through the tuck. On every rim line one layer meets a real face X and the
+ * other layer a real face Y, and the true building has one edge there, X against Y. Each rim half-edge is paired with
+ * the rim half-edges of the tuck's other layer lying on its line, and cut at their ends; each piece is one segment of
+ * the face pair X, Y, made once, from the lower face's side, so it chains with that pair's own half-edges.
+ * - Its `q` (decision 20) is the vertex of Y's triangle across Y's rim half-edge.
+ * - A rim piece with no face, or more than one, across the tuck is a hard error naming its place: the true building's
+ *   edge there is not clear.
+ * - A piece whose X and Y are one face, or one identity on one plane, is no edge of the true building, and yields none.
+ * - A rim half-edge back to back with its Tuck face is a fold the labelling missed, and a hard error.
+ */
+function rimSegments(src: FaceSource, asm: FaceAssembly, rim: number[]): {pair: [number, number]; seg: EdgeSeg}[] {
+  const {tris, positions} = src.mesh;
+  const P = (v: number): Vec3 => meshPoint(positions, v);
+  const halves: RimHalf[] = rim.map(h => ({h, real: asm.triFace[triOf(h)], tuck: asm.triFace[triOf(asm.topo.twin[h])], a: P(originOf(tris, h)), b: P(destOf(tris, h))}));
+  for (const r of halves) if (backToBack(asm, r.real, r.tuck)) throw foldError(src, asm, r.h, r.real, r.tuck);
+  const tol = SHELL_TOLERANCE_CM;
+  const out: {pair: [number, number]; seg: EdgeSeg}[] = [];
+  for (const r of halves) {
+    const L = dist3(r.a, r.b);
+    if (L <= tol) continue;
+    const across = halves.filter(o => backToBack(asm, o.tuck, r.tuck) && lineDistance(o.a, r.a, r.b) <= tol && lineDistance(o.b, r.a, r.b) <= tol);
+    const span = (o: RimHalf): [number, number] => {
+      const u = lineParam(o.a, r.a, r.b), w = lineParam(o.b, r.a, r.b);
+      return u < w ? [u, w] : [w, u];
+    };
+    // Breakpoints along r: its ends, and every end of a rim half-edge across lying inside it.
+    const stops: {u: number; p: Vec3}[] = [{u: 0, p: r.a}, {u: 1, p: r.b}];
+    for (const o of across) for (const p of [o.a, o.b]) { const u = lineParam(p, r.a, r.b); if (u * L > tol && (1 - u) * L > tol) stops.push({u, p}); }
+    stops.sort((x, y) => x.u - y.u);
+    const kept = stops.filter((s, i) => i === 0 || (s.u - stops[i - 1].u) * L > tol);
+    if ((1 - kept[kept.length - 1].u) * L <= tol) kept[kept.length - 1] = stops[stops.length - 1];
+    for (let i = 0; i + 1 < kept.length; i++) {
+      const s0 = kept[i], s1 = kept[i + 1];
+      const mid = (s0.u + s1.u) / 2;
+      const by = across.filter(o => { const [lo, hi] = span(o); return mid > lo && mid < hi; });
+      const where = `a tuck's rim from ${placeOf(s0.p)} to ${placeOf(s1.p)} on face ${r.real} (${asm.identities[r.real]})`;
+      if (by.length !== 1) throw new Error(`${where}: ${by.length} faces across the tuck, so the true building's edge there is not clear`);
+      const o = by[0];
+      // Both layers meet one face, or one identity on one plane: the true building's surface runs on, with no edge.
+      if (o.real === r.real || (asm.identities[o.real] === asm.identities[r.real] && samePlane(asm.planes[o.real], asm.planes[r.real]))) continue;
+      if (r.real > o.real) continue;
+      const atEnd = (p: Vec3): NonEmpty<number> => {
+        const k = atKey(p);
+        const vs = [...new Set([r, ...across].flatMap(x => [[x.a, originOf(tris, x.h)], [x.b, destOf(tris, x.h)]] as [Vec3, number][])
+          .filter(([q]) => atKey(q) === k).map(([, v]) => v))].sort((x, y) => x - y);
+        if (!vs.length) throw new Error(`${where}: no mesh vertex at its end ${placeOf(p)}`);
+        return [vs[0], ...vs.slice(1)];
+      };
+      const a = s0.p, b = s1.p;
+      const q = P(originOf(tris, prevHalf(o.h)));
+      const p: Vec3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+      const lift = dot3(asm.planes[r.real].n, sub3(q, p));
+      out.push({pair: [r.real, o.real], seg: {from: atKey(a), to: atKey(b), fromAt: atKey(a), toAt: atKey(b), a, b, at: [atEnd(a), atEnd(b)], lift, half: r.h}});
+    }
+  }
+  return out;
+}
+
+/**
  * Spec decision 19: every manifold edge between two different faces, grouped by the face pair and chained into
  * maximal straight runs. A run breaks where its chain branches, or where it would bring a vertex further than
  * `SHELL_TOLERANCE_CM` from its own final chord (`straightRuns`). Each run is classified by decisions 20 and 21: `q` is
  * read over every manifold edge of the run, and the one furthest from A's plane decides.
+ *
+ * Journal decision 272: a manifold edge between two Tuck faces (a fold, or a seam inside one layer) is no ShellEdge. A
+ * tuck's rim is read through the tuck (`rimSegments`): its segments join the half-edges of the face pair they belong
+ * to, and that pair chains on snapped positions, since its two layers' vertices are separate mesh vertices. A fold
+ * between two faces that are not both Tuck is a hard error.
  */
 export function buildShellEdges(src: FaceSource, asm: FaceAssembly, reg: VertexRegistry, storeyHeight: number): EdgeAssembly {
   const {tris, positions} = src.mesh;
   const P = (v: number): Vec3 => meshPoint(positions, v);
+  const isTuck = (f: number): boolean => asm.faces[f].tag.kind === 'Tuck';
   // Directed segments per face pair, each a half-edge of the lower face.
-  const groups = new Map<string, number[]>();
+  const groups = new Map<string, EdgeSeg[]>();
+  const add = (k: string, s: EdgeSeg): void => {
+    const list = groups.get(k);
+    if (list) list.push(s); else groups.set(k, [s]);
+  };
+  const rim: number[] = [];
   for (let h = 0; h < tris.length; h++) {
     const f = asm.triFace[triOf(h)], g = asm.triFace[triOf(asm.topo.twin[h])];
-    if (f >= g) continue;
-    const k = `${f}|${g}`;
-    const list = groups.get(k);
-    if (list) list.push(h); else groups.set(k, [h]);
+    if (f === g || (isTuck(f) && isTuck(g))) continue;
+    if (isTuck(f) || isTuck(g)) { if (isTuck(g)) rim.push(h); continue; }
+    if (f > g) continue;
+    if (backToBack(asm, f, g)) throw foldError(src, asm, h, f, g);
+    const o = originOf(tris, h), d = destOf(tris, h);
+    const a = P(o), b = P(d);
+    add(`${f}|${g}`, {from: `${o}`, to: `${d}`, fromAt: atKey(a), toAt: atKey(b), a, b, at: [[o], [d]], lift: liftAcross(src, asm, h, asm.planes[f].n), half: h});
+  }
+  const withRim = new Set<string>();
+  for (const {pair: [f, g], seg} of rimSegments(src, asm, rim)) {
+    const k = f < g ? `${f}|${g}` : `${g}|${f}`;
+    add(k, seg);
+    withRim.add(k);
   }
 
   const edges: ShellEdge[] = [];
   const runs: number[][] = [];
   const halves: number[][] = [];
   const endpoints = new Set<number>();
-  for (const [k, hs] of groups) {
+  for (const [k, segs] of groups) {
     const [fa, fb] = k.split('|').map(Number);
-    const outOf = new Map<number, number[]>();
-    const inDeg = new Map<number, number>();
-    for (const h of hs) {
-      const o = originOf(tris, h);
-      const list = outOf.get(o);
-      if (list) list.push(h); else outOf.set(o, [h]);
-      inDeg.set(destOf(tris, h), (inDeg.get(destOf(tris, h)) ?? 0) + 1);
+    const rimmed = withRim.has(k);
+    const from = (s: EdgeSeg): string => (rimmed ? s.fromAt : s.from);
+    const to = (s: EdgeSeg): string => (rimmed ? s.toAt : s.to);
+    const outOf = new Map<string, EdgeSeg[]>();
+    const inDeg = new Map<string, number>();
+    for (const s of segs) {
+      const list = outOf.get(from(s));
+      if (list) list.push(s); else outOf.set(from(s), [s]);
+      inDeg.set(to(s), (inDeg.get(to(s)) ?? 0) + 1);
     }
-    const through = (v: number): boolean => (outOf.get(v)?.length ?? 0) === 1 && inDeg.get(v) === 1;
-    const used = new Set<number>();
-    /** Walks a chain of half-edges from `h0` while its vertices are pass-through, stopping at `h0` on a cycle. */
-    const walk = (h0: number): number[] => {
-      const chain = [h0];
-      used.add(h0);
-      let h = h0;
+    const through = (v: string): boolean => (outOf.get(v)?.length ?? 0) === 1 && inDeg.get(v) === 1;
+    const used = new Set<EdgeSeg>();
+    /** Walks a chain of segments from `s0` while its vertices are pass-through, stopping at `s0` on a cycle. */
+    const walk = (s0: EdgeSeg): EdgeSeg[] => {
+      const chain = [s0];
+      used.add(s0);
+      let s = s0;
       for (;;) {
-        const d = destOf(tris, h);
+        const d = to(s);
         if (!through(d)) break;
         const nxt = (outOf.get(d) ?? [])[0];
         if (nxt === undefined || used.has(nxt)) break;
         chain.push(nxt);
         used.add(nxt);
-        h = nxt;
+        s = nxt;
       }
       return chain;
     };
-    const chains: number[][] = [];
-    for (const h of hs) if (!used.has(h) && !through(originOf(tris, h))) chains.push(walk(h));
+    const chains: EdgeSeg[][] = [];
+    for (const s of segs) if (!used.has(s) && !through(from(s))) chains.push(walk(s));
     // What is left is closed cycles. Rotate each to start at a bend, so the split below never runs across its seam.
-    for (const h of hs) {
-      if (used.has(h)) continue;
-      const cyc = walk(h);
-      const bendAt = cyc.findIndex((hh, i) => {
+    for (const s of segs) {
+      if (used.has(s)) continue;
+      const cyc = walk(s);
+      const bendAt = cyc.findIndex((ss, i) => {
         const prev = cyc[(i - 1 + cyc.length) % cyc.length];
-        return lineDistance(P(originOf(tris, hh)), P(originOf(tris, prev)), P(destOf(tris, hh))) > SHELL_TOLERANCE_CM;
+        return lineDistance(ss.a, prev.a, ss.b) > SHELL_TOLERANCE_CM;
       });
       if (bendAt < 0) throw new Error(`faces ${fa} and ${fb}: a closed run of manifold edges with no bend`);
       chains.push([...cyc.slice(bendAt), ...cyc.slice(0, bendAt)]);
     }
     for (const chain of chains) {
       // Split the chain into straight runs, each measured against its own final chord (journal decision 110, C5).
-      const points = [originOf(tris, chain[0]), ...chain.map(h => destOf(tris, h))].map(P);
+      const points = [chain[0].a, ...chain.map(s => s.b)];
       for (const [s, e] of straightRuns(points)) {
         const piece = chain.slice(s, e);
-        const verts = [originOf(tris, piece[0]), ...piece.map(h => destOf(tris, h))];
-        edges.push(makeEdge(src, asm, reg, edges.length, fa, fb, piece, verts, storeyHeight));
-        runs.push(verts);
-        halves.push(piece);
-        endpoints.add(verts[0]);
-        endpoints.add(verts[verts.length - 1]);
+        const first = piece[0], last = piece[piece.length - 1];
+        edges.push(makeEdge(asm, reg, edges.length, fa, fb, piece, storeyHeight));
+        runs.push([first.at[0][0], ...piece.map(x => x.at[1][0])]);
+        halves.push(piece.map(x => x.half));
+        first.at[0].forEach(v => endpoints.add(v));
+        last.at[1].forEach(v => endpoints.add(v));
       }
     }
   }
   return {edges, runs, halves, endpoints};
 }
 
-function makeEdge(
-  src: FaceSource, asm: FaceAssembly, reg: VertexRegistry, id: number, fa: number, fb: number,
-  piece: number[], verts: number[], storeyHeight: number,
-): ShellEdge {
-  const {positions} = src.mesh;
-  const va = verts[0], vb = verts[verts.length - 1];
-  const a = meshPoint(positions, va), b = meshPoint(positions, vb);
+function makeEdge(asm: FaceAssembly, reg: VertexRegistry, id: number, fa: number, fb: number, piece: EdgeSeg[], storeyHeight: number): ShellEdge {
+  const first = piece[0], last = piece[piece.length - 1];
+  const a = first.a, b = last.b;
   const nA = asm.planes[fa].n, nB = asm.planes[fb].n;
   // The manifold edge whose B triangle reaches furthest from A's plane decides the sign.
-  const lift = piece.map(h => liftAcross(src, asm, h, nA)).reduce((best, x) => (Math.abs(x) > Math.abs(best) ? x : best), 0);
+  const lift = piece.map(s => s.lift).reduce((best, x) => (Math.abs(x) > Math.abs(best) ? x : best), 0);
   const geometry: EdgeGeometry = {
     shape: edgeShape(nA, nB, lift),
     horizontal: Math.abs(a[2] - b[2]) <= SHELL_TOLERANCE_CM,
@@ -370,7 +491,8 @@ function makeEdge(
     z: (a[2] + b[2]) / 2,
   };
   const kind = classifyEdge(asm.faces[fa].tag, asm.faces[fb].tag, geometry, storeyHeight);
-  const v: [number, number] = [vertexAt(reg, a, meshOrigin(va, a)), vertexAt(reg, b, meshOrigin(vb, b))];
+  const origin = (vs: NonEmpty<number>, p: Vec3): MeshOrigin => ({at: 'mesh', vertices: vs, point: p});
+  const v: [number, number] = [vertexAt(reg, a, origin(first.at[0], a)), vertexAt(reg, b, origin(last.at[1], b))];
   return {id, kind, a, b, v, faces: [fa, fb]};
 }
 

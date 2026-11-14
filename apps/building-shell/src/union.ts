@@ -15,6 +15,7 @@ import {ImprintStats, imprintRegions} from './imprint.ts';
 import {RegionModel, makeRegionModel} from './regions.ts';
 import {PartContext, RawPart, StoreyPlan, buildStoreyParts, makePartContext, planStorey} from './storey.ts';
 import {FaceTag, Plane3, ShellTags, Vec3, identityKey, makeShellTags, planeLabel, tagLabel} from './tags.ts';
+import {TuckModel, TuckStats, cutTucks, findTucks, labelTucks} from './tuck.ts';
 import {cross3, sub3} from './vec3.ts';
 
 export {RETAG_SLACK_CM, prepareRawTri, rawTriHolds} from './regions.ts';
@@ -30,8 +31,8 @@ export interface ShellUnion {
   /** The output manifold's genus (spec decision 32 as amended). */
   genus: number;
   /**
-   * The union's output after the cleaning (journal decision 101, F36) and the imprint (journal decision 111): what the
-   * re-tag pass and step 4 read.
+   * The union's output after the cleaning (journal decision 101, F36), the imprint (journal decision 111) and the cut
+   * along every tuck's outline (journal decision 272): what the re-tag pass and step 4 read.
    */
   mesh: ShellMesh;
   /**
@@ -43,11 +44,13 @@ export interface ShellUnion {
   clean: CleanStats;
   /** What the imprint cut and added. */
   imprint: ImprintStats;
+  /** Journal decision 272: the tucks found and labelled, and what cutting along their outlines did. */
+  tuck: TuckStats;
   tags: ShellTags;
   /** Every raw part before the union, still addressable (spec decision 29's raw mode). */
   parts: RawPart[];
   plans: StoreyPlan[];
-  /** Per output triangle: its tag after the re-tag pass. */
+  /** Per output triangle: its tag after the re-tag pass, a tuck's layers then labelled `Tuck` (journal decision 272). */
   triTags: FaceTag[];
   /** Spec decision 15: every coplanar conflict, with its label, plane and both tags. */
   conflicts: string[];
@@ -227,14 +230,45 @@ function imprintUnion(wasm: Wasm, label: string, cleaned: UnionPartsResult, mode
   return {...cleaned, closed: isClosed(mesh.tris), genus, mesh, imprint: stats};
 }
 
-/** Unions raw parts already built: the one union, the imprint, the re-tag pass, and the defect counts. */
+/**
+ * Journal decision 272: the imprinted union cut along every tuck's outline (`tuck.ts`). A cut mesh must come back from
+ * `Manifold.ofMesh` as a closed manifold of the imprinted mesh's genus, or it is a hard error naming the fixture.
+ */
+function cutTuckOutlines(wasm: Wasm, label: string, imprinted: UnionPartsResult, model: TuckModel, tags: ShellTags): UnionPartsResult & {cut: Omit<TuckStats, 'tucks'>} {
+  const none = {split: 0, neighbours: 0, added: 0};
+  if (imprinted.status !== 'NoError') return {...imprinted, cut: none};
+  const {mesh, split, neighbours, added} = cutTucks(imprinted.mesh, model, tags);
+  if (mesh === imprinted.mesh) return {...imprinted, cut: {split, neighbours, added}};
+  let genus: number;
+  try {
+    genus = remeshedGenus(wasm, mesh, 'tuck-cut');
+  } catch (e) {
+    throw new Error(`${label}: ${errorMessage(e)}`, {cause: e});
+  }
+  if (genus !== imprinted.genus) throw new Error(`${label}: cutting the tucks changed the genus from ${imprinted.genus} to ${genus}`);
+  const closed = isClosed(mesh.tris);
+  if (!closed) throw new Error(`${label}: cutting the tucks left the mesh open`);
+  return {...imprinted, closed, genus, mesh, cut: {split, neighbours, added}};
+}
+
+/**
+ * Unions raw parts already built: the one union, the imprint, the cut along every tuck's outline, the re-tag pass, the
+ * tucks labelled, and the defect counts.
+ */
 export function unionRawParts(wasm: Wasm, label: string, plans: StoreyPlan[], parts: RawPart[], tags: ShellTags): ShellUnion {
   const model = makeRegionModel(parts, tags);
-  const {status, closed, genus, mesh, boolean, clean, imprint} = imprintUnion(wasm, label, unionParts(wasm, parts, tags.planes), model);
-  const {triTags, conflicts} = retagPass(label, mesh, model);
+  const imprinted = imprintUnion(wasm, label, unionParts(wasm, parts, tags.planes), model);
+  const tucks = imprinted.status === 'NoError' ? findTucks(imprinted.mesh, tags) : {planes: []};
+  const {imprint} = imprinted;
+  const {status, closed, genus, mesh, boolean, clean, cut} = cutTuckOutlines(wasm, label, imprinted, tucks, tags);
+  const retagged = retagPass(label, mesh, model);
+  const {conflicts} = retagged;
+  const labelled = labelTucks(label, mesh, retagged.triTags, tucks);
+  const {triTags} = labelled;
+  const tuck: TuckStats = {tucks: labelled.tucks, ...cut};
   const survivingInternal = triTags.filter(t => t.kind === 'Internal').length;
   const cheeks = [...areaByIdentity({mesh, triTags, tags}, t => t.kind === 'Cheek').values()].filter(a => a > SHELL_TOLERANCE_CM ** 2).length;
-  return {label, status, closed, genus, mesh, boolean, clean, imprint, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
+  return {label, status, closed, genus, mesh, boolean, clean, imprint, tuck, tags, parts, plans, triTags, conflicts, survivingInternal, cheeks};
 }
 
 /** Unions already-planned storeys: builds every raw part, then `unionRawParts`. */

@@ -169,7 +169,11 @@ export function winningRegionViolations(u: RegionSource): string[] {
         continue;
       }
     }
-    const own = identityKey(u.triTags[t], planes[f], clusters);
+    // Journal decision 272: a tuck's layer is labelled Tuck after the re-tag, keeping its storey, wall and plane; it is
+    // read as the kind the re-tag gave it, the winner's.
+    const tag = u.triTags[t];
+    const won = byIdentity.get(winner)?.tag.kind;
+    const own = identityKey(tag.kind === 'Tuck' && won ? {...tag, kind: won} : tag, planes[f], clusters);
     if (own !== winner) out.push(`${where} is tagged ${tagLabel(u.triTags[t])} in a region won by ${winner}`);
   }
   return out;

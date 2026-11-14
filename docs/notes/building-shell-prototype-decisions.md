@@ -203,7 +203,7 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     one `TagTable` entry:
 
     ```ts
-    type ShellKind = 'Wall' | 'Gable' | 'Roof' | 'Underside' | 'Ground' | 'Cheek' | 'Internal';
+    type ShellKind = 'Wall' | 'Gable' | 'Roof' | 'Underside' | 'Ground' | 'Cheek' | 'Internal' | 'Tuck';
     interface FaceTag { kind: ShellKind; storey: number; wall: number; plane: number; part: number }
     // wall: -1 for Roof, floors and Internal. plane: the storey Building's canonical plane id for Roof, -1 otherwise.
     ```
@@ -212,6 +212,13 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     - `(kind, storey, plane)` for Roof;
     - `(kind, storey, oriented vertical plane)` for Wall, Gable and Cheek;
     - `(kind, storey)` for Underside, Ground and Internal.
+
+    **AMENDED 2026-11-14** (journal decision 272): `Tuck` labels both layers of a tuck the union leaves, where the surface
+    folds back on itself over the same ground ([the issue](./ISSUE-building-shell-union-tuck.md)). No raw part issues it.
+    The tuck pass sets it after the re-tag, keeping the layer's storey, wall, plane and part, so it takes no part in
+    re-tagging. Its identity is `(kind, storey, oriented plane)`, so each layer is a face of its own. A `Tuck` face has no
+    Cells (decision 22). Each rim Edge is read through the tuck as the one edge between the two real faces that meet
+    there (decision 21). A fold between two faces that are not both `Tuck` is a hard error.
 
     **`part` and `wall` are provenance only, and are never compared.** **AMENDED 2026-11-07 again** (journal decision
     96): vertical kinds were keyed by `wall`, so collinear walls from different Rings split one face in two. The
@@ -379,6 +386,11 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     **A Cheek reads as a Gable for this table**: every row that names Gable applies with Cheek in Gable's place, and a
     Cheek against a Gable or another Cheek reads as Gable against Gable (**AMENDED 2026-11-07**, journal decision 77).
 
+    **A tuck's rim is read through the tuck** (**AMENDED 2026-11-14**, journal decision 272). On each rim line one layer
+    meets a real face X and the other meets a real face Y. The pair is one ShellEdge with faces X and Y, classified by
+    this table for X against Y, with `q` read in Y's triangle. Where both layers meet one face, there is no edge. A fold
+    is never a ShellEdge.
+
     Any cell of the table marked none, and any pair not in it, gives `Unclassified`: drawn magenta and counted in
     `ShellReport.unclassifiedEdges`. `RoofSeam`, `GableSloped`, `SoffitEdge`, `SoffitJunction` and `Unclassified` are
     new names, not in `EModularEdgeKind`, and the report lists them as such.
@@ -397,7 +409,7 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
       one whose normal is ±x;
     - a `Roof` or `Underside` face is laid in plan `(x, y)`;
     - a `Cheek` face is laid in `(u, z)` exactly as a Gable face;
-    - `Ground` and `Internal` faces get no Cells.
+    - `Ground`, `Internal` and `Tuck` faces get no Cells (`Tuck` **AMENDED 2026-11-14**, journal decision 272).
 
     **AMENDED 2026-11-07** (journal decision 77, the user's ruling): a surviving Cheek is a legitimate face of its own
     kind with Cells. It had no Cells before.

@@ -33,7 +33,7 @@ import {rosterGenus} from './roster-genus.ts';
 import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
   COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
-  U_DEFECTS, seededKey,
+  seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
@@ -195,8 +195,14 @@ export const EMPTIED_BY_GABLE_RISES: readonly ResidueClass[] = [
  */
 export const EMPTIED_BY_RING_DROP: readonly ResidueClass[] = ['courtyard cut collinear with a jutting wall'];
 
+/**
+ * Journal decision 272 (WP-C3): the residue class the tuck pass left with no member. Every pinned case of the U8 class
+ * was one tuck Manifold's union leaves (BSA.F87), now labelled Tuck and given no Cells; each builds clean.
+ */
+export const EMPTIED_BY_TUCKS: readonly ResidueClass[] = ['edge contact between opposite coplanar faces'];
+
 /** Every residue class the golden set records as emptied, whatever emptied it. */
-export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP];
+export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP, ...EMPTIED_BY_TUCKS];
 
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
@@ -268,7 +274,8 @@ export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(
  *   Court23, were its representatives until decision 3 cured both, leaving that cause with no member;
  * - the Court25 throw (partial face-to-face contact of two storeys on one plane): s1h263 Court25, the one member left
  *   (decision 3 cured s1h250 and s1h300, and s5h250 SplitCourt29);
- * - U8 (edge contact between opposite coplanar faces): s6h300 U8;
+ * - U8 (edge contact between opposite coplanar faces): s6h300 U8, until journal decision 272 (WP-C3) labelled its tuck,
+ *   emptying the class; the case is kept as a clean tuck oracle (`TUCK_ORACLES`);
  * - a δ-nudge (decision 122's G5): ApexEdge5;
  * - a pitch-end throw (decision 143): G5.86h250;
  * - Courtyard at content's 22.5° and 45°, laid by side axis (decision 148, F3): its cut-piece overshoot;
@@ -287,12 +294,21 @@ export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
   seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 7, 'Court14', 250, [1]),
-  seededResidue(randomUFixtures, U_DEFECTS, 6, 'U8', 300, [0]),
   residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], NUDGE_DEFECTS, 'ApexEdge5'),
   residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
   rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
 ];
+
+/**
+ * Journal decision 272 (WP-C3): the tuck oracle. s6h300 U8, once the U8 class's representative, builds clean with its
+ * union's tuck labelled Tuck on both layers, so the port can check its own tuck pass against it.
+ */
+export const TUCK_ORACLES: readonly CleanGolden[] = (() => {
+  const f = randomUFixtures(6, DRAWS_PER_SEED, 300).find(x => x.name === 'U8');
+  if (!f) throw new Error('no case s6h300/U8');
+  return [cleanGolden(named(f, seededName('U8', 6, 300)), [0])];
+})();
 
 /**
  * Journal decisions 237 and 243: the rise fixtures that build a Cheek, left out of the golden set. A Cheek there is a fact,
@@ -329,6 +345,7 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...RULE_ORACLES,
   ...RESIDUE_CLASSES,
   ...RING_DROP_ORACLES,
+  ...TUCK_ORACLES,
   ...RISE_GOLDENS,
 ];
 

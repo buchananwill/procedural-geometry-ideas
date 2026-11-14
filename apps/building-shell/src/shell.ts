@@ -15,6 +15,11 @@ export interface ShellReport {
   survivingInternal: number;
   unclassifiedEdges: number;
   cheeks: number;
+  /**
+   * Journal decision 272: the tucks the union left, each labelled `Tuck` on both its layers and given no Cells: per
+   * plane, the edge-connected regions of one layer.
+   */
+  tucks: number;
   partialCells: number;
   /** The new edge kinds (spec decision 21) this shell emits, on a ShellEdge or a NetEdge, in the spec's order. */
   newEdgeKinds: EdgeKind[];
@@ -106,6 +111,7 @@ function report(fixture: ShellFixture, u: ShellUnion, faces: ShellFace[], edges:
     unclassifiedEdges: edges.filter(e => e.kind === 'Unclassified').length,
     // Journal decision 101: the Cheek ShellFaces, as spec decision 30 names them.
     cheeks: faces.filter(f => f.tag.kind === 'Cheek').length,
+    tucks: u.tuck.tucks,
     partialCells: net.cells.filter(c => !c.whole).length,
     newEdgeKinds: NEW_EDGE_KINDS.filter(k => emitted.has(k)),
     newConventions,

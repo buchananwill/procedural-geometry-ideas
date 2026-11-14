@@ -468,6 +468,45 @@ export const COVERED_RISE_CELL_CLASH: ShellFixture = shellFixture('CoveredRiseCe
   ring([100, 250, 300, 400], 0, 3, 30, {S: {form: 'gable'}}), ring([450, 250, 600, 400], 0, 2, 30, {S: {form: 'gable'}}),
 ]);
 
+/**
+ * Journal decision 272 (WP-C3), on BSA.F87: inputs whose union leaves a tuck. Each has a lower storey's gable on a wall
+ * line, back to back with a taller Ring's wall on the storey above, the taller Ring ending inside the gable's span.
+ * `span` is the x extent the oracle mirrors them in (BSA.F87 measured each mirror built with no tuck).
+ */
+export interface TuckCase { fixture: ShellFixture; span: number }
+
+const tuckGable = {S: {form: 'gable' as const}};
+
+/** BSA.F87's smallest input: two Rings, a whole-line gable end. */
+const tuckA = (h: number): TuckCase => ({span: 350, fixture: shellFixture(`TuckGableEnd${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 350, 150], 0, 1, 30, tuckGable),
+], h)});
+
+/** `s13h250/SplitCourt38` reduced (BSA.F87): a two-pitch rise's gable; `tower` and `low` vary it into the silent cases. */
+const tuckB = (name: string, low: [number, number, number, number], lowDeg: number, tower: [number, number, number, number], towerDeg: number, span: number): TuckCase => ({span, fixture: shellFixture(name, [
+  ring(low, 0, 2, lowDeg, tuckGable), ring([0, 100, 50, 150], 0, 2, 45, tuckGable), ring(tower, 0, 3, towerDeg),
+])});
+
+/** `s6h263/U8` reduced (BSA.F87): a whole-line gable end at 45 degrees. */
+const tuckC = (h: number): TuckCase => ({span: 300, fixture: shellFixture(`TuckSteepGableEnd${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 300, 100], 0, 1, 45, tuckGable),
+], h)});
+
+/** The tuck inputs that threw at `8025ead`, one of the two Cell-laying errors each, and their storey heights. */
+export const THROWING_TUCK_CASES: readonly TuckCase[] = [
+  tuckA(250), tuckA(263), tuckA(300),
+  tuckB('TuckRiseGable', [50, 100, 300, 250], 30, [100, 0, 250, 100], 30, 300),
+  tuckC(250), tuckC(263), tuckC(300),
+];
+
+/** BSA.F87's silent variants of `TuckRiseGable`: each built at `8025ead` with overlapping Cells and Unclassified Edges. */
+export const SILENT_TUCK_CASES: readonly TuckCase[] = [
+  tuckB('TuckRiseGableNarrowTower', [50, 100, 300, 250], 30, [150, 0, 200, 100], 30, 300),
+  tuckB('TuckRiseGableSteepTower', [50, 100, 300, 250], 30, [100, 0, 250, 100], 45, 300),
+  tuckB('TuckRiseGable37', [50, 100, 300, 250], 37, [100, 0, 250, 100], 30, 300),
+  tuckB('TuckRiseGableShortLow', [50, 100, 250, 250], 30, [100, 0, 250, 100], 30, 250),
+];
+
 /** Journal decision 135, F2: WP3.6's two cleanMesh refusals under floor-standing holed hip solids, stated literally. */
 export const F2_COURTYARDS: readonly ShellFixture[] = [
   shellFixture('s1h300/Court5', [

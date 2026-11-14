@@ -472,8 +472,13 @@ const PROMOTED_BY_COVERED_RISES: readonly SeededKey<'Court4'>[] = ['s8h250/Court
  * outcome, as the seeded cases' are.
  */
 const COVERED_RISE_REPRODUCERS: readonly [ShellFixture, CausedPin][] = [
-  [COVERED_RISE_ON_CUT_LINE, {cause: 'roof-gable algorithm B, cut-piece overshoot', outcome: ["survivingInternal 1 at (212.8662109375, 150, 276.6728515625)","3 Unclassified Edges: (100, 150, 250) to (238.5986328125, 150, 330.01953125); (100, 150, 250) to (300, 150, 250); (238.5986328125, 150, 330.01953125) to (300, 150, 250)"]}],
-  [COVERED_RISE_CELL_CLASH, {cause: 'edge contact between opposite coplanar faces (U8 class)', outcome: ['throws: vertex 265 at (300, 250, 550): two Cells run the same way along one NetEdge']}],
+  // `COVERED_RISE_ON_CUT_LINE`: cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower
+  // layer, now labelled Tuck; clean, asserted below. Was: survivingInternal 1 and 3 Unclassified Edges, the cut-piece
+  // overshoot's text.
+  // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck and it builds; what remains is its
+  // exposed Cheek, the Cheek class's fact (journal decision 260). Was: "throws: vertex 265 at (300, 250, 550): two Cells
+  // run the same way along one NetEdge".
+  [COVERED_RISE_CELL_CLASH, {cause: 'roof-gable algorithm B, Cheek class', outcome: ['cheeks 1, expected 0, at (450, 250, 500)']}],
 ];
 
 describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
@@ -490,33 +495,50 @@ describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
     expect(await courtyardOutcome(f)).toEqual(pin.outcome);
     expect(causeOf(`s0h${f.storeyHeight}/${f.name}`, pin.outcome)).toBe(pin.cause);
   });
-});
 
-// ---- Journal decisions 264, 266 and 267, F84 (WP-C1): red until their cause is fixed ----------------------------------
-
-/**
- * Journal decision 266, the user's ruling: a test must not be green because it asserts a defect. Each case below is a
- * split-band courtyard that throws in Cell laying, and each test asserts only that it builds, so it is red until the
- * cause named in its issue note is fixed. They are not pins: no outcome is recorded, and a cure turns them green.
- * - 7 built clean before journal decision 264 removed the two-pitch sub-rule, and throw since (F84).
- * - `s6h263/SplitCourt8` and `s6h300/SplitCourt8` threw before that removal, unrecorded, and throw the other class now.
- * The seeds are the opt-in range's, so each case is built by name on the default run.
- */
-const RED_CELL_SIDE_SHELL_EDGE: readonly SeededKey<SplitCourtName>[] = [
-  's6h250/SplitCourt8', 's6h263/SplitCourt8', 's6h300/SplitCourt8', 's12h250/SplitCourt20', 's12h300/SplitCourt20', 's13h263/SplitCourt38', 's13h300/SplitCourt11',
-];
-const RED_TWO_CELLS_SAME_WAY: readonly SeededKey<SplitCourtName>[] = ['s13h250/SplitCourt38', 's13h300/SplitCourt38'];
-
-describe('ISSUE-building-shell-cell-side-shell-edge-mismatch.md: red until a Cell side and its neighbour read the same ShellEdge', () => {
-  it.each(RED_CELL_SIDE_SHELL_EDGE.map(k => [k] as const))('split-band courtyard %s builds', async key => {
-    const b = await buildShellDetailed(seededCase(randomSplitCourtyardFixtures, key));
-    expect(b.shell.cells.length).toBeGreaterThan(0);
+  it(`${COVERED_RISE_ON_CUT_LINE.name}: clean, its tuck labelled (journal decision 272)`, async () => {
+    expect(await courtyardOutcome(COVERED_RISE_ON_CUT_LINE)).toEqual([]);
+    expect((await buildShellDetailed(COVERED_RISE_ON_CUT_LINE)).shell.report.tucks).toBe(1);
   });
 });
 
-describe('ISSUE-building-shell-two-cells-same-way-along-net-edge.md: red until no two Cells run the same way along one NetEdge', () => {
-  it.each(RED_TWO_CELLS_SAME_WAY.map(k => [k] as const))('split-band courtyard %s builds', async key => {
+// ---- Journal decisions 264, 266, 267 and 272, F84 and F87 (WP-C1, WP-C3): the tuck's Cell-laying throws, cured ---------
+
+/**
+ * Journal decision 266, the user's ruling: a test must not be green because it asserts a defect. Each case below is a
+ * split-band courtyard that threw in Cell laying from WP-C1 (journal decision 264) until journal decision 272 (WP-C3)
+ * labelled the union's tucks (BSA.F87), and each test asserts that it builds. They were red until that cure.
+ * - 7 threw "reads ShellEdge n, its NetEdge -1"; `s13h250/SplitCourt38` and `s13h300/SplitCourt38` threw "two Cells
+ *   run the same way along one NetEdge". Both texts were one tuck's, the lattice falling differently on it (BSA.F87).
+ * The seeds are the opt-in range's, so each case is built by name on the default run.
+ */
+const CURED_SPLIT_COURTS: readonly SeededKey<SplitCourtName>[] = [
+  's6h250/SplitCourt8', 's6h263/SplitCourt8', 's6h300/SplitCourt8', 's12h250/SplitCourt20', 's12h300/SplitCourt20', 's13h263/SplitCourt38', 's13h300/SplitCourt11',
+  's13h250/SplitCourt38', 's13h300/SplitCourt38',
+];
+
+describe('ISSUE-building-shell-union-tuck.md: the split-band courtyards a tuck made throw in Cell laying build', () => {
+  it.each(CURED_SPLIT_COURTS.map(k => [k] as const))('split-band courtyard %s builds', async key => {
     const b = await buildShellDetailed(seededCase(randomSplitCourtyardFixtures, key));
     expect(b.shell.cells.length).toBeGreaterThan(0);
+    expect(b.shell.report.tucks).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Journal decision 272 (WP-C3): the opt-in range's pinned cases the tuck pass cured, unpinned, so each asserts what it
+ * builds on the default run: clean by every invariant, its tuck labelled.
+ */
+type CuredCase = readonly [kind: string, key: string, gen: (seed: number, count: number, h: number) => ShellFixture[], want: ShellExpectation];
+const CURED_BY_TUCKS: readonly CuredCase[] = [
+  ...['s10h250/Court35', 's10h263/Court35', 's10h300/Court35'].map((k): CuredCase => ['courtyard', k, randomCourtyardFixtures, COURTYARD_EXPECTED]),
+  ...['s6h263/U8', 's6h300/U8'].map((k): CuredCase => ['U shape', k, randomUFixtures, EXPECTED]),
+];
+
+describe('ISSUE-building-shell-union-tuck.md: the pinned cases the tuck pass cured are clean', () => {
+  it.each(CURED_BY_TUCKS.map(([kind, key, gen, want]) => [`${kind} ${key}`, key, gen, want] as const))('%s', async (_, key, gen, want) => {
+    const b = await buildShellDetailed(seededCase(gen, key));
+    expect(invariantViolations(b, want)).toEqual([]);
+    expect(b.shell.report.tucks).toBeGreaterThan(0);
   });
 });

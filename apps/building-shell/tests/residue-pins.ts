@@ -33,9 +33,9 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   // Was: "throws: cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1".
   // Journal decision 245: a covered rise (decision 243, rule 3) on Ring 3's S side over x [650, 900] lies on the courtyard
   // cut's line y = 150, and the cut-piece overshoot appears on that cut. Smallest input: `COVERED_RISE_ON_CUT_LINE`.
-  's1h250/Court29': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (212.8662109375, 150, 276.6728515625)","3 Unclassified Edges: (100, 150, 250) to (238.5986328125, 150, 330.01953125); (100, 150, 250) to (300, 150, 250); (238.5986328125, 150, 330.01953125) to (300, 150, 250)"]},
+  // 's1h250/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 276.6728515625)","3 Unclassified Edges: (100, 150, 250) to (238.5986328125, 150, 330.01953125); (100, 150, 250) to (300, 150, 250); (238.5986328125, 150, 330.01953125) to (300, 150, 250)"].
   // Journal decision 245, as s1h250.
-  's1h300/Court29': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (212.8662109375, 150, 326.6728515625)","3 Unclassified Edges: (100, 150, 300) to (238.5986328125, 150, 380.01953125); (100, 150, 300) to (300, 150, 300); (238.5986328125, 150, 380.01953125) to (300, 150, 300)"]},
+  // 's1h300/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 326.6728515625)","3 Unclassified Edges: (100, 150, 300) to (238.5986328125, 150, 380.01953125); (100, 150, 300) to (300, 150, 300); (238.5986328125, 150, 380.01953125) to (300, 150, 300)"].
   // 's1h300/Court14': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's1h300/Court25': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   's2h250/Court15': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (275, 100, 562.546875)","3 Unclassified Edges: (250, 100, 557.7353515625) to (275, 100, 572.1689453125); (250, 100, 557.7353515625) to (300, 100, 557.7353515625); (275, 100, 572.1689453125) to (300, 100, 557.7353515625)"]},
@@ -71,17 +71,17 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   // 's9h300/Court27': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's10h250/Court15': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's10h250/Court18': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
-  's10h250/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"]},
+  // 's10h250/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (114.94140625, 600, 268.2490234375)","3 Unclassified Edges: (100, 600, 278.8671875) to (150, 600, 250); (94.82421875, 600, 275.87890625) to (100, 600, 278.8671875); (94.82421875, 600, 275.87890625) to (150, 600, 250)"].
   // 's10h263/Court15': cured by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
   // 's10h263/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), an accepted cost:
   // a courtyard hole wall whose band runs on under a taller Ring is now a rise, and a 26.8 cm² sliver of its storey 0 Gable front, coplanar with the taller
   // Ring's storey 1 Wall on y = 400 and facing it, meets that Wall in 2 Unclassified Edges: SplitCourt9's Gable-Wall pair. Its conflict stays pinned there too.
   // 's10h263/Court18': cured by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are gone; clean, its conflict pinned in GABLE_RISE_CONFLICTS.
-  's10h263/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"]},
+  // 's10h263/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (115.0185546875, 600, 281.29296875)","3 Unclassified Edges: (100, 600, 291.8671875) to (150, 600, 263); (95.0546875, 600, 289.01171875) to (100, 600, 291.8671875); (95.0546875, 600, 289.01171875) to (150, 600, 263)"].
   // 's10h300/Court15': cured by journal decisions 243 to 245 (WP-L2): a covered rise is built over its cut-piece overshoot; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
   // 's10h300/Court18': cured by gable rise decision 3 (WP-G2) and re-pinned in GABLE_RISE_CONFLICTS; worsened by journal decision 220 (WP-G4.2), as s10h263.
   // 's10h300/Court18': cured by journal decisions 243 to 245 (WP-L2): its 2 Unclassified Gable-Wall Edges are gone; clean, its conflict pinned in GABLE_RISE_CONFLICTS.
-  's10h300/Court35': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"]},
+  // 's10h300/Court35': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (115.2041015625, 600, 318.400390625)","3 Unclassified Edges: (100, 600, 328.8671875) to (150, 600, 300); (95.611328125, 600, 326.3330078125) to (100, 600, 328.8671875); (95.611328125, 600, 326.3330078125) to (150, 600, 300)"].
   // 's11h250/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's11h263/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
   // 's11h300/Court35': cured by gable rise decision 3 (WP-G2): its mixed wall is a hip with a rise; re-pinned in GABLE_RISE_CONFLICTS by its F69 conflicts.
@@ -95,7 +95,9 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   's13h250/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 589.56640625)","3 Unclassified Edges: (516.4521484375, 200, 586.6025390625) to (523.275390625, 200, 595.494140625); (516.4521484375, 200, 586.6025390625) to (535.07421875, 200, 586.6025390625); (523.275390625, 200, 595.494140625) to (535.07421875, 200, 586.6025390625)"]},
   // Re-pinned by journal decisions 243 to 245 (WP-L2), was its 1 Cheek: a covered rise (decision 243, rule 3) on its storey 1 S lines
   // reaches the Cell-laying class (journal F64, F74). Smallest input: `COVERED_RISE_CELL_CLASH`.
-  's13h250/Court21': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 273 at (300, 250, 550): two Cells run the same way along one NetEdge"]},
+  // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck, and it builds; what remains is its exposed Cheek, the
+  // Cheek class's fact (journal decision 260). Was: "throws: vertex 273 at (300, 250, 550): two Cells run the same way along one NetEdge".
+  's13h250/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 500)"]},
   's13h263/Court9': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 2, expected 0, at (146.05078125, 250, 323.0146484375); (400, 250, 263)"]},
   's13h263/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 615.56640625)","3 Unclassified Edges: (516.4521484375, 200, 612.6025390625) to (523.275390625, 200, 621.494140625); (516.4521484375, 200, 612.6025390625) to (535.07421875, 200, 612.6025390625); (523.275390625, 200, 621.494140625) to (535.07421875, 200, 612.6025390625)"]},
   's13h263/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 526)"]},
@@ -103,13 +105,15 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   's13h300/Court13': {cause: "roof-gable algorithm B, cut-piece overshoot", outcome: ["survivingInternal 1 at (524.93359375, 200, 689.56640625)","3 Unclassified Edges: (516.4521484375, 200, 686.6025390625) to (523.275390625, 200, 695.494140625); (516.4521484375, 200, 686.6025390625) to (535.07421875, 200, 686.6025390625); (523.275390625, 200, 695.494140625) to (535.07421875, 200, 686.6025390625)"]},
   // Re-pinned by journal decisions 243 to 245 (WP-L2), was its 1 Cheek: a covered rise (decision 243, rule 3) on its storey 1 S lines
   // reaches the Cell-laying class (journal F64, F74). Smallest input: `COVERED_RISE_CELL_CLASH`.
-  's13h300/Court21': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 289 at (300, 250, 650): two Cells run the same way along one NetEdge"]},
+  // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck, and it builds; what remains is its exposed Cheek, the
+  // Cheek class's fact (journal decision 260). Was: "throws: vertex 289 at (300, 250, 650): two Cells run the same way along one NetEdge".
+  's13h300/Court21': {cause: "roof-gable algorithm B, Cheek class", outcome: ["cheeks 1, expected 0, at (450, 250, 600)"]},
 };
 
 /** Measured at WP3.8.2 over seeds 1 to 14 at 250, 263 and 300 cm: every U-shape case that breaks an invariant. */
 export const U_DEFECTS: CausedPinTable<SeededKey<UName>> = {
-  's6h263/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"]},
-  's6h300/U8': {cause: "edge contact between opposite coplanar faces (U8 class)", outcome: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"]},
+  // 's6h263/U8': cured by journal decision 272 (WP-C3): the tuck under its gable end is labelled Tuck and given no Cells; clean. Was: ["throws: vertex 286 at (104.8515625, 550, 650): two Cells run the same way along one NetEdge"].
+  // 's6h300/U8': cured by journal decision 272 (WP-C3): the tuck under its gable end is labelled Tuck and given no Cells; clean. Was: ["throws: vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"].
 };
 
 /**

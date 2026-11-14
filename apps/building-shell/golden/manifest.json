@@ -21,6 +21,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -51,6 +52,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -80,6 +82,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 66,
     "newEdgeKinds": [],
     "newConventions": [
@@ -107,6 +110,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 90,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -138,6 +142,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -169,6 +174,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -200,6 +206,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 96,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -231,6 +238,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [],
     "newConventions": [
@@ -259,6 +267,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 124,
     "newEdgeKinds": [],
     "newConventions": [
@@ -287,6 +296,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 42,
     "newEdgeKinds": [],
     "newConventions": [
@@ -315,6 +325,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [],
@@ -340,6 +351,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -370,6 +382,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 46,
     "newEdgeKinds": [],
     "newConventions": [
@@ -399,6 +412,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 46,
     "newEdgeKinds": [],
     "newConventions": [
@@ -428,6 +442,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -456,6 +471,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -484,6 +500,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -511,6 +528,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 32,
     "newEdgeKinds": [],
     "newConventions": [
@@ -540,6 +558,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 50,
     "newEdgeKinds": [],
     "newConventions": [
@@ -569,6 +588,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 102,
     "newEdgeKinds": [],
     "newConventions": [
@@ -598,6 +618,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -628,6 +649,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -656,6 +678,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [],
     "newConventions": [
@@ -687,6 +710,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [],
     "newConventions": [
@@ -714,6 +738,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -742,6 +767,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 84,
     "newEdgeKinds": [],
     "newConventions": [
@@ -770,6 +796,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 120,
     "newEdgeKinds": [],
     "newConventions": [
@@ -800,6 +827,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 146,
     "newEdgeKinds": [],
     "newConventions": [
@@ -832,6 +860,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -862,6 +891,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -891,6 +921,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 96,
     "newEdgeKinds": [],
     "newConventions": [
@@ -920,6 +951,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 104,
     "newEdgeKinds": [],
     "newConventions": [
@@ -947,6 +979,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -979,6 +1012,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1013,6 +1047,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 244,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1047,6 +1082,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 225,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1081,6 +1117,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 257,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1115,6 +1152,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 235,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1149,6 +1187,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 267,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1179,6 +1218,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 247,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1207,6 +1247,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1239,6 +1280,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1268,6 +1310,7 @@
     "survivingInternal": 1,
     "unclassifiedEdges": 3,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 91,
     "newEdgeKinds": [
      "Unclassified"
@@ -1308,6 +1351,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 87,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1341,6 +1385,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 93,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1373,6 +1418,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 64,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1407,6 +1453,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1436,6 +1483,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 124,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1464,6 +1512,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 64,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1494,6 +1543,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 708,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1522,6 +1572,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 40,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1550,6 +1601,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 46,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1578,6 +1630,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 92,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1608,6 +1661,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 46,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1637,6 +1691,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1665,6 +1720,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1694,6 +1750,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 50,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1721,6 +1778,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 54,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1748,6 +1806,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 120,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1780,6 +1839,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1808,6 +1868,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 48,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1841,6 +1902,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 1,
+    "tucks": 0,
     "partialCells": 173,
     "newEdgeKinds": [],
     "newConventions": [
@@ -1853,19 +1915,6 @@
    "violations": [
     "cheeks 1, expected 0, at (291.83203125, 250, 500)"
    ]
-  },
-  {
-   "fixture": "U8Seed6h300",
-   "cppReplayable": false,
-   "reasons": [
-    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
-   ],
-   "expectedGenus": [
-    0
-   ],
-   "clean": false,
-   "residueClass": "edge contact between opposite coplanar faces",
-   "error": "vertex 285 at (123.267578125, 550, 700): two Cells run the same way along one NetEdge"
   },
   {
    "fixture": "ApexEdge5",
@@ -1886,6 +1935,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 1,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 64,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -1945,6 +1995,7 @@
     "survivingInternal": 1,
     "unclassifiedEdges": 3,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 148,
     "newEdgeKinds": [
      "Unclassified"
@@ -1979,6 +2030,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 72,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -2013,6 +2065,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 120,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2022,6 +2075,39 @@
     "droppedRings": [
      1
     ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "U8Seed6h300",
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    0
+   ],
+   "measuredGenus": [
+    0
+   ],
+   "clean": true,
+   "shell": "U8Seed6h300.json",
+   "union": "U8Seed6h300.union.json",
+   "report": {
+    "conflicts": [
+     "U8Seed6h300: n=(0.000000, -1.000000, 0.000000) d=-550.000: Wall storey 1 wall 4 (part 5) over Gable storey 0 wall 4 (part 2)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 1,
+    "partialCells": 89,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
    },
    "violations": []
   },
@@ -2046,6 +2132,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 89,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2076,6 +2163,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 52,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2106,6 +2194,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 100,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2134,6 +2223,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 56,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2164,6 +2254,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 68,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2195,6 +2286,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 82,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2225,6 +2317,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2256,6 +2349,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2287,6 +2381,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 108,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2317,6 +2412,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 90,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2347,6 +2443,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 140,
     "newEdgeKinds": [
      "SoffitEdge",
@@ -2381,6 +2478,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 112,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2413,6 +2511,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 76,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2442,6 +2541,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 110,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2472,6 +2572,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 164,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2503,6 +2604,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 178,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2533,6 +2635,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 160,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2563,6 +2666,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 148,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2593,6 +2697,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 124,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2624,6 +2729,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 177,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2655,6 +2761,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 175,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2686,6 +2793,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 158,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2717,6 +2825,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 175,
     "newEdgeKinds": [],
     "newConventions": [
@@ -2748,6 +2857,7 @@
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 0,
+    "tucks": 0,
     "partialCells": 70,
     "newEdgeKinds": [],
     "newConventions": [

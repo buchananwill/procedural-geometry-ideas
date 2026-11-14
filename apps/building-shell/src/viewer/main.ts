@@ -195,6 +195,8 @@ function renderReport(b: ShellBuild): void {
   item('survivingInternal', String(r.survivingInternal), r.survivingInternal > 0);
   item('unclassifiedEdges', String(r.unclassifiedEdges), r.unclassifiedEdges > 0);
   item('cheeks', String(r.cheeks));
+  // Journal decision 272: the tucks the union left, labelled Tuck on both layers (drawn in the Tuck colour).
+  item('tucks', String(r.tucks));
   item('partialCells', String(r.partialCells));
   item('newEdgeKinds', r.newEdgeKinds);
   item('newConventions', r.newConventions);
