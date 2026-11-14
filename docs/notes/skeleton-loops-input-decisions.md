@@ -202,9 +202,11 @@ graph.**
     inputs by nesting depth** (BSA.D282). A loop's depth is the number of other loops containing its vertex 0; an even
     depth is an outline, and an odd depth is a hole of its deepest container. Groups are ordered by outline index and
     holes by index, winding is ignored, and the result is indices, so each caller carries its own weights across.
-38. **The helper refuses crossing and contact between any two loops by a throw,** with `findLoopConflict` in one
-    normalisation over all the loops, because loops in different groups are solved apart and only the helper sees them
-    together. It leaves self-crossing to each group's solve. The solver never calls it. The helper measures δ in the unit
+38. **The helper refuses crossing and contact between any two loops by a throw,** with the crossing and contact tests
+    of `findLoopConflict` run directly, in one normalisation over all the loops, because loops in different groups are
+    solved apart and only the helper sees them together. It does not run `findLoopConflict` whole: that returns the
+    first conflict in decision order, so a self-crossing or degenerate loop would mask a crossing or contact behind it
+    (BSA.D297). It leaves self-crossing and degenerate area to each group's solve. The solver never calls it. The helper measures δ in the unit
     space of all the loops and each group's solve measures it in that group's own, so a pair of loops near δ apart may
     pass the helper and be refused by the solve. The solve's verdict stands: it is a throw, so the difference is
     signalled and never silent.
@@ -212,8 +214,9 @@ graph.**
 ### Boundaries
 
 39. **There is one boundary pipeline, and a single loop is its one-loop case,** so byte identity proves that case and
-    two pipelines cannot drift. It branches on the hole count in two places only: a self-crossing loop decomposes
-    without holes and is refused with them, and a holed solve stops after initialisation.
+    two pipelines cannot drift. It branches on the hole count in three places only: a self-crossing loop decomposes
+    without holes and is refused with them, a mis-wound loop under `normaliseWinding: false` is refused only with holes
+    (decision 22), and a holed solve stops after initialisation.
 40. **No tolerance, window, constant or comparison moves, and the C++ port is not a consideration** (BSA.D281).
 41. **Nothing outside `packages/core` changes.** The dashboard, the fixtures package and building-shell compile and pass
     untouched; the graph and result literals in core's own tests gain the new fields.

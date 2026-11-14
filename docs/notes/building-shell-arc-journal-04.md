@@ -442,6 +442,32 @@ session 3's own.
   - **Its measure of success:** the six solves the red test names (BSA.D295) are each measured before and after under
     the stage 1 spec's decision 31, the red file goes green because the defect is cured, and the issue note is resolved
     with that evidence.
+- **297. Roadmap nodes 2 and 3 are built at `57f6967` and accepted for review, with two spec corrections the implementer
+  found.** The lead confirmed the commit and a clean tree, and re-ran nothing.
+  - **The figures, by the delegate:** core 5,890 passed, 7 failed, 9 skipped in 96 suites, the 7 being the red
+    early-acceptance file with its failure output identical line for line to before; building-shell 9,992 in 46 files,
+    typecheck clean; dashboard 331 in 24 suites; the sweep harness's 32,340 records byte-identical. No pin moved. All 9
+    mutation gates of the spec's decision 48 convicted.
+  - **No other arithmetic on exterior ids is reached** by a holed solve before it stops: the three readers of spec
+    decision 9 moved, and the rest is loop-local, loop-neutral, or runs only on interior nodes (search named in the
+    report).
+  - **Correction 1, spec decision 38:** the grouping helper cannot call `findLoopConflict` whole, because it returns the
+    first conflict in order and a self-crossing or degenerate loop then masks a crossing or contact, which is returned
+    as groups and never signalled. The helper runs the crossing and contact tests directly. The spec is amended; the
+    code change and a test of the masked case go in with the review's fixes.
+  - **Correction 2, spec decision 39:** the pipeline branches on the hole count in three places, not two; decision 22's
+    refusal of a mis-wound loop is the third. Wording only.
+  - **Interpretations accepted,** thirteen, among them: a mis-wound outline of a holed input is refused under
+    `normaliseWinding: false` as a mis-wound hole is; the visible-corner test reads the raw weights against the global
+    slowest, which keeps single-loop arithmetic bit-identical; `isEndpointTouch` is exported so the crossing rule is
+    shared and not copied.
+  - **Not convictable yet:** that `holes-not-solved` blocks by itself, since `unresolved-edges` blocks beside it. Node 4
+    retires the kind.
+  - **The commit's co-author line names Claude Opus 5.5,** the delegate's own model, where the lead's brief gave the
+    session's Fable 5.2 line. Left as written; told to the user.
+  - **Core's tests are not type-checked by the suite** (ts-jest runs with `isolatedModules`); the delegate's separate
+    check leaves 9 errors it believes older, unverified on the starting tree. Open item.
+  - **Next for this unit:** one independent Opus review of `57f6967` against the spec.
 
 ## Findings
 
