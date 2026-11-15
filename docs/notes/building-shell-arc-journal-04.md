@@ -1174,6 +1174,31 @@ session 3's own.
     a fixture and a mutation gate for the built-roof fallback of session 2's decision 204.
   - **Left:** the hard error that changed from "Not manifold" to `strip-missing` on 4 of 5,000 single-loop islands is a
     better message for the same refusal; the refusal text that names a corner where walls are collinear is reworded.
+- **327. The 36 are cured at `96148ec`: a holed island's hip solid stands from the floor again, and building-shell is
+  fully green at 9,693 passed in 48 files. A last pass on node 9 is dispatched.** The delegate's figures, not re-run; it
+  verified the cause on its own copies before the reviewer's finding reached it.
+  - **The mechanism, on the smallest case:** on the line of the north band's inner wall a gable piece and a covered rise
+    stand back to back; with the hip solid's bottom at the plate the union leaves them unfused over a strip 50 cm wide
+    below the apex; that tuck cuts the Roof face on the east wall's plane into two faces of one identity, and their
+    Cells meet on an interior edge. With the solid standing from the floor no tuck forms in any of the 162 all-gable
+    split bands. Roof heights on a 30 cm grid differ from the parent commit by 0.00 cm before the fix and after.
+  - **What moved, each with its cause:** 25 courtyard goldens re-exported, in each of which the only raw part whose
+    geometry moved is the holed hip solid; every shell golden keeps its canonical form; every non-courtyard golden
+    byte-identical. 15 conflict pins re-pinned: 7 in a winning Wall's part id only, 8 in count, **and for every moved
+    row the raw overlap of its two tags on its plane is identical before and after,** so only the listing by triangle
+    centroid moved, which is BSA.F69 measured row by row. 5 of the 8 return to their count at the parent commit.
+  - **Tests added:** the holed hip solid stands from the floor; the smallest of the 36 leaves no tuck and its Roof is
+    one face at the closed-form height; a holed tuck case at three storey heights, restored from what the cut's tests
+    lost.
+  - **Left open by the delegate and recorded: the face-split is latent.** A tuck whose two rims meet one identity on one
+    plane would still split that face and have Cells laid across it. The fix removes the tuck; it does not change how
+    such a tuck would be handled. Reading faces through a tuck as Edges are read through it (BSA.D272) is a new rule and
+    is the user's. No such tuck is known in the suite.
+  - **The node 9 spec's decision 25 is reversed in place** (its decision 59).
+  - **The last pass on node 9:** the issue note and red tests for single-loop folded roofs; the golden test over every
+    rule oracle; a fixture for the built-roof fallback; the remaining conflict rows measured; the refusal text reworded;
+    and the amendments to `building-shell-prototype-decisions.md` that the node 9 spec lists, applied by the delegate
+    for the lead to read as a diff.
 
 ## Findings
 
