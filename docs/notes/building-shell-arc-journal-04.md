@@ -14,9 +14,25 @@ record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-
 
 ## Reading order for a fresh context
 
-1. §2, §4 and §5 below, then §3 for the operational manual.
-2. Earlier decisions and findings only where this journal cites them, each with `journal.py show <id>`. **Do not read
-   any journal end to end**, this one included.
+**Read §4 in full**: it is the state at the close of session 4, the list of what waits on the user, how the user is
+steering, and the next work. Then §5 for the smaller open items, and §3, the operational manual, whose session 4
+additions are at its end.
+
+**Do not read this journal's Decisions and Findings end to end.** There are 53 decisions and 16 findings from this
+session. Fetch one by its id when §4 or §5 cites it, with `journal.py show <id>`. Do not read sessions 1 to 3 except by
+id.
+
+For the holed skeleton, these are enough to start:
+
+- The vision and the roadmap, both short: [holed-skeleton-vision.md](./holed-skeleton-vision.md),
+  [holed-skeleton-roadmap.md](./holed-skeleton-roadmap.md).
+- BSA.F91: why the solver needed its wavefront order stored. BSA.D282: the four stages the user approved.
+- BSA.F103 and BSA.D318: the collinear-wall defect and what the guard on holed solves does and does not catch.
+- BSA.F102 and BSA.D312: the weighted defect and its confirmed cause.
+- BSA.D321 and BSA.D330: building-shell on the holed solve, its measurement and its eight refused layouts.
+- BSA.F106 and BSA.D331: why the hip solid keeps two forms.
+
+Each roadmap node's spec is under `docs/notes/` and is named in §4; read a spec only for the node being worked on.
 
 ## 1. The arc's charter
 
@@ -69,48 +85,110 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 - **In PowerShell `rd` is `Remove-Item`** and takes no `/s /q`. Windows PowerShell 5.1's `Remove-Item -Recurse` is
   unreliable on junctions.
 
+**Added in session 4, for work in `packages/core` and across packages:**
+
+- **One editor in the working tree at a time.** A reviewer or a measurement works from its own copy:
+  `git archive <commit> | tar -x -C <a directory of its own under the system temp directory>`, with junctions to the
+  repo's `node_modules` removed by `rmdir` before the copy is deleted. The session scratchpad is shared between agents,
+  and one agent's copy there was deleted by another: each agent names a directory of its own.
+- **Heavy suites are run one at a time.** Building-shell's Vitest has a 5 s timeout per test, and it failed spuriously
+  twice when core's Jest or the sweep harness ran beside it.
+- **The sweep harness** is run from `packages/core` with `SWEEP_OUT=<prefix>` and `--testPathPatterns=sweep-harness`;
+  without `SWEEP_OUT` it is skipped. Its output files are compared between trees; they are the byte-identity gate for
+  single-loop solves, with `full-graph-digest.test.ts`, the recursion census and building-shell's golden drift test.
+- **The dashboard's Jest reads `@proc-geo/core` and `@proc-geo/test-fixtures` from `dist/`.** Build both before running
+  it, and again after changing either. One of its tests fails by name when core's built declarations are stale.
+- **Core's Jest does not type-check its tests** (ts-jest runs with `isolatedModules`); `tsc --noEmit` on core covers the
+  source only.
+- **A delegate's commit carries its own model's co-author line,** whatever line the brief gives it; the delegates'
+  harness rule takes precedence.
+- **A stated closed form is checked by building it.** Twice this session a rule the lead approved on reasoning alone was
+  wrong when built: a clearance bound per wall (BSA.D312) and the holed hip solid's bottom at the plate (BSA.D326).
+- **Fourteen tests are red by design** at the close of session 4, listed in §4. A suite figure is read against that
+  list, not against zero.
+
 ## 4. Next work
 
-**Session 4 state, 2026-11-15, the lead working unattended (BSA.D301).** The arc's work is the holed skeleton, on
-`feature/skeleton-holes` (cut from `ee84976`), under an approved vision and roadmap (BSA.D286). **Nothing is pushed or
-merged; both wait for the user.**
+**Session 4 closed on 2026-11-15 (BSA.D333).** Its work was the straight skeleton for a footprint with holes, under an
+approved vision and roadmap (BSA.D286): [holed-skeleton-vision.md](./holed-skeleton-vision.md),
+[holed-skeleton-roadmap.md](./holed-skeleton-roadmap.md). Branch `feature/skeleton-holes`, cut from `ee84976`, at
+`9d907e0` plus this journal's closing commit, with no upstream. **Nothing is pushed or merged.**
 
-**Built, all local commits, each reviewed independently unless marked:**
-- Node 1, stored wavefront order: `823211a` (BSA.D295).
-- Nodes 2 and 3, holes as input: `57f6967`, `f008560` (BSA.D299).
-- The acceptance cure: `8170011`, `3a92a28`; issue resolved (BSA.D304).
+**Built, as local commits, each reviewed independently and its review answered:**
+- Node 1, the wavefront's order stored as links: `7b6ef97`, `a997110`, `c9c1b30`, `823211a` (BSA.D295).
+- Nodes 2 and 3, an outline with holes as input: `57f6967`, `f008560` (BSA.D299).
+- The edge-acceptance cure, approved by the user: `420c604`, `8170011`, `3a92a28` (BSA.D296, BSA.D304).
 - Node 4, join and divide: `a8ba71f`, `9164e92` (BSA.D312). The causality check compares times: `8887d65`.
-- Node 5, simultaneous rings: `3abb3ac`, fixes `ad45ddd`, the holed guard `fae1b8d` and `7e6105c` (BSA.D320).
-- Node 6, loop-aware consumers and the holed roster of 21 fixtures: `9b5f90c`, fixes `dd191e5` (BSA.D316).
-- Node 7, the dashboard: `9c0389a` (BSA.D322). **Under review.**
-- Last figures, by delegates: core 6,634 passed, 10 failed by design, 10 skipped; building-shell 9,992; dashboard 538;
-  single-loop sweep records byte-identical throughout.
+- Node 5, simultaneous events across rings, so axis-aligned courtyards solve: `3abb3ac`, `ad45ddd`; the guard on holed
+  solves: `fae1b8d`, `7e6105c` (BSA.D320).
+- Node 6, loop-aware consumers and a holed roster of 21 fixtures: `9b5f90c`, `dd191e5` (BSA.D316).
+- Node 7, the dashboard: `9c0389a`, `b575a0c` (BSA.D324).
+- Node 9, building-shell on the holed solve, the cut deleted: `a66d122` to `f822370`, `96148ec`, `2a5a44d`, `8be3a7f`
+  (BSA.D330).
+- **Not built: node 8, contact between loops.** Its spec,
+  [skeleton-loop-contact-decisions.md](./skeleton-loop-contact-decisions.md), is `approved` (BSA.D332) with three
+  conditions. No caller needs it yet (BSA.D319).
 
-**In flight:** node 9, building-shell on the holed solve, being implemented under its approved spec (BSA.D321); node 7's
-review. **Left:** node 8, contact, its draft revised and held `proposed`, sequenced last (BSA.D319).
+**Figures at close, by delegates, not re-run by the lead:** core 6,634 passed, 10 failed by design, 10 skipped;
+building-shell 9,710 passed, 4 failed by design; dashboard 609. Single-loop sweep records were byte-identical at every
+unit.
 
-**For the user to rule on, none of it decided by the lead:**
-1. **Three open solver defects on single-loop input, each with an issue note and red tests** (ten red tests in core by
-   design): a reflex bisector that is not primary is never tested for a split, which gives wrong skeletons on weighted
-   input (4.25 percent of a random weighted fuzz) and, by one specimen, at unit weights too (BSA.F102, BSA.D312,
-   BSA.D319); a straight bisector between collinear walls that face the same way, with a confirmed mis-pairing in the
-   pairwise fallback (BSA.F103, BSA.D318); and what stays refused by name, a meeting of three fronts (BSA.D311). Their
-   cures change how single-loop events resolve.
-2. **Whether the holed guard should also run on single loops** (BSA.D314). It would turn some existing single-loop
-   results from complete to incomplete. The lead recommends it.
-3. **Node 9's regression:** 8 layouts in `tests/courtyard.test.ts` that build today are refused by the holed solve and
-   become hard errors naming the island; two are shapes a person would draw (BSA.D321). Landed on the branch as approved
-   by the lead; reversible.
-4. **What the guard cannot see:** overlapping collinear arcs. Telling them from a sound sliver needs a bar below the
-   perceptual floor, a new tolerance (BSA.D320).
-5. Whether to guard the direct-strike split path (BSA.F98); the sub-floor cycles round hub nodes (BSA.D302); the
-   dashboard's step-through dropping step failures on single loops (BSA.D308).
-6. Push, and merge to `main`; and session 3's carried items (its section 4, items 2 to 8), untouched.
+**Fourteen tests are red by design, each with an open issue note:** five in `weighted-time-order.test.ts`, one in
+`holed-simultaneous-rings.test.ts`, four in `straight-bisector.test.ts` (core); four in `mixed-pitch-island.test.ts`
+(building-shell).
 
-**How the user is steering** is in session 3's list plus BSA.D284, BSA.D287, BSA.D288, BSA.D291 and BSA.D301.
+**For the user to rule on. None of it was decided by the lead.**
+1. **A reflex bisector that is not primary is never tested for a split.** Wrong skeletons on 4.25 percent of a random
+   weighted single-loop fuzz, and by one specimen at unit weights too. Cause confirmed by asking the solver directly.
+   [ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md](./ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md);
+   BSA.F102, BSA.D312, BSA.D319. The unit-weight specimen is in BSA.D319 and not yet in the note.
+2. **A straight bisector between collinear walls that face the same way** goes wrong in one-ring steps, on single loops
+   today; the mis-pairing in the pairwise fallback is traced.
+   [ISSUE-skeleton-straight-bisector-between-collinear-walls.md](./ISSUE-skeleton-straight-bisector-between-collinear-walls.md);
+   BSA.F103, BSA.D318.
+3. **Single-loop islands of mixed pitch build folded roofs in building-shell,** since before this arc. Making a
+   causality diagnostic a hard error there would catch 32 of 53 measured and refuse no sound roof in that sample.
+   [ISSUE-building-shell-mixed-pitch-island-folded-roof.md](./ISSUE-building-shell-mixed-pitch-island-folded-roof.md);
+   BSA.F105, BSA.D330.
+4. **Whether the holed guard should also run on single loops** (BSA.D314). The lead recommends it; it would turn some
+   existing results from complete to incomplete.
+5. **Eight layouts in `tests/courtyard.test.ts` that built under the cut are refused by the holed solve** and are hard
+   errors naming the island; two are shapes a person would draw, `CourtL` and `JutAlignedS`. Landed by the lead in the
+   user's absence, reversible (BSA.D321).
+6. **What stays refused by name:** three fronts meeting at one point, met by 20 of 400 two-courtyard layouts on a grid.
+   [ISSUE-skeleton-three-front-meeting-refused.md](./ISSUE-skeleton-three-front-meeting-refused.md); BSA.D311, BSA.D313.
+7. **What the holed guard cannot see:** overlapping collinear arcs. Telling them from a sound sliver needs a bar below
+   the perceptual floor (BSA.D320). A holed result marked complete has passed five checks and is not proved right.
+8. **A tuck that splits a face is still unhandled** if one arises; reading faces through a tuck would be a new rule
+   (BSA.D327). And why Manifold leaves a tuck is still unknown; the lead recommends its own investigation (BSA.D331).
+9. **Push, and merge to `main`.**
 
-**Next, in order:** rule on node 7's review and node 9's report; node 9's independent review; amend
-`building-shell-prototype-decisions.md` as node 9's spec decision lists; then node 8.
+**How the user is steering,** added to session 3's list:
+- Specs are drafted by a delegate; the lead reads and approves, each node's spec under the approved roadmap (BSA.D286,
+  BSA.D288).
+- Commit code after a unit is built and tested, before review and after; never leave notes uncommitted for long
+  (BSA.D287).
+- Byte identity is the cheap test of sameness, not a hard stop: diagnose a divergence, then fix it or write why it is
+  acceptable (BSA.D284). Golden bytes that move for a stated cause are simply re-exported and reported (BSA.D329).
+- Where the stored links and the old id arithmetic differ, the old approach was wrong (BSA.D291).
+- A failing holed fixture is a red test with an issue note (BSA.D284). A refusal by name is a guard in production code,
+  and its test is green on the guard (BSA.D311).
+- One rule is preferred to two where it can be had (BSA.D328), and a rule that only trades defects is not adopted
+  (BSA.D331).
+- The lead may steer through an approved roadmap unattended, leaving to the user anything that changes how single-loop
+  events resolve, moves a tolerance, or changes a clean fixture's answer (BSA.D301).
+
+**Next, in order:**
+1. **The user's rulings on the list above,** items 1 to 4 first: they decide whether weighted and collinear-wall inputs
+   can be trusted, which building-shell's mixed pitches and grid-drawn footprints depend on.
+2. **Node 8,** if wanted now: dispatch its approved spec to one Opus delegate with the conditions of BSA.D332, then an
+   independent review.
+3. **Amendments owed by the lead and not made:** node 4's spec, a line that its fixtures moved to the roster (BSA.D305)
+   and the amendments node 5's spec lists in its decisions 41 and 42 (BSA.D320); the unit-weight specimen into the
+   weighted issue note (BSA.D319).
+4. **Session 3's carried items** (its section 4, items 2 to 8), untouched this session: the review of
+   `f388632..011455d`, the scope of BSA.D266, the corner sliver, one path for all gables, and the merge of
+   `feature/building-shell-covered-storeys-and-sections` to `main`, from which this branch was cut.
 
 ## 5. Open items
 
@@ -189,6 +267,18 @@ session 3's own.
 - **The project CLAUDE.md is stale in three places:** `handleInteriorEdges` is `handleInteriorNGon` (BSA.F91); the
   corpus is 53 clean and 7 defect (BSA.F92); `src/roof/` is not a byte-identical copy and its test pins behaviour
   (BSA.F94).
+- **Added at the close of session 4, each smaller than §4's list for the user:** the direct-strike split path has no
+  neighbour guard, and guarding it helps six sweep cells and harms one (BSA.F98); sub-floor cycles round hub nodes on
+  three sweep cells (BSA.D302); 54 along-edge sweep cells fail on a degenerate ring with no event (BSA.F96); the
+  dashboard's step-through drops step failures on single loops, and on a single-loop refusal draws the stale skeleton as
+  live (BSA.D308, BSA.D324); the conflict list misses real overlaps of up to about 5 square metres, as before
+  (BSA.F105); the early-acceptance file's roster cases cost four minutes of suite time for a guard that is now true by
+  construction (BSA.D304); the piece rule's fallback and the splice of a never-born bisector are reached by no roster
+  (BSA.D318, BSA.F97).
+- **Owed to the C++ port, recorded and not designed** (BSA.D281): everything in this session. The solver's wavefront
+  links, the holed input and loop table, the acceptance predicate, join and divide, the cross-ring events, the guard,
+  the loop-aware consumers; and in building-shell the holed `Comp`, the deletion of the cut, 25 renamed goldens and
+  every courtyard golden's bytes.
 
 ## Decisions
 
@@ -1265,6 +1355,14 @@ session 3's own.
     must not move; the implementer runs it to show that.
   - **What the node inherits and cannot claim:** a rebuilt loop solves exactly as the same loop drawn by hand, so it
     inherits the open single-loop defects; the guard blocked all 18 wrong merged answers the reviser measured.
+- **333. The user, 2026-11-15: Session 4 closes here.** The user's words: "Wrap up the session here: I want to move to a
+  fresh one."
+  - **The delegate for roadmap node 8, dispatched minutes before, was stopped by the lead before it made any edit;** the
+    tree was clean at `9d907e0` when the lead checked. Node 8's spec is `approved` and unbuilt.
+  - **Nothing is pushed or merged.** The branch `feature/skeleton-holes` has no upstream.
+  - **The figures the session ends on are delegates', none re-run by the lead:** core 6,634 passed, 10 failed by design,
+    10 skipped; building-shell 9,710 passed, 4 failed by design; dashboard 609 passed. Two reviewers re-ran a suite in a
+    private copy and matched the implementer's figure (core at node 3, the dashboard at node 7).
 
 ## Findings
 
