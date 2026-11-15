@@ -2,7 +2,7 @@
 title: "Skeleton flat-ring termination and the third-front rule: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: approved
+status: implementing
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md, ISSUE-skeleton-three-front-meeting-refused.md, ISSUE-skeleton-straight-vertex-in-zero-area-ring.md]
 depends_on: [skeleton-simultaneous-rings-decisions.md]

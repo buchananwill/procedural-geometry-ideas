@@ -72,6 +72,12 @@ export interface WavefrontReport {
      * is complete and every one is signalled.
      */
     unacceptedAtEnd: {label: string; edges: number[]; complete: boolean; signalled: boolean}[];
+    /**
+     * Every firing of the holed solver's two rules (skeleton flat-ring and third-front spec, decision 47): a flat ring
+     * closed or a third-front meeting resolved. Both are reached only in a step of several rings, so a single-loop
+     * roster asserts this empty (decision 3).
+     */
+    holedRuleFirings: {label: string; rule: 'flat-ring' | 'third-front'}[];
 }
 
 /** Decision 9's two assertions, as the lists that should be empty: complete solves, then unsignalled ones. */
@@ -94,6 +100,7 @@ export function emptyReport(): WavefrontReport {
         thrownSolves: [],
         earlyAcceptanceSolves: [],
         unacceptedAtEnd: [],
+        holedRuleFirings: [],
     };
 }
 
@@ -196,6 +203,12 @@ function recordingProbe(report: WavefrontReport, label: () => string): {probe: W
             closeSolve(report, state, complete);
             open.delete(context);
             seen++;
+        },
+        flatRingClosed(context: StraightSkeletonSolverContext) {
+            report.holedRuleFirings.push({label: stateOf(context).label, rule: 'flat-ring'});
+        },
+        thirdFrontResolved(context: StraightSkeletonSolverContext) {
+            report.holedRuleFirings.push({label: stateOf(context).label, rule: 'third-front'});
         },
     };
     const closeOpen = () => {

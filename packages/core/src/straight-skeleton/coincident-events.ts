@@ -3,10 +3,20 @@ import {
     CollisionEvent,
     StraightSkeletonSolverContext,
     Vector2,
+    WavefrontSegment,
 } from "./types";
-import {vectorsAreEqual} from "./core-functions";
+import {
+    crossProduct,
+    directionsAreSame,
+    dotProduct,
+    negateVector,
+    rotateCw90,
+    scaleVector,
+    sizeOfVector,
+    vectorsAreEqual,
+} from "./core-functions";
 import {ARITHMETIC_SAME_POINT_BOX} from "./constants";
-import {linkMergeGap} from "./wavefront";
+import {linkMergeGap, linkMergeGapOnWall} from "./wavefront";
 
 /**
  * Are these two arrivals the same vertex event, as far as anything that will ever look at the
@@ -464,19 +474,132 @@ export function bisectionsForCrossRingMerge(
     sourceNodeId: number,
     context: StraightSkeletonSolverContext,
 ): BisectionParams[] {
-    const gap = (preceding: readonly number[], following: readonly number[]): BisectionParams => {
-        const lastArrival = preceding[preceding.length - 1];
-        const firstDeparture = following[0];
-        const params: BisectionParams = {
-            clockwiseExteriorEdgeIndex: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
-            widdershinsExteriorEdgeIndex: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
-            source: sourceNodeId,
+    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, context));
+}
+
+/**
+ * ONE GAP OF A VERTEX EVENT (skeleton flat-ring and third-front spec, decision 33): the arc between run `k`'s last arrival
+ * and the next run's first departure, and the two walls the gap's bisector would be born between.
+ */
+export interface MergeGap {
+    lastArrival: number;
+    firstDeparture: number;
+    clockwiseWall: number;
+    widdershinsWall: number;
+}
+
+/**
+ * The gaps of a vertex event with these runs, in cyclic order: one per run `k`, from the last of run `k` to the first of
+ * run `k + 1`, with `clockwiseWall = cp(lastArrival)` and `widdershinsWall = wp(firstDeparture)`. Exactly the gaps
+ * {@link bisectionsForMerge} and {@link bisectionsForCrossRingMerge} bear.
+ */
+export function mergeGaps(runs: readonly (readonly number[])[], context: StraightSkeletonSolverContext): MergeGap[] {
+    return runs.map((run, index) => {
+        const lastArrival = run[run.length - 1];
+        const firstDeparture = runs[(index + 1) % runs.length][0];
+        return {
+            lastArrival,
+            firstDeparture,
+            clockwiseWall: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
+            widdershinsWall: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
         };
-        linkMergeGap(context, lastArrival, firstDeparture, params);
-        return params;
+    });
+}
+
+/**
+ * THE GAP'S LINKS, FROM THE PARTICIPANTS BRACKETING IT (skeleton wavefront-order spec, decision 9): the gap's bisector,
+ * sourced at the event's node, stands between the last arrival's clockwise neighbour and the first departure's widdershins
+ * neighbour — the two ends of the arc the gap leaves. The merge retires its arrivals.
+ */
+function bearGap(gap: MergeGap, sourceNodeId: number, context: StraightSkeletonSolverContext): BisectionParams {
+    const params: BisectionParams = {
+        clockwiseExteriorEdgeIndex: gap.clockwiseWall,
+        widdershinsExteriorEdgeIndex: gap.widdershinsWall,
+        source: sourceNodeId,
     };
-    const [first, second] = runs;
-    return [gap(first, second), gap(second, first)];
+    linkMergeGap(context, gap.lastArrival, gap.firstDeparture, params);
+    return params;
+}
+
+/**
+ * A GAP'S DIRECTION, THE KERNEL'S (skeleton flat-ring and third-front spec, decision 35): the `v` with `v · n_cw = w_cw`
+ * and `v · n_ws = w_ws`, `n` a wall's inward normal. Walls parallel and facing the same way give `n · w` at equal weights,
+ * and at unequal weights no direction, the reason being returned; antiparallel walls give the clockwise wall's basis, as
+ * `addBisectionEdge` does. Parallelism is read at the angular resolution.
+ */
+function gapDirection(gap: MergeGap, context: StraightSkeletonSolverContext): Vector2 | string {
+    const clockwise = context.getEdgeWithId(gap.clockwiseWall).basisVector;
+    const widdershins = context.getEdgeWithId(gap.widdershinsWall).basisVector;
+    const clockwiseWeight = context.weightOf(gap.clockwiseWall);
+    const widdershinsWeight = context.weightOf(gap.widdershinsWall);
+    if (directionsAreSame(clockwise, negateVector(widdershins), context.angularResolution)) {
+        return clockwise;
+    }
+    if (directionsAreSame(clockwise, widdershins, context.angularResolution)) {
+        return clockwiseWeight === widdershinsWeight
+            ? scaleVector(rotateCw90(clockwise), clockwiseWeight)
+            : `the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} lies between same-facing parallel walls `
+            + `of unequal weight (${clockwiseWeight}, ${widdershinsWeight})`;
+    }
+    const n1 = rotateCw90(clockwise);
+    const n2 = rotateCw90(widdershins);
+    const determinant = crossProduct(n1, n2);
+    return {
+        x: (clockwiseWeight * n2.y - widdershinsWeight * n1.y) / determinant,
+        y: (n1.x * widdershinsWeight - n2.x * clockwiseWeight) / determinant,
+    };
+}
+
+/**
+ * WHICH GAP FACES THE STRUCK WALL (skeleton flat-ring and third-front spec, decision 36): a gap whose direction `v̂` has
+ * `v̂ · n_wall < −angularResolution` moves into the wall's front and faces it; above `+angularResolution` it is clear;
+ * between, it grazes. The facing gap's index when exactly one faces and none grazes; otherwise the reason the meeting
+ * stays refused (decision 44 (c) and (d)).
+ */
+export function wallFacingGap(gaps: readonly MergeGap[], wall: number, context: StraightSkeletonSolverContext): number | string {
+    const normal = rotateCw90(context.getEdgeWithId(wall).basisVector);
+    const facing: number[] = [];
+    for (const [index, gap] of gaps.entries()) {
+        const direction = gapDirection(gap, context);
+        if (typeof direction === 'string') {
+            return direction;
+        }
+        const cosine = dotProduct(direction, normal) / (sizeOfVector(direction) * sizeOfVector(normal));
+        if (cosine < -context.angularResolution) {
+            facing.push(index);
+        } else if (cosine <= context.angularResolution) {
+            return `the gap {cw: ${gap.clockwiseWall}, ws: ${gap.widdershinsWall}} grazes wall ${wall}`;
+        }
+    }
+    return facing.length === 1 ? facing[0] : `${facing.length} of its ${gaps.length} gaps face wall ${wall}, not one`;
+}
+
+/**
+ * THE VERTEX EVENT ON A THIRD FRONT, RESOLVED WHOLE (skeleton flat-ring and third-front spec, decisions 37 to 41): the
+ * clear gaps are borne and linked as every merge's are, first; the facing gap is not born, and `segment` of `wall` is cut
+ * at `position` by two bisectors, `towardsClockwise = {cw: gap's clockwise wall, ws: wall}` and `towardsWiddershins =
+ * {cw: wall, ws: gap's widdershins wall}` ({@link linkMergeGapOnWall}). Returned as the clear gaps' params, then
+ * `towardsClockwise`, then `towardsWiddershins`.
+ */
+export function bisectionsForMergeOnWall(
+    gaps: readonly MergeGap[],
+    facing: number,
+    wall: number,
+    segment: WavefrontSegment,
+    position: Vector2,
+    sourceNodeId: number,
+    context: StraightSkeletonSolverContext,
+): BisectionParams[] {
+    const clear = gaps.filter((_gap, index) => index !== facing).map(gap => bearGap(gap, sourceNodeId, context));
+    const {lastArrival, firstDeparture, clockwiseWall, widdershinsWall} = gaps[facing];
+    const towardsClockwise: BisectionParams = {
+        clockwiseExteriorEdgeIndex: clockwiseWall, widdershinsExteriorEdgeIndex: wall, source: sourceNodeId,
+    };
+    const towardsWiddershins: BisectionParams = {
+        clockwiseExteriorEdgeIndex: wall, widdershinsExteriorEdgeIndex: widdershinsWall, source: sourceNodeId,
+    };
+    linkMergeGapOnWall(context, lastArrival, firstDeparture, segment, position, towardsClockwise, towardsWiddershins);
+    return [...clear, towardsClockwise, towardsWiddershins];
 }
 
 /**
@@ -512,20 +635,5 @@ export function bisectionsForMerge(
         return [];
     }
 
-    return runs.map((precedingRun, index) => {
-        const followingRun = runs[(index + 1) % runs.length];
-        const lastArrival = precedingRun[precedingRun.length - 1];
-        const firstDeparture = followingRun[0];
-
-        const params: BisectionParams = {
-            clockwiseExteriorEdgeIndex: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
-            widdershinsExteriorEdgeIndex: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
-            source: sourceNodeId,
-        };
-        // THE GAP'S LINKS, FROM THE PARTICIPANTS BRACKETING IT (skeleton wavefront-order spec, decision 9):
-        // the new bisector stands between the last arrival's clockwise neighbour and the first departure's
-        // widdershins neighbour — the two ends of the arc the gap leaves. The merge retires its arrivals.
-        linkMergeGap(context, lastArrival, firstDeparture, params);
-        return params;
-    });
+    return mergeGaps(runs, context).map(gap => bearGap(gap, sourceNodeId, context));
 }

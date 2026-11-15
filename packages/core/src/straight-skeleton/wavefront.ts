@@ -547,6 +547,56 @@ interface Piece {
 }
 
 /**
+ * The piece of `segment` a strike at `position` takes, the segment read through this layer's records: its ends through
+ * the successors, and the cuts earlier strikes of this layer made in it, in order along the edge, as pieces. `ring` gives
+ * the bisectors on the striker's ring; it is read only when the segment has been cut.
+ */
+function struckPiece(
+    context: StraightSkeletonSolverContext,
+    segment: WavefrontSegment,
+    position: Vector2,
+    ring: () => ReadonlySet<number>,
+): Piece {
+    const layer = layerOf(context);
+    const segmentFrom = successorOn(context, layer.clockwiseSuccessor, segment.from);
+    const to = successorOn(context, layer.widdershinsSuccessor, segment.to);
+
+    // Walk the cuts earlier splits of this layer made in the segment, in order along the edge, into pieces.
+    const pieces: Piece[] = [];
+    let pieceFrom = segmentFrom;
+    let end = clockwiseOf(context, pieceFrom);
+    for (let hops = 0; end !== to && hops < 64; hops++) {
+        const division = layer.divisions.get(end);
+        if (division === undefined || division.edge !== segment.exteriorEdge) {
+            break;
+        }
+        pieces.push({from: pieceFrom, end, cut: division});
+        pieceFrom = division.after;
+        end = clockwiseOf(context, pieceFrom);
+    }
+    pieces.push({from: pieceFrom, end: to});
+
+    if (pieces.length === 1) {
+        return pieces[0];
+    }
+    const striker = ring();
+    /** Does the strike lie behind this piece's closing cut along the edge: is it the piece that contains it? */
+    const holdsStrike = (piece: Piece) => piece.cut === undefined
+        || alongEdge(context, segment.exteriorEdge, piece.cut.position, position) < 0;
+    const onRing = pieces.filter(piece => striker.has(piece.from));
+    // THE PIECE RULE (skeleton simultaneous-rings spec, decision 17): when more than one piece stands on the
+    // instigator's ring — which needs a join earlier in the layer, since on one loop rings only divide and each
+    // ring holds at most one piece — the ring cannot choose, and the strike takes the first of those pieces that
+    // contains it. Measured before it was relied on (decision 43): 0 such strikes on every single-loop roster.
+    // Where none of them contains it, the piece that contains it by position along the edge is taken, as the
+    // branch for no piece on the ring takes it (BSA.D314): the first piece on the ring would be a piece the
+    // strike is known not to lie on. Unreached on every roster, measured.
+    return onRing.length > 1
+        ? onRing.find(holdsStrike) ?? pieces.find(holdsStrike)!
+        : onRing[0] ?? pieces.find(holdsStrike)!;
+}
+
+/**
  * The split (spec decisions 11 and 12): the instigator strikes `segment`, and four links are rewritten.
  * `segment.from` goes to the new bisector whose widdershins parent is the struck edge (`towardsClockwise`,
  * the instigator's clockwise parent beside it), which goes on to the instigator's clockwise neighbour; the
@@ -582,42 +632,7 @@ export function linkSplit(
         return;
     }
 
-    const segmentFrom = successorOn(context, layer.clockwiseSuccessor, segment.from);
-    const to = successorOn(context, layer.widdershinsSuccessor, segment.to);
-
-    // Walk the cuts earlier splits of this layer made in the segment, in order along the edge, into pieces.
-    const pieces: Piece[] = [];
-    let pieceFrom = segmentFrom;
-    let end = clockwiseOf(context, pieceFrom);
-    for (let hops = 0; end !== to && hops < 64; hops++) {
-        const division = layer.divisions.get(end);
-        if (division === undefined || division.edge !== segment.exteriorEdge) {
-            break;
-        }
-        pieces.push({from: pieceFrom, end, cut: division});
-        pieceFrom = division.after;
-        end = clockwiseOf(context, pieceFrom);
-    }
-    pieces.push({from: pieceFrom, end: to});
-
-    let struck = pieces[0];
-    if (pieces.length > 1) {
-        const ring = ringThrough(context, instigator);
-        /** Does the strike lie behind this piece's closing cut along the edge: is it the piece that contains it? */
-        const holdsStrike = (piece: Piece) => piece.cut === undefined
-            || alongEdge(context, segment.exteriorEdge, piece.cut.position, position) < 0;
-        const onRing = pieces.filter(piece => ring.has(piece.from));
-        // THE PIECE RULE (skeleton simultaneous-rings spec, decision 17): when more than one piece stands on the
-        // instigator's ring — which needs a join earlier in the layer, since on one loop rings only divide and each
-        // ring holds at most one piece — the ring cannot choose, and the strike takes the first of those pieces that
-        // contains it. Measured before it was relied on (decision 43): 0 such strikes on every single-loop roster.
-        // Where none of them contains it, the piece that contains it by position along the edge is taken, as the
-        // branch for no piece on the ring takes it (BSA.D314): the first piece on the ring would be a piece the
-        // strike is known not to lie on. Unreached on every roster, measured.
-        struck = onRing.length > 1
-            ? onRing.find(holdsStrike) ?? pieces.find(holdsStrike)!
-            : onRing[0] ?? pieces.find(holdsStrike)!;
-    }
+    const struck = struckPiece(context, segment, position, () => ringThrough(context, instigator));
     const from = struck.from;
     const pieceEnd = struck.end;
 
@@ -648,6 +663,38 @@ export function linkMergeGap(
     const layer = layerOf(context);
     layer.clockwiseSuccessor.set(lastArrival, token);
     layer.widdershinsSuccessor.set(firstDeparture, token);
+}
+
+/**
+ * THE GAP THAT FACES A STRUCK WALL (skeleton flat-ring and third-front spec, decisions 38 to 40): one gap of a whole-event
+ * merge whose node lies on a third front is not born, and `segment` of the wall is cut at `position` instead, as a split
+ * by the gap would cut it. `towardsClockwise` stands between the struck piece's `from` and `lastArrival`'s clockwise
+ * neighbour, `towardsWiddershins` between `firstDeparture`'s widdershins neighbour and the piece's end, and the cut is
+ * recorded as a split's is.
+ *
+ * BOTH SUCCESSORS ARE RECORDED, one on each arrival, as {@link linkMergeGap} records them: a later strike of the layer
+ * may read either arrival (a variant recording one failed 22 of 51 grid layouts, BSA.F111). The struck piece is chosen
+ * by {@link linkSplit}'s piece rule, the striker's ring being the union of the rings through the two arrivals.
+ */
+export function linkMergeGapOnWall(
+    context: StraightSkeletonSolverContext,
+    lastArrival: number,
+    firstDeparture: number,
+    segment: WavefrontSegment,
+    position: Vector2,
+    towardsClockwise: BisectionParams,
+    towardsWiddershins: BisectionParams,
+): void {
+    const layer = layerOf(context);
+    const struck = struckPiece(context, segment, position,
+        () => new Set([...ringThrough(context, lastArrival), ...ringThrough(context, firstDeparture)]));
+    const gapClockwise = clockwiseOf(context, lastArrival);
+    const gapWiddershins = widdershinsOf(context, firstDeparture);
+    const before = linkPendingBirth(context, towardsClockwise, struck.from, gapClockwise);
+    const after = linkPendingBirth(context, towardsWiddershins, gapWiddershins, struck.end);
+    layer.clockwiseSuccessor.set(lastArrival, before);
+    layer.widdershinsSuccessor.set(firstDeparture, after);
+    layer.divisions.set(before, {edge: segment.exteriorEdge, position, after});
 }
 
 // ── The current step (skeleton join-and-divide spec, decisions 4 and 22) ─────────────────────────
@@ -754,6 +801,23 @@ export function partitionArc(context: StraightSkeletonSolverContext, params: Bis
 
 // ── Components: which child each ring goes to (decisions 10 to 17) ────────────────────────────────
 
+/**
+ * A ring's polygon at the layer's `time`: each bisector born in the layer (`newborn`) at its source node, and each older
+ * one at `context.wavefrontVertexAt(id, time)` (decision 12). The placement both `componentsOfRings` and the flat-ring
+ * test read.
+ */
+export function ringPolygonAt(
+    context: StraightSkeletonSolverContext,
+    ring: readonly number[],
+    time: number,
+    newborn: ReadonlySet<number>,
+): Vector2[] {
+    const {graph} = context;
+    return ring.map(id => newborn.has(id)
+        ? graph.nodes[graph.edges[id].source].position
+        : context.wavefrontVertexAt(id, time));
+}
+
 /** One child of a step of several rings: an outer ring and the inner rings inside it (decision 10). */
 export interface RingComponent {
     outer: number[];
@@ -803,9 +867,7 @@ export function componentsOfRings(
     // bounds nothing and cannot hold a hole.
     const corridors = new Set(rings.filter(ring => ring.length === 2));
     const placed = rings.filter(ring => !corridors.has(ring)).map(ring => {
-        const polygon = ring.map(id => newborn.has(id)
-            ? graph.nodes[graph.edges[id].source].position
-            : context.wavefrontVertexAt(id, time));
+        const polygon = ringPolygonAt(context, ring, time, newborn);
         const crossing = findFirstCrossing(polygon, floor);
         if (crossing !== null) {
             refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}]'s polygon crosses itself at time `
@@ -1049,6 +1111,10 @@ export interface WavefrontProbe {
     stepBoundary?(context: StraightSkeletonSolverContext, inputs: readonly AlgorithmStepInput[]): void;
     /** At the end of one simple-polygon solve: `errors` are the step failures it accumulated. */
     solveFinished?(context: StraightSkeletonSolverContext, errors: readonly string[]): void;
+    /** Once per flat ring closed in its step (skeleton flat-ring and third-front spec, decision 47). */
+    flatRingClosed?(context: StraightSkeletonSolverContext, ring: readonly number[]): void;
+    /** Once per third-front meeting resolved whole: the merge's arrivals and the struck wall (decision 47). */
+    thirdFrontResolved?(context: StraightSkeletonSolverContext, merge: readonly number[], wall: number): void;
 }
 
 let installedProbe: WavefrontProbe | null = null;

@@ -494,6 +494,8 @@ describe('the wavefront links', () => {
             expect(report.violations).toEqual([]);
             // Edge-acceptance spec, decision 9: a face that never closes is signalled.
             expect(unacceptedFaceFindings(report)).toEqual({complete: [], unsignalled: []});
+            // Flat-ring and third-front spec, decision 3: neither holed rule fires on a single loop.
+            expect(report.holedRuleFirings).toEqual([]);
         });
     });
 });

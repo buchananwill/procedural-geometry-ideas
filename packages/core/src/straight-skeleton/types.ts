@@ -427,14 +427,19 @@ export interface AlgorithmStepOutput {
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
  * - `simultaneous-across-rings` — a layer of a step of several rings was refused because events of different
- *   rings coincide in it in a form the skeleton simultaneous-rings spec does not settle (its decisions 20 to 22): a
- *   vertex event across rings that is not one run on each of two rings, a layer that cannot be resolved whole holding
- *   an event across rings, or a meeting on a third front. BLOCKING, and refused before the layer changed anything;
- *   the detail names the step, its rings, the events and the decision.
+ *   rings coincide in it in a form the solver does not settle (simultaneous-rings decisions 20 to 22; flat-ring and
+ *   third-front decisions 31 and 44): a vertex event across rings that is not one run on each of two rings, a layer
+ *   that cannot be resolved whole holding an event across rings, or a meeting on a third front that cannot be resolved
+ *   as one whole event — in a layer not resolved whole, or where the meeting's strikes hit more than one wall, a run of
+ *   it is its whole ring, not exactly one of its gaps faces the struck wall, or a gap grazes the wall or lies between
+ *   same-facing parallel walls of unequal weight. BLOCKING, and refused before the layer changed anything; the detail
+ *   names the step, its rings, the events and the decision.
  * - `multi-ring-step-refused` — a step of several rings could not be handled generically and was refused: a ring
- *   of fewer than three bisectors at its start, no event at all, or rings of three or more the layer left that
- *   cannot be told outer from inner or assigned to a component without guessing (join-and-divide decisions 16, 22
- *   and 23; a ring of two is a corridor and its own child, simultaneous-rings decision 12). BLOCKING; the detail
+ *   of fewer than three bisectors at its start, no event at all, a ring of three or more the layer left with no visible
+ *   area that is not a flat termination (the detail names the clause of the flatness test it fails), or a ring of
+ *   three or more with area that cannot be told outer from inner or assigned to a component without guessing
+ *   (join-and-divide decisions 16, 22 and 23; a ring of two is a corridor and its own child, simultaneous-rings
+ *   decision 12; a flat ring is closed in its step, flat-ring and third-front decisions 7 to 28). BLOCKING; the detail
  *   names the step and the ring.
  * - `holed-topology-violation` — a solve with holes that would otherwise be complete has a finished interior graph
  *   that is not one connected graph of cycle rank equal to the hole count (an arc recorded from both ends counted

@@ -22,19 +22,9 @@ import {
     solveSkeletonStepped,
 } from '@proc-geo/core';
 import {FULL_CORPUS, HOLED_F1, HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
-import type {HoledTestPolygon} from '@proc-geo/test-fixtures';
+import {GRID_DRAW_523} from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
-
-/** Node 5's E′ (dashboard spec, decision 51): two holes in [0,21]×[0,10], every gap 3, refused at its first layer. */
-const E_PRIME: HoledTestPolygon = {
-    name: 'E′',
-    outline: [{x: 0, y: 0}, {x: 0, y: 10}, {x: 21, y: 10}, {x: 21, y: 0}],
-    holes: [
-        {vertices: [{x: 3, y: 3}, {x: 9, y: 3}, {x: 9, y: 7}, {x: 3, y: 7}]},
-        {vertices: [{x: 12, y: 3}, {x: 18, y: 3}, {x: 18, y: 7}, {x: 12, y: 7}]},
-    ],
-};
 
 /**
  * A result as data: a solver context carries closures, and two solves' closures are never the same object, so the
@@ -60,11 +50,11 @@ describe('solveSkeletonStepped returns what solveSkeleton returns (decisions 17 
         expect(dataOf(solveSkeletonStepped(vertices).result)).toEqual(dataOf(solveSkeleton(vertices)));
     });
 
-    it('E′, which is refused: the same diagnostics and the same incomplete graph', () => {
-        const options = holedSolveOptions(E_PRIME);
-        const stepped = solveSkeletonStepped(E_PRIME.outline, options);
+    it('the refusal specimen (grid draw uniform-1-523, flat-ring and third-front spec, decision 53): the same diagnostics and the same incomplete graph', () => {
+        const options = holedSolveOptions(GRID_DRAW_523);
+        const stepped = solveSkeletonStepped(GRID_DRAW_523.outline, options);
         expect(stepped.result.complete).toBe(false);
-        expect(dataOf(stepped.result)).toEqual(dataOf(solveSkeleton(E_PRIME.outline, options)));
+        expect(dataOf(stepped.result)).toEqual(dataOf(solveSkeleton(GRID_DRAW_523.outline, options)));
     });
 
     it('throws exactly what solveSkeleton throws', () => {
@@ -128,8 +118,8 @@ describe('the snapshots (decisions 17, 19 and 20)', () => {
 });
 
 describe('a failed step is never silent (decisions 17 and 21)', () => {
-    it('E′: the first failed snapshot is named, and the failure is on the result\'s diagnostics', () => {
-        const {snapshots, result, firstFailedSnapshot} = solveSkeletonStepped(E_PRIME.outline, holedSolveOptions(E_PRIME));
+    it('the refusal specimen: the first failed snapshot is named, and the failure is on the result\'s diagnostics', () => {
+        const {snapshots, result, firstFailedSnapshot} = solveSkeletonStepped(GRID_DRAW_523.outline, holedSolveOptions(GRID_DRAW_523));
         expect(firstFailedSnapshot).not.toBeNull();
         expect(firstFailedSnapshot!).toBeGreaterThan(0);
         expect(firstFailedSnapshot!).toBeLessThan(snapshots.length);

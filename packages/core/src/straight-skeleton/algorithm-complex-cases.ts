@@ -1,7 +1,7 @@
 import {
     AlgorithmStepInput,
     AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
-    StraightSkeletonSolverContext, Vector2
+    StraightSkeletonSolverContext, Vector2, WavefrontSegment
 } from "./types";
 import {compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
 import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
@@ -12,14 +12,21 @@ import {bisectWithParams} from "./algorithm-helpers";
 import {
     bisectionsForCrossRingMerge,
     bisectionsForMerge,
+    bisectionsForMergeOnWall,
     clusterCoincidentMerges,
     CoincidentMerge,
     coincidentEventPositions,
+    contiguousRuns,
     crossRingRuns,
     CrossRingRuns,
+    MergeGap,
+    mergeGaps,
     mergesShareAnEdge,
+    wallFacingGap,
 } from "./coincident-events";
+import {closeFlatRings} from "./flat-rings";
 import {
+    activeWavefrontProbe,
     beginLayerLinks,
     birthsClosedAtOneNode,
     componentsOfRings,
@@ -482,9 +489,13 @@ interface WholeEvents {
  *  - DECISION 21: a layer that cannot be resolved whole (`mergesShareAnEdge`: two of its merges share a bisector) and
  *    holds an interior event with participants on two rings. The pairwise fallback would resolve it one pair at a
  *    time, which strands an arrival (A′, measured).
- *  - DECISION 22: a meeting on a third front — a split whose instigator is an arrival of a merge while neither end of
- *    its struck segment is. A split whose struck segment does end on an arrival is a re-report of the vertex event
- *    (decision 18) and is void once the merge has consumed its instigator.
+ *  - DECISION 22, IN A LAYER NOT RESOLVED WHOLE (`thirdFronts` null): a meeting on a third front — a split whose
+ *    instigator is an arrival of a merge while neither end of its struck segment is ({@link meetsThirdFront}). A split
+ *    whose struck segment does end on an arrival is a re-report of the vertex event (decision 18) and is void once the
+ *    merge has consumed its instigator. (Skeleton flat-ring and third-front spec, decision 31.)
+ *  - IN A LAYER RESOLVED WHOLE, a third-front meeting that cannot be resolved (that spec's decision 44): its
+ *    {@link ThirdFront}'s resolution is the reason. The decision-21 clauses are then asked of the layer's events less the
+ *    splits of its third-front meetings (decision 45).
  *
  * The merges are the layer's clustering at δ, the same `asWholeEvents` resolves when it resolves the layer whole.
  * `rings` are the step's rings at the layer's start. Nothing here reads a split as a join or a divide (decision 19).
@@ -492,8 +503,11 @@ interface WholeEvents {
 function multiRingRefusal(
     context: StraightSkeletonSolverContext,
     rings: number[][],
-    events: CollisionEvent[],
+    layerEvents: CollisionEvent[],
+    thirdFronts: readonly ThirdFront[] | null,
 ): string | undefined {
+    const resolvedSplits = new Set(thirdFronts?.flatMap(third => third.splits) ?? []);
+    const events = layerEvents.filter(event => !resolvedSplits.has(event));
     const ringOf = new Map<number, number>();
     rings.forEach((ring, index) => ring.forEach(id => ringOf.set(id, index)));
     const describe = (event: CollisionEvent) =>
@@ -517,19 +531,79 @@ function multiRingRefusal(
         }
     }
 
+    if (thirdFronts !== null) {
+        const refused = thirdFronts.find(third => typeof third.resolution === 'string');
+        return refused === undefined ? undefined : `the vertex event [${refused.merge.edgeIds.join(', ')}] meets a third `
+            + `front, edge ${refused.splits[0].struckSegment!.exteriorEdge}: ${refused.resolution} (flat-ring and `
+            + `third-front spec, decision 44).`;
+    }
     for (const split of events) {
-        const segment = split.struckSegment;
-        if (split.eventType !== 'interiorAgainstExterior' || segment === undefined) {
-            continue;
-        }
         const merge = merges.find(candidate => candidate.edgeIds.includes(split.collidingEdges[0]));
-        if (merge !== undefined && !merge.edgeIds.includes(segment.from) && !merge.edgeIds.includes(segment.to)) {
+        if (merge !== undefined && meetsThirdFront(split, merge)) {
+            const segment = split.struckSegment!;
             return `the split ${describe(split)} meets a third front: its instigator arrives at the vertex event `
                 + `[${merge.edgeIds.join(', ')}], and neither end of its struck segment (e${segment.from}, e${segment.to}) `
                 + `of edge ${segment.exteriorEdge} does (decision 22).`;
         }
     }
     return undefined;
+}
+
+/**
+ * Is `split` a strike of a third front by an arrival of `merge` (simultaneous-rings decision 22): its instigator arrives
+ * at the vertex event, and neither end of its struck segment does?
+ */
+function meetsThirdFront(split: CollisionEvent, merge: CoincidentMerge): boolean {
+    const segment = split.struckSegment;
+    return split.eventType === 'interiorAgainstExterior' && segment !== undefined
+        && merge.edgeIds.includes(split.collidingEdges[0])
+        && !merge.edgeIds.includes(segment.from) && !merge.edgeIds.includes(segment.to);
+}
+
+/**
+ * A THIRD-FRONT MEETING OF A LAYER RESOLVED WHOLE (skeleton flat-ring and third-front spec, decision 30): merge
+ * `mergeIndex` of the resolution and its splits `S(M)`, by `byEventPriority`. Its resolution is the gaps of its runs,
+ * the one that faces the struck wall, and the struck segment, of the first split (decisions 32 to 36); or, where it
+ * cannot be resolved, the reason (decision 44).
+ */
+interface ThirdFront {
+    mergeIndex: number;
+    merge: CoincidentMerge;
+    splits: CollisionEvent[];
+    resolution: {gaps: MergeGap[]; facing: number; segment: WavefrontSegment} | string;
+}
+
+/**
+ * The third-front meetings of a layer resolved whole (decisions 30 to 36 and 44), read before any event is resolved and
+ * from runs, walls and weights only (decision 43). A merge's runs are read at the layer's start: `crossRingRuns` for a
+ * merge across rings, `contiguousRuns` on its ring for a merge on one.
+ */
+function thirdFrontsOf(
+    context: StraightSkeletonSolverContext,
+    resolution: WholeEvents,
+    events: CollisionEvent[],
+    byEventPriority: (first: CollisionEvent, second: CollisionEvent) => number,
+): ThirdFront[] {
+    return resolution.merges.flatMap((merge, mergeIndex) => {
+        const splits = events.filter(event => meetsThirdFront(event, merge)).toSorted(byEventPriority);
+        if (splits.length === 0) {
+            return [];
+        }
+        const third = (resolved: ThirdFront['resolution']): ThirdFront[] => [{mergeIndex, merge, splits, resolution: resolved}];
+        const segment = splits[0].struckSegment!;
+        const walls = new Set(splits.map(split => split.struckSegment!.exteriorEdge));
+        if (walls.size > 1) {
+            return third(`its splits strike ${walls.size} walls (${[...walls].join(', ')})`);
+        }
+        const ring = resolution.ringOfMerge[mergeIndex];
+        const runs = resolution.runsOfMerge[mergeIndex] ?? contiguousRuns(ring!, new Set(merge.edgeIds));
+        if (runs.length === 1 && runs[0].length === ring!.length) {
+            return third('a run of it is its whole ring');
+        }
+        const gaps = mergeGaps(runs, context);
+        const facing = wallFacingGap(gaps, segment.exteriorEdge, context);
+        return third(typeof facing === 'string' ? facing : {gaps, facing, segment});
+    });
 }
 
 /**
@@ -776,9 +850,14 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     // WHAT STAYS REFUSED, ONCE THE LAYER'S EVENT SET IS FINAL AND BEFORE ITS FIRST EVENT IS RESOLVED (simultaneous-
     // rings spec, decisions 20 to 22), so a refused layer changes no link, node or acceptance. Asked only on a step of
-    // several rings (decision 1): on one ring every merge lies on the ring and nothing here can fire.
+    // several rings (decision 1): on one ring every merge lies on the ring and nothing here can fire. A layer resolved
+    // whole reads its third-front meetings here, so a meeting that stays refused is refused before anything changes
+    // (flat-ring and third-front spec, decisions 30 and 43).
+    const thirdFronts = multiRing && resolution !== null
+        ? thirdFrontsOf(context, resolution, eventsToResolve, byEventPriority)
+        : null;
     if (multiRing) {
-        const refusal = multiRingRefusal(context, rings, eventsToResolve);
+        const refusal = multiRingRefusal(context, rings, eventsToResolve, thirdFronts);
         if (refusal !== undefined) {
             refuseStep(context, 'simultaneous-across-rings', `rings `
                 + `${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}: ${refusal} Events of different rings `
@@ -840,10 +919,21 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             // its two runs' cycle; every other merge lies on one ring and bears one bisector per gap, as always. Its
             // runs were read at the layer's start, and merges are resolved first and share no edge, so every arrival
             // is still unaccepted here (decision 16).
+            //
+            // A MERGE WHOSE NODE LIES ON A THIRD FRONT (flat-ring and third-front spec, decisions 37 to 42) bears its clear
+            // gaps and, in place of the gap facing the struck wall, the wall's cut at the node. Its splits are void below,
+            // their instigators consumed here.
             const runs = resolution.runsOfMerge[index];
-            const bisections = runs === undefined
-                ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context)
-                : bisectionsForCrossRingMerge(runs, node.id, context);
+            const onWall = thirdFronts?.find(third => third.mergeIndex === index)?.resolution;
+            const bisections = typeof onWall === 'object'
+                ? bisectionsForMergeOnWall(onWall.gaps, onWall.facing, onWall.segment.exteriorEdge, onWall.segment,
+                    merge.position, node.id, context)
+                : runs === undefined
+                    ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context)
+                    : bisectionsForCrossRingMerge(runs, node.id, context);
+            if (typeof onWall === 'object') {
+                activeWavefrontProbe()?.thirdFrontResolved?.(context, merge.edgeIds, onWall.segment.exteriorEdge);
+            }
             // The arrivals leave the wavefront, once each gap has been linked from them.
             retireBisectors(context, arrivals);
             // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
@@ -924,8 +1014,11 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             compareArrivals(event.arrival, earliest.arrival, 0) < 0 ? event : earliest).arrival);
         const stepMembers = new Set(input.interiorEdges);
         const born = new Set(allOutgoingInteriorEdges.filter(id => !stepMembers.has(id)));
+        // A FLAT RING IS A FINISHED PIECE OF SKELETON, closed here and never classified (flat-ring and third-front spec,
+        // decisions 7 to 10 and 27); every other ring the layer left goes to its component unchanged.
+        const closed = closeFlatRings(context, allOutgoingInteriorEdges, layerTime, born);
         result.childSteps = componentsAsChildren(
-            context, allOutgoingInteriorEdges, partitionBirths, layerTime, born);
+            context, allOutgoingInteriorEdges.filter(id => !closed.has(id)), partitionBirths, layerTime, born);
         return result;
     }
 

@@ -3,13 +3,14 @@
  * which events of two rings coincide is resolved: a meeting of one run on each of two rings is one whole vertex event
  * bearing two bisectors (decisions 3 to 10); a ring of two bisectors such a layer leaves is its own child, closed by the
  * pair handler (decisions 11 and 12); and a strike on a segment two of whose pieces stand on the instigator's ring takes
- * the piece that contains it (decision 17). What stays refused is refused by name (decisions 21 and 22).
+ * the piece that contains it (decision 17). What stays refused is refused by name (decision 21).
  *
  *  - every fixture of decisions 34 to 37 against its closed form, node by node, with the battery of join-and-divide
  *    decision 42 (decision 38), and under two translations (§2's measurement);
- *  - E′, refused by name as a meeting on a third front (decisions 22 and 44);
+ *  - the refusal specimen, grid draw `uniform-1-523`, refused by name as a vertex event across rings of three runs
+ *    (decision 21). Node 5's E′, refused here under decision 22 until the flat-ring and third-front spec, is cured and
+ *    asserted against its closed form in `holed-flat-and-third-front.test.ts`, with `2h-int-1`, once red here;
  *  - `crossRingRuns`' cases (decision 39's last paragraph);
- *  - a courtyard from the fuzz that does not solve, RED BY DESIGN, with its issue note (BSA.D266);
  *  - `2h-int-113`, once red by design, a sound solve whose culled self-loop the battery had counted (BSA.D314), and
  *    the battery's interior-graph shape convicted on a culled and an un-culled self-loop;
  *  - fixtures A and D turned by an irrational angle and moved, against their closed forms carried through the same
@@ -40,48 +41,30 @@ import {
     HoledTestPolygon as HoledFixture,
 } from '@proc-geo/test-fixtures';
 import {
+    ClosedForm,
+    ExpectedNode,
+    expectClosedForm,
     expectSoundHoledSolve,
     extentOf,
+    GRID_DRAW_523,
+    holeRect,
     interiorGraphShape,
+    Motion,
+    moved,
+    outlineRect,
     REFUSAL_KINDS,
     solveHoled,
     storyOf,
+    translated,
 } from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
 const SQRT2 = Math.SQRT2;
 
-/** A clockwise axis-aligned rectangle outline. */
-function outlineRect(x0: number, y0: number, x1: number, y1: number): Vector2[] {
-    return [{x: x0, y: y0}, {x: x0, y: y1}, {x: x1, y: y1}, {x: x1, y: y0}];
-}
-
-/** A counter-clockwise axis-aligned rectangle hole. */
-function holeRect(x0: number, y0: number, x1: number, y1: number): Vector2[] {
-    return [{x: x0, y: y0}, {x: x1, y: y0}, {x: x1, y: y1}, {x: x0, y: y1}];
-}
-
-/** One node of a closed form: where it is and when. */
-interface ExpectedNode {
-    name: string;
-    at: Vector2;
-    t: number;
-}
-
-/** The closed form of one fixture: its interior nodes, its counts, and the ridges that carry two half-edges. */
-interface ClosedForm {
-    nodes: ExpectedNode[];
-    totalNodes: number;
-    interiorEdges: number;
-    /** Pairs of node names joined by two interior edges, one each way: the ridges of anti-parallel walls. */
-    ridges: [string, string][];
-}
-
 /*
  * THE FIXTURES ARE THE HOLED ROSTER'S (`HOLED_TEST_POLYGONS` in `@proc-geo/test-fixtures`; the loop-consumers spec,
- * decision 29), moved there verbatim with names beginning `Holed `. Their closed forms stay here. E′ and the two red
- * courtyards stay here too: the roster holds fixtures that solve, and a red test stays where its issue note points.
+ * decision 29), moved there verbatim with names beginning `Holed `. Their closed forms stay here.
  */
 
 /*
@@ -215,17 +198,6 @@ const E_FORM: ClosedForm = {
 };
 
 /*
- * E′, TWO HOLES WITH EVERY GAP 3 (decision 37; refused under decision 22): outline [0,21]×[0,10], holes [3,9]×[3,7]
- * and [12,18]×[3,7]. At t = 1.5 the corners (9,3) and (12,3) meet each other at (10.5, 1.5) on the bottom wall's front:
- * three fronts at one point.
- */
-const E_PRIME: HoledFixture = {
-    name: 'E′: two holes, every gap 3',
-    outline: outlineRect(0, 0, 21, 10),
-    holes: [{vertices: holeRect(3, 3, 9, 7)}, {vertices: holeRect(12, 3, 18, 7)}],
-};
-
-/*
  * F, AN OCTAGON IN AN OCTAGON (decision 37): radii 10 and 4, vertices on the rays π/8 + kπ/4. The apothems are
  * 10 cos(π/8) and 4 cos(π/8), so every gap is 6 cos(π/8) and every vertex pair meets head-on at t = 3 cos(π/8), at
  * radius (10 + 4) / 2 = 7 on its ray. 16 corner bisectors and 8 ridges of two half-edges: 32 interior edges.
@@ -320,77 +292,6 @@ const SOLVED: {fixture: HoledFixture; form: ClosedForm}[] = [
     {fixture: H, form: H_FORM},
 ];
 
-/** A rigid motion of the plane, applied to a fixture's every loop and to its closed form's every node. */
-type Motion = (point: Vector2) => Vector2;
-
-const STILL: Motion = point => point;
-
-function moved(fixture: HoledFixture, motion: Motion, label: string): HoledFixture {
-    const move = (vertices: readonly Vector2[]) => vertices.map(motion);
-    return {
-        ...fixture,
-        name: `${fixture.name} ${label}`,
-        outline: move(fixture.outline),
-        holes: fixture.holes.map(hole => ({...hole, vertices: move(hole.vertices)})),
-    };
-}
-
-function translated(fixture: HoledFixture, offset: Vector2): HoledFixture {
-    return moved(fixture, v => ({x: v.x + offset.x, y: v.y + offset.y}), `+ (${offset.x}, ${offset.y})`);
-}
-
-/** The closed form, node by node: one interior node within the tolerance of each, and nothing more. */
-function expectClosedForm(fixture: HoledFixture, form: ClosedForm, motion: Motion = STILL) {
-    const {result} = expectSoundHoledSolve(fixture);
-    const {graph} = result;
-    const tolerance = 1e-9 * extentOf(fixture);
-    const named = new Map<string, number>();
-    const found = form.nodes.map(expected => {
-        const at = motion(expected.at);
-        const matches = graph.nodes.slice(graph.numExteriorNodes)
-            .filter(node => Math.hypot(node.position.x - at.x, node.position.y - at.y) <= tolerance);
-        if (matches.length === 1) {
-            named.set(expected.name, matches[0].id);
-        }
-        return {name: expected.name, matches: matches.length};
-    });
-    expect(found).toEqual(form.nodes.map(expected => ({name: expected.name, matches: 1})));
-    expect(graph.nodes).toHaveLength(form.totalNodes);
-    expect(graph.interiorEdges).toHaveLength(form.interiorEdges);
-
-    // Each node's time: its distance to the line of each wall that names a bisector meeting there, over that wall's
-    // weight. Every such wall must give the closed form's time.
-    const wallTime = (p: Vector2, wall: number) => {
-        const a = graph.nodes[graph.edges[wall].source].position;
-        const b = graph.nodes[graph.edges[wall].target!].position;
-        const distance = Math.abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
-        return distance / graph.exteriorWeights[wall];
-    };
-    for (const expected of form.nodes) {
-        const id = named.get(expected.name)!;
-        const walls = new Set(graph.interiorEdges
-            .filter(interior => graph.edges[interior.id].source === id || graph.edges[interior.id].target === id)
-            .flatMap(interior => [interior.clockwiseExteriorEdgeIndex, interior.widdershinsExteriorEdgeIndex]));
-        const times = [...walls].map(wall => wallTime(graph.nodes[id].position, wall));
-        expect({name: expected.name, walls: walls.size >= 3, spread: Math.max(...times) - Math.min(...times) <= tolerance})
-            .toEqual({name: expected.name, walls: true, spread: true});
-        expect({name: expected.name, t: times[0]}).toEqual({name: expected.name, t: expect.closeTo(expected.t, 9)});
-    }
-
-    // The ridges between anti-parallel walls carry two half-edges, one each way (decision 11).
-    for (const [first, second] of form.ridges) {
-        const a = named.get(first)!;
-        const b = named.get(second)!;
-        const ways = graph.interiorEdges
-            .map(interior => graph.edges[interior.id])
-            .filter(edge => (edge.source === a && edge.target === b) || (edge.source === b && edge.target === a))
-            .map(edge => edge.source === a ? 'forward' : 'back')
-            .sort();
-        expect({ridge: `${first}-${second}`, ways}).toEqual({ridge: `${first}-${second}`, ways: ['back', 'forward']});
-    }
-    return result;
-}
-
 describe('the fixtures of decisions 34 to 37, each against its closed form (decision 38)', () => {
     it.each(SOLVED.map(({fixture, form}) => [fixture.name, fixture, form] as const))('%s', (_name, fixture, form) => {
         expectClosedForm(fixture, form);
@@ -456,51 +357,17 @@ describe('what the fixtures were chosen for', () => {
     });
 });
 
-describe('what stays refused (decisions 21, 22 and 44)', () => {
-    it('E′, two holes with every gap 3, is refused by name as a meeting on a third front, and makes no node', () => {
-        const {result, boundaries} = solveHoled(E_PRIME);
+describe('what stays refused (decision 21; flat-ring and third-front spec, decision 53)', () => {
+    it('the refusal specimen, grid draw uniform-1-523, is refused by name as a vertex event of three runs', () => {
+        const {result} = solveHoled(GRID_DRAW_523);
         expect(result.complete).toBe(false);
         const refusals = result.diagnostics.filter(diagnostic => REFUSAL_KINDS.includes(diagnostic.kind));
         expect(refusals.map(diagnostic => diagnostic.kind)).toEqual(['simultaneous-across-rings']);
-        const stepInput = boundaries[0].inputs[0];
-        expect(refusals[0].detail).toContain(`Step [${[...stepInput].sort((a, b) => a - b).join(', ')}]`);
-        expect(refusals[0].detail).toContain('meets a third front');
+        expect(refusals[0].detail).toMatch(/^Step \[[0-9, ]+\]: /);
+        expect(refusals[0].detail).toContain('in other than one run on each of two');
+        expect(refusals[0].detail).toContain('(decision 21)');
         expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toContain('step-failure');
-        expect(result.graph.nodes).toHaveLength(result.graph.numExteriorNodes);
     });
-});
-
-/*
- * RED BY DESIGN (BSA.D266): a courtyard from the fuzz of axis-aligned rectangles with two rectangular holes, a valid
- * input that node 5 lets through its root layer and that does not solve. Its two holes have collinear walls. It
- * asserts the battery and the node the true skeleton has, and has its issue note.
- */
-describe('red by design: two holes with collinear walls', () => {
-    /** The node of `fixture`'s solve at `at`, if exactly one interior node is there. */
-    const nodeAt = (fixture: HoledFixture, at: Vector2) => {
-        const {graph} = solveHoled(fixture).result;
-        return graph.nodes.slice(graph.numExteriorNodes)
-            .filter(node => Math.hypot(node.position.x - at.x, node.position.y - at.y) <= 1e-9 * extentOf(fixture)).length;
-    };
-
-    /*
-     * ISSUE-skeleton-straight-vertex-in-zero-area-ring.md. The holes' tops are collinear at y = 9, 1 apart. At t = 0.5
-     * the gap between them closes, and the meeting at (5.5, 9.5) bears a bisector between the two collinear tops: a
-     * straight vertex, moving up at 1. At t = 1 the strip between the tops and the outline's top (gap 2) collapses along
-     * y = 10, and the straight vertex reaches it at (5.5, 10), where the true skeleton has a node: the ridge y = 10 runs
-     * from (2, 10) to (8, 10) through it. The straight vertex is not reflex, so it is never tested for a split; it is left
-     * on a ring of three with the two ridge bisectors, at area 0, which `componentsOfRings` refuses.
-     */
-    it('a straight vertex between collinear hole walls closes on the ridge it reaches (2h-int-1)', () => {
-        const fixture: HoledFixture = {
-            name: 'two holes with collinear tops',
-            outline: outlineRect(0, 0, 9, 11),
-            holes: [{vertices: holeRect(6, 8, 7, 9)}, {vertices: holeRect(3, 8, 5, 9)}],
-        };
-        expectSoundHoledSolve(fixture);
-        expect(nodeAt(fixture, {x: 5.5, y: 10})).toBe(1);
-    });
-
 });
 
 /*

@@ -176,6 +176,18 @@ export function degenerateAreaBar(floor: number, perimeter: number): number {
 }
 
 /**
+ * THE STRETCH BAR, in perceptual floors (skeleton flat-ring and third-front spec, decision 18; §6 item 1): a stretch of a
+ * flat ring no longer than `FLAT_STRETCH_BAR_FLOORS · δ` is REFUSED by name, never closed, because a direction read
+ * along so short a stretch is not readable.
+ *
+ * PROVISIONAL AND INCIDENTAL. The value rests on two jittered single-loop defect fixtures only (BSA.F113): applying the
+ * flat rule to one-ring steps without a bar gave each a silent direction violation, on stretches of 1.6 and 1.95 floors.
+ * It is landed because it only ever refuses, by name, a ring that is refused today, so it changes no answer. A derived
+ * form, from the nodes' position budgets, is left open.
+ */
+export const FLAT_STRETCH_BAR_FLOORS = 4;
+
+/**
  * Ulps of the larger quantity within which two computed values are ONE MOMENT of the arithmetic — the
  * REPRESENTATION BAR (C8 spec T26; moved here from `algorithm-complex-cases.ts`, where it was
  * `SIMULTANEOUS_ARRIVAL_ULPS`, value unchanged).

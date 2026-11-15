@@ -304,3 +304,117 @@ export function expectSoundHoledSolve(fixture: HoledTestPolygon, options: SolveS
     expect(shape.cycleRank).toBe(fixture.holes.length);
     return {...solve, shape};
 }
+
+// ── Closed forms (simultaneous-rings spec, decision 38; flat-ring and third-front spec, decision 50) ──────────────────
+
+/** A clockwise axis-aligned rectangle outline. */
+export function outlineRect(x0: number, y0: number, x1: number, y1: number): Vector2[] {
+    return [{x: x0, y: y0}, {x: x0, y: y1}, {x: x1, y: y1}, {x: x1, y: y0}];
+}
+
+/** A counter-clockwise axis-aligned rectangle hole: its edges are the bottom, right, top and left walls, in that order. */
+export function holeRect(x0: number, y0: number, x1: number, y1: number): Vector2[] {
+    return [{x: x0, y: y0}, {x: x1, y: y0}, {x: x1, y: y1}, {x: x0, y: y1}];
+}
+
+/** One node of a closed form: where it is and when. */
+export interface ExpectedNode {
+    name: string;
+    at: Vector2;
+    t: number;
+}
+
+/** The closed form of one fixture: its interior nodes, its counts, and the ridges that carry two half-edges. */
+export interface ClosedForm {
+    nodes: ExpectedNode[];
+    totalNodes: number;
+    interiorEdges: number;
+    /** Pairs of node names joined by two interior edges, one each way: the ridges of anti-parallel walls. */
+    ridges: [string, string][];
+}
+
+/**
+ * THE REFUSAL SPECIMEN (skeleton flat-ring and third-front spec, decision 53; it replaces node 5's E′, which those rules
+ * cure): grid draw `uniform-1-523` of building-shell's two-courtyard fuzz, in cm, `GridDraw523` of `HOLED_REFUSALS`. A
+ * 1350 by 700 block with a wing [1350, 1700] × [450, 650] on its E side, round the holes [900, 1150] × [300, 450] and
+ * [150, 550] × [200, 600]. A later layer gathers two bisectors of one ring and one of the other at one node, a vertex
+ * event across rings of three runs, whose pairing the links cannot read: refused by name under simultaneous-rings
+ * decision 21, neither the flat-ring nor the third-front rule firing.
+ */
+export const GRID_DRAW_523: HoledTestPolygon = {
+    name: 'grid draw uniform-1-523: three runs at one node',
+    outline: [{x: 0, y: 0}, {x: 0, y: 700}, {x: 1350, y: 700}, {x: 1350, y: 650}, {x: 1700, y: 650}, {x: 1700, y: 450},
+        {x: 1350, y: 450}, {x: 1350, y: 0}],
+    holes: [{vertices: holeRect(900, 300, 1150, 450)}, {vertices: holeRect(150, 200, 550, 600)}],
+};
+
+/** A rigid motion of the plane, applied to a fixture's every loop and to its closed form's every node. */
+export type Motion = (point: Vector2) => Vector2;
+
+export const STILL: Motion = point => point;
+
+export function moved(fixture: HoledTestPolygon, motion: Motion, label: string): HoledTestPolygon {
+    const move = (vertices: readonly Vector2[]) => vertices.map(motion);
+    return {
+        ...fixture,
+        name: `${fixture.name} ${label}`,
+        outline: move(fixture.outline),
+        holes: fixture.holes.map(hole => ({...hole, vertices: move(hole.vertices)})),
+    };
+}
+
+export function translated(fixture: HoledTestPolygon, offset: Vector2): HoledTestPolygon {
+    return moved(fixture, v => ({x: v.x + offset.x, y: v.y + offset.y}), `+ (${offset.x}, ${offset.y})`);
+}
+
+/** The closed form, node by node, under {@link expectSoundHoledSolve}: one interior node within the tolerance of each. */
+export function expectClosedForm(fixture: HoledTestPolygon, form: ClosedForm, motion: Motion = STILL) {
+    const {result} = expectSoundHoledSolve(fixture);
+    const {graph} = result;
+    const tolerance = 1e-9 * extentOf(fixture);
+    const named = new Map<string, number>();
+    const found = form.nodes.map(expected => {
+        const at = motion(expected.at);
+        const matches = graph.nodes.slice(graph.numExteriorNodes)
+            .filter(node => Math.hypot(node.position.x - at.x, node.position.y - at.y) <= tolerance);
+        if (matches.length === 1) {
+            named.set(expected.name, matches[0].id);
+        }
+        return {name: expected.name, matches: matches.length};
+    });
+    expect(found).toEqual(form.nodes.map(expected => ({name: expected.name, matches: 1})));
+    expect(graph.nodes).toHaveLength(form.totalNodes);
+    expect(graph.interiorEdges).toHaveLength(form.interiorEdges);
+
+    // Each node's time: its distance to the line of each wall that names a bisector meeting there, over that wall's
+    // weight. Every such wall must give the closed form's time.
+    const wallTime = (p: Vector2, wall: number) => {
+        const a = graph.nodes[graph.edges[wall].source].position;
+        const b = graph.nodes[graph.edges[wall].target!].position;
+        const distance = Math.abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
+        return distance / graph.exteriorWeights[wall];
+    };
+    for (const expected of form.nodes) {
+        const id = named.get(expected.name)!;
+        const walls = new Set(graph.interiorEdges
+            .filter(interior => graph.edges[interior.id].source === id || graph.edges[interior.id].target === id)
+            .flatMap(interior => [interior.clockwiseExteriorEdgeIndex, interior.widdershinsExteriorEdgeIndex]));
+        const times = [...walls].map(wall => wallTime(graph.nodes[id].position, wall));
+        expect({name: expected.name, walls: walls.size >= 3, spread: Math.max(...times) - Math.min(...times) <= tolerance})
+            .toEqual({name: expected.name, walls: true, spread: true});
+        expect({name: expected.name, t: times[0]}).toEqual({name: expected.name, t: expect.closeTo(expected.t, 9)});
+    }
+
+    // The ridges between anti-parallel walls carry two half-edges, one each way (decision 11).
+    for (const [first, second] of form.ridges) {
+        const a = named.get(first)!;
+        const b = named.get(second)!;
+        const ways = graph.interiorEdges
+            .map(interior => graph.edges[interior.id])
+            .filter(edge => (edge.source === a && edge.target === b) || (edge.source === b && edge.target === a))
+            .map(edge => edge.source === a ? 'forward' : 'back')
+            .sort();
+        expect({ridge: `${first}-${second}`, ways}).toEqual({ridge: `${first}-${second}`, ways: ['back', 'forward']});
+    }
+    return result;
+}

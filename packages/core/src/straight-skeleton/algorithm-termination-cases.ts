@@ -1894,8 +1894,10 @@ export interface SkeletonHole {
  *
  * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case it solves, and so it does
  * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
- * which covers the concentric courtyard). A layer whose coincidence that spec does not settle — a meeting of more than
- * two runs, or on a third front — is refused by name as `simultaneous-across-rings`, and `complete` is then false.
+ * which covers the concentric courtyard), on a third front when its one gap facing the struck wall can be read, and
+ * where a layer leaves a flat ring (skeleton flat-ring and third-front spec). A layer whose coincidence those specs do
+ * not settle — a meeting of more than two runs, or a third front that cannot be resolved whole — is refused by name as
+ * `simultaneous-across-rings`, and `complete` is then false.
  * Only {@link solveSkeleton} and its stepped twin {@link solveSkeletonStepped} take holes; the legacy entries refuse
  * them (skeleton loops-input spec, decision 4; dashboard holed-fixtures spec, decision 18).
  */
