@@ -4,7 +4,7 @@
 // F69's conflict, pinned as the re-tag pass reports it today.
 import {describe, expect, it} from 'vitest';
 import {PlanRefusal} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
+import {COURTYARD_RECTS, EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, ShellFixture, SideForm, fixtureByName, ring, storeyRings, storeysOf} from '../src/fixture.ts';
 import {BUILDS_A_RISE, NOT_ONE_WHOLE_RUN, buildsARise, cppReplayability} from '../src/golden.ts';
 import {getManifold} from '../src/manifold.ts';
 import {GableRise, claimedBands, ringSideLines, storeyLoops, unionWallForms} from '../src/ring-forms.ts';
@@ -296,7 +296,7 @@ describe('decision 21 and journal decision 204: the gates', () => {
   // Journal decision 204: where the walk over the hip roof finds no falling face, the built roof's walk gives the limit.
   // Under the cut, `CourtyardRiseOnOuterWall`'s walk ran along the cut and found none. On the holed roof (holed roof decision
   // 22) there is no cut: the walk meets the hole W wall's own face, so the hip roof's reading gives the limit, the hole
-  // W wall's plane, and the built roof agrees. The fallback has no fixture of its own now (reported with node 9).
+  // W wall's plane, and the built roof agrees. The fallback's own fixture is now `CourtyardSBandGabled`, below.
   it("CourtyardRiseOnOuterWall's walk reads the hole W wall's face on the hip roof, and the rise is clean", async () => {
     const plan = planStorey(rise('CourtyardRiseOnOuterWall'), 0);
     const [r] = plan.rises ?? [];
@@ -306,6 +306,35 @@ describe('decision 21 and journal decision 204: the gates', () => {
     const holeW = plan.building.walls.find(w => w.a.x === 300 && w.b.x === 300);
     expect(r.limitPlane).toBe(holeW?.plane);
     expect(invariantViolations(await build(rise('CourtyardRiseOnOuterWall')), {genus: 1, cheeks: 0})).toEqual([]);
+  });
+
+  // Journal decision 204's fallback on the holed roof (node 9's closing pass, BSA.D326): the Courtyard, every Ring hipped
+  // at 30°, its S band gabled on every side. The band's ends, x = 0 and x = 1000, are mixed walls with the wings, so each
+  // is a hip with a rise over y [0, 300]. Each rise's walk runs east or west along y = 150, the band's ridge line, over
+  // the faces of the gabled S and hole S walls, whose slopes are not built, to the far end's face, which the other
+  // rise's gable replaces over the walk line (journal decision 243, rule 1): the hip roof's reading finds no plane. The
+  // built roof's reading meets the S gable's piece, standing on the far end's plane, and gives that plane as the limit.
+  // Mutation: `ridgeSlope` reading the hip roof alone; neither rise is limited, and this test is red.
+  it('CourtyardSBandGabled: each band-end rise reaches the built-roof fallback, takes the far end wall\'s plane, and is clean', async () => {
+    const f = shellFixture('CourtyardSBandGabled', COURTYARD_RECTS.map((r, i) => ring(r, 0, 1, 30, i === 0 ? {S: {form: 'gable'}, E: {form: 'gable'}, N: {form: 'gable'}, W: {form: 'gable'}} : {})));
+    const plan = planStorey(f, 0);
+    expect(plan.building.comps.map(c => c.holes.length)).toEqual([1]);
+    const rises = plan.rises ?? [];
+    expect(rises.map(r => [r.piece.wall.a.x, r.rise.lo, r.rise.hi]).sort((p, q) => p[0] - q[0])).toEqual([[0, 0, 300], [1000, 0, 300]]);
+    for (const r of rises) {
+      const ctx = limitContextOf(f, plan, r);
+      expect(hipRoofReading(ctx)).toBeUndefined();
+      expect(builtRoofReading(ctx)).toBe(r.limitPlane);
+      const farX = r.piece.wall.a.x === 0 ? 1000 : 0;
+      const far = plan.building.walls.find(w => w.a.x === farX && w.b.x === farX && Math.min(w.a.y, w.b.y) === 0);
+      expect(far?.form).toBe('hip');
+      expect(r.limitPlane).toBe(far?.plane);
+    }
+    const b = await buildShellDetailed(f);
+    expect(invariantViolations(b, {genus: 1, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.conflicts).toEqual([]);
+    const o = riseOracle(b.union);
+    expect(o.worst, o.at).toBeLessThanOrEqual(RISE_ORACLE_TOL_CM);
   });
 
   // Journal decision 204, F71: the floor cap stands FLOOR_CAP_GAP_CM below an overhanging floor. Mutation: no gap; the

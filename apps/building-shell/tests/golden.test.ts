@@ -101,6 +101,18 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     return [comp.holes.length, [...new Set(comp.walls.filter(w => w.loop === 1).map(w => Math.round((Math.atan(w.tan) * 180) / Math.PI)))].sort((p, q) => p - q)];
   };
 
+  // Gable rise decision 17 (WP-G2): an oracle whose fixture builds a rise is clean and exported, not yet replayable.
+  // Restored by node 9's closing pass (BSA.D326): it was deleted with the cut's tests, and was never about the cut.
+  it.each(RULE_ORACLES.map(g => [g.fixture.name, g] as const))('%s: a clean oracle with its files, replayable unless it builds a rise', (name, g) => {
+    if (buildsARise(g.fixture)) {
+      expect(entry(name)).toMatchObject({clean: true, cppReplayable: false, violations: []});
+      const e = entry(name);
+      expect(e && 'reasons' in e && e.reasons).toContain(BUILDS_A_RISE);
+    } else {
+      expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
+    }
+  });
+
   // Holed roof decision 52: the free cut's oracles become clean-golden checks. Each split-band courtyard is one island
   // roofed by its outline and its hole, every hole wall at its own pitch, and its entry is clean.
   it.each([['SplitBandMixedPitch', [45, 60]], ['SplitBand45', [45]], ['SplitBandAllGable75', [75]]] as const)('%s is one island with its hole, roofed clean', (name, degs) => {

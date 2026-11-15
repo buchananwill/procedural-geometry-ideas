@@ -45,7 +45,9 @@ export const HOLED_CAUSES: Readonly<Record<string, string>> = {
  */
 const OTHER_CAUSES: Readonly<Record<Exclude<RefusalKind, 'incomplete' | 'door-loops'>, string>> = {
   'door-ratio': "its walls' pitches differ by more than the roof solver takes",
-  'door-turn': 'two walls meeting at a corner differ in pitch in a way the roof solver refuses',
+  // The solver refuses a weight change at a vertex whose turn is below `minWeightTurnSine`: two walls in line, or so
+  // nearly in line that no corner shows between them (BSA.D326 rewords what named a corner).
+  'door-turn': 'two walls in line, or so nearly in line that no corner shows between them, differ in pitch, which the roof solver refuses: a pitch may change only at a visible corner',
   'door-other': 'the roof solver refused its input',
   'threw': 'the roof solver failed',
   'unmapped': "a roof face lies on none of the island's walls",

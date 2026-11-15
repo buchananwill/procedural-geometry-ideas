@@ -125,6 +125,22 @@ describe('the refusals (holed roof decisions 11, 13, 14 and 16)', () => {
     expect(facesOfSolve(c, {...result, diagnostics: [...result.diagnostics, {kind: 'holed-unculled-self-loop', detail: 'edge 20'}]}).ok).toBe(true);
   });
 
+  // BSA.D326: the solver refuses a pitch change at a vertex with no visible turn, so the cause names walls in line and
+  // not a corner. Two flush boxes leave straight vertices at (500, 0) and (500, 400) on the outline; wall 0, x [0, 500]
+  // on y = 0, is given another pitch than wall 1, x [500, 1000] on the same line (constructed weights).
+  it('refuses a pitch change between two walls in line, and its cause names walls in line, not a corner', () => {
+    const c = buildFromRects([[0, 0, 500, 400], [500, 0, 1000, 400]], []).comps[0];
+    const [w0, w1] = c.walls;
+    expect([w0.a, w0.b, w1.b]).toEqual([{x: 0, y: 0}, {x: 500, y: 0}, {x: 1000, y: 0}]);
+    const weights = loopWeights(c).map((loop, k) => (k === 0 ? loop.map((w, j) => (j === 0 ? 2 * w : w)) : loop));
+    const r = solveFaces(c, weights);
+    expect(r).toMatchObject({ok: false, kind: 'door-turn'});
+    if (r.ok) return;
+    expect(r.message).toContain('visible corner');
+    expect(r.cause).toContain('two walls in line');
+    expect(r.cause).not.toContain('meeting at a corner');
+  });
+
   it('names every blocking kind of the skeleton and the loops door in HOLED_CAUSES', () => {
     expect(Object.keys(HOLED_CAUSES).sort()).toEqual([
       'causality-violation', 'door-loops', 'holed-equal-time-violation', 'holed-planarity-violation', 'holed-time-order-violation',
