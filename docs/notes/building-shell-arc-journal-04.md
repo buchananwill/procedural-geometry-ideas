@@ -1021,3 +1021,28 @@ session 3's own.
     see a duplicate arc; the pinned step-by-step stories are partly over-fit.
   - **Sound by reading:** `partitionArc` terminates and telescopes to the old span on sound links, and can differ only
     on broken ones; a refused layer changes nothing; dispatch and the struck-segment search.
+  - **AMENDED by finding BSA.F102:** A wrong weighted answer is signalled by the direction oracle on every measured
+    case; the single-loop rate of an edge backwards in time is 4.25 percent, and 5.6 percent counted two other kinds of
+    wrong answer with it.
+- **F102. The weighted defect's rates, corrected, and its reproducers: 4.25 percent of random weighted single loops come
+  back complete with an edge running backwards in weighted time, and every such case is signalled by the solver's
+  `direction` oracle.** (the node 4 reviewer's follow-up, regenerated from its fuzz at a8ba71f, 2026-11-15; not re-run
+  by the lead)
+  - **The correction to BSA.F101:** a wrong weighted answer is not unsignalled. The `direction` oracle does not depend
+    on weight and fires on all 34 single-loop and all 84 holed backwards cases. What the weight-blind `clearance` and
+    `offset` reports do is bury that signal in false ones.
+  - **Weighted single loops, 800 inputs:** 749 clean; 34 with an edge backwards in time; 9 complete with strips short by
+    0.2 to 55 percent; 2 complete with two-wall nodes outside the outline, undiagnosed; 6 incomplete. BSA.F101's 5.6
+    percent counted the first three together.
+  - **Weighted holes, 800 inputs:** 611 clean; 84 backwards (10.5 percent); 56 incomplete, of which 47 "Unable to
+    generate any collisions", 4 `multi-ring-step-refused`, 1 `simultaneous-across-rings`; 49 discarded as self-crossing
+    by the generator.
+  - **The property that fails,** stated independently of any script: with a node's time taken as its distance to a
+    parent wall's line over that wall's weight, every interior edge has a target no earlier than its source.
+  - **The reproducers, with exact coordinates and the generator's recipe,** are in the lead's scratch file
+    `node4-review-reproducers.md` for the fix delegate, who writes them into red tests and the issue note: a 7-vertex
+    weighted single loop that is complete and wrong; an 8-vertex one that fails; a 5-vertex outline with a weighted
+    5-vertex hole that is complete and wrong; one that fails; one refused at ring assignment after a missed corridor
+    event.
+  - **The pocket input for the least-area rule** is there too: a C-shaped hole with a pentagon in its cavity, whose
+    pinch leaves four rings, the pentagon's ring lying inside both the outline's ring and the pocket's.
