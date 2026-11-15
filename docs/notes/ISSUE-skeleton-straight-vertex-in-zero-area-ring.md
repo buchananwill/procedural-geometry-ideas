@@ -11,7 +11,9 @@ date: 2026-11-15
 Found by the courtyard fuzz run during the work on
 [the simultaneous-rings spec](./skeleton-simultaneous-rings-decisions.md) (roadmap node 5). Before that unit, the
 input was refused at its root as `simultaneous-across-rings`. Now it passes its root and fails one step later. **Nothing
-in the solver has been changed for it.**
+in the solver has been changed for it.** It is one form of the defect family recorded in
+[the umbrella note on a straight bisector between collinear walls](./ISSUE-skeleton-straight-bisector-between-collinear-walls.md),
+which holds the mechanisms, the single-loop reproducers and the measured rates (BSA.F103, BSA.D314).
 
 The red test is `red by design: two holes with collinear walls`, case `2h-int-1`, in
 [holed-simultaneous-rings.test.ts](../../packages/core/tests/straight-skeleton/holed-simultaneous-rings.test.ts). It
