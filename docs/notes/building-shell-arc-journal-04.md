@@ -1019,6 +1019,41 @@ session 3's own.
   - **Node 5's spec is set `completed`.** Its amendments to node 4's spec, listed in its decisions 41 and 42, are
     recorded by this entry; the earlier spec's text stands as written and is read with them.
   - **Dispatched:** node 7, the dashboard, with node 6's five review fixes as its first commit.
+- **321. The spec for roadmap node 9, `building-shell-holed-roof-decisions.md`, is approved by the lead under BSA.D286
+  and BSA.D301 as revised and measured, with four amendments; it is dispatched when node 7 leaves the tree.** Revised by
+  an Opus delegate against a copy of the repo at `68546eb`; the lead read its decisions 1 to 43 and the report. About
+  385 lines.
+  - **The measurement that makes it viable, the delegate's and not re-run: of some 34,000 holed islands taken from the
+    app's own courtyards, none came back complete and wrong and core threw on none.** Every fixture, rise, courtyard
+    golden (20 of them, not 5 as BSA.F94 said), pinned case, roster-pitch case and research case 9a to 9d is sound, 288
+    of 288; BSA.F89's jut family and BSA.F90's layout, 161 of 161; 29,292 islands from 24,000 draws of the courtyard
+    generator, all sound; 15,001 mixed-pitch one-hole islands, all sound, so the open weighted defect is not met on the
+    app's courtyards. Each complete result was checked by the delegate's own checker, and on single-pitch islands
+    against the L-infinity distance to the nearest wall.
+  - **Several courtyards in one island are refused often, by name:** of 3,000 layouts of 2 to 4 courtyards on the 50 cm
+    grid, 1,732 are sound and 1,268 refused. Every one of those is a hard error today, since the app takes one hole per
+    island.
+  - **The regression, stated plainly: 8 footprints that build clean today are refused by the holed solve.** All are
+    layouts inside `tests/courtyard.test.ts`; none is a fixture, golden, pin, catalogue entry or generator draw.
+    `CourtL` (Rings `[0,0,1000,300] [0,700,1000,1000] [0,300,300,700] [700,300,1000,700] [1000,0,1400,300]`),
+    `JutMidWall`, `BandRunsOnPastCut` and its mirror are refused as three fronts meeting; `JutAlignedS`
+    (`[0,0,1000,300] [0,300,300,700] [-250,300,0,500] [0,700,1000,1000] [700,300,1000,700]`), `JutAlignedN`,
+    `JutBelowCutLine` and its mirror as a sliver between walls in line. Each becomes a hard error naming the island and
+    the cause, with a green test on that guard and its issue note.
+  - **Why the lead lands it in the user's absence:** the user ruled the cut a workaround to be removed (BSA.D280,
+    BSA.D282) and asked for the roadmap to be steered through (BSA.D301); the alternative of keeping the cut as a
+    fallback recovers at most those 8 and keeps the defects of BSA.F89 and BSA.F90; the branch is neither pushed nor
+    merged, so the choice is the user's to reverse. **What the user should look at first:** two of the 8 are layouts a
+    person would draw, a wing carrying a band's line past the courtyard and a wing in line with a band, and the
+    generator's clean draws say nothing about them because it draws no wing beside a courtyard.
+  - **Rulings on the draft's open points, as the revision settled them:** holes are grouped by building-shell's own
+    containment test, since core's helper refuses the two gap fixtures that build today; a holed hip solid has its
+    bottom at the plate; a gable piece is trimmed to the island with its holes; the copy-integrity tally and its 53
+    verdicts stay; `solveFaces` never skips a strip; on a holed island a causality diagnostic is a refusal, which closes
+    the weighted defect's silent path.
+  - **The lead's amendments (spec decisions 55 to 58):** the guard's kinds as landed, the self-loop kind not a refusal;
+    **the implementer re-measures on its own tree before deleting the cut and stops if it finds a wrong roof or a wider
+    regression;** option A is what is built; the viewer can load a refused layout and shows the cause.
 
 ## Findings
 

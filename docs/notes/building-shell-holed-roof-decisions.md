@@ -2,7 +2,7 @@
 title: "Building-shell holed roof: decision spec"
 type: decision-spec
 area: building-shell
-status: proposed
+status: approved
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-join-and-divide-decisions.md, skeleton-loop-consumers-decisions.md, skeleton-simultaneous-rings-decisions.md]
@@ -10,22 +10,80 @@ depends_on: [skeleton-join-and-divide-decisions.md, skeleton-loop-consumers-deci
 
 # Building-shell holed roof: decision spec
 
-Node 9 of the [holed-skeleton roadmap](./holed-skeleton-roadmap.md), written from BSA.F89, BSA.F90, BSA.F94, BSA.D132,
-BSA.D278 to BSA.D284, BSA.D261 and BSA.D266, the [loops input spec](./skeleton-loops-input-decisions.md), the
-[join and divide spec](./skeleton-join-and-divide-decisions.md), and a reading of `apps/building-shell/` at `0ec7e58`.
-
 ## 1. Intent
 
-A storey island with a courtyard is roofed today by slitting its footprint along a cut and solving the slit ring as one
-outline. This spec makes `apps/building-shell` hand `solveSkeleton` the island's outline and its holes, deletes the cut
-and every rule that places, pitches or tags it, and lifts the limit of one hole per island (BSA.D282, BSA.D284). It fixes
-the roster below and the decisions of section 3. **A storey with no hole builds byte-identically.** **It cannot be
-accepted before roadmap nodes 4, 5 and 6 are completed:** node 4 is approved and not built, and nodes 5 and 6 have no
-spec. Rings are axis-aligned, so every courtyard has hole walls facing parallel outline walls across its bands, the
-case node 4 refuses as `simultaneous-across-rings` and leaves to node 5 (node 4, decisions 19 and 44); with node 4
-alone every courtyard fixture in the corpus is expected, not measured, to be a hard error.
+Node 9 of the [holed-skeleton roadmap](./holed-skeleton-roadmap.md). `apps/building-shell` stops slitting a courtyard
+footprint along a cut and hands `solveSkeleton` each island's outline and holes with their per-wall weights. The cut and
+every rule that places, pitches or tags it go, with the one-hole-per-island limit (BSA.D280, BSA.D282, BSA.D284). An
+island the solver refuses is a hard error naming it, and never a roof. The spec fixes the measurement it rests on (§2),
+the roster (§3) and the decisions (§4). It was drafted at `0ec7e58` and revised at `68546eb`, after nodes 4 to 6 and the
+holed guard (BSA.D314, BSA.D318). **A storey with no hole builds byte-identically.**
 
-## 2. Type and surface roster
+## 2. What the holed solve does with the app's courtyards (measured)
+
+Measured on 2026-11-15 by the revising delegate, from a throwaway copy of core, test-fixtures and building-shell at
+`68546eb`. The copy's own suite passed 9,992 tests with the recording hook in place. Each island's loops come from
+`storeyLoops`, its pitches from `unionWallForms` and its grouping from building-shell's least-area containment. Each
+island is solved by `solveSkeleton(outer, {weights, holes})` with weights `1 / tan`. A complete result then goes to a
+checker independent of the solver, which convicts three constructed wrong answers. It asserts equal time at every node,
+time never decreasing along an edge, clearance at the slowest weight, one strip per solved edge, every caller wall mapped
+by `loopMaps`, tiling to 1e-9, and every point of a 37 × 37 grid covered once inside the footprint and never outside. On
+a single-pitch island it also asserts each node's and sample's height against `d∞`, the L∞ distance to the nearest wall.
+
+| Source (holed islands) | Islands | Sound | Refused by name | Complete and wrong | Threw |
+|---|---|---|---|---|---|
+| Fixtures, rise, the 20 courtyard goldens, 91 pinned cases, 130 roster-pitch cases, probes, research 9a–9d | 288 | 288 | 0 | 0 | 0 |
+| BSA.F89's jut family (juts 50–800, 30° and 45°, mirrored, transposed, two storeys) and BSA.F90 | 161 | 161 | 0 | 0 | 0 |
+| Every distinct footprint the app's suite reaches (recorded in `buildingOf`) | 1,152 | 1,143 | 9 | 0 | 0 |
+| Seeded courtyards, 300 seeds × 40 draws, classic and split (24,000 draws) | 29,292 | 29,292 | 0 | 0 | 0 |
+| 2 to 4 courtyards per island on the 50 cm lattice, in a row or 2 × 2 (3,000 layouts) | 3,000 | 1,732 | 1,268 | 0 | 0 |
+| The draft's `TwoCourtyards` and `CourtyardInCourtyard` | 3 | 2 | 1 | 0 | 0 |
+
+| Split, all holed sources | Islands | Sound | Refused by name |
+|---|---|---|---|
+| One pitch, one hole | 15,893 | 15,885 | 8: 4 `simultaneous-across-rings`, 4 `multi-ring-step-refused` |
+| Mixed pitch, one hole | 15,001 | 15,001 | 0 |
+| One pitch, 2 to 4 holes | 1,511 | 709 | 802: 592 `simultaneous-across-rings`, 136 `multi-ring-step-refused`, 74 `step-failure` |
+| Mixed pitch, 2 to 4 holes | 1,491 | 1,023 | 468: 142, 283 and 19 of the same, 24 `holed-topology-violation` |
+| Loops in contact | 0 | — | — |
+
+- **Nothing is complete and wrong, and core throws on nothing.** The weighted defect
+  (`ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md`) does not appear in 16,492 mixed-pitch holed islands. The
+  straight-bisector defect (`ISSUE-skeleton-straight-bisector-between-collinear-walls.md`) appears only as refusals by
+  name.
+- **The 24 `holed-topology-violation` results fail on un-culled zero-length self-loops alone.** The checker finds them
+  sound in every other respect, and BSA.D318 makes that kind informational.
+- **No sound solve carries a `causality-violation` diagnostic,** holed (32,618) or single-loop (14,626).
+- **The regression is 8 distinct footprints that build clean today and are refused.** They are 6 layouts of
+  `tests/courtyard.test.ts` and 3 mirror partners built inside those tests. `CourtL`, `JutMidWall`, `BandRunsOnPastCut`
+  and its y-mirror are refused as `simultaneous-across-rings`. `JutAlignedS`, its y-mirror (which is `JutAlignedN`'s
+  footprint), `JutBelowCutLine` and its y-mirror are refused as `multi-ring-step-refused`. **None is a roster fixture,
+  golden, pinned case, catalogue entry or generator draw.**
+- **Gains:** BSA.F90's layout builds, sound. 1,732 of the 3,000 multi-courtyard layouts build, 1,756 after BSA.D318's
+  softening; today all 3,000 are hard errors.
+- **Single-loop islands, which this node leaves unchanged:** 14,626 are sound, 12,481 of them checked against `d∞`.
+  They are 6,727 from `randomFixtures` (30 seeds), 3,511 U shapes, and 4,388 named and suite footprints. The app's
+  footprints do not meet the straight-bisector defect today.
+- **Grouping:** the app's containment test and `groupLoopsByNesting` agree on 39,551 multi-loop storeys. The helper
+  throws `Loop conflict (contact)` on 4 more, `GapAligned` and `GapOffset` at gaps of 0.5/1024 and 1/1024 cm, which
+  build today as two islands solved apart.
+- **Contact:** the least gap between two loops of any island is 100 cm. `unionLoops` refuses a corner-only pinch and
+  merges a shared length, so no app footprint reaches core's contact refusal.
+
+**One specimen per non-sound outcome.** Each is one storey, with every Ring hipped at the pitch given.
+
+- `simultaneous-across-rings`, one hole (`CourtL`, 30°): `[0,0,1000,300]`, `[0,700,1000,1000]`, `[0,300,300,700]`,
+  `[700,300,1000,700]`, `[1000,0,1400,300]`.
+- `multi-ring-step-refused`, one hole (`JutAlignedS`, 30°): `[0,0,1000,300]`, `[0,300,300,700]`, `[-250,300,0,500]`,
+  `[0,700,1000,1000]`, `[700,300,1000,700]`.
+- `simultaneous-across-rings`, two holes (`TwoHolesProbe`, 30°): `[0,0,700,100]`, `[0,200,700,300]`, `[0,100,100,200]`,
+  `[300,100,400,200]`, `[600,100,700,200]`.
+- `multi-ring-step-refused`, two holes (the draft's `TwoCourtyards`, 30°): `[0,0,1600,300]`, `[0,700,1600,1000]`,
+  `[0,300,300,700]`, `[700,300,900,700]`, `[1300,300,1600,700]`.
+- `step-failure`, three holes (37°): `[0,0,1450,300]`, `[0,300,200,400]`, `[400,300,700,400]`, `[900,300,1200,400]`,
+  `[1300,300,1450,400]`, `[0,400,1450,550]`.
+
+## 3. Type and surface roster
 
 `+` added, `~` changed, `-` removed. Files are under `apps/building-shell/src/` unless a path is given.
 
@@ -37,237 +95,295 @@ alone every courtyard fixture in the corpus is expected, not measured, to be a h
 | + | `compLoops(c: Comp): Pt[][]`, `[c.outer, ...c.holes]` | roof/model.ts |
 | ~ | `finishBuilding(rawComps: {outer: Pt[]; holes: Pt[][]; attrs: Partial<Wall>[][]}[])`, `attrs[k][j]` for loop `k`'s edge `j` | roof/model.ts |
 | ~ | `buildFromRects(rects, sels, defaultTan)` takes holes; `buildCourtyard(outerR, innerR, defaultTan = 1)`; `transformBuilding` per loop | roof/model.ts |
-| ~ | `solveFaces(comp, weights)`; `SolveRefused.kind` gains `'door-loops'` | [roof/skeleton.ts](../../apps/building-shell/src/roof/skeleton.ts) |
-| ~ | `extentOf`, `buildPieces` (cut branch removed), `planeUsable`, `solveRoofParts`; `BOptions.literalCut` removed | [roof/algoB.ts](../../apps/building-shell/src/roof/algoB.ts) |
-| ~ | `measure` (two cut lines removed); cases 9a to 9d; `SLIT` removed | [roof/measure.ts](../../apps/building-shell/src/roof/measure.ts), [roof/cases.ts](../../apps/building-shell/src/roof/cases.ts) |
+| ~ | `solveFaces(comp, weights: number[][])`; `SolveRefused.kind` gains `'door-loops'` and `'strip-missing'`, and `SolveRefused` gains `cause: string` | [roof/skeleton.ts](../../apps/building-shell/src/roof/skeleton.ts) |
+| + | `HOLED_CAUSES: Readonly<Record<string, string>>` | roof/skeleton.ts |
+| ~ | `extentOf`, `buildPieces` (cut branch removed), `planeUsable`, `solveRoofParts`, `runB`; `BOptions.literalCut` removed | [roof/algoB.ts](../../apps/building-shell/src/roof/algoB.ts) |
+| ~ | `measure` (its two cut lines removed); cases 9a to 9d; `SLIT` removed | [roof/measure.ts](../../apps/building-shell/src/roof/measure.ts), [roof/cases.ts](../../apps/building-shell/src/roof/cases.ts) |
 | - | `courtyard.ts` whole: `selectCut`, `leavesBothSides`, `cutPitch`, `freeCutPitch`, `spliceCourtyard`, `CourtyardCut`, `SplicedCourtyard` | [courtyard.ts](../../apps/building-shell/src/courtyard.ts) |
-| ~ | `buildingOf`, `planChecked`, `extrudeOutline`, `plateBottom`, `hipSolid`, `gableGenerating`, `zoneTag`; `GableZone` loses `kind`; `pickedAttrs`, `capLoops` removed | [storey.ts](../../apps/building-shell/src/storey.ts) |
-| - | `selPicks` (its one reader was `pickedAttrs`) | [ring-forms.ts](../../apps/building-shell/src/ring-forms.ts) |
-| ~ | the `extentOf` copy, `wallsOnLine`, `risePieces`' corner rule | [rise.ts](../../apps/building-shell/src/rise.ts) |
+| ~ | `buildingOf`, `planChecked`, `extrudeOutline`, `plateBottom`, `hipSolid`, `gablePiece`, `gableGenerating`, `zoneTag`; `GableZone` loses `kind`; `pickedAttrs`, `capLoops` removed | [storey.ts](../../apps/building-shell/src/storey.ts) |
+| ~ | `checkedSide` and `checkedRun` messages; `selPicks` removed (its one reader was `pickedAttrs`) | [ring-forms.ts](../../apps/building-shell/src/ring-forms.ts) |
+| ~ | the copies of `extentOf` and `farWall`, `wallsOnLine`, `risePieces`' corner rule | [rise.ts](../../apps/building-shell/src/rise.ts) |
 | + | `HOLED_FIXTURES` | [fixture.ts](../../apps/building-shell/src/fixture.ts) |
 | ~ | research conversion and catalogue label; `catalogue-facts.ts` regenerated | [viewer/research-cases.ts](../../apps/building-shell/src/viewer/research-cases.ts), [viewer/catalogue.ts](../../apps/building-shell/src/viewer/catalogue.ts) |
+| + | `HOLED_REFUSALS`: each refused layout, its Rings, its skeleton kind and its issue note | [tests/robustness-fixtures.ts](../../apps/building-shell/tests/robustness-fixtures.ts) |
 | - | `cutPlaneViolations` and its call in `invariantViolations` | [tests/shell-invariants.ts](../../apps/building-shell/tests/shell-invariants.ts) |
 | = | `roof/surface.ts`, `tags.ts`, `union.ts`, `tuck.ts`, `ShellKind` (`Internal` stays for plate caps) | |
 
-## 3. Decisions
+## 4. Decisions
 
-### What this unit needs from core
+### What core gives, as built
 
-1. **From nodes 2 and 3, built:** `options.holes` with per-hole `weights`, `loopMaps` (outline first, `reversed` per
-   loop), and every loop refusal a throw whose message starts `Loop conflict (`.
-2. **From node 4, approved and not built:** a holed solve that steps to `complete: true`, with
-   `simultaneous-across-rings` and `multi-ring-step-refused` blocking.
-3. **From node 5, unspecified:** a hole wall facing a parallel outline wall solves. **From node 6, unspecified:**
-   `computeMaxOffset` and `computeStrips` take a holed result, one `Strip` per exterior edge of every loop, its
-   `supportingEdgeIds` that edge and its `frontage` that edge's own two ends.
-4. **Contact stays refused until node 8,** and this unit does not wait for it.
+1. **Relied on, all built:** `options.holes` with per-hole `weights`, `loopMaps` (outline first, `reversed` per loop),
+   holed steps through join, divide and two-ring meetings (nodes 4 and 5), and `computeStrips(result, {depth:
+   computeMaxOffset(result)})`, which gives one strip per exterior edge of every loop (node 6, BSA.F104).
+2. **Refused by core by name, with `complete: false`:** `simultaneous-across-rings`, `multi-ring-step-refused`,
+   `step-failure`, `unresolved-edges` and the holed guard's blocking kinds, `holed-topology-violation` and
+   `holed-equal-time-violation`. BSA.D318's widening, in the working tree at this revision, adds the blocking
+   `holed-time-order-violation` and `holed-planarity-violation` and the informational `holed-unculled-self-loop`.
+3. **Contact between loops stays a throw whose message contains `Loop conflict (`, until node 8.** This unit does not
+   wait for node 8, because no app footprint measured reaches it.
 
 ### The holed Comp
 
-5. **`comp.walls` holds the outer loop's edges in loop order from vertex 0, then each hole's edges from its vertex 0,
-   holes in the order `unionLoops` returns them.** `outer` stays counter-clockwise and each hole clockwise, so the left
-   normal is inward on every wall (BSA.F94), and a storey with no hole lists exactly today's walls.
-6. **`Comp.ring` is removed, not kept as the outline,** so no reader of the slit ring silently reads the outline as the
-   footprint. `solveFaces` reads `outer` and `holes`; `extentOf` in `algoB.ts` and its `rise.ts` copy take their breaks
-   from every vertex of `compLoops(comp)`, the vertex set the slit ring held, so every extent is today's;
-   `extrudeOutline` and `plateBottom` read `compLoops`; `transformBuilding` maps and reverses each loop alone.
-7. **"Walls follow ring order" becomes "walls follow loop order":** a monopitch's dead wall in `finishBuilding` is the
-   previous or next edge of its own loop, and wall `j` of loop `k` is the prism side from that loop's vertex `j` to `j + 1`.
-8. **`buildFromRects` takes holes and `buildingOf` always calls it:** each hole joins the outer loop of least area
-   containing its vertex 0 by `pointInPoly`, each loop's attributes come from `applySelectors`, and `pickedAttrs` goes;
-   a traced wall lies on one union wall, one `Sel`, so the two agree on every wall.
-9. **The nesting is building-shell's own exact test, not `groupLoopsByNesting`,** because that helper tests contact
-   across every pair of the storey's loops at δ, and can refuse islands 1/1024 cm apart that build today
-   (`GapAligned1`, `GapOffset1`). `unionLoops` refuses a corner-only pinch and merges a shared length, so its loops
-   never cross or touch and one vertex decides containment. A hole no outer loop contains is a hard error.
+4. **`comp.walls` holds the outer loop's edges in loop order from vertex 0, then each hole's edges from its vertex 0,**
+   holes in `unionLoops`' order. The outline stays counter-clockwise and each hole clockwise, so the left normal is
+   inward on every wall (BSA.F94), and a storey with no hole lists exactly today's walls.
+5. **`Comp.ring` is removed, not kept as the outline,** so no reader of the slit ring silently reads the outline as the
+   footprint. `extentOf` in `algoB.ts`, and its `rise.ts` copy, take their breaks from every vertex of `compLoops`.
+   `extrudeOutline` and `plateBottom` read `compLoops`, and `transformBuilding` maps and reverses each loop alone.
+6. **Walls follow loop order:** a monopitch's dead wall is the previous or next edge of its own loop, and wall `j` of
+   loop `k` is the prism side from that loop's vertex `j` to `j + 1`.
+7. **`buildingOf` always calls `buildFromRects`, which takes holes and reads each loop's attributes by
+   `applySelectors`;** `pickedAttrs` and `selPicks` go, since a traced wall lies on one union wall and so one `Sel`.
+8. **Each hole joins the outer loop of least area containing its vertex 0, by building-shell's own `pointInPoly`, not by
+   `groupLoopsByNesting`.** The two agree on 39,551 measured storeys. The helper refuses `GapAligned` and `GapOffset` at
+   0.5/1024 and 1/1024 cm, which build today, because it tests contact across the whole storey and islands are solved
+   apart. A hole that no outer loop contains is a hard error.
 
-### The solve
+### The solve and its refusals
 
-10. **`solveFaces` calls `solveSkeleton(comp.outer, {weights: w[0], holes: comp.holes.map((h, k) => ({vertices: h,
-    weights: w[k + 1]}))})`,** where `w[k]` is `1 / tan` of loop `k`'s walls in edge order.
-11. **Winding is passed as building-shell holds it and core normalises it:** every loop is `reversed`, each
-    `winding-normalised` diagnostic is filtered as today, and a single loop reaches core exactly as today.
-12. **A strip's wall is the first wall in `comp.walls` order whose `loopMaps[w.loop].edgeToEdge[w.edge]` is the
-    strip's supporting edge and whose span holds the frontage midpoint;** none is the `'unmapped'` refusal. The map
-    fixes the loop, and the midpoint keeps today's choice among the collinear walls canonicalisation merges, which share
-    a plane but not a span, and `slopeInBuilding` reads the span.
-13. **The tiling reference area is `|area(outer)| - Σ |area(hole)|`,** today's slit-ring area.
-14. **`classify` reads a message starting `Loop conflict (` as `'door-loops'`, before its other tests.**
-15. **A core refusal and a `complete: false` result are hard errors naming the island:** `solveRoofParts` throws
-    `solveRoofParts: island <ci> at (<x>, <y>) with <h> holes: default hip refused by the skeleton: <kind>: <message>`,
-    `(x, y)` the outer loop's vertex 0, and `planBuilding` prefixes `<label> storey <n>: `; an `incomplete` message
-    carries every blocking diagnostic's kind and detail. `runB` keeps its note-and-continue, so a research case reads
-    `BLOCKED`.
+9. **`solveFaces` calls `solveSkeleton(comp.outer, {weights: w[0], holes: comp.holes.map((h, k) => ({vertices: h,
+   weights: w[k + 1]}))})`,** `w[k]` being `1 / tan` of loop `k`'s walls in edge order. With no hole the call is today's
+   `solveSkeleton(comp.outer, {weights: w[0]})`, and each `winding-normalised` diagnostic is filtered as today.
+10. **A strip's wall is the first wall in `comp.walls` whose `loopMaps[w.loop].edgeToEdge[w.edge]` is the strip's
+    supporting edge and whose span holds the frontage midpoint,** and finding none is the `'unmapped'` refusal. The
+    midpoint keeps today's choice among the collinear walls that canonicalisation merges.
+11. **`solveFaces` never skips a strip.** A boundary of fewer than three points is the `'strip-missing'` refusal naming
+    the edge, and so is an edge with no strip or two, and so is a strip count other than the solved edge count
+    (BSA.D316). It holds on every island: no strip of the 14,626 single-loop islands measured is empty, so no single-loop
+    output moves.
+12. **The tiling reference area is `|area(outer)| - Σ |area(hole)|`,** today's slit-ring area.
+13. **`complete: false` is the `'incomplete'` refusal.** Its `cause` lists every blocking diagnostic, each by
+    `HOLED_CAUSES` and then by its own kind and detail. A kind that `HOLED_CAUSES` does not name is given verbatim, so no
+    future kind is dropped.
+14. **On an island with a hole, a `causality-violation` diagnostic is also the `'incomplete'` refusal.** No sound solve
+    measured carries one, and the direction oracle fires on every weighted backwards edge measured (BSA.F102), so this
+    closes the open weighted defect's silent path. A single-loop island keeps today's count-and-continue.
+15. **A throw containing `Loop conflict (` is the `'door-loops'` refusal,** which `classify` tests first.
+16. **`HOLED_CAUSES` gives each refusal the app's cause in the user's terms:**
+
+    ```ts
+    export const HOLED_CAUSES: Readonly<Record<string, string>> = {
+      'simultaneous-across-rings': 'three wall fronts meet at one point at one moment, which the roof solver refuses',
+      'multi-ring-step-refused': 'walls in line, facing the same way, leave a sliver the roof solver cannot place',
+      'step-failure': 'a step of the roof solver failed, as it can where walls lie in line',
+      'unresolved-edges': 'the roof solver left a hip or valley unfinished',
+      'holed-topology-violation': "the roof solver's own check found its answer wrong",
+      'holed-equal-time-violation': "the roof solver's own check found its answer wrong",
+      'holed-time-order-violation': "the roof solver's own check found its answer wrong",
+      'holed-planarity-violation': "the roof solver's own check found its answer wrong",
+      'causality-violation': 'the roof solver found a hip or valley running backwards, as it can with mixed pitches',
+      'door-loops': "two of the island's loops touch or cross, which the roof solver does not take yet",
+    };
+    ```
+
+17. **Every refusal is a hard error naming the island:** `solveRoofParts` throws `solveRoofParts: island <ci> at (<x>,
+    <y>) with <h> holes cannot be roofed: <cause> [<kind>: <message>]`, where `(x, y)` is the outer loop's vertex 0,
+    and `planBuilding` prefixes `<label> storey <n>: `. The viewer shows it in its failure panel. `runB` keeps its
+    note-and-continue, so a research case reads `BLOCKED`.
 
 ### Pitches and weights
 
-16. **Every wall takes its own union wall's derived pitch, a courtyard wall as any other,** and nothing picks a pitch
+18. **Every wall takes its own union wall's derived pitch, a courtyard wall like any other,** and nothing picks a pitch
     for a wall the footprint does not have.
-17. **Building-shell never meets core's refusal of a weight change at a straight vertex:** a straight vertex joins two
-    traced walls of one union wall, which `unionWallForms` gives one pitch; the cut was the only other source, and the
-    visible-corner test runs per loop. A refusal anyway is decision 15's hard error.
+19. **Core's refusal of a weight change at a straight vertex is never met.** A straight vertex joins two traced walls of
+    one union wall, which has one pitch, and the cut was the only other source. §2 measured no throw at all.
+20. **A mixed-pitch courtyard is roofed by the weighted holed solve.** All 15,001 mixed-pitch one-hole islands measured
+    are sound, and decisions 13 and 14 make any wrong weighted answer a hard error, never a roof.
 
 ### Algorithm B with no cut
 
-18. **The cut branch of `buildPieces` is deleted, with `BOptions.literalCut`, `planeUsable`'s `form !== 'cut'` and
-    `runB`'s comment on a cut's pitch.** The loop over promoted walls is left, read for three cases: all hips give no
-    piece; a gable on an outer wall reads `extentOf`, `endWall` and `farWall` over every loop's walls, its far wall
-    perhaps a courtyard wall, as today; a gable on a courtyard wall runs its extent along the line past the hole wall
-    into the band, as today, and journal decision 220's claimed-band rule decides whether B keeps it or a rise is built.
-19. **`endWall` is unchanged:** no two walls hold the point `EPS` inside a line's end, so wall order moves nothing; where
-    a cut wall gave no plane today, the wall found there now, if any, is real and gives its plane.
-20. **`farWall` breaks a tie at one distance by `comp.walls` order,** in `algoB.ts` and its `rise.ts` copy, so on a
-    holed island decision 5's order can move a pushed plane; such a move shows in decision 42's canonical diff.
+21. **The cut branch of `buildPieces` is deleted,** with `BOptions.literalCut`, `planeUsable`'s `form !== 'cut'` and
+    `runB`'s comment on a cut's pitch. All hips give no piece. A gable on any wall reads `extentOf`, `endWall` and
+    `farWall` over every loop's walls, and its far wall may be a courtyard wall, as today.
+22. **A gable on a courtyard wall runs its extent along its line wherever the line stays inside the footprint, as any
+    wall's does.** No rule names the old cut's line, since no cut wall breaks it now. Journal decision 220's
+    claimed-band rule decides whether B keeps the gable or a rise is built. `CourtyardRiseFacingWing` and
+    `CourtyardRiseOnOuterWall` show it.
+23. **`endWall` is unchanged, since no two walls hold the point `EPS` inside a line's end; `farWall` and its `rise.ts`
+    copy break a tie at one distance by `comp.walls` order.** A tie moves a plane only between walls on one line, at
+    one distance, with different pitches, and any such move shows in the re-export's canonical diff.
 
 ### The raw solids and tags
 
-21. **`extrudeOutline` writes each loop once at the floor and once at the plate, triangulates its caps from
-    `compLoops`, and builds wall `j` of loop `k` from that loop's own vertices.** The courtyard's duplicate cap
-    vertices go. An island with no hole writes today's positions in today's order.
-22. **Every hip solid has its bottom at the plate, triangulated from `compLoops`,** and `extrudeOutline` loses its
-    `plateCap` parameter. A holed hip solid stood from the floor only because the hip fell to the plate along the slit,
-    which Manifold could take as a diagonal (BSA.D132); with no slit it meets the plate only at the eaves.
-23. **A gable piece's footprint trim stays `comp.outer`:** its rectangle reaches only to the nearest wall facing back
-    across its band, and the near wall of a hole in front of it is such a wall, so no piece reaches a hole.
-24. **The `Internal` zone of `gableGenerating` is deleted, with every `form !== 'cut'` test there,** so `GableZone`
-    loses its `kind` field and `zoneTag` its Internal branch. `Internal` stays the plate caps' tag, and
-    `survivingInternal` stays a defect asserted 0.
-25. **The hard errors of holed storeys are deleted:** `planChecked`'s cut check, `buildingOf`'s "no raw Ring wall cuts
+24. **`extrudeOutline` writes each loop at the floor and at the plate, triangulates its caps from `compLoops`, and
+    builds wall `j` of loop `k` from that loop's vertices.** An island with no hole writes today's positions in today's
+    order.
+25. **Every hip solid has its bottom at the plate, triangulated from `compLoops`, and `plateCap` goes.** A holed hip
+    solid stood from the floor only because the hip fell to the plate along the slit, which Manifold could take as a
+    diagonal (BSA.D132). With no slit, the roof meets the plate only at its eaves, as on every island.
+26. **A gable piece's footprint trim is `compLoops(comp)`, the island with its holes.** `farWall` already stops the
+    rectangle at a hole's near wall, so the trim moves nothing where that holds and keeps a piece off a hole where it
+    does not. An island with no hole trims as today.
+27. **The `Internal` zone of `gableGenerating` goes, with every `form !== 'cut'` test there,** so `GableZone` loses
+    `kind`. `Internal` stays the plate caps' tag, and `survivingInternal` stays a defect asserted 0.
+28. **The hard errors of holed storeys are deleted:** `planChecked`'s cut check, `buildingOf`'s "no raw Ring wall cuts
     the courtyard" and "holds <n> holes", `buildFromRects`' "holes need a cut", and the cut-end errors.
-26. **An authored side or run of a form other than hip or gable stays a hard error,** and its message drops "and only
-    the courtyard rule places a cut". `measure` loses its skip of cut walls and its "a cut is not a wall" plane rule;
-    `rise.ts` loses `wallsOnLine`'s and the corner rule's cut tests.
+29. **An authored side or run of a form other than hip or gable stays a hard error,** and its message drops "and only
+    the courtyard rule places a cut". `measure` loses its cut skip and its "a cut is not a wall" plane rule, and
+    `rise.ts` loses its cut tests.
 
-### Islands, nesting and contact
+### Islands and contact
 
-27. **An island takes any number of holes,** each solved in its one call, its genus per component the hole count.
-28. **An island inside another island's courtyard is its own Comp,** the outer loop of its group by decision 8's least
-    containing area, and a hole of that inner island joins the inner island.
-29. **Contact reaches the user in three forms:** a corner-only touch between loops is `storeyLoops`' `PlanRefusal`, as
-    today; a shared length is no contact, since the union merges it into a notch or one hole; and two loops closer than
-    core's perceptual floor δ in the island's unit space are core's `contact` refusal, decision 15's hard error, until
-    node 8. The viewer shows each message in its failure panel.
-30. **A fully internal Ring is still dropped before the plan and named in `droppedRings` (BSA.D261), and a tuck stays
-    labelled `Tuck` (BSA.D272).** BSA.F90's fifth Ring is dropped so.
+30. **An island takes any number of holes, solved in one call, and its genus per component is its hole count.** An
+    island inside another island's courtyard is its own Comp, and its own holes join it by least containing area.
+31. **Contact reaches the user in two forms, neither of which a measured footprint meets.** A corner-only touch is
+    `storeyLoops`' `PlanRefusal`, as today. Two loops of one island closer than δ are the `'door-loops'` hard error.
+    A shared length is no contact, since the union merges it.
+32. **A fully internal Ring is still dropped before the plan (BSA.D261), and a tuck stays `Tuck` (BSA.D272).**
+    BSA.F90's fifth Ring is dropped so.
 
 ### Numbering
 
-31. **Walls are numbered storey-wide in Comp order and, within a Comp, by decision 5; planes by their first wall in
-    that order, keyed as today.** On a holed island, and every island after it on the storey, this moves wall ids, plane
-    ids and labels, `FaceTag.wall` and `FaceTag.plane`, and the faceID order and all ordered by it. A plane only a cut
-    wall held goes. Roof identity keys on plane, and the renumbering is a bijection, so it splits or merges no face.
-32. **What moves because the roof changes is separate:** Roof faces near the old cut, Gable and Cheek faces the cut
-    pieces stood, Internal faces on the cut's plane, the hip solid's bottom, and every Cell and Edge on them.
+33. **Walls are numbered storey-wide in Comp order, the outer loop first and then each hole, and planes by their first
+    wall, keyed as today.** On a holed island and every island after it, this moves wall and plane ids, their labels,
+    `FaceTag.wall`, `FaceTag.plane` and the faceID order. The renumbering is a bijection, and Roof identity keys on
+    plane, so no face splits or merges; a plane only a cut wall held goes.
+34. **What moves because the roof changes is reported apart from the numbering:** Roof faces near the old cut, the cut
+    pieces' Gable and Cheek faces, Internal faces on the cut's plane, the hip solid's bottom, and their Cells and Edges.
 
 ### The copy and the research table
 
-33. **The pin on `roof/model.ts`, `roof/skeleton.ts`, `roof/algoB.ts`, `roof/measure.ts` and `roof/cases.ts` is
-    released (BSA.D282); `roof/surface.ts` stays unedited.**
-34. **`buildCourtyard(outerR, innerR, defaultTan = 1)` builds one Comp of the outer rectangle with the inner one as its
-    hole,** and cases 9a to 9d call it with their own rectangles. 9b becomes the same building as 9a; it keeps its id,
-    its worked number at (900, 150) and its place, and is retitled "Courtyard, the true roof beside a corner".
-35. **The copy-integrity test pins the tally `pass 44, cheek 6, fail 3, blocked 0, none 0` and the 53 verdicts
-    unchanged,** 9a to 9d `PASS` against their `annulus` expectation, the true holed roof; it no longer claims all 53
-    match roof-gable's `run.ts`, only 49. Before node 5 they read `BLOCKED`, a red test with an issue note (BSA.D266).
+35. **The pin on `roof/model.ts`, `skeleton.ts`, `algoB.ts`, `measure.ts` and `cases.ts` is released (BSA.D282), and
+    `roof/surface.ts` stays unedited.**
+36. **`buildCourtyard(outerR, innerR, defaultTan = 1)` builds one Comp, the outer rectangle with the inner one as its
+    hole,** and 9a to 9d call it. 9b becomes 9a's building, keeps its id, place and worked number at (900, 150), and is
+    retitled "Courtyard, the true roof beside a corner".
+37. **The copy-integrity test keeps the tally `pass 44, cheek 6, fail 3, blocked 0, none 0` and its 53 verdicts,** 9a to
+    9d `PASS`: all four measured sound and equal at every sample to `d∞`, which is their `annulus` expectation. It claims
+    that 49 cases, not 53, match roof-gable's `run.ts`.
 
 ### Fixtures and closed forms
 
-36. **The height oracle for an all-hip island at one pitch θ is `z(p) = plate + tan θ · d∞(p)`,** `d∞(p)` the L∞
-    distance from `p` to outside the outline or inside a hole: at equal weights an axis-aligned region's straight
-    skeleton is its L∞ erosion, and the courtyard tests' "time read off the rectangles" is this.
-37. **The concentric square courtyard** (outline side `L`, hole side `h`, every wall at θ) has its ridge on the square
-    loop at offset `(L - h)/4` from both loops, at `z = plate + ((L - h)/4) tan θ`, with hips from the outer corners
-    and valleys from the hole corners to the loop's corners; each outer Roof face has plan area
-    `(L + (L + h)/2)/2 · (L - h)/4` and each hole face `(h + (L + h)/2)/2 · (L - h)/4`. `Courtyard` (1000, 400, 30°):
-    ridge `250 + 150 tan 30° = 336.603` cm, faces 127,500 and 82,500 cm² in plan.
-38. **`HOLED_FIXTURES` in `fixture.ts`, listed by the golden set and the viewer,** every Ring one storey hipped at 30°:
+38. **The height oracle for an all-hip island at one pitch θ is `z(p) = plate + tan θ · d∞(p)`,** since at equal weights
+    an axis-aligned region's skeleton is its L∞ erosion. Every one-pitch island measured that is not refused meets it.
+39. **`HOLED_FIXTURES`, listed by the golden set and the viewer, every Ring one storey hipped at 30°, each measured
+    sound:**
+    - `Courtyard`, 1000 square round a 400 square hole: the ridge loop at `250 + 150 tan 30° = 336.603` cm, with outer
+      Roof faces of 127,500 cm² and hole faces of 82,500 cm² in plan.
     - `CourtyardWingsBothSides`, BSA.F90's Rings `[0,0,1000,300]`, `[-250,300,300,700]`, `[700,300,1300,700]`,
-      `[0,700,1000,1000]`, `[700,300,1000,700]`, the last dropped. Top `250 + 200 tan 30° = 365.47` cm, on y = 500
-      over x [-50, 100] and [900, 1100].
+      `[0,700,1000,1000]` and `[700,300,1000,700]`, the last dropped. Its top is at `250 + 200 tan 30° = 365.47` cm, on
+      y = 500 over x [-50, 100] and [900, 1100].
     - `CourtyardJutWing`, BSA.F88's Rings, moved here from the tests.
-    - `TwoCourtyards`: `[0,0,1600,300]`, `[0,700,1600,1000]`, `[0,300,300,700]`, `[700,300,900,700]`,
-      `[1300,300,1600,700]`; genus 2, the middle wing's ridge at `250 + 100 tan 30°` on x = 800.
-    - `CourtyardInCourtyard`: a 2000 square ring 300 deep round an 800 square island `[600, 1400]²` ring 250 deep;
-      genus `[1, 1]`, ridges at `250 + 150 tan 30°` and `250 + 125 tan 30°`.
-39. **Every holed fixture asserts** the building-shell spec's decision 32 invariants with genus per component its hole
-    count, `survivingInternal` 0, no conflict and every solve's `tilingError` under `1e-9`; all hip at one pitch, no
-    Gable or Cheek face and decision 36's height at its listed points within `SHELL_TOLERANCE_CM`.
+    - `TwoCourtyards`: `[0,0,1800,300]`, `[0,700,1800,1000]`, `[0,300,300,700]`, `[700,300,1100,700]` and
+      `[1500,300,1800,700]`. Genus 2, with the middle wing's top at `250 + 200 tan 30°` at (900, 500). The draft's
+      equal-wing layout is refused.
+    - `CourtyardInCourtyard`: a 2000 square ring 300 deep round an 800 square island `[600, 1400]²` ring 250 deep.
+      Genus `[1, 1]`, with ridges at `250 + 150 tan 30°` and `250 + 125 tan 30°`.
+40. **Every holed fixture asserts** the building-shell spec's decision 32 invariants with genus per component its hole
+    count, `survivingInternal` 0, no conflict, `tilingError` under `1e-9`, no Gable or Cheek face, and the L∞
+    oracle's height at its listed points within `SHELL_TOLERANCE_CM`.
+
+### Refused layouts and the regression
+
+41. **The regression is stated plainly: 8 footprints that build clean today are refused.** `CourtL`, `JutMidWall`,
+    `BandRunsOnPastCut` and its y-mirror are refused as `simultaneous-across-rings`. `JutAlignedS`, `JutAlignedN`,
+    `JutBelowCutLine` and its y-mirror are refused as `multi-ring-step-refused`.
+42. **`HOLED_REFUSALS` holds those 8 with `TwoHolesProbe` and the draft's `TwoCourtyards`.** Each entry gives its Rings,
+    its skeleton kind and its issue note: `ISSUE-skeleton-three-front-meeting-refused.md` for
+    `simultaneous-across-rings`, and `ISSUE-skeleton-straight-vertex-in-zero-area-ring.md` for
+    `multi-ring-step-refused`. Each note gains its specimens' Rings.
+43. **Each entry's test asserts decision 17's hard error with the island and its kind,** and so is green on a guard in
+    production code, as BSA.D311 reads BSA.D266 for a refusal by name. A cure turns it red, and the entry is promoted
+    to a fixture. None is asserted as roofed.
 
 ### Goldens and pins
 
-40. **The courtyard goldens are the 20 manifest entries with a hole:** `Courtyard`, `HoleRingConflict` and its
-    `Swapped` and `FileReversed`, `CutPitchConflict` and its `Swapped` and `FileReversed`, `FullWingsProbe`,
-    `CutOvershootProbe`, `Court5Seed1h300`, `Court16Seed1h250`, `Court14Seed7h250`, `SplitBandFreeCut`,
-    `SplitBandFreeCut45`, `SplitBandAllGable75`, `SB400-600B100S500g60r024`, `CourtyardAt22.5-45s`,
-    `CourtyardJutCutSwapped`, `CourtyardRiseFacingCut` and `CourtyardRiseAlongCut`. Each is expected to change
-    (BSA.D284), and each doc comment is restated without the cut.
-41. **Every golden with no hole on any storey stays byte-identical,** held by the drift test; a divergence is diagnosed
-    and fixed or accepted with a written reason (BSA.D284).
-42. **The re-export's diff is reported per entry in the head journal as one of:** byte-identical; numbering only, its
-    shell's canonical diff (`wire/canonical.ts`) empty; roof changed, with that diff's lines; or its manifest state
-    (clean, residue, error) changed, old and new.
-43. **A golden whose name names the cut is renamed for its layout:** `CutPitchConflict` to `BandPitchConflict` (and its
-    `Swapped` and `FileReversed`), `CutOvershootProbe` to `OffCentreCourtyard`, `SplitBandFreeCut` to
-    `SplitBandMixedPitch`, `SplitBandFreeCut45` to `SplitBand45`, `CourtyardJutCutSwapped` to `CourtyardJutSwapped`,
-    `CourtyardRiseFacingCut` to `CourtyardRiseFacingWing`, `CourtyardRiseAlongCut` to `CourtyardRiseOnOuterWall`;
-    test-only fixtures named for the cut follow the same rule.
-44. **Every courtyard pin is re-measured** (`COURTYARD_DEFECTS`, `SPLIT_COURTYARD_DEFECTS`, `ROSTER_PITCH_DEFECTS`'
-    `Courtyard@` entries, `CUT_OVERSHOOT_DEFECTS`, and the courtyard entries of `GABLE_RISE_CONFLICTS` and
-    `GABLE_RISE_SPLIT_CONFLICTS`): a case now clean leaves its table with a "cured by the holed roof" comment and its
-    golden is promoted; `OffCentreCourtyard` then asserts (127.3, 251.7) at `250 + 101.7 tan 30°`.
-45. **A pin whose outcome changes to another defect is reported, never re-pinned by the implementer,** and the lead
-    rules it a fact pin (a Cheek, BSA.D260) or a red test with an issue note (BSA.D266). An emptied
-    `'algorithm-B cut-piece overshoot'` joins a new `EMPTIED_BY_HOLED_ROOF`; both cut class names stay as the record.
+44. **The courtyard goldens are the 20 manifest entries with a hole, counted from `GOLDEN_FIXTURES`, all measured
+    sound:** `Courtyard`; `HoleRingConflict` and `CutPitchConflict`, each with its `Swapped` and `FileReversed`;
+    `FullWingsProbe`, `CutOvershootProbe`, `Court5Seed1h300`, `Court16Seed1h250`, `Court14Seed7h250`; `SplitBandFreeCut`,
+    `SplitBandFreeCut45`, `SplitBandAllGable75`, `SB400-600B100S500g60r024`; `CourtyardAt22.5-45s`,
+    `CourtyardJutCutSwapped`, `CourtyardRiseFacingCut` and `CourtyardRiseAlongCut`. This count supersedes BSA.F94's 5.
+    Each is expected to change (BSA.D284), and its doc comment is restated without the cut.
+45. **Every golden with no hole on any storey stays byte-identical,** held by the drift test. A divergence is diagnosed,
+    then fixed or accepted with a written reason (BSA.D284).
+46. **The re-export's diff is reported per entry in the head journal** as one of four things: byte-identical; numbering
+    only, with its shell's canonical diff (`wire/canonical.ts`) empty; roof changed, with that diff's lines; or its
+    manifest state changed, old and new.
+47. **A golden whose name names the cut is renamed for its layout, and its doc comment keeps its former name:**
+    `CutPitchConflict` to `BandPitchConflict` (with its `Swapped` and `FileReversed`), `CutOvershootProbe` to
+    `OffCentreCourtyard`, `SplitBandFreeCut` to `SplitBandMixedPitch`, `SplitBandFreeCut45` to `SplitBand45`,
+    `CourtyardJutCutSwapped` to `CourtyardJutSwapped`, `CourtyardRiseFacingCut` to `CourtyardRiseFacingWing`, and
+    `CourtyardRiseAlongCut` to `CourtyardRiseOnOuterWall`. Test-only fixtures follow the same rule.
+48. **Every courtyard pin is re-measured,** and their 91 holed cases all solve sound. The tables are
+    `COURTYARD_DEFECTS`, `SPLIT_COURTYARD_DEFECTS`, `ROSTER_PITCH_DEFECTS`' `Courtyard@` entries,
+    `CUT_OVERSHOOT_DEFECTS`, and the courtyard entries of `GABLE_RISE_CONFLICTS` and `GABLE_RISE_SPLIT_CONFLICTS`. A
+    case now clean leaves its table with a "cured by the holed roof" comment, and its golden is promoted;
+    `OffCentreCourtyard` then asserts (127.3, 251.7) at `250 + 101.7 tan 30°`.
+49. **A pin whose outcome changes to another defect is reported, never re-pinned by the implementer,** and the lead
+    rules it a fact pin (BSA.D260) or a red test with an issue note (BSA.D266). An emptied `'algorithm-B cut-piece
+    overshoot'` joins a new `EMPTIED_BY_HOLED_ROOF`.
 
 ### Tests deleted and replaced
 
-46. **`courtyard.test.ts`'s cut tests are deleted** (place, splice, pitch, free pitch, `expectSplitCut`, and every
-    `cutAt` and `endsOf` check of the BSA.D279 cases); **every invariant check over the same layouts is kept,** and the
-    BSA.D279 cases keep their mirror partners and closed-form heights, which are decision 36's.
-47. **`NoCutProbe` and `TwoHolesProbe` must build,** genus 1 and 2, no Gable or Cheek face; `HoleProbe` asserts its
-    ridge at `250 + 50 tan 30°`. **`CutProbe` is deleted,** no `Sel` carrying a cut; `AuthoredCutProbe`,
-    `BuriedCutProbe` and `CutSide` stay, as tests of an unknown authored form.
-48. **Elsewhere the cut assertions go and their subjects stay:** `ring-forms.test.ts` keeps the hole wall's pitch;
-    `rise.test.ts` asserts a courtyard wall keeps its slope; `golden.test.ts`' free-cut tests become clean-golden
-    checks; and `robustness.test.ts`' "cut along its split" becomes: a uniform-pitch split-band layout's canonical shell
-    equals its unsplit twin's.
+50. **`courtyard.test.ts`'s cut tests are deleted** (place, splice, pitch, free pitch, `expectSplitCut`, every `cutAt`
+    and `endsOf`). Every invariant check over the same layouts is kept, and the BSA.D279 cases that solve keep their
+    mirror partners and closed-form heights.
+51. **`NoCutProbe` builds with genus 1 and no Gable or Cheek face, and `HoleProbe` asserts its ridge at `250 + 50 tan
+    30°`;** both are measured sound. `CutProbe` is deleted, with every `Sel` carrying a cut, `storey.test.ts`'s among
+    them. `AuthoredCutProbe`, `BuriedCutProbe` and `CutSide` stay, as tests of an unknown authored form.
+52. **Elsewhere the cut assertions go and their subjects stay:** `ring-forms.test.ts` keeps the hole wall's pitch,
+    `rise.test.ts` asserts that a courtyard wall keeps its slope, `gable-settings.test.ts` loses its `form !== 'cut'`
+    filter, `golden.test.ts`' free-cut tests become clean-golden checks, and `robustness.test.ts`' "cut along its split"
+    asserts that a uniform-pitch split-band layout's canonical shell equals its unsplit twin's.
 
-### Gates
+### Gates and the viewer
 
-49. **The baseline is measured before the first edit:** the building-shell Vitest count passed and its named red tests.
-50. **Mutation gates, each turning a test red:** the outline alone to `solveFaces` (every holed fixture); hole weights
-    all ones (`CourtyardMixedPitch`, `HoleSide45`); the strip match reading `loopMaps[0]` (`unmapped`); a hole's walls
-    reversed (the prism); `extentOf`'s breaks from the outer loop alone (`CourtGabled`); a hole joining the first
-    containing outer loop (`CourtyardInCourtyard`); the tiling area of the outer loop alone (decision 39); the island
-    dropped from decision 15's message; and `buildCourtyard` without its hole (copy integrity).
+53. **The baseline is measured before the first edit:** the Vitest count passed (9,992 at `68546eb`) and its named red
+    tests.
+54. **Mutation gates, each turning a test red:** the outline alone to `solveFaces` (every holed fixture); hole weights
+    all ones (`CourtyardMixedPitch`, `HoleSide45`); the strip match reading `loopMaps[0]`; a hole's walls reversed;
+    `extentOf`'s breaks from the outer loop alone (`CourtGabled`); a hole joining the first containing outer loop
+    (`CourtyardInCourtyard`); the tiling area of the outer loop alone; `complete: false` read as complete (every
+    `HOLED_REFUSALS` entry); an empty strip skipped and a holed `causality-violation` ignored (constructed results);
+    the island dropped from decision 17's message; and `buildCourtyard` without its hole (copy integrity).
+55. **The viewer's research conversion keeps its four Rings about the hole and drops the cut:** the catalogue's "(cut
+    placed by the pipeline)", the conversion's cut sentence and its `form === 'cut'` skips go. 9b's reason becomes "as
+    Rings it is 9a", and `catalogue-facts.ts` is regenerated with `CATALOGUE_FACTS_WRITE=1`.
+56. **Owed to [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md), for the lead when this
+    lands:** in §1, "copied unchanged" holds for `surface.ts` only, and `courtyard.ts` is gone; decision 1 loses its
+    courtyard-cut clause on `defaultDeg`; decision 2's cut block becomes "an island holds any number of holes, roofed by
+    the skeleton of its outline and holes, its prism the true outline, a refused island a hard error naming it";
+    decision 7 loses the hip solid standing from the floor; decision 9's "behaviour exactly" holds for islands with no
+    hole; decision 31 records 9a to 9d on the holed roof; decision 32's genus per component is its hole count; the
+    fixtures' preamble re-measures `Courtyard`; and §3 says courtyards are roofed on the holed skeleton.
 
-### The viewer
+### The lead's amendments on approval (BSA.D321)
 
-51. **The viewer's research conversion keeps its four Rings about the hole and drops the cut:** the catalogue label's
-    "(cut placed by the pipeline)" and the conversion's cut sentence go, its `form === 'cut'` skips go, and 9b's reason
-    becomes "as Rings it is 9a". `catalogue-facts.ts` is regenerated with `CATALOGUE_FACTS_WRITE=1`.
+55. **The guard's widening is landed at `7e6105c`,** so decision 2's "in the working tree" clause is void: the blocking
+    kinds are `holed-topology-violation`, `holed-equal-time-violation`, `holed-time-order-violation` and
+    `holed-planarity-violation`, each in `HOLED_CAUSES`. `holed-unculled-self-loop` is informational: it is not a
+    refusal, and the island is roofed. §2's 24 refusals for a self-loop alone therefore build.
+56. **The implementer re-measures §2 on the tree it builds on, before deleting the cut,** with the widened guard, and
+    reports the table again. The spec's counts were taken at `68546eb`. If the re-measurement finds a footprint that
+    is complete and wrong by an independent check, or a regression beyond the 8 layouts of decision 41 among the app's
+    fixtures, goldens, pins, catalogue or generator draws, the implementer stops before the deletion and reports.
+57. **Option A of section 6 is what this spec builds, on the arc's branch, which is not pushed or merged without the
+    user.** The 8 refused layouts are listed for the user in the journal with their Rings. Two of them, a wing that
+    carries a band's line on past the courtyard (`CourtL`) and a wing in line with a band (`JutAlignedS`), are layouts
+    a person would draw; the generator draws no wing beside a courtyard (BSA.F89), so its 24,000 clean draws say
+    nothing about how often an editor's user would meet the refusal.
+58. **The viewer's failure panel shows decision 17's message whole,** and the catalogue marks each `HOLED_REFUSALS`
+    entry as refused with its cause, so a refused layout can be loaded and looked at.
 
-### Amendments owed to the building-shell spec
+## 5. Deferred
 
-52. **These are owed to [building-shell-prototype-decisions.md](./building-shell-prototype-decisions.md), for the
-    lead to make:**
-    - §1's copied files: "copied unchanged", "nothing else changes" and "no other edit is allowed" hold for
-      `surface.ts` only; the other five are released by BSA.D282. `courtyard.ts`, "places decision 2's cut", is gone.
-    - Decision 1: strike "which only a courtyard cut collinear with no wall reads (decision 2)" from `defaultDeg`.
-    - Decision 2: the block "A hole (a courtyard) is roofed through a cut" and all its bullets are replaced by: an
-      island may hold any number of holes, roofed by the skeleton of its outline with its holes; the wall prism is the
-      true outline; an authored side form other than hip or gable is a hard error.
-    - Decision 7: strike the holed hip solid standing from the floor; every hip solid's bottom is at the plate.
-    - Decision 9: "`runB` keeps its behaviour exactly" holds for islands with no hole.
-    - Decision 31: the pinned tally and verdicts are unchanged, and 9a to 9d are measured on the holed roof.
-    - Decision 32: a component's genus is its hole count.
-    - The fixtures' preamble: `Courtyard`'s report figures, re-measured.
-    - §3: courtyards are roofed on the holed skeleton, not through a cut.
+- **Merging touching loops:** roadmap node 8. Until then contact is the `'door-loops'` hard error.
+- **The cures of the refused layouts:** the three-front meeting, the straight vertex in a zero-area ring and the
+  straight-bisector family are the user's to rule on (BSA.D301, BSA.D314). This unit changes nothing in core.
+- **The C++ port:** not a consideration (BSA.D281). Its courtyard path is the cut, and every courtyard golden moves.
+- **`experiments/`:** neither typechecked nor tested. It stays as a record and no longer builds against `src/`.
 
-## 4. Deferred
+## 6. For the user's ruling (not blocking)
 
-- **Merging touching loops:** node 8. Until then contact is decision 29's refusal.
-- **The C++ port:** not a consideration (BSA.D281). Owed to it, recorded only: its courtyard path is the cut, and every
-  courtyard golden it diffs against moves.
-- **`experiments/`:** neither typechecked nor tested; it stays as the record of its findings and no longer builds
-  against `src/`.
+The spec as written is option A. It needs no ruling beyond BSA.D282, BSA.D284 and BSA.D266, as BSA.D311 reads that
+decision. The other two options are recorded with their counts so that the user can reverse the choice.
+
+- **A. Land now.** 8 footprints that build clean today become hard errors. All 8 are test-local: 6 layouts and 3
+  mirror partners in `tests/courtyard.test.ts`. No fixture, golden, pinned case, catalogue entry or generator draw is
+  lost. BSA.F90 builds, and so do 1,732 of 3,000 multi-courtyard layouts, where today all 3,000 error. No silent roof
+  was measured.
+- **B. Keep the cut as a fallback for refused islands.** It recovers at most those 8 one-hole footprints and no
+  multi-hole island, since a cut takes one hole. It keeps `courtyard.ts`, the cut branch of the pinned copy and the
+  defects BSA.F89 and BSA.F90 found there, against BSA.D280's steer.
+- **C. Wait for the cures.** It holds back 32,618 sound holed islands, BSA.F90's among them, for 8 test layouts.
