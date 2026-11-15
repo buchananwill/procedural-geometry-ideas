@@ -4,7 +4,7 @@ type: workflow
 area: building-shell
 status: active
 date: 2026-11-14
-record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md", "./skeleton-edge-acceptance-decisions.md", "./ISSUE-skeleton-edge-accepted-before-its-face-closes.md", "./skeleton-loop-consumers-decisions.md"]
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md", "./skeleton-edge-acceptance-decisions.md", "./ISSUE-skeleton-edge-accepted-before-its-face-closes.md", "./skeleton-loop-consumers-decisions.md", "./skeleton-simultaneous-rings-decisions.md", "./skeleton-loop-contact-decisions.md", "./dashboard-holed-fixtures-decisions.md", "./building-shell-holed-roof-decisions.md"]
 ---
 
 # Building shell arc: session 4 journal
@@ -761,6 +761,43 @@ session 3's own.
     open points when it approves: whether a refusal that is node 5's is "specified behaviour" or a red test, which by
     BSA.D266 turns on whether the solver is wrong or merely not finished; the riskiest part by the drafter's own account
     is exempting a repeated point inside one loop from the self-contact refusal.
+- **311. The spec for roadmap node 5, `skeleton-simultaneous-rings-decisions.md`, is approved by the lead under BSA.D286
+  and BSA.D301, as a design that leaves single-loop resolution alone, with four amendments.** Drafted by an Opus
+  delegate under BSA.D288 after measuring ten fixtures on a copy of core at `a8ba71f`; read in full by the lead. 46
+  decisions.
+  - **What the measurement found:** with the cross-ring refusal lifted, the existing machinery already bears the right
+    bisectors and writes the right links on the concentric square, the off-centre rectangle, the weighted squares, the
+    courtyard with wings of BSA.F90, two holes, and an octagon in an octagon. It fails in three places only: the
+    corridor rings of two bisectors the layer leaves are refused as having no area; the pairwise fallback strands an
+    arrival when a meeting holds a run of two (a chamfered corner); and after a join the second strike of a segment can
+    take the wrong piece, which on one ordering of a weighted square's hole gave a complete and wrong skeleton with a
+    node outside the region.
+  - **The design:** a meeting of one run on each of two rings is resolved whole, bearing two bisectors by the merge-gap
+    rewrite, of which a head-on is the case of single arrivals; a ring of two left by a layer of several rings is its
+    own child, and the existing pair handler closes it as it closes a single loop's corridor; in `linkSplit`, when two
+    pieces of a struck segment stand on the instigator's ring, the strike takes the piece that contains it. The closed
+    ridge ring needs nothing new for termination, acceptance or faces.
+  - **Why the lead may approve it in the user's absence:** every rule but one is reached only in a step of more than one
+    ring, which no single-loop solve has; the one exception, the piece rule, needs two pieces of a segment on one ring,
+    which only a join makes. The draft measured that at zero on the 60 corpus fixtures only. **The lead's amendment
+    (spec decision 43): it is counted over the sweep and the census before it is relied on, and if it is ever non-zero
+    on a single loop the rule is not landed there and goes to the user.**
+  - **Checked by the lead by hand:** the concentric square's ridge at `t = 2`; the off-centre rectangle's times of 1.5
+    and 2 from its gaps of 3 and 4; the winged courtyard's `t = 150` from its gap of 300; the worked piece choice on the
+    weighted square.
+  - **What stays refused, and how it is held (spec decision 44):** a meeting of more than two runs, or on a third front.
+    Its specimen, two courtyards with every gap equal, is a realistic building. By BSA.D266 a defect is a red test with
+    an issue note or is guarded in production code; a refusal by name is the guard, so its test is green on the guard
+    and an issue note records it. **This reading also answers the same question in node 8's draft.**
+  - **The oracle question is closed by BSA.D309** (spec decision 45): the weighted fixtures assert no causality
+    diagnostic.
+  - **For the user, not blocking:** real courtyards with equal wall thickness all round, or two courtyards a wall's
+    thickness apart, will meet the three-front refusal; how often is unmeasured.
+  - **Node 9's draft gains this spec in its `depends_on`.**
+  - **AMENDED by decision BSA.D311:** The lead's last bullet misstates the case. One courtyard with equal wall thickness
+    all round is the concentric square and is solved. The three-front refusal is met where a corner of each of two holes
+    reaches a third front at one point and time, as with two courtyards whose separating wall is as thick as the outer
+    walls.
 
 ## Findings
 

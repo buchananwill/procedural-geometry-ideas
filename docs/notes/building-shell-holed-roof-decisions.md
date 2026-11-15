@@ -5,7 +5,7 @@ area: building-shell
 status: proposed
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
-depends_on: [skeleton-join-and-divide-decisions.md, skeleton-loop-consumers-decisions.md]
+depends_on: [skeleton-join-and-divide-decisions.md, skeleton-loop-consumers-decisions.md, skeleton-simultaneous-rings-decisions.md]
 ---
 
 # Building-shell holed roof: decision spec
