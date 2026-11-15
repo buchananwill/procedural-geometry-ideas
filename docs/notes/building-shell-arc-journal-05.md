@@ -730,3 +730,35 @@ session 3's own.
     has no content and is struck.
   - **What it means for the clean-up pass of BSA.D346:** its byte-identity bar needs a "before" output set generated on
     the tree it starts from, by the delegate that runs it.
+- **F115. The vertex a merge bears on a wall does not split that wall for two reasons in a row: only primary bisectors
+  are ever tested for a split, and a strike at zero travel is decided by the sign of a rounding error.** (a read-only
+  Opus investigation delegate under @D344, 2026-11-15, measured on 482a3af (core source unchanged since 27d9cc1);
+  scratch in apps/building-shell/experiments/newborn-split/, uncommitted) Admitting a deterministic zero-offset strike
+  for a newborn reflex vertex gives the user's hand-worked sequence, and with merge-first and the flat rule it matches
+  BSA.F111's rule on every sample.
+  - **First exclusion:** exterior strikes are generated only for `isReflexEdge && edgeRank === 'primary'`
+    (`createCollisions`, `algorithm-complex-cases.ts` about 448; `collideInteriorEdges`, `collision-helpers.ts` about
+    623; `generateSplitEventViaBisector`, `generate-split-event.ts` about 342), and `edgeRank` (`solver-context.ts`
+    about 90 to 101) makes every bisector born at an interior node secondary. This is the rule the weighted issue note
+    names as its cause (BSA.F102, BSA.D312). The direct-strike pricing also assumes a primary source.
+  - **Second exclusion:** once asked, `validateSplitReachesEdge` needs both segment-end tests to converge and
+    `intersectRays` tests travel strictly above zero, so at zero travel one V case validated on +2.8e-17 and another
+    failed 2 ulps the other way.
+  - **The minimal change, scratch only:** a secondary reflex bisector whose source lies on a wall's front at its birth,
+    which overtakes that front, and whose foot lies inside a live segment of that wall, strikes it at its source at its
+    birth time; the existing split handling does the rest. With it all four V cases solve (two asymmetric ones added),
+    each with the same 19 real edges as under BSA.F111's rule plus the vertex's zero-length self-loop.
+  - **Merge-first, zero-offset split and flat rule together:** the user's layout, the ten courtyard layouts, 79 of 82 in
+    grid 1 and 1,000 of 1,000 in grid 2 sound, the same verdicts and nodes as BSA.F111's rule with one to three fewer
+    edges; 81 corpus and holed digests identical to production; nothing complete and wrong. On rectilinear input the
+    zero split never fires, because the vertex is straight and the flat rule closes it.
+  - **It does not hold in the other order.** Old vertices' splits first, then the merge: three of four V cases
+    incomplete with a backwards edge, the fourth right by a rounding-dependent event, and 40 of grid 2 refused. Two
+    vertices standing at one node get no event. So the chain's result depends on processing order, as the lead warned in
+    BSA.D343.
+  - **The zero-offset restriction is what keeps it clean.** Alone on production it fires nowhere: 0 strikes over 319
+    secondary reflex bisectors in a mixed-pitch grid of 2,000. Admitting secondary splits at any distance fires 581
+    times there, turns 13 complete layouts into refusals and changes 52 digests.
+  - **Not established:** no suite run; the V cases checked at skeleton level only; newborn vertices in three-edge steps
+    are never tested, as the triangle handler does not generate collisions; the overtake bar and birth margin are the
+    delegate's choices; no chain longer than one step was constructed.
