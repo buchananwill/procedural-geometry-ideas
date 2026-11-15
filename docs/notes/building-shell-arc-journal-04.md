@@ -1125,6 +1125,35 @@ session 3's own.
     show the last good result's text during a refusal; the canvas banner sits in world coordinates and can be off screen
     until the view is panned.
   - **The spec is `completed`** by the delegate's commit.
+- **325. Roadmap node 9 is built in five local commits ending `f822370`: building-shell roofs every island from its
+  outline and holes, the cut is deleted, BSA.F90's layout builds, and no non-courtyard golden moved. It also brought a
+  regression the spec did not foresee: 36 split-band courtyards gabled on every side, clean before, now fail in Cell
+  laying. They are red tests; a diagnosis and an independent review are dispatched.** The delegate's figures, not
+  re-run: building-shell 9,631 passed and 36 failed in 48 files, typecheck clean; core untouched.
+  - **The re-measurement before the deletion, with the widened guard:** every holed island the suite reaches and 8,000
+    generator draws, none complete and wrong, none thrown; the only refusals are the 8 layouts of the spec's decision 41
+    and `TwoHolesProbe`, which the cut refused too. The delegate's checker refused six wrong answers built on purpose.
+  - **The goldens:** every non-courtyard golden byte-identical. Of the 20 courtyard goldens, 17 change in numbering
+    only, their canonical form unmoved; 3 change in roof, each the cut's own defect going: `CutOvershootProbe` and
+    `CourtyardAt22.5-45s` lose a surviving Internal face and three Unclassified Edges, `Court14Seed7h250` loses a Cheek
+    and a Gable. **`Courtyard`'s ridge is at 336.603 cm, the closed form; BSA.F90's layout tops out at 365.47 cm.** 25
+    golden files renamed, each identical to its old bytes but for names.
+  - **Cured by the removal of the cut:** all 21 pins of cut-piece overshoot and Cheeks beside the cut, the Courtyard's
+    18 mixed-pitch roster rows, and ten tucks that stood on the cut. The class "algorithm-B cut-piece overshoot" is
+    empty.
+  - **The copy-integrity tally and its 53 verdicts are unchanged.**
+  - **The regression:** 36 layouts in `courtyard.test.ts`, split bands gabled on every side. Tuck faces on the line of
+    the hole's south wall split one Roof plane into two faces, and Cells are laid across that line. The delegate found
+    it does not depend on the gable piece's trim. Left red and not re-pinned, as BSA.D266 requires. **This is beyond the
+    8 the lead accepted in BSA.D321,** it is in the app's own code and not the solver, and it is the lead's to have
+    diagnosed and, if the cure is in how tucks and Cells are handled under BSA.D272, fixed.
+  - **Conflict lists re-pinned by the delegate, 51 rows:** 27 by renumbering alone; 24 with a count moved by 1 to 4 on
+    the same kinds of plane, which the delegate attributes to BSA.F69, conflicts being counted where a triangle's
+    centroid falls. The reviewer is asked to check that attribution, since a moved count re-pinned on an attribution is
+    what BSA.D266 guards against.
+  - **Lost with the cut:** the built-roof fallback of session 2's decision 204 has no fixture now.
+  - **The lead looked at one viewer screenshot,** BSA.F90's layout: walls, an all-hip roof with a ridge ring round the
+    courtyard and a ridge on each wing, no stray face. Sent to the user.
 
 ## Findings
 
