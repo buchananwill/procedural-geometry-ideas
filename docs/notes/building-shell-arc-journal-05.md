@@ -465,3 +465,41 @@ session 3's own.
     `/./`, not tightened.
   - "Goes quiet at 1e-9" asserts completeness only, and 5 of its 12 cells fail the full checks; left alone as outside
     the five.
+- **F111. The three-front meeting on `CourtL` can be resolved as one whole event: the one gap of the merge that moves
+  into the struck wall is not born, the wall is cut at the node, and two bisectors are born in its place.** (a read-only
+  Opus investigation delegate under @D339, 2026-11-15, measured on 27d9cc1; scratch in
+  apps/building-shell/experiments/three-front-meeting/, uncommitted) A counterfactual of that rule cures every
+  third-front refusal sampled and changes nothing else.
+  - **The correct answer at (850,150), by hand and matched by the counterfactual:** five wall fronts meet there at t =
+    150 cm (outline bottom, loop right, stem top; hole bottom, hole right). Two valleys arrive, from the outline's
+    reflex corner (1000,300) and the courtyard corner (700,300), and three level ridges leave, west and east along y =
+    150 and north along x = 850. One node of degree 5. The user's count of one valley misses the courtyard corner's.
+    Every gap in this layout is 300, so the whole roof closes at that instant.
+  - **Why the solver refuses:** the layer holds four cross-ring head-ons, the stem-end collapse and two splits of the
+    bottom wall at the node. `multiRingRefusal` (`algorithm-complex-cases.ts` about 520 to 530, called about 780 to 787)
+    fires because `e12` is an arrival of merge `[12,16]` and neither end of the struck segment is. The cross-ring
+    rewrite would bear a bisector between the stem top and the hole bottom, two collinear walls facing the same way: a
+    straight vertex moving into the bottom front.
+  - **The user's claim holds:** six one-step lattice moves and four one-pitch changes each separate the convergence, and
+    each solves sound on production code.
+  - **Sequencing the coincident events fails in both orders,** each leaving a ring of area 0. The whole event works.
+  - **The rule, as measured:** in a step of several rings, a merge whose node lies on a third front is resolved whole.
+    Each gap is priced by its vertex velocity from v.n = w; the single gap with v.n_wall < 0 is not born, the struck
+    segment is cut there by a new link write recording both successors, and bisectors {gap's cw parent, wall} and {wall,
+    gap's ws parent} are born. Zero or two such gaps, or splits on more than one wall, stay refused by name. A first
+    version that re-pointed a link failed 22 of 51 grid layouts; recording both successors fixed all.
+  - **Reach.** Of the eight layouts of BSA.D321: `CourtL`, `JutMidWall`, `BandRunsOnPastWing` and its mirror are cured;
+    the four sliver layouts, `JutAlignedS` among them, are not reached. `JutMidWall` needs the rule on a one-ring merge
+    inside a multi-ring step. Of 2,000 two-courtyard grid islands at 30 degrees: production refuses 51 as third front,
+    28 as sliver, 2 under decision 21 and 1 other; the rule cures all 51, sound by checker, height oracle and
+    invariants, and changes no digest where it did not fire. Of 1,000 equal-gap islands, all third-front today, 945
+    become sound and 55 go on to the sliver defect.
+  - `FULL_CORPUS` and `HOLED_TEST_POLYGONS` are byte-identical apart from the issue note's specimen, which completes in
+    the note's closed form. Single-loop solves are untouched by construction and by 60 identical digests. Reverting
+    `6dab6b0` changes no verdict.
+  - **Not established:** core's and building-shell's suites were not run under the counterfactual; weighted cases only
+    at skeleton level; that at most one gap can face the wall is measured (0 ambiguities), not proved; the grid samples
+    are the delegate's own generator, not the issue note's.
+  - **Still refused after the rule:** the sliver class, a straight vertex born between collinear walls
+    ([ISSUE-skeleton-straight-vertex-in-zero-area-ring](./ISSUE-skeleton-straight-vertex-in-zero-area-ring.md)), which
+    this rule exposes more often; decision 21's three-run meetings; ambiguous or multi-wall third fronts.
