@@ -590,15 +590,6 @@ describe('wavefront causality', () => {
     });
 
     /**
-     * THE CORPUS AGREEMENT SWEEP (journal-5 decision 148(e)): over `FULL_CORPUS`, at the library floor
-     * and at the demo floor, the solver's `causality-violation` count equals the test oracle's, per
-     * oracle, per fixture — and `complete` is exactly what the blocking rule gives with every
-     * causality diagnostic set aside, so the check never flips it (decision 148(b)).
-     *
-     * Measured 2026-09-23: every count is zero on both instruments at both floors. Both instruments
-     * run at the floor the solve ran at (journal-5 decision 149).
-     */
-    /**
      * THE HOLED ROSTER (skeleton loop-consumers spec, decision 36): at both floors, the solver's `causality-violation`
      * count equals the test oracles' per oracle and is ZERO, and the `rate` ids agree id for id. The oracles date a
      * node against its parent's own target and measure clearance to each exterior edge's own segment
@@ -619,6 +610,15 @@ describe('wavefront causality', () => {
             });
     });
 
+    /**
+     * THE CORPUS AGREEMENT SWEEP (journal-5 decision 148(e)): over `FULL_CORPUS`, at the library floor
+     * and at the demo floor, the solver's `causality-violation` count equals the test oracle's, per
+     * oracle, per fixture — and `complete` is exactly what the blocking rule gives with every
+     * causality diagnostic set aside, so the check never flips it (decision 148(b)).
+     *
+     * Measured 2026-09-23: every count is zero on both instruments at both floors. Both instruments
+     * run at the floor the solve ran at (journal-5 decision 149).
+     */
     describe.each([1e-6, 1e-5])('the solver and the oracles agree over the whole corpus at floor %s', perceptualFloor => {
         it.each(FULL_CORPUS.map((polygon): [string, Vector2[]] => [polygon.name, polygon.vertices]))(
             '%s',

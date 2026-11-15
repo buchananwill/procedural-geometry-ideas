@@ -2,10 +2,11 @@
 title: "Skeleton loop consumers: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-join-and-divide-decisions.md]
+verified_by: [packages/core/tests/straight-skeleton/strip-tiling.test.ts, packages/core/tests/straight-skeleton/offset-projection.test.ts, packages/core/tests/straight-skeleton/skeleton-containment.test.ts, packages/core/tests/straight-skeleton/graph-index-invariants.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts, packages/core/tests/straight-skeleton/wavefront-causality.test.ts, packages/core/tests/straight-skeleton/solve-result.test.ts, packages/core/tests/straight-skeleton/strip-decomposition.test.ts, packages/core/tests/straight-skeleton/skeleton-tree.test.ts, packages/core/tests/straight-skeleton/holed-join-divide.test.ts]
 ---
 
 # Skeleton loop consumers: decision spec

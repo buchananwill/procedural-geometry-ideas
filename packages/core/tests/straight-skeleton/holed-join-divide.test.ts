@@ -57,7 +57,7 @@ import {
     HOLED_TEST_POLYGONS,
     HoledTestPolygon,
 } from '@proc-geo/test-fixtures';
-import {extentOf, solveHoled, storyOf} from './holed-test-helpers';
+import {equiTimeViolations, extentOf, solveHoled, storyOf, timeOrderViolations} from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -184,7 +184,8 @@ describe('F1 against its closed form (decisions 47 to 49)', () => {
  * exercises what it was picked to exercise (a join before a divide, a hole joining a hole, a ring sent to the second
  * child). A correct solver may tell another story of the same input — a different step grouping, or children in
  * another order — and a story that moves is a reason to check the fixture still tests its case, not by itself a
- * defect. The properties are decision 42's, asserted by `expectSoundHoledSolve`.
+ * defect. The properties are decision 42's, asserted by the roster's sweeps in their home files (the loop-consumers
+ * spec, decisions 32 and 33), and by the weighted equal-time and time-order checks below (BSA.D316).
  */
 const STORIES: Record<string, string[]> = {
     // The join is the root step's only event; three divides of the joined ring follow (decision 49).
@@ -229,6 +230,18 @@ describe('the holed fixtures (decisions 41 and 42)', () => {
             expect(result.complete).toBe(true);
             expect(boundaries.length).toBeGreaterThan(1);
             expect(boundaries.flatMap((boundary, step) => boundary.violations.map(v => `step ${step}: ${v}`))).toEqual([]);
+        });
+
+    // THE WEIGHTED EQUAL-TIME CHECK AND THE TIME ORDER, at 1e-9 of the extent (decision 42; BSA.D316). They were lost
+    // when the battery moved to the home sweeps, which date a node from one parent and so cannot see a spread between
+    // its walls; the weighted F4 is the fixture that needs them most.
+    it.each(FIXTURES.map(fixture => [fixture.name, fixture] as const))(
+        '%s: every interior node at one time from all its walls, and no edge running backwards in it', (_name, fixture) => {
+            const {result} = solveHoled(fixture);
+            expect(result.complete).toBe(true);
+            const tolerance = 1e-9 * extentOf(fixture);
+            expect(equiTimeViolations(result.graph, tolerance)).toEqual([]);
+            expect(timeOrderViolations(result.graph, tolerance)).toEqual([]);
         });
 
     it.each(FIXTURES.map(fixture => [fixture.name, fixture] as const))('%s tells its story', (_name, fixture) => {

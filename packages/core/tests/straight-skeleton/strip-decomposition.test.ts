@@ -200,6 +200,15 @@ describe('strip decomposition', () => {
             const merged: SkeletonSolveResult = {...solvedFixture('Square'), context: null};
             expect(() => computeStrips(merged, {depth: 1})).toThrow(/self-intersect/);
         });
+
+        it('refuses a result with a solver context and an empty loop table, naming the cause (BSA.D316)', () => {
+            // No solve produces one: every result with a context carries one loop per ring. A hand-built result
+            // without its table would otherwise get no strips at all, because the runs are grouped per loop.
+            const solved = solvedFixture('Square');
+            const tableless: SkeletonSolveResult = {...solved, graph: {...solved.graph, loops: []}};
+            expect(() => computeStrips(tableless, {depth: 1})).toThrow(/loop table/);
+            expect(() => computeStrips(tableless, {depth: 1})).toThrow(/graph\.loops is empty/);
+        });
     });
 
     describe('tiling: strips plus offset rings account for the polygon', () => {

@@ -34,6 +34,7 @@ import {isClockwise} from '@proc-geo/core/random-polygon/geometry-helpers';
 import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, JITTER_K, JITTER_REFLEX_L, JITTER_SEEDS, jitteredSamples} from '../straight-skeleton/jitter-helpers';
 import {place} from '../straight-skeleton/placement-helpers';
 import {holedTilingError, oracleCausalityCounts, rateViolations} from '../straight-skeleton/wavefront-measurement-helpers';
+import {interiorGraphShape} from '../straight-skeleton/holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -258,6 +259,16 @@ export interface CellRecord {
     tiling?: (number | string)[];
     guards?: Record<string, number>;
     stepFailures?: string[];
+    /**
+     * A HOLED CELL'S SHAPE (BSA.D316), so a structurally wrong holed cell shows in a field and not only in a changed
+     * digest. Present exactly when the cell was solved with holes. `holes` is the input's hole count;
+     * `unculledSelfLoops` counts the interior edges that end at their own source and are not marked culled;
+     * `cycleRank` is the interior graph's, as `interiorGraphShape` counts it (culled edges skipped, an arc recorded
+     * from both ends once, each un-culled self-loop adding one). A sound holed skeleton reads `0` and `holes`.
+     */
+    holes?: number;
+    unculledSelfLoops?: number;
+    cycleRank?: number;
 }
 
 export function measureSolve(vertices: Vector2[], options: SolveSkeletonOptions | undefined): CellRecord {
@@ -287,6 +298,14 @@ export function measureSolve(vertices: Vector2[], options: SolveSkeletonOptions 
         complete: result.complete, nodes: result.graph.nodes.length, edges: result.graph.edges.length,
         digest: serialise(result), kinds, oracles, testOracles, guards, stepFailures,
     };
+    // Only on a holed cell, so every single-loop record keeps its exact bytes.
+    const holeCount = options?.holes?.length ?? 0;
+    if (holeCount > 0) {
+        const shape = interiorGraphShape(result.graph);
+        record.holes = holeCount;
+        record.unculledSelfLoops = shape.selfLoops.length;
+        record.cycleRank = shape.cycleRank;
+    }
     if (result.complete) {
         try {
             record.isTree = buildSkeletonTree(result).isTree;

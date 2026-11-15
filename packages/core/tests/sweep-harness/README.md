@@ -28,6 +28,13 @@ the holes'; `holedTilingError` in `wavefront-measurement-helpers.ts`), and its `
 `buildSkeletonTree` refuses a holed result and the record's `catch` takes the throw. The group adds no regions: the
 recursive driver refuses holes. Harness cells are records compared between trees, not tests.
 
+A holed record also carries three fields no single-loop record has (BSA.D316), so a structurally wrong holed cell
+shows in a field and not only as a changed digest: `holes`, the input's hole count; `unculledSelfLoops`, the interior
+edges that end at their own source and are not marked culled; and `cycleRank`, the interior graph's rank as
+`interiorGraphShape` in `holed-test-helpers.ts` counts it (culled edges skipped, an arc recorded from both ends once,
+each un-culled self-loop adding one). A sound holed cell reads `unculledSelfLoops: 0` and `cycleRank` equal to
+`holes`.
+
 `runRegions(out, depthFraction, tag)` re-solves every level > 0 node of the census-grid
 trees (merge groups 1–4, three levels, residue `'recurse'`) on its own boundary with the
 root floor restated in the region's own space — 31,693 regions at depth fractions

@@ -1010,7 +1010,8 @@ function polylineLength(polyline: Vector2[]): number {
  *   polygon. That is the limiting case of the general statement, not a special one: strips plus
  *   offset rings always tile the polygon, and past the maximum offset there are no rings.
  *
- * @throws if `depth` is negative, or the solve is incomplete or has no solver context.
+ * @throws if `depth` is negative, or the solve is incomplete or has no solver context, or a graph with a context has
+ *   no loop table.
  */
 export function computeStrips(result: SkeletonSolveResult, options: StripOptions): Strip[] {
     requireProjectableResult(result, 'computeStrips');
@@ -1034,6 +1035,16 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
     const edgeCount = graph.numExteriorNodes;
     if (edgeCount === 0) {
         return [];
+    }
+    // THE RUNS ARE GROUPED PER LOOP (decision 11), so a graph with no loop table would get no strips at all, and
+    // silently. No solve produces one: every result with a context carries one loop per ring, and a merged graph's
+    // `loops: []` has no context and is refused above. So it is a hand-built result, and it is refused by name
+    // (BSA.D316).
+    if (graph.loops.length === 0) {
+        throw new Error(
+            `computeStrips requires the graph's loop table, but result.graph.loops is empty while result.context is ` +
+            `set. Every solve with a context records one loop per ring (the outline, then each hole); a result built ` +
+            `by hand must carry it, [{start: 0, count: numExteriorNodes}] for a single ring.`);
     }
 
     const nodeOffsets = computeNodeOffsets(result);

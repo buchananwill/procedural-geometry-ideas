@@ -29,7 +29,7 @@ procedural-geometry-ideas/
 | Package                   | Description                                                                                     | Publishable  |
 |---------------------------|-------------------------------------------------------------------------------------------------|--------------|
 | `@proc-geo/core`          | Pure TypeScript geometry library (straight skeleton, random polygon generation). No React deps. | Yes          |
-| `@proc-geo/test-fixtures` | 60 named polygon fixtures in two rosters + test helpers. Optional for consumers.                | Yes          |
+| `@proc-geo/test-fixtures` | 60 single-loop fixtures in two rosters, 21 holed ones in a third + test helpers. Optional for consumers. | Yes          |
 | `@proc-geo/dashboard`     | React components for exploring geometry algorithms (Mantine, Konva, Zustand).                   | Yes          |
 | `@proc-geo/demo`          | Example Next.js app showcasing the integration.                                                 | No (private) |
 | `@proc-geo/building-shell` | Building-shell prototype: Ring storeys → Manifold union → faces, Edges, Cells; three.js viewer; JSON wire format; golden oracle for a C++ port. Vite + Vitest. | No (private) |
@@ -181,10 +181,10 @@ methods for converting between IDs and edge data.
 
 ### `@proc-geo/test-fixtures` (`packages/test-fixtures/`)
 
-**Two rosters, one corpus.** `CLEAN_TEST_POLYGONS` is the **clean** roster -- 53 named polygon fixtures that solve,
-tile and subdivide, and the dozens of sweeps written against it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the
-same `{name, vertices}` shape for the 7 fixtures with a measured defect. `FULL_CORPUS` is the two concatenated.
-All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
+**Two single-loop rosters, one corpus, and a third roster with holes outside it.** `CLEAN_TEST_POLYGONS` is the
+**clean** roster -- 53 named polygon fixtures that solve, tile and subdivide, and the dozens of sweeps written against
+it assert exactly that. `KNOWN_DEFECT_POLYGONS` is the same `{name, vertices}` shape for the 7 fixtures with a
+measured defect. `FULL_CORPUS` is the two concatenated. All three are exported from `src/index.ts`, alongside `test-helpers.ts` and `test-constants.ts`.
 `HOLED_TEST_POLYGONS` (`src/holed-fixtures.ts`) is a third roster, of outlines with holes, outside `FULL_CORPUS`;
 every sweep solves it through `holedSolveOptions`.
 
