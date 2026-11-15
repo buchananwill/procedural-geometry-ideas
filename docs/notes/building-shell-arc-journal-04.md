@@ -798,6 +798,37 @@ session 3's own.
     all round is the concentric square and is solved. The three-front refusal is met where a corner of each of two holes
     reaches a third front at one point and time, as with two courtyards whose separating wall is as thick as the outer
     walls.
+- **312. Node 4 is complete at `9164e92`; the causality check compares times at `8887d65`, with the lead's own clearance
+  rule corrected by the implementer; and the weighted solver defect has red tests, an issue note and a confirmed cause
+  at `4536b17`. Node 5 is dispatched.** The delegate's figures, not re-run: core 5,989 passed, 5 failed by design, 9
+  skipped; building-shell 9,992; all sweep records byte-identical.
+  - **The lead's rule in BSA.D309 was wrong and the implementer was right to depart from it.** "At least `w · t` from
+    every wall of weight `w`" is false on correct skeletons, because a fast wall's front reaches only as far as its own
+    face: on `Weighted L` a node at time 1 lies 1.41 from the end of a weight-4 wall. Measured, that rule reported 583
+    of 740 correct weighted single loops. **What is committed and accepted: a node at time `t` lies at least `w_min · t`
+    from every wall,** the slowest weight, which every front satisfies; it reports none of 1,331 correct random weighted
+    solves and is today's arithmetic at unit weights. Its cost is weak detection: clearance now catches one wrong
+    weighted solve, and detection rests on the offset and direction oracles, which fire on every complete wrong one
+    measured.
+  - **The oracle's effect, measured:** no unweighted solve's diagnostics or graph changed; 734 of 740 correct weighted
+    single loops and all 589 correct weighted holed solves carried false reports before and none after; the four
+    weighted fixtures and F4 lose theirs. No pin moved.
+  - **Node 4's fixes:** F4 asserts weighted time order and no pinned count; the pocket fixture F8 pins the least-area
+    rule, convicted both ways; a ring that crosses itself is refused, which moved no valid unweighted input of 760 and
+    now refuses 46 weighted holed fuzz solves, every one already wrong. The spec is `completed`.
+  - **The weighted defect's cause, confirmed on the smallest single-loop reproducer by asking the solver directly:** a
+    reflex bisector that is not primary is never tested for a split, because both split paths require a primary bisector
+    (`createCollisions` and `canGenerateSplits`). The solver prices the missed split exactly when asked. **Under weights
+    an edge event can leave a reflex vertex; at unit weights it cannot** (argued, not measured), which is why the
+    restriction was sound until weights came. A second cause, unconfirmed, on two of the holed reproducers:
+    `isReflexEdge` reads the sign of a dot product that calls a reflex corner convex when its weighted bisector leans
+    forward.
+  - **Both causes are in how single-loop events are generated, so the cure is the user's** (BSA.D301). The issue note
+    `ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md` is open with five red tests in
+    `weighted-time-order.test.ts`.
+  - **Left by node 4 and found by this pass:** three test-side helpers still date by `(parent + 1) % n`; node 6's spec
+    generalises them.
+  - **Dispatched:** node 5 to one fresh Opus delegate, with the measuring run of its decision 43 first.
 
 ## Findings
 
