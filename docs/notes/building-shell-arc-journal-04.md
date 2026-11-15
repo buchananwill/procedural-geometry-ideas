@@ -996,6 +996,29 @@ session 3's own.
     secondary-reflex cause of the weighted issue appearing at unit weights, which the lead recorded in BSA.D312 as
     argued and not measured to be impossible. **That argument is now contradicted by a specimen**, and the issue note is
     to be amended with it.
+- **320. Node 5 is complete at `7e6105c`: the widened guard flags none of 8,352 sound holed solves and catches 263 of
+  270 wrong ones on exact input; what it still misses is stated. Node 7 is dispatched.** The delegate's figures, not
+  re-run: core 6,489 passed, 10 failed by design, 10 skipped; building-shell 9,992; dashboard 331; single-loop sweep
+  cells, regions and census byte-identical.
+  - **The guard as landed, in `holed-guard.ts`, on holed solves only, read in unit space:** blocking kinds for topology
+    (connected, cycle rank equal to the hole count, one pair of walls per arc), equal time, time order, and planarity
+    (two arcs crossing inside both); an informational kind for a self-loop not marked culled. It costs 2 to 7.5 percent
+    of a roster fixture's solve and 0.3 percent on a 245-edge input.
+  - **Left out, with the lead's agreement: the collinear-overlap and T-junction tests.** At the perceptual floor they
+    cannot be told from a sound sliver face between two walls that are collinear to within the floor, and flagged 153
+    sound jittered solves; telling them apart needs a bar below the floor, which would be a new tolerance and is the
+    user's.
+  - **Still missed, and silent in 15 of the fuzz's solves:** overlapping arcs, or an arc running through another arc's
+    node, with rank, times and wall pairs all right. Two are on exact rotated input; the rest under jitter, some leaving
+    a face short by up to 10 percent. **So a holed result marked complete is not proved right;** it has passed five
+    checks that the measured wrong answers mostly fail.
+  - **The softening returned 196 solves to complete,** 184 sound and 12 wrong ones that only the self-loop had been
+    catching. That cost is accepted: the 184 are good roofs.
+  - **The weighted holed reproducer now comes back incomplete** with a time-order violation; its red test stays red on
+    the property.
+  - **Node 5's spec is set `completed`.** Its amendments to node 4's spec, listed in its decisions 41 and 42, are
+    recorded by this entry; the earlier spec's text stands as written and is read with them.
+  - **Dispatched:** node 7, the dashboard, with node 6's five review fixes as its first commit.
 
 ## Findings
 

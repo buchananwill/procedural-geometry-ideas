@@ -2,8 +2,9 @@
 title: "Skeleton simultaneous events across rings: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-15
+verified_by: [packages/core/tests/straight-skeleton/holed-simultaneous-rings.test.ts, packages/core/tests/straight-skeleton/holed-guard.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-join-and-divide-decisions.md]
 ---
