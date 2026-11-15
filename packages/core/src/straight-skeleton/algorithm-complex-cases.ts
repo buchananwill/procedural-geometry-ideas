@@ -99,10 +99,15 @@ function compareEdgeIdLists(first: number[], second: number[]): number {
  * rather than a sort under a non-transitive "close enough" predicate. (The coincidence clustering in
  * `coincident-events.ts` used the same single linkage until journal decision 155 made it anchored;
  * this partition is at the 64-ulp representation bar, S29, which C8 spec T26 keeps as it is.)
+ *
+ * AND WITHIN A MOMENT, WHAT `mustPrecede` ORDERS COMES BEFORE THE TIE-BREAK (BSA.D335). Where it is given, no event of a
+ * moment is placed before one of the same moment that must precede it, and `tieBreak` decides only between events it
+ * leaves unordered ({@link inPrecedenceOrder}). The pairwise fallback hands it {@link nearerAlongSharedBisector}.
  */
 export function inArrivalOrder(
     events: CollisionEvent[],
     tieBreak: (first: CollisionEvent, second: CollisionEvent) => number,
+    mustPrecede?: (first: CollisionEvent, second: CollisionEvent) => boolean,
 ): CollisionEvent[] {
     // W-spec W24, W25: ordered by ARRIVAL, division-free. At unit weights `compareArrivals(a, b, 0)`
     // is the sign of `a.offsetDistance - b.offsetDistance` with ties reported as zero, so the stable
@@ -118,10 +123,118 @@ export function inArrivalOrder(
         moments.push(moment);
     }
 
-    return byOffset
+    const ordered = byOffset
         .map((event, index) => ({event, moment: moments[index]}))
-        .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event))
-        .map(entry => entry.event);
+        .toSorted((a, b) => a.moment !== b.moment ? a.moment - b.moment : tieBreak(a.event, b.event));
+    if (mustPrecede === undefined) {
+        return ordered.map(entry => entry.event);
+    }
+
+    // `mustPrecede` reorders within a moment and never across one: separated arrivals keep their order (decision 102).
+    const result: CollisionEvent[] = [];
+    let start = 0;
+    for (let end = 1; end <= ordered.length; end++) {
+        if (end === ordered.length || ordered[end].moment !== ordered[start].moment) {
+            result.push(...inPrecedenceOrder(ordered.slice(start, end).map(entry => entry.event), mustPrecede));
+            start = end;
+        }
+    }
+    return result;
+}
+
+/**
+ * `events` in their given order, except that no event is placed before one that `mustPrecede` it: at each place, the
+ * first event of the given order that no event still unplaced must precede (a stable topological order). The given order
+ * therefore decides only between events the relation leaves unordered.
+ *
+ * Should every unplaced event have one that must precede it, the relation has a cycle and cannot be honoured; the first
+ * unplaced event of the given order is placed and the rest go on as before, so the order is always total and always a
+ * function of the given order and the relation.
+ */
+function inPrecedenceOrder(
+    events: CollisionEvent[],
+    mustPrecede: (first: CollisionEvent, second: CollisionEvent) => boolean,
+): CollisionEvent[] {
+    const blockedBy = events.map(() => 0);
+    const blocks = events.map((): number[] => []);
+    events.forEach((first, i) => events.forEach((second, j) => {
+        if (i !== j && mustPrecede(first, second)) {
+            blocks[i].push(j);
+            blockedBy[j]++;
+        }
+    }));
+
+    const placed = events.map(() => false);
+    const ordered: CollisionEvent[] = [];
+    while (ordered.length < events.length) {
+        let next = blockedBy.findIndex((count, index) => !placed[index] && count === 0);
+        if (next < 0) {
+            next = placed.indexOf(false);
+        }
+        placed[next] = true;
+        ordered.push(events[next]);
+        blocks[next].forEach(index => blockedBy[index]--);
+    }
+    return ordered;
+}
+
+/**
+ * The bisectors an event's meeting point lies on: both of an interior pair's, and a split's instigator (its other
+ * colliding edge is the exterior wall it strikes). Later colliding edges are accepted with the event and do not meet there.
+ */
+function bisectorsMeeting(event: CollisionEvent, context: StraightSkeletonSolverContext): number[] {
+    return event.collidingEdges.slice(0, 2).filter(edgeId => edgeId >= context.graph.numExteriorNodes);
+}
+
+/** How far `point` lies along bisector `edgeId`'s ray from its source: its projection on the ray's direction. */
+function distanceAlongRay(point: Vector2, edgeId: number, context: StraightSkeletonSolverContext): number {
+    const ray = context.projectRayInterior(context.getInteriorWithId(edgeId));
+    const basis = ray.basisVector;
+    return (basis.x * (point.x - ray.sourceVector.x) + basis.y * (point.y - ray.sourceVector.y)) / Math.hypot(basis.x, basis.y);
+}
+
+/**
+ * OF TWO SIMULTANEOUS EVENTS THAT SHARE A BISECTOR, THE ONE NEARER ALONG THAT BISECTOR'S RAY IS RESOLVED FIRST (BSA.D335,
+ * BSA.F107): the relation `inArrivalOrder` honours within a moment, over `events`.
+ *
+ * A bisector carries ONE wavefront vertex from its source outward, so of two meetings on its ray the nearer is the one
+ * that vertex reaches, and it ends the bisector there. Time says the same thing wherever time moves along the ray, and
+ * there two meetings at two points of one ray are not one moment. It stops saying it on a LEVEL bisector, the ridge two
+ * walls that face each other bear: every point of it has one time, so every other bisector with one of those two walls
+ * as a parent meets it at the same instant, wherever it meets it. Two such meetings are one moment at two points, and
+ * the edge-id tie-break used to pick between them. On the user's layout files 4, 7 and 9 it took the far one, ran the
+ * ridge past the near one and left a node inside another wall's face, with the solve complete and undiagnosed
+ * (`level-ridge-tie.test.ts` is the smallest outline found). So the order goes back to position.
+ *
+ * EVERY KIND OF EVENT, NOT ONLY PAIRS: a split lies on its instigator's ray, and is ordered against a pair on that ray
+ * the same way, ahead of priority. Measured over the wide mixed-pitch fuzz (5,000 draws), 33 fallback layers held such a
+ * cross-kind order, and restricting the relation to events of one priority changed no skeleton of its 8,878 islands.
+ *
+ * MORE THAN THE PERCEPTUAL FLOOR APART ALONG THE RAY, or the two are one point (the floor is the solver's bar for one
+ * point, as `clusterCoincidentMerges` spends it), and the relation leaves them to the tie-break: the reciprocal reports
+ * of one meeting must not be ordered by an ulp (journal decision 65). The distances are read once per event.
+ *
+ * ONLY IN THE PAIRWISE FALLBACK. The whole-event path's splits (`splitEvents` below) are not ordered by it: that order
+ * sites splits that land on one point, it is taken over the held window rather than one moment, and two splits of one
+ * instigator more than the floor apart were found in no layer of `FULL_CORPUS`, `HOLED_TEST_POLYGONS`,
+ * `WEIGHTED_TEST_POLYGONS` or either mixed-pitch fuzz, so the rule would change nothing there that a test could convict.
+ */
+function nearerAlongSharedBisector(
+    events: CollisionEvent[],
+    context: StraightSkeletonSolverContext,
+): (first: CollisionEvent, second: CollisionEvent) => boolean {
+    const along = new Map(events.map(event => [event, new Map(bisectorsMeeting(event, context)
+        .map(edgeId => [edgeId, distanceAlongRay(event.position, edgeId, context)] as const))] as const));
+    return (first, second) => {
+        const secondAlong = along.get(second)!;
+        for (const [edgeId, firstDistance] of along.get(first)!) {
+            const secondDistance = secondAlong.get(edgeId);
+            if (secondDistance !== undefined && secondDistance - firstDistance > context.perceptualFloor) {
+                return true;
+            }
+        }
+        return false;
+    };
 }
 
 /**
@@ -521,7 +634,9 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // polygon's own vertex order and carry no arithmetic at all.
     //
     // It is NOT a layer ordering. Passed to `inArrivalOrder`, it decides only within one moment of
-    // the wavefront clock; separated arrivals are ordered by their offsets (decision 102).
+    // the wavefront clock; separated arrivals are ordered by their offsets (decision 102). Nor does it
+    // decide between two meetings on one bisector's ray at two points: the nearer goes first
+    // (`nearerAlongSharedBisector`, BSA.D335).
     const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
         const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
         if (priority !== 0) {
@@ -621,8 +736,10 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // reported pair is handled first is the pair the ring collapses on and every rival report of
     // those edges returns empty. That makes arrival order load-bearing, not cosmetic. It now only
     // ever sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
+    // Within it, a meeting nearer along a bisector both events lie on goes first (BSA.D335), and the
+    // tie-break decides only what that leaves unordered.
     if (resolution === null) {
-        inArrivalOrder(eventsToResolve, byEventPriority)
+        inArrivalOrder(eventsToResolve, byEventPriority, nearerAlongSharedBisector(eventsToResolve, context))
             .map(event => handleCollisionEvent(event, context))
             .forEach(recordBisections)
     } else {

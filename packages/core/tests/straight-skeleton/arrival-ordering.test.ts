@@ -141,6 +141,34 @@ describe('inArrivalOrder: the earlier arrival is resolved first', () => {
     });
 });
 
+describe('inArrivalOrder with a precedence: it orders within a moment, before the tie-break (BSA.D335)', () => {
+    // The relation the solver hands it is "nearer along a shared bisector"; here it is stated directly, by edge lists.
+    const precedes = (rules: [number[], number[]][]) => (first: CollisionEvent, second: CollisionEvent) =>
+        rules.some(([before, after]) => before.join() === first.collidingEdges.join() && after.join() === second.collidingEdges.join());
+
+    it('places an event that must precede another first, and leaves the rest to the tie-break', () => {
+        const layer = [event(1.0, [21, 22]), event(1.0, [16, 22]), event(1.0, [10, 11])];
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority))).toEqual([[10, 11], [16, 22], [21, 22]]);
+        expect(pairs(inArrivalOrder(layer, byEventPriority, precedes([[[21, 22], [16, 22]]]))))
+            .toEqual([[10, 11], [21, 22], [16, 22]]);
+    });
+
+    it('never reorders across moments: an earlier arrival stays first whatever the relation says', () => {
+        const layer = [event(1.0, [16, 22]), event(2.0, [21, 22])];
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority, precedes([[[21, 22], [16, 22]]]))))
+            .toEqual([[16, 22], [21, 22]]);
+    });
+
+    it('takes the tie-break order where the relation has a cycle, so the order is still total', () => {
+        const layer = [event(1.0, [3, 4]), event(1.0, [1, 2])];
+        const cycle = precedes([[[1, 2], [3, 4]], [[3, 4], [1, 2]]]);
+
+        expect(pairs(inArrivalOrder(layer, byEventPriority, cycle))).toEqual([[1, 2], [3, 4]]);
+    });
+});
+
 describe('the arm ring of (seed 55433) is paired on the walls that vanish first', () => {
     it('carries its surviving ridge between walls 9 and 15, not walls 10 and 16', () => {
         /*
