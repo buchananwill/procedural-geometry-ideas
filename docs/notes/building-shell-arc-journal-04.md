@@ -72,39 +72,45 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 ## 4. Next work
 
 **Session 4 state, 2026-11-15, the lead working unattended (BSA.D301).** The arc's work is the holed skeleton, on
-`feature/skeleton-holes` (cut from `ee84976`), under an approved vision and roadmap (BSA.D286). Nothing is pushed.
+`feature/skeleton-holes` (cut from `ee84976`), under an approved vision and roadmap (BSA.D286). **Nothing is pushed or
+merged; both wait for the user.**
 
-**Built, all local commits:**
-- Node 1, stored wavefront order: complete at `823211a` (BSA.D295).
-- Nodes 2 and 3, holes as input: `57f6967`, review fixes `f008560`, spec completed (BSA.D297, BSA.D299).
-- The acceptance cure: measuring step `420c604`, switch `8170011`, reviewed clean, issue resolved and spec completed
-  (BSA.D302, BSA.D304); its small review fixes `3a92a28`.
-- Node 4, join and divide: `a8ba71f`, all nine generic holed fixtures solving, F1 to its closed form (BSA.D307). **Under
-  independent review; spec at `implementing`.**
-- Last figures, by delegates: core 5,954 passed, none failed, 9 skipped; building-shell 9,992; sweep records identical
-  for single-loop input.
+**Built, all local commits, each reviewed independently unless marked:**
+- Node 1, stored wavefront order: `823211a` (BSA.D295).
+- Nodes 2 and 3, holes as input: `57f6967`, `f008560` (BSA.D299).
+- The acceptance cure: `8170011`, `3a92a28`; issue resolved (BSA.D304).
+- Node 4, join and divide: `a8ba71f`, `9164e92` (BSA.D312). The causality check compares times: `8887d65`.
+- Node 5, simultaneous rings: `3abb3ac`, fixes `ad45ddd`, the holed guard `fae1b8d` and `7e6105c` (BSA.D320).
+- Node 6, loop-aware consumers and the holed roster of 21 fixtures: `9b5f90c`, fixes `dd191e5` (BSA.D316).
+- Node 7, the dashboard: `9c0389a` (BSA.D322). **Under review.**
+- Last figures, by delegates: core 6,634 passed, 10 failed by design, 10 skipped; building-shell 9,992; dashboard 538;
+  single-loop sweep records byte-identical throughout.
 
-**Specs:** node 6 approved (BSA.D305); node 9 drafted and held at `proposed` until nodes 5 and 6 land (BSA.D306); nodes
-5, 7 and 8 being drafted, nodes 5 and 8 from measurements on a throwaway copy.
+**In flight:** node 9, building-shell on the holed solve, being implemented under its approved spec (BSA.D321); node 7's
+review. **Left:** node 8, contact, its draft revised and held `proposed`, sequenced last (BSA.D319).
 
-**Waiting for the user, none blocking yet:**
-- Nothing is pushed or merged; both wait for the user's word.
-- Any part of node 5 or node 8 that needs a change to how single-loop events resolve, or a tolerance to move, is held in
-  that spec's "For the user's ruling" section and not built (BSA.D301).
-- Whether to guard the direct-strike split path (BSA.F98), and the sub-floor cycles round hub nodes (BSA.D302), are open
-  and untouched.
+**For the user to rule on, none of it decided by the lead:**
+1. **Three open solver defects on single-loop input, each with an issue note and red tests** (ten red tests in core by
+   design): a reflex bisector that is not primary is never tested for a split, which gives wrong skeletons on weighted
+   input (4.25 percent of a random weighted fuzz) and, by one specimen, at unit weights too (BSA.F102, BSA.D312,
+   BSA.D319); a straight bisector between collinear walls that face the same way, with a confirmed mis-pairing in the
+   pairwise fallback (BSA.F103, BSA.D318); and what stays refused by name, a meeting of three fronts (BSA.D311). Their
+   cures change how single-loop events resolve.
+2. **Whether the holed guard should also run on single loops** (BSA.D314). It would turn some existing single-loop
+   results from complete to incomplete. The lead recommends it.
+3. **Node 9's regression:** 8 layouts in `tests/courtyard.test.ts` that build today are refused by the holed solve and
+   become hard errors naming the island; two are shapes a person would draw (BSA.D321). Landed on the branch as approved
+   by the lead; reversible.
+4. **What the guard cannot see:** overlapping collinear arcs. Telling them from a sound sliver needs a bar below the
+   perceptual floor, a new tolerance (BSA.D320).
+5. Whether to guard the direct-strike split path (BSA.F98); the sub-floor cycles round hub nodes (BSA.D302); the
+   dashboard's step-through dropping step failures on single loops (BSA.D308).
+6. Push, and merge to `main`; and session 3's carried items (its section 4, items 2 to 8), untouched.
 
 **How the user is steering** is in session 3's list plus BSA.D284, BSA.D287, BSA.D288, BSA.D291 and BSA.D301.
 
-**Next, in order:**
-1. Rule on node 4's review; review fixes; mark its spec completed.
-2. Read and approve the node 5 spec as far as it is of the kind that leaves single-loop resolution alone; implement,
-   review. **Building-shell cannot move to the holed solve before this** (BSA.D306).
-3. Implement node 6 (consumers and the holed roster), review.
-4. Node 7 (dashboard) and node 8 (contact), each: approve the draft, implement, review.
-5. Node 9 (building-shell): read the held draft, rule on its open points, approve, implement, re-export the goldens and
-   report the diff, review, then amend `building-shell-prototype-decisions.md` as the draft's decision 52 lists.
-6. Session 3's carried items (its section 4, items 2 to 8) are untouched.
+**Next, in order:** rule on node 7's review and node 9's report; node 9's independent review; amend
+`building-shell-prototype-decisions.md` as node 9's spec decision lists; then node 8.
 
 ## 5. Open items
 
@@ -1054,6 +1060,29 @@ session 3's own.
   - **The lead's amendments (spec decisions 55 to 58):** the guard's kinds as landed, the self-loop kind not a refusal;
     **the implementer re-measures on its own tree before deleting the cut and stops if it finds a wrong roof or a wider
     regression;** option A is what is built; the viewer can load a refused layout and shows the cause.
+- **322. Roadmap node 7 is built at `9c0389a`, with node 6's review fixes at `dd191e5`: the dashboard lists and draws
+  the 21 holed fixtures, steps through them, and no single-loop picture changed. Accepted for review; node 9 is
+  dispatched.** The delegate's figures, not re-run: core 6,634 passed, 10 failed by design, 10 skipped; building-shell
+  9,992; dashboard 538 in 29 suites; every existing sweep record byte-identical.
+  - **The single-loop gate:** a pinned digest of the scene for all 60 corpus fixtures with every debug flag off and on,
+    measured before any dashboard edit and green after every one; widening one stroke turns 60 of its tests red.
+  - **The browser run, by the delegate with Playwright, screenshots kept outside the repo:** all 21 holed fixtures solve
+    and draw with the hole empty; the concentric square and the courtyard with wings step through to a ridge ring;
+    labels sit on their own loop's edges and arrows run the solved way; dragging F1's outline across its hole shows
+    core's refusal and keeps the last good solve; the refusal specimen shows its incomplete alert over every frame; the
+    recursive loader lists the holed fixtures greyed; `Square` and `Offset Cross Junction` are unchanged.
+  - **The lead looked at one screenshot itself,** the courtyard with wings of BSA.F90: the hole reads as empty, a ridge
+    square runs round the courtyard, and each wing carries its own ridge to the ring. It was sent to the user.
+  - **In core:** `solveSkeletonStepped` through an optional observer in `runSimplePolygon`, with `solveSkeleton`
+    delegating to the same private function with no observer; an optional loop table on the primary-bisector preview. No
+    event, guard, tolerance or constant code.
+  - **All 14 mutation gates of the spec convicted,** and three more.
+  - **Small things seen and left:** a refused step's detail is printed twice in the alert, once per diagnostic kind that
+    carries it; unresolved rays are drawn 100 world units long whatever the shape's size, as they always were; the sweep
+    overlay draws nothing at termination on any fixture.
+  - **Node 6's spec is `completed`** by the delegate's first commit.
+  - **Dispatched:** node 9 to one fresh Opus delegate in the tree, and an independent review of node 7 from a private
+    copy.
 
 ## Findings
 
