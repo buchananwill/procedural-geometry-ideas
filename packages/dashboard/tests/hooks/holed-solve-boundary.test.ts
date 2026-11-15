@@ -16,7 +16,7 @@ import {
     solveHoledSkeletonSteppedGuarded,
 } from '../../src/hooks/skeleton-solve-boundary';
 import { EXPLORER_PERCEPTUAL_FLOOR } from '../../src/scene/perceptual-floor';
-import { E_PRIME, holesOf } from '../fixtures/holed-specimens';
+import { REFUSAL_SPECIMEN, holesOf } from '../fixtures/holed-specimens';
 
 /** Core's own `types.ts`, where `SkeletonDiagnosticKind` and its doc comment live: the fresh source of the kinds. */
 const CORE_TYPES_SOURCE = join(__dirname, '..', '..', '..', 'core', 'src', 'straight-skeleton', 'types.ts');
@@ -57,8 +57,8 @@ describe('the holed solve, guarded', () => {
         expect(outcome.error).toMatch(/crosses hole 0's edge from vertex 0/);
     });
 
-    it('gives E′ complete: false and a text holding each present blocking kind\'s heading and detail', () => {
-        const outcome = solveHoledSkeletonGuarded(E_PRIME.outline, {...OPTIONS, holes: holesOf(E_PRIME)});
+    it('gives the refusal specimen complete: false and a text holding each present blocking kind\'s heading and detail', () => {
+        const outcome = solveHoledSkeletonGuarded(REFUSAL_SPECIMEN.outline, {...OPTIONS, holes: holesOf(REFUSAL_SPECIMEN)});
         expect(outcome.error).toBeNull();
         const result = outcome.result!;
         expect(result.complete).toBe(false);
@@ -81,8 +81,8 @@ describe('the holed solve, guarded', () => {
 });
 
 describe('the holed step-through, guarded and adapted (decision 16)', () => {
-    it('carries E′\'s snapshots and the Skeleton incomplete text as its error', () => {
-        const outcome = solveHoledSkeletonSteppedGuarded(E_PRIME.outline, {...OPTIONS, holes: holesOf(E_PRIME)});
+    it('carries the refusal specimen\'s snapshots and the Skeleton incomplete text as its error', () => {
+        const outcome = solveHoledSkeletonSteppedGuarded(REFUSAL_SPECIMEN.outline, {...OPTIONS, holes: holesOf(REFUSAL_SPECIMEN)});
         expect(outcome.error).toBeNull();
         const adapted = adaptHoledSteppedResult(outcome.result!);
         expect(adapted.snapshots).toBe(outcome.result!.snapshots);
@@ -107,19 +107,19 @@ describe('the holed step-through, guarded and adapted (decision 16)', () => {
 });
 
 describe('a refusal reads as a refusal, with its detail once (BSA.D323)', () => {
-    const outcome = solveHoledSkeletonGuarded(E_PRIME.outline, {...OPTIONS, holes: holesOf(E_PRIME)});
+    const outcome = solveHoledSkeletonGuarded(REFUSAL_SPECIMEN.outline, {...OPTIONS, holes: holesOf(REFUSAL_SPECIMEN)});
     const diagnostics = outcome.result!.diagnostics;
     const refusals = diagnostics.filter(d => (STEP_REFUSAL_KINDS as readonly string[]).includes(d.kind));
     const text = describeBlockingDiagnostics(diagnostics)!;
 
-    it('E′: core pushes its refusal and a step-failure with the identical detail', () => {
+    it('the refusal specimen: core pushes its refusal and a step-failure with the identical detail', () => {
         expect(refusals.length).toBeGreaterThan(0);
         for (const refusal of refusals) {
             expect(diagnostics.some(d => d.kind === 'step-failure' && d.detail === refusal.detail)).toBe(true);
         }
     });
 
-    it('E′: the text heads it as refused, never as a step that threw, and prints each refusal\'s detail once', () => {
+    it('the refusal specimen: the text heads it as refused, never as a step that threw, and prints each refusal\'s detail once', () => {
         expect(text).not.toContain(BLOCKING_DIAGNOSTIC_HEADINGS['step-failure']);
         for (const refusal of refusals) {
             const heading = BLOCKING_DIAGNOSTIC_HEADINGS[refusal.kind as keyof typeof BLOCKING_DIAGNOSTIC_HEADINGS];

@@ -8,7 +8,7 @@ import { EXPLORER_PERCEPTUAL_FLOOR } from '../../src/scene/perceptual-floor';
 import { skeletonToScene } from '../../src/scene/adapters/skeletonToScene';
 import type { SceneGroup, SceneLabel, SceneLine, ScenePrimitive, SceneRegion } from '../../src/scene/types';
 import type { DebugDisplayOptions } from '../../src/types';
-import { E_PRIME, holesOf } from '../fixtures/holed-specimens';
+import { REFUSAL_SPECIMEN, holesOf } from '../fixtures/holed-specimens';
 import { ALL_FLAGS_OFF } from './single-loop-scene-digest';
 
 /*
@@ -178,10 +178,10 @@ describe('the removed mark is per loop (decision 29)', () => {
 });
 
 describe('an incomplete holed result shows what was not finished (decision 30)', () => {
-    it('E′: the unresolved edges are drawn with their toggle off', () => {
-        const result = solved(E_PRIME);
+    it('the refusal specimen: the unresolved edges are drawn with their toggle off', () => {
+        const result = solved(REFUSAL_SPECIMEN);
         expect(result.complete).toBe(false);
-        const {scene} = draw(E_PRIME, ALL_FLAGS_OFF, result);
+        const {scene} = draw(REFUSAL_SPECIMEN, ALL_FLAGS_OFF, result);
         const unresolved = group(scene, 'group:unresolved-edges');
         expect(unresolved.visible).toBe(true);
         expect(unresolved.children.length).toBeGreaterThan(0);
@@ -416,14 +416,14 @@ describe('L2: one numbering whether the skeleton is shown or hidden', () => {
 });
 
 describe('L3: a step-through frame that is not the last shows pending bisectors as the toggle says', () => {
-    const stepped = solveHoledSkeletonSteppedGuarded(E_PRIME.outline, {
-        perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR, holes: holesOf(E_PRIME)}).result!;
+    const stepped = solveHoledSkeletonSteppedGuarded(REFUSAL_SPECIMEN.outline, {
+        perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR, holes: holesOf(REFUSAL_SPECIMEN)}).result!;
     const frame = (index: number, pendingFrame: boolean, debug: DebugDisplayOptions) => sceneOf(
-        E_PRIME.outline.map(v => ({...v})), holesOf(E_PRIME), debug, {
+        REFUSAL_SPECIMEN.outline.map(v => ({...v})), holesOf(REFUSAL_SPECIMEN), debug, {
             skeleton: stepped.snapshots[index], solverLoopMaps: stepped.result.loopMaps,
             incomplete: !stepped.result.complete, pendingFrame});
 
-    it('E′ steps through more than one frame, incomplete, with targetless bisectors on its first', () => {
+    it('the refusal specimen steps through more than one frame, incomplete, with targetless bisectors on its first', () => {
         expect(stepped.result.complete).toBe(false);
         expect(stepped.snapshots.length).toBeGreaterThan(1);
         expect(group(frame(0, true, ALL_FLAGS_OFF), 'group:unresolved-edges').children.length).toBeGreaterThan(0);

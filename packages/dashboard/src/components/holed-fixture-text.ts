@@ -89,10 +89,13 @@ export const BLOCKING_DIAGNOSTIC_HEADINGS: Record<BlockingDiagnosticKind, string
     'simultaneous-across-rings': 'Refused: in one layer of a step of several rings, events of different rings '
         + 'coincide in a form the solver does not settle (a vertex event across rings that is not one run on each of '
         + 'two rings, a layer that cannot be resolved whole holding an event across rings, or a meeting on a third '
-        + 'front). The layer was refused before it changed anything; the skeleton stops at the refused step.',
+        + 'front that cannot be resolved as one whole event: its strikes hit more than one wall, a run of it is its '
+        + 'whole ring, not exactly one of its gaps faces the struck wall, or a gap grazes the wall). The layer was '
+        + 'refused before it changed anything; the skeleton stops at the refused step.',
     'multi-ring-step-refused': 'Refused: a step of several rings could not be handled without guessing (a ring of '
-        + 'fewer than three bisectors at its start, no event at all, or rings the layer left that cannot be told outer '
-        + 'from inner or assigned to a component). The skeleton stops at the refused step.',
+        + 'fewer than three bisectors at its start, no event at all, a ring the layer left with no visible area that '
+        + 'is not a flat termination, or a ring with area that cannot be told outer from inner or assigned to a '
+        + 'component). The skeleton stops at the refused step.',
     'step-failure': 'A sub-polygon threw during a solver step and was skipped; its bisectors stay unresolved.',
     'unresolved-edges': 'One or more interior edges finished the solve without a target node. On the finished '
         + 'skeleton, and on a step-through\'s last frame, they are drawn as dashed red rays.',
