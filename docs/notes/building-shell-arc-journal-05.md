@@ -394,6 +394,17 @@ session 3's own.
   - **Not known, and now measured by a narrow read-only delegate:** why the existing split handling does not fire for
     that newborn vertex at zero distance under merge-first, and whether admitting it, with the flat rule of BSA.F113,
     replaces BSA.F111's rule entirely.
+- **345. The user, 2026-11-15: The user accepts the flat-ring termination of BSA.F113 together with the third-front rule
+  of BSA.F111 as the solution, and the build proceeds.** The user's words: "I think I will have to admit defeat on this
+  one for now. The maths/empirical verification is unambiguous, so I'll accept flat + wall-cut rule as a solution."
+  - This lifts the gate of BSA.D340: the user accepts on the measurements, saying the explanation of why the newborn
+    vertex cannot simply split has not fully landed. The delegate of BSA.D344 is left running, since its answer is that
+    explanation and may simplify the rule; its result is reported and changes the spec only if the user says so.
+  - **Scope, by the lead's recommendation as put to the user:** steps of several rings only. Single-loop steps keep
+    their present path; applying the flat rule there moves a defect fixture and leans on the 4-floor bar, and is a
+    separate unit for the user to rule on (BSA.D301).
+  - **Process:** a delegate drafts the decision spec, amending node 5's cross-ring decisions; the lead reviews and
+    approves it; one Opus implementer builds; an independent review follows.
 
 ## Findings
 
