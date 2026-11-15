@@ -438,11 +438,21 @@ export interface AlgorithmStepOutput {
  *   names the step and the ring.
  * - `holed-topology-violation` — a solve with holes that would otherwise be complete has a finished interior graph
  *   that is not one connected graph of cycle rank equal to the hole count (an arc recorded from both ends counted
- *   once, culled edges skipped), or has a self-loop that is not culled (BSA.D314, `holed-guard.ts`). BLOCKING; the
- *   detail names the edge, or the component count, or the rank. Never pushed on a single-loop solve.
+ *   once, culled edges and self-loops skipped), or an arc whose two records name different pairs of walls (BSA.D314,
+ *   BSA.D318, `holed-guard.ts`). BLOCKING; the detail names the component count, the rank or the arc. Never pushed on
+ *   a single-loop solve.
  * - `holed-equal-time-violation` — a solve with holes that would otherwise be complete has an interior node that is
  *   not at one time from every wall meeting there, within the perceptual floor in unit space (BSA.D314). BLOCKING;
  *   the detail names the node and the two walls furthest apart. Never pushed on a single-loop solve.
+ * - `holed-time-order-violation` — a solve with holes that would otherwise be complete has a non-culled interior edge
+ *   whose target is earlier than its source, beyond the perceptual floor in unit space (BSA.D318). BLOCKING; the
+ *   detail names the edge. Never pushed on a single-loop solve.
+ * - `holed-planarity-violation` — a solve with holes that would otherwise be complete has two arcs that cross inside
+ *   both, or two collinear arcs that overlap, beyond the perceptual floor in unit space (BSA.D318). BLOCKING; the
+ *   detail names both arcs. Never pushed on a single-loop solve.
+ * - `holed-unculled-self-loop` — a solve with holes that would otherwise be complete has a zero-length self-loop the
+ *   solver did not mark culled (BSA.D318). INFORMATIONAL: it does not make a result incomplete. Never pushed on a
+ *   single-loop solve.
  *
  * `holes-not-solved`, which a holed solve stopped with before the join event, is retired (decision 34).
  */
@@ -457,7 +467,10 @@ export type SkeletonDiagnosticKind =
     | 'simultaneous-across-rings'
     | 'multi-ring-step-refused'
     | 'holed-topology-violation'
-    | 'holed-equal-time-violation';
+    | 'holed-equal-time-violation'
+    | 'holed-time-order-violation'
+    | 'holed-planarity-violation'
+    | 'holed-unculled-self-loop';
 
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
@@ -513,9 +526,10 @@ export interface SkeletonSolveResult {
     context: StraightSkeletonSolverContext | null;
     /**
      * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges`,
-     * `simultaneous-across-rings`, `multi-ring-step-refused`, `holed-topology-violation` or
-     * `holed-equal-time-violation` diagnostics, and the graph has at least one interior edge. It reads no exterior
-     * edge's acceptance. The two holed kinds come from the guard a solve with holes runs last (BSA.D314). A `winding-normalised`,
+     * `simultaneous-across-rings`, `multi-ring-step-refused`, `holed-topology-violation`,
+     * `holed-equal-time-violation`, `holed-time-order-violation` or `holed-planarity-violation` diagnostics, and the
+     * graph has at least one interior edge. It reads no exterior edge's acceptance. The holed kinds come from the guard
+     * a solve with holes runs last (BSA.D314, BSA.D318); its `holed-unculled-self-loop` is informational. A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
      * incomplete — all three are informational reports of what the boundary stage did to the input.
      */

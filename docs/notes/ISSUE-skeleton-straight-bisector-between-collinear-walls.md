@@ -11,9 +11,9 @@ date: 2026-11-15
 Found by the independent review of roadmap node 5 (BSA.F103) and ruled on in BSA.D314. **This is a defect of how
 one-ring steps resolve, and it exists on single loops today, before any holed work.** Its cure changes how
 single-loop events resolve, which the user has reserved (BSA.D301), so nothing in the solver has been changed for it.
-Holed solves are guarded instead: a holed result that shows the defect's two signatures is `complete: false` with a
-`holed-topology-violation` or `holed-equal-time-violation` diagnostic (`holed-guard.ts`, BSA.D314). Single-loop
-results carry no such guard.
+Holed solves are guarded instead: a holed result that shows one of the defect's signatures is `complete: false` with
+a named blocking diagnostic (`holed-guard.ts`, BSA.D314, widened by BSA.D318; see "What a caller can and cannot
+detect"). Single-loop results carry no such guard.
 
 This note is the umbrella for two older notes, which are forms of the same precondition:
 [a straight vertex left in a ring of zero area](./ISSUE-skeleton-straight-vertex-in-zero-area-ring.md), and
@@ -38,7 +38,8 @@ traced; but most solves that carry one are sound.
   collapses, and each ridge bisector is paired with the FAR straight vertex instead of the near one. The arcs overlap,
   the faces are wrong and the interior graph has one cycle too many, **with every node in the right place,
   `complete: true` and no diagnostic.** A variant measured by the guard's fuzz overlaps the arcs with the cycle rank
-  right: only planarity sees it.
+  right, or runs one arc through another's node: only a collinear-overlap or T-junction test would see it, and at the
+  perceptual floor neither can be told from a sound sliver face (see "What a caller can and cannot detect").
 - **K3, a ring of two or three straight bisectors the pair or triangle handler cannot close.** Signalled:
   `complete: false` with a `step-failure` ("Unable to generate any collision from last two edges", "Failed to collide
   interior edges in triangle").
@@ -101,9 +102,10 @@ non-culled edge ends at its own source. They are red today and stay red until a 
 - **K3, a triangle:** outline `[0,950] × [0,250]`, holes `[100,300] × [100,200]`, `[400,650] × [100,200]`,
   `[750,850] × [100,200]`: "Failed to collide interior edges in triangle".
 
-The holed K1, self-loop, K2 and jittered reproducers are held by the guard's GREEN tests in
+The holed K1, K2 and jittered reproducers are held by the guard's GREEN tests in
 [holed-guard.test.ts](../../packages/core/tests/straight-skeleton/holed-guard.test.ts): each asserts `complete: false`
-with the named diagnostic, which is a guard in production code, not a wrong skeleton. The two K3 inputs are red tests
+with the named diagnostic, which is a guard in production code, not a wrong skeleton. The holed self-loop (seed 219)
+is otherwise sound, and since BSA.D318 its test asserts the informational `holed-unculled-self-loop` and `complete`. The two K3 inputs are red tests
 in [straight-bisector.test.ts](../../packages/core/tests/straight-skeleton/straight-bisector.test.ts), under
 `red by design: a ring of straight bisectors the pair or triangle handler cannot close`, asserting `complete`.
 
@@ -146,34 +148,46 @@ predate node 5. Holed: of 3,000 axis-aligned unions of 2 to 4 rectangles with 1 
 name, 15 complete and wrong (14 with no diagnostic), 14 incomplete; of 1,500 of them turned by an arbitrary angle, 223
 complete and wrong (43 with no diagnostic).
 
-**The guard's measurement (BSA.D314), an independent checker of its own** (equal time, time order, containment, one
-closed simple face per exterior edge tiling the region, planarity, cycle rank, and on axis-aligned input every node's
-time equal to its L-infinity distance to the nearest wall), at tolerance `1e-6` of the extent for times and `1e-10` for
-crossings, on a fresh fuzz of the same families:
+**The guard's measurement (BSA.D314, BSA.D318), an independent checker of its own** (equal time, time order,
+containment, one closed simple face per exterior edge tiling the region, planarity, cycle rank, and on axis-aligned
+input every node's time equal to its L-infinity distance to the nearest wall), at tolerance `1e-6` of the extent for
+times and `1e-10` for crossings, on a fresh fuzz of the same families. An un-culled zero-length self-loop is not, on
+its own, a wrong answer (BSA.D318). The guard counted is the widened one:
 
 | Family | Solves | Incomplete | Sound | Complete and wrong | of which caught by the guard |
 |---|---|---|---|---|---|
-| Unions of 2–4 rectangles, 1–3 holes, axis-aligned | 3,000 | 171 | 2,806 | 23 | 20 |
-| The same turned and moved | 1,500 | 78 | 1,180 | 242 | 238 |
+| Unions of 2–4 rectangles, 1–3 holes, axis-aligned | 3,000 | 171 | 2,815 | 14 | 10 |
+| The same turned and moved | 1,500 | 78 | 1,202 | 220 | 217 |
 | One rectangle, 1–3 holes | 1,000 | 33 | 967 | 0 | 0 |
-| The same turned and moved | 1,000 | 33 | 920 | 47 | 47 |
+| The same turned and moved | 1,000 | 33 | 931 | 36 | 36 |
 | Star-shaped outlines, 1–6 holes in general position | 1,000 | 0 (2 refused at the door) | 998 | 0 | 0 |
+| The unions under the harness's 1× jitter | 1,500 | 223 | 1,026 | 251 | 224 |
+| The rectangles under the same jitter | 500 | 52 | 413 | 35 | 33 |
 | Single loop: the union outlines, no holes | 1,000 | 0 | 1,000 | 0 | (no guard) |
-| Single loop: the same turned and moved | 1,000 | 0 | 933 | 67 (12 with no diagnostic) | (no guard) |
+| Single loop: the same turned and moved | 1,000 | 0 | 942 | 58 (3 with no diagnostic) | (no guard) |
 
-On exact input (every family above), **every complete and wrong solve carries a straight bisector** (23 of 23, 242 of
-242, 47 of 47, 67 of 67), and so do many sound ones (1,170 of 2,806 axis-aligned union solves). Under the harness's
-1× jitter (1e-8 of the extent) the wrong solves are more frequent and not all carry an exactly straight one (235 of
-379 on jittered unions), so jitter adds near-coincidences of its own.
+On exact input, **every complete and wrong solve carries a straight bisector** (14 of 14, 220 of 220, 36 of 36, 58 of
+58), and so do many sound ones (1,179 of 2,815 axis-aligned union solves). Under the harness's 1× jitter (1e-8 of the
+extent) the wrong solves are more frequent and not all carry an exactly straight one (170 of 251 on jittered unions),
+so jitter adds near-coincidences of its own.
 
 ## What a caller can and cannot detect
 
-- **A holed solve:** the guard turns K1 with a cycle too many, every un-culled self-loop and every node off equal time
-  into `complete: false` with a named diagnostic. **It cannot see** overlapping or crossing arcs with the cycle rank
-  and every node time right (7 of 312 wrong exact-input solves in the measurement above, 2 of them with no causality
-  diagnostic), nor, under jitter, arcs whose two records name different wall pairs and faces short of area with every
-  node at one time (28 with no diagnostic of 1,725 jittered solves that would be complete). Planarity, or a check that an arc recorded twice
-  names one pair of walls, would see them; neither is in the guard (the lead's ruling).
+- **A holed solve,** with the guard widened by BSA.D318: `complete: false`, with a named blocking diagnostic, for a
+  cycle rank other than the hole count or a disconnected interior graph, an arc whose two records name different pairs
+  of walls (`holed-topology-violation`), a node off equal time (`holed-equal-time-violation`), an edge running
+  backwards in time (`holed-time-order-violation`), and two arcs crossing inside both (`holed-planarity-violation`),
+  each judged at the perceptual floor in unit space. An un-culled zero-length self-loop is reported as
+  `holed-unculled-self-loop` and blocks nothing: it carries no geometry. Re-measured on the same 11,500-solve fuzz:
+  of 8,352 holed solves the independent checker reads as sound, the guard flags none; of 270 complete and wrong solves
+  on exact input it catches 263, and of 286 on jittered input 257.
+- **What the holed guard still cannot see:** two collinear arcs overlapping along a length, and an arc that runs
+  through another arc's node without ending there (a T-junction), where cycle rank, node times, time order and wall
+  pairs are all right. At the floor these look exactly like a sound solve's sliver face between two walls collinear to
+  within the floor and not exactly, which jitter makes common (an overlap check at the floor flagged 153, then 73,
+  sound jittered solves, and was left out). Measured, they are the 7 exact-input misses (2 with no other diagnostic)
+  and 29 jittered ones (13 with no other diagnostic), some with faces short of area by up to 10%. Telling them from a
+  sliver needs a bar below the floor, which is a new tolerance and the user's to rule.
 - **A single-loop solve:** nothing in the solver signals K1 or the un-culled self-loop. A caller can test for an
   un-culled self-loop itself (`graph.edges[id].target === graph.edges[id].source && !interior.culled`), and
   `buildSkeletonTree(result).isTree` is false on both K1 and the self-loop. K2 is usually, not always, reported by a

@@ -53,7 +53,7 @@ import {
 } from "./constants";
 import {decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
-import {holedSkeletonViolations} from "./holed-guard";
+import {HOLED_UNCULLED_SELF_LOOP, holedSkeletonViolations} from "./holed-guard";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {isClockwise} from "../random-polygon/geometry-helpers";
 import {
@@ -2128,8 +2128,8 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         context = run.context;
     }
 
-    // THE GUARD ON A HOLED SOLVE (BSA.D314; `holed-guard.ts`) READS THE SOLVER'S OWN ANSWER, IN UNIT SPACE, before it
-    // is carried back: carried back, far from the origin, every node is rounded to the caller's coordinates by more
+    // THE GUARD ON A HOLED SOLVE (BSA.D314, BSA.D318; `holed-guard.ts`) READS THE SOLVER'S OWN ANSWER, IN UNIT SPACE,
+    // before it is carried back: carried back, far from the origin, every node is rounded to the caller's coordinates by more
     // than the floor, and the guard would read that rounding as a wrong answer. It only reads the graph; whether its
     // findings count is decided below, once the solve is known to be otherwise complete. A single-loop graph never
     // reaches it.
@@ -2170,13 +2170,15 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges'
         || d.kind === 'simultaneous-across-rings' || d.kind === 'multi-ring-step-refused');
 
-    // THE GUARD ON A HOLED SOLVE (BSA.D314; `holed-guard.ts`): a result of more than one loop that would otherwise be
-    // complete is checked for the two things every silent wrong holed answer found shows, its topology and its
-    // nodes' equal time (read above, in unit space, at the solve's perceptual floor), and each violation is a
-    // BLOCKING diagnostic. It changes nothing in the graph. A single-loop result never reaches it, so it is unchanged.
-    const guardViolations = !blocking && graph.interiorEdges.length > 0 ? holedFindings : [];
-    diagnostics.push(...guardViolations);
-    const complete = !blocking && guardViolations.length === 0 && graph.interiorEdges.length > 0;
+    // THE GUARD ON A HOLED SOLVE (BSA.D314, BSA.D318; `holed-guard.ts`): a result of more than one loop that would
+    // otherwise be complete is checked for its topology, its nodes' equal time, its edges' time order and its arcs'
+    // planarity (read above, in unit space, at the solve's perceptual floor), and each violation is a BLOCKING
+    // diagnostic. An un-culled self-loop is reported and blocks nothing. It changes nothing in the graph. A single-loop
+    // result never reaches it, so it is unchanged.
+    const guardFindings = !blocking && graph.interiorEdges.length > 0 ? holedFindings : [];
+    diagnostics.push(...guardFindings);
+    const guardBlocks = guardFindings.some(finding => finding.kind !== HOLED_UNCULLED_SELF_LOOP);
+    const complete = !blocking && !guardBlocks && graph.interiorEdges.length > 0;
 
     return {
         graph,
