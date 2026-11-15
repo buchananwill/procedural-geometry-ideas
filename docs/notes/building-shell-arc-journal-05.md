@@ -364,6 +364,22 @@ session 3's own.
     because it glued everything to one point, not because the ring was illegitimate.
   - A read-only delegate measures that general flat-ring termination, with a positive test of flatness in place of the
     area sign, against the combination of BSA.F112.
+- **343. The user, 2026-11-15: The user did not mean the closure as strictly as the flat rule of BSA.F113: their picture
+  is any scenario with a transitive relationship of zero-area rings, meant to cover the V case too, and they ask what
+  hole that opens.**
+  - **The lead's answer, reasoned and not measured:** the V case leaves no zero-area ring. With the stem top and hole
+    bottom in a V over the wall, the merge's newborn vertex stands on the wall's front and the two regions either side
+    still have area; the ring is pinched at a point, not flat. What would cover it is the wider principle behind the
+    user's picture: a newborn vertex may take part in an event at its birth point, at a time offset of zero, and such
+    events may chain. For the V case that is merge, then the newborn vertex splitting the wall at zero distance, which
+    gives BSA.F111's result.
+  - **The holes the lead named:** a chain at one instant has no time order, so its result must not depend on processing
+    order, which is today's lesson of BSA.F107 and is unproved here (merge-first and split-first each left a different
+    ring in BSA.F111); a chain needs a progress measure other than time to be sure it ends; and events at zero offset
+    bear zero-length or micro edges whose direction cannot be read, so the time-order and direction oracles that catch
+    mis-pairings go blind exactly there. BSA.F112's ungated closure coming out silently wrong on the three-hole case is
+    the measured instance.
+  - Nothing is dispatched: the lead asked the user to confirm this reading of "transitive" before measuring it.
 
 ## Findings
 
