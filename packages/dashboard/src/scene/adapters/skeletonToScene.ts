@@ -2,7 +2,8 @@ import {REMOVED_VERTEX_INDEX} from "@proc-geo/core";
 import type {PrimaryInteriorEdge, SkeletonLoopMap, StraightSkeletonGraph, Vector2} from "@proc-geo/core";
 import type {Vertex} from "../../stores/usePolygonStore";
 import type {DebugDisplayOptions, CollisionSweepLine} from "../../types";
-import type {ScenePrimitive, SceneGroup} from "../types";
+import type {ScenePrimitive, SceneGroup, StrokeStyle} from "../types";
+import {HOLED_REFUSED_CANVAS_TEXT, HOLED_REFUSED_STALE_CANVAS_TEXT} from "../../components/holed-fixture-text";
 
 // TODO 14/3/26: There are several obviously generic functions here that should be consolidated into package-wide
 //  helpers, if those don't already exist.
@@ -54,6 +55,17 @@ const UNRESOLVED_RAY_LENGTH = 100;
 const SWEEP_FONT = 14;
 const OFFSET_DIST_FONT = 15;
 
+/** The current holed loops while core refuses them (BSA.D323): the red of the removed mark and the unresolved ray. */
+const REFUSED_COLOUR = '#ff6b6b';
+/** The last good solve, kept on screen while a refusal stands: a dashed grey ghost (BSA.D323). */
+const STALE_STROKE: StrokeStyle = {color: '#868e96', width: 1.5, dash: [6, 4]};
+
+/** A graph's own exterior loops, by its loop table; `[]` on a merged graph, whose table is empty. */
+function graphLoops(graph: StraightSkeletonGraph): Vector2[][] {
+    return graph.loops.map(({start, count}) =>
+        graph.nodes.slice(start, start + count).map(node => node.position));
+}
+
 /** One labelled position on the boundary the debug overlay is numbering, and the end of the edge leaving it. */
 interface LabelledBoundaryVertex {
     position: Vector2;
@@ -86,6 +98,65 @@ function nextExteriorPosition(skeleton: StraightSkeletonGraph, index: number): V
 }
 
 /**
+ * Whether `maps` can describe `loops` at all: one map per loop, each with one entry per caller vertex. A refusal is
+ * passed explicitly (`refused`); this is the adapter's own guard against maps of another outline, which is what the
+ * last good solve's maps are once the outline gains or loses a vertex (BSA.D323).
+ */
+function loopMapsFit(maps: readonly SkeletonLoopMap[] | null | undefined, loops: readonly Vertex[][]): boolean {
+    return maps !== null && maps !== undefined && maps.length === loops.length
+        && maps.every((map, k) => map.vertexToNode.length === loops[k].length);
+}
+
+/**
+ * A HOLED POLYGON'S LABELLED BOUNDARY, ONE NUMBERING WHETHER THE SKELETON IS SHOWN OR HIDDEN (BSA.D323). The holed solve
+ * runs either way (decision 13), so its maps are always at hand when it solved, and the labels are the solver's global
+ * ids (decision 28) read off them: loop `k`'s surviving caller vertex `i` is node `vertexToNode[i]`, and since a loop's
+ * nodes are one run of ids in solved order (the loop table), exterior edge `n` runs from node `n` to the loop's next
+ * id, wrapping in the loop. A vertex its map removed is marked, per loop (decision 29).
+ *
+ * Without maps there is no solve of these loops to number by (a refusal, or no holed solve): with a live graph its own
+ * numbering stands, nothing marked; with none, the caller's loops in caller order, each edge wrapping in its loop.
+ */
+function labelledHoledBoundary(
+    loops: Vertex[][],
+    skeleton: StraightSkeletonGraph | null,
+    loopMaps: readonly SkeletonLoopMap[] | null,
+): { ring: LabelledBoundaryVertex[]; removed: Vertex[] } {
+    if (loopMaps !== null) {
+        const ring: LabelledBoundaryVertex[] = [];
+        const removed: Vertex[] = [];
+        loops.forEach((loop, k) => {
+            const survivors: { position: Vertex; index: number }[] = [];
+            loop.forEach((vertex, i) => {
+                const node = loopMaps[k].vertexToNode[i];
+                if (node === REMOVED_VERTEX_INDEX) removed.push(vertex);
+                else survivors.push({position: vertex, index: node});
+            });
+            survivors.sort((a, b) => a.index - b.index);
+            survivors.forEach((survivor, j) => ring.push({
+                position: survivor.position, index: survivor.index,
+                next: survivors[(j + 1) % survivors.length].position}));
+        });
+        ring.sort((a, b) => a.index - b.index);
+        return {ring, removed};
+    }
+    if (skeleton) {
+        const ring = skeleton.nodes
+            .slice(0, skeleton.numExteriorNodes)
+            .map((node, index) => ({position: node.position, index, next: nextExteriorPosition(skeleton, index)}));
+        return {ring, removed: []};
+    }
+    let offset = 0;
+    const ring = loops.flatMap(loop => {
+        const start = offset;
+        offset += loop.length;
+        return loop.map((vertex, local) => ({
+            position: vertex, index: start + local, next: loop[(local + 1) % loop.length]}));
+    });
+    return {ring, removed: []};
+}
+
+/**
  * The boundary the debug labels are numbered against, and the input vertices missing from it.
  *
  * ONE INDEX SPACE PER PICTURE (journal decision 75, 2026-08-28). Every skeleton label on this
@@ -111,20 +182,12 @@ function labelledBoundary(
     skeleton: StraightSkeletonGraph | null,
     solverVertexRemap: number[] | null | undefined,
     holes: readonly SceneHole[],
-    solverLoopMaps: readonly SkeletonLoopMap[] | null | undefined,
+    solverLoopMaps: readonly SkeletonLoopMap[] | null,
 ): { ring: LabelledBoundaryVertex[]; removed: Vertex[] } {
+    if (holes.length > 0) {
+        return labelledHoledBoundary(callerLoops(vertices, holes), skeleton, solverLoopMaps);
+    }
     if (!skeleton) {
-        if (holes.length > 0) {
-            // No solve to number by: the caller's loops in caller order, each edge wrapping inside its own loop.
-            let offset = 0;
-            const ring = callerLoops(vertices, holes).flatMap(loop => {
-                const start = offset;
-                offset += loop.length;
-                return loop.map((vertex, local) => ({
-                    position: vertex, index: start + local, next: loop[(local + 1) % loop.length]}));
-            });
-            return {ring, removed: []};
-        }
         return {
             ring: vertices.map((vertex, index) => ({position: vertex, index, next: vertices[(index + 1) % vertices.length]})),
             removed: [],
@@ -134,15 +197,6 @@ function labelledBoundary(
     const ring = skeleton.nodes
         .slice(0, skeleton.numExteriorNodes)
         .map((node, index) => ({position: node.position, index, next: nextExteriorPosition(skeleton, index)}));
-
-    if (holes.length > 0) {
-        // THE REMOVED MARK IS PER LOOP (decision 29): loop k's caller vertex is marked where its own map removed it.
-        const removed = solverLoopMaps
-            ? callerLoops(vertices, holes).flatMap((loop, k) => loop.filter(
-                (_vertex, index) => solverLoopMaps[k]?.vertexToNode[index] === REMOVED_VERTEX_INDEX))
-            : [];
-        return {ring, removed};
-    }
 
     const survivors = solverVertexRemap?.filter(index => index !== REMOVED_VERTEX_INDEX).length;
     const removed = solverVertexRemap !== null && solverVertexRemap !== undefined
@@ -184,22 +238,39 @@ export function skeletonToScene(params: {
      * whatever their toggle, so the part the solver did not finish reads as missing.
      */
     incomplete?: boolean;
+    /**
+     * True on a step-through frame that is not the last (BSA.D323). Its targetless bisectors are PENDING, so
+     * `incomplete` does not force them on screen there; the toggle alone decides, as on a single loop.
+     */
+    pendingFrame?: boolean;
+    /**
+     * True while core REFUSES the current holed loops (BSA.D323). `skeleton`, if given, is then the last good solve, of
+     * another outline: it is drawn as a dashed grey ghost with its own outline, the current loops are stroked red and
+     * NOT FILLED, and nothing indexed by the caller's vertices (maps, labels by solver id, sweeps, previews) is taken
+     * from that solve. Ignored without holes, so the single-loop scene is untouched.
+     */
+    refused?: boolean;
 }): ScenePrimitive[] {
     const {
         vertices,
-        skeleton,
-        primaryEdges,
-        primaryEdgeIntersections,
         debug,
-        collisionSweepLines,
-        nodeOffsetDistances,
         selectedDebugNodes,
         invScale,
         solverVertexRemap,
-        solverLoopMaps,
     } = params;
     const holes = params.holes ?? [];
-    const incomplete = params.incomplete ?? false;
+    const refused = holes.length > 0 && (params.refused ?? false);
+    // WHILE A REFUSAL STANDS, NOTHING OF THE LAST GOOD SOLVE IS DRAWN AS IF IT WERE THIS OUTLINE'S (BSA.D323): the
+    // skeleton is held back for the ghost, and every overlay derived from that solve is dropped.
+    const skeleton = refused ? null : params.skeleton;
+    const staleSkeleton = refused ? params.skeleton : null;
+    const primaryEdges = refused ? undefined : params.primaryEdges;
+    const primaryEdgeIntersections = refused ? undefined : params.primaryEdgeIntersections;
+    const collisionSweepLines = refused ? null : params.collisionSweepLines;
+    const nodeOffsetDistances = refused ? null : params.nodeOffsetDistances;
+    const incomplete = (params.incomplete ?? false) && !(params.pendingFrame ?? false);
+    const loops = holes.length > 0 ? callerLoops(vertices, holes) : [];
+    const solverLoopMaps = !refused && loopMapsFit(params.solverLoopMaps, loops) ? params.solverLoopMaps! : null;
 
     const boundary = labelledBoundary(vertices, skeleton, solverVertexRemap, holes, solverLoopMaps);
 
@@ -244,6 +315,16 @@ export function skeletonToScene(params: {
                         stroke: {color: '#fab005', width: 1.5},
                     });
                 }
+            }
+        } else if (staleSkeleton) {
+            // THE LAST GOOD SKELETON, AS A GHOST (BSA.D323): dashed grey, never the skeleton's yellow, so it cannot be
+            // read as this outline's.
+            for (const {id} of staleSkeleton.interiorEdges) {
+                const edge = staleSkeleton.edges[id];
+                if (edge.target === undefined) continue;
+                const src = staleSkeleton.nodes[edge.source].position;
+                const tgt = staleSkeleton.nodes[edge.target].position;
+                children.push({type: 'line', points: [src.x, src.y, tgt.x, tgt.y], stroke: STALE_STROKE});
             }
         }
         groups.push({type: 'group', id: 'group:skeleton-edges', children});
@@ -391,12 +472,24 @@ export function skeletonToScene(params: {
         // and each loop stroked as a closed line of its own, a hole wall like the outline's because the solver treats
         // it as a wall like any other. With edge directions, each loop gets one arrow per edge, wrapping inside its
         // own loop, the way the solver walks it: reversed where winding normalisation reversed that loop.
-        const loops = callerLoops(vertices, holes);
-        const children: ScenePrimitive[] = [{
-            type: 'region',
-            rings: loops.map(loop => loop.flatMap(v => [v.x, v.y])),
-            fill: {color: '#4c6ef5', opacity: 0.1},
-        }];
+        //
+        // WHILE CORE REFUSES THESE LOOPS (BSA.D323) NOTHING IS FILLED. The solver has said they bound no region it
+        // accepts: an even-odd fill over an outline dragged across its hole shades the part of the hole outside it as
+        // building, and filling the outline alone shades the whole hole. An unfilled red stroke claims nothing. The last
+        // good solve's own outline is drawn as a dashed grey ghost beside its ghost skeleton, and the canvas says so.
+        const children: ScenePrimitive[] = [];
+        if (!refused) {
+            children.push({
+                type: 'region',
+                rings: loops.map(loop => loop.flatMap(v => [v.x, v.y])),
+                fill: {color: '#4c6ef5', opacity: 0.1},
+            });
+        }
+        const ghostLoops = staleSkeleton ? graphLoops(staleSkeleton) : [];
+        for (const ghost of ghostLoops) {
+            children.push({type: 'line', points: ghost.flatMap(v => [v.x, v.y]), closed: true, stroke: STALE_STROKE});
+        }
+        const loopColour = refused ? REFUSED_COLOUR : '#4c6ef5';
         loops.forEach((loop, k) => {
             if (debug.showEdgeDirections) {
                 const reversed = solverLoopMaps?.[k]?.reversed ?? false;
@@ -407,7 +500,7 @@ export function skeletonToScene(params: {
                     children.push({
                         type: 'line',
                         points: [from.x, from.y, to.x, to.y],
-                        stroke: {color: '#4c6ef5', width: 2},
+                        stroke: {color: loopColour, width: 2},
                         arrow: {pointerLength: 10, pointerWidth: 8},
                     });
                 }
@@ -416,10 +509,21 @@ export function skeletonToScene(params: {
                     type: 'line',
                     points: loop.flatMap(v => [v.x, v.y]),
                     closed: true,
-                    stroke: {color: '#4c6ef5', width: 2},
+                    stroke: {color: loopColour, width: 2},
                 });
             }
         });
+        if (refused) {
+            const all = [...loops, ...ghostLoops].flat();
+            children.push({
+                type: 'label',
+                x: Math.min(...all.map(v => v.x)),
+                y: Math.min(...all.map(v => v.y)),
+                offsetY: 30,
+                text: staleSkeleton ? HOLED_REFUSED_STALE_CANVAS_TEXT : HOLED_REFUSED_CANVAS_TEXT,
+                style: {fontSize: 12, color: REFUSED_COLOUR, bold: true},
+            });
+        }
         groups.push({type: 'group', id: 'group:polygon', children});
     } else {
         const children: ScenePrimitive[] = [];

@@ -2,7 +2,8 @@ import { REMOVED_VERTEX_INDEX } from '@proc-geo/core';
 import type { SkeletonSolveResult } from '@proc-geo/core';
 import { HOLED_F1, HOLED_TEST_POLYGONS } from '@proc-geo/test-fixtures';
 import type { HoledTestPolygon } from '@proc-geo/test-fixtures';
-import { solveHoledSkeletonGuarded } from '../../src/hooks/skeleton-solve-boundary';
+import { HOLED_REFUSED_CANVAS_TEXT, HOLED_REFUSED_STALE_CANVAS_TEXT } from '../../src/components/holed-fixture-text';
+import { solveHoledSkeletonGuarded, solveHoledSkeletonSteppedGuarded } from '../../src/hooks/skeleton-solve-boundary';
 import { EXPLORER_PERCEPTUAL_FLOOR } from '../../src/scene/perceptual-floor';
 import { skeletonToScene } from '../../src/scene/adapters/skeletonToScene';
 import type { SceneGroup, SceneLabel, SceneLine, ScenePrimitive, SceneRegion } from '../../src/scene/types';
@@ -189,5 +190,256 @@ describe('an incomplete holed result shows what was not finished (decision 30)',
     it('a complete holed result keeps the toggle\'s word', () => {
         const {scene} = draw(HOLED_F1, ALL_FLAGS_OFF);
         expect(group(scene, 'group:unresolved-edges').visible).toBe(false);
+    });
+});
+
+/*
+ * ============================================================================
+ *  NODE 7'S REVIEW FIXES ON THE CANVAS (BSA.D323)
+ * ============================================================================
+ */
+
+/** Every primitive of a scene, groups opened. */
+function flatten(scene: ScenePrimitive[]): ScenePrimitive[] {
+    return scene.flatMap(p => p.type === 'group' ? flatten(p.children) : [p]);
+}
+
+/** F1's outline with a vertex clicked onto its right wall at (10, 5): the solve removes it as collinear. */
+const F1_WITH_INSERTED: { x: number; y: number }[] = [{x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 5}, {x: 10, y: 0}];
+/** The same after (10, 10) is deleted: the new wall from (0, 10) to (10, 5) touches the hole, and core refuses it. */
+const F1_AFTER_DELETE: { x: number; y: number }[] = [{x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 5}, {x: 10, y: 0}];
+/** F1's outline with (10, 10) dragged to (6, 10): the right wall now crosses the hole, and core refuses it. */
+const F1_DRAGGED_ACROSS: { x: number; y: number }[] = [{x: 0, y: 0}, {x: 0, y: 10}, {x: 6, y: 10}, {x: 10, y: 0}];
+
+const STALE_GREY = '#868e96';
+
+function sceneOf(vertices: { x: number; y: number }[], holes: { vertices: { x: number; y: number }[] }[],
+    debug: DebugDisplayOptions, extra: Partial<Parameters<typeof skeletonToScene>[0]>): ScenePrimitive[] {
+    return skeletonToScene({
+        vertices, skeleton: null, debug, collisionSweepLines: null, nodeOffsetDistances: null,
+        selectedDebugNodes: new Set(), invScale: 1, holes, ...extra,
+    });
+}
+
+describe('M1: while core refuses the current loops, nothing indexed by the last good solve\'s maps is drawn', () => {
+    const holes = holesOf(HOLED_F1);
+    const lastGood = solved({...HOLED_F1, outline: F1_WITH_INSERTED});
+    const refusal = solveHoledSkeletonGuarded(F1_AFTER_DELETE, {perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR, holes});
+
+    it('the scenario: the inserted vertex is removed by the good solve, and the edit after it is refused', () => {
+        expect(lastGood.loopMaps?.[0].vertexToNode[3]).toBe(REMOVED_VERTEX_INDEX);
+        expect(refusal.result).toBeNull();
+        expect(refusal.error).not.toBeNull();
+    });
+
+    it('no removed mark lands on (10, 0), or anywhere, with the stale maps and the stale skeleton given', () => {
+        const scene = sceneOf(F1_AFTER_DELETE, holes, LABELS_AND_DIRECTIONS, {
+            skeleton: lastGood.graph, solverLoopMaps: lastGood.loopMaps,
+            solverVertexRemap: lastGood.loopMaps?.[0].vertexToNode, refused: true,
+        });
+        const marks = flatten(scene).filter((p): p is SceneLabel => p.type === 'label' && p.text === 'x');
+        expect(marks).toEqual([]);
+    });
+
+    it('the current loops are numbered in caller order, on the current vertices, and the arrows run caller order', () => {
+        const scene = sceneOf(F1_AFTER_DELETE, holes, LABELS_AND_DIRECTIONS, {
+            skeleton: lastGood.graph, solverLoopMaps: lastGood.loopMaps, refused: true,
+        });
+        const nodeLabels = group(scene, 'group:debug-labels').children
+            .filter((p): p is SceneLabel => p.type === 'label' && p.style.color === '#ffffff')
+            .map(label => ({text: label.text, x: label.x, y: label.y}));
+        const current = [...F1_AFTER_DELETE, ...holes[0].vertices];
+        expect(nodeLabels).toEqual(current.map((v, index) => ({text: `${index}`, x: v.x, y: v.y})));
+        const arrows = group(scene, 'group:polygon').children
+            .filter((p): p is SceneLine => p.type === 'line' && p.arrow !== undefined);
+        expect(arrows[0].points).toEqual([0, 0, 0, 10]);
+        expect(arrows[4].points).toEqual([8, 5.5, 7, 6.5]);
+    });
+
+    it('maps of the same shape are not indexed either: a reversed hole\'s arrows run caller order while refused', () => {
+        // The last good solve had F1's hole given clockwise, so its map reverses the hole; the outline was then dragged
+        // across the hole. Every map still has one entry per vertex, so only the refusal can say they are stale.
+        const clockwise = [{vertices: [{x: 8, y: 5.5}, {x: 7, y: 4.5}, {x: 6, y: 5.5}, {x: 7, y: 6.5}]}];
+        const lastClockwise = solved({...HOLED_F1, holes: clockwise});
+        expect(lastClockwise.loopMaps?.[1].reversed).toBe(true);
+        const scene = sceneOf(F1_DRAGGED_ACROSS, clockwise, LABELS_AND_DIRECTIONS, {
+            skeleton: lastClockwise.graph, solverLoopMaps: lastClockwise.loopMaps, refused: true,
+        });
+        const arrows = group(scene, 'group:polygon').children
+            .filter((p): p is SceneLine => p.type === 'line' && p.arrow !== undefined);
+        expect(arrows[4].points).toEqual([8, 5.5, 7, 4.5]);
+    });
+
+    it('maps that do not fit the current loops are never indexed, even without the refusal flag', () => {
+        const scene = sceneOf(F1_AFTER_DELETE, holes, {...ALL_FLAGS_OFF, showNodeIndices: true}, {
+            solverLoopMaps: lastGood.loopMaps,
+        });
+        const marks = flatten(scene).filter((p): p is SceneLabel => p.type === 'label' && p.text === 'x');
+        expect(marks).toEqual([]);
+    });
+
+    it('the last good skeleton is drawn as a dashed grey ghost with its own outline, never in the skeleton\'s yellow', () => {
+        const scene = sceneOf(F1_AFTER_DELETE, holes, ALL_FLAGS_OFF, {skeleton: lastGood.graph, refused: true});
+        const edges = group(scene, 'group:skeleton-edges').children as SceneLine[];
+        expect(edges.length).toBeGreaterThan(0);
+        for (const edge of edges) {
+            expect(edge.stroke).toEqual({color: STALE_GREY, width: 1.5, dash: [6, 4]});
+        }
+        const ghosts = group(scene, 'group:polygon').children
+            .filter((p): p is SceneLine => p.type === 'line' && p.stroke.color === STALE_GREY);
+        expect(ghosts).toHaveLength(2);
+        expect(ghosts[0].closed).toBe(true);
+        expect(ghosts[0].stroke.dash).toEqual([6, 4]);
+        // And the canvas itself says what the ghost is.
+        const banner = flatten(scene).filter((p): p is SceneLabel => p.type === 'label' && p.text === HOLED_REFUSED_STALE_CANVAS_TEXT);
+        expect(banner).toHaveLength(1);
+    });
+
+    it('nothing else of the last good solve is drawn: no node or interior labels, unresolved rays, sweeps or previews', () => {
+        const everything: DebugDisplayOptions = Object.fromEntries(
+            Object.keys(ALL_FLAGS_OFF).map(key => [key, true])) as unknown as DebugDisplayOptions;
+        const scene = sceneOf(F1_AFTER_DELETE, holes, everything, {
+            skeleton: lastGood.graph, solverLoopMaps: lastGood.loopMaps, refused: true, incomplete: true,
+            primaryEdges: [{source: {x: 1, y: 1}, target: {x: 2, y: 2}} as never],
+            primaryEdgeIntersections: [{x: 1, y: 1}],
+            collisionSweepLines: [{sourceX: 0, sourceY: 0, targetX: 1, targetY: 1, offsetDistance: 1, edgeIdA: 0,
+                edgeIdB: 1, eventType: 'x', intersectionType: 'y', alongRay1: 0, alongRay2: 0} as never],
+            nodeOffsetDistances: new Map([[8, 1]]),
+            selectedDebugNodes: new Set([8]),
+        });
+        for (const id of ['group:primary-edges', 'group:unresolved-edges', 'group:selected-node-edges',
+            'group:collision-sweep', 'group:debug-node-labels', 'group:intersection-nodes']) {
+            expect({id, children: group(scene, id).children}).toEqual({id, children: []});
+        }
+        const labels = group(scene, 'group:debug-labels').children as SceneLabel[];
+        // Only the current loops' own labels: lengths, edge indices and node indices, in caller order.
+        expect(labels.filter(label => !['#4dabf7', '#ffffff'].includes(label.style.color))).toEqual([]);
+    });
+});
+
+describe('M2: while core refuses the current loops, the region is not filled', () => {
+    const holes = holesOf(HOLED_F1);
+    const lastGood = solved(HOLED_F1);
+
+    it('the scenario: an outline dragged across F1\'s hole is refused', () => {
+        const refusal = solveHoledSkeletonGuarded(F1_DRAGGED_ACROSS, {perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR, holes});
+        expect(refusal.result).toBeNull();
+    });
+
+    it.each([['the stale skeleton kept', true], ['no skeleton', false]])('no region and no filled line, with %s', (_how, keep) => {
+        for (const debug of [ALL_FLAGS_OFF, LABELS_AND_DIRECTIONS]) {
+            const scene = sceneOf(F1_DRAGGED_ACROSS, holes, debug, {
+                skeleton: keep ? lastGood.graph : null, solverLoopMaps: lastGood.loopMaps, refused: true,
+            });
+            const primitives = flatten(scene);
+            expect(primitives.filter(p => p.type === 'region')).toEqual([]);
+            expect(primitives.filter(p => p.type === 'line' && p.fill !== undefined)).toEqual([]);
+        }
+    });
+
+    it('the current loops are stroked closed in red, unfilled, and the canvas says why', () => {
+        const scene = sceneOf(F1_DRAGGED_ACROSS, holes, ALL_FLAGS_OFF, {refused: true});
+        const strokes = group(scene, 'group:polygon').children.filter((p): p is SceneLine => p.type === 'line');
+        expect(strokes.map(line => ({points: line.points, closed: line.closed, stroke: line.stroke}))).toEqual(
+            [F1_DRAGGED_ACROSS, holes[0].vertices].map(loop => ({
+                points: loop.flatMap(v => [v.x, v.y]), closed: true, stroke: {color: '#ff6b6b', width: 2}})));
+        const banner = group(scene, 'group:polygon').children
+            .filter((p): p is SceneLabel => p.type === 'label' && p.text === HOLED_REFUSED_CANVAS_TEXT);
+        expect(banner).toHaveLength(1);
+    });
+
+    it('without the refusal the same loops keep their even-odd region', () => {
+        const scene = sceneOf(HOLED_F1.outline.map(v => ({...v})), holes, ALL_FLAGS_OFF, {skeleton: lastGood.graph,
+            solverLoopMaps: lastGood.loopMaps});
+        expect(flatten(scene).filter(p => p.type === 'region')).toHaveLength(1);
+    });
+});
+
+describe('L2: one numbering whether the skeleton is shown or hidden', () => {
+    const exteriorLabels = (scene: ScenePrimitive[]) => group(scene, 'group:debug-labels').children
+        .filter((p): p is SceneLabel => p.type === 'label' && ['#4dabf7', '#ffffff'].includes(p.style.color))
+        .map(label => ({text: label.text, colour: label.style.color, x: label.x, y: label.y}));
+
+    function shownAndHidden(fixture: HoledTestPolygon) {
+        const {result, scene: shown} = draw(fixture, LABELS_AND_DIRECTIONS);
+        const hidden = sceneOf(fixture.outline.map(v => ({...v})), holesOf(fixture), LABELS_AND_DIRECTIONS, {
+            solverLoopMaps: result.loopMaps});
+        return {result, shown: exteriorLabels(shown), hidden: exteriorLabels(hidden)};
+    }
+
+    it('F1 with its hole given clockwise: e4 sits at one place, the solver\'s, shown or hidden', () => {
+        const clockwise: HoledTestPolygon = {...HOLED_F1, holes: [{vertices: [
+            {x: 8, y: 5.5}, {x: 7, y: 4.5}, {x: 6, y: 5.5}, {x: 7, y: 6.5}]}]};
+        const {shown, hidden} = shownAndHidden(clockwise);
+        const e4 = (labels: typeof shown) => labels.find(label => label.text === 'e4' && label.colour === '#4dabf7')!;
+        // Solver edge 4 runs (7, 6.5) to (6, 5.5) on the reversed hole.
+        expect([e4(shown).x, e4(shown).y]).toEqual([6.5, 6]);
+        expect([e4(hidden).x, e4(hidden).y]).toEqual([6.5, 6]);
+    });
+
+    it.each(ROSTER)('%s: the hidden labels are the shown labels', (_name, fixture) => {
+        const {shown, hidden} = shownAndHidden(fixture);
+        const tolerance = 1e-9 * extentOf(fixture);
+        expect(hidden.map(label => label.text)).toEqual(shown.map(label => label.text));
+        hidden.forEach((label, i) => {
+            expect(Math.hypot(label.x - shown[i].x, label.y - shown[i].y)).toBeLessThanOrEqual(tolerance);
+        });
+    });
+
+    it.each(ROSTER)('%s: every exterior edge label e{n} sits at the middle of the solved graph\'s edge n', (_name, fixture) => {
+        const {result, scene} = draw(fixture, LABELS_AND_DIRECTIONS);
+        const graph = result.graph;
+        const tolerance = 1e-9 * extentOf(fixture);
+        const labels = group(scene, 'group:debug-labels').children
+            .filter((p): p is SceneLabel => p.type === 'label' && p.style.color === '#4dabf7' && /^e\d+$/.test(p.text));
+        expect(labels).toHaveLength(graph.numExteriorNodes);
+        for (const label of labels) {
+            const edge = graph.edges[Number(label.text.slice(1))];
+            const a = graph.nodes[edge.source].position;
+            const b = graph.nodes[edge.target!].position;
+            expect(Math.hypot((a.x + b.x) / 2 - label.x, (a.y + b.y) / 2 - label.y)).toBeLessThanOrEqual(tolerance);
+        }
+    });
+
+    it('a hole\'s removed vertex is marked with the skeleton hidden too', () => {
+        const withCollinear: HoledTestPolygon = {
+            name: 'F1 outline, a square hole with a vertex on its top wall',
+            outline: HOLED_F1.outline,
+            holes: [{vertices: [{x: 4, y: 4}, {x: 6, y: 4}, {x: 6, y: 6}, {x: 5, y: 6}, {x: 4, y: 6}]}],
+        };
+        const result = solved(withCollinear);
+        const scene = sceneOf(HOLED_F1.outline.map(v => ({...v})), holesOf(withCollinear),
+            {...ALL_FLAGS_OFF, showNodeIndices: true}, {solverLoopMaps: result.loopMaps});
+        const marks = flatten(scene).filter((p): p is SceneLabel => p.type === 'label' && p.text === 'x');
+        expect(marks.map(mark => ({x: mark.x, y: mark.y}))).toEqual([{x: 5, y: 6}]);
+    });
+});
+
+describe('L3: a step-through frame that is not the last shows pending bisectors as the toggle says', () => {
+    const stepped = solveHoledSkeletonSteppedGuarded(E_PRIME.outline, {
+        perceptualFloor: EXPLORER_PERCEPTUAL_FLOOR, holes: holesOf(E_PRIME)}).result!;
+    const frame = (index: number, pendingFrame: boolean, debug: DebugDisplayOptions) => sceneOf(
+        E_PRIME.outline.map(v => ({...v})), holesOf(E_PRIME), debug, {
+            skeleton: stepped.snapshots[index], solverLoopMaps: stepped.result.loopMaps,
+            incomplete: !stepped.result.complete, pendingFrame});
+
+    it('E′ steps through more than one frame, incomplete, with targetless bisectors on its first', () => {
+        expect(stepped.result.complete).toBe(false);
+        expect(stepped.snapshots.length).toBeGreaterThan(1);
+        expect(group(frame(0, true, ALL_FLAGS_OFF), 'group:unresolved-edges').children.length).toBeGreaterThan(0);
+    });
+
+    it('on a frame before the last, incomplete does not force the pending bisectors on screen', () => {
+        expect(group(frame(0, true, ALL_FLAGS_OFF), 'group:unresolved-edges').visible).toBe(false);
+    });
+
+    it('on a frame before the last, the toggle still shows them', () => {
+        expect(group(frame(0, true, {...ALL_FLAGS_OFF, showUnresolvedEdges: true}), 'group:unresolved-edges').visible)
+            .toBe(true);
+    });
+
+    it('on the last frame decision 30 holds: incomplete shows them with the toggle off', () => {
+        const last = stepped.snapshots.length - 1;
+        expect(group(frame(last, false, ALL_FLAGS_OFF), 'group:unresolved-edges').visible).toBe(true);
     });
 });

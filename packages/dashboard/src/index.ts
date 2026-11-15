@@ -15,6 +15,7 @@ export {
     adaptHoledSteppedResult,
     describeBlockingDiagnostics,
     describeSolverRefusal,
+    holedSolveView,
     solveHoledSkeletonGuarded,
     solveHoledSkeletonSteppedGuarded,
     solveSkeletonBoundary,
@@ -23,6 +24,7 @@ export {
 } from './hooks/skeleton-solve-boundary';
 export type {
     HoledSolveOutcome,
+    HoledSolveView,
     HoledSteppedSolveOutcome,
     SkeletonBoundaryOutcome,
     SkeletonSolveOptions,
@@ -64,8 +66,9 @@ export {
 } from './components/fixture-options';
 export {
     BLOCKING_DIAGNOSTIC_HEADINGS, HOLED_BRIDGE_DISABLED_TEXT, HOLED_COPY_DISABLED_TEXT, HOLED_INSTRUCTION_TEXT,
+    HOLED_REFUSED_CANVAS_TEXT, HOLED_REFUSED_STALE_CANVAS_TEXT,
     HOLED_SLICE_REFUSAL_TEXT, holedNoticeText, INFORMATIONAL_DIAGNOSTIC_KINDS, isBlockingDiagnosticKind,
-    SKELETON_INCOMPLETE_TITLE,
+    SKELETON_INCOMPLETE_TITLE, STEP_REFUSAL_KINDS,
 } from './components/holed-fixture-text';
 export type { BlockingDiagnosticKind, InformationalDiagnosticKind } from './components/holed-fixture-text';
 export type { FixtureOption, FixtureOptionGroup } from './components/fixture-options';

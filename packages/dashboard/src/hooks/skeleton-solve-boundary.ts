@@ -7,6 +7,7 @@ import {
 } from "@proc-geo/core";
 import type {
     SkeletonDiagnostic,
+    SkeletonLoopMap,
     SkeletonSolveResult,
     SteppedAlgorithmResult,
     SteppedSkeletonSolveResult,
@@ -15,6 +16,7 @@ import type {
 import {
     BLOCKING_DIAGNOSTIC_HEADINGS,
     isBlockingDiagnosticKind,
+    STEP_REFUSAL_KINDS,
 } from "../components/holed-fixture-text";
 import type { Vertex } from "../stores/usePolygonStore";
 
@@ -193,15 +195,62 @@ export function solveHoledSkeletonSteppedGuarded(
 /**
  * The `Skeleton incomplete` alert's text (decisions 15 and 37): each blocking diagnostic as its kind's heading, then
  * its `detail` verbatim, in the order core reported them. `null` when no diagnostic blocks.
+ *
+ * A REFUSAL READS AS A REFUSAL, ITS DETAIL ONCE (BSA.D323). Core's `refuseStep` pushes the refusal and throws the same
+ * text, which `stepAlgorithm` records again as a `step-failure` with the identical detail. Such a `step-failure` is
+ * the refusal's echo, not a second event, so it is left out; a `step-failure` whose detail no refusal carries is a
+ * genuine throw and keeps its own heading.
  */
 export function describeBlockingDiagnostics(diagnostics: readonly SkeletonDiagnostic[]): string | null {
+    const refusalDetails = new Set(diagnostics
+        .filter((diagnostic) => (STEP_REFUSAL_KINDS as readonly string[]).includes(diagnostic.kind))
+        .map((diagnostic) => diagnostic.detail));
     const lines: string[] = [];
     for (const diagnostic of diagnostics) {
+        if (diagnostic.kind === "step-failure" && refusalDetails.has(diagnostic.detail)) continue;
         if (isBlockingDiagnosticKind(diagnostic.kind)) {
             lines.push(`${BLOCKING_DIAGNOSTIC_HEADINGS[diagnostic.kind]}\n${diagnostic.detail}`);
         }
     }
     return lines.length === 0 ? null : lines.join("\n\n");
+}
+
+/** What the canvas and the panels read of the holed solve, given the current outcome and the last one that solved. */
+export interface HoledSolveView {
+    /** The holed result on screen: the current one, or the last good one while core refuses. `null` on a single loop. */
+    holedSolve: SkeletonSolveResult | null;
+    /** True while core refuses the CURRENT loops (the outline as it now stands, with its holes). */
+    refused: boolean;
+    /**
+     * The current solve's `loopMaps`. `null` WHILE A REFUSAL STANDS (BSA.D323): the last good result's maps describe
+     * the last good outline, and indexed against the current one they put a removed mark, an arrow's direction or a
+     * label on the wrong vertex, and miscount the removed vertices.
+     */
+    solverLoopMaps: SkeletonLoopMap[] | null;
+    /** The outline's map, `solverLoopMaps[0].vertexToNode`, under the same rule. */
+    solverVertexRemap: number[] | null;
+}
+
+/**
+ * The holed solve as `useSkeletonAnimation` exposes it (decision 14, as amended by BSA.D323): on a refusal the last
+ * good result stays on screen, but nothing indexed by the caller's vertices is taken from it.
+ */
+export function holedSolveView(
+    holed: boolean,
+    outcome: HoledSolveOutcome,
+    lastGood: SkeletonSolveResult | null,
+): HoledSolveView {
+    if (!holed) return { holedSolve: null, refused: false, solverLoopMaps: null, solverVertexRemap: null };
+    if (outcome.error !== null) {
+        return { holedSolve: lastGood, refused: true, solverLoopMaps: null, solverVertexRemap: null };
+    }
+    const solverLoopMaps = outcome.result?.loopMaps ?? null;
+    return {
+        holedSolve: outcome.result,
+        refused: false,
+        solverLoopMaps,
+        solverVertexRemap: solverLoopMaps?.[0]?.vertexToNode ?? null,
+    };
 }
 
 /**

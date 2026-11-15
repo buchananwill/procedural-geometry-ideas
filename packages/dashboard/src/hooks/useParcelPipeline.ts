@@ -67,8 +67,14 @@ export function useParcelPipeline(
     // The polygon debounces slower than the knobs — a re-solve costs far more than a re-cut — so
     // the debounced group is assembled from individually debounced fields rather than debounced
     // as one object.
-    const [debouncedVertices] = useDebouncedValue(vertices, POLYGON_DEBOUNCE_MS);
-    const [debouncedHoles] = useDebouncedValue(holes, POLYGON_DEBOUNCE_MS);
+    //
+    // THE OUTLINE AND ITS HOLES ARE ONE FIELD, ONE TIMER (BSA.D323). Two timers of the same wait
+    // can fire on different renders, and the render between them pairs one fixture's outline with
+    // another's holes, or a holed outline with none.
+    const polygon = useMemo(() => ({ vertices, holes }), [vertices, holes]);
+    const [debouncedPolygon] = useDebouncedValue(polygon, POLYGON_DEBOUNCE_MS);
+    const debouncedVertices = debouncedPolygon.vertices;
+    const debouncedHoles = debouncedPolygon.holes;
     const [debouncedDepthPercent] = useDebouncedValue(depthPercent, PARAMETER_DEBOUNCE_MS);
     const [debouncedMitreToleranceDeg] = useDebouncedValue(mitreToleranceDeg, PARAMETER_DEBOUNCE_MS);
     const [debouncedSliceOptions] = useDebouncedValue(sliceOptions, PARAMETER_DEBOUNCE_MS);

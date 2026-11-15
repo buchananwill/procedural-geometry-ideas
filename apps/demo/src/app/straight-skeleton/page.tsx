@@ -87,13 +87,15 @@ export default function StraightSkeletonPage() {
     const invScale = 1 / stageScale;
 
     const skeletonNodePositions = useMemo(() => {
-        if (!animation.skeleton) return [];
+        // While core refuses a holed outline the skeleton is the last good one, drawn as a ghost: its nodes are not
+        // offered for selection as if they were this outline's (BSA.D323).
+        if (!animation.skeleton || animation.holedRefused) return [];
         return animation.skeleton.nodes.map((node) => ({
             id: node.id,
             x: node.position.x,
             y: node.position.y,
         }));
-    }, [animation.skeleton]);
+    }, [animation.skeleton, animation.holedRefused]);
 
     const scene = skeletonToScene({
         vertices,
@@ -109,6 +111,8 @@ export default function StraightSkeletonPage() {
         holes,
         solverLoopMaps: animation.solverLoopMaps,
         incomplete: animation.holedSolve !== null && !animation.holedSolve.complete,
+        pendingFrame: animation.pendingFrame,
+        refused: animation.holedRefused,
     });
 
     const onStageClick = useSkeletonStageClick({ vertices, invScale });

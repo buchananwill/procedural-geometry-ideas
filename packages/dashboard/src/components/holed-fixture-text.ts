@@ -31,6 +31,19 @@ export const HOLED_SLICE_REFUSAL_TEXT =
 /** The skeleton page's instruction for a holed fixture (decision 40). */
 export const HOLED_INSTRUCTION_TEXT = 'A holed fixture\'s holes are read-only; its outline can still be edited.';
 
+/**
+ * THE CANVAS'S OWN WORD WHILE CORE REFUSES THE CURRENT LOOPS (BSA.D323), drawn above them. The loops are stroked in
+ * red and NOT FILLED: the solver has said they do not bound a region it accepts, and any fill (even-odd over the
+ * loops, or the outline alone) would shade some hole as building.
+ */
+export const HOLED_REFUSED_CANVAS_TEXT =
+    'Refused by the solver (see Edge Weights): the red loops are not filled, and have no skeleton.';
+
+/** The same, when the last skeleton that solved is kept on screen as a ghost. */
+export const HOLED_REFUSED_STALE_CANVAS_TEXT =
+    'Refused by the solver (see Edge Weights): the red loops are not filled. Dashed grey is the last skeleton that '
+    + 'solved, with its own outline; it is not this outline\'s.';
+
 /** The title of the alert a holed result with `complete: false` raises (decision 37). */
 export const SKELETON_INCOMPLETE_TITLE = 'Skeleton incomplete';
 
@@ -58,18 +71,34 @@ export type InformationalDiagnosticKind = typeof INFORMATIONAL_DIAGNOSTIC_KINDS[
 export type BlockingDiagnosticKind = Exclude<SkeletonDiagnosticKind, InformationalDiagnosticKind>;
 
 /**
+ * The two kinds core refuses a step of several rings with (`StepRefusalKind` in core's `wavefront.ts`). `refuseStep`
+ * pushes the refusal AND throws the same text, which `stepAlgorithm` records again as a `step-failure` with the
+ * identical detail; the alert shows such a pair once, as the refusal (BSA.D323).
+ */
+export const STEP_REFUSAL_KINDS = [
+    'simultaneous-across-rings',
+    'multi-ring-step-refused',
+] as const satisfies readonly SkeletonDiagnosticKind[];
+
+/**
  * The heading of each blocking kind in the `Skeleton incomplete` alert (decision 37's table as amended by decision
- * 50). The holed guard's four are worded from each kind's own doc comment in core (`types.ts`, `holed-guard.ts`).
+ * 50). EVERY HEADING IS WORDED FROM THE KIND'S OWN DOC COMMENT ON `SkeletonDiagnosticKind` in core's `types.ts`
+ * (BSA.D323), so a heading never claims less or more than core says the kind covers.
  */
 export const BLOCKING_DIAGNOSTIC_HEADINGS: Record<BlockingDiagnosticKind, string> = {
-    'simultaneous-across-rings': 'Events of more than two fronts coincide (for example a corner of each of two holes '
-        + 'reaching one wall together). The solver refuses such a layer; the skeleton stops at the refused step.',
-    'multi-ring-step-refused': 'A step of several rings could not be resolved without guessing, and was refused. The '
-        + 'skeleton stops there.',
-    'step-failure': 'A step threw and was skipped; its bisectors stay unresolved.',
-    'unresolved-edges': 'These bisectors never met anything; they are drawn as dashed rays.',
-    'holed-topology-violation': 'The finished skeleton is not one connected graph with one cycle round each hole, or '
-        + 'one of its arcs names two different pairs of walls. The solver distrusts it and marks it incomplete.',
+    'simultaneous-across-rings': 'Refused: in one layer of a step of several rings, events of different rings '
+        + 'coincide in a form the solver does not settle (a vertex event across rings that is not one run on each of '
+        + 'two rings, a layer that cannot be resolved whole holding an event across rings, or a meeting on a third '
+        + 'front). The layer was refused before it changed anything; the skeleton stops at the refused step.',
+    'multi-ring-step-refused': 'Refused: a step of several rings could not be handled without guessing (a ring of '
+        + 'fewer than three bisectors at its start, no event at all, or rings the layer left that cannot be told outer '
+        + 'from inner or assigned to a component). The skeleton stops at the refused step.',
+    'step-failure': 'A sub-polygon threw during a solver step and was skipped; its bisectors stay unresolved.',
+    'unresolved-edges': 'One or more interior edges finished the solve without a target node. On the finished '
+        + 'skeleton, and on a step-through\'s last frame, they are drawn as dashed red rays.',
+    'holed-topology-violation': 'The finished skeleton is not one connected graph whose cycle rank equals the hole '
+        + 'count, or one of its arcs is recorded with two different pairs of walls. The solver distrusts it and marks '
+        + 'it incomplete.',
     'holed-equal-time-violation': 'An interior node is not at one time from every wall that meets there. The solver '
         + 'distrusts the skeleton and marks it incomplete.',
     'holed-time-order-violation': 'An interior edge runs backwards in time: its target is earlier than its source. '

@@ -20,6 +20,7 @@ import { usePlaybackStore } from "../stores/usePlaybackStore";
 import type { PlaybackControllerState } from "./PlaybackControllerState";
 import {
     adaptHoledSteppedResult,
+    holedSolveView,
     solveHoledSkeletonGuarded,
     solveHoledSkeletonSteppedGuarded,
     solveSkeletonBoundary,
@@ -76,8 +77,18 @@ export interface SkeletonAnimationState {
      * good context does on a single loop. `null` on a single loop.
      */
     holedSolve: SkeletonSolveResult | null;
-    /** The holed solve's `loopMaps`, one per caller loop; `null` on a single loop or when the holed solve refused. */
+    /**
+     * True while core refuses the CURRENT holed loops, so `holedSolve` is the last good result, of another outline
+     * (BSA.D323). The canvas then fills nothing and draws that result as a ghost. Always false on a single loop.
+     */
+    holedRefused: boolean;
+    /**
+     * The holed solve's `loopMaps`, one per caller loop; `null` on a single loop and WHILE A REFUSAL STANDS, because the
+     * last good result's maps describe the last good outline (BSA.D323).
+     */
     solverLoopMaps: SkeletonLoopMap[] | null;
+    /** True on a step-through frame that is not the last, whose targetless bisectors are pending (BSA.D323). */
+    pendingFrame: boolean;
     primaryEdges: PrimaryInteriorEdge[];
     primaryEdgeIntersections: Vector2[];
 
@@ -163,7 +174,10 @@ export function useSkeletonAnimation(
     useEffect(() => {
         if (holedOutcome.result !== null) setLastGoodHoled(holedOutcome.result);
     }, [holedOutcome.result]);
-    const holedSolve = !holed ? null : holedOutcome.error !== null ? lastGoodHoled : holedOutcome.result;
+    // While core refuses the current loops the last good result stays on screen, but its loop maps do not: they
+    // describe the last good outline, not this one (BSA.D323).
+    const holedView = holedSolveView(holed, holedOutcome, lastGoodHoled);
+    const { holedSolve, refused: holedRefused } = holedView;
 
     // On a refusal the last good context stands in; with no error it does not, so hiding the
     // skeleton still hides it. On the holed path it is the holed solve's context, gated by the same toggle.
@@ -188,8 +202,8 @@ export function useSkeletonAnimation(
     const boundary = useMemo(
         () => holed ? { indexRemap: null, error: null } : solveSkeletonBoundary(vertices, { perceptualFloor, weights }),
         [holed, vertices, perceptualFloor, weights]);
-    const solverLoopMaps = holedSolve?.loopMaps ?? null;
-    const solverVertexRemap = holed ? solverLoopMaps?.[0]?.vertexToNode ?? null : boundary.indexRemap;
+    const solverLoopMaps = holedView.solverLoopMaps;
+    const solverVertexRemap = holed ? holedView.solverVertexRemap : boundary.indexRemap;
 
     // The coaxiality lane the overlay's ray intersections are answered at (spec A9/A10): the host
     // page's own floor, resolved exactly as the solve resolves it, so the drawing and the solve
@@ -205,8 +219,10 @@ export function useSkeletonAnimation(
         if (holed) {
             // THE HOLED PREVIEW (decision 12): the holed graph's exterior positions, in exterior id order, at the
             // weights the solve ran on, with its loop table, so every vertex's two walls wrap in its own loop.
+            // While core refuses the current loops there is no preview of them: the last good graph's is of another
+            // outline (BSA.D323).
             const graph = holedSolve?.context !== null ? holedSolve?.graph : undefined;
-            if (holedSolve === null || graph === undefined) return [];
+            if (holedRefused || holedSolve === null || graph === undefined) return [];
             try {
                 return computePrimaryInteriorEdges(
                     graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position),
@@ -224,7 +240,8 @@ export function useSkeletonAnimation(
             // drawing, so it goes away rather than taking the canvas down with it.
             return [];
         }
-    }, [showPrimaryEdges, holed, holedSolve, vertices, overlayCoaxialityFloor, overlayAngularResolution, weights]);
+    }, [showPrimaryEdges, holed, holedRefused, holedSolve, vertices, overlayCoaxialityFloor, overlayAngularResolution,
+        weights]);
 
     const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
         if (primaryEdges.length === 0) return [];
@@ -329,6 +346,8 @@ export function useSkeletonAnimation(
 
     const hasError = steppedResult?.error != null;
     const errorMessage = steppedResult?.error ?? null;
+    // A step-through frame that is not the last: its bisectors without a target are pending, not unresolved (BSA.D323).
+    const pendingFrame = animationMode && steppedResult !== null && currentFrame < steppedResult.snapshots.length - 1;
 
     // ONE REFUSAL, WHICHEVER BOUNDARY MET IT FIRST. The boundary stage runs on every keystroke, so
     // it is the one that normally speaks; the direct solve and the stepped start are behind it.
@@ -380,7 +399,9 @@ export function useSkeletonAnimation(
         skeleton,
         solverVertexRemap,
         holedSolve,
+        holedRefused,
         solverLoopMaps,
+        pendingFrame,
         primaryEdges,
         primaryEdgeIntersections,
         startAnimation,

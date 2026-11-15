@@ -2,10 +2,11 @@
 title: "Dashboard holed fixtures: decision spec"
 type: decision-spec
 area: dashboard
-status: implementing
+status: completed
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-loop-consumers-decisions.md]
+verified_by: [packages/dashboard/tests/scene/skeletonToScene-holes.test.ts, packages/dashboard/tests/hooks/holed-solve-boundary.test.ts, packages/dashboard/tests/hooks/parcel-pipeline-holes.test.ts, packages/dashboard/tests/hooks/useParcelPipeline-debounce.test.ts, packages/dashboard/tests/stores/usePolygonStore-holes.test.ts, packages/dashboard/tests/components/fixture-options.test.ts, packages/dashboard/tests/scene/single-loop-scene-digests.test.ts, packages/core/tests/straight-skeleton/solve-skeleton-stepped.test.ts]
 ---
 
 # Dashboard holed fixtures: decision spec
