@@ -969,6 +969,33 @@ session 3's own.
     them on single loops. `2h-int-113` is green: its solve was sound all along.
   - **The issue note `ISSUE-skeleton-straight-bisector-between-collinear-walls.md` is open** and is the user's to rule
     on, with the weighted one.
+- **319. Roadmap node 8, contact, is taken after node 9 and not before it; its draft is revised against everything that
+  has landed and stays `proposed` until then.** The roadmap's order is an estimate, and the lead records why it departs
+  from it, as the notes schema asks.
+  - **Why after:** no caller in the repo needs it. Building-shell's own union already merges walls that coincide and
+    refuses corner touches, and the dashboard has no hole editing, so only a gap under the perceptual floor would reach
+    the stage. Node 9 is what the user's objective is for.
+  - **The revised draft's re-measurement at `68546eb`, by an Opus delegate on a copy of core, not re-run by the lead:**
+    every contact fixture is sound once canonicalised, including the three the first draft left waiting for node 5: four
+    outline-and-hole point contacts, six two-hole point contacts, six notches, five shared-wall merges, a slit ring with
+    a second hole. Refusals by name for a hole that spans the outline, walls coinciding the same way, and a crossing
+    through vertices.
+  - **The lead's worry in the brief was wrong, as measured:** a single notch never bears a straight bisector (0 of
+    1,000). The defect's precondition arises only when merged walls fall in line across building that collapses, as with
+    two notches of equal depth on one wall. Notch fuzz: 400 of 400 one-notch inputs sound, 300 of 300 turned, 1,998 of
+    2,000 with two notches, 1,984 of 2,000 turned.
+  - **A merge can leave no hole,** and the result is then a single-loop graph from a holed input, node for node what the
+    same loop drawn by hand gives. **The draft has the guard run whenever the caller gave holes, with the hole count
+    read from the solved graph,** so those results are guarded where a hand-drawn loop is not: it blocked all 18 wrong
+    merged answers and flagged none of 4,982 sound ones.
+  - **For the guard as now being widened:** planarity compared by node id flags every sound stitched solve, because two
+    bisectors leave two exterior nodes at one point; compared by position it is silent. No stitched input reaches the
+    solver today, since contact is refused, so nothing is wrong now; node 8's spec carries the amendment.
+  - **Found on the way, a single-loop defect with no issue note, signalled by the causality check:** an 11-vertex
+    outline in which a reflex vertex born when a wedge closes reaches a front after later nodes were made. It is the
+    secondary-reflex cause of the weighted issue appearing at unit weights, which the lead recorded in BSA.D312 as
+    argued and not measured to be impossible. **That argument is now contradicted by a specimen**, and the issue note is
+    to be amended with it.
 
 ## Findings
 
