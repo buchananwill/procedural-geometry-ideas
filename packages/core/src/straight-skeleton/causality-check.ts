@@ -27,7 +27,9 @@ import {angularResolution} from './constants';
  * A node's DERIVED OFFSET is re-derived from geometry, never read from the solver's bookkeeping:
  * boundary nodes are at 0; an interior node takes its first incident interior edge (in-edges, then
  * out-edges, first occurrence) and is dated at its perpendicular distance from the supporting line
- * of that edge's clockwise exterior parent, read off the solved graph's exterior ring; a node with no
+ * of that edge's clockwise exterior parent, the line through that parent's own source and target nodes (skeleton
+ * join-and-divide spec, decision 32, which also makes clearance the distance to every exterior edge's own segment,
+ * so the check reads every loop of a holed graph); a node with no
  * incident interior edge has no offset and is skipped by both the offset and clearance oracles. This
  * is a deliberately separate copy from the test suites' `deriveNodeArrivals` — the test side is kept
  * as the independent conviction (decision 148(e)) — and from `computeNodeOffsets`, which
@@ -63,7 +65,6 @@ function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
 
 /** Every node's derived offset in the graph's own units. See the module header for the definition. */
 function deriveOffsets(graph: StraightSkeletonGraph): Map<number, number> {
-    const edgeCount = graph.numExteriorNodes;
     const clockwiseParentOf = new Map<number, number>();
     for (const interiorEdge of graph.interiorEdges) {
         clockwiseParentOf.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
@@ -78,11 +79,14 @@ function deriveOffsets(graph: StraightSkeletonGraph): Map<number, number> {
         const incident = [...new Set([...node.inEdges, ...node.outEdges])]
             .filter(id => clockwiseParentOf.has(id));
         if (incident.length === 0) continue;
-        const parent = clockwiseParentOf.get(incident[0])!;
+        // THE PARENT'S OWN LINE, through its own source and target nodes (skeleton join-and-divide spec, decision
+        // 32): on one loop edge `i`'s target is node `i + 1 mod n`, which is what this read as arithmetic; on a holed
+        // graph a loop's last edge ends at that loop's first node, not the next loop's.
+        const parentEdge = graph.edges[clockwiseParentOf.get(incident[0])!];
         offsetOf.set(i, distanceToSupportingLine(
             node.position,
-            graph.nodes[parent].position,
-            graph.nodes[(parent + 1) % edgeCount].position));
+            graph.nodes[parentEdge.source].position,
+            graph.nodes[parentEdge.target!].position));
     }
     return offsetOf;
 }
@@ -152,14 +156,16 @@ export function checkWavefrontCausality(
     }
 
     const clearanceViolations: CausalityViolationDiagnostic[] = [];
-    const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
+    // THE BOUNDARY IS EVERY EXTERIOR EDGE'S OWN SEGMENT (decision 32), so clearance is the distance to the nearest
+    // wall of any loop, as a holed region needs. On one loop these are the ring's segments, in the ring's order.
+    const walls = graph.edges.slice(0, graph.numExteriorNodes)
+        .map(edge => [graph.nodes[edge.source].position, graph.nodes[edge.target!].position] as const);
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const offset = offsetOf.get(i);
         if (offset === undefined) continue;
         let clearance = Infinity;
-        for (let k = 0; k < boundary.length; k++) {
-            clearance = Math.min(clearance,
-                distanceToSegment(graph.nodes[i].position, boundary[k], boundary[(k + 1) % boundary.length]));
+        for (const [from, to] of walls) {
+            clearance = Math.min(clearance, distanceToSegment(graph.nodes[i].position, from, to));
         }
         const unitOffset = offset * toUnitScale;
         const unitClearance = clearance * toUnitScale;

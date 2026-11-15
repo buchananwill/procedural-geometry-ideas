@@ -506,7 +506,7 @@ describe('e38-e30 Collision Debug', () => {
                 const validates = context.validateSplitReachesEdge(
                     INSTIGATOR_ID, TARGET_ID, {distance: directOffset, weight: 1, uncertainty: 0});
                 console.log(`validateSplitReachesEdge(offset=${directOffset.toFixed(6)}): ${validates}`);
-                if (!validates) {
+                if (validates.length === 0) {
                     console.log('<<< REJECTION at validateSplitReachesEdge for direct-strike (line 226-227)');
 
                     // Deep probe activeExteriorEdgeSegments
@@ -618,7 +618,7 @@ describe('e38-e30 Collision Debug', () => {
         const incenterValidates = context.validateSplitReachesEdge(
             INSTIGATOR_ID, TARGET_ID, {distance: incenterOffset, weight: 1, uncertainty: 0});
         console.log(`validateSplitReachesEdge(offset=${incenterOffset.toFixed(6)}): ${incenterValidates}`);
-        if (!incenterValidates) {
+        if (incenterValidates.length === 0) {
             console.log('<<< REJECTION at validateSplitReachesEdge for incenter fallback (line 266)');
         }
     });

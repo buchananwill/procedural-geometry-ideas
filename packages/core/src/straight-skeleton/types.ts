@@ -186,11 +186,18 @@ export interface GraphHelpers {
     parentEdge(interiorEdgeId: number, direction: SkeletonDirection): PolygonEdge;
     exteriorParentsOfSubPolygon(interiorEdgeIds: number[]): number[];
     /**
-     * The segment of `edgeToSplitId` the bisector's split validates on, or `null` when none does (skeleton
-     * wavefront-order spec, decision 11). Where several live segments validate, the first in
-     * `activeExteriorEdgeSegments`' order is taken.
+     * Every segment of `edgeToSplitId` the bisector's split validates on, in `activeExteriorEdgeSegments`' order
+     * (ascending `from`), and empty when none does (skeleton join-and-divide spec, decision 5, amending the
+     * wavefront-order spec's decision 11). Inside a step only segments whose `from` stands in the current step are
+     * searched (decision 4); outside one, every segment of the edge.
      */
-    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment | null;
+    validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment[];
+    /**
+     * Where the wavefront vertex a live bisector traces stands at TIME `time` (skeleton join-and-divide spec,
+     * decision 12): read against its own clockwise parent, from its birth arrival, as `validateSplitReachesEdge`
+     * reads a segment's ends.
+     */
+    wavefrontVertexAt(bisectorId: number, time: number): Vector2;
 }
 
 /**
@@ -280,10 +287,12 @@ export interface StraightSkeletonSolverContext extends GraphHelpers {
     /**
      * Informational reports the SOLVE itself made, as opposed to the boundary stage.
      *
-     * The only producer today is A19's coaxial completion, which is entered deep inside the per-arity
+     * The producers are A19's coaxial completion, which is entered deep inside the per-arity
      * handlers and has no other way to be heard: `stepAlgorithm` carries THROWN messages out on
-     * `errors`, and a completion is by definition the case that did not throw. `solveSkeleton` drains
-     * this onto its own `diagnostics`, so a completion is signalled, never silent.
+     * `errors`, and a completion is by definition the case that did not throw; and the refusals of a
+     * step of several rings (`simultaneous-across-rings`, `multi-ring-step-refused`; skeleton
+     * join-and-divide spec), which throw as well and are named here by kind. `solveSkeleton` drains
+     * this onto its own `diagnostics`, so neither is silent.
      */
     diagnostics: SkeletonDiagnostic[];
 }
@@ -417,10 +426,17 @@ export interface AlgorithmStepOutput {
  *   acceptance) — but it is what
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
- * - `holes-not-solved`       — the input carried holes, and the solve STOPPED after initialisation, returning
- *   its initialised graph with one wavefront ring per loop and no skeleton (skeleton loops-input spec, decisions
- *   33 to 35). BLOCKING: it makes `complete` false by itself. It stands until the join event of the holed-skeleton
- *   roadmap's node 4, which replaces it.
+ * - `simultaneous-across-rings` — a layer of a step of several rings was refused because events of different
+ *   rings coincide in it: an interior-to-interior event with participants on two rings, or a join sharing the
+ *   layer with another event touching either of its rings (skeleton join-and-divide spec, decisions 18 to 20).
+ *   The holed-skeleton roadmap's node 5 owns these layers. BLOCKING, and refused before the layer changed
+ *   anything; the detail names the step, its rings and the events.
+ * - `multi-ring-step-refused` — a step of several rings could not be handled generically and was refused: a ring
+ *   of fewer than three bisectors, no event at all, or rings the layer left that cannot be told outer from inner
+ *   or assigned to a component without guessing (decisions 16, 22 and 23). BLOCKING; the detail names the step
+ *   and the ring.
+ *
+ * `holes-not-solved`, which a holed solve stopped with before the join event, is retired (decision 34).
  */
 export type SkeletonDiagnosticKind =
     'winding-normalised'
@@ -430,7 +446,8 @@ export type SkeletonDiagnosticKind =
     | 'unresolved-edges'
     | 'coaxial-completion'
     | 'causality-violation'
-    | 'holes-not-solved';
+    | 'simultaneous-across-rings'
+    | 'multi-ring-step-refused';
 
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
@@ -485,8 +502,9 @@ export interface SkeletonSolveResult {
      */
     context: StraightSkeletonSolverContext | null;
     /**
-     * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges` or
-     * `holes-not-solved` diagnostics, and the graph has at least one interior edge. A `winding-normalised`,
+     * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges`,
+     * `simultaneous-across-rings` or `multi-ring-step-refused` diagnostics, and the graph has at least one
+     * interior edge. It reads no exterior edge's acceptance. A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
      * incomplete — all three are informational reports of what the boundary stage did to the input.
      */

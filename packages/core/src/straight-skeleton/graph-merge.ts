@@ -306,5 +306,6 @@ export function makeMergedSolverContext(
         parentEdge: notSupported('parentEdge'),
         exteriorParentsOfSubPolygon: notSupported('exteriorParentsOfSubPolygon'),
         validateSplitReachesEdge: notSupported('validateSplitReachesEdge'),
+        wavefrontVertexAt: notSupported('wavefrontVertexAt'),
     } as StraightSkeletonSolverContext;
 }

@@ -3,7 +3,7 @@ import {
     AlgorithmStepOutput, Arrival, BisectionParams, CollisionEvent, CollisionTypePriority,
     StraightSkeletonSolverContext, Vector2
 } from "./types";
-import {compareArrivals, findOrComputeCollision, priceHeadOnPair} from "./collision-helpers";
+import {compareArrivals, findOrComputeCollision, priceHeadOnPair, timeOf} from "./collision-helpers";
 import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertainty} from "./constants";
 import {rotateCw90} from "./core-functions";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
@@ -14,13 +14,15 @@ import {
     clusterCoincidentMerges,
     coincidentEventPositions,
     mergesShareAnEdge,
-    ringsOfSubPolygon
 } from "./coincident-events";
 import {
     beginLayerLinks,
     birthsClosedAtOneNode,
+    componentsOfRings,
     droppableBirths,
     linkBirth,
+    partitionArc,
+    refuseStep,
     retireBisectors,
     ringsOfWavefront,
     settleLayerLinks
@@ -191,7 +193,7 @@ function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], con
 }
 
 /**
- * The partition bisectors a layer will bear, in the order it bears them: sorted by span, with nested re-reports
+ * The partition bisectors a layer will bear, in the order it bears them: sorted by arc, with nested re-reports
  * of one split removed.
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `wavefront-order.test.ts`.
@@ -205,29 +207,28 @@ export function selectPartitionEvents(context: StraightSkeletonSolverContext, pa
 
     Outcome we want is: [[0,4], [4,8], [8,0]]
 
-    Rule is: sort by span of bisection, then clockwise bisection.
-    Span of bisection = (end - start + length) % length
+    Rule is: sort by the arc of bisection, then clockwise bisection.
+    Arc of bisection, on one loop = (end - start + length) % length
 
      * */
-    // THE ONE MODULAR ARITHMETIC ON EXTERIOR IDS LEFT IN THE EVENT PATH, AND WHY (skeleton wavefront-order
-    // spec, decisions 13 and 22, in conflict). This order no longer decides any child step — the rings do —
-    // but it is still the order the partition bisectors are BORN in, so it numbers them, and it chooses
-    // which of two same-start, same-source re-reports survives. Measured: ordering instead by the size of
-    // the ring each pending bisector closes (the link-derived reading of "the tightest claim") moves the
-    // pinned digest of 16 corpus fixtures, clean ones among them, by renumbering alone. Kept for the lead's
-    // ruling; under several loops an id span is not a ring distance, so stage 2 must replace it.
-    const partitionSpan = (params: BisectionParams) => {
-        return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
-    }
+    // THE ORDER IS THE ARC ROUND THE PENDING BISECTOR'S RING (skeleton join-and-divide spec, decisions 25 to 27):
+    // `partitionArc` sums the gaps between consecutive clockwise parents round the ring, a gap within one loop
+    // counted in clockwise steps and a gap between two loops as 1. It replaced `partitionSpan`, the id interval
+    // `(ws − cw + n) mod n`, which has no meaning across loops; on one loop the arc telescopes to exactly that span,
+    // so the births are numbered as they were. This order decides no child step — the rings do — but it is the order
+    // the partition bisectors are BORN in, and it chooses which of two same-start, same-source re-reports survives.
+    // Ordering by ring size instead (BSA.F96) left out the closed edges inside the arc and renumbered 16 digests.
+    const arcs = new Map(partitionEvents.map(params => [params, partitionArc(context, params)] as const));
+    const arcOf = (params: BisectionParams) => arcs.get(params)!;
     // NO ACCEPTED-PARENT FILTER (skeleton edge-acceptance spec, decision 7). Acceptance changes only at step
     // boundaries, and at the last one every parent of every birth of this layer was named by a then-live bisector,
     // so no partition event here can name an accepted edge. A silently refused birth is how early acceptance broke
     // rings; `addBisectionEdge`'s throw is the one guard left, so such a birth would be a step failure.
     const sorted = partitionEvents
         .toSorted((params1, params2) => {
-            const spanDelta = partitionSpan(params1) - partitionSpan(params2);
-            if (spanDelta !== 0) {
-                return spanDelta;
+            const arcDelta = arcOf(params1) - arcOf(params2);
+            if (arcDelta !== 0) {
+                return arcDelta;
             }
 
             return params1.clockwiseExteriorEdgeIndex - params2.clockwiseExteriorEdgeIndex;
@@ -287,6 +288,105 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
         .filter(list => list.length > 0);
 }
 
+/**
+ * THE CROSS-RING REFUSAL (skeleton join-and-divide spec, decisions 18 to 21): why this layer's events are not
+ * generic, or `undefined` when they are.
+ *
+ * Among the events the layer will resolve, an interior-to-interior event — a pair, a non-adjacent pair, or a merge
+ * the coincidence clustering gathers at δ — with participants on two rings is a vertex meeting across rings. It
+ * needs a vertex of each ring to arrive together, which is two strikes coinciding: node 5's work, under any reported
+ * type (decision 18). And a JOIN — a split whose instigator and struck segment's `from` lie on different rings of the
+ * step at the layer's start (decision 9) — that shares the layer with another event touching either of its two
+ * rings is two events of different rings at one moment. Reports that name one instigator are one event. The events
+ * are the layer's own, chosen by `HELD_SIMULTANEITY_WINDOW`, the narrowing to the earliest moment and the
+ * clustering at δ, so no window or tolerance is added here (decision 19).
+ *
+ * `ringOf` gives each bisector's ring at the layer's start; it is the only place a split is read as a join.
+ */
+function crossRingCoincidence(
+    context: StraightSkeletonSolverContext,
+    ringOf: ReadonlyMap<number, number>,
+    events: CollisionEvent[],
+): string | undefined {
+    const describe = (event: CollisionEvent) =>
+        `${event.eventType} [${event.collidingEdges.join(', ')}] at time ${timeOf(event.arrival)}`;
+    const interior = events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent');
+    for (const event of interior) {
+        if (ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.collidingEdges[1])) {
+            return `${describe(event)} meets bisectors of two rings.`;
+        }
+    }
+    for (const merge of clusterCoincidentMerges(interior, context.perceptualFloor)) {
+        if (new Set(merge.edgeIds.map(id => ringOf.get(id))).size > 1) {
+            return `the vertex event [${merge.edgeIds.join(', ')}] gathers bisectors of two rings.`;
+        }
+    }
+    /** The rings an event touches: its interior participants', and a split's struck segment's. */
+    const touched = (event: CollisionEvent): (number | undefined)[] => [
+        ...event.collidingEdges.filter(id => context.edgeRank(id) !== 'exterior').map(id => ringOf.get(id)),
+        ...(event.struckSegment === undefined
+            ? []
+            : [ringOf.get(event.struckSegment.from), ringOf.get(event.struckSegment.to)]),
+    ];
+    for (const join of events) {
+        if (!isJoin(join, ringOf)) {
+            continue;
+        }
+        const instigator = join.collidingEdges[0];
+        const joined = new Set([ringOf.get(instigator), ringOf.get(join.struckSegment!.from)]);
+        const other = events.find(event => event.collidingEdges[0] !== instigator
+            && touched(event).some(ring => joined.has(ring)));
+        if (other !== undefined) {
+            return `the join ${describe(join)} shares the layer with ${describe(other)}, which touches one of its rings.`;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * IS THIS SPLIT A JOIN (decision 9): do its instigator and its struck segment's `from` lie on different rings of the
+ * step at the layer's start? A divide otherwise. Read once, before the layer resolves any event, and by the
+ * cross-ring refusal only: the solver never branches on join against divide when it writes links or bears
+ * bisectors (decision 8).
+ */
+function isJoin(event: CollisionEvent, ringOf: ReadonlyMap<number, number>): boolean {
+    return event.eventType === 'interiorAgainstExterior'
+        && event.struckSegment !== undefined
+        && ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.struckSegment.from);
+}
+
+/**
+ * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (decisions 10 to 17). The rings the layer left are read
+ * from the links over the step's outgoing bisectors (`outgoing`, in the order they were gathered), classified and
+ * grouped by {@link componentsOfRings} at `layerTime`, and each component — an outer ring and the inner rings inside
+ * it — is one child. A child lists its members in the order they were gathered, and children are ordered by today's
+ * claim: the earliest partition event whose bisector the component holds, then the position of its first member
+ * (decision 17).
+ */
+function componentsAsChildren(
+    context: StraightSkeletonSolverContext,
+    outgoing: number[],
+    partitionBirths: number[],
+    layerTime: number,
+    born: ReadonlySet<number>,
+): AlgorithmStepInput[] {
+    const position = new Map(outgoing.map((id, index) => [id, index]));
+    const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
+    // Only this layer's bisectors, as for one ring: a ring the links cannot close never reaches into another step.
+    const left = ringsOfWavefront(context, outgoing).map(ring => ring.filter(id => position.has(id)));
+    return componentsOfRings(context, left, layerTime, born)
+        .map(component => {
+            const members = [component.outer, ...component.inner].flat()
+                .toSorted((a, b) => position.get(a)! - position.get(b)!);
+            return {members, claim: Math.min(...members.map(id => partitionIndex.get(id) ?? Infinity))};
+        })
+        .toSorted((a, b) => a.claim !== b.claim
+            ? a.claim - b.claim
+            : position.get(a.members[0])! - position.get(b.members[0])!)
+        .map(child => ({interiorEdges: child.members}));
+}
+
+
 export function handleInteriorNGon(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
     if (input.interiorEdges.length < 3) {
         throw new Error("Greater than 3 edges required for generic step handling.")
@@ -300,6 +400,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // as pending births, which are replaced by their ids as they are created at the foot of this function.
     beginLayerLinks(context);
 
+    // THE STEP'S RINGS ARE THE LINKS' RINGS, ALWAYS (skeleton join-and-divide spec, decision 1), read at the layer's
+    // start. A step of one ring is every step of a single-loop solve and is handled exactly as before; a step of
+    // several rings — an outline and the holes inside it — is refused where its events coincide across rings
+    // (decisions 18 to 21) and leaves its components as children (decisions 10 to 17).
+    const rings = ringsOfWavefront(context, input.interiorEdges);
+    const multiRing = rings.length > 1;
+    const ringOf = new Map<number, number>();
+    rings.forEach((ring, index) => ring.forEach(id => ringOf.set(id, index)));
+
+    // DECISION 7: the step's exterior parents as today, duplicates included. An edge bounding two segments of one
+    // step is listed twice, and its two reports of one split are one event: the first resolved retires the
+    // instigator.
     const exteriorParents = context.exteriorParentsOfSubPolygon(input.interiorEdges);
 
 
@@ -341,6 +453,13 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             break;
         }
 
+    }
+
+    if (collisionLists.length === 0 && multiRing) {
+        // DECISION 23: a step of several rings with no event never climbs the terminal ladder. Its closures and its
+        // coaxial completion are statements about one live set, and would pair bisectors of different rings.
+        refuseStep(context, 'multi-ring-step-refused', `a step of ${rings.length} rings `
+            + `(${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}) produced no event.`);
     }
 
     if (collisionLists.length === 0) {
@@ -408,28 +527,22 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // the reported pairs individually is what leaves the ring inconsistent on symmetric input,
     // where a single point can absorb every edge at once.
     //
-    // THE RINGS ARE THE WAVEFRONT'S, READ FROM ITS LINKS (skeleton wavefront-order spec, decision 20).
-    // `ringsOfSubPolygon` is still asked, and only for its `null`, which sends the layer to the pairwise
-    // fallback below; that verdict is behaviour and is retired by stage 2, not here. Its non-null answer is
-    // not used: part A measured that it never returned null and always equalled these rings, in the same
-    // cyclic order and from the same start, over the corpus, the sweep and the census (BSA.F95).
-    const rings = ringsOfSubPolygon(input.interiorEdges, context) === null
-        ? null
-        : ringsOfWavefront(context, input.interiorEdges);
+    // THE RINGS ARE THE WAVEFRONT'S, READ FROM ITS LINKS (skeleton wavefront-order spec, decision 20; skeleton
+    // join-and-divide spec, decision 1), `rings` above. `ringsOfSubPolygon`, whose `null` once sent a layer to the
+    // pairwise fallback, is deleted: it keyed a ring on a unique widdershins parent, which every joined ring breaks
+    // (BSA.F91), and part A found it `null` on no layer of any roster (BSA.F95).
 
     /**
      * These events resolved as WHOLE vertex events, or `null` when they cannot be.
      *
-     * A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring, and no
-     * two merges may claim the same edge — a bisector arrives somewhere once, so an edge in two
-     * merges means the first merge resolved would consume it and strand the second. Deciding both
+     * A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring (join-and-divide spec,
+     * decision 2: a merge with arrivals on two rings is a vertex meeting across rings, which the cross-ring refusal
+     * below refuses), and no two merges may claim the same edge — a bisector arrives somewhere once, so an edge in
+     * two merges means the first merge resolved would consume it and strand the second. Deciding both
      * for every merge before mutating anything keeps the answer all-or-nothing, rather than leaving
      * half a set resolved two different ways.
      */
     const asWholeEvents = (events: CollisionEvent[]) => {
-        if (rings === null) {
-            return null;
-        }
         const candidates = clusterCoincidentMerges(
             events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'),
             context.perceptualFloor,
@@ -474,6 +587,17 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     if (resolution === null) {
         eventsToResolve = earliestArrivalMoment(collisionsToHandle);
         resolution = asWholeEvents(eventsToResolve);
+    }
+
+    // THE CROSS-RING REFUSAL, ONCE THE LAYER'S EVENT SET IS FINAL AND BEFORE ITS FIRST EVENT IS RESOLVED
+    // (join-and-divide spec, decisions 19 and 20), so a refused layer changes no link, node or acceptance. On one
+    // ring it cannot fire (decision 21): every event's participants stand on the one ring, and no split joins. It is
+    // asked on every layer all the same, so that what it reads is one rule whatever the ring count.
+    const coincidence = crossRingCoincidence(context, ringOf, eventsToResolve);
+    if (coincidence !== undefined) {
+        refuseStep(context, 'simultaneous-across-rings', `rings `
+            + `${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}: ${coincidence} Events of different `
+            + `rings coincide in this layer, which the holed-skeleton roadmap's node 5 owns.`);
     }
 
     // THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
@@ -586,6 +710,20 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // Every pending birth that was never born — a re-report the dedupe dropped, or a ring closed at one node — is
     // spliced out of its ring (skeleton wavefront-order spec).
     settleLayerLinks(context);
+
+    if (multiRing) {
+        // A STEP OF SEVERAL RINGS LEAVES ITS COMPONENTS (join-and-divide spec, decisions 10 to 17), whatever its
+        // layer did: a join leaves one ring where there were two, a divide two outer rings, and a layer of both
+        // whatever its rings make, by the one rule. The rings are classified at the time of the layer's earliest
+        // arrival, a bisector born in it standing at its source node.
+        const layerTime = timeOf(eventsToResolve.reduce((earliest, event) =>
+            compareArrivals(event.arrival, earliest.arrival, 0) < 0 ? event : earliest).arrival);
+        const stepMembers = new Set(input.interiorEdges);
+        const born = new Set(allOutgoingInteriorEdges.filter(id => !stepMembers.has(id)));
+        result.childSteps = componentsAsChildren(
+            context, allOutgoingInteriorEdges, partitionBirths, layerTime, born);
+        return result;
+    }
 
     if (finalPartitionEvents.length === 0) {
         result.childSteps.push({interiorEdges: allOutgoingInteriorEdges})

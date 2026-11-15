@@ -1,5 +1,5 @@
 import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "./types";
-import {linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
+import {areNeighbours, linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
 
 
 /**
@@ -20,9 +20,17 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     const interiorEdge = context.getInteriorWithId(instigator);
 
+    // A NEIGHBOUR COLLAPSE EXACTLY WHEN THE LINKS MAKE THE TWO NEIGHBOURS, ASKED NOW (skeleton join-and-divide
+    // spec, decision 3): never answered from the type a cached event was priced with, because the links can change
+    // between pricing and resolution, and a shared parent no longer means adjacency once an edge bounds two
+    // segments of one ring.
+    const eventType = event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'
+        ? (areNeighbours(context, instigator, target) ? 'interiorPair' : 'interiorNonAdjacent')
+        : event.eventType;
+
     const newNode = context.terminateEdgesAtPoint([instigator], event.position, event.positionUncertainty);
 
-    if (event.eventType === 'interiorPair') {
+    if (eventType === 'interiorPair') {
         const otherInterior = context.getInteriorWithId(target);
         context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
@@ -49,7 +57,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     }
 
-    if (event.eventType === 'interiorNonAdjacent') {
+    if (eventType === 'interiorNonAdjacent') {
         const otherInterior = context.getInteriorWithId(target);
 
         // The target arrives at this point just as the instigator does, so it ends here too.
@@ -78,7 +86,7 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         return bisections
     }
 
-    if (event.eventType === 'interiorAgainstExterior') {
+    if (eventType === 'interiorAgainstExterior') {
         const instigatorInterior = context.getInteriorWithId(instigator);
 
         // NEVER REACHED ON THE CORPUS: no event generator emits more than two colliding edges. Kept as it

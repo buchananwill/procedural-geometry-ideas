@@ -11,7 +11,7 @@ import {
     Vector2,
     WavefrontSegment
 } from "./types";
-import {makeWavefront, wavefrontSegmentsOf} from "./wavefront";
+import {currentStepMembers, makeWavefront, wavefrontSegmentsOf} from "./wavefront";
 import {addInEdges, initBoundingPolygon} from "./graph-helpers";
 import {
     addVectors,
@@ -234,8 +234,8 @@ export function makeStraightSkeletonSolverContext(
      * labelled the pair backwards (BSA.F95); and it presumed every ring is an interval of ids, which a ring
      * joined from two loops is not (BSA.F91). The links need neither presumption.
      *
-     * In ascending order of `from`. Where several segments would validate a split, the first is taken (decision
-     * 11); on the corpus, the sweep and the census no split ever validated on more than one.
+     * In ascending order of `from`. Where several segments validate a split, every one is returned and the caller
+     * chooses (skeleton join-and-divide spec, decision 5).
      *
      * A SEGMENT WHOSE `to` IS NOT LIVE THROWS (BSA.D293): it is a broken link (W1), and dropping it silently
      * would hide the break from the split that asked. No roster reaches it (0 of about 6.1 million segments).
@@ -387,7 +387,7 @@ export function makeStraightSkeletonSolverContext(
             parents.push(widdershinsParent(getInteriorWithId(interiorEdgeIds[0])).id);
             return parents;
         },
-        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment | null {
+        validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment[] {
             const splitIntersectionOptions: IntersectionType[] = ['converging']
             const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
@@ -448,11 +448,27 @@ export function makeStraightSkeletonSolverContext(
 
             };
 
-            // THE FIRST VALIDATING SEGMENT (spec decision 11). Part A measured that no split on the corpus, the
-            // sweep or the census validates on more than one, so which is first has never decided anything.
-            const struck = segments.find(validates);
-
-            return struck === undefined ? null : asSegment(edgeToSplitId, struck);
+            // EVERY VALIDATING SEGMENT IN THE STEP, IN TODAY'S ORDER (skeleton join-and-divide spec, decisions 4 and
+            // 5). Only a segment whose `from` stands in the current step is searched: a ring of another step is
+            // another part of the region. Outside a step every segment is. The callers choose from the list: the
+            // incenter paths take the first the neighbour guard does not refuse, the direct strike the first.
+            // On one loop no split validated on more than one segment, nor outside its step (BSA.F95, BSA.F97).
+            const members = currentStepMembers(context);
+            return segments
+                .filter(segment => members === null || members.has(segment.widdershinsBisector.id))
+                .filter(validates)
+                .map(segment => asSegment(edgeToSplitId, segment));
+        },
+        wavefrontVertexAt(bisectorId: number, time: number): Vector2 {
+            // The construction `validateSplitReachesEdge` reads a segment's ends with (decision 12), against the
+            // bisector's own clockwise parent: its local time is `time` less its birth time, carried to a
+            // perpendicular distance from that parent's line by the parent's weight (W-spec W40) and walked along
+            // the bisector from its source node. A bisector of anti-parallel parents has no rate against its
+            // parent, and `projectFromPerpendicular` leaves it at its source.
+            const interior = getInteriorWithId(bisectorId);
+            const parent = clockwiseParent(interior);
+            const localTime = time - timeOf(birthArrivalOf(interior, context));
+            return vertexAtOffset(getEdgeWithId(bisectorId), parent.basisVector, localTime * weightOf(parent.id));
         },
     };
 

@@ -6,7 +6,8 @@ import {
     SkeletonDirection,
     SplitOffsetResult,
     StraightSkeletonSolverContext,
-    Vector2
+    Vector2,
+    WavefrontSegment
 } from "./types";
 import {complexLog, splitLog} from "./logger";
 import {
@@ -267,6 +268,19 @@ function findOffsetByDirectStrike(
     };
 }
 
+/**
+ * The first of these validating segments the neighbour guard does not refuse (skeleton join-and-divide spec,
+ * decision 5), or `undefined` when it refuses them all. On one loop no split validated on more than one segment
+ * (BSA.F95), so this is the guard asked of the one segment, as before.
+ */
+function firstUnrefused(
+    context: StraightSkeletonSolverContext,
+    instigatorId: number,
+    validating: readonly WavefrontSegment[],
+): WavefrontSegment | undefined {
+    return validating.find(segment => !linkGuardRefuses(context, instigatorId, segment));
+}
+
 export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
 
     const {
@@ -293,14 +307,16 @@ export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: Po
         return null;
     }
 
-    const struckSegment = context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
-    if (struckSegment === null) {
+    const validating = context.validateSplitReachesEdge(instigatorData.id, edgeToSplit.id, result.arrival);
+    if (validating.length === 0) {
         splitLog.info('Split event validation failed:', instigatorData, edgeToSplit);
         return null;
     }
 
-    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links.
-    if (linkGuardRefuses(context, instigatorData.id, struckSegment)) {
+    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links, and of
+    // every validating segment in turn — the first it does not refuse is struck (join-and-divide spec, decision 5).
+    const struckSegment = firstUnrefused(context, instigatorData.id, validating);
+    if (struckSegment === undefined) {
         return null;
     }
 
@@ -398,8 +414,10 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
     // --- Path 1: Direct-strike offset ---
     const directResult = findOffsetByDirectStrike(instigatorData, edgeToSplit, initialIntersectionTest, context);
     if (directResult !== null) {
-        const struckSegment = context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival);
-        if (struckSegment === null) {
+        // THE FIRST VALIDATING SEGMENT, UNGUARDED, as before (join-and-divide spec, decision 5): asking the guard
+        // here moves seven complete sweep cells (BSA.F98).
+        const [struckSegment] = context.validateSplitReachesEdge(instigatorId, targetId, directResult.arrival);
+        if (struckSegment === undefined) {
             complexLog.debug('Collide creates invalid split', directResult, instigatorId, targetId, context)
         } else {
             return {
@@ -445,13 +463,11 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
         return null;
     }
 
-    const struckSegment = context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival);
-    if (struckSegment === null) {
-        return null;
-    }
-
-    // Can't split your neighbour (spec decision 19): asked of the segment the split strikes, in the links.
-    if (linkGuardRefuses(context, instigatorId, struckSegment)) {
+    // Can't split your neighbour (spec decision 19): the first validating segment the guard does not refuse
+    // (join-and-divide spec, decision 5).
+    const struckSegment = firstUnrefused(context, instigatorId,
+        context.validateSplitReachesEdge(instigatorId, targetId, incenterResult.arrival));
+    if (struckSegment === undefined) {
         return null;
     }
 

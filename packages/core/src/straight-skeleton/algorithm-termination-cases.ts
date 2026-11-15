@@ -38,7 +38,7 @@ import {makeStraightSkeletonSolverContext} from "./solver-context";
 import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
-import {activeWavefrontProbe, retireBisectors, ringsOfWavefront} from "./wavefront";
+import {activeWavefrontProbe, beginStep, endStep, refuseStep, retireBisectors, ringsOfWavefront} from "./wavefront";
 import {describeLoopConflict, findLoopConflict, isDegenerateHole} from "./skeleton-loops";
 import {
     cramerQuotientRoundingBound,
@@ -1167,19 +1167,40 @@ export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext,
         throw new Error("Fewer than 2 interior edges is not a valid skeleton state")
     }
 
-    if (input.interiorEdges.length === 2) {
-        result.childSteps.push(...handleInteriorEdgePair(context, input).childSteps)
-    }
+    // THE STEP IS RECORDED, AND ITS RINGS COUNTED FIRST (skeleton join-and-divide spec, decisions 4 and 22). The
+    // struck-segment search reads the record; it is cleared however the step ends.
+    beginStep(context, input.interiorEdges);
+    try {
+        const rings = ringsOfWavefront(context, input.interiorEdges);
+        if (rings.length > 1) {
+            // A STEP OF SEVERAL RINGS ALWAYS GOES TO THE N-GON, and never to the pair or triangle handler, which
+            // are statements about one ring. In the generic case every ring has three bisectors or more.
+            const short = rings.find(ring => ring.length < 3);
+            if (short !== undefined) {
+                refuseStep(context, 'multi-ring-step-refused', `a step of ${rings.length} rings holds the ring `
+                    + `[${short.join(', ')}] of ${short.length} bisector(s); every ring of a generic step of several `
+                    + `rings has three.`);
+            }
+            result.childSteps.push(...handleInteriorNGon(context, input).childSteps);
+            return result;
+        }
 
-    if (input.interiorEdges.length === 3) {
-        result.childSteps.push(...handleInteriorEdgeTriangle(context, input).childSteps)
-    }
+        if (input.interiorEdges.length === 2) {
+            result.childSteps.push(...handleInteriorEdgePair(context, input).childSteps)
+        }
 
-    if (input.interiorEdges.length > 3) {
-        result.childSteps.push(...handleInteriorNGon(context, input).childSteps)
-    }
+        if (input.interiorEdges.length === 3) {
+            result.childSteps.push(...handleInteriorEdgeTriangle(context, input).childSteps)
+        }
 
-    return result;
+        if (input.interiorEdges.length > 3) {
+            result.childSteps.push(...handleInteriorNGon(context, input).childSteps)
+        }
+
+        return result;
+    } finally {
+        endStep(context);
+    }
 }
 
 export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: AlgorithmStepInput[]): AlgorithmStepOutput {
@@ -1224,11 +1245,6 @@ interface SimplePolygonRun {
     context: StraightSkeletonSolverContext;
     /** Messages accumulated from every `stepAlgorithm` iteration of this run. */
     errors: string[];
-    /**
-     * True when the run STOPPED AFTER INITIALISATION because it was given more than one loop (skeleton
-     * loops-input spec, decision 33): `stepAlgorithm` was never called.
-     */
-    stoppedAtInitialisation: boolean;
 }
 
 /**
@@ -1246,10 +1262,9 @@ function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePoly
  * Run the straight skeleton algorithm on a single simple (non-self-intersecting) polygon.
  *
  * `loops` is the loop table (skeleton loops-input spec, decision 10); omitted means one loop of all the nodes.
- * GIVEN MORE THAN ONE LOOP, THE RUN STOPS AFTER INITIALISATION and never calls `stepAlgorithm` (decision 33): a
- * strike across two rings would be built as a split (BSA.F91), and a ring that divides while another shares its
- * step has no rule before roadmap node 4, so stepping could return a wrong skeleton that looks complete. The
- * probe still sees the boundary after initialisation and the end of the solve.
+ * A HOLED RUN STEPS LIKE ANY OTHER (skeleton join-and-divide spec, decisions 24 and 34): a strike within a ring
+ * divides it and a strike across rings joins them, by the one split rewrite, and the run ends, as a single loop's
+ * does, when no step input remains. The stop after initialisation that stood here until node 4 is retired.
  */
 function runSimplePolygon(
     nodes: Vector2[],
@@ -1269,10 +1284,6 @@ function runSimplePolygon(
 
     let inputs: AlgorithmStepInput[] = [{interiorEdges: context.graph.interiorEdges.map(e => e.id)}]
     probe?.stepBoundary?.(context, inputs);
-    if (context.graph.loops.length > 1) {
-        probe?.solveFinished?.(context, errors);
-        return {context, errors, stoppedAtInitialisation: true};
-    }
     while (inputs.length > 0) {
         const output = stepAlgorithm(context, inputs);
         errors.push(...(output.errors ?? []));
@@ -1283,7 +1294,7 @@ function runSimplePolygon(
     }
     probe?.solveFinished?.(context, errors);
 
-    return {context, errors, stoppedAtInitialisation: false}
+    return {context, errors}
 }
 
 /**
@@ -1865,10 +1876,10 @@ export interface SkeletonHole {
  * The holes of an outline (decision 1). Omitted or empty means a single-loop solve, which is the solve as it
  * always ran.
  *
- * A HOLED SOLVE STOPS AFTER INITIALISATION until the join event of the holed-skeleton roadmap's node 4: it
- * returns its initialised graph, one wavefront ring per loop, with a blocking `holes-not-solved` diagnostic and
- * `complete: false` (decisions 33 to 35). Only {@link solveSkeleton} takes holes; the legacy entries refuse them
- * (decision 4).
+ * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case, where no two events of
+ * different rings coincide, it solves; a layer in which they do is refused by name as `simultaneous-across-rings`,
+ * for the holed-skeleton roadmap's node 5, and `complete` is then false. Only {@link solveSkeleton} takes holes;
+ * the legacy entries refuse them (skeleton loops-input spec, decision 4).
  */
 export interface HoleOptions {
     holes?: readonly SkeletonHole[];
@@ -1947,7 +1958,7 @@ function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): 
  *
  * HOLES ARRIVE ON `options.holes` (skeleton loops-input spec). Every loop goes through the one boundary
  * pipeline below, of which a single loop is the one-loop case (decision 39), so a single-loop input solves to
- * the graph it always solved to. A holed solve stops after initialisation (decisions 33 to 35).
+ * the graph it always solved to. A holed solve steps like any other (skeleton join-and-divide spec, decision 34).
  *
  * Throws when the input cannot be solved at all: a loop with fewer than three vertices or a non-finite one, a
  * refusal at the weight door, a mis-wound loop of a holed input under `normaliseWinding: false`, and loops that
@@ -2110,18 +2121,6 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights, loops);
         pushStepFailures(diagnostics, run.errors);
         pushSolveDiagnostics(diagnostics, run);
-        if (run.stoppedAtInitialisation) {
-            // DECISIONS 33 TO 35: a holed solve stops after initialisation, and says so by a BLOCKING
-            // diagnostic, before the causality check and the unresolved edges that every initial bisector is.
-            const rootInput = run.context.graph.interiorEdges.map(edge => edge.id);
-            const rings = ringsOfWavefront(run.context, rootInput).length;
-            diagnostics.push({
-                kind: 'holes-not-solved',
-                detail: `${holes.length} hole(s) given; ${rings} wavefront ring(s) initialised, one per loop. The `
-                    + `solve stops after initialisation: a holed skeleton waits for the join event of the `
-                    + `holed-skeleton roadmap node 4, so no skeleton is computed and the result is not complete.`,
-            });
-        }
         graph = run.context.graph;
         context = run.context;
     }
@@ -2153,9 +2152,10 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         });
     }
 
-    // `holes-not-solved` blocks by itself (decision 35).
+    // The two refusals of a step of several rings block by themselves (skeleton join-and-divide spec, decisions 24
+    // and 35); each also leaves a step failure and unresolved edges behind it.
     const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges'
-        || d.kind === 'holes-not-solved');
+        || d.kind === 'simultaneous-across-rings' || d.kind === 'multi-ring-step-refused');
     const complete = !blocking && graph.interiorEdges.length > 0;
 
     return {

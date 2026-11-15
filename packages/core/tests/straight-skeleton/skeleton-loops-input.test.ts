@@ -1,9 +1,10 @@
 /*
  * THE SKELETON'S LOOPS INPUT (docs/notes/skeleton-loops-input-decisions.md, roadmap nodes 2 and 3). An outline
  * carries any number of holes on `options.holes`; every loop goes through the boundary stage, the graph gains a
- * loop table and the result a per-loop caller map, and initialisation builds one wavefront ring per loop. A
- * holed solve then STOPS, with a blocking `holes-not-solved` diagnostic, until node 4's join event: these tests
- * assert that state as specified behaviour (decision 35). Gates 44 to 47 of the spec.
+ * loop table and the result a per-loop caller map, and initialisation builds one wavefront ring per loop. Gates
+ * 44 to 47 of the spec. The holed solve's stop after initialisation, which these tests asserted as specified
+ * behaviour until node 4 (decision 35), is retired (skeleton join-and-divide spec, decision 34): the initialisation
+ * is now read at the first step boundary, and the solve is the join-and-divide tests' business.
  */
 import type {SkeletonSolveResult, SolveSkeletonOptions, Vector2} from '@proc-geo/core';
 import {
@@ -26,6 +27,7 @@ import {
     solveSkeleton,
 } from '@proc-geo/core';
 import {FULL_CORPUS} from '@proc-geo/test-fixtures';
+import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
 
 setSkeletonLogLevel('silent');
 
@@ -59,18 +61,35 @@ interface LoopInput {
 
 /**
  * Every property gate 45 names, on one holed solve: one ring per loop in vertex order, the wavefront sound over
- * the root input, decision 15's reflex classification, the weights per loop, no causality diagnostic, the
- * holes-not-solved state, and every caller edge carried by the solved edge its map names.
+ * the root input, decision 15's reflex classification, the weights per loop, no `holes-not-solved` (retired by
+ * node 4), and every caller edge carried by the solved edge its map names.
  */
 function expectHoledInitialisation(outline: LoopInput, holes: LoopInput[]): SkeletonSolveResult {
     const options: SolveSkeletonOptions = {
         weights: outline.weights,
         holes: holes.map(hole => ({vertices: hole.vertices, weights: hole.weights})),
     };
-    const result = solveSkeleton(outline.vertices, options);
+    // THE INITIALISATION IS READ AT THE FIRST STEP BOUNDARY, by the probe: since node 4 the holed solve steps on, and
+    // the returned graph is the solve's, not the initialised one (skeleton join-and-divide spec, decision 34).
+    let initialised: {ids: number[]; rings: number[][]; violations: string[]} | undefined;
+    setWavefrontProbe({
+        stepBoundary(boundaryContext, inputs) {
+            if (initialised === undefined) {
+                const ids = inputs.flatMap(input => input.interiorEdges);
+                initialised = {ids, rings: ringsOfWavefront(boundaryContext, ids), violations: checkWavefront(boundaryContext, inputs)};
+            }
+        },
+    });
+    let result: SkeletonSolveResult;
+    try {
+        result = solveSkeleton(outline.vertices, options);
+    } finally {
+        setWavefrontProbe(null);
+    }
     const {graph} = result;
     const context = result.context!;
     expect(context).not.toBeNull();
+    expect(initialised).toBeDefined();
     const n = graph.numExteriorNodes;
 
     // The loop table: contiguous from 0, one entry per loop, tiling the exterior ids (decision 6).
@@ -84,11 +103,10 @@ function expectHoledInitialisation(outline: LoopInput, holes: LoopInput[]): Skel
     expect(next).toBe(n);
 
     // One bisector per exterior node, born in exterior id order (decision 12), one ring per loop (decision 13).
-    const ids = graph.interiorEdges.map(edge => edge.id);
+    const {ids, rings, violations} = initialised!;
     expect(ids).toEqual(range(n).map(i => n + i));
-    expect(ringsOfWavefront(context, ids))
-        .toEqual(graph.loops.map(loop => range(loop.count).map(j => n + loop.start + j)));
-    expect(checkWavefront(context, [{interiorEdges: ids}])).toEqual([]);
+    expect(rings).toEqual(graph.loops.map(loop => range(loop.count).map(j => n + loop.start + j)));
+    expect(violations).toEqual([]);
 
     // Each bisector's parents are its own loop's edges: clockwise the edge leaving its node, widdershins the
     // edge arriving (decision 12).
@@ -110,19 +128,11 @@ function expectHoledInitialisation(outline: LoopInput, holes: LoopInput[]): Skel
         }
     }
 
-    // The holed solve's specified state until node 4 (decisions 33 to 36).
-    expect(result.complete).toBe(false);
+    // The stop after initialisation is retired (skeleton join-and-divide spec, decision 34): the solve steps on, and
+    // what it comes to is the join-and-divide tests' business. Many of these inputs have walls parallel to the
+    // outline's, whose events coincide across rings and are refused for node 5.
     const kinds = result.diagnostics.map(diagnostic => diagnostic.kind);
-    expect(kinds).toContain('holes-not-solved');
-    expect(kinds).not.toContain('causality-violation');
-    expect(kinds).not.toContain('step-failure');
-    expect(kinds[kinds.length - 1]).toBe('unresolved-edges');
-    expect(kinds.indexOf('holes-not-solved')).toBeLessThan(kinds.indexOf('unresolved-edges'));
-    expect(graph.interiorEdges.every(edge => graph.edges[edge.id].target === undefined)).toBe(true);
-    const holesNotSolved = result.diagnostics.find(diagnostic => diagnostic.kind === 'holes-not-solved')!;
-    expect(holesNotSolved.detail).toContain(`${holes.length} hole(s)`);
-    expect(holesNotSolved.detail).toContain(`${holes.length + 1} wavefront ring(s)`);
-    expect(holesNotSolved.detail).toContain('roadmap node 4');
+    expect(kinds).not.toContain('holes-not-solved');
 
     // The weights, concatenated in exterior id order (decision 34), and the caller's map (decision 24).
     expect(result.weights).toEqual(graph.exteriorWeights);
@@ -476,7 +486,7 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
         it('accepts a gap just over the perceptual floor', () => {
             const gap = 1.1 * SKELETON_NOISE_FLOOR * unitToCaller;
             const result = solveWith([squareHole(gap, 3, 3, 5)])();
-            expect(result.diagnostics.map(diagnostic => diagnostic.kind)).toContain('holes-not-solved');
+            expect(result.loopMaps).toHaveLength(2);
         });
 
         it('a mis-wound loop under normaliseWinding: false', () => {
@@ -487,7 +497,7 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
                 {normaliseWinding: false, holes: [{vertices: squareHole(3, 3, 5, 5)}]}))
                 .toThrow(/^The outline is wound counter-clockwise/);
             // A correctly wound holed input under the option is accepted, and a single loop solves as today.
-            expect(solveWith([squareHole(3, 3, 5, 5)], {normaliseWinding: false})().complete).toBe(false);
+            expect(solveWith([squareHole(3, 3, 5, 5)], {normaliseWinding: false})().loopMaps).toHaveLength(2);
             expect(solveSkeleton([...OUTLINE].reverse(), {normaliseWinding: false}).complete).toBe(false);
         });
 

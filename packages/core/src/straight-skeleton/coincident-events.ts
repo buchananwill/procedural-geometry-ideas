@@ -391,69 +391,6 @@ export function mergesShareAnEdge(merges: CoincidentMerge[]): boolean {
     return false;
 }
 
-/**
- * Put a step's interior edges into clockwise ring order, one ring per closed wavefront.
- *
- * Consecutive interior edges share one exterior parent: the clockwise parent of an edge is
- * the widdershins parent of its clockwise neighbour. A step's edges usually form a single
- * ring, but not always — so every ring is returned, and each edge appears in exactly one.
- *
- * Returns `null` when the edges do not partition cleanly into cycles under that relation,
- * which is the signal to fall back to pairwise handling rather than reason about an order
- * that does not exist.
- */
-export function ringsOfSubPolygon(
-    edgeIds: number[],
-    context: StraightSkeletonSolverContext,
-): number[][] | null {
-    if (edgeIds.length === 0) {
-        return null;
-    }
-
-    const byWiddershinsParent = new Map<number, number>();
-    for (const edgeId of edgeIds) {
-        const interior = context.getInteriorWithId(edgeId);
-        if (byWiddershinsParent.has(interior.widdershinsExteriorEdgeIndex)) {
-            return null;
-        }
-        byWiddershinsParent.set(interior.widdershinsExteriorEdgeIndex, edgeId);
-    }
-
-    const rings: number[][] = [];
-    const placed = new Set<number>();
-
-    for (const start of edgeIds) {
-        if (placed.has(start)) {
-            continue;
-        }
-
-        const ring: number[] = [];
-        let current = start;
-        for (;;) {
-            if (placed.has(current)) {
-                return null;
-            }
-            placed.add(current);
-            ring.push(current);
-
-            const next = byWiddershinsParent.get(
-                context.getInteriorWithId(current).clockwiseExteriorEdgeIndex,
-            );
-            if (next === undefined) {
-                return null;
-            }
-            if (next === start) {
-                break;
-            }
-            current = next;
-        }
-
-        rings.push(ring);
-    }
-
-    return rings;
-}
-
 /** Maximal runs of `members` that are contiguous in the cyclic order of `ring`. */
 export function contiguousRuns(ring: number[], members: ReadonlySet<number>): number[][] {
     const length = ring.length;

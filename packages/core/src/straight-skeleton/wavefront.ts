@@ -2,13 +2,18 @@ import type {
     AlgorithmStepInput,
     BisectionParams,
     InteriorEdge,
+    StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2,
     Wavefront,
     WavefrontSegment,
 } from "./types";
 import {SkeletonDirection} from "./types";
-import {adjacentExteriorEdge} from "./graph-helpers";
+import {adjacentExteriorEdge, loopOfExteriorEdge} from "./graph-helpers";
+import {degenerateAreaBar} from "./constants";
+import {ringPerimeter, signedArea} from "../random-polygon/geometry-helpers";
+import {distanceToSegment} from "../stroke-spline/vertex-budget";
+import {isPointInPolygon} from "../terrain/polygon-slope";
 
 /**
  * THE WAVEFRONT'S ORDER, STORED (skeleton-wavefront-order spec, stage 1).
@@ -19,8 +24,9 @@ import {adjacentExteriorEdge} from "./graph-helpers";
  * AFTERWARDS (decision 10): no reader of order finds a neighbour by searching for a bisector with a
  * matching parent or by id distance, because that search is ambiguous as soon as one exterior edge bounds
  * two segments of one ring. Two bisectors are neighbours when the links say so ({@link areNeighbours}).
- * The one id interval left in the event path is `partitionSpan` (`selectPartitionEvents`), which orders a
- * layer's partition births and finds no neighbour (decision 33).
+ * No id interval is left in the event path: the order a layer's partition births are born in is
+ * {@link partitionArc}, a walk of the ring (skeleton join-and-divide spec, decisions 25 to 27), which replaced
+ * `partitionSpan` and finds no neighbour.
  *
  * THE LINKS ARE THE SOLVER'S ONE SOURCE OF WAVEFRONT ORDER (decisions 19 to 22): an edge's segments, the
  * neighbour guard, a step's rings, a partitioning layer's child steps, whether two colliding bisectors are
@@ -628,6 +634,182 @@ export function linkMergeGap(
     const layer = layerOf(context);
     layer.clockwiseSuccessor.set(lastArrival, token);
     layer.widdershinsSuccessor.set(firstDeparture, token);
+}
+
+// ── The current step (skeleton join-and-divide spec, decisions 4 and 22) ─────────────────────────
+
+/*
+ * WHICH STEP IS RUNNING. `handleAlgorithmStepInput` records the bisectors of the step it is about to handle, and
+ * clears the record when the step returns or throws. The struck-segment search reads it: a split may strike only a
+ * segment whose `from` stands in the current step (decision 4), because a ring of another step is another part of
+ * the region. Outside a step — a direct call from a unit test — nothing is recorded and every segment is searched,
+ * as before. Kept beside the layer's link state, keyed by context, and not on the context: it is the solver's
+ * bookkeeping of one call, not part of the wavefront.
+ */
+const steps = new WeakMap<StraightSkeletonSolverContext, ReadonlySet<number>>();
+
+/** Record the step about to be handled: its bisectors, which the struck-segment search is restricted to. */
+export function beginStep(context: StraightSkeletonSolverContext, interiorEdgeIds: readonly number[]): void {
+    steps.set(context, new Set(interiorEdgeIds));
+}
+
+/** The step has returned or thrown: nothing is recorded, and every segment is searched again. */
+export function endStep(context: StraightSkeletonSolverContext): void {
+    steps.delete(context);
+}
+
+/** The bisectors of the step being handled, or `null` outside a step. */
+export function currentStepMembers(context: StraightSkeletonSolverContext): ReadonlySet<number> | null {
+    return steps.get(context) ?? null;
+}
+
+/** The two kinds a step of several rings is refused with (decisions 16, 19, 22 and 23). */
+export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
+
+/**
+ * REFUSE THE CURRENT STEP, BY NAME: push a blocking diagnostic naming the step's bisectors and the reason, and throw
+ * the same text, which `stepAlgorithm` records as the step's failure. Never a guess (decision 16), and never silent.
+ */
+export function refuseStep(context: StraightSkeletonSolverContext, kind: StepRefusalKind, reason: string): never {
+    const members = currentStepMembers(context);
+    const step = members === null ? 'outside a step' : `[${[...members].sort((a, b) => a - b).join(', ')}]`;
+    const detail = `Step ${step}: ${reason}`;
+    context.diagnostics.push({kind, detail});
+    throw new Error(detail);
+}
+
+// ── The partition order (skeleton join-and-divide spec, decisions 25 to 27) ───────────────────────
+
+/**
+ * How many clockwise steps round the loop lead from exterior edge `from` to `to` (`adjacentExteriorEdge`), when the
+ * two are of one loop; 1 when they are of two loops, which a joined ring crosses between (decision 25).
+ */
+function exteriorGap(graph: StraightSkeletonGraph, from: number, to: number): number {
+    const loop = loopOfExteriorEdge(graph, from);
+    if (loop !== loopOfExteriorEdge(graph, to)) {
+        return 1;
+    }
+    const {count} = graph.loops[loop];
+    let steps = 0;
+    for (let edge = from; edge !== to && steps < count; steps++) {
+        edge = adjacentExteriorEdge(graph, edge, SkeletonDirection.Clockwise);
+    }
+    return steps;
+}
+
+/**
+ * THE PARTITION ORDER, ON ANY RING (decisions 25 to 27): walk the pending bisector's ring clockwise from the
+ * bisector to the last member before it returns, and sum the gaps between consecutive clockwise parents.
+ *
+ *     partitionArc(b) = Σ_{k=0..m-1} gap(cp(e_k), cp(e_{k+1}))
+ *       e_0 = b,  e_{k+1} = clockwise neighbour of e_k,  clockwise neighbour of e_m = b,  cp = clockwise parent
+ *
+ * ON ONE LOOP IT IS TODAY'S SPAN, `(ws − cw + n) mod n`, EXACTLY (decision 26): a ring cut from one loop has clockwise
+ * parents that rise cyclically through less than one turn from the bisector's `cw` to its `ws` (W2 makes the last
+ * parent `ws`), so the gaps telescope. Ordering by ring size (BSA.F96) leaves out the closed edges inside the arc,
+ * which is why it renumbered 16 digests; this counts them.
+ *
+ * READ THROUGH THE LAYER'S LINK STATE (decision 27), because the order is taken before the births: the walk passes
+ * pending births as their tokens. A bisector this layer has not linked, or a ring the links cannot close, gives
+ * whatever it walks — 0 for the first.
+ */
+export function partitionArc(context: StraightSkeletonSolverContext, params: BisectionParams): number {
+    const layer = layers.get(context);
+    const token = layer?.tokenOf.get(params);
+    if (layer === undefined || token === undefined || !layer.pending.has(token)) {
+        return 0;
+    }
+    const limit = context.wavefront.clockwiseNeighbour.length + layer.pending.size;
+    let arc = 0;
+    let parent = params.clockwiseExteriorEdgeIndex;
+    let current = clockwiseOf(context, token);
+    for (let hops = 0; current !== token && hops <= limit; hops++) {
+        const next = parentsOf(context, current);
+        if (next === undefined) {
+            break;
+        }
+        arc += exteriorGap(context.graph, parent, next.clockwise);
+        parent = next.clockwise;
+        current = clockwiseOf(context, current);
+    }
+    return arc;
+}
+
+// ── Components: which child each ring goes to (decisions 10 to 17) ────────────────────────────────
+
+/** One child of a step of several rings: an outer ring and the inner rings inside it (decision 10). */
+export interface RingComponent {
+    outer: number[];
+    inner: number[][];
+}
+
+/**
+ * THE COMPONENTS OF THE RINGS A LAYER LEFT (decisions 12 to 16), for a step of more than one ring. Each ring is
+ * classified at the layer's time `time`, the time of the earliest arrival the layer resolved: its polygon is its
+ * bisectors' positions at `time` in clockwise-neighbour order, a bisector born in the layer (`newborn`) at its source
+ * node and an older one at `context.wavefrontVertexAt(id, time)`.
+ *
+ *  - A ring whose polygon has NEGATIVE `signedArea` is OUTER, the outline's clockwise winding; positive is inner
+ *    (decision 13).
+ *  - Each outer ring founds one component, and each inner ring joins the component of the outer ring of least
+ *    `|area|` whose polygon contains the inner ring's WITNESS, by `isPointInPolygon` (decision 14). The witness is the
+ *    source node of the clockwise parent of the ring's first member: an inner ring holds only hole edges, so it is a
+ *    vertex of a hole the ring encloses, and it lies on a wall, which every front left at offset zero (decision 15).
+ *  - AMBIGUITY IS REFUSED, NEVER GUESSED (decision 16): a ring of `|area|` at or under `degenerateAreaBar(δ,
+ *    perimeter)`, a witness closer than δ to an edge of an outer polygon by `distanceToSegment`, or an inner ring no
+ *    outer ring contains is refused as `multi-ring-step-refused`, naming the step and the ring. δ is the solve's
+ *    perceptual floor, read here and changed nowhere.
+ *
+ * Components are returned in the order of their outer rings in `rings`, each inner ring in the order given.
+ */
+export function componentsOfRings(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    time: number,
+    newborn: ReadonlySet<number> = new Set(),
+): RingComponent[] {
+    const {graph} = context;
+    const floor = context.perceptualFloor;
+    const placed = rings.map(ring => {
+        const polygon = ring.map(id => newborn.has(id)
+            ? graph.nodes[graph.edges[id].source].position
+            : context.wavefrontVertexAt(id, time));
+        const area = signedArea(polygon);
+        const bar = degenerateAreaBar(floor, ringPerimeter(polygon));
+        if (!(Math.abs(area) > bar)) {
+            refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}] has area ${area} at time ${time}, `
+                + `at or under the ${bar} degenerate-area bar: it cannot be classified as outer or inner.`);
+        }
+        return {ring, polygon, area};
+    });
+
+    const outers = placed.filter(entry => entry.area < 0);
+    const components: RingComponent[] = outers.map(entry => ({outer: entry.ring, inner: []}));
+    for (const entry of placed.filter(candidate => candidate.area > 0)) {
+        const parent = context.getInteriorWithId(entry.ring[0]).clockwiseExteriorEdgeIndex;
+        const witness = graph.nodes[graph.edges[parent].source].position;
+        let container = -1;
+        outers.forEach((outer, index) => {
+            const {polygon} = outer;
+            const near = polygon.some((vertex, k) =>
+                distanceToSegment(witness, vertex, polygon[(k + 1) % polygon.length]) < floor);
+            if (near) {
+                refuseStep(context, 'multi-ring-step-refused', `inner ring [${entry.ring.join(', ')}]'s witness `
+                    + `(${witness.x}, ${witness.y}) lies within the ${floor} floor of outer ring `
+                    + `[${outer.ring.join(', ')}] at time ${time}: which ring holds it cannot be read.`);
+            }
+            if (isPointInPolygon(witness, polygon)
+                && (container === -1 || Math.abs(outer.area) < Math.abs(outers[container].area))) {
+                container = index;
+            }
+        });
+        if (container === -1) {
+            refuseStep(context, 'multi-ring-step-refused', `inner ring [${entry.ring.join(', ')}]'s witness `
+                + `(${witness.x}, ${witness.y}) lies in no outer ring at time ${time}.`);
+        }
+        components[container].inner.push(entry.ring);
+    }
+    return components;
 }
 
 // ── Reading the links ────────────────────────────────────────────────────────────────────────────
