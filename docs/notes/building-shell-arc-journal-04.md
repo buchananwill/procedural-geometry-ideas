@@ -71,37 +71,40 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**Session 4 state, 2026-11-14.** The arc's work is the holed skeleton, on `feature/skeleton-holes` (cut from `ee84976`),
-under an approved vision and roadmap (BSA.D286). Nothing is pushed.
+**Session 4 state, 2026-11-15, the lead working unattended (BSA.D301).** The arc's work is the holed skeleton, on
+`feature/skeleton-holes` (cut from `ee84976`), under an approved vision and roadmap (BSA.D286). Nothing is pushed.
 
-**Done:** roadmap node 1, the stored wavefront order, complete at `823211a` (BSA.D295). Core is 5,851 passed and 7
-failed, the 7 being the red early-acceptance file by design; building-shell 9,992. Figures are delegates', not re-run by
-the lead.
+**Built, all local commits:**
+- Node 1, stored wavefront order: complete at `823211a` (BSA.D295).
+- Nodes 2 and 3, holes as input: `57f6967`, review fixes `f008560`, spec completed (BSA.D297, BSA.D299).
+- The acceptance cure: measuring step `420c604`, switch `8170011`, reviewed clean, issue resolved and spec completed
+  (BSA.D302, BSA.D304); its small review fixes `3a92a28`.
+- Node 4, join and divide: `a8ba71f`, all nine generic holed fixtures solving, F1 to its closed form (BSA.D307). **Under
+  independent review; spec at `implementing`.**
+- Last figures, by delegates: core 5,954 passed, none failed, 9 skipped; building-shell 9,992; sweep records identical
+  for single-loop input.
 
-**Specs approved and waiting:** nodes 2 and 3, `skeleton-loops-input-decisions.md` (BSA.D289); node 4,
-`skeleton-join-and-divide-decisions.md` (BSA.D294).
+**Specs:** node 6 approved (BSA.D305); node 9 drafted and held at `proposed` until nodes 5 and 6 land (BSA.D306); nodes
+5, 7 and 8 being drafted, nodes 5 and 8 from measurements on a throwaway copy.
 
-**How the user is steering,** added to session 3's list:
-- Specs are drafted by a delegate; the lead reads and approves (BSA.D288). The lead approves each node's spec under the
-  roadmap (BSA.D286).
-- Commit code after a unit is built and tested, before review and after; never leave notes uncommitted for long
-  (BSA.D287). Push and merge wait for the user.
-- Byte identity is the cheap test of sameness, not a hard stop: diagnose a divergence, then fix it or write why it is
-  acceptable (BSA.D284).
-- Where the links and the old arithmetic differ, the old approach was wrong (BSA.D291).
-- A failing holed fixture is a red test with an issue note (BSA.D284).
+**Waiting for the user, none blocking yet:**
+- Nothing is pushed or merged; both wait for the user's word.
+- Any part of node 5 or node 8 that needs a change to how single-loop events resolve, or a tolerance to move, is held in
+  that spec's "For the user's ruling" section and not built (BSA.D301).
+- Whether to guard the direct-strike split path (BSA.F98), and the sub-floor cycles round hub nodes (BSA.D302), are open
+  and untouched.
+
+**How the user is steering** is in session 3's list plus BSA.D284, BSA.D287, BSA.D288, BSA.D291 and BSA.D301.
 
 **Next, in order:**
-1. **The user's ruling on the acceptance cure** (BSA.D294; node 4 spec decisions 28 to 31): accept an exterior edge
-   exactly when no live bisector and no pending birth names it. The lead recommends building it first, as its own unit
-   on single-loop input, measured on the six solves the red test names. Holed solves in general are blocked without it.
-2. **Implement nodes 2 and 3** to one Opus delegate, then an independent review, then commit again.
-3. **Implement node 4,** telling the implementer the dedupe's re-report rule is load-bearing (BSA.D295). Review.
-4. **Node 5,** opening with a measurement of the concentric courtyard on node 4's solver, then a delegate-drafted spec.
-5. **Nodes 6 to 9** by the roadmap. Node 9 opens from BSA.F94.
-6. **Session 3's carried items** (its §4 items 2 to 8) are untouched: the review of `f388632..011455d`, the scope of
-   BSA.D266, the corner sliver, one path for all gables, folding amendments into the building-shell spec, and the merge
-   of the older branch to `main`.
+1. Rule on node 4's review; review fixes; mark its spec completed.
+2. Read and approve the node 5 spec as far as it is of the kind that leaves single-loop resolution alone; implement,
+   review. **Building-shell cannot move to the holed solve before this** (BSA.D306).
+3. Implement node 6 (consumers and the holed roster), review.
+4. Node 7 (dashboard) and node 8 (contact), each: approve the draft, implement, review.
+5. Node 9 (building-shell): read the held draft, rule on its open points, approve, implement, re-export the goldens and
+   report the diff, review, then amend `building-shell-prototype-decisions.md` as the draft's decision 52 lists.
+6. Session 3's carried items (its section 4, items 2 to 8) are untouched.
 
 ## 5. Open items
 
@@ -662,6 +665,32 @@ session 3's own.
     Unreconciled; to be counted at implementation.
   - **The amendments owed to `building-shell-prototype-decisions.md`** are listed in the draft's decision 52 and are the
     lead's to make when node 9 lands.
+- **307. Roadmap node 4 is built at `a8ba71f`: the solver completes every generic holed fixture, the first one to its
+  hand-derived answer, and no single-loop record moves. Accepted for review.** The delegate's report; the lead confirmed
+  nothing beyond it. Unit 1, the acceptance review's small fixes, is `3a92a28`.
+  - **The figures:** core 5,954 passed, none failed, 9 skipped in 98 suites; building-shell 9,992 in 46 files, typecheck
+    clean; the sweep harness's 32,335 records identical; 125 digests pass.
+  - **F1 against its closed form:** all 8 interior nodes within 2.5e-15, the 16 edges as specified, the join the root
+    step's only event. **All nine fixtures are complete with cycle rank equal to the hole count and tiling errors of 0
+    or 1.2e-16:** F1, F1 stretched, F2 (two holes, which join each other first), F3 (L-shaped hole), F4 (weighted), F5
+    and its mirror (the outline divides with a hole in the step, the hole going to each child once), F6, F7. No issue
+    note was needed.
+  - **The refusals, measured:** the concentric square and the parallel-walled rectangle are both refused at the root
+    step as `simultaneous-across-rings`, on a corner of each ring meeting head-on. A centred diamond, added by the
+    delegate, is refused for four simultaneous joins and is what convicts the join-against-divide mutation.
+  - **The measuring run over corpus, sweep and census:** no step of more than one ring, no split validating on two
+    segments or outside its step, no refused layer. **`partitionArc` differs from the old span on 404 of 3,703 calls in
+    the sweep, all in the 54 incomplete along-edge cells,** where the arc is the span plus two whole loops; the sorted
+    birth order differs in no layer and no record moves. Cause unconfirmed: the ring's parents wind round the loop more
+    than once on those broken solves.
+  - **All 10 mutation gates convicted.**
+  - **To be ruled on at review, the weighted fixture F4:** the delegate reports the causality oracles date a node by
+    distance and not time, so a weighted fixture shows clearance violations that are the oracle's and not the solver's,
+    as three single-loop weighted fixtures already do; and that F4's test pins a clearance count with the reason
+    written. The report gives the count once as one and once as 8. A pinned count of an oracle's known blindness is
+    close to what BSA.D266 forbids, so the reviewer is asked to establish what is true and the lead rules then.
+  - **Next:** an independent review; and, since nothing edits the tree meanwhile, the measurement-led spec drafts for
+    nodes 5 and 8 and the spec draft for node 7.
 
 ## Findings
 
