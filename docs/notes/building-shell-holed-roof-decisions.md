@@ -2,9 +2,19 @@
 title: "Building-shell holed roof: decision spec"
 type: decision-spec
 area: building-shell
-status: implementing
+status: completed
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
+verified_by:
+  - apps/building-shell/tests/holed-roof.test.ts
+  - apps/building-shell/tests/holed-fixtures.test.ts
+  - apps/building-shell/tests/courtyard.test.ts
+  - apps/building-shell/tests/tuck.test.ts
+  - apps/building-shell/tests/golden.test.ts
+  - apps/building-shell/tests/copy-integrity.test.ts
+  - apps/building-shell/tests/robustness.test.ts
+  - apps/building-shell/tests/rise.test.ts
+  - apps/building-shell/tests/storey.test.ts
 depends_on: [skeleton-join-and-divide-decisions.md, skeleton-loop-consumers-decisions.md, skeleton-simultaneous-rings-decisions.md]
 ---
 

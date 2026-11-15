@@ -50,13 +50,20 @@ into `apps/building-shell/src/roof/`:
 - Import specifiers change from `./model.ts` to `./model` if the app's tsconfig refuses `.ts` extensions; no other
   edit is allowed.
 
+**AMENDED 2026-11-15** (BSA.D321, BSA.D327; [holed roof spec](./building-shell-holed-roof-decisions.md), decisions 35
+and 56): **"copied unchanged" now holds for `surface.ts` only.** Roadmap node 9 released the pin on `model.ts`,
+`skeleton.ts`, `algoB.ts`, `measure.ts` and `cases.ts`, so that an island could be roofed from its outline and holes
+with no cut. The copy-integrity test (decision 31) still pins algorithm B's tally and its 53 verdicts. It never pinned
+the files' bytes.
+
 **New, in `apps/building-shell/src/`:**
 
 - `constants.ts`: `SHELL_TOLERANCE_CM` (decision 16).
 - `fixture.ts`: `ShellFixture`, `FixtureRing`, and the fixture list `SHELL_FIXTURES`. **AMENDED 2026-11-08** (journal
   decision 132): `StoreyRoof` is gone with Ring-authored forms (decision 3). The Ring-conflict and port fixtures live
-  in their own lists, `RING_CONFLICT_FIXTURES` and `PORT_FIXTURES`. `courtyard.ts` places decision 2's cut, and
-  `ring-forms.ts` derives decision 3's forms.
+  in their own lists, `RING_CONFLICT_FIXTURES` and `PORT_FIXTURES`. ~~`courtyard.ts` places decision 2's cut, and~~
+  `ring-forms.ts` derives decision 3's forms. (STRUCK 2026-11-15, BSA.D321: `courtyard.ts` is deleted with the cut,
+  holed roof spec §3.)
 - `manifold.ts`: the one `manifold-3d` WASM loader. `weld.ts`: decision 11's weld-and-snap primitive, the only rounding
   in the app (journal decision 71).
 - `storey.ts`: `StoreyPlan` (one storey's union outline and its solved roof) and `buildStoreyParts` (one storey's
@@ -99,8 +106,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    The per-storey `roofs: Record<number, StoreyRoof>` of roof-gable `Sel`s is gone. A side not listed is a hip at the
    Ring's `defaultDeg`. The compass sides map onto the wire format's corner order as S = side 0, E = 1, N = 2,
    W = 3 (journal decision 126). **AMENDED 2026-11-08** (journal decision 136): a Ring read from `input@1` lists all
-   four sides with their solved form and pitch. Its `defaultDeg`, which only a courtyard cut collinear with no wall
-   reads (decision 2), ~~is the pitch of its first `Auto` side in slot order, or else of side 0~~ **is the solved
+   four sides with their solved form and pitch. Its `defaultDeg`, ~~which only a courtyard cut collinear with no wall
+   reads (decision 2),~~ (STRUCK 2026-11-15, BSA.D321 and the holed roof spec's decision 56: there is no cut, so no cut
+   reads it) ~~is the pitch of its first `Auto` side in slot order, or else of side 0~~ **is the solved
    pitch of its first `Pitched` side in compass order (S, E, N, W), or 45° when no side is Pitched** (amended again by
    journal decision 140, because the first rule depended on the Ring's start corner). ~~A gable side takes the Ring's
    `defaultDeg`~~ (STRUCK by journal decision 153) **A gable side takes its wire run's pitch, validated to [7°, 75°]**,
@@ -108,8 +116,17 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
 2. **Storey N's plan is the union of every Ring's rectangle with `baseStorey <= N < baseStorey + storeys`**, traced by
    `unionLoops`. Several islands are allowed, each its own `Comp`.
 
-   **A hole (a courtyard) is roofed through a cut, the user's sanctioned solution** (**AMENDED 2026-11-07**, journal
-   decision 115; a hole was refused before).
+   **AMENDED 2026-11-15** (BSA.D321, BSA.D327; [holed roof spec](./building-shell-holed-roof-decisions.md), roadmap
+   node 9, its decisions 4 to 17 and 30): **an island holds any number of holes.** Each hole joins the outer loop of
+   least area that contains it. The island is roofed by the skeleton of its outline and its holes, solved in one call,
+   each wall at its own derived pitch. Its wall prism is the true outline, the outer loop with its holes. An island the
+   skeleton refuses is a hard error naming the island, where it stands, its hole count and the cause, and is never a
+   roof. The cut replaced the refusal of a hole on 2026-11-07, and the holed solve replaces the cut. The cut block
+   below is STRUCK: it is kept as the record of what was built from journal decision 115 to node 9, and none of it
+   holds. There is no cut, no `form: 'cut'` and no one-hole limit.
+
+   ~~**A hole (a courtyard) is roofed through a cut, the user's sanctioned solution**~~ (STRUCK 2026-11-15, above)
+   (**AMENDED 2026-11-07**, journal decision 115; a hole was refused before).
    - **Where the cut goes.** The cut runs along a segment of one raw Ring wall, within that wall's span. A raw Ring
      wall is a side of one of the storey's Ring rectangles, before the union. The segment crosses the island's ring
      from the hole's loop to the outer loop, with the island's interior on both sides along its whole length, and
@@ -151,6 +168,10 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
      coincident opposite partner across the slit, so the union removes it, and `survivingInternal` 0 proves the cut
      leaves no surface.
    - **Authored `form: 'cut'` selectors stay a hard error.** Only this rule places a cut.
+
+   (End of the struck cut block. **AMENDED 2026-11-15**, holed roof spec decision 29: an authored side or run of any
+   form other than hip or gable is still a hard error. Its message no longer says that only the courtyard rule places
+   a cut.)
 3. **Roof forms are authored per Ring and derived onto the union outline** (**AMENDED 2026-11-07**, journal decision
    116; forms were authored per storey on the union outline with roof-gable's `Sel`s, and Ring inheritance was
    deferred).
@@ -179,7 +200,13 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    storey above. Its top face is tagged `Internal`.
 7. **AMENDED 2026-11-08** (journal decision 132): **on a storey with a hole, the hip solid stands from the storey's
    floor**, its sides the prism's own Wall sides and its bottom the prism's floor. With a bottom at plate height,
-   Manifold can triangulate the cut as a diagonal, giving one edge four half-edges. **The hip solid** is one closed mesh: bottom face the island's outline at plate height, top faces the skeleton's
+   Manifold can triangulate the cut as a diagonal, giving one edge four half-edges. **AMENDED 2026-11-15** (BSA.D327;
+   holed roof spec decision 59, which reverses its decision 25): **the rule stands, read per island**, as the code
+   has always applied it: an island with a hole stands from the floor, and an island with no hole has its bottom at the
+   plate. Its reason above, the cut, is gone with the cut. The rule stands for a measured reason: with a holed hip
+   solid's bottom at the plate, the union left a tuck where a gable piece and a covered rise stand back to back. The
+   tuck split one Roof face in two and Cells were laid across it, failing 36 all-gable split-band courtyards
+   ([ISSUE-building-shell-all-gable-courtyard-tuck.md](./ISSUE-building-shell-all-gable-courtyard-tuck.md)). **The hip solid** is one closed mesh: bottom face the island's outline at plate height, top faces the skeleton's
    faces from `solveFaces`, each lifted to `z = plate + planeAt(plane, p)`. Each top face is tagged `Roof` with its
    `RawFace.wall`, and the bottom face is tagged `Internal`.
 8. **A gable piece's solid** is the piece's band rectangle in plan: along the wall over `[bandLo, bandHi]`, inward from
@@ -202,7 +229,9 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
    one plane. Spec text that says "that plane's wall" now means that plane.
 9. **`algoB.ts` gains one export**, `solveRoofParts(b: Building, opt: BOptions): {defaults: PlaneFace[]; faces: RawFace[]; pieces: Piece[]}`.
    It returns the default hip faces and the pieces `runB` already computes, with `Piece` exported. `runB` keeps its
-   behaviour exactly, so the copy-integrity test still holds. **Every storey calls it with `{far: 'plane'}`**,
+   behaviour exactly, so the copy-integrity test still holds (**AMENDED 2026-11-15**, BSA.D321 and holed roof spec
+   decisions 21 and 35: exactly for an island with no hole. The cut branch of `buildPieces` is deleted, and a gable's
+   extent, end walls and far wall are read over every loop of the island). **Every storey calls it with `{far: 'plane'}`**,
    roof-gable's chosen rule (**AMENDED 2026-11-07**, journal decision 48).
 
    **AMENDED 2026-11-07** (journal decisions 64 and 68): it returns a named, exported
@@ -525,14 +554,20 @@ pull in LGPL libvips through `sharp`, and vite 8 depends on MPL `lightningcss`.
     own `run.ts` at `f7b6091`. Code the shell never runs is out of its scope. **The app's vite and vitest configs
     alias `@proc-geo/core` to `packages/core/src/index.ts`**, as core's jest config does. Core's `package.json`
     resolves to `dist/`, so without the alias this test would measure the last build (**AMENDED 2026-11-07**, journal
-    decision 47).
+    decision 47). **AMENDED 2026-11-15** (BSA.D321, BSA.D327; holed roof spec decisions 36 and 37): the courtyard cases
+    9a to 9d are this copy's own. Each is one `Comp`, the outer rectangle with the inner one as its hole
+    (`buildCourtyard`), roofed by the holed skeleton with no cut, and each is `PASS`, equal at every sample to its
+    `annulus` expectation. The tally and all 53 verdicts are unchanged. 49 of the 53 cases, not 53, are roof-gable's
+    `run.ts` cases as it runs them.
 32. **Every fixture asserts these invariants:**
     - Manifold's status is OK;
     - the output is closed, with its expected genus. That is 1 for `BridgeOverBlock`, whose block closes a tunnel under
       the bridge, and 0 for every other clean fixture, `Bridge` included: its towers on open ground form a ∏, which has
       no tunnel. A degenerate twin's genus is measured, then pinned (**AMENDED 2026-11-07**, journal decisions 73 and
       74). **AMENDED 2026-11-08** (journal decision 135): genus is asserted per connected component. Manifold's single
-      figure sums over components, so a courtyard beside a separate island reads 0;
+      figure sums over components, so a courtyard beside a separate island reads 0. **AMENDED 2026-11-15** (BSA.D321;
+      holed roof spec decisions 30 and 40): a component's expected genus is its hole count, so a courtyard open from
+      the ground to the sky is 1, two courtyards in one island 2, and an island in another's courtyard `[1, 1]`;
     - `survivingInternal` is 0;
     - `cheeks` equals the fixture's pinned, measured count, which is 0 for all ten. A Cheek is a legitimate face
       (**AMENDED 2026-11-07**, journal decisions 46 and 77; decision 46's "is 0" is struck);
@@ -579,7 +614,12 @@ All twelve use `cellSize` 50 and `storeyHeight` 250, Piste Perfect's default. Co
 - the storey height was 300; every height below is recomputed for 250 (journal decision 102);
 - the roster grew from seven (first miscounted as six) to ten (journal decision 70), then to eleven with
   `DefaultChalet` (journal decision 103), then to twelve with `Courtyard` (journal decisions 115 and 132; genus 1, its
-  report empty but for 48 partial Cells and the InternalCorner and roof-line conventions);
+  report empty but for 48 partial Cells and the InternalCorner and roof-line conventions). **AMENDED 2026-11-15**
+  (BSA.D325, BSA.D327; holed roof spec decision 39): `Courtyard` is re-measured on the holed roof, with no cut. It is
+  still genus 1, and its report is still empty but for 48 partial Cells and the same two conventions. Its ridge loop
+  stands at `250 + 150 tan 30° = 336.603` cm, the closed form of decision 38 of that spec. Each of its four outer
+  Roof faces covers 127,500 cm² in plan, and each of its four hole faces 82,500 cm². Its shell golden moved in
+  numbering only, its canonical form unmoved;
 - decision 38 now holds two fixtures (journal decision 55);
 - decisions 37 and 39 each hold a clean twin and a degenerate twin (journal decision 56).
 
@@ -690,8 +730,11 @@ assertion.
 
 - ~~**Deriving union wall forms from Ring forms.**~~ No longer deferred: decision 3 adopts the C++ rule, in which the
   lowest `FBuildableComponentModel` index wins the whole wall (journal decision 116).
-- ~~**Courtyards and holes.**~~ No longer deferred: decision 2 roofs them through a cut along a raw Ring wall
-  (journal decision 115).
+- ~~**Courtyards and holes.**~~ No longer deferred: ~~decision 2 roofs them through a cut along a raw Ring wall
+  (journal decision 115)~~ **courtyards are roofed on the holed skeleton**, any number of holes to an island, each
+  island solved from its outline and holes, with no cut (**AMENDED 2026-11-15**, BSA.D321 and BSA.D327; decision 2 as
+  amended, and the [holed roof spec](./building-shell-holed-roof-decisions.md)). Layouts the holed solve refuses are
+  hard errors, listed in that spec's decisions 41 and 42.
 - **Numerical parity with the C++ Cell counts and indices.** The JSON is reference data for the new C++ design, not a
   regression check on the old one.
 - **The C++ boolean**: Manifold vendored, or the engine's `UE::Geometry::FMeshBoolean`. Either is for the C++ spec.

@@ -44,8 +44,9 @@ A private prototype, not a publishable module (see `docs/notes/building-shell-ar
 
 - `pnpm --filter @proc-geo/building-shell test` runs Vitest. `... typecheck` runs `tsc --noEmit`. `... dev` serves the
   three.js viewer. `... golden` re-exports the committed golden set in `golden/`, which a drift test holds byte-exact.
-- `src/roof/` is a copy of the Piste Perfect roof-gable prototype. A copy-integrity test pins its behaviour, so do
-  not edit it.
+- `src/roof/` is a copy of the Piste Perfect roof-gable prototype. Removing the courtyard cut released every file but
+  `surface.ts` for editing (holed roof spec, decision 35), and the copy-integrity test pins algorithm B's tally and
+  verdicts on its 53 cases, so an edit there must keep them.
 - Scratch scripts that load the pipeline through `vite.runnerImport` must restate the `@proc-geo/core` alias to core's
   source, because `runnerImport` ignores `configFile`.
 
