@@ -420,6 +420,17 @@ session 3's own.
   - **The close-out list for the arc, as put to the user:** land and review BSA.D345's build; the ruling on `6dab6b0`;
     the nine red-by-design tests listed for the port as known defects; the along-edge sweep records re-recorded and the
     suite's figures stated on the final tree; this pass; then the merge.
+- **347. The user, 2026-11-15: Stage 2 of the tie-break, `6dab6b0`, is kept as it is: simultaneous events that share no
+  bisector are ordered by priority, then by place (left, then lower), then by edge id.** The user chose this over
+  reverting to edge-id order and over diagnosing first.
+  - Known and accepted with it (BSA.F109, BSA.F110): the order is arbitrary in that its mirror gives the same results;
+    it clusters positions at the perceptual floor, so an ulp can flip it and swap node numbering; and it is right on
+    `plus k4 s47514` at 1e-3 where edge-id order is not, for a reason nobody has traced.
+  - **Owed to the port's handoff:** a position-based order is not reproducible across languages by construction as an
+    integer comparison is, so any byte comparison of node numbering between the TypeScript and the C++ is at risk at
+    such ties. The lead's reasoning, not measured.
+  - **Unblocked by this ruling:** the along-edge sweep records, whose numbering differs between the two orders, are
+    re-recorded now on the tree as it stands (BSA.D338).
 
 ## Findings
 
