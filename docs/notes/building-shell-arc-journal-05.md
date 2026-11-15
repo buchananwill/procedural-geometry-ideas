@@ -380,6 +380,20 @@ session 3's own.
     mis-pairings go blind exactly there. BSA.F112's ungated closure coming out silently wrong on the three-hole case is
     the measured instance.
   - Nothing is dispatched: the lead asked the user to confirm this reading of "transitive" before measuring it.
+- **344. The user, 2026-11-15: The user worked the V case by hand as an ordinary reflex split followed by ordinary
+  closures, and asks what is still not aligned. The difference is that in the measured V case the reflex vertex does not
+  exist until the instant it must split.**
+  - The user's steps: the reflex vertex at the centre of the V splits the base edge, leaving a ring in each half; four
+    simultaneous events, two per arm, leave the ridge-wise bisectors; the remaining rings of two close. "That should be
+    a straightforward result from the existing handling of pairs of vertices that point at each other."
+  - **The lead's answer:** those steps are right, and production solves them when the V's point exists beforehand. In
+    the measured case (BSA.F112, S2 and S3) the two arms belong to different rings, the outline's stem top and the
+    courtyard's bottom, and the V's point is born by the merge of two corner vertices at the same point and instant at
+    which it must split the base. BSA.F111's rule, which the lead had called the wall-cut rule, is the user's first step
+    performed at the merge: the vertex that would have zero lifetime is not born, and the wall is cut there.
+  - **Not known, and now measured by a narrow read-only delegate:** why the existing split handling does not fire for
+    that newborn vertex at zero distance under merge-first, and whether admitting it, with the flat rule of BSA.F113,
+    replaces BSA.F111's rule entirely.
 
 ## Findings
 
