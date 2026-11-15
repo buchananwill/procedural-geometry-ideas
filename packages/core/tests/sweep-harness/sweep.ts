@@ -123,8 +123,9 @@ function eachLoop(fixture: HoledTestPolygon, move: (vertices: Vector2[]) => Vect
 /**
  * The jitter of {@link jitterCell} applied to every loop IN LOOP ORDER: one stream over the outline's vertices and
  * then each hole's, at the outline's span (which holds every hole), so the cell is one draw of the whole region.
+ * Exported for the holed guard's tests, which take two of the group's cells as specimens (BSA.D314, BSA.D315).
  */
-function jitterEveryLoop(fixture: HoledTestPolygon, multiple: number, seed: number): HoledTestPolygon {
+export function jitterEveryLoop(fixture: HoledTestPolygon, multiple: number, seed: number): HoledTestPolygon {
     const loops = [fixture.outline, ...fixture.holes.map(hole => [...hole.vertices])];
     const span = Math.max(
         Math.max(...fixture.outline.map(v => v.x)) - Math.min(...fixture.outline.map(v => v.x)),

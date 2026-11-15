@@ -436,6 +436,13 @@ export interface AlgorithmStepOutput {
  *   cannot be told outer from inner or assigned to a component without guessing (join-and-divide decisions 16, 22
  *   and 23; a ring of two is a corridor and its own child, simultaneous-rings decision 12). BLOCKING; the detail
  *   names the step and the ring.
+ * - `holed-topology-violation` — a solve with holes that would otherwise be complete has a finished interior graph
+ *   that is not one connected graph of cycle rank equal to the hole count (an arc recorded from both ends counted
+ *   once, culled edges skipped), or has a self-loop that is not culled (BSA.D314, `holed-guard.ts`). BLOCKING; the
+ *   detail names the edge, or the component count, or the rank. Never pushed on a single-loop solve.
+ * - `holed-equal-time-violation` — a solve with holes that would otherwise be complete has an interior node that is
+ *   not at one time from every wall meeting there, within the perceptual floor in unit space (BSA.D314). BLOCKING;
+ *   the detail names the node and the two walls furthest apart. Never pushed on a single-loop solve.
  *
  * `holes-not-solved`, which a holed solve stopped with before the join event, is retired (decision 34).
  */
@@ -448,7 +455,9 @@ export type SkeletonDiagnosticKind =
     | 'coaxial-completion'
     | 'causality-violation'
     | 'simultaneous-across-rings'
-    | 'multi-ring-step-refused';
+    | 'multi-ring-step-refused'
+    | 'holed-topology-violation'
+    | 'holed-equal-time-violation';
 
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
@@ -504,8 +513,9 @@ export interface SkeletonSolveResult {
     context: StraightSkeletonSolverContext | null;
     /**
      * True when the skeleton is fully resolved: no `step-failure`, `unresolved-edges`,
-     * `simultaneous-across-rings` or `multi-ring-step-refused` diagnostics, and the graph has at least one
-     * interior edge. It reads no exterior edge's acceptance. A `winding-normalised`,
+     * `simultaneous-across-rings`, `multi-ring-step-refused`, `holed-topology-violation` or
+     * `holed-equal-time-violation` diagnostics, and the graph has at least one interior edge. It reads no exterior
+     * edge's acceptance. The two holed kinds come from the guard a solve with holes runs last (BSA.D314). A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
      * incomplete — all three are informational reports of what the boundary stage did to the input.
      */

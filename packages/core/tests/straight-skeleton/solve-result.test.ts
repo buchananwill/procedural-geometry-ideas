@@ -150,7 +150,9 @@ describe('solveSkeleton', () => {
     });
 
     describe('the holed roster (skeleton loop-consumers spec, decision 41)', () => {
-        const NOT_COMPLETE_KINDS = ['step-failure', 'unresolved-edges', 'simultaneous-across-rings', 'multi-ring-step-refused'];
+        // The holed guard's two kinds block too (BSA.D314).
+        const NOT_COMPLETE_KINDS = ['step-failure', 'unresolved-edges', 'simultaneous-across-rings', 'multi-ring-step-refused',
+            'holed-topology-violation', 'holed-equal-time-violation'];
 
         it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
             '%s solves completely, with one loop per hole and the outline',
