@@ -435,3 +435,33 @@ session 3's own.
   - **Low:** the cycle fallback in `inPrecedenceOrder` may place an event downstream of the cycle (0 cycles measured at
     any nonzero bar); the precedence rule treats a gap of exactly the floor as one point where `isOneEvent` does not;
     `roof-coverage.ts` claims to be shared with `mixed-pitch-island.test.ts`, which still has its own copy.
+- **F110. Stage 1's gates now bite and the five pins assert correct results; and two claims the lead relayed were too
+  strong: the along-edge class is cured only at magnitudes 0.1 and 1.0, and the order of events that share no bisector
+  does change a skeleton.** (the implementing Opus delegate of @D338, 2026-11-15; commits 0fe9001 and 9307395; figures
+  measured by the delegate)
+  - **Commits:** `0fe9001` (start-vertex cells, `near-first-rule.test.ts`, a hand-derived roof oracle in
+    `jitter-helpers.ts`, `mixed-pitch-island.test.ts` on the shared checker) and `9307395` (the five pins of BSA.D336
+    rewritten).
+  - **Suites at `9307395`:** core 6,668 passed, 9 failed, 10 skipped; building-shell 9,728 passed, 0 failed, typecheck
+    clean. The nine red, all by design: weighted time-order 1, 2a, 2b, 3a, 3b; straight-bisector K3 "three holes in a
+    row" and "two holes in an outline with two wings"; straight-bisector "no interior edge that is not culled ends at
+    its own source"; "two holes with collinear walls (2h-int-1)". No sweep record or golden re-recorded.
+  - **Mutations:** the parent's fallback turns every new and rewritten test red except as noted. The zero bar turns
+    `plus:k2:s63352` red (not a tree, tiling off 2 to 10 percent). Restricting the rule to one event kind turns two
+    found cases red, `alongedge:plus:k8:s47514` and `plus:k10:s63352` at 1e-3, found in a search of 1,763 inputs; the
+    reordered pair is a non-adjacent collision against an adjacent pair, not literally a split. The start-vertex gate
+    convicts the parent only.
+  - **CORRECTS BSA.F108's "every one a cure" and BSA.F109's "geometry identical".** Wrong along-edge cells of 160,
+    canonicalisation off, by the full checks, parent then now: 59 and 57 at 1e-9; 144 and 144 at 1e-6; 133 and 44 at
+    1e-3; 136 and 0 at 0.1; 136 and 0 at 1.0. Every wrong cell now completes; at 1e-3, 40 carry direction violations; at
+    1e-6, 36 are not trees. The old tables counted incomplete cells only. Whether the small-magnitude tiling misses are
+    skeleton defects or the instruments at near-event depth is not established.
+  - **CORRECTS BSA.D338's premise and the lead's advice to revert stage 2.** `plus k4 s47514` at 1e-3 is a tree under
+    stage 2's place order and not a tree under edge-id order, so the rewritten test "both shapes correctly at 1e-3" goes
+    red if `6dab6b0` is reverted. BSA.F109 measured order-independence at magnitude 1.0 only. So some simultaneous
+    events that share no bisector are not independent, and what relates them is not known; whether left-first is right
+    there by rule or by luck is not known either.
+  - **The holed guard's K1 branch is still covered** by two courtyard specimens and a constructed graph; their regex is
+    `/./`, not tightened.
+  - "Goes quiet at 1e-9" asserts completeness only, and 5 of its 12 cells fail the full checks; left alone as outside
+    the five.
