@@ -1107,6 +1107,24 @@ session 3's own.
   - **Who and when:** one Opus delegate now, in `packages/dashboard` and `apps/demo` only, beside node 9's implementer,
     who is in `apps/building-shell` only. It runs the dashboard's suite and builds, and nothing heavier, so node 9's
     timed tests are not starved.
+- **324. Roadmap node 7 is complete at `b575a0c`: the dashboard's review fixes are in, each convicted by reverting it,
+  and no single-loop picture changed.** The delegate's figures, not re-run: dashboard 609 passed in 30 suites, the
+  pinned single-loop scene digests green; the dashboard's `tsc` and the demo's lint show only the errors that predate
+  the arc; the demo builds.
+  - **While a refusal stands, the canvas now makes no false claim:** the present loops are stroked red and unfilled,
+    since the solver accepted no region bounded by them; the last skeleton that solved is drawn as a dashed grey ghost
+    with its own outline; a banner on the canvas says so; and nothing is drawn from the stale solve's maps, so no
+    removed mark, label or arrow sits on the wrong vertex. Seen by the delegate in the browser on the reviewer's own
+    scenario and on a drag across a hole.
+  - **Labels are the solver's global ids whether the skeleton is shown or hidden;** outline and holes reach the parcels
+    pipeline in one debounced value; pending bisectors on an early step-through frame are not forced on screen as
+    unresolved; a refusal is headed as a refusal and its detail printed once; the blocking-kinds test reads core's
+    source and fails by name when core's built declarations are stale.
+  - **Seen and left, as open items:** on a single-loop refusal the stale skeleton is still drawn as live over the
+    present outline, which is today's behaviour and was not the unit's to change; the side panel's incomplete alert can
+    show the last good result's text during a refusal; the canvas banner sits in world coordinates and can be off screen
+    until the view is panned.
+  - **The spec is `completed`** by the delegate's commit.
 
 ## Findings
 
