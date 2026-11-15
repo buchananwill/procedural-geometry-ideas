@@ -733,6 +733,34 @@ session 3's own.
   - **Left:** the pinned step-by-step stories stay, marked as the reason each fixture was chosen and not as a property
     of the solver.
   - **Who:** one fresh Opus delegate for the fixes, once the reviewer has returned the exact reproducers.
+- **310. The draft spec for roadmap node 8, `skeleton-loop-contact-decisions.md`, is received and held at `proposed`;
+  its opening measurement answers the user's question of BSA.D284, and nothing in it needs the user's ruling.** Drafted
+  by an Opus delegate under BSA.D288 from probes on a copy of core at `a8ba71f`; 38 decisions, 255 lines; not yet read
+  in full by the lead.
+  - **The answer, measured:** the solver takes a loop with a repeated vertex, single-loop or holed, when each visit of
+    the point bounds one wedge of the region. Four such single loops solve right (a hole stitched to a reflex corner, a
+    diamond stitched to a wall, a point visited three times, a triangle stitched to an outline corner), each tiling to
+    3e-16 with nodes at their hand-derived places. It fails, signalled, when one visit spans two wedges: a figure-eight
+    of two squares sharing a corner is incomplete today, on a single loop. The boundary does nothing to a repeated
+    vertex: canonicalisation removes none, the crossing test sees an endpoint touch, and the two exterior nodes at the
+    point stay two.
+  - **The user's two instincts hold as measured:** a hole sharing a wall, merged by hand into a notch or one hole,
+    solves right in every case tried; and loops touching at a point, stitched into one loop, solve right where the
+    stitch keeps one wedge per visit. Left as two loops with the refusal off, every contact case fails or is refused,
+    none silently wrong.
+  - **Its design, from the report:** one stage in the boundary, for holed inputs only, that identifies coincident points
+    and walls at the perceptual floor, cancels opposite coincident pieces, relinks and traces the loops again; a gap
+    under the floor is contact and is merged; a region that falls into pieces is refused as `divides-region`, and walls
+    coinciding the same way as `overlap`. No tolerance, constant or event rule moves.
+  - **It changes the caller's map:** after a merge several caller loops map into one solved loop, a caller edge can map
+    to several solved edges or to none, and `loopMaps` no longer lines up with `graph.loops`. Node 9's draft reads that
+    map and must follow.
+  - **One thing found that precedes this arc:** rounding can tilt two collinear walls of touching loops into a
+    "crossing", so today such an input is refused under the wrong name; the stage must run before the crossing test.
+  - **Held because** axis-aligned merged holes meet node 5's refusals, and node 9 reads its map. The lead rules on its
+    open points when it approves: whether a refusal that is node 5's is "specified behaviour" or a red test, which by
+    BSA.D266 turns on whether the solver is wrong or merely not finished; the riskiest part by the drafter's own account
+    is exempting a repeated point inside one loop from the self-contact refusal.
 
 ## Findings
 
