@@ -431,6 +431,26 @@ session 3's own.
     such ties. The lead's reasoning, not measured.
   - **Unblocked by this ruling:** the along-edge sweep records, whose numbering differs between the two orders, are
     re-recorded now on the tree as it stands (BSA.D338).
+- **348. The spec [skeleton-flat-ring-and-third-front-decisions.md](./skeleton-flat-ring-and-third-front-decisions.md)
+  is approved by the lead, on the user's acceptance of both rules (BSA.D345), and goes to one Opus implementer.**
+  - It is 56 decisions: scope and boundary, the flatness test in 13 named clauses, the flat wiring and refusal, which
+    third-front meetings resolve and how, what stays refused, weights, the probe, and tests with their mutation gates.
+    It amends node 5's spec and sits under the approved roadmap, which is the lead's authority to approve it.
+  - **The drafter's design choices, accepted:** the solver's own angular predicates in place of the counterfactual's
+    scratch bars; third-front refusals decided before the layer resolves, so a refused layer changes nothing;
+    all-or-nothing flat closure per layer; a new clause that at most one level member runs each way along a stretch; no
+    new diagnostic kind, two optional probe hooks instead. Each is re-measured by the build, which stops and reports if
+    any measured cure is lost.
+  - **Ruled by the lead in its section 6:** the stretch bar is 4 floors, provisional and stated as incidental, landed
+    because it only refuses by name what is refused today; weights are supported, with a non-rectilinear weighted
+    specimen tried and the weight terms reported unconvicted if none can be built; the ten cured layouts and the user's
+    layout join `HOLED_FIXTURES` and the goldens as additions; the issue specimen and its kin stay in core's closed-form
+    tests and do not join `HOLED_TEST_POLYGONS`; grid draw `uniform-1-129`, a step failure today and under the rules,
+    gets a red test and an issue note.
+  - **Corrected by the lead in the spec:** its single-loop gate named "every sweep record"; it now names output sets
+    generated on the parent and built trees and compared (BSA.F114).
+  - **For the user to know, not asked:** the 4-floor bar is a new constant in core. It changes no answer today, and the
+    build reports the shortest stretch seen so a derived value can replace it.
 
 ## Findings
 
