@@ -14,26 +14,54 @@ import {angularResolution} from './constants';
  *
  * THE FOUR ORACLES (the fourth, `rate`, is C8 spec T18 — see {@link rateViolations}), each the definition `wavefront-causality.test.ts` states, reproduced exactly:
  *
- *  - OFFSET: an interior edge with a target is a violation when its target's derived offset is less
- *    than its source's derived offset by more than the tolerance.
- *  - CLEARANCE: an interior node with a derived offset is a violation when that offset exceeds its
- *    distance to the nearest segment of the solver's boundary ring by more than the tolerance.
+ *  - OFFSET: an interior edge with a target is a violation when its target's derived TIME is earlier
+ *    than its source's by more than the tolerance.
+ *  - CLEARANCE: an interior node at derived time `t` is a violation when its distance to the nearest
+ *    wall is less than `w_min · t` by more than the tolerance, `w_min` the slowest wall's weight: every
+ *    point that near the boundary had been swept before `t`, so the node was placed where the wavefront
+ *    had already passed. See "THE CLEARANCE BOUND" below for why it is the slowest wall's.
  *  - DIRECTION: an interior edge with a target, whose source-to-target travel is longer than the
  *    tolerance, is a violation when the unit travel vector's dot product with the edge's basis vector
  *    is not strictly positive.
  *  - RATE: an interior edge whose offset rate against its clockwise parent is negative, while its two
  *    parents are not anti-parallel at the angular resolution ρ(δ) (T18, T17's exact complement).
  *
- * A node's DERIVED OFFSET is re-derived from geometry, never read from the solver's bookkeeping:
+ * A node's DERIVED ARRIVAL is re-derived from geometry, never read from the solver's bookkeeping:
  * boundary nodes are at 0; an interior node takes its first incident interior edge (in-edges, then
  * out-edges, first occurrence) and is dated at its perpendicular distance from the supporting line
  * of that edge's clockwise exterior parent, the line through that parent's own source and target nodes (skeleton
  * join-and-divide spec, decision 32, which also makes clearance the distance to every exterior edge's own segment,
- * so the check reads every loop of a holed graph); a node with no
- * incident interior edge has no offset and is skipped by both the offset and clearance oracles. This
+ * so the check reads every loop of a holed graph), BESIDE THAT PARENT'S WEIGHT: the pair is an arrival in the
+ * solver's own sense (W-spec W7), and its time is the distance over the weight (W5). A node with no
+ * incident interior edge has no arrival and is skipped by both the offset and clearance oracles. This
  * is a deliberately separate copy from the test suites' `deriveNodeArrivals` — the test side is kept
  * as the independent conviction (decision 148(e)) — and from `computeNodeOffsets`, which
  * canonicalises and so could not see what it overwrote.
+ *
+ * EVERY COMPARISON IS OF TIMES, CROSS-MULTIPLIED (BSA.D309; W-spec W22, W26; `compareArrivals`). The check used
+ * to compare a node's DISTANCE from one parent with its distance to the nearest wall, and so reported correct
+ * weighted skeletons wherever the dating wall was faster than the nearest one (BSA.F101; the issue note
+ * `ISSUE-skeleton-causality-check-ignores-weights.md`). Two arrivals `(d₁, w₁)` and `(d₂, w₂)` are compared as
+ * `d₁ · w₂` against `d₂ · w₁`, and the tolerance, a length, is stated on the FASTER of the two walls,
+ * `δ · min(w₁, w₂)`, as `compareArrivals` states its window (C8 spec T13): a gap is a violation when the faster
+ * wall advances more than δ in it. Each magnitude is the cross-multiplied gap over `min(w₁, w₂)`, a unit-space
+ * length on that wall. In the detail strings an "offset" is a TIME (W5), `distance / weight`.
+ *
+ * THE CLEARANCE BOUND IS THE SLOWEST WALL'S, NOT EACH WALL'S OWN. Every front moves inward at a normal speed of
+ * at least `w_min`, and a mitered offset by at least `h` lies inside the erosion by a disc of radius `h`, at a
+ * convex corner (an intersection of half-planes) and a reflex one (a union) alike; erosions compose, so the region
+ * the wavefront leaves at time `t` lies inside the erosion by `w_min · t`, and a node of a correct skeleton is at
+ * least that far from every wall. The stronger reading, at least `w · t` from each wall of weight `w`, is FALSE on
+ * correct skeletons: a fast wall's face can close before its front gets near a node it would have reached
+ * unobstructed (`Weighted L`'s node 8 lies 1.41 from the end of its weight-4 shelf at time 1). Measured on the
+ * random weighted solves that pass the equal-time and time-order checks, that reading reported 1,164 of 1,331;
+ * this one reports none (the issue note `ISSUE-skeleton-causality-check-ignores-weights.md`).
+ *
+ * AT UNIT WEIGHTS EVERY ONE OF THESE IS TODAY'S ARITHMETIC, OPERATION FOR OPERATION: every product and quotient
+ * by a weight is by `1.0`, which is exact, `w_min` is `1`, and clearance is still against the nearest wall. There
+ * is no branch on unit weights.
+ * A weight the graph's table does not hold (a graph whose ids it does not index, such as the merged path's, which
+ * `solveSkeleton` never hands this check) is read as `1`, so such a graph reads as it did, not as a silent NaN.
  *
  * THE TOLERANCE IS DERIVED, NOT LITERAL (decision 144): it is the solve's PERCEPTUAL FLOOR, a
  * unit-space length — "visibly the same" is the question each oracle asks of the difference it
@@ -63,16 +91,23 @@ function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
     return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
 }
 
-/** Every node's derived offset in the graph's own units. See the module header for the definition. */
-function deriveOffsets(graph: StraightSkeletonGraph): Map<number, number> {
+/** A node's derived arrival: its distance from its dating wall's line, in the graph's units, and that wall's weight. */
+interface DerivedArrival {
+    distance: number;
+    weight: number;
+}
+
+/** Every node's derived arrival. See the module header for the definition. */
+function deriveArrivals(graph: StraightSkeletonGraph): Map<number, DerivedArrival> {
     const clockwiseParentOf = new Map<number, number>();
     for (const interiorEdge of graph.interiorEdges) {
         clockwiseParentOf.set(interiorEdge.id, interiorEdge.clockwiseExteriorEdgeIndex);
     }
 
-    const offsetOf = new Map<number, number>();
+    const arrivalOf = new Map<number, DerivedArrival>();
     for (let i = 0; i < graph.numExteriorNodes; i++) {
-        offsetOf.set(i, 0);
+        // At time 0 on the wall leaving it: any positive weight dates it at 0.
+        arrivalOf.set(i, {distance: 0, weight: graph.exteriorWeights[i] ?? 1});
     }
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const node = graph.nodes[i];
@@ -82,13 +117,17 @@ function deriveOffsets(graph: StraightSkeletonGraph): Map<number, number> {
         // THE PARENT'S OWN LINE, through its own source and target nodes (skeleton join-and-divide spec, decision
         // 32): on one loop edge `i`'s target is node `i + 1 mod n`, which is what this read as arithmetic; on a holed
         // graph a loop's last edge ends at that loop's first node, not the next loop's.
-        const parentEdge = graph.edges[clockwiseParentOf.get(incident[0])!];
-        offsetOf.set(i, distanceToSupportingLine(
-            node.position,
-            graph.nodes[parentEdge.source].position,
-            graph.nodes[parentEdge.target!].position));
+        const parent = clockwiseParentOf.get(incident[0])!;
+        const parentEdge = graph.edges[parent];
+        arrivalOf.set(i, {
+            distance: distanceToSupportingLine(
+                node.position,
+                graph.nodes[parentEdge.source].position,
+                graph.nodes[parentEdge.target!].position),
+            weight: graph.exteriorWeights[parent] ?? 1,
+        });
     }
-    return offsetOf;
+    return arrivalOf;
 }
 
 function violation(
@@ -117,7 +156,7 @@ export function checkWavefrontCausality(
     // THE DERIVED TOLERANCE (decision 144): the perceptual floor, a unit-space length. Every
     // quantity below is multiplied into unit space by `toUnitScale` before it meets this bar.
     const tolerance = perceptualFloor;
-    const offsetOf = deriveOffsets(graph);
+    const arrivalOf = deriveArrivals(graph);
 
     const offsetViolations: CausalityViolationDiagnostic[] = [];
     const directionViolations: CausalityViolationDiagnostic[] = [];
@@ -125,16 +164,20 @@ export function checkWavefrontCausality(
         const edge = graph.edges[interiorEdge.id];
         if (!edge || edge.target === undefined) continue;
 
-        const sourceOffset = offsetOf.get(edge.source);
-        const targetOffset = offsetOf.get(edge.target);
-        if (sourceOffset !== undefined && targetOffset !== undefined) {
-            const unitSource = sourceOffset * toUnitScale;
-            const unitTarget = targetOffset * toUnitScale;
-            if (unitTarget < unitSource - tolerance) {
-                offsetViolations.push(violation('offset', interiorEdge.id, unitSource - unitTarget,
+        const sourceArrival = arrivalOf.get(edge.source);
+        const targetArrival = arrivalOf.get(edge.target);
+        if (sourceArrival !== undefined && targetArrival !== undefined) {
+            const unitSource = sourceArrival.distance * toUnitScale;
+            const unitTarget = targetArrival.distance * toUnitScale;
+            // The target's time against the source's, cross-multiplied, at the floor of the faster wall.
+            const source = unitSource * targetArrival.weight;
+            const target = unitTarget * sourceArrival.weight;
+            const faster = Math.min(sourceArrival.weight, targetArrival.weight);
+            if (target < source - tolerance * faster) {
+                offsetViolations.push(violation('offset', interiorEdge.id, (source - target) / faster,
                     `Interior edge ${interiorEdge.id} runs backwards in time: node ${edge.source} at offset `
-                    + `${unitSource} -> node ${edge.target} at offset ${unitTarget} (unit space), `
-                    + `beyond the ${tolerance} perceptual floor.`));
+                    + `${unitSource / sourceArrival.weight} -> node ${edge.target} at offset `
+                    + `${unitTarget / targetArrival.weight} (unit space), beyond the ${tolerance} perceptual floor.`));
             }
         }
 
@@ -160,19 +203,27 @@ export function checkWavefrontCausality(
     // wall of any loop, as a holed region needs. On one loop these are the ring's segments, in the ring's order.
     const walls = graph.edges.slice(0, graph.numExteriorNodes)
         .map(edge => [graph.nodes[edge.source].position, graph.nodes[edge.target!].position] as const);
+    // THE SLOWEST WALL'S WEIGHT (see "THE CLEARANCE BOUND" in the header): by time `t` every point nearer the
+    // boundary than `w_min · t` has been swept. `1` on every graph `solveSkeleton` returns, whose weights it
+    // divides by the smallest; read here so that a graph given unnormalised weights is read the same way.
+    const slowest = Math.min(...Array.from({length: graph.numExteriorNodes}, (_unused, k) => graph.exteriorWeights[k] ?? 1));
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const offset = offsetOf.get(i);
-        if (offset === undefined) continue;
+        const arrival = arrivalOf.get(i);
+        if (arrival === undefined) continue;
         let clearance = Infinity;
         for (const [from, to] of walls) {
             clearance = Math.min(clearance, distanceToSegment(graph.nodes[i].position, from, to));
         }
-        const unitOffset = offset * toUnitScale;
+        const unitOffset = arrival.distance * toUnitScale;
         const unitClearance = clearance * toUnitScale;
-        if (unitOffset > unitClearance + tolerance) {
-            clearanceViolations.push(violation('clearance', i, unitOffset - unitClearance,
-                `Node ${i} is dated at offset ${unitOffset} but lies only ${unitClearance} from the `
-                + `boundary (unit space): placed where the wavefront had already passed, beyond the `
+        // The node's time against the time the slowest front takes to cover its clearance, cross-multiplied.
+        const reached = unitOffset * slowest;
+        const standing = unitClearance * arrival.weight;
+        const faster = Math.min(arrival.weight, slowest);
+        if (reached > standing + tolerance * faster) {
+            clearanceViolations.push(violation('clearance', i, (reached - standing) / faster,
+                `Node ${i} is dated at offset ${unitOffset / arrival.weight} but lies only ${unitClearance / slowest} `
+                + `from the boundary (unit space): placed where the wavefront had already passed, beyond the `
                 + `${tolerance} perceptual floor.`));
         }
     }

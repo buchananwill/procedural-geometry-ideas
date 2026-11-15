@@ -180,9 +180,9 @@ export function deriveNodeOffsets(graph: StraightSkeletonGraph): Map<number, num
 
 /** The three causality oracles' findings on one graph: the offending interior-edge or node ids. */
 export interface CausalityViolations {
-    /** Interior edges whose target is dated earlier than their source (offset oracle). */
+    /** Interior edges whose target is dated earlier in time than their source (offset oracle). */
     offset: number[];
-    /** Interior nodes dated later than their distance to the solver's boundary (clearance oracle). */
+    /** Interior nodes lying behind some boundary segment's wavefront at their own time (clearance oracle). */
     clearance: number[];
     /** Interior edges whose target lies behind their source along their own basis (direction oracle). */
     direction: number[];
@@ -204,6 +204,22 @@ export interface CausalityViolations {
  * KEPT AS THE INDEPENDENT CONVICTION of the solver's own check (`checkWavefrontCausality`, which
  * `solveSkeleton` runs on every solve and reports as `causality-violation` diagnostics): the
  * definitions and the bar are the same; the independence is the separate implementation.
+ *
+ * THE OFFSET AND CLEARANCE ORACLES COMPARE TIMES (BSA.D309): a node's time is its arrival's distance
+ * over its weight ({@link deriveNodeArrivals}), offset asks that time not decrease along an edge, and
+ * clearance asks that a node at time `t` lie at least `w_min · t` from the boundary, `w_min` the
+ * slowest segment's weight: no front is slower, so everything nearer had been swept. (At least `w · t`
+ * from each segment of weight `w` is not a property of a correct skeleton — a fast wall's face can close
+ * before its front nears the node — and was measured reporting most correct weighted solves.) Each
+ * comparison is cross-multiplied, `d₁ · w₂` against `d₂ · w₁`, with the bar stated on the faster of the
+ * two weights, `TOLERANCE · min(w₁, w₂)`, which is how the solver's `compareArrivals` states a window.
+ * At unit weights every product is by `1.0` and each comparison is the old one. They used to compare
+ * distances, which reported correct weighted skeletons (BSA.F101).
+ *
+ * A WEIGHT THE TABLE DOES NOT HOLD IS READ AS 1. On the merged path's graph (a self-intersecting input) the
+ * sub-graphs' ids interleave, so a parent index can lie past `exteriorWeights` — the oracles' definitions do
+ * not apply to that graph, which the solver's own check never reads — and reading it at unit weight keeps what
+ * this function says of it exactly what it said before, rather than a NaN that compares false everywhere.
  */
 export function causalityViolations(
     graph: StraightSkeletonGraph,
@@ -212,15 +228,17 @@ export function causalityViolations(
 ): CausalityViolations {
     // The solve's perceptual floor, a unit-space length, in the graph's (caller) units.
     const TOLERANCE = perceptualFloor * normalisation.fromUnitScale;
-    const offsetOf = deriveNodeOffsets(graph);
+    const arrivalOf = new Map([...deriveNodeArrivals(graph)]
+        .map(([node, arrival]) => [node, {distance: arrival.distance, weight: arrival.weight ?? 1}] as const));
     const found: CausalityViolations = {offset: [], clearance: [], direction: []};
 
     for (const interiorEdge of graph.interiorEdges) {
         const edge = graph.edges[interiorEdge.id];
         if (!edge || edge.target === undefined) continue;
-        const sourceOffset = offsetOf.get(edge.source);
-        const targetOffset = offsetOf.get(edge.target);
-        if (sourceOffset !== undefined && targetOffset !== undefined && targetOffset < sourceOffset - TOLERANCE) {
+        const from = arrivalOf.get(edge.source);
+        const to = arrivalOf.get(edge.target);
+        if (from !== undefined && to !== undefined
+            && to.distance * from.weight < from.distance * to.weight - TOLERANCE * Math.min(from.weight, to.weight)) {
             found.offset.push(interiorEdge.id);
         }
         const source = graph.nodes[edge.source];
@@ -235,15 +253,17 @@ export function causalityViolations(
     }
 
     const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
+    const slowest = Math.min(...boundary.map((_unused, k) => graph.exteriorWeights[k] ?? 1));
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
-        const offset = offsetOf.get(i);
-        if (offset === undefined) continue;
+        const arrival = arrivalOf.get(i);
+        if (arrival === undefined) continue;
         let clearance = Infinity;
         for (let k = 0; k < boundary.length; k++) {
             clearance = Math.min(clearance,
                 distanceToSegment(graph.nodes[i].position, boundary[k], boundary[(k + 1) % boundary.length]));
         }
-        if (offset > clearance + TOLERANCE) {
+        // Inside the erosion the slowest front has swept by the node's time: w_min · d > clearance · w.
+        if (arrival.distance * slowest > clearance * arrival.weight + TOLERANCE * Math.min(arrival.weight, slowest)) {
             found.clearance.push(i);
         }
     }

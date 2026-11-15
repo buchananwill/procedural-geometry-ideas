@@ -266,10 +266,8 @@ export function rateViolations(graph: StraightSkeletonGraph, antiParallelSine: n
 /**
  * THE WEIGHTED EQUI-TIME CHECK: at every interior node, every wall that names a bisector meeting there is at one
  * TIME, its perpendicular distance divided by its weight. Returns the nodes whose times spread by more than
- * `tolerance`. This is what the solver's causality oracles cannot say on weighted input: they date a node by its
- * DISTANCE from one parent's line and compare it with the distance to the nearest wall, which reads a fast wall's
- * node as late (single-loop weighted fixtures carry the same signatures, e.g. `Weighted L` and `Weighted Pentagon
- * House`).
+ * `tolerance`. The solver's causality oracles date a node from ONE parent, so they cannot see a spread between its
+ * parents; this check can, and it is written here independently of them.
  */
 export function equiTimeViolations(graph: StraightSkeletonGraph, tolerance: number): string[] {
     const timeFrom = (point: Vector2, wall: number) => {

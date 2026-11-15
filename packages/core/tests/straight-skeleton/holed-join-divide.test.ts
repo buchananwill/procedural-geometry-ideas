@@ -184,18 +184,6 @@ const NOT_GENERIC = new Set(['F1 stretched']);
 const REFUSAL_KINDS = ['simultaneous-across-rings', 'multi-ring-step-refused'];
 const kindsOf = (diagnostics: SkeletonDiagnostic[]) => diagnostics.map(diagnostic => diagnostic.kind);
 
-const isWeighted = (fixture: HoledFixture) => [...(fixture.weights ?? []), ...fixture.holes.flatMap(hole => [...(hole.weights ?? [])])]
-    .some(weight => weight !== 1);
-
-/**
- * THE ORACLES A WEIGHTED FIXTURE IS NOT ASSERTED ON (BSA.D309): the solver's `offset` and `clearance` oracles date a
- * node by its distance from one parent and never divide by weight, so on weighted input they report correct
- * skeletons. A weighted fixture is held instead to the weight-aware properties every fixture is held to below:
- * equal time at every interior node, time never decreasing along an interior edge, a closed face per exterior edge,
- * tiling. Its `direction` and `rate` diagnostics are asserted as every fixture's are.
- */
-const WEIGHT_BLIND_ORACLES = ['offset', 'clearance'];
-
 /** Every assertion of decision 42, on one fixture. Returns the solve for further assertions. */
 function expectSoundHoledSolve(fixture: HoledFixture) {
     const solve = solveHoled(fixture);
@@ -203,15 +191,14 @@ function expectSoundHoledSolve(fixture: HoledFixture) {
     const {graph} = result;
     const kinds = kindsOf(result.diagnostics);
 
-    // Complete, with no refusal and no causality diagnostic (a weighted fixture: none of the weight-aware oracles).
+    // Complete, with no refusal and no causality diagnostic. The oracles compare times (BSA.D309), so a weighted
+    // fixture (F4) is held to them as every other fixture is.
     expect(kinds.filter(kind => REFUSAL_KINDS.includes(kind) || kind === 'step-failure' || kind === 'unresolved-edges'))
         .toEqual([]);
     expect(result.diagnostics
-        .flatMap(diagnostic => diagnostic.kind === 'causality-violation'
-            && !(isWeighted(fixture) && WEIGHT_BLIND_ORACLES.includes(diagnostic.oracle))
-            ? [`${diagnostic.oracle} ${diagnostic.elementId}`] : []))
+        .flatMap(diagnostic => diagnostic.kind === 'causality-violation' ? [`${diagnostic.oracle} ${diagnostic.elementId}`] : []))
         .toEqual([]);
-    // The weight-aware properties: one time at every interior node, and no edge running backwards in it.
+    // The weight-aware properties, re-derived here: one time at every interior node, and no edge running backwards in it.
     expect(equiTimeViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
     expect(timeOrderViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
     expect(result.complete).toBe(true);
