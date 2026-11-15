@@ -158,11 +158,16 @@ describe('a coarser floor never adds geometry', () => {
      * Its boundary is identical on every rung (12 exterior nodes; nothing it carries is near any floor),
      * so the growth is the finer rungs' failure, not geometry the coarser ones added. Pinned rung by
      * rung, so a cure at the fine floors and a regression at the coarse ones both fire here.
+     *
+     * 33 EDGES BECAME 34 AT THE TWO FAILING RUNGS under the edge-acceptance cure (skeleton edge-acceptance spec,
+     * decisions 19, 36 and 37; BSA.F99). Edges 6 and 10 are no longer accepted early, so the birth (cw 6, ws 10)
+     * the old rule refused is born; the solve still fails, with one step failure in place of two, and still at
+     * 18 nodes. The coarse rungs are bit-unmoved.
      */
     const LADDER_SIGNATURES: Record<string, {complete: boolean; exterior: number; nodes: number; edges: number}[]> = {
         'Offset Cross Junction': [
-            {complete: false, exterior: 12, nodes: 18, edges: 33},
-            {complete: false, exterior: 12, nodes: 18, edges: 33},
+            {complete: false, exterior: 12, nodes: 18, edges: 34},
+            {complete: false, exterior: 12, nodes: 18, edges: 34},
             {complete: true, exterior: 12, nodes: 19, edges: 30},
             {complete: true, exterior: 12, nodes: 19, edges: 30},
             {complete: true, exterior: 12, nodes: 19, edges: 30},

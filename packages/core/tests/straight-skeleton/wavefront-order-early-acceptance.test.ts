@@ -1,17 +1,18 @@
 /*
- * RED BY DESIGN (skeleton wavefront-order spec, decision 32; BSA.F95, BSA.D290, BSA.D266, BSA.D293).
+ * AN EXTERIOR EDGE IS ACCEPTED ONLY ONCE ITS FACE HAS CLOSED (skeleton edge-acceptance spec, decision 21;
+ * docs/notes/ISSUE-skeleton-edge-accepted-before-its-face-closes.md; BSA.F95, BSA.F99, BSA.D296).
  *
- * An exterior edge accepted while a live bisector still names it as a parent. The new bisector that would
- * close that bisector's ring is then refused for its accepted parent, and the ring is left with two
- * neighbours whose parents do not meet: W1 to W4 cannot hold without changing when an edge is accepted,
- * which is not stage 1's work. This file asserts what SHOULD hold, and stays red until the defect is fixed —
- * see docs/notes/ISSUE-skeleton-edge-accepted-before-its-face-closes.md.
+ * This file was red by design under stage 1's decision 32 and is green because the defect is gone. The solver
+ * used to accept an exterior edge when any chain of accepted interior edges joined its two end nodes, and on five
+ * single-loop solves that chain ran through a hub node where several faces met within the floor while a bisector
+ * still traced the edge's face. The bisector that would have closed that ring was then refused for its accepted
+ * parent, and the ring was left with two neighbours whose parents do not meet. The edge is now accepted exactly
+ * when no live bisector names it as a parent, asked at step boundaries only, and no birth is refused for an
+ * accepted parent.
  *
- * Two kinds of case. The two complete sweep cells the issue reproduces are asserted to hold W1 to W4 at
- * every step boundary. And every roster decision 15's gate runs is swept for the cause itself: each case
- * asserts that no solve of its roster accepts an exterior edge a live bisector still names, so its failure
- * NAMES every solve the gate excludes, complete or not. The gates exclude such a solve by its cause, only
- * from the boundary at which the cause first holds, and never by a list of names.
+ * Two kinds of case. The two complete sweep cells the issue reproduced hold W1 to W4 at every step boundary and
+ * still complete. And every roster the standing gate runs is swept for the cause itself, which can no longer hold
+ * at a boundary: no solve of any roster accepts an exterior edge a live bisector still names.
  */
 import type {AlgorithmStepInput, StraightSkeletonSolverContext} from '@proc-geo/core';
 import {checkWavefront, setSkeletonLogLevel, solveSkeleton} from '@proc-geo/core';

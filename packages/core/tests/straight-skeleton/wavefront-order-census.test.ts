@@ -12,6 +12,7 @@ import {
     censusRoster,
     describeReport,
     runRoster,
+    unacceptedFaceFindings,
     unaccountedEntries,
 } from './wavefront-probe-helpers';
 
@@ -31,5 +32,7 @@ describe('the wavefront links over the recursion census', () => {
         expect(unaccountedEntries(report)).toEqual([]);
         expect(report.solves).toBe(tally.regions - tally.screened);
         expect(report.violations).toEqual([]);
+        // Edge-acceptance spec, decision 9: a face that never closes is signalled.
+        expect(unacceptedFaceFindings(report)).toEqual({complete: [], unsignalled: []});
     });
 });

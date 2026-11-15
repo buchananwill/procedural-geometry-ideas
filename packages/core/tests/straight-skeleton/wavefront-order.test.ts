@@ -27,7 +27,13 @@ import {
     settleLayerLinks,
 } from '@proc-geo/core/straight-skeleton/wavefront';
 import {CROSS, FULL_CORPUS, initContext, T_SHAPE, WEIGHTED_TEST_POLYGONS} from '@proc-geo/test-fixtures';
-import {corpusRoster, describeReport, runRoster, unaccountedEntries} from './wavefront-probe-helpers';
+import {
+    corpusRoster,
+    describeReport,
+    runRoster,
+    unacceptedFaceFindings,
+    unaccountedEntries,
+} from './wavefront-probe-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -385,9 +391,10 @@ describe('the wavefront links', () => {
 
     /*
      * THE GATE'S ACCOUNTING (BSA.F97 finding 2, BSA.D293), driven through the probe with hand-made boundaries:
-     * a solve's violations are discarded only from the first boundary at which decision 32's cause holds, and
-     * every solve is counted, one that throws outside `stepAlgorithm` and one that never finishes included.
-     * These state the gate's mechanism on built inputs; which roster solves trip the cause is the red file's.
+     * every violation of a complete solve is asserted, at every boundary, with decision 32's cause reported beside
+     * them and excluding none (edge-acceptance spec, decision 22); every solve is counted, one that throws outside
+     * `stepAlgorithm` and one that never finishes included; and an exterior edge a solve ends with unaccepted is
+     * recorded (decision 9). These state the gate's mechanism on built inputs.
      */
     describe('the gate counts every solve and asserts every violation before the cause', () => {
         const probe = () => activeWavefrontProbe()!;
@@ -400,7 +407,7 @@ describe('the wavefront links', () => {
             return context;
         };
 
-        it('asserts the violations at boundaries before the cause and discards those from it on', () => {
+        it('asserts the violations at every boundary, the cause reported and excluding nothing', () => {
             const report = runRoster([{
                 label: 'built',
                 run: () => {
@@ -416,11 +423,40 @@ describe('the wavefront links', () => {
             }]);
             expect(report.solves).toBe(1);
             expect(report.completeSolves).toBe(1);
-            expect(report.violations.length).toBeGreaterThan(0);
-            expect(report.violations.every(v => v.step === 0)).toBe(true);
+            expect(report.violations.some(v => v.step === 0)).toBe(true);
+            expect(report.violations.some(v => v.step === 1)).toBe(true);
             expect(report.earlyAcceptanceSolves).toHaveLength(1);
             expect(report.earlyAcceptanceSolves[0].fromStep).toBe(1);
-            expect(report.earlyAcceptanceSolves[0].discarded).toBeGreaterThan(0);
+        });
+
+        it('records the exterior edges a solve ends with unaccepted, and whether it was signalled', () => {
+            const report = runRoster([
+                {
+                    label: 'unsignalled',
+                    run: () => {
+                        const context = finishedContext();
+                        probe().stepBoundary!(context, [{interiorEdges: interiorIds(context)}]);
+                        probe().solveFinished!(context, []);
+                    },
+                },
+                {
+                    label: 'signalled',
+                    run: () => {
+                        const context = finishedContext();
+                        probe().stepBoundary!(context, [{interiorEdges: interiorIds(context)}]);
+                        probe().solveFinished!(context, ['a step failure']);
+                    },
+                },
+            ]);
+            const edges = Array.from({length: T_SHAPE.length}, (_unused, edge) => edge);
+            expect(report.unacceptedAtEnd).toEqual([
+                {label: 'unsignalled', edges, complete: true, signalled: false},
+                {label: 'signalled', edges, complete: false, signalled: true},
+            ]);
+            expect(unacceptedFaceFindings(report)).toEqual({
+                complete: [`unsignalled: edge(s) ${edges.join(', ')}`],
+                unsignalled: [`unsignalled: edge(s) ${edges.join(', ')}`],
+            });
         });
 
         it('counts a solve that throws outside stepAlgorithm, and records the throw on its entry', () => {
@@ -455,6 +491,8 @@ describe('the wavefront links', () => {
             expect(report.entries.filter(entry => entry.label.startsWith('corpus@') && entry.error !== undefined)).toEqual([]);
             expect(unaccountedEntries(report)).toEqual([]);
             expect(report.violations).toEqual([]);
+            // Edge-acceptance spec, decision 9: a face that never closes is signalled.
+            expect(unacceptedFaceFindings(report)).toEqual({complete: [], unsignalled: []});
         });
     });
 });

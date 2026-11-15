@@ -8,10 +8,7 @@ import {ARRIVAL_MOMENT_ULPS, HELD_SIMULTANEITY_WINDOW, mergeDisplacementUncertai
 import {rotateCw90} from "./core-functions";
 import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-termination-cases";
 import handleCollisionEvent from "./collision-handling";
-import {
-    bisectWithParams,
-    tryToAcceptExteriorEdgeAt
-} from "./algorithm-helpers";
+import {bisectWithParams} from "./algorithm-helpers";
 import {
     bisectionsForMerge,
     clusterCoincidentMerges,
@@ -20,8 +17,8 @@ import {
     ringsOfSubPolygon
 } from "./coincident-events";
 import {
-    activeWavefrontProbe,
     beginLayerLinks,
+    birthsClosedAtOneNode,
     droppableBirths,
     linkBirth,
     retireBisectors,
@@ -194,8 +191,8 @@ function chargeSitingResidual(nodeId: number, bisections: BisectionParams[], con
 }
 
 /**
- * The partition bisectors a layer will bear, in the order it bears them: those with both parents live,
- * sorted by span, with nested re-reports of one split removed.
+ * The partition bisectors a layer will bear, in the order it bears them: sorted by span, with nested re-reports
+ * of one split removed.
  *
  * EXPORTED FOR ITS OWN TEST, not for other callers — see `wavefront-order.test.ts`.
  */
@@ -222,13 +219,11 @@ export function selectPartitionEvents(context: StraightSkeletonSolverContext, pa
     const partitionSpan = (params: BisectionParams) => {
         return (params.widdershinsExteriorEdgeIndex - params.clockwiseExteriorEdgeIndex + context.graph.numExteriorNodes) % context.graph.numExteriorNodes
     }
-    const sorted = partitionEvents.filter(params => {
-        const live = !context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex);
-        if (!live) {
-            activeWavefrontProbe()?.birthRefused?.(context, {site: 'select-partition', params});
-        }
-        return live;
-    })
+    // NO ACCEPTED-PARENT FILTER (skeleton edge-acceptance spec, decision 7). Acceptance changes only at step
+    // boundaries, and at the last one every parent of every birth of this layer was named by a then-live bisector,
+    // so no partition event here can name an accepted edge. A silently refused birth is how early acceptance broke
+    // rings; `addBisectionEdge`'s throw is the one guard left, so such a birth would be a step failure.
+    const sorted = partitionEvents
         .toSorted((params1, params2) => {
             const spanDelta = partitionSpan(params1) - partitionSpan(params2);
             if (spanDelta !== 0) {
@@ -359,8 +354,9 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
             throw new Error("Unable to generate any collisions from graph context. Skeleton remains incomplete.");
         }
         if (rung.rung === 'closure') {
+            // No acceptance here: exterior edges are accepted at the step boundary only (skeleton edge-acceptance
+            // spec, decision 6).
             applyDegenerateClosure(context, input.interiorEdges, rung.position);
-            exteriorParents.forEach(e => tryToAcceptExteriorEdgeAt(context, e, 'n-gon-closure'));
             settleLayerLinks(context);
             return result;
         }
@@ -555,11 +551,19 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         });
     }
 
-    const pendingBirths = [...partitionEvents, ...collapseEvents];
-    exteriorParents.forEach(e => tryToAcceptExteriorEdgeAt(context, e, 'n-gon-events', pendingBirths))
+    // NO ACCEPTANCE HERE (skeleton edge-acceptance spec, decision 5): exterior edges are accepted at the step
+    // boundary only, where nothing is pending. Under that rule no reader in this step can observe an acceptance
+    // made here: every parent of every birth below was named by a then-live bisector at the last boundary, and every
+    // other in-step reader asks only of edges its own live bisectors name. The edge is accepted at the next boundary.
+
+    // A RING MADE ONLY OF THIS LAYER'S BIRTHS, ALL AT ONE NODE, CLOSES THERE AND NONE OF IT IS BORN (decision 32):
+    // it has no extent. It is the residue of a vertex event resolved pairwise, two births with each other's parents
+    // at the node where their shared face has just closed. Read from the links and the source node alone.
+    const closedAtOneNode = birthsClosedAtOneNode(context);
+    const unborn = (params: BisectionParams) => !closedAtOneNode.has(params);
 
     // Collapse/partition into child
-    const finalPartitionEvents = selectPartitionEvents(context, partitionEvents);
+    const finalPartitionEvents = selectPartitionEvents(context, partitionEvents.filter(unborn));
 
     const allOutgoingInteriorEdges = [...input.interiorEdges.filter(e => !context.isAccepted(e))]
 
@@ -570,32 +574,17 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         return id;
     };
 
-    // Indexed as `finalPartitionEvents`: the bisector each partition event bore, or `undefined` if refused.
-    const partitionBirths = finalPartitionEvents.map(params => {
-        if (!context.isAccepted(params.widdershinsExteriorEdgeIndex) && !context.isAccepted(params.clockwiseExteriorEdgeIndex)) {
-            return bear(params);
-        }
-        activeWavefrontProbe()?.birthRefused?.(context, {site: 'partition-birth', params});
-        return undefined;
-    });
-    allOutgoingInteriorEdges.push(...partitionBirths.filter((id): id is number => id !== undefined))
+    // NO ACCEPTED-PARENT FILTER ON EITHER KIND OF BIRTH (decision 7). None can fire under the boundary rule, and a
+    // silently refused birth is how early acceptance broke rings: `addBisectionEdge`'s throw is the one guard left,
+    // so a birth with a finished parent becomes a step failure.
+    // Indexed as `finalPartitionEvents`: the bisector each partition event bore.
+    const partitionBirths = finalPartitionEvents.map(bear);
+    allOutgoingInteriorEdges.push(...partitionBirths)
 
-    // Both bounding parents must still be live. An accepted parent has no wavefront left to
-    // bisect, and `addBisectionEdge` refuses one, so admitting a half-accepted collapse throws instead
-    // of producing an edge.
-    allOutgoingInteriorEdges.push(
-        ...collapseEvents.filter(params => {
-            const live = !context.isAccepted(params.widdershinsExteriorEdgeIndex)
-                && !context.isAccepted(params.clockwiseExteriorEdgeIndex);
-            if (!live) {
-                activeWavefrontProbe()?.birthRefused?.(context, {site: 'collapse-birth', params});
-            }
-            return live;
-        })
-            .map(bear)
-    )
+    allOutgoingInteriorEdges.push(...collapseEvents.filter(unborn).map(bear))
 
-    // Every pending birth the filters above refused is spliced out of its ring (skeleton wavefront-order spec).
+    // Every pending birth that was never born — a re-report the dedupe dropped, or a ring closed at one node — is
+    // spliced out of its ring (skeleton wavefront-order spec).
     settleLayerLinks(context);
 
     if (finalPartitionEvents.length === 0) {
@@ -614,7 +603,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // the order they were gathered above. Part A measured that every child of every partitioning layer of
     // the corpus, the sweep and the census that completed was exactly one ring.
     const position = new Map(allOutgoingInteriorEdges.map((id, index) => [id, index]));
-    const partitionIndex = new Map(partitionBirths.flatMap((id, index) => id === undefined ? [] : [[id, index] as const]));
+    const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
     const children = ringsOfWavefront(context, allOutgoingInteriorEdges)
         .map(ring => ({
             // Only this layer's bisectors: a ring the links cannot close (decision 32's path) never reaches

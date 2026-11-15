@@ -5,7 +5,13 @@
  * for the corpus.
  */
 import {setSkeletonLogLevel} from '@proc-geo/core';
-import {describeReport, runRoster, sweepRoster, unaccountedEntries} from './wavefront-probe-helpers';
+import {
+    describeReport,
+    runRoster,
+    sweepRoster,
+    unacceptedFaceFindings,
+    unaccountedEntries,
+} from './wavefront-probe-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -21,5 +27,7 @@ describe('the wavefront links over the 642-cell sweep', () => {
         expect(report.entries).toHaveLength(roster.length);
         expect(unaccountedEntries(report)).toEqual([]);
         expect(report.violations).toEqual([]);
+        // Edge-acceptance spec, decision 9: a face that never closes is signalled.
+        expect(unacceptedFaceFindings(report)).toEqual({complete: [], unsignalled: []});
     });
 });

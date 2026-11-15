@@ -150,7 +150,6 @@ export {
   createBisectionInteriorEdge,
   bisectWithParams,
   initInteriorEdges,
-  hasInteriorLoop,
   tryToAcceptExteriorEdge,
 } from './straight-skeleton/algorithm-helpers';
 

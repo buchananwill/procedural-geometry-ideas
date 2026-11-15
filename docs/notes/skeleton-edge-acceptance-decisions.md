@@ -182,6 +182,38 @@ to the lead.
 31. **One mutant is expected to survive, and its survival is recorded:** the line 551 call restored with the approved
     predicate, pending births included. It is the measured form of the claim that removing that call changes nothing.
 
+### Rulings on the measuring step (BSA.F99, BSA.D300)
+
+32. **A ring a layer leaves that is made only of that layer's pending births, all sourced at one node, is closed at
+    that node and none of it is born.** It has no extent: every one of its segments has both ends at the one point.
+    This is the case decision 13 foresaw, met on `fine:rosette40` at 7e10, 8e10, 9e10 and 1e11, where two births
+    `(cw 20, ws 26)` and `(cw 26, ws 20)` at one node are the residue of a vertex event resolved pairwise. The old rule
+    disposed of them by accepting the edge early and refusing the births; stage 1's dedupe already drops the same shape
+    at lower translations. The rule is stated on the links and the source node, it reads no position and no tolerance,
+    and it is applied when the layer settles, before the births. The predicate of decision 1 is unchanged: births that
+    are never born are not pending. Those four cells are expected to stay byte-identical; if one does not, it is
+    diagnosed and reported.
+33. **The one-boundary lateness of the old rule on `ladder:1x:s5` is harmless and needs nothing:** the old rule
+    accepted two edges one boundary after no bisector named them, no birth is refused, and the solve is byte-identical
+    under the new rule.
+34. **`fine:circle48@200000000000` is accepted under the cure, and its pin moves to its measured signature.** Before:
+    complete, a tree, 3 clearance violations, 3 wavefront violations, and strips missing 49 to 62 percent of the area.
+    After: complete, no wavefront violation, tiling within about 1e-8, the same 3 clearance violations, and one offset
+    and one direction violation both on the newly born bisector, which leaves a node that already carried a 2e-6
+    clearance violation and runs about 1e-6 backwards against its basis. A graph that tiles the polygon is the more
+    valid answer than a tree that misses half of it. The cell is part of Circle 48's known-defect signature, and the
+    fixture stays enrolled.
+35. **Decision 16 is corrected:** `ladder:3x:s3` trips the old rule and refuses no birth, so it is byte-identical under
+    the cure; two of the three complete cells change graph, not three.
+36. **`Offset Cross Junction` is not cured** (one step failure in place of two) and stays in `KNOWN_DEFECT_POLYGONS`
+    under decision 19. Decision 18's promotion does not arise.
+37. **Pins of the six may be moved by the implementer to their measured values, each with the cause written at the
+    pin and listed in the report** with its old value, new value and the before and after measurements; this is the
+    lead's acceptance of decision 20 given in advance, for the six only, and it is withdrawn for any pin whose solve
+    does worse on an oracle, containment or tiling in a way not already described in decisions 34 and 36.
+38. **Every solve of the six that ends complete and is not a tree has its cycle identified** (a zero-length
+    self-loop, a duplicate ridge, or other) and reported, after decision 32 is applied. It does not block the commit.
+
 ## 4. Deferred
 
 - **The in-step reads of exterior acceptance** (split guards, the collision filters) read false always under the new

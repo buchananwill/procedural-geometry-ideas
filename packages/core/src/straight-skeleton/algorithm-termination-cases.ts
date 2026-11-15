@@ -35,7 +35,7 @@ import {
     separationUncertainty,
 } from "./collision-helpers";
 import {makeStraightSkeletonSolverContext} from "./solver-context";
-import {initInteriorEdges, tryToAcceptExteriorEdgeAt} from "./algorithm-helpers";
+import {initInteriorEdges, tryToAcceptExteriorEdge} from "./algorithm-helpers";
 import {addInEdges} from "./graph-helpers";
 import {handleInteriorNGon} from "./algorithm-complex-cases";
 import {activeWavefrontProbe, retireBisectors, ringsOfWavefront} from "./wavefront";
@@ -1277,7 +1277,8 @@ function runSimplePolygon(
         const output = stepAlgorithm(context, inputs);
         errors.push(...(output.errors ?? []));
         inputs = output.childSteps
-        exteriorEdges.forEach(e => tryToAcceptExteriorEdgeAt(context, e.id, 'boundary'))
+        // AT THE STEP BOUNDARY, AND ONLY HERE (skeleton edge-acceptance spec, decision 4): nothing is pending.
+        exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
         probe?.stepBoundary?.(context, inputs);
     }
     probe?.solveFinished?.(context, errors);
@@ -2286,7 +2287,7 @@ function runSimplePolygonStepped(
     try {
         while (inputs.length > 0) {
             inputs = stepAlgorithm(context, inputs).childSteps;
-            exteriorEdges.forEach(e => tryToAcceptExteriorEdgeAt(context, e.id, 'stepped-boundary'));
+            exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id));
             probe?.stepBoundary?.(context, inputs);
             snapshots.push(structuredClone(context.graph));
         }

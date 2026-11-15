@@ -287,12 +287,21 @@ const PINNED_DIGESTS: Record<string, string> = {
     'Off-edge Jitter Reflex L (seed 55433)': '434f124f04bdeb6ad082a843582bbd8c04bc029a28fa7f3b4dfef1fa5417286c',
     'Off-edge Jitter Plus (seed 7919)': '9e2c7d53d92548ce3af8950cab8466f39ebb35f7c2a6dcbde522cd05be13a7a3',
     // W21 / decision 115: 3 node coordinates moved by 1 ulp, 5 `maxOffset` values by 1 ulp.
-    'Off-edge Jitter Reflex L (seed 55433, k=4)': '051808c645fce7466a0566881be7f458e7d9d08630568b9775af65f418c29886',
+    // MOVED BY THE EDGE-ACCEPTANCE CURE (skeleton edge-acceptance spec, decision 32; BSA.D302): the two zero-length
+    // bisectors e47 (cw 0, ws 10) and e48 (cw 10, ws 0) at node 25, a ring made only of one layer's births at one
+    // node, are no longer born. 58 edges become 56 and later ids fall by two; nodes, completion, both causality
+    // instruments and tiling are unmoved, and the skeleton becomes a tree. Was
+    // '051808c645fce7466a0566881be7f458e7d9d08630568b9775af65f418c29886'.
+    'Off-edge Jitter Reflex L (seed 55433, k=4)': '901da34dc5dc4d1389df0eeb4fabd370269b736253a83f12a4f4682d241c9853',
     'Near Regular Circle 48': '1c160f93b47ea00b09858d67fe00d502524130faa603ad62e0acfd5120bed1dc',
     'Near Regular Rosette5 40': 'cdc02b004eab1e13bef32a266d5f9313dd770161e0131beb26b0be3f435184f0',
     // Enrolled 2026-09-23, decision 151(d). A FIRST PIN for a new fixture, not a mover: the 59 pins
     // above are unmoved by that enrolment. Its graph is the partial one of a signalled failure.
-    'Offset Cross Junction': 'd8dc4740825dcfdff25171620dcad51724b267145d239030a6fca8820d93df75',
+    // MOVED BY THE EDGE-ACCEPTANCE CURE (skeleton edge-acceptance spec, decisions 19, 36 and 37; BSA.F99): edges 6
+    // and 10 are no longer accepted while e27 names them, so the birth (cw 6, ws 10) the old rule refused is born
+    // (33 edges -> 34) and the solve fails once instead of twice. Still incomplete, still enrolled. Was
+    // 'd8dc4740825dcfdff25171620dcad51724b267145d239030a6fca8820d93df75'.
+    'Offset Cross Junction': '6d32c0d616b2566feca049521999a67b866cca72fb59a771f8f1c5a6b9a379c3',
 };
 
 if (process.env.DIGEST_PRINT === '1') {

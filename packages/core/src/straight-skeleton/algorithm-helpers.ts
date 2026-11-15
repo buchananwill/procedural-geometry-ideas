@@ -1,23 +1,20 @@
 import {
     InteriorEdge,
     PolygonEdge,
-    PolygonNode,
     SkeletonDirection,
     StraightSkeletonSolverContext,
     Vector2, BisectionParams, StraightSkeletonGraph
 } from "./types";
 import {complexLog} from "./logger";
 import {
-    assertIsNumber,
     crossProduct,
     makeRay,
     makeWeightedBisectedBasis,
     negateVector,
     sineIsBelow
 } from "./core-functions";
-import {adjacentExteriorEdge, interiorEdgeIndex} from "./graph-helpers";
-import {activeWavefrontProbe, linkInitialRings, openWavefrontSlot} from "./wavefront";
-import type {AcceptanceSite} from "./wavefront";
+import {adjacentExteriorEdge} from "./graph-helpers";
+import {exteriorFaceIsClosed, linkInitialRings, openWavefrontSlot} from "./wavefront";
 import {intersectRays} from "./intersection-edges";
 import {
     arrivalOf,
@@ -353,130 +350,25 @@ export function initInteriorEdges(context: StraightSkeletonSolverContext) {
     linkInitialRings(context, bisectorAtNode);
 }
 
-export function hasInteriorLoop(edge: number, {acceptedEdges, graph}: StraightSkeletonSolverContext): boolean {
-
-
-    // invalid id case
-    if (edge >= graph.edges.length) {
-        return false;
-    }
-    const isExterior = edge < graph.numExteriorNodes;
-    const edgeData = graph.edges[edge];
-
-    // not yet in the accepted array at all
-    if (edge >= acceptedEdges.length) {
-        return false;
-    }
-
-    // has already been accepted (loop is definition of acceptable exterior edge)
-    if (isExterior && acceptedEdges[edge]) {
-        return true;
-    }
-
-    // for interior edges check their parents
-    if (!isExterior) {
-        const interiorEdge = graph.interiorEdges[interiorEdgeIndex(edgeData, graph)];
-        const clockwiseParent = interiorEdge.clockwiseExteriorEdgeIndex;
-        const widdershinsParent = interiorEdge.widdershinsExteriorEdgeIndex;
-        return acceptedEdges[clockwiseParent] || acceptedEdges[widdershinsParent];
-    }
-
-    const targetIndex = edgeData.target;
-    assertIsNumber(targetIndex);
-
-    // hard case/base case: find interior loop from exterior edge
-    const targetNode: PolygonNode = graph.nodes[targetIndex];
-    const visitedEdges = new Set<number>();
-    const candidateEdges: number[] = [...targetNode.outEdges];
-
-    const testAndAddCandidates = (edges: number[]): boolean => {
-        for (const candidateEdge of edges) {
-            if (candidateEdge === edge) {
-                return true;
-            }
-            if (candidateEdge < graph.numExteriorNodes) {
-                continue;
-            }
-            if (visitedEdges.has(candidateEdge)) {
-                continue;
-            }
-            if (candidateEdge >= acceptedEdges.length) {
-                continue;
-            }
-            if (!acceptedEdges[candidateEdge]) {
-                continue;
-            }
-            candidateEdges.push(candidateEdge);
-        }
-        return false;
-    }
-
-    while (candidateEdges.length > 0) {
-        const nextEdge = candidateEdges.pop()
-        assertIsNumber(nextEdge)
-        visitedEdges.add(nextEdge)
-
-        if (nextEdge < graph.numExteriorNodes) {
-            continue;
-        }
-
-        if (!acceptedEdges[nextEdge]) {
-            continue;
-        }
-
-        const nextEdgeData = graph.edges[nextEdge];
-        const nextTargetIndex = nextEdgeData.target;
-
-        const nextSource = graph.nodes[nextEdgeData.source];
-        // We need to skip this test for the source of the very first edge, otherwise we short circuit and get a false positive
-        if (nextEdgeData.source !== targetIndex) {
-            if (testAndAddCandidates(nextSource.outEdges)) {
-                return true;
-            }
-            if (testAndAddCandidates(nextSource.inEdges)) {
-                return true;
-            }
-        }
-        if (nextTargetIndex !== undefined) {
-            const nextTarget = graph.nodes[nextTargetIndex];
-
-            if (testAndAddCandidates(nextTarget.outEdges)) {
-                return true;
-            }
-            if (testAndAddCandidates(nextTarget.inEdges)) {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
+/**
+ * ACCEPT AN EXTERIOR EDGE EXACTLY WHEN ITS FACE IS CLOSED: when no live bisector names it as a parent (skeleton
+ * edge-acceptance spec, decisions 1 to 4; BSA.D296). Asked at step boundaries only — `runSimplePolygon`,
+ * `runSimplePolygonStepped` and the test-side runners that follow `stepAlgorithm` the same way — where nothing is
+ * pending, so there it is the approved predicate exactly. Once accepted an edge stays accepted: no birth can name
+ * it, because `addBisectionEdge` refuses an accepted parent.
+ *
+ * THIS REPLACED `hasInteriorLoop`, which accepted an edge when any chain of accepted interior edges joined its two
+ * end nodes. That is connectivity, not face closure: on the five single-loop solves that tripped it, the chain ran
+ * through a hub node where several faces' bisectors met within the floor, and accepted the edge while a bisector
+ * still traced its face (BSA.F95, BSA.F99). The next birth naming the edge was then refused and its ring broke.
+ *
+ * Only an exterior edge is ever accepted here; any other id is returned as it stands.
+ */
 export function tryToAcceptExteriorEdge(context: StraightSkeletonSolverContext, exteriorEdge: number) {
-    if (hasInteriorLoop(exteriorEdge, context)) {
+    if (exteriorEdge >= 0 && exteriorEdge < context.graph.numExteriorNodes
+        && exteriorFaceIsClosed(context, exteriorEdge)) {
         context.acceptedEdges[exteriorEdge] = true;
     }
 
     return context.acceptedEdges[exteriorEdge];
-}
-
-/**
- * THE MEASURING STEP'S CALL SITE (skeleton edge-acceptance spec, decision 11), removed at the switch:
- * {@link tryToAcceptExteriorEdge} as it is, reported to the probe with the site and the layer's pending births.
- * With no probe installed it is exactly that call.
- */
-export function tryToAcceptExteriorEdgeAt(
-    context: StraightSkeletonSolverContext,
-    exteriorEdge: number,
-    site: AcceptanceSite,
-    pendingBirths: readonly BisectionParams[] = [],
-): boolean {
-    const probe = activeWavefrontProbe();
-    if (probe?.acceptanceAsked === undefined) {
-        return tryToAcceptExteriorEdge(context, exteriorEdge);
-    }
-    const wasAccepted = context.acceptedEdges[exteriorEdge] === true;
-    const accepted = tryToAcceptExteriorEdge(context, exteriorEdge);
-    probe.acceptanceAsked(context, {site, exteriorEdge, wasAccepted, accepted, pendingBirths});
-    return accepted;
 }

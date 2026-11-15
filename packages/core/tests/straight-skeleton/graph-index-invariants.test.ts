@@ -240,7 +240,11 @@ const HISTORICAL_SUB_FLOOR_PAIRS = [
     {fixture: 'Off-edge Jitter Reflex L (seed 15838)', pair: [19, 21], edge: 35},
     {fixture: 'Off-edge Jitter Reflex L (seed 55433)', pair: [19, 20], edge: 37},
     {fixture: 'Off-edge Jitter Reflex L (seed 55433)', pair: [24, 26], edge: 43},
-    {fixture: 'Off-edge Jitter Reflex L (seed 55433, k=4)', pair: [27, 29], edge: 50},
+    // e50 -> e48, RENUMBERING ONLY (skeleton edge-acceptance spec, decision 32; BSA.D302): the solve no longer
+    // bears the two zero-length bisectors e47 (cw 0, ws 10) and e48 (cw 10, ws 0) at node 25, a ring made only of
+    // one layer's births at one node, so every later edge id falls by two. The pair and its joining edge are the
+    // same geometry.
+    {fixture: 'Off-edge Jitter Reflex L (seed 55433, k=4)', pair: [27, 29], edge: 48},
 ] as const;
 
 /*

@@ -306,6 +306,53 @@ export function droppableBirths(
 }
 
 /**
+ * THE RINGS THAT CLOSE WHERE THEY WOULD BE BORN (skeleton edge-acceptance spec, decision 32): every pending birth
+ * of this layer that stands on a ring made ONLY of this layer's pending births, ALL SOURCED AT ONE NODE. Such a ring
+ * has no extent — every one of its segments has both ends at that one point — so it is closed there and none of it
+ * is born. It is the residue of a vertex event resolved pairwise: two births with each other's parents at the node
+ * where their shared face has just closed (`fine:rosette40` at 7e10 to 1e11).
+ *
+ * READ FROM THE LINKS AND THE SOURCE NODE ALONE: no position, no tolerance. A ring that holds any live bisector, or
+ * births from two nodes, is born as it is. Asked when the layer's events are resolved, before any birth; the births
+ * it names are never born, so they are not pending and the acceptance predicate is unchanged. Splicing them out at
+ * {@link settleLayerLinks} touches no live bisector, because the ring holds none.
+ */
+export function birthsClosedAtOneNode(context: StraightSkeletonSolverContext): Set<BisectionParams> {
+    const closed = new Set<BisectionParams>();
+    const layer = layers.get(context);
+    if (layer === undefined) {
+        return closed;
+    }
+    const placed = new Set<number>();
+    for (const token of layer.pending.keys()) {
+        if (placed.has(token)) {
+            continue;
+        }
+        const ring: number[] = [token];
+        let current = layer.pending.get(token)!.clockwise;
+        let whole = true;
+        while (current !== token) {
+            if (!isToken(current) || !layer.pending.has(current) || ring.includes(current)) {
+                whole = false;
+                break;
+            }
+            ring.push(current);
+            current = layer.pending.get(current)!.clockwise;
+        }
+        if (!whole) {
+            placed.add(token);
+            continue;
+        }
+        ring.forEach(member => placed.add(member));
+        const sources = new Set(ring.map(member => layer.pending.get(member)!.params.source));
+        if (sources.size === 1) {
+            ring.forEach(member => closed.add(layer.pending.get(member)!.params));
+        }
+    }
+    return closed;
+}
+
+/**
  * The layer is over: every pending bisector that was never born is spliced out, joining its two
  * neighbours, and the layer's records are discarded.
  */
@@ -777,34 +824,6 @@ export interface WavefrontProbe {
     stepBoundary?(context: StraightSkeletonSolverContext, inputs: readonly AlgorithmStepInput[]): void;
     /** At the end of one simple-polygon solve: `errors` are the step failures it accumulated. */
     solveFinished?(context: StraightSkeletonSolverContext, errors: readonly string[]): void;
-    /**
-     * THE MEASURING STEP (skeleton edge-acceptance spec, decisions 11 to 14), removed at the switch: an exterior
-     * edge's acceptance was asked at one of the four solver sites, and `hasInteriorLoop` decided it.
-     */
-    acceptanceAsked?(context: StraightSkeletonSolverContext, asked: AcceptanceAsked): void;
-    /** THE MEASURING STEP: a birth one of the accepted-parent filters refused. */
-    birthRefused?(context: StraightSkeletonSolverContext, refused: RefusedBirth): void;
-}
-
-/** The four solver sites that ask an exterior edge's acceptance (the measuring step). */
-export type AcceptanceSite = 'boundary' | 'stepped-boundary' | 'n-gon-closure' | 'n-gon-events';
-
-/** One acceptance asked at a solver site (the measuring step). */
-export interface AcceptanceAsked {
-    site: AcceptanceSite;
-    exteriorEdge: number;
-    /** Accepted before this call. */
-    wasAccepted: boolean;
-    /** Accepted after it, by the rule that decides. */
-    accepted: boolean;
-    /** The layer's births linked and not yet born, at the n-gon's events site; empty elsewhere (decision 2). */
-    pendingBirths: readonly BisectionParams[];
-}
-
-/** One birth an accepted-parent filter refused (the measuring step). */
-export interface RefusedBirth {
-    site: 'select-partition' | 'partition-birth' | 'collapse-birth';
-    params: BisectionParams;
 }
 
 let installedProbe: WavefrontProbe | null = null;

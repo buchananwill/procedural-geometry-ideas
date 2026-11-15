@@ -7,11 +7,18 @@
  * Installed only by the wavefront-order tests, around the solves they run, and removed after: in a normal
  * solve the probe is `null` and every call site does nothing.
  *
- * EVERY SOLVE IS COUNTED, AND THE EXCLUSION STARTS WHERE ITS CAUSE DOES (BSA.F97 finding 2, BSA.D293). A solve
- * is any context that reaches a step boundary. One that never reports its end — a throw outside
- * `stepAlgorithm` — is closed when its roster entry returns and counted as thrown, so it is never silently
- * lost. Spec decision 32's exclusion discards a solve's violations only from the first step boundary at
- * which its cause holds; every violation at an earlier boundary is asserted like any other.
+ * EVERY SOLVE IS COUNTED (BSA.F97 finding 2, BSA.D293). A solve is any context that reaches a step boundary. One
+ * that never reports its end — a throw outside `stepAlgorithm` — is closed when its roster entry returns and
+ * counted as thrown, so it is never silently lost.
+ *
+ * EVERY VIOLATION OF EVERY COMPLETE SOLVE IS ASSERTED (skeleton edge-acceptance spec, decision 22). Stage 1's
+ * decision 32 excluded a solve from the boundary at which an exterior edge was accepted while a live bisector named
+ * it; under the acceptance cure that cause cannot hold at a boundary, so the exclusion is gone. The cause is still
+ * detected ({@link acceptedParentOnLiveBisector}) and reported, and the early-acceptance file holds it empty.
+ *
+ * A FACE THAT NEVER CLOSES IS SIGNALLED (decision 9): `solveFinished` records every exterior edge a solve ends
+ * with unaccepted, and the gates assert that no complete solve ends with one and that every solve ending with one
+ * carries a step failure or an unresolved interior edge.
  */
 import type {AlgorithmStepInput, StraightSkeletonSolverContext} from '@proc-geo/core';
 import {
@@ -48,22 +55,32 @@ export interface WavefrontReport {
     solves: number;
     completeSolves: number;
     boundaries: number;
-    /**
-     * W1–W4 violations on solves that COMPLETED — the gate (decision 15) asserts this empty. On a solve that
-     * trips decision 32's cause, the violations at the boundaries before the cause are here too.
-     */
+    /** W1–W4 violations on solves that COMPLETED, at every boundary — the gate (decision 15) asserts this empty. */
     violations: {label: string; step: number; violation: string}[];
     /** The same on solves that did not complete, counted per solve, with the first violation. */
     incompleteSolvesWithViolations: {label: string; step: number; violation: string; count: number}[];
     /** Solves that reached a step boundary and never reported their end: a throw outside `stepAlgorithm`. */
     thrownSolves: {label: string; step: number}[];
     /**
-     * Solves on which decision 32's cause holds from step `fromStep`, with how many violations were discarded
-     * (at that boundary and after) and how many came before it (asserted above when the solve completed).
+     * Solves on which stage 1 decision 32's cause holds from step `fromStep`: an exterior edge accepted while a live
+     * bisector names it. Reported, never excluded; the early-acceptance file asserts this empty.
      */
-    earlyAcceptanceSolves: {
-        label: string; complete: boolean; fromStep: number; detail: string; discarded: number; before: number;
-    }[];
+    earlyAcceptanceSolves: {label: string; complete: boolean; fromStep: number; detail: string}[];
+    /**
+     * Solves that ended with an exterior edge unaccepted (edge-acceptance spec, decision 9), with whether the solve
+     * completed and whether it was signalled (a step failure or an unresolved interior edge). The gates assert none
+     * is complete and every one is signalled.
+     */
+    unacceptedAtEnd: {label: string; edges: number[]; complete: boolean; signalled: boolean}[];
+}
+
+/** Decision 9's two assertions, as the lists that should be empty: complete solves, then unsignalled ones. */
+export function unacceptedFaceFindings(report: WavefrontReport): {complete: string[]; unsignalled: string[]} {
+    const describe = (solve: WavefrontReport['unacceptedAtEnd'][number]) => `${solve.label}: edge(s) ${solve.edges.join(', ')}`;
+    return {
+        complete: report.unacceptedAtEnd.filter(solve => solve.complete).map(describe),
+        unsignalled: report.unacceptedAtEnd.filter(solve => !solve.signalled).map(describe),
+    };
 }
 
 export function emptyReport(): WavefrontReport {
@@ -76,6 +93,7 @@ export function emptyReport(): WavefrontReport {
         incompleteSolvesWithViolations: [],
         thrownSolves: [],
         earlyAcceptanceSolves: [],
+        unacceptedAtEnd: [],
     };
 }
 
@@ -88,10 +106,10 @@ interface SolveState {
 }
 
 /**
- * SPEC DECISION 32's CAUSE, detected rather than listed: an exterior edge accepted while a live bisector
- * still names it as a parent (`ISSUE-skeleton-edge-accepted-before-its-face-closes.md`). W1 to W4 cannot
- * hold on such a solve without changing when an edge is accepted, so decision 15's gate excludes it from
- * the boundary at which the cause first holds.
+ * STAGE 1 DECISION 32's CAUSE, detected rather than listed: an exterior edge accepted while a live bisector
+ * still names it as a parent (`ISSUE-skeleton-edge-accepted-before-its-face-closes.md`). The acceptance cure makes
+ * it impossible at a step boundary (edge-acceptance spec, decision 22); this stays as the detector the
+ * early-acceptance file holds empty over every roster.
  */
 export function acceptedParentOnLiveBisector(context: StraightSkeletonSolverContext): string | undefined {
     for (const edge of context.graph.interiorEdges) {
@@ -113,20 +131,16 @@ function closeSolve(report: WavefrontReport, state: SolveState, complete: boolea
     if (complete) {
         report.completeSolves++;
     }
-    const causeStep = state.cause?.step ?? Infinity;
-    const asserted = state.violations.filter(v => v.step < causeStep);
     if (state.cause !== undefined) {
         report.earlyAcceptanceSolves.push({
             label: state.label,
             complete,
             fromStep: state.cause.step,
             detail: state.cause.detail,
-            discarded: state.violations.length - asserted.length,
-            before: asserted.length,
         });
     }
     if (complete) {
-        report.violations.push(...asserted.map(v => ({label: state.label, ...v})));
+        report.violations.push(...state.violations.map(v => ({label: state.label, ...v})));
     } else if (state.violations.length > 0) {
         report.incompleteSolvesWithViolations.push({
             label: state.label, ...state.violations[0], count: state.violations.length,
@@ -171,6 +185,14 @@ function recordingProbe(report: WavefrontReport, label: () => string): {probe: W
             const state = stateOf(context);
             const unresolved = context.graph.interiorEdges.some(edge => context.graph.edges[edge.id].target === undefined);
             const complete = errors.length === 0 && !unresolved && context.graph.interiorEdges.length > 0;
+            // DECISION 9: a face that never closes is signalled.
+            const unaccepted = Array.from({length: context.graph.numExteriorNodes}, (_unused, edge) => edge)
+                .filter(edge => !context.isAccepted(edge));
+            if (unaccepted.length > 0) {
+                report.unacceptedAtEnd.push({
+                    label: state.label, edges: unaccepted, complete, signalled: errors.length > 0 || unresolved,
+                });
+            }
             closeSolve(report, state, complete);
             open.delete(context);
             seen++;
@@ -300,10 +322,13 @@ export function describeReport(title: string, report: WavefrontReport): string {
         ...report.thrownSolves.slice(0, 25).map(s => `    thrown ${s.label} after step boundary ${s.step - 1}`),
         `${thrownEntries.length} roster entr(y/ies) threw:`,
         ...thrownEntries.slice(0, 25).map(entry => `    ${entry.label} (${entry.solves} solve(s)): ${entry.error!.slice(0, 160)}`),
-        `${report.earlyAcceptanceSolves.length} solve(s) outside the gate from spec decision 32's cause `
+        `${report.earlyAcceptanceSolves.length} solve(s) on which stage 1 decision 32's cause holds `
         + `(an exterior edge accepted while a live bisector names it):`,
         ...report.earlyAcceptanceSolves.slice(0, 25).map(s =>
-            `    ${s.complete ? 'complete' : 'incomplete'} ${s.label} from step ${s.fromStep}: ${s.detail} `
-            + `(${s.discarded} violation(s) discarded, ${s.before} before the cause)`),
+            `    ${s.complete ? 'complete' : 'incomplete'} ${s.label} from step ${s.fromStep}: ${s.detail}`),
+        `${report.unacceptedAtEnd.length} solve(s) ending with an exterior edge unaccepted:`,
+        ...report.unacceptedAtEnd.slice(0, 25).map(s =>
+            `    ${s.complete ? 'complete' : 'incomplete'}${s.signalled ? '' : ', UNSIGNALLED'} ${s.label}: `
+            + `edge(s) ${s.edges.join(', ')}`),
     ].join('\n');
 }
