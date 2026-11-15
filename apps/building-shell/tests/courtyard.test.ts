@@ -365,3 +365,17 @@ describe('the jut family on the holed roof (journal findings 88 and 89)', () => 
     expect(invariantViolations(b, {genus: 1, cheeks: 0})).toEqual([]);
   });
 });
+
+// Holed roof decisions 5 and 22: a gable's extent breaks at every vertex of the island's loops, a hole's included. The
+// jut's S wall, y = 300 over x -250 to 0, gabled: its line runs on inside the W wing to the hole's corner, x = 300, and
+// there enters the hole. Read from the outer loop's vertices alone, the walk would step from x = 0 to x = 1000 and stop
+// at x = 0, since x = 500 is in the hole.
+describe('a gable beside a courtyard runs its line to the hole (holed roof decision 22)', () => {
+  const f = layout('JutWingSGabled', jutWingRects(250).map((r, i) => ring(r, 0, 1, 30, i === 1 ? {S: {form: 'gable'}} : {})));
+
+  it('stands its piece over x -250 to 300 on y = 300, its extent ending at the hole\'s corner', () => {
+    const plan = planStorey(f, 0);
+    const pieces = plan.roof.pieces.filter(p => p.wall.a.y === 300 && p.wall.b.y === 300);
+    expect(pieces.map(p => [p.bandLo, p.bandHi])).toEqual([[-250, 300]]);
+  });
+});
