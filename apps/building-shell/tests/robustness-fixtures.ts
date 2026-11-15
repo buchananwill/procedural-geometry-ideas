@@ -525,6 +525,20 @@ export const THROWING_TUCK_CASES: readonly TuckCase[] = [
   tuckC(250), tuckC(263), tuckC(300),
 ];
 
+/**
+ * BSA.F87's smallest input on a holed island (ISSUE-building-shell-all-gable-courtyard-tuck.md): `TuckGableEnd`'s two
+ * Rings, the band the S band of a courtyard whose wings and N band stand one storey, the hole x 100 to 250, y 150 to 350.
+ * Storey 0 is one island with one hole, so the genus is 1. Measured: its tuck is `TuckGableEnd`'s, the same outline at
+ * every height, and its x-mirror builds with no tuck.
+ */
+const tuckCourtyard = (h: number): TuckCase => ({span: 350, fixture: shellFixture(`TuckGableEndCourtyard${h}`, [
+  ring([0, 0, 200, 50], 0, 3, 30, tuckGable), ring([0, 50, 350, 150], 0, 1, 30, tuckGable),
+  ring([0, 150, 100, 350], 0, 1, 30), ring([250, 150, 350, 350], 0, 1, 30), ring([0, 350, 350, 450], 0, 1, 30),
+], h)});
+
+/** The tuck inputs on a holed island, and their storey heights. */
+export const HOLED_TUCK_CASES: readonly TuckCase[] = [tuckCourtyard(250), tuckCourtyard(263), tuckCourtyard(300)];
+
 /** BSA.F87's silent variants of `TuckRiseGable`: each built at `8025ead` with overlapping Cells and Unclassified Edges. */
 export const SILENT_TUCK_CASES: readonly TuckCase[] = [
   tuckB('TuckRiseGableNarrowTower', [50, 100, 300, 250], 30, [150, 0, 200, 100], 30, 300),

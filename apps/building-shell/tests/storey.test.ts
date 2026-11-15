@@ -337,4 +337,22 @@ describe('raw parts', () => {
     });
     expect(Math.abs(gableArea - 90000 * Math.sqrt(3))).toBeLessThan(SHELL_TOLERANCE_CM);
   });
+
+  // Journal decision 132, restored for the holed roof (ISSUE-building-shell-all-gable-courtyard-tuck.md): with its
+  // bottom at the plate, a holed island's hip solid led Manifold's union to leave tucks on 36 all-gable courtyards.
+  it("stands the Courtyard's holed hip solid from the floor, its floor and sides the wall prism's own tags", () => {
+    const tags = makeShellTags();
+    const ctx = makePartContext(wasm, tags);
+    const plan = planStorey(fixtureByName('Courtyard'), 0);
+    expect(plan.building.comps[0].holes).toHaveLength(1);
+    const [prism, hip] = buildStoreyParts(ctx, plan);
+    expect(hip.kind).toBe('hip');
+    const zs = hip.soup.positions.filter((_, i) => i % 3 === 2);
+    expect(Math.min(...zs)).toBe(plan.floor);
+    const kinds = (p: RawPart): string[] => [...new Set(p.soup.faceIDs.map(id => tags.table[id].kind))].sort();
+    expect(kinds(hip)).toEqual(['Ground', 'Roof', 'Wall']);
+    const walls = (p: RawPart): number[] => [...new Set(p.soup.faceIDs.filter(id => tags.table[id].kind === 'Wall').map(id => tags.table[id].wall))].sort((a, b) => a - b);
+    expect(walls(hip)).toEqual(walls(prism));
+    expect(walls(hip)).toHaveLength(plan.building.comps[0].walls.length);
+  });
 });

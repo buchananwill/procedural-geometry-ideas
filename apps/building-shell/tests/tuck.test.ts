@@ -19,24 +19,26 @@ import {lineDistance} from '../src/vec3.ts';
 import {mirrorDifferences, mirrorFixture} from './mirror-oracle.ts';
 import {pinnedOutcome} from './pin-table.ts';
 import {GAP_DEFECTS} from './residue-pins.ts';
-import {COVERED_RISE_CELL_CLASH, SILENT_TUCK_CASES, THROWING_TUCK_CASES, TuckCase, gapFixture} from './robustness-fixtures.ts';
-import {AREA_TOL, invariantViolations} from './shell-invariants.ts';
+import {
+  COVERED_RISE_CELL_CLASH, HOLED_TUCK_CASES, SILENT_TUCK_CASES, THROWING_TUCK_CASES, TuckCase, gapFixture, splitBandFixture,
+} from './robustness-fixtures.ts';
+import {AREA_TOL, invariantViolations, planHolds} from './shell-invariants.ts';
 import {memoBuilds} from './test-builds.ts';
 
 const build = memoBuilds();
 
 /**
- * Every tuck input: those that threw and the silent ones. `CoveredRiseCellClash`, the Cheek reproducer, was one until the
- * holed roof (holed roof decision 48): its tuck and its Cheek stood on the courtyard cut, and it is held below as built
- * with no tuck.
+ * Every tuck input: those that threw, the silent ones, and the smallest on a holed island. `CoveredRiseCellClash`, the
+ * Cheek reproducer, was one until the holed roof (holed roof decision 48): its tuck and its Cheek stood on the courtyard
+ * cut, and it is held below as built with no tuck.
  */
-const ALL_CASES: readonly TuckCase[] = [...THROWING_TUCK_CASES, ...SILENT_TUCK_CASES];
+const ALL_CASES: readonly TuckCase[] = [...THROWING_TUCK_CASES, ...SILENT_TUCK_CASES, ...HOLED_TUCK_CASES];
 
 /** The cases whose x-mirror is the oracle: every one. */
 const MIRRORED: readonly TuckCase[] = ALL_CASES;
 
-/** Each case's measured genus: no tunnel. */
-const genusOf = (_: TuckCase): number => 0;
+/** Each case's measured genus: one tunnel through a holed case's courtyard, none elsewhere. */
+const genusOf = (c: TuckCase): number => (HOLED_TUCK_CASES.includes(c) ? 1 : 0);
 
 /** The measured Cheek faces: none exposed. */
 const cheeksOf = (_: TuckCase): number => 0;
@@ -160,6 +162,11 @@ const RIMS: Readonly<Record<string, readonly RimLine[]>> = {
   TuckSteepGableEnd263: [
     {a: [86.603, 50, 313], b: [200, 50, 313], kind: 'RingJunction', faces: ['Roof', 'Wall']},
   ],
+  // `TuckGableEnd250`'s rims on its holed island: the courtyard moves neither.
+  TuckGableEndCourtyard250: [
+    {a: [100, 50, 307.735], b: [200, 50, 307.735], kind: 'RingJunction', faces: ['Roof', 'Wall']},
+    {a: [200, 50, 250], b: [200, 50, 307.735], kind: 'InternalCorner', faces: ['Gable', 'Wall']},
+  ],
 };
 
 const near = (p: Vec3, q: Vec3): boolean => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) <= 1e-3;
@@ -193,7 +200,7 @@ describe.each(MIRRORED.map(c => [c.fixture.name, c] as const))('journal decision
   it('the mirror builds clean with no tuck, and the labelled build less its Tuck faces is its mirror image', async () => {
     const tucked = await build(c.fixture);
     const clean = await build(mirrorFixture(c.fixture, c.span));
-    expect(invariantViolations(clean, {genus: 0, cheeks: 0})).toEqual([]);
+    expect(invariantViolations(clean, {genus: genusOf(c), cheeks: 0})).toEqual([]);
     expect(clean.shell.report.tucks).toBe(0);
     expect(clean.union.tuck).toEqual({tucks: 0, split: 0, neighbours: 0, added: 0});
     expect(mirrorDifferences(tucked.shell, clean.shell, c.span).differences).toEqual([]);
@@ -219,6 +226,59 @@ describe('CoveredRiseCellClash on the holed roof: no tuck, no Cheek', () => {
     expect(b.shell.report.tucks).toBe(0);
     expect(tuckFaces(b.shell)).toEqual([]);
     expect(mirrorDifferences(b.shell, (await build(mirrorFixture(COVERED_RISE_CELL_CLASH, 700))).shell, 700).differences).toEqual([]);
+  });
+});
+
+/** A build's Tuck layers, by storey, each with its plane, area and outline: what two builds' tucks are compared by. */
+const tuckLayers = (s: BuildingShell): string[] => tuckFaces(s).map(f => `storey ${f.tag.storey} n=(${f.normal}) d=${f.offset} area ${f.area.toFixed(3)} loops ${JSON.stringify(f.loops)}`).sort();
+
+describe('journal decision 272 on a holed island (ISSUE-building-shell-all-gable-courtyard-tuck.md)', () => {
+  it.each(HOLED_TUCK_CASES.map(c => [c.fixture.name, c] as const))('%s tucks exactly what TuckGableEnd at its height tucks: the courtyard moves neither layer', async (_, c) => {
+    const plain = THROWING_TUCK_CASES.find(x => x.fixture.name === `TuckGableEnd${c.fixture.storeyHeight}`);
+    if (!plain) throw new Error(`no TuckGableEnd at ${c.fixture.storeyHeight}`);
+    const holed = (await build(c.fixture)).shell;
+    expect(tuckLayers(holed)).toHaveLength(2);
+    expect(tuckLayers(holed)).toEqual(tuckLayers((await build(plain.fixture)).shell));
+  });
+
+  // Measured, and read off the plan: on y = 50 the tuck runs x 100 to 200 at the storey 0 roof's height there, 300 +
+  // 100 tan 30, down to its apex at x = 150, 300 + 50 tan 30.
+  it('TuckGableEndCourtyard300 tucks a triangle 100 cm wide and 50 tan 30° deep on y = 50, on storeys 0 and 1', async () => {
+    const c = HOLED_TUCK_CASES.find(x => x.fixture.name === 'TuckGableEndCourtyard300');
+    if (!c) throw new Error('no TuckGableEndCourtyard300');
+    const {shell} = await build(c.fixture);
+    const t30 = Math.tan(Math.PI / 6);
+    const want = (100 * 50 * t30) / 2;
+    for (const f of tuckFaces(shell)) {
+      expect(Math.abs(f.area - want), `face ${f.id}`).toBeLessThan(AREA_TOL);
+      expect(Math.abs(Math.abs(f.offset) - 50)).toBeLessThan(SHELL_TOLERANCE_CM);
+      const zs = f.loops[0].map(p => p[2]);
+      expect(Math.abs(Math.max(...zs) - (300 + 100 * t30))).toBeLessThan(SHELL_TOLERANCE_CM);
+      expect(Math.abs(Math.min(...zs) - (300 + 50 * t30))).toBeLessThan(SHELL_TOLERANCE_CM);
+    }
+    expect(tuckFaces(shell).map(f => f.tag.storey).sort()).toEqual([0, 1]);
+  });
+
+  // The regression the issue records: with a holed island's hip solid bottomed at the plate (holed roof decision 25),
+  // Manifold's union left a tuck on y = 800 between the N band's gable piece and the E wing's covered rise, which split
+  // the Roof on the x = 1000 wall's plane into two faces of one identity, and Cells were laid across the tuck's line.
+  // Standing from the floor, as under the cut (journal decision 132), the union leaves no tuck.
+  it('the all-gable split band H450-550B100S460D30g leaves no tuck, and its Roof on the x = 1000 wall\'s plane is one face across y = 800', async () => {
+    const G = {form: 'gable'} as const;
+    const f = splitBandFixture('H450-550B100S460D30g', 450, 550, 100, 460, {a: 30, w: 30});
+    f.rings = f.rings.map(r => ({...r, sides: {S: G, E: G, N: G, W: G}}));
+    const b = await build(f);
+    expect(b.union.tuck.tucks).toBe(0);
+    expect(tuckFaces(b.shell)).toEqual([]);
+    const t30 = Math.tan(Math.PI / 6);
+    const onPlane = (x: number, y: number): number[] => b.shell.faces
+      .filter(fc => fc.tag.kind === 'Roof' && Math.abs(fc.normal[0] - 0.5) < 1e-6 && Math.abs(fc.normal[1]) < 1e-6 && planHolds(fc, x, y)).map(fc => fc.id);
+    // Either side of y = 800, inside the triangle x 775 to 800 the tuck cut off: one face, at 250 + 210 tan 30 at x = 790.
+    expect(onPlane(790, 795)).toHaveLength(1);
+    expect(onPlane(790, 805)).toEqual(onPlane(790, 795));
+    const [face] = b.shell.faces.filter(fc => fc.id === onPlane(790, 800)[0]);
+    expect(Math.abs((face.offset - face.normal[0] * 790 - face.normal[1] * 800) / face.normal[2] - (250 + 210 * t30))).toBeLessThan(SHELL_TOLERANCE_CM);
+    expect(invariantViolations(b, {genus: 1, cheeks: 0})).toEqual([]);
   });
 });
 

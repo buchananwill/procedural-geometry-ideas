@@ -127,7 +127,8 @@ describe("decision 151's counter-cases: the far band and wings steeper than both
 
 /**
  * Journal decisions 151 and 153, measured: split-band courtyards with every side gabled (`g`), and the same with the
- * far N band hipped (`n`). Every layout not listed keeps every invariant.
+ * far N band hipped (`n`). Every layout not listed keeps every invariant. 36 of the `g` layouts tucked while a holed
+ * island's hip solid stood on the plate (ISSUE-building-shell-all-gable-courtyard-tuck.md).
  */
 const ALL_GABLE_DEFECTS: ClassedPinTable<`${string}D${number}${'g' | 'n'}`> = {
 };

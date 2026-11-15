@@ -192,12 +192,12 @@ function triangulateLoops(wasm: Wasm, loops: Pt[][]): TriIndices[] {
 }
 
 /**
- * The island's outline extruded from floor to plate, for part `id`: its floor cap, its Internal cap at the plate and its
- * Wall sides (holed roof decision 24). Each loop of `compLoops` is written at the floor and then each at the plate, the
- * caps are triangulated from the loops together, the holes holes in them, and wall `j` of loop `k` is the side from that
- * loop's vertex `j` to `j + 1`. An island with no hole writes its one loop as before.
+ * The island's outline extruded from floor to plate, for part `id`: its floor cap and its Wall sides, and with
+ * `plateCap` its Internal cap at the plate (holed roof decision 24). Each loop of `compLoops` is written at the floor and
+ * then each at the plate, the caps are triangulated from the loops together, the holes holes in them, and wall `j` of
+ * loop `k` is the side from that loop's vertex `j` to `j + 1`. An island with no hole writes its one loop as before.
  */
-function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number): TriSoup {
+function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number, plateCap: boolean): TriSoup {
   const tag = (t: LocalTag, pl: Plane3): number => addFace(ctx.tags, {...t, storey: plan.storey, part: id}, pl);
   const loops = compLoops(comp);
   const starts: number[] = [];
@@ -207,10 +207,10 @@ function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: numb
   for (const l of loops) for (const p of l) positions.push(p.x, p.y, plan.plate);
   const tris: number[] = [], faceIDs: number[] = [];
   const bottom = tag({kind: plan.storey === 0 ? 'Ground' : 'Underside', wall: -1, plane: -1}, horizontal(plan.floor, false));
-  const top = tag({kind: 'Internal', wall: -1, plane: -1}, horizontal(plan.plate, true));
+  const top = plateCap ? tag({kind: 'Internal', wall: -1, plane: -1}, horizontal(plan.plate, true)) : -1;
   for (const [a, b, c] of triangulateLoops(ctx.wasm, loops)) {
     tris.push(a, c, b); faceIDs.push(bottom);
-    tris.push(m + a, m + b, m + c); faceIDs.push(top);
+    if (plateCap) { tris.push(m + a, m + b, m + c); faceIDs.push(top); }
   }
   for (const w of comp.walls) {
     const n = loops[w.loop].length;
@@ -222,10 +222,7 @@ function extrudeOutline(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: numb
   return {positions, tris, faceIDs};
 }
 
-/**
- * A hip solid's bottom, for part `id`: the island at plate height, Internal, facing down, triangulated from
- * `compLoops`, its holes holes in it (holed roof decision 25).
- */
+/** An island with no hole's hip solid bottom, for part `id`: the island at plate height, Internal, facing down. */
 function plateBottom(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number): TriSoup {
   const positions: number[] = [], tris: number[] = [], faceIDs: number[] = [];
   const bottom = addFace(ctx.tags, {kind: 'Internal', storey: plan.storey, wall: -1, plane: -1, part: id}, horizontal(plan.plate, false));
@@ -238,19 +235,22 @@ function plateBottom(ctx: PartContext, plan: StoreyPlan, comp: Comp, id: number)
 
 /** Spec decision 6: the island's outline extruded from floor to plate, capped Internal at the plate. */
 function wallPrism(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): RawPart {
-  return finishPart(ctx, plan, 'wallPrism', `wall prism island ${ci}`, extrudeOutline(ctx, plan, comp, ctx.parts.length));
+  return finishPart(ctx, plan, 'wallPrism', `wall prism island ${ci}`, extrudeOutline(ctx, plan, comp, ctx.parts.length, true));
 }
 
 /**
- * Spec decision 7: the island at plate height, closed by the default hip's skeleton faces. Every hip solid, a holed
- * island's too, has its bottom at the plate (holed roof decision 25): with no slit, the roof meets the plate only at its
- * eaves. (A holed island's hip solid stood from the floor while a zero-width slit let the roof fall to the plate along
- * the cut, which Manifold could take as a diagonal of the bottom: journal decision 132.)
+ * Spec decision 7: the island's roof, closed by the default hip's skeleton faces.
+ * - An island with no hole has its bottom at the plate.
+ * - A holed island's hip solid stands from the floor, its sides and floor the wall prism's own (same tags, so the union
+ *   merges them as one identity), as it did under the cut (journal decision 132). Holed roof decision 25 put its bottom
+ *   at the plate, and with it Manifold's union left tucks on 36 all-gable split-band courtyards that build none from the
+ *   floor; ISSUE-building-shell-all-gable-courtyard-tuck.md has the measurement. Why the bottom at the plate leads
+ *   Manifold to leave a tuck is not established (BSA.F87 found the same of every tuck).
  */
 function hipSolid(ctx: PartContext, plan: StoreyPlan, ci: number, comp: Comp): RawPart {
   const id = ctx.parts.length;
   const b = plan.building;
-  const {positions, tris, faceIDs} = plateBottom(ctx, plan, comp, id);
+  const {positions, tris, faceIDs} = comp.holes.length ? extrudeOutline(ctx, plan, comp, id, false) : plateBottom(ctx, plan, comp, id);
   for (const face of plan.roof.faces) {
     if (face.wall.comp !== ci) continue;
     const pl = b.planes[face.wall.plane];
