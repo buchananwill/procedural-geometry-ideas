@@ -887,6 +887,26 @@ session 3's own.
     sound in every case tried; several courtyards in one island meet refusals often. Building-shell must turn a refusal
     or a guard failure into a hard error naming the island.
   - **Who:** one fresh Opus delegate, after node 6's implementer leaves the tree.
+- **315. Roadmap node 6 is built at `9b5f90c`: the consumers read every loop, the holed roster of 21 fixtures tiles at
+  every depth, and no single-loop output moved. Accepted for review; node 5's fix pass is dispatched into the tree
+  beside it.** The delegate's figures, not re-run.
+  - **The figures:** core 6,438 passed, 7 failed by design, 10 skipped; building-shell 9,992, typecheck clean; dashboard
+    331; every existing sweep record byte-identical; the 60 single-loop digests unmoved. All 16 mutation gates
+    convicted.
+  - **The contract building-shell reads holds on all 21 fixtures:** one strip per exterior edge of every loop at full
+    depth, tiling under 3e-16 at depths 0.2, 0.5 and 1.0. The roster is node 4's F1 to F8 and node 5's A to H.
+  - **The sweep harness's new holed group, 336 cells:** all 42 cells at the two floors complete and clean; of 126
+    translated cells 123 complete; **of 168 jittered cells 125 complete, and 43 are refused** as a ring with area under
+    the bar, all on the fixtures with parallel facing walls, which jitter turns into near-coincidence.
+  - **A silent wrong answer found in those cells: the courtyard with wings, jittered at seeds 1 and 3, reports complete
+    with no diagnostic,** and has 5 self-loops, two cycles for one hole, and strips short by 0.24 percent. Other
+    jittered cells that complete also carry self-loops. This is the straight-bisector family of BSA.F103 under
+    perturbation, and it is what the guard of BSA.D314 is for.
+  - **Interpretations accepted:** the holed tiling has one definition in the measurement helpers; the test-side oracles
+    read an edge's own target and keep the old arithmetic on a merged graph; the project CLAUDE.md's fixture counts are
+    corrected to 53 clean, 7 defect and 60 in all.
+  - **Owed to node 4's spec by the lead:** the line that its fixtures moved to the roster.
+  - **The fix pass for node 5 (BSA.D314) now also takes the two jittered cells as specimens for the guard.**
 
 ## Findings
 
