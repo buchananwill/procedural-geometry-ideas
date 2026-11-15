@@ -1267,18 +1267,24 @@ function pushSolveDiagnostics(diagnostics: SkeletonDiagnostic[], run: SimplePoly
  * A HOLED RUN STEPS LIKE ANY OTHER (skeleton join-and-divide spec, decisions 24 and 34): a strike within a ring
  * divides it and a strike across rings joins them, by the one split rewrite, and the run ends, as a single loop's
  * does, when no step input remains. The stop after initialisation that stood here until node 4 is retired.
+ *
+ * `observer` is {@link solveSkeletonStepped}'s (dashboard holed-fixtures spec, decision 19): called after
+ * `initInteriorEdges` and after each `tryToAcceptExteriorEdge` pass. It only reads. Omitted, the run is the one it
+ * always was, so `solveSkeleton` is byte-identical.
  */
 function runSimplePolygon(
     nodes: Vector2[],
     perceptualFloor: number,
     weights?: readonly number[],
     loops?: readonly SkeletonLoop[],
+    observer?: SolveStepObserver,
 ): SimplePolygonRun {
     const context = makeStraightSkeletonSolverContext(nodes, perceptualFloor, weights, loops);
     const exteriorEdges = [...context.graph.edges]
     const errors: string[] = [];
 
     initInteriorEdges(context);
+    observer?.(context, []);
 
     // THE STEP BOUNDARIES (skeleton wavefront-order spec, decision 6), where the standing gate's probe checks
     // the links (decision 23), and the end of the solve, where it counts it. `null` in a normal solve.
@@ -1292,12 +1298,20 @@ function runSimplePolygon(
         inputs = output.childSteps
         // AT THE STEP BOUNDARY, AND ONLY HERE (skeleton edge-acceptance spec, decision 4): nothing is pending.
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
+        observer?.(context, output.errors ?? []);
         probe?.stepBoundary?.(context, inputs);
     }
     probe?.solveFinished?.(context, errors);
 
     return {context, errors}
 }
+
+/**
+ * What {@link solveSkeletonStepped} watches a run with (dashboard holed-fixtures spec, decision 19): called once after
+ * initialisation with no errors, and once after each step's acceptance pass with the errors that step recorded. It
+ * reads the context and changes nothing.
+ */
+type SolveStepObserver = (context: StraightSkeletonSolverContext, stepErrors: readonly string[]) => void;
 
 /**
  * Legacy entry point, preserved verbatim for existing callers.
@@ -1882,7 +1896,8 @@ export interface SkeletonHole {
  * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
  * which covers the concentric courtyard). A layer whose coincidence that spec does not settle — a meeting of more than
  * two runs, or on a third front — is refused by name as `simultaneous-across-rings`, and `complete` is then false.
- * Only {@link solveSkeleton} takes holes; the legacy entries refuse them (skeleton loops-input spec, decision 4).
+ * Only {@link solveSkeleton} and its stepped twin {@link solveSkeletonStepped} take holes; the legacy entries refuse
+ * them (skeleton loops-input spec, decision 4; dashboard holed-fixtures spec, decision 18).
  */
 export interface HoleOptions {
     holes?: readonly SkeletonHole[];
@@ -1968,6 +1983,18 @@ function pushStepFailures(diagnostics: SkeletonDiagnostic[], errors: string[]): 
  * cross, touch or nest wrongly. Each refusal names the loop and the caller's own vertex index (decision 26).
  */
 export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOptions): SkeletonSolveResult {
+    return solveSkeletonObserved(vertices, options, undefined);
+}
+
+/**
+ * {@link solveSkeleton}'s pipeline, with an optional observer on the simple path's run (dashboard holed-fixtures spec,
+ * decision 19). The two entries run this one pipeline; with no observer it is `solveSkeleton` itself.
+ */
+function solveSkeletonObserved(
+    vertices: Vector2[],
+    options: SolveSkeletonOptions | undefined,
+    observer: SolveStepObserver | undefined,
+): SkeletonSolveResult {
     const holes = options?.holes ?? [];
     const callerLoops: CallerLoop[] = [
         {vertices, weights: options?.weights, prefix: ''},
@@ -2121,7 +2148,7 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
         graph = mergeSkeletonGraphs(subResults, decomposition.crossingPoints).graph;
         context = null;
     } else {
-        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights, loops);
+        const run = runSimplePolygon(workingVertices, perceptualFloor, workingWeights, loops, observer);
         pushStepFailures(diagnostics, run.errors);
         pushSolveDiagnostics(diagnostics, run);
         graph = run.context.graph;
@@ -2193,6 +2220,49 @@ export function solveSkeleton(vertices: Vector2[], options?: SolveSkeletonOption
     };
 }
 
+/**
+ * {@link solveSkeletonStepped}'s answer (dashboard holed-fixtures spec, decision 17): the step-by-step snapshots of the
+ * one solve, and that solve's result.
+ */
+export interface SteppedSkeletonSolveResult {
+    /**
+     * Snapshot 0 after initialisation, then one per step boundary, each in caller space and each carrying the loop
+     * table (decision 20). The last deep-equals `result.graph`. On the self-intersecting path, the merged graph alone.
+     */
+    snapshots: StraightSkeletonGraph[];
+    /** What `solveSkeleton(vertices, options)` returns. */
+    result: SkeletonSolveResult;
+    /** The snapshot after the first step that recorded a failure, or `null` when no step did. */
+    firstFailedSnapshot: number | null;
+}
+
+/**
+ * THE STEPPED TWIN OF {@link solveSkeleton} (dashboard holed-fixtures spec, decisions 17 to 21): the same solve, holes
+ * and every option included, watched after initialisation and after every step. It throws exactly what `solveSkeleton`
+ * throws, and every failure and refusal of a step is on `result.diagnostics`, which the legacy stepped entry drops.
+ *
+ * A SNAPSHOT IS `structuredClone(context.graph)`, so it carries `loops`, which is plain graph data for this reason
+ * (skeleton loops-input spec, decision 6; BSA.F93). Each is taken in unit space and carried back to caller space once.
+ */
+export function solveSkeletonStepped(vertices: Vector2[], options?: SolveSkeletonOptions): SteppedSkeletonSolveResult {
+    const snapshots: StraightSkeletonGraph[] = [];
+    let firstFailedSnapshot: number | null = null;
+    const result = solveSkeletonObserved(vertices, options, (context, stepErrors) => {
+        snapshots.push(structuredClone(context.graph));
+        if (firstFailedSnapshot === null && stepErrors.length > 0) {
+            firstFailedSnapshot = snapshots.length - 1;
+        }
+    });
+    if (result.context === null) {
+        // THE SELF-INTERSECTING PATH (decision 20): the sub-polygons are solved unobserved and merged, so the one
+        // snapshot is the merged graph.
+        const failed = result.diagnostics.some(diagnostic => diagnostic.kind === 'step-failure');
+        return {snapshots: [structuredClone(result.graph)], result, firstFailedSnapshot: failed ? 0 : null};
+    }
+    denormaliseSnapshots(snapshots, result.normalisation);
+    return {snapshots, result, firstFailedSnapshot};
+}
+
 export interface SteppedAlgorithmResult {
     /** Graph snapshots: index 0 = after init, 1..N = after each while-loop iteration */
     snapshots: StraightSkeletonGraph[];
@@ -2223,11 +2293,12 @@ export function runAlgorithmV5Stepped(
     nodes: Vector2[],
     options?: PerceptualFloorOptions & WeightOptions,
 ): SteppedAlgorithmResult {
-    // Decision 4: refused on `error`, with no snapshots, as this entry answers every rejected input. It gains
-    // holes with roadmap node 7.
+    // Decision 4: refused on `error`, with no snapshots, as this entry answers every rejected input. It has no
+    // diagnostics channel, so it keeps refusing holes, and names the stepped entry that takes them (dashboard
+    // holed-fixtures spec, decision 18).
     const holesComplaint = legacyHolesComplaint('runAlgorithmV5Stepped', options);
     if (holesComplaint !== undefined) {
-        return {snapshots: [], error: holesComplaint};
+        return {snapshots: [], error: `${holesComplaint} For snapshots of a holed solve, call solveSkeletonStepped.`};
     }
     if (nodes.length < 3) {
         return {snapshots: [], error: "Must have at least three nodes to perform algorithm"};

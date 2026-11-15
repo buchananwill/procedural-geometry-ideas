@@ -3,7 +3,7 @@ import {
     Paper, Stack, Title, Button, UnstyledButton, Text, Group, Collapse, Switch,
 } from "@mantine/core";
 import { REMOVED_VERTEX_INDEX } from "@proc-geo/core";
-import type { StraightSkeletonSolverContext } from "@proc-geo/core";
+import type { SkeletonLoopMap, StraightSkeletonSolverContext } from "@proc-geo/core";
 import type { DebugDisplayOptions, CollisionSweepLine } from "../types";
 import CollapseChevron from "./CollapseChevron";
 
@@ -18,6 +18,11 @@ interface DebugPanelProps {
      * placed it deliberately has no other way to find that out.
      */
     solverVertexRemap?: number[] | null;
+    /**
+     * A holed solve's loop maps (dashboard holed-fixtures spec, decision 29). Given, the removed count is taken over
+     * every loop, the holes' as well as the outline's.
+     */
+    solverLoopMaps?: SkeletonLoopMap[] | null;
     collisionSweepLines: CollisionSweepLine[] | null;
     onClearSweep: () => void;
     onSweepPrimaryInit: () => void;
@@ -30,6 +35,7 @@ export default function DebugPanel({
     showSkeleton,
     solverContext,
     solverVertexRemap,
+    solverLoopMaps,
     collisionSweepLines,
     onClearSweep,
     onSweepPrimaryInit,
@@ -37,7 +43,10 @@ export default function DebugPanel({
 }: DebugPanelProps) {
     const [debugOpen, setDebugOpen] = useState(false);
 
-    const removedVertices = solverVertexRemap?.filter(index => index === REMOVED_VERTEX_INDEX).length ?? 0;
+    const removedVertices = solverLoopMaps
+        ? solverLoopMaps.reduce(
+            (total, map) => total + map.vertexToNode.filter(index => index === REMOVED_VERTEX_INDEX).length, 0)
+        : solverVertexRemap?.filter(index => index === REMOVED_VERTEX_INDEX).length ?? 0;
 
     return (
         <Paper p="md" withBorder>

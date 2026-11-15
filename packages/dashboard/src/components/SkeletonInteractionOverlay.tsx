@@ -4,6 +4,9 @@ import { KonvaEventObject } from 'konva/lib/Node';
 import { usePolygonStore, Vertex } from '../stores/usePolygonStore';
 
 const VERTEX_RADIUS = 8;
+/** A hole vertex: drawn, never dragged or selected (dashboard holed-fixtures spec, decision 5; BSA.D284). */
+const HOLE_VERTEX_RADIUS = 5;
+const HOLE_VERTEX_COLOUR = '#868e96';
 const EDGE_HIT_DISTANCE = 15;
 const SKELETON_NODE_RADIUS = 4;
 const SELECTED_NODE_RADIUS = 7;
@@ -72,6 +75,7 @@ export function SkeletonInteractionOverlay({
     showSkeletonNodes,
 }: SkeletonInteractionOverlayProps) {
     const vertices = usePolygonStore((s) => s.vertices);
+    const holes = usePolygonStore((s) => s.holes);
     const selectedVertex = usePolygonStore((s) => s.selectedVertex);
     const moveVertex = usePolygonStore((s) => s.moveVertex);
     const setSelectedVertex = usePolygonStore((s) => s.setSelectedVertex);
@@ -142,6 +146,19 @@ export function SkeletonInteractionOverlay({
                     />
                 );
             })}
+
+            {/* Hole vertices: markers only. Not draggable, not selectable, and not listening, so a click on one
+                falls through to the stage, whose click-to-insert reads the outline alone. */}
+            {holes.flatMap((hole, k) => hole.vertices.map((v, i) => (
+                <Circle
+                    key={`h-${k}-${i}`}
+                    x={v.x}
+                    y={v.y}
+                    radius={HOLE_VERTEX_RADIUS * invScale}
+                    fill={HOLE_VERTEX_COLOUR}
+                    listening={false}
+                />
+            )))}
 
             {/* Draggable vertex circles */}
             {vertices.map((v, i) => (

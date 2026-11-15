@@ -134,6 +134,8 @@ export interface ParcelsSceneTerrain {
 
 export interface ParcelsToSceneParams {
     vertices: Vertex[];
+    /** The region's holes, each stroked as the outline is (dashboard holed-fixtures spec, decision 35). */
+    holes?: readonly { vertices: Vertex[] }[];
     skeleton: StraightSkeletonGraph | null;
     offsetRings: Vector2[][];
     strips: Strip[];
@@ -309,6 +311,13 @@ export function parcelsToScene(params: ParcelsToSceneParams): ScenePrimitive[] {
                     closed: true,
                     stroke: { color: POLYGON_COLOUR, width: 1.5 },
                 },
+                // Each hole's wall, stroked as the outline is: the region's boundary is every loop.
+                ...(params.holes ?? []).map((hole): ScenePrimitive => ({
+                    type: 'line',
+                    points: hole.vertices.flatMap((v) => [v.x, v.y]),
+                    closed: true,
+                    stroke: { color: POLYGON_COLOUR, width: 1.5 },
+                })),
             ],
         });
     }

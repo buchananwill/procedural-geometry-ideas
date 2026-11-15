@@ -200,7 +200,8 @@ pinned signature**, so an unattributed failure and an unattributed cure both bre
 **measured**: containment, the bisector rate rule and signalled-not-silent sweep `FULL_CORPUS`; wavefront causality,
 clearance and edge direction do not hold over the defect roster and their violation counts are part of the
 signatures. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
-inspected. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
+inspected; the skeleton editor's loader lists `HOLED_TEST_POLYGONS` as a third group, `Holed`, its holes drawn
+read-only. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
 polygon shapes.
 
 ### `@proc-geo/dashboard` (`packages/dashboard/`)

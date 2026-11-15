@@ -1,10 +1,16 @@
-import { CLEAN_TEST_POLYGONS, FULL_CORPUS, KNOWN_DEFECT_POLYGONS } from '@proc-geo/test-fixtures';
+import { CLEAN_TEST_POLYGONS, FULL_CORPUS, HOLED_TEST_POLYGONS, KNOWN_DEFECT_POLYGONS } from '@proc-geo/test-fixtures';
 import {
     CLEAN_GROUP_LABEL,
     DEFECT_GROUP_LABEL,
     DEFECT_OPTION_PREFIX,
     fixtureByName,
     FIXTURE_OPTION_GROUPS,
+    HOLED_FIXTURE_OPTION_GROUP,
+    HOLED_GROUP_LABEL,
+    holedFixtureByName,
+    RECURSIVE_FIXTURE_OPTION_GROUPS,
+    RECURSIVE_HOLED_GROUP_LABEL,
+    SKELETON_FIXTURE_OPTION_GROUPS,
 } from '../../src/components/fixture-options';
 
 /*
@@ -67,5 +73,59 @@ describe('the fixture loader offers the full corpus', () => {
     it('resolves nothing for a name in neither roster', () => {
         expect(fixtureByName('Not A Fixture')).toBeUndefined();
         expect(fixtureByName(null)).toBeUndefined();
+    });
+});
+
+/*
+ * THE HOLED ROSTER IN THE LOADERS (dashboard holed-fixtures spec, decisions 7, 8, 10 and 43; BSA.D317's 21 fixtures).
+ */
+describe('the holed roster in the loaders', () => {
+    it('is a third group of the skeleton editor\'s loader, after the full corpus', () => {
+        expect(SKELETON_FIXTURE_OPTION_GROUPS).toEqual([...FIXTURE_OPTION_GROUPS, HOLED_FIXTURE_OPTION_GROUP]);
+        expect(HOLED_FIXTURE_OPTION_GROUP.group).toBe(HOLED_GROUP_LABEL);
+    });
+
+    it('lists the whole roster, 21 fixtures, in roster order, each enabled', () => {
+        expect(HOLED_TEST_POLYGONS).toHaveLength(21);
+        expect(HOLED_FIXTURE_OPTION_GROUP.items.map(option => option.value))
+            .toEqual(HOLED_TEST_POLYGONS.map(fixture => fixture.name));
+        expect(HOLED_FIXTURE_OPTION_GROUP.items.every(option => option.disabled !== true)).toBe(true);
+    });
+
+    it('carries no prefix: every label is its name and begins "Holed "', () => {
+        for (const option of HOLED_FIXTURE_OPTION_GROUP.items) {
+            expect(option.label).toBe(option.value);
+            expect(option.label.startsWith('Holed ')).toBe(true);
+        }
+    });
+
+    it('is disjoint from the full corpus, so every value of the loader is unique', () => {
+        const corpus = new Set(FULL_CORPUS.map(polygon => polygon.name));
+        expect(HOLED_TEST_POLYGONS.filter(fixture => corpus.has(fixture.name))).toEqual([]);
+        const values = SKELETON_FIXTURE_OPTION_GROUPS.flatMap(group => group.items.map(option => option.value));
+        expect(new Set(values).size).toBe(values.length);
+    });
+
+    it('resolves each holed name through holedFixtureByName, and no corpus name', () => {
+        for (const option of HOLED_FIXTURE_OPTION_GROUP.items) {
+            expect(holedFixtureByName(option.value)?.name).toBe(option.value);
+            expect(fixtureByName(option.value)).toBeUndefined();
+        }
+        expect(holedFixtureByName(FULL_CORPUS[0].name)).toBeUndefined();
+        expect(holedFixtureByName(null)).toBeUndefined();
+    });
+
+    it('is listed in the recursive loader with every item disabled', () => {
+        expect(RECURSIVE_FIXTURE_OPTION_GROUPS.slice(0, FIXTURE_OPTION_GROUPS.length)).toEqual(FIXTURE_OPTION_GROUPS);
+        const holed = RECURSIVE_FIXTURE_OPTION_GROUPS.find(group => group.group === RECURSIVE_HOLED_GROUP_LABEL);
+        expect(holed?.items.map(option => option.value)).toEqual(HOLED_TEST_POLYGONS.map(fixture => fixture.name));
+        expect(holed?.items.every(option => option.disabled === true)).toBe(true);
+        expect(RECURSIVE_HOLED_GROUP_LABEL).toBe('Holed (recursive subdivision refuses holes)');
+    });
+
+    it('leaves the full corpus groups without a disabled item', () => {
+        for (const group of FIXTURE_OPTION_GROUPS) {
+            expect(group.items.every(option => option.disabled === undefined)).toBe(true);
+        }
     });
 });

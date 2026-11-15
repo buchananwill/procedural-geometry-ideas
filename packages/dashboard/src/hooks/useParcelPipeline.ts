@@ -8,7 +8,10 @@ import {
     useParcelStore,
 } from '../stores/useParcelStore';
 import { paramsDiffer, runParcelPipeline } from './parcel-pipeline';
-import type { PipelineParams, ParcelPipelineResult } from './parcel-pipeline';
+import type { PipelineHole, PipelineParams, ParcelPipelineResult } from './parcel-pipeline';
+
+/** The holes of a single-loop polygon, one constant so the memo identity holds. */
+const NO_HOLES: readonly PipelineHole[] = [];
 
 export type {
     ParcelPipelineFailure,
@@ -43,7 +46,11 @@ const PARAMETER_DEBOUNCE_MS = 90;
  * function of the same debounced polygon this hook already holds; deriving them anywhere else would
  * mean a second, differently-timed copy of that polygon.
  */
-export function useParcelPipeline(vertices: Vertex[]): ParcelPipelineResult {
+export function useParcelPipeline(
+    vertices: Vertex[],
+    /** The region's holes, debounced with the polygon (dashboard holed-fixtures spec, decision 35). */
+    holes: readonly PipelineHole[] = NO_HOLES,
+): ParcelPipelineResult {
     const depthPercent = useParcelStore((s) => s.depthPercent);
     const derived = useParcelStore((s) => s.derived);
     const overrides = useParcelStore((s) => s.overrides);
@@ -61,22 +68,24 @@ export function useParcelPipeline(vertices: Vertex[]): ParcelPipelineResult {
     // the debounced group is assembled from individually debounced fields rather than debounced
     // as one object.
     const [debouncedVertices] = useDebouncedValue(vertices, POLYGON_DEBOUNCE_MS);
+    const [debouncedHoles] = useDebouncedValue(holes, POLYGON_DEBOUNCE_MS);
     const [debouncedDepthPercent] = useDebouncedValue(depthPercent, PARAMETER_DEBOUNCE_MS);
     const [debouncedMitreToleranceDeg] = useDebouncedValue(mitreToleranceDeg, PARAMETER_DEBOUNCE_MS);
     const [debouncedSliceOptions] = useDebouncedValue(sliceOptions, PARAMETER_DEBOUNCE_MS);
 
     const liveParams = useMemo<PipelineParams>(
-        () => ({ vertices, depthPercent, mitreToleranceDeg, sliceOptions }),
-        [vertices, depthPercent, mitreToleranceDeg, sliceOptions],
+        () => ({ vertices, holes, depthPercent, mitreToleranceDeg, sliceOptions }),
+        [vertices, holes, depthPercent, mitreToleranceDeg, sliceOptions],
     );
     const debouncedParams = useMemo<PipelineParams>(
         () => ({
             vertices: debouncedVertices,
+            holes: debouncedHoles,
             depthPercent: debouncedDepthPercent,
             mitreToleranceDeg: debouncedMitreToleranceDeg,
             sliceOptions: debouncedSliceOptions,
         }),
-        [debouncedVertices, debouncedDepthPercent, debouncedMitreToleranceDeg, debouncedSliceOptions],
+        [debouncedVertices, debouncedHoles, debouncedDepthPercent, debouncedMitreToleranceDeg, debouncedSliceOptions],
     );
 
     useEffect(() => {

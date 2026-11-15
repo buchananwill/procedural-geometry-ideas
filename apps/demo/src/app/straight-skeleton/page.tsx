@@ -19,6 +19,7 @@ import {
     PlaybackController,
     CollapseChevron,
     EXPLORER_PERCEPTUAL_FLOOR,
+    HOLED_INSTRUCTION_TEXT,
 } from "@proc-geo/dashboard";
 import type { DebugDisplayOptions } from "@proc-geo/dashboard";
 import AlgorithmPageLayout from "../AlgorithmPageLayout";
@@ -38,6 +39,9 @@ export default function StraightSkeletonPage() {
     // Edge Weights panel is used, and all ones again after every fixture load — at which point every
     // solve below is bit-for-bit the unweighted one.
     const weights = usePolygonStore((s) => s.weights);
+    // A holed fixture's holes, read-only; `[]` for a single-loop polygon, which takes every path as before
+    // (dashboard holed-fixtures spec, decision 40).
+    const holes = usePolygonStore((s) => s.holes);
 
     const [stageScale, setStageScale] = useState(1);
     const [stagePosition, setStagePosition] = useState({ x: 0, y: 0 });
@@ -71,8 +75,9 @@ export default function StraightSkeletonPage() {
     // shape's extent, ten times coarser than SKELETON_NOISE_FLOOR. Below it the solver would be
     // computing structure this page throws away in the renderer. Derived and pinned in the
     // dashboard's `perceptual-floor.ts`, which shares the zoom cap with the canvas itself.
-    const animation = useSkeletonAnimation(vertices, EXPLORER_PERCEPTUAL_FLOOR, weights);
-    const sweep = useCollisionSweep(vertices, animation.solverContext, animation.skeleton, debug);
+    const animation = useSkeletonAnimation(vertices, EXPLORER_PERCEPTUAL_FLOOR, weights, holes);
+    const sweep = useCollisionSweep(
+        vertices, animation.solverContext, animation.skeleton, debug, animation.holedSolve?.graph ?? null);
 
     function resetView() {
         setStageScale(1);
@@ -101,6 +106,9 @@ export default function StraightSkeletonPage() {
         selectedDebugNodes: sweep.selectedDebugNodes,
         invScale,
         solverVertexRemap: animation.solverVertexRemap,
+        holes,
+        solverLoopMaps: animation.solverLoopMaps,
+        incomplete: animation.holedSolve !== null && !animation.holedSolve.complete,
     });
 
     const onStageClick = useSkeletonStageClick({ vertices, invScale });
@@ -132,6 +140,9 @@ export default function StraightSkeletonPage() {
                                 a new vertex. Select a vertex and use Delete to remove it.
                             </Text>
                             <Text size="sm" c="dimmed">
+                                {HOLED_INSTRUCTION_TEXT}
+                            </Text>
+                            <Text size="sm" c="dimmed">
                                 Scroll to zoom. Middle-click or Alt+drag to pan.
                             </Text>
                             <Text size="sm" c="dimmed">
@@ -156,6 +167,7 @@ export default function StraightSkeletonPage() {
                 showSkeleton={animation.showSkeleton}
                 solverContext={animation.solverContext}
                 solverVertexRemap={animation.solverVertexRemap}
+                solverLoopMaps={animation.solverLoopMaps}
                 collisionSweepLines={sweep.collisionSweepLines}
                 onClearSweep={() => sweep.setCollisionSweepLines(null)}
                 onSweepPrimaryInit={sweep.sweepAllPrimaryInit}

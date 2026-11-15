@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import type {
+    SkeletonLoopMap,
+    SkeletonSolveResult,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     PrimaryInteriorEdge,
@@ -13,14 +15,21 @@ import {
     resolvePerceptualFloor,
 } from "@proc-geo/core";
 import type { SteppedAlgorithmResult } from "@proc-geo/core";
-import type { Vertex } from "../stores/usePolygonStore";
+import type { StoredHole, Vertex } from "../stores/usePolygonStore";
 import { usePlaybackStore } from "../stores/usePlaybackStore";
 import type { PlaybackControllerState } from "./PlaybackControllerState";
 import {
+    adaptHoledSteppedResult,
+    solveHoledSkeletonGuarded,
+    solveHoledSkeletonSteppedGuarded,
     solveSkeletonBoundary,
     solveSkeletonGuarded,
     solveSkeletonSteppedGuarded,
 } from "./skeleton-solve-boundary";
+import type { HoledSolveOutcome } from "./skeleton-solve-boundary";
+
+/** No holed solve: the single-loop path's value for it. */
+const NO_HOLED_SOLVE: HoledSolveOutcome = { result: null, error: null };
 
 export interface SkeletonAnimationState {
     showSkeleton: boolean;
@@ -61,6 +70,14 @@ export interface SkeletonAnimationState {
      * only while nothing is removed, and a vertex clicked onto an edge is removed every time.
      */
     solverVertexRemap: number[] | null;
+    /**
+     * THE HOLED SOLVE (dashboard holed-fixtures spec, decisions 13 and 14), run whenever holes are loaded, shown or
+     * not, so a refusal appears as the outline is dragged. On a refusal the last good holed result stands, as the last
+     * good context does on a single loop. `null` on a single loop.
+     */
+    holedSolve: SkeletonSolveResult | null;
+    /** The holed solve's `loopMaps`, one per caller loop; `null` on a single loop or when the holed solve refused. */
+    solverLoopMaps: SkeletonLoopMap[] | null;
     primaryEdges: PrimaryInteriorEdge[];
     primaryEdgeIntersections: Vector2[];
 
@@ -91,12 +108,18 @@ export interface SkeletonAnimationState {
  *    bisectors the solve does not have. That is a wrong picture, not a simplified one.
  *
  * Omitted or empty, everything here is bit-for-bit what it was before weights existed.
+ *
+ * `holes` are a holed fixture's, read-only (dashboard holed-fixtures spec, decisions 12 to 16). THE HOLED PATH IS
+ * TAKEN EXACTLY WHEN `holes` IS NON-EMPTY: every derivation then reads the one holed solve, `solveSkeleton` with
+ * holes, and the step-through runs `solveSkeletonStepped`. Omitted or empty, every single-loop path is today's.
  */
 export function useSkeletonAnimation(
     vertices: Vertex[],
     perceptualFloor?: number,
     weights?: readonly number[],
+    holes?: readonly StoredHole[],
 ): SkeletonAnimationState {
+    const holed = holes !== undefined && holes.length > 0;
     const [showSkeleton, setShowSkeleton] = useState(false);
     const [showPrimaryEdges, setShowPrimaryEdges] = useState(false);
 
@@ -118,9 +141,15 @@ export function useSkeletonAnimation(
     const maxStep = steppedResult ? steppedResult.snapshots.length - 1 : 0;
 
     const solve = useMemo(() => {
-        if (!showSkeleton) return { context: null, error: null };
+        if (!showSkeleton || holed) return { context: null, error: null };
         return solveSkeletonGuarded(vertices, { perceptualFloor, weights });
-    }, [showSkeleton, vertices, perceptualFloor, weights]);
+    }, [showSkeleton, holed, vertices, perceptualFloor, weights]);
+
+    // THE HOLED SOLVE, IN ONE MEMO, SHOWN OR NOT (decision 13): it is the boundary stage and the final solve at once.
+    const holedOutcome = useMemo<HoledSolveOutcome>(() => {
+        if (!holed) return NO_HOLED_SOLVE;
+        return solveHoledSkeletonGuarded(vertices, { perceptualFloor, weights, holes });
+    }, [holed, vertices, perceptualFloor, weights, holes]);
 
     // THE LAST SOLUTION THAT SOLVED, kept so a refusal leaves a picture on the canvas rather than a
     // blank one (arc decision 130). Held in state and written from an effect, never during render.
@@ -129,10 +158,18 @@ export function useSkeletonAnimation(
     useEffect(() => {
         if (solve.context !== null) setLastGoodContext(solve.context);
     }, [solve.context]);
+    // The holed path's, the same way (decision 14).
+    const [lastGoodHoled, setLastGoodHoled] = useState<SkeletonSolveResult | null>(null);
+    useEffect(() => {
+        if (holedOutcome.result !== null) setLastGoodHoled(holedOutcome.result);
+    }, [holedOutcome.result]);
+    const holedSolve = !holed ? null : holedOutcome.error !== null ? lastGoodHoled : holedOutcome.result;
 
     // On a refusal the last good context stands in; with no error it does not, so hiding the
-    // skeleton still hides it.
-    const solverContext = solve.error !== null ? lastGoodContext : solve.context;
+    // skeleton still hides it. On the holed path it is the holed solve's context, gated by the same toggle.
+    const solverContext = holed
+        ? (showSkeleton ? holedSolve?.context ?? null : null)
+        : solve.error !== null ? lastGoodContext : solve.context;
 
     const skeleton = useMemo<StraightSkeletonGraph | null>(() => {
         if (animationMode && steppedResult && steppedResult.snapshots.length > 0) {
@@ -146,10 +183,13 @@ export function useSkeletonAnimation(
     // solve: it is the boundary stage alone, so it stays valid for the stepped snapshots too.
     // It also runs the WEIGHT DOOR (W-spec W49 runs before canonicalisation), so both refusals are
     // caught here whether or not the skeleton is showing — a bad weight is refused as it is typed.
+    // ON THE HOLED PATH THE HOLED SOLVE IS THE BOUNDARY STAGE (decision 13): `canonicaliseForSolve` stays single-loop,
+    // and the remap is the outline's loop map (decision 14).
     const boundary = useMemo(
-        () => solveSkeletonBoundary(vertices, { perceptualFloor, weights }),
-        [vertices, perceptualFloor, weights]);
-    const solverVertexRemap = boundary.indexRemap;
+        () => holed ? { indexRemap: null, error: null } : solveSkeletonBoundary(vertices, { perceptualFloor, weights }),
+        [holed, vertices, perceptualFloor, weights]);
+    const solverLoopMaps = holedSolve?.loopMaps ?? null;
+    const solverVertexRemap = holed ? solverLoopMaps?.[0]?.vertexToNode ?? null : boundary.indexRemap;
 
     // The coaxiality lane the overlay's ray intersections are answered at (spec A9/A10): the host
     // page's own floor, resolved exactly as the solve resolves it, so the drawing and the solve
@@ -162,6 +202,19 @@ export function useSkeletonAnimation(
 
     const primaryEdges = useMemo<PrimaryInteriorEdge[]>(() => {
         if (!showPrimaryEdges) return [];
+        if (holed) {
+            // THE HOLED PREVIEW (decision 12): the holed graph's exterior positions, in exterior id order, at the
+            // weights the solve ran on, with its loop table, so every vertex's two walls wrap in its own loop.
+            const graph = holedSolve?.context !== null ? holedSolve?.graph : undefined;
+            if (holedSolve === null || graph === undefined) return [];
+            try {
+                return computePrimaryInteriorEdges(
+                    graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position),
+                    overlayCoaxialityFloor, overlayAngularResolution, holedSolve.weights, graph.loops);
+            } catch {
+                return [];
+            }
+        }
         try {
             // W-spec W15 / arc decision 114(ii): the overlay is drawn at the SOLVE's weights.
             return computePrimaryInteriorEdges(
@@ -171,7 +224,7 @@ export function useSkeletonAnimation(
             // drawing, so it goes away rather than taking the canvas down with it.
             return [];
         }
-    }, [showPrimaryEdges, vertices, overlayCoaxialityFloor, overlayAngularResolution, weights]);
+    }, [showPrimaryEdges, holed, holedSolve, vertices, overlayCoaxialityFloor, overlayAngularResolution, weights]);
 
     const primaryEdgeIntersections = useMemo<Vector2[]>(() => {
         if (primaryEdges.length === 0) return [];
@@ -179,13 +232,13 @@ export function useSkeletonAnimation(
             primaryEdges, overlayCoaxialityFloor, overlayAngularResolution);
     }, [primaryEdges, overlayCoaxialityFloor, overlayAngularResolution]);
 
-    // Clear animation state when the polygon or its weights change
+    // Clear animation state when the polygon, its weights or its holes change (decision 14)
     useEffect(() => {
         setAnimationMode(false);
         setSteppedResult(null);
         setStartRefusal(null);
         resetPlayback();
-    }, [vertices, weights, resetPlayback]);
+    }, [vertices, weights, holes, resetPlayback]);
 
     // Auto-advance playback timer
     useEffect(() => {
@@ -208,6 +261,25 @@ export function useSkeletonAnimation(
     }, [setIsPlaying]);
 
     const startAnimation = useCallback(() => {
+        if (holed) {
+            // THE HOLED STEP-THROUGH (decisions 12 and 16): `solveSkeletonStepped`, adapted to the panel's shape, its
+            // error the `Skeleton incomplete` text.
+            const holedStepped = solveHoledSkeletonSteppedGuarded(vertices, { perceptualFloor, weights, holes });
+            if (holedStepped.result === null) {
+                setStartRefusal(holedStepped.error);
+                return;
+            }
+            const adapted = adaptHoledSteppedResult(holedStepped.result);
+            setStartRefusal(null);
+            setSteppedResult(adapted);
+            resetPlayback();
+            setAnimationMode(true);
+            setShowSkeleton(true);
+            if (adapted.error) {
+                setErrorModalOpen(true);
+            }
+            return;
+        }
         const outcome = solveSkeletonSteppedGuarded(vertices, { perceptualFloor, weights });
         if (outcome.result === null) {
             // The door refused before a single step ran. There is nothing to step through, so the
@@ -223,7 +295,7 @@ export function useSkeletonAnimation(
         if (outcome.result.error) {
             setErrorModalOpen(true);
         }
-    }, [vertices, resetPlayback, perceptualFloor, weights]);
+    }, [holed, holes, vertices, resetPlayback, perceptualFloor, weights]);
 
     const togglePlayPause = useCallback(() => {
         if (!steppedResult) {
@@ -260,7 +332,10 @@ export function useSkeletonAnimation(
 
     // ONE REFUSAL, WHICHEVER BOUNDARY MET IT FIRST. The boundary stage runs on every keystroke, so
     // it is the one that normally speaks; the direct solve and the stepped start are behind it.
-    const solveError = boundary.error ?? solve.error ?? startRefusal;
+    // On the holed path the holed solve is the boundary and the solve at once (decision 13).
+    const solveError = holed
+        ? holedOutcome.error ?? startRefusal
+        : boundary.error ?? solve.error ?? startRefusal;
 
     const play = useCallback(() => {
         if (currentFrame >= maxStep) {
@@ -304,6 +379,8 @@ export function useSkeletonAnimation(
         solverContext,
         skeleton,
         solverVertexRemap,
+        holedSolve,
+        solverLoopMaps,
         primaryEdges,
         primaryEdgeIntersections,
         startAnimation,

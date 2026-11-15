@@ -1,5 +1,5 @@
 import {REMOVED_VERTEX_INDEX} from "@proc-geo/core";
-import type {PrimaryInteriorEdge, StraightSkeletonGraph, Vector2} from "@proc-geo/core";
+import type {PrimaryInteriorEdge, SkeletonLoopMap, StraightSkeletonGraph, Vector2} from "@proc-geo/core";
 import type {Vertex} from "../../stores/usePolygonStore";
 import type {DebugDisplayOptions, CollisionSweepLine} from "../../types";
 import type {ScenePrimitive, SceneGroup} from "../types";
@@ -54,10 +54,35 @@ const UNRESOLVED_RAY_LENGTH = 100;
 const SWEEP_FONT = 14;
 const OFFSET_DIST_FONT = 15;
 
-/** One labelled position on the boundary the debug overlay is numbering. */
+/** One labelled position on the boundary the debug overlay is numbering, and the end of the edge leaving it. */
 interface LabelledBoundaryVertex {
     position: Vector2;
     index: number;
+    next: Vector2;
+}
+
+/** One hole of a holed polygon, in the caller's order (dashboard holed-fixtures spec, decision 1). */
+export interface SceneHole {
+    vertices: Vertex[];
+}
+
+/** The caller's loops: the outline, then each hole. */
+function callerLoops(vertices: Vertex[], holes: readonly SceneHole[]): Vertex[][] {
+    return [vertices, ...holes.map(hole => hole.vertices)];
+}
+
+/**
+ * The node after exterior node `index` along its own edge. THE LOOP TABLE'S READING (dashboard holed-fixtures spec,
+ * decision 27): the edge's own target, which `initBoundingPolygon` sets inside the edge's loop, so a hole's last edge
+ * ends at the hole's first node and never at the next loop's. `(index + 1) % n` only on a merged graph, whose
+ * `loops` is `[]` and whose exterior ids are not one ring. On a single loop the two are the same node.
+ */
+function nextExteriorPosition(skeleton: StraightSkeletonGraph, index: number): Vector2 {
+    const target = skeleton.edges[index]?.target;
+    if (skeleton.loops.length > 0 && target !== undefined) {
+        return skeleton.nodes[target].position;
+    }
+    return skeleton.nodes[(index + 1) % skeleton.numExteriorNodes].position;
 }
 
 /**
@@ -85,14 +110,39 @@ function labelledBoundary(
     vertices: Vertex[],
     skeleton: StraightSkeletonGraph | null,
     solverVertexRemap: number[] | null | undefined,
+    holes: readonly SceneHole[],
+    solverLoopMaps: readonly SkeletonLoopMap[] | null | undefined,
 ): { ring: LabelledBoundaryVertex[]; removed: Vertex[] } {
     if (!skeleton) {
-        return {ring: vertices.map((vertex, index) => ({position: vertex, index})), removed: []};
+        if (holes.length > 0) {
+            // No solve to number by: the caller's loops in caller order, each edge wrapping inside its own loop.
+            let offset = 0;
+            const ring = callerLoops(vertices, holes).flatMap(loop => {
+                const start = offset;
+                offset += loop.length;
+                return loop.map((vertex, local) => ({
+                    position: vertex, index: start + local, next: loop[(local + 1) % loop.length]}));
+            });
+            return {ring, removed: []};
+        }
+        return {
+            ring: vertices.map((vertex, index) => ({position: vertex, index, next: vertices[(index + 1) % vertices.length]})),
+            removed: [],
+        };
     }
 
     const ring = skeleton.nodes
         .slice(0, skeleton.numExteriorNodes)
-        .map((node, index) => ({position: node.position, index}));
+        .map((node, index) => ({position: node.position, index, next: nextExteriorPosition(skeleton, index)}));
+
+    if (holes.length > 0) {
+        // THE REMOVED MARK IS PER LOOP (decision 29): loop k's caller vertex is marked where its own map removed it.
+        const removed = solverLoopMaps
+            ? callerLoops(vertices, holes).flatMap((loop, k) => loop.filter(
+                (_vertex, index) => solverLoopMaps[k]?.vertexToNode[index] === REMOVED_VERTEX_INDEX))
+            : [];
+        return {ring, removed};
+    }
 
     const survivors = solverVertexRemap?.filter(index => index !== REMOVED_VERTEX_INDEX).length;
     const removed = solverVertexRemap !== null && solverVertexRemap !== undefined
@@ -122,6 +172,18 @@ export function skeletonToScene(params: {
      * {@link labelledBoundary} for why the numbering itself never depends on it.
      */
     solverVertexRemap?: number[] | null;
+    /**
+     * The holes of a holed fixture, drawn read-only (dashboard holed-fixtures spec, decisions 24 to 29). Omitted or
+     * `[]`, the scene is exactly the single-loop one.
+     */
+    holes?: readonly SceneHole[];
+    /** The holed solve's `loopMaps`, one per caller loop: arrows follow `reversed`, removed marks `vertexToNode`. */
+    solverLoopMaps?: readonly SkeletonLoopMap[] | null;
+    /**
+     * True when the holed solve came back `complete: false` (decision 30): the unresolved edges are then drawn
+     * whatever their toggle, so the part the solver did not finish reads as missing.
+     */
+    incomplete?: boolean;
 }): ScenePrimitive[] {
     const {
         vertices,
@@ -134,9 +196,12 @@ export function skeletonToScene(params: {
         selectedDebugNodes,
         invScale,
         solverVertexRemap,
+        solverLoopMaps,
     } = params;
+    const holes = params.holes ?? [];
+    const incomplete = params.incomplete ?? false;
 
-    const boundary = labelledBoundary(vertices, skeleton, solverVertexRemap);
+    const boundary = labelledBoundary(vertices, skeleton, solverVertexRemap, holes, solverLoopMaps);
 
     const groups: SceneGroup[] = [];
 
@@ -217,7 +282,8 @@ export function skeletonToScene(params: {
             type: 'group',
             id: 'group:unresolved-edges',
             children,
-            visible: debug.showUnresolvedEdges,
+            // An incomplete holed result shows what the solver did not finish, toggle or not (decision 30).
+            visible: debug.showUnresolvedEdges || incomplete,
         });
     }
 
@@ -320,7 +386,42 @@ export function skeletonToScene(params: {
     }
 
     // 6. group:polygon
-    {
+    if (holes.length > 0) {
+        // A HOLED POLYGON (decisions 24 to 26): one region, filled by the even-odd rule so every hole reads as empty,
+        // and each loop stroked as a closed line of its own, a hole wall like the outline's because the solver treats
+        // it as a wall like any other. With edge directions, each loop gets one arrow per edge, wrapping inside its
+        // own loop, the way the solver walks it: reversed where winding normalisation reversed that loop.
+        const loops = callerLoops(vertices, holes);
+        const children: ScenePrimitive[] = [{
+            type: 'region',
+            rings: loops.map(loop => loop.flatMap(v => [v.x, v.y])),
+            fill: {color: '#4c6ef5', opacity: 0.1},
+        }];
+        loops.forEach((loop, k) => {
+            if (debug.showEdgeDirections) {
+                const reversed = solverLoopMaps?.[k]?.reversed ?? false;
+                for (let i = 0; i < loop.length; i++) {
+                    const a = loop[i];
+                    const b = loop[(i + 1) % loop.length];
+                    const [from, to] = reversed ? [b, a] : [a, b];
+                    children.push({
+                        type: 'line',
+                        points: [from.x, from.y, to.x, to.y],
+                        stroke: {color: '#4c6ef5', width: 2},
+                        arrow: {pointerLength: 10, pointerWidth: 8},
+                    });
+                }
+            } else {
+                children.push({
+                    type: 'line',
+                    points: loop.flatMap(v => [v.x, v.y]),
+                    closed: true,
+                    stroke: {color: '#4c6ef5', width: 2},
+                });
+            }
+        });
+        groups.push({type: 'group', id: 'group:polygon', children});
+    } else {
         const children: ScenePrimitive[] = [];
         const flatPoints = vertices.flatMap((v) => [v.x, v.y]);
 
@@ -363,9 +464,9 @@ export function skeletonToScene(params: {
             debug.showInteriorEdgeLengths || debug.showParentEdges || debug.showSelectedNodeEdgeLengths;
 
         if (showAnyLabel) {
-            // Exterior edge data, numbered as the SOLVER numbers it — see `labelledBoundary`.
-            const exteriorEdgeData = boundary.ring.map(({position, index}) => {
-                const next = boundary.ring[(index + 1) % boundary.ring.length].position;
+            // Exterior edge data, numbered as the SOLVER numbers it — see `labelledBoundary` — each edge ending at
+            // its own target node (decision 27).
+            const exteriorEdgeData = boundary.ring.map(({position, index, next}) => {
                 const mid_ = midpoint(position.x, position.y, next.x, next.y);
                 const len = segmentLength(position.x, position.y, next.x, next.y);
                 return {mid: mid_, len, index};

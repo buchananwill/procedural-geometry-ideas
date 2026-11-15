@@ -1,4 +1,11 @@
-import type {CollisionEvent, PrimaryInteriorEdge, RayProjection, StraightSkeletonSolverContext, Vector2} from './types';
+import type {
+    CollisionEvent,
+    PrimaryInteriorEdge,
+    RayProjection,
+    SkeletonLoop,
+    StraightSkeletonSolverContext,
+    Vector2,
+} from './types';
 import {collideEdges} from './collision-helpers';
 import {birthArrivalOf, timeOf} from './collision-helpers';
 import {addVectors, makeBasis, makeWeightedBisectedBasis, scaleVector} from "./core-functions";
@@ -97,6 +104,11 @@ export function computeNodeOffsetDistances(
  * this function has always drawn. A weights array of the wrong length is REFUSED rather than padded,
  * for the reason W-spec W1 refuses it at the solver's door: a short array silently draws a different
  * polygon's bisectors.
+ *
+ * WITH A LOOP TABLE (dashboard holed-fixtures spec, decision 22): `vertices` and `weights` are in exterior id order,
+ * as a holed graph's exterior nodes and `result.weights` are; each vertex's two walls are the edges either side of it
+ * wrapping inside its own loop; and every edge of every loop is a target. A table that does not tile `vertices`, or
+ * holds a loop of fewer than three, is thrown. Omitted, the one ring of all the vertices is today's preview exactly.
  */
 export function computePrimaryInteriorEdges(
     vertices: Vector2[],
@@ -113,6 +125,8 @@ export function computePrimaryInteriorEdges(
      */
     angularResolution: number,
     weights?: readonly number[],
+    /** The loop table, in exterior id order (decision 22). Omitted, all the vertices are one ring. */
+    loops?: readonly SkeletonLoop[],
 ): PrimaryInteriorEdge[] {
     if (vertices.length < 3) return [];
 
@@ -122,6 +136,21 @@ export function computePrimaryInteriorEdges(
             `computePrimaryInteriorEdges received ${weights.length} weights for ${n} vertices; `
             + `a weight array must be parallel to the vertices, one speed per edge.`);
     }
+    // Each vertex's loop, as its start and count. One ring of all the vertices when no table is given, for which
+    // `next` and `previous` are `(i + 1) % n` and `(i - 1 + n) % n`, the same integers as before the table existed.
+    const loopStart: number[] = new Array(n);
+    const loopCount: number[] = new Array(n);
+    for (const {start, count} of loops ?? [{start: 0, count: n}]) {
+        for (let i = start; i < start + count; i++) {
+            loopStart[i] = start;
+            loopCount[i] = count;
+        }
+    }
+    if (loops !== undefined) {
+        assertLoopsTile(loops, n);
+    }
+    const next = (i: number): number => loopStart[i] + (i - loopStart[i] + 1) % loopCount[i];
+    const previous = (i: number): number => loopStart[i] + (i - loopStart[i] - 1 + loopCount[i]) % loopCount[i];
     const weightOf = (index: number): number =>
         weights === undefined || weights.length === 0 ? 1 : weights[index];
     const result: PrimaryInteriorEdge[] = [];
@@ -129,15 +158,15 @@ export function computePrimaryInteriorEdges(
     for (let i = 0; i < n; i++) {
         const source = vertices[i];
 
-        // CW edge: from vertex i to vertex i+1
-        const cwBasis = makeBasis(vertices[i], vertices[(i + 1) % n]);
-        // WS edge: from vertex i-1 to vertex i
-        const wsBasis = makeBasis(vertices[(i - 1 + n) % n], vertices[i]);
+        // CW edge: from vertex i to the next vertex of its loop
+        const cwBasis = makeBasis(vertices[i], vertices[next(i)]);
+        // WS edge: from the previous vertex of its loop to vertex i
+        const wsBasis = makeBasis(vertices[previous(i)], vertices[i]);
 
         // Bisect: CW basis and reversed WS basis, at the two parents' speeds (W-spec W12).
         const fromNodeWS = scaleVector(wsBasis, -1);
         const bisected = makeWeightedBisectedBasis(
-            cwBasis, fromNodeWS, weightOf(i), weightOf((i - 1 + n) % n));
+            cwBasis, fromNodeWS, weightOf(i), weightOf(previous(i)));
 
         // Determine correct direction via cross product (same as addBisectionEdge initial logic)
         const cross = cwBasis.x * wsBasis.y - cwBasis.y * wsBasis.x;
@@ -150,10 +179,10 @@ export function computePrimaryInteriorEdges(
 
         for (let j = 0; j < n; j++) {
             // Skip the two edges adjacent to this vertex
-            if (j === i || j === (i - 1 + n) % n) continue;
+            if (j === i || j === previous(i)) continue;
 
             const edgeStart = vertices[j];
-            const edgeEnd = vertices[(j + 1) % n];
+            const edgeEnd = vertices[next(j)];
             const edgeBasis = makeBasis(edgeStart, edgeEnd);
             const edgeLength = Math.sqrt(
                 (edgeEnd.x - edgeStart.x) ** 2 + (edgeEnd.y - edgeStart.y) ** 2
@@ -177,6 +206,29 @@ export function computePrimaryInteriorEdges(
     }
 
     return result;
+}
+
+/**
+ * A loop table must tile `0 .. n − 1` in order, contiguous from 0, and hold no loop of fewer than three (decision 22;
+ * the graph's own contract, `StraightSkeletonGraph.loops`). Throws, naming the first loop that breaks it.
+ */
+function assertLoopsTile(loops: readonly SkeletonLoop[], n: number): void {
+    let expectedStart = 0;
+    for (const [k, {start, count}] of loops.entries()) {
+        if (count < 3) {
+            throw new Error(`computePrimaryInteriorEdges received loop ${k} of ${count} vertices; a loop holds no `
+                + `fewer than three.`);
+        }
+        if (start !== expectedStart) {
+            throw new Error(`computePrimaryInteriorEdges received loop ${k} starting at ${start}, where ${expectedStart} `
+                + `was expected; the loop table must tile the ${n} vertices in order.`);
+        }
+        expectedStart = start + count;
+    }
+    if (expectedStart !== n) {
+        throw new Error(`computePrimaryInteriorEdges received loops covering ${expectedStart} vertices of ${n}; the loop `
+            + `table must tile the vertices in order.`);
+    }
 }
 
 /**

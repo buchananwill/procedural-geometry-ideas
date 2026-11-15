@@ -197,12 +197,14 @@ export {
   runAlgorithmV5,
   runAlgorithmV5Stepped,
   solveSkeleton,
+  solveSkeletonStepped,
   canonicaliseForSolve,
 } from './straight-skeleton/algorithm-termination-cases';
 export type {
   HoleOptions,
   SkeletonHole,
   SteppedAlgorithmResult,
+  SteppedSkeletonSolveResult,
   SolveSkeletonOptions,
   WeightOptions,
 } from './straight-skeleton/algorithm-termination-cases';
