@@ -103,7 +103,7 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
 
   // Holed roof decision 52: the free cut's oracles become clean-golden checks. Each split-band courtyard is one island
   // roofed by its outline and its hole, every hole wall at its own pitch, and its entry is clean.
-  it.each([['SplitBandFreeCut', [45, 60]], ['SplitBandFreeCut45', [45]], ['SplitBandAllGable75', [75]]] as const)('%s is one island with its hole, roofed clean', (name, degs) => {
+  it.each([['SplitBandMixedPitch', [45, 60]], ['SplitBand45', [45]], ['SplitBandAllGable75', [75]]] as const)('%s is one island with its hole, roofed clean', (name, degs) => {
     expect(holeOf(oracle(name))).toEqual([1, degs]);
     expect(entry(name)).toMatchObject({clean: true, violations: [], expectedGenus: [1], measuredGenus: [1]});
   });
@@ -146,13 +146,13 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     expect((JSON.parse(committed(`${name}.json`)) as BuildingShell).report.droppedRings).toEqual([1]);
   });
 
-  // CutPitchConflict's two bands are one rectangle, so the later goes. Read from a document under sparse model indices,
+  // BandPitchConflict's two bands are one rectangle, so the later goes. Read from a document under sparse model indices,
   // the report names the file's own: fixture Ring 1 is model index 20, in the shell file and the manifest alike.
-  it('CutPitchConflictFileReversed: its report names the dropped band by the file\'s own model index', () => {
-    const name = fileReversedName('CutPitchConflict');
+  it('BandPitchConflictFileReversed: its report names the dropped band by the file\'s own model index', () => {
+    const name = fileReversedName('BandPitchConflict');
     expect(entry(name)).toMatchObject({report: {droppedRings: [20]}});
     expect((JSON.parse(committed(`${name}.json`)) as BuildingShell).report.droppedRings).toEqual([20]);
-    expect(entry('CutPitchConflict')).toMatchObject({report: {droppedRings: [1]}});
+    expect(entry('BandPitchConflict')).toMatchObject({report: {droppedRings: [1]}});
   });
 
   it.each(RESIDUE_CLASSES.map(g => g.fixture.name))('%s: not clean, carrying its violations or its error', name => {
@@ -165,7 +165,7 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
 /**
  * Journal decisions 164, finding 2, and 165: the model-order oracle. Each `*FileReversed` document lists its Rings in
  * reverse model order, and a reading that keys the conflict rule on file position builds every one differently but
- * those of `UNMOVED_BY_FILE_ORDER`, measured. Since WP3.9 that list is empty and all eight move: CutPitchConflict,
+ * those of `UNMOVED_BY_FILE_ORDER`, measured. Since WP3.9 that list is empty and all eight move: BandPitchConflict,
  * redesigned (decision 167, finding 4), contests the hole's S wall, so its reversal moves the wall and the cut that
  * takes its pitch. Before, its only shared wall, x = 1000, was hipped at 30° by all three Rings on it, and the
  * reversal could not show.

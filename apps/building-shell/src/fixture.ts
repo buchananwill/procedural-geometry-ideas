@@ -139,7 +139,7 @@ export const SHELL_FIXTURES: ShellFixture[] = [
  * - Overlap: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose E sides overlap over y 0 to 400 and disagree.
  * - Pitch: the flush pair, both hipping their S sides, at 30 and 45 degrees.
  * - Journal decision 135, F6: a three-Ring tie, non-adjacent indices, Rings across storeys, a conflict on a hole loop,
- *   and a cut-pitch conflict, each described where it is built.
+ *   and a band-pitch conflict (was `CutPitchConflict`), each described where it is built.
  */
 export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   const flushHip = ring([0, 0, 500, 400], 0, 1, 45);
@@ -159,12 +159,11 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   // - A courtyard whose hole's S wall, y = 300, is two Rings' N sides at different pitches.
   const holeBandW = ring([0, 0, 500, 300], 0, 1, 30), holeBandE = ring([500, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 45}});
   const court = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
-  // - A cut-pitch conflict (spec decision 2's cut pitch read through spec decision 3's lowest index; journal decisions
-  //   135 and 167, finding 4). The courtyard's shortest cut, y = 300 over x 0 to 300, is collinear at its two ends with
-  //   walls of different pitch whichever Ring wins: the W wing juts out to x = -200 at 45 degrees, and the hole's S wall
-  //   is at 30 or 60. That cut never qualifies, and the next, y = 300 over x 700 to 1000, takes the pitch of the hole's
-  //   S wall, which two Rings of one rectangle contest: `bandS` hips it at 30, `bandS60` at 60, every other side of
-  //   both at 30. The lowest index wins, so the swap moves the hole wall and the cut from 30 to 60.
+  // - `BandPitchConflict` (was `CutPitchConflict`, journal decisions 135 and 167, finding 4; renamed by holed roof
+  //   decision 47): the hole's S wall, y = 300 over x 300 to 700, is contested by two Rings of one rectangle, `bandS`
+  //   hipping it at 30 and `bandS60` at 60, every other side of both at 30, beside a W wing jutting out to x = -200 at 45
+  //   degrees. The lowest index wins, so the swap moves the hole wall from 30 to 60. (Under the cut the pair tested the
+  //   cut's pitch: the shortest cut was passed over and the next took the hole wall's pitch.)
   const jutW = ring([-200, 300, 300, 700], 0, 1, 45), bandS = ring([0, 0, 1000, 300], 0, 1, 30);
   const bandS60 = ring([0, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 60}});
   const jutRest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
@@ -183,8 +182,8 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
     fixture('StoreyRingConflictSwapped', [tallGable, lowHip]),
     fixture('HoleRingConflict', [holeBandW, holeBandE, ...court]),
     fixture('HoleRingConflictSwapped', [holeBandE, holeBandW, ...court]),
-    fixture('CutPitchConflict', [bandS, bandS60, jutW, ...jutRest]),
-    fixture('CutPitchConflictSwapped', [bandS60, bandS, jutW, ...jutRest]),
+    fixture('BandPitchConflict', [bandS, bandS60, jutW, ...jutRest]),
+    fixture('BandPitchConflictSwapped', [bandS60, bandS, jutW, ...jutRest]),
   ];
 })();
 
@@ -218,8 +217,11 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  * - `FlushT` and `FlushTSwapped`: F57's flush T. With the crossbar first its hip wins the stretch and no rise is built
  *   (decision 7); with the stem first its gable is a rise over its own width (decision 3).
  * - `AdjacentRises`: two rises of unequal pitch meeting at a point on the plate (decision 6).
- * - `CourtyardRiseFacingCut`: a rise whose band faces the courtyard's cut; its limit is the cut's plane.
- * - `CourtyardRiseAlongCut`: a rise whose walk runs along the cut, limited by the built roof's fallback (decision 11).
+ * - `CourtyardRiseFacingWing` (was `CourtyardRiseFacingCut`, holed roof decision 47): a rise on the S band's S wall over
+ *   x [100, 300], its band facing the W wing; under the cut its limit was the cut's plane.
+ * - `CourtyardRiseOnOuterWall` (was `CourtyardRiseAlongCut`): rises on the outer W wall over y [900, 1000] and the W
+ *   wing's W side; under the cut its walk ran along the cut and read the built roof's fallback (decision 11), and on the
+ *   holed roof it reads the hole W wall's face.
  * - `TruncatedRise`: a 75 degree rise the far slope truncates at its own wall.
  * - `FlatTopRise`: a rise with its own `maxHeight` below the main ridge: a flat `Roof` top.
  * - `OverhangCappedRise`: a rise under an overhang two storeys up, which projects past the rise's wall: the floor cap
@@ -278,8 +280,8 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
     fixture('FlushT', [ring(R, 0, 1, 45), ring([400, 0, 600, 900], 0, 1, 45, {S: gable})]),
     fixture('FlushTSwapped', [ring([400, 0, 600, 900], 0, 1, 45, {S: gable}), ring(R, 0, 1, 45)]),
     fixture('AdjacentRises', [ring([0, 0, 1200, 500], 0, 1, 45, {S: {form: 'hip', runs: [{from: 300, to: 500, form: 'gable', deg: 45}, {from: 500, to: 700, form: 'gable', deg: 60}]}})]),
-    fixture('CourtyardRiseFacingCut', court({0: {S: gableRun(100, 300, 45)}})),
-    fixture('CourtyardRiseAlongCut', court({0: {W: gableRun(0, 100, 45)}, 2: {W: gableRun(300, 400, 45)}})),
+    fixture('CourtyardRiseFacingWing', court({0: {S: gableRun(100, 300, 45)}})),
+    fixture('CourtyardRiseOnOuterWall', court({0: {W: gableRun(0, 100, 45)}, 2: {W: gableRun(300, 400, 45)}})),
     fixture('TruncatedRise', [ring(R, 0, 1, 45, {S: gableRun(300, 700, 75)})]),
     fixture('FlatTopRise', [ring(R, 0, 1, 45, {S: gableRun(300, 700, 60, {maxHeight: 200})})]),
     fixture('OverhangCappedRise', [ring(R, 0, 1, 30, {S: gableRun(400, 600, 75)}), ring([800, 0, 1000, 500], 0, 2, 30), ring([300, -100, 1000, 500], 2, 1, 30)]),

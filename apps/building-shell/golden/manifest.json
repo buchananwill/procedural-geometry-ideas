@@ -779,7 +779,7 @@
    "violations": []
   },
   {
-   "fixture": "CutPitchConflict",
+   "fixture": "BandPitchConflict",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -788,9 +788,9 @@
     1
    ],
    "clean": true,
-   "shell": "CutPitchConflict.json",
-   "union": "CutPitchConflict.union.json",
-   "input": "CutPitchConflict.input.json",
+   "shell": "BandPitchConflict.json",
+   "union": "BandPitchConflict.union.json",
+   "input": "BandPitchConflict.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -810,7 +810,7 @@
    "violations": []
   },
   {
-   "fixture": "CutPitchConflictSwapped",
+   "fixture": "BandPitchConflictSwapped",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -819,9 +819,9 @@
     1
    ],
    "clean": true,
-   "shell": "CutPitchConflictSwapped.json",
-   "union": "CutPitchConflictSwapped.union.json",
-   "input": "CutPitchConflictSwapped.input.json",
+   "shell": "BandPitchConflictSwapped.json",
+   "union": "BandPitchConflictSwapped.union.json",
+   "input": "BandPitchConflictSwapped.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -1292,7 +1292,7 @@
    "violations": []
   },
   {
-   "fixture": "CutOvershootProbe",
+   "fixture": "OffCentreCourtyard",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -1301,9 +1301,9 @@
     1
    ],
    "clean": true,
-   "shell": "CutOvershootProbe.json",
-   "union": "CutOvershootProbe.union.json",
-   "input": "CutOvershootProbe.input.json",
+   "shell": "OffCentreCourtyard.json",
+   "union": "OffCentreCourtyard.union.json",
+   "input": "OffCentreCourtyard.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -1464,7 +1464,7 @@
    ]
   },
   {
-   "fixture": "SplitBandFreeCut",
+   "fixture": "SplitBandMixedPitch",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -1473,9 +1473,9 @@
     1
    ],
    "clean": true,
-   "shell": "SplitBandFreeCut.json",
-   "union": "SplitBandFreeCut.union.json",
-   "input": "SplitBandFreeCut.input.json",
+   "shell": "SplitBandMixedPitch.json",
+   "union": "SplitBandMixedPitch.union.json",
+   "input": "SplitBandMixedPitch.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -1493,7 +1493,7 @@
    "violations": []
   },
   {
-   "fixture": "SplitBandFreeCut45",
+   "fixture": "SplitBand45",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -1502,9 +1502,9 @@
     1
    ],
    "clean": true,
-   "shell": "SplitBandFreeCut45.json",
-   "union": "SplitBandFreeCut45.union.json",
-   "input": "SplitBandFreeCut45.input.json",
+   "shell": "SplitBand45.json",
+   "union": "SplitBand45.union.json",
+   "input": "SplitBand45.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -1787,7 +1787,7 @@
    "violations": []
   },
   {
-   "fixture": "CutPitchConflictFileReversed",
+   "fixture": "BandPitchConflictFileReversed",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -1796,9 +1796,9 @@
     1
    ],
    "clean": true,
-   "shell": "CutPitchConflictFileReversed.json",
-   "union": "CutPitchConflictFileReversed.union.json",
-   "input": "CutPitchConflictFileReversed.input.json",
+   "shell": "BandPitchConflictFileReversed.json",
+   "union": "BandPitchConflictFileReversed.union.json",
+   "input": "BandPitchConflictFileReversed.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -2076,7 +2076,7 @@
    ]
   },
   {
-   "fixture": "CourtyardJutCutSwapped",
+   "fixture": "CourtyardJutSwapped",
    "cppReplayable": true,
    "expectedGenus": [
     1
@@ -2085,9 +2085,9 @@
     1
    ],
    "clean": true,
-   "shell": "CourtyardJutCutSwapped.json",
-   "union": "CourtyardJutCutSwapped.union.json",
-   "input": "CourtyardJutCutSwapped.input.json",
+   "shell": "CourtyardJutSwapped.json",
+   "union": "CourtyardJutSwapped.union.json",
+   "input": "CourtyardJutSwapped.input.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -2325,7 +2325,7 @@
    "violations": []
   },
   {
-   "fixture": "CourtyardRiseFacingCut",
+   "fixture": "CourtyardRiseFacingWing",
    "cppReplayable": false,
    "reasons": [
     "a side not one run from 0 to its length",
@@ -2338,8 +2338,8 @@
     1
    ],
    "clean": true,
-   "shell": "CourtyardRiseFacingCut.json",
-   "union": "CourtyardRiseFacingCut.union.json",
+   "shell": "CourtyardRiseFacingWing.json",
+   "union": "CourtyardRiseFacingWing.union.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,
@@ -2357,7 +2357,7 @@
    "violations": []
   },
   {
-   "fixture": "CourtyardRiseAlongCut",
+   "fixture": "CourtyardRiseOnOuterWall",
    "cppReplayable": false,
    "reasons": [
     "a side not one run from 0 to its length",
@@ -2370,8 +2370,8 @@
     1
    ],
    "clean": true,
-   "shell": "CourtyardRiseAlongCut.json",
-   "union": "CourtyardRiseAlongCut.union.json",
+   "shell": "CourtyardRiseOnOuterWall.json",
+   "union": "CourtyardRiseOnOuterWall.union.json",
    "report": {
     "conflicts": [],
     "survivingInternal": 0,

@@ -21,7 +21,7 @@ import {ShellBuild, buildShellDetailed} from '../src/shell.ts';
 import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
-  CAP_CHAIN_SEED, COVERED_RISE_CELL_CLASH, COVERED_RISE_ON_CUT_LINE, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
+  CAP_CHAIN_SEED, COVERED_RISE_CELL_CLASH, COVERED_RISE_ON_HOLE_LINE, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
   F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, jutCutFixtures, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures, onePitch, unsplitTwin, type CourtName, type SplitCourtName,
 } from './robustness-fixtures.ts';
@@ -494,7 +494,7 @@ const PROMOTED_BY_COVERED_RISES: readonly SeededKey<'Court4'>[] = ['s8h250/Court
  * outcome, as the seeded cases' are.
  */
 const COVERED_RISE_REPRODUCERS: readonly [ShellFixture, CausedPin][] = [
-  // `COVERED_RISE_ON_CUT_LINE`: cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower
+  // `COVERED_RISE_ON_HOLE_LINE`: cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower
   // layer, now labelled Tuck; clean, asserted below. Was: survivingInternal 1 and 3 Unclassified Edges, the cut-piece
   // overshoot's text.
   // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck and it builds; what remains is its
@@ -521,7 +521,7 @@ describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
   });
 
   // Holed roof decision 48: the tuck journal decision 272 labelled stood on the courtyard cut, which is gone.
-  it.each([COVERED_RISE_ON_CUT_LINE, COVERED_RISE_CELL_CLASH].map(f => [f.name, f] as const))('%s: clean, with no tuck, on the holed roof', async (_, f) => {
+  it.each([COVERED_RISE_ON_HOLE_LINE, COVERED_RISE_CELL_CLASH].map(f => [f.name, f] as const))('%s: clean, with no tuck, on the holed roof', async (_, f) => {
     expect(await courtyardOutcome(f)).toEqual([]);
     expect((await buildShellDetailed(f)).shell.report.tucks).toBe(0);
   });

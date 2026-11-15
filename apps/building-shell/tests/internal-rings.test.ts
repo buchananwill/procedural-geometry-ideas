@@ -137,8 +137,8 @@ describe('the pipeline drops a fully internal Ring and warns that it did', () =>
   });
 });
 
-describe('CourtyardJutCut and CourtyardJutCutSwapped (journal decision 260)', () => {
-  // The jutting Ring [-200,300,300,700] is Ring 1 of CourtyardJutCut and Ring 2 of its swap; the Ring inside it,
+describe('CourtyardJut and CourtyardJutSwapped (journal decision 260)', () => {
+  // The jutting Ring [-200,300,300,700] is Ring 1 of CourtyardJut and Ring 2 of its swap; the Ring inside it,
   // [-200,300,0,700], is Ring 2 and Ring 1. Both drop the inner Ring, and are then one building, the jut's index apart.
   const renamed = (s: BuildingShell, index: (i: number) => number): string => JSON.stringify({
     ...s, fixture: '', report: {...s.report, droppedRings: []},

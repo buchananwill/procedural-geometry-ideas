@@ -116,7 +116,7 @@ const t = (deg: number): number => Math.tan((deg * Math.PI) / 180);
 /**
  * Every rise fixture: the wall whose plane is its rises' limit, named by hand (none where nothing is built), and one
  * height of the built shell's top at a point picked by hand, from a closed form of the fixture's own numbers (plate 250).
- * CornerRise's apex is in its own gate below; `CourtyardRiseAlongCut`'s hole W wall too, so its row adds the height.
+ * CornerRise's apex is in its own gate below; `CourtyardRiseOnOuterWall`'s hole W wall too, so its row adds the height.
  */
 type HandWall = ['x' | 'y', number, -1 | 1];
 
@@ -143,8 +143,8 @@ const INDEPENDENT: Record<string, IndependentRow> = {
   // The 60° rise over [500, 700]: its near rake 50 cm in.
   AdjacentRises: {limit: ['y', 500, -1], at: [550, 40], z: 250 + t(60) * 50},
   // The hole S wall's plane (y = 300, facing -y): the rakes' 80 under its 138.6.
-  CourtyardRiseFacingCut: {limit: ['y', 300, -1], at: [180, 60], z: 250 + 80},
-  CourtyardRiseAlongCut: {limit: ['x', 300, -1], at: [60, 280], z: 250 + 80},
+  CourtyardRiseFacingWing: {limit: ['y', 300, -1], at: [180, 60], z: 250 + 80},
+  CourtyardRiseOnOuterWall: {limit: ['x', 300, -1], at: [60, 280], z: 250 + 80},
   // The far slope truncates the 75° rise at its own wall: 490 at y = 10.
   TruncatedRise: {limit: ['y', 500, -1], at: [500, 10], z: 250 + 490},
   // maxHeight 200 under the 60° rakes' 346.
@@ -294,18 +294,18 @@ describe('decision 21 and journal decision 204: the gates', () => {
   });
 
   // Journal decision 204: where the walk over the hip roof finds no falling face, the built roof's walk gives the limit.
-  // Under the cut, `CourtyardRiseAlongCut`'s walk ran along the cut and found none. On the holed roof (holed roof decision
+  // Under the cut, `CourtyardRiseOnOuterWall`'s walk ran along the cut and found none. On the holed roof (holed roof decision
   // 22) there is no cut: the walk meets the hole W wall's own face, so the hip roof's reading gives the limit, the hole
   // W wall's plane, and the built roof agrees. The fallback has no fixture of its own now (reported with node 9).
-  it("CourtyardRiseAlongCut's walk reads the hole W wall's face on the hip roof, and the rise is clean", async () => {
-    const plan = planStorey(rise('CourtyardRiseAlongCut'), 0);
+  it("CourtyardRiseOnOuterWall's walk reads the hole W wall's face on the hip roof, and the rise is clean", async () => {
+    const plan = planStorey(rise('CourtyardRiseOnOuterWall'), 0);
     const [r] = plan.rises ?? [];
-    const ctx = limitContextOf(rise('CourtyardRiseAlongCut'), plan, r);
+    const ctx = limitContextOf(rise('CourtyardRiseOnOuterWall'), plan, r);
     expect(hipRoofReading(ctx)).toBe(r.limitPlane);
     expect(builtRoofReading(ctx)).toBe(r.limitPlane);
     const holeW = plan.building.walls.find(w => w.a.x === 300 && w.b.x === 300);
     expect(r.limitPlane).toBe(holeW?.plane);
-    expect(invariantViolations(await build(rise('CourtyardRiseAlongCut')), {genus: 1, cheeks: 0})).toEqual([]);
+    expect(invariantViolations(await build(rise('CourtyardRiseOnOuterWall')), {genus: 1, cheeks: 0})).toEqual([]);
   });
 
   // Journal decision 204, F71: the floor cap stands FLOOR_CAP_GAP_CM below an overhanging floor. Mutation: no gap; the
@@ -593,7 +593,7 @@ describe('decisions 12, 14 and 17', () => {
     expect(southGables(await build(fixtureByName('FlushRingConflictSwapped')))[0].sources).toEqual([{ringModelIndex: 0, side: 0}]);
     expect(southGables(await build(rise('FlushTSwapped')))[0].sources).toEqual([{ringModelIndex: 0, side: 0}]);
     // One rise merged across two Rings' runs (decision 6): each Ring's stretch names its own side.
-    const b = await build(rise('CourtyardRiseAlongCut'));
+    const b = await build(rise('CourtyardRiseOnOuterWall'));
     const west = b.shell.faces.filter(f => f.tag.kind === 'Gable' && Math.abs(f.normal[0] + 1) < 1e-9);
     expect(west.map(f => f.sources)).toEqual([[{ringModelIndex: 0, side: 3}, {ringModelIndex: 2, side: 3}]]);
   });
@@ -667,7 +667,7 @@ describe('journal decision 231: a slope not in the finished building does not li
     const wing = planStorey(rise('GableBesideHipSouthWing'), 0);
     expect(slopeInBuilding(wing, wallAt(wing, 'y', 0, 1, 900))).toBe(true);
     // Holed roof decision 52: a courtyard wall is a hip like any other and keeps its slope, each of the hole's four.
-    const court = planStorey(rise('CourtyardRiseFacingCut'), 0);
+    const court = planStorey(rise('CourtyardRiseFacingWing'), 0);
     const hole = court.building.walls.filter(w => w.loop === 1);
     expect(hole).toHaveLength(4);
     expect(hole.map(w => slopeInBuilding(court, w))).toEqual([true, true, true, true]);

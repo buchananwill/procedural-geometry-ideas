@@ -34,7 +34,7 @@ export const COURTYARD_DEFECTS: CausedPinTable<SeededKey<CourtName>> = {
   // 's1h263/Court25': cured by journal decisions 243 to 245 (WP-L2): it no longer throws; clean, re-pinned in GABLE_RISE_CONFLICTS by its F69 conflict.
   // Was: "throws: cell 824: side 29-324 (100, 500, 526) to (100, 500, 550) reads ShellEdge 73, its NetEdge -1".
   // Journal decision 245: a covered rise (decision 243, rule 3) on Ring 3's S side over x [650, 900] lies on the courtyard
-  // cut's line y = 150, and the cut-piece overshoot appears on that cut. Smallest input: `COVERED_RISE_ON_CUT_LINE`.
+  // cut's line y = 150, and the cut-piece overshoot appears on that cut. Smallest input: `COVERED_RISE_ON_HOLE_LINE`.
   // 's1h250/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 276.6728515625)","3 Unclassified Edges: (100, 150, 250) to (238.5986328125, 150, 330.01953125); (100, 150, 250) to (300, 150, 250); (238.5986328125, 150, 330.01953125) to (300, 150, 250)"].
   // Journal decision 245, as s1h250.
   // 's1h300/Court29': cured by journal decision 272 (WP-C3): its surviving Internal cut face was a tuck's lower layer, back to back with the Wall over it, now labelled Tuck; clean. Was: ["survivingInternal 1 at (212.8662109375, 150, 326.6728515625)","3 Unclassified Edges: (100, 150, 300) to (238.5986328125, 150, 380.01953125); (100, 150, 300) to (300, 150, 300); (238.5986328125, 150, 380.01953125) to (300, 150, 300)"].
@@ -235,7 +235,7 @@ export const GAP_DEFECTS: ClassedPinTable<GapName> = {
  *   cases whose invariants hold are listed too, with their edges alone.
  * - **Courtyard at mixed pitch**: one or two Internal triangles survive on the cut's plane, y = 300, with their
  *   Unclassified Edges, the cut pieces' faces across the slit no longer matching. Roof-gable algorithm B's cut-piece
- *   overshoot class (`CutOvershootProbe`), inherited. Content's own 22.5/45 reaches it (decision 148, F3). **Every one
+ *   overshoot class (`OffCentreCourtyard`), inherited. Content's own 22.5/45 reaches it (decision 148, F3). **Every one
  *   is cured by the holed roof** (holed roof decision 48): no cut, so no cut piece; each is kept below as a comment.
  */
 export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
@@ -320,11 +320,11 @@ export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
  * Journal decision 175 and F55, measured at WP3.9.1 at 250 cm storeys, genus 1, enrolled as best effort (decision
  * 172): a courtyard cut that qualifies while collinear with a jutting wall, both at 30 degrees (`jutCutFixtures`). Its
  * signature names its places: two Internal triangles surviving on the cut's plane, y = 300, a Cheek at the cut's outer
- * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJutCut`, whose cut does not
+ * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJut`, whose cut does not
  * qualify, is clean, so it is not listed.
  *
- * Emptied by journal decisions 260 to 262 (WP-C2): `CourtyardJutCutSwapped`'s 30 degree Ring lies wholly inside the
- * jutting Ring, so the solve drops it and its 30 degree side with it, and the case builds clean, as `CourtyardJutCut`
+ * Emptied by journal decisions 260 to 262 (WP-C2): `CourtyardJutSwapped`'s 30 degree Ring lies wholly inside the
+ * jutting Ring, so the solve drops it and its 30 degree side with it, and the case builds clean, as `CourtyardJut`
  * does. Its pin is removed; the table stays, empty, so both cases are still held clean by the robustness sweep.
  */
 export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {};

@@ -57,14 +57,14 @@ describe('the input files the selector reads', () => {
     expect(goldens.map(g => g.name)).toEqual([
       'FlushOverReflex300', 'FlushOverReflex250', 'UpperUJoinedByEdgeContact', 'FullWingsProbe',
       // Holed roof decision 48: a defect case until the holed roof cured its cut-piece overshoot.
-      'CutOvershootProbe',
-      'SplitBandFreeCut', 'SplitBandFreeCut45',
+      'OffCentreCourtyard',
+      'SplitBandMixedPitch', 'SplitBand45',
       'GablePitchL', 'AsymmetricLScrambled', 'SB400-600B100S500g60r024', 'PitchRingConflictFileReversed', 'StoreyRingConflictFileReversed',
-      'CutPitchConflictFileReversed', 'HoleRingConflictFileReversed',
+      'BandPitchConflictFileReversed', 'HoleRingConflictFileReversed',
       // Holed roof decision 48: a defect case until the holed roof cured its cut-piece overshoot.
       'CourtyardAt22.5-45s',
       // Journal decisions 260 to 262 (WP-C2): a defect case until the solve dropped its fully internal Ring.
-      'CourtyardJutCutSwapped',
+      'CourtyardJutSwapped',
     ]);
   });
 

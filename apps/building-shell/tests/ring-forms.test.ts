@@ -24,7 +24,7 @@ const wallsOn = (f: ShellFixture, axis: 'x' | 'y', at: number, n = 0): Wall[] =>
 const close = (a: number, b: number): boolean => Math.abs(a - b) < 1e-12;
 
 /** A conflict fixture's genus: 1 for the two courtyards, 0 for the rest. */
-const genusOf = (name: string): number => (/^(HoleRing|CutPitch)Conflict/.test(name) ? 1 : 0);
+const genusOf = (name: string): number => (/^(HoleRing|BandPitch)Conflict/.test(name) ? 1 : 0);
 
 describe('union walls (spec decision 3 as amended)', () => {
   it('are maximal straight runs, however many Ring corners break the traced outline', () => {
@@ -222,8 +222,8 @@ describe('journal decision 135, F6: the conflict pairs beyond two adjacent Rings
 
   // Journal decision 167, finding 4: the pair moves the shell. The hole's S wall, which two Rings of one rectangle
   // contest, takes the lowest index's pitch.
-  it("CutPitchConflict: the hole's S wall takes the lowest index's pitch", () => {
-    for (const [name, deg] of [['CutPitchConflict', 30], ['CutPitchConflictSwapped', 60]] as const) {
+  it("BandPitchConflict: the hole's S wall takes the lowest index's pitch", () => {
+    for (const [name, deg] of [['BandPitchConflict', 30], ['BandPitchConflictSwapped', 60]] as const) {
       const walls = planStorey(fixtureByName(name), 0).building.walls;
       const hole = walls.filter(w => w.a.y === 300 && w.b.y === 300 && Math.min(w.a.x, w.b.x) >= 300 && Math.max(w.a.x, w.b.x) <= 700);
       expect(hole.length).toBeGreaterThan(0);

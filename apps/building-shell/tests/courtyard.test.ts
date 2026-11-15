@@ -13,7 +13,7 @@ import {planStorey} from '../src/storey.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
 import type {Vec3} from '../src/tags.ts';
 import {
-  COURTYARD_JUT_WING, CUT_OVERSHOOT_PROBE, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, jutWingFixture, jutWingRects, splitBandFixture, splitBandName,
+  COURTYARD_JUT_WING, OFF_CENTRE_COURTYARD, FULL_WINGS_PROBE, SPLIT_BAND_LAYOUTS, jutWingFixture, jutWingRects, splitBandFixture, splitBandName,
 } from './robustness-fixtures.ts';
 import {MirrorAxis, mirrorDifferences, mirrorFixture} from './mirror-oracle.ts';
 import {ClassedPinTable, pinnedOutcome, throwsOutcome} from './pin-table.ts';
@@ -62,7 +62,8 @@ describe("each wall at its own union wall's pitch (holed roof decisions 18 and 2
   // The correctness reviewer's reproducers (probes/zz-court2.test.ts), once the cut's pitch rule's: each hole wall now
   // takes its own derived pitch, and a mixed-pitch courtyard is roofed by the weighted holed solve.
   it.each([
-    ['CutWing50', rings([30, 30, 50, 30]), 30],
+    // `Wing50` was `CutWing50` (holed roof decision 47).
+    ['Wing50', rings([30, 30, 50, 30]), 30],
     ['Bands50', rings([50, 50, 30, 30]), 50],
     ['HoleSide45', rings([30, 30, 30, 30], [{N: {form: 'hip', deg: 45}}]), 45],
     ['HoleSideGabled', rings([30, 30, 30, 30], [{N: {form: 'gable'}}]), 30],
@@ -214,7 +215,8 @@ describe('the courtyard probes (journal decision 135)', () => {
     ['Court45', all(45), 1],
     ['Court60', all(60), 1],
     ['CourtNarrow', [ring([0, 0, 1000, 100], 0, 1, 30), ring([0, 900, 1000, 1000], 0, 1, 30), ring([0, 100, 100, 900], 0, 1, 30), ring([900, 100, 1000, 900], 0, 1, 30)], 1],
-    ['CourtCutSideGabled', [ring(C[0], 0, 1, 30), ring(C[1], 0, 1, 30), ring(C[2], 0, 1, 30, {S: {form: 'gable'}}), ring(C[3], 0, 1, 30)], 1],
+    // `CourtWingSideGabled` was `CourtCutSideGabled` (holed roof decision 47).
+    ['CourtWingSideGabled', [ring(C[0], 0, 1, 30), ring(C[1], 0, 1, 30), ring(C[2], 0, 1, 30, {S: {form: 'gable'}}), ring(C[3], 0, 1, 30)], 1],
   ];
   it.each(cases)('%s keeps every invariant, with its genus per component', async (name, rings, genus) => {
     expect(invariantViolations(await build(layout(name, rings)), {genus, cheeks: 0})).toEqual([]);
@@ -240,8 +242,8 @@ describe('layouts the cut refused or roofed oddly, on the holed roof (holed roof
 
   // WP3.6's finding: roof-gable's algorithm B overshot the true roof here by 21 cm, the cut pieces reading the shorter
   // side's end planes, and one Internal cut face survived. With no cut there is no piece, and the roof is the true one.
-  it('CutOvershootProbe is roofed true: runB and the shell stand at 250 + 101.7 tan 30 at (127.3, 251.7), and it keeps every invariant', async () => {
-    const f = CUT_OVERSHOOT_PROBE;
+  it('OffCentreCourtyard is roofed true: runB and the shell stand at 250 + 101.7 tan 30 at (127.3, 251.7), and it keeps every invariant', async () => {
+    const f = OFF_CENTRE_COURTYARD;
     const plan = planStorey(f, 0);
     const truth = (x: number, y: number): number => t30 * Math.min(Math.min(x, 650 - x, y - 150, 850 - y), Math.max(250 - x, x - 400, 250 - y, y - 600));
     const at = {x: 127.3, y: 251.7};

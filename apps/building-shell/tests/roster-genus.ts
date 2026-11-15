@@ -15,7 +15,7 @@ const ROSTER_GENUS: Readonly<Record<string, GenusPerComponent>> = {
   PitchRingConflict: [0], PitchRingConflictSwapped: [0],
   ThreeRingConflict: [0], ThreeRingConflictSwapped: [0], DistantRingConflict: [0], DistantRingConflictSwapped: [0],
   StoreyRingConflict: [0], StoreyRingConflictSwapped: [0], HoleRingConflict: [1], HoleRingConflictSwapped: [1],
-  CutPitchConflict: [1], CutPitchConflictSwapped: [1],
+  BandPitchConflict: [1], BandPitchConflictSwapped: [1],
   PortNarrowUpper300: [0], PortNarrowUpperGabled300: [0], PortPokeOut300: [0], PortPokeOut250: [0],
 };
 
