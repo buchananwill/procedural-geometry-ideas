@@ -525,3 +525,48 @@ session 3's own.
   - **Still refused after the rule:** the sliver class, a straight vertex born between collinear walls
     ([ISSUE-skeleton-straight-vertex-in-zero-area-ring](./ISSUE-skeleton-straight-vertex-in-zero-area-ring.md)), which
     this rule exposes more often; decision 21's three-run meetings; ambiguous or multi-wall third fronts.
+- **F112. The user's zero-offset gluing works on their layout and gives the same roof as BSA.F111's rule; it is two
+  changes, and its zero-area closure is the only thing sampled that reaches the sliver class. The combination of that
+  closure with BSA.F111's rule cured everything sampled and changed nothing where it did not fire.** (a read-only Opus
+  investigation delegate under @D341, 2026-11-15, measured on 88a3fe8 (core source unchanged since 27d9cc1); scratch in
+  apps/building-shell/experiments/zero-offset-glue/, uncommitted)
+  - **CORRECTS the lead's account to the user: the area-0 ring is not three vertices at one point.** Under merge-first
+    the ring `[26,28,27]` is the straight vertex `e26` {stem top | hole bottom} at (850,150) heading down, the level
+    ridge `e28` {outline bottom | stem top} sourced at (1550,150) heading west, and the level ridge `e27` {hole bottom |
+    outline bottom} sourced at (150,150) heading east. Its members stand at three places on y = 150: it is the bottom
+    strip collapsed flat, a segment 1400 cm long. It can be closed at one point because the two ridges are level, so
+    their whole length is skeleton at that instant and they reach (850,150) at a time offset of zero. The edges'
+    identity was as the lead inferred.
+  - **What the refusal is for:** `wavefront.ts` about 815 to 820, in `componentsOfRings`. The sign of a ring's area
+    decides whether it starts a component or is assigned as a hole; at area 0 the sign is noise, so the ring is refused
+    and not guessed. It guards classification and is not a detector of bad geometry. A ring of two is already exempt as
+    a corridor.
+  - **The closure that works (gated):** a ring of three or more members and area 0 is closed at C exactly when every
+    non-level member stands at one point C and every level member's ray reaches C going forward; a level member is one
+    whose parents are antiparallel. All members end at C and a newborn straight vertex becomes a culled zero-length
+    edge. Any other zero-area ring stays refused.
+  - **On the user's layout,** merge-first plus the closure: complete, the node at (850,150) of degree 5, roof checker
+    clean, built, height oracle worst error 2.27e-13 cm. Deferring the merge to the child step also works there and
+    fails `TwoHolesProbe`.
+  - **Compared on the same samples** (BSA.F111's rule; the user's rule, merge-first plus closure; the closure alone; the
+    combination of BSA.F111's rule and the closure). The four third-front layouts of BSA.D321: sound under all but the
+    closure alone. The four sliver layouts, `JutAlignedS` among them, and `TwoCourtyardsDraft`: refused under BSA.F111's
+    rule, sound under the other three. Grid sample 1, 2,000 islands: 51, 79, 28 and 79 cured of 82 refusals. Grid sample
+    2, 1,000 equal-gap islands: 945, 960, 0 and 1,000 cured. `FULL_CORPUS` and `HOLED_TEST_POLYGONS`: 81 digests
+    identical under every rule. Every cure sound by checker, height oracle and genus invariants; no digest changed where
+    a rule did not fire.
+  - **The 40 the user's rule leaves refused** hold two straight vertices at different places on one collapsed strip; the
+    gate rightly declines them and BSA.F111's rule cures them by never bearing those vertices.
+  - **Where merge-first is wrong:** when the gap facing the wall is not a straight vertex (a V of stem top and hole
+    bottom over a level or slanted wall), it leaves the solve incomplete with causality violations; BSA.F111's rule
+    solves both. What decides it is whether the walls either side of the wall-facing gap are collinear and face the same
+    way, not the slope of the third front, which corrects the lead's condition in BSA.D341. With collinear walls either
+    side and a slanted wall, no three-front meeting exists at all.
+  - **The gate is load-bearing:** without it, a three-hole case with two straight vertices comes out complete, with no
+    diagnostic, and wrong.
+  - **On level cases the two rules give the same nodes and byte-identical built faces;** they differ in edge
+    multiplicity only.
+  - **Not established:** no suite was run under any counterfactual; the slanted and three-hole probes were checked at
+    skeleton level by the delegate's own equidistance and direction check; weights only on the issue specimen's
+    variants; that a ring passing the gate cannot hide an untraced level piece is measured, not proved; the closure was
+    applied within the step and the triangle handler path was not tested.
