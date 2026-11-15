@@ -696,3 +696,17 @@ session 3's own.
     mis-paired upstream whose ends lie on the right lines would pass; none was constructed.
   - **Not established:** no suite run under any switch; no weighted case; no tree-shaped ring exercised; that the test
     cannot pass a mis-paired ring is not proved.
+- **F114. There are no committed sweep records to re-record: the sweep harness writes a one-off output set that is
+  compared with another by hand, and nothing in the repo pins one.** (a Sonnet delegate under @D347, 2026-11-15; it
+  stopped at its first step and changed nothing)
+  - The harness is `packages/core/tests/sweep-harness/` (`sweep.ts`, `sweep-harness.test.ts`, `README.md`). The test is
+    skipped unless `SWEEP_OUT` is set, then writes `<prefix>-<group>.json` for corpus, fine, offedge, alongedge, ladder,
+    regular and holed, and three region depths. Two trees are compared by a per-cell diff of two such sets.
+  - `git ls-files` finds no along-edge record and no baseline; the only along-edge output sets on disk are untracked,
+    under `apps/building-shell/experiments/d335-review/sweeps/`.
+  - **CORRECTS BSA.D335, BSA.D338, BSA.D346, BSA.D347 and BSA.F109's reading that the records are "pinned byte-exact":**
+    "byte-identical sweep records" in this arc has always meant a delegate's comparison of two output sets, not a test.
+    The 136 moved cells of BSA.F108 were such a comparison. The close-out item "re-record the along-edge sweep records"
+    has no content and is struck.
+  - **What it means for the clean-up pass of BSA.D346:** its byte-identity bar needs a "before" output set generated on
+    the tree it starts from, by the delegate that runs it.
