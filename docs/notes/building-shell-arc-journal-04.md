@@ -581,6 +581,9 @@ session 3's own.
   - **Mutation:** nine mutants convicted, and the one expected to survive survives: restoring the in-step acceptance
     call with pending births changes nothing over 1,399 tests.
   - **Next:** commit, then one independent review, then the issue is resolved and the spec completed.
+  - **AMENDED by finding BSA.F100:** The claim that every moved cell goes from not a tree to a tree is unverified for
+    four of the six offedge:plus cells, which keep other self-loops. The acceptance stands on the unchanged nodes,
+    oracles, tiling and completion.
 - **303. The acceptance cure is committed at `8170011` and the core suite is fully green for the first time this
   session: 5,930 passed, none failed, 9 skipped.** The delegate's figure; the lead confirmed nothing beyond the report,
   and an independent review of `f008560..8170011` is dispatched.
@@ -594,6 +597,20 @@ session 3's own.
   - **The issue note and the acceptance spec stay `open` and `implementing`** until the review is answered.
   - **All four delegate commits since `57f6967` carry a Claude Opus 5.5 co-author line,** the delegates' own model under
     their own harness rule, where the lead's briefs gave the session's line. Left as written.
+- **304. The acceptance cure is closed: the issue note is `resolved` and its spec `completed` at `8170011`, on a clean
+  independent review (BSA.F100). Node 4, the join event, is dispatched with the review's small fixes as its first
+  commit.**
+  - **Carried into node 4's first commit:** the public `tryToAcceptExteriorEdge` returns false on a context with no
+    interior edges, as the old one did; the constructed ring tests assert the links after the layer settles; the five
+    stale or inverted comments and titles; `types.ts`'s statement of `complete` corrected to what production reads.
+  - **Not changed:** the end-of-solve check stays in the test probe. Putting exterior acceptance into production's
+    `complete` would be a change to the result's meaning, and nothing on any roster ends with an unaccepted face and no
+    blocking diagnostic.
+  - **The early-acceptance file keeps its roster cases** as the guard against the old rule returning, at four minutes of
+    suite time. Open item: whether that cost is worth it.
+  - **Node 4's implementer is one fresh Opus delegate,** told that the partition dedupe's re-report rule is load-bearing
+    on 11 sweep cells (BSA.D295), that the same-node ring rule precedes the reading of components, and that no tolerance
+    moves.
 
 ## Findings
 
@@ -822,3 +839,32 @@ session 3's own.
   - **`fine:circle48@2e11`:** a 49 to 62 percent tiling miss becomes about 1e-8 and its wavefront violations go; it
     gains one offset and one direction violation on one newly born bisector and stops being a tree.
   - **`Offset Cross Junction` at 1e-6:** two step failures become one, still incomplete. At 1e-5 it is byte-identical.
+- **F100. The review of the acceptance cure found no correctness defect: the argument for asking at step boundaries
+  holds, byte identity holds on 690 of 702 solves compared independently, and the same-node ring rule removes only pairs
+  of no extent.** (an independent Opus reviewer of f008560..8170011, read-only, comparing 702 solves at both commits
+  from bundled sources, 2026-11-15; not re-run by the lead)
+  - **Every in-step reader of an exterior edge's acceptance asks only about an edge a live bisector of its own step
+    names,** so each now reads "not accepted" and is right to. The spec's list missed one reader,
+    `collision-handling.ts` line 17, which behaves as the others. No birth can meet an accepted parent: every birth's
+    parents are its participants' parents.
+  - **Late acceptance cannot change a sibling step input's events** except where the old rule accepted an edge a live or
+    pending bisector still named, which is the defect itself.
+  - **The 12 solves that moved of 702:** four of the six (`Offset Cross Junction` at 1e-6, `circle48@2e11`,
+    `ladder:1x:s1`, `ladder:1x:s2`) and eight from the ring rule. No complete solve ends with an exterior edge
+    unaccepted. The census and building-shell were not run by the reviewer.
+  - **The ring rule fired 23 times over sweep and corpus, always on a ring of two** with mirrored parents, never three
+    or more. It reads clockwise links and the source node only. The reviewer could not build a ring of real extent that
+    it would remove and argues none exists: every vertex of a ring sourced at one node lies on all its parents' offset
+    lines at birth.
+  - **BSA.D302 overstated one thing:** it says every moved cell goes from not a tree to a tree. On four of the six
+    `offedge:plus` cells other self-loops remain, and whether `isTree` counts them was not checked. The acceptance
+    stands on the rest of the reasoning: same nodes, oracles, tiling and completion, two edges of no length fewer.
+  - **Cost of the new predicate:** a scan of all interior edges per exterior edge per boundary, 0.35 to 1 percent of
+    solve time at 200 and 400 vertices and on the sweep.
+  - **Low findings:** on a context with no interior edges the public `tryToAcceptExteriorEdge` now accepts everything,
+    where the old one returned false, and no caller does this; the constructed ring tests settle the layer and assert
+    nothing about the links afterwards; the end-of-solve check that every face closed lives in the test probe only, and
+    production's `complete` never reads exterior acceptance, though `types.ts` line 416 says it does; five stale or
+    inverted comments and titles.
+  - **The early-acceptance file's roster cases are now true by construction** and serve as a mutation guard against
+    restoring the old rule, at about four minutes of suite time.

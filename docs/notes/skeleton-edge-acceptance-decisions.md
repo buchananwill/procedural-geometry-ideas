@@ -2,10 +2,11 @@
 title: "Skeleton edge acceptance: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
-date: 2026-11-14
+status: completed
+date: 2026-11-15
 part_of: [ISSUE-skeleton-edge-accepted-before-its-face-closes.md]
 depends_on: [skeleton-wavefront-order-decisions.md]
+verified_by: [packages/core/tests/straight-skeleton/skeleton-edge-acceptance.test.ts, packages/core/tests/straight-skeleton/wavefront-order-early-acceptance.test.ts, packages/core/tests/straight-skeleton/wavefront-order.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 ---
 
 # Skeleton edge acceptance: decision spec
