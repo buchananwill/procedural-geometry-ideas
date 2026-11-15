@@ -330,6 +330,44 @@ Ruled by the arc lead at approval (BSA.D348).
 9. **Whether the third-front rule can be had as a split of a newborn vertex** (BSA.D344) does not change this spec
    unless the user says so.
 
+### What the build settled
+
+Measured on the built tree (commits `8e14378` to `add41b8`).
+
+1. **The stretch bar decided nothing.** Over every candidate ring any multi-ring step produced (core's suite, the sweep
+   harness's holed group, the ten cured layouts and the user's, and both grids: 429 candidates), the shortest stretch was
+   12,207 floors and the shortest segment between two nodes the same. No stretch at or under 4 floors arose, and no
+   ring refused under decision 12 had a segment that short. So whether decision 12's sine bar already refuses every
+   stretch at or under the bar is not established: the only short stretches measured are BSA.F113's, on one-ring steps,
+   which this build does not reach. Building-shell's own suite was not traced (its console was not captured); its holed
+   fixtures are the layouts traced directly.
+2. **No non-rectilinear weighted specimen was built.** The bounded search was analytic: in E′'s family both gaps' kernel
+   duals lie on one side of the struck wall's normal, so no positive weights flip either verdict. Decision 35's weight
+   terms are convicted at the function instead: a gap between walls of inward normals (1, 0) and (0.6, −0.8) faces the
+   bottom wall at equal weights and is clear of it at weights (2, 1), and dropping the weights turns that test red.
+   E′w and `2h-int-1w` are sound.
+3. As ruled. The goldens gained 33 files and the manifest 319 lines; no existing golden byte moved.
+4. **No measured cure was lost.** Grid 1: 79 more draws complete and sound, the other three unchanged. Grid 2: 1,000 of
+   1,000 sound. The ten layouts and `CourtL-draft` sound (oracle worst 2.27e-13 cm). E′ and `2h-int-1` in their closed
+   forms; `2h-int-86`, `2h-int-144` and `2h-int-371` sound.
+5. As ruled: a node at a cluster's seed carries a budget of 0.
+6. **The known limit, and one form of it measured.** On the sweep harness's holed group 36 of 336 cells moved, every one
+   refused on the parent tree: 15 now complete and clean, 19 still refused (most under `not-one-line`, three under
+   `not-a-tree`), and two signalled. `Holed A′` jittered, seed 0, completes with a `causality-violation`: its flat ring's
+   stretch is born as a ridge whose walls are antiparallel only to within the jitter, so `addBisectionEdge` prices it by
+   the sign of a sub-resolution rate and reverses its basis; decision 25's premise that the basis is the clockwise
+   wall's does not hold there. `Holed E` jittered, seed 0, is blocked by the holed guard. Contrary to BSA.F113's
+   samples, tree-shaped flat rings do arise: the jitter parts the concentric fixtures' corner meetings and leaves
+   L-shaped flat rings, refused under decision 29.
+7. **The refusal specimens:** `uniform-1-523` and `uniform-1-1977` are refused under simultaneous-rings decision 21, a
+   vertex event across rings of three runs, neither rule firing. `uniform-1-523` meets the dashboard's step-through
+   tests and replaces E′ in core and the dashboard; both are building-shell's `HOLED_REFUSALS`.
+8. **`uniform-1-129`** ends on a ring of two straight bisectors between the collinear outline walls either side of its
+   wing, K3 of the collinear-walls umbrella note: a red test in `holed-grid-fuzz.test.ts` and
+   [ISSUE-skeleton-grid-draw-straight-bisector-pair](./ISSUE-skeleton-grid-draw-straight-bisector-pair.md).
+9. **One clause cannot fail.** `node-off-stretches` holds by construction, since every node is an end of some piece;
+   its mutation gate leaves every test green.
+
 ## 7. Deferred
 
 - **One-ring steps:** the flat rule on single-loop steps moves a defect fixture and leans on the bar, and the
