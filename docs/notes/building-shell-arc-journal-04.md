@@ -9,8 +9,10 @@ record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-
 
 # Building shell arc: session 4 journal
 
-**This is the head of the thread**, continuing [session 3](./building-shell-arc-journal-03.md). Decisions continue at
-281 and findings at F91, cited project-wide as BSA.D281 and BSA.F91.
+**Superseded as head by [session 5](./building-shell-arc-journal-05.md),** closed at session 4 closed (BSA.D333); a
+fresh context on 2026-11-15 with decision 333 and finding F106. Continues [session
+3](./building-shell-arc-journal-03.md). Decisions continue at 281 and findings at F91, cited project-wide as BSA.D281
+and BSA.F91.
 
 ## Reading order for a fresh context
 
