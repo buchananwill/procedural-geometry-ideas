@@ -564,7 +564,9 @@ interface Piece {
  * coincidence clustering re-sites them to one medoid) tie, and a tie read either way is wrong for one of
  * the two orders the instigators can stand in. Only where the instigator's ring holds no piece at all — a
  * strike that joins two rings, which one input loop never makes — does the position along the edge decide,
- * as the one reading left.
+ * as the one reading left. And where it holds more than one — a segment cut by a join earlier in the layer, both of
+ * whose pieces the joined ring now holds — the position decides among those pieces (simultaneous-rings spec,
+ * decision 17; C2′, where the ring's first piece is the wrong one).
  */
 export function linkSplit(
     context: StraightSkeletonSolverContext,
@@ -601,9 +603,18 @@ export function linkSplit(
     let struck = pieces[0];
     if (pieces.length > 1) {
         const ring = ringThrough(context, instigator);
-        struck = pieces.find(piece => ring.has(piece.from))
-            ?? pieces.find(piece => piece.cut === undefined
-                || alongEdge(context, segment.exteriorEdge, piece.cut.position, position) < 0)!;
+        /** Does the strike lie behind this piece's closing cut along the edge: is it the piece that contains it? */
+        const holdsStrike = (piece: Piece) => piece.cut === undefined
+            || alongEdge(context, segment.exteriorEdge, piece.cut.position, position) < 0;
+        const onRing = pieces.filter(piece => ring.has(piece.from));
+        // THE PIECE RULE (skeleton simultaneous-rings spec, decision 17): when more than one piece stands on the
+        // instigator's ring — which needs a join earlier in the layer, since on one loop rings only divide and each
+        // ring holds at most one piece — the ring cannot choose, and the strike takes the first of those pieces that
+        // contains it. Measured before it was relied on (decision 43): 0 such strikes on every single-loop roster.
+        // Where none of them contains it, the first on the ring is taken, as before.
+        struck = onRing.length > 1
+            ? onRing.find(holdsStrike) ?? onRing[0]
+            : onRing[0] ?? pieces.find(holdsStrike)!;
     }
     const from = struck.from;
     const pieceEnd = struck.end;
@@ -664,7 +675,10 @@ export function currentStepMembers(context: StraightSkeletonSolverContext): Read
     return steps.get(context) ?? null;
 }
 
-/** The two kinds a step of several rings is refused with (decisions 16, 19, 22 and 23). */
+/**
+ * The two kinds a step of several rings is refused with (join-and-divide decisions 16, 22 and 23; simultaneous-rings
+ * decisions 20 to 24).
+ */
 export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
 
 /**
@@ -767,7 +781,11 @@ export interface RingComponent {
  *    there meet only at their ends. It costs one O(m²) pass per ring a step of several rings leaves; it is never
  *    reached on one loop, whose steps are each of one ring (decision 11).
  *
- * Components are returned in the order of their outer rings in `rings`, each inner ring in the order given.
+ *  - A RING OF EXACTLY TWO BISECTORS is its own component and is not classified (skeleton simultaneous-rings spec,
+ *    decision 12): a ridge's corridor, which bounds nothing.
+ *
+ * Components are returned in the order of their outer rings (or rings of two) in `rings`, each inner ring in the order
+ * given.
  */
 export function componentsOfRings(
     context: StraightSkeletonSolverContext,
@@ -777,7 +795,12 @@ export function componentsOfRings(
 ): RingComponent[] {
     const {graph} = context;
     const floor = context.perceptualFloor;
-    const placed = rings.map(ring => {
+    // A RING OF EXACTLY TWO BISECTORS IS ITS OWN COMPONENT, UNCLASSIFIED (skeleton simultaneous-rings spec, decision 12):
+    // the corridor between two fronts meeting along a line, which the pair handler closes as it closes a single loop's
+    // corridor (decision 11). Its polygon has two points and its area is exactly 0, so it would be refused below; it
+    // bounds nothing and cannot hold a hole.
+    const corridors = new Set(rings.filter(ring => ring.length === 2));
+    const placed = rings.filter(ring => !corridors.has(ring)).map(ring => {
         const polygon = ring.map(id => newborn.has(id)
             ? graph.nodes[graph.edges[id].source].position
             : context.wavefrontVertexAt(id, time));
@@ -797,7 +820,12 @@ export function componentsOfRings(
     });
 
     const outers = placed.filter(entry => entry.area < 0);
-    const components: RingComponent[] = outers.map(entry => ({outer: entry.ring, inner: []}));
+    const componentOf = new Map(outers.map(entry => [entry.ring, {outer: entry.ring, inner: []} as RingComponent] as const));
+    for (const ring of corridors) {
+        componentOf.set(ring, {outer: ring, inner: []});
+    }
+    // In the order of their outer rings (or corridor rings) in `rings`.
+    const components: RingComponent[] = rings.flatMap(ring => componentOf.get(ring) ?? []);
     for (const entry of placed.filter(candidate => candidate.area > 0)) {
         const parent = context.getInteriorWithId(entry.ring[0]).clockwiseExteriorEdgeIndex;
         const witness = graph.nodes[graph.edges[parent].source].position;
@@ -820,7 +848,7 @@ export function componentsOfRings(
             refuseStep(context, 'multi-ring-step-refused', `inner ring [${entry.ring.join(', ')}]'s witness `
                 + `(${witness.x}, ${witness.y}) lies in no outer ring at time ${time}.`);
         }
-        components[container].inner.push(entry.ring);
+        componentOf.get(outers[container].ring)!.inner.push(entry.ring);
     }
     return components;
 }

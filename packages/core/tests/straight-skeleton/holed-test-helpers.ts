@@ -410,6 +410,55 @@ export function extentOf(fixture: HoledFixture): number {
     return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
 }
 
+/** The two kinds a step of several rings is refused with. */
+export const REFUSAL_KINDS = ['simultaneous-across-rings', 'multi-ring-step-refused'];
+
+/**
+ * EVERY ASSERTION OF JOIN-AND-DIVIDE DECISION 42, on one fixture (shared with the simultaneous-rings spec, decision
+ * 38). Returns the solve, its tiling and the interior graph's shape for further assertions.
+ */
+export function expectSoundHoledSolve(fixture: HoledFixture, options: SolveSkeletonOptions = {}) {
+    const solve = solveHoled(fixture, options);
+    const {result, boundaries} = solve;
+    const {graph} = result;
+    const kinds = result.diagnostics.map(diagnostic => diagnostic.kind);
+
+    // Complete, with no refusal and no causality diagnostic. The oracles compare times (BSA.D309), so a weighted
+    // fixture is held to them as every other fixture is.
+    expect(kinds.filter(kind => REFUSAL_KINDS.includes(kind) || kind === 'step-failure' || kind === 'unresolved-edges'))
+        .toEqual([]);
+    expect(result.diagnostics
+        .flatMap(diagnostic => diagnostic.kind === 'causality-violation' ? [`${diagnostic.oracle} ${diagnostic.elementId}`] : []))
+        .toEqual([]);
+    // The weight-aware properties, re-derived here: one time at every interior node, and no edge running backwards in it.
+    expect(equiTimeViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
+    expect(timeOrderViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
+    expect(result.complete).toBe(true);
+
+    // `checkWavefront` empty at every step boundary.
+    expect(boundaries.flatMap((boundary, step) => boundary.violations.map(v => `step ${step}: ${v}`))).toEqual([]);
+
+    // One face per exterior edge of every loop, and the faces tile the region.
+    const tiling = faceTiling(graph, fixture);
+    expect(tiling.open).toEqual([]);
+    expect(tiling.relativeError).toBeLessThan(1e-12);
+
+    // Every interior node inside the outline and outside every hole.
+    expect(escapedHoledNodes(graph, fixture)).toEqual([]);
+
+    // The rate and direction oracles clean.
+    expect(directionViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
+    expect(rateViolations(graph, 1e-9)).toEqual([]);
+
+    // The interior graph connected, with no self-loop and a cycle rank equal to the hole count.
+    const shape = interiorGraphShape(graph);
+    expect(shape.unresolved).toEqual([]);
+    expect(shape.selfLoops).toEqual([]);
+    expect(shape.components).toBe(1);
+    expect(shape.cycleRank).toBe(fixture.holes.length);
+    return {...solve, tiling, shape};
+}
+
 /** Mirror a fixture in the vertical line `x = axis`, reversing every loop so each keeps its winding. */
 export function mirrored(fixture: HoledFixture, axis: number, name: string): HoledFixture {
     const flip = (vertices: readonly Vector2[]) => vertices.map(vertex => ({x: 2 * axis - vertex.x, y: vertex.y})).reverse();

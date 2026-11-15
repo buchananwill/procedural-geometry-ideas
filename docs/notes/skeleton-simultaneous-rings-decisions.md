@@ -2,7 +2,7 @@
 title: "Skeleton simultaneous events across rings: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: approved
+status: implementing
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-join-and-divide-decisions.md]

@@ -1876,10 +1876,11 @@ export interface SkeletonHole {
  * The holes of an outline (decision 1). Omitted or empty means a single-loop solve, which is the solve as it
  * always ran.
  *
- * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case, where no two events of
- * different rings coincide, it solves; a layer in which they do is refused by name as `simultaneous-across-rings`,
- * for the holed-skeleton roadmap's node 5, and `complete` is then false. Only {@link solveSkeleton} takes holes;
- * the legacy entries refuse them (skeleton loops-input spec, decision 4).
+ * A HOLED SOLVE STEPS LIKE ANY OTHER (skeleton join-and-divide spec): in the generic case it solves, and so it does
+ * where events of two rings coincide as a meeting of one run on each of two rings (skeleton simultaneous-rings spec,
+ * which covers the concentric courtyard). A layer whose coincidence that spec does not settle — a meeting of more than
+ * two runs, or on a third front — is refused by name as `simultaneous-across-rings`, and `complete` is then false.
+ * Only {@link solveSkeleton} takes holes; the legacy entries refuse them (skeleton loops-input spec, decision 4).
  */
 export interface HoleOptions {
     holes?: readonly SkeletonHole[];

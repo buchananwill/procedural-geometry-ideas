@@ -427,14 +427,15 @@ export interface AlgorithmStepOutput {
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
  * - `simultaneous-across-rings` — a layer of a step of several rings was refused because events of different
- *   rings coincide in it: an interior-to-interior event with participants on two rings, or a join sharing the
- *   layer with another event touching either of its rings (skeleton join-and-divide spec, decisions 18 to 20).
- *   The holed-skeleton roadmap's node 5 owns these layers. BLOCKING, and refused before the layer changed
- *   anything; the detail names the step, its rings and the events.
+ *   rings coincide in it in a form the skeleton simultaneous-rings spec does not settle (its decisions 20 to 22): a
+ *   vertex event across rings that is not one run on each of two rings, a layer that cannot be resolved whole holding
+ *   an event across rings, or a meeting on a third front. BLOCKING, and refused before the layer changed anything;
+ *   the detail names the step, its rings, the events and the decision.
  * - `multi-ring-step-refused` — a step of several rings could not be handled generically and was refused: a ring
- *   of fewer than three bisectors, no event at all, or rings the layer left that cannot be told outer from inner
- *   or assigned to a component without guessing (decisions 16, 22 and 23). BLOCKING; the detail names the step
- *   and the ring.
+ *   of fewer than three bisectors at its start, no event at all, or rings of three or more the layer left that
+ *   cannot be told outer from inner or assigned to a component without guessing (join-and-divide decisions 16, 22
+ *   and 23; a ring of two is a corridor and its own child, simultaneous-rings decision 12). BLOCKING; the detail
+ *   names the step and the ring.
  *
  * `holes-not-solved`, which a holed solve stopped with before the join event, is retired (decision 34).
  */

@@ -419,6 +419,67 @@ export function contiguousRuns(ring: number[], members: ReadonlySet<number>): nu
 }
 
 /**
+ * The two runs of a vertex event across rings (skeleton simultaneous-rings spec, decision 3): `first` on the ring that
+ * comes first in the step's rings, `second` on the other, each in its ring's clockwise order.
+ */
+export type CrossRingRuns = readonly [first: readonly number[], second: readonly number[]];
+
+/**
+ * IS THIS MERGE ONE RUN ON EACH OF EXACTLY TWO RINGS (skeleton simultaneous-rings spec, decision 3)? Its runs, or
+ * `undefined` when it is anything else: arrivals on one ring, on three rings or more, two runs on one ring, a run that is
+ * its whole ring, or an arrival on no ring. Each run is a {@link contiguousRuns} run of its ring.
+ *
+ * ONLY THIS SHAPE HAS ONE PAIRING (decision 5): two runs have one cyclic order, so each gap's bisector is forced. Any
+ * other shape would need the angular order of the arrivals round the node, which the links do not hold (decision 21).
+ * `rings` are the step's rings at the layer's start.
+ */
+export function crossRingRuns(rings: readonly number[][], merge: Pick<CoincidentMerge, 'edgeIds'>): CrossRingRuns | undefined {
+    const members = new Set(merge.edgeIds);
+    const touched = rings.filter(ring => ring.some(edgeId => members.has(edgeId)));
+    const placed = touched.reduce((count, ring) => count + ring.filter(edgeId => members.has(edgeId)).length, 0);
+    if (touched.length !== 2 || placed !== members.size) {
+        return undefined;
+    }
+    const runs = touched.map(ring => contiguousRuns(ring, members));
+    if (runs.some(ringRuns => ringRuns.length !== 1)
+        || touched.some((ring, index) => runs[index][0].length === ring.length)) {
+        return undefined;
+    }
+    return [runs[0][0], runs[1][0]];
+}
+
+/**
+ * THE TWO BISECTORS OF A VERTEX EVENT ACROSS RINGS (skeleton simultaneous-rings spec, decisions 4 to 6): every arrival
+ * retires, and the cycle of the two runs `(R1, R2)` has two gaps, each closed by {@link linkMergeGap} as a one-ring
+ * merge closes each of its gaps:
+ *
+ *     X = {cw: cp(last R1), ws: wp(first R2)}   linked between ws(first R2) and cw(last R1)
+ *     Y = {cw: cp(last R2), ws: wp(first R1)}   linked between ws(first R1) and cw(last R2)
+ *
+ * Returned as `[X, Y]`; both are partition births. On two single arrivals this is exactly the rewrite
+ * `linkVertexToVertex` makes. Whether the event joined two rings or divided one is read from the rings it leaves.
+ */
+export function bisectionsForCrossRingMerge(
+    runs: CrossRingRuns,
+    sourceNodeId: number,
+    context: StraightSkeletonSolverContext,
+): BisectionParams[] {
+    const gap = (preceding: readonly number[], following: readonly number[]): BisectionParams => {
+        const lastArrival = preceding[preceding.length - 1];
+        const firstDeparture = following[0];
+        const params: BisectionParams = {
+            clockwiseExteriorEdgeIndex: context.getInteriorWithId(lastArrival).clockwiseExteriorEdgeIndex,
+            widdershinsExteriorEdgeIndex: context.getInteriorWithId(firstDeparture).widdershinsExteriorEdgeIndex,
+            source: sourceNodeId,
+        };
+        linkMergeGap(context, lastArrival, firstDeparture, params);
+        return params;
+    };
+    const [first, second] = runs;
+    return [gap(first, second), gap(second, first)];
+}
+
+/**
  * The bisectors born from one vertex event.
  *
  * The event removes its participating edges from the ring. What remains is one arc per gap

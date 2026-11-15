@@ -1,0 +1,72 @@
+---
+title: "Skeleton: a straight vertex between collinear hole walls is left in a ring of zero area"
+type: issue
+area: straight-skeleton
+status: open
+date: 2026-11-15
+---
+
+# Skeleton: a straight vertex between collinear hole walls is left in a ring of zero area
+
+Found by the courtyard fuzz run during the work on
+[the simultaneous-rings spec](./skeleton-simultaneous-rings-decisions.md) (roadmap node 5). Before that unit, the
+input was refused at its root as `simultaneous-across-rings`. Now it passes its root and fails one step later. **Nothing
+in the solver has been changed for it.**
+
+The red test is `red by design: two holes with collinear walls`, case `2h-int-1`, in
+[holed-simultaneous-rings.test.ts](../../packages/core/tests/straight-skeleton/holed-simultaneous-rings.test.ts). It
+asserts join-and-divide decision 42's battery and a node at `(5.5, 10)`. It is red by design (BSA.D266) until a cure
+lands.
+
+## The input
+
+The outline is `[0, 9] × [0, 11]`, clockwise. The holes are `[6, 7] × [8, 9]` and `[3, 5] × [8, 9]`, counter-clockwise.
+The two holes' tops lie on one line, `y = 9`, 1 apart.
+
+## What happens
+
+1. **At `t = 0.5` the gap between the holes closes.** The corners `(5, 9)` and `(6, 9)` meet head-on at `(5.5, 9.5)`,
+   and the corners `(5, 8)` and `(6, 8)` meet at `(5.5, 7.5)`. Both are vertex events across two rings, which node 5
+   resolves. The midline `x = 5.5` between them closes as a corridor.
+2. **The meeting at `(5.5, 9.5)` also bears `e27`, the bisector between the two collinear hole tops.** It has
+   clockwise parent 10 and widdershins parent 6, and it moves straight up at speed 1. It is a *straight* vertex, with
+   a turn of zero. This is correct: the two tops are separate walls, and the line `x = 5.5` divides their faces.
+3. **At `t = 1` the strip between the hole tops and the outline's top closes along `y = 10`,** from `(2, 10)` to
+   `(8, 10)`. Three things happen in the same layer:
+   - the outline corner `(9, 11)` meets the hole corner `(7, 9)` at `(8, 10)`;
+   - the corner `(3, 9)` strikes the top wall at `(2, 10)`;
+   - `e27` reaches the top wall's front at `(5.5, 10)`.
+
+   The true skeleton has a node at `(5.5, 10)` where `e27` ends, with the ridge `y = 10` running through it to `(2, 10)`
+   and `(8, 10)`.
+4. **`e27` has no event at `t = 1`.** `createCollisions` tests a bisector against exterior edges only when it is reflex
+   and primary, and a straight vertex is not reflex. So `e27` survives the layer, and the layer leaves the ring
+   `[27, 30, 31]`. That ring holds `e27` at `(5.5, 10)` and the two ridge bisectors born at `(2, 10)` and `(8, 10)`, and
+   all three points lie on `y = 10`. `componentsOfRings` reads its area as 0 and refuses it:
+   `multi-ring-step-refused: ... ring [27, 30, 31] has area 0 at time 0.125, at or under the 7.5e-7 degenerate-area bar`.
+   The solve ends incomplete, and 12 edges are unresolved.
+
+## Why it is not cured here
+
+Two cures are visible, and neither is this unit's to make:
+
+- **A zero-area ring of three left by a multi-ring layer could be its own child,** and the triangle handler could close
+  it at `(5.5, 10)`. That amends simultaneous-rings decision 15, which keeps node 4's classification and its refusal
+  for every ring of three or more. The amendment is the lead's.
+- **A straight vertex could be tested for a strike.** That changes how splits are generated. Split generation is shared
+  with every single-loop solve, so the change is the user's (BSA.D301). It is the same restriction that
+  [the weighted defect](./ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md) traces to: both split paths require a
+  reflex, primary bisector.
+
+## How often, measured
+
+In the courtyard fuzz (axis-aligned rectangles, 400 inputs per row), this was 4 of 400 with two holes at integer
+positions, and 0 in every other row. Each case was two holes with a collinear wall and a gap between them closing
+before a wider gap to the outline:
+
+| Fuzz case | Outline | Holes |
+|---|---|---|
+| `2h-int-1` | `[0, 9] × [0, 11]` | `[6, 7] × [8, 9]`, `[3, 5] × [8, 9]` |
+| `2h-int-86` | `[0, 19] × [0, 19]` | `[15, 16] × [11, 13]`, `[3, 16] × [14, 15]` |
+| `2h-int-144` | `[0, 27] × [0, 10]` | `[18, 19] × [2, 5]`, `[4, 17] × [2, 6]` |
+| `2h-int-371` | `[0, 27] × [0, 17]` | `[8, 20] × [3, 14]`, `[22, 23] × [9, 14]` |

@@ -7,22 +7,22 @@
  *  - the holed fixtures of decision 41, each asserting all of decision 42 and the weighted time order, and F8, the
  *    pocket that pins decision 15's least-area rule (BSA.D309); the generic counts on every generic fixture;
  *  - a ring whose polygon crosses itself, refused rather than classified by its area's sign (BSA.D309);
- *  - the refusal of decision 44 on node 5's concentric square and its off-centre rectangle with parallel walls;
  *  - the partition order of decisions 25 to 27, the causality check of decision 32, and the constructed tests of
  *    decision 45's last sentence: the step restriction of the struck segment and the guard on every validating
  *    segment, over a step holding two segments of one edge.
  *
  * Each fixture is chosen so that no two events of different rings share a layer (decision 41), and was checked
- * against that by its own run: every assertion below that no refusal was raised is that check.
+ * against that by its own run. The refusal tests of decision 44 are gone: node 5 solves the concentric square and the
+ * off-centre rectangle, and they are its fixtures A and B (`holed-simultaneous-rings.test.ts`; the simultaneous-rings
+ * spec, decision 41).
  */
-import type {BisectionParams, SkeletonDiagnostic, StraightSkeletonSolverContext, Vector2} from '@proc-geo/core';
+import type {BisectionParams, StraightSkeletonSolverContext, Vector2} from '@proc-geo/core';
 import {
     bisectWithParams,
     checkWavefrontCausality,
     initInteriorEdges,
     makeStraightSkeletonSolverContext,
     setSkeletonLogLevel,
-    solveSkeleton,
 } from '@proc-geo/core';
 import {generateSplitEvent} from '@proc-geo/core/straight-skeleton/generate-split-event';
 import {signedArea} from '@proc-geo/core/random-polygon/geometry-helpers';
@@ -39,18 +39,12 @@ import {
     retireBisectors,
 } from '@proc-geo/core/straight-skeleton/wavefront';
 import {
-    directionViolations,
-    equiTimeViolations,
-    escapedHoledNodes,
+    expectSoundHoledSolve,
     extentOf,
-    faceTiling,
     HoledFixture,
-    interiorGraphShape,
     mirrored,
-    rateViolations,
     solveHoled,
     storyOf,
-    timeOrderViolations,
 } from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
@@ -180,52 +174,6 @@ const FIXTURES: HoledFixture[] = [F1, F1_STRETCHED, F2, F3, F4, F5, F5_MIRROR, F
  * once.
  */
 const NOT_GENERIC = new Set(['F1 stretched']);
-
-const REFUSAL_KINDS = ['simultaneous-across-rings', 'multi-ring-step-refused'];
-const kindsOf = (diagnostics: SkeletonDiagnostic[]) => diagnostics.map(diagnostic => diagnostic.kind);
-
-/** Every assertion of decision 42, on one fixture. Returns the solve for further assertions. */
-function expectSoundHoledSolve(fixture: HoledFixture) {
-    const solve = solveHoled(fixture);
-    const {result, boundaries} = solve;
-    const {graph} = result;
-    const kinds = kindsOf(result.diagnostics);
-
-    // Complete, with no refusal and no causality diagnostic. The oracles compare times (BSA.D309), so a weighted
-    // fixture (F4) is held to them as every other fixture is.
-    expect(kinds.filter(kind => REFUSAL_KINDS.includes(kind) || kind === 'step-failure' || kind === 'unresolved-edges'))
-        .toEqual([]);
-    expect(result.diagnostics
-        .flatMap(diagnostic => diagnostic.kind === 'causality-violation' ? [`${diagnostic.oracle} ${diagnostic.elementId}`] : []))
-        .toEqual([]);
-    // The weight-aware properties, re-derived here: one time at every interior node, and no edge running backwards in it.
-    expect(equiTimeViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
-    expect(timeOrderViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
-    expect(result.complete).toBe(true);
-
-    // `checkWavefront` empty at every step boundary.
-    expect(boundaries.flatMap((boundary, step) => boundary.violations.map(v => `step ${step}: ${v}`))).toEqual([]);
-
-    // One face per exterior edge of every loop, and the faces tile the region.
-    const tiling = faceTiling(graph, fixture);
-    expect(tiling.open).toEqual([]);
-    expect(tiling.relativeError).toBeLessThan(1e-12);
-
-    // Every interior node inside the outline and outside every hole.
-    expect(escapedHoledNodes(graph, fixture)).toEqual([]);
-
-    // The rate and direction oracles clean.
-    expect(directionViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
-    expect(rateViolations(graph, 1e-9)).toEqual([]);
-
-    // The interior graph connected, with no self-loop and a cycle rank equal to the hole count.
-    const shape = interiorGraphShape(graph);
-    expect(shape.unresolved).toEqual([]);
-    expect(shape.selfLoops).toEqual([]);
-    expect(shape.components).toBe(1);
-    expect(shape.cycleRank).toBe(fixture.holes.length);
-    return {...solve, tiling, shape};
-}
 
 describe('F1 against its closed form (decisions 47 to 49)', () => {
     /** Node names, events and positions of decision 48's table. */
@@ -414,51 +362,6 @@ describe('the holed fixtures (decisions 41 and 42)', () => {
             return divided.inputs.findIndex(input => input.some(id => holeBisectors.has(id)));
         };
         expect([childOfHole(F5), childOfHole(F5_MIRROR)].sort()).toEqual([0, 1]);
-    });
-});
-
-describe('the refusal of a layer node 5 owns (decision 44)', () => {
-    const CONCENTRIC: HoledFixture = {
-        name: 'the concentric square',
-        outline: SQUARE_OUTLINE,
-        holes: [{vertices: [{x: 4, y: 4}, {x: 6, y: 4}, {x: 6, y: 6}, {x: 4, y: 6}]}],
-    };
-    const PARALLEL_WALLED: HoledFixture = {
-        name: 'the off-centre rectangle with parallel walls',
-        outline: [{x: 0, y: 0}, {x: 0, y: 10}, {x: 20, y: 10}, {x: 20, y: 0}],
-        holes: [{vertices: [{x: 3, y: 3}, {x: 8, y: 3}, {x: 8, y: 6}, {x: 3, y: 6}]}],
-    };
-
-    /**
-     * Not one of decision 44's two: a diamond centred in the square, whose four corners strike the four walls at
-     * one moment. Both of decision 44's fixtures meet a vertex event across rings first, so neither reaches the
-     * rule that a join may not share its layer; this one does, and convicts that rule (decision 45's first and
-     * last gates).
-     */
-    const CENTRED_DIAMOND: HoledFixture = {
-        name: 'the centred diamond',
-        outline: SQUARE_OUTLINE,
-        holes: [{vertices: [{x: 6, y: 5}, {x: 5, y: 6}, {x: 4, y: 5}, {x: 5, y: 4}]}],
-    };
-
-    // Measured: each is refused at the root step (after boundary 0), as `simultaneous-across-rings`. The concentric
-    // square and the rectangle by an outline corner and a hole corner meeting head-on on one diagonal
-    // (`interiorNonAdjacent [8, 12]`), the diamond by its four joins.
-    it.each([
-        [CONCENTRIC.name, CONCENTRIC, 'simultaneous-across-rings', 0, 'interiorNonAdjacent [8, 12] at time 0.25 meets bisectors of two rings'],
-        [PARALLEL_WALLED.name, PARALLEL_WALLED, 'simultaneous-across-rings', 0, 'interiorNonAdjacent [8, 12]'],
-        [CENTRED_DIAMOND.name, CENTRED_DIAMOND, 'simultaneous-across-rings', 0, 'the join interiorAgainstExterior [12, 2]'],
-    ] as const)('%s is refused, incomplete, naming the step', (_name, fixture, kind, step, reason) => {
-        const {result, boundaries} = solveHoled(fixture);
-        expect(result.complete).toBe(false);
-        const refusals = result.diagnostics.filter(diagnostic => REFUSAL_KINDS.includes(diagnostic.kind));
-        expect(refusals.map(diagnostic => diagnostic.kind)).toEqual([kind]);
-        // The step it names is the one that ran after boundary `step`; the refused layer changed nothing.
-        const stepInput = boundaries[step].inputs[0];
-        expect(refusals[0].detail).toContain(`Step [${[...stepInput].sort((a, b) => a - b).join(', ')}]`);
-        expect(refusals[0].detail).toContain(reason);
-        expect(kindsOf(result.diagnostics)).toContain('step-failure');
-        expect(result.graph.nodes).toHaveLength(result.graph.numExteriorNodes);
     });
 });
 

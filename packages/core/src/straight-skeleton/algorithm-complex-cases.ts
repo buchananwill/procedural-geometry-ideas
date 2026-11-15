@@ -10,9 +10,13 @@ import {applyDegenerateClosure, climbTerminalLadder} from "./algorithm-terminati
 import handleCollisionEvent from "./collision-handling";
 import {bisectWithParams} from "./algorithm-helpers";
 import {
+    bisectionsForCrossRingMerge,
     bisectionsForMerge,
     clusterCoincidentMerges,
+    CoincidentMerge,
     coincidentEventPositions,
+    crossRingRuns,
+    CrossRingRuns,
     mergesShareAnEdge,
 } from "./coincident-events";
 import {
@@ -289,70 +293,76 @@ export function createCollisions(interiorEdges: number[], exteriorParents: numbe
 }
 
 /**
- * THE CROSS-RING REFUSAL (skeleton join-and-divide spec, decisions 18 to 21): why this layer's events are not
- * generic, or `undefined` when they are.
- *
- * Among the events the layer will resolve, an interior-to-interior event — a pair, a non-adjacent pair, or a merge
- * the coincidence clustering gathers at δ — with participants on two rings is a vertex meeting across rings. It
- * needs a vertex of each ring to arrive together, which is two strikes coinciding: node 5's work, under any reported
- * type (decision 18). And a JOIN — a split whose instigator and struck segment's `from` lie on different rings of the
- * step at the layer's start (decision 9) — that shares the layer with another event touching either of its two
- * rings is two events of different rings at one moment. Reports that name one instigator are one event. The events
- * are the layer's own, chosen by `HELD_SIMULTANEITY_WINDOW`, the narrowing to the earliest moment and the
- * clustering at δ, so no window or tolerance is added here (decision 19).
- *
- * `ringOf` gives each bisector's ring at the layer's start; it is the only place a split is read as a join.
+ * A layer's events resolved as WHOLE vertex events: its merges in canonical order, and for each the ring it lies on, or
+ * (a merge across rings, on a step of several rings) the two runs it holds — exactly one of the two is defined.
  */
-function crossRingCoincidence(
-    context: StraightSkeletonSolverContext,
-    ringOf: ReadonlyMap<number, number>,
-    events: CollisionEvent[],
-): string | undefined {
-    const describe = (event: CollisionEvent) =>
-        `${event.eventType} [${event.collidingEdges.join(', ')}] at time ${timeOf(event.arrival)}`;
-    const interior = events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent');
-    for (const event of interior) {
-        if (ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.collidingEdges[1])) {
-            return `${describe(event)} meets bisectors of two rings.`;
-        }
-    }
-    for (const merge of clusterCoincidentMerges(interior, context.perceptualFloor)) {
-        if (new Set(merge.edgeIds.map(id => ringOf.get(id))).size > 1) {
-            return `the vertex event [${merge.edgeIds.join(', ')}] gathers bisectors of two rings.`;
-        }
-    }
-    /** The rings an event touches: its interior participants', and a split's struck segment's. */
-    const touched = (event: CollisionEvent): (number | undefined)[] => [
-        ...event.collidingEdges.filter(id => context.edgeRank(id) !== 'exterior').map(id => ringOf.get(id)),
-        ...(event.struckSegment === undefined
-            ? []
-            : [ringOf.get(event.struckSegment.from), ringOf.get(event.struckSegment.to)]),
-    ];
-    for (const join of events) {
-        if (!isJoin(join, ringOf)) {
-            continue;
-        }
-        const instigator = join.collidingEdges[0];
-        const joined = new Set([ringOf.get(instigator), ringOf.get(join.struckSegment!.from)]);
-        const other = events.find(event => event.collidingEdges[0] !== instigator
-            && touched(event).some(ring => joined.has(ring)));
-        if (other !== undefined) {
-            return `the join ${describe(join)} shares the layer with ${describe(other)}, which touches one of its rings.`;
-        }
-    }
-    return undefined;
+interface WholeEvents {
+    merges: CoincidentMerge[];
+    ringOfMerge: (number[] | undefined)[];
+    runsOfMerge: (CrossRingRuns | undefined)[];
 }
 
 /**
- * IS THIS SPLIT A JOIN (decision 9): do its instigator and its struck segment's `from` lie on different rings of the
- * step at the layer's start? A divide otherwise. Read once, before the layer resolves any event, and by the
- * cross-ring refusal only: the solver never branches on join against divide when it writes links or bears
- * bisectors (decision 8).
+ * WHAT A STEP OF SEVERAL RINGS STILL REFUSES (skeleton simultaneous-rings spec, decisions 20 to 23): why this layer's
+ * final event set cannot be resolved, or `undefined` when it can. Asked once the set is final and before its first
+ * event is resolved, so a refused layer changes no link, node or acceptance, and only on a step of more than one ring
+ * (decision 1). The events are the layer's own, chosen by `HELD_SIMULTANEITY_WINDOW`, the narrowing to the earliest
+ * moment and the clustering at δ: no window or tolerance is added here.
+ *
+ *  - DECISION 21: a merge across rings that is not one run on each of two rings — three runs or more, two runs on one
+ *    ring with a third ring, or a run that is its whole ring. Its pairing would depend on the angular order round the
+ *    node, which the links do not hold.
+ *  - DECISION 21: a layer that cannot be resolved whole (`mergesShareAnEdge`: two of its merges share a bisector) and
+ *    holds an interior event with participants on two rings. The pairwise fallback would resolve it one pair at a
+ *    time, which strands an arrival (A′, measured).
+ *  - DECISION 22: a meeting on a third front — a split whose instigator is an arrival of a merge while neither end of
+ *    its struck segment is. A split whose struck segment does end on an arrival is a re-report of the vertex event
+ *    (decision 18) and is void once the merge has consumed its instigator.
+ *
+ * The merges are the layer's clustering at δ, the same `asWholeEvents` resolves when it resolves the layer whole.
+ * `rings` are the step's rings at the layer's start. Nothing here reads a split as a join or a divide (decision 19).
  */
-function isJoin(event: CollisionEvent, ringOf: ReadonlyMap<number, number>): boolean {
-    return event.eventType === 'interiorAgainstExterior'
-        && event.struckSegment !== undefined
-        && ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.struckSegment.from);
+function multiRingRefusal(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    events: CollisionEvent[],
+): string | undefined {
+    const ringOf = new Map<number, number>();
+    rings.forEach((ring, index) => ring.forEach(id => ringOf.set(id, index)));
+    const describe = (event: CollisionEvent) =>
+        `${event.eventType} [${event.collidingEdges.join(', ')}] at time ${timeOf(event.arrival)}`;
+    const interior = events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent');
+
+    const merges = clusterCoincidentMerges(interior, context.perceptualFloor);
+    for (const merge of merges) {
+        const ringCount = new Set(merge.edgeIds.map(id => ringOf.get(id))).size;
+        if (ringCount > 1 && crossRingRuns(rings, merge) === undefined) {
+            return `the vertex event [${merge.edgeIds.join(', ')}] gathers bisectors of ${ringCount} rings in other than `
+                + `one run on each of two, so its pairing would depend on the angular order round its node (decision 21).`;
+        }
+    }
+
+    if (mergesShareAnEdge(merges)) {
+        const across = interior.find(event => ringOf.get(event.collidingEdges[0]) !== ringOf.get(event.collidingEdges[1]));
+        if (across !== undefined) {
+            return `the layer cannot be resolved whole, because two of its vertex events share a bisector, and `
+                + `${describe(across)} meets bisectors of two rings (decision 21).`;
+        }
+    }
+
+    for (const split of events) {
+        const segment = split.struckSegment;
+        if (split.eventType !== 'interiorAgainstExterior' || segment === undefined) {
+            continue;
+        }
+        const merge = merges.find(candidate => candidate.edgeIds.includes(split.collidingEdges[0]));
+        if (merge !== undefined && !merge.edgeIds.includes(segment.from) && !merge.edgeIds.includes(segment.to)) {
+            return `the split ${describe(split)} meets a third front: its instigator arrives at the vertex event `
+                + `[${merge.edgeIds.join(', ')}], and neither end of its struck segment (e${segment.from}, e${segment.to}) `
+                + `of edge ${segment.exteriorEdge} does (decision 22).`;
+        }
+    }
+    return undefined;
 }
 
 /**
@@ -402,12 +412,11 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
 
     // THE STEP'S RINGS ARE THE LINKS' RINGS, ALWAYS (skeleton join-and-divide spec, decision 1), read at the layer's
     // start. A step of one ring is every step of a single-loop solve and is handled exactly as before; a step of
-    // several rings — an outline and the holes inside it — is refused where its events coincide across rings
-    // (decisions 18 to 21) and leaves its components as children (decisions 10 to 17).
+    // several rings — an outline and the holes inside it — resolves a vertex event across two rings whole
+    // (simultaneous-rings spec, decisions 3 to 8), refuses by name what it does not settle (decisions 20 to 22), and
+    // leaves its components as children (join-and-divide spec, decisions 10 to 17; simultaneous-rings decision 12).
     const rings = ringsOfWavefront(context, input.interiorEdges);
     const multiRing = rings.length > 1;
-    const ringOf = new Map<number, number>();
-    rings.forEach((ring, index) => ring.forEach(id => ringOf.set(id, index)));
 
     // DECISION 7: the step's exterior parents as today, duplicates included. An edge bounding two segments of one
     // step is listed twice, and its two reports of one split are one event: the first resolved retires the
@@ -535,25 +544,32 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     /**
      * These events resolved as WHOLE vertex events, or `null` when they cannot be.
      *
-     * A merge is only resolvable as a whole if all its arrivals lie on one wavefront ring (join-and-divide spec,
-     * decision 2: a merge with arrivals on two rings is a vertex meeting across rings, which the cross-ring refusal
-     * below refuses), and no two merges may claim the same edge — a bisector arrives somewhere once, so an edge in
-     * two merges means the first merge resolved would consume it and strand the second. Deciding both
-     * for every merge before mutating anything keeps the answer all-or-nothing, rather than leaving
-     * half a set resolved two different ways.
+     * A merge is resolvable as a whole if all its arrivals lie on one wavefront ring, or, ON A STEP OF SEVERAL RINGS,
+     * if they are one run on each of two rings (simultaneous-rings spec, decisions 3 and 7): a vertex event across
+     * rings, whose two bisectors `bisectionsForCrossRingMerge` bears. Any other merge across rings sends the layer to
+     * the narrowing and, failing that, to `multiRingRefusal` (decision 21). And no two merges may claim the same edge —
+     * a bisector arrives somewhere once, so an edge in two merges means the first merge resolved would consume it and
+     * strand the second. Deciding both for every merge before mutating anything keeps the answer all-or-nothing,
+     * rather than leaving half a set resolved two different ways.
+     *
+     * On a step of one ring every merge lies on the one ring, `runsOfMerge` is all `undefined`, and the answer is
+     * today's (decision 1).
      */
-    const asWholeEvents = (events: CollisionEvent[]) => {
+    const asWholeEvents = (events: CollisionEvent[]): WholeEvents | null => {
         const candidates = clusterCoincidentMerges(
             events.filter(event => event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'),
             context.perceptualFloor,
         );
         const ringOfMerge = candidates.map(merge =>
             rings.find(ring => merge.edgeIds.every(edgeId => ring.includes(edgeId))));
+        const runsOfMerge = candidates.map((merge, index) =>
+            multiRing && ringOfMerge[index] === undefined ? crossRingRuns(rings, merge) : undefined);
 
-        if (ringOfMerge.some(ring => ring === undefined) || mergesShareAnEdge(candidates)) {
+        if (ringOfMerge.some((ring, index) => ring === undefined && runsOfMerge[index] === undefined)
+            || mergesShareAnEdge(candidates)) {
             return null;
         }
-        return {merges: candidates, ringOfMerge: ringOfMerge as number[][]};
+        return {merges: candidates, ringOfMerge, runsOfMerge};
     };
 
     // WHEN THE WHOLE-EVENT RESOLUTION REFUSES THE LAYER, THE ANSWER IS A NARROWER LAYER — NOT A
@@ -589,15 +605,16 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         resolution = asWholeEvents(eventsToResolve);
     }
 
-    // THE CROSS-RING REFUSAL, ONCE THE LAYER'S EVENT SET IS FINAL AND BEFORE ITS FIRST EVENT IS RESOLVED
-    // (join-and-divide spec, decisions 19 and 20), so a refused layer changes no link, node or acceptance. On one
-    // ring it cannot fire (decision 21): every event's participants stand on the one ring, and no split joins. It is
-    // asked on every layer all the same, so that what it reads is one rule whatever the ring count.
-    const coincidence = crossRingCoincidence(context, ringOf, eventsToResolve);
-    if (coincidence !== undefined) {
-        refuseStep(context, 'simultaneous-across-rings', `rings `
-            + `${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}: ${coincidence} Events of different `
-            + `rings coincide in this layer, which the holed-skeleton roadmap's node 5 owns.`);
+    // WHAT STAYS REFUSED, ONCE THE LAYER'S EVENT SET IS FINAL AND BEFORE ITS FIRST EVENT IS RESOLVED (simultaneous-
+    // rings spec, decisions 20 to 22), so a refused layer changes no link, node or acceptance. Asked only on a step of
+    // several rings (decision 1): on one ring every merge lies on the ring and nothing here can fire.
+    if (multiRing) {
+        const refusal = multiRingRefusal(context, rings, eventsToResolve);
+        if (refusal !== undefined) {
+            refuseStep(context, 'simultaneous-across-rings', `rings `
+                + `${rings.map(ring => `[${ring.join(', ')}]`).join(', ')}: ${refusal} Events of different rings `
+                + `coincide in this layer in a form the simultaneous-rings spec refuses by name.`);
+        }
     }
 
     // THE PAIRWISE FALLBACK IS A PAIRING RULE. Each event here consumes its two edges, so whichever
@@ -639,8 +656,15 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
                 .map(event => event.positionUncertainty));
             const node = context.terminateEdgesAtPoint(arrivals, merge.position, positionUncertainty);
             context.acceptAll(arrivals);
-            const bisections = bisectionsForMerge(resolution.ringOfMerge[index], {position: merge.position, edgeIds: arrivals}, node.id, context);
-            // The arrivals leave the wavefront, once `bisectionsForMerge` has linked each gap from them.
+            // A VERTEX EVENT ACROSS TWO RINGS (simultaneous-rings spec, decisions 3 to 8) bears the two bisectors of
+            // its two runs' cycle; every other merge lies on one ring and bears one bisector per gap, as always. Its
+            // runs were read at the layer's start, and merges are resolved first and share no edge, so every arrival
+            // is still unaccepted here (decision 16).
+            const runs = resolution.runsOfMerge[index];
+            const bisections = runs === undefined
+                ? bisectionsForMerge(resolution.ringOfMerge[index]!, {position: merge.position, edgeIds: arrivals}, node.id, context)
+                : bisectionsForCrossRingMerge(runs, node.id, context);
+            // The arrivals leave the wavefront, once each gap has been linked from them.
             retireBisectors(context, arrivals);
             // AND IT CARRIES WHERE IT WAS PUT (journal-5 decision 170): the medoid siting is decision 157's
             // release, and its cost downstream is each emitted bisector's equi-time residual at the node.
