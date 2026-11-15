@@ -17,12 +17,19 @@
  * THESE TESTS ARE GREEN BECAUSE THEY ASSERT A GUARD IN PRODUCTION CODE, never a wrong skeleton (BSA.D266). The wrong
  * skeletons behind them are the single-ring defect of `ISSUE-skeleton-straight-bisector-between-collinear-walls.md`,
  * which is not cured here. Every reproducer is the review's, coordinates verbatim (BSA.F103).
+ *
+ * K1, the review's cycle-rank specimen, is solved correctly since BSA.D335 stage 1 and is now a test of that solve,
+ * among the sound holed solves below (BSA.D336). The cycle-rank check it exercised is still reached on real solves by
+ * the two courtyard specimens, whose guard diagnostic is that check's, and on a constructed graph by "counts a cycle too
+ * many".
  */
 import type {SkeletonSolveResult, Vector2} from '@proc-geo/core';
 import {setSkeletonLogLevel, SKELETON_NOISE_FLOOR, solveSkeleton} from '@proc-geo/core';
 import {HOLED_UNCULLED_SELF_LOOP, holedSkeletonViolations} from '@proc-geo/core/straight-skeleton/holed-guard';
+import type {HoledTestPolygon} from '@proc-geo/test-fixtures';
 import {HOLED_A, HOLED_C1, HOLED_D, HOLED_G, HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
 import {jitterEveryLoop} from '../sweep-harness/sweep';
+import {expectSoundHoledSolve} from './holed-test-helpers';
 import {place} from './placement-helpers';
 
 setSkeletonLogLevel('silent');
@@ -60,20 +67,6 @@ function expectGuardedBy(result: SkeletonSolveResult, kind: string, detail: RegE
 }
 
 describe('the holed guard turns the silent wrong answers into signalled ones (BSA.D314)', () => {
-    /*
-     * K1 (fuzz seed 421): two straight vertices reach a collapsing ridge and each ridge bisector is paired with the far
-     * one. The arcs (1100,1100)→(1400,1100) and (1500,1100)→(1250,1100) overlap where the true ridge is 1100 → 1250 →
-     * 1400 → 1500. Every node is in the right place; the interior graph has one cycle too many.
-     */
-    it('K1, overlapping ridge arcs: one cycle too many is a topology violation', () => {
-        const result = solve(
-            P([[400, 800], [700, 800], [700, 1500], [900, 1500], [900, 1900], [1600, 1900], [1600, 1500], [1900, 1500],
-                [1900, 700], [1600, 700], [1600, 300], [400, 300]]),
-            [P([[1100, 400], [1200, 400], [1200, 700], [1100, 700]])]);
-        expectGuardedBy(result, 'holed-topology-violation', /cycle rank 2 .*1 hole\(s\)/);
-        expect(guardOf(result).filter(line => line.startsWith('holed-equal-time-violation'))).toEqual([]);
-    });
-
     /*
      * A zero-length self-loop between two collinear walls, not marked culled (fuzz seed 219). It carries no geometry,
      * and the solve is otherwise sound: the guard names it and blocks nothing (BSA.D318).
@@ -201,6 +194,53 @@ describe('the holed guard turns the silent wrong answers into signalled ones (BS
 });
 
 describe('the holed guard leaves every sound holed solve alone', () => {
+    /*
+     * K1 (fuzz seed 421), THE GUARD'S FIRST SPECIMEN, NOW SOLVED CORRECTLY (BSA.D335 stage 1, BSA.F109, BSA.D336). The
+     * bar between the walls y = 1500 and y = 700 collapses at t = 400 along y = 1100, where two straight vertices reach
+     * it: one down from the arm's ridge at x = 1250, between the two collinear top walls, and one up at x = 1400, between
+     * the hole's top wall and the outline's wall y = 700 to its right. Read off the faces by hand, the ridge is the chain
+     * 1100 → 1250 → 1400 → 1500, each arc between the top wall and the bottom wall whose faces meet over it. The pairwise
+     * fallback used to pair each ridge bisector with the far straight vertex, so its arcs (1100,1100)→(1400,1100) and
+     * (1500,1100)→(1250,1100) overlapped, and this test asserted the guard's cycle-rank violation; resolving the nearer
+     * meeting first makes the solve right and leaves the guard nothing to say.
+     */
+    it('K1, two straight vertices on a collapsing ridge: the ridge chain 1100 → 1250 → 1400 → 1500, and a sound solve', () => {
+        const fixture: HoledTestPolygon = {
+            name: 'K1 (fuzz seed 421)',
+            outline: P([[400, 800], [700, 800], [700, 1500], [900, 1500], [900, 1900], [1600, 1900], [1600, 1500],
+                [1900, 1500], [1900, 700], [1600, 700], [1600, 300], [400, 300]]),
+            holes: [{vertices: P([[1100, 400], [1200, 400], [1200, 700], [1100, 700]])}],
+        };
+        const {result} = expectSoundHoledSolve(fixture);
+        expect(guardOf(result)).toEqual([]);
+
+        const {graph} = result;
+        const onRidge = (p: Vector2) => Math.abs(p.y - 1100) < 1e-6;
+        const wall = (id: number) => {
+            const [a, b] = [graph.nodes[graph.edges[id].source].position, graph.nodes[graph.edges[id].target!].position]
+                .sort((p, q) => p.x - q.x || p.y - q.y);
+            return `(${a.x},${a.y})-(${b.x},${b.y})`;
+        };
+        // Each arc on the ridge once, an arc recorded from both ends counted once, with its two parent walls.
+        const ridge = new Set(graph.interiorEdges.flatMap(interior => {
+            const edge = graph.edges[interior.id];
+            if (interior.culled || edge.target === undefined) {
+                return [];
+            }
+            const [from, to] = [graph.nodes[edge.source].position, graph.nodes[edge.target].position];
+            if (!onRidge(from) || !onRidge(to)) {
+                return [];
+            }
+            const walls = [wall(interior.clockwiseExteriorEdgeIndex), wall(interior.widdershinsExteriorEdgeIndex)].sort();
+            return [`x ${Math.min(from.x, to.x).toFixed(6)} to ${Math.max(from.x, to.x).toFixed(6)}: ${walls.join(' and ')}`];
+        }));
+        expect([...ridge].sort()).toEqual([
+            'x 1100.000000 to 1250.000000: (1100,700)-(1200,700) and (700,1500)-(900,1500)',
+            'x 1250.000000 to 1400.000000: (1100,700)-(1200,700) and (1600,1500)-(1900,1500)',
+            'x 1400.000000 to 1500.000000: (1600,1500)-(1900,1500) and (1600,700)-(1900,700)',
+        ]);
+    });
+
     it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))('%s', (_name, fixture) => {
         const result = solveSkeleton(fixture.outline, holedSolveOptions(fixture));
         expect(guardOf(result)).toEqual([]);
