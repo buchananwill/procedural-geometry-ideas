@@ -1083,6 +1083,30 @@ session 3's own.
   - **Node 6's spec is `completed`** by the delegate's first commit.
   - **Dispatched:** node 9 to one fresh Opus delegate in the tree, and an independent review of node 7 from a private
     copy.
+- **323. The review of node 7 found `solveSkeleton` byte-identical, the single-loop scene digests genuine, and the
+  adapter right on every roster fixture; two medium defects on screen while a refusal stands, and five lower, all fixed
+  in a pass through the dashboard only.** One independent Opus reviewer from private copies of `9c0389a` and its parent,
+  with the dashboard suite re-run in its copy at 538 passed; not re-run by the lead.
+  - **Confirmed by the reviewer by running:** `solveSkeleton` old against new on the 60 corpus fixtures, the same
+    reversed, the 21 holed fixtures and three others, identical on every field; the stepped entry's result equal to
+    `solveSkeleton`'s, its snapshots matching the legacy stepped entry node for node on all 60 single loops; **the
+    pinned scene digests reproduced from the parent commit's own adapter for all 60 fixtures,** so they were measured
+    before the change; its own adapter checks on 26 holed cases; all 21 fixtures stopping at slicing on the parcels page
+    with the holes always passed. It looked at every screenshot and found none contradicting the implementer's account.
+  - **Fixed, medium: after a refusal the removed-vertex mark can sit on the wrong vertex,** because the maps kept on
+    screen belong to the last good outline and are indexed against the present one. While a refusal stands, nothing
+    derived from the stale solve's maps is drawn against the present outline.
+  - **Fixed, medium: while a refusal stands, the part of a hole now outside the outline is filled as building,** with
+    the stale skeleton over it. The stale skeleton is drawn visibly as stale, and the region's fill is not drawn from
+    loops the solver refused.
+  - **Fixed, lower:** outline and holes reach the parcels pipeline through one debounce, so no render pairs one
+    fixture's outline with another's holes; with the skeleton hidden, labels and arrows on a reversed hole number the
+    same way as when shown; in a step-through, bisectors merely pending are not drawn as never having met anything; a
+    refusal's heading says refusal and its detail prints once; the comment on the blocking-kinds test is corrected, and
+    the test is noted as only as fresh as core's last build.
+  - **Who and when:** one Opus delegate now, in `packages/dashboard` and `apps/demo` only, beside node 9's implementer,
+    who is in `apps/building-shell` only. It runs the dashboard's suite and builds, and nothing heavier, so node 9's
+    timed tests are not starved.
 
 ## Findings
 
