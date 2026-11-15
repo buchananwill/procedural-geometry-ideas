@@ -829,6 +829,35 @@ session 3's own.
   - **Left by node 4 and found by this pass:** three test-side helpers still date by `(parent + 1) % n`; node 6's spec
     generalises them.
   - **Dispatched:** node 5 to one fresh Opus delegate, with the measuring run of its decision 43 first.
+- **313. Roadmap node 5 is built at `3abb3ac`: the concentric courtyard, the courtyard with wings of BSA.F90 and every
+  other fixture of the spec solve to their closed forms, the piece rule's guard measured zero on every single-loop
+  solve, and no single-loop record moved. Accepted for review.** The delegate's figures, not re-run.
+  - **The figures:** core 6,028 passed, 7 failed by design, 9 skipped (the 5 weighted red tests and 2 new ones);
+    building-shell 9,992, typecheck clean; all 9 sweep outputs byte-identical.
+  - **The measuring run of spec decision 43, on the old code and the new:** over the corpus, the census at three depths
+    and the sweep, strikes on an already cut segment occur (2, 24, 48, 69 and 2), and **never with two pieces on the
+    instigator's ring; no multi-ring step and no cross-ring merge on any single-loop solve.** So the piece rule is
+    landed.
+  - **The fixtures:** A, A′, B, C1, C2, C2′, D, E, F, G and H each solve, each node within 1e-9 of the extent of its
+    closed form, each passing node 4's whole battery and two translations; no closed form in the spec needed correcting.
+    E′ is refused by name with its issue note. All five mutation gates convicted.
+  - **How much of courtyard space it covers, by fuzz of 400 each:** one axis-aligned rectangular hole in a rectangle, at
+    integer and at non-integer positions, 400 of 400 sound both times, where all were refused before; two holes at
+    non-integer positions, 400 sound; **two holes at integer positions, 375 sound, 20 refused as three-front meetings, 4
+    refused for a ring of three with no area, 1 complete with a self-loop.** With the piece rule reverted the total
+    falls from 1,575 to 1,356 with 122 complete and wrong, so that rule carries much of the space.
+  - **Two new defects, each a red test with an issue note, both from two holes whose walls lie on one line:** a bisector
+    born between two collinear walls is a straight vertex, not reflex, so it is never tested for a strike and is left in
+    a ring of no area (4 of 400); and a three-front meeting after the rings have joined, which the refusal cannot see
+    because it guards steps of several rings only, bears a self-loop (1 of 400). The first's cure is either the lead's
+    (how a ring of no area is treated) or the user's (split generation); the second's is the user's.
+  - **BSA.D311's unmeasured question is answered:** the three-front refusal met 20 of 400 two-hole courtyards at integer
+    positions and none at non-integer positions or with one hole. Buildings are drawn on a grid, so the integer row is
+    the relevant one.
+  - **Nine holed cases in `skeleton-loops-input.test.ts` that pinned node 4's refusal now solve** and assert
+    completeness; the delegate ran the whole battery over them.
+  - **Next:** an independent review working from a copy of `3abb3ac`, and node 6's implementation in the tree at the
+    same time.
 
 ## Findings
 
