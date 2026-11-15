@@ -858,6 +858,35 @@ session 3's own.
     completeness; the delegate ran the whole battery over them.
   - **Next:** an independent review working from a copy of `3abb3ac`, and node 6's implementation in the tree at the
     same time.
+- **314. The lead's rulings on node 5's review (BSA.F103): node 5 stands; a holed solve gains a guard that turns the
+  silent wrong answers into signalled ones; the single-ring defect behind them is filed for the user with red tests and
+  is not touched.**
+  - **Node 5's own rules are accepted as reviewed.**
+  - **The defect, a straight bisector between collinear walls that face the same way, is in how one-ring steps resolve
+    and exists on single loops today.** Its cure is the user's (BSA.D301). It gets one issue note with its three
+    mechanisms and red tests on the reviewer's reproducers, the single-loop ones first, since they show it owes nothing
+    to holes.
+  - **What the lead can and does do without touching single-loop resolution: a guard on holed solves only.** After a
+    solve with holes, the result is checked for the two things every silent wrong answer shows: the interior edges that
+    are not culled must form one connected graph whose cycle rank equals the hole count, with no self-loop that is not
+    culled; and every interior node must be at one time from all the walls that meet there, within the perceptual floor.
+    A failure is a blocking diagnostic, so the result is `complete: false` and a caller cannot mistake it. **Why this is
+    within the lead's remit:** it reads a finished graph, changes no event, moves no tolerance (it reads the perceptual
+    floor at one new site), and runs only when the input has holes, so no single-loop result changes. **It is measured
+    before it lands:** over a fuzz like the reviewer's it must flag no sound solve, and the report says how many of the
+    wrong ones it catches and which it misses.
+  - **Why not the same guard on single loops:** it would turn existing single-loop results from complete to incomplete,
+    which changes single-loop results and is the user's to rule. The lead recommends it to the user: the reviewer
+    measured that the solver's own oracles miss K1 entirely.
+  - **The red test `2h-int-113` is corrected:** it is replaced by the specimens that are truly wrong (a self-loop not
+    marked culled), and the test helper stops counting culled loops, as the solver's own tree check does.
+  - **Small, with the same pass:** the piece rule's fallback takes the piece by position, as the branch beside it does,
+    with a constructed test; the nine holed cases in `skeleton-loops-input.test.ts` run the whole battery; a rotated
+    holed fixture joins the tests.
+  - **For node 9:** building-shell's footprints are axis-aligned and grid-drawn. One courtyard in an L, T, U or plus is
+    sound in every case tried; several courtyards in one island meet refusals often. Building-shell must turn a refusal
+    or a guard failure into a hard error naming the island.
+  - **Who:** one fresh Opus delegate, after node 6's implementer leaves the tree.
 
 ## Findings
 
@@ -1171,3 +1200,37 @@ session 3's own.
     event.
   - **The pocket input for the least-area rule** is there too: a C-shaped hole with a pentagon in its cavity, whose
     pinch leaves four rings, the pentagon's ring lying inside both the outline's ring and the pocket's.
+- **F103. The review of node 5 found its own rules right and found that it lets holed inputs through to an older
+  single-ring defect: wherever two collinear walls face the same way, the solver can return a wrong skeleton, on a
+  single loop today as well, and sometimes with no signal.** (an independent Opus reviewer of 3abb3ac, working from
+  private copies of that commit and its parent, with its own checker and about 20,000 solves, 2026-11-15; not re-run by
+  the lead)
+  - **Node 5's code is sound:** no wrong node or arc is ever created inside a step of several rings (216 of 216 traced);
+    the cross-ring births keep W2 by construction; every ring of two the new rule passed on, in about 4,300 solves, was
+    a true corridor; the refusal is decided before any mutation and refused no sound layer; and over 12,556 single-loop
+    solves no new code path was reached and the counts equal the parent commit's.
+  - **Realistic footprints with one courtyard are all sound:** L, T, U and plus shapes on a grid with every valid single
+    courtyard, 1,098 of 1,098, each checked against the L-infinity distance to the nearest wall, an oracle independent
+    of the solver. The spec's fixtures turned through 360 angles are all sound.
+  - **The common precondition of every wrong or incomplete answer found, holed or not: a "straight" bisector, born
+    between two collinear walls that face the same way** (two hole walls on one line; a hole wall in line with an
+    outline wall; two outline walls either side of a wing).
+  - **Three mechanisms, all in one-ring steps:** (K1) two straight vertices reach a collapsing ridge together and each
+    ridge bisector is paired with the far one, giving overlapping arcs, wrong faces and one cycle too many, **with every
+    node in the right place, `complete: true` and no diagnostic**; (K3) a ring of two or three straight bisectors that
+    the pair or triangle handler cannot close, signalled as a step failure; and a zero-length self-loop that is not
+    marked culled, complete and undiagnosed but detectable.
+  - **On single loops today, before any of this arc's work:** K1 and the unculled self-loop both have single-loop
+    reproducers; 2 of 1,056 axis-aligned unions of rectangles are wrong, 10 of 6,000 dense ones, and of the same
+    outlines turned by an arbitrary angle 112 of 1,500 and 355 of 4,000.
+  - **What node 5 changed in outcome:** before it, every axis-aligned holed input was refused at the root. After it, of
+    3,000 axis-aligned unions of 2 to 4 rectangles with 1 to 3 holes, 2,752 are sound, 219 refused by name, **15
+    complete and wrong, 14 of them with no diagnostic**, 14 incomplete. Turned by an arbitrary angle, 223 of 1,500 are
+    complete and wrong, 180 with a causality diagnostic and 43 with none (K2: nodes misplaced by 1 to 35 units on a grid
+    of 100 where walls are nearly collinear).
+  - **Three courtyards in a row:** 45 of 115 sound, 61 refused, 9 incomplete. The three-front refusal is common there
+    (54 of 115), and with it switched off those cases become other refusals, never wrong and never sound.
+  - **The red test `2h-int-113` is red for the wrong reason:** its self-loop is marked culled, as sound single-loop
+    solves routinely have, and the test's helper counts culled loops.
+  - **Unreached and suspect:** the piece rule's fallback when no piece on the ring contains the strike.
+  - **Reproducers with exact coordinates** are in the lead's scratch file `node5-review-reproducers.md`.
