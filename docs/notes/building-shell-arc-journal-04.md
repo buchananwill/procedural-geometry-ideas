@@ -708,6 +708,31 @@ session 3's own.
     for refusal specimens; a pinned scene digest for every single-loop fixture is heavier than the unit needs, and the
     adapter's single-loop identity can be held by the existing scene tests plus one digest per debug setting on a
     handful of fixtures.
+- **309. The lead's rulings on node 4's review (BSA.F101): node 4 stands for unweighted input; the clearance oracle is
+  made weight-aware; the weighted solver defect is filed for the user with red tests and is not fixed tonight.**
+  - **F4's pin of the oracle's false report goes.** A test that is green by asserting a defect is what BSA.D266 forbids,
+    whichever component the defect is in. F4 asserts the weight-aware properties: equal time at every node, time never
+    decreasing along an edge, a closed face per edge, tiling.
+  - **The clearance oracle is corrected to compare times:** a node at time `t` must lie at distance at least `w · t`
+    from every wall of weight `w`, and a node is dated by distance over its parent's weight. This changes a diagnostic
+    and no graph, moves no tolerance, and at unit weights is today's arithmetic. It is measured first over every roster:
+    the expectation is that only weighted solves change, losing false reports. **Why now and not later:**
+    building-shell's pitches are weights, a mixed-pitch building is a weighted solve, and today a wrong weighted
+    skeleton cannot be told from a right one by the solver's own check.
+  - **The weighted defect in the solver is the user's:** it is evidence that today's solver is wrong on single-loop
+    input (5.6 percent of a random weighted fuzz), which the roadmap returns to them, and a cure would change how
+    single-loop events resolve. It gets an issue note and red tests on the reviewer's smallest reproducers, single-loop
+    and holed, asserting the weight-aware property. Nothing in the solver is changed for it. **Until it is cured,
+    "weighted holes solve" is claimed for nothing beyond F4,** and node 9 must say what building-shell does with mixed
+    pitches round a courtyard.
+  - **Added to node 4 by this review:** a fixture that pins the least-area rule, a C-shaped hole with a second hole in
+    the pocket it pinches off; a ring whose polygon crosses itself at the layer's time is refused as
+    `multi-ring-step-refused` and never classified by the sign of its area; the dropped assertion in
+    `skeleton-loops-input.test.ts` is restored in a form that holds; the generic counts of interior nodes and edges are
+    asserted on the fixtures that are generic.
+  - **Left:** the pinned step-by-step stories stay, marked as the reason each fixture was chosen and not as a property
+    of the solver.
+  - **Who:** one fresh Opus delegate for the fixes, once the reviewer has returned the exact reproducers.
 
 ## Findings
 
@@ -965,3 +990,34 @@ session 3's own.
     inverted comments and titles.
   - **The early-acceptance file's roster cases are now true by construction** and serve as a mutation guard against
     restoring the old rule, at about four minutes of suite time.
+- **F101. The review of node 4 found the unweighted holed solve correct on every input it tried, the solver's clearance
+  check blind to weights, and a weighted defect in the solver that predates holes and that holes make more frequent.**
+  (an independent Opus reviewer of a8ba71f, read-only, with its own checker and about 5,000 fuzzed inputs solved from
+  core's source, 2026-11-15; not re-run by the lead)
+  - **Unweighted, checked by the reviewer's own checker** (equal time at every node, clearance, containment, time never
+    decreasing along an edge, a closed face per exterior edge, tiling, and the generic counts of `n + 2h − 2` interior
+    nodes and `2n + 3h − 3` interior edges): fixtures F2, F5, F5 mirrored; three inputs of its own; **3,141 random
+    generic holed inputs with 1 to 6 holes, all complete and clean, none refused**; 389 rotated rectangular holes; 200
+    pocket inputs, 178 of which exercised the least-area rule and were right.
+  - **The clearance oracle in `causality-check.ts` never divides by weight.** It dates a node by distance from one
+    parent and compares with Euclidean distance to the nearest wall. On weighted input it reports violations on correct
+    skeletons: F4's `clearance 8` is one violation at node 8, on a skeleton that passes every weight-aware check. Four
+    single-loop weighted fixtures carry the same false reports today (`Weighted L` 3, `Weighted Pentagon House` 2,
+    `Weighted Square (1e-3 turn)` 1, `Weighted Invisible Vertex Rectangle (corner)` 2), which no single-loop test pins.
+    **F4's test is the first to pin one, and is green because it asserts the oracle's defect.**
+  - **A weighted defect in the solver itself, measured by fuzz:** of 800 random holed inputs with each hole edge
+    weighted between 0.7 and 1.5, 611 are clean, **84 are complete and wrong** (an interior edge runs backwards in
+    weighted time), 47 fail with "Unable to generate any collisions", 4 are refused as `multi-ring-step-refused` and 1
+    as `simultaneous-across-rings`. **The same fuzz on weighted single loops gives 5.6 percent wrong and 0.75 percent
+    failed,** so the class predates this commit. Holes at one constant weight give 764 clean and 1 wrong. Because the
+    oracle fires on nearly every weighted solve, a wrong weighted answer is in effect unsignalled. One refusal was
+    traced: an earlier corridor event between an outline edge and a hole edge was missed, a bisector then ran away at
+    speed 11.9, and the ring-assignment refusal caught the self-intersecting ring that followed.
+  - **The cross-ring refusal's whole width is parallel facing walls of different rings:** 400 of 400 axis-aligned
+    rectangles with an axis-aligned rectangular hole are refused at the root, because two corners of the hole reach the
+    nearest wall at one moment; in general position it never fired in over 3,500 inputs.
+  - **Lower:** nothing tests the least-area rule of spec decision 15; the area-sign classification trusts a ring's
+    polygon to be simple; an assertion was dropped from `skeleton-loops-input.test.ts`; the cycle-rank helper would not
+    see a duplicate arc; the pinned step-by-step stories are partly over-fit.
+  - **Sound by reading:** `partitionArc` terminates and telescopes to the old span on sound links, and can differ only
+    on broken ones; a refused layer changes nothing; dispatch and the struck-segment search.
