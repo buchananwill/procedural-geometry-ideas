@@ -14,6 +14,7 @@ import {degenerateAreaBar} from "./constants";
 import {ringPerimeter, signedArea} from "../random-polygon/geometry-helpers";
 import {distanceToSegment} from "../stroke-spline/vertex-budget";
 import {isPointInPolygon} from "../terrain/polygon-slope";
+import {findFirstCrossing} from "./polygon-decomposition";
 
 /**
  * THE WAVEFRONT'S ORDER, STORED (skeleton-wavefront-order spec, stage 1).
@@ -759,6 +760,12 @@ export interface RingComponent {
  *    perimeter)`, a witness closer than δ to an edge of an outer polygon by `distanceToSegment`, or an inner ring no
  *    outer ring contains is refused as `multi-ring-step-refused`, naming the step and the ring. δ is the solve's
  *    perceptual floor, read here and changed nowhere.
+ *  - A RING WHOSE POLYGON CROSSES ITSELF IS REFUSED THE SAME WAY, BEFORE ITS AREA IS READ (BSA.D309): the sign of a
+ *    self-crossing polygon's area is the difference of its lobes' and says nothing about its winding, so decision 15's
+ *    premise that the rings are simple is checked, not trusted. The test is `findFirstCrossing` at δ, the
+ *    decomposition's own, which skips an endpoint touch: a joined ring visits its join node twice, and its four edges
+ *    there meet only at their ends. It costs one O(m²) pass per ring a step of several rings leaves; it is never
+ *    reached on one loop, whose steps are each of one ring (decision 11).
  *
  * Components are returned in the order of their outer rings in `rings`, each inner ring in the order given.
  */
@@ -774,6 +781,12 @@ export function componentsOfRings(
         const polygon = ring.map(id => newborn.has(id)
             ? graph.nodes[graph.edges[id].source].position
             : context.wavefrontVertexAt(id, time));
+        const crossing = findFirstCrossing(polygon, floor);
+        if (crossing !== null) {
+            refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}]'s polygon crosses itself at time `
+                + `${time}: its edges ${crossing.edgeI} and ${crossing.edgeJ} cross at (${crossing.point.x}, `
+                + `${crossing.point.y}), so the sign of its area cannot classify it as outer or inner.`);
+        }
         const area = signedArea(polygon);
         const bar = degenerateAreaBar(floor, ringPerimeter(polygon));
         if (!(Math.abs(area) > bar)) {

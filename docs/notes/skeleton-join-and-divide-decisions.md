@@ -2,8 +2,9 @@
 title: "Skeleton join and divide: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: implementing
+status: completed
 date: 2026-11-14
+verified_by: [packages/core/tests/straight-skeleton/holed-join-divide.test.ts, packages/core/tests/straight-skeleton/full-graph-digest.test.ts]
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-loops-input-decisions.md]
 ---

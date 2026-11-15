@@ -303,6 +303,52 @@ export function equiTimeViolations(graph: StraightSkeletonGraph, tolerance: numb
     return found;
 }
 
+/**
+ * THE WEIGHTED TIME ORDER: every interior edge's target is no earlier than its source. A node's time is its
+ * perpendicular distance to the line of one wall naming a bisector incident to it (the clockwise parent of its
+ * lowest-id incident interior edge) over that wall's weight; an exterior node's is 0. Returns the edges whose target
+ * is earlier by more than `tolerance`. With {@link equiTimeViolations} clean the choice of wall changes no verdict.
+ */
+export function timeOrderViolations(graph: StraightSkeletonGraph, tolerance: number): string[] {
+    const dating = new Map<number, {edge: number; wall: number}>();
+    for (const interior of graph.interiorEdges) {
+        const edge = graph.edges[interior.id];
+        for (const node of [edge.source, edge.target]) {
+            if (node === undefined || node < graph.numExteriorNodes) {
+                continue;
+            }
+            const held = dating.get(node);
+            if (held === undefined || interior.id < held.edge) {
+                dating.set(node, {edge: interior.id, wall: interior.clockwiseExteriorEdgeIndex});
+            }
+        }
+    }
+    const timeOf = (node: number): number => {
+        const held = dating.get(node);
+        if (node < graph.numExteriorNodes || held === undefined) {
+            return 0;
+        }
+        const a = graph.nodes[graph.edges[held.wall].source].position;
+        const b = graph.nodes[graph.edges[held.wall].target!].position;
+        const p = graph.nodes[node].position;
+        const distance = Math.abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
+        return distance / graph.exteriorWeights[held.wall];
+    };
+    const found: string[] = [];
+    for (const interior of graph.interiorEdges) {
+        const edge = graph.edges[interior.id];
+        if (edge.target === undefined) {
+            continue;
+        }
+        const from = timeOf(edge.source);
+        const to = timeOf(edge.target);
+        if (to < from - tolerance) {
+            found.push(`edge ${interior.id}: node ${edge.source} at time ${from} -> node ${edge.target} at time ${to}`);
+        }
+    }
+    return found;
+}
+
 export interface InteriorGraphShape {
     components: number;
     selfLoops: number[];

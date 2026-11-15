@@ -62,9 +62,14 @@ interface LoopInput {
 /**
  * Every property gate 45 names, on one holed solve: one ring per loop in vertex order, the wavefront sound over
  * the root input, decision 15's reflex classification, the weights per loop, no `holes-not-solved` (retired by
- * node 4), and every caller edge carried by the solved edge its map names.
+ * node 4), what the solve comes to (`outcome`: refused at the root by name, or solved), and every caller edge carried
+ * by the solved edge its map names.
  */
-function expectHoledInitialisation(outline: LoopInput, holes: LoopInput[]): SkeletonSolveResult {
+function expectHoledInitialisation(
+    outline: LoopInput,
+    holes: LoopInput[],
+    outcome: 'refused' | 'solved' = 'refused',
+): SkeletonSolveResult {
     const options: SolveSkeletonOptions = {
         weights: outline.weights,
         holes: holes.map(hole => ({vertices: hole.vertices, weights: hole.weights})),
@@ -128,11 +133,22 @@ function expectHoledInitialisation(outline: LoopInput, holes: LoopInput[]): Skel
         }
     }
 
-    // The stop after initialisation is retired (skeleton join-and-divide spec, decision 34): the solve steps on, and
-    // what it comes to is the join-and-divide tests' business. Many of these inputs have walls parallel to the
-    // outline's, whose events coincide across rings and are refused for node 5.
+    // The stop after initialisation is retired (skeleton join-and-divide spec, decision 34): the solve steps on.
+    // WHAT IT COMES TO, measured (BSA.D309): an input whose hole has walls parallel to the outline's — every caller
+    // here but the turned square — meets events of two rings at one moment at the root and is refused for node 5 by
+    // name, before the layer changes anything, so no interior node exists. The turned square solves, complete and
+    // with no causality diagnostic.
     const kinds = result.diagnostics.map(diagnostic => diagnostic.kind);
     expect(kinds).not.toContain('holes-not-solved');
+    if (outcome === 'refused') {
+        expect(result.complete).toBe(false);
+        expect(kinds.filter(kind => kind === 'simultaneous-across-rings' || kind === 'multi-ring-step-refused'))
+            .toEqual(['simultaneous-across-rings']);
+        expect(graph.nodes).toHaveLength(n);
+    } else {
+        expect(result.complete).toBe(true);
+        expect(kinds).not.toContain('causality-violation');
+    }
 
     // The weights, concatenated in exterior id order (decision 34), and the caller's map (decision 24).
     expect(result.weights).toEqual(graph.exteriorWeights);
@@ -273,7 +289,7 @@ describe('the skeleton loops input (skeleton-loops-input spec)', () => {
                 x: centre.x + 1.5 * Math.cos(0.4 + k * Math.PI / 2),
                 y: centre.y + 1.5 * Math.sin(0.4 + k * Math.PI / 2),
             }));
-            const result = expectHoledInitialisation({vertices: OUTLINE}, [{vertices: hole}]);
+            const result = expectHoledInitialisation({vertices: OUTLINE}, [{vertices: hole}], 'solved');
             const {context} = result;
             // Decision 15's worked example: a square hole's four bisectors are all reflex.
             expect(range(4).filter(j => context!.isReflexEdge(context!.getInteriorWithId(8 + 4 + j)))).toHaveLength(4);
