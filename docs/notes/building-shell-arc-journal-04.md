@@ -543,6 +543,44 @@ session 3's own.
     decision 32 is in (spec decision 38).
   - **For the user:** the cure does what was approved on the six; the one addition is decision 32, which the lead judges
     to be inside the approval, and says so in case it is not.
+- **301. The user, 2026-11-15: The lead steers through the rest of the roadmap unattended.** The user's words on signing
+  off for the night: "Your goal is to steer through the rest of the road map."
+  - **What this covers:** every remaining node of `holed-skeleton-roadmap.md`, with specs drafted by delegates and
+    approved by the lead (BSA.D286, BSA.D288), implementation and independent review by delegates, and local commits at
+    each unit (BSA.D287).
+  - **What it does not change:** nothing is pushed and nothing is merged to `main`. The items the roadmap's standing
+    rules return to the user (a tolerance or constant that must move, a clean fixture whose answer changes, a design for
+    node 5 that changes how single-loop events resolve) are not decided by the lead in the user's absence.
+  - **How the lead handles such an item overnight:** it is recorded with its evidence, the unit takes the route that
+    changes nothing the user has not approved, a red test and an issue note mark what is left (BSA.D266), and work
+    carries on with whatever does not depend on the answer. The journal's next-work section is kept current so the user
+    can read the state in one place.
+- **302. The acceptance cure is accepted for commit, including the sixteen records its same-node ring rule moves off the
+  six.** The delegate's uncommitted tree: core 5,928 passed, 2 failed, 9 skipped; building-shell 9,992, typecheck clean;
+  the red early-acceptance file green with its assertions word for word. Not re-run by the lead.
+  - **The rule of acceptance spec decision 32 reaches further than the `rosette40` cells:** it also closes, unborn, one
+    mirrored pair of zero-length self-loops on `Off-edge Jitter Reflex L (seed 55433, k=4)` (corpus, its sweep cell and
+    12 census regions) and on six unpinned `offedge:plus` sweep cells. These solves never had early acceptance; the old
+    code bore the pair because neither parent was accepted.
+  - **Why it is accepted:** on every one, nodes, both oracle instruments, tiling and completion are unchanged, two edges
+    of no length go, and the skeleton goes from not a tree to a tree. That is the same graph without its degenerate
+    residue. No clean fixture moves; the two fixtures touched are in `KNOWN_DEFECT_POLYGONS`, and the census failure
+    counts do not change.
+  - **Pins moved with the lead's acceptance:** the jitter L fixture's digest and its I2 retired pin (renumbering only:
+    the joining edge `e50` becomes `e48`), each with the cause written at the pin. With the three pins of the six (the
+    `Offset Cross Junction` digest, its two fine rungs at 34 edges, and `circle48`'s signature of offset 1, clearance 3,
+    direction 1), five pins move in all.
+  - **The cure's effect on the six, as measured:** `ladder:1x:s1` completes; `ladder:1x:s2` and `circle48` tile to about
+    1e-8; `ladder:3x:s3` is identical; `Offset Cross Junction` goes from two step failures to one and from 10 wavefront
+    violations to 2, still incomplete, every other pin holding.
+  - **The cycles of spec decision 38 are identified and stay:** on `circle48`, six zero-length self-loops that predate
+    the cure and a three-edge duplicate ridge between two coincident nodes; on `ladder:1x:s1`, a self-loop on the
+    formerly refused birth and a loop of edges each under 3e-7 of the extent round the hub nodes; on `ladder:1x:s2`, a
+    four-edge loop under 2e-7 of the extent. All are structure below the perceptual floor at a hub where many bisectors
+    end, which is the solver's coincident-node question (RSA's register C12), not acceptance. Open item.
+  - **Mutation:** nine mutants convicted, and the one expected to survive survives: restoring the in-step acceptance
+    call with pending births changes nothing over 1,399 tests.
+  - **Next:** commit, then one independent review, then the issue is resolved and the spec completed.
 
 ## Findings
 
