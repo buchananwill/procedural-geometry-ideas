@@ -328,6 +328,14 @@ session 3's own.
     split `[12, 4]` at time 0.0732421875 "meets a third front: its instigator arrives at the vertex event [12, 16]".
   - Dispatched as a read-only investigation that returns a mechanism and a proposed rule; nothing is built from it
     without the user.
+- **340. The user, 2026-11-15: The whole-event rule for a merge on a third front (BSA.F111) is to be built, and the
+  user's understanding of what the refusal is and why the cure works is the bar for proceeding.**
+  - The user's words: "Yes build it, though I'm not fully understanding yet what the false negative is, and why the cure
+    works. That understanding is my bar for proceeding, so we need to drill into that."
+  - **The lead's reading:** the build is approved in principle and nothing is dispatched, spec included, until the user
+    says the explanation has landed, since their understanding may reshape the rule.
+  - Scope when it proceeds: multi-ring steps only, as an amendment to node 5's cross-ring rules; a delegate drafts the
+    spec, the lead reviews it, one Opus implementer builds, an independent review follows.
 
 ## Findings
 
