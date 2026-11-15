@@ -350,6 +350,20 @@ session 3's own.
     front is itself closing against a parallel front at that instant, which the lead argues is always so for
     axis-aligned walls and is not so for a slanted third front.
   - A read-only delegate checks the inference and measures the alternative against BSA.F111's rule on the same samples.
+- **342. The user, 2026-11-15: The user corrects the lead's framing: a zero-area ring is not an anomaly, it is one of
+  the commonest termination states of rectilinear geometry.** In the d layout the first layer of events creates nodes
+  only on the ridge lines, so what remains is flat by nature.
+  - The lead had described a zero-area ring as having "nothing left inside it to sweep" and as "what a defect looks
+    like", which treats it as an exception to be gated. The user: "This scenario is rife in rectilinear geometry, so in
+    fact zero area rings are one of the most common termination states."
+  - **The lead's reading of what follows, not the user's words:** the closure of BSA.F112 should be designed as a
+    termination case beside the pair and the triangle, generalising the corridor exemption, and not as a gated
+    exception. A flat ring bounds nothing, so the outer-or-hole question that the refusal guards does not arise for it.
+    The one-point gate of BSA.F112 is then one sub-case: a flat ring with nodes at several places on its line (the 40
+    equal-gap islands, the three-hole case) is equally a finished skeleton, and the ungated closure went wrong there
+    because it glued everything to one point, not because the ring was illegitimate.
+  - A read-only delegate measures that general flat-ring termination, with a positive test of flatness in place of the
+    area sign, against the combination of BSA.F112.
 
 ## Findings
 
