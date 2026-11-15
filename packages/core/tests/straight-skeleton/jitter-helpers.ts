@@ -1,4 +1,4 @@
-import {isClockwise, solveSkeleton, Vector2} from '@proc-geo/core';
+import {isClockwise, SkeletonSolveResult, solveSkeleton, Vector2} from '@proc-geo/core';
 
 import {makeRandom} from './subdivision-helpers';
 
@@ -100,6 +100,116 @@ export function jitteredSamples(
     }
 
     return vertices;
+}
+
+/*
+ * ============================================================================
+ *  THE TWO SHAPES' SKELETONS, DERIVED BY HAND (BSA.F109). Read by the along-edge suites as an oracle that owes
+ *  nothing to the solver.
+ * ============================================================================
+ *
+ * Each shape is the union of two bars, and its roof at unit speeds is the higher of the two bars' roofs: the L is
+ * [100,250]×[100,400] with [100,400]×[100,250], the plus [100,400]×[200,300] with [200,300]×[100,400]. A sample
+ * displaced ALONG its own edge leaves every wall's supporting line where it was, so it moves no part of the roof, and
+ * every along-edge cell of a shape has this same roof whatever k, seed and magnitude. Its skeleton is the canonical
+ * one below, plus one arc for each inserted sample, between the two collinear walls it splits and lying in their face.
+ */
+
+/** The roof of the bar [x0,x1]×[y0,y1] at unit speeds: its height at p, negative outside. */
+const barRoof = (x0: number, y0: number, x1: number, y1: number) => (p: Vector2): number =>
+    Math.min(p.x - x0, x1 - p.x, p.y - y0, y1 - p.y);
+
+/** Each shape's roof height at a point inside it. */
+export const JITTER_ROOFS = {
+    L: (p: Vector2) => Math.max(barRoof(100, 100, 250, 400)(p), barRoof(100, 100, 400, 250)(p)),
+    plus: (p: Vector2) => Math.max(barRoof(100, 200, 400, 300)(p), barRoof(200, 100, 300, 400)(p)),
+} as const;
+
+type Segment = readonly [Vector2, Vector2];
+const segment = (ax: number, ay: number, bx: number, by: number): Segment => [{x: ax, y: ay}, {x: bx, y: by}];
+
+/** Each bare shape's skeleton: its corners' hips, and the ridges they meet on. */
+export const JITTER_CANONICAL_SKELETONS: Record<keyof typeof JITTER_ROOFS, readonly Segment[]> = {
+    L: [segment(100, 100, 175, 175), segment(250, 250, 175, 175), segment(175, 175, 175, 325),
+        segment(175, 175, 325, 175), segment(100, 400, 175, 325), segment(250, 400, 175, 325),
+        segment(400, 100, 325, 175), segment(400, 250, 325, 175)],
+    plus: [segment(100, 200, 150, 250), segment(100, 300, 150, 250), segment(400, 200, 350, 250),
+        segment(400, 300, 350, 250), segment(200, 100, 250, 150), segment(300, 100, 250, 150),
+        segment(200, 400, 250, 350), segment(300, 400, 250, 350), segment(150, 250, 350, 250),
+        segment(250, 150, 250, 350), segment(200, 200, 250, 250), segment(300, 200, 250, 250),
+        segment(200, 300, 250, 250), segment(300, 300, 250, 250)],
+};
+
+/** The interior arcs that are not culled and do not end at their own source, with their two parent walls' ids. */
+function liveArcs(result: SkeletonSolveResult) {
+    const graph = result.graph;
+    return graph.interiorEdges.flatMap(interior => {
+        const edge = graph.edges[interior.id];
+        if (interior.culled || edge.target === undefined || edge.target === edge.source) {
+            return [];
+        }
+        return [{
+            from: graph.nodes[edge.source].position,
+            to: graph.nodes[edge.target].position,
+            walls: [interior.clockwiseExteriorEdgeIndex, interior.widdershinsExteriorEdgeIndex],
+        }];
+    });
+}
+
+/**
+ * The points, at fifths along every live arc, where either parent wall's height (the point's distance from the wall's
+ * line) misses `roof` by more than `tolerance`, as text. An arc lies on the roof exactly when both its parents' faces
+ * reach it there at the roof's height; empty for a sound solve of a jittered shape.
+ */
+export function offRoofArcPoints(result: SkeletonSolveResult, roof: (p: Vector2) => number, tolerance: number): string[] {
+    const graph = result.graph;
+    const heightAbove = (p: Vector2, wall: number) => {
+        const a = graph.nodes[graph.edges[wall].source].position;
+        const b = graph.nodes[graph.edges[wall].target!].position;
+        return Math.abs((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / Math.hypot(b.x - a.x, b.y - a.y);
+    };
+    const found: string[] = [];
+    for (const {from, to, walls} of liveArcs(result)) {
+        for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
+            const p = {x: from.x + fraction * (to.x - from.x), y: from.y + fraction * (to.y - from.y)};
+            const expected = roof(p);
+            if (walls.some(wall => Math.abs(heightAbove(p, wall) - expected) > tolerance)) {
+                found.push(`(${p.x.toFixed(4)}, ${p.y.toFixed(4)}), roof ${expected.toFixed(4)}`);
+            }
+        }
+    }
+    return found;
+}
+
+/**
+ * The least fraction of any canonical segment that the live arcs lying along it cover, within `tolerance` of its
+ * line: 1 when the solve holds the whole canonical skeleton.
+ */
+export function leastCanonicalCoverage(result: SkeletonSolveResult, segments: readonly Segment[], tolerance: number): number {
+    const arcs = liveArcs(result);
+    let least = 1;
+    for (const [a, b] of segments) {
+        const length = Math.hypot(b.x - a.x, b.y - a.y);
+        const ux = (b.x - a.x) / length;
+        const uy = (b.y - a.y) / length;
+        const off = (p: Vector2) => Math.abs((p.x - a.x) * uy - (p.y - a.y) * ux);
+        const along = (p: Vector2) => (p.x - a.x) * ux + (p.y - a.y) * uy;
+        const intervals = arcs
+            .filter(({from, to}) => off(from) <= tolerance && off(to) <= tolerance)
+            .map(({from, to}) => [Math.max(0, Math.min(along(from), along(to))), Math.min(length, Math.max(along(from), along(to)))])
+            .filter(([start, end]) => end > start)
+            .sort((first, second) => first[0] - second[0]);
+        let covered = 0;
+        let reach = 0;
+        for (const [start, end] of intervals) {
+            if (end > reach) {
+                covered += end - Math.max(start, reach);
+                reach = end;
+            }
+        }
+        least = Math.min(least, covered / length);
+    }
+    return least;
 }
 
 /** One cell of the sweep: does this (k, seed) configuration solve completely? */

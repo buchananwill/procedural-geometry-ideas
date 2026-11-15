@@ -11,10 +11,18 @@
  * geometric, and every fifth fixture of the clean roster. Measured on the parent of BSA.D335's stage 1 commit, all of
  * them were already invariant: the tie's far pairing joins a primary bisector, whose id is below every later bisector's
  * at any rotation, so the id order took the far meeting at every rotation.
+ *
+ * THE CASES THAT BITE (BSA.F109, BSA.D338): five along-edge jitter cells of the sweep harness, the reflex L at
+ * k = 2, 3, 5 and the double-reflex plus at k = 3, 5, each at magnitude 1.0 with `{noiseFloor: 0}` so that the
+ * jittered samples reach the solver. On the parent of stage 1 the pairwise fallback ordered their simultaneous events
+ * by edge id, and the skeleton changed at most of the sampled rotations (measured at every rotation: L k2 at 8 of 11,
+ * L k3 at 14 of 17, L k5 at 24 of 29, plus k3 at 29 of 35, plus k5 at 49 of 59); with the nearer event on a shared
+ * bisector resolved first, at none.
  */
-import type {SkeletonSolveResult, Vector2} from '@proc-geo/core';
+import type {SkeletonSolveResult, SolveSkeletonOptions, Vector2} from '@proc-geo/core';
 import {setSkeletonLogLevel, solveSkeleton} from '@proc-geo/core';
 import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
+import {clockwise, JITTER_DOUBLE_REFLEX_PLUS, JITTER_REFLEX_L, jitteredSamples} from './jitter-helpers';
 import {FILE_7_ISLAND, LEVEL_RIDGE_TIE} from './level-ridge-fixtures';
 
 setSkeletonLogLevel('silent');
@@ -28,11 +36,24 @@ interface Outline {
     name: string;
     vertices: Vector2[];
     weights?: number[];
+    options?: SolveSkeletonOptions;
 }
+
+/** An along-edge cell of the sweep harness: magnitude 1.0, canonicalisation off. */
+const alongEdgeCell = (label: string, polygon: Vector2[], k: number, seed: number): Outline => ({
+    name: `alongedge:${label}:k${k}:s${seed}, noiseFloor 0`,
+    vertices: jitteredSamples(clockwise(polygon), k, seed, 1.0, false),
+    options: {noiseFloor: 0},
+});
 
 const OUTLINES: Outline[] = [
     LEVEL_RIDGE_TIE,
     FILE_7_ISLAND,
+    alongEdgeCell('L', JITTER_REFLEX_L, 2, 15838),
+    alongEdgeCell('L', JITTER_REFLEX_L, 3, 7919),
+    alongEdgeCell('L', JITTER_REFLEX_L, 5, 23757),
+    alongEdgeCell('plus', JITTER_DOUBLE_REFLEX_PLUS, 3, 7919),
+    alongEdgeCell('plus', JITTER_DOUBLE_REFLEX_PLUS, 5, 23757),
     ...CLEAN_TEST_POLYGONS.filter((_, index) => index % 5 === 0),
 ];
 
@@ -40,9 +61,10 @@ const rotated = <T>(items: T[], start: number): T[] => [...items.slice(start), .
 
 function solveFrom(outline: Outline, start: number): SkeletonSolveResult {
     const vertices = rotated(outline.vertices, start);
-    return outline.weights === undefined
-        ? solveSkeleton(vertices)
-        : solveSkeleton(vertices, {weights: rotated(outline.weights, start)});
+    return solveSkeleton(vertices, {
+        ...outline.options,
+        ...(outline.weights === undefined ? {} : {weights: rotated(outline.weights, start)}),
+    });
 }
 
 type Arc = [Vector2, Vector2];
