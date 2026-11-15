@@ -4,7 +4,7 @@ type: workflow
 area: building-shell
 status: active
 date: 2026-11-14
-record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md", "./skeleton-edge-acceptance-decisions.md", "./ISSUE-skeleton-edge-accepted-before-its-face-closes.md"]
+record_of: ["./building-shell-gable-rise-proposal.md", "./building-shell-viewer-editing-proposal.md", "./building-shell-gable-stretch-settings-decisions.md", "./building-shell-prototype-decisions.md", "./skeleton-wavefront-order-decisions.md", "./holed-skeleton-roadmap.md", "./holed-skeleton-vision.md", "./skeleton-loops-input-decisions.md", "./skeleton-join-and-divide-decisions.md", "./skeleton-edge-acceptance-decisions.md", "./ISSUE-skeleton-edge-accepted-before-its-face-closes.md", "./skeleton-loop-consumers-decisions.md"]
 ---
 
 # Building shell arc: session 4 journal
@@ -611,6 +611,35 @@ session 3's own.
   - **Node 4's implementer is one fresh Opus delegate,** told that the partition dedupe's re-report rule is load-bearing
     on 11 sweep cells (BSA.D295), that the same-node ring rule precedes the reading of components, and that no tolerance
     moves.
+- **305. The spec for roadmap node 6, `skeleton-loop-consumers-decisions.md`, is approved by the lead under BSA.D286.**
+  Drafted by an Opus delegate under BSA.D288 from the sources at `8170011`; read by the lead from its decisions on. 48
+  decisions, 276 lines; it depends on node 4.
+  - **Its shape:** a consumer reads the node after exterior edge `e` as that edge's own target, which is `(e + 1) % n`
+    on one loop and needs no loop table; offset projection has one such site and strip decomposition six groups of them;
+    runs, the merging of short runs and corners work per loop and never join two loops; with default options
+    `computeStrips` returns one strip per exterior edge of every loop, which is the contract building-shell reads; an
+    offset contour is a flat list of rings, clockwise for an outer ring and counter-clockwise round holes, and the
+    tiling identity sums them signed.
+  - **The holed roster is a third roster, `HOLED_TEST_POLYGONS`, outside `FULL_CORPUS`,** so the single-loop sweeps keep
+    their meaning and their counts. It holds node 4's nine fixtures, weighted ones among them, and no holed fixture is
+    ever pinned as a defect. Each invariant keeps one definition with a second block over the roster; node 4's test-side
+    helpers are promoted into their home files and not duplicated.
+  - **The tree-based consumers refuse:** `buildSkeletonTree` throws on a holed result, the spine refuses through it, and
+    the recursive driver throws when its options carry holes.
+  - **Checked by the lead by hand:** the tiling example of spec decision 18 on F1 at depth 0.5 (81, 5.83 and 22.83
+    summing to 98).
+  - **BSA.D282 is corrected on one point, and BSA.F92 with it:** parcel slicing reads no skeleton, only a strip's own
+    edges, so the cycle is no reason for it to refuse and no refusal can be built without new provenance on `Strip`. It
+    gets none; no caller in the repo slices a holed result.
+  - **Interpretations accepted:** `buildSkeletonTree` throws where it could have returned `isTree: false`, because false
+    there means a solver defect and a holed skeleton is not one; offset rings carry no nesting; the sweep harness gains
+    144 holed cells, about a quarter more root-cell time, as records and not tests; the project CLAUDE.md gains one
+    sentence naming the roster and its counts are set to the measured 53 and 7.
+  - **Owed to node 4's spec when this lands:** a line that its fixtures moved to the roster and its decision 42 is met
+    by the roster sweeps.
+  - **Left open by the lead:** whether node 6 may be called completed while a holed fixture is red. The lead's answer
+    when it arises: yes if the red test has its issue note and the failure is the solver's and not a consumer's, since
+    node 6 is the consumers.
 
 ## Findings
 
