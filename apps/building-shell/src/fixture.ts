@@ -348,6 +348,40 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
   ];
 })();
 
+/**
+ * Holed roof decision 39: the holed fixtures, each one storey, every Ring hipped at 30°, each roofed by the skeleton of
+ * its outline and holes, and each measured sound. The golden set and the viewer list them. The roster's `Courtyard`
+ * (1000 square round a 400 square hole) is the first holed fixture and stays in `SHELL_FIXTURES`, so it is not listed
+ * twice.
+ * - `CourtyardWingsBothSides`: BSA.F90's Rings, the user's second draft, a wing jutting out on both sides. The fifth Ring
+ *   lies inside the third and is dropped (BSA.D261). Under the cut it had no qualifying cut and threw; its top is at
+ *   `250 + 200 tan 30°`, on y = 500 over x [-50, 100] and [900, 1100].
+ * - `CourtyardJutWing`: BSA.F88's Rings, the user's input, the W wing jutting 250 cm (moved here from the tests).
+ * - `TwoCourtyards`: genus 2, three wings 300, 400 and 300 wide; the middle wing's top at `250 + 200 tan 30°` at
+ *   (900, 500). The draft's equal-wing layout is refused, and is a `HOLED_REFUSALS` entry.
+ * - `CourtyardInCourtyard`: a 2000 square ring 300 deep round an 800 square island `[600, 1400]²` ring 250 deep: genus
+ *   `[1, 1]`, ridges at `250 + 150 tan 30°` and `250 + 125 tan 30°`.
+ */
+export const HOLED_FIXTURES: readonly ShellFixture[] = (() => {
+  const at30 = (name: string, rects: Rect[]): ShellFixture => fixture(name, rects.map(r => ring(r, 0, 1, 30)));
+  return [
+    at30('CourtyardWingsBothSides', [[0, 0, 1000, 300], [-250, 300, 300, 700], [700, 300, 1300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    at30('CourtyardJutWing', [[0, 0, 1000, 300], [-250, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    at30('TwoCourtyards', [[0, 0, 1800, 300], [0, 700, 1800, 1000], [0, 300, 300, 700], [700, 300, 1100, 700], [1500, 300, 1800, 700]]),
+    at30('CourtyardInCourtyard', [
+      [0, 0, 2000, 300], [0, 1700, 2000, 2000], [0, 300, 300, 1700], [1700, 300, 2000, 1700],
+      [600, 600, 1400, 850], [600, 1150, 1400, 1400], [600, 850, 850, 1150], [1150, 850, 1400, 1150],
+    ]),
+  ];
+})();
+
+/** A holed fixture by name. */
+export function holedFixture(name: string): ShellFixture {
+  const f = HOLED_FIXTURES.find(x => x.name === name);
+  if (!f) throw new Error(`no holed fixture named ${name}`);
+  return f;
+}
+
 /** Every named fixture the export writes and `fixtureByName` finds: the roster, the conflict pairs and the port's. */
 export const EXPORTED_FIXTURES: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES];
 

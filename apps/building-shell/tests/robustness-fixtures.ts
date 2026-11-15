@@ -1,6 +1,6 @@
 // The WP3 correctness reviewer's robustness inputs (journal decision 101, F36 and F37), restated from its scratchpad
 // reproducers `fuzz4.mjs` and `fuzz3.mjs` so the tests own them. Both generators are deterministic.
-import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, ring} from '../src/fixture.ts';
+import {FixtureRing, RING_SIDES, RingSide, RingSides, ShellFixture, holedFixture, ring} from '../src/fixture.ts';
 import type {Rect} from '../src/roof/model.ts';
 import {NamedFixture, shellFixture} from './test-builds.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
@@ -594,7 +594,10 @@ export const jutWingFixture = <N extends string>(name: N, jut: number, deg = 30,
  * built through that cut it stood a Gable and a Cheek on x = 0 (journal finding 89). Journal decision 278 refuses that
  * cut, and the east one, y = 300 over x 700 to 1000, is taken.
  */
-export const COURTYARD_JUT_WING = jutWingFixture('CourtyardJutWing', 250);
+export const COURTYARD_JUT_WING: ShellFixture = holedFixture('CourtyardJutWing');
+
+/** `COURTYARD_JUT_WING` is `jutWingFixture`'s layout at a 250 cm jut, the holed fixture moved out of the tests (holed roof decision 39). */
+export const COURTYARD_JUT_WING_AS_DRAWN = jutWingFixture('CourtyardJutWing', 250);
 
 /** Journal decision 150, F6: a near-touching island k/1024 cm beyond x = 500, its corners aligned or offset. */
 export type GapKind = 'Aligned' | 'Offset';

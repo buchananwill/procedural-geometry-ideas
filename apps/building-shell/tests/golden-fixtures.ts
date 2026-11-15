@@ -15,7 +15,7 @@
 // `readInput` accepts (`fileGolden`). So spec 16's refusals have no golden: their oracle is the unit tests
 // (tests/wire-input.test.ts).
 import {errorMessage} from '../src/errors.ts';
-import {EXPORTED_FIXTURES, RING_SIDES, RISE_FIXTURES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
+import {EXPORTED_FIXTURES, HOLED_FIXTURES, RING_SIDES, RISE_FIXTURES, RingSides, ShellFixture, fixtureByName, ring} from '../src/fixture.ts';
 import {
   GOLDEN_SCHEMA, GenusPerComponent, GoldenEntry, GoldenManifest, GoldenManifestSchema, MANIFEST_FILE, ResidueClass, cppReplayabilityOf, goldenText,
   unionStages,
@@ -355,6 +355,11 @@ export const RISE_GOLDENS: readonly CleanGolden[] = RISE_FIXTURES.filter(f => !R
   .map(f => cleanGolden(f, f.name.startsWith('Courtyard') ? [1] : [0]));
 
 /**
+ * Holed roof decision 39: the holed fixtures, each clean, its genus per component its hole count (highest first).
+ */
+export const HOLED_GOLDENS: readonly CleanGolden[] = HOLED_FIXTURES.map(f => cleanGolden(f, f.name === 'TwoCourtyards' ? [2] : f.name === 'CourtyardInCourtyard' ? [1, 1] : [1]));
+
+/**
  * Journal decision 129: every named fixture, the roster, the Ring-conflict pairs, the four Port fixtures and the
  * courtyard first, then every enrolled robustness fixture that builds, each at the storey heights its tests read, then
  * the rule oracles (decisions 156, F3, 161, findings 2 and 3, and 164, findings 1 and 2) and residue classes (decision
@@ -377,6 +382,7 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...RING_DROP_ORACLES,
   ...TUCK_ORACLES,
   ...RISE_GOLDENS,
+  ...HOLED_GOLDENS,
 ];
 
 /**

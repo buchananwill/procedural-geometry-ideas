@@ -3,7 +3,9 @@
 // records kept, which the viewer needs for the raw parts and the face-to-triangle map; `buildShell` itself is
 // `(await buildShellDetailed(f)).shell`.
 import {errorMessage} from '../errors.ts';
-import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
+import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, ShellFixture, storeysOf} from '../fixture.ts';
+import {HOLED_CAUSES} from '../roof/skeleton.ts';
+import {HOLED_REFUSALS} from '../../tests/robustness-fixtures.ts';
 import {ShellBuild, buildShellDetailed, droppedRingsWarning} from '../shell.ts';
 import type {Vec3} from '../tags.ts';
 import {readInput} from '../wire/input-adapter.ts';
@@ -398,6 +400,7 @@ const filter = $<HTMLInputElement>('fixture-filter');
 function fillSelector(): void {
   const groups = catalogueGroups({
     shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
+    holed: HOLED_FIXTURES, refusals: REFUSED_LAYOUTS,
     research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: seeds, pinned: PINNED_CASES, facts: CATALOGUE_FACTS,
     draft: draft ? {value: DRAFT_OPTION, label: draft.fixture.name} : undefined,
   });
@@ -429,9 +432,16 @@ function renderFixtureNote(sel: Selection): void {
   $('fixture-note').textContent = entry ? researchNote(entry) : '';
 }
 
-/** Every fixture the selector lists by name: the roster, the gable rises and settings, the Ring conflicts, the port's, the research cases. */
+/** Holed roof decision 58: every layout the holed solve refuses, with its cause, so it can be loaded and its error read. */
+const REFUSED_LAYOUTS = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
+
+/**
+ * Every fixture the selector lists by name: the roster, the gable rises and settings, the Ring conflicts, the port's,
+ * the holed fixtures and refusals, the research cases.
+ */
 const LISTED_FIXTURES: readonly ShellFixture[] = [
-  ...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES,
+  ...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES,
+  ...REFUSED_LAYOUTS.map(r => r.fixture), ...RESEARCH_FIXTURES,
 ];
 
 /** WP-V3: the in-memory source of each defect case the golden set ships no input for, derived from the golden set itself. */

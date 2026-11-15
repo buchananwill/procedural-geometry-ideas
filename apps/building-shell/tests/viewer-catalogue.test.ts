@@ -2,8 +2,10 @@
 // the gable settings (WP-S2), the Ring conflicts, the port's regressions, the roof-gable research cases, the clean goldens with a committed input,
 // the playtest seeds and the defect cases, grouped, with a text filter.
 import {existsSync, readFileSync, readdirSync} from 'node:fs';
+import {HOLED_CAUSES} from '../src/roof/skeleton.ts';
+import {HOLED_REFUSALS} from './robustness-fixtures.ts';
 import {describe, expect, it} from 'vitest';
-import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RING_SIDES, RISE_FIXTURES, SHELL_FIXTURES} from '../src/fixture.ts';
 import {
   CatalogueGroup, CatalogueSources, InputFile, PLAYTEST_SEED_STEMS, catalogueGroups, choosableCount, filterCatalogue, filterTerms,
   goldenInputFiles, leftOutValue, playtestFiles,
@@ -22,7 +24,9 @@ import {pinClass} from './pin-table.ts';
 
 const APP = new URL('../', import.meta.url);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+/** Holed roof decision 58: the refused layouts the selector lists, each with its cause. */
+const REFUSED = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
+const LISTED = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES, ...REFUSED.map(r => r.fixture), ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 
@@ -38,7 +42,7 @@ function pinnedGroupLabelsOfTables(): string[] {
   return [...RESIDUE_CLASS_NAMES.filter(c => classes.has(c)).map(c => `Pinned: ${c}`), ...conflictOnly.map(t => `Pinned conflicts: ${t}`)];
 }
 const sources: CatalogueSources = {
-  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES,
+  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, holed: HOLED_FIXTURES, refusals: REFUSED,
   research: RESEARCH_ENTRIES, defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES,
   // The labels' facts are `viewer-facts.test.ts`'s: here every label is its bare name.
   facts: {},
@@ -91,7 +95,7 @@ describe('catalogueGroups', () => {
   it('groups the selector in a fixed order, a pinned group for each class and conflict table the pin tables fill', () => {
     const pinnedGroups = pinnedGroupLabelsOfTables();
     expect(groups.map(g => g.label)).toEqual([
-      'Fixtures', 'Gable rises', 'Gable settings', 'Ring conflicts', 'Port regressions', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
+      'Fixtures', 'Gable rises', 'Gable settings', 'Ring conflicts', 'Port regressions', 'Holed fixtures', 'Holed refusals', 'Roof-gable research cases', 'Goldens (golden/*.input.json)',
       'Playtest seeds (fixtures/playtest)', 'Defect cases', ...pinnedGroups,
     ]);
     // The user's reference class keeps its group; a class the golden set records as emptied has none.
@@ -194,5 +198,24 @@ describe('filterCatalogue', () => {
     expect(filterCatalogue(groups, 'zzz-no-match')).toEqual([]);
     const kept = filterCatalogue(groups, 'zzz-no-match', 'DefaultChalet');
     expect(kept).toEqual([{label: 'Fixtures', entries: [{value: 'DefaultChalet', label: 'DefaultChalet'}]}]);
+  });
+});
+
+describe('the holed roof in the selector (holed roof decisions 39 and 58)', () => {
+  const of = (label: string) => groups.find(g => g.label === label)?.entries ?? [];
+
+  it('lists every holed fixture by name', () => {
+    expect(of('Holed fixtures').map(e => e.value)).toEqual(HOLED_FIXTURES.map(f => f.name));
+  });
+
+  it('lists every refused layout, loadable, marked refused with its cause in the user\'s terms', () => {
+    const entries = of('Holed refusals');
+    expect(entries.map(e => e.value)).toEqual(HOLED_REFUSALS.map(r => r.fixture.name));
+    for (const [k, e] of entries.entries()) {
+      expect(e.disabled).toBeUndefined();
+      expect(e.label).toBe(`${HOLED_REFUSALS[k].fixture.name} (refused: ${HOLED_CAUSES[HOLED_REFUSALS[k].kind]})`);
+    }
+    // A refused layout's value is the fixture the page loads, so its hard error is what the failure panel shows.
+    for (const r of HOLED_REFUSALS) expect(selectionFromHash(`#${r.fixture.name}`, {fixtures: LISTED, cases}).kind).toBe('fixture');
   });
 });

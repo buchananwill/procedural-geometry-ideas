@@ -4,9 +4,11 @@
 // case's build is held to its pin, and each golden's to its manifest entry, so the table never records a result that
 // disagrees with a pin.
 import {readFileSync, writeFileSync} from 'node:fs';
+import {HOLED_CAUSES} from '../src/roof/skeleton.ts';
+import {HOLED_REFUSALS} from './robustness-fixtures.ts';
 import {describe, expect, it} from 'vitest';
 import {errorMessage} from '../src/errors.ts';
-import {GABLE_SETTING_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, storeysOf} from '../src/fixture.ts';
+import {GABLE_SETTING_FIXTURES, HOLED_FIXTURES, PORT_FIXTURES, RING_CONFLICT_FIXTURES, RISE_FIXTURES, SHELL_FIXTURES, storeysOf} from '../src/fixture.ts';
 import type {ShellFixture} from '../src/fixture.ts';
 import {buildShellDetailed} from '../src/shell.ts';
 import type {ShellBuild} from '../src/shell.ts';
@@ -28,11 +30,13 @@ import {throwsOutcome} from './pin-table.ts';
 const APP = new URL('../', import.meta.url);
 const FACTS_FILE = new URL('src/viewer/catalogue-facts.ts', APP);
 const manifest: unknown = JSON.parse(readFileSync(new URL('golden/manifest.json', APP), 'utf8'));
-const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...RESEARCH_FIXTURES];
+/** Holed roof decision 58: the refused layouts the selector lists, each with its cause. */
+const REFUSED = HOLED_REFUSALS.map(r => ({fixture: r.fixture, cause: HOLED_CAUSES[r.kind]}));
+const LISTED: readonly ShellFixture[] = [...SHELL_FIXTURES, ...RISE_FIXTURES, ...GABLE_SETTING_FIXTURES, ...RING_CONFLICT_FIXTURES, ...PORT_FIXTURES, ...HOLED_FIXTURES, ...REFUSED.map(r => r.fixture), ...RESEARCH_FIXTURES];
 const goldens = goldenInputFiles(manifest, new Set(LISTED.map(f => f.name)));
 const cases = parseDefectCases(manifest, inMemorySources(GOLDEN_FIXTURES, PINNED_CASES, LISTED));
 const sources = (facts: FactsLookup): CatalogueSources => ({
-  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, research: RESEARCH_ENTRIES,
+  shell: SHELL_FIXTURES, rises: RISE_FIXTURES, gableSettings: GABLE_SETTING_FIXTURES, conflicts: RING_CONFLICT_FIXTURES, port: PORT_FIXTURES, holed: HOLED_FIXTURES, refusals: REFUSED, research: RESEARCH_ENTRIES,
   defects: cases, goldens, playtest: playtestFiles(), pinned: PINNED_CASES, facts,
 });
 

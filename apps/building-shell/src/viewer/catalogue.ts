@@ -62,9 +62,19 @@ export function goldenInputFiles(manifest: unknown, listed: ReadonlySet<string>)
   });
 }
 
+/**
+ * Holed roof decision 58: a layout the holed solve refuses by name, listed so it can be loaded and its hard error read:
+ * its fixture, and its cause in the user's terms (`HOLED_CAUSES`).
+ */
+export interface RefusedLayout { fixture: ShellFixture; cause: string }
+
 /** Everything the selector can list, each list in its own order. */
 export interface CatalogueSources {
   shell: readonly ShellFixture[];
+  /** Holed roof decision 39: the holed fixtures (`HOLED_FIXTURES`). */
+  holed?: readonly ShellFixture[];
+  /** Holed roof decision 58: the layouts the holed solve refuses (`HOLED_REFUSALS`), each marked refused with its cause. */
+  refusals?: readonly RefusedLayout[];
   rises: readonly ShellFixture[];
   /** Per-stretch gable settings decision 22: one fixture per setting (`GABLE_SETTING_FIXTURES`). */
   gableSettings: readonly ShellFixture[];
@@ -218,6 +228,8 @@ export function catalogueGroups(s: CatalogueSources): CatalogueGroup[] {
     {label: 'Gable settings', entries: named(s.gableSettings)},
     {label: 'Ring conflicts', entries: named(s.conflicts)},
     {label: 'Port regressions', entries: named(s.port)},
+    {label: 'Holed fixtures', entries: named(s.holed ?? [])},
+    {label: 'Holed refusals', entries: (s.refusals ?? []).map(r => ({value: r.fixture.name, label: `${r.fixture.name} (refused: ${r.cause})`}))},
     {label: 'Roof-gable research cases', entries: s.research.map(researchEntry)},
     {label: 'Goldens (golden/*.input.json)', entries: filesOf(s.goldens)},
     {label: 'Playtest seeds (fixtures/playtest)', entries: filesOf(s.playtest)},

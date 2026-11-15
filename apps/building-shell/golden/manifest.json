@@ -2894,6 +2894,126 @@
     "droppedRings": []
    },
    "violations": []
+  },
+  {
+   "fixture": "CourtyardWingsBothSides",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "CourtyardWingsBothSides.json",
+   "union": "CourtyardWingsBothSides.union.json",
+   "input": "CourtyardWingsBothSides.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 112,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": [
+     4
+    ]
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CourtyardJutWing",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "CourtyardJutWing.json",
+   "union": "CourtyardJutWing.union.json",
+   "input": "CourtyardJutWing.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 80,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
+   },
+   "violations": []
+  },
+  {
+   "fixture": "TwoCourtyards",
+   "cppReplayable": true,
+   "expectedGenus": [
+    2
+   ],
+   "measuredGenus": [
+    2
+   ],
+   "clean": true,
+   "shell": "TwoCourtyards.json",
+   "union": "TwoCourtyards.union.json",
+   "input": "TwoCourtyards.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 80,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CourtyardInCourtyard",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1,
+    1
+   ],
+   "measuredGenus": [
+    1,
+    1
+   ],
+   "clean": true,
+   "shell": "CourtyardInCourtyard.json",
+   "union": "CourtyardInCourtyard.union.json",
+   "input": "CourtyardInCourtyard.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 176,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
+   },
+   "violations": []
   }
  ]
 }
