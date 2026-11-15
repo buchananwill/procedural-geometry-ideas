@@ -1199,6 +1199,47 @@ session 3's own.
     rule oracle; a fixture for the built-roof fallback; the remaining conflict rows measured; the refusal text reworded;
     and the amendments to `building-shell-prototype-decisions.md` that the node 9 spec lists, applied by the delegate
     for the lead to read as a diff.
+- **328. The user, 2026-11-15: The user asks whether every island's hip solid should stand from the floor, so that there
+  is one rule, and whether that would create a different bug.** The user's words: "Should we move the non-holed branch
+  to the same rule then? Or does that create a different bug? Seems like we should have one rule if we can?"
+  - **The lead's answer: not known, and so measured before anything is decided.** Session 1's decision 132 allowed the
+    extension "if the identity check shows it removes a defect class and moves nothing else", and that check was never
+    run; session 1's decision 135 recorded two `cleanMesh` refusals with floor-standing holed solids; and the bottom at
+    the plate puts a pair of coplanar faces on every building, which is the kind of place the union leaves a tuck
+    (BSA.F87), so one rule might cure tucks that are only labelled today. That last is a guess.
+  - **Dispatched:** a read-only measurement on a private copy of `96148ec` with every island's hip solid standing from
+    the floor: the suite, the goldens in canonical form, tucks before and after, refusals and defects, roof heights, and
+    build time. Nothing is committed. The choice is the user's once the table is in.
+- **329. The user, 2026-11-15: The churn of every golden's raw-part bytes is not a cost to weigh against one rule for
+  the hip solid.** The user's words, of the lead's remark that every building's raw hip solid and so every golden would
+  move: "we just eat this." So the question of BSA.D328 turns only on behaviour: whether a floor-standing hip solid on
+  every island cures tucks, breaks nothing, or trades one defect for another. This also stands as the user's steer for
+  golden churn in general in this arc, beside the courtyard ruling of BSA.D284: bytes that move for a stated cause are
+  re-exported and reported, not avoided.
+- **330. Roadmap node 9 is complete at `8be3a7f`: building-shell roofs courtyards on the holed skeleton with no cut; its
+  spec is `completed` and the app's own spec is amended in place. The suite is 9,710 passed and 4 failed, the 4 red by
+  design for folded single-loop roofs.** The delegate's figures, not re-run; the lead read the amendments to
+  `building-shell-prototype-decisions.md` as a diff and found each in place, dated, and citing its decision, with the
+  cut block struck and kept.
+  - **Single-loop islands of mixed pitch, the issue note `ISSUE-building-shell-mixed-pitch-island-folded-roof.md`, open,
+    with four red tests asserting on the union mesh that the Roof covers the footprint once, faces up and stands on the
+    footprint.** A correction to BSA.F105: the reviewer's three specimens build a wrong roof and then throw later, in
+    Cell laying, with an error that names a Cell; a fourth, found by fuzz, builds its whole shell with no error. Of
+    4,948 single-loop storeys in that fuzz, 53 have a wrong roof, 52 of which throw later and 1 builds whole; 32 carry a
+    causality diagnostic and 21 none; none of the 4,895 sound roofs carries one. **So making a causality diagnostic a
+    hard error would catch 32 of the 53 and refuse no sound roof in this sample.** That softens the cost the lead gave
+    in BSA.D326; the choice is still the user's.
+  - **Every conflict pin that differs from the parent commit in more than numbering, 21 rows, has its cause measured
+    exactly** with Manifold's own booleans: the overlap of the two tags on the plane is identical at both commits in
+    every row, and each pin now carries its overlap in a comment. None is un-pinned. The reviewer's sampled figures
+    differ slightly from these exact ones.
+  - **Coverage restored:** the golden test over every rule oracle; a fixture that reaches the built-roof fallback on the
+    holed roof, the Courtyard with its south band gabled, convicted by the mutation the reviewer found unconvicted. The
+    fallback is live: 474 generated rises reach it.
+  - **The refusal for a pitch change between walls in line now says so.**
+  - **The project CLAUDE.md's `src/roof/` line is corrected:** the cut's removal released every file but `surface.ts`,
+    and the test pins algorithm B's tally and verdicts.
+  - **Open with the user:** the one rule for the hip solid (BSA.D328, BSA.D329), being measured.
 
 ## Findings
 

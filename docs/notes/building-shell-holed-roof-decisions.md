@@ -376,6 +376,15 @@ a single-pitch island it also asserts each node's and sample's height against `d
 58. **The viewer's failure panel shows decision 17's message whole,** and the catalogue marks each `HOLED_REFUSALS`
     entry as refused with its cause, so a refused layout can be loaded and looked at.
 
+59. **Decision 25 is REVERSED (BSA.D326, BSA.D327): a holed island's hip solid stands from the floor, as it did under
+    the cut, and only an island with no hole has its bottom at the plate.** Built with its bottom at the plate, 36
+    split-band courtyards gabled on every side, clean before, failed in Cell laying: the union left a tuck where a
+    gable piece and a covered rise stand back to back, the tuck split one Roof face in two, and Cells were laid across
+    it. The roof surface was right throughout. The fix is at `96148ec`, convicted by flipping the solid back to the
+    plate, which turns 38 tests red. Why a bottom at the plate makes Manifold leave the tuck is not established, as
+    BSA.F87 found of every tuck. Decision 25's reason was reasoning that was never built, and no golden or gate told
+    the two apart.
+
 ## 5. Deferred
 
 - **Merging touching loops:** roadmap node 8. Until then contact is the `'door-loops'` hard error.
