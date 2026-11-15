@@ -1240,6 +1240,31 @@ session 3's own.
   - **The project CLAUDE.md's `src/roof/` line is corrected:** the cut's removal released every file but `surface.ts`,
     and the test pins algorithm B's tally and verdicts.
   - **Open with the user:** the one rule for the hip solid (BSA.D328, BSA.D329), being measured.
+- **331. The user, 2026-11-15: The hip solid keeps its two forms for now: a holed island's stands from the floor, an
+  island with no hole has its bottom at the plate.** The user's words, on the measurement of BSA.F106: "Fine, Keep the
+  split for the moment." One rule buys no correctness, leaves the generators with more tucks and costs the suite its
+  tuck reproducers. "For the moment" is the user's: the question reopens when the tuck itself is understood (BSA.F87),
+  which the lead recommends as its own investigation.
+- **332. The spec for roadmap node 8, `skeleton-loop-contact-decisions.md`, is approved by the lead under BSA.D286 as
+  revised and measured (BSA.D319), and dispatched: it is the last node of the roadmap.** The lead read the revision's
+  report in full and the spec's decisions by their claims, not every line of their text; that limit is stated here so
+  the approval is not taken for more than it is.
+  - **What it builds:** one stage in the boundary, for inputs with holes only, that identifies coincident points and
+    walls at the perceptual floor, cancels opposite coincident pieces, relinks and traces the loops again. Loops that
+    share a wall become one loop; loops that share a point become one loop visiting it once per wedge; a gap under the
+    floor is contact and is merged; a region that falls apart, walls coinciding the same way, and a crossing through
+    vertices are refused by name. No tolerance, constant or event rule moves, and a single loop never enters the stage.
+  - **The conditions the lead attaches, each already a decision of the spec and named here because they are what makes
+    it safe:** the holed guard runs whenever the caller gave holes, with the hole count read from the solved graph, so a
+    merge that leaves no hole is still guarded (spec decisions 23 and 24); the guard's planarity check treats two arcs
+    meeting at a repeated point as meeting at a node, since compared by node id it flagged every sound stitched solve
+    the reviser tried (decision 27); and the exemption of a repeated point from the self-contact refusal holds only
+    under its three exact clauses, each with its own mutation gate (decisions 21 and 22).
+  - **The caller's map changes shape** (`edgeToEdges`; a caller edge can map to several solved edges or none). Without
+    contact it is unchanged, and building-shell's own union never produces contact (BSA.D321), so building-shell's suite
+    must not move; the implementer runs it to show that.
+  - **What the node inherits and cannot claim:** a rebuilt loop solves exactly as the same loop drawn by hand, so it
+    inherits the open single-loop defects; the guard blocked all 18 wrong merged answers the reviser measured.
 
 ## Findings
 

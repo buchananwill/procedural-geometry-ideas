@@ -2,7 +2,7 @@
 title: "Skeleton loop contact: decision spec"
 type: decision-spec
 area: straight-skeleton
-status: proposed
+status: approved
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-join-and-divide-decisions.md, skeleton-simultaneous-rings-decisions.md, skeleton-loop-consumers-decisions.md]
