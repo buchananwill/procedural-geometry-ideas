@@ -1649,3 +1649,25 @@ session 3's own.
     goldens identical; the 3 that changed are each right by the reviewer's checks.
   - **Lower:** 4 of 5,000 single-loop islands that threw "Not manifold" now throw `strip-missing`, a different hard
     error; a refusal message names a corner where two collinear walls differ in pitch.
+- **F106. Making every island's hip solid stand from the floor changes no roof and breaks nothing, and it does not cure
+  tucks: it moves them. It is a trade, not a cure.** (an Opus measurement on two private copies of 96148ec, 11,822
+  builds each side, run twice with identical results, 2026-11-15; not re-run by the lead)
+  - **The edit is one line in `hipSolid`.** Over 11,822 builds, no build throws on one side only, no `cleanMesh` failure
+    appears on either side, and no defect count rises. Roof heights at 983,188 sample points differ by at most 0.01 cm,
+    the rounding grain. In 11,803 builds the canonical shell is identical; the other 19 differ only in Tuck faces.
+  - **Tucks:** the 14 curated tuck cases, chosen because they tuck, all stop (28 Tuck faces to 0), with every reproducer
+    of BSA.F87 and the port's tuck golden `U8Seed6h300`. **In the seeded courtyard, split-band and U generators, which
+    were not chosen for tucks, the count rises from 5 tucked buildings to 17.** 17 buildings lose a tuck and 15 gain
+    one. Every new tuck is labelled, carries no Cells, causes no violation and splits no face.
+  - **One new tuck traced:** a storey-0 gable standing back to back with storey 1's taller Ring wall, which ends inside
+    the gable's span: BSA.F87's own configuration, with the part that changed being storey 1's hip solid. This fits
+    BSA.F87's finding that a tuck depends on raw parts away from the contact.
+  - **A small cure:** one Unclassified Edge becomes Eaves in each of four nudge cases.
+  - **The two courtyards of session 1's decision 135 build clean either way,** and low caps from 5.05 to 25 cm at convex
+    corners are clean either way.
+  - **Cost of adopting it, beyond golden bytes the user has waived (BSA.D329):** about 3 percent of build time; and the
+    suite's reproducers go, since the tuck oracles (about 35 tests), six G1 sheet and pillow cases, nine imprint
+    controls and one tuck-unlabel test are built on buildings that would no longer tuck, and would convict nothing until
+    rewritten on new ones. About 70 conflict rows and 61 pins carrying ids move with it.
+  - **It meets neither bar the record set for it:** session 1's decision 132 asked that it remove a defect class and
+    move nothing else, and decision 135 that it regress nothing.
