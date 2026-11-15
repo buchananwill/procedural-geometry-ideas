@@ -420,6 +420,12 @@ session 3's own.
   - **The close-out list for the arc, as put to the user:** land and review BSA.D345's build; the ruling on `6dab6b0`;
     the nine red-by-design tests listed for the port as known defects; the along-edge sweep records re-recorded and the
     suite's figures stated on the final tree; this pass; then the merge.
+  - **AMENDED by the user, 2026-11-15:** The user, 2026-11-15: holding the clean-up pass to byte-identical sweep output
+    is a spurious bar, since the pass knowingly changes things. The lead had overstated it against the user's own
+    standing steer (BSA.D284): byte identity is the cheap test of sameness, not a hard stop. The pass's bar is the
+    suites and the oracles; a before-and-after comparison of sweep output and digests is its detector, and each
+    divergence is diagnosed and then fixed or written down as acceptable (node numbering, creation order, rounding from
+    re-ordered arithmetic). A change that improves an answer is allowed and reported.
 - **347. The user, 2026-11-15: Stage 2 of the tie-break, `6dab6b0`, is kept as it is: simultaneous events that share no
   bisector are ordered by priority, then by place (left, then lower), then by edge id.** The user chose this over
   reverting to edge-id order and over diagnosing first.
