@@ -584,3 +584,48 @@ session 3's own.
     skeleton level by the delegate's own equidistance and direction check; weights only on the issue specimen's
     variants; that a ring passing the gate cannot hide an untraced level piece is measured, not proved; the closure was
     applied within the step and the triangle handler path was not tested.
+- **F113. The user is right by census: flat termination is the common state, and a general flat-ring termination case,
+  with a positive test of flatness and no single point required, cures everything the one-point closure cured plus the
+  40 equal-gap islands and the three-hole case it declined.** (a read-only Opus investigation delegate under @D342,
+  2026-11-15, measured on 3451055 (core source unchanged since 27d9cc1); scratch in
+  apps/building-shell/experiments/flat-ring-termination/, uncommitted)
+  - **Census on production, rings left by a layer.** Grid sample 1 (2,000 two-courtyard islands): on one-ring steps
+    8,525 corridors of two, and every one of the 291 rings of three is flat; on steps of several rings 5,357 corridors
+    and 28 flat rings of three, every one refused (the sliver class). The ten courtyard layouts: 6 flat rings of three
+    on multi-ring steps, all refused. `FULL_CORPUS`: 21 corridors, 6 flat rings of three, 3 flat of four or more.
+  - **One-ring steps survive flat rings by accident of the dispatch:** corridors through the pair handler; flat rings of
+    three through the triangle handler (261 of grid 1's by its best collision, ending all three members at one point, 29
+    by its ladder closure); flat rings of four or more through the n-gon as head-on pairs at dt = 0. Only steps of
+    several rings refuse them, at `componentsOfRings`.
+  - **The test of flatness, positive and never reading the area's sign:** cluster the members' positions into nodes at
+    the perceptual floor; every segment between neighbours lies along its own wall's front at the layer's time; every
+    stretch between two nodes is covered exactly once each way, on antiparallel walls, with no overlap or crossing; the
+    stretches form one line; every level member is newborn and runs along a stretch whose walls are its parents; every
+    stretch is longer than 4 floors.
+  - **The wiring:** one node per cluster; a point member ends at its node, a newborn one as a culled zero-length edge; a
+    level member ends at the far node of its stretch; a stretch no level member runs along is born as a terminal ridge
+    between its two walls; the ring is accepted and not passed to classification. A flat-by-area ring that fails the
+    test stays refused, naming the clause.
+  - **Measured against BSA.F112's combination** (one-point closure plus BSA.F111's rule). Flat alone: cures the sliver
+    four, `TwoCourtyardsDraft`, the 28 and the three-hole case; third fronts stay refused. Flat plus merge-first: the
+    user's layout, all ten courtyard layouts, 79 of 82 in grid 1, 1,000 of 1,000 in grid 2, the three-hole case; the V
+    cases incomplete and signalled, or refused by name with the straight-vertex gate. Flat plus BSA.F111's rule: all of
+    those and the V cases sound, byte-identical to BSA.F112's combination on both grids and the 81 digests. Every cure
+    built and checked by roof checker, height oracle at 1e-13 cm and genus invariants. Nothing silently wrong on steps
+    of several rings.
+  - **On rectilinear input, merge-first plus the flat rule makes BSA.F111's rule unnecessary** on every sample, with the
+    same nodes and one to three fewer edges. BSA.F111's rule is still the only measured cure for a wall-facing gap that
+    is not a straight vertex.
+  - **No tree-shaped flat ring arose** in any sample or in constructed T, L and plus junctions; the delegate infers a
+    junction's arrivals are priced as one vertex event that splits the tour into line rings first. A non-collinear flat
+    ring stays refused until one is measured.
+  - **Single loops, measured only (BSA.D301):** applying the rule to one-ring steps with the 4-floor bar changes 1 of 60
+    `FULL_CORPUS` digests, Offset Cross Junction, a defect fixture that becomes complete and passes equidistance,
+    direction and height. Without the bar, two jittered defect fixtures gain a silent direction violation: stretches of
+    1.6 and 1.95 floors have no readable direction. On grid 1 all 363 layouts where it fired are sound, 1 of them newly
+    cured.
+  - **The hardest case found** is that near-flat jittered ring; the 4-floor bar rests on two fixtures and reading the
+    nodes' position budgets would be the principled form. The test trusts the links for each front's extent, so a ring
+    mis-paired upstream whose ends lie on the right lines would pass; none was constructed.
+  - **Not established:** no suite run under any switch; no weighted case; no tree-shaped ring exercised; that the test
+    cannot pass a mis-paired ring is not proved.
