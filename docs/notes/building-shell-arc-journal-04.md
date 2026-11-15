@@ -907,6 +907,20 @@ session 3's own.
     corrected to 53 clean, 7 defect and 60 in all.
   - **Owed to node 4's spec by the lead:** the line that its fixtures moved to the roster.
   - **The fix pass for node 5 (BSA.D314) now also takes the two jittered cells as specimens for the guard.**
+- **316. The lead's rulings on node 6's review (BSA.F104): the consumers stand; five small fixes go in the next pass
+  through the tree, after which the spec is marked completed.**
+  - **Fixed:** F1 to F8 get back the equal-time and time-order checks at 1e-9 of the extent, the weighted F4 among them;
+    the sweep harness's holed records gain the count of self-loops that are not culled and the cycle rank against the
+    hole count, so a wrong holed cell shows in a field and not only in a digest; a result with a context and an empty
+    loop table is refused by the strip consumer with a message, not answered with nothing; the orphaned comment; the
+    project CLAUDE.md's "two rosters" wording names the holed roster as the third.
+  - **Left:** the two test-side checks that read the solver's exterior target. Independent cover exists in three other
+    tests, and the reviewer's own run is the stronger evidence.
+  - **Carried to node 9's ruling:** `solveFaces` must not skip a strip silently; a strip with no boundary on a holed
+    island is a hard error naming the island.
+  - **Order of what remains, one editor in the tree at a time:** node 5's fix pass and guard (running); then these fixes
+    with node 7, the dashboard; then node 8, contact; then node 9, building-shell. Each of the three held drafts is read
+    and ruled on by the lead before its dispatch.
 
 ## Findings
 
@@ -1254,3 +1268,30 @@ session 3's own.
     solves routinely have, and the test's helper counts culled loops.
   - **Unreached and suspect:** the piece rule's fallback when no piece on the ring contains the strike.
   - **Reproducers with exact coordinates** are in the lead's scratch file `node5-review-reproducers.md`.
+- **F104. The review of node 6 found no defect in the consumers: for building-shell's call, strips on a holed result are
+  one per exterior edge of every loop, each exactly that edge's skeleton face, tiling the region; and every single-loop
+  output is bit-identical to the parent commit.** (an independent Opus reviewer of 9b5f90c from private copies of it and
+  its parent, with its own checks on 34 holed inputs, 120 random ones and 222 single-loop cases, 2026-11-15; not re-run
+  by the lead)
+  - **Strips, checked against faces the reviewer traced itself,** on the 21 roster fixtures, 13 footprints of its own
+    (L, T, U and plus with courtyards, two courtyards at unequal gaps, weighted holes, an L-shaped hole) and 120 random
+    inputs, at full depth, five partial depths and just either side of each of the first 12 event times: no failure. A
+    hole edge's strip is clockwise, its frontage runs counter-clockwise round the hole, and it never covers the hole; of
+    228,570 sample points inside holes or outside the outline none is covered. **`loopMaps` maps each caller wall onto
+    its strip's frontage,** through a hole given clockwise, an outline given counter-clockwise and a vertex
+    canonicalisation removes.
+  - **Offset rings:** at offset 0 exactly the loops; elsewhere no unclosed chain, no ring crossing itself, none touching
+    another, and a counter-clockwise ring holds only hole edges.
+  - **Single-loop identity:** offsets, rings at 8 depths and strips under every option, over 222 cases, compared across
+    both commits with no differing byte.
+  - **Parcel slicing of a holed result is unusual, not wrong:** 1,216 holed strips sliced, parcels tiling their strip.
+  - **The roster's 21 fixtures are bit-identical to their definitions before the move,** and the four single-loop
+    rosters are unchanged in content and order.
+  - **Low findings:** node 4's fixtures F1 to F8 lost the equal-time and time-order checks at 1e-9 when their battery
+    moved, so the weighted F4 has no equal-time check; **the sweep harness's holed records cannot show a self-loop or an
+    extra cycle** (of 208 complete jittered or translated cells the reviewer found 28 structurally wrong, 25 visible
+    only as a changed digest); a hand-built graph with a context and no loop table now gets an empty strip list
+    silently; two test-side checks read the same exterior target as the solver; the project CLAUDE.md still says "two
+    rosters".
+  - **For node 9:** on one wrong jittered cell a full-depth strip has an empty boundary, and building-shell's
+    `solveFaces` skips a strip with fewer than three points silently.
