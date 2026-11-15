@@ -287,6 +287,23 @@ session 3's own.
     moves, or a pinned defect signature that moves, is reported to the user with its diagnosis and is not re-pinned by
     the delegate.
   - An independent review follows each stage's commit.
+- **336. The user, 2026-11-15: The user, on the five core tests that turned red when their defect was cured: "that's why
+  we don't write tests that are green when the code is defective."** BSA.D266 restated, this time against core's own
+  pins.
+  - The five are in `along-edge-jitter.test.ts` (three), `stroke-derived-polygons.test.ts` and `holed-guard.test.ts`
+    (BSA.F108). Each was green while the solver was wrong and went red when it was fixed, which cost a diagnosis to tell
+    a cure from a regression.
+  - **The lead's reading, not the user's words:** this settles the part of BSA.D266 left "not ruled" in principle, that
+    the ruling reaches core's defect pins and so `KNOWN_DEFECT_POLYGONS`' pinned signatures, which the project CLAUDE.md
+    states as policy. Whether the remaining pins are converted now, and the CLAUDE.md policy rewritten, is asked of the
+    user and not assumed.
+  - **Acted on for the five:** once the review of `2977b43..6dab6b0` returns, each is rewritten to assert the correct
+    result, so it is green because the code is right.
+- **337. The user, 2026-11-15: The project CLAUDE.md's pinned-signature policy is rewritten at once, on the user's
+  instruction.** Its test-fixtures section now states BSA.D266 and BSA.D336 as the rule for the whole repo: a defect is
+  a red test of the correct result with an issue note, or a guard by name; a pin of a defect's signature is not written.
+  The existing pins of `KNOWN_DEFECT_POLYGONS` and core's "still alive" tests are named there as legacy awaiting
+  conversion, never added to and never re-pinned. Converting them is not yet ordered.
 
 ## Findings
 

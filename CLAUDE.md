@@ -195,12 +195,20 @@ reference into a silent semantic flip rather than a compile error. Use `CLEAN_TE
 say which bar you are applying.
 
 **Exclusion is retired as a mechanism** (journal decision 72). A fixture with a defect is *enrolled*, never held
-out: the sweeps run the full corpus, clean fixtures assert clean, and each defect fixture asserts **exactly its
-pinned signature**, so an unattributed failure and an unattributed cure both break the suite. A fixture leaves
-`KNOWN_DEFECT_POLYGONS` by being fixed and promoted, never by a softened number. Which invariants are universal is
+out: the sweeps run the full corpus, and every fixture, clean or defect, is asserted against the **correct** result.
+
+**A test is never green because it asserts a defect** (BSA.D266, BSA.D336). A defect has exactly two acceptable
+forms: a test of the correct result that is **red, with an open issue note stating why**; or a guard in production
+code that refuses the input by name, with a test that is green on the guard. A test that pins a defect's signature
+("still alive", an expected violation count, an expected throw) is green while the code is wrong and goes red when
+it is fixed, so it is not written. The suite's figure is stated as a count passed plus the named list of red tests,
+each with its note. A fixture leaves `KNOWN_DEFECT_POLYGONS` by being fixed, when its red test turns green.
+
+**Legacy, awaiting conversion:** the pinned signatures of `KNOWN_DEFECT_POLYGONS` and the remaining "still alive"
+tests in core predate this rule. Do not add to them, and do not re-pin one that moves: a pin that goes red is
+diagnosed and, if it is a cure, rewritten to assert the correct result. Which invariants are universal is
 **measured**: containment, the bisector rate rule and signalled-not-silent sweep `FULL_CORPUS`; wavefront causality,
-clearance and edge direction do not hold over the defect roster and their violation counts are part of the
-signatures. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
+clearance and edge direction do not hold over the defect roster. The dashboard's fixture loaders list `FULL_CORPUS`, defect fixtures marked, so every fixture can be
 inspected; the skeleton editor's loader lists `HOLED_TEST_POLYGONS` as a third group, `Holed`, its holes drawn
 read-only. Depends on `@proc-geo/core`. Consumers can install this package for benchmarking or testing against known
 polygon shapes.
