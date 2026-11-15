@@ -405,6 +405,21 @@ session 3's own.
     separate unit for the user to rule on (BSA.D301).
   - **Process:** a delegate drafts the decision spec, amending node 5's cross-ring decisions; the lead reviews and
     approves it; one Opus implementer builds; an independent review follows.
+- **346. The user, 2026-11-15: The arc is reviewed before it is merged, and that review is an entropy-reducing pass, not
+  another correctness review, so that the C++ port is cheaper.**
+  - The user: "Agree, review before merge. Given that the correctness is heavily thrashed already, the review should
+    focus on decomposition, architectural clean up, and code quality as readability/organization/DRY. An
+    entropy-reducing pass here will make the C++ port cheaper."
+  - The user also agrees this is a good point to draw a line and bring the C++ port to parity, once the build of
+    BSA.D345 has landed.
+  - **The lead's reading:** the pass covers what the port must take, the holed solver in
+    `packages/core/src/straight-skeleton/` and building-shell's holed roof path, and runs after BSA.D345's build lands
+    so it reads the final shape of the files that build changes. Its findings are applied as behaviour-preserving
+    changes, held to byte-identical sweep records, digests and goldens. A handoff document for the port is the unit
+    after it.
+  - **The close-out list for the arc, as put to the user:** land and review BSA.D345's build; the ruling on `6dab6b0`;
+    the nine red-by-design tests listed for the port as known defects; the along-edge sweep records re-recorded and the
+    suite's figures stated on the final tree; this pass; then the merge.
 
 ## Findings
 
