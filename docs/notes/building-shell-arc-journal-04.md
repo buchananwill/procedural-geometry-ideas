@@ -1154,6 +1154,26 @@ session 3's own.
   - **Lost with the cut:** the built-roof fallback of session 2's decision 204 has no fixture now.
   - **The lead looked at one viewer screenshot,** BSA.F90's layout: walls, an all-hip roof with a ridge ring round the
     courtyard and a ridge on each wing, no stray face. Sent to the user.
+- **326. The lead's rulings on node 9's review (BSA.F105): the holed hip solid goes back to standing from the floor,
+  which cures the 36; the lost coverage is restored; the conflict re-pins get their cause measured; and the single-loop
+  folded roofs are filed for the user with red tests.**
+  - **The node 9 spec's decision 25 was wrong and is reversed:** a holed hip solid stands from the floor, as it did
+    under the cut. The reason the old spec gave, that Manifold must not be left coplanar layers at the plate, holds
+    without the slit too. The diagnosis delegate already in the tree is told, and makes the fix with a test that would
+    have caught it. The lead approved decision 25 on a delegate's reasoning that was labelled as reasoning and not
+    built; the error is the lead's.
+  - **The single-loop folded roofs are the user's, and are filed:** 36 of 5,000 random mixed-pitch islands with no
+    courtyard build a wrong roof and no error, at the arc's parent commit as now. Two things could be done and neither
+    is the lead's to do unasked: make a causality diagnostic a hard error on single-loop islands, which would turn some
+    buildings that build today into errors; and run the solver's guard on single loops, already on the user's list
+    (BSA.D314). An issue note and red tests on the three specimens are written in the next pass.
+  - **The conflict re-pins stand provisionally:** the cause, BSA.F69's listing by triangle centroid, is measured on 5 of
+    the 18 rows where a plane pair appeared or vanished. The next pass measures the other 13 the same way and writes the
+    measured overlap beside each pin; a row whose overlap truly changed is un-pinned and reported.
+  - **Restored in the next pass:** the golden test over every rule oracle; a holed tuck case with its closed-form area;
+    a fixture and a mutation gate for the built-roof fallback of session 2's decision 204.
+  - **Left:** the hard error that changed from "Not manifold" to `strip-missing` on 4 of 5,000 single-loop islands is a
+    better message for the same refusal; the refusal text that names a corner where walls are collinear is reworded.
 
 ## Findings
 
@@ -1528,3 +1548,38 @@ session 3's own.
     rosters".
   - **For node 9:** on one wrong jittered cell a full-depth strip has an empty boundary, and building-shell's
     `solveFaces` skips a strip with fewer than three points silently.
+- **F105. The review of node 9 found the courtyard roofs right against an oracle independent of the skeleton and of the
+  app, found the cause of the 36 red tests, and found that single-loop islands of mixed pitch have built folded roofs
+  silently since before this arc.** (an independent Opus reviewer of 9c0389a..f822370 from private copies of both
+  commits, with its own checker reading only the final union mesh, 2026-11-15; not re-run by the lead)
+  - **Single-pitch all-hip courtyards, the built mesh sampled on a grid against the plate plus the tangent of the pitch
+    times the L-infinity distance to the nearest wall of any loop:** the worst error is float32 noise, 1.3e-6 cm on
+    `Courtyard`, 3.24e-4 on BSA.F90's layout, 3.27e-4 on `TwoCourtyards`, at most 4.86e-4 over 8,000 generator draws.
+    The reviewer's checker convicts the old cut roof of `CutOvershootProbe`, 10.8 cm too high.
+  - **Courtyards of mixed pitch and with gables:** every Roof triangle on its own wall's plane at its own pitch, the
+    footprint covered exactly once, the mesh closed: no failure in 8,000 all-hip draws at random pitches, 4,800 draws as
+    drawn, and 3,000 lattice footprints with 1 to 3 holes at pitches of 15 to 70 degrees, of which 2,678 roofed sound
+    and 252 were refused by name. **No silently wrong holed roof in any run.** The hard-error wiring holds on every path
+    a user's build takes.
+  - **The 36 red tests are caused by the node 9 spec's decision 25,** the holed hip solid's bottom moved from the floor
+    to the plate. With that one change reverted on a copy, all 162 all-gable split bands are clean, 649 of 649 tests in
+    four files pass, and all 97 goldens keep their geometry. The roof surface of all 162 is right as built; the defect
+    is coplanar plate layers the union tucks, and the Cells laid across them. No golden or gate told the two apart, so
+    the decision's "sound" was never tested.
+  - **Predating this unit, identical at its parent commit: of 5,000 random single-loop islands with every side at its
+    own pitch, 36 build a wrong roof and no error:** three Roof layers over one plan point, Roof triangles facing down,
+    roof outside the footprint. 20 of them carry a causality diagnostic that `solveRoofParts` drops (`RoofParts` has no
+    field for it), so the app's "count and continue" is "ignore"; 16 carry none. Given a courtyard, every such footprint
+    is refused by name, mostly by the planarity guard, which does not run on single loops. Three specimens with their
+    Rings are in the reviewer's report.
+  - **The re-pinned conflict lists:** in 18 of the 24 rows whose count moved, a plane pair appeared or vanished; only 6
+    are a change of multiplicity. For 5 of the moved rows the overlap between the two tags' raw triangles on the plane
+    was measured at both commits and is identical, so the overlap exists in both builds and only its listing flips,
+    which is BSA.F69. The other 13 are unmeasured. The conflict list misses real overlaps of up to about 5 square
+    metres, as it did before.
+  - **Coverage lost with the cut's tests:** a golden test over every rule oracle that was not about the cut; the only
+    holed tuck case and its closed-form area test; the fixture for the built-roof fallback of session 2's decision 204.
+  - **Goldens built at both commits and compared as geometry:** all 71 non-courtyard goldens identical; 17 courtyard
+    goldens identical; the 3 that changed are each right by the reviewer's checks.
+  - **Lower:** 4 of 5,000 single-loop islands that threw "Not manifold" now throw `strip-missing`, a different hard
+    error; a refusal message names a corner where two collinear walls differ in pitch.
