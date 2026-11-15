@@ -66,7 +66,7 @@ export function openWavefrontSlot(context: StraightSkeletonSolverContext, edgeId
  * event's new bisector is often the neighbour of another's. Each new bisector is therefore linked as a
  * PENDING BIRTH — a negative token, below `NOT_LIVE`, that stands in the arrays wherever the bisector will
  * stand — and the token is replaced by the real id at birth ({@link linkBirth}). A token whose bisector is
- * never born (its parameters were filtered out) is spliced out when the layer settles
+ * never born (a re-report the dedupe dropped, or a ring closed at one node) is spliced out when the layer settles
  * ({@link settleLayerLinks}), joining its two neighbours.
  *
  * An event can also hold a participant that an EARLIER EVENT OF THE SAME LAYER has already replaced: a

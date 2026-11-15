@@ -363,9 +363,14 @@ export function initInteriorEdges(context: StraightSkeletonSolverContext) {
  * still traced its face (BSA.F95, BSA.F99). The next birth naming the edge was then refused and its ring broke.
  *
  * Only an exterior edge is ever accepted here; any other id is returned as it stands.
+ *
+ * A CONTEXT WITH NO INTERIOR EDGES ACCEPTS NOTHING (BSA.F100, BSA.D304): before `initInteriorEdges` no bisector has
+ * traced any face, so no face has closed, although no live bisector names any edge either. The predicate alone would
+ * accept every edge there; `hasInteriorLoop` returned false, and so does this. No solver caller asks it there.
  */
 export function tryToAcceptExteriorEdge(context: StraightSkeletonSolverContext, exteriorEdge: number) {
     if (exteriorEdge >= 0 && exteriorEdge < context.graph.numExteriorNodes
+        && context.graph.interiorEdges.length > 0
         && exteriorFaceIsClosed(context, exteriorEdge)) {
         context.acceptedEdges[exteriorEdge] = true;
     }

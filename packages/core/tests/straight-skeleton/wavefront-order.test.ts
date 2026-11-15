@@ -4,7 +4,8 @@
  * directly, convicts `checkWavefront` on hand-broken states, and runs it at every step boundary of every
  * `FULL_CORPUS` fixture and every weighted fixture as the standing gate on link writing (decisions 15, 23).
  * The 642-cell sweep and the recursion census's regions run in `wavefront-order-sweep.test.ts` and
- * `wavefront-order-census.test.ts`; spec decision 32's red cells in `wavefront-order-early-acceptance.test.ts`.
+ * `wavefront-order-census.test.ts`; spec decision 32's cells, red until the edge-acceptance cure and green since, in
+ * `wavefront-order-early-acceptance.test.ts`.
  */
 import type {BisectionParams, CollisionEvent, StraightSkeletonSolverContext, WavefrontSegment} from '@proc-geo/core';
 import {
@@ -396,7 +397,7 @@ describe('the wavefront links', () => {
      * `stepAlgorithm` and one that never finishes included; and an exterior edge a solve ends with unaccepted is
      * recorded (decision 9). These state the gate's mechanism on built inputs.
      */
-    describe('the gate counts every solve and asserts every violation before the cause', () => {
+    describe('the gate counts every solve and asserts every violation, the cause excluding none', () => {
         const probe = () => activeWavefrontProbe()!;
         /** A T-shape context whose every interior edge has a target, so a finished solve reads as complete. */
         const finishedContext = () => {

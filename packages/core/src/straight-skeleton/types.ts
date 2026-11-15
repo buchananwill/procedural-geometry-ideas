@@ -413,7 +413,8 @@ export interface AlgorithmStepOutput {
  * - `causality-violation`    — the solved graph breaks wavefront causality by one of the four
  *   post-solve oracles (journal-5 decision 148, C8 spec T18): one diagnostic per violation, carried as a
  *   {@link CausalityViolationDiagnostic}. INFORMATIONAL with respect to `complete` — `complete` keeps
- *   its meaning (every exterior edge accepted, no step failure, no unresolved edge) — but it is what
+ *   its meaning (no blocking diagnostic and at least one interior edge; it reads no exterior edge's
+ *   acceptance) — but it is what
  *   makes a wrong answer SIGNALLED: a solve can never report `complete: true` with empty diagnostics
  *   while violating wavefront causality. See `causality-check.ts`.
  * - `holes-not-solved`       — the input carried holes, and the solve STOPPED after initialisation, returning

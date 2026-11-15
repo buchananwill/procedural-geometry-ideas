@@ -606,8 +606,8 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
     const children = ringsOfWavefront(context, allOutgoingInteriorEdges)
         .map(ring => ({
-            // Only this layer's bisectors: a ring the links cannot close (decision 32's path) never reaches
-            // into another step.
+            // Only this layer's bisectors: a ring the links cannot close (a broken link, which checkWavefront
+            // reports) never reaches into another step.
             members: ring.filter(id => position.has(id)).toSorted((a, b) => position.get(a)! - position.get(b)!),
             claim: Math.min(...ring.map(id => partitionIndex.get(id) ?? Infinity)),
         }))

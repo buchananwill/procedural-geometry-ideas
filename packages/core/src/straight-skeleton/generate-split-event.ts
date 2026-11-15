@@ -432,8 +432,8 @@ export function generateSplitEventFromTheEdgeItself(instigatorId: number, target
 
     // THE THROW THE SPAN GUARD THAT STOOD HERE MADE, KEPT BY A DIRECT TEST (spec decision 21's reasoning,
     // applied to this site). Measuring a span threw on an accepted instigator parent or struck edge, and that
-    // throw is a step failure; a live bisector names an accepted edge only on the early-acceptance path
-    // (`ISSUE-skeleton-edge-accepted-before-its-face-closes.md`), where it stays exactly as it was.
+    // throw is a step failure. Since the edge-acceptance cure an edge is accepted only when no live bisector names
+    // it, so this cannot fire; it stays as the guard it was.
     if (context.isAccepted(edgeToSplit.id)
         || context.isAccepted(instigatorClockwiseParent.id)
         || context.isAccepted(instigatorWiddershinsParent.id)) {

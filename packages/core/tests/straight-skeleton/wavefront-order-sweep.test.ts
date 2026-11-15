@@ -1,8 +1,8 @@
 /*
  * THE WAVEFRONT'S STORED ORDER OVER THE 642-CELL SWEEP (skeleton wavefront-order spec, decisions 15 and 23):
- * `checkWavefront` at every step boundary of every root cell of the full-grid sweep harness, up to the
- * boundary at which decision 32's cause first holds. Every cell is counted. See `wavefront-order.test.ts`
- * for the corpus.
+ * `checkWavefront` at every step boundary of every root cell of the full-grid sweep harness, every violation
+ * asserted: since the edge-acceptance cure decision 32's cause excludes nothing (edge-acceptance spec, decision 22).
+ * Every cell is counted. See `wavefront-order.test.ts` for the corpus.
  */
 import {setSkeletonLogLevel} from '@proc-geo/core';
 import {
