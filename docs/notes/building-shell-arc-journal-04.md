@@ -938,6 +938,37 @@ session 3's own.
     this node exists.
   - **Parcel slicing stays refused on the parcels page** although BSA.F104 found slicing a holed strip unusual and not
     wrong: lots of a holed footprint are outside this arc.
+- **318. Node 5's fix pass is in at `ad45ddd`, `fae1b8d` and `de00f3e`; the holed guard flags none of 8,168 sound solves
+  and catches most of the silent wrong ones; the lead widens it by three cheap checks and softens one.** The delegate's
+  figures, not re-run: core 6,482 passed, 10 failed by design, 10 skipped; building-shell 9,992; dashboard 331; every
+  single-loop sweep cell, region and the census byte-identical.
+  - **The guard, two blocking kinds, `holed-topology-violation` and `holed-equal-time-violation`:** over about 9,500
+    fuzzed holed solves in seven families it flags no sound solve, at the checker's ordinary and tightened bars. It
+    catches 20 of 23 wrong answers on exact axis-aligned unions, 238 of 242 rotated, all 47 on rotated rectangles, and
+    under jitter 253 of 379 and 25 of 49. **It reads the graph in unit space:** read in the caller's space it flagged 42
+    sound solves at translations of 1e11 and beyond, where carrying coordinates back rounds by more than the floor.
+  - **What it misses, and the lead's ruling to add each to the guard, measured the same way:** overlapping or crossing
+    arcs with every node right (all 7 misses on exact input, 2 with no other diagnostic); an arc recorded twice that
+    names two different pairs of walls (15 of the 30 silent misses under jitter); and an edge running backwards in
+    weighted time, which is the open weighted defect on a holed input. So the guard gains: every interior edge's target
+    is no earlier than its source; an arc recorded from both ends names one pair of walls; and no two arcs cross or
+    overlap, at the perceptual floor. Each must flag no sound solve.
+  - **Softened: a zero-length self-loop that is not marked culled, on a result sound in every other respect, is reported
+    and does not block.** 184 of the guard's catches fail on nothing else and tile to 1e-9; turning those into hard
+    errors would refuse good roofs for a bookkeeping mark the solver forgot. It becomes an informational diagnostic, and
+    a self-loop no longer counts as a cycle.
+  - **The eight harness cells that moved** are the courtyard with wings at jitter seeds 1 and 3 (two cycles for one
+    hole) and six cells with one self-loop each, which the softening returns to complete.
+  - **The cause of the overlapping ridge, confirmed by trace on a single loop and a holed input:** a ring of four,
+    straight, ridge, straight, ridge, with every event at one moment. Whole-event resolution gives up because the two
+    merges share both ridge bisectors, the moment cannot be narrowed, and the pairwise fallback's tie-break by edge id
+    pairs a ridge bisector with the far straight vertex. Near and far differ only in distance along the ridge, 0.171
+    against 0.269. Every complete and wrong solve on exact input carries a straight bisector (379 of 379), and many
+    sound ones do too.
+  - **Red by design now, ten tests:** five weighted, one two-hole courtyard, and four for the straight bisector, two of
+    them on single loops. `2h-int-113` is green: its solve was sound all along.
+  - **The issue note `ISSUE-skeleton-straight-bisector-between-collinear-walls.md` is open** and is the user's to rule
+    on, with the weighted one.
 
 ## Findings
 
