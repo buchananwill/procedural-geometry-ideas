@@ -451,6 +451,8 @@ describe('wallFacingGap on synthetic gaps (decision 51)', () => {
         {from: {x: 3, y: 3}, basis: EAST}, {from: {x: 12, y: 3}, basis: EAST},
         {from: {x: 0, y: 0}, basis: {x: -1, y: 1}}, {from: {x: 0, y: 0}, basis: {x: 1, y: 1}},
         {from: {x: 12, y: 3}, basis: EAST, weight: 2},
+        {from: {x: 0, y: 0}, basis: NORTH}, {from: {x: 0, y: 0}, basis: {x: 0.8, y: 0.6}},
+        {from: {x: 0, y: 0}, basis: NORTH, weight: 2},
     ]);
     const gap = (clockwiseWall: number, widdershinsWall: number): MergeGap =>
         ({lastArrival: -1, firstDeparture: -1, clockwiseWall, widdershinsWall});
@@ -472,6 +474,18 @@ describe('wallFacingGap on synthetic gaps (decision 51)', () => {
 
     it('a grazing gap: G, whose direction runs along the wall', () => {
         expect(wallFacingGap([X, Y, G], BOTTOM, context)).toBe('the gap {cw: 5, ws: 6} grazes wall 0');
+    });
+
+    /*
+     * THE KERNEL'S WEIGHT TERMS DECIDE THE VERDICT (decision 35; §6 item 2, convicted here at the function, not by a
+     * solved specimen). Walls of inward normals (1, 0) and (0.6, −0.8): v · (1, 0) = w1 and v · (0.6, −0.8) = w2 give
+     * v = (w1, (0.6 w1 − w2) / 0.8). At equal weights v = (1, −0.5), which faces the bottom wall; with the first wall at
+     * weight 2, v = (2, 0.25), which is clear of it.
+     */
+    it('the weights decide whether a gap between non-parallel walls faces the wall', () => {
+        const W1 = 8, W2 = 9, W1_HEAVY = 10;
+        expect(wallFacingGap([gap(W1, W2)], BOTTOM, context)).toBe(0);
+        expect(wallFacingGap([gap(W1_HEAVY, W2)], BOTTOM, context)).toBe('0 of its 1 gaps face wall 0, not one');
     });
 
     it('a gap between same-facing parallel walls of unequal weight has no direction (decision 44 (d))', () => {
