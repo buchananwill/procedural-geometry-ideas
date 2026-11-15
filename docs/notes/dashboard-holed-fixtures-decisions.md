@@ -2,7 +2,7 @@
 title: "Dashboard holed fixtures: decision spec"
 type: decision-spec
 area: dashboard
-status: proposed
+status: approved
 date: 2026-11-15
 part_of: [holed-skeleton-roadmap.md]
 depends_on: [skeleton-loop-consumers-decisions.md]
@@ -235,6 +235,23 @@ loop table on the primary-bisector preview.
     skeleton, a full step-through, all labels, edge directions, the primary preview and both sweeps; F1 and F2 on the
     parcels page; F1's outline dragged across its hole; the recursive loader's disabled group; and `Square` and one
     defect fixture, unchanged. The canvas has no unit test, so this is the evidence that a hole reads as empty.
+
+### The lead's amendments on approval (BSA.D317)
+
+49. **The roster is 21 fixtures, not 9:** node 4's F1 to F8 and node 5's A to H, all of which solve (BSA.D315). The
+    loader lists them all, so the concentric courtyard and the courtyard with wings can be looked at.
+50. **Decision 37's table follows core as it now stands.** Node 5 landed, so `simultaneous-across-rings` no longer
+    means every courtyard: its heading reads `Events of more than two fronts coincide (for example a corner of each of
+    two holes reaching one wall together). The solver refuses such a layer; the skeleton stops at the refused step.`
+    The blocking kinds the holed guard adds (BSA.D314) each get a heading in the same table, worded from the kind's own
+    doc comment in core: the implementer reads `SkeletonDiagnosticKind` and gives every blocking kind a row, and a test
+    fails when core has a blocking kind with no heading.
+51. **Decision 44's refusal specimen is node 5's E′** (the outline `[0,21]×[0,10]` with holes `[3,9]×[3,7]` and
+    `[12,18]×[3,7]`), since the concentric square solves. Decision 46's `firstFailedSnapshot` test uses it too.
+52. **A holed fixture whose result the guard marks incomplete is drawn as incomplete** under decisions 30 and 37, so a
+    skeleton the solver itself distrusts never reads as finished.
+53. **This unit's first commit is the five small fixes of node 6's review** (BSA.D316), which touch core's tests, the
+    sweep harness, one consumer message and one line of the project CLAUDE.md; node 6's spec is then set `completed`.
 
 ## 4. Deferred
 

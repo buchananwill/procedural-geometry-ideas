@@ -921,6 +921,23 @@ session 3's own.
   - **Order of what remains, one editor in the tree at a time:** node 5's fix pass and guard (running); then these fixes
     with node 7, the dashboard; then node 8, contact; then node 9, building-shell. Each of the three held drafts is read
     and ruled on by the lead before its dispatch.
+- **317. The spec for roadmap node 7, `dashboard-holed-fixtures-decisions.md`, is approved by the lead under BSA.D286,
+  with five amendments; it is dispatched when node 5's fix pass leaves the tree.** Read by the lead from its decisions
+  on; 53 decisions.
+  - **Accepted as drafted:** holes are read-only state set by the loader and the outline stays editable; a new core
+    entry `solveSkeletonStepped` through an optional observer in `runSimplePolygon`, with `solveSkeleton` byte-identical
+    when there is no observer; the scene's region drawn by the even-odd rule, one closed stroke per loop, labels by the
+    solver's global exterior ids; tree-based overlays disabled with a reason; the parcels page stops at slicing; a
+    browser run by the implementer, fixture by fixture, as the evidence for the canvas.
+  - **Amended (spec decisions 49 to 53):** the roster is 21 fixtures; the table of blocking diagnostics follows core as
+    it now stands, node 5 having landed, and gains the guard's kinds, with a test that fails when core has a blocking
+    kind the dashboard gives no heading; the refusal specimen is node 5's two courtyards with every gap equal; a result
+    the guard marks incomplete is drawn as incomplete; and the unit's first commit is the five fixes of node 6's review.
+  - **Kept though heavier than the lead leaned in BSA.D308:** a pinned scene digest for every single-loop fixture. It is
+    the one gate that holds "the dashboard's single-loop picture did not change", and the user's eyes are the reason
+    this node exists.
+  - **Parcel slicing stays refused on the parcels page** although BSA.F104 found slicing a holed strip unusual and not
+    wrong: lots of a holed footprint are outside this arc.
 
 ## Findings
 
