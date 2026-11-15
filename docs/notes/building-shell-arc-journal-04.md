@@ -691,6 +691,23 @@ session 3's own.
     close to what BSA.D266 forbids, so the reviewer is asked to establish what is true and the lead rules then.
   - **Next:** an independent review; and, since nothing edits the tree meanwhile, the measurement-led spec drafts for
     nodes 5 and 8 and the spec draft for node 7.
+- **308. The draft spec for roadmap node 7, `dashboard-holed-fixtures-decisions.md`, is received and held at `proposed`;
+  the lead reads and approves it when node 6, which it depends on, has landed.** Drafted by an Opus delegate under
+  BSA.D288 from the tree at `a8ba71f`; 48 decisions, 244 lines; not yet read in full by the lead.
+  - **Its shape, from the delegate's report:** holes are read-only state set by the fixture loader, and outline editing
+    stays allowed while they are loaded; a new core entry `solveSkeletonStepped` gives holed snapshots through an
+    optional observer in `runSimplePolygon`, leaving `solveSkeleton` and the legacy stepped entry as they are; the scene
+    adapter's boundary, edge labels and polygon fill go per loop, with the hole emptied by Konva's even-odd fill rule;
+    the tree-based overlays and the bridge to the recursive page are disabled while holes are loaded.
+  - **Found on the way, existing today on single loops:** `runSimplePolygonStepped` throws away the errors of
+    `stepAlgorithm`, so the dashboard's step-through shows a step failure as no error at all. Not this arc's to change;
+    open item.
+  - **Also found:** the dashboard's Jest reads core and the fixtures from `dist/`, so both must be built before its
+    tests run; and the parcels page solves unweighted whatever the fixture's weights.
+  - **The lead's leanings for when it rules:** node 5's fixtures join the roster when they solve, so no separate group
+    for refusal specimens; a pinned scene digest for every single-loop fixture is heavier than the unit needs, and the
+    adapter's single-loop identity can be held by the existing scene tests plus one digest per debug setting on a
+    handful of fixtures.
 
 ## Findings
 
