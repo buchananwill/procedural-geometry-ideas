@@ -60,6 +60,26 @@ Two cures are visible, and neither is this unit's to make:
   [the weighted defect](./ISSUE-skeleton-weighted-edge-runs-backwards-in-time.md) traces to: both split paths require a
   reflex, primary bisector.
 
+## The building-shell specimens
+
+Roadmap node 9 ([the holed roof spec](./building-shell-holed-roof-decisions.md), decisions 41 to 43) hands
+`solveSkeleton` each island's outline and holes, and these layouts are refused as `multi-ring-step-refused`. Each is
+one storey, every Ring hipped at 30°, Rings as `[x0, y0, x1, y1]` in cm. The first four built clean under the courtyard
+cut and are the regression the spec states; in each, a jut's wall lies in line with a courtyard wall, facing the same
+way. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/tests/robustness-fixtures.ts`, whose test in
+`tests/holed-roof.test.ts` asserts the hard error naming the island and this kind; the guard is green, and a cure turns
+it red.
+
+| Layout | Rings |
+|---|---|
+| `JutAlignedS` | `[0,0,1000,300]`, `[0,300,300,700]`, `[-250,300,0,500]`, `[0,700,1000,1000]`, `[700,300,1000,700]` |
+| `JutAlignedN` (also `JutAlignedS`'s y-mirror) | `[0,0,1000,300]`, `[0,300,300,700]`, `[-250,500,0,700]`, `[0,700,1000,1000]`, `[700,300,1000,700]` |
+| `JutBelowWing` (was `JutBelowCutLine`) | `[0,0,1000,300]`, `[-250,100,0,300]`, `[0,300,300,700]`, `[0,700,1000,1000]`, `[700,300,1000,700]` |
+| `JutBelowWingMirrorY` | `[0,700,1000,1000]`, `[-250,700,0,900]`, `[0,300,300,700]`, `[0,0,1000,300]`, `[700,300,1000,700]` |
+| `TwoCourtyardsDraft` (two holes; the cut refused it too) | `[0,0,1600,300]`, `[0,700,1600,1000]`, `[0,300,300,700]`, `[700,300,900,700]`, `[1300,300,1600,700]` |
+
+`JutAlignedS` is a layout a person would draw: a wing in line with a band (BSA.D321).
+
 ## How often, measured
 
 In the courtyard fuzz (axis-aligned rectangles, 400 inputs per row), this was 4 of 400 with two holes at integer

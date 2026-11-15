@@ -32,7 +32,7 @@ import {
 import {rosterGenus} from './roster-genus.ts';
 import {PinOutcome, PinRecord, ResiduePin, pinClass, throwsOutcome} from './pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
+  COURTYARD_DEFECTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, SeededKey,
   seededKey,
 } from './residue-pins.ts';
 import {componentGenera, invariantViolations, roofUndersideLines} from './shell-invariants.ts';
@@ -201,8 +201,15 @@ export const EMPTIED_BY_RING_DROP: readonly ResidueClass[] = ['courtyard cut col
  */
 export const EMPTIED_BY_TUCKS: readonly ResidueClass[] = ['edge contact between opposite coplanar faces'];
 
+/**
+ * Holed roof decisions 48 and 49: the residue class the holed roof left with no member. Every pinned case of algorithm
+ * B's cut-piece overshoot was a piece built on a courtyard cut (`CutOvershootProbe`, the s2 Court15, s7 Court38 and s13
+ * Court13 rows, the Courtyard's mixed-pitch roster rows); with no cut there is no cut piece, and each builds clean.
+ */
+export const EMPTIED_BY_HOLED_ROOF: readonly ResidueClass[] = ['algorithm-B cut-piece overshoot'];
+
 /** Every residue class the golden set records as emptied, whatever emptied it. */
-export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP, ...EMPTIED_BY_TUCKS];
+export const EMPTIED_CLASSES: readonly ResidueClass[] = [...EMPTIED_BY_GABLE_RISES, ...EMPTIED_BY_RING_DROP, ...EMPTIED_BY_TUCKS, ...EMPTIED_BY_HOLED_ROOF];
 
 /**
  * Journal decision 164, finding 2: the model-order oracle. Each of `MODEL_ORDER_CONFLICTS` read from a document whose
@@ -286,6 +293,11 @@ export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(
  *   Emptied by journal decisions 260 to 262 (WP-C2): the case's 30 degree Ring lies wholly inside the jutting one, the
  *   solve drops it, and the case builds clean as the drop's oracle (`RING_DROP_ORACLES`, `EMPTIED_BY_RING_DROP`).
  *
+ * The holed roof (holed roof decision 48) cured two representatives, each promoted to a clean golden under its name
+ * (`HOLED_ROOF_PROMOTIONS`): s7h250 Court14, the Cheek class's, whose Cheek stood beside the courtyard cut, and the
+ * Courtyard at 22.5° and 45°, whose cut-piece overshoot emptied its class (`EMPTIED_BY_HOLED_ROOF`). The Cheek class's
+ * representative is now s1h250 SplitCourt1, a gable rise's end standing above the wing at (250, 700).
+ *
  * Emptied by gable rise decision 3, so with no representative: the `cleanMesh` stuck cap (s2h250 SplitCourt10 was its
  * representative) and decision 156, F7's Cell-fan throw (s11h250 Court35). Emptied by journal decisions 243 to 245
  * (WP-L2), whose covered rises cure both representatives: the Court25 throw (s1h263 Court25) and decision 156, F7's
@@ -293,11 +305,27 @@ export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(
  * those two are kept as the record of what they were.
  */
 export const RESIDUE_CLASSES: readonly ResidueGolden[] = [
-  seededResidue(randomCourtyardFixtures, COURTYARD_DEFECTS, 7, 'Court14', 250, [1]),
+  seededResidue(randomSplitCourtyardFixtures, SPLIT_COURTYARD_DEFECTS, 1, 'SplitCourt1', 250, [1]),
   residueGolden(namedCase(nudgeFixtures(), 'ApexEdge5'), [0], NUDGE_DEFECTS, 'ApexEdge5'),
   residueGolden(namedCase(pitchEndFixtures(), 'G5.86h250'), [0], PITCH_END_DEFECTS, 'G5.86h250'),
-  rosterPitchResidue('Courtyard@22.5/45s', 'CourtyardAt22.5-45s'),
   rosterPitchResidue('BridgeOverBlock@45', 'BridgeOverBlockAt45'),
+];
+
+/**
+ * Holed roof decision 48: the residue goldens the holed roof cured, promoted to clean goldens under their names. Each was
+ * a defect on or beside a courtyard cut: s7h250 Court14's Cheek and the Courtyard's mixed-pitch cut-piece overshoot.
+ */
+export const HOLED_ROOF_PROMOTIONS: readonly CleanGolden[] = [
+  (() => {
+    const f = randomCourtyardFixtures(7, DRAWS_PER_SEED, 250).find(x => x.name === 'Court14');
+    if (!f) throw new Error('no case s7h250/Court14');
+    return cleanGolden(named(f, seededName('Court14', 7, 250)), [1]);
+  })(),
+  (() => {
+    const c = rosterPitchCases([fixtureByName('Courtyard')]).find(x => x.name === 'Courtyard@22.5/45s');
+    if (!c) throw new Error('no roster pitch case Courtyard@22.5/45s');
+    return cleanGolden(named(c.fixture, 'CourtyardAt22.5-45s'), rosterGenus('Courtyard'));
+  })(),
 ];
 
 /**
@@ -339,10 +367,12 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   ...[300, 250].map(h => cleanGolden(named(seededFixture(CAP_CHAIN_SEED[0], CAP_CHAIN_SEED[1], h), `Seed${CAP_CHAIN_SEED[0]}Fuzz${CAP_CHAIN_SEED[1]}h${h}`), [0])),
   cleanGolden(UPPER_U_EDGE_CONTACT, [0]),
   cleanGolden(FULL_WINGS_PROBE, [1]),
-  residueOfPin(CUT_OVERSHOOT_PROBE, [1], CUT_OVERSHOOT_DEFECTS),
+  // Holed roof decision 48: promoted, its cut-piece overshoot cured with the cut.
+  cleanGolden(CUT_OVERSHOOT_PROBE, [1]),
   ...F2_COURTYARDS.map(f => cleanGolden(named(f, f.name.replace(/^s(\d)h(\d+)\/(.*)$/, (_, s: string, h: string, n: string) => seededName(n, s, h))), [1])),
   ...(['Aligned', 'Offset'] as const).map(kind => gapFixture(kind, 1)).map(f => residueGolden(f, [0, 0], GAP_DEFECTS, f.name)),
   ...RULE_ORACLES,
+  ...HOLED_ROOF_PROMOTIONS,
   ...RESIDUE_CLASSES,
   ...RING_DROP_ORACLES,
   ...TUCK_ORACLES,

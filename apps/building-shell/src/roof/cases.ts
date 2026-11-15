@@ -35,8 +35,6 @@ const fromRects = (rects: Rect[], sels: Sel[]) => (): Building => buildFromRects
 const annulus = (w: number, h: number, ix0: number, iy0: number, ix1: number, iy1: number) => (p: Pt): number =>
   min(min(p.x, w - p.x, p.y, h - p.y), max(ix0 - p.x, p.x - ix1, iy0 - p.y, p.y - iy1));
 
-export const SLIT = {width: 0};
-
 export const CASES: Case[] = [
   // 1. Rectangle
   {
@@ -430,34 +428,34 @@ export const CASES: Case[] = [
 
   // 9. Courtyards
   {
-    id: '9a', group: '9 Courtyard', title: 'Courtyard, clean cut x=500, y[0,200]',
-    build: () => buildCourtyard([0, 0, 1000, 1000], [200, 200, 800, 800], pt(500, 0), pt(500, 200), SLIT.width),
+    id: '9a', group: '9 Courtyard', title: 'Courtyard, outer 1000, inner (200,200)-(800,800)',
+    build: () => buildCourtyard([0, 0, 1000, 1000], [200, 200, 800, 800]),
     expected: annulus(1000, 1000, 200, 200, 800, 800),
     source: 'spec decision 41',
-    worked: [{p: [500, 100], h: 100, label: 'ridge through the cut, d41'}],
-    ridges: [{a: [300, 100], b: [700, 100], h: 100, label: 'ridge through the cut'}],
+    worked: [{p: [500, 100], h: 100, label: 'ridge across the S range, d41'}],
+    ridges: [{a: [300, 100], b: [700, 100], h: 100, label: 'ridge across the S range'}],
   },
   {
-    id: '9b', group: '9 Courtyard', title: 'Courtyard, cut forced at a corner, y=200, x[800,1000]',
-    build: () => buildCourtyard([0, 0, 1000, 1000], [200, 200, 800, 800], pt(1000, 200), pt(800, 200), SLIT.width),
+    id: '9b', group: '9 Courtyard', title: 'Courtyard, the true roof beside a corner',
+    build: () => buildCourtyard([0, 0, 1000, 1000], [200, 200, 800, 800]),
     expected: annulus(1000, 1000, 200, 200, 800, 800),
     source: 'spec decision 41: the true roof is 100 at (900,150)',
     worked: [{p: [900, 150], h: 100, label: 'true roof, d41'}],
   },
   {
-    id: '9c', group: '9 Courtyard', title: 'Short ranges, outer 600, inner (250,250)-(350,350), cut x=300',
-    build: () => buildCourtyard([0, 0, 600, 600], [250, 250, 350, 350], pt(300, 0), pt(300, 250), SLIT.width),
+    id: '9c', group: '9 Courtyard', title: 'Short ranges, outer 600, inner (250,250)-(350,350)',
+    build: () => buildCourtyard([0, 0, 600, 600], [250, 250, 350, 350]),
     expected: annulus(600, 600, 250, 250, 350, 350),
     source: 'spec decision 41 and test Courtyard.ShortRanges',
-    worked: [{p: [300, 125], h: 125, label: 'ridge through the cut'}],
-    interpret: 'The inner wall is 100, so the cut stands 50 from its corners against a half-span of 125: not clean, no refusal.',
+    worked: [{p: [300, 125], h: 125, label: 'ridge across the S range'}],
+    interpret: 'The inner wall is 100 against a half-span of 125: the hole is narrower than the ranges round it.',
   },
   {
-    id: '9d', group: '9 Courtyard', title: 'Short ranges with no off-corner lattice cut: outer 250, inner (100,100)-(150,150), cut x=100',
-    build: () => buildCourtyard([0, 0, 250, 250], [100, 100, 150, 150], pt(100, 0), pt(100, 100), SLIT.width),
+    id: '9d', group: '9 Courtyard', title: 'Short ranges: outer 250, inner (100,100)-(150,150)',
+    build: () => buildCourtyard([0, 0, 250, 250], [100, 100, 150, 150]),
     expected: annulus(250, 250, 100, 100, 150, 150),
     source: 'spec decision 41',
-    interpret: 'A 50 cm inner wall leaves only cuts at its corners, collinear with an inner wall.',
+    interpret: 'A 50 cm inner wall in a 250 cm block.',
   },
 ];
 

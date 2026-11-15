@@ -240,7 +240,8 @@ describe('every catalogue entry, built (WP-V2)', () => {
 
   it('labels an entry with its facts where the reader sees them', () => {
     const groups = catalogueGroups(sources(CATALOGUE_FACTS));
-    const label = groups.flatMap(g => g.entries).find(e => e.value === 'pinned/s7h250/Court14')?.label;
-    expect(label).toMatch(/^s7h250\/Court14 \[cheeks 1/);
+    // The holed roof cured s7h250 Court14's Cheek (holed roof decision 48); s1h250 SplitCourt1 keeps one.
+    const label = groups.flatMap(g => g.entries).find(e => e.value === 'pinned/s1h250/SplitCourt1')?.label;
+    expect(label).toMatch(/^s1h250\/SplitCourt1 .*\[cheeks 1, conflicts 4, rise\]$/);
   });
 });

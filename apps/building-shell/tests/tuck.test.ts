@@ -25,17 +25,21 @@ import {memoBuilds} from './test-builds.ts';
 
 const build = memoBuilds();
 
-/** Every tuck input: those that threw, the Cheek reproducer (its span unused: its mirror is no oracle), the silent ones. */
-const ALL_CASES: readonly TuckCase[] = [...THROWING_TUCK_CASES, {fixture: COVERED_RISE_CELL_CLASH, span: 600}, ...SILENT_TUCK_CASES];
+/**
+ * Every tuck input: those that threw and the silent ones. `CoveredRiseCellClash`, the Cheek reproducer, was one until the
+ * holed roof (holed roof decision 48): its tuck and its Cheek stood on the courtyard cut, and it is held below as built
+ * with no tuck.
+ */
+const ALL_CASES: readonly TuckCase[] = [...THROWING_TUCK_CASES, ...SILENT_TUCK_CASES];
 
-/** The cases whose x-mirror is the oracle. `CoveredRiseCellClash`'s mirror plans other roofs, so it is left out. */
-const MIRRORED: readonly TuckCase[] = [...THROWING_TUCK_CASES, ...SILENT_TUCK_CASES];
+/** The cases whose x-mirror is the oracle: every one. */
+const MIRRORED: readonly TuckCase[] = ALL_CASES;
 
-/** Each case's measured genus: one tunnel through the Cheek reproducer's ring of Rings, none elsewhere. */
-const genusOf = (c: TuckCase): number => (c.fixture === COVERED_RISE_CELL_CLASH ? 1 : 0);
+/** Each case's measured genus: no tunnel. */
+const genusOf = (_: TuckCase): number => 0;
 
-/** The measured Cheek faces: the Cheek reproducer keeps one, exposed; its other Cheek is tucked. */
-const cheeksOf = (c: TuckCase): number => (c.fixture === COVERED_RISE_CELL_CLASH ? 1 : 0);
+/** The measured Cheek faces: none exposed. */
+const cheeksOf = (_: TuckCase): number => 0;
 
 const tuckFaces = (s: BuildingShell): ShellFace[] => s.faces.filter(f => f.tag.kind === 'Tuck');
 
@@ -156,10 +160,6 @@ const RIMS: Readonly<Record<string, readonly RimLine[]>> = {
   TuckSteepGableEnd263: [
     {a: [86.603, 50, 313], b: [200, 50, 313], kind: 'RingJunction', faces: ['Roof', 'Wall']},
   ],
-  CoveredRiseCellClash: [
-    {a: [100, 250, 500], b: [300, 250, 615.47], kind: 'RingJunction', faces: ['Roof', 'Wall']},
-    {a: [300, 250, 500], b: [300, 250, 615.47], kind: 'InternalCorner', faces: ['Gable', 'Wall']},
-  ],
 };
 
 const near = (p: Vec3, q: Vec3): boolean => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) <= 1e-3;
@@ -209,12 +209,16 @@ describe.each(MIRRORED.map(c => [c.fixture.name, c] as const))('journal decision
   });
 });
 
-describe('journal decision 272: a tuck\'s area in closed form, where the geometry gives it', () => {
-  it('CoveredRiseCellClash tucks its whole storey 1 Cheek on y = 250, a triangle 100 cm deep and 200 tan 30° tall', async () => {
-    const {shell} = await build(COVERED_RISE_CELL_CLASH);
-    const want = (100 * 200 * Math.tan(Math.PI / 6)) / 2;
-    for (const f of tuckFaces(shell)) expect(Math.abs(f.area - want), `face ${f.id}`).toBeLessThan(AREA_TOL);
-    expect(tuckFaces(shell).map(f => f.tag.storey).sort()).toEqual([1, 2]);
+// Holed roof decision 48: `CoveredRiseCellClash` tucked its whole storey 1 Cheek on y = 250, a triangle 100 cm deep and
+// 200 tan 30 degrees tall, on the courtyard cut. With no cut it has neither, and its x-mirror, which the cut planned
+// another way, is now its mirror image.
+describe('CoveredRiseCellClash on the holed roof: no tuck, no Cheek', () => {
+  it('builds clean with no tuck, the mirror image of its x-mirror about x = 350', async () => {
+    const b = await build(COVERED_RISE_CELL_CLASH);
+    expect(invariantViolations(b, {genus: 1, cheeks: 0})).toEqual([]);
+    expect(b.shell.report.tucks).toBe(0);
+    expect(tuckFaces(b.shell)).toEqual([]);
+    expect(mirrorDifferences(b.shell, (await build(mirrorFixture(COVERED_RISE_CELL_CLASH, 700))).shell, 700).differences).toEqual([]);
   });
 });
 

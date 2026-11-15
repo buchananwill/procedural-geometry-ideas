@@ -32,7 +32,7 @@ const topAt = (b: ShellBuild, x: number, y: number): number => (intervalTop(b.un
 
 /** The plane of the walls on the line `y = at` facing `inward`, named by hand: a limit's wall. */
 function planeOnY(plan: StoreyPlan, at: number, inward: -1 | 1): number {
-  const ids = new Set(plan.building.walls.filter(w => w.form !== 'cut' && w.a.y === at && w.b.y === at && Math.sign(w.n.y) === inward).map(w => w.plane));
+  const ids = new Set(plan.building.walls.filter(w => w.a.y === at && w.b.y === at && Math.sign(w.n.y) === inward).map(w => w.plane));
   if (ids.size !== 1) throw new Error(`walls on y = ${at} facing ${inward} hold ${ids.size} planes`);
   return [...ids][0];
 }

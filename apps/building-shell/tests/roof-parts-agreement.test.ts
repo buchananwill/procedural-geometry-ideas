@@ -1,7 +1,7 @@
 // `solveRoofParts` re-types `runB`'s logic (the weights, the solve loop, the default faces, the pieces loop), so this
 // checks the two agree: every roof-gable case, built as one storey of raw parts from `solveRoofParts` and unioned, must
 // stand at `runB`'s height plus the plate at every grid point strictly inside its footprint. The courtyards 9a to 9d
-// go through their own cut (journal decision 115).
+// are each one island with its hole (holed roof decision 36).
 import {beforeAll, describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {Wasm, getManifold} from '../src/manifold.ts';
@@ -56,7 +56,7 @@ function clearOfWalls(b: Building, p: Pt): boolean {
   });
 }
 
-/** Cases 9a to 9d, the courtyards: each roofed through its own cut, as `buildCourtyard` places it (journal decision 115). */
+/** Cases 9a to 9d, the courtyards: each one island with its hole, as `buildCourtyard` builds it (holed roof decision 36). */
 const courtyards = CASES.filter(c => c.build().comps.some(comp => comp.holes.length > 0));
 
 /**
@@ -85,7 +85,7 @@ describe('solveRoofParts agrees with runB', () => {
     // A courtyard's ring is one tunnel from the ground to the sky. (Other cases are not pinned here: 8e is two islands,
     // which Manifold counts as genus -1.)
     if (courtyards.includes(c)) expect(u.genus).toBe(1);
-    // The cut's faces are Internal, and each has its partner across the slit, so none survives (spec decision 2).
+    // No Internal face survives: the plate caps are each other's partners.
     expect(u.survivingInternal).toBe(0);
     expect(u.cheeks).toBe(MEASURED_CHEEKS[c.id] ?? 0);
     const surface = runB(b, {far: 'plane'});

@@ -95,34 +95,22 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
     if (!g) throw new Error(`no oracle ${name}`);
     return g.fixture;
   };
-  const cutsOf = (f: ShellFixture): number[][] =>
-    planStorey(f, 0).building.walls.filter(w => w.form === 'cut').map(w => [w.a.x, w.b.x, Math.round((Math.atan(w.tan) * 180) / Math.PI)]);
+  /** An oracle's island at storey 0: its hole count, and the pitches, in degrees, of every wall of its hole. */
+  const holeOf = (f: ShellFixture): [number, number[]] => {
+    const [comp] = planStorey(f, 0).building.comps;
+    return [comp.holes.length, [...new Set(comp.walls.filter(w => w.loop === 1).map(w => Math.round((Math.atan(w.tan) * 180) / Math.PI)))].sort((p, q) => p - q)];
+  };
 
-  // Gable rise decision 17 (WP-G2): an oracle whose fixture builds a rise is clean and exported, not yet replayable.
-  it.each(RULE_ORACLES.map(g => [g.fixture.name, g] as const))('%s: a clean oracle with its files, replayable unless it builds a rise', (name, g) => {
-    if (buildsARise(g.fixture)) {
-      expect(entry(name)).toMatchObject({clean: true, cppReplayable: false, violations: []});
-      const e = entry(name);
-      expect(e && 'reasons' in e && e.reasons).toContain(BUILDS_A_RISE);
-    } else {
-      expect(entry(name)).toMatchObject({clean: true, cppReplayable: true, violations: [], input: `${name}.input.json`});
-    }
+  // Holed roof decision 52: the free cut's oracles become clean-golden checks. Each split-band courtyard is one island
+  // roofed by its outline and its hole, every hole wall at its own pitch, and its entry is clean.
+  it.each([['SplitBandFreeCut', [45, 60]], ['SplitBandFreeCut45', [45]], ['SplitBandAllGable75', [75]]] as const)('%s is one island with its hole, roofed clean', (name, degs) => {
+    expect(holeOf(oracle(name))).toEqual([1, degs]);
+    expect(entry(name)).toMatchObject({clean: true, violations: [], expectedGenus: [1], measuredGenus: [1]});
   });
 
-  it('SplitBandFreeCut reads the free cut: its cut is collinear with no wall, at the island\'s steepest 60°', () => {
-    expect(cutsOf(oracle('SplitBandFreeCut'))).toEqual([[500, 500, 60], [500, 500, 60]]);
-  });
-
-  // Decision 161, finding 2: an island whose steepest pitch is not 60°, so the rejected constant 60 moves a clean golden.
-  it('SplitBandFreeCut45 reads the free cut at its island\'s steepest, 45°', () => {
-    expect(cutsOf(oracle('SplitBandFreeCut45'))).toEqual([[500, 500, 45], [500, 500, 45]]);
-  });
-
-  // Decision 161, finding 2: every wall is a gable, so the struck hip-only rule finds no hip; the cut reads the gables.
-  it('SplitBandAllGable75 reads the free cut at its island\'s steepest wall, a gable at 75°', () => {
+  it('SplitBandAllGable75 is gabled on every side', () => {
     const f = oracle('SplitBandAllGable75');
     expect(f.rings.every(r => RING_SIDES.every(s => r.sides?.[s]?.form === 'gable'))).toBe(true);
-    expect(cutsOf(f)).toEqual([[500, 500, 75], [500, 500, 75]]);
   });
 
   // Decision 161, finding 3: the committed shell names the document's own Rings and sides, not the fixture's positions or
@@ -139,14 +127,14 @@ describe("the golden additions: decisions 156's F3 and 161's rule oracles, and 1
   // Decision 164, finding 1: an island with hips and a gable steeper than every hip, so a hip-first rule moves it.
   // WP-G2 (journal decision 206): every Ring side on the x = 0 wall is gabled, so under gable rise decision 3 the wall is
   // still one whole-wall gable, and no rise is built.
-  it("SB400-600B100S500g60r024 reads the free cut at its island's steepest wall, a gable at 60° over hips at 30°", () => {
+  it("SB400-600B100S500g60r024: its whole x = 0 wall a gable at 60° over hips at 30°, one island with its hole", () => {
     const f = oracle('SB400-600B100S500g60r024');
     for (const k of [0, 2, 4]) expect(f.rings[k].sides?.W).toEqual({form: 'gable', deg: 60});
     expect(f.rings.every(r => r.defaultDeg === 30)).toBe(true);
     const x0 = planStorey(f, 0);
     expect(x0.building.walls.filter(w => w.a.x === 0 && w.b.x === 0).map(w => w.form)).toEqual(['gable', 'gable', 'gable']);
     expect(x0.rises).toBeUndefined();
-    expect(cutsOf(f)).toEqual([[500, 500, 60], [500, 500, 60]]);
+    expect(holeOf(f)[0]).toBe(1);
   });
 
   // Journal decisions 260 to 262 (WP-C2): the drop's oracle ships its whole input, the dropped Ring in it, and its

@@ -19,6 +19,11 @@ const EXPECTED_B_TALLY = 'pass 44, cheek 6, fail 3, blocked 0, none 0';
  * Every case's B verdict, captured by running roof-gable's own `run.ts` read-only (the README's
  * `../../../CCDashboard/node_modules/.bin/tsx run.ts`, from its folder) on 2026-11-07, against packages/core/src
  * unchanged since f7b6091. Its B line read `pass 44, cheek 6, fail 3, blocked 0, none 0`, the README's.
+ *
+ * Holed roof decisions 35 to 37: 49 of the 53 cases are roof-gable's `run.ts` cases as it runs them. The courtyards 9a to
+ * 9d are this copy's own: each is one Comp, the outer rectangle with the inner one as its hole (`buildCourtyard`), roofed
+ * by the holed skeleton with no cut, and each passes, equal at every sample to its `annulus` expectation. The tally
+ * and every verdict are unchanged.
  */
 const EXPECTED_B_VERDICTS: Record<string, Verdict> = {
   '1a': 'PASS', '1b': 'PASS', '1c': 'PASS', '1d': 'PASS', '1e': 'PASS', '1f': 'PASS', '1g': 'PASS',

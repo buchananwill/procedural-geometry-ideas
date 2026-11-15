@@ -110,12 +110,11 @@ export function loopRuns(loop: Pt[]): WallLine[] {
 }
 
 /**
- * A side form outside `RingForm` is a hard error: only the courtyard rule places a cut (spec decision 2). It reads the
- * form as any string, as an authored file may hold (journal decision 145, N1), and asserts a `SideForm`.
+ * A side form outside `RingForm` is a hard error (holed roof decision 29). It reads the form as any string, as an authored file may hold (journal decision 145, N1), and asserts a `SideForm`.
  */
 function checkedSide(index: number, side: RingSide, s: {form: string}): asserts s is SideForm {
   if (s.form !== 'hip' && s.form !== 'gable') {
-    throw new Error(`Ring ${index} side ${side} is authored ${s.form}; a Ring side is hip or gable, and only the courtyard rule places a cut`);
+    throw new Error(`Ring ${index} side ${side} is authored ${s.form}; a Ring side is hip or gable`);
   }
 }
 
@@ -132,7 +131,7 @@ export type AuthoredRun = {form: string} & Pick<SideRun, 'maxHeight' | 'apart'> 
  */
 function checkedRun(index: number, side: RingSide, k: number, r: AuthoredRun): asserts r is SideRun {
   if (r.form !== 'hip' && r.form !== 'gable') {
-    throw new Error(`Ring ${index} side ${side} run ${k} is authored ${r.form}; a run is hip or gable, and only the courtyard rule places a cut`);
+    throw new Error(`Ring ${index} side ${side} run ${k} is authored ${r.form}; a run is hip or gable`);
   }
   if (r.facing !== undefined && !RISE_FACINGS.some(x => x === r.facing)) {
     throw new Error(`Ring ${index} side ${side} run ${k} faces by ${r.facing}; a facing strategy is one of ${RISE_FACINGS.join(', ')} (per-stretch gable settings decision 5)`);
@@ -366,19 +365,6 @@ export function storeyLoops(rects: Rect[]): Pt[][] {
 export function wallSel(w: UnionWall): Sel {
   const line: Sel = w.axis === 'x' ? {x: w.at} : {y: w.at};
   return {...line, from: w.lo, to: w.hi, n: w.n, form: w.form, deg: w.deg};
-}
-
-/**
- * Whether `sel` picks the traced wall `a` to `b`, by roof-gable's own reading of a selector (its line, its span
- * overlap and its inward normal); for a ring `buildFromRects` cannot take, a courtyard's.
- */
-export function selPicks(sel: Sel, a: Pt, b: Pt): boolean {
-  const l = edgeLine(a, b);
-  if (sel.x !== undefined && (l.axis !== 'x' || l.at !== sel.x)) return false;
-  if (sel.y !== undefined && (l.axis !== 'y' || l.at !== sel.y)) return false;
-  if (sel.from !== undefined && l.hi <= sel.from) return false;
-  if (sel.to !== undefined && l.lo >= sel.to) return false;
-  return sel.n === undefined || sel.n === l.n;
 }
 
 export const tanDeg = (deg: number): number => Math.tan((deg * Math.PI) / 180);

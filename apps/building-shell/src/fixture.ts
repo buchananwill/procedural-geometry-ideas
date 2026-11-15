@@ -3,7 +3,7 @@ import {Rect} from './roof/model.ts';
 
 /**
  * Spec decision 3 as amended (journal decision 116): the forms a Ring side may be authored with. Mono stays out of
- * Ring authoring for now, and a cut is placed only by the courtyard rule (spec decision 2).
+ * Ring authoring for now.
  */
 export const RING_FORMS = ['hip', 'gable'] as const;
 
@@ -128,7 +128,7 @@ export const SHELL_FIXTURES: ShellFixture[] = [
   fixture('SingleStoreyT', [ring(CASE_2A_RECTS[0], 0, 1, 45, {E: gable}), ring(CASE_2A_RECTS[1], 0, 1, 45)]),
   // 40, Piste Perfect's default building (journal decision 103)
   fixture('DefaultChalet', [ring([0, 0, 1000, 1000], 0, 1, 22.5, {W: gable, E: gable})]),
-  // Journal decision 115: a courtyard, roofed through a cut along a raw Ring wall (spec decision 2 as amended).
+  // Journal decision 115: a courtyard, roofed as its outline and its hole (holed roof decision 39).
   fixture('Courtyard', COURTYARD_RECTS.map(r => ring(r, 0, 1, 30))),
 ];
 

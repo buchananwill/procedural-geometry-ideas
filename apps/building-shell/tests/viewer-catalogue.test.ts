@@ -55,9 +55,14 @@ describe('the input files the selector reads', () => {
 
   it('lists the clean goldens with a committed input that no in-memory fixture names', () => {
     expect(goldens.map(g => g.name)).toEqual([
-      'FlushOverReflex300', 'FlushOverReflex250', 'UpperUJoinedByEdgeContact', 'FullWingsProbe', 'SplitBandFreeCut', 'SplitBandFreeCut45',
+      'FlushOverReflex300', 'FlushOverReflex250', 'UpperUJoinedByEdgeContact', 'FullWingsProbe',
+      // Holed roof decision 48: a defect case until the holed roof cured its cut-piece overshoot.
+      'CutOvershootProbe',
+      'SplitBandFreeCut', 'SplitBandFreeCut45',
       'GablePitchL', 'AsymmetricLScrambled', 'SB400-600B100S500g60r024', 'PitchRingConflictFileReversed', 'StoreyRingConflictFileReversed',
       'CutPitchConflictFileReversed', 'HoleRingConflictFileReversed',
+      // Holed roof decision 48: a defect case until the holed roof cured its cut-piece overshoot.
+      'CourtyardAt22.5-45s',
       // Journal decisions 260 to 262 (WP-C2): a defect case until the solve dropped its fully internal Ring.
       'CourtyardJutCutSwapped',
     ]);
@@ -124,7 +129,8 @@ describe('catalogueGroups', () => {
     const research = of('Roof-gable research cases');
     expect(research).toHaveLength(53);
     expect(research.find(e => e.value === 'research-2b')?.label).toBe('2b: T, only the south segment gabled, north hipped');
-    expect(research.find(e => e.value === 'research-9a')?.label).toMatch(/\(cut placed by the pipeline\)$/);
+    // Holed roof decision 55: the courtyard's label carries no cut.
+    expect(research.find(e => e.value === 'research-9a')?.label).toBe('9a: Courtyard, outer 1000, inner (200,200)-(800,800)');
     const left = research.filter(e => e.disabled);
     expect(left.map(e => e.value)).toEqual(['4g', '5a', '5b', '5c', '5d', '5e', '9b'].map(leftOutValue));
     for (const e of left) expect(e.label).toMatch(/\(left out: .+\)$/);
@@ -181,7 +187,7 @@ describe('filterCatalogue', () => {
     const hit = filterCatalogue(groups, '2b SOUTH');
     expect(values(hit)).toEqual(['research-2b']);
     expect(filterCatalogue(groups, 'port').find(g => g.label === 'Port regressions')?.entries).toHaveLength(PORT_FIXTURES.length);
-    expect(values(filterCatalogue(groups, 'cut placed by the pipeline'))).toEqual(['research-9a', 'research-9c', 'research-9d']);
+    expect(values(filterCatalogue(groups, 'short ranges'))).toEqual(['research-9c', 'research-9d']);
   });
 
   it('drops groups with no match, and keeps the entry on show whatever the query', () => {

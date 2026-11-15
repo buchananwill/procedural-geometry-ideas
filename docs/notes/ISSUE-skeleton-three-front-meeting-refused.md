@@ -81,6 +81,25 @@ Decision 22 is asked only in a step of more than one ring (spec decision 1). Onc
 meeting on one ring is not refused. It reaches the one-ring machinery, which is
 [the three-front meeting on one ring](./ISSUE-skeleton-three-front-meeting-on-one-ring.md).
 
+## The building-shell specimens
+
+Roadmap node 9 ([the holed roof spec](./building-shell-holed-roof-decisions.md), decisions 41 to 43) hands
+`solveSkeleton` each island's outline and holes, and these layouts are refused under this kind. Each is one storey,
+every Ring hipped at 30°, Rings as `[x0, y0, x1, y1]` in cm. The first four built clean under the courtyard cut and are
+the regression the spec states. Each is an entry of `HOLED_REFUSALS` in `apps/building-shell/tests/robustness-fixtures.ts`,
+whose test in `tests/holed-roof.test.ts` asserts the hard error naming the island and this kind; the guard is green, and
+a cure turns it red.
+
+| Layout | Rings |
+|---|---|
+| `CourtL` | `[0,0,1000,300]`, `[0,700,1000,1000]`, `[0,300,300,700]`, `[700,300,1000,700]`, `[1000,0,1400,300]` |
+| `JutMidWall` | `[0,0,1000,300]`, `[0,300,300,700]`, `[-250,350,0,650]`, `[0,700,1000,1000]`, `[700,300,1000,700]` |
+| `BandRunsOnPastWing` (was `BandRunsOnPastCut`) | `[-250,0,1000,300]`, `[0,300,300,700]`, `[0,700,1000,1000]`, `[700,300,1000,700]` |
+| `BandRunsOnPastWingMirrorY` | `[-250,700,1000,1000]`, `[0,300,300,700]`, `[0,0,1000,300]`, `[700,300,1000,700]` |
+| `TwoHolesProbe` (two holes; the cut refused it too) | `[0,0,700,100]`, `[0,200,700,300]`, `[0,100,100,200]`, `[300,100,400,200]`, `[600,100,700,200]` |
+
+`CourtL` is a layout a person would draw: a wing carrying a band's line on past the courtyard (BSA.D321).
+
 ## What a cure needs
 
 A cure needs an angular pairing round the node: the fronts' directions of arrival, sorted about the node, then the gap

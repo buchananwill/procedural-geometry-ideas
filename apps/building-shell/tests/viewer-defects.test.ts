@@ -56,9 +56,10 @@ describe('parseDefectCases', () => {
   });
 
   it('carries each entry\'s residue class, violations, pinned error, input file and reasons', () => {
-    const cheek = named('Court14Seed7h250');
+    // The Cheek class's representative since the holed roof cured s7h250 Court14 (holed roof decision 48).
+    const cheek = named('SplitCourt1Seed1h250');
     expect(cheek.residueClass).toBe('algorithm-B Cheek');
-    expect(cheek.violations).toEqual(['cheeks 1, expected 0, at (291.83203125, 250, 500)']);
+    expect(cheek.violations).toEqual(['cheeks 1, expected 0, at (250, 700, 400)']);
     // Every case's input file and reasons are its manifest entry's, whichever cases ship an input today.
     for (const c of cases) {
       expect(c.input, c.name).toBe(manifestEntry(c.name)?.input);
@@ -115,10 +116,10 @@ describe('where a defect case is loaded from (WP-V3)', () => {
       const drawn = g && !g.clean && (LISTED.includes(g.fixture) || PINNED_CASES.filter(p => p.pins.some(q => q.outcome === g.pin)).length === 1);
       expect(c.source.kind !== 'none', c.name).toBe(Boolean(drawn));
     }
-    // The user's reference Cheek: the golden set ships no input for it (it builds a covered rise), so it is drawn as its pinned case.
-    const cheek = named('Court14Seed7h250');
+    // The Cheek class's representative: the golden set ships no input for it (it builds a gable rise), so it is drawn as its pinned case.
+    const cheek = named('SplitCourt1Seed1h250');
     expect(cheek.input).toBeUndefined();
-    expect(cheek.source.kind === 'pinned' && cheek.source.pinned.key).toBe('s7h250/Court14');
+    expect(cheek.source.kind === 'pinned' && cheek.source.pinned.key).toBe('s1h250/SplitCourt1');
   });
 
   it('builds a golden that is a listed fixture from that fixture, and a golden two pinned cases claim from neither', () => {
@@ -126,9 +127,9 @@ describe('where a defect case is loaded from (WP-V3)', () => {
     const asRoster: GoldenFixture = {clean: false, fixture: roster, expectedGenus: [0], residueClass: 'algorithm-B Cheek', pin: [], located: false};
     expect(inMemorySources([asRoster], [], LISTED).get(roster.name)).toEqual({kind: 'fixture', fixture: roster});
     expect(inMemoryFixture(roster.name, {kind: 'fixture', fixture: roster})).toEqual(roster);
-    const s7 = PINNED_CASES.find(p => p.key === 's7h250/Court14');
-    const g = goldenNamed('Court14Seed7h250');
-    if (!s7 || !g) throw new Error('no s7h250/Court14 or Court14Seed7h250');
+    const s7 = PINNED_CASES.find(p => p.key === 's1h250/SplitCourt1');
+    const g = goldenNamed('SplitCourt1Seed1h250');
+    if (!s7 || !g) throw new Error('no s1h250/SplitCourt1 or SplitCourt1Seed1h250');
     expect(inMemorySources([g], [s7, {...s7, key: 'twin'}], LISTED).size).toBe(0);
     expect(inMemorySources([g], [], LISTED).size).toBe(0);
   });
@@ -138,8 +139,7 @@ describe('where a defect case is loaded from (WP-V3)', () => {
       shell: [], rises: [], gableSettings: [], conflicts: [], port: [], research: [], defects, goldens: [], playtest: [], pinned: [], facts: {},
     }).flatMap(g => g.entries);
     const listed = entries(cases);
-    expect(listed.find(e => e.value === 'Court14Seed7h250')).toEqual({value: 'Court14Seed7h250', label: 'Court14Seed7h250: algorithm-B Cheek (built from pinned case s7h250/Court14)'});
-    expect(listed.find(e => e.value === 'CutOvershootProbe')?.label).toBe('CutOvershootProbe: algorithm-B cut-piece overshoot (read from golden/CutOvershootProbe.input.json)');
+    expect(listed.find(e => e.value === 'SplitCourt1Seed1h250')).toEqual({value: 'SplitCourt1Seed1h250', label: 'SplitCourt1Seed1h250: algorithm-B Cheek (built from pinned case s1h250/SplitCourt1)'});
     for (const c of cases) expect(listed.find(e => e.value === c.name)?.label, c.name).toContain(defectSourceText(c));
     const unloadable: DefectCase = {...named('GapAligned1'), source: {kind: 'none'}};
     const [e] = entries([unloadable]);
@@ -151,8 +151,8 @@ describe('where a defect case is loaded from (WP-V3)', () => {
 
 describe('selectionFromHash', () => {
   it('names a defect case by its hash, and the roster by its own', () => {
-    const sel = selectionFromHash('#CutOvershootProbe', {fixtures: SHELL_FIXTURES, cases});
-    expect(sel.kind === 'case' && sel.defect.name).toBe('CutOvershootProbe');
+    const sel = selectionFromHash('#ApexEdge5', {fixtures: SHELL_FIXTURES, cases});
+    expect(sel.kind === 'case' && sel.defect.name).toBe('ApexEdge5');
     const roster = selectionFromHash('#Courtyard', {fixtures: SHELL_FIXTURES, cases});
     expect(roster.kind === 'fixture' && roster.fixture.name).toBe('Courtyard');
   });
@@ -172,7 +172,7 @@ describe('selectionFromHash', () => {
   });
 
   it('lets a roster name win a collision with a case', () => {
-    const clash = {...named('Court14Seed7h250'), name: SHELL_FIXTURES[1].name};
+    const clash = {...named('SplitCourt1Seed1h250'), name: SHELL_FIXTURES[1].name};
     expect(selectionFromHash(`#${SHELL_FIXTURES[1].name}`, {fixtures: SHELL_FIXTURES, cases: [clash]}).kind).toBe('fixture');
   });
 
@@ -202,9 +202,9 @@ describe('the camera is framed on the pinned positions', () => {
   });
 
   it('every case that pins a position has a focus; the Cheek class sits where it is pinned', () => {
-    expect(focusOfCase(named('Court14Seed7h250'))?.centre).toEqual([291.83203125, 250, 500]);
-    expect(focusOfCase(named('CutOvershootProbe'))).toBeDefined();
-    expect(focusOfCase(named('CourtyardAt22.5-45s'))).toBeDefined();
+    expect(focusOfCase(named('SplitCourt1Seed1h250'))?.centre).toEqual([250, 700, 400]);
+    expect(focusOfCase(named('ApexEdge5'))).toBeDefined();
+    expect(focusOfCase(named('BridgeOverBlockAt45'))).toBeDefined();
   });
 });
 
@@ -215,8 +215,18 @@ describe('a defect is marked where it is', () => {
     return {fixture, build: await buildShellDetailed(fixture)};
   };
 
+  // No residue the golden set ships has a surviving Internal face since the holed roof cured the cut-piece overshoot
+  // (holed roof decision 49), so the Courtyard's build is given one: its first Roof face, and that face's triangles in
+  // the union, re-tagged Internal.
   it('draws the surviving Internal face magenta, and counts it in the Defects legend', async () => {
-    const {fixture, build} = await buildCase('CutOvershootProbe');
+    const fixture = SHELL_FIXTURES.find(f => f.name === 'Courtyard');
+    if (!fixture) throw new Error('no Courtyard');
+    const built = await buildShellDetailed(fixture);
+    const k = built.shell.faces.findIndex(f => f.tag.kind === 'Roof');
+    const faces = built.shell.faces.map((f, i) => (i === k ? {...f, tag: {...f.tag, kind: 'Internal' as const}} : f));
+    const roofTri = built.union.triTags.findIndex(t => t.kind === 'Roof');
+    const triTags = built.union.triTags.map((t, i) => (i === roofTri ? {...t, kind: 'Internal' as const} : t));
+    const build = {...built, union: {...built.union, triTags}, shell: {...built.shell, faces, report: {...built.shell.report, survivingInternal: 1}}};
     const storeys = new Set(storeysOf(fixture));
     expect(SHELL_KIND_COLOUR.Internal).toBe(MAGENTA);
     const solid = faceTriangles(build, storeys, false);
@@ -233,11 +243,12 @@ describe('a defect is marked where it is', () => {
   });
 
   it('draws each Unclassified Edge heavy: a white casing and a magenta core over the same segments', async () => {
-    const {fixture, build} = await buildCase('CutOvershootProbe');
+    const {fixture, build} = await buildCase('ApexEdge5');
     const storeys = new Set(storeysOf(fixture));
     const casing = defectEdgeSegments(build, storeys, DEFECT_CASING_COLOUR);
     const core = defectEdgeSegments(build, storeys, MAGENTA);
-    expect(casing.owner.length).toBe(3);
+    expect(casing.owner.length).toBe(build.shell.report.unclassifiedEdges);
+    expect(casing.owner.length).toBeGreaterThan(0);
     expect(Array.from(core.positions)).toEqual(Array.from(casing.positions));
     expect(Array.from(casing.colors.slice(0, 3))).toEqual([...linearRGB(DEFECT_CASING_COLOUR)]);
     expect(Array.from(core.colors.slice(0, 3))).toEqual([...linearRGB(MAGENTA)]);
@@ -246,11 +257,11 @@ describe('a defect is marked where it is', () => {
     const toggles = withStoreys(makeToggles([]), storeysOf(fixture));
     const entry = legendEntries(build, toggles).find(e => e.group === 'Defects' && e.label.startsWith('Unclassified'));
     expect(entry?.casing).toBe(DEFECT_CASING_COLOUR);
-    expect(entry?.count).toBe(3);
+    expect(entry?.count).toBe(build.shell.report.unclassifiedEdges);
   });
 
   it('lists the Cheek faces in their own legend colour', async () => {
-    const {fixture, build} = await buildCase('Court14Seed7h250');
+    const {fixture, build} = await buildCase('SplitCourt1Seed1h250');
     const toggles = withStoreys(makeToggles([]), storeysOf(fixture));
     const cheek = legendEntries(build, toggles).find(e => e.group === 'Faces' && e.label === 'Cheek');
     expect(cheek?.colour).toBe(SHELL_KIND_COLOUR.Cheek);

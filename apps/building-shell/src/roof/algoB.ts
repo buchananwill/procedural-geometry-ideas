@@ -1,6 +1,6 @@
 // Algorithm B, projected intersection: the default hip over the footprint, plus one added piece per promoted line,
 // the two end walls' planes clipped to the wall's side and band, composed with the higher surface winning.
-import {Building, Comp, Pt, Wall, dot, sub} from './model.ts';
+import {Building, Comp, Pt, Wall, compLoops, dot, sub} from './model.ts';
 import {PlaneFace, Sample, Surface, emptyInfo, evalFaces, makeFace} from './surface.ts';
 import {RawFace, solveFaces} from './skeleton.ts';
 
@@ -9,8 +9,6 @@ export type FarEdge = 'plane' | 'none' | 'contact' | 'ridge';
 export interface BOptions {
   /** How far inward the piece reaches. 'plane' is the chosen rule; the others exist for the trial table. */
   far: FarEdge;
-  /** Cut sides read their own line's ends, not the shorter of the pair's. For the corner-cut side by side. */
-  literalCut?: boolean;
 }
 
 export interface Piece {
@@ -34,9 +32,9 @@ const spanOf = (w: Wall): [number, number] => {
   return [Math.min(a, b), Math.max(a, b)];
 };
 
-/** The wall's straight line, walked along its inward side until it leaves the footprint. */
+/** The wall's straight line, walked along its inward side until it leaves the footprint, breaking at every loop's vertices. */
 function extentOf(b: Building, comp: Comp, w: Wall): [number, number] {
-  const breaks = [...new Set(comp.ring.map(p => along(w, p)))].sort((p, q) => p - q);
+  const breaks = [...new Set(compLoops(comp).flat().map(p => along(w, p)))].sort((p, q) => p - q);
   let [lo, hi] = spanOf(w);
   for (;;) {
     const prev = breaks.filter(s => s < lo).pop();
@@ -64,7 +62,7 @@ function endWall(comp: Comp, w: Wall, s: number, intoLine: number): Wall | undef
   });
 }
 
-const planeUsable = (o: Wall | undefined): o is Wall => !!o && !o.dead && o.form !== 'cut';
+const planeUsable = (o: Wall | undefined): o is Wall => !!o && !o.dead;
 
 function endPlanes(comp: Comp, w: Wall, ext: [number, number]): number[] {
   const out: number[] = [];
@@ -80,7 +78,7 @@ function endPlanes(comp: Comp, w: Wall, ext: [number, number]): number[] {
   return out;
 }
 
-/** The nearest wall facing back at this one across the band. */
+/** The nearest wall facing back at this one across the band; of two at one distance, the first in `comp.walls`. */
 function farWall(comp: Comp, w: Wall, lo: number, hi: number): Wall | undefined {
   let best: Wall | undefined;
   let bestD = Infinity;
@@ -140,19 +138,6 @@ function buildPieces(b: Building, comp: Comp, opt: BOptions, notes: string[]): P
     const sorted = promoted.map(spanOf).sort((p, q) => p[0] - q[0]);
     for (const [lo, hi] of sorted) addPiece(w, lo, hi, planes, `segment [${lo},${hi}] of line ${w.a.x === w.b.x ? `x=${w.a.x}` : `y=${w.a.y}`}`);
   }
-
-  // The two sides of a cut stand one rake, read from whichever side's line actually ends at walls either side of the cut.
-  const cuts = comp.walls.filter(w => w.form === 'cut');
-  if (cuts.length === 2) {
-    const exts = cuts.map(w => extentOf(b, comp, w));
-    const shorter = exts[0][1] - exts[0][0] <= exts[1][1] - exts[1][0] ? 0 : 1;
-    cuts.forEach((w, i) => {
-      const source = opt.literalCut ? i : shorter;
-      const planes = endPlanes(comp, cuts[source], exts[source]);
-      const [lo, hi] = spanOf(w);
-      addPiece(w, lo, hi, planes, `cut side ${i} planes from side ${source}, extent [${exts[source][0]},${exts[source][1]}]`);
-    });
-  }
   return pieces;
 }
 
@@ -161,9 +146,7 @@ export function runB(b: Building, opt: BOptions): Surface {
   const defaults: PlaneFace[] = [];
   let defaultRefused = false;
   for (const comp of b.comps) {
-    // A cut has no pitch of its own: its side takes the default slope of a collinear neighbour, or 45 degrees.
-    const weights = comp.walls.map(w => 1 / w.tan);
-    const solved = solveFaces(comp, weights);
+    const solved = solveFaces(comp, loopWeights(comp));
     if (!solved.ok) {
       defaultRefused = true;
       info.notes.push(`default hip refused by the skeleton: ${solved.kind}: ${solved.message.slice(0, 200)}`);
@@ -223,6 +206,9 @@ export function runB(b: Building, opt: BOptions): Surface {
   };
 }
 
+/** Holed roof decision 9: `1 / tan` of each loop's walls in edge order, the outer loop first. */
+export const loopWeights = (comp: Comp): number[][] => compLoops(comp).map((_, k) => comp.walls.filter(w => w.loop === k).map(w => 1 / w.tan));
+
 /** What `solveRoofParts` returns: the parts `runB` composes, and `buildPieces`' notes. */
 export interface RoofParts {
   defaults: PlaneFace[];
@@ -234,17 +220,20 @@ export interface RoofParts {
 
 /**
  * The parts `runB` composes, for the building shell: the default hip faces (as plane faces and as the skeleton's
- * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. A component the skeleton refuses throws,
- * since a storey with a missing roof is not a shell. Added by the building-shell copy (spec decision 9); `runB` above
+ * raw faces, which keep their wall), the pieces, and `buildPieces`' notes. An island the skeleton refuses throws, naming
+ * the island, where it stands, its hole count and the cause (holed roof decision 17), since a storey with a missing roof
+ * is not a shell. Added by the building-shell copy (spec decision 9); `runB` above
  * is unchanged. The caller turns a NoPlane note into a hard error naming its fixture and storey (journal decision 64).
  */
 export function solveRoofParts(b: Building, opt: BOptions): RoofParts {
   const defaults: PlaneFace[] = [];
   const faces: RawFace[] = [];
-  for (const comp of b.comps) {
-    const weights = comp.walls.map(w => 1 / w.tan);
-    const solved = solveFaces(comp, weights);
-    if (!solved.ok) throw new Error(`solveRoofParts: default hip refused by the skeleton: ${solved.kind}: ${solved.message}`);
+  for (const [ci, comp] of b.comps.entries()) {
+    const solved = solveFaces(comp, loopWeights(comp));
+    if (!solved.ok) {
+      const {x, y} = comp.outer[0];
+      throw new Error(`solveRoofParts: island ${ci} at (${x}, ${y}) with ${comp.holes.length} holes cannot be roofed: ${solved.cause} [${solved.kind}: ${solved.message}]`);
+    }
     for (const f of solved.faces) {
       faces.push(f);
       defaults.push(makeFace(f.poly, b.planes[f.wall.plane]));

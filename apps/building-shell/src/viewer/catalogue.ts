@@ -169,7 +169,7 @@ const filesOf = (fs: readonly InputFile[]): CatalogueEntry[] => fs.map(f => ({va
 /** A research case's option: its id and title, and for a left-out case, disabled, with the reason. */
 function researchEntry(e: ResearchEntry): CatalogueEntry {
   if (!e.conversion.ok) return {value: leftOutValue(e.id), label: `${e.id}: ${e.title} (left out: ${e.conversion.reason})`, disabled: true};
-  return {value: e.name, label: `${e.id}: ${e.title}${e.conversion.courtyard ? ' (cut placed by the pipeline)' : ''}`};
+  return {value: e.name, label: `${e.id}: ${e.title}`};
 }
 
 /** Where a defect case is loaded from, in words: its selector label and the case box both say it (WP-V3). */

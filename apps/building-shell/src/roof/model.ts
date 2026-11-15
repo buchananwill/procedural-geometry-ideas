@@ -87,11 +87,15 @@ export function unionLoops(rects: Rect[]): Pt[][] {
   return loops;
 }
 
-export type Form = 'hip' | 'gable' | 'mono' | 'cut';
+export type Form = 'hip' | 'gable' | 'mono';
 
 export interface Wall {
   id: number;
   comp: number;
+  /** Holed roof roster: the loop the wall stands on, 0 the outer loop and `k` the comp's hole `k - 1`. */
+  loop: number;
+  /** Its index in that loop: the prism side from the loop's vertex `edge` to `edge + 1`. */
+  edge: number;
   a: Pt;
   b: Pt;
   dir: Pt;
@@ -104,7 +108,15 @@ export interface Wall {
   plane: number; // canonical plane id
 }
 
-export interface Comp { ring: Pt[]; walls: Wall[]; outer: Pt[]; holes: Pt[][] }
+/**
+ * One island (holed roof decisions 4 and 5): its walls, the outer loop's edges in loop order from vertex 0 and then each
+ * hole's from its vertex 0; the outer loop counter-clockwise and each hole clockwise, so every wall's left normal is
+ * inward. There is no slit ring: the island is its loops.
+ */
+export interface Comp { walls: Wall[]; outer: Pt[]; holes: Pt[][] }
+
+/** An island's loops, the outer loop first and then its holes. */
+export const compLoops = (c: Comp): Pt[][] => [c.outer, ...c.holes];
 
 export interface Plane { id: number; gx: number; gy: number; c: number; walls: number[]; label: string }
 
@@ -126,28 +138,34 @@ export function wallLabel(w: Wall): string {
   return vertical ? `x=${w.a.x} y[${lo},${hi}]` : `y=${w.a.y} x[${lo},${hi}]`;
 }
 
-export function finishBuilding(rawComps: {ring: Pt[]; outer: Pt[]; holes: Pt[][]; attrs: Partial<Wall>[]}[]): Building {
+/** One island before it is finished: its loops, and `attrs[k][j]` for loop `k`'s edge `j`. */
+export interface RawComp { outer: Pt[]; holes: Pt[][]; attrs: Partial<Wall>[][] }
+
+export function finishBuilding(rawComps: RawComp[]): Building {
   const walls: Wall[] = [];
   const comps: Comp[] = rawComps.map((rc, ci) => {
-    const compWalls: Wall[] = rc.ring.map((a, i) => {
-      const b = rc.ring[(i + 1) % rc.ring.length];
+    const compWalls: Wall[] = [];
+    [rc.outer, ...rc.holes].forEach((loop, k) => loop.forEach((a, i) => {
+      const b = loop[(i + 1) % loop.length];
       const d = norm(sub(b, a));
       const w: Wall = {
-        id: walls.length, comp: ci, a, b, dir: d, n: pt(-d.y, d.x), len: dist(a, b),
-        tan: 1, form: 'hip', dead: false, plane: -1, ...rc.attrs[i],
+        id: walls.length, comp: ci, loop: k, edge: i, a, b, dir: d, n: pt(-d.y, d.x), len: dist(a, b),
+        tan: 1, form: 'hip', dead: false, plane: -1, ...rc.attrs[k][i],
       };
       walls.push(w);
-      return w;
-    });
-    return {ring: rc.ring, walls: compWalls, outer: rc.outer, holes: rc.holes};
+      compWalls.push(w);
+    }));
+    return {walls: compWalls, outer: rc.outer, holes: rc.holes};
   });
-  // The wall at a monopitch's high end is dead.
+  // The wall at a monopitch's high end is dead: the previous or next edge of its own loop.
   for (const c of comps) {
-    c.walls.forEach((w, i) => {
+    c.walls.forEach(w => {
       if (w.form !== 'mono') return;
+      const loop = c.walls.filter(o => o.loop === w.loop);
+      const i = w.edge;
       const high = dist(w.a, w.low!) < 1e-6 ? w.b : w.a;
-      const prev = c.walls[(i - 1 + c.walls.length) % c.walls.length];
-      const next = c.walls[(i + 1) % c.walls.length];
+      const prev = loop[(i - 1 + loop.length) % loop.length];
+      const next = loop[(i + 1) % loop.length];
       (dist(w.b, high) < 1e-6 ? next : prev).dead = true;
     });
   }
@@ -227,63 +245,61 @@ function applySelectors(ring: Pt[], sels: Sel[], defaultTan: number): Partial<Wa
   return attrs;
 }
 
+/**
+ * The union of `rects` as one Comp per outer loop, with its holes (holed roof decisions 7, 8 and 30): each hole joins
+ * the outer loop of least area that contains its vertex 0, by `pointInPoly`, so an island inside another's courtyard
+ * holds its own holes. Every loop's walls take their attributes from `sels`. A hole no outer loop contains is a hard
+ * error.
+ */
 export function buildFromRects(rects: Rect[], sels: Sel[], defaultTan = 1): Building {
   const loops = unionLoops(rects);
   const outers = loops.filter(l => polyArea(l) > 0);
   const holes = loops.filter(l => polyArea(l) < 0);
+  const owner = holes.map(h => {
+    let best = -1;
+    outers.forEach((o, i) => { if (pointInPoly(h[0], o) && (best < 0 || polyArea(o) < polyArea(outers[best]))) best = i; });
+    if (best < 0) throw new Error(`the hole at (${h[0].x}, ${h[0].y}) lies in no outer loop`);
+    return best;
+  });
   const hits = sels.map(() => 0);
-  const raw = outers.map(outer => {
-    if (holes.length) throw new Error('holes need a cut: use buildCourtyard');
-    const attrs = applySelectors(outer, sels, defaultTan);
-    (attrs as unknown as {hits: number[]}).hits.forEach((h, i) => { hits[i] += h; });
-    return {ring: outer, outer, holes: [] as Pt[][], attrs};
+  const raw = outers.map((outer, i): RawComp => {
+    const own = holes.filter((_, k) => owner[k] === i);
+    const attrs = [outer, ...own].map(loop => {
+      const a = applySelectors(loop, sels, defaultTan);
+      (a as unknown as {hits: number[]}).hits.forEach((h, j) => { hits[j] += h; });
+      return a;
+    });
+    return {outer, holes: own, attrs};
   });
   hits.forEach((h, i) => { if (!h) throw new Error(`selector ${JSON.stringify(sels[i])} matched no wall`); });
   return finishBuilding(raw);
 }
 
-/** A courtyard ring closed across one cut, A on the outer loop, B on the inner loop, slit width zero or `slit`. */
-export function buildCourtyard(outerR: Rect, innerR: Rect, cutA: Pt, cutB: Pt, slit: number, defaultTan = 1): Building {
+/**
+ * Holed roof decision 36: a courtyard, one Comp, the outer rectangle counter-clockwise with the inner one as its hole,
+ * clockwise, every wall a hip at `defaultTan`.
+ */
+export function buildCourtyard(outerR: Rect, innerR: Rect, defaultTan = 1): Building {
   const outer = [pt(outerR[0], outerR[1]), pt(outerR[2], outerR[1]), pt(outerR[2], outerR[3]), pt(outerR[0], outerR[3])];
   const inner = [pt(innerR[0], innerR[1]), pt(innerR[0], innerR[3]), pt(innerR[2], innerR[3]), pt(innerR[2], innerR[1])];
-  const spliced = (loop: Pt[], at: Pt): Pt[] => {
-    for (let i = 0; i < loop.length; i++) {
-      const a = loop[i], b = loop[(i + 1) % loop.length];
-      const onEdge = Math.abs(cross(sub(b, a), sub(at, a))) < 1e-9 && dot(sub(at, a), sub(at, b)) <= 0;
-      if (!onEdge) continue;
-      const seq: Pt[] = [];
-      for (let k = 1; k <= loop.length; k++) seq.push(loop[(i + k) % loop.length]);
-      return dist(seq[seq.length - 1], at) < 1e-9 ? seq.slice(0, -1) : seq;
-    }
-    throw new Error('cut end is not on the loop');
-  };
-  const across = norm(sub(cutB, cutA));
-  const side = pt(across.y, -across.x); // to the right of A->B
-  const A1 = add(cutA, mul(side, slit / 2)), A2 = add(cutA, mul(side, -slit / 2));
-  const B1 = add(cutB, mul(side, -slit / 2)), B2 = add(cutB, mul(side, slit / 2));
-  const outerSeq = spliced(outer, cutA).filter(p => dist(p, cutA) > 1e-9);
-  const innerSeq = spliced(inner, cutB).filter(p => dist(p, cutB) > 1e-9);
-  // Ring: A1 (right of the cut), round the outer loop, A2, up the cut to B1, round the inner loop, B2, back to A1.
-  const ring = [A1, ...outerSeq, A2, B1, ...innerSeq, B2];
-  const attrs: Partial<Wall>[] = ring.map((_, i) => {
-    const isUp = i === outerSeq.length + 1; // A2 -> B1
-    const isDown = i === ring.length - 1; // B2 -> A1
-    return {tan: defaultTan, form: isUp || isDown ? 'cut' : 'hip'};
-  });
-  return finishBuilding([{ring, outer, holes: [inner], attrs}]);
+  const hips = (loop: Pt[]): Partial<Wall>[] => loop.map(() => ({tan: defaultTan, form: 'hip'}));
+  return finishBuilding([{outer, holes: [inner], attrs: [hips(outer), hips(inner)]}]);
 }
 
-/** Mirrors or transposes a building; rings re-wound CCW so wall normals stay inward. */
+/** Mirrors or transposes a building; each loop mapped and reversed alone, so wall normals stay inward (decision 5). */
 export function transformBuilding(src: Building, f: (p: Pt) => Pt): Building {
-  const raw = src.comps.map(c => {
-    const ring = c.ring.map(f).reverse();
-    const nRing = c.ring.length;
-    const attrs: Partial<Wall>[] = ring.map((_, i) => {
-      // New edge i runs from old vertex n-1-i to old vertex n-2-i, which is old edge n-2-i reversed.
-      const old = c.walls[(nRing - 2 - i + nRing) % nRing];
-      return {tan: old.tan, form: old.form, low: old.low ? f(old.low) : undefined};
+  const raw = src.comps.map((c): RawComp => {
+    const loops = compLoops(c).map(l => l.map(f).reverse());
+    const attrs = loops.map((loop, k) => {
+      const own = c.walls.filter(w => w.loop === k);
+      const n = loop.length;
+      return loop.map((_, i): Partial<Wall> => {
+        // New edge i runs from old vertex n-1-i to old vertex n-2-i, which is old edge n-2-i reversed.
+        const old = own[(n - 2 - i + n) % n];
+        return {tan: old.tan, form: old.form, low: old.low ? f(old.low) : undefined};
+      });
     });
-    return {ring, outer: c.outer.map(f).reverse(), holes: c.holes.map(h => h.map(f).reverse()), attrs};
+    return {outer: loops[0], holes: loops.slice(1), attrs};
   });
   return finishBuilding(raw);
 }

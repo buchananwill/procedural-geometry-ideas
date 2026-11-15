@@ -27,9 +27,9 @@ export const RESEARCH_DEFAULT_DEG = 45;
 export interface RectsFootprint { kind: 'rects'; rects: readonly Readonly<Rect>[] }
 
 /**
- * A case built by `buildCourtyard`: the outer and inner rectangles. A Ring cannot author a cut (spec decision 2), so the
- * annulus becomes four Rings, the S and N bands across the full width and the W and E wings between them (the order of
- * `COURTYARD_RECTS`), and the pipeline's courtyard rule places the cut.
+ * A case built by `buildCourtyard`: the outer and inner rectangles. The annulus becomes four Rings about the hole, the S
+ * and N bands across the full width and the W and E wings between them (the order of `COURTYARD_RECTS`), and the
+ * pipeline roofs it as its outline and hole, as `buildCourtyard` does (holed roof decision 55).
  */
 export interface CourtyardFootprint { kind: 'courtyard'; outer: Readonly<Rect>; inner: Readonly<Rect> }
 
@@ -90,7 +90,7 @@ export const RESEARCH_FOOTPRINTS: Readonly<Record<ResearchCaseId, ResearchFootpr
   '9a': {kind: 'courtyard', outer: [0, 0, 1000, 1000], inner: [200, 200, 800, 800]},
   '9b': {
     kind: 'none',
-    reason: 'its subject is the cut it forces at a corner (y=200, x[800,1000]); a Ring cannot author a cut (spec decision 2), and as Rings it is 9a',
+    reason: 'as Rings it is 9a',
   },
   '9c': {kind: 'courtyard', outer: [0, 0, 600, 600], inner: [250, 250, 350, 350]},
   '9d': {kind: 'courtyard', outer: [0, 0, 250, 250], inner: [100, 100, 150, 150]},
@@ -105,7 +105,7 @@ export function courtyardRects(f: Pick<CourtyardFootprint, 'outer' | 'inner'>): 
 /** The footprint of research case `id`, or undefined for an id `RESEARCH_CASE_IDS` does not know. */
 export const footprintOf = (id: string): ResearchFootprint | undefined => (isResearchCaseId(id) ? RESEARCH_FOOTPRINTS[id] : undefined);
 
-/** A research case converted: its fixture, and `courtyard` when the pipeline places its cut. */
+/** A research case converted: its fixture, and `courtyard` when it is a courtyard's four Rings about the hole. */
 export interface ResearchConverted { ok: true; fixture: ShellFixture; courtyard: boolean }
 
 /** A research case left out, and why. */
@@ -190,8 +190,7 @@ function sideFormOf(index: number, side: RingSide, stretches: SideStretch[]): Si
 /** A research wall's form as a Ring form, or why it has none. */
 function ringFormOf(w: Wall): RingForm {
   if (w.form === 'hip' || w.form === 'gable') return w.form;
-  if (w.form === 'mono') throw new Inexpressible(`wall ${w.id} is a monopitch; a Ring side is hip or gable, and mono is not authored (journal decision 116)`);
-  throw new Inexpressible(`wall ${w.id} is a ${w.form}; only the courtyard rule places a cut (spec decision 2)`);
+  throw new Inexpressible(`wall ${w.id} is a monopitch; a Ring side is hip or gable, and mono is not authored (journal decision 116)`);
 }
 
 const fixtureOf = (name: string, rings: FixtureRing[]): ShellFixture => ({name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings});
@@ -223,7 +222,6 @@ function ringsOfRects(b: Building, table: RectTable): FixtureRing[] {
 /** A courtyard case's four Rings, every side a hip at the default: a wall of any other form or pitch is inexpressible. */
 function ringsOfCourtyard(b: Building, f: CourtyardFootprint): FixtureRing[] {
   for (const w of b.walls) {
-    if (w.form === 'cut') continue;
     if (w.form !== 'hip' || degOfTan(w.tan) !== RESEARCH_DEFAULT_DEG) {
       throw new Inexpressible(`wall ${w.id} is ${w.form} at ${degOfTan(w.tan)} degrees; the courtyard conversion authors hips at ${RESEARCH_DEFAULT_DEG} only`);
     }
@@ -275,7 +273,7 @@ function pipelineFormAt(w: UnionWall, s: number): FormAt {
 
 /**
  * Where storey 0 of `f` differs from the research `Building` in form or pitch along a wall, one line per stretch; empty
- * when the conversion is exact. Every research wall but a cut is compared: on the pipeline's union wall holding it, at
+ * when the conversion is exact. Every research wall is compared: on the pipeline's union wall holding it, at
  * the middle of every stretch between the wall's ends and its rises' ends, by form and by the pitch's tangent. Uses the
  * pipeline's own per-extent rule (`unionWallForms`, gable rise decisions 3 to 6).
  */
@@ -284,7 +282,6 @@ export function researchMismatches(b: Building, f: ShellFixture): string[] {
   const walls = unionWallForms(rings, storeyLoops(rings.map(r => r.ring.rect)));
   const out: string[] = [];
   for (const w of b.walls) {
-    if (w.form === 'cut') continue;
     const line = edgeLine(w.a, w.b);
     const label = `${line.axis}=${line.at} [${line.lo}, ${line.hi}]`;
     const holder = walls.find(u => sameLine(u, line) && u.lo <= line.lo && line.hi <= u.hi);
@@ -305,7 +302,7 @@ export function researchNote(e: ResearchEntry): string {
   const head = `Roof-gable research case ${e.id} (${e.group}): ${e.title}.`;
   if (!e.conversion.ok) return `${head} Left out: ${e.conversion.reason}.`;
   const how = e.conversion.courtyard
-    ? 'Converted to four Rings about the hole; the pipeline places the cut by its own courtyard rule, not where the case puts it.'
+    ? 'Converted to four Rings about the hole, which the pipeline roofs as the case does, by its outline and its hole.'
     : 'Converted exactly: each wall keeps its form and pitch. The roof solver\'s verdicts for this case are not asserted on the shell.';
   return `${head} ${how}`;
 }

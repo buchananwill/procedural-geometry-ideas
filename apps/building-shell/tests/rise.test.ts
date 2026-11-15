@@ -102,10 +102,10 @@ describe.each(RISE_FIXTURES.map(f => [f.name] as const))('%s', name => {
 
 // ---- Journal decision 209, M1: assertions independent of rise.ts's choice of planes --------------------------------
 
-/** The plane of the walls on one line facing one way (not a cut), named by hand: the line `axis = at`, inward `n`. */
+/** The plane of the walls on one line facing one way, named by hand: the line `axis = at`, inward `n`. */
 function planeOfWalls(plan: ReturnType<typeof planStorey>, axis: 'x' | 'y', at: number, inward: -1 | 1): number {
   const ids = new Set(plan.building.walls
-    .filter(w => w.form !== 'cut' && (axis === 'y' ? w.a.y === at && w.b.y === at && Math.sign(w.n.y) === inward : w.a.x === at && w.b.x === at && Math.sign(w.n.x) === inward))
+    .filter(w => (axis === 'y' ? w.a.y === at && w.b.y === at && Math.sign(w.n.y) === inward : w.a.x === at && w.b.x === at && Math.sign(w.n.x) === inward))
     .map(w => w.plane));
   if (ids.size !== 1) throw new Error(`walls on ${axis} = ${at} facing ${inward} hold ${ids.size} planes`);
   return [...ids][0];
@@ -293,13 +293,15 @@ describe('decision 21 and journal decision 204: the gates', () => {
     expect(signature(wide)).toBe(signature(await build(gable)));
   });
 
-  // Journal decision 204: where the walk over the hip roof finds no falling face (it runs along the courtyard's cut), the
-  // built roof's walk gives the limit, the hole W wall's plane. Mutation: no fallback; then ridgeSlope refuses the rise.
-  it("ridgeSlope's fallback: the walk along the cut reads the built roof, and the rise is clean", async () => {
+  // Journal decision 204: where the walk over the hip roof finds no falling face, the built roof's walk gives the limit.
+  // Under the cut, `CourtyardRiseAlongCut`'s walk ran along the cut and found none. On the holed roof (holed roof decision
+  // 22) there is no cut: the walk meets the hole W wall's own face, so the hip roof's reading gives the limit, the hole
+  // W wall's plane, and the built roof agrees. The fallback has no fixture of its own now (reported with node 9).
+  it("CourtyardRiseAlongCut's walk reads the hole W wall's face on the hip roof, and the rise is clean", async () => {
     const plan = planStorey(rise('CourtyardRiseAlongCut'), 0);
     const [r] = plan.rises ?? [];
     const ctx = limitContextOf(rise('CourtyardRiseAlongCut'), plan, r);
-    expect(hipRoofReading(ctx)).toBeUndefined();
+    expect(hipRoofReading(ctx)).toBe(r.limitPlane);
     expect(builtRoofReading(ctx)).toBe(r.limitPlane);
     const holeW = plan.building.walls.find(w => w.a.x === 300 && w.b.x === 300);
     expect(r.limitPlane).toBe(holeW?.plane);
@@ -648,7 +650,7 @@ describe('journal decision 231: a slope not in the finished building does not li
   // The predicate reads how the storey is planned: a wall the solve takes as a gable and algorithm B builds whole.
   // Mutation (the predicate says no wall carrying a rise is built): fails here, and on RiseBeforeTStemBarRisen's row
   // above. Where a wall's rise stands over the walk line, journal decision 243's rule 1 passes over its slope instead.
-  it('the predicate: a wall algorithm B builds as a gable has no hip slope in the building; a hip, a rise\'s wall and a cut have theirs', () => {
+  it('the predicate: a wall algorithm B builds as a gable has no hip slope in the building; a hip, a rise\'s wall and a courtyard wall have theirs', () => {
     const gabled = planStorey(rise('RiseFacingGabledWall'), 0);
     expect(slopeInBuilding(gabled, wallAt(gabled, 'y', 500, -1, 500))).toBe(false);
     expect(slopeInBuilding(gabled, wallAt(gabled, 'y', 0, 1, 500))).toBe(true);
@@ -664,11 +666,11 @@ describe('journal decision 231: a slope not in the finished building does not li
     // solve as a hip, and keeps its slope: GableBesideHipSouthWing's y = 0 wall over [600, 1200].
     const wing = planStorey(rise('GableBesideHipSouthWing'), 0);
     expect(slopeInBuilding(wing, wallAt(wing, 'y', 0, 1, 900))).toBe(true);
-    // A courtyard's cut is no gable: its two sides keep their slope, the collinear hole wall's.
+    // Holed roof decision 52: a courtyard wall is a hip like any other and keeps its slope, each of the hole's four.
     const court = planStorey(rise('CourtyardRiseFacingCut'), 0);
-    const cuts = court.building.walls.filter(w => w.form === 'cut');
-    expect(cuts).toHaveLength(2);
-    expect(cuts.map(w => slopeInBuilding(court, w))).toEqual([true, true]);
+    const hole = court.building.walls.filter(w => w.loop === 1);
+    expect(hole).toHaveLength(4);
+    expect(hole.map(w => slopeInBuilding(court, w))).toEqual([true, true, true, true]);
   });
 
   // Mutation: the predicate removed (every slope built); then the walk takes the gabled N wall's 30° skeleton plane and

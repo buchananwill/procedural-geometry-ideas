@@ -11,18 +11,18 @@ import type {DefectFocus} from './defect-cases.ts';
 import {pinClass} from '../../tests/pin-table.ts';
 import type {PinOutcome, PinRecord, ResiduePin} from '../../tests/pin-table.ts';
 import {
-  COURTYARD_DEFECTS, CUT_OVERSHOOT_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS,
+  COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS,
   PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS,
 } from '../../tests/residue-pins.ts';
 import {
-  CUT_OVERSHOOT_PROBE, gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
+  gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
   randomUFixtures, rosterPitchCases,
 } from '../../tests/robustness-fixtures.ts';
 
 /** The pin tables whose pins carry a residue class, by the name `tests/residue-pins.ts` exports each under. */
 export const RESIDUE_TABLE_NAMES = [
   'COURTYARD_DEFECTS', 'U_DEFECTS', 'SPLIT_COURTYARD_DEFECTS', 'NUDGE_DEFECTS', 'PITCH_END_DEFECTS', 'GAP_DEFECTS',
-  'ROSTER_PITCH_DEFECTS', 'JUT_CUT_DEFECTS', 'CUT_OVERSHOOT_DEFECTS',
+  'ROSTER_PITCH_DEFECTS', 'JUT_CUT_DEFECTS',
 ] as const;
 
 /** One of `RESIDUE_TABLE_NAMES`. */
@@ -39,9 +39,6 @@ export const PIN_TABLE_NAMES = [...RESIDUE_TABLE_NAMES, ...CONFLICT_TABLE_NAMES]
 
 /** One of `PIN_TABLE_NAMES`. */
 export type PinTableName = typeof PIN_TABLE_NAMES[number];
-
-/** The key `CUT_OVERSHOOT_DEFECTS`, a single pin rather than a table, is listed under: its fixture's name. */
-export const CUT_OVERSHOOT_KEY = CUT_OVERSHOOT_PROBE.name;
 
 const entries = <V>(t: PinRecord<string, V>): [key: string, pin: V][] =>
   Object.entries(t).flatMap(([k, v]): [string, V][] => (v === undefined ? [] : [[k, v]]));
@@ -69,7 +66,6 @@ export const PIN_TABLES: PinTables = {
     GAP_DEFECTS: entries(GAP_DEFECTS),
     ROSTER_PITCH_DEFECTS: entries(ROSTER_PITCH_DEFECTS),
     JUT_CUT_DEFECTS: entries(JUT_CUT_DEFECTS),
-    CUT_OVERSHOOT_DEFECTS: [[CUT_OVERSHOOT_KEY, CUT_OVERSHOOT_DEFECTS]],
   },
   conflict: {
     GABLE_RISE_CONFLICTS: entries(GABLE_RISE_CONFLICTS),
@@ -189,7 +185,6 @@ export function pinnedFixture(c: Pick<PinnedCaseBase, 'key' | 'pins'>): ShellFix
   if (table === 'NUDGE_DEFECTS') return named(nudgeFixtures(), c.key, 'nudgeFixtures');
   if (table === 'PITCH_END_DEFECTS') return named(pitchEndFixtures(), c.key, 'pitchEndFixtures');
   if (table === 'JUT_CUT_DEFECTS') return named(jutCutFixtures(), c.key, 'jutCutFixtures');
-  if (table === 'CUT_OVERSHOOT_DEFECTS') return CUT_OVERSHOOT_PROBE;
   if (table === 'GAP_DEFECTS') {
     const gap = GAP.exec(c.key);
     if (!gap) throw new Error(`${c.key} is no near-touching pair's name`);

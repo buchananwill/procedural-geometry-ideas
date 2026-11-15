@@ -1300,31 +1300,25 @@
    "measuredGenus": [
     1
    ],
-   "clean": false,
-   "residueClass": "algorithm-B cut-piece overshoot",
+   "clean": true,
    "shell": "CutOvershootProbe.json",
    "union": "CutOvershootProbe.union.json",
    "input": "CutOvershootProbe.input.json",
    "report": {
     "conflicts": [],
-    "survivingInternal": 1,
-    "unclassifiedEdges": 3,
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
     "cheeks": 0,
     "tucks": 0,
-    "partialCells": 91,
-    "newEdgeKinds": [
-     "Unclassified"
-    ],
+    "partialCells": 92,
+    "newEdgeKinds": [],
     "newConventions": [
      "InternalCorner between Rings, named by geometry (C++: RingJunction)",
      "Roof lines cut exactly (C++: staircase)"
     ],
     "droppedRings": []
    },
-   "violations": [
-    "survivingInternal 1 at (125, 250, 312.546875)",
-    "3 Unclassified Edges: (100, 250, 307.7353515625) to (125, 250, 322.1689453125); (100, 250, 307.7353515625) to (150, 250, 307.7353515625); (125, 250, 322.1689453125) to (150, 250, 307.7353515625)"
-   ]
+   "violations": []
   },
   {
    "fixture": "Court5Seed1h300",
@@ -1343,10 +1337,12 @@
    "union": "Court5Seed1h300.union.json",
    "report": {
     "conflicts": [
-     "Court5Seed1h300: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 2 wall 3 (part 12) over Gable storey 1 wall 6 (part 11)",
-     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 7) over Gable storey 0 wall 12 (part 2)",
-     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 2 wall 2 (part 12) over Gable storey 1 wall 2 (part 10)",
-     "Court5Seed1h300: n=(1.000000, 0.000000, 0.000000) d=500.000: Wall storey 2 wall 1 (part 12) over Gable storey 1 wall 1 (part 9)"
+     "Court5Seed1h300: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 1 wall 6 (part 5) over Gable storey 0 wall 7 (part 3)",
+     "Court5Seed1h300: n=(-1.000000, 0.000000, 0.000000) d=-50.000: Wall storey 2 wall 3 (part 10) over Gable storey 1 wall 6 (part 9)",
+     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 1 wall 2 (part 5) over Gable storey 0 wall 11 (part 2)",
+     "Court5Seed1h300: n=(0.000000, 1.000000, 0.000000) d=200.000: Wall storey 2 wall 2 (part 10) over Gable storey 1 wall 2 (part 8)",
+     "Court5Seed1h300: n=(1.000000, 0.000000, 0.000000) d=500.000: Wall storey 1 wall 1 (part 5) over Gable storey 0 wall 1 (part 3)",
+     "Court5Seed1h300: n=(1.000000, 0.000000, 0.000000) d=500.000: Wall storey 2 wall 1 (part 10) over Gable storey 1 wall 1 (part 7)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
@@ -1379,8 +1375,10 @@
    "union": "Court16Seed1h250.union.json",
    "report": {
     "conflicts": [
-     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 10) over Gable storey 0 wall 2 (part 2)",
-     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 16) over Gable storey 1 wall 6 (part 12)"
+     "Court16Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-100.000: Wall storey 1 wall 9 (part 8) over Gable storey 0 wall 7 (part 3)",
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 1 wall 6 (part 8) over Gable storey 0 wall 4 (part 2)",
+     "Court16Seed1h250: n=(0.000000, 1.000000, 0.000000) d=550.000: Wall storey 2 wall 2 (part 14) over Gable storey 1 wall 6 (part 10)",
+     "Court16Seed1h250: n=(1.000000, 0.000000, 0.000000) d=300.000: Wall storey 1 wall 3 (part 8) over Gable storey 0 wall 8 (part 5)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
@@ -1891,19 +1889,84 @@
    "measuredGenus": [
     1
    ],
-   "clean": false,
-   "residueClass": "algorithm-B Cheek",
+   "clean": true,
    "shell": "Court14Seed7h250.json",
    "union": "Court14Seed7h250.union.json",
    "report": {
     "conflicts": [
-     "Court14Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 2 wall 0 (part 9) over Gable storey 1 wall 4 (part 8)"
+     "Court14Seed7h250: n=(0.000000, -1.000000, 0.000000) d=-250.000: Wall storey 2 wall 0 (part 7) over Gable storey 1 wall 4 (part 6)"
+    ],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 168,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
+   },
+   "violations": []
+  },
+  {
+   "fixture": "CourtyardAt22.5-45s",
+   "cppReplayable": true,
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": true,
+   "shell": "CourtyardAt22.5-45s.json",
+   "union": "CourtyardAt22.5-45s.union.json",
+   "input": "CourtyardAt22.5-45s.input.json",
+   "report": {
+    "conflicts": [],
+    "survivingInternal": 0,
+    "unclassifiedEdges": 0,
+    "cheeks": 0,
+    "tucks": 0,
+    "partialCells": 156,
+    "newEdgeKinds": [],
+    "newConventions": [
+     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
+     "Roof lines cut exactly (C++: staircase)"
+    ],
+    "droppedRings": []
+   },
+   "violations": []
+  },
+  {
+   "fixture": "SplitCourt1Seed1h250",
+   "cppReplayable": false,
+   "reasons": [
+    "a gable rise, which the C++ port does not build yet (gable rise decision 17)"
+   ],
+   "expectedGenus": [
+    1
+   ],
+   "measuredGenus": [
+    1
+   ],
+   "clean": false,
+   "residueClass": "algorithm-B Cheek",
+   "shell": "SplitCourt1Seed1h250.json",
+   "union": "SplitCourt1Seed1h250.union.json",
+   "report": {
+    "conflicts": [
+     "SplitCourt1Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 1 wall 4 (part 9) over Gable storey 0 wall 13 (part 7)",
+     "SplitCourt1Seed1h250: n=(-1.000000, 0.000000, 0.000000) d=-600.000: Wall storey 2 wall 4 (part 14) over Gable storey 1 wall 4 (part 12)",
+     "SplitCourt1Seed1h250: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 1 wall 1 (part 9) over Gable storey 0 wall 2 (part 2)",
+     "SplitCourt1Seed1h250: n=(1.000000, 0.000000, 0.000000) d=900.000: Wall storey 2 wall 1 (part 14) over Gable storey 1 wall 1 (part 11)"
     ],
     "survivingInternal": 0,
     "unclassifiedEdges": 0,
     "cheeks": 1,
     "tucks": 0,
-    "partialCells": 173,
+    "partialCells": 217,
     "newEdgeKinds": [],
     "newConventions": [
      "Cheek faces",
@@ -1913,7 +1976,7 @@
     "droppedRings": []
    },
    "violations": [
-    "cheeks 1, expected 0, at (291.83203125, 250, 500)"
+    "cheeks 1, expected 0, at (250, 700, 400)"
    ]
   },
   {
@@ -1975,41 +2038,6 @@
    "clean": false,
    "residueClass": "low-pitch pocket",
    "error": "cell 276: side 107-109 (450, 150, 265.3955078125) to (499.9970703125, 100, 260.263671875) is neither on a ShellEdge, a lattice line nor a split line"
-  },
-  {
-   "fixture": "CourtyardAt22.5-45s",
-   "cppReplayable": true,
-   "expectedGenus": [
-    1
-   ],
-   "measuredGenus": [
-    1
-   ],
-   "clean": false,
-   "residueClass": "algorithm-B cut-piece overshoot",
-   "shell": "CourtyardAt22.5-45s.json",
-   "union": "CourtyardAt22.5-45s.union.json",
-   "input": "CourtyardAt22.5-45s.input.json",
-   "report": {
-    "conflicts": [],
-    "survivingInternal": 1,
-    "unclassifiedEdges": 3,
-    "cheeks": 0,
-    "tucks": 0,
-    "partialCells": 148,
-    "newEdgeKinds": [
-     "Unclassified"
-    ],
-    "newConventions": [
-     "InternalCorner between Rings, named by geometry (C++: RingJunction)",
-     "Roof lines cut exactly (C++: staircase)"
-    ],
-    "droppedRings": []
-   },
-   "violations": [
-    "survivingInternal 1 at (150, 300, 382.8427734375)",
-    "3 Unclassified Edges: (124.263671875, 300, 374.263671875) to (150, 300, 400); (124.263671875, 300, 374.263671875) to (175.736328125, 300, 374.263671875); (150, 300, 400) to (175.736328125, 300, 374.263671875)"
-   ]
   },
   {
    "fixture": "BridgeOverBlockAt45",

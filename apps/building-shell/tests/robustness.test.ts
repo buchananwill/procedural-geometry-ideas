@@ -23,8 +23,9 @@ import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, COVERED_RISE_CELL_CLASH, COVERED_RISE_ON_CUT_LINE, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
   F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, jutCutFixtures, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
-  sweepFixtures, type SplitCourtName,
+  sweepFixtures, onePitch, unsplitTwin, type CourtName, type SplitCourtName,
 } from './robustness-fixtures.ts';
+import {canonicalOfShell, diffCanonical, isEmptyDiff} from '../src/wire/canonical.ts';
 import {
   COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS,
   SPLIT_COURTYARD_DEFECTS, SeededKey, U_DEFECTS, seededKey,
@@ -135,11 +136,14 @@ describe("the pin tables' causes (journal decisions 150, F4, and 156, F7)", () =
 describe.each(COURTYARD_SEEDS.flatMap(s => HEIGHTS.map(h => [s, h] as const)))('random split-band courtyards (journal decisions 150 and 151): seed %i at %i cm storeys', (seed, h) => {
   const draws = randomSplitCourtyards(seed, PER_COURTYARD_SEED, h);
 
-  // The gate on the free branch: removing it moves every cut off its split line.
-  it.each(draws.map(d => [d.fixture.name, d] as const))('%s is cut along its split, the free cut', (_, {fixture, split}) => {
-    const cuts = planStorey(fixture, 0).building.walls.filter(w => w.form === 'cut');
-    expect(cuts).toHaveLength(2);
-    for (const w of cuts) expect([w.a, w.b].map(p => (split.axis === 'x' ? p.x : p.y))).toEqual([split.at, split.at]);
+  // Holed roof decision 52: with no cut, a split Ring's buried shared wall is no part of the roof, so a split-band
+  // layout at one pitch builds the shell its unsplit twin builds, by the canonical form (journal decision 124).
+  const uniform = draws.filter(d => onePitch(d.fixture));
+  it.each(uniform.map(d => [d.fixture.name, d] as const))('%s, at one pitch, builds its unsplit twin\'s canonical shell', async (_, d) => {
+    const twin = unsplitTwin(d);
+    const [a, b] = await Promise.all([buildShellDetailed(d.fixture), buildShellDetailed(twin)]);
+    const diff = diffCanonical(canonicalOfShell(a.shell), canonicalOfShell(b.shell));
+    expect(isEmptyDiff(diff) ? [] : diff).toEqual([]);
   });
 
   it.each(draws.map(d => [d.fixture.name, d.fixture] as const))('%s keeps every invariant, or exactly its measured defect', async (name, f) => {
@@ -410,6 +414,24 @@ const PROMOTED_BY_GABLE_RISES: readonly SeededKey<'Court7' | 'Court23'>[] = [
   's4h250/Court7', 's4h263/Court7', 's4h300/Court7', 's6h250/Court23', 's6h263/Court23', 's6h300/Court23',
 ];
 
+/**
+ * Holed roof decision 48: the cases the holed roof cured, unpinned (each kept in `COURTYARD_DEFECTS` as a comment), so
+ * each is built here by name and asserts what it builds: clean by every invariant at genus 1. Each was a cut-piece
+ * overshoot or a Cheek on or beside the courtyard cut.
+ */
+const CURED_BY_HOLED_ROOF: readonly SeededKey<CourtName>[] = [
+  's2h250/Court15', 's2h263/Court15', 's2h300/Court15', 's7h250/Court14', 's7h250/Court38', 's7h263/Court14', 's7h263/Court38',
+  's7h300/Court14', 's7h300/Court38', 's12h250/Court1', 's12h263/Court1', 's12h300/Court1', 's13h250/Court9', 's13h250/Court13',
+  's13h250/Court21', 's13h263/Court9', 's13h263/Court13', 's13h263/Court21', 's13h300/Court9', 's13h300/Court13', 's13h300/Court21',
+];
+
+describe('the cases the holed roof cured (holed roof decision 48)', () => {
+  it.each(CURED_BY_HOLED_ROOF.map(k => [k] as const))('%s: clean, and no longer pinned', async key => {
+    expect(COURTYARD_DEFECTS[key]).toBeUndefined();
+    expect(await courtyardOutcome(seededCase(randomCourtyardFixtures, key))).toEqual([]);
+  });
+});
+
 describe("gable rise decision 3's cured cases (WP-G2, journal decision 206)", () => {
   it.each(PROMOTED_BY_GABLE_RISES.map(k => [k] as const))('%s: promoted: clean, no conflict, its rise on the height oracle', async key => {
     expect(COURTYARD_DEFECTS[key]).toBeUndefined();
@@ -478,7 +500,9 @@ const COVERED_RISE_REPRODUCERS: readonly [ShellFixture, CausedPin][] = [
   // Re-pinned by journal decision 272 (WP-C3): its tucked Cheek is labelled Tuck and it builds; what remains is its
   // exposed Cheek, the Cheek class's fact (journal decision 260). Was: "throws: vertex 265 at (300, 250, 550): two Cells
   // run the same way along one NetEdge".
-  [COVERED_RISE_CELL_CLASH, {cause: 'roof-gable algorithm B, Cheek class', outcome: ['cheeks 1, expected 0, at (450, 250, 500)']}],
+  // `COVERED_RISE_CELL_CLASH`: cured by the holed roof (holed roof decision 48): its Cheek and its tuck stood on the
+  // courtyard cut, and with no cut it builds clean with no tuck, the mirror image of its x-mirror (tests/tuck.test.ts).
+  // Was: "cheeks 1, expected 0, at (450, 250, 500)".
 ];
 
 describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
@@ -496,9 +520,10 @@ describe('journal decisions 243 to 245: covered rises (WP-L2)', () => {
     expect(causeOf(`s0h${f.storeyHeight}/${f.name}`, pin.outcome)).toBe(pin.cause);
   });
 
-  it(`${COVERED_RISE_ON_CUT_LINE.name}: clean, its tuck labelled (journal decision 272)`, async () => {
-    expect(await courtyardOutcome(COVERED_RISE_ON_CUT_LINE)).toEqual([]);
-    expect((await buildShellDetailed(COVERED_RISE_ON_CUT_LINE)).shell.report.tucks).toBe(1);
+  // Holed roof decision 48: the tuck journal decision 272 labelled stood on the courtyard cut, which is gone.
+  it.each([COVERED_RISE_ON_CUT_LINE, COVERED_RISE_CELL_CLASH].map(f => [f.name, f] as const))('%s: clean, with no tuck, on the holed roof', async (_, f) => {
+    expect(await courtyardOutcome(f)).toEqual([]);
+    expect((await buildShellDetailed(f)).shell.report.tucks).toBe(0);
   });
 });
 
@@ -517,11 +542,20 @@ const CURED_SPLIT_COURTS: readonly SeededKey<SplitCourtName>[] = [
   's13h250/SplitCourt38', 's13h300/SplitCourt38',
 ];
 
+/**
+ * Holed roof decision 48: the cases whose tuck stood on the courtyard cut. With no cut they have none, and build clean;
+ * the others keep theirs, labelled.
+ */
+const TUCKS_GONE_WITH_THE_CUT: ReadonlySet<string> = new Set([
+  's6h250/SplitCourt8', 's6h263/SplitCourt8', 's6h300/SplitCourt8', 's12h250/SplitCourt20', 's12h300/SplitCourt20', 's13h300/SplitCourt11',
+  's10h250/Court35', 's10h263/Court35', 's10h300/Court35',
+]);
+
 describe('ISSUE-building-shell-union-tuck.md: the split-band courtyards a tuck made throw in Cell laying build', () => {
   it.each(CURED_SPLIT_COURTS.map(k => [k] as const))('split-band courtyard %s builds', async key => {
     const b = await buildShellDetailed(seededCase(randomSplitCourtyardFixtures, key));
     expect(b.shell.cells.length).toBeGreaterThan(0);
-    expect(b.shell.report.tucks).toBeGreaterThan(0);
+    expect(b.shell.report.tucks > 0).toBe(!TUCKS_GONE_WITH_THE_CUT.has(key));
   });
 });
 
@@ -539,6 +573,6 @@ describe('ISSUE-building-shell-union-tuck.md: the pinned cases the tuck pass cur
   it.each(CURED_BY_TUCKS.map(([kind, key, gen, want]) => [`${kind} ${key}`, key, gen, want] as const))('%s', async (_, key, gen, want) => {
     const b = await buildShellDetailed(seededCase(gen, key));
     expect(invariantViolations(b, want)).toEqual([]);
-    expect(b.shell.report.tucks).toBeGreaterThan(0);
+    expect(b.shell.report.tucks > 0).toBe(!TUCKS_GONE_WITH_THE_CUT.has(key));
   });
 });

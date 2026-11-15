@@ -38,11 +38,11 @@ const ends = (b: Building): string[] => b.walls.map(w => `${w.a.x},${w.a.y}>${w.
 const pointSet = (loop: Pt[]): string[] => loop.map(p => `${p.x},${p.y}`).sort();
 const corners = (r: Readonly<Rect>): string[] => pointSet([{x: r[0], y: r[1]}, {x: r[2], y: r[1]}, {x: r[2], y: r[3]}, {x: r[0], y: r[3]}]);
 
-/** The cases left out, and why: monopitch walls, two hip pitches on one Ring side, and an authored corner cut. */
+/** The cases left out, and why: monopitch walls, two hip pitches on one Ring side, and 9b, which as Rings is 9a. */
 const LEFT_OUT: Readonly<Record<string, RegExp>> = {
   '4g': /Ring 0 side S's union walls are hips at 45 and 30 degrees/,
   '5a': /monopitch/, '5b': /monopitch/, '5c': /monopitch/, '5d': /monopitch/, '5e': /monopitch/,
-  '9b': /cut it forces at a corner/,
+  '9b': /^as Rings it is 9a$/,
 };
 
 /** The converted cases whose fixture the wire refuses for a pitch outside [7, 75] degrees: built in memory, refused as a draft. */
@@ -83,10 +83,12 @@ describe('the research footprints, restated from cases.ts', () => {
     expect(loops.map(asRect).sort()).toEqual([copyRect(f.outer), copyRect(f.inner)].sort());
   });
 
-  it('9b, left out, is 9a\'s annulus with another cut', () => {
+  // Holed roof decision 36: 9b is 9a's building, kept for its worked number at (900, 150).
+  it('9b, left out, is 9a\'s building', () => {
     const a = caseOf('9a').build().comps[0], b = caseOf('9b').build().comps[0];
-    expect(pointSet(b.outer)).toEqual(pointSet(a.outer));
-    expect(pointSet(b.holes[0])).toEqual(pointSet(a.holes[0]));
+    expect(b.outer).toEqual(a.outer);
+    expect(b.holes).toEqual(a.holes);
+    expect(b.walls.map(w => [w.loop, w.edge, w.tan, w.form])).toEqual(a.walls.map(w => [w.loop, w.edge, w.tan, w.form]));
   });
 });
 
@@ -164,8 +166,8 @@ describe('the research conversion', () => {
     expect(convertResearchCase(caseOf('1a'), undefined)).toEqual({ok: false, reason: 'no footprint is restated for it'});
   });
 
-  it('notes a courtyard as placed by the pipeline, a left-out case with its reason', () => {
-    expect(researchNote(entryOf('9a'))).toMatch(/pipeline places the cut/);
+  it('notes a courtyard as four Rings about the hole, a left-out case with its reason', () => {
+    expect(researchNote(entryOf('9a'))).toMatch(/four Rings about the hole, which the pipeline roofs as the case does/);
     expect(researchNote(entryOf('5a'))).toMatch(/Left out: .*monopitch/);
     expect(researchNote(entryOf('2b'))).toMatch(/^Roof-gable research case 2b \(2 T\): T, only the south segment gabled/);
   });

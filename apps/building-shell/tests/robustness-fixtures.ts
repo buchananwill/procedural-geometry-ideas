@@ -222,6 +222,27 @@ export function randomSplitCourtyards(seed: number, count: number, storeyHeight:
   return drawCourtyards(seed, count, storeyHeight, splitCourtName, true).flatMap(d => (d.split ? [{fixture: d.fixture, split: d.split}] : []));
 }
 
+/** Whether every Ring of `f` stands at one pitch: one default, and no side or run of a pitch of its own. */
+export const onePitch = (f: ShellFixture): boolean =>
+  f.rings.every(r => r.defaultDeg === f.rings[0].defaultDeg && RING_SIDES.every(s => r.sides?.[s]?.deg === undefined && !(r.sides?.[s]?.runs ?? []).some(x => x.deg !== undefined)));
+
+/**
+ * A split courtyard's unsplit twin (holed roof decision 52): its two halves, the Rings either side of the split line
+ * over one span, merged back into one Ring in the first half's place, each keeping the sides it did not bury.
+ */
+export function unsplitTwin({fixture, split}: SplitCourtyard): ShellFixture {
+  const ax = split.axis === 'x' ? 0 : 1;
+  const lo = fixture.rings.findIndex(r => r.rect[ax + 2] === split.at);
+  const hi = fixture.rings.findIndex(r => r.rect[ax] === split.at && r.rect[1 - ax] === fixture.rings[lo]?.rect[1 - ax] && r.rect[3 - ax] === fixture.rings[lo]?.rect[3 - ax]);
+  if (lo < 0 || hi < 0) throw new Error(`${fixture.name}: no two halves meet on ${split.axis} = ${split.at}`);
+  const a = fixture.rings[lo], b = fixture.rings[hi];
+  const rect: Rect = [Math.min(a.rect[0], b.rect[0]), Math.min(a.rect[1], b.rect[1]), Math.max(a.rect[2], b.rect[2]), Math.max(a.rect[3], b.rect[3])];
+  const far: RingSide = split.axis === 'x' ? 'E' : 'N';
+  const sides: RingSides = {...a.sides, ...(b.sides?.[far] ? {[far]: b.sides[far]} : {})};
+  const merged = ring(rect, a.baseStorey, a.storeys, a.defaultDeg, sides);
+  return {...fixture, name: `${fixture.name}~unsplit`, rings: fixture.rings.flatMap((r, i) => (i === lo ? [merged] : i === hi ? [] : [r]))};
+}
+
 /** The fixtures of `randomSplitCourtyards`. */
 export const randomSplitCourtyardFixtures = (seed: number, count: number, storeyHeight: number): NamedFixture<SplitCourtName>[] =>
   randomSplitCourtyards(seed, count, storeyHeight).map(d => d.fixture);
@@ -578,3 +599,54 @@ export const gapFixture = (kind: GapKind, k: number): NamedFixture<GapName> => {
   const [y0, y1] = kind === 'Aligned' ? [0, 400] : [100, 300];
   return shellFixture(`Gap${kind}${k}`, [ring([0, 0, 500, 400], 0, 1, 45), ring([500 + k / 1024, y0, 1000, y1], 0, 1, 45)]);
 };
+
+/** The skeleton's refusal kinds a `HOLED_REFUSALS` entry is refused by, each named in `HOLED_CAUSES`. */
+export type HoledRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
+
+/** The issue note that records what each refusal kind holds back (holed roof decision 42). */
+export const HOLED_REFUSAL_ISSUES: Readonly<Record<HoledRefusalKind, string>> = {
+  'simultaneous-across-rings': 'ISSUE-skeleton-three-front-meeting-refused.md',
+  'multi-ring-step-refused': 'ISSUE-skeleton-straight-vertex-in-zero-area-ring.md',
+};
+
+/** One layout the holed solve refuses by name: its fixture (its Rings), the skeleton's kind, and the issue note. */
+export interface HoledRefusal { fixture: ShellFixture; kind: HoledRefusalKind; issue: string }
+
+/** A Rect reflected in y about y = 500, as `mirrorFixture` reflects a fixture's Rings on axis 1 at span 1000. */
+const mirrorRectY = ([x0, y0, x1, y1]: Rect): Rect => [x0, 1000 - y1, x1, 1000 - y0];
+
+/**
+ * Holed roof decisions 41 to 43, the regression stated plainly: the 8 footprints that built clean under the cut and that
+ * the holed solve refuses by name, then `TwoHolesProbe` and the draft's `TwoCourtyards`, which the cut refused too (one
+ * hole per island). Each is one storey, every Ring hipped at 30°. Each entry's test asserts the hard error naming the
+ * island and its kind, a guard in production code (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted
+ * to a fixture. None is asserted as roofed.
+ * - `CourtL`: the courtyard with a wing carrying the S band's line on past it, `[1000, 0, 1400, 300]`.
+ * - `JutMidWall`: the W wing jutting 250 cm out over its middle, y 350 to 650.
+ * - `BandRunsOnPastWing` (was `BandRunsOnPastCut`): the S band running on to x = -250 below the W wing; and its y-mirror.
+ * - `JutAlignedS`: a 250 by 200 jut in line with the courtyard's S wall; its y-mirror is `JutAlignedN`'s footprint.
+ * - `JutAlignedN`: the jut in line with the courtyard's N wall.
+ * - `JutBelowWing` (was `JutBelowCutLine`): a jut below the W wing, its N side on the band's line y = 300; and its
+ *   y-mirror.
+ * - `TwoHolesProbe`: a 700 by 300 block round two 200 by 100 holes a wall apart.
+ * - `TwoCourtyardsDraft`: the draft's `TwoCourtyards`, two 400 square courtyards either side of a wing 200 wide.
+ */
+export const HOLED_REFUSALS: readonly HoledRefusal[] = (() => {
+  const at30 = (name: string, rects: Rect[]): ShellFixture => shellFixture(name, rects.map(r => ring(r, 0, 1, 30)));
+  const entry = (kind: HoledRefusalKind, name: string, rects: Rect[]): HoledRefusal => ({fixture: at30(name, rects), kind, issue: HOLED_REFUSAL_ISSUES[kind]});
+  const band: Rect[] = [[-250, 0, 1000, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
+  const below: Rect[] = [[0, 0, 1000, 300], [-250, 100, 0, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
+  const three = 'simultaneous-across-rings', sliver = 'multi-ring-step-refused';
+  return [
+    entry(three, 'CourtL', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 300, 300, 700], [700, 300, 1000, 700], [1000, 0, 1400, 300]]),
+    entry(three, 'JutMidWall', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 350, 0, 650], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    entry(three, 'BandRunsOnPastWing', band),
+    entry(three, 'BandRunsOnPastWingMirrorY', band.map(mirrorRectY)),
+    entry(sliver, 'JutAlignedS', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 300, 0, 500], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    entry(sliver, 'JutAlignedN', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 500, 0, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    entry(sliver, 'JutBelowWing', below),
+    entry(sliver, 'JutBelowWingMirrorY', below.map(mirrorRectY)),
+    entry(three, 'TwoHolesProbe', [[0, 0, 700, 100], [0, 200, 700, 300], [0, 100, 100, 200], [300, 100, 400, 200], [600, 100, 700, 200]]),
+    entry(sliver, 'TwoCourtyardsDraft', [[0, 0, 1600, 300], [0, 700, 1600, 1000], [0, 300, 300, 700], [700, 300, 900, 700], [1300, 300, 1600, 700]]),
+  ];
+})();

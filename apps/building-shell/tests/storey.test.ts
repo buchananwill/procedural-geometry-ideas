@@ -26,7 +26,7 @@ const oneStorey = (name: string, rects: Rect[] = RECT_400_300, sides: RingSides[
 
 /**
  * A one-storey plan at 300 cm built from roof-gable `Sel`s at 45 degrees, below the fixture layer: for forms Ring
- * authoring cannot express (a monopitch, an authored cut, a line gabled over part of its length).
+ * authoring cannot express (a monopitch, a line gabled over part of its length).
  */
 const selPlan = (name: string, sels: Sel[], rects: Rect[] = RECT_400_300): StoreyPlan =>
   planChecked(name, 0, 0, 300, buildFromRects(rects, sels, tanDeg(45)));
@@ -85,12 +85,9 @@ describe('storey hard errors', () => {
     expect(() => selPlan('NoPlaneProbe', NO_PLANE_SELS)).toThrow(/NoPlaneProbe storey 0: gable piece dropped: .*line x=/);
   });
 
-  it('a cut wall outside a courtyard is a hard error naming the fixture, storey and wall', () => {
-    expect(() => selPlan('CutProbe', [{y: 0, form: 'cut'}]))
-      .toThrow(/CutProbe storey 0: a cut wall stands outside a courtyard's cut: y=0 x\[0,400\]/);
-  });
-
-  it('an authored cut side is a hard error naming the fixture, storey, Ring and side (spec decision 2 as amended)', () => {
+  // Holed roof decisions 29 and 51: `CutProbe`, a `Sel` carrying a cut, went with the cut; an authored side of any form
+  // but hip or gable stays a hard error.
+  it('an authored cut side is a hard error naming the fixture, storey, Ring and side (holed roof decision 29)', () => {
     const cut = {form: 'cut'} as unknown as SideForm;
     expect(() => planStorey(oneStorey('AuthoredCutProbe', RECT_400_300, [{S: cut}]), 0))
       .toThrow(/AuthoredCutProbe storey 0: Ring 0 side S is authored cut/);
@@ -173,7 +170,7 @@ describe('span-end division (journal decision 82)', () => {
     // The band's high end, x = 200 facing +x: Cheek over the spine, Gable on the arm wall from y = 200.
     const bandEnd = gableGenerating(plan, piece, piece.farDist).find(g => g.plane.n[0] > 0.5 && Math.abs(g.plane.d - 200) <= SHELL_TOLERANCE_CM);
     if (!bandEnd?.along) throw new Error('no zoned band-end plane at x = 200');
-    expect(bandEnd.along.zones).toEqual([{kind: 'Gable', wall: arm.id, lo: 200, hi: 600}]);
+    expect(bandEnd.along.zones).toEqual([{wall: arm.id, lo: 200, hi: 600}]);
 
     // One triangle from y = 100 to y = 400, its centroid at y = 300 on the arm side.
     const tri: Vec3[] = [[200, 100, 300], [200, 400, 300], [200, 250, 450]];
