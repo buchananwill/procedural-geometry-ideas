@@ -1,7 +1,8 @@
 // The courtyards on the holed roof (holed roof decisions 50 to 52): every island is roofed by the skeleton of its
 // outline and its holes, each wall at its own pitch. The cut, its placement, splice and pitch, went with it, and so did
-// its tests; every invariant check over the same layouts is kept, and the layouts the holed solve refuses are
-// `HOLED_REFUSALS` entries (tests/holed-roof.test.ts).
+// its tests; every invariant check over the same layouts is kept. The layouts the holed solve once refused are cured by
+// the skeleton's flat-ring and third-front rules and are `HOLED_FIXTURES` entries (tests/holed-fixtures.test.ts); what it
+// still refuses is a `HOLED_REFUSALS` entry (tests/holed-roof.test.ts).
 import {describe, expect, it} from 'vitest';
 import {SHELL_TOLERANCE_CM} from '../src/constants.ts';
 import {errorMessage} from '../src/errors.ts';
@@ -197,8 +198,8 @@ describe.each([['Courtyard', () => fixtureByName('Courtyard')], ['FullWingsProbe
 
 /**
  * The correctness reviewers' courtyard probes (WP3.6's, `probes/zz-court.test.ts`), each built and checked against
- * spec decision 32, with its genus per connected component (journal decision 135). `CourtL` is refused by the holed
- * solve, and is a `HOLED_REFUSALS` entry.
+ * spec decision 32, with its genus per connected component (journal decision 135). `CourtL`, once refused by the holed
+ * solve, is a `HOLED_FIXTURES` entry (skeleton flat-ring and third-front spec, decision 52).
  */
 describe('the courtyard probes (journal decision 135)', () => {
   const C = COURTYARD_RECTS;
@@ -268,8 +269,8 @@ type Mirror = MirrorAxis;
  * beside the band. Under the cut, which cut was taken decided whether an unrequested gable stood on the outline; with no
  * cut, every case here is all hip, so a Gable or a Cheek face would be a defect, and none is asked for. Each case is
  * checked against the mirror image of a partner layout, or against closed-form heights. The layouts the holed solve
- * refuses (`JutAlignedS`, `JutAlignedN`, `JutMidWall`, `BandRunsOnPastCut`, `JutBelowCutLine` and their mirrors) are
- * `HOLED_REFUSALS` entries.
+ * once refused (`JutAlignedS`, `JutAlignedN`, `JutMidWall`, `BandRunsOnPastWing`, `JutBelowWing` and their mirrors) are
+ * `HOLED_FIXTURES` entries (skeleton flat-ring and third-front spec, decision 52).
  */
 describe('the jut family on the holed roof (journal findings 88 and 89)', () => {
   describe('CourtyardJutWing, the user\'s input (journal finding 88)', () => {

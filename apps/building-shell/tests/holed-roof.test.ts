@@ -153,17 +153,14 @@ describe('the refusals (holed roof decisions 11, 13, 14 and 16)', () => {
 const refusalPattern = (name: string, holes: number): RegExp =>
   new RegExp(`^${name} storey 0: solveRoofParts: island 0 at \\(-?\\d+, -?\\d+\\) with ${holes} holes cannot be roofed: .+ \\[incomplete: `);
 
-describe('the layouts the holed solve refuses (holed roof decisions 41 to 43)', () => {
-  it('holds the 8 layouts that built under the cut, TwoHolesProbe and the draft\'s TwoCourtyards, each with its issue note', () => {
-    expect(HOLED_REFUSALS.map(r => r.fixture.name)).toEqual([
-      'CourtL', 'JutMidWall', 'BandRunsOnPastWing', 'BandRunsOnPastWingMirrorY', 'JutAlignedS', 'JutAlignedN', 'JutBelowWing', 'JutBelowWingMirrorY',
-      'TwoHolesProbe', 'TwoCourtyardsDraft',
-    ]);
+describe('the layouts the holed solve refuses (holed roof decisions 41 to 43; flat-ring and third-front spec, decision 53)', () => {
+  it('holds the two grid draws of three runs at one node, each with its issue note', () => {
+    expect(HOLED_REFUSALS.map(r => r.fixture.name)).toEqual(['GridDraw523', 'GridDraw1977']);
     for (const r of HOLED_REFUSALS) expect(r.issue).toBe(HOLED_REFUSAL_ISSUES[r.kind]);
   });
 
   it.each(HOLED_REFUSALS.map(r => [r.fixture.name, r] as const))('%s is a hard error naming the island, its cause and its kind', (name, r) => {
-    const holes = name === 'TwoHolesProbe' || name === 'TwoCourtyardsDraft' ? 2 : 1;
+    const holes = 2;
     let message = '';
     try {
       planStorey(r.fixture, 0);

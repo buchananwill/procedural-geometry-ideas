@@ -355,9 +355,13 @@ export const RISE_GOLDENS: readonly CleanGolden[] = RISE_FIXTURES.filter(f => !R
   .map(f => cleanGolden(f, f.name.startsWith('Courtyard') ? [1] : [0]));
 
 /**
- * Holed roof decision 39: the holed fixtures, each clean, its genus per component its hole count (highest first).
+ * Holed roof decision 39: the holed fixtures, each clean, its genus per component its hole count (highest first). The
+ * cured layouts among them join with theirs (skeleton flat-ring and third-front spec, decision 52).
  */
-export const HOLED_GOLDENS: readonly CleanGolden[] = HOLED_FIXTURES.map(f => cleanGolden(f, f.name === 'TwoCourtyards' ? [2] : f.name === 'CourtyardInCourtyard' ? [1, 1] : [1]));
+const HOLED_GENUS: Readonly<Record<string, GenusPerComponent>> = {
+  TwoCourtyards: [2], CourtyardInCourtyard: [1, 1], TwoHolesProbe: [2], TwoCourtyardsDraft: [2],
+};
+export const HOLED_GOLDENS: readonly CleanGolden[] = HOLED_FIXTURES.map(f => cleanGolden(f, HOLED_GENUS[f.name] ?? [1]));
 
 /**
  * Journal decision 129: every named fixture, the roster, the Ring-conflict pairs, the four Port fixtures and the

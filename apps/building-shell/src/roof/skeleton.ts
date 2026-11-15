@@ -27,8 +27,8 @@ export type SolveResult = SolveOk | SolveRefused;
 
 /** Holed roof decision 16: each refusal's cause in the user's terms, by the skeleton's diagnostic kind or the refusal's. */
 export const HOLED_CAUSES: Readonly<Record<string, string>> = {
-  'simultaneous-across-rings': 'three wall fronts meet at one point at one moment, which the roof solver refuses',
-  'multi-ring-step-refused': 'walls in line, facing the same way, leave a sliver the roof solver cannot place',
+  'simultaneous-across-rings': 'walls of the outline and the courtyards close on one point at one moment from more sides than the roof solver can pair',
+  'multi-ring-step-refused': 'walls close on a sliver the roof solver cannot read as a finished ridge or place',
   'step-failure': 'a step of the roof solver failed, as it can where walls lie in line',
   'unresolved-edges': 'the roof solver left a hip or valley unfinished',
   'holed-topology-violation': "the roof solver's own check found its answer wrong",

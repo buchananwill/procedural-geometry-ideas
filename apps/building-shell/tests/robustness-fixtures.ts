@@ -636,41 +636,34 @@ export const HOLED_REFUSAL_ISSUES: Readonly<Record<HoledRefusalKind, string>> = 
 /** One layout the holed solve refuses by name: its fixture (its Rings), the skeleton's kind, and the issue note. */
 export interface HoledRefusal { fixture: ShellFixture; kind: HoledRefusalKind; issue: string }
 
-/** A Rect reflected in y about y = 500, as `mirrorFixture` reflects a fixture's Rings on axis 1 at span 1000. */
-const mirrorRectY = ([x0, y0, x1, y1]: Rect): Rect => [x0, 1000 - y1, x1, 1000 - y0];
-
 /**
- * Holed roof decisions 41 to 43, the regression stated plainly: the 8 footprints that built clean under the cut and that
- * the holed solve refuses by name, then `TwoHolesProbe` and the draft's `TwoCourtyards`, which the cut refused too (one
- * hole per island). Each is one storey, every Ring hipped at 30°. Each entry's test asserts the hard error naming the
- * island and its kind, a guard in production code (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted
- * to a fixture. None is asserted as roofed.
- * - `CourtL`: the courtyard with a wing carrying the S band's line on past it, `[1000, 0, 1400, 300]`.
- * - `JutMidWall`: the W wing jutting 250 cm out over its middle, y 350 to 650.
- * - `BandRunsOnPastWing` (was `BandRunsOnPastCut`): the S band running on to x = -250 below the W wing; and its y-mirror.
- * - `JutAlignedS`: a 250 by 200 jut in line with the courtyard's S wall; its y-mirror is `JutAlignedN`'s footprint.
- * - `JutAlignedN`: the jut in line with the courtyard's N wall.
- * - `JutBelowWing` (was `JutBelowCutLine`): a jut below the W wing, its N side on the band's line y = 300; and its
- *   y-mirror.
- * - `TwoHolesProbe`: a 700 by 300 block round two 200 by 100 holes a wall apart.
- * - `TwoCourtyardsDraft`: the draft's `TwoCourtyards`, two 400 square courtyards either side of a wing 200 wide.
+ * Holed roof decisions 41 to 43 and 58: the layouts the holed solve refuses by name. Each is one storey, every Ring
+ * hipped at 30°. Each entry's test asserts the hard error naming the island and its kind, a guard in production code
+ * (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted to a fixture. None is asserted as roofed.
+ *
+ * The ten layouts this list once held (the 8 footprints that built clean under the cut, `TwoHolesProbe` and the draft's
+ * `TwoCourtyards`) are cured by the skeleton's flat-ring and third-front rules and are `HOLED_FIXTURES` entries (skeleton
+ * flat-ring and third-front spec, decisions 52 and 53). What it holds now are two grid draws of the two-courtyard fuzz
+ * (`holed-grid-fuzz.test.ts`, seed 1), refused before and after those rules, neither rule firing: in each, one hole's two
+ * corners and the other hole's one corner meet at one node at one moment, a vertex event across rings of three runs,
+ * whose pairing the links cannot read (simultaneous-rings decision 21).
+ * - `GridDraw523` (`uniform-1-523`): a 1350 by 700 block with a wing on its E side, round the holes `[900, 300, 1150,
+ *   450]` and `[150, 200, 550, 600]`.
+ * - `GridDraw1977` (`uniform-1-1977`): a 1750 by 1000 block with a wing on its E side, round the holes `[1050, 500,
+ *   1550, 700]` and `[100, 450, 250, 700]`.
  */
 export const HOLED_REFUSALS: readonly HoledRefusal[] = (() => {
   const at30 = (name: string, rects: Rect[]): ShellFixture => shellFixture(name, rects.map(r => ring(r, 0, 1, 30)));
   const entry = (kind: HoledRefusalKind, name: string, rects: Rect[]): HoledRefusal => ({fixture: at30(name, rects), kind, issue: HOLED_REFUSAL_ISSUES[kind]});
-  const band: Rect[] = [[-250, 0, 1000, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
-  const below: Rect[] = [[0, 0, 1000, 300], [-250, 100, 0, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
-  const three = 'simultaneous-across-rings', sliver = 'multi-ring-step-refused';
+  const three = 'simultaneous-across-rings';
   return [
-    entry(three, 'CourtL', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 300, 300, 700], [700, 300, 1000, 700], [1000, 0, 1400, 300]]),
-    entry(three, 'JutMidWall', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 350, 0, 650], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
-    entry(three, 'BandRunsOnPastWing', band),
-    entry(three, 'BandRunsOnPastWingMirrorY', band.map(mirrorRectY)),
-    entry(sliver, 'JutAlignedS', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 300, 0, 500], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
-    entry(sliver, 'JutAlignedN', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 500, 0, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
-    entry(sliver, 'JutBelowWing', below),
-    entry(sliver, 'JutBelowWingMirrorY', below.map(mirrorRectY)),
-    entry(three, 'TwoHolesProbe', [[0, 0, 700, 100], [0, 200, 700, 300], [0, 100, 100, 200], [300, 100, 400, 200], [600, 100, 700, 200]]),
-    entry(sliver, 'TwoCourtyardsDraft', [[0, 0, 1600, 300], [0, 700, 1600, 1000], [0, 300, 300, 700], [700, 300, 900, 700], [1300, 300, 1600, 700]]),
+    entry(three, 'GridDraw523', [
+      [0, 0, 1350, 200], [0, 200, 150, 300], [550, 200, 1350, 300], [0, 300, 150, 450], [550, 300, 900, 450],
+      [1150, 300, 1350, 450], [0, 450, 150, 600], [550, 450, 1700, 600], [0, 600, 1700, 650], [0, 650, 1350, 700],
+    ]),
+    entry(three, 'GridDraw1977', [
+      [0, 0, 1750, 450], [0, 450, 100, 500], [250, 450, 1750, 500], [0, 500, 100, 700], [250, 500, 1050, 700],
+      [1550, 500, 1750, 700], [0, 700, 2000, 900], [0, 900, 1750, 1000],
+    ]),
   ];
 })();

@@ -358,12 +358,27 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
  *   `250 + 200 tan 30°`, on y = 500 over x [-50, 100] and [900, 1100].
  * - `CourtyardJutWing`: BSA.F88's Rings, the user's input, the W wing jutting 250 cm (moved here from the tests).
  * - `TwoCourtyards`: genus 2, three wings 300, 400 and 300 wide; the middle wing's top at `250 + 200 tan 30°` at
- *   (900, 500). The draft's equal-wing layout is refused, and is a `HOLED_REFUSALS` entry.
+ *   (900, 500). The draft's equal-wing layout is `TwoCourtyardsDraft`, below.
  * - `CourtyardInCourtyard`: a 2000 square ring 300 deep round an 800 square island `[600, 1400]²` ring 250 deep: genus
  *   `[1, 1]`, ridges at `250 + 150 tan 30°` and `250 + 125 tan 30°`.
+ *
+ * Then the layouts the holed solve once refused (holed roof decisions 41 to 43), cured by the skeleton's flat-ring and
+ * third-front rules (skeleton flat-ring and third-front spec, decision 52), and the user's layout:
+ * - `CourtL`, `JutMidWall`, `BandRunsOnPastWing` and its y-mirror: three wall fronts meet at one point at one moment, a
+ *   vertex event on a third front, now resolved as one whole event.
+ * - `JutAlignedS`, `JutAlignedN`, `JutBelowWing` and its y-mirror: a jut's wall in line with a courtyard wall, facing
+ *   the same way, which leaves a flat ring, now closed as a finished piece of skeleton.
+ * - `TwoHolesProbe` (genus 2): a 700 by 300 block round two 200 by 100 holes a wall apart; third fronts.
+ * - `TwoCourtyardsDraft` (genus 2): the draft's `TwoCourtyards`, two 400 square courtyards either side of a wing 200
+ *   wide; flat rings.
+ * - `CourtL-draft`: the user's upload, `fixtures/user/CourtL-draft.input.json`, a courtyard with a wing carrying the S
+ *   band's line on to x = 1700; five wall fronts meet at (850, 150) at t = 150 (BSA.F111).
  */
 export const HOLED_FIXTURES: readonly ShellFixture[] = (() => {
   const at30 = (name: string, rects: Rect[]): ShellFixture => fixture(name, rects.map(r => ring(r, 0, 1, 30)));
+  const mirrorY = ([x0, y0, x1, y1]: Rect): Rect => [x0, 1000 - y1, x1, 1000 - y0];
+  const band: Rect[] = [[-250, 0, 1000, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
+  const below: Rect[] = [[0, 0, 1000, 300], [-250, 100, 0, 300], [0, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]];
   return [
     at30('CourtyardWingsBothSides', [[0, 0, 1000, 300], [-250, 300, 300, 700], [700, 300, 1300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
     at30('CourtyardJutWing', [[0, 0, 1000, 300], [-250, 300, 300, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
@@ -372,6 +387,17 @@ export const HOLED_FIXTURES: readonly ShellFixture[] = (() => {
       [0, 0, 2000, 300], [0, 1700, 2000, 2000], [0, 300, 300, 1700], [1700, 300, 2000, 1700],
       [600, 600, 1400, 850], [600, 1150, 1400, 1400], [600, 850, 850, 1150], [1150, 850, 1400, 1150],
     ]),
+    at30('CourtL', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 300, 300, 700], [700, 300, 1000, 700], [1000, 0, 1400, 300]]),
+    at30('JutMidWall', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 350, 0, 650], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    at30('BandRunsOnPastWing', band),
+    at30('BandRunsOnPastWingMirrorY', band.map(mirrorY)),
+    at30('JutAlignedS', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 300, 0, 500], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    at30('JutAlignedN', [[0, 0, 1000, 300], [0, 300, 300, 700], [-250, 500, 0, 700], [0, 700, 1000, 1000], [700, 300, 1000, 700]]),
+    at30('JutBelowWing', below),
+    at30('JutBelowWingMirrorY', below.map(mirrorY)),
+    at30('TwoHolesProbe', [[0, 0, 700, 100], [0, 200, 700, 300], [0, 100, 100, 200], [300, 100, 400, 200], [600, 100, 700, 200]]),
+    at30('TwoCourtyardsDraft', [[0, 0, 1600, 300], [0, 700, 1600, 1000], [0, 300, 300, 700], [700, 300, 900, 700], [1300, 300, 1600, 700]]),
+    at30('CourtL-draft', [[0, 0, 1000, 300], [0, 700, 1000, 1000], [0, 300, 300, 700], [700, 300, 1000, 700], [1000, 0, 1700, 300]]),
   ];
 })();
 
