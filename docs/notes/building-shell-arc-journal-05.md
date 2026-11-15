@@ -274,6 +274,19 @@ session 3's own.
     with or overtook a valley, and there the model failed.
   - The user's advice: fuzz on the parameters that differ between these files.
   - The work is read-only on production code; it returns a finding, and no cure is built.
+- **335. The user, 2026-11-15: The pairwise fallback's order among simultaneous events becomes geometric, built in two
+  stages by one delegate: first the shared-bisector case, then the general case.**
+  - Stage 1: of two simultaneous events that share a bisector, the one whose meeting point is nearer along that
+    bisector's ray from its source is resolved first (BSA.F107). The user's restatement, confirmed: on a level bisector
+    time no longer stands in for position along the ray, so the order goes back to position.
+  - Stage 2: simultaneous events that share no bisector stop being ordered by edge id. What replaces it is not fixed
+    here: the delegate first measures whether their order changes any result, and reports before building if it does.
+  - This is the user's ruling on a change to how single-loop events resolve (BSA.D301). It is dispatched from this
+    decision and BSA.F107 without a separate spec, by the lead's choice: the rule is one comparator.
+  - The user's expectation, to be tested and not assumed: the change only removes defects. A clean fixture whose answer
+    moves, or a pinned defect signature that moves, is reported to the user with its diagnosis and is not re-pinned by
+    the delegate.
+  - An independent review follows each stage's commit.
 
 ## Findings
 
@@ -315,3 +328,41 @@ session 3's own.
     convention that a gentle face overtakes a parallel slower wall in one instant, against an independent oracle; and
     whether the tie can arise at unit weights without straight bisectors. The roof checker is necessary for a sound
     roof, not sufficient.
+- **F108. The geometric order in the pairwise fallback is built in two commits, and by every oracle the project has it
+  only cures: 136 along-edge sweep cells, the 4 mixed-pitch tests, one straight-bisector test and five pinned defects,
+  with no clean answer moved and no golden byte moved.** (the implementing Opus delegate of @D335, 2026-11-15; commits
+  ec96bc4 and 6dab6b0; figures measured by the delegate, not re-run by the lead)
+  - **Stage 1, `ec96bc4`:** of two events in one moment on the same bisector, more than `context.perceptualFloor` apart
+    along its ray, the nearer is resolved first. `inArrivalOrder` takes a `mustPrecede` relation and orders each moment
+    topologically; a cycle falls back to the old order. It applies to every event kind ahead of priority, so a split and
+    a pair on one ray are ordered by position (33 such layers in the wide fuzz; restricting to equal priority changed no
+    skeleton). Not applied to the whole-event path's split order: no layer measured had two splits of one instigator
+    more than the floor apart, the sweep harness not counted.
+  - **Stage 2, `6dab6b0`:** measured first. Reversing edge-id order inside the fallback changed no skeleton over
+    FULL_CORPUS, HOLED and WEIGHTED at sampled starting vertices (809 solve pairs) or the 11,878 fuzz islands; 135
+    along-edge digests moved by numbering only. The delegate read "numbering alone moved" as not a changed result and
+    built: events left unordered by stage 1 go by priority, then by place (columns on x then cells on y, single linkage
+    at the floor), then by edge id within one cell.
+  - **The cost of stage 2's place order, argued and not measured:** two events about one floor apart in x or y can
+    change cells under an ulp of movement and swap their nodes' ids. Edge-id order had no such sensitivity.
+  - **Suites.** Baseline re-measured at `2977b43`: core 6,634 passed, 10 failed, 10 skipped; building-shell 9,710
+    passed, 4 failed; dashboard 609. At `6dab6b0`: core 6,655 passed, 14 failed, 10 skipped; building-shell 9,728
+    passed, 0 failed; dashboard 609. Typechecks clean; the golden drift test passed.
+  - **Turned green:** all 4 of `mixed-pitch-island.test.ts`; K1 in `straight-bisector.test.ts`. The other nine
+    red-by-design tests are unchanged.
+  - **Turned red, each a pinned defect now cured, left failing for the user:** three in `along-edge-jitter.test.ts`
+    ("the recorded defect, still alive", counts now 0); one in `stroke-derived-polygons.test.ts` (the reflex L with
+    canonicalisation off, k = 1 to 10 now complete, oracles 0, tiling at most 4.2e-16); one in `holed-guard.test.ts`
+    ("K1, overlapping ridge arcs": the guard no longer fires because the solve is right).
+  - **Sweep records:** alongedge moved in 136 of 160 cells at stage 1, every one a cure by the delegate's classifier;
+    corpus, fine, offedge, ladder, regular, holed and the three region depths byte-identical. Not re-pinned.
+  - **Fuzzes match the counterfactual of BSA.F107 exactly.** The user's seven layouts are tests in
+    `apps/building-shell/tests/mixed-pitch-layouts.test.ts`.
+  - **Gates not convicted:** `start-vertex-invariance.test.ts` passes on the parent too, because the far pairing joins a
+    primary bisector whose id is lower at every rotation; and replacing `> perceptualFloor` with `> 0` leaves the core
+    suite unchanged. `inPlaceOrder`'s unit tests were not mutated.
+  - **Rotating the starting vertex still changes three roster cases, as at `2977b43`:** Off-edge Jitter Reflex L (seed
+    55433, k=4) at one rotation, where the fallback does not run, and two weighted refusal messages naming a different
+    vertex index.
+  - **Not established:** correctness beyond the oracles; the tie at unit weights without straight bisectors; the
+    whole-event split path in the sweep harness.
