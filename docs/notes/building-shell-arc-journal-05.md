@@ -336,6 +336,20 @@ session 3's own.
     says the explanation has landed, since their understanding may reshape the rule.
   - Scope when it proceeds: multi-ring steps only, as an amendment to node 5's cross-ring rules; a delegate drafts the
     spec, the lead reviews it, one Opus implementer builds, an independent review follows.
+- **341. The user, 2026-11-15: The user's alternative to the third-front rule of BSA.F111 is measured before any spec:
+  let the corner events resolve first and glue the level ridges they bear onto the node at a temporal offset of zero.**
+  - The user's reading: at the five-way meeting the bottom wall has live bisectors at each end, which collide at that
+    same instant and have not yet borne the ridge bisectors that also take part. There is a spatial happens-before
+    between the primary bisectors colliding and the secondary ridge bisectors reaching the node, and no temporal one,
+    because the rectilinear layout closes at one offset. The user's question: why can the solver not tolerate the
+    corners collapsing first and the ridges being glued on at offset zero.
+  - The layout is a lower-case d, not a b; the name in BSA.D339 was the user's slip.
+  - **The lead's reading, flagged as inference:** this is nearly the "merge first" sequence BSA.F111 found refused on a
+    ring of area 0, so the question becomes whether a zero-area ring that closes to one point can be accepted as a node;
+    if it can, it may also reach the sliver class the rule of BSA.F111 leaves refused. It holds only where the third
+    front is itself closing against a parallel front at that instant, which the lead argues is always so for
+    axis-aligned walls and is not so for a slanted third front.
+  - A read-only delegate checks the inference and measures the alternative against BSA.F111's rule on the same samples.
 
 ## Findings
 
