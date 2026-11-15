@@ -546,8 +546,20 @@ function toLevelPolicy(spec: LevelSpec): LevelPolicy {
  * Every node of the returned tree either carries the segments it was divided into or a `failure`
  * saying why it was not — including the root, which is returned as a failed node rather than
  * throwing, so a caller always has something to draw.
+ *
+ * HOLES ARE REFUSED BY A THROW (skeleton loop-consumers spec, decision 23). The driver takes one ring by type and
+ * solves it without holes, so an options object carrying a non-empty `holes` would otherwise subdivide the outline
+ * alone and say nothing — the same guard nodes 2 and 3 put on the legacy entries. That is a caller error, not a
+ * region the driver failed on, so it throws rather than returning a failed root.
  */
 export function subdivideRecursively(boundary: Vector2[], options: RecursiveOptions): RecursiveNode {
+    const holes = (options as {holes?: unknown} | undefined)?.holes;
+    if (Array.isArray(holes) && holes.length > 0) {
+        throw new Error(
+            `subdivideRecursively takes one ring and no holes, and was given ${holes.length}: it solves its boundary `
+            + `without holes, so it would subdivide the outline alone. Solve the outline with its holes through `
+            + `solveSkeleton and read every loop through computeStrips.`);
+    }
     const perceptualFloor = resolvePerceptualFloor(options);
     return subdivideNode(boundary, 0, {id: ROOT_REGION_ID, provenance: {kind: 'root'}}, {
         levels: clampLevelSpecs(options.levels).map(toLevelPolicy),

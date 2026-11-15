@@ -4,8 +4,12 @@
  * a step's children are its components, an outer ring and the inner rings inside it.
  *
  *  - F1 against its hand-derived closed form, node by node and edge by edge (decisions 47 to 49);
- *  - the holed fixtures of decision 41, each asserting all of decision 42 and the weighted time order, and F8, the
- *    pocket that pins decision 15's least-area rule (BSA.D309); the generic counts on every generic fixture;
+ *  - `checkWavefront` at every step boundary of every fixture of the holed roster, and each of node 4's fixtures'
+ *    stories; F8, the pocket that pins decision 15's least-area rule (BSA.D309); the generic counts on every generic
+ *    fixture. THE FIXTURES ARE THE HOLED ROSTER's (`HOLED_TEST_POLYGONS` in `@proc-geo/test-fixtures`, the
+ *    loop-consumers spec, decision 29), and the rest of decision 42's battery is asserted by the roster's sweeps, each
+ *    in its home file (that spec's decisions 32 and 33): containment, the strip tiling, causality, the graph-index
+ *    invariants with the cycle rank, the offset projection, the digests and completeness;
  *  - a ring whose polygon crosses itself, refused rather than classified by its area's sign (BSA.D309);
  *  - the partition order of decisions 25 to 27, the causality check of decision 32, and the constructed tests of
  *    decision 45's last sentence: the step restriction of the struck segment and the guard on every validating
@@ -39,131 +43,40 @@ import {
     retireBisectors,
 } from '@proc-geo/core/straight-skeleton/wavefront';
 import {
-    expectSoundHoledSolve,
-    extentOf,
-    HoledFixture,
-    mirrored,
-    solveHoled,
-    storyOf,
-} from './holed-test-helpers';
+    HOLED_F1 as F1,
+    HOLED_F1_HOLE as F1_HOLE,
+    HOLED_F1_STRETCHED as F1_STRETCHED,
+    HOLED_F2 as F2,
+    HOLED_F3 as F3,
+    HOLED_F4 as F4,
+    HOLED_F5 as F5,
+    HOLED_F5_MIRRORED as F5_MIRROR,
+    HOLED_F6 as F6,
+    HOLED_F7 as F7,
+    HOLED_F8 as F8,
+    HOLED_TEST_POLYGONS,
+    HoledTestPolygon,
+} from '@proc-geo/test-fixtures';
+import {extentOf, solveHoled, storyOf} from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
 const SQRT2 = Math.SQRT2;
 
-/** A clockwise outline. */
-const SQUARE_OUTLINE: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 0}];
+/** A clockwise outline: F1's. */
+const SQUARE_OUTLINE: Vector2[] = F1.outline;
 
-/** F1's hole: a square of side √2 turned 45°, centred at (7, 5.5), counter-clockwise: NE, NW, SW, SE. */
-const F1_HOLE: Vector2[] = [{x: 8, y: 5.5}, {x: 7, y: 6.5}, {x: 6, y: 5.5}, {x: 7, y: 4.5}];
-
-/** A square of half-diagonal `r` about `centre`, turned by `angle`, counter-clockwise. */
-function turnedSquare(centre: Vector2, r: number, angle: number): Vector2[] {
-    return [0, 1, 2, 3].map(k => ({
-        x: centre.x + r * Math.cos(angle + k * Math.PI / 2),
-        y: centre.y + r * Math.sin(angle + k * Math.PI / 2),
-    }));
-}
-
-/** Turn a ring of vertices by `angle` about `centre`. */
-function turned(vertices: Vector2[], centre: Vector2, angle: number): Vector2[] {
-    const c = Math.cos(angle);
-    const s = Math.sin(angle);
-    return vertices.map(v => ({
-        x: centre.x + c * (v.x - centre.x) - s * (v.y - centre.y),
-        y: centre.y + s * (v.x - centre.x) + c * (v.y - centre.y),
-    }));
-}
-
-const F1: HoledFixture = {name: 'F1', outline: SQUARE_OUTLINE, holes: [{vertices: F1_HOLE}]};
-
-const F1_STRETCHED: HoledFixture = {
-    name: 'F1 stretched',
-    outline: [{x: -20, y: 0}, {x: -20, y: 10}, {x: 10, y: 10}, {x: 10, y: 0}],
-    holes: [{vertices: F1_HOLE}],
-};
-
-/** An irregular quadrilateral with no two walls parallel. */
-const QUADRILATERAL: Vector2[] = [{x: 0, y: 0}, {x: -1, y: 12}, {x: 14, y: 13}, {x: 16, y: -1}];
-
-const F2: HoledFixture = {
-    name: 'F2: two holes, one joining the other first',
-    outline: QUADRILATERAL,
-    holes: [
-        {vertices: [{x: 7, y: 6}, {x: 6, y: 7}, {x: 5, y: 6}, {x: 6, y: 5}]},
-        {vertices: turnedSquare({x: 9.4, y: 6.2}, 1.2, Math.PI / 4 + 0.3)},
-    ],
-};
-
-const L_HOLE: Vector2[] = [{x: 5, y: 4}, {x: 9, y: 4}, {x: 9, y: 6}, {x: 7, y: 6}, {x: 7, y: 8}, {x: 5, y: 8}];
-
-const F3: HoledFixture = {
-    name: 'F3: an L-shaped hole',
-    outline: QUADRILATERAL,
-    holes: [{vertices: turned(L_HOLE, {x: 7, y: 6}, 0.15)}],
-};
-
-const F4: HoledFixture = {
-    name: 'F4: a weighted hole',
-    outline: SQUARE_OUTLINE,
-    holes: [{vertices: F1_HOLE, weights: [1.3, 1, 1, 1]}],
-};
-
-/** A reflex outline: a notch from the top whose tip strikes the bottom wall early. */
-const NOTCHED: Vector2[] = [
-    {x: 0, y: 0}, {x: 0.5, y: 6}, {x: 9, y: 6.3}, {x: 10, y: 1.5}, {x: 11, y: 6.2}, {x: 20, y: 5.8}, {x: 19.5, y: -0.3}];
-
-const F5: HoledFixture = {
-    name: 'F5: a reflex outline divides while the hole shares the step',
-    outline: NOTCHED,
-    holes: [{vertices: turnedSquare({x: 5, y: 3}, 0.7, 0.2)}],
-};
-
-const F5_MIRROR = mirrored(F5, 10, 'F5 mirrored');
-
-/** The notched outline with a shallow notch, whose split comes late. */
-const SHALLOW_NOTCHED: Vector2[] = [
-    {x: 0, y: 0}, {x: 0.5, y: 6}, {x: 9, y: 6.3}, {x: 10, y: 4.5}, {x: 11, y: 6.2}, {x: 20, y: 5.8}, {x: 19.5, y: -0.3}];
-
-const F6: HoledFixture = {
-    name: 'F6: a hole near one wall joins first',
-    outline: SHALLOW_NOTCHED,
-    holes: [{vertices: turnedSquare({x: 1.6, y: 3}, 0.5, 0.2)}],
-};
-
-/** The square outline with its top-right corner cut by a short edge, which collapses early. */
-const CHAMFERED: Vector2[] = [{x: 0, y: 0}, {x: 0, y: 10}, {x: 9.6, y: 10}, {x: 10, y: 9.6}, {x: 10, y: 0}];
-
-const F7: HoledFixture = {
-    name: 'F7: a hole deep inside joins after an outline event',
-    outline: CHAMFERED,
-    holes: [{vertices: turnedSquare({x: 5.2, y: 4.7}, 0.8, 0.3)}],
-};
+/** The irregular quadrilateral of F2 and F3, with no two walls parallel. */
+const QUADRILATERAL: Vector2[] = F2.outline;
 
 /**
- * F8, THE POCKET (spec decision 15, the least-area rule; BSA.D309): a C-shaped hole whose cavity holds a pentagon.
- * The root step's first layer pinches the C's mouth shut, a step of three rings that leaves four: the outline's ring
- * O, the ring round the C R1, the pocket P the pinch closes off, and the pentagon's ring H2. H2's witness lies inside
- * both O's and P's polygon, and the least-area rule gives it to P. The node 4 reviewer's input, verbatim.
+ * Node 4's fixtures (decision 41), now the first ten of the holed roster. F8, THE POCKET (spec decision 15, the
+ * least-area rule; BSA.D309): a C-shaped hole whose cavity holds a pentagon. The root step's first layer pinches the
+ * C's mouth shut, a step of three rings that leaves four: the outline's ring O, the ring round the C R1, the pocket P
+ * the pinch closes off, and the pentagon's ring H2. H2's witness lies inside both O's and P's polygon, and the
+ * least-area rule gives it to P.
  */
-const F8: HoledFixture = {
-    name: 'F8: a pocket pinched off with a hole inside it',
-    outline: [{x: 4.338862577493184, y: -3.5202285030334624}, {x: -3.578503135260138, y: 25.74471850498312},
-        {x: 25.65486047687673, y: 33.14608262162091}, {x: 33.228550672432355, y: 4.120178471173041}],
-    holes: [
-        {vertices: [{x: 6.613387521039814, y: 3.790771746296402}, {x: 20.421533037059973, y: 6.662528627654656},
-            {x: 18.905855151704714, y: 12.980652655085823}, {x: 17.14890383730704, y: 12.619075988436236},
-            {x: 18.026424203835717, y: 8.334121746194102}, {x: 8.30878317313876, y: 6.1615504147956965},
-            {x: 5.915840626229241, y: 15.653377788028196}, {x: 15.902149229825921, y: 17.906943848542227},
-            {x: 16.861398011475924, y: 13.687998639887855}, {x: 18.829827218975584, y: 14.181711197846449},
-            {x: 17.208037893720782, y: 20.409084201640482}, {x: 3.778622864476371, y: 17.197736915470912}]},
-        {vertices: [{x: 13.860159802943, y: 11.43287328939301}, {x: 13.133620308027059, y: 12.219173797543736},
-            {x: 12.161291034970503, y: 11.77117389626237}, {x: 12.286897990881016, y: 10.707994222163164},
-            {x: 13.33685663191368, y: 10.498912948703182}]},
-    ],
-};
-
-const FIXTURES: HoledFixture[] = [F1, F1_STRETCHED, F2, F3, F4, F5, F5_MIRROR, F6, F7, F8];
+const FIXTURES: HoledTestPolygon[] = [F1, F1_STRETCHED, F2, F3, F4, F5, F5_MIRROR, F6, F7, F8];
 
 /**
  * The fixtures whose skeleton is GENERIC, every interior node of degree three, so Euler gives `n + 2h − 2` interior
@@ -173,7 +86,7 @@ const FIXTURES: HoledFixture[] = [F1, F1_STRETCHED, F2, F3, F4, F5, F5_MIRROR, F
  * interior edges where Euler says 16, and two interior nodes of degree four. `interiorGraphShape` counts that arc
  * once.
  */
-const NOT_GENERIC = new Set(['F1 stretched']);
+const NOT_GENERIC = new Set([F1_STRETCHED.name]);
 
 describe('F1 against its closed form (decisions 47 to 49)', () => {
     /** Node names, events and positions of decision 48's table. */
@@ -275,42 +188,51 @@ describe('F1 against its closed form (decisions 47 to 49)', () => {
  */
 const STORIES: Record<string, string[]> = {
     // The join is the root step's only event; three divides of the joined ring follow (decision 49).
-    'F1': ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '3{0,1} | 3{0,1}', ''],
+    [F1.name]: ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '3{0,1} | 3{0,1}', ''],
     // The same, then the hole's last two faces close in separate steps, the corridor last (decision 29's specimen).
-    'F1 stretched': ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '4{0,1}', '2{0}', ''],
+    [F1_STRETCHED.name]: ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '4{0,1}', '2{0}', ''],
     // The two holes join first (a step of two rings and the joined one), then a collapse on the joined hole while
     // the outline shares its step, then the joined hole joins the outline.
-    'F2: two holes, one joining the other first': [
+    [F2.name]: [
         '4{0}+4{1}+4{2}', '4{0}+9{1,2}', '4{0}+8{1,2}', '13{0,1,2}',
         '5{0,1,2} | 9{0,1,2}', '3{0,1,2} | 3{0,2} | 5{0,1,2} | 5{0,1}', '3{0,2} | 3{0,1,2} | 3{0,1} | 3{0,1}', ''],
-    'F3: an L-shaped hole': [
+    [F3.name]: [
         '4{0}+6{1}', '11{0,1}', '5{0,1} | 7{0,1}', '4{0,1} | 6{0,1}', '3{0,1} | 5{0,1}', '4{0,1}', '3{0,1}', ''],
-    'F4: a weighted hole': ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '3{0,1} | 3{0,1}', ''],
+    [F4.name]: ['4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '3{0,1} | 3{0,1}', ''],
     // The outline's own split divides it while the hole shares the step: the hole goes to the second child here,
     // to the first in the mirror image.
-    'F5: a reflex outline divides while the hole shares the step': [
+    [F5.name]: [
         '7{0}+4{1}', '4{0} | 4{0}+4{1}', '3{0} | 9{0,1}', '5{0,1} | 5{0,1}', '3{0,1} | 3{0,1} | 3{0,1} | 3{0,1}', ''],
-    'F5 mirrored': [
+    [F5_MIRROR.name]: [
         '7{0}+4{1}', '4{0}+4{1} | 4{0}', '9{0,1} | 3{0}', '5{0,1} | 5{0,1}', '3{0,1} | 3{0,1} | 3{0,1} | 3{0,1}', ''],
     // The join comes first, then the outline's split, of one ring.
-    'F6: a hole near one wall joins first': [
+    [F6.name]: [
         '7{0}+4{1}', '12{0,1}', '11{0,1}', '3{0,1} | 9{0,1}', '8{0,1}', '4{0} | 5{0,1}', '3{0} | 4{0,1}', '3{0}', ''],
     // The outline's short edge collapses first while the hole shares the step (a step of two rings with no
     // partition), and the hole joins after it.
-    'F7: a hole deep inside joins after an outline event': [
+    [F7.name]: [
         '5{0}+4{1}', '4{0}+4{1}', '9{0,1}', '3{0,1} | 7{0,1}', '3{0,1} | 5{0,1}', '3{0,1} | 3{0,1}', ''],
     // The pinch is the root's first layer: the pocket and the pentagon go to one child (`6{1}+5{2}`), the outline and
     // the ring round the C to the other (`4{0}+7{1}`); each pair then joins.
-    'F8: a pocket pinched off with a hole inside it': [
+    [F8.name]: [
         '4{0}+12{1}+5{2}', '6{1}+5{2} | 4{0}+7{1}', '12{1,2} | 4{0}+6{1}', '3{1,2} | 10{1,2} | 11{0,1}',
         '8{1,2} | 3{1,2} | 10{0,1}', '7{1,2} | 3{0,1} | 8{0,1}', '3{1,2} | 5{1,2} | 7{0,1}', '4{1,2} | 6{0,1}',
         '3{1,2} | 5{0,1}', '4{0,1}', '3{0,1}', ''],
 };
 
 describe('the holed fixtures (decisions 41 and 42)', () => {
-    it.each(FIXTURES.map(fixture => [fixture.name, fixture] as const))('%s', (_name, fixture) => {
-        const solve = expectSoundHoledSolve(fixture);
-        expect(storyOf(solve)).toEqual(STORIES[fixture.name]);
+    // The one assertion of decision 42 that stays here (loop-consumers spec, decision 33): no home sweep probes the
+    // step boundaries. Over the whole roster, node 5's fixtures included.
+    it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+        '%s: checkWavefront holds at every step boundary', (_name, fixture) => {
+            const {result, boundaries} = solveHoled(fixture);
+            expect(result.complete).toBe(true);
+            expect(boundaries.length).toBeGreaterThan(1);
+            expect(boundaries.flatMap((boundary, step) => boundary.violations.map(v => `step ${step}: ${v}`))).toEqual([]);
+        });
+
+    it.each(FIXTURES.map(fixture => [fixture.name, fixture] as const))('%s tells its story', (_name, fixture) => {
+        expect(storyOf(solveHoled(fixture))).toEqual(STORIES[fixture.name]);
     });
 
     it.each(FIXTURES.filter(fixture => !NOT_GENERIC.has(fixture.name)).map(fixture => [fixture.name, fixture] as const))(
@@ -323,7 +245,8 @@ describe('the holed fixtures (decisions 41 and 42)', () => {
         });
 
     it('F8: the least-area rule gives the pocket\'s hole to the pocket, and every other ring to the outline (decision 15)', () => {
-        const {result, boundaries} = expectSoundHoledSolve(F8);
+        const {result, boundaries} = solveHoled(F8);
+        expect(result.complete).toBe(true);
         const {graph} = result;
         // A ring named by its members' clockwise parents: O [0..3], R1 [4, 5, 6, 12..15], P [7..12], H2 [16..20].
         const parentsOf = (ring: number[]) => ring
@@ -346,13 +269,15 @@ describe('the holed fixtures (decisions 41 and 42)', () => {
         // Traced by hand in decision 29: at t = 4.5 the hole's NW segment collapses, and the cycle round the hole
         // then joins SW's two ends through accepted edges while SW's face is still open. The predicate reads no
         // topology, so SW stays open, the bisector naming it is born, and its face closes.
-        const {result} = expectSoundHoledSolve(F1_STRETCHED);
+        const {result} = solveHoled(F1_STRETCHED);
+        expect(result.complete).toBe(true);
         expect(result.context!.isAccepted(6)).toBe(true);
     });
 
     it('F5 and its mirror: the hole goes to the child that contains it, first once and second once', () => {
-        const childOfHole = (fixture: HoledFixture) => {
-            const {boundaries, result} = expectSoundHoledSolve(fixture);
+        const childOfHole = (fixture: HoledTestPolygon) => {
+            const {boundaries, result} = solveHoled(fixture);
+            expect(result.complete).toBe(true);
             const holeBisectors = new Set(result.graph.loops[1] === undefined ? [] : Array.from(
                 {length: result.graph.loops[1].count},
                 (_unused, j) => result.graph.numExteriorNodes + result.graph.loops[1].start + j));

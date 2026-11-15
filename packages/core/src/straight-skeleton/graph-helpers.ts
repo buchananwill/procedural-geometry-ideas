@@ -75,6 +75,17 @@ export function adjacentExteriorEdge(
     return start + (exteriorEdgeId - start + step) % count;
 }
 
+/**
+ * How many holes a solved graph has: one fewer than its loops, and never below zero (skeleton loop-consumers spec,
+ * decision 19). A merged graph carries `loops: []` and has no hole, so it reads 0.
+ *
+ * A caller tests it against zero before calling a tree-based consumer (`buildSkeletonTree`, the spine through it,
+ * `subdivideRecursively`): the skeleton of a region with holes has a cycle round each hole and is not a tree.
+ */
+export function skeletonHoleCount(graph: StraightSkeletonGraph): number {
+    return Math.max(0, graph.loops.length - 1);
+}
+
 /** The smallest loop a table may hold: below three vertices a ring is not a polygon. */
 const MINIMUM_LOOP_SIZE = 3;
 

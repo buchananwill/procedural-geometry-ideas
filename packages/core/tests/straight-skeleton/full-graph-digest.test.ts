@@ -1,10 +1,11 @@
 import {createHash} from 'node:crypto';
-import {FULL_CORPUS, NamedTestPolygon} from '@proc-geo/test-fixtures';
+import {FULL_CORPUS, HOLED_TEST_POLYGONS, holedSolveOptions, NamedTestPolygon} from '@proc-geo/test-fixtures';
 import {
     InteriorEdge,
     PolygonEdge,
     PolygonNode,
     SkeletonSolveResult,
+    SolveSkeletonOptions,
     StraightSkeletonGraph,
     Vector2,
     solveSkeleton,
@@ -179,8 +180,14 @@ function digestBytes(bytes: Uint8Array): string {
     return createHash('sha256').update(Buffer.from(bytes)).digest('hex');
 }
 
-function digestOf(vertices: Vector2[]): string {
-    const result = solveSkeleton(vertices);
+/**
+ * The digest of one solve. `options` go to `solveSkeleton` as given (skeleton loop-consumers spec, decision 40), so a
+ * holed fixture is digested through `holedSolveOptions`; omitted, the call is today's. The serialiser is unchanged:
+ * the exterior edges' targets in section (c) already carry the loop table, since each loop's last edge ends at that
+ * loop's own first node.
+ */
+function digestOf(vertices: Vector2[], options?: SolveSkeletonOptions): string {
+    const result = solveSkeleton(vertices, options);
     return digestBytes(serialiseGraph(result));
 }
 
@@ -304,7 +311,49 @@ const PINNED_DIGESTS: Record<string, string> = {
     'Offset Cross Junction': '6d32c0d616b2566feca049521999a67b866cca72fb59a771f8f1c5a6b9a379c3',
 };
 
+/**
+ * THE HOLED ROSTER'S DIGESTS (skeleton loop-consumers spec, decision 40): a second table, beside `PINNED_DIGESTS` and
+ * never mixed with it, so that `FULL_CORPUS`'s 60 pins keep meaning every single-loop fixture. Measured on the first
+ * green run of node 6. The same rule holds: a moved pin is attributed and re-pinned, never silently updated.
+ */
+const HOLED_PINNED_DIGESTS: Record<string, string> = {
+    'Holed F1: turned square': '946e6dd669e84285878220638b111bba53dea15f94d483bac93e8e3f4e9d6cbc',
+    'Holed F1 stretched': 'ded426a6cee5b68530b7d4693953793e04b746371d7a877c332c2daa588aa3d8',
+    'Holed F2: two holes': '3459caae1144afd991481628e2b97f04876d6e37ffddf668119a3a2d85f7eeaf',
+    'Holed F3: L-shaped hole': '641f86a5b4a58ad414761f92d649668a61dd98f7bad2c5688f950eb7c2e3faaa',
+    'Holed F4: weighted hole': '0fb93dbcb84a2850ab5af332e1982c17761ffdfc31a7fb207c15a4718b303acb',
+    'Holed F5: reflex outline divides': '8f1bfa59e0a0d846016118b3a448cb70679745bd1075695be14facfb7b369477',
+    'Holed F5 mirrored': 'a405b0a2478f9caf0d1cde21c6a88eea51aa58e3c355887325fcf5f9a5d1ca5b',
+    'Holed F6: hole near a wall': '968f6156aedb16bd96896b714331b987aa2d9c203760a6452312d1252d9ccaf1',
+    'Holed F7: deep hole': '13ac820bfe87d51e36f91106256b71c3609490778232ffd1f49589846355ad6e',
+    'Holed F8: pocket with a hole inside': '5d3d1ceee004cb7be64c89dcd484d0c53f59579941e8b171079aa960f9cf9cb8',
+    'Holed A: the concentric square': '145291aa7ecde5f058de0e580eb4a5cb959b45c08f3dc12891c38f38453bdeef',
+    'Holed A′: the chamfered concentric square': 'b4bf3181bdf646f2f19b4fedf10cbf8671ae488d8eb3df533f54158dfe242351',
+    'Holed B: the off-centre rectangle': 'e7ed1130ddb6f1949d3d8612e9209488ce5d3cb5f6811b1862ab537b712ac0c1',
+    'Holed C1: A with the hole of weight 2': 'a345dee6fe039f5250de804a89959354ab5217c4a40bec20f3f6d8a44d740e2f',
+    'Holed C2: A with the bottom wall of weight 2': '5e412a7c525f94ff91523c28758921fe381087fa82257e279ec3050a75e24362',
+    'Holed C2′: C2 with the hole listed from (6,4)': 'f114c38c62dde27fbbdf6247b05c91a3e4f90f0b235bb945d4a90c3a77accb38',
+    'Holed D: the courtyard with wings': 'c75341ced5d0173001ddc167e51eb0bbacc1b6b03393dcc5c7ff63869be6e2a6',
+    'Holed E: two holes': '9d58aa2a63fd513e0cbf58a8c080de3410e7603357712b9e628d35e5c58c458a',
+    'Holed F: an octagon in an octagon': 'd7ceb98a86c8c75653cd34fafc1dc8dbefc55590b4d23d64aa6d25b0b7a65ef5',
+    'Holed G: the centred diamond': '1d3ad796b88a81cf7f51435473bb99954a1b8858438b61e1f2014288862ab38c',
+    'Holed H: a centred square turned 0.3 rad': '9e277a71c07e4dffb2bcddb5e9160200b1f4d355bfa0e8619a1622713d5c7a76',
+};
+
 if (process.env.DIGEST_PRINT === '1') {
+    describe('full-graph digest (print mode, holed roster)', () => {
+        it('logs the holed pinned-digest table in copy-pasteable TypeScript form', () => {
+            const lines = HOLED_TEST_POLYGONS.map(fixture => {
+                const digest = digestOf(fixture.outline, holedSolveOptions(fixture));
+                const escapedName = fixture.name.replace(/'/g, "\\'");
+                return `    '${escapedName}': '${digest}',`;
+            });
+            // eslint-disable-next-line no-console
+            console.log('\n----- HOLED_PINNED_DIGESTS (paste below) -----\n' + lines.join('\n')
+                + '\n----- end HOLED_PINNED_DIGESTS -----\n');
+        });
+    });
+
     describe('full-graph digest (print mode)', () => {
         it('logs the pinned-digest table in copy-pasteable TypeScript form', () => {
             const lines = FULL_CORPUS.map(fixture => {
@@ -384,6 +433,30 @@ describe('full-graph digest', () => {
             expect(pinnedNames).toEqual(corpusNames);
             // 59 -> 60: `Offset Cross Junction` enrolled 2026-09-23, decision 151(d).
             expect(pinnedNames).toHaveLength(60);
+        });
+    });
+
+    describe('the holed roster (loop-consumers spec, decision 40)', () => {
+        it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+            '%s matches its pinned digest',
+            (name, fixture) => {
+                expect(HOLED_PINNED_DIGESTS[name]).toBeDefined();
+                expect(digestOf(fixture.outline, holedSolveOptions(fixture))).toBe(HOLED_PINNED_DIGESTS[name]);
+            },
+        );
+
+        it.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))(
+            '%s solves to the same digest twice',
+            (_name, fixture) => {
+                expect(digestOf(fixture.outline, holedSolveOptions(fixture)))
+                    .toBe(digestOf(fixture.outline, holedSolveOptions(fixture)));
+            },
+        );
+
+        it('pins exactly the HOLED_TEST_POLYGONS names, no more and no fewer, and none of FULL_CORPUS\'s', () => {
+            const pinnedNames = Object.keys(HOLED_PINNED_DIGESTS).sort();
+            expect(pinnedNames).toEqual(HOLED_TEST_POLYGONS.map(fixture => fixture.name).sort());
+            expect(pinnedNames.filter(name => name in PINNED_DIGESTS)).toEqual([]);
         });
     });
 });

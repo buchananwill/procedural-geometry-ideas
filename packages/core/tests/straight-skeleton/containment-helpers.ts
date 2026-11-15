@@ -1,3 +1,4 @@
+import type {SkeletonHole, SolveSkeletonOptions, StraightSkeletonGraph} from '@proc-geo/core';
 import {solveSkeleton, Vector2} from '@proc-geo/core';
 
 /*
@@ -69,25 +70,54 @@ export function distanceToBoundary(point: Vector2, polygon: Vector2[]): number {
  * Measured against the polygon AS THE CALLER PASSED IT, not the canonicalised ring the solve ran
  * on: an escaped bisector is wrong to the caller, and canonicalisation only ever moves the boundary
  * by less than the tolerance below.
+ *
+ * ON A SOLVE WITH HOLES (skeleton loop-consumers spec, decision 34): `options` goes to `solveSkeleton`
+ * as given, and a node inside any hole of `options.holes` beyond the same tolerance — the outline's —
+ * is reported too. With `options` omitted the call is today's.
  */
-export function escapedNodes(polygon: Vector2[]): string[] {
-    const {graph} = solveSkeleton(polygon);
+export function escapedNodes(polygon: Vector2[], options?: SolveSkeletonOptions): string[] {
+    const {graph} = solveSkeleton(polygon, options);
+    return escapedNodesOf(graph, polygon, options?.holes ?? []);
+}
+
+/**
+ * {@link escapedNodes} on a graph already solved: every interior node outside `polygon`, or inside one of `holes`,
+ * by more than `containmentTolerance(polygon)`. Split out so a constructed graph can be asked directly.
+ */
+export function escapedNodesOf(
+    graph: StraightSkeletonGraph,
+    polygon: Vector2[],
+    holes: readonly SkeletonHole[] = [],
+): string[] {
     const tolerance = containmentTolerance(polygon);
     const escaped: string[] = [];
 
     for (let id = graph.numExteriorNodes; id < graph.nodes.length; id++) {
         const node = graph.nodes[id];
-        if (isInside(node.position, polygon)) {
-            continue;
+        if (!isInside(node.position, polygon)) {
+            const distance = distanceToBoundary(node.position, polygon);
+            if (distance > tolerance) {
+                escaped.push(
+                    `node ${node.id} at (${node.position.x}, ${node.position.y}) lies ${distance} outside the `
+                    + `boundary, past the ${tolerance} tolerance`,
+                );
+                continue;
+            }
         }
-        const distance = distanceToBoundary(node.position, polygon);
-        if (distance <= tolerance) {
-            continue;
+        for (const [k, hole] of holes.entries()) {
+            const wall = [...hole.vertices];
+            if (!isInside(node.position, wall)) {
+                continue;
+            }
+            const distance = distanceToBoundary(node.position, wall);
+            if (distance > tolerance) {
+                escaped.push(
+                    `node ${node.id} at (${node.position.x}, ${node.position.y}) lies ${distance} inside hole `
+                    + `${k}, past the ${tolerance} tolerance`,
+                );
+                break;
+            }
         }
-        escaped.push(
-            `node ${node.id} at (${node.position.x}, ${node.position.y}) lies ${distance} outside the `
-            + `boundary, past the ${tolerance} tolerance`,
-        );
     }
 
     return escaped;

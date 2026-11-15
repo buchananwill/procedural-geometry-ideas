@@ -274,6 +274,39 @@ export type {
     WeightedRefusalExpectation,
 } from './weighted-fixtures';
 
+// holed-fixtures.ts
+// THE HOLED ROSTER (skeleton loop-consumers spec, decisions 27 to 31): a THIRD roster, outside CLEAN_TEST_POLYGONS,
+// KNOWN_DEFECT_POLYGONS and FULL_CORPUS, because a `{name, vertices}` cannot hold a hole and FULL_CORPUS goes on
+// meaning every single-loop fixture. Every sweep solves a holed fixture through `holedSolveOptions`.
+export {
+    HOLED_TEST_POLYGONS,
+    holedSolveOptions,
+    HOLED_F1,
+    HOLED_F1_HOLE,
+    HOLED_F1_STRETCHED,
+    HOLED_F2,
+    HOLED_F3,
+    HOLED_F4,
+    HOLED_F5,
+    HOLED_F5_MIRRORED,
+    HOLED_F6,
+    HOLED_F7,
+    HOLED_F8,
+    HOLED_A,
+    HOLED_A_PRIME,
+    HOLED_B,
+    HOLED_C1,
+    HOLED_C2,
+    HOLED_C2_PRIME,
+    HOLED_D,
+    HOLED_E,
+    HOLED_F,
+    HOLED_G,
+    HOLED_H,
+    HOLED_H_THETA,
+} from './holed-fixtures';
+export type {HoledTestPolygon} from './holed-fixtures';
+
 export interface NamedTestPolygon {
     name: string;
     vertices: Vector2[];

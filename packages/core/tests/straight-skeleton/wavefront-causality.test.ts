@@ -1,6 +1,8 @@
 import {
     CLEAN_TEST_POLYGONS,
     FULL_CORPUS,
+    HOLED_TEST_POLYGONS,
+    holedSolveOptions,
     KNOWN_DEFECT_POLYGONS,
     NEAR_REGULAR_CIRCLE_32,
     NEAR_REGULAR_ROSETTE5_40,
@@ -596,6 +598,27 @@ describe('wavefront causality', () => {
      * Measured 2026-09-23: every count is zero on both instruments at both floors. Both instruments
      * run at the floor the solve ran at (journal-5 decision 149).
      */
+    /**
+     * THE HOLED ROSTER (skeleton loop-consumers spec, decision 36): at both floors, the solver's `causality-violation`
+     * count equals the test oracles' per oracle and is ZERO, and the `rate` ids agree id for id. The oracles date a
+     * node against its parent's own target and measure clearance to each exterior edge's own segment
+     * (`nextExteriorNode` in `wavefront-measurement-helpers.ts`), which is the solver's reading since node 4; with
+     * either back on `(e + 1) % n` they would date a node whose parent is a loop's last edge against the next loop's
+     * first node, and the two instruments would disagree.
+     */
+    describe.each([1e-6, 1e-5])('the holed roster: the solver and the oracles agree, and read zero, at floor %s', perceptualFloor => {
+        it.each(HOLED_TEST_POLYGONS.map((fixture): [string, typeof fixture] => [fixture.name, fixture]))(
+            '%s',
+            (_name, fixture) => {
+                const result = solveSkeleton(fixture.outline, holedSolveOptions(fixture, {perceptualFloor}));
+                expect(result.complete).toBe(true);
+                const zero = {offset: 0, clearance: 0, direction: 0};
+                expect(bothCounts(result, perceptualFloor)).toEqual({solver: zero, oracle: zero});
+                expect(solverRateViolations(result)).toEqual(rateViolations(result.graph, perceptualFloor));
+                expect(solverRateViolations(result)).toEqual([]);
+            });
+    });
+
     describe.each([1e-6, 1e-5])('the solver and the oracles agree over the whole corpus at floor %s', perceptualFloor => {
         it.each(FULL_CORPUS.map((polygon): [string, Vector2[]] => [polygon.name, polygon.vertices]))(
             '%s',

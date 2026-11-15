@@ -1,9 +1,11 @@
 import {
-    CLEAN_TEST_POLYGONS, COLLINEAR_DUMBBELL, FULL_CORPUS, KNOWN_DEFECT_POLYGONS,
+    CLEAN_TEST_POLYGONS, COLLINEAR_DUMBBELL, FULL_CORPUS, HOLED_TEST_POLYGONS, holedSolveOptions, KNOWN_DEFECT_POLYGONS,
 } from '@proc-geo/test-fixtures';
 import {
+    adjacentExteriorEdge,
     Arrival,
     compareArrivals,
+    SkeletonDirection,
     normalisePosition,
     solveSkeleton,
     SKELETON_NOISE_FLOOR,
@@ -12,7 +14,8 @@ import {
     Vector2,
 } from '@proc-geo/core';
 import {HELD_SIMULTANEITY_WINDOW} from '@proc-geo/core/straight-skeleton/constants';
-import {deriveNodeArrivals} from './wavefront-measurement-helpers';
+import {deriveNodeArrivals, nextExteriorNode} from './wavefront-measurement-helpers';
+import {interiorGraphShape} from './holed-test-helpers';
 
 /*
  * ============================================================================
@@ -137,7 +140,12 @@ function primaryParentProblems(graph: StraightSkeletonGraph): string[] {
             return;
         }
         const clockwise = edge.source;
-        const widdershins = (edge.source - 1 + exteriorCount) % exteriorCount;
+        // The edge arriving at the vertex, WITHIN ITS OWN LOOP (loop-consumers spec, decision 37): on one loop
+        // `(v − 1 + n) % n`; on a holed graph a hole's first vertex is entered by that hole's own last edge. A graph
+        // with no loop table (the merged path's) keeps the ring reading it always had.
+        const widdershins = graph.loops.length === 0
+            ? (edge.source - 1 + exteriorCount) % exteriorCount
+            : adjacentExteriorEdge(graph, edge.source, SkeletonDirection.Widdershins);
         if (interiorEdge.clockwiseExteriorEdgeIndex !== clockwise
             || interiorEdge.widdershinsExteriorEdgeIndex !== widdershins) {
             problems.push(`edge ${interiorEdge.id} stands on vertex ${edge.source} and carries parents `
@@ -606,7 +614,8 @@ function faceWalkFailures(graph: StraightSkeletonGraph, strong: boolean): string
             link(edge.target, edge.source);
         }
 
-        const goal = (exteriorEdge + 1) % exteriorCount;
+        // The edge's own far end (loop-consumers spec, decision 37), through the one reading the oracles share.
+        const goal = nextExteriorNode(graph, exteriorEdge);
         const seen = new Set<number>([exteriorEdge]);
         const queue = [exteriorEdge];
         let reached = false;
@@ -1126,5 +1135,63 @@ describe('I5: two bisectors share a ridge only where their parents are parallel'
         // Equi-time HOLDS here — `1 · 2 = 2 · 1` — so only the facing/weight clause can withdraw it.
         expect(duplicateRidges(sameFacingUnequal, unitSpace)[0].licensed).toBe(false);
         expect(crossedPairingProblems(sameFacingUnequal, unitSpace)).toHaveLength(1);
+    });
+});
+
+/*
+ * ----------------------------------------------------------------------------
+ * THE HOLED ROSTER — I1 TO I5, AND THE CYCLE RANK (skeleton loop-consumers spec, decision 37)
+ * ----------------------------------------------------------------------------
+ *
+ * Each invariant above, read on a region with holes. I1's widdershins parent is the edge arriving at the vertex
+ * within its own loop (`adjacentExteriorEdge`), I4's walk goal is the edge's own target, and I2 reads the
+ * generalised `deriveNodeArrivals`; I3 and I5 read edge targets already. The block adds what a holed skeleton has
+ * and a single loop's does not: the graph of interior edges, node pairs counted once, is connected and has cycle
+ * rank equal to the hole count — one cycle round each hole, and so not a tree.
+ */
+describe('the holed roster: I1 to I5 and the cycle rank', () => {
+    const solveHoled = (fixture: typeof HOLED_TEST_POLYGONS[number]) =>
+        solveSkeleton(fixture.outline, holedSolveOptions(fixture));
+
+    describe.each(HOLED_TEST_POLYGONS.map(fixture => [fixture.name, fixture] as const))('%s', (_name, fixture) => {
+        it('I1: every primary bisector carries its own vertex\'s two exterior edges, within its own loop', () => {
+            expect(primaryParentProblems(solveHoled(fixture).graph)).toEqual([]);
+        });
+
+        it('I2: no two nodes inside the coincidence floor of each other, unless a layered edge joins them', () => {
+            const {graph, normalisation} = solveHoled(fixture);
+            expect(unadmittedSubFloorPairs(graph, normalisation)).toEqual([]);
+        });
+
+        it('I3: every bisector is equidistant (equi-time) from the two parents it names', () => {
+            const {graph, normalisation} = solveHoled(fixture);
+            // I3 states equidistance, which is the locus only at unit weights; on a weighted fixture the same question
+            // is the equi-time one, `d₁ · w₂ = d₂ · w₁` at the same bar (I5's `onOneEquiTimeLocus`, W-spec W37), which
+            // at unit weights is I3's reading exactly.
+            const offLocus = graph.interiorEdges
+                .filter(interior => !onOneEquiTimeLocus(graph, normalisation, interior.clockwiseExteriorEdgeIndex,
+                    interior.widdershinsExteriorEdgeIndex, graph.nodes[graph.edges[interior.id].source].position))
+                .map(interior => interior.id);
+            expect(offLocus).toEqual([]);
+            if (graph.exteriorWeights.every(weight => weight === 1)) {
+                expect(equidistanceProblems(graph, normalisation, EQUIDISTANCE_BAR)).toEqual([]);
+            }
+        });
+
+        it('I4: every exterior edge\'s face closes across its own bisectors, strong and weak', () => {
+            const {graph} = solveHoled(fixture);
+            expect(faceWalkFailures(graph, true)).toEqual([]);
+            expect(faceWalkFailures(graph, false)).toEqual([]);
+        });
+
+        it('I5: two bisectors share a ridge only where their parents are parallel', () => {
+            const {graph, normalisation} = solveHoled(fixture);
+            expect(crossedPairingProblems(graph, normalisation)).toEqual([]);
+        });
+
+        it('the interior-edge graph is connected, has no self-loop, and has cycle rank equal to the hole count', () => {
+            const shape = interiorGraphShape(solveHoled(fixture).graph);
+            expect(shape).toEqual({components: 1, selfLoops: [], cycleRank: fixture.holes.length, unresolved: []});
+        });
     });
 });

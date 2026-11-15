@@ -1,39 +1,39 @@
 /*
- * THE HOLED VARIANTS OF THE SINGLE-LOOP INSTRUMENTS (skeleton join-and-divide spec, decisions 42 and 43; BSA.F92).
+ * WHAT THE HOLED INSTRUMENTS NEED THAT HAS NO HOME ELSEWHERE (skeleton loop-consumers spec, decision 33).
  *
- * The single-loop helpers read a polygon as one ring of vertices and an exterior edge's far end as `(i + 1) % n`.
- * Every instrument here reads EACH EXTERIOR EDGE'S OWN ENDS (`graph.edges[e].source` and `.target`) or the
- * caller's loops as given, so on one loop each says what its single-loop counterpart says, and on a holed solve
- * it says it of every loop. The single-loop helpers are left as they are: nothing on a single loop moves.
+ * Node 4 kept holed copies here of the single-loop helpers it could not yet trust on a holed graph (the join-and-divide
+ * spec, decision 43). Node 6 generalised each in its HOME FILE, reading each exterior edge's own ends, and the copies
+ * are gone: containment is `escapedNodesOf` in `containment-helpers.ts`, the tiling is `holedTilingError` in
+ * `wavefront-measurement-helpers.ts` (the traced-face area sum is retired: the strip tiling at depth fraction 1.0
+ * asserts the same identity through `computeStrips`), and the rate and direction oracles are that file's. What stays
+ * is what no home file holds:
  *
- *  - containment: inside the outline and outside every hole, at the containment helpers' own slack;
- *  - faces: one per exterior edge of every loop, traced by I4's strong walk from the edge's own target back to
- *    its own source across the bisectors that name it, and their areas summed (the holed tiling: strip
- *    decomposition reads the loop table only from node 6, so the faces are summed instead);
- *  - the rate and direction oracles of `wavefront-causality.test.ts`, read on the graph;
- *  - the interior graph's shape: connected, no self-loop, cycle rank.
+ *  - the step-boundary probe and the story of a solve;
+ *  - the weighted equi-time check and the weighted time order, written independently of the solver's oracles;
+ *  - the interior graph's shape: connected, no self-loop, cycle rank;
+ *  - the battery `expectSoundHoledSolve`, which node 5's closed forms run under two translations as well (the
+ *    simultaneous-rings spec, decision 38), built on the home helpers.
  */
 import type {
     AlgorithmStepInput,
-    SkeletonHole,
     SkeletonSolveResult,
     SolveSkeletonOptions,
     StraightSkeletonGraph,
     StraightSkeletonSolverContext,
     Vector2,
 } from '@proc-geo/core';
-import {checkWavefront, ringsOfWavefront, solveSkeleton} from '@proc-geo/core';
+import {
+    checkWavefront,
+    computeMaxOffset,
+    computeStrips,
+    ringsOfWavefront,
+    SKELETON_NOISE_FLOOR,
+    solveSkeleton,
+} from '@proc-geo/core';
 import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
-import {containmentTolerance, distanceToBoundary, isInside} from './containment-helpers';
-
-/** An outline and its holes, as a caller passes them to `solveSkeleton`. */
-export interface HoledFixture {
-    name: string;
-    outline: Vector2[];
-    holes: SkeletonHole[];
-    /** The outline's weights, if any. */
-    weights?: number[];
-}
+import {HoledTestPolygon, holedSolveOptions} from '@proc-geo/test-fixtures';
+import {escapedNodesOf} from './containment-helpers';
+import {holedTilingError, oracleViolationsOf, rateViolations} from './wavefront-measurement-helpers';
 
 /** What one step boundary of a holed solve looked like, read by the probe. */
 export interface HoledBoundary {
@@ -52,8 +52,11 @@ export interface HoledSolve {
     boundaries: HoledBoundary[];
 }
 
-/** Solve a holed fixture with a probe that records every step boundary, always removing the probe afterwards. */
-export function solveHoled(fixture: HoledFixture, options: SolveSkeletonOptions = {}): HoledSolve {
+/**
+ * Solve a holed fixture through `holedSolveOptions` with a probe that records every step boundary, always removing
+ * the probe afterwards.
+ */
+export function solveHoled(fixture: HoledTestPolygon, options: SolveSkeletonOptions = {}): HoledSolve {
     const boundaries: HoledBoundary[] = [];
     let solved: StraightSkeletonSolverContext | undefined;
     setWavefrontProbe({
@@ -71,11 +74,7 @@ export function solveHoled(fixture: HoledFixture, options: SolveSkeletonOptions 
         },
     });
     try {
-        const result = solveSkeleton(fixture.outline, {
-            ...options,
-            weights: fixture.weights,
-            holes: fixture.holes,
-        });
+        const result = solveSkeleton(fixture.outline, holedSolveOptions(fixture, options));
         return {result, boundaries};
     } finally {
         setWavefrontProbe(null);
@@ -99,168 +98,6 @@ export function storyOf({result, boundaries}: HoledSolve): string[] {
             })
             .join('+'))
         .join(' | '));
-}
-
-/** The shoelace signed area: negative for a clockwise ring in this codebase's convention. */
-export function shoelace(polygon: readonly Vector2[]): number {
-    let area = 0;
-    for (let i = 0; i < polygon.length; i++) {
-        const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        area += a.x * b.y - b.x * a.y;
-    }
-    return area / 2;
-}
-
-/** The region's true area: the outline's less every hole's. */
-export function regionArea(fixture: HoledFixture): number {
-    return Math.abs(shoelace(fixture.outline))
-        - fixture.holes.reduce((sum, hole) => sum + Math.abs(shoelace(hole.vertices)), 0);
-}
-
-/** Is `point` in the region: inside the outline and outside every hole, at the containment slack. */
-export function escapesRegion(point: Vector2, fixture: HoledFixture, tolerance: number): number | undefined {
-    if (!isInside(point, fixture.outline)) {
-        const distance = distanceToBoundary(point, fixture.outline);
-        if (distance > tolerance) {
-            return distance;
-        }
-    }
-    for (const hole of fixture.holes) {
-        if (isInside(point, [...hole.vertices])) {
-            const distance = distanceToBoundary(point, [...hole.vertices]);
-            if (distance > tolerance) {
-                return distance;
-            }
-        }
-    }
-    return undefined;
-}
-
-/** Every interior node outside the region, described. */
-export function escapedHoledNodes(graph: StraightSkeletonGraph, fixture: HoledFixture): string[] {
-    const tolerance = containmentTolerance(fixture.outline);
-    const escaped: string[] = [];
-    for (let id = graph.numExteriorNodes; id < graph.nodes.length; id++) {
-        const distance = escapesRegion(graph.nodes[id].position, fixture, tolerance);
-        if (distance !== undefined) {
-            escaped.push(`node ${id} at (${graph.nodes[id].position.x}, ${graph.nodes[id].position.y}) lies ${distance} outside the region`);
-        }
-    }
-    return escaped;
-}
-
-/**
- * The face of exterior edge `e`, as the node ids of its boundary: the edge's own source and target, then I4's
- * strong walk from the target back to the source across the interior edges that name `e` as a parent (a
- * breadth-first search, so the shortest such walk). `undefined` when the walk does not close.
- */
-export function traceFace(graph: StraightSkeletonGraph, exteriorEdge: number): number[] | undefined {
-    const source = graph.edges[exteriorEdge].source;
-    const target = graph.edges[exteriorEdge].target!;
-    const adjacency = new Map<number, number[]>();
-    const link = (from: number, to: number) => {
-        const list = adjacency.get(from);
-        if (list === undefined) {
-            adjacency.set(from, [to]);
-        } else {
-            list.push(to);
-        }
-    };
-    for (const interior of graph.interiorEdges) {
-        if (interior.clockwiseExteriorEdgeIndex !== exteriorEdge && interior.widdershinsExteriorEdgeIndex !== exteriorEdge) {
-            continue;
-        }
-        const edge = graph.edges[interior.id];
-        if (edge.target === undefined || edge.target === edge.source) {
-            continue;
-        }
-        link(edge.source, edge.target);
-        link(edge.target, edge.source);
-    }
-    const previous = new Map<number, number>([[target, -1]]);
-    const queue = [target];
-    while (queue.length > 0) {
-        const node = queue.shift()!;
-        if (node === source) {
-            break;
-        }
-        for (const next of adjacency.get(node) ?? []) {
-            if (!previous.has(next)) {
-                previous.set(next, node);
-                queue.push(next);
-            }
-        }
-    }
-    if (!previous.has(source)) {
-        return undefined;
-    }
-    const walk: number[] = [];
-    for (let node = previous.get(source)!; node !== target; node = previous.get(node)!) {
-        walk.push(node);
-    }
-    // The face: source, target, then the walk's interior nodes from the target's side back to the source's.
-    return [source, target, ...walk.reverse()];
-}
-
-export interface FaceTiling {
-    /** Exterior edges whose face does not close. */
-    open: number[];
-    /** Each closed face's unsigned area, by exterior edge. */
-    areas: Map<number, number>;
-    /** |Σ faces − region| / region. */
-    relativeError: number;
-}
-
-/** Trace every exterior edge's face and sum the areas against the region's (decision 42's holed tiling). */
-export function faceTiling(graph: StraightSkeletonGraph, fixture: HoledFixture): FaceTiling {
-    const open: number[] = [];
-    const areas = new Map<number, number>();
-    for (let edge = 0; edge < graph.numExteriorNodes; edge++) {
-        const face = traceFace(graph, edge);
-        if (face === undefined) {
-            open.push(edge);
-        } else {
-            areas.set(edge, Math.abs(shoelace(face.map(node => graph.nodes[node].position))));
-        }
-    }
-    const region = regionArea(fixture);
-    const total = [...areas.values()].reduce((sum, area) => sum + area, 0);
-    return {open, areas, relativeError: Math.abs(total - region) / region};
-}
-
-/** The test-side direction oracle: an interior edge whose target lies behind its source along its basis. */
-export function directionViolations(graph: StraightSkeletonGraph, tolerance: number): number[] {
-    return graph.interiorEdges.filter(interior => {
-        const edge = graph.edges[interior.id];
-        if (edge.target === undefined) {
-            return false;
-        }
-        const from = graph.nodes[edge.source].position;
-        const to = graph.nodes[edge.target].position;
-        const travel = {x: to.x - from.x, y: to.y - from.y};
-        const length = Math.hypot(travel.x, travel.y);
-        return length > tolerance && travel.x * edge.basisVector.x + travel.y * edge.basisVector.y <= 0;
-    }).map(interior => interior.id);
-}
-
-/**
- * The test-side rate oracle: an interior edge whose offset rate against its clockwise parent is negative while its
- * parents are not anti-parallel (sine of their deviation from anti-parallel above `antiParallelSine`).
- */
-export function rateViolations(graph: StraightSkeletonGraph, antiParallelSine: number): number[] {
-    return graph.interiorEdges.filter(interior => {
-        const basis = graph.edges[interior.id].basisVector;
-        const clockwise = graph.edges[interior.clockwiseExteriorEdgeIndex].basisVector;
-        const widdershins = graph.edges[interior.widdershinsExteriorEdgeIndex].basisVector;
-        const rate = basis.x * clockwise.y - clockwise.x * basis.y;
-        if (rate >= 0) {
-            return false;
-        }
-        const sameWay = -(clockwise.x * widdershins.x + clockwise.y * widdershins.y) > 0;
-        const sine = Math.abs(clockwise.x * widdershins.y - widdershins.x * clockwise.y);
-        return !(sameWay && sine < antiParallelSine);
-    }).map(interior => interior.id);
 }
 
 /**
@@ -404,7 +241,7 @@ export function interiorGraphShape(graph: StraightSkeletonGraph): InteriorGraphS
 }
 
 /** The extent of a fixture: the larger side of its outline's bounding box. */
-export function extentOf(fixture: HoledFixture): number {
+export function extentOf(fixture: HoledTestPolygon): number {
     const xs = fixture.outline.map(vertex => vertex.x);
     const ys = fixture.outline.map(vertex => vertex.y);
     return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
@@ -414,10 +251,13 @@ export function extentOf(fixture: HoledFixture): number {
 export const REFUSAL_KINDS = ['simultaneous-across-rings', 'multi-ring-step-refused'];
 
 /**
- * EVERY ASSERTION OF JOIN-AND-DIVIDE DECISION 42, on one fixture (shared with the simultaneous-rings spec, decision
- * 38). Returns the solve, its tiling and the interior graph's shape for further assertions.
+ * THE BATTERY OF JOIN-AND-DIVIDE DECISION 42, on one fixture, built on the home helpers (loop-consumers spec,
+ * decision 33). The roster's own sweeps assert each of these properties in its home file; this battery is kept for
+ * what the roster does not hold — node 5's closed forms under translation (the simultaneous-rings spec, decision 38)
+ * and the red-by-design courtyards — and asserts in the order it always has. Returns the solve and the interior
+ * graph's shape for further assertions.
  */
-export function expectSoundHoledSolve(fixture: HoledFixture, options: SolveSkeletonOptions = {}) {
+export function expectSoundHoledSolve(fixture: HoledTestPolygon, options: SolveSkeletonOptions = {}) {
     const solve = solveHoled(fixture, options);
     const {result, boundaries} = solve;
     const {graph} = result;
@@ -438,17 +278,19 @@ export function expectSoundHoledSolve(fixture: HoledFixture, options: SolveSkele
     // `checkWavefront` empty at every step boundary.
     expect(boundaries.flatMap((boundary, step) => boundary.violations.map(v => `step ${step}: ${v}`))).toEqual([]);
 
-    // One face per exterior edge of every loop, and the faces tile the region.
-    const tiling = faceTiling(graph, fixture);
-    expect(tiling.open).toEqual([]);
-    expect(tiling.relativeError).toBeLessThan(1e-12);
+    // One strip per exterior edge of every loop, at full depth, tiling the region: the outline's area less the
+    // holes' (loop-consumers spec, decisions 14 and 35). The bar is node 4's, which the translated cells need.
+    const maxOffset = computeMaxOffset(result);
+    expect(computeStrips(result, {depth: maxOffset}).map(strip => strip.supportingEdgeIds))
+        .toEqual(Array.from({length: graph.numExteriorNodes}, (_unused, id) => [id]));
+    expect(holedTilingError(result, maxOffset)).toBeLessThan(1e-12);
 
     // Every interior node inside the outline and outside every hole.
-    expect(escapedHoledNodes(graph, fixture)).toEqual([]);
+    expect(escapedNodesOf(graph, fixture.outline, fixture.holes)).toEqual([]);
 
-    // The rate and direction oracles clean.
-    expect(directionViolations(graph, 1e-9 * extentOf(fixture))).toEqual([]);
-    expect(rateViolations(graph, 1e-9)).toEqual([]);
+    // The test-side direction and rate oracles clean, at the floor the solve ran at.
+    expect(oracleViolationsOf(result, SKELETON_NOISE_FLOOR).direction).toEqual([]);
+    expect(rateViolations(graph, SKELETON_NOISE_FLOOR)).toEqual([]);
 
     // The interior graph connected, with no self-loop and a cycle rank equal to the hole count.
     const shape = interiorGraphShape(graph);
@@ -456,24 +298,5 @@ export function expectSoundHoledSolve(fixture: HoledFixture, options: SolveSkele
     expect(shape.selfLoops).toEqual([]);
     expect(shape.components).toBe(1);
     expect(shape.cycleRank).toBe(fixture.holes.length);
-    return {...solve, tiling, shape};
-}
-
-/** Mirror a fixture in the vertical line `x = axis`, reversing every loop so each keeps its winding. */
-export function mirrored(fixture: HoledFixture, axis: number, name: string): HoledFixture {
-    const flip = (vertices: readonly Vector2[]) => vertices.map(vertex => ({x: 2 * axis - vertex.x, y: vertex.y})).reverse();
-    const flipWeights = (weights: readonly number[] | undefined) => {
-        if (weights === undefined) {
-            return undefined;
-        }
-        // Edge i runs from vertex i to i + 1; reversed, it runs from m - 1 - (i + 1) to m - 1 - i.
-        const m = weights.length;
-        return weights.map((_unused, j) => weights[(m - 2 - j + m) % m]);
-    };
-    return {
-        name,
-        outline: flip(fixture.outline),
-        weights: flipWeights(fixture.weights),
-        holes: fixture.holes.map(hole => ({vertices: flip(hole.vertices), weights: flipWeights(hole.weights)})),
-    };
+    return {...solve, shape};
 }

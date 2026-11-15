@@ -4,10 +4,12 @@ import {
     computeMaxOffset,
     computeNodeOffsets,
     computeOffsetRings,
+    computeStrips,
     projectOffsetWavefront,
     SkeletonNormalisation,
     SkeletonSolveResult,
     StraightSkeletonGraph,
+    Strip,
     Vector2,
 } from '@proc-geo/core';
 
@@ -73,6 +75,62 @@ export function totalRingArea(rings: Vector2[][]): number {
     return rings.reduce((sum, ring) => sum + Math.abs(signedRingArea(ring)), 0);
 }
 
+/**
+ * THE NODE AFTER EXTERIOR EDGE `e`: its own target (skeleton loop-consumers spec, decision 2). `initBoundingPolygon`
+ * sets that target through `adjacentExteriorEdge`, so on one loop it is `(e + 1) % n` exactly, and on a holed graph a
+ * loop's last edge ends at that loop's own first node, not the next loop's. {@link deriveNodeArrivals}, the clearance
+ * boundary of {@link causalityViolations} and {@link rawOffsetsOfNode} read it (decision 36).
+ *
+ * A GRAPH WITH NO LOOP TABLE KEEPS THE RING READING IT ALWAYS HAD. That is the merged path's graph (a
+ * self-intersecting input, `loops: []`), whose interleaved ids make `graph.edges[e]` for `e < numExteriorNodes` no
+ * exterior edge of one ring; the instruments' definitions do not apply to it, and reading it as before keeps what
+ * they say of it exactly what they said.
+ */
+export function nextExteriorNode(graph: StraightSkeletonGraph, exteriorEdgeId: number): number {
+    return graph.loops.length === 0
+        ? (exteriorEdgeId + 1) % graph.numExteriorNodes
+        : graph.edges[exteriorEdgeId].target!;
+}
+
+/**
+ * The area of the region a solved graph bounds: `Σ_k −signedRingArea` of loop `k`'s exterior nodes (skeleton
+ * loop-consumers spec, decision 35). The outline is clockwise and adds its area; each hole is counter-clockwise and
+ * takes its own away. On one loop it is the outline's area.
+ */
+export function regionArea(graph: StraightSkeletonGraph): number {
+    return graph.loops.reduce((total, {start, count}) => total - signedRingArea(
+        graph.nodes.slice(start, start + count).map(node => node.position)), 0);
+}
+
+/**
+ * The area the offset rings enclose, SIGNED (decisions 6, 18 and 35): `Σ −signedRingArea(ring)`. An outer ring is
+ * clockwise and adds its area; a ring round holes is counter-clockwise and takes its own away. Summed as absolute
+ * areas, a holed projection would count each ring round a hole the wrong way (decision 18: 109.66 for 98 on F1).
+ */
+export function netRingArea(rings: Vector2[][]): number {
+    return rings.reduce((total, ring) => total - signedRingArea(ring), 0);
+}
+
+/** A strip's area: its boundary's, less each of its counter-clockwise inner contours'. */
+export function stripArea(strip: Strip): number {
+    return strip.holes.reduce(
+        (area, hole) => area - Math.abs(signedRingArea(hole)),
+        Math.abs(signedRingArea(strip.boundary)));
+}
+
+/**
+ * THE HOLED TILING IDENTITY, DEFINED ONCE (decision 35): the relative miss of `Σ stripArea + netRingArea(rings)`
+ * against {@link regionArea} at time `depth`, with default strip options. `strip-tiling.test.ts`, the sweep harness's
+ * holed path and the holed battery in `holed-test-helpers.ts` all ask this function. The single-loop `tilingError` of
+ * `strip-tiling.test.ts` keeps its absolute ring areas, so no single-loop number moves.
+ */
+export function holedTilingError(result: SkeletonSolveResult, depth: number): number {
+    const region = regionArea(result.graph);
+    const covered = computeStrips(result, {depth}).reduce((total, strip) => total + stripArea(strip), 0)
+        + netRingArea(computeOffsetRings(result, depth));
+    return Math.abs(covered - region) / region;
+}
+
 /** Euclidean distance from p to the segment ab. */
 export function distanceToSegment(p: Vector2, a: Vector2, b: Vector2): number {
     const dx = b.x - a.x;
@@ -133,8 +191,6 @@ export function distanceToSupportingLine(p: Vector2, a: Vector2, b: Vector2): nu
  * division. At unit weights it is `1` everywhere and the distance is the time.
  */
 export function deriveNodeArrivals(graph: StraightSkeletonGraph): Map<number, Arrival> {
-    const edgeCount = graph.numExteriorNodes;
-
     // Which original polygon edges define each interior edge. The solver records
     // this; the *positions* it produced are what we are auditing.
     const parentEdges = new Map<number, number>();
@@ -153,10 +209,11 @@ export function deriveNodeArrivals(graph: StraightSkeletonGraph): Map<number, Ar
         if (incident.length === 0) continue;
         const parent = parentEdges.get(incident[0])!;
         arrivalOf.set(i, {
+            // The parent's own line, through its own source and target (loop-consumers spec, decision 36).
             distance: distanceToSupportingLine(
                 node.position,
                 graph.nodes[parent].position,
-                graph.nodes[(parent + 1) % edgeCount].position),
+                graph.nodes[nextExteriorNode(graph, parent)].position),
             weight: graph.exteriorWeights[parent],
             // Re-derived from a STORED position, not priced: no pricing error budget (C8 spec T12).
             uncertainty: 0,
@@ -252,15 +309,17 @@ export function causalityViolations(
         }
     }
 
+    // THE BOUNDARY IS EVERY EXTERIOR EDGE'S OWN SEGMENT (loop-consumers spec, decision 36), so clearance is the
+    // distance to the nearest wall of any loop; on one loop these are the ring's segments, in the ring's order.
     const boundary = graph.nodes.slice(0, graph.numExteriorNodes).map(node => node.position);
+    const walls = boundary.map((from, k) => [from, graph.nodes[nextExteriorNode(graph, k)].position] as const);
     const slowest = Math.min(...boundary.map((_unused, k) => graph.exteriorWeights[k] ?? 1));
     for (let i = graph.numExteriorNodes; i < graph.nodes.length; i++) {
         const arrival = arrivalOf.get(i);
         if (arrival === undefined) continue;
         let clearance = Infinity;
-        for (let k = 0; k < boundary.length; k++) {
-            clearance = Math.min(clearance,
-                distanceToSegment(graph.nodes[i].position, boundary[k], boundary[(k + 1) % boundary.length]));
+        for (const [from, to] of walls) {
+            clearance = Math.min(clearance, distanceToSegment(graph.nodes[i].position, from, to));
         }
         // Inside the erosion the slowest front has swept by the node's time: w_min · d > clearance · w.
         if (arrival.distance * slowest > clearance * arrival.weight + TOLERANCE * Math.min(arrival.weight, slowest)) {
@@ -373,10 +432,11 @@ export function rawOffsetsOfNode(result: SkeletonSolveResult, nodeId: number): n
 
     const distances: number[] = [];
     for (const parentEdgeId of parentEdgeIds) {
+        // Each parent's own line, through its own source and target (loop-consumers spec, decision 36).
         distances.push(distanceToSupportingLine(
             node.position,
             graph.nodes[parentEdgeId].position,
-            graph.nodes[(parentEdgeId + 1) % graph.numExteriorNodes].position,
+            graph.nodes[nextExteriorNode(graph, parentEdgeId)].position,
         ));
     }
     return distances;

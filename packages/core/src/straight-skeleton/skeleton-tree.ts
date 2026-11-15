@@ -1,5 +1,5 @@
 import type {SkeletonSolveResult} from './types';
-import {computeNodeOffsets, requireProjectableResult} from './offset-projection';
+import {computeNodeOffsets, requireSingleLoopResult} from './offset-projection';
 
 /**
  * A solved straight skeleton seen as a weighted undirected graph, with the queries a pruning
@@ -52,6 +52,11 @@ import {computeNodeOffsets, requireProjectableResult} from './offset-projection'
  * self-intersecting input yields a merged graph with no solver context and cannot be walked this
  * way. That is a caller error and throws, which is a different thing from the honest report about
  * the geometry that {@link SkeletonTree.isTree} carries.
+ *
+ * A SOLVE WITH HOLES IS REFUSED, BY {@link requireSingleLoopResult} (skeleton loop-consumers spec,
+ * decisions 20 and 21). Its skeleton has a cycle round each hole, `h` more edges than a tree has, so
+ * `isTree` would always be false there — and false means a solver defect, so it would report a
+ * correct skeleton as broken. The spine refuses through this, since it is built on a tree.
  */
 
 /**
@@ -141,10 +146,10 @@ interface FurthestNode {
  * together with every node an edge reaches. Ordering throughout is ascending by node id, so the
  * whole structure is a pure function of the solve.
  *
- * @throws if the solve is incomplete or has no solver context.
+ * @throws if the solve is incomplete, has no solver context, or has a hole.
  */
 export function buildSkeletonTree(result: SkeletonSolveResult): SkeletonTree {
-    requireProjectableResult(result, 'buildSkeletonTree');
+    requireSingleLoopResult(result, 'buildSkeletonTree');
 
     const edges = collectTreeEdges(result);
     const nodeIds = collectNodeIds(result.graph.numExteriorNodes, edges);

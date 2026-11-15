@@ -18,9 +18,23 @@ import type {Vector2} from '@proc-geo/core';
 import {setSkeletonLogLevel} from '@proc-geo/core';
 import {crossRingRuns} from '@proc-geo/core/straight-skeleton/coincident-events';
 import {
+    HOLED_A as A,
+    HOLED_A_PRIME as A_PRIME,
+    HOLED_B as B,
+    HOLED_C1 as C1,
+    HOLED_C2 as C2,
+    HOLED_C2_PRIME as C2_PRIME,
+    HOLED_D as D,
+    HOLED_E as E,
+    HOLED_F as F,
+    HOLED_G as G,
+    HOLED_H as H,
+    HOLED_H_THETA as H_THETA,
+    HoledTestPolygon as HoledFixture,
+} from '@proc-geo/test-fixtures';
+import {
     expectSoundHoledSolve,
     extentOf,
-    HoledFixture,
     REFUSAL_KINDS,
     solveHoled,
     storyOf,
@@ -40,22 +54,6 @@ function holeRect(x0: number, y0: number, x1: number, y1: number): Vector2[] {
     return [{x: x0, y: y0}, {x: x1, y: y0}, {x: x1, y: y1}, {x: x0, y: y1}];
 }
 
-/** A square of half-diagonal `r` about `centre`, turned by `angle`, counter-clockwise. */
-function turnedSquare(centre: Vector2, r: number, angle: number): Vector2[] {
-    return [0, 1, 2, 3].map(k => ({
-        x: centre.x + r * Math.cos(angle + k * Math.PI / 2),
-        y: centre.y + r * Math.sin(angle + k * Math.PI / 2),
-    }));
-}
-
-/** A regular octagon of radius `r` about the origin, vertices at π/8 + kπ/4, clockwise or counter-clockwise. */
-function octagon(r: number, clockwise: boolean): Vector2[] {
-    return Array.from({length: 8}, (_unused, k) => {
-        const angle = Math.PI / 8 + (clockwise ? -1 : 1) * k * Math.PI / 4;
-        return {x: r * Math.cos(angle), y: r * Math.sin(angle)};
-    });
-}
-
 /** One node of a closed form: where it is and when. */
 interface ExpectedNode {
     name: string;
@@ -72,14 +70,17 @@ interface ClosedForm {
     ridges: [string, string][];
 }
 
-const SQUARE = outlineRect(0, 0, 10, 10);
+/*
+ * THE FIXTURES ARE THE HOLED ROSTER'S (`HOLED_TEST_POLYGONS` in `@proc-geo/test-fixtures`; the loop-consumers spec,
+ * decision 29), moved there verbatim with names beginning `Holed `. Their closed forms stay here. E′ and the two red
+ * courtyards stay here too: the roster holds fixtures that solve, and a red test stays where its issue note points.
+ */
 
 /*
  * A, THE CONCENTRIC SQUARE (decision 36). Every gap is 4, so every node is at t = 2, on the square's diagonals: an
  * outline corner (0,0), moving along (1,1), meets the hole corner (4,4), moving along (−1,−1), at (2,2). Four nodes, the
  * ridge square's corners; 8 corner bisectors and 4 ridges of two half-edges make 16 interior edges.
  */
-const A: HoledFixture = {name: 'A: the concentric square', outline: SQUARE, holes: [{vertices: holeRect(4, 4, 6, 6)}]};
 const RIDGE_SQUARE: ExpectedNode[] = [
     {name: 'SW', at: {x: 2, y: 2}, t: 2},
     {name: 'NW', at: {x: 2, y: 8}, t: 2},
@@ -93,12 +94,6 @@ const RIDGE_SQUARE_SIDES: [string, string][] = [['SW', 'NW'], ['NW', 'NE'], ['NE
  * meet on the diagonal at (t, t) where the chamfer's front is (2t − c)/√2 = t, so t = c / (2 − √2) = 2: at (2,2), with
  * the hole corner (4,4). One more corner bisector than A: 17 interior edges, 13 nodes.
  */
-const CHAMFER = 4 - 2 * SQRT2;
-const A_PRIME: HoledFixture = {
-    name: 'A′: the chamfered concentric square',
-    outline: [{x: 0, y: CHAMFER}, {x: 0, y: 10}, {x: 10, y: 10}, {x: 10, y: 0}, {x: CHAMFER, y: 0}],
-    holes: [{vertices: holeRect(4, 4, 6, 6)}],
-};
 
 /*
  * B, THE OFF-CENTRE RECTANGLE (decision 34): outline [0,20]×[0,10], hole [3,8]×[3,6]. Gaps: left 3, bottom 3, top 4,
@@ -108,11 +103,6 @@ const A_PRIME: HoledFixture = {
  * front at (10,8). At t = 5 the corridor between the bottom and top walls closes against the hole's right wall at
  * (13,5) and against the outline's right wall, (20 − 5, 5).
  */
-const B: HoledFixture = {
-    name: 'B: the off-centre rectangle',
-    outline: outlineRect(0, 0, 20, 10),
-    holes: [{vertices: holeRect(3, 3, 8, 6)}],
-};
 const B_FORM: ClosedForm = {
     nodes: [
         {name: 'J1', at: {x: 1.5, y: 1.5}, t: 1.5},
@@ -132,11 +122,6 @@ const B_FORM: ClosedForm = {
  * C1, THE HOLE OF WEIGHT 2 (decision 36). The hole's fronts move at 2: the outline corner (t, t) meets the hole corner
  * (4 − 2t, 4 − 2t) at t = 4/3, at 4/3 from the outline walls and 8/3 = 2t from the hole's.
  */
-const C1: HoledFixture = {
-    name: 'C1: A with the hole of weight 2',
-    outline: SQUARE,
-    holes: [{vertices: holeRect(4, 4, 6, 6), weights: [2, 2, 2, 2]}],
-};
 const C1_NODES: ExpectedNode[] = [
     {name: 'SW', at: {x: 4 / 3, y: 4 / 3}, t: 4 / 3},
     {name: 'NW', at: {x: 4 / 3, y: 26 / 3}, t: 4 / 3},
@@ -151,22 +136,9 @@ const C1_NODES: ExpectedNode[] = [
  * bottom corners run (t, 2t) and (10 − t, 2t), and they meet at t = 2, at (2,4) and (8,4). The top corners meet the hole's
  * top corners head-on at t = 2, (2,8) and (8,8). The ridges are the bottom corridor y = 8/3, the side corridors x = 2 and
  * x = 8 from y = 4 to 8, and the top corridor y = 8: 8 corner bisectors, 2 join bisectors to (2,4) and (8,4), and 4
- * ridges of two half-edges, 18 interior edges.
+ * ridges of two half-edges, 18 interior edges. C2′ is C2 with the hole listed from (6,4): the strike at x = 22/3 then
+ * resolves first (decision 17's worked example).
  */
-const C2_OUTLINE_WEIGHTS = [1, 1, 1, 2];
-const C2: HoledFixture = {
-    name: 'C2: A with the bottom wall of weight 2',
-    outline: SQUARE,
-    weights: C2_OUTLINE_WEIGHTS,
-    holes: [{vertices: holeRect(4, 4, 6, 6)}],
-};
-/** C2 with the hole listed from (6,4): the strike at x = 22/3 now resolves first (decision 17's worked example). */
-const C2_PRIME: HoledFixture = {
-    name: 'C2′: C2 with the hole listed from (6,4)',
-    outline: SQUARE,
-    weights: C2_OUTLINE_WEIGHTS,
-    holes: [{vertices: [{x: 6, y: 4}, {x: 6, y: 6}, {x: 4, y: 6}, {x: 4, y: 4}]}],
-};
 const C2_FORM: ClosedForm = {
     nodes: [
         {name: 'J_L', at: {x: 8 / 3, y: 8 / 3}, t: 4 / 3},
@@ -188,12 +160,6 @@ const C2_FORM: ClosedForm = {
  * At t = 200 the wings, 400 high, close: the wing walls' corners meet at (−250 + 200, 500) and the strike bisectors
  * (hole side, wing wall) at (300 − 200, 500); the right wing likewise.
  */
-const D: HoledFixture = {
-    name: 'D: the courtyard with wings',
-    outline: [{x: 0, y: 0}, {x: 0, y: 300}, {x: -250, y: 300}, {x: -250, y: 700}, {x: 0, y: 700}, {x: 0, y: 1000},
-        {x: 1000, y: 1000}, {x: 1000, y: 700}, {x: 1300, y: 700}, {x: 1300, y: 300}, {x: 1000, y: 300}, {x: 1000, y: 0}],
-    holes: [{vertices: holeRect(300, 300, 700, 700)}],
-};
 const D_FORM: ClosedForm = {
     nodes: [
         {name: 'A1', at: {x: 150, y: 150}, t: 150},
@@ -221,11 +187,6 @@ const D_FORM: ClosedForm = {
  * the pocket closes at (11, 2) and (11, 8). 12 corner bisectors, 7 ridges of two half-edges and the 4 strike
  * bisectors into the pocket: 30 interior edges.
  */
-const E: HoledFixture = {
-    name: 'E: two holes',
-    outline: outlineRect(0, 0, 22, 10),
-    holes: [{vertices: holeRect(3, 3, 9, 7)}, {vertices: holeRect(13, 3, 19, 7)}],
-};
 const E_FORM: ClosedForm = {
     nodes: [
         {name: 'H_SW', at: {x: 1.5, y: 1.5}, t: 1.5},
@@ -261,7 +222,6 @@ const E_PRIME: HoledFixture = {
  * 10 cos(π/8) and 4 cos(π/8), so every gap is 6 cos(π/8) and every vertex pair meets head-on at t = 3 cos(π/8), at
  * radius (10 + 4) / 2 = 7 on its ray. 16 corner bisectors and 8 ridges of two half-edges: 32 interior edges.
  */
-const F: HoledFixture = {name: 'F: an octagon in an octagon', outline: octagon(10, true), holes: [{vertices: octagon(4, false)}]};
 const F_FORM: ClosedForm = {
     nodes: Array.from({length: 8}, (_unused, k) => {
         const angle = Math.PI / 8 + k * Math.PI / 4;
@@ -279,11 +239,6 @@ const F_FORM: ClosedForm = {
  * hole edge facing them: on the diagonal (p, p), 10 − p = t and the edge x + y = 11 is at (2p − 11)/√2 = t, so
  * t = 4.5(2 − √2) and p = 1 + 4.5√2. Generic: 8 interior nodes, 16 interior edges.
  */
-const G: HoledFixture = {
-    name: 'G: the centred diamond',
-    outline: SQUARE,
-    holes: [{vertices: [{x: 6, y: 5}, {x: 5, y: 6}, {x: 4, y: 5}, {x: 5, y: 4}]}],
-};
 const G_STRIKE_T = 4 * (SQRT2 - 1);
 const G_TRIANGLE_T = 4.5 * (2 - SQRT2);
 const G_P = 1 + 4.5 * SQRT2;
@@ -310,9 +265,7 @@ const G_FORM: ClosedForm = {
  * closes as the triangle of its two outline walls and the hole edge between the two corners that struck them: on the
  * diagonal (10 − t, 10 − t), at distance t from that edge's line.
  */
-const H_THETA = 0.3;
-const H_HOLE = turnedSquare({x: 5, y: 5}, 1.2, H_THETA);
-const H: HoledFixture = {name: 'H: a centred square turned 0.3 rad', outline: SQUARE, holes: [{vertices: H_HOLE}]};
+const H_HOLE = H.holes[0].vertices;
 const quarterTurn = (p: Vector2, k: number): Vector2 => {
     let {x, y} = p;
     for (let i = 0; i < k; i++) {

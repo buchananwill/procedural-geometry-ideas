@@ -1,6 +1,7 @@
 import type {InteriorEdge, SkeletonSolveResult, StraightSkeletonSolverContext, Vector2} from './types';
 import {addVectors, dotProduct, projectFromPerpendicular, scaleVector, vectorsAreEqual} from './core-functions';
 import {ARITHMETIC_SAME_POINT_BOX, ARRIVAL_MOMENT_ULPS} from './constants';
+import {skeletonHoleCount} from './graph-helpers';
 
 /**
  * Projection of a solved straight skeleton back into wavefront positions.
@@ -168,8 +169,11 @@ export interface OffsetRingSegment {
 /**
  * One closed loop of the wavefront, with the provenance of every part of it.
  *
- * `vertices` is the ring in clockwise order with no duplicated closing vertex — the same list
- * {@link computeOffsetRings} returns, only annotated. `segments` is the same loop expressed as its
+ * `vertices` is the ring with no duplicated closing vertex — the same list {@link computeOffsetRings}
+ * returns, only annotated. AN OUTER RING IS CLOCKWISE, with negative signed area; on a solve with holes, a
+ * ring round one or more holes is COUNTER-CLOCKWISE, with positive signed area, and holds only hole edges
+ * (skeleton loop-consumers spec, decision 6). Nesting is not returned: the winding sign is what the tiling
+ * needs. `segments` is the same loop expressed as its
  * pieces: `segments[i]` runs from `vertices[i]` to `vertices[i + 1]`, wrapping at the end, so the
  * two arrays always have the same length.
  */
@@ -265,6 +269,29 @@ export function requireProjectableResult(result: SkeletonSolveResult, caller: st
         );
     }
     return result.context;
+}
+
+/**
+ * {@link requireProjectableResult}, and then a refusal of a holed result (skeleton loop-consumers spec, decision 20).
+ *
+ * For the TREE-BASED consumers: `buildSkeletonTree`, and through it the spine. The skeleton of a region with holes has
+ * a cycle round each hole, so it is not a tree, and a consumer that assumes one would report a correct skeleton as
+ * broken. The projection and the strips read every loop and do not call this. A caller can ask in advance with
+ * `skeletonHoleCount`.
+ *
+ * @throws if the solve is incomplete, has no solver context, or has a hole.
+ */
+export function requireSingleLoopResult(result: SkeletonSolveResult, caller: string): StraightSkeletonSolverContext {
+    const context = requireProjectableResult(result, caller);
+    const holes = skeletonHoleCount(result.graph);
+    if (holes > 0) {
+        throw new Error(
+            `${caller} requires a skeleton of one loop, but this result has ${holes} hole(s): the skeleton of a region `
+            + `with holes has a cycle round each hole and is not a tree. computeStrips and computeOffsetRings read every `
+            + `loop.`,
+        );
+    }
+    return context;
 }
 
 /** Perpendicular distance from p to the infinite line through a and b. */
@@ -394,12 +421,16 @@ function rederiveInteriorNodeOffsets(result: SkeletonSolveResult): Map<number, n
         if (parentEdgeId === undefined) {
             continue;
         }
+        // THE PARENT'S OWN LINE, through its own source and target nodes (skeleton loop-consumers spec, decisions 2
+        // and 5): on one loop edge `e`'s target is node `(e + 1) % n`, which is what this read as arithmetic, so the
+        // table is unchanged to the bit; on a holed graph a loop's last edge ends at that loop's own first node.
+        const parentEdge = graph.edges[parentEdgeId];
         offsets.set(
             nodeId,
             distanceToSupportingLine(
                 node.position,
-                graph.nodes[parentEdgeId].position,
-                graph.nodes[(parentEdgeId + 1) % exteriorEdgeCount].position,
+                graph.nodes[parentEdge.source].position,
+                graph.nodes[parentEdge.target!].position,
             ) / graph.exteriorWeights[parentEdgeId],
         );
     }
@@ -905,13 +936,18 @@ export function projectOffsetWavefront(result: SkeletonSolveResult, offset: numb
  * distance `w_e · offset` from `e`, so differently-weighted edges are set back by different amounts
  * at one call. At unit weights every setback is `offset` and this is the contour it always was.
  *
- * Returns zero or more closed rings. Each ring is an ordered vertex list in the same winding as the
- * graph's boundary — clockwise — with no duplicated closing vertex. More than one ring means the
- * wavefront has pinched off into disconnected loops, which is the normal outcome for a non-convex
- * polygon offset far enough inward.
+ * Returns zero or more closed rings, a flat list, each an ordered vertex list with no duplicated
+ * closing vertex. An outer ring is wound as the outline is — clockwise, negative signed area. On a
+ * solve with holes, a ring round one or more holes is wound as a hole is — counter-clockwise, positive
+ * signed area — and holds only hole edges; nesting is not returned (skeleton loop-consumers spec,
+ * decision 6). More than one outer ring means the wavefront has pinched off into disconnected loops,
+ * which is the normal outcome for a non-convex polygon offset far enough inward. Rings come in the
+ * order they are seeded: a ring comes first when it holds the segment of the lowest exterior edge id.
  *
  * Boundary behaviour:
- * - `offset === 0` returns exactly one ring: the original polygon.
+ * - `offset === 0` returns one ring per loop, in loop order: ring `k` is exactly the positions of
+ *   loop `k`'s exterior nodes, the outline clockwise and each hole counter-clockwise (decision 8). On
+ *   a solve of one loop that is exactly one ring, the original polygon.
  * - `offset >= computeMaxOffset(result)` returns `[]` — the wavefront has been fully consumed.
  * - A bisector whose lifetime ends exactly at `offset` does not contribute; lifetimes are half-open.
  *

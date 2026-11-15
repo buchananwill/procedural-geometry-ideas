@@ -1,5 +1,7 @@
-import type {SkeletonSolveResult, StraightSkeletonGraph, Vector2} from './types';
+import type {SkeletonLoop, SkeletonSolveResult, StraightSkeletonGraph, Vector2} from './types';
+import {SkeletonDirection} from './types';
 import {computeNodeOffsets, requireProjectableResult} from './offset-projection';
+import {adjacentExteriorEdge, loopOfExteriorEdge} from './graph-helpers';
 
 /**
  * Decomposition of a solved block into street-facing strips.
@@ -140,6 +142,10 @@ export interface Strip {
      * connected. Holes appear only when a `sameLogicalStreet` policy merges enough of the boundary
      * for the strip to close a loop around a piece of the offset contour, which in the limit is the
      * "one street all the way round" case. Usually empty.
+     *
+     * A SOLVE WITH HOLES ADDS ONE MORE SOURCE OF THEM (skeleton loop-consumers spec, decision 17): a run that
+     * covers a whole hole loop is a band round that hole, and its inner contour is the hole's own wall. `sliceStrip`
+     * returns such a strip whole, as it returns every strip with a hole.
      */
     holes: Vector2[][];
     /** The street-facing polyline: the supporting edges, in order. */
@@ -209,6 +215,9 @@ export interface StripOptions {
      * merge transitively, and merging repeats until every strip's frontage reaches this length,
      * so the guarantee is on the strip, not just the single edge.
      *
+     * ON A SOLVE WITH HOLES IT WORKS PER LOOP (skeleton loop-consumers spec, decision 12): no merge crosses
+     * from one loop to another, and the floor below is two strips per loop.
+     *
      * One guard: merging never reduces the decomposition below two strips, because a single
      * all-edge strip always closes a loop around the offset contour — the `holes` strip
      * `sliceStrip` cannot cut. The floor is necessary, not sufficient: at extreme thresholds
@@ -222,7 +231,10 @@ export interface StripOptions {
      * Are these two adjacent exterior edges the same logical street?
      *
      * Called once per adjacent pair, `(i, i + 1)` around the boundary including the wrap from last
-     * back to first. Default: never merge, giving one strip per exterior edge. Applied before
+     * back to first. ON A SOLVE WITH HOLES, once per exterior edge of every loop, paired with the next
+     * edge of ITS OWN loop, the wrap taken inside the loop: a run never holds edges of two loops
+     * (skeleton loop-consumers spec, decision 11). Default: never merge, giving one strip per exterior
+     * edge of every loop. Applied before
      * {@link minEdgeLength}, which then merges whole runs rather than single edges.
      */
     sameLogicalStreet?: (edgeIdA: number, edgeIdB: number) => boolean;
@@ -789,37 +801,55 @@ function sharpestClockwiseTurn(
     return best;
 }
 
-/** Group exterior edges into maximal runs of consecutive edges belonging to the same logical street. */
-function groupIntoRuns(edgeCount: number, sameLogicalStreet: (a: number, b: number) => boolean): number[][] {
-    if (edgeCount === 0) {
+/**
+ * Group exterior edges into maximal runs of consecutive edges belonging to the same logical street.
+ *
+ * PER LOOP, AND A RUN NEVER HOLDS EDGES OF TWO LOOPS (skeleton loop-consumers spec, decision 11). Each loop of the
+ * graph's loop table is grouped on its own, with the wrap taken inside the loop: `sameLogicalStreet(e, next)` is
+ * called once per exterior edge, `next` being `adjacentExteriorEdge(graph, e, Clockwise)`, so a hole's last edge is
+ * asked about its own first edge and never about the next loop's. The runs are concatenated in loop order. On one
+ * loop that is today's calls, in today's order, and today's runs.
+ */
+function groupIntoRuns(graph: StraightSkeletonGraph, sameLogicalStreet: (a: number, b: number) => boolean): number[][] {
+    return graph.loops.flatMap(loop => groupLoopIntoRuns(graph, loop, sameLogicalStreet));
+}
+
+/** One loop's runs: today's rule on exterior ids `start .. start + count − 1`, wrapping within the loop. */
+function groupLoopIntoRuns(
+    graph: StraightSkeletonGraph,
+    {start, count}: SkeletonLoop,
+    sameLogicalStreet: (a: number, b: number) => boolean,
+): number[][] {
+    if (count === 0) {
         return [];
     }
-    if (edgeCount === 1) {
-        return [[0]];
+    if (count === 1) {
+        return [[start]];
     }
 
     const mergedWithNext: boolean[] = [];
-    for (let edgeId = 0; edgeId < edgeCount; edgeId++) {
-        mergedWithNext.push(sameLogicalStreet(edgeId, (edgeId + 1) % edgeCount));
+    for (let local = 0; local < count; local++) {
+        const edgeId = start + local;
+        mergedWithNext.push(sameLogicalStreet(edgeId, adjacentExteriorEdge(graph, edgeId, SkeletonDirection.Clockwise)));
     }
     if (mergedWithNext.every(merged => merged)) {
-        return [[...Array(edgeCount).keys()]];
+        return [Array.from({length: count}, (_unused, local) => start + local)];
     }
 
-    let firstEdge = 0;
-    for (let edgeId = 0; edgeId < edgeCount; edgeId++) {
-        if (!mergedWithNext[(edgeId - 1 + edgeCount) % edgeCount]) {
-            firstEdge = edgeId;
+    let firstLocal = 0;
+    for (let local = 0; local < count; local++) {
+        if (!mergedWithNext[(local - 1 + count) % count]) {
+            firstLocal = local;
             break;
         }
     }
 
     const runs: number[][] = [];
     let run: number[] = [];
-    for (let step = 0; step < edgeCount; step++) {
-        const edgeId = (firstEdge + step) % edgeCount;
-        run.push(edgeId);
-        if (!mergedWithNext[edgeId]) {
+    for (let step = 0; step < count; step++) {
+        const local = (firstLocal + step) % count;
+        run.push(start + local);
+        if (!mergedWithNext[local]) {
             runs.push(run);
             run = [];
         }
@@ -847,10 +877,18 @@ function exteriorScale(graph: StraightSkeletonGraph): number {
     return diagonal > 0 ? diagonal : 1;
 }
 
+/**
+ * The node after exterior edge `edgeId`: the edge's own target (skeleton loop-consumers spec, decision 2). On one
+ * loop that is node `(edgeId + 1) % n`; on a holed graph a loop's last edge ends at that loop's own first node.
+ */
+function exteriorEdgeEnd(graph: StraightSkeletonGraph, edgeId: number): number {
+    return graph.edges[edgeId].target!;
+}
+
 /** Length of one exterior edge of the solved graph. */
 function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): number {
     const from = graph.nodes[edgeId].position;
-    const to = graph.nodes[(edgeId + 1) % graph.numExteriorNodes].position;
+    const to = graph.nodes[exteriorEdgeEnd(graph, edgeId)].position;
     return Math.hypot(to.x - from.x, to.y - from.y);
 }
 
@@ -876,8 +914,24 @@ function exteriorEdgeLength(graph: StraightSkeletonGraph, edgeId: number): numbe
  * Straightness is measured as `|angle − π|`, which is invariant under conjugating the angle to
  * `2π − θ` — this pass therefore never depended on the orientation of `interiorAngleAt`, and the
  * 2026-08-09 orientation fix to that function provably changed nothing here.
+ *
+ * PER LOOP, WITH THE FLOOR OF TWO RUNS PER LOOP (skeleton loop-consumers spec, decision 12). No junction lies between
+ * two loops, so a merge cannot cross one, and a loop's merges move nothing on another loop: running each loop's runs
+ * through the merge on its own is the greedy order restricted to that loop. A single run on a hole loop would be the
+ * band that closes round the hole, the `holes` strip `sliceStrip` will not cut, which is the floor's reason on the
+ * outline too. `runs` is {@link groupIntoRuns}' output, every loop's runs contiguous and in loop order; on one loop
+ * this is today's merge exactly.
  */
 function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
+    const runsOfLoop = graph.loops.map((): number[][] => []);
+    for (const run of runs) {
+        runsOfLoop[loopOfExteriorEdge(graph, run[0])].push(run);
+    }
+    return runsOfLoop.flatMap(loopRuns => mergeShortRunsOfLoop(graph, loopRuns, minEdgeLength));
+}
+
+/** Today's merge, on the runs of one loop: they form that loop's cycle, so the wrap is inside the loop. */
+function mergeShortRunsOfLoop(graph: StraightSkeletonGraph, runs: number[][], minEdgeLength: number): number[][] {
     const merged = runs.map(run => [...run]);
     const lengths = merged.map(
         run => run.reduce((total, edgeId) => total + exteriorEdgeLength(graph, edgeId), 0));
@@ -920,7 +974,7 @@ function mergeShortRuns(graph: StraightSkeletonGraph, runs: number[][], minEdgeL
 function frontageOf(graph: StraightSkeletonGraph, run: number[]): Vector2[] {
     const frontage = [graph.nodes[run[0]].position];
     for (const edgeId of run) {
-        frontage.push(graph.nodes[(edgeId + 1) % graph.numExteriorNodes].position);
+        frontage.push(graph.nodes[exteriorEdgeEnd(graph, edgeId)].position);
     }
     return frontage;
 }
@@ -940,6 +994,14 @@ function polylineLength(polyline: Vector2[]): number {
  * With the default options every exterior edge is its own street and no corner region is moved, so
  * the result is one strip per exterior edge — the finest α-strip decomposition — and the β-strip
  * correction is the identity.
+ *
+ * EVERY LOOP OF A SOLVE WITH HOLES (skeleton loop-consumers spec, decisions 13 and 14). With default
+ * options the result has `numExteriorNodes` strips, and strip `i` has `supportingEdgeIds` `[i]` and
+ * `frontage` from edge `i`'s source to its own target: one face per exterior edge of every loop, its
+ * frontage on that edge. A hole edge's strip is its face, clipped, clockwise like every other; its
+ * frontage runs counter-clockwise round the hole. A caller maps its own walls to exterior ids through
+ * `result.loopMaps[k].edgeToEdge`. The tiling identity counts the offset rings signed: the strips plus
+ * the outer rings less the rings round holes give the outline's area less the holes'.
  *
  * Boundary behaviour:
  * - `depth === 0` gives every strip an empty `boundary`; the whole polygon is still outside them.
@@ -990,7 +1052,7 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
         clippedFaces.push(clipFaceToDepth(face, depth, crossingAt));
     }
 
-    let runs = groupIntoRuns(edgeCount, options.sameLogicalStreet ?? (() => false));
+    let runs = groupIntoRuns(graph, options.sameLogicalStreet ?? (() => false));
     if (minEdgeLength !== undefined && minEdgeLength > 0) {
         runs = mergeShortRuns(graph, runs, minEdgeLength);
     }
@@ -1020,22 +1082,40 @@ export function computeStrips(result: SkeletonSolveResult, options: StripOptions
     return strips;
 }
 
-/** The corners between consecutive strips, in strip order, when there are at least two strips. */
-function cornersBetweenStrips(strips: Strip[], edgeCount: number): Corner[] {
-    if (strips.length < 2) {
-        return [];
+/**
+ * The corners between consecutive strips, PER LOOP (skeleton loop-consumers spec, decision 15): one between each pair
+ * of consecutive strips of a loop, wrapping inside the loop, so no corner joins two loops. A loop that is one strip
+ * has no corner, as `strips.length < 2` gives on one loop. Visited in loop order, then strip order; the strip indices
+ * keep indexing the whole array, and `vertexNode` is the incoming edge's own target. The strips are
+ * {@link groupIntoRuns}' runs, each loop's contiguous and in loop order. On one loop these are today's corners.
+ */
+function cornersBetweenStrips(graph: StraightSkeletonGraph, strips: Strip[]): Corner[] {
+    const corners: Corner[] = [];
+    let first = 0;
+    while (first < strips.length) {
+        const loop = loopOfExteriorEdge(graph, strips[first].supportingEdgeIds[0]);
+        let end = first + 1;
+        while (end < strips.length && loopOfExteriorEdge(graph, strips[end].supportingEdgeIds[0]) === loop) {
+            end++;
+        }
+        const count = end - first;
+        if (count >= 2) {
+            for (let index = first; index < end; index++) {
+                const nextIndex = first + (index - first + 1) % count;
+                const strip = strips[index];
+                const incomingEdgeId = strip.supportingEdgeIds[strip.supportingEdgeIds.length - 1];
+                corners.push({
+                    previousStripIndex: index,
+                    nextStripIndex: nextIndex,
+                    vertexNode: exteriorEdgeEnd(graph, incomingEdgeId),
+                    incomingEdgeId,
+                    outgoingEdgeId: strips[nextIndex].supportingEdgeIds[0],
+                });
+            }
+        }
+        first = end;
     }
-    return strips.map((strip, index) => {
-        const next = strips[(index + 1) % strips.length];
-        const incomingEdgeId = strip.supportingEdgeIds[strip.supportingEdgeIds.length - 1];
-        return {
-            previousStripIndex: index,
-            nextStripIndex: (index + 1) % strips.length,
-            vertexNode: (incomingEdgeId + 1) % edgeCount,
-            incomingEdgeId,
-            outgoingEdgeId: next.supportingEdgeIds[0],
-        };
-    });
+    return corners;
 }
 
 /**
@@ -1043,12 +1123,15 @@ function cornersBetweenStrips(strips: Strip[], edgeCount: number): Corner[] {
  *
  * The polygon is wound clockwise, so the interior lies to the right of travel and the interior angle
  * is measured by turning clockwise from the outgoing direction back to the reversed incoming one.
+ *
+ * ON EVERY LOOP, WITH THE SAME FORMULA (skeleton loop-consumers spec, decision 16): the outline is clockwise and every
+ * hole counter-clockwise, so the building lies to the right of travel on every exterior edge. The vertex and the far
+ * end are read as the edges' own targets.
  */
 function interiorAngleAt(graph: StraightSkeletonGraph, incomingEdgeId: number, outgoingEdgeId: number): number {
-    const edgeCount = graph.numExteriorNodes;
-    const vertex = graph.nodes[(incomingEdgeId + 1) % edgeCount].position;
+    const vertex = graph.nodes[exteriorEdgeEnd(graph, incomingEdgeId)].position;
     const before = graph.nodes[incomingEdgeId].position;
-    const after = graph.nodes[(outgoingEdgeId + 1) % edgeCount].position;
+    const after = graph.nodes[exteriorEdgeEnd(graph, outgoingEdgeId)].position;
 
     const toBefore = Math.atan2(before.y - vertex.y, before.x - vertex.x);
     const toAfter = Math.atan2(after.y - vertex.y, after.x - vertex.x);
@@ -1096,7 +1179,6 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
     }
 
     const {graph} = result;
-    const edgeCount = graph.numExteriorNodes;
     const frontageLengths = strips.map(strip => polylineLength(strip.frontage));
     const edgeLength = (edgeId: number): number => exteriorEdgeLength(graph, edgeId);
     // Decision 12: no transfer may leave its donor's frontage below the strip-level minimum. When
@@ -1106,7 +1188,7 @@ function applyCornerCorrection(result: SkeletonSolveResult, strips: Strip[], opt
         ? options.minEdgeLength
         : exteriorScale(graph) * FRONTAGE_SCALE_FRACTION;
 
-    for (const corner of cornersBetweenStrips(strips, edgeCount)) {
+    for (const corner of cornersBetweenStrips(graph, strips)) {
         const previous = strips[corner.previousStripIndex];
         const next = strips[corner.nextStripIndex];
         const assignment = classifyCorner({

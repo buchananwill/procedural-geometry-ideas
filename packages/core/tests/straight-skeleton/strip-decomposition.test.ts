@@ -1,6 +1,7 @@
-import {CLEAN_TEST_POLYGONS, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
+import {CLEAN_TEST_POLYGONS, HOLED_F2, holedSolveOptions, SHORT_EDGE_PROMONTORY} from '@proc-geo/test-fixtures';
 import {
     computeMaxOffset,
+    loopOfExteriorEdge,
     computeOffsetRings,
     computeOffsetRingsDetailed,
     computeStrips,
@@ -10,6 +11,7 @@ import {
     Strip,
     Vector2,
 } from '@proc-geo/core';
+import {netRingArea, regionArea, stripArea as holedStripArea} from './wavefront-measurement-helpers';
 
 /**
  * Properties of the strip decomposition, rather than golden coordinates.
@@ -1193,5 +1195,55 @@ describe('strip decomposition', () => {
                 }
             }
         });
+    });
+});
+
+/*
+ * RUNS AND THEIR MERGING ON A SOLVE WITH HOLES (skeleton loop-consumers spec, decisions 11, 12 and 17), on F2, an
+ * irregular outline with two holes of four edges each: loops [0..3], [4..7], [8..11].
+ */
+describe('strip decomposition on a solve with holes: runs and merges stay inside their loop', () => {
+    const solved = () => solveSkeleton(HOLED_F2.outline, holedSolveOptions(HOLED_F2));
+    const tilingMiss = (result: SkeletonSolveResult, strips: Strip[], depth: number) => {
+        const region = regionArea(result.graph);
+        const covered = strips.reduce((total, strip) => total + holedStripArea(strip), 0)
+            + netRingArea(computeOffsetRings(result, depth));
+        return Math.abs(covered - region) / region;
+    };
+    const loopsOf = (result: SkeletonSolveResult, strip: Strip) =>
+        [...new Set(strip.supportingEdgeIds.map(id => loopOfExteriorEdge(result.graph, id)))];
+
+    it('sameLogicalStreet always true gives one run per loop, each a band whose loop it closes round', () => {
+        const result = solved();
+        const asked: [number, number][] = [];
+        const depth = computeMaxOffset(result) * 0.5;
+        const strips = computeStrips(result, {
+            depth,
+            sameLogicalStreet: (a, b) => {
+                asked.push([a, b]);
+                return true;
+            },
+        });
+        // Asked once per exterior edge, each about the next edge of its own loop.
+        expect(asked).toEqual([[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4],
+            [8, 9], [9, 10], [10, 11], [11, 8]]);
+        expect(strips.map(strip => strip.supportingEdgeIds)).toEqual([[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]);
+        // A run round a whole hole is a band round it, and its inner contour is the hole's own wall (decision 17).
+        for (const [index, strip] of strips.entries()) {
+            expect({index, holes: strip.holes.length}).toEqual({index, holes: 1});
+        }
+        expect(tilingMiss(result, strips, depth)).toBeLessThan(1e-12);
+    });
+
+    it('a minEdgeLength that makes every hole edge short merges each hole down to two runs, never across loops', () => {
+        // F2's hole edges are √2 and 1.2√2 long, its outline's 12 to 16: at 5 every hole run is short and every
+        // outline run is not. Each hole merges to the floor of two runs per loop, and the outline keeps its four.
+        const result = solved();
+        const depth = computeMaxOffset(result) * 0.5;
+        const strips = computeStrips(result, {depth, minEdgeLength: 5});
+        expect(strips.map(strip => loopsOf(result, strip))).toEqual([[0], [0], [0], [0], [1], [1], [2], [2]]);
+        expect(strips.flatMap(strip => strip.supportingEdgeIds).sort((a, b) => a - b))
+            .toEqual(Array.from({length: 12}, (_unused, id) => id));
+        expect(tilingMiss(result, strips, depth)).toBeLessThan(1e-12);
     });
 });

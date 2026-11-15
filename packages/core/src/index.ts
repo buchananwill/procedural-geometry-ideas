@@ -130,6 +130,7 @@ export {
   interiorEdgeIndex,
   initBoundingPolygon,
   loopOfExteriorEdge,
+  skeletonHoleCount,
 } from './straight-skeleton/graph-helpers';
 
 // ── Solver context ───────────────────────────────────────────────────────────
@@ -379,6 +380,7 @@ export {
     computeOffsetRingsDetailed,
     projectOffsetWavefront,
     requireProjectableResult,
+    requireSingleLoopResult,
 } from './straight-skeleton/offset-projection';
 export type {
     DegenerateCycle,
