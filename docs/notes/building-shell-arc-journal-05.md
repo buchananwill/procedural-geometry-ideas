@@ -304,6 +304,18 @@ session 3's own.
   a red test of the correct result with an issue note, or a guard by name; a pin of a defect's signature is not written.
   The existing pins of `KNOWN_DEFECT_POLYGONS` and core's "still alive" tests are named there as legacy awaiting
   conversion, never added to and never re-pinned. Converting them is not yet ordered.
+- **338. The review's stage 1 fixes and the rewrite of the five cured pins are dispatched now; stage 2's fate waits on
+  the user.**
+  - Stage 1's follow-up, from BSA.F109: along-edge cells in `start-vertex-invariance.test.ts`; the
+    `alongedge:plus:k2:s63352` test that convicts the `> perceptualFloor` bar; one cross-kind case, split against pair
+    on one ray, if a fixture can be found; `mixed-pitch-island.test.ts` moved onto the shared checker now that it is
+    green.
+  - The five pins of BSA.D336 are rewritten to assert the correct result, each checked against the reviewer's hand
+    derivation where one exists.
+  - **Not done until the user rules on stage 2:** re-recording the along-edge sweep records, whose node numbering
+    differs between stage 1 alone and stage 2. The lead and the reviewer both recommend reverting `6dab6b0`; the user
+    ordered the general case in BSA.D335, so the revert is the user's.
+  - None of the dispatched tests may depend on node numbering, so they hold either way.
 
 ## Findings
 
@@ -383,3 +395,31 @@ session 3's own.
     vertex index.
   - **Not established:** correctness beyond the oracles; the tie at unit weights without straight bisectors; the
     whole-event split path in the sweep harness.
+- **F109. The independent review: stage 1 (`ec96bc4`) is sound to keep with two test fixes; stage 2 (`6dab6b0`) should
+  be reverted.** (an independent read-only Opus reviewer of 2977b43..6dab6b0, 2026-11-15; scratch work in
+  apps/building-shell/experiments/d335-review/, uncommitted)
+  - **Stage 1's answers were checked by hand, not only by the oracles.** On all 160 along-edge cells every live arc lies
+    on the hand-derived roof and the arcs cover the whole canonical skeleton, where the parent left 54 cells incomplete.
+    The holed-guard K1 ridge (1100 to 1250 to 1400 to 1500 at y = 1100) matches a hand derivation exactly. The
+    level-ridge tie resolves nearer-first by hand. The wide fuzz re-run: 58 cured, 0 broken.
+  - **Stage 1 cannot reverse a true time order (argued):** on a bisector that moves in time, position along it is time;
+    the rule speaks only where time is silent. Position uncertainty exceeded the gap being ordered in 0 of 322,788
+    ordered pairs.
+  - **"No clean answer moved" is vacuous for the rosters:** the pairwise fallback runs on 0 layers of FULL_CORPUS,
+    HOLED, WEIGHTED and off-edge at default options. The evidence for the change is the along-edge cells, the fuzzes,
+    the tie fixtures and a few K1 tests.
+  - **Stage 2 does not deliver its claim.** Matching nodes by position over 160 rotated along-edge solves, 100 still
+    renumber under the place order against 113 under edge-id order, geometry identical in all. Mirroring x-then-y gives
+    the same 100, so the choice is arbitrary. One ulp flips `inPlaceOrder` on a synthetic pair at the floor; no effect
+    was seen on real inputs. Its only test pins left-before-right, not an invariance. The reviewer reads the 135 moved
+    sweep digests as a changed result under BSA.D335's stop condition, so the delegate should have reported before
+    building.
+  - **Test gaps, each with a measured way to bite.** `start-vertex-invariance.test.ts`: add along-edge cells at
+    `{noiseFloor: 0}` (L k2 s15838 differs at 8 of 11 rotations on the parent, plus k5 s23757 at 49 of 59; none at
+    HEAD). The `> perceptualFloor` bar: at `> 0`, 19 along-edge cells get worse and 1,030 cycle fallbacks fire against
+    0; `alongedge:plus:k2:s63352` at `{noiseFloor: 0}`, asserting a tree and no causality violation, convicts it. The
+    rule's reach across event kinds is unconvicted: restricting it to one kind passes every test, though half the
+    ordered pairs in the along-edge sweep are cross-kind.
+  - **Low:** the cycle fallback in `inPrecedenceOrder` may place an event downstream of the cycle (0 cycles measured at
+    any nonzero bar); the precedence rule treats a gap of exactly the floor as one point where `isOneEvent` does not;
+    `roof-coverage.ts` claims to be shared with `mixed-pitch-island.test.ts`, which still has its own copy.
