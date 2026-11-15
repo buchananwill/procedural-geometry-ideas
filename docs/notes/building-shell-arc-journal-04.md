@@ -581,6 +581,19 @@ session 3's own.
   - **Mutation:** nine mutants convicted, and the one expected to survive survives: restoring the in-step acceptance
     call with pending births changes nothing over 1,399 tests.
   - **Next:** commit, then one independent review, then the issue is resolved and the spec completed.
+- **303. The acceptance cure is committed at `8170011` and the core suite is fully green for the first time this
+  session: 5,930 passed, none failed, 9 skipped.** The delegate's figure; the lead confirmed nothing beyond the report,
+  and an independent review of `f008560..8170011` is dispatched.
+  - **Building-shell's 9,992 was measured before the two last pin edits,** which touch core test files only. Not re-run
+    after them.
+  - **Node 4's spec is amended for the cure** (its decisions 50 to 53): the predicate is used unchanged on holes; the
+    stretched first fixture becomes an ordinary green fixture and the specimen for a hole's last face; the same-node
+    ring rule applies to steps of several rings, before components are read; nothing in the spec relies on acceptance in
+    mid-layer.
+  - **The stage 1 spec's decision 32 carries its closing sentence.**
+  - **The issue note and the acceptance spec stay `open` and `implementing`** until the review is answered.
+  - **All four delegate commits since `57f6967` carry a Claude Opus 5.5 co-author line,** the delegates' own model under
+    their own harness rule, where the lead's briefs gave the session's line. Left as written.
 
 ## Findings
 

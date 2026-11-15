@@ -285,9 +285,24 @@ before approval:** `hasInteriorLoop` accepts the last open face of a hole too ea
     P_BR and P_BL, and S_L to P_TL and P_BL. The one cycle is J, P_TR, S_T, P_TL, S_L, P_BL, S_B, P_BR. The join is the
     root step's only event; the three later strikes are divides of the joined ring.
 
+### Amendments after the acceptance cure (BSA.D296, BSA.D303)
+
+50. **Decision 31 is built:** the user approved it (BSA.D296), and it landed at `8170011` under
+    [the edge-acceptance spec](./skeleton-edge-acceptance-decisions.md). An exterior edge is accepted at a step boundary
+    exactly when no live bisector names it as a parent; `hasInteriorLoop` and the in-step acceptance calls are gone,
+    and the roster's line for them is void. Decisions 28 to 30 stand as the record of why.
+51. **This spec uses that predicate unchanged, and tests it on a hole.** It reads no loop and no topology, so the cycle
+    round a hole cannot accept an edge. **F1 stretched is an ordinary green fixture of decision 41,** asserting all of
+    decision 42, and it is the specimen that the last open face of a hole is accepted only when it closes. Decision 46
+    is void: the early-acceptance file is green and its cause cannot hold.
+52. **The same-node ring rule of the edge-acceptance spec's decision 32 applies to every step, of one ring or several:**
+    a ring made only of one layer's pending births, all sourced at one node, is closed there unborn. It is applied
+    before the components of decision 10 are read, so such a ring founds no child.
+53. **Acceptance is read at step boundaries only, so within a layer every exterior edge of the step reads as not
+    accepted.** Nothing in decisions 1 to 27 relies on an edge being accepted in mid-layer.
+
 ## 4. Deferred
 
 - **Simultaneous events across rings, and so the concentric courtyard:** roadmap node 5.
-- **Changing when an exterior edge is accepted:** the user's ruling on decision 31.
 - **Offset projection, strip decomposition and a holed roster:** node 6. **The dashboard:** node 7.
 - **A direct strike asked of the neighbour guard:** measured and not applied (BSA.F98).

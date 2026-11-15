@@ -150,7 +150,9 @@ maintained and compared against the arithmetic while nothing reads them, then th
     path without changing when an edge is accepted, which is not this spec's work. The red test names the cells
     (`fine:circle48@2e11`, `ladder:1x:s2`), asserts `checkWavefront` is empty on them, and points at
     [the issue note](./ISSUE-skeleton-edge-accepted-before-its-face-closes.md). Decision 15's gate detects the path by
-    its cause, an accepted parent on a live bisector, and never by a list of cell names.
+    its cause, an accepted parent on a live bisector, and never by a list of cell names. **The path this decision
+    fenced off is cured at `8170011` by [the edge-acceptance spec](./skeleton-edge-acceptance-decisions.md): the gate
+    excludes nothing, and the test that was red is green with its assertions unchanged (BSA.D303).**
 33. **`partitionSpan` in `handleInteriorNGon` stays through stage 1, as the one exception to decision 22**
     (BSA.D292). It no longer decides any child step. It still orders the births of a layer's partition bisectors,
     which numbers them, and picks the survivor of two re-reports with the same start and source. A link-derived
