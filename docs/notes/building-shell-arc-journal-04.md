@@ -519,6 +519,30 @@ session 3's own.
     loop and globally; the same operations in the same order for a single loop.
   - **Who:** one Opus delegate takes these fixes as one commit and then the acceptance unit (BSA.D298), so the tree has
     one editor.
+- **300. The lead's rulings on the acceptance measurement (BSA.F99): the switch goes ahead, with one rule added for a
+  ring born whole at one node, and `circle48`'s changed answer accepted.** Written into the acceptance spec as decisions
+  32 to 38.
+  - **A ring made only of one layer's pending births, all sourced at one node, is closed there and none of it is born**
+    (spec decision 32). It has no extent. This is the `rosette40` case: the residue of a vertex event resolved pairwise,
+    which the old rule disposed of by accepting an edge early. The predicate the user approved is unchanged, because
+    births that are never born are not pending; the rule reads links and a source node, no position and no tolerance.
+    The four cells are expected to stay byte-identical. **Why this and not accepting two extra edges:** a zero-extent
+    ring born and then closed adds edges of no length to a clean, complete solve, which is a worse graph for nothing.
+  - **`ladder:1x:s5` is harmless** (spec decision 33).
+  - **`fine:circle48@2e11` is accepted as cured-with-a-cost** (spec decision 34): a graph that tiles the polygon to 1e-8
+    is more valid than a tree that misses half of it, and its two new violations are both on one bisector leaving a node
+    that was already 2e-6 out of clearance. It is a known-defect cell, not a clean fixture, and Circle 48 stays
+    enrolled.
+  - **`Offset Cross Junction` is not cured and stays enrolled** (spec decision 36). The recursion suite keeps its
+    failing specimen.
+  - **The lead's acceptance for moved pins of the six is given in advance,** each to its measured value with the cause
+    written at the pin and listed in the report, and withdrawn for any solve that does worse in a way not already
+    described (spec decision 37).
+  - **Open, asked of the implementer and not blocking:** `ladder:1x:s1` and `ladder:1x:s2` end complete and not trees. A
+    complete single-loop skeleton that is not a tree carries a degenerate cycle, and each is to be identified once
+    decision 32 is in (spec decision 38).
+  - **For the user:** the cure does what was approved on the six; the one addition is decision 32, which the lead judges
+    to be inside the approval, and says so in case it is not.
 
 ## Findings
 
@@ -718,3 +742,32 @@ session 3's own.
     violations, on the solver's oracles and the test's. Not diagnosed.
   - **No structural obstacle** to asking the guard there: the struck segment is in hand once validation passes, and a
     refused direct strike falls through to the guarded incenter path.
+- **F99. The acceptance cure, measured before the switch: the old and new rules disagree on the six named solves, on
+  four `rosette40` cells and on one harmless ladder cell; the cure fixes three solves, leaves one identical, does not
+  cure `Offset Cross Junction`, and trades `circle48`'s tiling miss for two small violations.** (the acceptance delegate
+  (Opus), measured at 420c604 with the old rule deciding, and by a reverted trial of the switch, 2026-11-14; not re-run
+  by the lead)
+  - **Commits:** `f008560`, the review fixes for nodes 2 and 3, with that spec set `completed`; `420c604`, the measuring
+    step alone. Core 5,899 passed, 7 failed by design, 9 skipped; building-shell 9,992, typecheck clean; 32,335 sweep
+    records unmoved at both. (BSA.D297's 32,340 was the earlier delegate's count; this delegate and the spec say
+    32,335.)
+  - **The issue's diagnosis is confirmed by measurement:** on all five single-loop offenders the chain `hasInteriorLoop`
+    walks leaves the edge's face while a bisector naming the edge is live, and on all five it runs through a hub node
+    where many faces' bisectors end within the floor. A cycle is present on only two (`Offset Cross Junction`'s
+    duplicate ridge, `circle48`'s zero-length self-loops), so the cycle inference recorded in BSA.D294's spec holds for
+    two of five.
+  - **Off the six, `fine:rosette40` at 7e10, 8e10, 9e10 and 1e11,** all complete: at step 6 no live bisector names edge
+    20 but two pending births do, `(cw 20, ws 26)` and `(cw 26, ws 20)`, both at the node where face 20 closes. The old
+    rule accepts the edge and refuses both. Under a plain switch these four gain two edges each.
+  - **Off the six, `ladder:1x:s5`:** the old rule is one boundary late on two edges no bisector names. Byte-identical
+    under the trial.
+  - **The trial of the switch moves 20 of 32,335 records:** `Offset Cross Junction`'s root and its 12 census roots,
+    `circle48`, `ladder:1x:s1`, `ladder:1x:s2`, and the four `rosette40` cells.
+  - **`ladder:1x:s1`:** incomplete with a step failure becomes complete, all oracles clean, tiling to about 1e-8, not a
+    tree.
+  - **`ladder:1x:s2`:** complete with a 4 to 12 percent tiling miss and 3 wavefront violations becomes complete with
+    none, one more edge, not a tree.
+  - **`ladder:3x:s3`:** byte-identical. Its early acceptance refuses no birth.
+  - **`fine:circle48@2e11`:** a 49 to 62 percent tiling miss becomes about 1e-8 and its wavefront violations go; it
+    gains one offset and one direction violation on one newly born bisector and stops being a tree.
+  - **`Offset Cross Junction` at 1e-6:** two step failures become one, still incomplete. At 1e-5 it is byte-identical.
