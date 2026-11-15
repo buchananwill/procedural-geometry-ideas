@@ -238,6 +238,60 @@ function nearerAlongSharedBisector(
 }
 
 /**
+ * The runs of `items`, in ascending `key`, into which single linkage at `floor` cuts them: a new run starts wherever a key
+ * lies more than `floor` above the one before it. The runs are a function of the set of keys, so of the items handed,
+ * not of their order.
+ */
+function linkedRuns<T>(items: T[], key: (item: T) => number, floor: number): T[][] {
+    const sorted = items.toSorted((first, second) => key(first) - key(second));
+    const runs: T[][] = [];
+    sorted.forEach((item, index) => {
+        if (index === 0 || key(item) - key(sorted[index - 1]) > floor) {
+            runs.push([]);
+        }
+        runs[runs.length - 1].push(item);
+    });
+    return runs;
+}
+
+/**
+ * THE ORDER BY PLACE (BSA.D335 stage 2): a comparator over `events` that orders them by where they meet, in unit space,
+ * and reports zero for two that meet at one point.
+ *
+ * The events are cut into COLUMNS by single linkage on x at `floor`, and each column into CELLS by single linkage on y at
+ * `floor`; a cell further left, then lower, comes first. Two events of one cell are one point at the floor and are left
+ * equal, for the caller's next key. The cut is single linkage over a sorted list, as `inArrivalOrder`'s moments are, so
+ * the result is a total order of the cells and not a sort under a non-transitive "close enough" predicate; its accepted
+ * cost is the same chaining.
+ *
+ * WHAT IT ORDERS IN THE PAIRWISE FALLBACK: the events `nearerAlongSharedBisector` leaves unordered, which share no
+ * bisector or meet at one point. Two events that share no bisector consume no common edge, so their order decides no
+ * pairing. Measured before it was built: reversing the edge-id order there changed no skeleton of `FULL_CORPUS`,
+ * `HOLED_TEST_POLYGONS` or `WEIGHTED_TEST_POLYGONS` at any sampled starting vertex, none of the 11,878 islands of the two
+ * mixed-pitch fuzzes, and no sweep-harness record but 135 along-edge digests, by node and edge numbering alone, every
+ * node position bit-identical; this order, against the edge-id order, measured the same with 138. So it decides the
+ * numbering, and the numbering now follows the geometry rather than the order the caller listed the vertices in; within
+ * one point, where nothing geometric tells two events apart, the edge ids still decide.
+ *
+ * THE COST, STATED: a place is a coordinate, and the edge ids it replaces carry no arithmetic (journal decision 65). Two
+ * events whose x or y lie a floor apart can change cells under a placement that moves them by an ulp, and their nodes
+ * swap ids. The floor keeps that to gaps at the floor's own scale, where the edge-id order had none.
+ *
+ * EXPORTED FOR ITS OWN TEST, not for other callers — see `arrival-ordering.test.ts`.
+ */
+export function inPlaceOrder(events: CollisionEvent[], floor: number): (first: CollisionEvent, second: CollisionEvent) => number {
+    const cellOf = new Map<CollisionEvent, {column: number; row: number}>();
+    linkedRuns(events, event => event.position.x, floor).forEach((column, columnIndex) =>
+        linkedRuns(column, event => event.position.y, floor).forEach((cell, rowIndex) =>
+            cell.forEach(event => cellOf.set(event, {column: columnIndex, row: rowIndex}))));
+    return (first, second) => {
+        const a = cellOf.get(first)!;
+        const b = cellOf.get(second)!;
+        return a.column !== b.column ? a.column - b.column : a.row - b.row;
+    };
+}
+
+/**
  * W-spec W25: the 64-ulp bar, cross-multiplied. `|d₁·w₂ − d₂·w₁|` against the bar times the larger
  * of the two products — the exact restatement of the same window on `d₁/w₁` versus `d₂/w₂`, with no
  * division. At unit weights both products are by `1.0` and the verdict is today's.
@@ -633,10 +687,10 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // decision 65 records for the ellipses' mirror pair. Edge ids are integers taken from the
     // polygon's own vertex order and carry no arithmetic at all.
     //
-    // It is NOT a layer ordering. Passed to `inArrivalOrder`, it decides only within one moment of
-    // the wavefront clock; separated arrivals are ordered by their offsets (decision 102). Nor does it
-    // decide between two meetings on one bisector's ray at two points: the nearer goes first
-    // (`nearerAlongSharedBisector`, BSA.D335).
+    // It is NOT a layer ordering, and it now orders only the whole-event path's splits below, which it
+    // sites at one point. The pairwise fallback orders a moment by the nearer meeting on a shared
+    // bisector, then priority, then place, and reaches the edge ids only for events at one point
+    // (BSA.D335).
     const byEventPriority = (e1: CollisionEvent, e2: CollisionEvent) => {
         const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
         if (priority !== 0) {
@@ -737,9 +791,18 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // those edges returns empty. That makes arrival order load-bearing, not cosmetic. It now only
     // ever sees ONE arrival moment, so the pairing it decides is between arrivals no offset separates.
     // Within it, a meeting nearer along a bisector both events lie on goes first (BSA.D335), and the
-    // tie-break decides only what that leaves unordered.
+    // tie-break decides only what that leaves unordered: priority, then place (`inPlaceOrder`, BSA.D335
+    // stage 2), and the edge ids only between events that meet at one point.
     if (resolution === null) {
-        inArrivalOrder(eventsToResolve, byEventPriority, nearerAlongSharedBisector(eventsToResolve, context))
+        const byPlace = inPlaceOrder(eventsToResolve, context.perceptualFloor);
+        const byPriorityThenPlace = (e1: CollisionEvent, e2: CollisionEvent) => {
+            const priority = CollisionTypePriority[e1.eventType] - CollisionTypePriority[e2.eventType];
+            if (priority !== 0) {
+                return priority;
+            }
+            return byPlace(e1, e2) || compareEdgeIdLists(e1.collidingEdges, e2.collidingEdges);
+        };
+        inArrivalOrder(eventsToResolve, byPriorityThenPlace, nearerAlongSharedBisector(eventsToResolve, context))
             .map(event => handleCollisionEvent(event, context))
             .forEach(recordBisections)
     } else {
