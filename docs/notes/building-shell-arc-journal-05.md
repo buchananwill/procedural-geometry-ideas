@@ -316,6 +316,18 @@ session 3's own.
     differs between stage 1 alone and stage 2. The lead and the reviewer both recommend reverting `6dab6b0`; the user
     ordered the general case in BSA.D335, so the revert is the user's.
   - None of the dispatched tests may depend on node numbering, so they hold either way.
+- **339. The user, 2026-11-15: The three-front meeting refusal is the next high-priority investigation, on the user's
+  layout `CourtL-draft` (the "lower-case b").**
+  - The layout: five Rings at 30 degrees on every side, one storey. Outline (0,0) (1700,0) (1700,300) (1000,300)
+    (1000,1000) (0,1000) with a courtyard (300,300) to (700,700). The file is the user's upload
+    `lower_case_b_failure.json`; it is `CourtL` of the eight layouts BSA.D321 refuses.
+  - The user's reading: three ridge lines and one valley should meet at (850,150), where the stem of the b meets its
+    loop, and the solver refuses. Anything that separates the convergence into separate events, three for instance,
+    unblocks it.
+  - The error is the refusal by name of BSA.D311 and BSA.D313: in step `[10..19]`, rings `[10..15]` and `[16..19]`, the
+    split `[12, 4]` at time 0.0732421875 "meets a third front: its instigator arrives at the vertex event [12, 16]".
+  - Dispatched as a read-only investigation that returns a mechanism and a proposed rule; nothing is built from it
+    without the user.
 
 ## Findings
 
