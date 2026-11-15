@@ -640,6 +640,28 @@ session 3's own.
   - **Left open by the lead:** whether node 6 may be called completed while a holed fixture is red. The lead's answer
     when it arises: yes if the red test has its issue note and the failure is the solver's and not a consumer's, since
     node 6 is the consumers.
+- **306. The draft spec for roadmap node 9, `building-shell-holed-roof-decisions.md`, is received and held at
+  `proposed`: the lead reads and rules on it when nodes 5 and 6 have landed, because both can change it.** Drafted by an
+  Opus delegate under BSA.D288 from the tree at `0ec7e58`; 52 decisions, 273 lines; not yet read in full by the lead.
+  - **The sequencing fact it states, by reasoning and not run:** Rings are axis-aligned, so every courtyard has walls
+    parallel to and facing outline walls, which is the case node 4 refuses as simultaneous across rings. **With node 4
+    alone every courtyard fixture in the corpus would be a hard error; building-shell cannot move to the holed solve
+    before node 5.** It also needs node 6's one strip per exterior edge. `depends_on` now names node 6's spec; node 5's
+    is added when it exists.
+  - **Its shape, from the delegate's report:** `Comp.ring` goes and walls are built loop by loop with a loop and edge on
+    each; `solveFaces` passes outline and holes and maps strips to walls through `loopMaps`; `courtyard.ts` is deleted
+    whole, with the cut branch of `buildPieces` and the `'cut'` wall form; a height oracle for all-hip islands at one
+    pitch, the plate plus the tangent of the pitch times the L-infinity distance to the outside or a hole, giving
+    336.603 cm for the concentric courtyard's ridge and about 365.47 cm for the top of BSA.F90's layout.
+  - **Points the lead must rule on before approving,** from the delegate's interpretations: grouping loops by
+    building-shell's own containment test and not core's helper, which might refuse two islands 1/1024 cm apart that
+    build today; whether a holed hip solid goes back to its bottom at the plate; whether the copy-integrity tally moves
+    (the delegate argues it need not, since cases 9a to 9d already expect the true annulus roof); the renamed goldens;
+    and a gable on a courtyard wall along the old cut's line, left to measurement.
+  - **The count of courtyard goldens is 20 by the delegate's reading of the manifest,** where BSA.F94 said 5.
+    Unreconciled; to be counted at implementation.
+  - **The amendments owed to `building-shell-prototype-decisions.md`** are listed in the draft's decision 52 and are the
+    lead's to make when node 9 lands.
 
 ## Findings
 
