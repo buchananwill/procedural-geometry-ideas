@@ -198,8 +198,12 @@ export interface InteriorGraphShape {
  * AN ARC RECORDED FROM BOTH ENDS COUNTS ONCE, as `buildSkeletonTree` counts it (skeleton-tree.ts,
  * `collectTreeEdges`): the last arc of a collapse between anti-parallel walls is written down by each of the two
  * bisectors that closed it — a rectangle's ridge comes back as `4 -> 5` and `5 -> 4` — and two straight arcs sharing
- * both endpoints are one arc. Counted twice, every corridor midline would add a cycle the skeleton does not have. A
- * culled edge carries no geometry and is skipped, as there.
+ * both endpoints are one arc. Counted twice, every corridor midline would add a cycle the skeleton does not have.
+ *
+ * A CULLED EDGE IS SKIPPED BEFORE ANYTHING IS COUNTED, as `collectTreeEdges` skips it: the solver retired it as a
+ * zero-length self-loop at a degenerate closure (`applyDegenerateClosure`), it carries no geometry, and sound
+ * single-loop solves carry such edges routinely. Only a self-loop NOT marked culled is a defect (BSA.F103, BSA.D314):
+ * counting a culled one made the red test `2h-int-113` red for the wrong reason.
  */
 export function interiorGraphShape(graph: StraightSkeletonGraph): InteriorGraphShape {
     const parent = new Map<number, number>();
@@ -220,6 +224,9 @@ export function interiorGraphShape(graph: StraightSkeletonGraph): InteriorGraphS
     const unresolved: number[] = [];
     const arcs = new Set<string>();
     for (const interior of graph.interiorEdges) {
+        if (interior.culled) {
+            continue;
+        }
         const edge = graph.edges[interior.id];
         if (edge.target === undefined) {
             unresolved.push(interior.id);
@@ -227,9 +234,6 @@ export function interiorGraphShape(graph: StraightSkeletonGraph): InteriorGraphS
         }
         if (edge.target === edge.source) {
             selfLoops.push(interior.id);
-        }
-        if (interior.culled) {
-            continue;
         }
         add(edge.source);
         add(edge.target);

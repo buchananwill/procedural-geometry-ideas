@@ -611,9 +611,11 @@ export function linkSplit(
         // instigator's ring — which needs a join earlier in the layer, since on one loop rings only divide and each
         // ring holds at most one piece — the ring cannot choose, and the strike takes the first of those pieces that
         // contains it. Measured before it was relied on (decision 43): 0 such strikes on every single-loop roster.
-        // Where none of them contains it, the first on the ring is taken, as before.
+        // Where none of them contains it, the piece that contains it by position along the edge is taken, as the
+        // branch for no piece on the ring takes it (BSA.D314): the first piece on the ring would be a piece the
+        // strike is known not to lie on. Unreached on every roster, measured.
         struck = onRing.length > 1
-            ? onRing.find(holdsStrike) ?? onRing[0]
+            ? onRing.find(holdsStrike) ?? pieces.find(holdsStrike)!
             : onRing[0] ?? pieces.find(holdsStrike)!;
     }
     const from = struck.from;

@@ -9,15 +9,22 @@
  *    decision 42 (decision 38), and under two translations (§2's measurement);
  *  - E′, refused by name as a meeting on a third front (decisions 22 and 44);
  *  - `crossRingRuns`' cases (decision 39's last paragraph);
- *  - two courtyards from the fuzz that do not solve, RED BY DESIGN, each with its issue note (BSA.D266).
+ *  - a courtyard from the fuzz that does not solve, RED BY DESIGN, with its issue note (BSA.D266);
+ *  - `2h-int-113`, once red by design, a sound solve whose culled self-loop the battery had counted (BSA.D314), and
+ *    the battery's interior-graph shape convicted on a culled and an un-culled self-loop;
+ *  - fixtures A and D turned by an irrational angle and moved, against their closed forms carried through the same
+ *    motion (BSA.D314).
  *
  * Each closed form is re-derived in its comment: for an axis-aligned, equal-weight region a node's time is its
  * L-infinity distance to the nearest wall, and a node lies at that distance from each of its walls.
  */
-import type {Vector2} from '@proc-geo/core';
-import {setSkeletonLogLevel} from '@proc-geo/core';
+import type {BisectionParams, Vector2} from '@proc-geo/core';
+import {initInteriorEdges, makeStraightSkeletonSolverContext, setSkeletonLogLevel} from '@proc-geo/core';
 import {crossRingRuns} from '@proc-geo/core/straight-skeleton/coincident-events';
+import {beginLayerLinks, linkBirth, linkSplit} from '@proc-geo/core/straight-skeleton/wavefront';
 import {
+    HOLED_F1 as F1,
+    HOLED_F1_HOLE as F1_HOLE,
     HOLED_A as A,
     HOLED_A_PRIME as A_PRIME,
     HOLED_B as B,
@@ -35,6 +42,7 @@ import {
 import {
     expectSoundHoledSolve,
     extentOf,
+    interiorGraphShape,
     REFUSAL_KINDS,
     solveHoled,
     storyOf,
@@ -312,24 +320,33 @@ const SOLVED: {fixture: HoledFixture; form: ClosedForm}[] = [
     {fixture: H, form: H_FORM},
 ];
 
-function translated(fixture: HoledFixture, offset: Vector2): HoledFixture {
-    const move = (vertices: readonly Vector2[]) => vertices.map(v => ({x: v.x + offset.x, y: v.y + offset.y}));
+/** A rigid motion of the plane, applied to a fixture's every loop and to its closed form's every node. */
+type Motion = (point: Vector2) => Vector2;
+
+const STILL: Motion = point => point;
+
+function moved(fixture: HoledFixture, motion: Motion, label: string): HoledFixture {
+    const move = (vertices: readonly Vector2[]) => vertices.map(motion);
     return {
         ...fixture,
-        name: `${fixture.name} + (${offset.x}, ${offset.y})`,
+        name: `${fixture.name} ${label}`,
         outline: move(fixture.outline),
         holes: fixture.holes.map(hole => ({...hole, vertices: move(hole.vertices)})),
     };
 }
 
+function translated(fixture: HoledFixture, offset: Vector2): HoledFixture {
+    return moved(fixture, v => ({x: v.x + offset.x, y: v.y + offset.y}), `+ (${offset.x}, ${offset.y})`);
+}
+
 /** The closed form, node by node: one interior node within the tolerance of each, and nothing more. */
-function expectClosedForm(fixture: HoledFixture, form: ClosedForm, offset: Vector2 = {x: 0, y: 0}) {
+function expectClosedForm(fixture: HoledFixture, form: ClosedForm, motion: Motion = STILL) {
     const {result} = expectSoundHoledSolve(fixture);
     const {graph} = result;
     const tolerance = 1e-9 * extentOf(fixture);
     const named = new Map<string, number>();
     const found = form.nodes.map(expected => {
-        const at = {x: expected.at.x + offset.x, y: expected.at.y + offset.y};
+        const at = motion(expected.at);
         const matches = graph.nodes.slice(graph.numExteriorNodes)
             .filter(node => Math.hypot(node.position.x - at.x, node.position.y - at.y) <= tolerance);
         if (matches.length === 1) {
@@ -382,8 +399,32 @@ describe('the fixtures of decisions 34 to 37, each against its closed form (deci
     it.each(SOLVED.flatMap(({fixture, form}) => [{x: 1 / 3, y: 1 / 7}, {x: 1234.5678, y: -987.654321}]
         .map(offset => [`${fixture.name} translated by (${offset.x}, ${offset.y})`, fixture, form, offset] as const)))(
         '%s', (_name, fixture, form, offset) => {
-            expectClosedForm(translated(fixture, offset), form, offset);
+            expectClosedForm(translated(fixture, offset), form, v => ({x: v.x + offset.x, y: v.y + offset.y}));
         });
+});
+
+/*
+ * TURNED BY AN IRRATIONAL ANGLE AND MOVED (BSA.D314). A rigid motion carries a skeleton to the skeleton of the moved
+ * region, so each closed form is the same one carried through the same motion, and each node's time is unchanged. The
+ * angle is √2 rad, so no wall of either fixture lands on an axis and no coordinate stays exact: every event is
+ * computed in rounded arithmetic. A is the concentric square (one layer of four head-ons); D is the courtyard with
+ * wings, whose two outline walls either side of each wing are collinear and face the same way (BSA.F103's
+ * precondition).
+ */
+describe('A and D turned by √2 rad and moved, against their closed forms carried through the same motion', () => {
+    const THETA = Math.SQRT2;
+    const OFFSET: Vector2 = {x: 271.8281828, y: -314.1592654};
+    const turnAndMove: Motion = v => ({
+        x: Math.cos(THETA) * v.x - Math.sin(THETA) * v.y + OFFSET.x,
+        y: Math.sin(THETA) * v.x + Math.cos(THETA) * v.y + OFFSET.y,
+    });
+
+    it.each([
+        ['A', A, {nodes: RIDGE_SQUARE, totalNodes: 12, interiorEdges: 16, ridges: RIDGE_SQUARE_SIDES}],
+        ['D', D, D_FORM],
+    ] as const)('%s', (_name, fixture, form) => {
+        expectClosedForm(moved(fixture, turnAndMove, 'turned by √2 rad and moved'), form, turnAndMove);
+    });
 });
 
 describe('what the fixtures were chosen for', () => {
@@ -430,9 +471,9 @@ describe('what stays refused (decisions 21, 22 and 44)', () => {
 });
 
 /*
- * RED BY DESIGN (BSA.D266): two courtyards from the fuzz of axis-aligned rectangles with two rectangular holes, each a
- * valid input that this unit lets through its root layer and that does not solve. Both have two holes with collinear
- * walls. Each asserts the battery and the node the true skeleton has; each has its issue note.
+ * RED BY DESIGN (BSA.D266): a courtyard from the fuzz of axis-aligned rectangles with two rectangular holes, a valid
+ * input that node 5 lets through its root layer and that does not solve. Its two holes have collinear walls. It
+ * asserts the battery and the node the true skeleton has, and has its issue note.
  */
 describe('red by design: two holes with collinear walls', () => {
     /** The node of `fixture`'s solve at `at`, if exactly one interior node is there. */
@@ -460,21 +501,110 @@ describe('red by design: two holes with collinear walls', () => {
         expect(nodeAt(fixture, {x: 5.5, y: 10})).toBe(1);
     });
 
-    /*
-     * ISSUE-skeleton-three-front-meeting-on-one-ring.md. The holes' left walls are collinear at x = 4, 4 from the
-     * outline's left wall, and 4 apart vertically (y = 8 to 12). By t = 2 every ring has joined, and at t = 2 the outline's
-     * left front, both holes' left fronts and the gap between the holes all close at (2, 10): a node of degree five
-     * where nothing is born. The one-ring step bears a bisector between the two collinear hole walls there and ends it
-     * where it began, a self-loop. Every other check holds.
-     */
-    it('a meeting of three fronts on one ring bears no bisector of zero length (2h-int-113)', () => {
-        const fixture: HoledFixture = {
-            name: 'two holes with collinear left walls',
-            outline: outlineRect(0, 0, 8, 14),
-            holes: [{vertices: holeRect(4, 6, 5, 8)}, {vertices: holeRect(4, 12, 7, 13)}],
+});
+
+/*
+ * A SOUND SOLVE ONCE MISREAD AS A DEFECT (BSA.F103, BSA.D314). The holes' left walls are collinear at x = 4, 4 from the
+ * outline's left wall, and 4 apart vertically (y = 8 to 12). By t = 2 every ring has joined, and at t = 2 the outline's
+ * left front, both holes' left fronts and the gap between the holes all close at (2, 10): a node of degree five where
+ * nothing is born. The one-ring step bears a bisector between the two collinear hole walls there and retires it at its
+ * own source as a CULLED self-loop (`applyDegenerateClosure`), which is how a sound solve represents a surplus bisector
+ * at a degenerate closure. This was a red test only because the battery's `interiorGraphShape` counted culled
+ * self-loops; it now skips them, as `buildSkeletonTree` does, and the solve passes the whole battery.
+ */
+describe('two holes with collinear left walls meet three fronts on one ring soundly (2h-int-113)', () => {
+    const fixture: HoledFixture = {
+        name: 'two holes with collinear left walls',
+        outline: outlineRect(0, 0, 8, 14),
+        holes: [{vertices: holeRect(4, 6, 5, 8)}, {vertices: holeRect(4, 12, 7, 13)}],
+    };
+
+    it('passes the battery, with one node at (2, 10)', () => {
+        const {result} = expectSoundHoledSolve(fixture);
+        const {graph} = result;
+        const atMeeting = graph.nodes.slice(graph.numExteriorNodes)
+            .filter(node => Math.hypot(node.position.x - 2, node.position.y - 10) <= 1e-9 * extentOf(fixture));
+        expect(atMeeting).toHaveLength(1);
+    });
+
+    it('carries its surplus bisector between the collinear walls as a culled self-loop at (2, 10)', () => {
+        const {graph} = solveHoled(fixture).result;
+        const selfLoops = graph.interiorEdges.filter(interior =>
+            graph.edges[interior.id].target === graph.edges[interior.id].source);
+        expect(selfLoops.map(interior => ({
+            culled: interior.culled === true,
+            at: graph.nodes[graph.edges[interior.id].source].position,
+        }))).toEqual([{culled: true, at: {x: 2, y: 10}}]);
+    });
+});
+
+/*
+ * THE BATTERY'S INTERIOR-GRAPH SHAPE skips a culled edge before it counts anything (BSA.D314), and still reports a
+ * self-loop that is not culled. Convicted on constructed graphs: A's sound solve with one self-loop added at an interior
+ * node, once culled and once not.
+ */
+describe('interiorGraphShape reads a culled self-loop as no edge and an un-culled one as a defect', () => {
+    const withSelfLoop = (culled: boolean) => {
+        const graph = structuredClone(solveHoled(A).result.graph);
+        const node = graph.numExteriorNodes;
+        const id = graph.edges.length;
+        graph.edges.push({...graph.edges[graph.interiorEdges[0].id], id, source: node, target: node});
+        graph.interiorEdges.push({...graph.interiorEdges[0], id, culled});
+        return {graph, id};
+    };
+
+    it('a culled self-loop changes nothing: no self-loop, one component, cycle rank 1', () => {
+        const {graph} = withSelfLoop(true);
+        expect(interiorGraphShape(graph)).toEqual({components: 1, selfLoops: [], cycleRank: 1, unresolved: []});
+    });
+
+    it('an un-culled self-loop is reported, and adds a cycle', () => {
+        const {graph, id} = withSelfLoop(false);
+        expect(interiorGraphShape(graph)).toEqual({components: 1, selfLoops: [id], cycleRank: 2, unresolved: []});
+    });
+});
+
+/*
+ * THE PIECE RULE'S FALLBACK (decision 17; BSA.D314). When two or more pieces of a struck segment stand on the
+ * instigator's ring and none of them contains the strike, the strike takes the piece that contains it by position along
+ * the edge, as the branch for no piece on the ring does, and no longer the first piece on the ring. No roster reaches
+ * this branch, so it is convicted on links written by hand in F1's context: outline bisectors b8 to b11 at (0,0),
+ * (0,10), (10,10), (10,0) and hole bisectors h12 to h15. Edge 2 runs (10,10) to (10,0), basis (0, −1), and its one
+ * segment is (b10, b11). Three strikes of that segment in one layer:
+ *
+ *  1. h12 strikes it at y = 7, a join: pieces P0 = (b10, B1) and P1 = (A1, b11), both on the joined ring
+ *     b8 b9 b10 B1 h13 h14 h15 A1 b11.
+ *  2. b9 strikes it at y = 3, inside P1, a divide: P1 becomes (A1, B2) and P2 = (A2, b11). The ring through b10 is now
+ *     b10 B1 h13 h14 h15 A1 B2, which holds P0 and P1; P2 is on the other ring, b8 A2 b11.
+ *  3. h14 strikes it at y = 1, beyond both cuts. P0 and P1 stand on h14's ring and neither contains y = 1; P2 does.
+ */
+describe('the piece rule takes the piece by position when no piece on the ring contains the strike (decision 17)', () => {
+    it('strikes P2, the piece holding the strike, and not P0, the first piece on the ring', () => {
+        const context = makeStraightSkeletonSolverContext(
+            [...F1.outline, ...F1_HOLE], undefined, undefined, [{start: 0, count: 4}, {start: 4, count: 4}]);
+        initInteriorEdges(context);
+        const segment = {exteriorEdge: 2, from: 10, to: 11};
+        const params = (clockwise: number, widdershins: number): BisectionParams =>
+            ({clockwiseExteriorEdgeIndex: clockwise, widdershinsExteriorEdgeIndex: widdershins, source: 0});
+        const births = {
+            B1: params(4, 2), A1: params(2, 7),
+            B2: params(1, 2), A2: params(2, 0),
+            B3: params(6, 2), A3: params(2, 5),
         };
-        expectSoundHoledSolve(fixture);
-        expect(nodeAt(fixture, {x: 2, y: 10})).toBe(1);
+        beginLayerLinks(context);
+        linkSplit(context, 12, segment, {x: 10, y: 7}, births.B1, births.A1);
+        linkSplit(context, 9, segment, {x: 10, y: 3}, births.B2, births.A2);
+        linkSplit(context, 14, segment, {x: 10, y: 1}, births.B3, births.A3);
+        // Every pending birth born, so the links read as ids: B1 100, A1 101, B2 102, A2 103, B3 104, A3 105.
+        Object.values(births).forEach((birth, k) => linkBirth(context, birth, 100 + k));
+        const {clockwiseNeighbour, widdershinsNeighbour} = context.wavefront;
+        // B3 opens behind the strike on the struck piece's `from`, which is A2: P2's start, not b10, P0's.
+        expect(widdershinsNeighbour[104]).toBe(103);
+        expect(clockwiseNeighbour[103]).toBe(104);
+        expect(clockwiseNeighbour[10]).toBe(100);
+        // A3 closes on P2's end, b11, and the strike's two births go to h14's neighbours, h15 and h13.
+        expect([widdershinsNeighbour[105], clockwiseNeighbour[105]]).toEqual([13, 11]);
+        expect(clockwiseNeighbour[104]).toBe(15);
     });
 });
 

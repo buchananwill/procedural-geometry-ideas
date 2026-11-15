@@ -28,6 +28,7 @@ import {
 } from '@proc-geo/core';
 import {FULL_CORPUS} from '@proc-geo/test-fixtures';
 import {setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {expectSoundHoledSolve} from './holed-test-helpers';
 
 setSkeletonLogLevel('silent');
 
@@ -140,6 +141,15 @@ function expectHoledInitialisation(
     expect(kinds).not.toContain('holes-not-solved');
     expect(result.complete).toBe(true);
     expect(kinds).not.toContain('causality-violation');
+    // AND THE WHOLE HOLED BATTERY (BSA.D314), not completeness alone: equal time, time order, the wavefront at every
+    // step boundary, one strip per exterior edge tiling the region, containment, the direction and rate oracles, and
+    // an interior graph that is connected, free of un-culled self-loops, with one cycle round each hole.
+    expectSoundHoledSolve({
+        name: 'a loops-input case',
+        outline: outline.vertices,
+        weights: outline.weights,
+        holes: holes.map(hole => ({vertices: hole.vertices, weights: hole.weights})),
+    });
 
     // The weights, concatenated in exterior id order (decision 34), and the caller's map (decision 24).
     expect(result.weights).toEqual(graph.exteriorWeights);
