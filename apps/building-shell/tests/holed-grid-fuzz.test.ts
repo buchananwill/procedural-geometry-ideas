@@ -179,8 +179,13 @@ async function unsound(d: Draw): Promise<string[]> {
   return failures;
 }
 
-/** Is this refusal one of decision 28's (a flat-by-area ring that fails the test) or decision 44's (a third front)? */
-const refusedByTheRules = (verdict: string) => verdict.includes('is not a flat termination') || verdict.includes('meets a third front');
+/**
+ * Is this refusal one of decision 28's (a flat-by-area ring that fails the test) or decision 44's (a third front that
+ * cannot be resolved)? Each is read by text the other refusals do not share: a decision-31 refusal also says "meets a
+ * third front", but cites simultaneous-rings decision 22, never "third-front spec, decision 44" (BSA.D351).
+ */
+const refusedByTheRules = (verdict: string) =>
+  verdict.includes('is not a flat termination') || verdict.includes('third-front spec, decision 44)');
 
 describe('grid 1: 2,000 two-courtyard islands, seed 1 (decision 54)', () => {
   const grid = draws(1, 2000, 'uniform');
@@ -194,15 +199,19 @@ describe('grid 1: 2,000 two-courtyard islands, seed 1 (decision 54)', () => {
     expect(grid.filter((_d, k) => solved[k].verdicts.some(refusedByTheRules)).map(d => d.name)).toEqual([]);
   });
 
-  it('completes every draw on which a rule fires, the measured 79 of them', () => {
+  // A FLOOR, NOT A PIN (BSA.D351): a later cure may make a rule fire on more draws, and must not turn this red; the
+  // rules ceasing to fire still does.
+  it('completes every draw on which a rule fires, at least the measured 79 of them', () => {
     const fired = grid.filter((_d, k) => solved[k].fired > 0);
-    expect(fired).toHaveLength(79);
+    expect(fired.length).toBeGreaterThanOrEqual(79);
     expect(fired.filter(d => !solved[grid.indexOf(d)].complete).map(d => d.name)).toEqual([]);
   });
 
-  it('leaves the measured three incomplete: two refused under simultaneous-rings decision 21 and uniform-1-129', () => {
-    const incomplete = grid.filter((_d, k) => !solved[k].complete);
-    expect(incomplete.map(d => d.name)).toEqual(['uniform-1-129', 'uniform-1-523', 'uniform-1-1977']);
+  // uniform-1-129 is carried by its own red test below and is left out here, so no green test counts it incomplete
+  // (BSA.D351, BSA.D336).
+  it('leaves no draw incomplete but uniform-1-129 and the two refused under simultaneous-rings decision 21', () => {
+    const incomplete = grid.filter((d, k) => !solved[k].complete && d.name !== 'uniform-1-129');
+    expect(incomplete.map(d => d.name)).toEqual(['uniform-1-523', 'uniform-1-1977']);
     expect(['uniform-1-523', 'uniform-1-1977'].map(name => solved[grid.findIndex(d => d.name === name)].verdicts.join(' + ')))
       .toEqual([expect.stringContaining('(decision 21)'), expect.stringContaining('(decision 21)')]);
   });
