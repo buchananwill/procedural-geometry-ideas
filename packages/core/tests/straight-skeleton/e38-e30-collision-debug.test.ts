@@ -206,8 +206,8 @@ describe('e38-e30 Collision Debug', () => {
             const groupWithE38 = inputs.find(inp => inp.interiorEdges.includes(INSTIGATOR_ID));
             if (groupWithE38 && e38Active) {
                 const extParents = context.exteriorParentsOfSubPolygon(groupWithE38.interiorEdges);
-                const collisionLists = createCollisions(groupWithE38.interiorEdges, extParents, context);
-                const flat = collisionLists.flat().sort((a, b) => a.offsetDistance - b.offsetDistance);
+                const flat = createCollisions(groupWithE38.interiorEdges, extParents, context)
+                    .sort((a, b) => a.offsetDistance - b.offsetDistance);
                 if (flat.length > 0) {
                     const bestOffset = flat[0].offsetDistance;
                     console.log(`  Best offset in group: ${bestOffset.toFixed(6)}`);

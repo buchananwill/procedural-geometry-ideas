@@ -250,13 +250,10 @@ function canonicalEventOrder(first: CollisionEvent, second: CollisionEvent): num
     }
     const edges = first.collidingEdges;
     const others = second.collidingEdges;
-    for (let index = 0; index < Math.min(edges.length, others.length); index++) {
+    for (let index = 0; index < 2; index++) {
         if (edges[index] !== others[index]) {
             return edges[index] - others[index];
         }
-    }
-    if (edges.length !== others.length) {
-        return edges.length - others.length;
     }
     if (first.position.x !== second.position.x) {
         return first.position.x < second.position.x ? -1 : 1;

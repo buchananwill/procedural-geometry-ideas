@@ -1,10 +1,11 @@
 import {
     Arrival,
     CollisionEvent,
-    CollisionType,
     InteriorEdge,
-    NO_COLLISION_SENTINEL,
+    IntersectionType,
+    PairEvent,
     PolygonEdge,
+    SplitEvent,
     RayProjection,
     SkeletonDirection,
     StraightSkeletonSolverContext,
@@ -34,7 +35,6 @@ import {
     weightedRateSumForwardBound,
     weightedRateSumRoundingBound,
 } from "./constants";
-import {NO_COLLISION_RESULTS} from "./constants";
 import {areNeighbours} from "./wavefront";
 import {
     generateSplitEventFromTheEdgeItself,
@@ -58,6 +58,9 @@ import {
  * solver used. That is the whole mechanism behind arc decision 112(d)'s bit-identity bar — there is
  * no branch on unit weights anywhere (W-spec W36).
  */
+
+/** The `intersectRays` verdicts under which two interior rays have no collision at all. */
+export const NO_COLLISION_RESULTS: IntersectionType[] = ['diverging', 'parallel', 'identical-source']
 
 /** The wavefront clock reading of an arrival: `distance / weight` (W-spec W7). */
 export function timeOf(arrival: Arrival): number {
@@ -99,6 +102,8 @@ export function timeOf(arrival: Arrival): number {
  * of 2.9e-15 and budgets of 6.4e-16 each; `Slightly Deformed Peanut 2`). F71 read the gap as the rounding
  * of the bases, the rates and the source offsets that budget did not charge; F74 found the circles'
  * failure was the held BOX re-joining a later layer's merge onto an orphan's own source.
+ *
+ * NOT FOR PORT: this, {@link compareArrivalsAtPairWindow} and {@link arrivalsAreSimultaneous} have no solver caller.
  */
 export function pairSimultaneityWindow(a: Arrival, b: Arrival, cap: number): number {
     const left = a.distance * b.weight;
@@ -331,7 +336,7 @@ export function sourceOffsetWithBudget(edge: InteriorEdge, context: StraightSkel
     return [0, 0];
 }
 
-export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function collideInteriorAndExteriorEdge(iEdge: InteriorEdge, eEdge: PolygonEdge, context: StraightSkeletonSolverContext): SplitEvent | null {
 
     // no need to test against accepted edges
     if (context.acceptedEdges[eEdge.id]) {
@@ -505,8 +510,13 @@ function meetHeadOn(
 }
 
 /**
- * When this pair of arrivals has HAPPENED — the offset by which both participants have reached the
- * meeting point, not the offset at which whichever of them reported the event got there.
+ * Collide two interior bisectors: the pair event, and, where `edgeA` is a primary reflex bisector, the splits it
+ * makes via `edgeB`.
+ *
+ * THE PAIR EVENT CARRIES THE LATER OF ITS TWO READINGS ({@link laterArrival}, W-spec W18: `Math.max` on TIMES,
+ * decided by cross-multiplication; at unit weights `Math.max` on the two distances). That is when this pair of
+ * arrivals has HAPPENED — the offset by which both participants have reached the meeting point, not the offset at
+ * which whichever of them reported the event got there. {@link priceHeadOnPair} reads its pair the same way.
  *
  * ONE EVENT MUST CARRY ONE TIME, and until this existed it did not. `offsetDistance` is measured
  * from `edgeA`'s clockwise parent and `offsetTarget` from `edgeB`'s, and `createCollisions` reports
@@ -524,7 +534,7 @@ function meetHeadOn(
  * to within 3e-19, and the loci genuinely cross 9.03e-11 out of step. So there is no single true
  * offset to recover by computing more carefully — there is only the question of when the pair may be
  * treated as met, and the answer is when the slower of the two has arrived. The
- * `phantomDivergentOffset` test above already says the two readings must agree, at
+ * `phantomDivergentOffset` test below already says the two readings must agree, at
  * `FLOATING_POINT_EPSILON`; this decides what to do inside that tolerance instead of picking the
  * instigator's reading and calling it the event's.
  *
@@ -539,14 +549,6 @@ function meetHeadOn(
  * fired — both with `silentLosses` still empty, so those mutations became HARMLESS rather than
  * unreported — and `large-coordinate-known-failures`' half-merge split, [12,40] to [10,40].
  */
-function arrivalOffsetOfPair(arrivalFromA: Arrival, arrivalFromB: Arrival): Arrival {
-    // W-spec W18: `Math.max` on TIMES, decided by cross-multiplication. At unit weights the two
-    // products are by `1.0` and this is `Math.max` on the two distances.
-    return laterArrival(arrivalFromA, arrivalFromB);
-}
-
-/**
- * */
 export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, context: StraightSkeletonSolverContext): CollisionEvent[] {
     const ray1 = context.projectRayInterior(edgeA);
     const ray2 = context.projectRayInterior(edgeB);
@@ -572,7 +574,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
         return [];
     }
 
-    const [alongRay1, _alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
+    const [alongRay1, alongRay2] = headOnMeeting ?? [rawAlongRay1, rawAlongRay2];
 
     // THE TRAVELS' ERROR BUDGETS (journal-5 decisions 162(a), 167: the complete first-order model), one
     // per verdict: a 'converging' pair was priced by `intersectRays` — bases, sources, division, each
@@ -598,7 +600,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     }
 
     const arrivalA = arrivalOf(edgeA, context, ray1, alongRay1, budget1);
-    const arrivalB = arrivalOf(edgeB, context, ray2, _alongRay2, budget2);
+    const arrivalB = arrivalOf(edgeB, context, ray2, alongRay2, budget2);
 
     // NEIGHBOURS BY LINK, NOT BY A SHARED PARENT (BSA.F97 finding 3, BSA.D293): once an exterior edge bounds
     // two segments of one ring, two bisectors that share it need not be adjacent.
@@ -611,7 +613,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     // S23 (C8 spec T14): the phantom test asks whether the two readings are ONE MOMENT. Its window is
     // held with the other six at `HELD_SIMULTANEITY_WINDOW` (T37 STOP, C8 dispatches 1 and 2 and register
     // C12; see the constant), per pair.
-    const eventType: CollisionType = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW)
+    const eventType: PairEvent['eventType'] | 'phantomDivergentOffset' = !arrivalsAreEqual(arrivalA, arrivalB, HELD_SIMULTANEITY_WINDOW)
         || arrivalA.distance <= 0
         ? 'phantomDivergentOffset'
         : neighbours
@@ -622,7 +624,6 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
     const events: CollisionEvent[] = [];
     const canGenerateSplits = context.isReflexEdge(edgeA)
         && context.edgeRank(edgeA.id) === 'primary';
-    // && context.edgeRank(edgeB.id) === 'primary';
     if (canGenerateSplits) {
         const reflexEdge = edgeA;
         const otherEdge = edgeB;
@@ -638,7 +639,7 @@ export function collideInteriorEdges(edgeA: InteriorEdge, edgeB: InteriorEdge, c
 
     }
 
-    const pairArrival = arrivalOffsetOfPair(arrivalA, arrivalB);
+    const pairArrival = laterArrival(arrivalA, arrivalB);
     const position = findPositionAlongRay(ray1, alongRay1);
     events.push({
         offsetDistance: timeOf(pairArrival),
@@ -675,7 +676,7 @@ export function priceHeadOnPair(
     edgeA: InteriorEdge,
     edgeB: InteriorEdge,
     context: StraightSkeletonSolverContext,
-): CollisionEvent {
+): PairEvent {
     const ray1 = context.projectRayInterior(edgeA);
     const ray2 = context.projectRayInterior(edgeB);
     const [, separation] = normalize(subtractVectors(ray2.sourceVector, ray1.sourceVector));
@@ -690,7 +691,7 @@ export function priceHeadOnPair(
     const [alongRay1, alongRay2, budget1, budget2] = meetHeadOn(edgeA, edgeB, ray1, ray2, separation, context)
         ?? [separation / 2, separation / 2, midpointBudget, midpointBudget];
 
-    const pairArrival = arrivalOffsetOfPair(
+    const pairArrival = laterArrival(
         arrivalOf(edgeA, context, ray1, alongRay1, budget1),
         arrivalOf(edgeB, context, ray2, alongRay2, budget2));
     const neighbours = areNeighbours(context, edgeA.id, edgeB.id);
@@ -731,7 +732,9 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
         events.push(...collideInteriorEdges(interiorEdge, context.getInteriorWithId(edgeIdB), context));
     }
 
-    events.forEach(e => {
+    // An event past the instigator's bound is marked `outOfBounds` as a copy with every other field unchanged (a split
+    // keeps its struck segment), since an event's type is its variant.
+    return events.map((e): CollisionEvent => {
         // W-spec W16. `maxOffset` is a TIME; it is restated as an arrival against this edge's own
         // clockwise-parent weight so the comparison is the division-free one every other tolerance
         // decision uses. At unit weights `maxOffset * 1.0` is exact and this is `>` on the two
@@ -741,20 +744,17 @@ export function collideEdges(edgeIdA: number, edgeIdB: number, context: Straight
             // A bound, not a priced arrival: its uncertainty is 0, and the comparison is exact anyway (S31).
             const bound: Arrival = {distance: interiorEdge.maxOffset * boundWeight, weight: boundWeight, uncertainty: 0};
             if (compareArrivals(e.arrival, bound, 0) > 0) {
-                e.eventType = 'outOfBounds';
+                return {...e, eventType: 'outOfBounds'};
             }
         }
-
-    })
-
-    return events;
-
+        return e;
+    });
 }
 
 /**
  * Cache-aware wrapper around collideEdges.
  * Checks the context's collisionCache first; on miss, computes via
- * collideEdges and stores the result (using NO_COLLISION_SENTINEL for null).
+ * collideEdges and stores the result (an empty list when the pair has no event).
  * IMPORTANT: Reflex bisectors cannot cache their results, because they need to re-evaluate for split validity if the
  * rate of shrinkage of an edge changes (after a collapse event)
  */
@@ -780,7 +780,7 @@ export function findOrComputeCollision(
     if (innerMap !== undefined) {
         const cached = innerMap.get(edgeIdB);
         if (cached !== undefined) {
-            return cached === NO_COLLISION_SENTINEL ? [] : cached;
+            return cached;
         }
     }
 
@@ -793,17 +793,16 @@ export function findOrComputeCollision(
         cache.set(edgeIdA, targetMap);
     }
 
-
-        targetMap.set(edgeIdB, result ?? NO_COLLISION_SENTINEL);
-
+    targetMap.set(edgeIdB, result);
 
     return result;
 }
 
 /**
  * Which parents two bisectors share. NOT A TEST OF ADJACENCY, and the solver no longer asks it as one: two
- * bisectors are neighbours when the wavefront's links say so (`areNeighbours`, BSA.D293). Kept exported for
- * its callers outside the solver.
+ * bisectors are neighbours when the wavefront's links say so (`areNeighbours`, BSA.D293).
+ *
+ * NOT FOR PORT: no solver caller; it is exported for two debug tests (`step3-trace`, `duck-octagon-debug`).
  */
 export function checkSharedParents(edge1: number, edge2: number, context: StraightSkeletonSolverContext): [boolean, boolean, boolean, boolean] {
     const {clockwise: e1CwParent, widdershins: e1WsParent} = context.parentEdges(edge1);

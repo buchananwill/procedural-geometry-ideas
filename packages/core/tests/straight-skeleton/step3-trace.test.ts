@@ -10,7 +10,7 @@ import {createCollisions, handleInteriorNGon} from '@proc-geo/core';
 import {handleCollisionEvent} from '@proc-geo/core';
 import {addVectors, scaleVector, crossProduct, areEqual} from '@proc-geo/core';
 import {intersectRays} from '@proc-geo/core';
-import type {AlgorithmStepInput, CollisionEvent} from '@proc-geo/core';
+import type {AlgorithmStepInput, ResolvableEvent} from '@proc-geo/core';
 
 const fmt = (v: {x:number,y:number}) => `(${v.x.toFixed(4)}, ${v.y.toFixed(4)})`;
 
@@ -42,38 +42,28 @@ describe('Step 3 Detailed Trace', () => {
         exteriorParents.push(context.widdershinsParent(context.getInteriorWithId(input.interiorEdges[0])).id);
         console.log('Exterior parents:', exteriorParents);
 
-        const collisionLists = createCollisions(input.interiorEdges, exteriorParents, context);
-        console.log('\nCollision lists (best per instigator):');
-        for (const list of collisionLists) {
-            if (list.length > 0) {
-                const best = list[0];
-                console.log(`  [${best.collidingEdges.join(',')}] type=${best.eventType} offset=${best.offsetDistance.toFixed(4)} pos=${fmt(best.position)}`);
-                if (list.length > 1) {
-                    for (let k = 1; k < Math.min(list.length, 3); k++) {
-                        const ev = list[k];
-                        console.log(`    also: [${ev.collidingEdges.join(',')}] type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)}`);
-                    }
-                }
-            }
+        // `createCollisions` returns one flat list of resolvable events, instigator by instigator.
+        const collisions = createCollisions(input.interiorEdges, exteriorParents, context);
+        console.log('\nCollisions:');
+        for (const ev of collisions) {
+            console.log(`  [${ev.collidingEdges.join(',')}] type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)} pos=${fmt(ev.position)}`);
         }
 
         // Find the actual minimum-offset slice
         let bestOffset = Infinity;
-        for (const list of collisionLists) {
-            if (list.length > 0 && list[0].offsetDistance < bestOffset) {
-                bestOffset = list[0].offsetDistance;
+        for (const ev of collisions) {
+            if (ev.offsetDistance < bestOffset) {
+                bestOffset = ev.offsetDistance;
             }
         }
         console.log('\nBest offset:', bestOffset.toFixed(4));
 
         // Which events fire?
-        const firingEvents: CollisionEvent[] = [];
-        for (const list of collisionLists) {
-            for (const ev of list) {
-                // The layer window the solver's sites hold (1e-8, C8 dispatch 1's T37 STOP), stated.
-                if (areEqual(ev.offsetDistance, bestOffset, 1e-8) && ev.eventType !== 'phantomDivergentOffset') {
-                    firingEvents.push(ev);
-                }
+        const firingEvents: ResolvableEvent[] = [];
+        for (const ev of collisions) {
+            // The layer window the solver's sites hold (1e-8, C8 dispatch 1's T37 STOP), stated.
+            if (areEqual(ev.offsetDistance, bestOffset, 1e-8)) {
+                firingEvents.push(ev);
             }
         }
         console.log('Firing events:');
@@ -116,12 +106,10 @@ describe('Step 3 Detailed Trace', () => {
         console.log('\nExterior parents for createCollisions:', exteriorParents);
         console.log('Which of these are accepted?', exteriorParents.map(p => `ext${p}:${context.acceptedEdges[p]}`));
 
-        const collisionLists = createCollisions(input.interiorEdges, exteriorParents, context);
-        console.log('\nCollision lists from createCollisions:', collisionLists.length, 'non-empty lists');
-        for (const list of collisionLists) {
-            for (const ev of list) {
-                console.log(`  [${ev.collidingEdges.join(',')}] type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)} pos=${fmt(ev.position)} intersect=[${ev.intersectionData[0].toFixed(4)},${ev.intersectionData[1].toFixed(4)},${ev.intersectionData[2]}]`);
-            }
+        const collisions = createCollisions(input.interiorEdges, exteriorParents, context);
+        console.log('\nCollisions from createCollisions:', collisions.length, 'events');
+        for (const ev of collisions) {
+            console.log(`  [${ev.collidingEdges.join(',')}] type=${ev.eventType} offset=${ev.offsetDistance.toFixed(4)} pos=${fmt(ev.position)} intersect=[${ev.intersectionData[0].toFixed(4)},${ev.intersectionData[1].toFixed(4)},${ev.intersectionData[2]}]`);
         }
 
         // Also check: for each reflex edge, what exterior edges should be checked?

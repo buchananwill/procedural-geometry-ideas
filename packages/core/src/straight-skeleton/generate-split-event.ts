@@ -1,9 +1,9 @@
 import {
     Arrival,
-    CollisionEvent,
     InteriorEdge, IntersectionResult, PolygonEdge,
     RayProjection,
     SkeletonDirection,
+    SplitEvent,
     SplitOffsetResult,
     StraightSkeletonSolverContext,
     Vector2,
@@ -281,7 +281,7 @@ function firstUnrefused(
     return validating.find(segment => !linkGuardRefuses(context, instigatorId, segment));
 }
 
-export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function generateSplitEvent(instigatorData: InteriorEdge, edgeToSplit: PolygonEdge, context: StraightSkeletonSolverContext): SplitEvent | null {
 
     const {
         clockwise: instigatorClockwiseParent,
@@ -338,7 +338,7 @@ export function generateSplitEventViaBisector(
     targetId: number,
     direction: SkeletonDirection,
     context: StraightSkeletonSolverContext,
-): CollisionEvent | null {
+): SplitEvent | null {
     if (context.edgeRank(instigatorId) !== 'primary' || context.edgeRank(targetId) === 'exterior') {
         return null;
     }
@@ -387,7 +387,7 @@ export function reachesSupportingLine(
         || (alongInstigator > 0 && Math.abs(alongEdge) < coaxialityFloor);
 }
 
-export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): CollisionEvent | null {
+export function generateSplitEventFromTheEdgeItself(instigatorId: number, targetId: number, context: StraightSkeletonSolverContext): SplitEvent | null {
     const edgeToSplit = context.getEdgeWithId(targetId);
     const instigatorData = context.getInteriorWithId(instigatorId);
 

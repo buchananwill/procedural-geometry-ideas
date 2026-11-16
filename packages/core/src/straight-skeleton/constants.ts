@@ -1,4 +1,4 @@
-import {IntersectionType, Vector2} from "./types";
+import {Vector2} from "./types";
 
 /*
  * ----------------------------------------------------------------------------
@@ -10,7 +10,8 @@ import {IntersectionType, Vector2} from "./types";
  * package may now contain only: the client's perceptual floor δ (`context.perceptualFloor`, unit
  * space) for "visibly the same"; the unit roundoff u = 2⁻⁵³ (`UNIT_ROUNDOFF`) for "arithmetically
  * distinguishable"; integer multiples of u argued at their site the way `CROSS_PRODUCT_ROUNDING_UNITS`
- * is argued below; and IEEE representability limits.
+ * is argued below; and IEEE representability limits. The four bars still held at the retired `1e-8` by measured
+ * STOPs are the only exceptions, and they are kept together in "THE HELD BARS" below.
  *
  * THE CATEGORY RULE (spec T2, ratified by decision 157). A comparison that decides a QUESTION the
  * arithmetic cannot decide — about input geometry, or about candidate events before any node exists —
@@ -242,6 +243,17 @@ export function simultaneityWindow(perceptualFloor: number): number {
 
 /*
  * ----------------------------------------------------------------------------
+ * THE HELD BARS — FOUR LITERAL 1e-8s, THE ONLY EXCEPTIONS TO THE TWO SOURCES ABOVE
+ * ----------------------------------------------------------------------------
+ *
+ * Four comparisons still spend the retired scratch value, each held there by a measured STOP rather than derived from
+ * δ or u, and each kept here: {@link HELD_SIMULTANEITY_WINDOW} and {@link ARITHMETIC_SAME_POINT_BOX}, one matched
+ * pair (the section below); {@link POINT_ON_RAY_SINE_BAR}, the snap's point-on-ray sine; and
+ * {@link ZERO_RATE_SINE_BAR}, `addBisectionEdge`'s zero-rate sine.
+ */
+
+/*
+ * ----------------------------------------------------------------------------
  * THE WINDOW AND THE BOX — ONE HAND-TUNED SYSTEM, HELD TOGETHER (journal decisions 162 and 167, findings
  * F72 (struck) and F74, register C12)
  * ----------------------------------------------------------------------------
@@ -302,6 +314,52 @@ export function simultaneityWindow(perceptualFloor: number): number {
  * fixtures dispatch 2 split are gathered and unmoved, and the move STOPS elsewhere — see the section above.
  */
 export const HELD_SIMULTANEITY_WINDOW = 0.00000001;
+
+/**
+ * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
+ * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
+ * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
+ * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule; register C12).
+ *
+ * O1's settling histogram (dispatch 1, 2026-09-24) found joins ABOVE 64 ulps — 43 of them at 5e5 to
+ * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine translations,
+ * one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — that do NOT correlate with
+ * the pricing's conditioning. F74 traced them: 41 of 44 are this box absorbing a genuinely later or
+ * earlier event (1e-10 to 4e-7 away in time), which decision 141 would admit as a distinct node.
+ *
+ * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
+ * bar and never δ (F27, audit C1).
+ *
+ * THE WINDOW'S COUNTERPART (journal decisions 162(b), 167): the other half of ONE matched pair with
+ * {@link HELD_SIMULTANEITY_WINDOW}. Register C12 measured both at the arithmetic bar and the move STOPPED;
+ * see "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`. Exact, the four sites read: S1 and S4
+ * coordinate equality; S2 coordinate equality OR one instigator (a group of re-reports of ONE split is
+ * one node by acceptance — read as equality alone, it moved seven clean digests by at most 1.93 ulps);
+ * S5 could not be exact (the two ends of a zero-length offset segment are computed apart and differ by
+ * ulps, and an exact S5 keeps a repeated vertex).
+ */
+export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
+
+/**
+ * The snap's point-on-ray sine bar (`pointLiesOnRay` in algorithm-termination-cases.ts, census S10), HELD at its
+ * historical `1e-8` (C8 spec T32; journal decision 161(e)).
+ *
+ * T32 moves it to the coaxial form, as S11 moved. MEASURED (dispatch 2, and again in dispatch 3 on a tree
+ * with S6, S11 and S20 landed): at the lane the snap gives `Off-edge Jitter Plus`, k = 3, seed 47514 (the
+ * off-edge 1e-3 grid) an offset violation of its own, DIAGNOSED as a `causality-violation` on a cell that
+ * had none — T37 STOP 3 — and moves 39 of the 580 sweep cells by digest (15 of Circle 48's fine
+ * translations, 5e9..1e11; 18 off-edge plus cells and one L cell; 5 cells of the jittered Circle 32 ladder,
+ * one of which, 1 × 1e-8 seed 2, loses a node). So it stays here. `tolerance-derivation.test.ts` asserts
+ * the held state on that cell.
+ */
+export const POINT_ON_RAY_SINE_BAR = 0.00000001;
+
+/**
+ * `addBisectionEdge`'s zero-rate sine bar (algorithm-helpers.ts), HELD (census S19). Three re-derivations were
+ * measured and refused: T17's ρ (dispatch 2, decision 161(b)), `k·u` and the forward bound 8u (dispatch 3, decision
+ * 164). Each measurement is at the site.
+ */
+export const ZERO_RATE_SINE_BAR = 0.00000001;
 
 /**
  * The largest ratio between the fastest and slowest edge weight the solver will accept (W-spec W48;
@@ -835,31 +893,6 @@ export function weightedRateSumForwardBound(
 }
 
 /**
- * "Are these two positions ONE POINT?" once a node exists — the ARITHMETIC same-point bar of S1
- * (`findOrAddNode`), S2 (`coincidentEventPositions`), S4 (graph-merge's crossing-point dedupe) and S5
- * (the offset projection's zero-length segments). HELD AT ITS HISTORICAL VALUE, THE COMPONENT BOX AT
- * `1e-8`, AS A MEASURED STOP (C8 spec T8 and O1; journal decision 154's ruling rule; register C12).
- *
- * O1's settling histogram (dispatch 1, 2026-09-24) found joins ABOVE 64 ulps — 43 of them at 5e5 to
- * 5.2e7 ulps of the unit extent (7e-10 to 1.16e-8), on Circle 48 and Rosette5 40 at fine translations,
- * one off-edge jitter cell and eight cells of the jittered Circle 32 ladder — that do NOT correlate with
- * the pricing's conditioning. F74 traced them: 41 of 44 are this box absorbing a genuinely later or
- * earlier event (1e-10 to 4e-7 away in time), which decision 141 would admit as a distinct node.
- *
- * Its acceptance DISCARDS a produced answer (two nodes become one), so under T2 it is an arithmetic
- * bar and never δ (F27, audit C1).
- *
- * THE WINDOW'S COUNTERPART (journal decisions 162(b), 167): the other half of ONE matched pair with
- * {@link HELD_SIMULTANEITY_WINDOW}. Register C12 measured both at the arithmetic bar and the move STOPPED;
- * see "THE WINDOW AND THE BOX" above `HELD_SIMULTANEITY_WINDOW`. Exact, the four sites read: S1 and S4
- * coordinate equality; S2 coordinate equality OR one instigator (a group of re-reports of ONE split is
- * one node by acceptance — read as equality alone, it moved seven clean digests by at most 1.93 ulps);
- * S5 could not be exact (the two ends of a zero-length offset segment are computed apart and differ by
- * ulps, and an exact S5 keeps a repeated vertex).
- */
-export const ARITHMETIC_SAME_POINT_BOX = 0.00000001;
-
-/**
  * "Are these two sources on ONE LINE?" — the LANE WIDTH, in distance, for the coaxiality question
  * (spec A9/A10, journal decisions 135 and 136).
  *
@@ -886,6 +919,3 @@ export function coaxialityFloor(perceptualFloor: number): number {
     return perceptualFloor;
 }
 
-export const NO_COLLISION_RESULTS: IntersectionType[] = ['diverging', 'parallel', 'identical-source']
-
-export const TRIANGLE_INTERSECT_PAIRINGS = [[0,1],[1,2],[2,0],[1,0],[2,1],[0,2]]

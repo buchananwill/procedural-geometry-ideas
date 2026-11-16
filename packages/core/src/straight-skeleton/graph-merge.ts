@@ -298,8 +298,6 @@ export function makeMergedSolverContext(
         isReflexEdge: notSupported('isReflexEdge'),
         widdershinsBisector: notSupported('widdershinsBisector'),
         clockwiseBisector: notSupported('clockwiseBisector'),
-        clockwiseVertexAtOffset: notSupported('clockwiseVertexAtOffset'),
-        widdershinsVertexAtOffset: notSupported('widdershinsVertexAtOffset'),
         terminateEdgesAtPoint: notSupported('terminateEdgesAtPoint'),
         crossWireEdges: notSupported('crossWireEdges'),
         parentEdges: notSupported('parentEdges'),

@@ -2,7 +2,6 @@ import {CLEAN_TEST_POLYGONS} from '@proc-geo/test-fixtures';
 import {
     CollisionCache,
     CollisionEvent,
-    NO_COLLISION_SENTINEL,
     SMALLEST_NORMAL_DOUBLE,
     SkeletonNormalisation,
     StraightSkeletonGraph,
@@ -782,11 +781,11 @@ describe('unit-extent normalisation', () => {
             expect(event.intersectionData[1]).toBe(Number.NEGATIVE_INFINITY);
         });
 
-        it('steps over the no-collision sentinel', () => {
-            const cache: CollisionCache = new Map([[4, new Map([[5, NO_COLLISION_SENTINEL]])]]);
+        it('leaves an entry with no event empty', () => {
+            const cache: CollisionCache = new Map([[4, new Map([[5, []]])]]);
 
             expect(() => denormaliseCollisionCache(cache, normalisation)).not.toThrow();
-            expect(cache.get(4)!.get(5)).toBe(NO_COLLISION_SENTINEL);
+            expect(cache.get(4)!.get(5)).toEqual([]);
         });
     });
 

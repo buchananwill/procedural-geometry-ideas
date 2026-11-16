@@ -788,15 +788,15 @@ describe('decision 167(c): a child with exactly one live interior edge is a LOUD
         const context = makeStraightSkeletonSolverContext(SQUARE, SKELETON_NOISE_FLOOR);
         initInteriorEdges(context);
         const ids = context.graph.interiorEdges.map(edge => edge.id);
-        const spy = jest.spyOn(complexCases, 'handleInteriorNGon').mockReturnValue({
-            childSteps: [{interiorEdges: [ids[2]]}, {interiorEdges: []}, {interiorEdges: [ids[0], ids[1]]}],
-        });
+        const spy = jest.spyOn(complexCases, 'handleInteriorNGon').mockReturnValue(
+            [{interiorEdges: [ids[2]]}, {interiorEdges: []}, {interiorEdges: [ids[0], ids[1]]}],
+        );
         try {
             const output = stepAlgorithm(context, [{interiorEdges: ids}]);
             expect(output.childSteps).toEqual([{interiorEdges: [ids[0], ids[1]]}]);
             expect(output.errors).toHaveLength(1);
-            expect(output.errors![0]).toContain(`e${ids[2]}`);
-            expect(output.errors![0]).toContain(`[${ids.join(', ')}]`);
+            expect(output.errors[0]).toContain(`e${ids[2]}`);
+            expect(output.errors[0]).toContain(`[${ids.join(', ')}]`);
         } finally {
             spy.mockRestore();
         }

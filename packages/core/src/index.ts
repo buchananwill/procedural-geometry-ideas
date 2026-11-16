@@ -12,6 +12,10 @@ export type {
   StraightSkeletonSolverContext,
   SplitOffsetResult,
   CollisionEvent,
+  PairEvent,
+  SplitEvent,
+  UnresolvableEvent,
+  ResolvableEvent,
   BisectionParams,
   AlgorithmStepInput,
   AlgorithmStepOutput,
@@ -43,7 +47,7 @@ export { checkWavefront, ringsOfWavefront } from './straight-skeleton/wavefront'
 
 // ── Post-solve wavefront causality check (journal-5 decision 148) ────────────
 export { checkWavefrontCausality } from './straight-skeleton/causality-check';
-export { SkeletonDirection, CollisionTypePriority, NO_COLLISION_SENTINEL } from './straight-skeleton/types';
+export { SkeletonDirection, CollisionTypePriority } from './straight-skeleton/types';
 
 // ── Unit-extent normalisation (the solver's boundary transform) ──────────────
 export type { SkeletonNormalisation } from './straight-skeleton/normalisation';
@@ -89,10 +93,8 @@ export {
   degenerateAreaBar,
   maxWeightRatio,
   minWeightTurnSine,
-  NO_COLLISION_RESULTS,
   perceptualBound,
   simultaneityWindow,
-  TRIANGLE_INTERSECT_PAIRINGS,
   UNIT_ROUNDOFF,
 } from './straight-skeleton/constants';
 
@@ -175,6 +177,7 @@ export {
   collideEdges,
   findOrComputeCollision,
   checkSharedParents,
+  NO_COLLISION_RESULTS,
 } from './straight-skeleton/collision-helpers';
 
 // ── Collision handling ───────────────────────────────────────────────────────
@@ -199,6 +202,7 @@ export {
   solveSkeleton,
   solveSkeletonStepped,
   canonicaliseForSolve,
+  TRIANGLE_INTERSECT_PAIRINGS,
 } from './straight-skeleton/algorithm-termination-cases';
 export type {
   HoleOptions,

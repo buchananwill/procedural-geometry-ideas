@@ -981,8 +981,9 @@ function crossedPairingProblems(
  * ITS ZERO WAS LOAD-BEARING BEFORE THAT AND STILL IS. Three of k=4's five-edge ring's arrivals land
  * on ONE point with pairwise offsets spread over 9.03e-11 because a pair's event used to carry the
  * offset of whichever edge REPORTED it rather than the offset by which both had arrived. Order those
- * asymmetric readings and the ring pairs on an arrival that had not happened. `arrivalOffsetOfPair`
- * in `collision-helpers.ts` is what keeps that from happening, and mutating it to return
+ * asymmetric readings and the ring pairs on an arrival that had not happened. The pair event's
+ * `laterArrival` of its two readings in `collideInteriorEdges` (`collision-helpers.ts`, once
+ * `arrivalOffsetOfPair`) is what keeps that from happening, and mutating it to return
  * `offsetFromA` is the conviction of it.
  *
  * THE HISTORY OF (seed 55433)'S FIRST PAIR, kept because it is the evidence that pairing and

@@ -23,13 +23,7 @@ import {
     rayIntersectionUncertainty,
     timeOf
 } from "./collision-helpers";
-
-/**
- * `addBisectionEdge`'s zero-rate sine bar, HELD (census S19). Three re-derivations were measured and
- * refused: T17's ρ (dispatch 2, decision 161(b)), `k·u` and the forward bound 8u (dispatch 3, decision
- * 164). Each measurement is at the site.
- */
-const ZERO_RATE_SINE_BAR = 0.00000001;
+import {ZERO_RATE_SINE_BAR} from "./constants";
 
 
 /**

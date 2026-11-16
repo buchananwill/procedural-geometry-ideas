@@ -1,6 +1,5 @@
 import {
     CollisionCache,
-    NO_COLLISION_SENTINEL,
     StraightSkeletonGraph,
     Vector2,
 } from './types';
@@ -117,7 +116,7 @@ import {
  *                                 DIMENSIONLESS — untouched.
  *
  * DERIVED QUANTITIES NEED NO ENTRY IN THAT LIST AND MUST NOT BE GIVEN ONE. `sourceOffsetDistance`,
- * `makeOffsetDistance`, `projectRay`, `clockwiseVertexAtOffset` and `computeMaxOffset` are pure
+ * `makeOffsetDistance`, `projectRay` and `computeMaxOffset` are pure
  * functions of the graph, computed on demand and never cached, so they follow the graph into caller
  * space by themselves. Scaling them as well would apply the factor twice.
  *
@@ -354,9 +353,6 @@ export function denormalisePositionUncertainties(budgets: number[], normalisatio
 export function denormaliseCollisionCache(cache: CollisionCache, normalisation: SkeletonNormalisation): void {
     for (const byFirstEdge of cache.values()) {
         for (const entry of byFirstEdge.values()) {
-            if (entry === NO_COLLISION_SENTINEL) {
-                continue;
-            }
             for (const event of entry) {
                 event.offsetDistance = denormaliseLength(normalisation, event.offsetDistance);
                 // W-spec W47: the WEIGHT is dimensionless and untouched; the distance it is paired

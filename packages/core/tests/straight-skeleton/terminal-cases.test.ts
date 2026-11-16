@@ -210,7 +210,7 @@ describe('handleInteriorEdgePair: a shared source is a terminal state, not a fai
 
         const output = handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
 
-        expect(output.childSteps).toEqual([]);
+        expect(output).toEqual([]);
         for (const edgeId of interiorEdgeIds) {
             expect(context.getEdgeWithId(edgeId).target).toBe(sharedSource);
             expect(context.isAccepted(edgeId)).toBe(true);
@@ -290,7 +290,7 @@ describe('handleInteriorEdgePair: collinear same-direction pairs resolve in eith
 
         const output = handleInteriorEdgePair(context, {interiorEdges: interiorEdgeIds});
 
-        expect(output.childSteps).toEqual([]);
+        expect(output).toEqual([]);
         expect(context.getEdgeWithId(trailingId).target).toBe(leadingSource);
         expect(context.getEdgeWithId(leadingId).target).toBe(leadingSource);
         expect(context.getInteriorWithId(leadingId).culled).toBe(true);
@@ -571,7 +571,7 @@ describe('decision 145: the n-gon climbs the same ladder', () => {
 
         const output = handleInteriorNGon(context, {interiorEdges: interiorEdgeIds});
 
-        expect(output.childSteps).toEqual([]);
+        expect(output).toEqual([]);
         for (const edgeId of interiorEdgeIds) {
             expect(context.getEdgeWithId(edgeId).target).toBe(centre.id);
             expect(context.isAccepted(edgeId)).toBe(true);

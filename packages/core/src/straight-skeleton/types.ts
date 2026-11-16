@@ -175,10 +175,6 @@ export interface GraphHelpers {
     isReflexEdge(edgeA: InteriorEdge): boolean;
     widdershinsBisector(edgeId: number): PolygonEdge;
     clockwiseBisector(edgeId: number): PolygonEdge;
-    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
-    clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2;
-    /** `localTime` is a TIME; it is multiplied by the exterior edge's own weight (W-spec W40). */
-    widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2;
     /** Terminate `edgeIds` at the node at `position` ({@link findOrAddNode}), carrying its error budget. */
     terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode;
     crossWireEdges(id1: number, id2: number): void;
@@ -334,7 +330,8 @@ export interface SplitOffsetResult {
     intersectionData: IntersectionResult;
 }
 
-export interface CollisionEvent {
+/** The fields every collision event carries, whatever its type. */
+interface CollisionEventFields {
     /** A TIME — `timeOf(arrival)` (W-spec W5). At unit weights this is today's distance. */
     offsetDistance: number;
     /** The pair every predicate reads (W-spec W7, W22). */
@@ -344,22 +341,43 @@ export interface CollisionEvent {
      * carried onto the node the event creates (`StraightSkeletonSolverContext.positionUncertainties`).
      */
     positionUncertainty: number;
-    collidingEdges: number[]; // first two are instigator and main result, i.e. exterior edge if split, otherwise intersection. Other indices if present are bisector rays to also accept in this event.
+    /** `[instigator, target]`: the target is the struck exterior edge for a split, the other bisector otherwise. */
+    collidingEdges: [number, number];
     position: Vector2;
     intersectionData: IntersectionResult
-    eventType: CollisionType
-    /**
-     * The segment of the struck exterior edge this split validated on (spec decision 11). Set on every
-     * `interiorAgainstExterior` event; the split rewrites the wavefront's links around it (decision 12).
-     */
-    struckSegment?: WavefrontSegment
 }
 
-/** Sentinel stored in the collision cache when collideEdges returned null. */
-export const NO_COLLISION_SENTINEL = Symbol('no-collision');
+/** Two bisectors meeting: neighbours on the wavefront (`interiorPair`) or not (`interiorNonAdjacent`). */
+export interface PairEvent extends CollisionEventFields {
+    eventType: 'interiorPair' | 'interiorNonAdjacent';
+}
 
-/** A single cache entry: either a real CollisionEvent, or the sentinel for "computed, was null". */
-export type CollisionCacheEntry = CollisionEvent[] | typeof NO_COLLISION_SENTINEL;
+/** A bisector striking an exterior edge: a split. */
+export interface SplitEvent extends CollisionEventFields {
+    eventType: 'interiorAgainstExterior';
+    /**
+     * The segment of the struck exterior edge this split validated on (spec decision 11); the split rewrites the
+     * wavefront's links around it (decision 12).
+     */
+    struckSegment: WavefrontSegment;
+}
+
+/**
+ * An event the solver prices and never resolves: a pair whose two readings disagree (`phantomDivergentOffset`), or an
+ * event past its instigator's bound (`outOfBounds`, which `collideEdges` marks and which keeps a split's segment).
+ */
+export interface UnresolvableEvent extends CollisionEventFields {
+    eventType: 'phantomDivergentOffset' | 'outOfBounds';
+    struckSegment?: WavefrontSegment;
+}
+
+/** The events a layer resolves: `createCollisions` keeps only these. */
+export type ResolvableEvent = PairEvent | SplitEvent;
+
+export type CollisionEvent = ResolvableEvent | UnresolvableEvent;
+
+/** A single cache entry: the events `collideEdges` returned for the pair, empty when there are none. */
+export type CollisionCacheEntry = CollisionEvent[];
 
 /**
  * Nested map keyed by (edgeIdA, edgeIdB) in call order.
@@ -394,14 +412,14 @@ export interface AlgorithmStepInput {
     interiorEdges: number[]
 }
 
+/** What `stepAlgorithm` returns. A handler of one input returns its child steps alone, as `AlgorithmStepInput[]`. */
 export interface AlgorithmStepOutput {
     childSteps: AlgorithmStepInput[]
     /**
-     * Messages for sub-polygons that threw while being handled. Populated by `stepAlgorithm`,
-     * which catches per-sub-polygon exceptions so that sibling sub-polygons still resolve.
-     * Absent (or empty) means every input was handled without error.
+     * Messages for sub-polygons that threw while being handled. `stepAlgorithm` catches per-sub-polygon exceptions
+     * so that sibling sub-polygons still resolve. Empty means every input was handled without error.
      */
-    errors?: string[]
+    errors: string[]
 }
 
 /**

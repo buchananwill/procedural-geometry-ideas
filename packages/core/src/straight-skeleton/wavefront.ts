@@ -621,17 +621,12 @@ function struckPiece(
 export function linkSplit(
     context: StraightSkeletonSolverContext,
     instigator: number,
-    segment: WavefrontSegment | undefined,
+    segment: WavefrontSegment,
     position: Vector2,
     towardsClockwise: BisectionParams,
     towardsWiddershins: BisectionParams,
 ): void {
     const layer = layerOf(context);
-    if (segment === undefined) {
-        retireBisector(context, instigator);
-        return;
-    }
-
     const struck = struckPiece(context, segment, position, () => ringThrough(context, instigator));
     const from = struck.from;
     const pieceEnd = struck.end;

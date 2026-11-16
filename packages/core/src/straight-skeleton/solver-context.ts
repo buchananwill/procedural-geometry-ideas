@@ -343,16 +343,6 @@ export function makeStraightSkeletonSolverContext(
         },
         widdershinsBisector: primaryWiddershinsBisector,
         clockwiseBisector: primaryClockwiseBisector,
-        // W-spec W40: the argument is a local TIME, carried to a perpendicular distance by the
-        // exterior edge's own weight. At unit weights `localTime * 1.0` is exact.
-        clockwiseVertexAtOffset(edgeId: number, localTime: number): Vector2 {
-            return vertexAtOffset(primaryClockwiseBisector(edgeId), getEdgeWithId(edgeId).basisVector,
-                localTime * weightOf(edgeId));
-        },
-        widdershinsVertexAtOffset(edgeId: number, localTime: number): Vector2 {
-            return vertexAtOffset(primaryWiddershinsBisector(edgeId), getEdgeWithId(edgeId).basisVector,
-                localTime * weightOf(edgeId));
-        },
         terminateEdgesAtPoint(edgeIds: number[], position: Vector2, positionUncertainty: number): PolygonNode {
             const node = findOrAddNode(position, positionUncertainty);
             addInEdges(node, edgeIds);
@@ -389,7 +379,7 @@ export function makeStraightSkeletonSolverContext(
         },
         validateSplitReachesEdge(bisectorId: number, edgeToSplitId: number, arrival: Arrival): WavefrontSegment[] {
             const splitIntersectionOptions: IntersectionType[] = ['converging']
-            const bisectorRay = this.projectRayInterior(getInteriorWithId(bisectorId));
+            const bisectorRay = context.projectRayInterior(getInteriorWithId(bisectorId));
             const edgeBasis = getEdgeWithId(edgeToSplitId).basisVector;
             // The split edge's own weight: the bounding bisectors' travel along this edge is a
             // perpendicular DISTANCE from THIS edge's line, so it is the local time times THIS
@@ -412,8 +402,8 @@ export function makeStraightSkeletonSolverContext(
                 // not-yet-born test is the division-free comparison against it. The local travel is
                 // then a difference of TIMES. At unit weights both times are `d / 1.0` and this is
                 // today's `offset - sourceOffset`.
-                const widdershinsBirth = birthArrivalOf(widdershinsBisector, this);
-                const clockwiseBirth = birthArrivalOf(clockwiseBisector, this);
+                const widdershinsBirth = birthArrivalOf(widdershinsBisector, context);
+                const clockwiseBirth = birthArrivalOf(clockwiseBisector, context);
                 const clockwiseLocalTime = splitTime - timeOf(clockwiseBirth);
                 const widdershinsLocalTime = splitTime - timeOf(widdershinsBirth);
 

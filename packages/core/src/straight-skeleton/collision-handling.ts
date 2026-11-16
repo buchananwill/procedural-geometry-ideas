@@ -1,5 +1,5 @@
-import {BisectionParams, CollisionEvent, StraightSkeletonSolverContext} from "./types";
-import {areNeighbours, linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
+import {BisectionParams, ResolvableEvent, StraightSkeletonSolverContext} from "./types";
+import {linkPairCollapse, linkSplit, linkVertexToVertex, pairCollapseSides} from "./wavefront";
 
 
 /**
@@ -10,7 +10,7 @@ import {areNeighbours, linkPairCollapse, linkSplit, linkVertexToVertex, pairColl
  * that the layer replaces by their ids when it creates them (`wavefront.ts`). The one link read here is the
  * pair collapse's: which collider stands on which side.
  */
-function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
+function handleCollisionEvent(event: ResolvableEvent, context: StraightSkeletonSolverContext): BisectionParams[] {
 
     const [instigator, target] = event.collidingEdges;
 
@@ -24,24 +24,22 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
     // spec, decision 3): never answered from the type a cached event was priced with, because the links can change
     // between pricing and resolution, and a shared parent no longer means adjacency once an edge bounds two
     // segments of one ring.
-    const eventType = event.eventType === 'interiorPair' || event.eventType === 'interiorNonAdjacent'
-        ? (areNeighbours(context, instigator, target) ? 'interiorPair' : 'interiorNonAdjacent')
-        : event.eventType;
+    //
+    // WHICH COLLIDER STANDS ON WHICH SIDE IS READ FROM THE LINKS (BSA.F97 finding 3, BSA.D293): the
+    // widdershins collider is the one whose clockwise neighbour is the other. A shared parent cannot say
+    // it once an exterior edge bounds two segments of one ring. Two bisectors that are not neighbours
+    // have no sides, so `sides` is defined exactly for a pair collapse.
+    const sides = event.eventType === 'interiorAgainstExterior'
+        ? undefined
+        : pairCollapseSides(context, instigator, target);
 
     const newNode = context.terminateEdgesAtPoint([instigator], event.position, event.positionUncertainty);
 
-    if (eventType === 'interiorPair') {
+    if (sides !== undefined) {
         const otherInterior = context.getInteriorWithId(target);
         context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
-        // WHICH COLLIDER STANDS ON WHICH SIDE IS READ FROM THE LINKS (BSA.F97 finding 3, BSA.D293): the
-        // widdershins collider is the one whose clockwise neighbour is the other. A shared parent cannot say
-        // it once an exterior edge bounds two segments of one ring. Two bisectors that are not neighbours
-        // have no sides, and `linkPairCollapse` refuses them.
-        const sides = pairCollapseSides(context, instigator, target);
-        const [widdershinsCollider, clockwiseCollider] = sides === undefined
-            ? [interiorEdge, otherInterior]
-            : sides.map(id => id === instigator ? interiorEdge : otherInterior);
+        const [widdershinsCollider, clockwiseCollider] = sides.map(id => id === instigator ? interiorEdge : otherInterior);
 
         context.accept(widdershinsCollider.id);
         context.accept(clockwiseCollider.id);
@@ -57,14 +55,14 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
 
     }
 
-    if (eventType === 'interiorNonAdjacent') {
+    if (event.eventType !== 'interiorAgainstExterior') {
         const otherInterior = context.getInteriorWithId(target);
 
         // The target arrives at this point just as the instigator does, so it ends here too.
         // Accepting it without terminating it strands it: `accept` only marks the edge resolved,
         // it does not give it a target node, and the reciprocal event cannot repair the omission
         // because by then both edges are accepted and the handler returns early above. The
-        // `interiorPair` branch terminates both for exactly this reason.
+        // pair-collapse branch terminates both for exactly this reason.
         context.terminateEdgesAtPoint([target], event.position, event.positionUncertainty);
 
         context.accept(instigator);
@@ -86,42 +84,24 @@ function handleCollisionEvent(event: CollisionEvent, context: StraightSkeletonSo
         return bisections
     }
 
-    if (eventType === 'interiorAgainstExterior') {
-        const instigatorInterior = context.getInteriorWithId(instigator);
+    // A split: the instigator strikes the exterior edge `target`.
+    context.acceptedEdges[instigator] = true;
 
-        // NEVER REACHED ON THE CORPUS: no event generator emits more than two colliding edges. Kept as it
-        // was; such an edge would be accepted without being unlinked, and `checkWavefront` would say so.
-        if (event.collidingEdges.length > 2) {
-            event.collidingEdges.slice(2).forEach(e => {
-                if (context.edgeRank(e) !== 'exterior') {
-                    context.acceptedEdges[e] = true;
-                }
 
-            })
+    const bisections: BisectionParams[] = [
+        {
+            clockwiseExteriorEdgeIndex: interiorEdge.clockwiseExteriorEdgeIndex,
+            widdershinsExteriorEdgeIndex: target,
+            source: newNode.id,
+        },
+        {
+            clockwiseExteriorEdgeIndex: target,
+            widdershinsExteriorEdgeIndex: interiorEdge.widdershinsExteriorEdgeIndex,
+            source: newNode.id,
         }
-
-        context.acceptedEdges[instigator] = true;
-
-
-        const bisections: BisectionParams[] = [
-            {
-                clockwiseExteriorEdgeIndex: instigatorInterior.clockwiseExteriorEdgeIndex,
-                widdershinsExteriorEdgeIndex: target,
-                source: newNode.id,
-            },
-            {
-                clockwiseExteriorEdgeIndex: target,
-                widdershinsExteriorEdgeIndex: instigatorInterior.widdershinsExteriorEdgeIndex,
-                source: newNode.id,
-            }
-        ];
-        linkSplit(context, instigator, event.struckSegment, event.position, bisections[0], bisections[1]);
-        return bisections
-    }
-
-    // An event of no handled type still terminated the instigator above without accepting it, as it always
-    // has; its links are left alone, since the bisector is still live.
-    return []
+    ];
+    linkSplit(context, instigator, event.struckSegment, event.position, bisections[0], bisections[1]);
+    return bisections
 }
 
 export default handleCollisionEvent

@@ -47,7 +47,7 @@ import {
     maxWeightRatio,
     HELD_SIMULTANEITY_WINDOW,
     minWeightTurnSine,
-    TRIANGLE_INTERSECT_PAIRINGS,
+    POINT_ON_RAY_SINE_BAR,
     UNIT_ROUNDOFF,
     WALL_DIRECTION_ERROR,
 } from "./constants";
@@ -138,20 +138,6 @@ function nodeOffset(context: StraightSkeletonSolverContext, node: PolygonNode): 
 function pointLiesOnRay(separation: Vector2, basis: Vector2): boolean {
     return directionsAreSame(separation, basis, POINT_ON_RAY_SINE_BAR);
 }
-
-/**
- * {@link pointLiesOnRay}'s sine bar — the SNAP's (census S10), HELD at its historical `1e-8` (C8 spec T32;
- * journal decision 161(e)).
- *
- * T32 moves it to the coaxial form, as S11 moved. MEASURED (dispatch 2, and again in dispatch 3 on a tree
- * with S6, S11 and S20 landed): at the lane the snap gives `Off-edge Jitter Plus`, k = 3, seed 47514 (the
- * off-edge 1e-3 grid) an offset violation of its own, DIAGNOSED as a `causality-violation` on a cell that
- * had none — T37 STOP 3 — and moves 39 of the 580 sweep cells by digest (15 of Circle 48's fine
- * translations, 5e9..1e11; 18 off-edge plus cells and one L cell; 5 cells of the jittered Circle 32 ladder,
- * one of which, 1 × 1e-8 seed 2, loses a node). So it stays here. `tolerance-derivation.test.ts` asserts
- * the held state on that cell.
- */
-const POINT_ON_RAY_SINE_BAR = 0.00000001;
 
 /**
  * Does the ANCHOR at `separation` from a ray's source lie on that ray, travelling forward? — the closure's
@@ -703,7 +689,7 @@ export function climbTerminalLadder(
     return undefined;
 }
 
-export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
+export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepInput[] {
     if (input.interiorEdges.length !== 2) {
         throw new Error("Invalid call: expecting two interior edges");
     }
@@ -714,7 +700,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     if (remaining.length === 0) {
         context.acceptAll(input.interiorEdges);
         retireBisectors(context, input.interiorEdges);
-        return {childSteps: []};
+        return [];
     }
 
     // One edge resolved, the other still needs a target — try to snap it too
@@ -723,7 +709,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
         if (tryAttachEdgeToNode(context, remaining[0])) {
             context.acceptAll(input.interiorEdges);
             retireBisectors(context, input.interiorEdges);
-            return {childSteps: []};
+            return [];
         }
     }
 
@@ -773,7 +759,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             const closure = solveDegenerateClosure(context, input.interiorEdges);
             if (closure !== undefined) {
                 applyDegenerateClosure(context, input.interiorEdges, closure);
-                return {childSteps: []};
+                return [];
             }
 
             // 'co-linear-from-2' defers to "the other edge's" pass, which only exists where both
@@ -790,7 +776,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
             const rung = climbTerminalLadder(context, input.interiorEdges);
             if (rung?.rung === 'closure') {
                 applyDegenerateClosure(context, input.interiorEdges, rung.position);
-                return {childSteps: []};
+                return [];
             }
             if (rung?.rung === 'completion') {
                 // Two live edges ARE the pair: pricing them head-on wires each to the other's source,
@@ -798,7 +784,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
                 context.crossWireEdges(rung.completion.firstId, rung.completion.secondId);
                 context.acceptAll(input.interiorEdges);
                 retireBisectors(context, input.interiorEdges);
-                return {childSteps: []};
+                return [];
             }
 
             throw new Error(`Unable to generate any collision from last two edges: ${stringifyFinalData(context, input)}`)
@@ -872,7 +858,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
              * papered over.
              */
             applyDegenerateClosure(context, input.interiorEdges, context.sourcePosition(leadingId));
-            return {childSteps: []};
+            return [];
         } else {
             // Standard convergence — wire both edges to the collision point
             context.terminateEdgesAtPoint([id1, id2], best.position, best.positionUncertainty);
@@ -883,9 +869,7 @@ export function handleInteriorEdgePair(context: StraightSkeletonSolverContext, i
     // The pair closes, and both its bisectors leave the wavefront (skeleton wavefront-order spec, decision 9).
     retireBisectors(context, input.interiorEdges);
 
-    return {
-        childSteps: []
-    }
+    return [];
 }
 
 /** A terminal point and the wavefront offset at which every face reaches it. */
@@ -1091,7 +1075,10 @@ function solveTerminalTriangle(
     return solution;
 }
 
-export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
+/** The six ordered pairings of a triangle's three bisectors, in the order the triangle handler collides them. */
+export const TRIANGLE_INTERSECT_PAIRINGS = [[0,1],[1,2],[2,0],[1,0],[2,1],[0,2]]
+
+export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepInput[] {
     if (input.interiorEdges.length !== 3) {
         throw new Error("Invalid call: expecting three interior edges");
     }
@@ -1102,9 +1089,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
         context.acceptAll(input.interiorEdges);
         retireBisectors(context, input.interiorEdges);
 
-        return {
-            childSteps: []
-        }
+        return [];
     }
 
     const allCollisions: CollisionEvent[] = [];
@@ -1132,7 +1117,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
 
         if (rung.rung === 'closure') {
             applyDegenerateClosure(context, input.interiorEdges, rung.position);
-            return {childSteps: []};
+            return [];
         }
 
         // THE COMPLETION, IN THE TRIANGLE'S OWN TERMS: the named pair is priced head-on exactly as
@@ -1145,7 +1130,7 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
         context.terminateEdgesAtPoint(input.interiorEdges, event.position, event.positionUncertainty);
         context.acceptAll(input.interiorEdges);
         retireBisectors(context, input.interiorEdges);
-        return {childSteps: []};
+        return [];
     }
 
     context.terminateEdgesAtPoint(input.interiorEdges, best.position, best.positionUncertainty);
@@ -1154,16 +1139,12 @@ export function handleInteriorEdgeTriangle(context: StraightSkeletonSolverContex
     // The triangle closes, and its bisectors leave the wavefront (skeleton wavefront-order spec, decision 9).
     retireBisectors(context, input.interiorEdges);
 
-    return {
-        childSteps: []
-    }
+    return [];
 }
 
 
-export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepOutput {
-    const result: AlgorithmStepOutput = {
-        childSteps: []
-    };
+export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext, input: AlgorithmStepInput): AlgorithmStepInput[] {
+    const childSteps: AlgorithmStepInput[] = [];
 
     if (input.interiorEdges.length < 2) {
         throw new Error("Fewer than 2 interior edges is not a valid skeleton state")
@@ -1183,23 +1164,23 @@ export function handleAlgorithmStepInput(context: StraightSkeletonSolverContext,
                     + `[${short.join(', ')}] of ${short.length} bisector(s); every ring of a generic step of several `
                     + `rings has three.`);
             }
-            result.childSteps.push(...handleInteriorNGon(context, input).childSteps);
-            return result;
+            childSteps.push(...handleInteriorNGon(context, input));
+            return childSteps;
         }
 
         if (input.interiorEdges.length === 2) {
-            result.childSteps.push(...handleInteriorEdgePair(context, input).childSteps)
+            childSteps.push(...handleInteriorEdgePair(context, input))
         }
 
         if (input.interiorEdges.length === 3) {
-            result.childSteps.push(...handleInteriorEdgeTriangle(context, input).childSteps)
+            childSteps.push(...handleInteriorEdgeTriangle(context, input))
         }
 
         if (input.interiorEdges.length > 3) {
-            result.childSteps.push(...handleInteriorNGon(context, input).childSteps)
+            childSteps.push(...handleInteriorNGon(context, input))
         }
 
-        return result;
+        return childSteps;
     } finally {
         endStep(context);
     }
@@ -1211,7 +1192,7 @@ export function stepAlgorithm(context: StraightSkeletonSolverContext, inputs: Al
 
     for (const input of inputs) {
         try {
-            for (const child of handleAlgorithmStepInput(context, input).childSteps) {
+            for (const child of handleAlgorithmStepInput(context, input)) {
                 // A CHILD WITH EXACTLY ONE LIVE INTERIOR EDGE IS A LOUD FAILURE, NEVER A SILENT DROP
                 // (journal-5 decision 167(c), F74). One live bisector bounds no sub-polygon: it cannot
                 // meet anything, so the ring that produced it was resolved into an inconsistent state —
@@ -1294,11 +1275,11 @@ function runSimplePolygon(
     probe?.stepBoundary?.(context, inputs);
     while (inputs.length > 0) {
         const output = stepAlgorithm(context, inputs);
-        errors.push(...(output.errors ?? []));
+        errors.push(...output.errors);
         inputs = output.childSteps
         // AT THE STEP BOUNDARY, AND ONLY HERE (skeleton edge-acceptance spec, decision 4): nothing is pending.
         exteriorEdges.forEach(e => tryToAcceptExteriorEdge(context, e.id))
-        observer?.(context, output.errors ?? []);
+        observer?.(context, output.errors);
         probe?.stepBoundary?.(context, inputs);
     }
     probe?.solveFinished?.(context, errors);
