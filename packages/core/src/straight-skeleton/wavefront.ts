@@ -38,7 +38,8 @@ export {
     settleLayerLinks,
 } from "./layer-links";
 export {beginStep, currentStepMembers, endStep, refuseStep} from "./step-scope";
-export type {StepRefusalKind, StepScope} from "./step-scope";
+export type {StepScope} from "./step-scope";
+export type {StepRefusalKind} from "./types";
 export {componentsOfRings, ringPolygonAt} from "./ring-components";
 export type {RingComponent} from "./ring-components";
 export {activeWavefrontProbe, checkWavefront, setWavefrontProbe} from "./wavefront-check";

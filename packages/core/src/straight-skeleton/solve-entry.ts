@@ -21,7 +21,8 @@ import {
 } from "./boundary-stage";
 import {DecompositionResult, decomposePolygon} from "./polygon-decomposition";
 import {checkWavefrontCausality} from "./causality-check";
-import {HOLED_UNCULLED_SELF_LOOP, holedSkeletonViolations} from "./holed-guard";
+import {holedSkeletonViolations} from "./holed-guard";
+import {isBlockingDiagnosticKind} from "./diagnostic-kinds";
 import {mergeSkeletonGraphs, makeMergedSolverContext} from "./graph-merge";
 import {
     SkeletonNormalisation,
@@ -282,8 +283,8 @@ function verifySolvedGraph(
  * then the unresolved edges, so that a failing solve's diagnostics end with `unresolved-edges`; then the holed
  * guard's findings, counted only on a solve that would otherwise be complete.
  *
- * Causality violations do NOT enter `blocking`: `complete` keeps its meaning, and the diagnostic is what makes a
- * causally wrong answer signalled.
+ * Causality violations are informational (`diagnostic-kinds.ts`): `complete` keeps its meaning, and the diagnostic is
+ * what makes a causally wrong answer signalled.
  */
 function summarise(
     boundary: PreparedBoundary,
@@ -318,20 +319,21 @@ function summarise(
         });
     }
 
-    // The two refusals of a step of several rings block by themselves (skeleton join-and-divide spec, decisions 24
-    // and 35); each also leaves a step failure and unresolved edges behind it.
-    const blocking = diagnostics.some(d => d.kind === 'step-failure' || d.kind === 'unresolved-edges'
-        || d.kind === 'simultaneous-across-rings' || d.kind === 'multi-ring-step-refused');
+    // WHICH KINDS BLOCK is `isBlockingDiagnosticKind` (`diagnostic-kinds.ts`). Before the guard that is a step
+    // failure, unresolved edges, and the two refusals of a step of several rings, which block by themselves
+    // (skeleton join-and-divide spec, decisions 24 and 35) and each also leave a step failure and unresolved edges
+    // behind them.
+    const blocked = () => diagnostics.some(d => isBlockingDiagnosticKind(d.kind));
 
     // THE GUARD ON A HOLED SOLVE (BSA.D314, BSA.D318; `holed-guard.ts`): a result of more than one loop that would
     // otherwise be complete is checked for its topology, its nodes' equal time, its edges' time order and its arcs'
     // planarity (read in unit space, at the solve's perceptual floor), and each violation is a BLOCKING
     // diagnostic. An un-culled self-loop is reported and blocks nothing. It changes nothing in the graph. A single-loop
     // result never reaches it, so it is unchanged.
-    const guardFindings = !blocking && graph.interiorEdges.length > 0 ? findings.holed : [];
-    diagnostics.push(...guardFindings);
-    const guardBlocks = guardFindings.some(finding => finding.kind !== HOLED_UNCULLED_SELF_LOOP);
-    const complete = !blocking && !guardBlocks && graph.interiorEdges.length > 0;
+    if (!blocked() && graph.interiorEdges.length > 0) {
+        diagnostics.push(...findings.holed);
+    }
+    const complete = !blocked() && graph.interiorEdges.length > 0;
 
     return {
         graph,

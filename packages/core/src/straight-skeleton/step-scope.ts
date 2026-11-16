@@ -1,4 +1,4 @@
-import type {StraightSkeletonSolverContext} from "./types";
+import type {StepRefusalKind, StraightSkeletonSolverContext} from "./types";
 
 // ── The current step (skeleton join-and-divide spec, decisions 4 and 22) ─────────────────────────
 
@@ -33,12 +33,6 @@ export function endStep(context: StraightSkeletonSolverContext): void {
 export function currentStepMembers(context: StraightSkeletonSolverContext): ReadonlySet<number> | null {
     return context.step?.members ?? null;
 }
-
-/**
- * The two kinds a step of several rings is refused with (join-and-divide decisions 16, 22 and 23; simultaneous-rings
- * decisions 20 to 24).
- */
-export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
 
 /**
  * REFUSE THE CURRENT STEP, BY NAME: push a blocking diagnostic naming the step's bisectors and the reason, and throw

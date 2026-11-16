@@ -36,7 +36,16 @@ export type {
   SkeletonLoopMap,
   Wavefront,
   WavefrontSegment,
+  StepRefusalKind,
 } from './straight-skeleton/types';
+
+// ── Which diagnostic kinds block ─────────────────────────────────────────────
+export {
+  INFORMATIONAL_DIAGNOSTIC_KINDS,
+  isBlockingDiagnosticKind,
+  STEP_REFUSAL_KINDS,
+} from './straight-skeleton/diagnostic-kinds';
+export type { BlockingDiagnosticKind, InformationalDiagnosticKind } from './straight-skeleton/diagnostic-kinds';
 
 // ── The loops of one input: an outline and its holes (skeleton loops-input spec) ──
 export { findLoopConflict, groupLoopsByNesting } from './straight-skeleton/skeleton-loops';

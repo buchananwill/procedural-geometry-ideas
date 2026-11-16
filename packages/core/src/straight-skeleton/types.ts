@@ -507,6 +507,12 @@ export type SkeletonDiagnosticKind =
     | 'holed-planarity-violation'
     | 'holed-unculled-self-loop';
 
+/**
+ * The two kinds a step of several rings is refused with (join-and-divide decisions 16, 22 and 23; simultaneous-rings
+ * decisions 20 to 24), by `refuseStep`. Both are blocking; `STEP_REFUSAL_KINDS` in `diagnostic-kinds.ts` lists them.
+ */
+export type StepRefusalKind = 'simultaneous-across-rings' | 'multi-ring-step-refused';
+
 /** Every diagnostic kind except `causality-violation`, which carries structured fields of its own. */
 export type GeneralSkeletonDiagnosticKind = Exclude<SkeletonDiagnosticKind, 'causality-violation'>;
 
@@ -566,7 +572,8 @@ export interface SkeletonSolveResult {
      * graph has at least one interior edge. It reads no exterior edge's acceptance. The holed kinds come from the guard
      * a solve with holes runs last (BSA.D314, BSA.D318); its `holed-unculled-self-loop` is informational. A `winding-normalised`,
      * `vertices-canonicalised` or `self-intersecting` diagnostic on its own does not make a result
-     * incomplete — all three are informational reports of what the boundary stage did to the input.
+     * incomplete — all three are informational reports of what the boundary stage did to the input. The informational
+     * kinds are `INFORMATIONAL_DIAGNOSTIC_KINDS`, and `isBlockingDiagnosticKind` reads them (`diagnostic-kinds.ts`).
      */
     complete: boolean;
     diagnostics: SkeletonDiagnostic[];
