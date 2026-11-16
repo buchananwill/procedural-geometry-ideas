@@ -319,6 +319,8 @@ a single-pitch island it also asserts each node's and sample's height against `d
     (`GridDraw523`, `GridDraw1977`), refused as `simultaneous-across-rings` under simultaneous-rings decision 21, a vertex
     event across rings of three runs (flat-ring and third-front spec, decision 53 and §6 item 7). Both issue notes are
     resolved.
+    **AMENDED 2026-11-16** (BSA.D367): the issue note of the two that remain, for `simultaneous-across-rings`, is
+    [ISSUE-skeleton-three-run-vertex-event-refused.md](./ISSUE-skeleton-three-run-vertex-event-refused.md), open.
 43. **Each entry's test asserts decision 17's hard error with the island and its kind,** and so is green on a guard in
     production code, as BSA.D311 reads BSA.D266 for a refusal by name. A cure turns it red, and the entry is promoted
     to a fixture. None is asserted as roofed.

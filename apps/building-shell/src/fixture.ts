@@ -421,7 +421,7 @@ export type HoledRefusalKind = Extract<SkeletonDiagnosticKind, 'simultaneous-acr
 
 /** The issue note that records what each refusal kind holds back (holed roof decision 42). */
 export const HOLED_REFUSAL_ISSUES: Readonly<Record<HoledRefusalKind, string>> = {
-  'simultaneous-across-rings': 'ISSUE-skeleton-three-front-meeting-refused.md',
+  'simultaneous-across-rings': 'ISSUE-skeleton-three-run-vertex-event-refused.md',
   'multi-ring-step-refused': 'ISSUE-skeleton-straight-vertex-in-zero-area-ring.md',
 };
 

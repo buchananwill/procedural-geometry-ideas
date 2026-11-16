@@ -21,6 +21,9 @@ stays refused is that spec's decision 53: a vertex event across rings of more th
 decision 21), whose specimens are grid draws `uniform-1-523` and `uniform-1-1977`, and the third-front refusals of its
 decision 44, of which no specimen is kept. The section "Why the links cannot pair more than two runs" still explains
 the first. The text below is the record of the refusal as it stood.
+**AMENDED 2026-11-16** (BSA.D367): the two decision-21 refusals, `uniform-1-523` and `uniform-1-1977`, are recorded in
+[ISSUE-skeleton-three-run-vertex-event-refused](./ISSUE-skeleton-three-run-vertex-event-refused.md), open, and
+`HOLED_REFUSAL_ISSUES` points there.
 
 Recorded under [the simultaneous-rings spec](./skeleton-simultaneous-rings-decisions.md), decisions 22 and 44
 (BSA.D311). **The solver refuses this input by name. It does not solve it.** The refusal is a guard in production code
