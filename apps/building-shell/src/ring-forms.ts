@@ -2,11 +2,12 @@
 // side, and per run of a side (gable rise decision 1), and derived onto the storey's union walls before step 1's roof
 // solve. At each point of a union wall the lowest-index Ring whose side lies there wins, and its run there gives the
 // form: the wall's extents. A wall whose every extent is a gable is a whole-wall gable; any other wall is a hip at the
-// pitch of its lowest-index hip extent, and its gable extents are rises. The result is roof-gable `Sel`s, so roof-gable
-// is unchanged. No Ring identity passes this point: the roof, the parts and the union see only the walls' forms.
+// pitch of its lowest-index hip extent, and its gable extents are rises. The result is roof-gable `Sel`s, the selectors
+// roof-gable's model reads. No Ring identity passes this point: the roof, the parts and the union see only the walls'
+// forms.
 import {RING_SIDES, RISE_FACINGS, RISE_LIMITS, RiseFacing, RiseLimit, RingForm, RingSide, SideForm, SideRun, StoreyRing} from './fixture.ts';
 import {PlanRefusal} from './errors.ts';
-import {Pt, Rect, Sel, unionLoops} from './roof/model.ts';
+import {PinchError, Pt, Rect, Sel, unionLoops} from './roof/model.ts';
 
 /** A wall's inward normal, as roof-gable's `Sel.n` names it. */
 export type InwardNormal = NonNullable<Sel['n']>;
@@ -46,7 +47,7 @@ export type GableRise = Pick<WallExtent, 'lo' | 'hi' | 'deg' | 'maxHeight' | 'li
 /** The limit a gable run takes when it names none (gable rise decision 11, journal decision 204). */
 export const DEFAULT_RISE_LIMIT: RiseLimit = RISE_LIMITS[0];
 
-/** The facing strategy a gable run takes when it names none: today's centre-line test (per-stretch gable settings decision 2). */
+/** The facing strategy a gable run takes when it names none: the centre-line test (per-stretch gable settings decision 2). */
 export const DEFAULT_RISE_FACING: RiseFacing = RISE_FACINGS[0];
 
 /** The settings two claims must agree in to be one gable (per-stretch gable settings decision 8), with their form. */
@@ -344,19 +345,16 @@ export function unionWallForms(rings: StoreyRing[], loops: Pt[][]): UnionWall[] 
   });
 }
 
-/** The message prefix of roof-gable's `unionLoops` corner-only pinch, whose copied file throws a plain `Error`. */
-const PINCH_PREFIX = 'pinch at ';
-
 /**
- * Spec decision 2: a storey's union loops, traced by roof-gable's `unionLoops`, with its corner-only pinch refused as a
- * `PlanRefusal` (journal decision 146). The copied roof-gable file stays unchanged, so its message is matched here, at
- * the one place the pipeline calls it.
+ * Spec decision 2: a storey's union loops, traced by roof-gable's `unionLoops`, with its corner-only pinch
+ * (`PinchError`) refused as a `PlanRefusal` of the same message (journal decision 146), here, at the one place the
+ * pipeline calls it.
  */
 export function storeyLoops(rects: Rect[]): Pt[][] {
   try {
     return unionLoops(rects);
   } catch (e) {
-    if (e instanceof Error && e.message.startsWith(PINCH_PREFIX)) throw new PlanRefusal(e.message, {cause: e});
+    if (e instanceof PinchError) throw new PlanRefusal(e.message, {cause: e});
     throw e;
   }
 }

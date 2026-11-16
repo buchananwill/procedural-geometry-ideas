@@ -46,7 +46,16 @@ export function bboxOf(poly: Pt[]): BBox {
 
 export type Rect = [number, number, number, number]; // x0, y0, x1, y1
 
-/** Traces the union of rectangles into CCW outer loops and CW hole loops, breaking edges at every rectangle corner. */
+/**
+ * `unionLoops`' refusal of a corner-only pinch: two rectangles touching at a corner alone trace two loops through one
+ * vertex, which is no footprint. Its message names the vertex: `pinch at <x>,<y>: corner-only contact is not a footprint`.
+ */
+export class PinchError extends Error {}
+
+/**
+ * Traces the union of rectangles into CCW outer loops and CW hole loops, breaking edges at every rectangle corner.
+ * Throws a `PinchError` where two rectangles touch at a corner only.
+ */
 export function unionLoops(rects: Rect[]): Pt[][] {
   const xs = [...new Set(rects.flatMap(r => [r[0], r[2]]))].sort((a, b) => a - b);
   const ys = [...new Set(rects.flatMap(r => [r[1], r[3]]))].sort((a, b) => a - b);
@@ -58,7 +67,7 @@ export function unionLoops(rects: Rect[]): Pt[][] {
   const key = (p: Pt): string => `${p.x},${p.y}`;
   const nextOf = new Map<string, Pt>();
   const addEdge = (a: Pt, b: Pt): void => {
-    if (nextOf.has(key(a))) throw new Error(`pinch at ${key(a)}: corner-only contact is not a footprint`);
+    if (nextOf.has(key(a))) throw new PinchError(`pinch at ${key(a)}: corner-only contact is not a footprint`);
     nextOf.set(key(a), b);
   };
   for (let i = 0; i < xs.length - 1; i++) {
@@ -116,7 +125,7 @@ export interface Wall {
 /**
  * One island (holed roof decisions 4 and 5): its walls, the outer loop's edges in loop order from vertex 0 and then each
  * hole's from its vertex 0; the outer loop counter-clockwise and each hole clockwise, so every wall's left normal is
- * inward. There is no slit ring: the island is its loops.
+ * inward. The island is its loops, each closed on its own: no slit joins a hole to the outer loop.
  */
 export interface Comp { walls: Wall[]; outer: Pt[]; holes: Pt[][] }
 

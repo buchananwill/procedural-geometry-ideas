@@ -22,12 +22,12 @@ import type {Vec3} from '../src/tags.ts';
 import {dot3} from '../src/vec3.ts';
 import {
   CAP_CHAIN_SEED, COVERED_RISE_CELL_CLASH, COVERED_RISE_ON_HOLE_LINE, PINCH_SEEDS, REVIEWER_STOREY_HEIGHT_CM, flushOverReflexFixture, gridFixtures, nudgeFixtures, randomCourtyardFixtures,
-  F2_COURTYARDS, UPPER_U_EDGE_CONTACT, gapFixture, jutCutFixtures, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
+  F2_COURTYARDS, UPPER_U_EDGE_CONTACT, courtyardJutFixtures, gapFixture, pitchEndFixtures, randomFixtures, randomSplitCourtyardFixtures, randomSplitCourtyards, randomUFixtures, rosterPitchCases, seededFixture, sweepFixture,
   sweepFixtures, onePitch, unsplitTwin, type CourtName, type SplitCourtName,
 } from './robustness-fixtures.ts';
 import {canonicalOfShell, diffCanonical, isEmptyDiff} from '../src/wire/canonical.ts';
 import {
-  COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS,
+  COURTYARD_DEFECTS, COURTYARD_JUT_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, NUDGE_DEFECTS, PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS,
   SPLIT_COURTYARD_DEFECTS, SeededKey, U_DEFECTS, seededKey,
 } from './residue-pins.ts';
 import {RISE_ORACLE_TOL_CM, riseOracle} from './rise-oracle.ts';
@@ -267,8 +267,8 @@ describe('near-touching islands (journal decision 150, F6)', () => {
 });
 
 describe('a courtyard cut collinear with a jutting wall (journal decision 175, F55)', () => {
-  it.each(jutCutFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (_, f) => {
-    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(JUT_CUT_DEFECTS, f.name));
+  it.each(courtyardJutFixtures().map(f => [f.name, f] as const))('%s keeps every invariant, or exactly its measured defect', async (_, f) => {
+    expect(await courtyardOutcome(f)).toEqual(pinnedOutcome(COURTYARD_JUT_DEFECTS, f.name));
   });
 });
 

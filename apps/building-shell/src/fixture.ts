@@ -3,8 +3,8 @@ import type {SkeletonDiagnosticKind} from '@proc-geo/core';
 import {Rect} from './roof/model.ts';
 
 /**
- * Spec decision 3 as amended (journal decision 116): the forms a Ring side may be authored with. Mono stays out of
- * Ring authoring for now.
+ * Spec decision 3 as amended (journal decision 116): the forms a Ring side may be authored with. Mono is not one of
+ * them.
  */
 export const RING_FORMS = ['hip', 'gable'] as const;
 
@@ -29,7 +29,7 @@ export type RiseLimit = typeof RISE_LIMITS[number];
 
 /**
  * Per-stretch gable settings decisions 4 and 5 (journal decision 251): the named facing strategies, which decide whether
- * the wall opposite a rise is replaced by a gable on its path. `centreLine`, the first, is the default and today's test.
+ * the wall opposite a rise is replaced by a gable on its path. `centreLine`, the first, is the default.
  * The one tuple the union, `rise.ts`'s strategy table, the wire's facing table and the editor's saved-draft schema
  * derive from.
  */
@@ -43,7 +43,7 @@ export type RiseFacing = typeof RISE_FACINGS[number];
  * end, E from its south end, N from its east end, W from its north end, so every side runs counter-clockwise, as the
  * wire's corners do). `deg` is a gable run's rake pitch, a hip run's wall pitch; without it the run takes its side's
  * pitch, then the Ring's default. Per-stretch gable settings decision 1: a gable run carries four settings, each read
- * only on a gable run and each defaulting to today's roof (decision 2): `maxHeight` (gable rise decision 12, cm above
+ * only on a gable run and each defaulting to the roof built without it (decision 2): `maxHeight` (gable rise decision 12, cm above
  * the plate, above 0, none by default), `limit` (decision 11, `ridgeSlope`), `facing` (`centreLine`) and `apart`
  * (stands apart from a gable stretch beside it, false). `input@1` carries every one but `limit` (decision 13).
  */
@@ -51,7 +51,8 @@ export interface SideRun { from: number; to: number; form: RingForm; deg?: numbe
 
 /**
  * One Ring side's form, and its pitch in degrees when it is not the Ring's default. Gable rise decision 1: `runs`, in
- * order and not overlapping, override the side's form on their stretches; a side without them means what it always has.
+ * order and not overlapping, override the side's form on their stretches; a side without them takes its own form along
+ * its whole length.
  */
 export interface SideForm { form: RingForm; deg?: number; runs?: SideRun[] }
 
@@ -91,7 +92,7 @@ export const STOREY_HEIGHT_CM = 250;
 const fixture = (name: string, rings: FixtureRing[]): ShellFixture =>
   ({name, cellSize: 50, storeyHeight: STOREY_HEIGHT_CM, rings});
 
-/** Roof-gable case 2a's rects and gabled side, stated literally: `cases.ts` does not export them. */
+/** Roof-gable case 2a's rects, stated literally: `cases.ts` keeps them module-private, and a case carries only its `build`. */
 export const CASE_2A_RECTS: Rect[] = [[0, 0, 1000, 500], [1000, 150, 1400, 350]];
 
 /** NarrowUpperStorey's Rings: storey 0 gabled on y = 0 at `lowerDeg`, storey 1 hipped at 45 or gabled on y = 0. */
@@ -140,7 +141,7 @@ export const SHELL_FIXTURES: ShellFixture[] = [
  * - Overlap: the L of `[0,0,1000,400]` and `[600,0,1000,1000]`, whose E sides overlap over y 0 to 400 and disagree.
  * - Pitch: the flush pair, both hipping their S sides, at 30 and 45 degrees.
  * - Journal decision 135, F6: a three-Ring tie, non-adjacent indices, Rings across storeys, a conflict on a hole loop,
- *   and a band-pitch conflict (was `CutPitchConflict`), each described where it is built.
+ *   and a band-pitch conflict, each described where it is built.
  */
 export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   const flushHip = ring([0, 0, 500, 400], 0, 1, 45);
@@ -160,11 +161,10 @@ export const RING_CONFLICT_FIXTURES: ShellFixture[] = (() => {
   // - A courtyard whose hole's S wall, y = 300, is two Rings' N sides at different pitches.
   const holeBandW = ring([0, 0, 500, 300], 0, 1, 30), holeBandE = ring([500, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 45}});
   const court = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([0, 300, 300, 700], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
-  // - `BandPitchConflict` (was `CutPitchConflict`, journal decisions 135 and 167, finding 4; renamed by holed roof
-  //   decision 47): the hole's S wall, y = 300 over x 300 to 700, is contested by two Rings of one rectangle, `bandS`
-  //   hipping it at 30 and `bandS60` at 60, every other side of both at 30, beside a W wing jutting out to x = -200 at 45
-  //   degrees. The lowest index wins, so the swap moves the hole wall from 30 to 60. (Under the cut the pair tested the
-  //   cut's pitch: the shortest cut was passed over and the next took the hole wall's pitch.)
+  // - `BandPitchConflict` (journal decisions 135 and 167, finding 4; named by holed roof decision 47): the hole's S
+  //   wall, y = 300 over x 300 to 700, is contested by two Rings of one rectangle, `bandS` hipping it at 30 and `bandS60`
+  //   at 60, every other side of both at 30, beside a W wing jutting out to x = -200 at 45 degrees. The lowest index
+  //   wins, so the swap moves the hole wall from 30 to 60.
   const jutW = ring([-200, 300, 300, 700], 0, 1, 45), bandS = ring([0, 0, 1000, 300], 0, 1, 30);
   const bandS60 = ring([0, 0, 1000, 300], 0, 1, 30, {N: {form: 'hip', deg: 60}});
   const jutRest = [ring([0, 700, 1000, 1000], 0, 1, 30), ring([700, 300, 1000, 700], 0, 1, 30)];
@@ -210,19 +210,18 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
 
 /**
  * Gable rise decisions 1 to 12 (journal decision 204): one fixture per class the rise sweeps found distinct (gable rise
- * findings, WP-G1 and WP-G1.1). Kept apart from `EXPORTED_FIXTURES`, which the editor reads, until the editor's run list
- * lands (WP-G3); the golden set lists them.
+ * findings, WP-G1 and WP-G1.1). Not in `EXPORTED_FIXTURES`, so the export does not write them and `fixtureByName` does
+ * not find them; the golden set and the viewer list them.
  * - `MidWallRise`: a mid-wall rise at 45 on a 30 degree hip (F60's second build): unequal pitches.
  * - `CornerRise`: a rise at 60 ending at the convex corner of a 45 degree hip, where decision 10 takes the end wall's plane.
  * - `RiseBeforeTStem`: a 75 degree rise in front of a T's stem; its limit is the bar's far slope, not the stem's end.
  * - `FlushT` and `FlushTSwapped`: F57's flush T. With the crossbar first its hip wins the stretch and no rise is built
  *   (decision 7); with the stem first its gable is a rise over its own width (decision 3).
  * - `AdjacentRises`: two rises of unequal pitch meeting at a point on the plate (decision 6).
- * - `CourtyardRiseFacingWing` (was `CourtyardRiseFacingCut`, holed roof decision 47): a rise on the S band's S wall over
- *   x [100, 300], its band facing the W wing; under the cut its limit was the cut's plane.
- * - `CourtyardRiseOnOuterWall` (was `CourtyardRiseAlongCut`): rises on the outer W wall over y [900, 1000] and the W
- *   wing's W side; under the cut its walk ran along the cut and read the built roof's fallback (decision 11), and on the
- *   holed roof it reads the hole W wall's face.
+ * - `CourtyardRiseFacingWing` (named by holed roof decision 47): a rise on the S band's S wall over x [100, 300], its
+ *   band facing the W wing.
+ * - `CourtyardRiseOnOuterWall` (named by holed roof decision 47): rises on the outer W wall over y [900, 1000] and the
+ *   W wing's W side; the walk reads the face of the hole's W wall.
  * - `TruncatedRise`: a 75 degree rise the far slope truncates at its own wall.
  * - `FlatTopRise`: a rise with its own `maxHeight` below the main ridge: a flat `Roof` top.
  * - `OverhangCappedRise`: a rise under an overhang two storeys up, which projects past the rise's wall: the floor cap
@@ -244,7 +243,7 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  * - `RiseBeforeTStemBarRisen`: `RiseBeforeTStem` with a rise on each of the bar's two N walls. Those walls keep their
  *   hip slope (journal decision 231), so the bar's N slope still limits the S rise; were it passed over, the walk would
  *   go on into the stem and take its end wall's slope. Neither N rise stands over the S rise's walk line (x = 500), so
- *   journal decision 243's rule 1 leaves that limit as it was.
+ *   journal decision 243's rule 1 leaves that limit in place.
  * - `OppositeGablesT65`, `OppositeGablesT75`, `OppositeGablesTCovered`: the user's drafts of journal F80, a crossbar
  *   `[0,0,1000,400]` (S and N at 60, E and W at 22.5) and a stem `[400,400,600,1000]` at 45, with gable stretches on the
  *   crossbar's S and N sides facing each other. Over x [400, 650] at 65 and at 75, each rise's walk line lies under the
@@ -256,7 +255,7 @@ export const PORT_FIXTURES: ShellFixture[] = (() => {
  *   limits the other, so the taller S rise runs to the N wall and shows above the N gable there.
  * - `OppositeGablesTPartFacing`: an S stretch over x [400, 650] facing an N one over x [450, 900], both 75. The S walk
  *   line (x = 525) lies under the N gable, so the S rise runs to the N wall; the N walk line (x = 675) does not lie under
- *   the S gable, so the S wall's slope limits the N rise as before.
+ *   the S gable, so the S wall's slope limits the N rise.
  * - `GableOnSharedWall`: Ring 0's E side carries a 60 degree gable run over y [100, 400], and Ring 1 abuts that whole
  *   side, so the run lies on no union wall and its line holds none (journal decisions 243, rule 3, and 244). It is built
  *   all the same: a gable standing on the shared wall between the two Rings, above both 30 degree roofs, its Cells naming
@@ -308,8 +307,7 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
 
 /**
  * Per-stretch gable settings decision 22 (WP-S1): one fixture per setting, each asserting its roof by closed forms in
- * tests/gable-settings.test.ts. Kept apart from `RISE_FIXTURES`, and so from the editor's catalogue, until the editor
- * carries the settings (WP-S2, decisions 16 to 19): its canonical spelling would merge or drop them today.
+ * tests/gable-settings.test.ts. A list of its own beside `RISE_FIXTURES`, which the viewer shows as its own group.
  * - `HalfOffsetGablesCentreLine`, `HalfOffsetGablesWhole`, `HalfOffsetGablesSplit`: a 1000 by 400 box hipped at 45, with
  *   a 75 degree gable stretch on S over x [300, 500] facing one on N over x [400, 600], offset by half their width, both
  *   under the one facing strategy the name gives.
@@ -320,7 +318,7 @@ export const RISE_FIXTURES: readonly ShellFixture[] = (() => {
  * - `ApartWholeSide`: the S side of a 1000 by 500 box hipped at 45, gabled at 45 along its whole length as two stretches
  *   standing apart, [0, 500] and [500, 1000]. Algorithm B gives the wall up (decision 11), and each stretch is a rise.
  * - `ApartAcrossRings`: two flush 500 by 400 boxes hipped at 45, each gabling its S side at 45. The second spells its side
- *   as one stretch the side's whole length, standing apart, so the two are two gables where today they are one.
+ *   as one stretch the side's whole length, standing apart, so the two are two gables; without `apart` they are one.
  * - `EditorSpeltMaxHeight`: `MidWallRise` in the editor's own spelling (every stretch of the side a run), its gable
  *   stretch capped at 100 cm, below its 140 cm apex.
  */
@@ -355,8 +353,6 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
 //   `HOLED_FIXTURES` the L-infinity height oracle). A port builds each and compares.
 // - Known refusal: a hard error by name, naming the island and its cause (holed roof decisions 17 and 41 to 43). A port
 //   refuses each the same way until the skeleton is cured.
-// - Legacy-named: a test-side name that still tells the courtyard cut's history; the layout is an oracle input like
-//   any other, and only its name is owed a change.
 //
 // | Role          | List                                    | Layouts                                                         |
 // |---------------|-----------------------------------------|-----------------------------------------------------------------|
@@ -364,9 +360,8 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
 // | Oracle input  | `SHELL_FIXTURES`                        | `Courtyard`                                                     |
 // | Oracle input  | `RING_CONFLICT_FIXTURES`                | `HoleRingConflict`, `BandPitchConflict`, and the swap of each   |
 // | Oracle input  | `RISE_FIXTURES`                         | `CourtyardRiseFacingWing`, `CourtyardRiseOnOuterWall`           |
+// | Oracle input  | tests/robustness-fixtures.ts            | `courtyardJutFixtures` (`CourtyardJut`, `CourtyardJutSwapped`), each held clean by the empty pin table `COURTYARD_JUT_DEFECTS` (tests/residue-pins.ts); `FULL_WINGS_PROBE` |
 // | Known refusal | `HOLED_REFUSALS`                        | `GridDraw523`, `GridDraw1977`                                   |
-// | Legacy-named  | tests/robustness-fixtures.ts            | `jutCutFixtures` (`CourtyardJut`, `CourtyardJutSwapped`), `FULL_WINGS_PROBE` |
-// | Legacy-named  | tests/residue-pins.ts                   | `JUT_CUT_DEFECTS`, the pin table keyed by `JutCutName` (empty)  |
 
 /**
  * Holed roof decision 39: the holed fixtures, each one storey, every Ring hipped at 30°, each roofed by the skeleton of
@@ -374,20 +369,20 @@ export const GABLE_SETTING_FIXTURES: readonly ShellFixture[] = (() => {
  * (1000 square round a 400 square hole) is the first holed fixture and stays in `SHELL_FIXTURES`, so it is not listed
  * twice.
  * - `CourtyardWingsBothSides`: BSA.F90's Rings, the user's second draft, a wing jutting out on both sides. The fifth Ring
- *   lies inside the third and is dropped (BSA.D261). Under the cut it had no qualifying cut and threw; its top is at
- *   `250 + 200 tan 30°`, on y = 500 over x [-50, 100] and [900, 1100].
+ *   lies inside the third and is dropped (BSA.D261). Its top is at `250 + 200 tan 30°`, on y = 500 over x [-50, 100]
+ *   and [900, 1100].
  * - `CourtyardJutWing`: BSA.F88's Rings, the user's input, the W wing jutting 250 cm (moved here from the tests).
  * - `TwoCourtyards`: genus 2, three wings 300, 400 and 300 wide; the middle wing's top at `250 + 200 tan 30°` at
  *   (900, 500). The draft's equal-wing layout is `TwoCourtyardsDraft`, below.
  * - `CourtyardInCourtyard`: a 2000 square ring 300 deep round an 800 square island `[600, 1400]²` ring 250 deep: genus
  *   `[1, 1]`, ridges at `250 + 150 tan 30°` and `250 + 125 tan 30°`.
  *
- * Then the layouts the holed solve once refused (holed roof decisions 41 to 43), cured by the skeleton's flat-ring and
- * third-front rules (skeleton flat-ring and third-front spec, decision 52), and the user's layout:
+ * Then the layouts that need the skeleton's flat-ring and third-front rules (skeleton flat-ring and third-front spec,
+ * decision 52), and the user's layout:
  * - `CourtL`, `JutMidWall`, `BandRunsOnPastWing` and its y-mirror: three wall fronts meet at one point at one moment, a
- *   vertex event on a third front, now resolved as one whole event.
+ *   vertex event on a third front, resolved as one whole event.
  * - `JutAlignedS`, `JutAlignedN`, `JutBelowWing` and its y-mirror: a jut's wall in line with a courtyard wall, facing
- *   the same way, which leaves a flat ring, now closed as a finished piece of skeleton.
+ *   the same way, which leaves a flat ring, closed as a finished piece of skeleton.
  * - `TwoHolesProbe` (genus 2): a 700 by 300 block round two 200 by 100 holes a wall apart; third fronts.
  * - `TwoCourtyardsDraft` (genus 2): the draft's `TwoCourtyards`, two 400 square courtyards either side of a wing 200
  *   wide; flat rings.
@@ -438,10 +433,8 @@ export interface HoledRefusal { fixture: ShellFixture; kind: HoledRefusalKind; i
  * hipped at 30°. Each entry's test asserts the hard error naming the island and its kind, a guard in production code
  * (BSA.D266, BSA.D311); a cure turns it red, and the entry is promoted to a fixture. None is asserted as roofed.
  *
- * The ten layouts this list once held (the 8 footprints that built clean under the cut, `TwoHolesProbe` and the draft's
- * `TwoCourtyards`) are cured by the skeleton's flat-ring and third-front rules and are `HOLED_FIXTURES` entries (skeleton
- * flat-ring and third-front spec, decisions 52 and 53). What it holds now are two grid draws of the two-courtyard fuzz
- * (`holed-grid-fuzz.test.ts`, seed 1), refused before and after those rules, neither rule firing: in each, one hole's two
+ * It holds two grid draws of the two-courtyard fuzz (`holed-grid-fuzz.test.ts`, seed 1) that neither the flat-ring nor
+ * the third-front rule reaches (skeleton flat-ring and third-front spec, decisions 52 and 53): in each, one hole's two
  * corners and the other hole's one corner meet at one node at one moment, a vertex event across rings of three runs,
  * whose pairing the links cannot read (simultaneous-rings decision 21).
  * - `GridDraw523` (`uniform-1-523`): a 1350 by 700 block with a wing on its E side, round the holes `[900, 300, 1150,

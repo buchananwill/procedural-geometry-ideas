@@ -3,7 +3,7 @@
 // a residue golden's manifest entry equals its pin here, verbatim. Every pin carries its class: a cause `causeOf` reads
 // (`CausedPinTable`), or its residue class where no cause applies (`ClassedPinTable`, journal decision 163, N3).
 import type {CausedPinTable, ClassedPin, ClassedPinTable, PinRecord} from './pin-table.ts';
-import type {CourtName, GapName, GridName, JutCutName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
+import type {CourtName, CourtyardJutName, GapName, GridName, NudgeName, RosterPitchName, SplitCourtName, UName} from './robustness-fixtures.ts';
 
 /** A generated case's key: its seed, storey height and name, of the name type `N` its generator emits (decision 155, B4). */
 export type SeededKey<N extends string> = `s${number}h${number}/${N}`;
@@ -317,17 +317,12 @@ export const ROSTER_PITCH_DEFECTS: ClassedPinTable<RosterPitchName> = {
 };
 
 /**
- * Journal decision 175 and F55, measured at WP3.9.1 at 250 cm storeys, genus 1, enrolled as best effort (decision
- * 172): a courtyard cut that qualifies while collinear with a jutting wall, both at 30 degrees (`jutCutFixtures`). Its
- * signature names its places: two Internal triangles surviving on the cut's plane, y = 300, a Cheek at the cut's outer
- * end, (0, 300, 250), and four Unclassified Edges on y = 300 from x 0 to 127. `CourtyardJut`, whose cut does not
- * qualify, is clean, so it is not listed.
- *
- * Emptied by journal decisions 260 to 262 (WP-C2): `CourtyardJutSwapped`'s 30 degree Ring lies wholly inside the
- * jutting Ring, so the solve drops it and its 30 degree side with it, and the case builds clean, as `CourtyardJut`
- * does. Its pin is removed; the table stays, empty, so both cases are still held clean by the robustness sweep.
+ * Journal decision 175 and F55: the contested-jut courtyards (`courtyardJutFixtures`), at 250 cm storeys, genus 1. The
+ * table is empty: in each case the 30 degree Ring lies wholly inside the jutting Ring, so the solve drops it and its
+ * 30 degree side with it (journal decisions 260 to 262), and both cases build clean. The table stays, so the robustness
+ * sweep holds both cases clean.
  */
-export const JUT_CUT_DEFECTS: ClassedPinTable<JutCutName> = {};
+export const COURTYARD_JUT_DEFECTS: ClassedPinTable<CourtyardJutName> = {};
 
 /**
  * WP3.6's finding (courtyard.test.ts), `CUT_OVERSHOOT_DEFECTS`, is gone: roof-gable algorithm B's cut-piece overshoot

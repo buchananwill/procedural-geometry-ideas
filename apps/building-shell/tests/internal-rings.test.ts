@@ -10,7 +10,7 @@ import {BuildingShell, buildShellDetailed, droppedRingsWarning} from '../src/she
 import {storeyForms} from '../src/storey.ts';
 import {withFileModelIndices} from '../src/wire/dump.ts';
 import {readInput, writeInput} from '../src/wire/input-adapter.ts';
-import {jutCutFixtures} from './robustness-fixtures.ts';
+import {courtyardJutFixtures} from './robustness-fixtures.ts';
 import {invariantViolations} from './shell-invariants.ts';
 import {shellFixture} from './test-builds.ts';
 import {scrambled, sparseModelIndex} from './wire-round-trip-cases.ts';
@@ -147,7 +147,7 @@ describe('CourtyardJut and CourtyardJutSwapped (journal decision 260)', () => {
   });
 
   it('drop the Ring inside the jut, and build the same building, clean', async () => {
-    const [cut, swapped] = jutCutFixtures();
+    const [cut, swapped] = courtyardJutFixtures();
     const a = await buildShellDetailed(cut), b = await buildShellDetailed(swapped);
     expect([a.shell.report.droppedRings, b.shell.report.droppedRings]).toEqual([[2], [1]]);
     expect(invariantViolations(b, {genus: [1], cheeks: 0})).toEqual([]);

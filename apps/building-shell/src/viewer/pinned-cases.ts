@@ -11,18 +11,18 @@ import type {DefectFocus} from './defect-cases.ts';
 import {pinClass} from '../../tests/pin-table.ts';
 import type {PinOutcome, PinRecord, ResiduePin} from '../../tests/pin-table.ts';
 import {
-  COURTYARD_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, JUT_CUT_DEFECTS, NUDGE_DEFECTS,
+  COURTYARD_DEFECTS, COURTYARD_JUT_DEFECTS, GABLE_RISE_CONFLICTS, GABLE_RISE_SPLIT_CONFLICTS, GAP_DEFECTS, NUDGE_DEFECTS,
   PITCH_END_DEFECTS, ROSTER_PITCH_DEFECTS, SPLIT_COURTYARD_DEFECTS, U_DEFECTS,
 } from '../../tests/residue-pins.ts';
 import {
-  gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
+  courtyardJutFixtures, gapFixture, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
   randomUFixtures, rosterPitchCases,
 } from '../../tests/robustness-fixtures.ts';
 
 /** The pin tables whose pins carry a residue class, by the name `tests/residue-pins.ts` exports each under. */
 export const RESIDUE_TABLE_NAMES = [
   'COURTYARD_DEFECTS', 'U_DEFECTS', 'SPLIT_COURTYARD_DEFECTS', 'NUDGE_DEFECTS', 'PITCH_END_DEFECTS', 'GAP_DEFECTS',
-  'ROSTER_PITCH_DEFECTS', 'JUT_CUT_DEFECTS',
+  'ROSTER_PITCH_DEFECTS', 'COURTYARD_JUT_DEFECTS',
 ] as const;
 
 /** One of `RESIDUE_TABLE_NAMES`. */
@@ -65,7 +65,7 @@ export const PIN_TABLES: PinTables = {
     PITCH_END_DEFECTS: entries(PITCH_END_DEFECTS),
     GAP_DEFECTS: entries(GAP_DEFECTS),
     ROSTER_PITCH_DEFECTS: entries(ROSTER_PITCH_DEFECTS),
-    JUT_CUT_DEFECTS: entries(JUT_CUT_DEFECTS),
+    COURTYARD_JUT_DEFECTS: entries(COURTYARD_JUT_DEFECTS),
   },
   conflict: {
     GABLE_RISE_CONFLICTS: entries(GABLE_RISE_CONFLICTS),
@@ -184,7 +184,7 @@ export function pinnedFixture(c: Pick<PinnedCaseBase, 'key' | 'pins'>): ShellFix
   const table = c.pins[0].table;
   if (table === 'NUDGE_DEFECTS') return named(nudgeFixtures(), c.key, 'nudgeFixtures');
   if (table === 'PITCH_END_DEFECTS') return named(pitchEndFixtures(), c.key, 'pitchEndFixtures');
-  if (table === 'JUT_CUT_DEFECTS') return named(jutCutFixtures(), c.key, 'jutCutFixtures');
+  if (table === 'COURTYARD_JUT_DEFECTS') return named(courtyardJutFixtures(), c.key, 'courtyardJutFixtures');
   if (table === 'GAP_DEFECTS') {
     const gap = GAP.exec(c.key);
     if (!gap) throw new Error(`${c.key} is no near-touching pair's name`);

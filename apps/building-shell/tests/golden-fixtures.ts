@@ -26,7 +26,7 @@ import {AdaptedInput, readInput, writeInput} from '../src/wire/input-adapter.ts'
 import type {BuildingShellInputV1} from '../src/wire/input-types.ts';
 import {
   CAP_CHAIN_SEED, OFF_CENTRE_COURTYARD, F2_COURTYARDS, FULL_WINGS_PROBE, PINCH_SEEDS, RosterPitchName, UPPER_U_EDGE_CONTACT,
-  flushOverReflexFixture, gapFixture, jutCutFixtures, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
+  courtyardJutFixtures, flushOverReflexFixture, gapFixture, nudgeFixtures, pitchEndFixtures, randomCourtyardFixtures, randomSplitCourtyardFixtures,
   randomUFixtures, rosterPitchCases, seededFixture, splitBandFixture,
 } from './robustness-fixtures.ts';
 import {rosterGenus} from './roster-genus.ts';
@@ -238,7 +238,7 @@ export const RULE_ORACLES: readonly CleanGolden[] = [
  * residue instead. Its report names the dropped Ring, 1. `BandPitchConflict`, its swap and its `FileReversed` golden
  * each drop the later of two identical bands too, which moves nothing, as the lowest index already won every wall.
  */
-export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(jutCutFixtures(), 'CourtyardJutSwapped'), [1])];
+export const RING_DROP_ORACLES: readonly CleanGolden[] = [cleanGolden(namedCase(courtyardJutFixtures(), 'CourtyardJutSwapped'), [1])];
 
 /**
  * Journal decision 156, F4: one representative of every residue class the port inherits, each with the genus its pin
