@@ -204,7 +204,7 @@ export interface GraphHelpers {
  * exterior edges' slots and every bisector that is not live hold `-1`.
  *
  * PLAIN DATA, two arrays of numbers, so a `structuredClone` of the context carries it (decision 7).
- * Written by the events that change the wavefront's shape (`wavefront.ts`), and the solver's one source of
+ * Written by the events that change the wavefront's shape (`wavefront-links.ts`, `layer-links.ts`), and the solver's one source of
  * wavefront order: the segments of an edge, the neighbour guard, the rings of a step and the child steps of a
  * partitioning layer are all read from it (spec decisions 19 and 20).
  */

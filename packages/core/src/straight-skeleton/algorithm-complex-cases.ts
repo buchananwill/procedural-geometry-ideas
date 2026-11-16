@@ -34,7 +34,7 @@ import {
     wallFacingGap,
 } from "./coincident-events";
 import {closeFlatRings} from "./flat-rings";
-import {retireBisectors, ringsOfWavefront} from "./wavefront-links";
+import {retireBisectors, ringsAmong, ringsOfWavefront} from "./wavefront-links";
 import {
     birthsClosedAtOneNode,
     droppableBirths,
@@ -321,34 +321,47 @@ function thirdFrontsOf(
 }
 
 /**
- * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (decisions 10 to 17). The rings the layer left are read
- * from the links over the step's outgoing bisectors (`outgoing`, in the order they were gathered), classified and
- * grouped by {@link componentsOfRings} at `layerTime`, and each component — an outer ring and the inner rings inside
- * it — is one child. A child lists its members in the order they were gathered, and children are ordered by today's
- * claim: the earliest partition event whose bisector the component holds, then the position of its first member
- * (decision 17).
+ * THE ORDER OF A LAYER'S CHILD STEPS (skeleton wavefront-order spec, decision 13; join-and-divide spec, decision 17),
+ * because child order numbers what later steps create. Each group of bisectors is one child, listing its members in the
+ * order they were gathered (`outgoing`); children are ordered by their claim, the earliest partition event whose
+ * bisector the child holds, then by the position of their first member. A group is a ring on a step of one ring and a
+ * component on a step of several.
  */
-function componentsAsChildren(
-    context: StraightSkeletonSolverContext,
-    outgoing: number[],
-    partitionBirths: number[],
-    layerTime: number,
-    born: ReadonlySet<number>,
+function orderChildren(
+    groups: readonly number[][],
+    outgoing: readonly number[],
+    partitionBirths: readonly number[],
 ): AlgorithmStepInput[] {
     const position = new Map(outgoing.map((id, index) => [id, index]));
     const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
-    // Only this layer's bisectors, as for one ring: a ring the links cannot close never reaches into another step.
-    const left = ringsOfWavefront(context, outgoing).map(ring => ring.filter(id => position.has(id)));
-    return componentsOfRings(context, left, layerTime, born)
-        .map(component => {
-            const members = [component.outer, ...component.inner].flat()
-                .toSorted((a, b) => position.get(a)! - position.get(b)!);
+    return groups
+        .map(group => {
+            const members = group.toSorted((a, b) => position.get(a)! - position.get(b)!);
             return {members, claim: Math.min(...members.map(id => partitionIndex.get(id) ?? Infinity))};
         })
         .toSorted((a, b) => a.claim !== b.claim
             ? a.claim - b.claim
             : position.get(a.members[0])! - position.get(b.members[0])!)
         .map(child => ({interiorEdges: child.members}));
+}
+
+/**
+ * THE CHILD STEPS OF A STEP OF SEVERAL RINGS: ITS COMPONENTS (decisions 10 to 17). `rings` are the rings the layer left
+ * over the step's outgoing bisectors (`outgoing`, in the order they were gathered), less any closed flat; they are
+ * classified and grouped by {@link componentsOfRings} at `layerTime`, and each component — an outer ring and the inner
+ * rings inside it — is one child, in the order {@link orderChildren} gives.
+ */
+function componentsAsChildren(
+    context: StraightSkeletonSolverContext,
+    rings: number[][],
+    outgoing: number[],
+    partitionBirths: number[],
+    layerTime: number,
+    born: ReadonlySet<number>,
+): AlgorithmStepInput[] {
+    const components = componentsOfRings(context, rings, layerTime, born);
+    return orderChildren(components.map(component => [component.outer, ...component.inner].flat()), outgoing,
+        partitionBirths);
 }
 
 
@@ -713,10 +726,12 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
         const stepMembers = new Set(input.interiorEdges);
         const born = new Set(allOutgoingInteriorEdges.filter(id => !stepMembers.has(id)));
         // A FLAT RING IS A FINISHED PIECE OF SKELETON, closed here and never classified (flat-ring and third-front spec,
-        // decisions 7 to 10 and 27); every other ring the layer left goes to its component unchanged.
-        const closed = closeFlatRings(context, allOutgoingInteriorEdges, layerTime, born);
-        return componentsAsChildren(
-            context, allOutgoingInteriorEdges.filter(id => !closed.has(id)), partitionBirths, layerTime, born);
+        // decisions 7 to 10 and 27); every other ring the layer left goes to its component unchanged. The rings are read
+        // once: closing a flat ring writes no link outside it, and each ring it closes is one of these, whole.
+        const left = ringsAmong(context, allOutgoingInteriorEdges);
+        const closed = closeFlatRings(context, left, layerTime, born);
+        return componentsAsChildren(context, left.filter(ring => !closed.has(ring[0])),
+            allOutgoingInteriorEdges.filter(id => !closed.has(id)), partitionBirths, layerTime, born);
     }
 
     if (finalPartitionEvents.length === 0) {
@@ -728,21 +743,7 @@ export function handleInteriorNGon(context: StraightSkeletonSolverContext, input
     // ring is an interval of ids: on the stage-off along-edge cells it shattered a true ring into one-edge
     // children (BSA.F95), and a ring joined from two loops is no interval at all (BSA.F91).
     //
-    // IN TODAY'S ORDER (decision 13), because child order numbers what later steps create: a ring goes where
-    // the earliest partition event whose bisector it holds put its child, and a child lists its members in
-    // the order they were gathered above. Part A measured that every child of every partitioning layer of
-    // the corpus, the sweep and the census that completed was exactly one ring.
-    const position = new Map(allOutgoingInteriorEdges.map((id, index) => [id, index]));
-    const partitionIndex = new Map(partitionBirths.map((id, index) => [id, index] as const));
-    const children = ringsOfWavefront(context, allOutgoingInteriorEdges)
-        .map(ring => ({
-            // Only this layer's bisectors: a ring the links cannot close (a broken link, which checkWavefront
-            // reports) never reaches into another step.
-            members: ring.filter(id => position.has(id)).toSorted((a, b) => position.get(a)! - position.get(b)!),
-            claim: Math.min(...ring.map(id => partitionIndex.get(id) ?? Infinity)),
-        }))
-        .toSorted((a, b) => a.claim !== b.claim
-            ? a.claim - b.claim
-            : position.get(a.members[0])! - position.get(b.members[0])!);
-    return children.map(child => ({interiorEdges: child.members}));
+    // IN TODAY'S ORDER (decision 13), {@link orderChildren}'s. Part A measured that every child of every partitioning
+    // layer of the corpus, the sweep and the census that completed was exactly one ring.
+    return orderChildren(ringsAmong(context, allOutgoingInteriorEdges), allOutgoingInteriorEdges, partitionBirths);
 }

@@ -1,5 +1,5 @@
 import type {StraightSkeletonSolverContext, Vector2} from "./types";
-import {degenerateAreaBar, FLAT_STRETCH_BAR_FLOORS} from "./constants";
+import {FLAT_STRETCH_BAR_FLOORS} from "./constants";
 import {
     crossProduct,
     directionsAreSame,
@@ -9,11 +9,11 @@ import {
     subtractVectors,
 } from "./core-functions";
 import {inwardDistanceFromWall, wallsAreAntiparallel} from "./wall-time";
-import {ringPerimeter, segmentSegmentIntersection, signedArea} from "./planar-geometry";
+import {segmentSegmentIntersection} from "./planar-geometry";
 import {isEndpointTouch} from "./polygon-decomposition";
 import {bisectWithParams} from "./algorithm-helpers";
-import {retireBisectors, ringsOfWavefront} from "./wavefront-links";
-import {ringPolygonAt} from "./ring-components";
+import {retireBisectors} from "./wavefront-links";
+import {ringArea, ringPolygonAt} from "./ring-components";
 import {refuseStep} from "./step-scope";
 
 /**
@@ -301,15 +301,17 @@ function levelFailure(
 
 /**
  * THE FLATNESS TEST (decisions 11 to 21), positive, on a ring at the layer's `time`: its members placed as
- * `componentsOfRings` places them, a newborn member at its source node. The first clause that fails is named.
+ * `componentsOfRings` places them, a newborn member at its source node (`polygon`, which a caller that has already
+ * placed them passes in). The first clause that fails is named.
  */
 export function flatRingVerdict(
     context: StraightSkeletonSolverContext,
     ring: number[],
     time: number,
     newborn: ReadonlySet<number>,
+    polygon: Vector2[] = ringPolygonAt(context, ring, time, newborn),
 ): FlatRingVerdict {
-    const {nodes, nodeOf} = clusterIntoNodes(ringPolygonAt(context, ring, time, newborn), context.perceptualFloor);
+    const {nodes, nodeOf} = clusterIntoNodes(polygon, context.perceptualFloor);
     const plan: FlatRingPlan = {ring, nodes, nodeOf, stretches: []};
     // A RING WHOSE MEMBERS ALL FALL IN ONE NODE has no segment and no stretch (decision 20).
     if (nodes.length > 1) {
@@ -373,30 +375,30 @@ function closeFlatRing(context: StraightSkeletonSolverContext, plan: FlatRingPla
 
 /**
  * CLOSE THE FLAT RINGS A LAYER OF A STEP OF SEVERAL RINGS LEFT (decisions 7, 8, 10 and 28), before its components are
- * read. The rings are read from the links over `outgoing`, this layer's bisectors only, as `componentsAsChildren` reads
- * them. A CANDIDATE is a ring of three members or more whose polygon at `time` has `|signedArea|` at or under
- * `degenerateAreaBar(δ, perimeter)`; the magnitude selects it and the sign is read for none. Every candidate is tested
- * first, and if any fails the step is refused as `multi-ring-step-refused`, naming the clause, with no ring closed; else
- * every candidate is closed. Returns the ids closed, which leave no child.
+ * read. `rings` are the rings the layer left, read from the links over its own bisectors (`ringsAmong`), the same rings
+ * its components are then made of. A CANDIDATE is a ring of three members or more whose polygon at `time` is degenerate
+ * (`ringArea`: `|signedArea|` at or under `degenerateAreaBar(δ, perimeter)`); the magnitude selects it and the sign is
+ * read for none. Every candidate is tested first, and if any fails the step is refused as `multi-ring-step-refused`,
+ * naming the clause, with no ring closed; else every candidate is closed. Returns the ids closed, which leave no child:
+ * each closed ring is one of `rings`, whole.
+ *
+ * CLOSING A RING WRITES NO LINK BUT ITS OWN MEMBERS' (`closeFlatRing` retires them, and a ridge it bears opens only its
+ * own slot), so every other ring of `rings` is still what the links say after the closing.
  */
 export function closeFlatRings(
     context: StraightSkeletonSolverContext,
-    outgoing: number[],
+    rings: readonly number[][],
     time: number,
     newborn: ReadonlySet<number>,
 ): Set<number> {
-    const kept = new Set(outgoing);
-    const plans = ringsOfWavefront(context, outgoing)
-        .map(ring => ring.filter(id => kept.has(id)))
+    const plans = rings
         .filter(ring => ring.length >= 3)
         .flatMap(ring => {
-            const polygon = ringPolygonAt(context, ring, time, newborn);
-            const area = signedArea(polygon);
-            const bar = degenerateAreaBar(context.perceptualFloor, ringPerimeter(polygon));
-            if (Math.abs(area) > bar) {
+            const {polygon, area, bar, degenerate} = ringArea(context, ring, time, newborn);
+            if (!degenerate) {
                 return [];
             }
-            const verdict = flatRingVerdict(context, ring, time, newborn);
+            const verdict = flatRingVerdict(context, ring, time, newborn, polygon);
             if (!verdict.flat) {
                 refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}] has area ${area} at time `
                     + `${time}, at or under the ${bar} degenerate-area bar, and is not a flat termination: `

@@ -71,7 +71,7 @@ export type InformationalDiagnosticKind = typeof INFORMATIONAL_DIAGNOSTIC_KINDS[
 export type BlockingDiagnosticKind = Exclude<SkeletonDiagnosticKind, InformationalDiagnosticKind>;
 
 /**
- * The two kinds core refuses a step of several rings with (`StepRefusalKind` in core's `wavefront.ts`). `refuseStep`
+ * The two kinds core refuses a step of several rings with (`StepRefusalKind` in core's `step-scope.ts`). `refuseStep`
  * pushes the refusal AND throws the same text, which `stepAlgorithm` records again as a `step-failure` with the
  * identical detail; the alert shows such a pair once, as the refusal (BSA.D323).
  */

@@ -24,6 +24,7 @@ import {
 import {MergeGap, wallFacingGap} from '@proc-geo/core/straight-skeleton/coincident-events';
 import {closeFlatRings, flatRingVerdict, FlatRingVerdict} from '@proc-geo/core/straight-skeleton/flat-rings';
 import {linkInitialRing, setWavefrontProbe} from '@proc-geo/core/straight-skeleton/wavefront';
+import {ringsAmong} from '@proc-geo/core/straight-skeleton/wavefront-links';
 import {HOLED_TEST_POLYGONS, holedSolveOptions} from '@proc-geo/test-fixtures';
 import type {HoledTestPolygon} from '@proc-geo/test-fixtures';
 import {jitterEveryLoop} from '../sweep-harness/sweep';
@@ -591,7 +592,7 @@ describe('closeFlatRings closes a flat ring of either sign (decisions 7 and 55)'
         const area = signedArea([positions.a, positions.m, positions.b]);
         expect(Math.sign(area)).toBe(sign === 'negative' ? -1 : 1);
         linkInitialRing(context, [a, m, b]);
-        const closed = closeFlatRings(context, [a, m, b], 1, new Set([a, m, b]));
+        const closed = closeFlatRings(context, ringsAmong(context, [a, m, b]), 1, new Set([a, m, b]));
         expect([...closed].sort((first, second) => first - second)).toEqual([a, m, b]);
         const {edges} = context.graph;
         expect([edges[a].target, edges[m].target, edges[b].target]).toEqual([edges[m].source, edges[m].source, edges[m].source]);

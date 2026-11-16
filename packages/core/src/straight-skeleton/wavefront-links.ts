@@ -200,6 +200,16 @@ export function ringsOfWavefront(context: StraightSkeletonSolverContext, interio
     return rings;
 }
 
+/**
+ * The rings through these bisectors, each holding only them: {@link ringsOfWavefront} with every member outside `ids`
+ * left out, so a ring the links cannot close (a broken link, which `checkWavefront` reports) never reaches into
+ * another step. How a layer reads the rings it left.
+ */
+export function ringsAmong(context: StraightSkeletonSolverContext, ids: readonly number[]): number[][] {
+    const among = new Set(ids);
+    return ringsOfWavefront(context, ids).map(ring => ring.filter(id => among.has(id)));
+}
+
 /** The live segments of an exterior edge as the links state them (W4): `from` has it as clockwise parent. */
 export function wavefrontSegmentsOf(context: StraightSkeletonSolverContext, exteriorEdge: number): WavefrontSegment[] {
     return context.graph.interiorEdges

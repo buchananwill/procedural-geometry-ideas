@@ -23,6 +23,34 @@ export function ringPolygonAt(
         : context.wavefrontVertexAt(id, time));
 }
 
+/** A ring's polygon at the layer's time, its signed area, the degenerate-area bar it is held to, and the verdict. */
+export interface RingArea {
+    polygon: Vector2[];
+    area: number;
+    bar: number;
+    /**
+     * `|area|` at or under `degenerateAreaBar(δ, perimeter)`, δ the solve's perceptual floor: too small to say whether
+     * the ring is outer or inner. A NaN area is degenerate.
+     */
+    degenerate: boolean;
+}
+
+/**
+ * THE ONE DEFINITION OF A DEGENERATE RING, read by `componentsOfRings`, which refuses it, and by the flat-ring test,
+ * which takes it as a candidate.
+ */
+export function ringArea(
+    context: StraightSkeletonSolverContext,
+    ring: readonly number[],
+    time: number,
+    newborn: ReadonlySet<number>,
+): RingArea {
+    const polygon = ringPolygonAt(context, ring, time, newborn);
+    const area = signedArea(polygon);
+    const bar = degenerateAreaBar(context.perceptualFloor, ringPerimeter(polygon));
+    return {polygon, area, bar, degenerate: !(Math.abs(area) > bar)};
+}
+
 /** One child of a step of several rings: an outer ring and the inner rings inside it (decision 10). */
 export interface RingComponent {
     outer: number[];
@@ -72,16 +100,14 @@ export function componentsOfRings(
     // bounds nothing and cannot hold a hole.
     const corridors = new Set(rings.filter(ring => ring.length === 2));
     const placed = rings.filter(ring => !corridors.has(ring)).map(ring => {
-        const polygon = ringPolygonAt(context, ring, time, newborn);
+        const {polygon, area, bar, degenerate} = ringArea(context, ring, time, newborn);
         const crossing = findFirstCrossing(polygon, floor);
         if (crossing !== null) {
             refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}]'s polygon crosses itself at time `
                 + `${time}: its edges ${crossing.edgeI} and ${crossing.edgeJ} cross at (${crossing.point.x}, `
                 + `${crossing.point.y}), so the sign of its area cannot classify it as outer or inner.`);
         }
-        const area = signedArea(polygon);
-        const bar = degenerateAreaBar(floor, ringPerimeter(polygon));
-        if (!(Math.abs(area) > bar)) {
+        if (degenerate) {
             refuseStep(context, 'multi-ring-step-refused', `ring [${ring.join(', ')}] has area ${area} at time ${time}, `
                 + `at or under the ${bar} degenerate-area bar: it cannot be classified as outer or inner.`);
         }
