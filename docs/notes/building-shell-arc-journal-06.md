@@ -94,31 +94,29 @@ Carried by reference: [session 1 §3](./building-shell-arc-journal.md#3-operatio
 
 ## 4. Next work
 
-**As at 2026-11-16, `ae63ed7`: the build of BSA.D348 is verified, reviewed and revised (BSA.D354), and the
-entropy-reducing pass is complete (BSA.D366). Branch `feature/skeleton-holes`, nothing pushed or merged. Session 6's
-journal entries from BSA.D355 on are uncommitted.**
+**As at 2026-11-16: the arc's work is on `main` at `6e3ee95`, a `--no-ff` merge of `feature/skeleton-holes` at `1c50a36`
+(BSA.D369). Nothing is pushed by session 6: local `main` is ahead of `origin/main` by the whole merge, and the feature
+branch is ahead of `origin/feature/skeleton-holes` (at `0ddb56b`) by all of sessions 5 and 6. The journal entries after
+`1c50a36` are committed on the feature branch only.**
 
-**The arc's close-out, what is left, in order:**
-1. **An independent verification of `ae63ed7`,** which no verifier has run: the suites of core, building-shell and
-   dashboard against the figures below; the sweep against `apps/building-shell/experiments/entropy-pass/baseline/`; and
-   the mutation gates of the flat-ring spec's decision 55 run again on the restructured code. Recommended by the lead
-   before the merge; not dispatched.
-2. **Small things the pass left:** node 5's decision 22 narrowed to layers not resolved whole; `HOLED_REFUSAL_ISSUES`
-   re-pointed from the resolved three-front note, which needs a ruling on where decision 21's three-run refusals are
-   recorded; core's README moved off the deprecated entries.
-3. **The merge to `main`, with the user.** The branch this one was cut from,
-   `feature/building-shell-covered-storeys-and-sections`, is not on `main` either.
-4. **A handoff document for the C++ port:** the delta in rules since the port's last sync, each tied to its decision and
-   tests; a full file map of the solver as the pass left it, by function name and never by line; the ten kinds of
-   `SkeletonInputRefusal` and building-shell's `IslandRefusal` as the port's status types; the ownership of `LayerLinks`
-   and the step scope (BSA.D360); the nine red-by-design tests as known defects; the refusals that remain by name; the
-   parity risk of the position-based tie-break (BSA.D347).
-5. **After the merge, its own unit:** the flat rule on single-loop steps, in its shallow form (BSA.D349).
+**What is left of the arc's close-out:**
+1. **A handoff document for the C++ port:** the delta in rules since the port's last sync, each tied to its decision and
+   tests; a full file map of the solver as the entropy pass left it, by function name and never by line (the old
+   `cpp-port-handoff.md` never listed the holed modules); the ten kinds of `SkeletonInputRefusal` and building-shell's
+   `IslandRefusal` as the port's status types; the ownership of `LayerLinks` and the step scope (BSA.D360); the nine
+   red-by-design tests as known defects; the refusals that remain by name, with the three-run vertex event's issue note
+   (BSA.D368); the parity risk of the position-based tie-break (BSA.D347).
+2. **Pushing,** when the user says.
 
-**Figures to verify against, the implementers' own on `aa82032`:** core 6,714 passed, 8 failed, 10 skipped;
-building-shell 9,886 passed, 1 failed; dashboard 609; typecheck clean on core, test-fixtures and building-shell, the
-dashboard's 4 known errors in `DolProductionComposer.tsx`. The nine red tests: five in `weighted-time-order.test.ts`,
-three in `straight-bisector.test.ts`, `uniform-1-129` in `holed-grid-fuzz.test.ts`, each with an open issue note.
+**After the close-out, its own unit:** the flat rule on single-loop steps, in its shallow form, on a branch cut from
+`main` (BSA.D349).
+
+**Figures on the merged tree's code, verified independently on `07c9f41` (BSA.F122):** core 6,714 passed, 8 failed, 10
+skipped; building-shell 9,886 passed, 1 failed; dashboard 609; typecheck clean on core, test-fixtures and
+building-shell, the dashboard's 4 known errors in `DolProductionComposer.tsx`. The nine red tests: five in
+`weighted-time-order.test.ts`, three in `straight-bisector.test.ts`, `uniform-1-129` in `holed-grid-fuzz.test.ts`, each
+with an open issue note. Since that run the code changed by one string and one comment in
+`apps/building-shell/src/fixture.ts`.
 
 **Left for the user, none decided by the lead:**
 - Converting the legacy pins of `KNOWN_DEFECT_POLYGONS` and core's remaining "still alive" tests (BSA.D337).
@@ -128,6 +126,8 @@ three in `straight-bisector.test.ts`, `uniform-1-129` in `holed-grid-fuzz.test.t
 - The seven items BSA.D356 did not order, chief among them the unechoed step refusal, the selector DSL off the shell
   path, and the dashboard off the legacy entries.
 - Whether the ten refusal kinds of BSA.D363 keep their names before the port takes them as an enum.
+- The viewer's six imports from `tests/` (BSA.F122), and `HOLED_REFUSAL_ISSUES['multi-ring-step-refused']`, which points
+  at a resolved note and is used by no entry (BSA.D368).
 - Session 4's list, items 4 to 9, and session 3's carried items, untouched.
 
 ## 5. Open items
@@ -683,6 +683,21 @@ session 3's own.
     multi-ring steps; no entry uses that kind.
   - **Since the independent verification of BSA.F122,** the code has changed by one string in `fixture.ts` and one
     comment; the golden test was re-run on the first.
+- **369. The user, 2026-11-16: `feature/skeleton-holes` is merged into `main` at `6e3ee95`, a `--no-ff` merge of
+  `1c50a36`, carrying the 97 unmerged commits of `feature/building-shell-covered-storeys-and-sections` with it.** The
+  user's words: "Yes, merge it all directly from here."
+  - **The merge was clean:** `main` held nothing the branch lacked, and after it `git diff main feature/skeleton-holes`
+    is empty. No suite was run on the merge commit; its tree is that of `1c50a36`, which differs from the independently
+    verified code of BSA.F122 by one string and one comment in `fixture.ts` and core's README.
+  - **Nothing is pushed by this session.** Local `main` is ahead of `origin/main` by the whole merge.
+  - **CORRECTS this journal's state sections, here and in session 5's:** the branch does have an upstream. `git switch`
+    reports it 77 commits ahead of `origin/feature/skeleton-holes`, so an earlier state of it was pushed, and "no
+    upstream, nothing pushed" was inherited and never re-measured. The 77 are this session's work and session 5's close.
+  - **What is left of the arc's close-out:** the handoff document for the C++ port. After it, as its own unit, the flat
+    rule on single-loop steps (BSA.D349).
+  - This entry is committed on the feature branch after the merge, so `main` receives it with the next merge.
+  - **AMENDED:** The pushed state of the branch is 0ddb56b, session 4's closing commit. The 77 commits not pushed are
+    all of session 5's and all of this session's, not session 5's close alone.
 
 ## Findings
 
